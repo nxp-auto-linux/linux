@@ -743,6 +743,16 @@ config IMX7ULP_WDT
 	  To compile this driver as a module, choose M here: the
 	  module will be called imx7ulp_wdt.
 
+config S32CC_WDT
+	tristate "S32CC Watchdog"
+	depends on SOC_S32CC
+	select WATCHDOG_CORE
+	help
+	  This is the driver for the hardware watchdog
+	  on the NXP S32CC platforms. If you wish to
+	  have watchdog support enabled, say Y,
+	  otherwise say N.
+
 config UX500_WATCHDOG
 	tristate "ST-Ericsson Ux500 watchdog"
 	depends on MFD_DB8500_PRCMU
