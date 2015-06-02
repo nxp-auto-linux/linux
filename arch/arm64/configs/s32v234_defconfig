@@ -4,9 +4,6 @@
 CONFIG_IRQ_DOMAIN_DEBUG=y
 CONFIG_NO_HZ_IDLE=y
 CONFIG_LOG_BUF_SHIFT=16
-CONFIG_BLK_DEV_INITRD=y
-CONFIG_INITRAMFS_SOURCE="/home/disk2b/b46902/treerunner/rootfs/busybox/_install"
-# CONFIG_RD_GZIP is not set
 # CONFIG_EPOLL is not set
 # CONFIG_SIGNALFD is not set
 # CONFIG_TIMERFD is not set
