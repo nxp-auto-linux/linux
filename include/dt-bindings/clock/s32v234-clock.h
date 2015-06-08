@@ -1,0 +1,129 @@
+/*
+ * Copyright (C) 2015 Freescale Semiconductor, Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ */
+
+#ifndef __DT_BINDINGS_CLOCK_S32V234_H
+#define __DT_BINDINGS_CLOCK_S32V234_H
+
+#define	S32V234_CLK_DUMMY			0
+#define	S32V234_CLK_FXOSC			1
+#define	S32V234_CLK_FIRC			2
+/* ARM PLL */
+#define	S32V234_CLK_ARMPLL_SRC_SEL		3
+#define	S32V234_CLK_ARMPLL_VCO			4
+#define	S32V234_CLK_ARMPLL_PHI0			5
+#define	S32V234_CLK_ARMPLL_PHI1			6
+#define	S32V234_CLK_ARMPLL_DFS0			7
+#define	S32V234_CLK_ARMPLL_DFS1			8
+#define	S32V234_CLK_ARMPLL_DFS2			9
+/* PERIPH PLL */
+#define	S32V234_CLK_PERIPHPLL_SRC_SEL		10
+#define	S32V234_CLK_PERIPHPLL_VCO			11
+#define	S32V234_CLK_PERIPHPLL_PHI0		12
+#define	S32V234_CLK_PERIPHPLL_PHI0_DIV3		13
+#define	S32V234_CLK_PERIPHPLL_PHI0_DIV5		14
+#define	S32V234_CLK_PERIPHPLL_PHI1		15
+/* ENET PLL */
+#define	S32V234_CLK_ENETPLL_SRC_SEL		16
+#define	S32V234_CLK_ENETPLL_VCO			17
+#define	S32V234_CLK_ENETPLL_PHI0		18
+#define	S32V234_CLK_ENETPLL_PHI1		19
+#define	S32V234_CLK_ENETPLL_DFS0		20
+#define	S32V234_CLK_ENETPLL_DFS1		21
+#define	S32V234_CLK_ENETPLL_DFS2		22
+#define	S32V234_CLK_ENETPLL_DFS3		23
+/* DDR PLL */
+#define	S32V234_CLK_DDRPLL_SRC_SEL		24
+#define	S32V234_CLK_DDRPLLL_VCO			25
+#define	S32V234_CLK_DDRPLL_PHI0			26
+#define	S32V234_CLK_DDRPLL_PHI1			27
+#define	S32V234_CLK_DDRPLL_DFS0			28
+#define	S32V234_CLK_DDRPLL_DFS1			29
+#define	S32V234_CLK_DDRPLL_DFS2			30
+/* VIDEO PLL */
+#define	S32V234_CLK_VIDEOPLL_SRC_SEL		31
+#define	S32V234_CLK_VIDEOPLL_VCO			32
+#define	S32V234_CLK_VIDEOPLL_PHI0		33
+/* Cores Clock */
+#define	S32V234_CLK_CORES_SEL			34
+#define	S32V234_CLK_CORE			35
+#define	S32V234_CLK_CORE2			36
+#define	S32V234_CLK_COREDBG			37
+/* System Clock */
+#define	S32V234_CLK_SYS_SEL			38
+#define	S32V234_CLK_SYS3			39
+#define	S32V234_CLK_SYS6			40
+#define	S32V234_CLK_SYS6_DIV2			41
+/* GPU Clock */
+#define	S32V234_CLK_GPU				42
+#define	S32V234_CLK_GPU_SEL			43
+#define	S32V234_CLK_GPUSHD_MIPI_SEL		44
+#define	S32V234_CLK_GPU_SHD			45
+#define	S32V234_CLK_MIPI_LI			46
+/* PERI_CLK */
+#define	S32V234_CLK_PERI			47
+#define	S32V234_CLK_PERI_FRAY_PLL_SEL		48
+/* FRAY Clock */
+#define	S32V234_CLK_PERI_FRAY_PLL		49
+#define	S32V234_CLK_FRAY_PLL			50
+#define	S32V234_CLK_FRAY			51
+#define	S32V234_CLK_FRAY_SEL			52
+/* CAN Clock */
+#define	S32V234_CLK_CAN				53
+#define	S32V234_CLK_CAN_SEL			54
+/* LINFLEX Clock */
+#define	S32V234_CLK_LIN				55
+#define	S32V234_CLK_LIN_SEL			56
+#define	S32V234_CLK_LIN_IPG			57
+/* FLEXTIMER0_EXT_CLK */
+#define	S32V234_CLK_FLEXTIMER0_EXT_CLK		58
+#define	S32V234_CLK_FLEXTIMER0_EXT_CLK_SEL	59
+/* FLEXTIMER1_EXT_CLK */
+#define	S32V234_CLK_FLEXTIMER1_EXT_CLK		60
+#define	S32V234_CLK_FLEXTIMER1_EXT_CLK_SEL	61
+/* ENET Clock */
+#define	S32V234_CLK_ENET_TIME			62
+#define	S32V234_CLK_ENET_TIME_SEL		63
+#define	S32V234_CLK_ENET			64
+#define	S32V234_CLK_ENET_SEL			65
+/* H264 Clock */
+#define	S32V234_CLK_H264_DEC			66
+#define	S32V234_CLK_H264_DEC_SEL		67
+#define	S32V234_CLK_H264_ENC			68
+#define	S32V234_CLK_H264_ENC_SEL		69
+/* QuadSPI Clock */
+#define	S32V234_CLK_QuadSPI			70
+#define	S32V234_CLK_QuadSPI_SEL			71
+/* SDHC Clock */
+#define	S32V234_CLK_SDHC			72
+#define	S32V234_CLK_SDHC_SEL			73
+/* DDR Clock */
+#define	S32V234_CLK_DDR				74
+#define	S32V234_CLK_DDR_SEL			75
+#define	S32V234_CLK_DDR4			76
+/* APEX_SYS Clock */
+#define	S32V234_CLK_APEX_SYS			77
+/* ISP Clock */
+#define	S32V234_CLK_ISP				78
+#define	S32V234_CLK_ISP_SEL			79
+/* SEQ Clock */
+#define	S32V234_CLK_SEQ				80
+#define	S32V234_CLK_SEQ2			81
+/* APEX APU Clock */
+#define	S32V234_CLK_APEX_APU			82
+#define	S32V234_CLK_APEX_APU_SEL		83
+/* MJPEG Clock */
+#define	S32V234_CLK_MJPEG			84
+#define	S32V234_CLK_MJPEG_SEL			85
+/* DCU Clock */
+#define	S32V234_CLK_DCU_SEL			86
+#define	S32V234_CLK_DCU_AXI			87
+#define	S32V234_CLK_DCU_PIX			88
+
+#define	S32V234_CLK_END				89
+#endif /* __DT_BINDINGS_CLOCK_S32V234_H */
