@@ -190,4 +190,23 @@
 			};
 		};
 	};
+
+	pcie: pcie@0x72000000 {
+		compatible = "fsl,s32v234-pcie";
+		reg = <0 0x72ffc000 0 0x4000>, <0 0x72f00000 0 0x80000>;
+		reg-names = "dbi", "config";
+		#address-cells = <3>;
+		#size-cells = <2>;
+		device_type = "pci";
+		ranges = <0x81000000 0 0          0 0x72f80000 0 0x00010000 /* downstream I/O */
+			  0x82000000 0 0x72000000 0 0x72000000 0 0x00f00000>; /* non-prefetchable memory */
+		num-lanes = <1>;
+		bus-range = <0x0 0xff>;
+		interrupts = <0 120 4>;
+		interrupt-names = "msi";
+		#interrupt-cells = <1>;
+		interrupt-map-mask = <0 0 0 0x7>;
+		interrupt-map = <0 0 0 1 &gic 0 123 4>,	<0 0 0 2 &gic 0 122 4>,	<0 0 0 3 &gic 0 121 4>,	<0 0 0 4 &gic 0 120 4>;
+		status = "okay";
+	};
 };
