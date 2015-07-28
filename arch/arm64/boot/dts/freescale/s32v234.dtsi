@@ -77,7 +77,6 @@
 			compatible = "fixed-clock";
 			clock-frequency = <40000000>;
 		};
-
 		firc {
 			compatible = "fixed-clock";
 			clock-frequency = <48000000>;
@@ -179,6 +178,22 @@
 				reg = <0x0 0x4004A000 0x0 0x1000>;
 			};
 
+			i2c0: i2c@40051000 {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				compatible = "fsl,s32v234-i2c";
+				reg = <0x0 0x40051000 0x0 0x1000>;
+				interrupts =<0 67 4>;
+				clocks = <&clks S32V234_CLK_SYS6>;
+				clock-names = "ipg";
+				/* TODO: Update the dma when edma ip is activated
+				dmas = <&edma0 0 50>,
+				<&edma0 0 51>;
+				dma-names = "rx","tx";
+				*/
+				status = "disabled";
+			};
+
 			uart0:serial@40053000 {
 				compatible = "fsl,s32v234-linflexuart";
 				reg = <0x0 0x40053000 0x0 0x1000>;
@@ -213,6 +228,38 @@
 			interrupt-parent = <&gic>;
 			reg = <0x0 0x40080000 0x0 0x70000>;
 			ranges;
+
+			i2c1: i2c@400b8000 {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				compatible = "fsl,s32v234-i2c";
+				reg = <0x0 0x400b8000 0x0 0x1000>;
+				interrupts =<0 68 4>;
+				clocks = <&clks S32V234_CLK_SYS6>;
+				clock-names = "ipg";
+				/* TODO: Update the dma when edma ip is activated
+				dmas = <&edma0 0 50>,
+				<&edma0 0 51>;
+				dma-names = "rx","tx";
+				*/
+				status = "disabled";
+			};
+
+			i2c2: i2c@400ba000 {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				compatible = "fsl,s32v234-i2c";
+				reg = <0x0 0x400ba000 0x0 0x1000>;
+				interrupts =<0 69 4>;
+				clocks = <&clks S32V234_CLK_SYS6>;
+				clock-names = "ipg";
+				/* TODO: Update the dma when edma ip is activated
+				dmas = <&edma0 0 50>,
+				<&edma0 0 51>;
+				dma-names = "rx","tx";
+				*/
+				status = "disabled";
+			};
 
 			uart1: serial@400bc000 {
 				compatible = "fsl,s32v234-linflexuart";
