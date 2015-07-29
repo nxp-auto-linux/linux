@@ -229,6 +229,17 @@
 			reg = <0x0 0x40080000 0x0 0x70000>;
 			ranges;
 
+			fec: ethernet@40032000 {
+				compatible = "fsl,s32v234-fec";
+				reg = <0x0 0x40032000 0x0 0x4000>;
+				interrupts = <0 35 4>;
+				clocks = <&clks S32V234_CLK_ENET_TIME>,
+					 <&clks S32V234_CLK_SYS6>,
+					 <&clks S32V234_CLK_SYS3>;
+				clock-names = "ipg", "ahb", "ptp";
+				status = "disabled";
+			};
+
 			i2c1: i2c@400b8000 {
 				#address-cells = <1>;
 				#size-cells = <0>;
