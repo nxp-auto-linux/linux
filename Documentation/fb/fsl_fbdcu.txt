@@ -1,0 +1,95 @@
+=========================
+General
+=========================
+Supported platforms: S32V234
+
+Usage:
+The drivers (fsl_fb and fsl_dcu) can be built directly into the kernel or as
+modules. If compiled as modules the following files will result: fsl_fb.ko and
+fsl_dcu.ko.
+First the DCU driver needs to be started (insmod fsl_dcu.ko) followed by the FB
+driver (insmod fsl_fb.ko). At this point at least a /dev/fb0 (fsl_fb.ko) and a
+/dev/dcu0 (fsl_dcu.ko) should be created.
+
+=========================
+ Driver architecture
+=========================
+The Display Controller Unit (DCU) module is a system master that fetches
+graphics stored in internal or external memory and displays them on a TFT LCD
+panel. A wide range of panel sizes is supported and the timing of the interface
+signals is highly configurable. Graphics are read directly from memory and then
+blended in real-time, which allows for dynamic content creation with minimal CPU
+intervention.
+
+ USER SPACE
+*********************************************************
+*                USER FB/DCU Application                *
+*********************************************************         IOCTL FB
+|         IOCTL DCU             USER SPACE
+----------------------------------------------------------------------------
+**************************          ********************     KERNEL SPACE
+* FB DRIVER (fsl_fb.ko)  *          * DCU (fsl_fb.ko)  *
+**************************          ********************
+                                    ********************
+                                    * DCU bare-metal   *
+ KERNEL SPACE                       ********************
+
+The diagram describes the fsl fb/dcu driver architecture. The FB driver
+(fsl_fb.ko) registers /dev/fbX devices while the DCU driver (fsl_dcu.ko)
+registers /dev/dcuX devices. The operations the FB and DCU provide are
+complementary.
+
+=========================
+ Module FB (fsl_fb.ko)
+=========================
+The FB module is responsible for the creation and management of Linux FB devices
+(/dev/fbX). The module must include linux/fb.h and implement routines defined in
+struct fb_ops. The structure fb_ops defines the following routines:
+fb_check_var,  fb_set_par,  fb_setcolreg,  fb_blank,  fb_pan_display,
+fb_fillrect,  fb_copyarea,  fb_imageblit, fb_ioctl, fb_open, fb_release. The FB
+module relies on the DCU module for low level access to hardware.
+Upon start the FB driver will create X device files (/dev/fbX) each
+corresponding to a unique layer in the DCU hardware. The maximum number of
+device files created is thus limited by the maximum number of hardware layers in
+the DCU.  All FB operations are susceptible to hardware limitations. Example if
+the maximum number of blended layers is 6 when blending 10 layers (all
+superposed) 4 layers will be ignored.
+List of available IOCTL commands: MFB_SET_LAYER - copy buffer from user space to
+kernel space (display)
+MFB_GET_LAYER - copy buffer from kernel space to user space (screenshot)
+MFB_GET_ALPHA - get alfa layer value
+MFB_SET_ALPHA - set alfa layer value
+
+=========================
+ Module DCU (fsl_dcu.ko)
+=========================
+The DCU driver is responsible for interfacing with the hardware and providing
+(exporting) certain routines for the FB module. The top layer of the DCU (DCU
+Linux Layer) is solely responsible for acquiring resources through Linux kernel
+routines (e.g. mapping the register space), providing routines for the FB module
+and calling routines from the lower DCU layer. The lower DCU layer is based on
+an existing implementation of bare-metal DCU driver which operates on resources
+supplied by the upper DCU Linux Layer (e.g pointer to the mapped register
+space).
+
+In order to communicate via IOCTL commands the register device file (e.g.
+/dev/dcu0) should be opened (get corresponding file descriptor) and the DCU API
+Linux specification should be followed. All commands described by the present
+API are of the form "ioctl(dcu_fd, DCU_API_COMMAND, &struct_ptr_api)" where
+DCU_API_COMMAND is a fixed number specified by the API and struct_ptr_api is a
+pointer to a specific structure as defined by the API. Failing to submit correct
+commands (e.g. different structures, invalid values) leads the driver to
+undefined behaviour/state.
+
+List of available IOCTL commands: IOCTL_SET_LAYER_POS - Move layer to position
+(x, y) on screen
+IOCTL_GET_LAYER_POS - Get layer position (x, y) on screen
+IOCTL_SET_LAYER_ALPHA_VAL - Set the layer alfa transparency value
+IOCTL_GET_LAYER_ALPHA_VAL - Get layer alfa transparency value
+IOCTL_SET_LAYER_ALPHA_MODE - Set layer key alfa mode
+IOCTL_GET_LAYER_ALPHA_MODE - Get layer key alfa mode
+IOCTL_SET_LAYER_CHROMA_KEY - Set layer color keying chroma
+IOCTL_GET_LAYER_CHROMA_KEY - Get layer color keying chroma
+IOCTL_SET_DISPLAY_CFG - Set display DCU configuration (LVDS/HDMI + timmings)
+IOCTL_PRINT_DISPLAY_INFO - Show EDID settings read by DCU driver from HDMI
+driver
