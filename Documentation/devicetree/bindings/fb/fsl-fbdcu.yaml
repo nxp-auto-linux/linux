@@ -1,0 +1,77 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+# Copyright 2021 NXP.
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/fsl-fbdcu.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: NXP Display Control Unit
+
+description: |
+  A more detailed multi-line description of the binding.
+
+  Details about the hardware device and any links to datasheets can go here.
+
+  Literal blocks are marked with the '|' at the beginning. The end is marked by
+  indentation less than the first line of the literal block. Lines also cannot
+  begin with a tab character.
+
+properties:
+
+  compatible:
+    const: fsl,s32v234-dcu
+
+  reg:
+    description: Address and length of the register set for DCU.
+
+  interrupts:
+    description: Should contain DCU interrupts.
+
+  clocks:
+    description: From common clock binding - handle to DCU clock.
+
+  clock-names:
+    description: From common clock binding - Shall be "dcu".
+
+  display:
+    description: The phandle to display node.
+
+  bits-per-pixel:
+    const: <24> for RGB888
+
+  display-timings:
+    description: Refer to binding doc display-timing.txt for details.
+
+required:
+  - compatible
+  - reg
+  - interrupts
+  - clocks
+  - clock-names
+  - display
+  - bits-per-pixel
+  - display-timings
+
+examples:
+  - |
+    &dcu0 {
+    display = <&display>;
+    status = "okay";
+    display: display@0 {
+      bits-per-pixel = <32>;
+      display-timings {
+        native-mode = <&timing0>;
+        timing0: nl4827hc19 {
+          clock-frequency = <56000000>;
+          hactive = <1920>;
+          vactive = <1080>;
+          hback-porch = <30>;
+          hfront-porch = <60>;
+          vback-porch = <30>;
+          vfront-porch = <3>;
+          hsync-len = <60>;
+          vsync-len = <3>;
+        };
+      };
+    };
+    };
