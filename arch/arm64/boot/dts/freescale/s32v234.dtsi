@@ -129,6 +129,12 @@
 		clock-frequency = <10000000>;
 	};
 
+	pu_dummy: pudummy_reg {
+		/* only used in ldo-bypass */
+		/* used by the gpu driver */
+		compatible = "fsl,s32v234-dummy-pureg";
+	};
+
 	soc {
 		#address-cells = <2>;
 		#size-cells = <2>;
@@ -170,6 +176,24 @@
 				clocks = <&clks S32V234_CLK_SYS6>;
 				clock-names = "swt";
 				status = "disabled";
+			};
+
+			gpu: gpu@40020000 {
+				compatible = "fsl,s32v234-gpu";
+				reg = <0x0 0x40020000 0x0 0x1000>,
+				      <0x0 0xC0000000 0x0 0x0>;
+				reg-names = "iobase_3d", "phys_baseaddr";
+				interrupts = <0 101 0x04>;
+				interrupt-names = "irq_3d";
+				clocks = <&clks S32V234_CLK_GPU>,
+						<&clks S32V234_CLK_GPU_SHD>;
+				clock-names = "gpu3d_clk", "gpu3d_shader_clk";
+				resets = <&src 0>;
+				reset-names = "gpu3d";
+
+				/* ldo-bypass: use pu_dummy
+				if VDDSOC share with VDDPU */
+				pu-supply = <&pu_dummy>;
 			};
 
 			clks: mc_cgm0@4003C000 {
@@ -237,6 +261,7 @@
 			src: src@4007C000 {
 				compatible = "fsl,s32v234-src";
 				reg = <0x0 0x4007C000 0x0 0x1000>;
+				#reset-cells = <1>;
 			};
 
 		};
