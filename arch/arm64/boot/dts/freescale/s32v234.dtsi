@@ -150,26 +150,6 @@
 			reg = <0x0 0x40000000 0x0 0x7d000>;
 			ranges;
 
-			/*
-			 * TODO: Update the clocks when the clock framework is
-			 * defined.
-			 */
-
-			dcu0: dcu@40140000 {
-				compatible = "fsl,s32v234-dcu";
-				reg = <0x0 0x40028000 0x0 0x0200>;
-				clocks = <&clks S32V234_CLK_SYS6>;
-				clock-names = "dcu";
-				siul2-controller = <&siul2>;
-				status = "disabled";
-			};
-
-			siul2: siul@4006C000 {
-				compatible = "fsl,s32v234-siul2";
-				reg = <0x0 0x4006C000 0x0 0x1794>;
-				status = "disabled";
-			};
-
 			swt0: swt@4000A000 {
 				compatible = "fsl,s32v234-wdt", "fsl,sac58r-wdt";
 				reg = <0x0 0x4000A000 0x0 0x1000>;
@@ -194,6 +174,24 @@
 				/* ldo-bypass: use pu_dummy
 				if VDDSOC share with VDDPU */
 				pu-supply = <&pu_dummy>;
+			};
+
+			fec: ethernet@40032000 {
+				compatible = "fsl,s32v234-fec";
+				reg = <0x0 0x40032000 0x0 0x1000>;
+				interrupts = <0 36 4>,
+							 <0 37 4>;
+				clocks = <&clks S32V234_CLK_SYS6>,
+						 <&clks S32V234_CLK_SYS3>,
+						 <&clks S32V234_CLK_ENET_TIME>,
+						 <&clks S32V234_CLK_ENET>,
+						 <&clks S32V234_CLK_ENET_TIME>;
+				clock-names = "ipg", "ahb", "ptp",
+							  "enet_clk_ref",
+							  "enet_out";
+				fsl,num-tx-queues=<3>;
+				fsl,num-rx-queues=<3>;
+				status = "disabled";
 			};
 
 			clks: mc_cgm0@4003C000 {
@@ -258,12 +256,25 @@
 				status = "disabled";
 			};
 
+			siul2: siul@4006C000 {
+				compatible = "fsl,s32v234-siul2";
+				reg = <0x0 0x4006C000 0x0 0x1794>;
+				status = "disabled";
+			};
+
 			src: src@4007C000 {
 				compatible = "fsl,s32v234-src";
 				reg = <0x0 0x4007C000 0x0 0x1000>;
 				#reset-cells = <1>;
 			};
 
+			dcu0: dcu@40028000 {
+				compatible = "fsl,s32v234-dcu";
+				reg = <0x0 0x40028000 0x0 0x0200>;
+				clocks = <&clks S32V234_CLK_SYS6>;
+				clock-names = "dcu";
+				status = "disabled";
+			};
 		};
 
 		aips1: bus@40080000 {
@@ -273,17 +284,6 @@
 			interrupt-parent = <&gic>;
 			reg = <0x0 0x40080000 0x0 0x70000>;
 			ranges;
-
-			fec: ethernet@40032000 {
-				compatible = "fsl,s32v234-fec";
-				reg = <0x0 0x40032000 0x0 0x4000>;
-				interrupts = <0 35 4>;
-				clocks = <&clks S32V234_CLK_ENET_TIME>,
-					 <&clks S32V234_CLK_SYS6>,
-					 <&clks S32V234_CLK_SYS3>;
-				clock-names = "ipg", "ahb", "ptp";
-				status = "disabled";
-			};
 
 			i2c1: i2c@400b8000 {
 				#address-cells = <1>;
