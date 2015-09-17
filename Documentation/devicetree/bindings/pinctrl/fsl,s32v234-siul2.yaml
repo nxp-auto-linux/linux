@@ -1,0 +1,39 @@
+# SPDX-License-Identifier: GPL-2.0
+%YAML 1.2
+---
+
+title: Freescale SIUL2 iomux controller
+
+maintainers:
+  - Larisa Grigore <larisa.grigore@nxp.com>
+
+description: |
+  Core driver for the S32V pin controller.
+  Based on fsl,imx-pincontrol implementation.
+
+properties:
+  compatible:
+    const:
+      fsl,s32v234-siul2
+
+  fsl,pins:
+    description: |
+      Two integers array, represents a group of pins mux and config
+      setting. The format is fsl,pins = <PIN_FUNC_ID CONFIG>
+      PIN_FUNC_ID - id of MSCR to be modified
+      CONFIG - configuration to be written in the MSCR/IMCR register
+
+      Even though IMCR register should be used as input register, it can be
+      set and addressed in the same way as MSCR, only instead of passing the
+      IMCR index, IMCR_IDX + 512 is passed.
+
+      Refer to s32v234-pinfunc.h in device tree source folder for all
+      available s32v234 PIN_FUNC_IDS.
+
+required:
+  - compatible
+  - fsl,pins
+
+additionalProperties: false
+
+...
