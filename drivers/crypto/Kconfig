@@ -910,4 +910,12 @@ config CRYPTO_DEV_SA2UL
 	  used for crypto offload.  Select this if you want to use hardware
 	  acceleration for cryptographic algorithms on these devices.
 
+config CRYPTO_DEV_FSL_CSE3
+	tristate "Freescale CSE3 driver backend"
+	depends on SOC_S32V234
+	help
+	 Enables the driver module for Freescale's CSE3
+	 To compile this driver as a module, choose M here: the module
+	 will be called cse3.
+
 endif # CRYPTO_HW
