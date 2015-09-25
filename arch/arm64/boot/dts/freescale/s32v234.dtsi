@@ -275,6 +275,13 @@
 				clock-names = "dcu";
 				status = "disabled";
 			};
+
+			cse3:crypto@40001000 {
+				compatible = "fsl,s32v234-cse3";
+				reg = <0x0 0x40001000 0x0 0x1000>;
+				interrupts = <0 18 4>;
+			};
+
 		};
 
 		aips1: bus@40080000 {
