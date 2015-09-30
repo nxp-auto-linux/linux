@@ -52,6 +52,7 @@ dtb-$(CONFIG_ARCH_MXC) += imx8qxp-colibri-eval-v3.dtb
 dtb-$(CONFIG_ARCH_MXC) += imx8qxp-mek.dtb
 
 dtb-$(CONFIG_ARCH_S32) += s32v234-evb.dtb
+dtb-$(CONFIG_ARCH_S32) += s32v234-pcie.dtb
 dtb-$(CONFIG_ARCH_S32) += fsl-s32g274a-bluebox3.dtb
 dtb-$(CONFIG_ARCH_S32) += fsl-s32g274a-emu.dtb
 dtb-$(CONFIG_ARCH_S32) += fsl-s32g274a-evb.dtb
