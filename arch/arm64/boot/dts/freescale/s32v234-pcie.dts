@@ -1,0 +1,70 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright 2015 Freescale Semiconductor, Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ */
+
+/dts-v1/;
+#include "s32v234.dtsi"
+/ {
+	model = "Freescale S32V234";
+	compatible = "fsl,s32v234-pcie", "fsl,s32v234",
+				 "arm,vexpress,v2p-aarch64", "arm,vexpress";
+
+	chosen {
+		bootargs = "console=ttyLF1";
+		linux,initrd-start = <0x90000000>;
+		linux,initrd-end   = <0x900E3C95>;
+	};
+
+};
+
+&dcu0 {
+	display = <&display>;
+	status = "okay";
+	display: display@0 {
+		bits-per-pixel = <32>;
+
+		display-timings {
+			native-mode = <&timing0>;
+
+			timing0: nl4827hc19 {
+				clock-frequency = <56000000>;
+				hactive = <1920>;
+				vactive = <1080>;
+				hback-porch = <30>;
+				hfront-porch = <60>;
+				vback-porch = <30>;
+				vfront-porch = <3>;
+				hsync-len = <60>;
+				vsync-len = <3>;
+			};
+		};
+	};
+};
+&i2c0 {
+	status = "okay";
+};
+&i2c1 {
+	status = "okay";
+};
+&i2c2 {
+	status = "okay";
+};
+&siul2 {
+	status = "okay";
+};
+&swt0 {
+	status = "okay";
+};
+&uart1 {
+	status = "okay";
+};
+&usdhc0 {
+	no-1-8-V;
+	status = "okay";
+};
