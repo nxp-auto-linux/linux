@@ -275,7 +275,9 @@
 			uart1: serial@400bc000 {
 				compatible = "fsl,s32v234-linflexuart";
 				reg = <0x0 0x400bc000 0x0 0x1000>;
-				interrupts = <GIC_SPI 60 IRQ_TYPE_EDGE_RISING>;
+				interrupts = <0 60 4>;
+				clocks = <&clks S32V234_CLK_LIN>;
+				clock-names = "lin";
 				status = "disabled";
 			};
 		};
