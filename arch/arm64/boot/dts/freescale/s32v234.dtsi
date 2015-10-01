@@ -190,8 +190,10 @@
 			fec: ethernet@40032000 {
 				compatible = "fsl,s32v234-fec";
 				reg = <0x0 0x40032000 0x0 0x1000>;
-				interrupts = <0 36 4>,
-							 <0 37 4>;
+				interrupts = <0 35 4>,
+							 <0 36 4>,
+							 <0 37 4>,
+							 <0 38 4>;
 				clocks = <&clks S32V234_CLK_SYS6>,
 						 <&clks S32V234_CLK_SYS3>,
 						 <&clks S32V234_CLK_ENET_TIME>,
