@@ -47,7 +47,7 @@
 
 &fec {
 	phy-mode = "rgmii";
-	phydev = <&phy1>;
+	phy-handle = <&phy1>;
 	status = "okay";
 	mdio {
 		#address-cells = <1>;
