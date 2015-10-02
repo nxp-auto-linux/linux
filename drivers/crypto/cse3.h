@@ -38,7 +38,7 @@
 #define M3_KEY_SIZE     16
 #define M4_KEY_SIZE     32
 #define M5_KEY_SIZE     16
-#define BUFSIZ          4096
+#define BUFFER_SIZE     4096
 #define CSE_QUEUE_LEN   4
 
 typedef struct {
@@ -81,8 +81,8 @@ typedef struct cse_req_ctx {
  */
 
 typedef struct cse_descriptor {
-	uint8_t buffer_in[BUFSIZ];
-	uint8_t buffer_out[BUFSIZ];
+	uint8_t buffer_in[BUFFER_SIZE];
+	uint8_t buffer_out[BUFFER_SIZE];
 	uint8_t aes_key[AES_KEY_SIZE];
 	uint8_t aes_iv[AES_KEY_SIZE];
 	uint8_t rval[RND_VAL_SIZE];
@@ -138,20 +138,40 @@ struct cse_device_data {
 	spinlock_t                  lock;
 	struct tasklet_struct       done_task;
 
-	size_t                      size;
 	unsigned long               flags;
 	struct semaphore            access;
 };
 extern struct cse_device_data *cse_dev_ptr;
 
+/* Device is busy with an ongoing request */
 #define FLAG_BUSY		(0x1UL)
 
 /*
- * Request state
+ * Request states:
+ * STAGE_MASK covers the three basic flow states/stages:
+ * INIT, SUBMITTED and DONE.
+ * The CANCELED state is independent and can be set in parallel
+ * with any of the above states.
  */
+#define STAGE_MASK			(0x3UL)
+#define FLAG_INIT			(0x0UL)
 #define FLAG_SUBMITTED		(0x1UL)
-#define FLAG_CANCELED		(0x2UL)
-#define FLAG_DONE			(0x4UL)
+#define FLAG_DONE			(0x2UL)
+#define FLAG_CANCELED		(0x4UL)
+
+#define IS_INIT(x)			(((x) & STAGE_MASK) ==  FLAG_INIT)
+#define IS_SUBMITTED(x)		(((x) & STAGE_MASK) ==  FLAG_SUBMITTED)
+#define IS_DONE(x)			(((x) & STAGE_MASK) ==  FLAG_DONE)
+#define IS_CANCELED(x)		((x) & FLAG_CANCELED)
+
+static inline void set_state(uint8_t *state, uint8_t val)
+{
+	*state = (*state & ~STAGE_MASK) | val;
+}
+static inline void set_canceled(uint8_t *state)
+{
+	*state |= FLAG_CANCELED;
+}
 
 /*
  * Request flags
