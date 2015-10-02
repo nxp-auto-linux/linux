@@ -1,0 +1,48 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/serial/fsl,cse3.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Freescale CSE3 Cryptographic Services Engine
+
+description: |
+  - Freescale CSE3 Cryptographic Services Engine included in some chips.
+    Currently only S32V234 is supported.
+
+allOf:
+  - $ref: "rs485.yaml"
+
+properties:
+  compatible:
+    oneOf:
+      - enum:
+          - fsl,s32v234-cse3
+    description: Should be "fsl,<soc>-cse3"
+
+  reg:
+    maxItems: 1
+    description: Should contain CSE3 registers location and length
+
+  interrupts:
+    maxItems: 1
+    description: Should contain CSE3 interrupt number
+
+rs485-rts-active-low: true
+linux,rs485-enabled-at-boot-time: true
+
+required:
+  - compatible
+  - reg
+  - interrupts
+
+unevaluatedProperties: false
+
+examples:
+  - |
+    cse3: crypto@40001000 {
+        compatible = "fsl,s32v234-cse3";
+        reg = <0x0 0x40001000 0x0 0x1000>;
+        interrupts = <0 18 4>;
+        status = "disabled";
+    };
