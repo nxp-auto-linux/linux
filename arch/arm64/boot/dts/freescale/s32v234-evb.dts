@@ -188,3 +188,6 @@
 	pinctrl-0 = <&pinctrl_usdhc0>;
 	status = "okay";
 };
+&cse3 {
+	status = "okay";
+};
