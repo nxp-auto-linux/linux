@@ -18,6 +18,8 @@
 #ifndef _CSE_HW_H
 #define _CSE_HW_H
 
+#define IS_LOAD_KEY_PHASE(phase)	(phase == 1)
+
 int cse_hw_comm(struct cse_device_data *dev, uint32_t flags, int phase);
 
 #endif

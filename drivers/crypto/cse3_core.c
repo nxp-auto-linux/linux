@@ -40,7 +40,8 @@
 struct cse_device_data *cse_dev_ptr;
 
 char *errmsg[35] = {
-	"", "", /* padding */
+	"", /* padding */
+	"", /* padding */
 	/* CSE3 error codes, ecr between 0x02-0x0C */
 	"Command sequence error",
 	"Key not available",
@@ -53,7 +54,9 @@ char *errmsg[35] = {
 	"Internal debug not allowed",
 	"Command issued while busy",
 	"System memory error",
-	"", "", "", /* padding */
+	"", /* padding */
+	"", /* padding */
+	"", /* padding */
 	/* CSE3 error codes, ecr between 0x10-0x22 */
 	"Internal memory error",
 	"Invalid command",
@@ -170,7 +173,7 @@ int cse_handle_request(struct cse_device_data *dev, cse_req_t *req)
 	nextReq = cse_dequeue_request(&dev->queue);
 	if (nextReq) {
 		dev->req = nextReq;
-		nextReq->state |= FLAG_SUBMITTED;
+		set_state(&nextReq->state, FLAG_SUBMITTED);
 		dev->flags |= FLAG_BUSY;
 	}
 	spin_unlock_bh(&dev->lock);
@@ -228,7 +231,7 @@ void cse_finish_req(struct cse_device_data *dev, cse_req_t *req)
 	/* TODO: depending on source, can use
 	 * hw_desc directly for output
 	 */
-	if (req->state & FLAG_SUBMITTED) {
+	if (IS_SUBMITTED(req->state) || IS_DONE(req->state)) {
 		if (dev->hw_desc) {
 			dma_free_coherent(dev->device, sizeof(cse_desc_t),
 					dev->hw_desc, dev->hw_desc_phys);
@@ -260,14 +263,16 @@ void cse_cancel_request(cse_req_t *req)
 
 	spin_lock_bh(&req->ctx->dev->lock);
 	state = req->state;
-	req->state |= FLAG_CANCELED;
+	set_canceled(&req->state);
 	/* Dequeue if still in queue */
-	if (!(state && FLAG_SUBMITTED|FLAG_DONE))
+	if (IS_INIT(req->state))
 		cse_remove_request(&req->ctx->dev->queue, req);
 	spin_unlock_bh(&req->ctx->dev->lock);
 
-	/* The already submitted requests will be freed in done_task */
-	if (!(state & FLAG_SUBMITTED))
+	/* The requests that are submitted but not finished yet
+	 * will be freed in done_task
+	 */
+	if (IS_INIT(state) || IS_DONE(state))
 		cse_finish_req(req->ctx->dev, req);
 }
 
@@ -379,10 +384,10 @@ static void cse_done_task(unsigned long data)
 compl:
 	spin_lock(&dev->lock);
 	state = dev->req->state;
-	dev->req->state |= FLAG_DONE;
+	set_state(&dev->req->state, FLAG_DONE);
 	spin_unlock(&dev->lock);
 
-	if (state & FLAG_CANCELED) {
+	if (IS_CANCELED(state)) {
 		cse_finish_req(dev, dev->req);
 	} else {
 		/* TODO: call complete based on algo type */
@@ -418,7 +423,7 @@ irqreturn_t cse_irq_handler(int irq_no, void *dev_id)
 
 static int cse_rng_read(struct hwrng *rng, void *data, size_t max, bool wait)
 {
-	int ret, size = 0;
+	int size = 0;
 	struct cse_rval_request *new_req;
 	cse_ctx_t *ctx;
 
@@ -441,22 +446,22 @@ static int cse_rng_read(struct hwrng *rng, void *data, size_t max, bool wait)
 	new_req->base.phase = 0;
 	new_req->base.flags = FLAG_RND;
 	init_completion(&new_req->base.complete);
-	ret = cse_handle_request(ctx->dev, (cse_req_t *)new_req);
 
-	if (!ret) {
+	if (!cse_handle_request(ctx->dev, (cse_req_t *)new_req)) {
+
 		if (wait_for_completion_interruptible(
 					&new_req->base.complete)) {
 			cse_cancel_request((cse_req_t *)new_req);
-			return 0;
-		} else if (new_req->base.error) {
-			ret = new_req->base.error;
-		} else {
+			goto out;
+		} else if (!new_req->base.error) {
 			size = max < RND_VAL_SIZE ? max : RND_VAL_SIZE;
 			memcpy(data, new_req->rval, size);
 		}
+
 	}
 
 	cse_finish_req(ctx->dev, (cse_req_t *)new_req);
+out:
 	kfree(ctx);
 	up(&ctx->dev->access);
 
@@ -590,8 +595,6 @@ static int cse_remove(struct platform_device *pdev)
 	cse_dev_ptr = NULL;
 
 	tasklet_kill(&cse_dev->done_task);
-	devm_free_irq(&pdev->dev, cse_dev->irq, cse_dev);
-	devm_kfree(&pdev->dev, cse_dev);
 
 	return 0;
 }
