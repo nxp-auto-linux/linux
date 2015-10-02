@@ -143,7 +143,7 @@ int cse_hw_comm(struct cse_device_data *dev, uint32_t flags, int phase)
 
 	/* Two-phase command, first we need to load the plaintext key */
 	if (flags & (FLAG_ENC|FLAG_DEC|FLAG_GEN_MAC|FLAG_VER_MAC)
-			&& phase == 1) {
+			&& IS_LOAD_KEY_PHASE(phase)) {
 		cse_cmd_load_plainkey(dev);
 		return 0;
 	}
