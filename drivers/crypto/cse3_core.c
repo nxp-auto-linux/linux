@@ -421,6 +421,7 @@ irqreturn_t cse_irq_handler(int irq_no, void *dev_id)
 	return IRQ_HANDLED;
 }
 
+#ifdef CONFIG_CRYPTO_DEV_FSL_CSE3_HWRNG
 static int cse_rng_read(struct hwrng *rng, void *data, size_t max, bool wait)
 {
 	int size = 0;
@@ -472,6 +473,7 @@ static int cse_rng_data_read(struct hwrng *rng, u32 *data)
 {
 	return cse_rng_read(rng, data, RND_VAL_SIZE, 1);
 }
+#endif
 
 static const struct file_operations cse_fops = {
 	.owner = THIS_MODULE,
@@ -480,12 +482,14 @@ static const struct file_operations cse_fops = {
 	.unlocked_ioctl = cse_cdev_ioctl,
 };
 
+#ifdef CONFIG_CRYPTO_DEV_FSL_CSE3_HWRNG
 static struct hwrng cse_rng = {
 	.name		= "rng-cse",
 	/* .cleanup	= cse_rng_cleanup, */
 	.data_read	= cse_rng_data_read,
 	.read		= cse_rng_read,
 };
+#endif
 
 static struct platform_device_id cse3_platform_ids[] = {
 	{ .name = "cse3-s32v234" },
@@ -565,11 +569,13 @@ static int cse_probe(struct platform_device *pdev)
 	cdev_init(&cse_dev->cdev, &cse_fops);
 	cdev_add(&cse_dev->cdev, MKDEV(CSE3_MAJOR, 0), 1);
 
+#ifdef CONFIG_CRYPTO_DEV_FSL_CSE3_HWRNG
 	/** Register HW Random Number Generator API */
 	if (hwrng_register(&cse_rng)) {
 		dev_err(&pdev->dev, "failed to register hwrng.\n");
 		goto out_dev;
 	}
+#endif
 
 	return 0;
 
@@ -587,7 +593,9 @@ static int cse_remove(struct platform_device *pdev)
 {
 	struct cse_device_data *cse_dev = platform_get_drvdata(pdev);
 
+#ifdef CONFIG_CRYPTO_DEV_FSL_CSE3_HWRNG
 	hwrng_unregister(&cse_rng);
+#endif
 	cdev_del(&cse_dev->cdev);
 	unregister_chrdev_region(MKDEV(CSE3_MAJOR, CSE3_MINOR), NUM_MINORS);
 
