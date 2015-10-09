@@ -918,4 +918,15 @@ config CRYPTO_DEV_FSL_CSE3
 	 To compile this driver as a module, choose M here: the module
 	 will be called cse3.
 
+config CRYPTO_DEV_FSL_CSE3_HWRNG
+	bool "HWRng interface"
+	depends on CRYPTO_DEV_FSL_CSE3
+	default n
+	select CRYPTO_RNG
+	select HW_RANDOM
+	help
+	 Enables the HWRng interface of the Freescale CSE3 driver, so the driver
+	 can handle "random number generator" request coming from the Linux HWRNG
+	 subsystem.
+
 endif # CRYPTO_HW
