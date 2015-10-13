@@ -171,7 +171,6 @@
 &swt0 {
 	status = "okay";
 };
-
 &uart0 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_uart0>;
@@ -186,6 +185,12 @@
 	no-1-8-V;
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_usdhc0>;
+	status = "okay";
+};
+&viulite0{
+	status = "okay";
+};
+&viulite1{
 	status = "okay";
 };
 &cse3 {
