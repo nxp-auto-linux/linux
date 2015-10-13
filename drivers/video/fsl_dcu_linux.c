@@ -57,7 +57,7 @@
 #define DCU_DEV_COUNT	1
 
 /* list of DCU base addr */
-extern uint64_t* DCU_BASE_ADDR64;
+extern uint64_t *DCU_BASE_ADDRESS;
 
 /* wb_data */
 long wb_len;
@@ -92,10 +92,6 @@ extern void __iomem *devm_ioremap(struct device *dev, resource_size_t offset,
 		resource_size_t size);
 extern void __iomem *devm_ioremap_nocache(struct device *dev,
 		resource_size_t offset, resource_size_t size);
-
-void fsl_dcu_wb_enable(void);
-void fsl_dcu_wb_disable(void);
-void fsl_dcu_wb_prepare(struct platform_device *pdev);
 
 /**********************************************************
  * Macros for tracing
@@ -436,79 +432,6 @@ irqreturn_t fsl_dcu_irq(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
-int fsl_setup_siul2(struct device_node *np, DCU_DISPLAY_TYPE display_type)
-{
-	struct device_node *siul2_np;
-	struct platform_device *siul2_pdev;
-	struct resource *siul2_res;
-	void __iomem *siul2_reg;
-	resource_size_t size;
-	const char *name;
-	int i;
-
-	siul2_np = of_parse_phandle(np, "siul2-controller", 0);
-	if (!siul2_np)
-		return -EINVAL;
-
-	siul2_pdev = of_find_device_by_node(siul2_np);
-	if (!siul2_pdev)
-		return -EINVAL;
-
-	siul2_res = platform_get_resource(siul2_pdev, IORESOURCE_MEM, 0);
-	if (!siul2_res || resource_type(siul2_res) != IORESOURCE_MEM) {
-		dev_err(&siul2_pdev->dev, "invalid resource\n");
-		return -EINVAL;
-	}
-
-	size = resource_size(siul2_res);
-	name = siul2_res->name ?: dev_name(&siul2_pdev->dev);
-
-	if (!devm_request_mem_region(&siul2_pdev->dev,
-			siul2_res->start, size, name)){
-		dev_err(&siul2_pdev->dev,
-			"can't request region for resource %pR\n", siul2_res);
-		return -EBUSY;
-	}
-
-	if (siul2_res->flags & IORESOURCE_CACHEABLE)
-		siul2_reg = devm_ioremap(&siul2_pdev->dev,
-				siul2_res->start, size);
-	else
-		siul2_reg = devm_ioremap_nocache(&siul2_pdev->dev,
-				siul2_res->start, size);
-
-	/* select IOMUX based on dcu display type */
-	switch(display_type)
-	{
-		case DCU_DISPLAY_LVDS:
-		{
-			for(i=0x420; i<0x498; i+=0x4)
-				writel(0x0020C101, siul2_reg + i);
-				
-			/*for(i=0x484; i<0x494; i+=0x4)
-				writel(0x0020C101, siul2_reg + i); */
-		}
-		break;
-
-		case DCU_DISPLAY_HDMI:
-		{
-			for(i=0x180; i<0x1F0; i+=0x4)
-				writel(0x00102100, siul2_reg + i);
-			writel(0x00000001, siul2_reg + 0x1F0);
-		}
-		break;
-
-		case DCU_DISPLAY_TCON:
-		{
-		}
-		break;
-	}
-
-	devm_release_mem_region(&siul2_pdev->dev, siul2_res->start, size);
-
-	return 0;
-}
-
 /**********************************************************
  * FUNCTION: fsl_init_ldb
  **********************************************************/
@@ -644,27 +567,13 @@ int fsl_dcu_remove(struct platform_device *pdev)
  * FUNCTION: fsl_dcu_display
  * DCU configure display
  **********************************************************/
-int fsl_dcu_display(DCU_DISPLAY_TYPE display_type,
+void fsl_dcu_display(DCU_DISPLAY_TYPE display_type,
 		Dcu_LCD_Para_t dcu_lcd_timings)
 {
-	int ret;
-	
 	__TRACE__;
 
-	/* SIUL2 config, LCD LVDS */
-	ret = fsl_setup_siul2(dcu_pdev->dev.of_node, display_type);
-	if (ret)
-		dev_err(&dcu_pdev->dev, "could not set IOMUX\n");
-
-	/* DCU set configuration, LVDS has fixed div according to RM - TODO
-	if(display_type == DCU_DISPLAY_LVDS)
-		DCU_Init(0, (dcu_clk_val / 1000000), // clock in mhz 
-				&dcu_lcd_timings, DCU_FREQDIV_LVDS);
-	else
-	*/
+	/* DCU set configuration, LVDS has fixed div according to RM - TODO */
 	DCU_Init(0, 150, &dcu_lcd_timings, DCU_FREQDIV_NORMAL);
-
-	return ret;
 }
 
 /**********************************************************
@@ -1045,44 +954,6 @@ int fsl_dcu_lcd_timings(struct platform_device *pdev,
 }
 
 /**********************************************************
- * FUNCTION: fsl_dcu_wb_enable, EXPERIMENTAL code
- **********************************************************/
-void fsl_dcu_wb_enable()
-{
-	Dcu_WriteBack_t dcu_wb_addr;
-	dcu_wb_addr.WBAlphaVal = 128;
-	dcu_wb_addr.WBType = 0;
-	dcu_wb_addr.WBMode = 2;
-	dcu_wb_addr.WBAddress = wb_phys_ptr;
-	DCU_SetWriteBackConfig(0, &dcu_wb_addr);
-}
-
-/**********************************************************
- * FUNCTION: fsl_dcu_wb_disable, EXPERIMENTAL code
- **********************************************************/
-void fsl_dcu_wb_disable()
-{
-	Dcu_WriteBack_t dcu_wb_addr;
-	dcu_wb_addr.WBAlphaVal = 128;
-	dcu_wb_addr.WBType = 0;
-	dcu_wb_addr.WBMode = 0;
-	dcu_wb_addr.WBAddress = wb_phys_ptr;
-	DCU_SetWriteBackConfig(0, &dcu_wb_addr);
-}
-
-/**********************************************************
- * FUNCTION: fsl_dcu_wb_prepare, EXPERIMENTAL code
- **********************************************************/
-void fsl_dcu_wb_prepare(struct platform_device *pdev)
-{
-	wb_len = 1024* 768* 3;
-	wb_vir_ptr = dma_alloc_wc(&pdev->dev,
-			wb_len * sizeof(char), (dma_addr_t *)&wb_phys_ptr,
-			GFP_KERNEL);
-}
-
-
-/**********************************************************
  * FUNCTION: fsl_dcu_probe
  **********************************************************/
 int fsl_dcu_probe(struct platform_device *pdev)
@@ -1120,15 +991,15 @@ int fsl_dcu_probe(struct platform_device *pdev)
 	dcu_fb_data->reg_base = dcu_reg_base;
 
 	/* allocate memory for base reg */
-	DCU_BASE_ADDR64 = kmalloc(sizeof(uint64_t) * DCU_DEV_COUNT, GFP_KERNEL);
-	if(!DCU_BASE_ADDR64){
+	DCU_BASE_ADDRESS = kmalloc(sizeof(uint64_t) * DCU_DEV_COUNT, GFP_KERNEL);
+	if (!DCU_BASE_ADDRESS) {
 		dcu_init_status = DCU_INIT_ERR_CFG;
 		dev_err(&pdev->dev, "could allocate memory for reg_base\n");
 		goto failed_alloc_base;
 	}
 
 	/* save DCU0 register map to global variable for DCU agnostic layer */
-	DCU_BASE_ADDR64[0] = (uint64_t)dcu_reg_base;
+	DCU_BASE_ADDRESS[0] = (uint64_t)dcu_reg_base;
 
 	/* enable clocks for DCU */
 	dcu_clk = devm_clk_get(&pdev->dev, "dcu");
@@ -1150,11 +1021,10 @@ int fsl_dcu_probe(struct platform_device *pdev)
 	fsl_dcu_lcd_timings(pdev, &dcu_lcd_timings);
 
 	/* setup display type HDMI/LVDS, by adjusting IOMUX/LDB/TIMINGS */
-	/*if(g_enable_hdmi)
+	if (g_enable_hdmi)
 		fsl_dcu_display(DCU_DISPLAY_HDMI, dcu_lcd_timings);
 	else
-	*/
-	fsl_dcu_display(DCU_DISPLAY_LVDS, dcu_lcd_timings);
+		fsl_dcu_display(DCU_DISPLAY_LVDS, dcu_lcd_timings);
 
 	/* prebare write back */
 #ifndef DCU_DISABLE_WRITEBACK

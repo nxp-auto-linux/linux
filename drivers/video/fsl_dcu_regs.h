@@ -60,12 +60,12 @@ Cristian Tomescu (B13031)     27/05/2015    ENGR00355821  Porting on Treerunner.
 
 #if (DRV_BARE_METAL == DCU_DRV_VARIANT)
 #if (1 == DCU_NUMBER)
-const uint32_t DCU_BASE_ADDR64[DCU_NUMBER]={
+const uint32_t DCU_BASE_ADDRESS[DCU_NUMBER] = {
   DCU0_BASE
 };
 #endif /* DCU_NUMBER == 1 */
 #if (2 == DCU_NUMBER)
-const uint32_t DCU_BASE_ADDR64[DCU_NUMBER]={
+const uint32_t DCU_BASE_ADDRESS[DCU_NUMBER] = {
   DCU0_BASE,
   DCU1_BASE
 };
@@ -784,23 +784,23 @@ typedef struct DCU_MemMap {
 
 /* DCU Internal RAM per module */
 
-#define DCU_GAMMARED_ADDR32(dcu_id)     (DCU_BASE_ADDR64[(dcu_id)] + DCU_GAMMARED_OFFSET)
+#define DCU_GAMMARED_ADDR32(dcu_id)     (DCU_BASE_ADDRESS[(dcu_id)] + DCU_GAMMARED_OFFSET)
 #define DCU0_GAMMARED          	        (DCU0_BASE + DCU_GAMMARED_OFFSET)
 #define DCU1_GAMMARED          	        (DCU1_BASE + DCU_GAMMARED_OFFSET)
 
-#define DCU_GAMMAGREEN_ADDR32(dcu_id)   (DCU_BASE_ADDR64[(dcu_id)] + DCU_GAMMAGREEN_OFFSET)
+#define DCU_GAMMAGREEN_ADDR32(dcu_id)   (DCU_BASE_ADDRESS[(dcu_id)] + DCU_GAMMAGREEN_OFFSET)
 #define DCU0_GAMMAGREEN                 (DCU0_BASE + DCU_GAMMAGREEN_OFFSET)
 #define DCU1_GAMMAGREEN                 (DCU1_BASE + DCU_GAMMAGREEN_OFFSET)
 
-#define DCU_GAMMABLUE_ADDR32(dcu_id)    (DCU_BASE_ADDR64[(dcu_id)] + DCU_GAMMABLUE_OFFSET)
+#define DCU_GAMMABLUE_ADDR32(dcu_id)    (DCU_BASE_ADDRESS[(dcu_id)] + DCU_GAMMABLUE_OFFSET)
 #define DCU0_GAMMABLUE                  (DCU0_BASE + DCU_GAMMABLUE_OFFSET)
 #define DCU1_GAMMABLUE                  (DCU1_BASE + DCU_GAMMABLUE_OFFSET)
 
-#define DCU_CURSOR_ADDR32(dcu_id)       (DCU_BASE_ADDR64[(dcu_id)] + DCU_CURSOR_OFFSET)
+#define DCU_CURSOR_ADDR32(dcu_id)       (DCU_BASE_ADDRESS[(dcu_id)] + DCU_CURSOR_OFFSET)
 #define DCU0_CURSOR                     (DCU0_BASE + DCU_CURSOR_OFFSET)
 #define DCU1_CURSOR                     (DCU1_BASE + DCU_CURSOR_OFFSET)
 
-#define DCU_CLUT_ADDR32(dcu_id)         (DCU_BASE_ADDR64[(dcu_id)] + DCU_CLUT_OFFSET)
+#define DCU_CLUT_ADDR32(dcu_id)         (DCU_BASE_ADDRESS[(dcu_id)] + DCU_CLUT_OFFSET)
 #define DCU0_CLUT                       (DCU0_BASE + DCU_CLUT_OFFSET)
 #define DCU1_CLUT                       (DCU1_BASE + DCU_CLUT_OFFSET)
 #define DCU_CLUT_MEMSIZE                (0x800)
@@ -1571,7 +1571,7 @@ typedef struct DCU_MemMap {
 
 
 /**********          DCU_CTRLDESCCURSOR1 REGISTER         **********/
-#define DCU_CTRLDESCCURSOR1_ADDR32(dcu_id)      (DCU_BASE_ADDR64[(dcu_id)] + DCU_CTRLDESCCURSOR1_OFFSET)
+#define DCU_CTRLDESCCURSOR1_ADDR32(dcu_id)      (DCU_BASE_ADDRESS[(dcu_id)] + DCU_CTRLDESCCURSOR1_OFFSET)
 
 /* Field definitions for CTRLDESCCURSOR1 */
 #define DCU_CTRLDESCCURSOR1_HEIGHT_SHIFT        (16)
@@ -1582,7 +1582,7 @@ typedef struct DCU_MemMap {
 
 
 /**********          DCU_CTRLDESCCURSOR2 REGISTER         **********/
-#define DCU_CTRLDESCCURSOR2_ADDR32(dcu_id)      (DCU_BASE_ADDR64[(dcu_id)] + DCU_CTRLDESCCURSOR2_OFFSET)
+#define DCU_CTRLDESCCURSOR2_ADDR32(dcu_id)      (DCU_BASE_ADDRESS[(dcu_id)] + DCU_CTRLDESCCURSOR2_OFFSET)
 
 /* Field definitions for CTRLDESCCURSOR2 */
 #define DCU_CTRLDESCCURSOR2_POSY_SHIFT          (16)
@@ -1593,7 +1593,7 @@ typedef struct DCU_MemMap {
 
 
 /**********          DCU_CTRLDESCCURSOR3 REGISTER         **********/
-#define DCU_CTRLDESCCURSOR3_ADDR32(dcu_id)      (DCU_BASE_ADDR64[(dcu_id)] + DCU_CTRLDESCCURSOR3_OFFSET)
+#define DCU_CTRLDESCCURSOR3_ADDR32(dcu_id)      (DCU_BASE_ADDRESS[(dcu_id)] + DCU_CTRLDESCCURSOR3_OFFSET)
 
 /* Field definitions for CTRLDESCCURSOR3 */
 #define DCU_CTRLDESCCURSOR3_CUR_EN_SHIFT               (31)
@@ -1604,7 +1604,7 @@ typedef struct DCU_MemMap {
 
 
 /**********          DCU_CTRLDESCCURSOR4 REGISTER         **********/
-#define DCU_CTRLDESCCURSOR4_ADDR32(dcu_id)      (DCU_BASE_ADDR64[(dcu_id)] + DCU_CTRLDESCCURSOR4_OFFSET)
+#define DCU_CTRLDESCCURSOR4_ADDR32(dcu_id)      (DCU_BASE_ADDRESS[(dcu_id)] + DCU_CTRLDESCCURSOR4_OFFSET)
 
 /* Field definitions for CTRLDESCCURSOR4 */
 #define DCU_CTRLDESCCURSOR4_HWC_BLINK_OFF_SHIFT        (16)
@@ -1618,7 +1618,7 @@ typedef struct DCU_MemMap {
 
 
 /**********          DCU_MODE REGISTER         **********/
-#define DCU_MODE_ADDR32(dcu_id)         (DCU_BASE_ADDR64[(dcu_id)] + DCU_MODE_OFFSET)
+#define DCU_MODE_ADDR32(dcu_id)         (DCU_BASE_ADDRESS[(dcu_id)] + DCU_MODE_OFFSET)
 
 /* Field definitions for DCU_MODE */
 #define DCU_DCU_MODE_DCU_SW_RESET_SHIFT         (31)
@@ -1689,7 +1689,7 @@ typedef struct DCU_MemMap {
 
 
 /**********          DCU_BACKGROUND REGISTER         **********/
-#define DCU_BGND_ADDR32(dcu_id) (DCU_BASE_ADDR64[(dcu_id)] + DCU_BGND_OFFSET)
+#define DCU_BGND_ADDR32(dcu_id) (DCU_BASE_ADDRESS[(dcu_id)] + DCU_BGND_OFFSET)
 
 /* Field definitions for BGND */
 #define DCU_BGND_BGND_R_SHIFT               (16)
@@ -1703,7 +1703,7 @@ typedef struct DCU_MemMap {
 
 
 /**********          DCU_DISPLAY_SIZE REGISTER         **********/
-#define DCU_DISP_SIZE_ADDR32(dcu_id)  (DCU_BASE_ADDR64[(dcu_id)] + DCU_DISP_SIZE_OFFSET)
+#define DCU_DISP_SIZE_ADDR32(dcu_id)  (DCU_BASE_ADDRESS[(dcu_id)] + DCU_DISP_SIZE_OFFSET)
 
 /* Field definitions for DISP_SIZE */
 #define DCU_DISP_SIZE_DELTA_Y_SHIFT              (16)
@@ -1714,7 +1714,7 @@ typedef struct DCU_MemMap {
 
 
 /**********          HSYN_PARA REGISTER         **********/
-#define DCU_HSYN_PARA_ADDR32(dcu_id)  (DCU_BASE_ADDR64[(dcu_id)] + DCU_HSYN_PARA_OFFSET)
+#define DCU_HSYN_PARA_ADDR32(dcu_id)  (DCU_BASE_ADDRESS[(dcu_id)] + DCU_HSYN_PARA_OFFSET)
 
 /* Field definitions for HSYN_PARA */
 #define DCU_HSYN_PARA_BP_H_SHIFT                 (22)
@@ -1728,7 +1728,7 @@ typedef struct DCU_MemMap {
 
 
 /**********          VSYN_PARA REGISTER         **********/
-#define DCU_VSYN_PARA_ADDR32(dcu_id)  (DCU_BASE_ADDR64[(dcu_id)] + DCU_VSYN_PARA_OFFSET)
+#define DCU_VSYN_PARA_ADDR32(dcu_id)  (DCU_BASE_ADDRESS[(dcu_id)] + DCU_VSYN_PARA_OFFSET)
 
 /* Field definitions for VSYN_PARA */
 #define DCU_VSYN_PARA_BP_V_SHIFT                 (22)
@@ -1742,7 +1742,7 @@ typedef struct DCU_MemMap {
 
 
 /**********          VSYN_PARA REGISTER         **********/
-#define DCU_SYNPOL_ADDR32(dcu_id)       (DCU_BASE_ADDR64[(dcu_id)] + DCU_SYNPOL_OFFSET)
+#define DCU_SYNPOL_ADDR32(dcu_id)       (DCU_BASE_ADDRESS[(dcu_id)] + DCU_SYNPOL_OFFSET)
 
 /* Field definitions for SYNPOL */
 #if (IPV_DCU_HALO == IPV_DCU)
@@ -1778,7 +1778,7 @@ typedef struct DCU_MemMap {
 
 
 /************ INTERRUPT STATUS REGISTER ************/
-#define DCU_THRESHOLD_ADDR32(dcu_id)  (DCU_BASE_ADDR64[(dcu_id)] + DCU_THRESHOLD_OFFSET)
+#define DCU_THRESHOLD_ADDR32(dcu_id)  (DCU_BASE_ADDRESS[(dcu_id)] + DCU_THRESHOLD_OFFSET)
 
 /* Field definitions for THRESHOLD */
 #define DCU_THRESHOLD_LS_BF_VS_SHIFT             (16)
@@ -1792,7 +1792,7 @@ typedef struct DCU_MemMap {
 
 
 /************ INTERRUPT STATUS REGISTER ************/
-#define DCU_INT_STATUS_ADDR32(dcu_id)      (DCU_BASE_ADDR64[(dcu_id)] + DCU_INT_STATUS_OFFSET)
+#define DCU_INT_STATUS_ADDR32(dcu_id)      (DCU_BASE_ADDRESS[(dcu_id)] + DCU_INT_STATUS_OFFSET)
 
 /* Field definitions for INT_STATUS */
 #if (6 == DCU_LAYERS_BLEND_MAX)
@@ -1890,7 +1890,7 @@ typedef struct DCU_MemMap {
 
 
 /************ INTERRUPT MASK REGISTER ************/
-#define DCU_INT_MASK_ADDR32(dcu_id)       (DCU_BASE_ADDR64[(dcu_id)] + DCU_INT_MASK_OFFSET)
+#define DCU_INT_MASK_ADDR32(dcu_id)       (DCU_BASE_ADDRESS[(dcu_id)] + DCU_INT_MASK_OFFSET)
 
 /* Field definitions for INT_MASK */
 #if (6 == DCU_LAYERS_BLEND_MAX)
@@ -1990,14 +1990,14 @@ typedef struct DCU_MemMap {
 
 
 /************ COLBAR n REGISTER ************/
-#define DCU_COLBAR1_ADDR32(dcu_id)    (DCU_BASE_ADDR64[(dcu_id)] + DCU_COLBAR_1_OFFSET)
-#define DCU_COLBAR2_ADDR32(dcu_id)    (DCU_BASE_ADDR64[(dcu_id)] + DCU_COLBAR_2_OFFSET)
-#define DCU_COLBAR3_ADDR32(dcu_id)    (DCU_BASE_ADDR64[(dcu_id)] + DCU_COLBAR_3_OFFSET)
-#define DCU_COLBAR4_ADDR32(dcu_id)    (DCU_BASE_ADDR64[(dcu_id)] + DCU_COLBAR_4_OFFSET)
-#define DCU_COLBAR5_ADDR32(dcu_id)    (DCU_BASE_ADDR64[(dcu_id)] + DCU_COLBAR_5_OFFSET)
-#define DCU_COLBAR6_ADDR32(dcu_id)    (DCU_BASE_ADDR64[(dcu_id)] + DCU_COLBAR_6_OFFSET)
-#define DCU_COLBAR7_ADDR32(dcu_id)    (DCU_BASE_ADDR64[(dcu_id)] + DCU_COLBAR_7_OFFSET)
-#define DCU_COLBAR8_ADDR32(dcu_id)    (DCU_BASE_ADDR64[(dcu_id)] + DCU_COLBAR_8_OFFSET)
+#define DCU_COLBAR1_ADDR32(dcu_id)    (DCU_BASE_ADDRESS[(dcu_id)] + DCU_COLBAR_1_OFFSET)
+#define DCU_COLBAR2_ADDR32(dcu_id)    (DCU_BASE_ADDRESS[(dcu_id)] + DCU_COLBAR_2_OFFSET)
+#define DCU_COLBAR3_ADDR32(dcu_id)    (DCU_BASE_ADDRESS[(dcu_id)] + DCU_COLBAR_3_OFFSET)
+#define DCU_COLBAR4_ADDR32(dcu_id)    (DCU_BASE_ADDRESS[(dcu_id)] + DCU_COLBAR_4_OFFSET)
+#define DCU_COLBAR5_ADDR32(dcu_id)    (DCU_BASE_ADDRESS[(dcu_id)] + DCU_COLBAR_5_OFFSET)
+#define DCU_COLBAR6_ADDR32(dcu_id)    (DCU_BASE_ADDRESS[(dcu_id)] + DCU_COLBAR_6_OFFSET)
+#define DCU_COLBAR7_ADDR32(dcu_id)    (DCU_BASE_ADDRESS[(dcu_id)] + DCU_COLBAR_7_OFFSET)
+#define DCU_COLBAR8_ADDR32(dcu_id)    (DCU_BASE_ADDRESS[(dcu_id)] + DCU_COLBAR_8_OFFSET)
 
 /* Field definitions for COLBAR_n */
 #define DCU_COLBAR_n_R_SHIFT           (16)
@@ -2011,7 +2011,7 @@ typedef struct DCU_MemMap {
 
 
 /************ DIVISION RATIO REGISTER ************/
-#define DCU_DIV_RATIO_ADDR32(dcu_id)    (DCU_BASE_ADDR64[(dcu_id)] + DCU_DIV_RATIO_OFFSET)
+#define DCU_DIV_RATIO_ADDR32(dcu_id)    (DCU_BASE_ADDRESS[(dcu_id)] + DCU_DIV_RATIO_OFFSET)
 
 /* Field definitions for DIV_RATIO */
 #if (IPV_DCU_TREERUNNER == IPV_DCU)
@@ -2024,7 +2024,7 @@ typedef struct DCU_MemMap {
 
 #if (1 == DCU_SAFETY_FUNCTIONALITY)
 /************ SIGNED AREA SIZE REGISTER ************/
-#define DCU_SIGN_CALC1_ADDR32(dcu_id) (DCU_BASE_ADDR64[(dcu_id)] + DCU_SIGN_CALC1_OFFSET)
+#define DCU_SIGN_CALC1_ADDR32(dcu_id) (DCU_BASE_ADDRESS[(dcu_id)] + DCU_SIGN_CALC1_OFFSET)
 
 /* Field definitions for SIGN_CALC_1 */
 #define DCU_SIGN_CALC1_VER_SIZE_SHIFT            (16)
@@ -2035,7 +2035,7 @@ typedef struct DCU_MemMap {
 
 
 /************ SIGNED AREA POSITION REGISTER ************/
-#define DCU_SIGN_CALC2_ADDR32(dcu_id) (DCU_BASE_ADDR64[(dcu_id)] + DCU_SIGN_CALC2_OFFSET)
+#define DCU_SIGN_CALC2_ADDR32(dcu_id) (DCU_BASE_ADDRESS[(dcu_id)] + DCU_SIGN_CALC2_OFFSET)
 
 /* Field definitions for SIGN_CALC_2 */
 #define DCU_SIGN_CALC2_VERT_POS_SHIFT            (16)
@@ -2046,12 +2046,12 @@ typedef struct DCU_MemMap {
 
 
 /************ CRC VAL REGISTERS ************/
-#define DCU_CRC_VAL_ADDR32(dcu_id)    (DCU_BASE_ADDR64[(dcu_id)] + DCU_CRC_VAL_OFFSET)
+#define DCU_CRC_VAL_ADDR32(dcu_id)    (DCU_BASE_ADDRESS[(dcu_id)] + DCU_CRC_VAL_OFFSET)
 #endif
   
 #if (1 == DCU_PDI_FUNCTIONALITY)
 /************ PDI_STATUS REGISTERS ************/
-#define DCU_PDI_STATUS_ADDR32(dcu_id)	(DCU_BASE_ADDR64[(dcu_id)] + DCU_PDI_STATUS_OFFSET)
+#define DCU_PDI_STATUS_ADDR32(dcu_id)	(DCU_BASE_ADDRESS[(dcu_id)] + DCU_PDI_STATUS_OFFSET)
 
 /* Field definitions for PDI_STATUS */
 #define DCU_PDI_STATUS_PDI_BLANKING_ERR_SHIFT     (9)
@@ -2086,7 +2086,7 @@ typedef struct DCU_MemMap {
 
 
 /************ MASK_PDI_STATUS REGISTERS ************/
-#define DCU_MASK_PDI_STATUS_ADDR32(dcu_id)	(DCU_BASE_ADDR64[(dcu_id)] + DCU_MASK_PDI_STATUS_OFFSET)
+#define DCU_MASK_PDI_STATUS_ADDR32(dcu_id)	(DCU_BASE_ADDRESS[(dcu_id)] + DCU_MASK_PDI_STATUS_OFFSET)
 
 /* Field definitions for Mask_PDI_STATUS */
 #define DCU_MASK_PDI_STATUS_M_PDI_BLANKING_ERR_SHIFT   (9)
@@ -2122,7 +2122,7 @@ typedef struct DCU_MemMap {
 
 
 /************ HW ERROR INTERRUPTS STATUS REGISTER1 ************/
-#define DCU_HWERR_STATUS1_ADDR32(dcu_id)        (DCU_BASE_ADDR64[(dcu_id)] + DCU_PARR_ERR_STATUS1_OFFSET)
+#define DCU_HWERR_STATUS1_ADDR32(dcu_id)        (DCU_BASE_ADDRESS[(dcu_id)] + DCU_PARR_ERR_STATUS1_OFFSET)
 
 /* Field definitions for PARR_ERR_STATUS1 */
 #if (32 <= DCU_LAYERS_NUM_MAX)
@@ -2225,7 +2225,7 @@ typedef struct DCU_MemMap {
 
 #if (64 == DCU_LAYERS_NUM_MAX)
 /************ HW ERROR INTERRUPTS STATUS REGISTER2 ************/
-#define DCU_HWERR_STATUS2_ADDR32(dcu_id)        (DCU_BASE_ADDR64[(dcu_id)] + DCU_PARR_ERR_STATUS2_OFFSET)
+#define DCU_HWERR_STATUS2_ADDR32(dcu_id)        (DCU_BASE_ADDRESS[(dcu_id)] + DCU_PARR_ERR_STATUS2_OFFSET)
 
 /* Field definitions for PARR_ERR_STATUS2 */
 #define DCU_PARR_ERR_STATUS2_L63_SHIFT         (31)
@@ -2327,7 +2327,7 @@ typedef struct DCU_MemMap {
 
 
 /************ HW ERROR INTERRUPTS STATUS REGISTER3 ************/
-#define DCU_HWERR_STATUS3_ADDR32(dcu_id)        (DCU_BASE_ADDR64[(dcu_id)] + DCU_PARR_ERR_STATUS3_OFFSET)
+#define DCU_HWERR_STATUS3_ADDR32(dcu_id)        (DCU_BASE_ADDRESS[(dcu_id)] + DCU_PARR_ERR_STATUS3_OFFSET)
 #define DCU0_PARR_ERR_STATUS3                   (DCU0_BASE + DCU_PARR_ERR_STATUS3_OFFSET)
 #define DCU1_PARR_ERR_STATUS3                   (DCU1_BASE + DCU_PARR_ERR_STATUS3_OFFSET)
 
@@ -2348,7 +2348,7 @@ typedef struct DCU_MemMap {
 
 
 /************ HW ERROR INTERRUPTS MASK REGISTER1 ************/
-#define DCU_MASK_HWERR_INT1_ADDR32(dcu_id)      (DCU_BASE_ADDR64[(dcu_id)] + DCU_MASK_PARR_ERR_STATUS1_OFFSET)
+#define DCU_MASK_HWERR_INT1_ADDR32(dcu_id)      (DCU_BASE_ADDRESS[(dcu_id)] + DCU_MASK_PARR_ERR_STATUS1_OFFSET)
 
 /* Field definitions for MASK_PARR_ERR_STATUS1 */
 #if (32 <= DCU_LAYERS_NUM_MAX)
@@ -2451,7 +2451,7 @@ typedef struct DCU_MemMap {
 
 #if (64 == DCU_LAYERS_NUM_MAX)
 /************ HW ERROR INTERRUPTS MASK REGISTER2 ************/
-#define DCU_MASK_HWERR_INT2_ADDR32(dcu_id)      (DCU_BASE_ADDR64[(dcu_id)] + DCU_MASK_PARR_ERR_STATUS2_OFFSET)
+#define DCU_MASK_HWERR_INT2_ADDR32(dcu_id)      (DCU_BASE_ADDRESS[(dcu_id)] + DCU_MASK_PARR_ERR_STATUS2_OFFSET)
 
 /* Field definitions for MASK_PARR_ERR_STATUS2 */
 #define DCU_MASK_PARR_ERR_STATUS2_M_L63_SHIFT       (31)
@@ -2553,7 +2553,7 @@ typedef struct DCU_MemMap {
 
 
 /************ HW ERROR INTERRUPTS MASK REGISTER3 ************/
-#define DCU_MASK_HWERR_INT3_ADDR32(dcu_id)      (DCU_BASE_ADDR64[(dcu_id)] + DCU_MASK_PARR_ERR_STATUS3_OFFSET)
+#define DCU_MASK_HWERR_INT3_ADDR32(dcu_id)      (DCU_BASE_ADDRESS[(dcu_id)] + DCU_MASK_PARR_ERR_STATUS3_OFFSET)
 
 /* Field definitions for MASK_PARR_ERR_STATUS3 */
 #if (1 == DCU_RLE_FUNCTIONALITY)
@@ -2656,7 +2656,7 @@ typedef struct DCU_MemMap {
 
 /************ CRC_POS REGISTER ************/
 #if (1 == DCU_SAFETY_FUNCTIONALITY)
-#define DCU_CRC_POS_ADDR32(dcu)             (DCU_BASE_ADDR64[(dcu)] + DCU_CRC_POS_OFFSET)
+  #define DCU_CRC_POS_ADDR32(dcu)             (DCU_BASE_ADDRESS[(dcu)] + DCU_CRC_POS_OFFSET)
 #endif /*(DCU_SAFETY_FUNCTIONALITY)*/
 
 /* Field definitions for LYR_INTPOL_EN */
@@ -2701,7 +2701,7 @@ typedef struct DCU_MemMap {
 
 #if (IPV_DCU_VYBRID == IPV_DCU)
 /************ UPDATE MODE REGISTER ************/
-#define DCU_COMP_IMSIZE_ADDR32(dcu)         (DCU_BASE_ADDR64[(dcu)] + DCU_COMP_IMSIZE_OFFSET)
+#define DCU_COMP_IMSIZE_ADDR32(dcu)         (DCU_BASE_ADDRESS[(dcu)] + DCU_COMP_IMSIZE_OFFSET)
 
 /* Field definitions for COMP_IMSIZE */
 #define DCU_COMP_IMSIZE_SIZE_SHIFT                 (0)
@@ -2711,7 +2711,7 @@ typedef struct DCU_MemMap {
 
 
 /************ UPDATE MODE REGISTER ************/
-#define DCU_UPDATE_MODE_ADDR32(dcu)         (DCU_BASE_ADDR64[(dcu)] + DCU_UPDATE_MODE_OFFSET)
+#define DCU_UPDATE_MODE_ADDR32(dcu)         (DCU_BASE_ADDRESS[(dcu)] + DCU_UPDATE_MODE_OFFSET)
 
 /* Field definitions for UPDATE_MODE */
 #define DCU_UPDATE_MODE_MODE_SHIFT              (31)
@@ -2735,7 +2735,7 @@ typedef struct DCU_MemMap {
 
 #if (1 == DCU_WRITEBACK_FUNCTIONALITY)
 /************ WRITEBACK ADDR REGISTER ************/
-  #define DCU_WRITEBACK_ADDR_ADDR32(dcu)    (DCU_BASE_ADDR64[(uint8_t)(dcu)] + DCU_WRITEBACK_ADDR_OFFSET)
+  #define DCU_WRITEBACK_ADDR_ADDR32(dcu)    (DCU_BASE_ADDRESS[(uint8_t)(dcu)] + DCU_WRITEBACK_ADDR_OFFSET)
 
   /* Field definitions for WRITEBACK ADDR */
   #define DCU_WRITEBACK_ADDR_SHIFT              (0)
@@ -2743,7 +2743,7 @@ typedef struct DCU_MemMap {
 
 
 /************ WRITEBACK CTRL REGISTER ************/
-  #define DCU_WRITEBACK_CTRL_ADDR32(dcu)    (DCU_BASE_ADDR64[(uint8_t)(dcu)] + DCU_WRITEBACK_CTRL_OFFSET)
+  #define DCU_WRITEBACK_CTRL_ADDR32(dcu)    (DCU_BASE_ADDRESS[(uint8_t)(dcu)] + DCU_WRITEBACK_CTRL_OFFSET)
 
   /* Field definitions for WRITEBACK CTRL  */
   #define DCU_WRITEBACK_CTRL_WALPHA_SHIFT       (16)
@@ -2757,7 +2757,7 @@ typedef struct DCU_MemMap {
 
 
 /************ WRITEBACK STAT REGISTER ************/
-  #define DCU_WRITEBACK_STAT_ADDR32(dcu)    (DCU_BASE_ADDR64[(uint8_t)(dcu)] + DCU_WRITEBACK_STAT_OFFSET)
+  #define DCU_WRITEBACK_STAT_ADDR32(dcu)    (DCU_BASE_ADDRESS[(uint8_t)(dcu)] + DCU_WRITEBACK_STAT_OFFSET)
 
   /* Field definitions for WRITEBACK STAT */
   #define DCU_WRITEBACK_STAT_WUNDERRUN_SHIFT      (3)
@@ -2777,7 +2777,7 @@ typedef struct DCU_MemMap {
 
 #if (1 == DCU_SAFETY_FUNCTIONALITY)
 /************ FRAME CRC CONTROL REGISTER ************/
-  #define DCU_CRC_FRM_CTRL_ADDR32(dcu)    (DCU_BASE_ADDR64[(uint8_t)(dcu)] + DCU_CRC_FRM_CTRL_OFFSET)
+  #define DCU_CRC_FRM_CTRL_ADDR32(dcu)    (DCU_BASE_ADDRESS[(uint8_t)(dcu)] + DCU_CRC_FRM_CTRL_OFFSET)
 
   /* Field definitions for FRAME CRC CONTROL */
   #define DCU_CRC_FRMCTRL_EN_SHIFT                (0)
@@ -2785,7 +2785,7 @@ typedef struct DCU_MemMap {
 
 
 /************ FRAME CRC CONTROL REGISTER ************/
-  #define DCU_CRC_FRM_VAL_ADDR32(dcu)    (DCU_BASE_ADDR64[(uint8_t)(dcu)] + DCU_CRC_FRM_VAL_OFFSET)
+  #define DCU_CRC_FRM_VAL_ADDR32(dcu)    (DCU_BASE_ADDRESS[(uint8_t)(dcu)] + DCU_CRC_FRM_VAL_OFFSET)
 #endif /*(DCU_SAFETY_FUNCTIONALITY)*/
 
 
@@ -2795,7 +2795,7 @@ typedef struct DCU_MemMap {
 
 
 /************ LAYER0 SOFTLOCK REGISTER ************/
-#define DCU_SLR_L0_ADDR32(dcu)              (DCU_BASE_ADDR64[(dcu)] + DCU_SLR_L0_OFFSET)
+#define DCU_SLR_L0_ADDR32(dcu)              (DCU_BASE_ADDRESS[(dcu)] + DCU_SLR_L0_OFFSET)
 
 /* Field definitions for SLR_L0 */
 #if (IPV_DCU_VYBRID == IPV_DCU)
@@ -2815,7 +2815,7 @@ typedef struct DCU_MemMap {
 
 
 /************ LAYER1 SOFTLOCK REGISTER ************/
-#define DCU_SLR_L1_ADDR32(dcu)              (DCU_BASE_ADDR64[(dcu)] + DCU_SLR_L1_OFFSET)
+#define DCU_SLR_L1_ADDR32(dcu)              (DCU_BASE_ADDRESS[(dcu)] + DCU_SLR_L1_OFFSET)
 
 /* Field definitions for SLR_L1 */
 #if (IPV_DCU_VYBRID == IPV_DCU)
@@ -2835,7 +2835,7 @@ typedef struct DCU_MemMap {
 
 
 /********* DISPLAY SIZE SOFTLOCK REGISTER *********/
-#define DCU_SLR_DISP_SIZE_ADDR32(dcu)       (DCU_BASE_ADDR64[(dcu)] + DCU_SLR_DISP_SIZE_OFFSET)
+#define DCU_SLR_DISP_SIZE_ADDR32(dcu)       (DCU_BASE_ADDRESS[(dcu)] + DCU_SLR_DISP_SIZE_OFFSET)
 
 /* Field definitions for SLR_DISP_SIZE */
 #define DCU_SLR_DISP_SIZE_WREN_SHIFT            (31)
@@ -2846,7 +2846,7 @@ typedef struct DCU_MemMap {
 
 
 /******** HVSYNC PARAMETERS SOFTLOCK REGISTER ********/
-#define DCU_SLR_HVSYNC_PARA_ADDR32(dcu)     (DCU_BASE_ADDR64[(dcu)] + DCU_SLR_HVSYNC_PARA_OFFSET)
+#define DCU_SLR_HVSYNC_PARA_ADDR32(dcu)     (DCU_BASE_ADDRESS[(dcu)] + DCU_SLR_HVSYNC_PARA_OFFSET)
 
 /* Field definitions for SLR_HVSYNC_PARA */
 #define DCU_SLR_HVSYNC_PARA_WREN_SHIFT          (30)
@@ -2857,7 +2857,7 @@ typedef struct DCU_MemMap {
 
 
 /******** HVSYNC POLARITY SOFTLOCK REGISTER ********/
-#define DCU_SLR_HVSYNC_POL_ADDR32(dcu)      (DCU_BASE_ADDR64[(dcu)] + DCU_SLR_POL_OFFSET)
+#define DCU_SLR_HVSYNC_POL_ADDR32(dcu)      (DCU_BASE_ADDRESS[(dcu)] + DCU_SLR_POL_OFFSET)
 
 /* Field definitions for SLR_POL */
 #define DCU_SLR_POL_WREN_SHIFT                  (31)
@@ -2868,7 +2868,7 @@ typedef struct DCU_MemMap {
 
 
 /****** LAYER0 TRANSPARENCY SOFTLOCK REGISTER ******/
-#define DCU_SLR_L0_TRANSP_ADDR32(dcu)       (DCU_BASE_ADDR64[(dcu)] + DCU_SLR_L0TRANSP_OFFSET)
+#define DCU_SLR_L0_TRANSP_ADDR32(dcu)       (DCU_BASE_ADDRESS[(dcu)] + DCU_SLR_L0TRANSP_OFFSET)
 
 /* Field definitions for SLR_L0TRANSP */
 #define DCU_SLR_L0TRANSP_WREN_SHIFT             (30)
@@ -2879,7 +2879,7 @@ typedef struct DCU_MemMap {
 
 
 /****** LAYER1 TRANSPARENCY SOFTLOCK REGISTER ******/
-#define DCU_SLR_L1_TRANSP_ADDR32(dcu)       (DCU_BASE_ADDR64[(dcu)] + DCU_SLR_L1TRANSP_OFFSET)
+#define DCU_SLR_L1_TRANSP_ADDR32(dcu)       (DCU_BASE_ADDRESS[(dcu)] + DCU_SLR_L1TRANSP_OFFSET)
 
 /* Field definitions for SLR_L1TRANSP */
 #define DCU_SLR_L1TRANSP_WREN_SHIFT             (30)
@@ -2891,7 +2891,7 @@ typedef struct DCU_MemMap {
 
 #if (1 == DCU_HUD_FUNCTIONALITY)
 /************ HUD SOFTLOCK REGISTER ************/
-  #define DCU_SLR_HUD_ADDR32(dcu)           (DCU_BASE_ADDR64[(dcu)] + DCU_SLR_HUD_OFFSET)
+  #define DCU_SLR_HUD_ADDR32(dcu)           (DCU_BASE_ADDRESS[(dcu)] + DCU_SLR_HUD_OFFSET)
 
   /* Field definitions for SLR_HUD */
  #if (IPV_DCU_TREERUNNER == IPV_DCU)
@@ -2909,17 +2909,17 @@ typedef struct DCU_MemMap {
 
 
 /************ HUD WIDTH REGISTER ************/
-  #define DCU_HUD_WIDTH_ADDR32(dcu)         (DCU_BASE_ADDR64[(dcu)] + DCU_HUD_WIDTH_OFFSET)
+  #define DCU_HUD_WIDTH_ADDR32(dcu)         (DCU_BASE_ADDRESS[(dcu)] + DCU_HUD_WIDTH_OFFSET)
 
 /************ HUD HEIGTH REGISTER ************/
-  #define DCU_HUD_HEIGHT_ADDR32(dcu)        (DCU_BASE_ADDR64[(dcu)] + DCU_HUD_HEIGHT_OFFSET)
+  #define DCU_HUD_HEIGHT_ADDR32(dcu)        (DCU_BASE_ADDRESS[(dcu)] + DCU_HUD_HEIGHT_OFFSET)
 
   /* Field definitions for HUD_WIDTH & HUD_HEIGHT */
   #define DCU_HUD_SIZE_MASK                   	(0x07FF)
 
 
 /************ WARP DESCRIPTOR ADDRESS REGISTER ************/
-  #define DCU_WARP_DESC_ADDR_ADDR32(dcu)   (DCU_BASE_ADDR64[(dcu)] + DCU_WARP_DESC_ADDR_OFFSET)
+  #define DCU_WARP_DESC_ADDR_ADDR32(dcu)   (DCU_BASE_ADDRESS[(dcu)] + DCU_WARP_DESC_ADDR_OFFSET)
 
   /* Field definitions for WARP_DESC_ADDR */
   #define DCU_WARP_DESC_ADDR_SHIFT              (0)
@@ -2927,7 +2927,7 @@ typedef struct DCU_MemMap {
 
 
 /************ WARP INTERRUPT CONTROL REGISTER ************/
-  #define DCU_WARP_IRQ_CTRL_ADDR32(dcu)     (DCU_BASE_ADDR64[(dcu)] + DCU_WARP_IRQ_CTRL_OFFSET)
+  #define DCU_WARP_IRQ_CTRL_ADDR32(dcu)     (DCU_BASE_ADDRESS[(dcu)] + DCU_WARP_IRQ_CTRL_OFFSET)
 
   /* Field definitions for WARP_IRQ_CTRL */
   #define DCU_WARP_IRQCTRL_LDDONE_SHIFT         (15)
@@ -2941,7 +2941,7 @@ typedef struct DCU_MemMap {
 
   
 /************ WARP INTERRUPT STATUS REGISTER ************/
-  #define DCU_WARP_IRQ_STAT_ADDR32(dcu)     (DCU_BASE_ADDR64[(dcu)] + DCU_WARP_IRQ_STAT_OFFSET)
+  #define DCU_WARP_IRQ_STAT_ADDR32(dcu)     (DCU_BASE_ADDRESS[(dcu)] + DCU_WARP_IRQ_STAT_OFFSET)
 
   /* Field definitions for WARP_IRQ_STAT */
   #define DCU_WARP_IRQSTAT_LDDONE_SHIFT         (15)
@@ -2955,7 +2955,7 @@ typedef struct DCU_MemMap {
 
 
 /************ WARP CONTROL REGISTER ************/
-  #define DCU_WARP_CTRL_ADDR32(dcu)         (DCU_BASE_ADDR64[(dcu)] + DCU_WARP_CTRL_OFFSET)
+  #define DCU_WARP_CTRL_ADDR32(dcu)         (DCU_BASE_ADDRESS[(dcu)] + DCU_WARP_CTRL_OFFSET)
 
   /* Field definitions for WARP_CTRL */
   #define DCU_WARP_CTRL_LINESLB_SHIFT           (16)
@@ -2969,10 +2969,10 @@ typedef struct DCU_MemMap {
 
 
 /****** WARP HORIZONTAL OVERFLOW REGISTER ******/
-  #define DCU_WARP_XOVR_STAT_ADDR32(dcu)    (DCU_BASE_ADDR64[(dcu)] + DCU_WARP_XOVR_STAT_OFFSET)
+  #define DCU_WARP_XOVR_STAT_ADDR32(dcu)    (DCU_BASE_ADDRESS[(dcu)] + DCU_WARP_XOVR_STAT_OFFSET)
 
 /****** WARP VERTICAL OVERFLOW REGISTER ******/
-  #define DCU_WARP_YOVR_STAT_ADDR32(dcu)    (DCU_BASE_ADDR64[(dcu)] + DCU_WARP_YOVR_STAT_OFFSET)
+  #define DCU_WARP_YOVR_STAT_ADDR32(dcu)    (DCU_BASE_ADDRESS[(dcu)] + DCU_WARP_YOVR_STAT_OFFSET)
 
   /* Field definitions for WARP_XOVR and WARP_YOVR */
   #define DCU_WARP_OVR_PIXEL_SHIFT             (16)
@@ -2984,7 +2984,7 @@ typedef struct DCU_MemMap {
 
 
 /****** WARP DESCRIPTOR TABLE SIZE REGISTER ******/
-  #define DCU_WARP_DESC_TBSZ_ADDR32(dcu)    (DCU_BASE_ADDR64[(dcu)] + DCU_WARP_DESC_TBSZ_OFFSET)
+  #define DCU_WARP_DESC_TBSZ_ADDR32(dcu)    (DCU_BASE_ADDRESS[(dcu)] + DCU_WARP_DESC_TBSZ_OFFSET)
 
   /* Field definitions for WARP_YOVR */
   #define DCU_WARP_DESC_TBSZ_SHIFT              (0)
@@ -3002,7 +3002,7 @@ typedef struct DCU_MemMap {
 /***********************************************************************************/
 
 #define DCU_LAYER_BLOCK_OFFSET              (uint32_t)0x00000200
-#define DCU_LAYER_BASE_ADDR32(dcu, layer)   (DCU_BASE_ADDR64[(dcu)] + DCU_LAYER_BLOCK_OFFSET + (uint32_t)((layer)*0x40UL))
+#define DCU_LAYER_BASE_ADDR32(dcu, layer)   (DCU_BASE_ADDRESS[(dcu)] + DCU_LAYER_BLOCK_OFFSET + (uint32_t)((layer)*0x40UL))
 
 
 /************ LAYER CONTROL DESCRIPTOR 1 ************/
