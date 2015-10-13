@@ -187,6 +187,16 @@
 				pu-supply = <&pu_dummy>;
 			};
 
+			mipicsi0: mipicsi2@40030000{
+				compatible = "fsl,s32v234-mipicsi2";
+				reg = <0x0 0x40030000 0x0 0x1000>;
+				sensor = <0x0>; // nothing connected
+				clocks = <&clks S32V234_CLK_SYS6>;
+				clock-names = "mipicsi2";
+
+				status = "disabled";
+			};
+
 			fec: ethernet@40032000 {
 				compatible = "fsl,s32v234-fec";
 				reg = <0x0 0x40032000 0x0 0x1000>;
@@ -304,6 +314,16 @@
 			interrupt-parent = <&gic>;
 			reg = <0x0 0x40080000 0x0 0x70000>;
 			ranges;
+
+			mipicsi1: csi@400A0000{
+				compatible = "fsl,s32v234-mipicsi2";
+				reg = <0x0 0x400A0000 0x0 0x1000>;
+				sensor = <0x0>;   // nothing connected
+				clocks = <&clks S32V234_CLK_SYS6>;
+				clock-names = "mipicsi2";
+
+				status = "disabled";
+			};
 
 			i2c1: i2c@400b8000 {
 				#address-cells = <1>;
