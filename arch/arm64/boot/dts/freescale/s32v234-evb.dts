@@ -77,6 +77,11 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_i2c1>;
 	status = "okay";
+
+	hdmi: sii9022a@39 {
+		compatible = "fsl,sii902x";
+		reg = <0x39>;
+	};
 };
 
 &i2c2 {
