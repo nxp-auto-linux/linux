@@ -87,7 +87,11 @@ static uint16_t Display_SizeY[DCU_NUMBER];
 *                                       GLOBAL VARIABLES
 ==================================================================================================*/
 #if ( DRV_LINUX_OS == DCU_DRV_VARIANT )
-uint64_t* DCU_BASE_ADDR64;
+#ifdef ARCHITECTURE_64BITS
+uint64_t *DCU_BASE_ADDRESS;
+#else
+uint32_t *DCU_BASE_ADDRESS;
+#endif
 #endif /* DCU_DRV_VARIANT == DRV_LINUX_OS */
 
 /*==================================================================================================
@@ -241,8 +245,15 @@ void DCU_Disable(Dcu_Unit_t dcu_id)
 
 void DCU_SwReset(Dcu_Unit_t dcu_id)
 {
+	uint16_t i;
+
 	REG_BIT_SET32(DCU_MODE_ADDR32(dcu_id), DCU_DCU_MODE_DCU_SW_RESET_MASK);
-  REG_BIT_CLEAR32(DCU_MODE_ADDR32(dcu_id), DCU_DCU_MODE_DCU_SW_RESET_MASK);
+	for (i = 0xFFFF; i > 0;)
+		i--;
+
+	REG_BIT_CLEAR32(DCU_MODE_ADDR32(dcu_id), DCU_DCU_MODE_DCU_SW_RESET_MASK);
+	for (i = 0xFFFF; i > 0;)
+		i--;
 }
 
 
@@ -1075,10 +1086,12 @@ Dcu_Err_t DCU_SetLayerTile(Dcu_Unit_t dcu_id, Dcu_TileLayer_t layer_id, Dcu_Tile
 	Dcu_Err_t err = DCU_ERR_OK;
 
 	uint32_t tile_addr = pTileData->pTileData;
+
 #if (TILE_VAR_SIZE == DCU_TILE_MODE)
 	uint32_t hor_size = (pTileData->mWidth) >> 4;
 	uint32_t vert_size = pTileData->mHeight;
 #endif
+
 #if ((1 == DCU_IRQ_SUPPORT) && (1 == DCU_IRQ_STATEMACHINE))
 	if(DCU_PROG_END!=gDCU_DisplayIStatus[dcu_id])
 	{
@@ -1087,28 +1100,24 @@ Dcu_Err_t DCU_SetLayerTile(Dcu_Unit_t dcu_id, Dcu_TileLayer_t layer_id, Dcu_Tile
 #endif /* DCU_IRQ_SUPPORT && DCU_IRQ_STATEMACHINE */
 
 #if (TILE_VAR_SIZE == DCU_TILE_MODE)
-	if ((0x0800 > pTileData->mWidth) && (0x0800 > pTileData->mHeight))
-	{
+	if ((pTileData->mWidth < 0x0800) && (pTileData->mHeight < 0x0800)) {
 		/* Set the tile dimentions */
-    REG_RMW32(DCU_CTRLDESCL7_ADDR32(dcu_id,layer_id), DCU_CTRLDESCLn_7_TILE_HOR_SIZE_MASK, hor_size<<DCU_CTRLDESCLn_7_TILE_HOR_SIZE_SHIFT);
-    REG_RMW32(DCU_CTRLDESCL7_ADDR32(dcu_id,layer_id), DCU_CTRLDESCLn_7_TILE_VER_SIZE_MASK, vert_size<<DCU_CTRLDESCLn_7_TILE_VER_SIZE_SHIFT);
+		REG_RMW32(DCU_CTRLDESCL7_ADDR32(dcu_id, layer_id), DCU_CTRLDESCLn_7_TILE_HOR_SIZE_MASK, hor_size<<DCU_CTRLDESCLn_7_TILE_HOR_SIZE_SHIFT);
+		REG_RMW32(DCU_CTRLDESCL7_ADDR32(dcu_id, layer_id), DCU_CTRLDESCLn_7_TILE_VER_SIZE_MASK, vert_size<<DCU_CTRLDESCLn_7_TILE_VER_SIZE_SHIFT);
 
 		/* Check if bitmap address is in the system or in the CLUT memory*/
-		if ((tile_addr > (DCU_BASE_ADDR64[dcu_id] + DCU_CLUT_OFFSET)) &&
-        (tile_addr < (DCU_BASE_ADDR64[dcu_id] + DCU_CLUT_OFFSET + CLUT_SIZE)))
-		{
+		if ((tile_addr > (DCU_BASE_ADDRESS[dcu_id] + DCU_CLUT_OFFSET)) &&
+			(tile_addr < (DCU_BASE_ADDRESS[dcu_id] + DCU_CLUT_OFFSET + CLUT_SIZE)))
 			/* Set data select bit */
-      REG_BIT_SET32(DCU_CTRLDESCL4_ADDR32(dcu_id, layer_id), DCU_CTRLDESCLn_4_DATA_SEL_MASK);
-		}
+			REG_BIT_SET32(DCU_CTRLDESCL4_ADDR32(dcu_id, layer_id), DCU_CTRLDESCLn_4_DATA_SEL_MASK);
 		else
-		{
 			/* Set data select bit */
-      REG_BIT_CLEAR32(DCU_CTRLDESCL4_ADDR32(dcu_id, layer_id), DCU_CTRLDESCLn_4_DATA_SEL_MASK);
-		}
+			REG_BIT_CLEAR32(DCU_CTRLDESCL4_ADDR32(dcu_id, layer_id), DCU_CTRLDESCLn_4_DATA_SEL_MASK);
+	}
 #endif /* TILE_VAR_SIZE == DCU_TILE_MODE */
 
-		/* Set the tile bitmap address */
-		REG_WRITE32(DCU_CTRLDESCL3_ADDR32(dcu_id, layer_id), tile_addr);
+	/* Set the tile bitmap address */
+	REG_WRITE32(DCU_CTRLDESCL3_ADDR32(dcu_id, layer_id), tile_addr);
 
 		/* Enable/Disable the tile mode */
 		if (DCU_ENABLE == pTileData->TileEnable)
@@ -1243,7 +1252,7 @@ Dcu_Err_t DCU_CLUTSet(Dcu_Unit_t dcu_id, uint16_t aIndex, uint32_t aValue)
 	if (DCU_CLUT_MEMSIZE > aIndex)
 	{
 		/* Get address of CLUT */
-    vuint32_t* pCLUT = (vuint32_t*)REG_ADDR(DCU_BASE_ADDR64[dcu_id] + DCU_CLUT_OFFSET + mem_index);
+    vuint32_t *pCLUT = (vuint32_t *)REG_ADDR(DCU_BASE_ADDRESS[dcu_id] + DCU_CLUT_OFFSET + mem_index);
 		/* Set CLUT value */
 		*(pCLUT) = aValue;
 	}
@@ -1279,7 +1288,7 @@ Dcu_Err_t DCU_CLUTGet(Dcu_Unit_t dcu_id, uint16_t aIndex, uint32_t* apValue)
 	{
 		if (NULL_PTR != apValue)
 		{
-      vuint32_t* pCLUT = (vuint32_t*)REG_ADDR(DCU_BASE_ADDR64[dcu_id] + DCU_CLUT_OFFSET + mem_index);
+			vuint32_t *pCLUT = (vuint32_t *)REG_ADDR(DCU_BASE_ADDRESS[dcu_id] + DCU_CLUT_OFFSET + mem_index);
 			/* Get CLUT value */
 			*apValue = *(pCLUT);
 		}
@@ -1370,7 +1379,7 @@ Dcu_Err_t DCU_CursorLoad(Dcu_Unit_t dcu_id, uint16_t aCount, const uint32_t* apc
 {
 	Dcu_Err_t err = DCU_ERR_OK;
 	uint32_t i;
-  vuint32_t* pCursor = (vuint32_t*)REG_ADDR(DCU_BASE_ADDR64[dcu_id] + DCU_CURSOR_OFFSET);
+	vuint32_t *pCursor = (vuint32_t *)REG_ADDR(DCU_BASE_ADDRESS[dcu_id] + DCU_CURSOR_OFFSET);
 
 #if ((1 == DCU_IRQ_SUPPORT) && (1 == DCU_IRQ_STATEMACHINE))
 	if(DCU_VBLANK!=gDCU_DisplayIStatus[dcu_id])
