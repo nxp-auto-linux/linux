@@ -386,14 +386,14 @@
 			  0x82000000 0 0x72000000 0 0x72000000 0 0x00f00000>; /* non-prefetchable memory */
 		num-lanes = <1>;
 		bus-range = <0x0 0xff>;
-		interrupt-names = "msi";
 		interrupts = <0 105 4>;
+		interrupt-names = "msi";
 		#interrupt-cells = <1>;
 		interrupt-map-mask = <0 0 0 0x7>;
-		interrupt-map = <0 0 0 1 &gic 0 108 4>,
-						<0 0 0 2 &gic 0 107 4>,
-						<0 0 0 3 &gic 0 106 4>,
-						<0 0 0 4 &gic 0 105 4>;
+		interrupt-map = <0 0 0 1 &gic 0 105 4>,
+						<0 0 0 2 &gic 0 106 4>,
+						<0 0 0 3 &gic 0 107 4>,
+						<0 0 0 4 &gic 0 108 4>;
 		status = "disabled";
 	};
 };
