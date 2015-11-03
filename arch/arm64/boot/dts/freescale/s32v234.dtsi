@@ -16,6 +16,8 @@
 	#size-cells = <2>;
 
 	aliases {
+		can0 = &can0;
+		can1 = &can1;
 		serial0 = &uart0;
 		serial1 = &uart1;
 	};
@@ -268,6 +270,15 @@
 				status = "disabled";
 			};
 
+			can0: flexcan@40055000 {
+				compatible = "fsl,s32v234-flexcan";
+				reg = <0x0 0x40055000 0x0 0x4000>;
+				interrupts = <0 42 4>;
+				clocks = <&clks S32V234_CLK_CAN>,
+						<&clks S32V234_CLK_CAN>;
+						clock-names = "ipg", "per";
+			};
+
 			usdhc0: usdhc@4005D000 {
 				compatible = "fsl,s32v234-usdhc", "fsl,sac85r-usdhc";
 				reg = <0x0 0x4005D000 0x0 0x1000>;
@@ -364,6 +375,15 @@
 				clocks = <&clks S32V234_CLK_LIN>;
 				clock-names = "lin";
 				status = "disabled";
+			};
+
+			can1: flexcan@400be000 {
+				compatible = "fsl,s32v234-flexcan";
+				reg = <0x0 0x400be000 0x0 0x4000>;
+				interrupts = <0 44 4>;
+				clocks = <&clks S32V234_CLK_CAN>,
+					 <&clks S32V234_CLK_CAN>;
+				clock-names = "ipg", "per";
 			};
 
 			viulite1: viulite1@400D0000 {
