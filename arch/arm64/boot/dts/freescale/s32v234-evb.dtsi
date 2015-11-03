@@ -141,6 +141,20 @@
 				S32V234_PAD_PA11__UART0_RXD_IN
 			>;
 		};
+		pinctrl_can0: can0grp {
+			fsl,pins = <
+				S32V234_PAD_PA2__CAN_FD0_TXD
+				S32V234_PAD_PA3__CAN_FD0_RXD_OUT
+				S32V234_PAD_PA3__CAN_FD0_RXD_IN
+			>;
+		};
+		pinctrl_can1: can1grp {
+			fsl,pins = <
+				S32V234_PAD_PC10__CAN_FD1_TXD
+				S32V234_PAD_PC11__CAN_FD1_RXD_OUT
+				S32V234_PAD_PC11__CAN_FD1_RXD_IN
+			>;
+		};
 		pinctrl_i2c0: i2c0grp {
 			fsl,pins = <
 				S32V234_PAD_PG3__I2C0_DATA_OUT
@@ -237,7 +251,19 @@
 	status = "okay";
 };
 
+&can0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_can0>;
+	status = "okay";
+};
+
 &uart1 {
+	status = "okay";
+};
+
+&can1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_can1>;
 	status = "okay";
 };
 
