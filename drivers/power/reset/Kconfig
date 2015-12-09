@@ -244,6 +244,12 @@ config POWER_RESET_RMOBILE
 	help
 	  Reboot support for Renesas R-Mobile and SH-Mobile SoCs.
 
+config POWER_RESET_S32V
+	bool "Freescale/NXP S32V reset driver"
+	depends on ARCH_S32
+	help
+	  Reboot support for the Freescale/NXP S32V SoCs.
+
 config POWER_RESET_S32GEN1
 	bool "NXP S32GEN1 reset driver"
 	depends on ARCH_S32
