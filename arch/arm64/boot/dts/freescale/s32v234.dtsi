@@ -248,7 +248,8 @@
 			};
 
 			mc_me: mc_me@4004A000 {
-				compatible = "fsl,s32v234-mc_me";
+				compatible = "fsl,s32v234-mc_me",
+					     "fsl,s32v-reset";
 				reg = <0x0 0x4004A000 0x0 0x1000>;
 			};
 
