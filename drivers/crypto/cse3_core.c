@@ -2,7 +2,7 @@
 /*
  * Freescale Cryptographic Services Engine (CSE3) Device Driver
  *
- * Copyright (c) 2015 Freescale Semiconductor, Inc.
+ * Copyright (c) 2015-2016 Freescale Semiconductor, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 or
@@ -19,7 +19,6 @@
 #include <linux/fs.h>
 #include <linux/ioport.h>
 #include <linux/slab.h>
-#include <linux/dma-mapping.h>
 #include <linux/of.h>
 #include <linux/hw_random.h>
 #include <linux/io.h>
@@ -36,7 +35,6 @@
 #define CSE3_MINOR		0
 #define NUM_MINORS		1
 #define CSE3_NAME		"cse3"
-#define NBITS			8
 
 struct cse_device_data *cse_dev_ptr;
 
@@ -92,46 +90,14 @@ static inline void cse_print_err(struct cse_device_data *dev, uint32_t err_code)
  */
 static int cse_submit_request(cse_req_t *req)
 {
+	int ret;
 	struct cse_device_data *dev = req->ctx->dev;
-	struct cse_ldkey_request *key_req;
-	struct cse_crypt_request *crypt_req;
-	struct cse_cmac_request *cmac_req;
-	struct cse_mp_request *mp_req;
-	cse_desc_t *desc;
 
-	desc = dev->hw_desc;
-
-	if (req->flags & FLAG_LOAD_KEY) {
-		key_req = (struct cse_ldkey_request *)req;
-		memcpy(desc->m1, key_req->m1, M1_KEY_SIZE);
-		memcpy(desc->m2, key_req->m2, M2_KEY_SIZE);
-		memcpy(desc->m3, key_req->m3, M3_KEY_SIZE);
-
-	} else if (req->flags & (FLAG_ENC|FLAG_DEC)) {
-		crypt_req = (struct cse_crypt_request *)req;
-		memcpy(desc->aes_key, req->ctx->aes_key, AES_KEY_SIZE);
-		memcpy(desc->buffer_in, crypt_req->buffer_in,
-				crypt_req->len_in);
-		desc->len_in = crypt_req->len_in;
-		if (req->flags & FLAG_CBC)
-			memcpy(desc->aes_iv, req->ctx->aes_iv, AES_KEY_SIZE);
-
-	} else if (req->flags & (FLAG_GEN_MAC|FLAG_VER_MAC)) {
-		cmac_req = (struct cse_cmac_request *)req;
-		memcpy(desc->aes_key, req->ctx->aes_key, AES_KEY_SIZE);
-		memcpy(desc->buffer_in, cmac_req->buffer_in,
-				cmac_req->len_in);
-		desc->len_in = cmac_req->len_in*NBITS;
-		if (req->flags & FLAG_VER_MAC)
-			memcpy(desc->mac, cmac_req->buffer_out, AES_MAC_SIZE);
-
-	} else if (req->flags & FLAG_MP_COMP) {
-		mp_req = (struct cse_mp_request *)req;
-		memcpy(desc->buffer_in, mp_req->buffer_in, mp_req->len_in);
-		desc->len_in = mp_req->len_in*NBITS;
-
-	} else if (req->flags & FLAG_LOAD_PLKEY) {
-		memcpy(desc->aes_key, req->ctx->aes_key, AES_KEY_SIZE);
+	/* Copy input from initial request to device driver */
+	if (req->copy_input) {
+		ret = req->copy_input(dev, req);
+		if (ret)
+			return ret;
 	}
 
 	/* Wait for memory consistency before sending request */
@@ -149,7 +115,6 @@ int cse_handle_request(struct cse_device_data *dev, cse_req_t *req)
 {
 	int status = 0, ret = 0;
 	cse_req_t *nextReq;
-	struct crypto_async_request reqbase;
 
 	spin_lock_bh(&dev->lock);
 	/* Enqueue current request */
@@ -180,19 +145,8 @@ int cse_handle_request(struct cse_device_data *dev, cse_req_t *req)
 	status = cse_submit_request(nextReq);
 	if (status) {
 		nextReq->error = status;
-		if (nextReq->flags & FLAG_CRYPTO_REQ) {
-			/* Crypto API request failure */
-			if (nextReq->flags & FLAG_GEN_MAC)
-				reqbase = ((struct ahash_request *)
-						nextReq->extra)->base;
-			else
-				reqbase = ((struct skcipher_request *)
-						nextReq->extra)->base;
-			reqbase.complete(&reqbase, nextReq->error);
-		} else {
-			/* Standard request failure */
-			complete(&nextReq->complete);
-		}
+		/* Call completion handler */
+		nextReq->comp(dev, nextReq);
 	}
 
 	return ret;
@@ -236,11 +190,34 @@ static int cse_cdev_release(struct inode *inode, struct file *file)
  */
 void cse_finish_req(struct cse_device_data *dev, cse_req_t *req)
 {
-	/* TODO: depending on source, can use
-	 * hw_desc directly for output
-	 */
+	size_t nbytes;
+
 	if (IS_SUBMITTED(req->state) || IS_DONE(req->state)) {
+		/* CMAC uses length in bits, convert back to bytes */
+		if (req->flags & (FLAG_GEN_MAC|FLAG_VER_MAC))
+			nbytes = dev->hw_desc->len_in*NBITS;
+		else
+			nbytes = dev->hw_desc->len_in;
+
+		/* Clean HW/Driver data */
+		if (dev->buffer_in) {
+			dma_unmap_single(dev->device, dev->buffer_in_phys,
+					nbytes, DMA_TO_DEVICE);
+			free_pages((unsigned long)dev->buffer_in,
+					get_order(nbytes));
+		}
+		if (dev->buffer_out) {
+			dma_unmap_single(dev->device, dev->buffer_out_phys,
+					nbytes, DMA_FROM_DEVICE);
+			free_pages((unsigned long)dev->buffer_out,
+					get_order(nbytes));
+		}
 		memset(dev->hw_desc, 0, sizeof(cse_desc_t));
+		dev->buffer_in = dev->buffer_out = NULL;
+
+		/* Free request */
+		if (dev->req->free_extra)
+			dev->req->free_extra(dev->req);
 		kfree(dev->req);
 		dev->req = NULL;
 
@@ -252,6 +229,8 @@ void cse_finish_req(struct cse_device_data *dev, cse_req_t *req)
 		cse_handle_request(dev, NULL);
 
 	} else { /* failed before submission e.g. -EBUSY, -EINTR */
+		if (dev->req->free_extra)
+			dev->req->free_extra(dev->req);
 		kfree(req);
 	}
 }
@@ -341,20 +320,12 @@ static long cse_cdev_ioctl(struct file *file, unsigned int cmd,
 
 /**
  * Tasklet job scheduled from irq
- * TODO: different done task based on source of request?
  */
 static void cse_done_task(unsigned long data)
 {
 	uint8_t state;
-	struct crypto_async_request base_req;
-	struct skcipher_request *cipher_req;
-	struct ahash_request *hash_req;
-	struct cse_crypt_request *crypt_req;
-	struct cse_cmac_request *cmac_req;
-	struct cse_mp_request *mp_req;
-	struct cse_rval_request *rval_req;
+	int ret;
 	struct cse_device_data *dev = (struct cse_device_data *)data;
-	cse_desc_t *desc = dev->hw_desc;
 
 	if (dev->req->error)
 		goto compl;
@@ -362,31 +333,16 @@ static void cse_done_task(unsigned long data)
 	/** Continue multi-phase request */
 	if (dev->req->phase) {
 		dev->req->phase--;
-		cse_hw_comm(dev, dev->req->flags, dev->req->phase);
+		ret = cse_hw_comm(dev, dev->req->flags, dev->req->phase);
+		if (ret) {
+			dev->req->error = ret;
+			goto compl;
+		}
 		return;
 	}
 
-	/** Copy result */
-	if (dev->req->flags & (FLAG_ENC|FLAG_DEC)) {
-		crypt_req = (struct cse_crypt_request *)dev->req;
-		memcpy(crypt_req->buffer_out, desc->buffer_out,
-				crypt_req->len_out);
-
-	} else if (dev->req->flags & (FLAG_GEN_MAC|FLAG_VER_MAC)) {
-		cmac_req = (struct cse_cmac_request *)dev->req;
-		if (dev->req->flags & FLAG_GEN_MAC)
-			memcpy(cmac_req->buffer_out, desc->mac, AES_MAC_SIZE);
-		else
-			cmac_req->status = readl(&dev->base->cse_param[4]);
-
-	} else if (dev->req->flags & FLAG_MP_COMP) {
-		mp_req = (struct cse_mp_request *)dev->req;
-		memcpy(mp_req->buffer_out, desc->mp, MP_COMP_SIZE);
-
-	} else if (dev->req->flags & FLAG_RND) {
-		rval_req = (struct cse_rval_request *)dev->req;
-		memcpy(rval_req->rval, desc->rval, RND_VAL_SIZE);
-	}
+	/** Copy result from the device driver to initial request */
+	dev->req->copy_output(dev, dev->req);
 
 compl:
 	spin_lock(&dev->lock);
@@ -397,27 +353,8 @@ compl:
 	if (IS_CANCELED(state)) {
 		cse_finish_req(dev, dev->req);
 	} else {
-		if (dev->req->flags & FLAG_CRYPTO_REQ) {
-			if (dev->req->flags & FLAG_GEN_MAC) {
-				hash_req = (struct ahash_request *)
-						dev->req->extra;
-				memcpy(hash_req->result, desc->mac,
-						AES_MAC_SIZE);
-				base_req = hash_req->base;
-			} else {
-				cipher_req = (struct skcipher_request *)
-						dev->req->extra;
-				sg_copy_from_buffer(cipher_req->dst,
-						sg_nents(cipher_req->dst),
-						desc->buffer_out, desc->len_in);
-				base_req = cipher_req->base;
-			}
-			base_req.complete(&base_req, dev->req->error);
-			cse_finish_req(dev, dev->req);
-
-		} else { /* Standard request */
-			complete(&dev->req->complete);
-		}
+		/* Call completion handler */
+		dev->req->comp(dev, dev->req);
 	}
 }
 
@@ -448,6 +385,30 @@ irqreturn_t cse_irq_handler(int irq_no, void *dev_id)
 }
 
 #ifdef CONFIG_CRYPTO_DEV_FSL_CSE3_HWRNG
+
+static int cse_rng_copy_output(struct cse_device_data *dev,
+			       struct cse_request *req)
+{
+	struct cse_rval_request *rval_req = (struct cse_rval_request *)dev->req;
+	cse_desc_t *desc = dev->hw_desc;
+
+	memcpy(rval_req->rval, desc->rval, RND_VAL_SIZE);
+
+	return 0;
+}
+
+static void cse_rng_complete(struct cse_device_data *dev,
+			     struct cse_request *req)
+{
+	complete(&req->complete);
+}
+
+static void init_ops(struct cse_request *req)
+{
+	req->copy_output = cse_rng_copy_output;
+	req->comp = cse_rng_complete;
+}
+
 static int cse_rng_read(struct hwrng *rng, void *data, size_t max, bool wait)
 {
 	int size = 0;
@@ -472,6 +433,7 @@ static int cse_rng_read(struct hwrng *rng, void *data, size_t max, bool wait)
 	new_req->base.ctx = ctx;
 	new_req->base.phase = 0;
 	new_req->base.flags = FLAG_RND;
+	init_ops(&new_req->base);
 	init_completion(&new_req->base.complete);
 
 	if (!cse_handle_request(ctx->dev, (cse_req_t *)new_req)) {
@@ -535,8 +497,8 @@ static const struct skcipher_alg aes_algs[] = {
 		.setkey         = capi_aes_setkey,
 		.encrypt        = capi_aes_ecb_encrypt,
 		.decrypt        = capi_aes_ecb_decrypt,
-		.init		= capi_aes_cra_init,
-		.exit		= capi_aes_cra_exit,
+		.init		= capi_cra_init,
+		.exit		= capi_cra_exit,
 	},
 	{
 		.base = {
@@ -555,15 +517,16 @@ static const struct skcipher_alg aes_algs[] = {
 		.setkey         = capi_aes_setkey,
 		.encrypt        = capi_aes_cbc_encrypt,
 		.decrypt        = capi_aes_cbc_decrypt,
-		.init		= capi_aes_cra_init,
-		.exit		= capi_aes_cra_exit,
+		.init		= capi_cra_init,
+		.exit		= capi_cra_exit,
 	},
 };
 
 static struct ahash_alg hash_algs[] = {
 	{
 		.init = capi_cmac_init,
-		/* .update = capi_cmac_update,
+		/* TODO: implement update
+		 * .update = capi_cmac_update,
 		 * .final = capi_cmac_final,
 		 */
 		.finup = capi_cmac_finup,
@@ -576,7 +539,6 @@ static struct ahash_alg hash_algs[] = {
 			.cra_flags = (CRYPTO_ALG_TYPE_AHASH | CRYPTO_ALG_ASYNC),
 			.cra_blocksize = AES_BLOCK_SIZE,
 			.cra_ctxsize = sizeof(cse_ctx_t),
-			.cra_init = capi_cmac_cra_init,
 			.cra_module = THIS_MODULE,
 		}
 	}
@@ -640,13 +602,13 @@ static int cse_probe(struct platform_device *pdev)
 	}
 
 	cse_dev->hw_desc = dma_alloc_coherent(cse_dev->device,
-			sizeof(cse_desc_t),
-			&cse_dev->hw_desc_phys, GFP_KERNEL);
+			sizeof(cse_desc_t), &cse_dev->hw_desc_phys, GFP_KERNEL);
 	if (!cse_dev->hw_desc) {
 		dev_err(cse_dev->device, "unable to alloc memory for request context.\n");
 		err = -ENOMEM;
 		goto out_io;
 	}
+	cse_dev->buffer_in = cse_dev->buffer_out = NULL;
 
 	/** Enable interrupts */
 	writel(CSE_IR_CIF, &cse_dev->base->cse_ir);
