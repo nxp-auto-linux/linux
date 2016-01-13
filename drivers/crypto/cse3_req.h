@@ -3,7 +3,7 @@
  * Freescale Cryptographic Services Engine (CSE3) Device Driver
  * CSE3 Requests Interface
  *
- * Copyright (c) 2015 Freescale Semiconductor, Inc.
+ * Copyright (c) 2015-2016 Freescale Semiconductor, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 or
@@ -28,8 +28,8 @@
  */
 struct cse_crypt_request {
 	cse_req_t	base;
-	uint8_t		buffer_in[BUFFER_SIZE];
-	uint8_t		buffer_out[BUFFER_SIZE];
+	uint8_t		*buffer_in;
+	uint8_t		*buffer_out;
 	uint32_t	len_in;
 	uint32_t	len_out;
 };
@@ -39,7 +39,7 @@ struct cse_crypt_request {
  */
 struct cse_mp_request {
 	cse_req_t	base;
-	uint8_t		buffer_in[BUFFER_SIZE];
+	uint8_t		*buffer_in;
 	uint8_t		buffer_out[MP_COMP_SIZE];
 	uint32_t	len_in;
 };
@@ -57,7 +57,7 @@ struct cse_rval_request {
  */
 struct cse_cmac_request {
 	cse_req_t	base;
-	uint8_t		buffer_in[BUFFER_SIZE];
+	uint8_t		*buffer_in;
 	uint8_t		buffer_out[AES_MAC_SIZE];
 	uint32_t	len_in;
 	uint32_t	status;

@@ -2,7 +2,7 @@
 /*
  * Freescale Cryptographic Services Engine (CSE3) Device Driver
  *
- * Copyright (c) 2015 Freescale Semiconductor, Inc.
+ * Copyright (c) 2015-2016 Freescale Semiconductor, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 or
@@ -27,7 +27,10 @@
 #include <linux/semaphore.h>
 #include <linux/slab.h>
 #include <linux/platform_device.h>
+#include <linux/dma-mapping.h>
+#include <linux/dma-direction.h>
 
+#define NBITS			8
 #define MAX_ACCESS      10
 #define AES_KEY_SIZE    16
 #define RND_VAL_SIZE    16
@@ -76,13 +79,9 @@ typedef struct cse_req_ctx {
 } cse_ctx_t;
 
 /**
- * Hardware context - physically contiguous, could be replaced with DMA desc
- * TODO: allocate the large buffers separately
+ * HW context - must be allocated as non-cacheable and physically contiguous
  */
-
 typedef struct cse_descriptor {
-	uint8_t buffer_in[BUFFER_SIZE];
-	uint8_t buffer_out[BUFFER_SIZE];
 	uint8_t aes_key[AES_KEY_SIZE];
 	uint8_t aes_iv[AES_KEY_SIZE];
 	uint8_t rval[RND_VAL_SIZE];
@@ -109,6 +108,15 @@ typedef struct cse_request {
 	int					key_id;
 	int					phase;
 	int					error;
+
+	/* Copy result from the device driver to initial request */
+	int (*copy_output)(struct cse_device_data *dev, struct cse_request *re);
+	/* Copy input from the request to the device driver */
+	int (*copy_input)(struct cse_device_data *dev, struct cse_request *re);
+	/* Notify requester when the result is ready in the initial request */
+	void (*comp)(struct cse_device_data *dev, struct cse_request *re);
+	void (*free_extra)(struct cse_request *re);
+	/* Extra information about the request source (ioctl or crypto api) */
 	void				*extra;
 } cse_req_t;
 
@@ -131,8 +139,11 @@ struct cse_device_data {
 	/* Current request info */
 	cse_desc_t                  *hw_desc;
 	dma_addr_t                  hw_desc_phys;
+	void                        *buffer_in;
+	dma_addr_t                  buffer_in_phys;
+	void                        *buffer_out;
+	dma_addr_t                  buffer_out_phys;
 	cse_req_t                   *req;
-	/* TODO: in/out dynamic desc */
 
 	struct cse_queue            queue;
 	/* Queue, tasklets, lock */
@@ -221,6 +232,32 @@ static inline void set_canceled(uint8_t *state)
 #define CSE_KEYID_RAM	0xE
 #define UNDEFINED		-1
 
+static inline int allocate_buffer(struct device *dev, void **buf,
+				  dma_addr_t *hw_buf, size_t size,
+				  enum dma_data_direction dir)
+{
+	int pages;
+
+	if (size == 0)
+		return 0;
+	pages = get_order(size);
+
+	*buf = (void *)__get_free_pages(GFP_ATOMIC, pages);
+	if (!*buf) {
+		dev_err(dev, "get_free_pages: failed to allocate\n");
+		return -ENOMEM;
+	}
+
+	*hw_buf = dma_map_single(dev, *buf, size, dir);
+	if (dma_mapping_error(dev, *hw_buf)) {
+		dev_err(dev, "dma mapping error\n");
+		free_pages((unsigned long)*buf, pages);
+		*buf = NULL;
+		return -ENOMEM;
+	}
+
+	return 0;
+}
 
 int cse_handle_request(struct cse_device_data *dev, cse_req_t *req);
 void cse_cancel_request(cse_req_t *req);
