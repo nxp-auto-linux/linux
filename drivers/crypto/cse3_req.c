@@ -2,7 +2,7 @@
 /*
  * Freescale Cryptographic Services Engine (CSE3) Device Driver
  *
- * Copyright (c) 2015 Freescale Semiconductor, Inc.
+ * Copyright (c) 2015-2016 Freescale Semiconductor, Inc.
  * CSE3 Ioctl/User space Interface
  *
  * This program is free software; you can redistribute it and/or modify
@@ -18,6 +18,141 @@
 #include "cse3.h"
 #include "cse3_req.h"
 
+static int cse_ioctl_copy_output(struct cse_device_data *dev,
+				 struct cse_request *req)
+{
+	struct cse_crypt_request *crypt_req;
+	struct cse_cmac_request *cmac_req;
+	struct cse_mp_request *mp_req;
+	struct cse_rval_request *rval_req;
+	cse_desc_t *desc = dev->hw_desc;
+
+	if (dev->req->flags & (FLAG_ENC|FLAG_DEC)) {
+		crypt_req = (struct cse_crypt_request *)dev->req;
+		dma_sync_single_for_cpu(dev->device, dev->buffer_out_phys,
+				crypt_req->len_out, DMA_FROM_DEVICE);
+		memcpy(crypt_req->buffer_out, dev->buffer_out,
+				crypt_req->len_out);
+
+	} else if (dev->req->flags & (FLAG_GEN_MAC|FLAG_VER_MAC)) {
+		cmac_req = (struct cse_cmac_request *)dev->req;
+		if (dev->req->flags & FLAG_GEN_MAC)
+			memcpy(cmac_req->buffer_out, desc->mac, AES_MAC_SIZE);
+		else
+			cmac_req->status = readl(&dev->base->cse_param[4]);
+
+	} else if (dev->req->flags & FLAG_MP_COMP) {
+		mp_req = (struct cse_mp_request *)dev->req;
+		memcpy(mp_req->buffer_out, desc->mp, MP_COMP_SIZE);
+
+	} else if (dev->req->flags & FLAG_RND) {
+		rval_req = (struct cse_rval_request *)dev->req;
+		memcpy(rval_req->rval, desc->rval, RND_VAL_SIZE);
+	}
+
+	return 0;
+}
+
+static int cse_ioctl_copy_input(struct cse_device_data *dev,
+				struct cse_request *req)
+{
+	struct cse_crypt_request *crypt_req;
+	struct cse_cmac_request *cmac_req;
+	struct cse_mp_request *mp_req;
+	struct cse_ldkey_request *key_req;
+	cse_desc_t *desc = dev->hw_desc;
+
+	if (req->flags & FLAG_LOAD_KEY) {
+		key_req = (struct cse_ldkey_request *)req;
+		memcpy(desc->m1, key_req->m1, M1_KEY_SIZE);
+		memcpy(desc->m2, key_req->m2, M2_KEY_SIZE);
+		memcpy(desc->m3, key_req->m3, M3_KEY_SIZE);
+
+	} else if (req->flags & (FLAG_ENC|FLAG_DEC)) {
+		crypt_req = (struct cse_crypt_request *)req;
+		if (allocate_buffer(dev->device, &dev->buffer_in,
+				&dev->buffer_in_phys,
+				crypt_req->len_in, DMA_TO_DEVICE))
+			return -ENOMEM;
+		if (allocate_buffer(dev->device, &dev->buffer_out,
+				&dev->buffer_out_phys,
+				crypt_req->len_in, DMA_FROM_DEVICE))
+			return -ENOMEM;
+
+		memcpy(desc->aes_key, req->ctx->aes_key, AES_KEY_SIZE);
+		memcpy(dev->buffer_in, crypt_req->buffer_in,
+				crypt_req->len_in);
+		desc->len_in = crypt_req->len_in;
+		if (req->flags & FLAG_CBC)
+			memcpy(desc->aes_iv, req->ctx->aes_iv, AES_KEY_SIZE);
+
+		dma_sync_single_for_device(dev->device, dev->buffer_in_phys,
+				crypt_req->len_in, DMA_TO_DEVICE);
+	} else if (req->flags & (FLAG_GEN_MAC|FLAG_VER_MAC)) {
+		cmac_req = (struct cse_cmac_request *)req;
+		if (allocate_buffer(dev->device, &dev->buffer_in,
+				&dev->buffer_in_phys,
+				cmac_req->len_in, DMA_TO_DEVICE))
+			return -ENOMEM;
+
+		memcpy(desc->aes_key, req->ctx->aes_key, AES_KEY_SIZE);
+		if (cmac_req->len_in) {
+			memcpy(dev->buffer_in, cmac_req->buffer_in,
+					cmac_req->len_in);
+			dma_sync_single_for_device(dev->device,
+					dev->buffer_in_phys,
+					cmac_req->len_in, DMA_TO_DEVICE);
+		}
+		desc->len_in = cmac_req->len_in*NBITS;
+
+		if (req->flags & FLAG_VER_MAC)
+			memcpy(desc->mac, cmac_req->buffer_out, AES_MAC_SIZE);
+
+	} else if (req->flags & FLAG_MP_COMP) {
+		mp_req = (struct cse_mp_request *)req;
+		if (allocate_buffer(dev->device, &dev->buffer_in,
+				&dev->buffer_in_phys,
+				mp_req->len_in, DMA_TO_DEVICE))
+			return -ENOMEM;
+
+		memcpy(dev->buffer_in, mp_req->buffer_in, mp_req->len_in);
+		desc->len_in = mp_req->len_in*NBITS;
+
+		dma_sync_single_for_device(dev->device, dev->buffer_in_phys,
+				mp_req->len_in, DMA_TO_DEVICE);
+	} else if (req->flags & FLAG_LOAD_PLKEY) {
+		memcpy(desc->aes_key, req->ctx->aes_key, AES_KEY_SIZE);
+	}
+
+	return 0;
+}
+
+static void cse_ioctl_complete(struct cse_device_data *dev,
+			       struct cse_request *req)
+{
+	complete(&req->complete);
+}
+
+static void cse_ioctl_free_extra(struct cse_request *req)
+{
+	if (req->flags & (FLAG_ENC|FLAG_DEC)) {
+		kfree(((struct cse_crypt_request *)req)->buffer_in);
+		kfree(((struct cse_crypt_request *)req)->buffer_out);
+	} else if (req->flags & FLAG_MP_COMP) {
+		kfree(((struct cse_mp_request *)req)->buffer_in);
+	} else if (req->flags & (FLAG_GEN_MAC|FLAG_VER_MAC)) {
+		kfree(((struct cse_cmac_request *)req)->buffer_in);
+	}
+}
+
+static void init_ops(struct cse_request *req)
+{
+	req->copy_output = cse_ioctl_copy_output;
+	req->copy_input = cse_ioctl_copy_input;
+	req->comp = cse_ioctl_complete;
+	req->free_extra = cse_ioctl_free_extra;
+}
+
 int cse_ioctl_rnd(cse_ctx_t *ctx, unsigned int cmd, unsigned long arg)
 {
 	int ret = 0;
@@ -31,6 +166,7 @@ int cse_ioctl_rnd(cse_ctx_t *ctx, unsigned int cmd, unsigned long arg)
 	new_req->base.ctx = ctx;
 	new_req->base.phase = 0;
 	new_req->base.flags = FLAG_RND;
+	init_ops(&new_req->base);
 	init_completion(&new_req->base.complete);
 	ret = cse_handle_request(ctx->dev, (cse_req_t *)new_req);
 
@@ -68,6 +204,7 @@ int cse_ioctl_load_plkey(cse_ctx_t *ctx, unsigned int cmd, unsigned long arg)
 	new_req->ctx = ctx;
 	new_req->phase = 0;
 	new_req->flags = FLAG_LOAD_PLKEY;
+	init_ops(new_req);
 	init_completion(&new_req->complete);
 	ret = cse_handle_request(ctx->dev, new_req);
 
@@ -118,6 +255,7 @@ int cse_ioctl_load_key(cse_ctx_t *ctx, unsigned int cmd, unsigned long arg)
 		return -EFAULT;
 	}
 
+	init_ops(&new_req->base);
 	init_completion(&new_req->base.complete);
 	ret = cse_handle_request(ctx->dev, (cse_req_t *)new_req);
 
@@ -150,6 +288,12 @@ int cse_ioctl_comp(cse_ctx_t *ctx, unsigned int cmd, unsigned long arg)
 		dev_err(cse_dev_ptr->device, "failed to alloc mem for compression.\n");
 		return -ENOMEM;
 	}
+	new_req->buffer_in = kzalloc(comp.len, GFP_KERNEL);
+	if (!new_req->buffer_in) {
+		dev_err(cse_dev_ptr->device, "failed to alloc compression buffer.\n");
+		kfree(new_req);
+		return -ENOMEM;
+	}
 	new_req->base.ctx = ctx;
 	new_req->base.phase = 0;
 	new_req->base.flags = FLAG_MP_COMP;
@@ -158,9 +302,11 @@ int cse_ioctl_comp(cse_ctx_t *ctx, unsigned int cmd, unsigned long arg)
 	/* Copy input text and send command to the device */
 	if (copy_from_user(new_req->buffer_in,
 			(uint8_t __user *)comp.addr_in, new_req->len_in)) {
+		kfree(new_req->buffer_in);
 		kfree(new_req);
 		return -EFAULT;
 	}
+	init_ops(&new_req->base);
 	init_completion(&new_req->base.complete);
 	ret = cse_handle_request(ctx->dev, (cse_req_t *)new_req);
 
@@ -201,8 +347,16 @@ int cse_ioctl_cmac(cse_ctx_t *ctx, unsigned int cmd, unsigned long arg,
 		return -EINVAL;
 
 	new_req = kzalloc(sizeof(*new_req), GFP_KERNEL);
-	if (!new_req)
+	if (!new_req) {
 		dev_err(cse_dev_ptr->device, "failed to alloc mem for cmac request.\n");
+		return -ENOMEM;
+	}
+	new_req->buffer_in = kzalloc(cmac.len, GFP_KERNEL);
+	if (!new_req->buffer_in) {
+		dev_err(cse_dev_ptr->device, "failed to alloc mem for cmac buffer.\n");
+		kfree(new_req);
+		return -ENOMEM;
+	}
 	new_req->base.ctx = ctx;
 	new_req->len_in = cmac.len;
 
@@ -228,6 +382,7 @@ int cse_ioctl_cmac(cse_ctx_t *ctx, unsigned int cmd, unsigned long arg,
 	/* Copy input text and send command to the device */
 	if (copy_from_user(new_req->buffer_in,
 			(uint8_t __user *)cmac.addr_in, new_req->len_in)) {
+		kfree(new_req->buffer_in);
 		kfree(new_req);
 		return -EFAULT;
 	}
@@ -236,10 +391,12 @@ int cse_ioctl_cmac(cse_ctx_t *ctx, unsigned int cmd, unsigned long arg,
 		if (copy_from_user(new_req->buffer_out,
 				(uint8_t __user *)cmac.addr_out,
 				AES_KEY_SIZE)) {
+			kfree(new_req->buffer_in);
 			kfree(new_req);
 			return -EFAULT;
 		}
 	}
+	init_ops(&new_req->base);
 	init_completion(&new_req->base.complete);
 	ret = cse_handle_request(ctx->dev, (cse_req_t *)new_req);
 
@@ -290,6 +447,13 @@ int cse_ioctl_crypt(cse_ctx_t *ctx, unsigned int cmd,
 		dev_err(cse_dev_ptr->device, "failed to alloc mem for crypto request.\n");
 		return -ENOMEM;
 	}
+	new_req->buffer_in = kzalloc(crypt.len, GFP_KERNEL);
+	new_req->buffer_out = kzalloc(crypt.len, GFP_KERNEL);
+	if (!new_req->buffer_in || !new_req->buffer_out) {
+		dev_err(cse_dev_ptr->device, "failed to alloc mem for crypto buffers.\n");
+		kfree(new_req);
+		return -ENOMEM;
+	}
 	new_req->base.ctx = ctx;
 	new_req->len_in = new_req->len_out = crypt.len;
 	if (cmd == CSE3_IOCTL_ENC_CBC || cmd == CSE3_IOCTL_ENC_ECB ||
@@ -321,9 +485,12 @@ int cse_ioctl_crypt(cse_ctx_t *ctx, unsigned int cmd,
 	/* Copy input text and send command to the device */
 	if (copy_from_user(new_req->buffer_in,
 			(uint8_t __user *)crypt.addr_in, new_req->len_in)) {
+		kfree(new_req->buffer_in);
+		kfree(new_req->buffer_out);
 		kfree(new_req);
 		return -EFAULT;
 	}
+	init_ops(&new_req->base);
 	init_completion(&new_req->base.complete);
 	ret = cse_handle_request(ctx->dev, (cse_req_t *)new_req);
 
@@ -358,6 +525,8 @@ void cse_destroy_queue(struct cse_queue *queue)
 
 	list_for_each_entry_safe(req, n, &queue->list, list) {
 		list_del(&req->list);
+		if (req->free_extra)
+			req->free_extra(req);
 		kfree(req);
 	}
 }

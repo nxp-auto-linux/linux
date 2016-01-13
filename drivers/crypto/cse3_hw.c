@@ -3,7 +3,7 @@
  * Freescale Cryptographic Services Engine (CSE3) Device Driver
  * CSE3 Hardware API
  *
- * Copyright (c) 2015 Freescale Semiconductor, Inc.
+ * Copyright (c) 2015-2016 Freescale Semiconductor, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 or
@@ -42,9 +42,9 @@ static void cse_cmd_dec(struct cse_device_data *cse_dev, int key_id, int cbc)
 		writel(cse_dev->hw_desc_phys + offsetof(cse_desc_t, aes_iv),
 				&cse_dev->base->cse_param[param++]);
 	writel(nblocks, &cse_dev->base->cse_param[param++]);
-	writel(cse_dev->hw_desc_phys + offsetof(cse_desc_t, buffer_in),
+	writel(cse_dev->buffer_in_phys,
 			&cse_dev->base->cse_param[param++]);
-	writel(cse_dev->hw_desc_phys + offsetof(cse_desc_t, buffer_out),
+	writel(cse_dev->buffer_out_phys,
 			&cse_dev->base->cse_param[param++]);
 	writel(cbc ? CSE_CMD_DEC_CBC : CSE_CMD_DEC_ECB,
 			&cse_dev->base->cse_cmd);
@@ -60,9 +60,9 @@ static void cse_cmd_enc(struct cse_device_data *cse_dev, int key_id, int cbc)
 		writel(cse_dev->hw_desc_phys + offsetof(cse_desc_t, aes_iv),
 				&cse_dev->base->cse_param[param++]);
 	writel(nblocks, &cse_dev->base->cse_param[param++]);
-	writel(cse_dev->hw_desc_phys + offsetof(cse_desc_t, buffer_in),
+	writel(cse_dev->buffer_in_phys,
 			&cse_dev->base->cse_param[param++]);
-	writel(cse_dev->hw_desc_phys + offsetof(cse_desc_t, buffer_out),
+	writel(cse_dev->buffer_out_phys,
 			&cse_dev->base->cse_param[param++]);
 	writel(cbc ? CSE_CMD_ENC_CBC : CSE_CMD_ENC_ECB,
 			&cse_dev->base->cse_cmd);
@@ -73,7 +73,7 @@ static void cse_cmd_gen_mac(struct cse_device_data *cse_dev, int key_id)
 	writel(key_id, &cse_dev->base->cse_param[0]);
 	writel(cse_dev->hw_desc_phys + offsetof(cse_desc_t, len_in),
 			&cse_dev->base->cse_param[1]);
-	writel(cse_dev->hw_desc_phys + offsetof(cse_desc_t, buffer_in),
+	writel(cse_dev->buffer_in_phys,
 			&cse_dev->base->cse_param[2]);
 	writel(cse_dev->hw_desc_phys + offsetof(cse_desc_t, mac),
 			&cse_dev->base->cse_param[3]);
@@ -86,7 +86,7 @@ static void cse_cmd_ver_mac(struct cse_device_data *cse_dev,
 	writel(key_id, &cse_dev->base->cse_param[0]);
 	writel(cse_dev->hw_desc_phys + offsetof(cse_desc_t, len_in),
 			&cse_dev->base->cse_param[1]);
-	writel(cse_dev->hw_desc_phys + offsetof(cse_desc_t, buffer_in),
+	writel(cse_dev->buffer_in_phys,
 			&cse_dev->base->cse_param[2]);
 	writel(cse_dev->hw_desc_phys + offsetof(cse_desc_t, mac),
 			&cse_dev->base->cse_param[3]);
@@ -105,7 +105,7 @@ static void cse_cmd_mp_comp(struct cse_device_data *cse_dev)
 {
 	writel(cse_dev->hw_desc_phys + offsetof(cse_desc_t, len_in),
 			&cse_dev->base->cse_param[0]);
-	writel(cse_dev->hw_desc_phys + offsetof(cse_desc_t, buffer_in),
+	writel(cse_dev->buffer_in_phys,
 			&cse_dev->base->cse_param[1]);
 	writel(cse_dev->hw_desc_phys + offsetof(cse_desc_t, mp),
 			&cse_dev->base->cse_param[2]);
