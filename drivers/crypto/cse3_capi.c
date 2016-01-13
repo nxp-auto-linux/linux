@@ -23,12 +23,102 @@
 #include "cse3_req.h"
 #include "cse3_capi.h"
 
+static int capi_copy_output(struct cse_device_data *dev,
+			    struct cse_request *req)
+{
+	struct skcipher_request *cipher_req;
+	struct ahash_request *hash_req;
+	cse_desc_t *desc = dev->hw_desc;
+
+	if (req->flags & FLAG_GEN_MAC) {
+		hash_req = (struct ahash_request *) dev->req->extra;
+		memcpy(hash_req->result, desc->mac, AES_MAC_SIZE);
+	} else if (req->flags & (FLAG_ENC|FLAG_DEC)) {
+		cipher_req = (struct skcipher_request *) dev->req->extra;
+		dma_sync_single_for_cpu(dev->device, dev->buffer_out_phys,
+				cipher_req->cryptlen, DMA_FROM_DEVICE);
+		sg_copy_from_buffer(cipher_req->dst, sg_nents(cipher_req->dst),
+				dev->buffer_out, cipher_req->cryptlen);
+	}
+
+	return 0;
+}
+
+static int capi_copy_input(struct cse_device_data *dev, struct cse_request *req)
+{
+	struct skcipher_request *cipher_req;
+	struct ahash_request *ahash_req;
+	cse_desc_t *desc = dev->hw_desc;
+
+	if (req->flags & (FLAG_ENC|FLAG_DEC)) {
+		cipher_req = (struct skcipher_request *)req->extra;
+		desc->len_in = cipher_req->cryptlen;
+		memcpy(desc->aes_key, req->ctx->aes_key, AES_KEY_SIZE);
+		if (req->flags & FLAG_CBC)
+			memcpy(desc->aes_iv, req->ctx->aes_iv, AES_KEY_SIZE);
+
+		if (allocate_buffer(dev->device, &dev->buffer_in,
+				&dev->buffer_in_phys, cipher_req->cryptlen,
+				DMA_TO_DEVICE))
+			return -ENOMEM;
+		if (allocate_buffer(dev->device, &dev->buffer_out,
+				&dev->buffer_out_phys, cipher_req->cryptlen,
+				DMA_FROM_DEVICE))
+			return -ENOMEM;
+		sg_copy_to_buffer(cipher_req->src, sg_nents(cipher_req->src),
+				dev->buffer_in, cipher_req->cryptlen);
+		dma_sync_single_for_device(dev->device, dev->buffer_in_phys,
+				cipher_req->cryptlen, DMA_TO_DEVICE);
+
+	} else if (req->flags & FLAG_GEN_MAC) {
+		ahash_req = (struct ahash_request *)req->extra;
+		desc->len_in = ahash_req->nbytes*NBITS;
+		memcpy(desc->aes_key, req->ctx->aes_key, AES_KEY_SIZE);
+
+		if (ahash_req->nbytes) {
+			if (allocate_buffer(dev->device, &dev->buffer_in,
+				&dev->buffer_in_phys, ahash_req->nbytes,
+				DMA_TO_DEVICE))
+				return -ENOMEM;
+			sg_copy_to_buffer(ahash_req->src,
+					sg_nents(ahash_req->src),
+					dev->buffer_in, ahash_req->nbytes);
+			dma_sync_single_for_device(dev->device,
+					dev->buffer_in_phys, ahash_req->nbytes,
+					DMA_TO_DEVICE);
+		}
+	}
+
+	return 0;
+}
+
+static void capi_complete(struct cse_device_data *dev, struct cse_request *req)
+{
+	struct crypto_async_request base_req;
+
+	if (dev->req->flags & FLAG_GEN_MAC) {
+		base_req = ((struct ahash_request *)dev->req->extra)->base;
+		base_req.complete(&base_req, req->error);
+	} else if (dev->req->flags & (FLAG_ENC|FLAG_DEC)) {
+		base_req = ((struct skcipher_request *)dev->req->extra)->base;
+		base_req.complete(&base_req, req->error);
+	}
+	cse_finish_req(dev, req);
+}
+
+static void init_ops(struct cse_request *req)
+{
+	req->copy_output = capi_copy_output;
+	req->copy_input = capi_copy_input;
+	req->comp = capi_complete;
+	req->free_extra = NULL;
+}
+
 int capi_aes_setkey(struct crypto_skcipher *tfm, const u8 *key,
 		unsigned int keylen)
 {
 	cse_ctx_t *ctx = crypto_skcipher_ctx(tfm);
 
-	ctx->dev = cse_dev_ptr;
 	if (keylen != AES_KEYSIZE_128)
 		return -EINVAL;
 
@@ -38,12 +128,12 @@ int capi_aes_setkey(struct crypto_skcipher *tfm, const u8 *key,
 
 static int capi_aes_crypto(struct skcipher_request *req, int flags)
 {
-	struct cse_crypt_request *new_req;
+	int ret;
+	cse_req_t *new_req;
 
 	/* Init context and check for key */
 	cse_ctx_t *ctx = crypto_skcipher_ctx(crypto_skcipher_reqtfm(req));
 
-	ctx->dev = cse_dev_ptr;
 	if (flags & FLAG_CBC)
 		memcpy(ctx->aes_iv, req->iv, AES_KEYSIZE_128);
 
@@ -52,19 +142,16 @@ static int capi_aes_crypto(struct skcipher_request *req, int flags)
 		dev_err(cse_dev_ptr->device, "failed to alloc mem for crypto request.\n");
 		return -ENOMEM;
 	}
-	new_req->base.ctx = ctx;
-	new_req->len_in = new_req->len_out = req->cryptlen;
-	new_req->base.flags = flags;
-	new_req->base.phase = 1;
-	new_req->base.key_id = UNDEFINED;
-	new_req->base.extra = req;
 
-	/* Copy input text and send command to the device */
-	/* TODO: copy in loop */
-	sg_copy_to_buffer(req->src, sg_nents(req->src), new_req->buffer_in,
-			new_req->len_in);
-	cse_handle_request(ctx->dev, (cse_req_t *)new_req);
-	return -EINPROGRESS;
+	new_req->ctx = ctx;
+	new_req->flags = flags;
+	new_req->phase = 1;
+	new_req->key_id = UNDEFINED;
+	new_req->extra = req;
+	init_ops(new_req);
+
+	ret = cse_handle_request(ctx->dev, new_req);
+	return ret ? ret : -EINPROGRESS;
 }
 
 int capi_aes_ecb_encrypt(struct skcipher_request *req)
@@ -89,31 +176,26 @@ int capi_aes_cbc_decrypt(struct skcipher_request *req)
 
 int capi_cmac_finup(struct ahash_request *req)
 {
-	struct cse_cmac_request *new_req;
-
+	int ret;
+	cse_req_t *new_req;
 	/* Init context and check for key */
 	cse_ctx_t *ctx = crypto_ahash_ctx(crypto_ahash_reqtfm(req));
-
-	ctx->dev = cse_dev_ptr;
 
 	new_req = kzalloc(sizeof(*new_req), GFP_KERNEL);
 	if (!new_req) {
 		dev_err(cse_dev_ptr->device, "failed to alloc mem for cmac request.\n");
 		return -ENOMEM;
 	}
-	new_req->base.ctx = ctx;
-	new_req->len_in = req->nbytes;
-	new_req->base.flags = FLAG_GEN_MAC|FLAG_CRYPTO_REQ;
-	new_req->base.phase = 1;
-	new_req->base.key_id = UNDEFINED;
-	new_req->base.extra = req;
 
-	/* Copy input text and send command to the device */
-	/* TODO: copy in loop */
-	sg_copy_to_buffer(req->src, sg_nents(req->src), new_req->buffer_in,
-			new_req->len_in);
-	cse_handle_request(ctx->dev, (cse_req_t *)new_req);
-	return -EINPROGRESS;
+	new_req->ctx = ctx;
+	new_req->flags = FLAG_GEN_MAC|FLAG_CRYPTO_REQ;
+	new_req->phase = 1;
+	new_req->key_id = UNDEFINED;
+	new_req->extra = req;
+	init_ops(new_req);
+
+	ret = cse_handle_request(ctx->dev, new_req);
+	return ret ? ret : -EINPROGRESS;
 }
 
 int capi_cmac_digest(struct ahash_request *req)
@@ -123,6 +205,7 @@ int capi_cmac_digest(struct ahash_request *req)
 
 int capi_cmac_init(struct ahash_request *req)
 {
+	/* TODO: init state for update operation */
 	return 0;
 }
 
@@ -132,7 +215,6 @@ int capi_cmac_setkey(struct crypto_ahash *tfm, const u8 *key,
 	cse_ctx_t *ctx = crypto_ahash_ctx(tfm);
 	int err;
 
-	ctx->dev = cse_dev_ptr;
 	err = aes_check_keylen(keylen);
 	if (err)
 		return err;
@@ -141,16 +223,26 @@ int capi_cmac_setkey(struct crypto_ahash *tfm, const u8 *key,
 	return 0;
 }
 
-int capi_aes_cra_init(struct crypto_skcipher *tfm)
+/**
+ * Called at socket bind
+ */
+int capi_cra_init(struct crypto_skcipher *tfm)
 {
+	cse_ctx_t *ctx;
+
+	/* TODO: also set software fallback */
+	if (down_trylock(&cse_dev_ptr->access))
+		return -EBUSY;
+	ctx = crypto_skcipher_ctx(tfm);
+	ctx->dev = cse_dev_ptr;
+
 	return 0;
 }
 
-void capi_aes_cra_exit(struct crypto_skcipher *tfm)
+void capi_cra_exit(struct crypto_skcipher *tfm)
 {
+	cse_ctx_t *ctx = crypto_skcipher_ctx(tfm);
+
+	up(&ctx->dev->access);
 }
 
-int capi_cmac_cra_init(struct crypto_tfm *tfm)
-{
-	return 0;
-}
