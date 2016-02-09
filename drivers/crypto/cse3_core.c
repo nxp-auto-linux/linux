@@ -26,6 +26,7 @@
 
 #include "cse3.h"
 #include "cse3_req.h"
+#include "cse3_capi.h"
 #include "cse3_hw.h"
 
 
@@ -98,12 +99,6 @@ static int cse_submit_request(cse_req_t *req)
 	struct cse_mp_request *mp_req;
 	cse_desc_t *desc;
 
-	dev->hw_desc = dma_alloc_coherent(dev->device, sizeof(cse_desc_t),
-			&dev->hw_desc_phys, GFP_KERNEL);
-	if (!dev->hw_desc) {
-		dev_err(dev->device, "unable to alloc memory for command buffers.\n");
-		return -ENOMEM;
-	}
 	desc = dev->hw_desc;
 
 	if (req->flags & FLAG_LOAD_KEY) {
@@ -154,6 +149,7 @@ int cse_handle_request(struct cse_device_data *dev, cse_req_t *req)
 {
 	int status = 0, ret = 0;
 	cse_req_t *nextReq;
+	struct crypto_async_request reqbase;
 
 	spin_lock_bh(&dev->lock);
 	/* Enqueue current request */
@@ -184,7 +180,19 @@ int cse_handle_request(struct cse_device_data *dev, cse_req_t *req)
 	status = cse_submit_request(nextReq);
 	if (status) {
 		nextReq->error = status;
-		complete(&nextReq->complete);
+		if (nextReq->flags & FLAG_CRYPTO_REQ) {
+			/* Crypto API request failure */
+			if (nextReq->flags & FLAG_GEN_MAC)
+				reqbase = ((struct ahash_request *)
+						nextReq->extra)->base;
+			else
+				reqbase = ((struct skcipher_request *)
+						nextReq->extra)->base;
+			reqbase.complete(&reqbase, nextReq->error);
+		} else {
+			/* Standard request failure */
+			complete(&nextReq->complete);
+		}
 	}
 
 	return ret;
@@ -232,11 +240,7 @@ void cse_finish_req(struct cse_device_data *dev, cse_req_t *req)
 	 * hw_desc directly for output
 	 */
 	if (IS_SUBMITTED(req->state) || IS_DONE(req->state)) {
-		if (dev->hw_desc) {
-			dma_free_coherent(dev->device, sizeof(cse_desc_t),
-					dev->hw_desc, dev->hw_desc_phys);
-			dev->hw_desc = NULL;
-		}
+		memset(dev->hw_desc, 0, sizeof(cse_desc_t));
 		kfree(dev->req);
 		dev->req = NULL;
 
@@ -342,6 +346,9 @@ static long cse_cdev_ioctl(struct file *file, unsigned int cmd,
 static void cse_done_task(unsigned long data)
 {
 	uint8_t state;
+	struct crypto_async_request base_req;
+	struct skcipher_request *cipher_req;
+	struct ahash_request *hash_req;
 	struct cse_crypt_request *crypt_req;
 	struct cse_cmac_request *cmac_req;
 	struct cse_mp_request *mp_req;
@@ -390,8 +397,27 @@ compl:
 	if (IS_CANCELED(state)) {
 		cse_finish_req(dev, dev->req);
 	} else {
-		/* TODO: call complete based on algo type */
-		complete(&dev->req->complete);
+		if (dev->req->flags & FLAG_CRYPTO_REQ) {
+			if (dev->req->flags & FLAG_GEN_MAC) {
+				hash_req = (struct ahash_request *)
+						dev->req->extra;
+				memcpy(hash_req->result, desc->mac,
+						AES_MAC_SIZE);
+				base_req = hash_req->base;
+			} else {
+				cipher_req = (struct skcipher_request *)
+						dev->req->extra;
+				sg_copy_from_buffer(cipher_req->dst,
+						sg_nents(cipher_req->dst),
+						desc->buffer_out, desc->len_in);
+				base_req = cipher_req->base;
+			}
+			base_req.complete(&base_req, dev->req->error);
+			cse_finish_req(dev, dev->req);
+
+		} else { /* Standard request */
+			complete(&dev->req->complete);
+		}
 	}
 }
 
@@ -491,6 +517,72 @@ static struct hwrng cse_rng = {
 };
 #endif
 
+/** Crypto API */
+static const struct skcipher_alg aes_algs[] = {
+	{
+		.base = {
+			.cra_name         = "ecb(aes)",
+			.cra_driver_name  = "cse-ecb-aes",
+			.cra_priority     = 100,
+			.cra_flags        = CRYPTO_ALG_ASYNC,
+			.cra_blocksize    = AES_BLOCK_SIZE,
+			.cra_ctxsize      = sizeof(cse_ctx_t),
+			.cra_alignmask    = 0x0,
+			.cra_module       = THIS_MODULE,
+		},
+		.min_keysize    = AES_KEYSIZE_128,
+		.max_keysize    = AES_KEYSIZE_128,
+		.setkey         = capi_aes_setkey,
+		.encrypt        = capi_aes_ecb_encrypt,
+		.decrypt        = capi_aes_ecb_decrypt,
+		.init		= capi_aes_cra_init,
+		.exit		= capi_aes_cra_exit,
+	},
+	{
+		.base = {
+			.cra_name         = "cbc(aes)",
+			.cra_driver_name  = "cse-cbc-aes",
+			.cra_priority     = 100,
+			.cra_flags        = CRYPTO_ALG_ASYNC,
+			.cra_blocksize    = AES_BLOCK_SIZE,
+			.cra_ctxsize      = sizeof(cse_ctx_t),
+			.cra_alignmask    = 0x0,
+			.cra_module       = THIS_MODULE,
+		},
+		.min_keysize    = AES_KEYSIZE_128,
+		.max_keysize    = AES_KEYSIZE_128,
+		.ivsize         = AES_BLOCK_SIZE,
+		.setkey         = capi_aes_setkey,
+		.encrypt        = capi_aes_cbc_encrypt,
+		.decrypt        = capi_aes_cbc_decrypt,
+		.init		= capi_aes_cra_init,
+		.exit		= capi_aes_cra_exit,
+	},
+};
+
+static struct ahash_alg hash_algs[] = {
+	{
+		.init = capi_cmac_init,
+		/* .update = capi_cmac_update,
+		 * .final = capi_cmac_final,
+		 */
+		.finup = capi_cmac_finup,
+		.digest = capi_cmac_digest,
+		.setkey = capi_cmac_setkey,
+		.halg.digestsize = AES_BLOCK_SIZE,
+		.halg.base = {
+			.cra_name = "cmac(aes)",
+			.cra_driver_name = "cse-cmac-aes",
+			.cra_flags = (CRYPTO_ALG_TYPE_AHASH | CRYPTO_ALG_ASYNC),
+			.cra_blocksize = AES_BLOCK_SIZE,
+			.cra_ctxsize = sizeof(cse_ctx_t),
+			.cra_init = capi_cmac_cra_init,
+			.cra_module = THIS_MODULE,
+		}
+	}
+};
+
+
 static struct platform_device_id cse3_platform_ids[] = {
 	{ .name = "cse3-s32v234" },
 	{ /* sentinel */ }
@@ -505,7 +597,7 @@ MODULE_DEVICE_TABLE(of, cse3_dt_ids);
 
 static int cse_probe(struct platform_device *pdev)
 {
-	int err = 0;
+	int i, err = 0;
 	struct cse_device_data *cse_dev;
 	struct resource *res;
 
@@ -547,6 +639,15 @@ static int cse_probe(struct platform_device *pdev)
 		goto out_io;
 	}
 
+	cse_dev->hw_desc = dma_alloc_coherent(cse_dev->device,
+			sizeof(cse_desc_t),
+			&cse_dev->hw_desc_phys, GFP_KERNEL);
+	if (!cse_dev->hw_desc) {
+		dev_err(cse_dev->device, "unable to alloc memory for request context.\n");
+		err = -ENOMEM;
+		goto out_io;
+	}
+
 	/** Enable interrupts */
 	writel(CSE_IR_CIF, &cse_dev->base->cse_ir);
 	writel(CSE_CR_CIE, &cse_dev->base->cse_cr);
@@ -571,16 +672,28 @@ static int cse_probe(struct platform_device *pdev)
 
 #ifdef CONFIG_CRYPTO_DEV_FSL_CSE3_HWRNG
 	/** Register HW Random Number Generator API */
-	if (hwrng_register(&cse_rng)) {
+	if (hwrng_register(&cse_rng))
 		dev_err(&pdev->dev, "failed to register hwrng.\n");
-		goto out_dev;
-	}
 #endif
+
+	for (i = 0; i < ARRAY_SIZE(aes_algs); i++) {
+		err = crypto_register_alg(&aes_algs[i]);
+		if (err)
+			dev_err(&pdev->dev, "failed to register aes algo to crypto API.\n");
+	}
+
+	for (i = 0; i < ARRAY_SIZE(hash_algs); i++) {
+		err = crypto_register_ahash(&hash_algs[i]);
+		if (err)
+			dev_err(&pdev->dev, "failed to register cmac algo to crypto API.\n");
+	}
 
 	return 0;
 
 out_dev:
 	tasklet_kill(&cse_dev->done_task);
+	dma_free_coherent(cse_dev->device, sizeof(cse_desc_t),
+			cse_dev->hw_desc, cse_dev->hw_desc_phys);
 out_io:
 	devm_free_irq(&pdev->dev, cse_dev->irq, cse_dev);
 out_irq:
@@ -591,18 +704,27 @@ out_irq:
 
 static int cse_remove(struct platform_device *pdev)
 {
+	int i;
 	struct cse_device_data *cse_dev = platform_get_drvdata(pdev);
+
+	for (i = 0; i < ARRAY_SIZE(hash_algs); i++)
+		crypto_unregister_ahash(&hash_algs[i]);
+
+	for (i = 0; i < ARRAY_SIZE(aes_algs); i++)
+		crypto_unregister_alg(&aes_algs[i]);
 
 #ifdef CONFIG_CRYPTO_DEV_FSL_CSE3_HWRNG
 	hwrng_unregister(&cse_rng);
 #endif
+
 	cdev_del(&cse_dev->cdev);
 	unregister_chrdev_region(MKDEV(CSE3_MAJOR, CSE3_MINOR), NUM_MINORS);
 
 	cse_destroy_queue(&cse_dev->queue);
-	cse_dev_ptr = NULL;
-
 	tasklet_kill(&cse_dev->done_task);
+	dma_free_coherent(cse_dev->device, sizeof(cse_desc_t),
+			cse_dev->hw_desc, cse_dev->hw_desc_phys);
+	cse_dev_ptr = NULL;
 
 	return 0;
 }
