@@ -109,6 +109,7 @@ typedef struct cse_request {
 	int					key_id;
 	int					phase;
 	int					error;
+	void				*extra;
 } cse_req_t;
 
 struct cse_queue {
@@ -189,6 +190,7 @@ static inline void set_canceled(uint8_t *state)
 #define FLAG_LOAD_PLKEY		(0x100UL)
 #define FLAG_MP_COMP		(0x200UL)
 #define FLAG_KBS			(0x400UL)
+#define FLAG_CRYPTO_REQ		(0x800UL)
 
 #define CSE_CR_CIE			(0x01UL)
 #define CSE_CR_KBS			(0x20UL)
