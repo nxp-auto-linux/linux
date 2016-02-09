@@ -117,7 +117,7 @@ static int cse_submit_request(cse_req_t *req)
 		memcpy(desc->aes_key, req->ctx->aes_key, AES_KEY_SIZE);
 		memcpy(desc->buffer_in, crypt_req->buffer_in,
 				crypt_req->len_in);
-		desc->len_in = crypt_req->len_in*NBITS;
+		desc->len_in = crypt_req->len_in;
 		if (req->flags & FLAG_CBC)
 			memcpy(desc->aes_iv, req->ctx->aes_iv, AES_KEY_SIZE);
 
