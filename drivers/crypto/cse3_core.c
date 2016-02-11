@@ -190,27 +190,20 @@ static int cse_cdev_release(struct inode *inode, struct file *file)
  */
 void cse_finish_req(struct cse_device_data *dev, cse_req_t *req)
 {
-	size_t nbytes;
-
 	if (IS_SUBMITTED(req->state) || IS_DONE(req->state)) {
-		/* CMAC uses length in bits, convert back to bytes */
-		if (req->flags & (FLAG_GEN_MAC|FLAG_VER_MAC))
-			nbytes = dev->hw_desc->len_in*NBITS;
-		else
-			nbytes = dev->hw_desc->len_in;
 
 		/* Clean HW/Driver data */
 		if (dev->buffer_in) {
-			dma_unmap_single(dev->device, dev->buffer_in_phys,
-					nbytes, DMA_TO_DEVICE);
-			free_pages((unsigned long)dev->buffer_in,
-					get_order(nbytes));
+			cse_free_buffer(dev->device, dev->buffer_in,
+					dev->buffer_in_phys,
+					req_len(dev->hw_desc->nbits),
+					DMA_TO_DEVICE);
 		}
 		if (dev->buffer_out) {
-			dma_unmap_single(dev->device, dev->buffer_out_phys,
-					nbytes, DMA_FROM_DEVICE);
-			free_pages((unsigned long)dev->buffer_out,
-					get_order(nbytes));
+			cse_free_buffer(dev->device, dev->buffer_out,
+					dev->buffer_out_phys,
+					req_len(dev->hw_desc->nbits),
+					DMA_FROM_DEVICE);
 		}
 		memset(dev->hw_desc, 0, sizeof(cse_desc_t));
 		dev->buffer_in = dev->buffer_out = NULL;

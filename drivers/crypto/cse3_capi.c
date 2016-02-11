@@ -52,16 +52,16 @@ static int capi_copy_input(struct cse_device_data *dev, struct cse_request *req)
 
 	if (req->flags & (FLAG_ENC|FLAG_DEC)) {
 		cipher_req = (struct skcipher_request *)req->extra;
-		desc->len_in = cipher_req->cryptlen;
+		desc->nbits = desc_len(cipher_req->cryptlen);
 		memcpy(desc->aes_key, req->ctx->aes_key, AES_KEY_SIZE);
 		if (req->flags & FLAG_CBC)
 			memcpy(desc->aes_iv, req->ctx->aes_iv, AES_KEY_SIZE);
 
-		if (allocate_buffer(dev->device, &dev->buffer_in,
+		if (cse_allocate_buffer(dev->device, &dev->buffer_in,
 				&dev->buffer_in_phys, cipher_req->cryptlen,
 				DMA_TO_DEVICE))
 			return -ENOMEM;
-		if (allocate_buffer(dev->device, &dev->buffer_out,
+		if (cse_allocate_buffer(dev->device, &dev->buffer_out,
 				&dev->buffer_out_phys, cipher_req->cryptlen,
 				DMA_FROM_DEVICE))
 			return -ENOMEM;
@@ -72,11 +72,11 @@ static int capi_copy_input(struct cse_device_data *dev, struct cse_request *req)
 
 	} else if (req->flags & FLAG_GEN_MAC) {
 		ahash_req = (struct ahash_request *)req->extra;
-		desc->len_in = ahash_req->nbytes*NBITS;
+		desc->nbits = desc_len(ahash_req->nbytes);
 		memcpy(desc->aes_key, req->ctx->aes_key, AES_KEY_SIZE);
 
 		if (ahash_req->nbytes) {
-			if (allocate_buffer(dev->device, &dev->buffer_in,
+			if (cse_allocate_buffer(dev->device, &dev->buffer_in,
 				&dev->buffer_in_phys, ahash_req->nbytes,
 				DMA_TO_DEVICE))
 				return -ENOMEM;
