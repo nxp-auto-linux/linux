@@ -30,7 +30,6 @@
 #include <linux/dma-mapping.h>
 #include <linux/dma-direction.h>
 
-#define NBITS			8
 #define MAX_ACCESS      10
 #define AES_KEY_SIZE    16
 #define RND_VAL_SIZE    16
@@ -92,8 +91,15 @@ typedef struct cse_descriptor {
 	uint8_t m3[M3_KEY_SIZE];
 	uint8_t m4[M4_KEY_SIZE];
 	uint8_t m5[M5_KEY_SIZE];
-	uint32_t len_in;
+	uint64_t nbits;
 } cse_desc_t;
+
+/**
+ * HW descriptors use lengths in bits
+ * and high level requests use lengths in bytes
+ */
+#define desc_len(nbytes)	((nbytes) * 8)
+#define req_len(nbits)	    ((nbits) / 8)
 
 /**
  * Generic request info
@@ -232,9 +238,9 @@ static inline void set_canceled(uint8_t *state)
 #define CSE_KEYID_RAM	0xE
 #define UNDEFINED		-1
 
-static inline int allocate_buffer(struct device *dev, void **buf,
-				  dma_addr_t *hw_buf, size_t size,
-				  enum dma_data_direction dir)
+static inline int cse_allocate_buffer(struct device *dev, void **buf,
+				      dma_addr_t *hw_buf, size_t size,
+				      enum dma_data_direction dir)
 {
 	int pages;
 
@@ -257,6 +263,14 @@ static inline int allocate_buffer(struct device *dev, void **buf,
 	}
 
 	return 0;
+}
+
+static inline void cse_free_buffer(struct device *dev, void *buf,
+				   dma_addr_t hw_buf, size_t size,
+				   enum dma_data_direction dir)
+{
+	dma_unmap_single(dev, hw_buf, size, dir);
+	free_pages((unsigned long)buf, get_order(size));
 }
 
 int cse_handle_request(struct cse_device_data *dev, cse_req_t *req);
