@@ -70,11 +70,11 @@ static int cse_ioctl_copy_input(struct cse_device_data *dev,
 
 	} else if (req->flags & (FLAG_ENC|FLAG_DEC)) {
 		crypt_req = (struct cse_crypt_request *)req;
-		if (allocate_buffer(dev->device, &dev->buffer_in,
+		if (cse_allocate_buffer(dev->device, &dev->buffer_in,
 				&dev->buffer_in_phys,
 				crypt_req->len_in, DMA_TO_DEVICE))
 			return -ENOMEM;
-		if (allocate_buffer(dev->device, &dev->buffer_out,
+		if (cse_allocate_buffer(dev->device, &dev->buffer_out,
 				&dev->buffer_out_phys,
 				crypt_req->len_in, DMA_FROM_DEVICE))
 			return -ENOMEM;
@@ -82,7 +82,7 @@ static int cse_ioctl_copy_input(struct cse_device_data *dev,
 		memcpy(desc->aes_key, req->ctx->aes_key, AES_KEY_SIZE);
 		memcpy(dev->buffer_in, crypt_req->buffer_in,
 				crypt_req->len_in);
-		desc->len_in = crypt_req->len_in;
+		desc->nbits = desc_len(crypt_req->len_in);
 		if (req->flags & FLAG_CBC)
 			memcpy(desc->aes_iv, req->ctx->aes_iv, AES_KEY_SIZE);
 
@@ -90,7 +90,7 @@ static int cse_ioctl_copy_input(struct cse_device_data *dev,
 				crypt_req->len_in, DMA_TO_DEVICE);
 	} else if (req->flags & (FLAG_GEN_MAC|FLAG_VER_MAC)) {
 		cmac_req = (struct cse_cmac_request *)req;
-		if (allocate_buffer(dev->device, &dev->buffer_in,
+		if (cse_allocate_buffer(dev->device, &dev->buffer_in,
 				&dev->buffer_in_phys,
 				cmac_req->len_in, DMA_TO_DEVICE))
 			return -ENOMEM;
@@ -103,20 +103,20 @@ static int cse_ioctl_copy_input(struct cse_device_data *dev,
 					dev->buffer_in_phys,
 					cmac_req->len_in, DMA_TO_DEVICE);
 		}
-		desc->len_in = cmac_req->len_in*NBITS;
+		desc->nbits = desc_len(cmac_req->len_in);
 
 		if (req->flags & FLAG_VER_MAC)
 			memcpy(desc->mac, cmac_req->buffer_out, AES_MAC_SIZE);
 
 	} else if (req->flags & FLAG_MP_COMP) {
 		mp_req = (struct cse_mp_request *)req;
-		if (allocate_buffer(dev->device, &dev->buffer_in,
+		if (cse_allocate_buffer(dev->device, &dev->buffer_in,
 				&dev->buffer_in_phys,
 				mp_req->len_in, DMA_TO_DEVICE))
 			return -ENOMEM;
 
 		memcpy(dev->buffer_in, mp_req->buffer_in, mp_req->len_in);
-		desc->len_in = mp_req->len_in*NBITS;
+		desc->nbits = desc_len(mp_req->len_in);
 
 		dma_sync_single_for_device(dev->device, dev->buffer_in_phys,
 				mp_req->len_in, DMA_TO_DEVICE);
