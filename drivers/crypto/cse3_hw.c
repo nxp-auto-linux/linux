@@ -35,7 +35,7 @@ static void cse_cmd_load_plainkey(struct cse_device_data *cse_dev)
 static void cse_cmd_dec(struct cse_device_data *cse_dev, int key_id, int cbc)
 {
 	int param = 0;
-	int nblocks = cse_dev->hw_desc->len_in/AES_KEY_SIZE;
+	int nblocks = req_len(cse_dev->hw_desc->nbits)/AES_KEY_SIZE;
 
 	writel(key_id, &cse_dev->base->cse_param[param++]);
 	if (cbc)
@@ -53,7 +53,7 @@ static void cse_cmd_dec(struct cse_device_data *cse_dev, int key_id, int cbc)
 static void cse_cmd_enc(struct cse_device_data *cse_dev, int key_id, int cbc)
 {
 	int param = 0;
-	int nblocks = cse_dev->hw_desc->len_in/AES_KEY_SIZE;
+	int nblocks = req_len(cse_dev->hw_desc->nbits)/AES_KEY_SIZE;
 
 	writel(key_id, &cse_dev->base->cse_param[param++]);
 	if (cbc)
@@ -71,7 +71,7 @@ static void cse_cmd_enc(struct cse_device_data *cse_dev, int key_id, int cbc)
 static void cse_cmd_gen_mac(struct cse_device_data *cse_dev, int key_id)
 {
 	writel(key_id, &cse_dev->base->cse_param[0]);
-	writel(cse_dev->hw_desc_phys + offsetof(cse_desc_t, len_in),
+	writel(cse_dev->hw_desc_phys + offsetof(cse_desc_t, nbits),
 			&cse_dev->base->cse_param[1]);
 	writel(cse_dev->buffer_in_phys,
 			&cse_dev->base->cse_param[2]);
@@ -84,7 +84,7 @@ static void cse_cmd_ver_mac(struct cse_device_data *cse_dev,
 		int key_id, int mlen)
 {
 	writel(key_id, &cse_dev->base->cse_param[0]);
-	writel(cse_dev->hw_desc_phys + offsetof(cse_desc_t, len_in),
+	writel(cse_dev->hw_desc_phys + offsetof(cse_desc_t, nbits),
 			&cse_dev->base->cse_param[1]);
 	writel(cse_dev->buffer_in_phys,
 			&cse_dev->base->cse_param[2]);
@@ -103,7 +103,7 @@ static void cse_cmd_rnd(struct cse_device_data *cse_dev)
 
 static void cse_cmd_mp_comp(struct cse_device_data *cse_dev)
 {
-	writel(cse_dev->hw_desc_phys + offsetof(cse_desc_t, len_in),
+	writel(cse_dev->hw_desc_phys + offsetof(cse_desc_t, nbits),
 			&cse_dev->base->cse_param[0]);
 	writel(cse_dev->buffer_in_phys,
 			&cse_dev->base->cse_param[1]);
