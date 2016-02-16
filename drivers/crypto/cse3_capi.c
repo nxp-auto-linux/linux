@@ -106,7 +106,7 @@ static void capi_complete(struct cse_device_data *dev, struct cse_request *req)
 	cse_finish_req(dev, req);
 }
 
-static void init_ops(struct cse_request *req)
+static void capi_init_ops(struct cse_request *req)
 {
 	req->copy_output = capi_copy_output;
 	req->copy_input = capi_copy_input;
@@ -148,7 +148,7 @@ static int capi_aes_crypto(struct skcipher_request *req, int flags)
 	new_req->phase = 1;
 	new_req->key_id = UNDEFINED;
 	new_req->extra = req;
-	init_ops(new_req);
+	capi_init_ops(new_req);
 
 	ret = cse_handle_request(ctx->dev, new_req);
 	return ret ? ret : -EINPROGRESS;
@@ -156,22 +156,22 @@ static int capi_aes_crypto(struct skcipher_request *req, int flags)
 
 int capi_aes_ecb_encrypt(struct skcipher_request *req)
 {
-	return capi_aes_crypto(req, FLAG_ENC|FLAG_CRYPTO_REQ);
+	return capi_aes_crypto(req, FLAG_ENC);
 }
 
 int capi_aes_ecb_decrypt(struct skcipher_request *req)
 {
-	return capi_aes_crypto(req, FLAG_DEC|FLAG_CRYPTO_REQ);
+	return capi_aes_crypto(req, FLAG_DEC);
 }
 
 int capi_aes_cbc_encrypt(struct skcipher_request *req)
 {
-	return capi_aes_crypto(req, FLAG_ENC|FLAG_CRYPTO_REQ|FLAG_CBC);
+	return capi_aes_crypto(req, FLAG_ENC|FLAG_CBC);
 }
 
 int capi_aes_cbc_decrypt(struct skcipher_request *req)
 {
-	return capi_aes_crypto(req, FLAG_DEC|FLAG_CRYPTO_REQ|FLAG_CBC);
+	return capi_aes_crypto(req, FLAG_DEC|FLAG_CBC);
 }
 
 int capi_cmac_finup(struct ahash_request *req)
@@ -188,11 +188,11 @@ int capi_cmac_finup(struct ahash_request *req)
 	}
 
 	new_req->ctx = ctx;
-	new_req->flags = FLAG_GEN_MAC|FLAG_CRYPTO_REQ;
+	new_req->flags = FLAG_GEN_MAC;
 	new_req->phase = 1;
 	new_req->key_id = UNDEFINED;
 	new_req->extra = req;
-	init_ops(new_req);
+	capi_init_ops(new_req);
 
 	ret = cse_handle_request(ctx->dev, new_req);
 	return ret ? ret : -EINPROGRESS;
