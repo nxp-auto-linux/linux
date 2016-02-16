@@ -209,9 +209,9 @@ void cse_finish_req(struct cse_device_data *dev, cse_req_t *req)
 		dev->buffer_in = dev->buffer_out = NULL;
 
 		/* Free request */
-		if (dev->req->free_extra)
-			dev->req->free_extra(dev->req);
-		kfree(dev->req);
+		if (req->free_extra)
+			req->free_extra(dev->req);
+		kfree(req);
 		dev->req = NULL;
 
 		spin_lock_bh(&dev->lock);
@@ -222,8 +222,8 @@ void cse_finish_req(struct cse_device_data *dev, cse_req_t *req)
 		cse_handle_request(dev, NULL);
 
 	} else { /* failed before submission e.g. -EBUSY, -EINTR */
-		if (dev->req->free_extra)
-			dev->req->free_extra(dev->req);
+		if (req->free_extra)
+			req->free_extra(dev->req);
 		kfree(req);
 	}
 }
@@ -396,7 +396,7 @@ static void cse_rng_complete(struct cse_device_data *dev,
 	complete(&req->complete);
 }
 
-static void init_ops(struct cse_request *req)
+static void cse_rng_init_ops(struct cse_request *req)
 {
 	req->copy_output = cse_rng_copy_output;
 	req->comp = cse_rng_complete;
@@ -426,7 +426,7 @@ static int cse_rng_read(struct hwrng *rng, void *data, size_t max, bool wait)
 	new_req->base.ctx = ctx;
 	new_req->base.phase = 0;
 	new_req->base.flags = FLAG_RND;
-	init_ops(&new_req->base);
+	cse_rng_init_ops(&new_req->base);
 	init_completion(&new_req->base.complete);
 
 	if (!cse_handle_request(ctx->dev, (cse_req_t *)new_req)) {
@@ -475,48 +475,56 @@ static struct hwrng cse_rng = {
 /** Crypto API */
 static const struct skcipher_alg aes_algs[] = {
 	{
-		.base = {
-			.cra_name         = "ecb(aes)",
-			.cra_driver_name  = "cse-ecb-aes",
-			.cra_priority     = 100,
-			.cra_flags        = CRYPTO_ALG_ASYNC,
-			.cra_blocksize    = AES_BLOCK_SIZE,
-			.cra_ctxsize      = sizeof(cse_ctx_t),
-			.cra_alignmask    = 0x0,
-			.cra_module       = THIS_MODULE,
+		.alg = {
+			.base = {
+				.cra_name         = "ecb(aes)",
+				.cra_driver_name  = "cse-ecb-aes",
+				.cra_priority     = 100,
+				.cra_flags        = CRYPTO_ALG_ASYNC,
+				.cra_blocksize    = AES_BLOCK_SIZE,
+				.cra_ctxsize      = sizeof(cse_ctx_t),
+				.cra_alignmask    = 0x0,
+				.cra_module       = THIS_MODULE,
+			},
+			.min_keysize    = AES_KEYSIZE_128,
+			.max_keysize    = AES_KEYSIZE_128,
+			.setkey         = capi_aes_setkey,
+			.encrypt        = capi_aes_ecb_encrypt,
+			.decrypt        = capi_aes_ecb_decrypt,
+			.init		= capi_cra_init,
+			.exit		= capi_cra_exit,
 		},
-		.min_keysize    = AES_KEYSIZE_128,
-		.max_keysize    = AES_KEYSIZE_128,
-		.setkey         = capi_aes_setkey,
-		.encrypt        = capi_aes_ecb_encrypt,
-		.decrypt        = capi_aes_ecb_decrypt,
-		.init		= capi_cra_init,
-		.exit		= capi_cra_exit,
+		.registered = 0
 	},
 	{
-		.base = {
-			.cra_name         = "cbc(aes)",
-			.cra_driver_name  = "cse-cbc-aes",
-			.cra_priority     = 100,
-			.cra_flags        = CRYPTO_ALG_ASYNC,
-			.cra_blocksize    = AES_BLOCK_SIZE,
-			.cra_ctxsize      = sizeof(cse_ctx_t),
-			.cra_alignmask    = 0x0,
-			.cra_module       = THIS_MODULE,
+		.alg = {
+
+			.base = {
+				.cra_name         = "cbc(aes)",
+				.cra_driver_name  = "cse-cbc-aes",
+				.cra_priority     = 100,
+				.cra_flags        = CRYPTO_ALG_ASYNC,
+				.cra_blocksize    = AES_BLOCK_SIZE,
+				.cra_ctxsize      = sizeof(cse_ctx_t),
+				.cra_alignmask    = 0x0,
+				.cra_module       = THIS_MODULE,
+			},
+			.min_keysize    = AES_KEYSIZE_128,
+			.max_keysize    = AES_KEYSIZE_128,
+			.ivsize         = AES_BLOCK_SIZE,
+			.setkey         = capi_aes_setkey,
+			.encrypt        = capi_aes_cbc_encrypt,
+			.decrypt        = capi_aes_cbc_decrypt,
+			.init		= capi_cra_init,
+			.exit		= capi_cra_exit,
 		},
-		.min_keysize    = AES_KEYSIZE_128,
-		.max_keysize    = AES_KEYSIZE_128,
-		.ivsize         = AES_BLOCK_SIZE,
-		.setkey         = capi_aes_setkey,
-		.encrypt        = capi_aes_cbc_encrypt,
-		.decrypt        = capi_aes_cbc_decrypt,
-		.init		= capi_cra_init,
-		.exit		= capi_cra_exit,
+		.registered = 0
 	},
 };
 
-static struct ahash_alg hash_algs[] = {
+static struct cse_ahash_alg hash_algs[] = {
 	{
+	.alg = {
 		.init = capi_cmac_init,
 		/* TODO: implement update
 		 * .update = capi_cmac_update,
@@ -533,7 +541,8 @@ static struct ahash_alg hash_algs[] = {
 			.cra_blocksize = AES_BLOCK_SIZE,
 			.cra_ctxsize = sizeof(cse_ctx_t),
 			.cra_module = THIS_MODULE,
-		}
+		} },
+	.registered = 0
 	}
 };
 
@@ -631,16 +640,20 @@ static int cse_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "failed to register hwrng.\n");
 #endif
 
-	for (i = 0; i < ARRAY_SIZE(aes_algs); i++) {
-		err = crypto_register_alg(&aes_algs[i]);
-		if (err)
-			dev_err(&pdev->dev, "failed to register aes algo to crypto API.\n");
+	for (i = 0; i < ARRAY_SIZE(cipher_algs); i++) {
+		if (!crypto_register_alg(&cipher_algs[i].alg))
+			cipher_algs[i].registered = 1;
+		else
+			dev_err(&pdev->dev, "failed to register %s algo to crypto API.\n",
+					cipher_algs[i].alg.cra_name);
 	}
 
 	for (i = 0; i < ARRAY_SIZE(hash_algs); i++) {
-		err = crypto_register_ahash(&hash_algs[i]);
-		if (err)
-			dev_err(&pdev->dev, "failed to register cmac algo to crypto API.\n");
+		if (!crypto_register_ahash(&hash_algs[i].alg))
+			hash_algs[i].registered = 1;
+		else
+			dev_err(&pdev->dev, "failed to register %s algo to crypto API.\n",
+					hash_algs[i].alg.halg.base.cra_name);
 	}
 
 	return 0;
@@ -662,15 +675,20 @@ static int cse_remove(struct platform_device *pdev)
 	int i;
 	struct cse_device_data *cse_dev = platform_get_drvdata(pdev);
 
-	for (i = 0; i < ARRAY_SIZE(hash_algs); i++)
-		crypto_unregister_ahash(&hash_algs[i]);
-
-	for (i = 0; i < ARRAY_SIZE(aes_algs); i++)
-		crypto_unregister_alg(&aes_algs[i]);
-
 #ifdef CONFIG_CRYPTO_DEV_FSL_CSE3_HWRNG
+	/* TODO: check if this was registered or use devm_* calls instead */
 	hwrng_unregister(&cse_rng);
 #endif
+
+	for (i = 0; i < ARRAY_SIZE(hash_algs); i++) {
+		if (hash_algs[i].registered)
+			crypto_unregister_ahash(&hash_algs[i].alg);
+	}
+
+	for (i = 0; i < ARRAY_SIZE(cipher_algs); i++) {
+		if (cipher_algs[i].registered)
+			crypto_unregister_alg(&cipher_algs[i].alg);
+	}
 
 	cdev_del(&cse_dev->cdev);
 	unregister_chrdev_region(MKDEV(CSE3_MAJOR, CSE3_MINOR), NUM_MINORS);
