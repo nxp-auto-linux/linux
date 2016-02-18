@@ -304,6 +304,8 @@
 				compatible = "fsl,s32v234-viulite0";
 				reg = <0x0 0x40064000 0x0 0x1000>;
 				interrupts = <0 96 4>;
+				clocks = <&clks S32V234_CLK_SYS6>;
+				clock-names = "fsl_viulite0";
 				status = "disabled";
 			};
 
@@ -402,6 +404,8 @@
 				compatible = "fsl,s32v234-viulite1";
 				reg = <0x0 0x400D0000 0x0 0x1000>;
 				interrupts = <0 100 4>;
+				clocks = <&clks S32V234_CLK_SYS6>;
+				clock-names = "fsl_viulite1";
 				status = "disabled";
 			};
 		};
