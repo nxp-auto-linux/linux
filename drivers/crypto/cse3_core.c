@@ -636,7 +636,7 @@ static int cse_probe(struct platform_device *pdev)
 
 #ifdef CONFIG_CRYPTO_DEV_FSL_CSE3_HWRNG
 	/** Register HW Random Number Generator API */
-	if (hwrng_register(&cse_rng))
+	if (devm_hwrng_register(cse_dev->device, &cse_rng))
 		dev_err(&pdev->dev, "failed to register hwrng.\n");
 #endif
 
@@ -674,11 +674,6 @@ static int cse_remove(struct platform_device *pdev)
 {
 	int i;
 	struct cse_device_data *cse_dev = platform_get_drvdata(pdev);
-
-#ifdef CONFIG_CRYPTO_DEV_FSL_CSE3_HWRNG
-	/* TODO: check if this was registered or use devm_* calls instead */
-	hwrng_unregister(&cse_rng);
-#endif
 
 	for (i = 0; i < ARRAY_SIZE(hash_algs); i++) {
 		if (hash_algs[i].registered)
