@@ -85,6 +85,10 @@
 	};
 };
 
+&fdma {
+	status = "okay";
+};
+
 &fec {
 	status = "okay";
 };
@@ -109,6 +113,14 @@
 &i2c2 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_i2c2>;
+	status = "okay";
+};
+
+&mipicsi0 {
+	status = "okay";
+};
+
+&mipicsi1 {
 	status = "okay";
 };
 
@@ -291,3 +303,6 @@
 	status = "okay";
 };
 
+&vseq {
+	status = "okay";
+};
