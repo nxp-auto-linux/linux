@@ -196,9 +196,11 @@
 				pu-supply = <&pu_dummy>;
 			};
 
-			mipicsi0: mipicsi2@40030000{
-				compatible = "fsl,s32v234-mipicsi2";
+			mipicsi0: mipicsi2_0@40030000{
+				compatible = "fsl,s32v234-mipicsi2-0";
 				reg = <0x0 0x40030000 0x0 0x1000>;
+				interrupts = <0 91 1>,
+					     <0 93 1>;
 				sensor = <0x0>; // nothing connected
 				clocks = <&clks S32V234_CLK_SYS6>;
 				clock-names = "mipicsi2";
@@ -334,9 +336,11 @@
 			reg = <0x0 0x40080000 0x0 0x70000>;
 			ranges;
 
-			mipicsi1: csi@400A0000{
-				compatible = "fsl,s32v234-mipicsi2";
+			mipicsi1: mipicsi2_1@400A0000{
+				compatible = "fsl,s32v234-mipicsi2-1";
 				reg = <0x0 0x400A0000 0x0 0x1000>;
+				interrupts = <0 92 1>,
+					     <0 94 1>;
 				sensor = <0x0>;   // nothing connected
 				clocks = <&clks S32V234_CLK_SYS6>;
 				clock-names = "mipicsi2";
@@ -422,6 +426,23 @@
 						<0 0 0 2 &gic 0 106 4>,
 						<0 0 0 3 &gic 0 107 4>,
 						<0 0 0 4 &gic 0 108 4>;
+		status = "disabled";
+	};
+
+	vseq: vision_sequencer@7C021000 {
+		compatible = "fsl,s32v234-vseq";
+		reg = <0x0 0x7C021000 0x0 0x1000>,
+		<0x0 0x7C022000 0x0 0x1000>;
+		interrupts = <0 113 1>,
+			     <0 114 1>;
+		status = "disabled";
+	};
+
+	fdma: fast_dma@7C040000 {
+		compatible = "fsl,s32v234-fdma";
+		reg = <0x0 0x7C040000 0x0 0x1000>;
+		interrupts = <0 83 1>,
+			     <0 84 1>;
 		status = "disabled";
 	};
 };
