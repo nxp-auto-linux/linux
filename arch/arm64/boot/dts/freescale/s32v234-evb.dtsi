@@ -116,6 +116,10 @@
 	status = "okay";
 };
 
+&jpegdecoder {
+	status = "okay";
+};
+
 &mipicsi0 {
 	status = "okay";
 };

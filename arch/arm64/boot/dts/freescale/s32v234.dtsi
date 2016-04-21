@@ -408,6 +408,23 @@
 				clock-names = "fsl_viulite1";
 				status = "disabled";
 			};
+
+			jpegdecoder: jpegdecoder@400D4000 {
+				compatible = "fsl,s32v234-jpegdcd";
+				reg = <0x0 0x400D4000 0x0 0x1000>;
+				interrupts = <0 128 1>,
+					     <0 129 1>,
+					     <0 130 1>,
+					     <0 131 1>,
+					     <0 132 1>,
+					     <0 133 1>,
+					     <0 134 1>,
+					     <0 135 1>;
+				clocks = <&clks S32V234_CLK_MJPEG>,
+					 <&clks S32V234_CLK_SYS6>;
+				clock-names = "fsl_jpegdcd", "bclock";
+				status = "disabled";
+			};
 		};
 	};
 
