@@ -43,6 +43,7 @@
 #include "fsl_dcu_regs.h"
 #include "fsl_dcu_regmacros.h"
 #include "fsl_dcu.h"
+#include "fsl_dcu_linux.h"
 #include "fsl_fb.h"
 
 #include <uapi/video/fsl_dcu_ioctl.h>
@@ -384,7 +385,6 @@ int fsl_dcu_map_vram(struct fb_info *info)
 }
 EXPORT_SYMBOL_GPL(fsl_dcu_map_vram);
 
-
 /**********************************************************
  * FUNCTION: fsl_dcu_unmap_vram
  **********************************************************/
@@ -602,6 +602,62 @@ void print_display_modes(struct fb_monspecs monspecs)
 }
 
 /**********************************************************
+ * FUNCTION: fsl_dcu_configure_display
+ * Set the parameters of a DCU-managed display
+ **********************************************************/
+void fsl_dcu_configure_display(struct IOCTL_DISPLAY_CFG *display_cfg)
+{
+	Dcu_LCD_Para_t dcu_lcd_timings;
+	struct fb_monspecs monspecs;
+	int i;
+
+	/* set configuration specific settings */
+	dcu_lcd_timings.mDeltaX = display_cfg->hactive;
+	dcu_lcd_timings.mDeltaY = display_cfg->vactive;
+	dcu_lcd_timings.mHorzBP = display_cfg->hback_porch;
+	dcu_lcd_timings.mHorzFP = display_cfg->hfront_porch;
+	dcu_lcd_timings.mHorzPW = display_cfg->hsync_len;
+	dcu_lcd_timings.mVertBP = display_cfg->vback_porch;
+	dcu_lcd_timings.mVertPW = display_cfg->vsync_len;
+	dcu_lcd_timings.mVertFP = display_cfg->vfront_porch;
+	dcu_lcd_timings.mSyncPol = 3;
+	dcu_lcd_timings.mVertFq = 60;
+	dcu_lcd_timings.mDivFactor = dcu_clk_val / display_cfg->clock_freq;
+
+	if (((display_cfg->hsync_len + display_cfg->vsync_len) == 0) &&
+		(display_cfg->disp_type == IOCTL_DISPLAY_HDMI)) {
+		/* set hdmi state */
+		enable_hdmi_display("");
+
+		/* query HDMI IP for monitor specs through DDC/EDID */
+		/* FIXME: avoid getting EDID info through HDMI direct call*/
+		monspecs = sii902x_get_monspecs();
+
+		/* search mode and set */
+		for (i = 0; i < monspecs.modedb_len; i++) {
+			if ((monspecs.modedb[i].xres == dcu_lcd_timings.mDeltaX) &&
+			    (monspecs.modedb[i].yres == dcu_lcd_timings.mDeltaY)) {
+				dcu_lcd_timings.mHorzBP = monspecs.modedb[i].left_margin;
+				dcu_lcd_timings.mHorzFP = monspecs.modedb[i].right_margin;
+				dcu_lcd_timings.mHorzPW = monspecs.modedb[i].hsync_len;
+				dcu_lcd_timings.mVertBP = monspecs.modedb[i].upper_margin;
+				dcu_lcd_timings.mVertPW = monspecs.modedb[i].vsync_len;
+				dcu_lcd_timings.mVertFP = monspecs.modedb[i].lower_margin;
+				dcu_lcd_timings.mSyncPol = 3;
+				dcu_lcd_timings.mVertFq = monspecs.modedb[i].refresh;
+				break;
+			}
+		}
+		if ((dcu_lcd_timings.mHorzPW + dcu_lcd_timings.mVertPW) == 0)
+			dev_warn(&dcu_pdev->dev, "no match for requested resolution in EDID\n");
+	}
+
+	/* set display configuration */
+	fsl_dcu_display(display_cfg->disp_type, dcu_lcd_timings);
+}
+EXPORT_SYMBOL_GPL(fsl_dcu_configure_display);
+
+/**********************************************************
  * FUNCTION: device_ioctl
  * DCU Linux IOCTL operations
  **********************************************************/
@@ -609,8 +665,7 @@ long device_ioctl(struct file *filp,
 		unsigned int ioctl_cmd,
 		unsigned long arg)
 {
-	int ret, i;
-	Dcu_LCD_Para_t dcu_lcd_timings;
+	int ret;
 	struct fb_monspecs monspecs;
 
 	struct IOCTL_LAYER_POS layer_pos;
@@ -756,51 +811,7 @@ long device_ioctl(struct file *filp,
 				(struct IOCTL_DISPLAY_CFG*)arg,
 				sizeof(display_cfg));
 
-			/* set configuration specific settings */
-			dcu_lcd_timings.mDeltaX = display_cfg.hactive;
-			dcu_lcd_timings.mDeltaY = display_cfg.vactive;
-			dcu_lcd_timings.mHorzBP = display_cfg.hback_porch;
-			dcu_lcd_timings.mHorzFP = display_cfg.hfront_porch;
-			dcu_lcd_timings.mHorzPW = display_cfg.hsync_len;
-			dcu_lcd_timings.mVertBP = display_cfg.vback_porch;
-			dcu_lcd_timings.mVertPW = display_cfg.vsync_len;
-			dcu_lcd_timings.mVertFP = display_cfg.vfront_porch;
-			dcu_lcd_timings.mSyncPol= 3;
-			dcu_lcd_timings.mVertFq = 60;
-			dcu_lcd_timings.mDivFactor = dcu_clk_val / display_cfg.clock_freq;
-
-			if(((display_cfg.hsync_len + display_cfg.vsync_len) == 0) &&
-					(display_cfg.disp_type == IOCTL_DISPLAY_HDMI))
-			{
-				/* set hdmi state */
-				enable_hdmi_display("");
-
-				/* query HDMI IP for monitor specs through DDC/EDID */
-				/* FIXME: avoid getting EDID info through HDMI direct call*/ 
-				monspecs = sii902x_get_monspecs();
-
-				/* search mode and set */
-				for(i=0; i<monspecs.modedb_len; i++)
-					if((monspecs.modedb[i].xres == dcu_lcd_timings.mDeltaX) &&
-							(monspecs.modedb[i].yres == dcu_lcd_timings.mDeltaY))
-					{
-						dcu_lcd_timings.mHorzBP = monspecs.modedb[i].left_margin;
-						dcu_lcd_timings.mHorzFP = monspecs.modedb[i].right_margin;
-						dcu_lcd_timings.mHorzPW = monspecs.modedb[i].hsync_len;
-						dcu_lcd_timings.mVertBP = monspecs.modedb[i].upper_margin;
-						dcu_lcd_timings.mVertPW = monspecs.modedb[i].vsync_len;
-						dcu_lcd_timings.mVertFP = monspecs.modedb[i].lower_margin;
-						dcu_lcd_timings.mSyncPol= 3;
-						dcu_lcd_timings.mVertFq = monspecs.modedb[i].refresh;
-						break;
-					}
-				if((dcu_lcd_timings.mHorzPW + dcu_lcd_timings.mVertPW) == 0)
-					printk(KERN_INFO "no match for requested resolution in EDID\n");
-
-			}
-
-			/* set display configuration */
-			fsl_dcu_display(display_cfg.disp_type, dcu_lcd_timings);
+			fsl_dcu_configure_display(&display_cfg);
 		}
 		break;
 	}
