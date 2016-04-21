@@ -21,6 +21,7 @@
 #include <video/of_display_timing.h>
 #include <video/videomode.h>
 #include <linux/pm_runtime.h>
+#include <linux/videodev2.h>
 
 #include "fsl_dcu.h"
 #include "fsl_fb.h"
@@ -59,7 +60,7 @@ extern int fsl_dcu_init_status(void);
 /**********************************************************
  * Macros for tracing
  **********************************************************/
-//#define __LOG_TRACE__ 1
+/* #define __LOG_TRACE__ 1 */
 
 #ifdef __LOG_TRACE__
 #define __TRACE__ printk(KERN_INFO "[ fsl-FB ] %s\n", __func__);
@@ -97,62 +98,82 @@ static int fsl_fb_check_var(struct fb_var_screeninfo *var,
 	if (var->yoffset + info->var.yres > info->var.yres_virtual)
 		var->yoffset = info->var.yres_virtual - info->var.yres;
 
-	switch (var->bits_per_pixel) {
-	case 16:
-		var->red.length = 5;
-		var->red.offset = 11;
-		var->red.msb_right = 0;
+	/* Check FOURCC */
+	if ((info->fix.capabilities & FB_CAP_FOURCC) &&
+		(var->grayscale > 1)) {
+		switch (var->grayscale) {
+		case V4L2_PIX_FMT_UYVY:
+			dev_info(dcufb->dev, "switch to UYVY format\n");
+			break;
 
-		var->green.length = 6;
-		var->green.offset = 5;
-		var->green.msb_right = 0;
+		default:
+			dev_err(dcufb->dev,
+				"unsupported FOURCC color format: %u\n",
+				var->grayscale);
+			return -EINVAL;
+		}
+	} else {
+		switch (var->bits_per_pixel) {
+		case 16:
+			var->red.length = 5;
+			var->red.offset = 11;
+			var->red.msb_right = 0;
 
-		var->blue.length = 5;
-		var->blue.offset = 0;
-		var->blue.msb_right = 0;
+			var->green.length = 6;
+			var->green.offset = 5;
+			var->green.msb_right = 0;
 
-		var->transp.length = 0;
-		var->transp.offset = 0;
-		var->transp.msb_right = 0;
-		break;
-	case 24:
-		var->red.length = 8;
-		var->red.offset = 16;
-		var->red.msb_right = 0;
+			var->blue.length = 5;
+			var->blue.offset = 0;
+			var->blue.msb_right = 0;
 
-		var->green.length = 8;
-		var->green.offset = 8;
-		var->green.msb_right = 0;
+			var->transp.length = 0;
+			var->transp.offset = 0;
+			var->transp.msb_right = 0;
+			break;
 
-		var->blue.length = 8;
-		var->blue.offset = 0;
-		var->blue.msb_right = 0;
+		case 24:
+			var->red.length = 8;
+			var->red.offset = 16;
+			var->red.msb_right = 0;
 
-		var->transp.length = 0;
-		var->transp.offset = 0;
-		var->transp.msb_right = 0;
-		break;
-	case 32:
-		var->red.length = 8;
-		var->red.offset = 16;
-		var->red.msb_right = 0;
+			var->green.length = 8;
+			var->green.offset = 8;
+			var->green.msb_right = 0;
 
-		var->green.length = 8;
-		var->green.offset = 8;
-		var->green.msb_right = 0;
+			var->blue.length = 8;
+			var->blue.offset = 0;
+			var->blue.msb_right = 0;
 
-		var->blue.length = 8;
-		var->blue.offset = 0;
-		var->blue.msb_right = 0;
+			var->transp.length = 0;
+			var->transp.offset = 0;
+			var->transp.msb_right = 0;
+			break;
 
-		var->transp.length = 8;
-		var->transp.offset = 24;
-		var->transp.msb_right = 0;
-		break;
-	default:
-		dev_err(dcufb->dev, "unsupported color depth: %u\n",
-			var->bits_per_pixel);
-		return -EINVAL;
+		case 32:
+			var->red.length = 8;
+			var->red.offset = 16;
+			var->red.msb_right = 0;
+
+			var->green.length = 8;
+			var->green.offset = 8;
+			var->green.msb_right = 0;
+
+			var->blue.length = 8;
+			var->blue.offset = 0;
+			var->blue.msb_right = 0;
+
+			var->transp.length = 8;
+			var->transp.offset = 24;
+			var->transp.msb_right = 0;
+			break;
+
+		default:
+			dev_err(dcufb->dev,
+				"unsupported color depth: %u\n",
+				var->bits_per_pixel);
+			return -EINVAL;
+		}
 	}
 
 	return 0;
@@ -172,6 +193,10 @@ static int fsl_fb_set_par(struct fb_info *info)
 	struct dcu_fb_data *dcufb = mfbi->parent;
 
 	__TRACE__;
+
+	if ((fix->capabilities & FB_CAP_FOURCC) &&
+		(var->grayscale == V4L2_PIX_FMT_UYVY))
+		var->bits_per_pixel = 16;
 
 	fix->line_length = var->xres_virtual * var->bits_per_pixel / 8;
 	fix->type = FB_TYPE_PACKED_PIXELS;
@@ -590,6 +615,7 @@ static int r_init(void)
 		}
 
 		dcufb->fsl_dcu_info[i]->fix.smem_start = 0;
+		dcufb->fsl_dcu_info[i]->fix.capabilities |= FB_CAP_FOURCC;
 
 		mfbi = dcufb->fsl_dcu_info[i]->par;
 
@@ -598,8 +624,8 @@ static int r_init(void)
 		mfbi->alpha = 0xFF;
 		mfbi->blend = 0;
 		mfbi->count = 0;
-		mfbi->x_layer_d = i*20;
-		mfbi->y_layer_d = i*20;
+		mfbi->x_layer_d = 0;
+		mfbi->y_layer_d = 0;
 		mfbi->parent = dcufb;
 
 		ret = fsl_fb_install(dcufb->fsl_dcu_info[i]);
