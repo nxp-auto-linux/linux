@@ -14,6 +14,7 @@
 #include <linux/dma-mapping.h>
 #include <linux/interrupt.h>
 #include <linux/fb.h>
+#include <linux/io.h>
 #include <linux/clk.h>
 #include <linux/of_platform.h>
 #include <linux/uaccess.h>
@@ -35,6 +36,7 @@
 #include <linux/of_gpio.h>
 #include <linux/of_net.h>
 #include <linux/cdev.h>
+#include <linux/videodev2.h>
 #include <asm/current.h>
 #include <linux/uaccess.h>
 
@@ -86,17 +88,9 @@ unsigned long wb_phys_ptr;
 #define LDB_CH0MOD_EN		(1 << 0)
 
 /**********************************************************
- * External function definitions
- **********************************************************/
-extern void __iomem *devm_ioremap(struct device *dev, resource_size_t offset,
-		resource_size_t size);
-extern void __iomem *devm_ioremap_nocache(struct device *dev,
-		resource_size_t offset, resource_size_t size);
-
-/**********************************************************
  * Macros for tracing
  **********************************************************/
-//#define __LOG_TRACE__ 1
+/* #define __LOG_TRACE__ 1 */
 
 #ifdef __LOG_TRACE__
 	#define __TRACE__ printk(KERN_INFO "[ fsl-DCU ] %s\n", __func__);
@@ -271,20 +265,28 @@ int fsl_dcu_config_layer(struct fb_info *info)
 	DCU_SetLayerPosition(0, mfbi->index, &layer_pos);
 	DCU_SetLayerBuffAddr(0, mfbi->index, info->fix.smem_start);
 
-	switch (var->bits_per_pixel) {
-	case 16:
-		DCU_SetLayerBPP(0, mfbi->index, DCU_BPP_16);
-		break;
-	case 24:
-		DCU_SetLayerBPP(0, mfbi->index, DCU_BPP_24);
-		break;
-	case 32:
-		DCU_SetLayerBPP(0, mfbi->index, DCU_BPP_32);
-		break;
-	default:
-		dev_err(dcufb->dev, "unsupported color depth: %u\n",
-			var->bits_per_pixel);
-		return -EINVAL;
+	if ((info->fix.capabilities & FB_CAP_FOURCC) &&
+		(var->grayscale == V4L2_PIX_FMT_UYVY)) {
+		DCU_SetLayerBPP(0, mfbi->index, DCU_BPP_YCbCr422);
+	} else {
+		switch (var->bits_per_pixel) {
+		case 16:
+			DCU_SetLayerBPP(0, mfbi->index, DCU_BPP_16);
+			break;
+
+		case 24:
+			DCU_SetLayerBPP(0, mfbi->index, DCU_BPP_24);
+			break;
+
+		case 32:
+			DCU_SetLayerBPP(0, mfbi->index, DCU_BPP_32);
+			break;
+
+		default:
+			dev_err(dcufb->dev, "unsupported color depth: %u\n",
+				var->bits_per_pixel);
+			return -EINVAL;
+		}
 	}
 
 	DCU_SetLayerAlphaVal(0, mfbi->index, mfbi->alpha);
@@ -506,7 +508,8 @@ int fsl_init_ldb(struct device_node *np, DCU_DISPLAY_TYPE display_type)
 /**********************************************************
  * FUNCTION: fsl_turn_panel_on
  **********************************************************/
-int fsl_turn_panel_on(struct device_node *np, DCU_DISPLAY_TYPE display_type)
+int fsl_turn_panel_on(struct device_node *np,
+	DCU_DISPLAY_TYPE display_type)
 {
 	int err = 0;
 	int panel_data_gpio;
@@ -836,7 +839,8 @@ static ssize_t fsl_dcu_read(struct file *fil, char* buff,
 	else
 		bytes_read = max_bytes;
 
-	bytes_read = bytes_read - copy_to_user(buff, wb_vir_ptr + (*off), bytes_read);
+	bytes_read = bytes_read -
+		     copy_to_user(buff, wb_vir_ptr + (*off), bytes_read);
 	*off = *off + bytes_read;
 
 	return bytes_read;
