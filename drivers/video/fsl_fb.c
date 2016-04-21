@@ -24,6 +24,7 @@
 #include <linux/videodev2.h>
 
 #include "fsl_dcu.h"
+#include "fsl_dcu_linux.h"
 #include "fsl_fb.h"
 
 #define DRIVER_NAME	"fsl_fb"
@@ -31,19 +32,6 @@
 #ifndef __linux__
 	#error "Error! Not a Linux platform!".
 #endif
-
-/**********************************************************
- * External routines defined in fsl-DCU driver
- **********************************************************/
-extern int fsl_dcu_config_layer(struct fb_info *info);
-extern int fsl_dcu_reset_layer(struct fb_info *info);
-extern int fsl_dcu_map_vram(struct fb_info *info);
-extern void fsl_dcu_unmap_vram(struct fb_info *info);
-extern int fsl_dcu_set_layer(struct fb_info *info);
-extern struct dcu_fb_data * fsl_dcu_get_dcufb(void);
-extern struct platform_device* fsl_dcu_get_pdev(void);
-extern int fsl_dcu_num_layers(void);
-extern int fsl_dcu_init_status(void);
 
 /**********************************************************
  * Various color formats
@@ -86,6 +74,20 @@ static int fsl_fb_check_var(struct fb_var_screeninfo *var,
 	struct dcu_fb_data *dcufb = mfbi->parent;
 
 	__TRACE__;
+
+	/* Check display configuration parameters */
+	if ((var->pixclock == info->var.pixclock) &&
+		(var->upper_margin == info->var.upper_margin) &&
+		(var->lower_margin == info->var.lower_margin) &&
+		(var->left_margin == info->var.left_margin) &&
+		(var->right_margin == info->var.right_margin) &&
+		(var->hsync_len == info->var.hsync_len) &&
+		(var->vsync_len == info->var.vsync_len)) {
+		/* Ensure display configuration will not be changed */
+		var->pixclock = var->upper_margin = var->lower_margin =
+		var->left_margin = var->right_margin = var->hsync_len =
+		var->vsync_len = 0;
+	}
 
 	if (var->xres_virtual < var->xres)
 		var->xres_virtual = var->xres;
@@ -191,6 +193,7 @@ static int fsl_fb_set_par(struct fb_info *info)
 	struct fb_fix_screeninfo *fix = &info->fix;
 	struct mfb_info *mfbi = info->par;
 	struct dcu_fb_data *dcufb = mfbi->parent;
+	struct IOCTL_DISPLAY_CFG ioctl_display_cfg;
 
 	__TRACE__;
 
@@ -218,6 +221,25 @@ static int fsl_fb_set_par(struct fb_info *info)
 			dev_err(dcufb->dev, "unable to allocate fb memory\n");
 			return -ENOMEM;
 		}
+	}
+
+	/* Configure display properties, valid only for HDMI */
+	if ((var->pixclock     != 0) && (var->upper_margin != 0) &&
+		(var->lower_margin != 0) && (var->left_margin  != 0) &&
+		(var->right_margin != 0) && (var->hsync_len    != 0) &&
+		(var->vsync_len    != 0)) {
+		ioctl_display_cfg.disp_type = IOCTL_DISPLAY_HDMI;
+		ioctl_display_cfg.clock_freq = var->pixclock * 1000;
+		ioctl_display_cfg.hactive = var->xres_virtual;
+		ioctl_display_cfg.vactive = var->yres_virtual;
+		ioctl_display_cfg.hback_porch = var->upper_margin;
+		ioctl_display_cfg.hfront_porch = var->lower_margin;
+		ioctl_display_cfg.vback_porch = var->left_margin;
+		ioctl_display_cfg.vfront_porch = var->right_margin;
+		ioctl_display_cfg.hsync_len = var->hsync_len;
+		ioctl_display_cfg.vsync_len = var->vsync_len;
+
+		fsl_dcu_configure_display(&ioctl_display_cfg);
 	}
 
 	fsl_dcu_config_layer(info);
@@ -665,7 +687,7 @@ static void r_cleanup(void)
 	dcufb = fsl_dcu_get_dcufb();
 	dcu_num_layers = fsl_dcu_num_layers();
 
-	if(dcu_num_layers < 1){
+	if (dcu_num_layers < 1) {
 		dev_err(&pdev->dev, "invalid number layers %d",
 				dcu_num_layers);
 		return;
@@ -689,4 +711,3 @@ static void r_cleanup(void)
 MODULE_AUTHOR("Lupescu Grigore");
 MODULE_DESCRIPTION("Freescale fsl-FB driver");
 MODULE_LICENSE("GPL");
-
