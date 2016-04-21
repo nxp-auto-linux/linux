@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0+
 //
-// Copyright 2013 Freescale Semiconductor, Inc.
+// Copyright 2013-2016 Freescale Semiconductor, Inc.
 //
 // Freescale DSPI driver
 // This file contains a driver for the Freescale DSPI
@@ -22,21 +22,30 @@
 
 #ifdef CONFIG_M5441x
 #define DSPI_FIFO_SIZE			16
+#elif defined(CONFIG_SOC_S32V234)
+#define DSPI_FIFO_SIZE			5
 #else
 #define DSPI_FIFO_SIZE			4
 #endif
 #define DSPI_DMA_BUFSIZE		(DSPI_FIFO_SIZE * 1024)
 
+/* Module Configuration Register (SPI_MCR) */
 #define SPI_MCR				0x00
 #define SPI_MCR_MASTER			BIT(31)
+#if defined(CONFIG_SOC_S32V234)
+#define SPI_MCR_PCSIS			(0xFF << 16)
+#else
 #define SPI_MCR_PCSIS			(0x3F << 16)
+#endif
 #define SPI_MCR_CLR_TXF			BIT(11)
 #define SPI_MCR_CLR_RXF			BIT(10)
 #define SPI_MCR_XSPI			BIT(3)
 
+/* Transfer Count Register (SPI_TCR) */
 #define SPI_TCR				0x08
 #define SPI_TCR_GET_TCNT(x)		(((x) & GENMASK(31, 16)) >> 16)
 
+/* Clock and Transfer Attribute Register (SPI_CTARn) - Master Mode */
 #define SPI_CTAR(x)			(0x0c + (((x) & GENMASK(1, 0)) * 4))
 #define SPI_CTAR_FMSZ(x)		(((x) << 27) & GENMASK(30, 27))
 #define SPI_CTAR_CPOL			BIT(26)
@@ -54,6 +63,7 @@
 
 #define SPI_CTAR0_SLAVE			0x0c
 
+/* Status Register (SPI_SR) */
 #define SPI_SR				0x2c
 #define SPI_SR_TCFQF			BIT(31)
 #define SPI_SR_EOQF			BIT(28)
@@ -76,29 +86,41 @@
 #define SPI_RSER_RFDFE			BIT(17)
 #define SPI_RSER_RFDFD			BIT(16)
 
+/* DMA/Interrupts Request Select and Enable Register (SPI_RSER) */
 #define SPI_RSER			0x30
 #define SPI_RSER_TCFQE			BIT(31)
 #define SPI_RSER_EOQFE			BIT(28)
 
+/* PUSH TX FIFO Register in Master Mode (SPI_PUSHR) */
 #define SPI_PUSHR			0x34
 #define SPI_PUSHR_CMD_CONT		BIT(15)
 #define SPI_PUSHR_CMD_CTAS(x)		(((x) << 12 & GENMASK(14, 12)))
 #define SPI_PUSHR_CMD_EOQ		BIT(11)
 #define SPI_PUSHR_CMD_CTCNT		BIT(10)
+#if defined(CONFIG_SOC_S32V234)
+#define SPI_PUSHR_CMD_PCS(x)		(BIT(x) & GENMASK(7, 0))
+#else
 #define SPI_PUSHR_CMD_PCS(x)		(BIT(x) & GENMASK(5, 0))
+#endif
 
 #define SPI_PUSHR_SLAVE			0x34
 
+/* POP RX FIFO Register (SPI_POPR) */
 #define SPI_POPR			0x38
 
+/* Transmit FIFO Registers (SPI_TXFRn) */
 #define SPI_TXFR0			0x3c
 #define SPI_TXFR1			0x40
 #define SPI_TXFR2			0x44
 #define SPI_TXFR3			0x48
+#define SPI_TXFR4			0x4C
+
+/* Receive FIFO Registers (SPI_RXFRn) */
 #define SPI_RXFR0			0x7c
 #define SPI_RXFR1			0x80
 #define SPI_RXFR2			0x84
 #define SPI_RXFR3			0x88
+#define SPI_RXFR4			0x8C
 
 #define SPI_CTARE(x)			(0x11c + (((x) & GENMASK(1, 0)) * 4))
 #define SPI_CTARE_FMSZE(x)		(((x) & 0x1) << 16)
