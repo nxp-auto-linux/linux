@@ -291,6 +291,26 @@
 						clock-names = "ipg", "per";
 			};
 
+			spi0: spi@40057000 {
+				compatible = "fsl,s32v234-dspi";
+				reg = <0x0 0x40057000 0x0 0x1000>;
+				interrupts = <0 61 4>;
+				clocks = <&clks S32V234_CLK_SYS6>;
+				clock-names = "dspi";
+				spi-num-chipselects = <8>;
+				status = "disabled";
+			};
+
+			spi2: spi@40059000 {
+				compatible = "fsl,s32v234-dspi";
+				reg = <0x0 0x40059000 0x0 0x1000>;
+				interrupts = <0 63 4>;
+				clocks = <&clks S32V234_CLK_SYS6>;
+				clock-names = "dspi";
+				spi-num-chipselects = <4>;
+				status = "disabled";
+			};
+
 			usdhc0: usdhc@4005D000 {
 				compatible = "fsl,s32v234-usdhc", "fsl,sac85r-usdhc";
 				reg = <0x0 0x4005D000 0x0 0x1000>;
@@ -401,6 +421,26 @@
 				clocks = <&clks S32V234_CLK_CAN>,
 					 <&clks S32V234_CLK_CAN>;
 				clock-names = "ipg", "per";
+			};
+
+			spi1: spi@400C0000 {
+				compatible = "fsl,s32v234-dspi";
+				reg = <0x0 0x400C0000 0x0 0x1000>;
+				interrupts = <0 62 4>;
+				clocks = <&clks S32V234_CLK_SYS6>;
+				clock-names = "dspi";
+				spi-num-chipselects = <4>;
+				status = "disabled";
+			};
+
+			spi3: spi@400C2000 {
+				compatible = "fsl,s32v234-dspi";
+				reg = <0x0 0x400C2000 0x0 0x1000>;
+				interrupts = <0 64 4>;
+				clocks = <&clks S32V234_CLK_SYS6>;
+				clock-names = "dspi";
+				spi-num-chipselects = <4>;
+				status = "disabled";
 			};
 
 			viulite1: viulite1@400D0000 {
