@@ -402,7 +402,7 @@
 &viulite1{
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_viulite1>;
-	status = "disabled";
+	status = "okay";
 };
 
 &vseq {
