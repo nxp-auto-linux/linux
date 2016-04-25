@@ -93,6 +93,10 @@
 	status = "okay";
 };
 
+&h264_encoder {
+	status = "okay";
+};
+
 &i2c0 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_i2c0>;
