@@ -20,6 +20,8 @@
 		can1 = &can1;
 		serial0 = &uart0;
 		serial1 = &uart1;
+		viu0 = &viulite0;
+		viu1 = &viulite1;
 	};
 
 	cpus {
