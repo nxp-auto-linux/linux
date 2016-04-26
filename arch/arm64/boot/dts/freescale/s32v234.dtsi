@@ -299,6 +299,7 @@
 					 <&clks S32V234_CLK_SDHC>,
 					 <&clks S32V234_CLK_SDHC>;
 				clock-names = "ipg", "ahb", "per";
+				bus-width = <8>;
 				status = "disabled";
 			};
 
