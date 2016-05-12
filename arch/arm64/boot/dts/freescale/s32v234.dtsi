@@ -582,6 +582,29 @@
 				status = "disabled";
 			};
 
+			h264decoder: h264decoder@400D8000 {
+				compatible = "fsl,s32v234-h264dcd";
+				reg = <0x0 0x400D8000 0x0 0x1000>;
+				interrupts = <0 136 1>,
+					     <0 137 1>,
+					     <0 138 1>,
+					     <0 139 1>,
+					     <0 140 1>,
+					     <0 141 1>,
+					     <0 142 1>,
+					     <0 143 1>,
+					     <0 144 1>,
+					     <0 145 1>,
+					     <0 146 1>,
+					     <0 147 1>,
+					     <0 148 1>,
+					     <0 149 1>;
+				clocks = <&clks S32V234_CLK_H264_DEC>,
+					 <&clks S32V234_CLK_SYS6>;
+				clock-names = "fsl_h264dcd", "ips_clock";
+				status = "disabled";
+			};
+
 			h264_encoder: h264_encoder@400DC000 {
 				compatible = "fsl,s32v234-h264_encoder";
 				reg = <0x0 0x400dc000 0x0 0x1000>;

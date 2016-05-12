@@ -80,6 +80,10 @@
 	status = "okay";
 };
 
+&h264decoder {
+	status = "okay";
+};
+
 &h264_encoder {
 	status = "okay";
 };
