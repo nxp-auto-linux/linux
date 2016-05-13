@@ -122,6 +122,10 @@
 		};
 };
 
+&pit0 {
+	status = "okay";
+};
+
 &pcie {
 	status = "okay";
 };
