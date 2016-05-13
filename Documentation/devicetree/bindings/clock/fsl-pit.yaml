@@ -1,0 +1,69 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/serial/fsl-pit.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Freescale PIT timer used as clocksource/clockevents
+
+maintainers:
+  - Larisa Grigore <larisa.grigore@nxp.com>
+
+allOf:
+  - $ref: "rs485.yaml"
+
+properties:
+  compatible:
+    oneOf:
+      - enum:
+          - fsl,s32v234-pit
+          - fsl,vf610-pit
+          - fsl,s32gen1-pit
+
+  reg:
+    maxItems: 1
+
+  interrupts:
+    maxItems: 1
+
+  clocks:
+    items:
+      - description: pit clock
+    maxItems: 1
+
+  clock-names:
+    items:
+      - const: pit
+    maxItems: 1
+
+  cpu:
+    maxItems: 1
+
+  rs485-rts-active-low: true
+  linux,rs485-enabled-at-boot-time: true
+
+required:
+  - compatible
+  - reg
+  - interrupts
+  - cpu
+
+unevaluatedProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/clock/s32gen1-scmi-clock.h>
+
+    pit0: pit@4003A000{
+        compatible = "fsl,s32v234-pit";
+        reg = <0x0 0x4003A000 0x0 0x1000>;
+        interrupts = <0 31 4>;
+        clocks = <&clks S32V234_CLK_SYS6>;
+        clock-names = "pit";
+        cpu = <0>;
+        status = "disabled";
+    };
+
+    &pit0 {
+        status = "okay";
+    };
