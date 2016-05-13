@@ -1,0 +1,57 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/clock/nxp-pit.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: NXP PIT timer used as clocksource/clockevents
+
+maintainers:
+  - Larisa Grigore <larisa.grigore@nxp.com>
+
+properties:
+  compatible:
+    oneOf:
+      - enum:
+          - fsl,vf610-pit
+          - nxp,s32cc-pit
+
+  reg:
+    maxItems: 1
+
+  interrupts:
+    maxItems: 1
+
+  clocks:
+    items:
+      - description: pit clock
+
+  clock-names:
+    items:
+      - const: pit
+
+  cpu:
+    maxItems: 1
+
+required:
+  - clocks
+  - clock-names
+  - compatible
+  - cpu
+  - interrupts
+  - reg
+
+unevaluatedProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/clock/s32cc-scmi-clock.h>
+
+    pit0: pit@40188000 {
+      compatible = "nxp,s32cc-pit";
+      reg = <0x40188000 0x3000>;
+      interrupts= <0 53 4>;
+      clocks = <&clks S32CC_SCMI_CLK_PIT_MODULE>;
+      clock-names = "pit";
+      cpu = <0>;
+    };
