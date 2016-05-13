@@ -249,6 +249,15 @@
 				status = "disabled";
 			};
 
+			pit0: pit@4003A000{
+			    compatible = "fsl,s32v234-pit";
+			    reg = <0x0 0x4003A000 0x0 0x1000>;
+			    interrupts= <0 31 0xf08>;
+			    clocks = <&clks S32V234_CLK_SYS6>;
+			    clock-names = "pit";
+				status = "disabled";
+			};
+
 			clks: mc_cgm0@4003C000 {
 				compatible = "fsl,s32v234-mc_cgm0";
 				reg = <0x0 0x4003C000 0x0 0x1000>;
