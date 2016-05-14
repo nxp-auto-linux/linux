@@ -6,6 +6,7 @@
 #include <linux/interrupt.h>
 #include <linux/clockchips.h>
 #include <linux/clk.h>
+#include <linux/cpuhotplug.h>
 #include <linux/of_address.h>
 #include <linux/of_irq.h>
 #include <linux/sched_clock.h>
@@ -29,45 +30,83 @@
 
 #define PITTFLG_TIF	0x1
 
-static void __iomem *clksrc_base;
-static void __iomem *clkevt_base;
-static unsigned long cycle_per_jiffy;
+#if defined(CONFIG_SOC_S32V234)
+#define PIT_NR 2
+#else
+#define PIT_NR 1
+#endif
 
-static inline void pit_timer_enable(void)
+#define MASTER_CORE 0
+#define TIMER_NAME "FSL pit timer"
+
+struct pit_timer {
+	void __iomem *clksrc_base;
+	void __iomem *clkevt_base;
+	int irq;
+	unsigned int core;
+	struct clk *pit_clk;
+	unsigned long cycle_per_jiffy;
+	struct clock_event_device clockevent_pit;
+	struct irqaction pit_timer_irq;
+};
+
+static struct pit_timer *pit[PIT_NR];
+static unsigned int clocksource;
+
+static inline unsigned int evt_cpu(struct clock_event_device *evt)
 {
-	__raw_writel(PITTCTRL_TEN | PITTCTRL_TIE, clkevt_base + PITTCTRL);
+	unsigned int cpu;
+	struct pit_timer *pt = container_of(evt, struct pit_timer,
+					    clockevent_pit);
+
+	for (cpu = 0; cpu < PIT_NR; ++cpu)
+		if (pit[cpu] == pt)
+			break;
+
+	return cpu;
 }
 
-static inline void pit_timer_disable(void)
+static inline void pit_timer_enable(unsigned int cpu)
 {
-	__raw_writel(0, clkevt_base + PITTCTRL);
+	__raw_writel(PITTCTRL_TEN | PITTCTRL_TIE,
+		     pit[cpu]->clkevt_base + PITTCTRL);
 }
 
-static inline void pit_irq_acknowledge(void)
+static inline void pit_timer_disable(unsigned int cpu)
 {
-	__raw_writel(PITTFLG_TIF, clkevt_base + PITTFLG);
+	__raw_writel(0, pit[cpu]->clkevt_base + PITTCTRL);
+}
+
+static inline void pit_irq_acknowledge(unsigned int cpu)
+{
+	__raw_writel(PITTFLG_TIF, pit[cpu]->clkevt_base + PITTFLG);
 }
 
 static u64 notrace pit_read_sched_clock(void)
 {
-	return ~__raw_readl(clksrc_base + PITCVAL);
+	return ~__raw_readl(pit[clocksource]->clksrc_base + PITCVAL);
 }
 
-static int __init pit_clocksource_init(unsigned long rate)
+static int __init pit_clocksource_init(unsigned long cpu, unsigned long rate)
 {
-	/* set the max load value and start the clock source counter */
-	__raw_writel(0, clksrc_base + PITTCTRL);
-	__raw_writel(~0UL, clksrc_base + PITLDVAL);
-	__raw_writel(PITTCTRL_TEN, clksrc_base + PITTCTRL);
+	clocksource = cpu;
+	__raw_writel(0,  pit[clocksource]->clksrc_base + PITTCTRL);
+	__raw_writel(0xFFFFFFFF,  pit[clocksource]->clksrc_base + PITLDVAL);
+	__raw_writel(PITTCTRL_TEN,  pit[clocksource]->clksrc_base + PITTCTRL);
 
 	sched_clock_register(pit_read_sched_clock, 32, rate);
-	return clocksource_mmio_init(clksrc_base + PITCVAL, "vf-pit", rate,
-			300, 32, clocksource_mmio_readl_down);
+	clocksource_mmio_init(pit[clocksource]->clksrc_base + PITCVAL,
+			      "vf-pit", rate,
+			      CONFIG_PIT_CLKSRC_RATE, 32,
+			      clocksource_mmio_readl_down);
+
+	return 0;
 }
 
 static int pit_set_next_event(unsigned long delta,
-				struct clock_event_device *unused)
+			      struct clock_event_device *evt)
 {
+	unsigned int cpu = evt_cpu(evt);
 	/*
 	 * set a new value to PITLDVAL register will not restart the timer,
 	 * to abort the current cycle and start a timer period with the new
@@ -75,30 +114,34 @@ static int pit_set_next_event(unsigned long delta,
 	 * and the PITLAVAL should be set to delta minus one according to pit
 	 * hardware requirement.
 	 */
-	pit_timer_disable();
-	__raw_writel(delta - 1, clkevt_base + PITLDVAL);
-	pit_timer_enable();
+	pit_timer_disable(cpu);
+	__raw_writel(delta - 1, pit[cpu]->clkevt_base + PITLDVAL);
+	pit_timer_enable(cpu);
 
 	return 0;
 }
 
 static int pit_shutdown(struct clock_event_device *evt)
 {
-	pit_timer_disable();
+	pit_timer_disable(evt_cpu(evt));
 	return 0;
 }
 
 static int pit_set_periodic(struct clock_event_device *evt)
 {
-	pit_set_next_event(cycle_per_jiffy, evt);
+	struct pit_timer *pt = container_of(evt, struct pit_timer,
+					    clockevent_pit);
+
+	pit_set_next_event(pt->cycle_per_jiffy, evt);
 	return 0;
 }
 
 static irqreturn_t pit_timer_interrupt(int irq, void *dev_id)
 {
 	struct clock_event_device *evt = dev_id;
+	unsigned int cpu = evt_cpu(evt);
 
-	pit_irq_acknowledge();
+	pit_irq_acknowledge(cpu);
 
 	/*
 	 * pit hardware doesn't support oneshot, it will generate an interrupt
@@ -107,32 +150,42 @@ static irqreturn_t pit_timer_interrupt(int irq, void *dev_id)
 	 * to stop the counter loop in ONESHOT mode.
 	 */
 	if (likely(clockevent_state_oneshot(evt)))
-		pit_timer_disable();
+		pit_timer_disable(cpu);
 
 	evt->event_handler(evt);
 
 	return IRQ_HANDLED;
 }
 
-static struct clock_event_device clockevent_pit = {
-	.name		= "VF pit timer",
-	.features	= CLOCK_EVT_FEAT_PERIODIC | CLOCK_EVT_FEAT_ONESHOT,
-	.set_state_shutdown = pit_shutdown,
-	.set_state_periodic = pit_set_periodic,
-	.set_next_event	= pit_set_next_event,
-	.rating		= 300,
-};
-
-static int __init pit_clockevent_init(unsigned long rate, int irq)
+static int pit_clockevent_init(unsigned int cpu, unsigned long rate, int irq)
 {
-	__raw_writel(0, clkevt_base + PITTCTRL);
-	__raw_writel(PITTFLG_TIF, clkevt_base + PITTFLG);
+	int ret;
 
-	BUG_ON(request_irq(irq, pit_timer_interrupt, IRQF_TIMER | IRQF_IRQPOLL,
-			   "VF pit timer", &clockevent_pit));
+	__raw_writel(0, pit[cpu]->clkevt_base + PITTCTRL);
 
-	clockevent_pit.cpumask = cpumask_of(0);
-	clockevent_pit.irq = irq;
+	pit[cpu]->clockevent_pit.name = TIMER_NAME;
+	pit[cpu]->clockevent_pit.features = CLOCK_EVT_FEAT_PERIODIC |
+					    CLOCK_EVT_FEAT_ONESHOT;
+	pit[cpu]->clockevent_pit.set_state_shutdown = pit_shutdown;
+	pit[cpu]->clockevent_pit.set_state_periodic = pit_set_periodic;
+	pit[cpu]->clockevent_pit.set_next_event = pit_set_next_event;
+	pit[cpu]->clockevent_pit.rating = CONFIG_PIT_CLKEVT_RATE;
+	pit[cpu]->clockevent_pit.cpumask = cpumask_of(cpu);
+	pit[cpu]->clockevent_pit.irq = irq;
+
+	pit[cpu]->pit_timer_irq.name = TIMER_NAME;
+	pit[cpu]->pit_timer_irq.flags = IRQF_TIMER | IRQF_IRQPOLL;
+	pit[cpu]->pit_timer_irq.handler = pit_timer_interrupt;
+	pit[cpu]->pit_timer_irq.dev_id = &pit[cpu]->clockevent_pit;
+
+	ret = setup_irq(irq, &pit[cpu]->pit_timer_irq);
+	if (ret)
+		return ret;
+
+	ret = irq_force_affinity(irq, cpumask_of(cpu));
+	if (ret)
+		return ret;
+
 	/*
 	 * The value for the LDVAL register trigger is calculated as:
 	 * LDVAL trigger = (period / clock period) - 1
@@ -141,17 +194,49 @@ static int __init pit_clockevent_init(unsigned long rate, int irq)
 	 * LDVAL trigger value is 1. And then the min_delta is
 	 * minimal LDVAL trigger value + 1, and the max_delta is full 32-bit.
 	 */
-	clockevents_config_and_register(&clockevent_pit, rate, 2, 0xffffffff);
+	clockevents_config_and_register(&pit[cpu]->clockevent_pit, rate, 2,
+					0xffffffff);
 
+	__raw_writel(PITTFLG_TIF, pit[cpu]->clkevt_base + PITTFLG);
+
+	return 0;
+}
+
+static int pit_timer_starting_cpu(unsigned int cpu)
+{
+	if (cpu < PIT_NR)
+		return pit_clockevent_init(cpu,
+					   pit[cpu]->cycle_per_jiffy * (HZ),
+					   pit[cpu]->irq);
+	return 0;
+}
+
+static int pit_timer_dying_cpu(unsigned int cpu)
+{
+	if (cpu < PIT_NR)
+		pit_timer_disable(cpu);
 	return 0;
 }
 
 static int __init pit_timer_init(struct device_node *np)
 {
-	struct clk *pit_clk;
 	void __iomem *timer_base;
 	unsigned long clk_rate;
-	int irq, ret;
+	unsigned int core;
+	int ret;
+
+	of_property_read_u32(np, "core", &core);
+
+	if (core > PIT_NR) {
+		pr_err("Please specify a correct core number.\n");
+		return -EINVAL;
+	}
+
+	pit[core] = kzalloc(sizeof(struct pit_timer), GFP_KERNEL);
+	if (!pit[core])
+		return -ENOMEM;
+
+	pit[core]->core = core;
 
 	timer_base = of_iomap(np, 0);
 	if (!timer_base) {
@@ -164,31 +249,43 @@ static int __init pit_timer_init(struct device_node *np)
 	 * so choose PIT2 as clocksource, PIT3 as clockevent device,
 	 * and leave PIT0 and PIT1 unused for anyone else who needs them.
 	 */
-	clksrc_base = timer_base + PITn_OFFSET(2);
-	clkevt_base = timer_base + PITn_OFFSET(3);
+	pit[core]->clksrc_base = timer_base + PITn_OFFSET(2);
+	pit[core]->clkevt_base = timer_base + PITn_OFFSET(3);
 
-	irq = irq_of_parse_and_map(np, 0);
-	if (irq <= 0)
+	pit[core]->irq = irq_of_parse_and_map(np, 0);
+	if (pit[core]->irq <= 0)
 		return -EINVAL;
 
-	pit_clk = of_clk_get(np, 0);
-	if (IS_ERR(pit_clk))
-		return PTR_ERR(pit_clk);
+	pit[core]->pit_clk = of_clk_get(np, 0);
+	if (IS_ERR(pit[core]->pit_clk))
+		return PTR_ERR(pit[core]->pit_clk);
 
-	ret = clk_prepare_enable(pit_clk);
+	ret = clk_prepare_enable(pit[core]->pit_clk);
 	if (ret)
 		return ret;
 
-	clk_rate = clk_get_rate(pit_clk);
-	cycle_per_jiffy = clk_rate / (HZ);
+	clk_rate = clk_get_rate(pit[core]->pit_clk);
+	pit[core]->cycle_per_jiffy = clk_rate / (HZ);
 
 	/* enable the pit module */
 	__raw_writel(~PITMCR_MDIS, timer_base + PITMCR);
 
-	ret = pit_clocksource_init(clk_rate);
-	if (ret)
-		return ret;
+	if (core == MASTER_CORE) {
+		ret = cpuhp_setup_state_nocalls(CPUHP_AP_VF_PIT_TIMER_STARTING,
+						"AP_VF_PIT_TIMER_STARTING",
+						pit_timer_starting_cpu,
+						pit_timer_dying_cpu);
+		if (ret)
+			return ret;
+		ret = pit_clocksource_init(core, clk_rate);
+		if (ret)
+			return ret;
+		ret = pit_clockevent_init(core, clk_rate, pit[core]->irq);
+		if (ret)
+			return ret;
+	}
 
-	return pit_clockevent_init(clk_rate, irq);
+	return 0;
 }
+
 TIMER_OF_DECLARE(vf610, "fsl,vf610-pit", pit_timer_init);
