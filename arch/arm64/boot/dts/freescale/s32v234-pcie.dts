@@ -126,6 +126,10 @@
 	status = "okay";
 };
 
+&pit1 {
+	status = "okay";
+};
+
 &pcie {
 	status = "okay";
 };
