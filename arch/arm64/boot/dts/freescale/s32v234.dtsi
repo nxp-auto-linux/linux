@@ -250,11 +250,12 @@
 			};
 
 			pit0: pit@4003A000{
-			    compatible = "fsl,s32v234-pit";
-			    reg = <0x0 0x4003A000 0x0 0x1000>;
-			    interrupts= <0 31 0xf08>;
-			    clocks = <&clks S32V234_CLK_SYS6>;
-			    clock-names = "pit";
+				compatible = "fsl,s32v234-pit";
+				reg = <0x0 0x4003A000 0x0 0x1000>;
+				interrupts= <0 31 0xf08>;
+				clocks = <&clks S32V234_CLK_SYS6>;
+				clock-names = "pit";
+				core = <0>;
 				status = "disabled";
 			};
 
@@ -396,6 +397,16 @@
 				clocks = <&clks S32V234_CLK_SYS6>;
 				clock-names = "mipicsi2";
 
+				status = "disabled";
+			};
+
+			pit1: pit@400AA000{
+				compatible = "fsl,s32v234-pit";
+				reg = <0x0 0x400AA000 0x0 0x1000>;
+				interrupts= <0 32 0xf08>;
+				core = <1>;
+				clocks = <&clks S32V234_CLK_SYS6>;
+				clock-names = "pit";
 				status = "disabled";
 			};
 
