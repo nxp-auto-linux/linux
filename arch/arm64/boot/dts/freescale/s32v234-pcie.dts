@@ -72,6 +72,10 @@
 	};
 };
 
+&edma {
+	status = "okay";
+};
+
 &fdma {
 	status = "okay";
 };
