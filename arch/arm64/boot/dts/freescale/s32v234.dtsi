@@ -306,6 +306,9 @@
 				interrupts = <0 59 1>;
 				clocks = <&clks S32V234_CLK_LIN>;
 				clock-names = "lin";
+				dmas = <&edma 0 20>,
+				       <&edma 0 19>;
+				dma-names = "rx", "tx";
 				status = "disabled";
 			};
 
@@ -450,6 +453,9 @@
 				interrupts = <0 60 1>;
 				clocks = <&clks S32V234_CLK_LIN>;
 				clock-names = "lin";
+				dmas = <&edma 1 13>,
+				       <&edma 1 12>;
+				dma-names = "rx", "tx";
 				status = "disabled";
 			};
 
