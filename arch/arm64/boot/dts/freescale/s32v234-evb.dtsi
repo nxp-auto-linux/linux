@@ -376,6 +376,30 @@
 	};
 };
 
+&spi0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_dspi0>;
+	status = "okay";
+};
+
+&spi3 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_dspi3>;
+	status = "okay";
+
+	/* This is an example entry to illustrate SPI device setup.
+	 * To be hooked up to the expansion port SPI3 CS0 for testing.
+	 */
+	tja1145: tja1145@0 {
+		compatible = "rohm,dh2228fv";
+		spi-max-frequency = <4000000>;
+		reg = <0>;
+	};
+};
+
 &swt0 {
 	status = "okay";
 };
