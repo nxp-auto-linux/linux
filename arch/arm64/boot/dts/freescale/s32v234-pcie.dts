@@ -177,8 +177,53 @@
 				S32V234_PAD_PK4__DCU_B7_D25
 				>;
 		};
+
+		pinctrl_dspi0: dspi0grp {
+			fsl,pins = <
+				S32V234_PAD_PB8__SPI0_CS0_OUT
+				S32V234_PAD_PB6__SPI0_SOUT_OUT
+				S32V234_PAD_PB5__SPI0_SCK_OUT
+				S32V234_PAD_PB7__SPI0_SIN_OUT
+				S32V234_PAD_PB7__SPI0_SIN_IN
+			>;
+		};
+
+		pinctrl_dspi3: dspi3grp {
+			fsl,pins = <
+				S32V234_PAD_PC4__SPI3_CS0_OUT
+				S32V234_PAD_PC2__SPI3_SOUT_OUT
+				S32V234_PAD_PC1__SPI3_SCK_OUT
+				S32V234_PAD_PC3__SPI3_SIN_OUT
+				S32V234_PAD_PC3__SPI3_SIN_IN
+			>;
+		};
 	};
 };
+
+&spi0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_dspi0>;
+	status = "okay";
+};
+
+&spi3 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_dspi3>;
+	status = "okay";
+
+	/* This is an example entry to illustrate SPI device setup.
+	 * To be hooked up to the expansion port SPI3 CS0 for testing.
+	 */
+	tja1145: tja1145@0 {
+		compatible = "spidev";
+		spi-max-frequency = <4000000>;
+		reg = <0>;
+	};
+};
+
 &swt0 {
 	status = "okay";
 };
