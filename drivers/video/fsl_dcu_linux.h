@@ -24,5 +24,6 @@ struct dcu_fb_data *fsl_dcu_get_dcufb(void);
 struct platform_device *fsl_dcu_get_pdev(void);
 int fsl_dcu_num_layers(void);
 int fsl_dcu_init_status(void);
+int fsl_dcu_wait_for_vsync(void);
 
 #endif /* FSL_DCU_LINUX_H_ */
