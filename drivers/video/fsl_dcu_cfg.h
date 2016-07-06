@@ -1,29 +1,37 @@
-/**
-*   @file    dcu_cfg.h
+/*
+ *   @file    dcu_cfg.h
  *
-*   @brief   The file is the 2D-ACE header file.
-*   @details It contains the version of the UIP used for this platform.
+ *   @brief   The file is the 2D-ACE header file.
+ *   @details It contains the version of the UIP used for this platform.
  */
-/*==================================================================================================
-*   Copyright (c) 2014 Freescale Semiconductor, Inc
-*   All Rights Reserved.
-==================================================================================================*/
-/*==================================================================================================
-Revision History:
-                             Modification     Tracking
-Author (core ID)              Date D/M/Y       Number     Description of Changes
----------------------------   ----------    ------------  ------------------------------------------
-Cristian Tomescu (B13031)     04/06/2014    ENGR00316549  First version of the platorm config file.
----------------------------   ----------    ------------  ------------------------------------------
-Cristian Tomescu (B13031)     04/07/2014    ENGR00321529  Adding the HUD support.
----------------------------   ----------    ------------  ------------------------------------------
-Cristian Tomescu (B13031)     28/07/2014    ENGR00324499  Implementing changes for frbuff interface.
----------------------------   ----------    ------------  ------------------------------------------
-Cristian Tomescu (B13031)     19/08/2014    ENGR00327882  Porting the driver on the RAYLEIGH platform.
----------------------------   ----------    ------------  ------------------------------------------
-Cristian Tomescu (B13031)     27/05/2015    ENGR00355821  Porting on Treerunner. 
-==================================================================================================*/
-/**
+
+/* =============================================================================
+ *   Copyright (c) 2014, 2016 Freescale Semiconductor, Inc
+ *   All Rights Reserved.
+ * =============================================================================
+ */
+
+/*
+ * =============================================================================
+ * Revision History:
+ * All changes made by Cristian Tomescu (B13031)
+ *
+ * Modification     Tracking		Description
+ *  Date D/M/Y       Number        of Changes
+ *  ----------    ------------  ------------------------------------------
+ *  04/06/2014    ENGR00316549  First version of the platorm config file.
+ *  ----------    ------------  ------------------------------------------
+ *  04/07/2014    ENGR00321529  Adding the HUD support.
+ *  ----------    ------------  ------------------------------------------
+ *  28/07/2014    ENGR00324499  Implementing changes for frbuff interface.
+ *  ----------    ------------  ------------------------------------------
+ *  19/08/2014    ENGR00327882  Porting the driver on the RAYLEIGH platform.
+ *  ----------    ------------  ------------------------------------------
+ *  27/05/2015    ENGR00355821  Porting on Treerunner.
+ * =============================================================================*
+ */
+
+/*
  * \file    dcu_cfg.h
  * \brief   This is the DCU Driver Header File
  * \author
@@ -35,7 +43,7 @@ Cristian Tomescu (B13031)     27/05/2015    ENGR00355821  Porting on Treerunner.
 #ifndef DCU_CFG_H_
 #define DCU_CFG_H_
 
-#ifdef  __cplusplus
+#ifdef __cplusplus
 extern "C" {
 #endif
 
@@ -50,7 +58,7 @@ extern "C" {
 #define IPV_DCU                     (IPV_DCU_TREERUNNER)
 #define DCU_DRV_VARIANT             (DRV_LINUX_OS)
 
-#define DCU_IRQ_SUPPORT             (0)
+#define DCU_IRQ_SUPPORT             (1)
 #define DCU_IRQ_STATEMACHINE        (0)
 
 
@@ -72,13 +80,13 @@ extern "C" {
   /* Number of DCU units */
   #define DCU_NUMBER                      (1U)
   /*** define DCU base address ***/
-  #define DCU0_BASE       (const uint32_t)0x40028000
+  #define DCU0_BASE       ((const uint32_t)0x40028000)
   /* Number of layers */
   #define DCU_LAYERS_NUM_MAX              (8U)
   /* Maximum number of blend layers */
   #define DCU_LAYERS_BLEND_MAX            (2U)
 
-  #define DCU_HUD_FUNCTIONALITY           (1)
+  #define DCU_HUD_FUNCTIONALITY           (0)
   #define DCU_WRITEBACK_FUNCTIONALITY     (1)
   #define DCU_SAFETY_FUNCTIONALITY        (1)
   #define DCU_PDI_FUNCTIONALITY           (0)
@@ -86,10 +94,9 @@ extern "C" {
   #define DCU_TILE_FUNCTIONALITY          (1)
   #define DCU_TILE_MODE                   (TILE_FIX_SIZE)
 
-typedef enum
-{
-  HUD_DCU = 1                    /**< second 2D_ACE unit */
-}Dcu_HUDUnit_t;
+typedef enum {
+	HUD_DCU = 1                    /**< second 2D_ACE unit */
+} Dcu_HUDUnit_t;
 
 #endif
 
@@ -99,7 +106,7 @@ typedef enum
   /* Number of DCU units */
   #define DCU_NUMBER                      (1U)
   /*** define DCU base address ***/
-  #define DCU0_BASE       (const uint32_t)0x40140000
+  #define DCU0_BASE       ((const uint32_t)0x40140000)
   /* Number of layers */
   #define DCU_LAYERS_NUM_MAX              (16U)
   /* Maximum number of blend layers */
@@ -119,8 +126,8 @@ typedef enum
   /* Number of DCU units */
   #define DCU_NUMBER                      (2U)
   /*** define DCU base address ***/
-  #define DCU0_BASE       (const uint32_t)0x40028000
-  #define DCU1_BASE       (const uint32_t)0x40038000
+  #define DCU0_BASE       ((const uint32_t)0x40028000)
+  #define DCU1_BASE       ((const uint32_t)0x40038000)
   /* Number of layers */
   #define DCU_LAYERS_NUM_MAX              (32U)
   /* Maximum number of blend layers */
@@ -132,10 +139,9 @@ typedef enum
   #define DCU_TILE_FUNCTIONALITY          (1)
   #define DCU_TILE_MODE                   (TILE_VAR_SIZE)
 
-typedef enum
-{
-  HUD_DCU = 1                    /**< second 2D_ACE unit */
-}Dcu_HUDUnit_t;
+typedef enum {
+	HUD_DCU = 1                    /**< second 2D_ACE unit */
+} Dcu_HUDUnit_t;
 
 #endif
 
@@ -144,8 +150,8 @@ typedef enum
   /* Number of DCU units */
   #define DCU_NUMBER                      (2U)
   /*** define DCU base address ***/
-  #define DCU0_BASE       (const uint32_t)0x40058000
-  #define DCU1_BASE       (const uint32_t)0x400D8000
+  #define DCU0_BASE       ((const uint32_t)0x40058000)
+  #define DCU1_BASE       ((const uint32_t)0x400D8000)
   /* Number of layer*/
   #define DCU_LAYERS_NUM_MAX              (64U)
   /* Maximum number of blend layers */
@@ -160,7 +166,7 @@ typedef enum
 
 #endif
 
-#ifdef  __cplusplus
+#ifdef __cplusplus
 }
 #endif
 
