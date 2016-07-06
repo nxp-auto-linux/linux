@@ -51,12 +51,13 @@
 /* #define __LOG_TRACE__ 1 */
 
 #ifdef __LOG_TRACE__
-#define __TRACE__ printk(KERN_INFO "[ fsl-FB ] %s\n", __func__);
-#define __MSG_TRACE__(string, args...) printk(KERN_INFO "[ fsl-FB ] "\
-		" %s : %d : " string, __FUNCTION__, __LINE__, ##args)
+#define __TRACE__ dev_info(&fsl_dcu_get_pdev()->dev, \
+	"[fsl-FB] %s\n", __func__)
+#define __MSG_TRACE__(string, args...) dev_info(&fsl_dcu_get_pdev()->dev, \
+	"[fsl-FB] %s : %d : " string, __func__, __LINE__, ##args)
 #else
-	#define __TRACE__ ;
-	#define __MSG_TRACE__(string, args...) ;
+	#define __TRACE__
+	#define __MSG_TRACE__(string, args...)
 #endif
 
 struct layer_display_offset {
@@ -211,7 +212,7 @@ static int fsl_fb_set_par(struct fb_info *info)
 	len = info->var.yres_virtual * info->fix.line_length;
 
 	if (len != info->fix.smem_len) {
-		if (info->fix.smem_start){
+		if (info->fix.smem_start) {
 			__MSG_TRACE__("unmap_video_memory\n");
 			fsl_dcu_unmap_vram(info);
 		}
@@ -376,17 +377,20 @@ static int fsl_fb_ioctl(struct fb_info *info, unsigned int cmd,
 		mfbi->y_layer_d = layer_d.y_layer_d;
 		fsl_fb_set_par(info);
 		break;
+
 	case MFB_GET_LAYER:
 		layer_d.x_layer_d = mfbi->x_layer_d;
 		layer_d.y_layer_d = mfbi->y_layer_d;
 		if (copy_to_user(buf, &layer_d, sizeof(layer_d)))
 			return -EFAULT;
 		break;
+
 	case MFB_GET_ALPHA:
 		alpha = mfbi->alpha;
 		if (copy_to_user(buf, &alpha, sizeof(alpha)))
 			return -EFAULT;
 		break;
+
 	case MFB_SET_ALPHA:
 		if (copy_from_user(&alpha, buf, sizeof(alpha)))
 			return -EFAULT;
@@ -394,6 +398,11 @@ static int fsl_fb_ioctl(struct fb_info *info, unsigned int cmd,
 		mfbi->alpha = alpha;
 		fsl_fb_set_par(info);
 		break;
+
+	case FBIO_WAITFORVSYNC:
+		fsl_dcu_wait_for_vsync();
+		break;
+
 	default:
 		dev_err(dcufb->dev, "unknown ioctl command (0x%08X)\n", cmd);
 		return -ENOIOCTLCMD;
@@ -601,14 +610,14 @@ static int r_init(void)
 	int i;
 
 	__TRACE__;
-	if(fsl_dcu_init_status() != 0)
+	if (fsl_dcu_init_status() != 0)
 		return fsl_dcu_init_status();
 
 	pdev = fsl_dcu_get_pdev();
 	dcufb = fsl_dcu_get_dcufb();
 
 	dcu_num_layers = fsl_dcu_num_layers();
-	if(dcu_num_layers < 1){
+	if (dcu_num_layers < 1) {
 		dev_err(&pdev->dev, "invalid number layers %d", dcu_num_layers);
 		goto failed_invalid_layers;
 	}
@@ -617,12 +626,12 @@ static int r_init(void)
 	dcufb = fsl_dcu_get_dcufb();
 
 	/* allocate fsl_dcu_info layers info */
-	dcufb->fsl_dcu_info = (struct fb_info**)
-			kmalloc(sizeof(struct fb_info*) * dcu_num_layers,
+	dcufb->fsl_dcu_info = (struct fb_info **)
+			kmalloc_array(dcu_num_layers, sizeof(struct fb_info *),
 					GFP_KERNEL);
 
 	/* if alloc failed, clean up */
-	if(dcufb->fsl_dcu_info == NULL){
+	if (dcufb->fsl_dcu_info == NULL) {
 		dev_err(&pdev->dev, "could not alloc dcufb->fsl_dcu_info");
 		goto fatal_alloc_fb_info;
 	}
@@ -701,8 +710,6 @@ static void r_cleanup(void)
 		fsl_fb_uninstall(dcufb->fsl_dcu_info[i]);
 		framebuffer_release(dcufb->fsl_dcu_info[i]);
 	}
-
-	return;
 }
 
 /**********************************************************
