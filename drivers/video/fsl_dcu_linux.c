@@ -20,10 +20,7 @@
 #include <linux/uaccess.h>
 #include <linux/delay.h>
 #include <linux/platform_device.h>
-#include <video/of_display_timing.h>
-#include <video/videomode.h>
 #include <linux/pm_runtime.h>
-
 #include <linux/init.h>
 #include <linux/module.h>
 #include <linux/fs.h>
@@ -37,16 +34,20 @@
 #include <linux/of_net.h>
 #include <linux/cdev.h>
 #include <linux/videodev2.h>
-#include <asm/current.h>
 #include <linux/uaccess.h>
+
+#include <video/of_display_timing.h>
+#include <video/videomode.h>
+
+#include <asm/current.h>
+
+#include <uapi/video/fsl_dcu_ioctl.h>
 
 #include "fsl_dcu_regs.h"
 #include "fsl_dcu_regmacros.h"
 #include "fsl_dcu.h"
 #include "fsl_dcu_linux.h"
 #include "fsl_fb.h"
-
-#include <uapi/video/fsl_dcu_ioctl.h>
 
 /**********************************************************
  * DCU disable writeback, EXPERIMENTAL code
@@ -59,31 +60,28 @@
 /* number of DCU units */
 #define DCU_DEV_COUNT	1
 
-/* list of DCU base addr */
-extern uint64_t *DCU_BASE_ADDRESS;
-
 /* wb_data */
 long wb_len;
-char* wb_vir_ptr;
+char *wb_vir_ptr;
 unsigned long wb_phys_ptr;
 
 /**********************************************************
  * DCU defines
  **********************************************************/
-#define MAJOR_NUM 100
-#define DEVICE_NAME "dcu0"
+#define MAJOR_NUM			100
+#define DEVICE_NAME			"dcu0"
 
-#define DRIVER_NAME		"fsl_dcu"
+#define DRIVER_NAME			"fsl_dcu"
 #define DCU_LAYER_NUM_MAX	8
 
-#define TCON_CTRL		0x0
+#define TCON_CTRL			0x0
 #define TCON_BYPASS_ENABLE	(1 << 29)
-#define TCON_ENABLE		(1 << 31)
+#define TCON_ENABLE			(1 << 31)
 
-#define LDB_CTRL		0x0
+#define LDB_CTRL			0x0
 #define LDB_DI0_VSYNC_LOW	(1 << 9)
 #define LDB_DI0_VSYNC_HIGH	(0 << 9)
-#define LDB_DWHC0		(1 << 5)
+#define LDB_DWHC0			(1 << 5)
 #define LDB_BITMAPCH0_SPWG	(0 << 6)
 #define LDB_BITMAPCH0_JEIDA	(1 << 6)
 #define LDB_CH0MOD_EN		(1 << 0)
@@ -94,21 +92,22 @@ unsigned long wb_phys_ptr;
 /* #define __LOG_TRACE__ 1 */
 
 #ifdef __LOG_TRACE__
-	#define __TRACE__ printk(KERN_INFO "[ fsl-DCU ] %s\n", __func__);
-	#define __MSG_TRACE__(string, args...) printk(KERN_INFO "[ fsl-DCU ] "\
-			" %s : %d : " string, __FUNCTION__, __LINE__, ##args)
+	#define __TRACE__ dev_info(&dcu_pdev->dev, "[fsl-DCU] %s\n", __func__)
+	#define __MSG_TRACE__(string, args...) dev_info(&dcu_pdev->dev, \
+		"[fsl-DCU] %s : %d : " string, __func__, __LINE__, ##args)
 #else
-	#define __TRACE__ ;
-	#define __MSG_TRACE__(string, args...) ;
-	#define __HERE__ printk(KERN_INFO " HERE %s\n", __func__);
+	#define __TRACE__
+	#define __MSG_TRACE__(string, args...)
+	#define __HERE__ dev_info(&dcu_pdev->dev, " HERE %s\n", __func__)
 #endif
 
 /**********************************************************
  * GLOBAL DCU configuration registers
  **********************************************************/
-void __iomem * dcu_reg_base;
-struct clk * dcu_clk;
-struct dcu_fb_data * dcu_fb_data;
+uint64_t *DCU_BASE_ADDRESS;
+void __iomem *dcu_reg_base;
+struct clk *dcu_clk;
+struct dcu_fb_data *dcu_fb_data;
 struct platform_device *dcu_pdev;
 struct cdev *dcu_cdev;
 struct class *dcu_class;
@@ -120,11 +119,22 @@ uint32_t dcu_clk_val;
 #define DCU_INIT_ERR_CFG	2
 int dcu_init_status = DCU_INIT_ERR_PROBE;
 
+/* The state of a process which wants to wait for VSYNC */
+#define EVENT_STATUS_CLEAR	0
+#define DCU_STATUS_WAITING	1
+#define DCU_STATUS_WAITED	2
+
+/* The maximum number of processes that can wait for VSYNC simultaneously */
+#define DCU_EVENT_MAX_WAITING_PIDS	32
+
+/* We use events and wait queues because completions are unsuitable */
+int event_condition_list[DCU_EVENT_MAX_WAITING_PIDS];
+wait_queue_head_t dcu_event_queue;
+
 /**********************************************************
  * GLOBAL DCU display output type
  **********************************************************/
-
-static bool g_enable_hdmi = false;
+static bool g_enable_hdmi;
 
 /**********************************************************
  * HDMI/LVDS selection bootargs
@@ -148,8 +158,9 @@ struct fb_monspecs sii902x_get_monspecs(void);
 struct fb_monspecs sii902x_get_monspecs(void)
 {
 	struct fb_monspecs monspecs;
-	printk(KERN_INFO "Module compiled without HDMI SII9022 support."
-			"Recompile with FB_MXS_SII902X activated");
+
+	dev_info(&dcu_pdev->dev,
+		"No HDMI SII9022 support. Recompile with FB_MXS_SII902X activated.\n");
 	memset(&monspecs, 0, sizeof(struct fb_monspecs));
 
 	return monspecs;
@@ -159,7 +170,7 @@ struct fb_monspecs sii902x_get_monspecs(void)
 /**********************************************************
  * FUNCTION: fsl_dcu_get_dcufb
  **********************************************************/
-struct dcu_fb_data* fsl_dcu_get_dcufb(void)
+struct dcu_fb_data *fsl_dcu_get_dcufb(void)
 {
 	__TRACE__;
 	return dcu_fb_data;
@@ -169,7 +180,7 @@ EXPORT_SYMBOL_GPL(fsl_dcu_get_dcufb);
 /**********************************************************
  * FUNCTION: fsl_dcu_get_pdev
  **********************************************************/
-struct platform_device* fsl_dcu_get_pdev(void)
+struct platform_device *fsl_dcu_get_pdev(void)
 {
 	__TRACE__;
 	return dcu_pdev;
@@ -202,41 +213,41 @@ EXPORT_SYMBOL_GPL(fsl_dcu_num_layers);
  **********************************************************/
 void fsl_dcu_registers(void)
 {
-	printk(KERN_INFO "-----------DCU REGS ---------- \n");
-	printk(KERN_INFO "[REG : DCU_DCU_MODE]\t : %02x => %08x\n",
+	dev_info(&dcu_pdev->dev, "-----------DCU REGS ----------\n");
+	dev_info(&dcu_pdev->dev, "[REG : DCU_DCU_MODE]\t : %02x => %08x\n",
 			0x10,
 			readl(dcu_fb_data->reg_base + 0x10));
-	printk(KERN_INFO "[REG : DCU_BGND  ]\t : %02x => %08x\n",
+	dev_info(&dcu_pdev->dev, "[REG : DCU_BGND  ]\t : %02x => %08x\n",
 			0x14,
 			readl(dcu_fb_data->reg_base + 0x14));
-	printk(KERN_INFO "[REG : DCU_DISP_SIZE]\t : %02x => %08x\n",
+	dev_info(&dcu_pdev->dev, "[REG : DCU_DISP_SIZE]\t : %02x => %08x\n",
 			0x18,
 			readl(dcu_fb_data->reg_base + 0x18));
-	printk(KERN_INFO "[REG : DCU_HSYN_PARA]\t : %02x => %08x\n",
+	dev_info(&dcu_pdev->dev, "[REG : DCU_HSYN_PARA]\t : %02x => %08x\n",
 			0x1C,
 			readl(dcu_fb_data->reg_base + 0x1C));
-	printk(KERN_INFO "[REG : DCU_VSYN_PARA]\t : %02x => %08x\n",
+	dev_info(&dcu_pdev->dev, "[REG : DCU_VSYN_PARA]\t : %02x => %08x\n",
 			0x20,
 			readl(dcu_fb_data->reg_base + 0x20));
-	printk(KERN_INFO "[REG : DCU_SYN_POL]\t : %02x => %08x\n",
+	dev_info(&dcu_pdev->dev, "[REG : DCU_SYN_POL]\t : %02x => %08x\n",
 			0x24,
 			readl(dcu_fb_data->reg_base + 0x24));
-	printk(KERN_INFO "[REG : DCU_THRESHOLD]\t : %02x => %08x\n",
+	dev_info(&dcu_pdev->dev, "[REG : DCU_THRESHOLD]\t : %02x => %08x\n",
 			0x28,
 			readl(dcu_fb_data->reg_base + 0x28));
-	printk(KERN_INFO "[REG : DCU_INT_STATUS]\t : %02x => %08x\n",
+	dev_info(&dcu_pdev->dev, "[REG : DCU_INT_STATUS]\t : %02x => %08x\n",
 			0x2C,
 			readl(dcu_fb_data->reg_base + 0x2C));
-	printk(KERN_INFO "[REG : DCU_INT_MASK]\t : %02x => %08x\n",
+	dev_info(&dcu_pdev->dev, "[REG : DCU_INT_MASK]\t : %02x => %08x\n",
 			0x30,
 			readl(dcu_fb_data->reg_base + 0x30));
-	printk(KERN_INFO "[REG : DCU_DIV_RATIO]\t : %02x => %08x\n",
+	dev_info(&dcu_pdev->dev, "[REG : DCU_DIV_RATIO]\t : %02x => %08x\n",
 			0x54,
 			readl(dcu_fb_data->reg_base + 0x54));
-	printk(KERN_INFO "[REG : DCU_UPDATE_MODE]\t : %02x => %08x\n",
+	dev_info(&dcu_pdev->dev, "[REG : DCU_UPDATE_MODE]\t : %02x => %08x\n",
 			0xCC,
 			readl(dcu_fb_data->reg_base + 0xCC));
-	printk(KERN_INFO "------------------------------- \n");
+	dev_info(&dcu_pdev->dev, "-------------------------------\n");
 }
 EXPORT_SYMBOL_GPL(fsl_dcu_registers);
 
@@ -443,7 +454,7 @@ int fsl_init_ldb(struct device_node *np, DCU_DISPLAY_TYPE display_type)
 	struct platform_device *ldb_pdev;
 	struct resource *ldb_res;
 	void __iomem *ldb_reg;
-	struct clk * ldb_clk;
+	struct clk *ldb_clk;
 
 	resource_size_t size;
 	const char *name;
@@ -481,7 +492,7 @@ int fsl_init_ldb(struct device_node *np, DCU_DISPLAY_TYPE display_type)
 	if (ldb_res->flags & IORESOURCE_CACHEABLE)
 		ldb_reg = devm_ioremap(&ldb_pdev->dev, ldb_res->start, size);
 	else
-		ldb_reg = devm_ioremap_nocache(&ldb_pdev->dev,
+		ldb_reg = devm_ioremap(&ldb_pdev->dev,
 				ldb_res->start, size);
 
 	if (!ldb_reg) {
@@ -492,13 +503,12 @@ int fsl_init_ldb(struct device_node *np, DCU_DISPLAY_TYPE display_type)
 	}
 
 	/* LDB settings according to display type HDMI/LVDS */
-	if(display_type == DCU_DISPLAY_LVDS)
+	if (display_type == DCU_DISPLAY_LVDS)
 		writel(LDB_DI0_VSYNC_LOW | LDB_DWHC0
 		| LDB_CH0MOD_EN | LDB_BITMAPCH0_JEIDA,
 			ldb_reg + LDB_CTRL);
-	else if(display_type == DCU_DISPLAY_HDMI)
+	else if (display_type == DCU_DISPLAY_HDMI)
 		writel(0, ldb_reg + LDB_CTRL);
-
 
 	devm_release_mem_region(&ldb_pdev->dev, ldb_res->start, size);
 
@@ -516,16 +526,15 @@ int fsl_turn_panel_on(struct device_node *np,
 	int panel_backlight_gpio;
 
 	panel_data_gpio = of_get_named_gpio(np, "panel-data-gpio", 0);
-	if (!gpio_is_valid(panel_data_gpio)){
-		dev_err(&dcu_pdev->dev,
-                        "failed to get panel data GPIO\n");
+	if (!gpio_is_valid(panel_data_gpio)) {
+		dev_err(&dcu_pdev->dev, "failed to get panel data GPIO\n");
 		return err;
 	}
 
 	err = gpio_request_one(panel_data_gpio, GPIOF_OUT_INIT_HIGH,
 			"panel_data_gpio");
 
-	if (err){
+	if (err) {
 		dev_err(&dcu_pdev->dev,
 			"failed to set panel data GPIO: %d\n", err);
 		return err;
@@ -535,7 +544,7 @@ int fsl_turn_panel_on(struct device_node *np,
 			"panel-backlight-gpio", 0);
 	if (!gpio_is_valid(panel_backlight_gpio))
 		dev_warn(&dcu_pdev->dev,
-                        "failed to get panel backlight GPIO\n");
+			"failed to get panel backlight GPIO\n");
 
 	err = gpio_request_one(panel_backlight_gpio, GPIOF_OUT_INIT_HIGH,
 			"panel_backlight_gpio");
@@ -547,23 +556,61 @@ int fsl_turn_panel_on(struct device_node *np,
 }
 
 /**********************************************************
- * FUNCTION: fsl_dcu_remove
+ * FUNCTION: fsl_dcu_wait_for_vsync
  **********************************************************/
-int fsl_dcu_remove(struct platform_device *pdev)
+int fsl_dcu_wait_for_vsync(void)
 {
-	__TRACE__;
+	unsigned long flags;
+	int cond_idx;
 
-	cdev_del(dcu_cdev);
-	device_destroy(dcu_class, dcu_devno);
-	class_destroy(dcu_class);
-	unregister_chrdev_region(dcu_devno, 1);
+	/* Try to get an entry in the waiting PID list */
+	spin_lock_irqsave(&dcu_event_queue.lock, flags);
 
-	DCU_Disable(0);
+	for (cond_idx = 0; cond_idx < DCU_EVENT_MAX_WAITING_PIDS; ++cond_idx) {
+		if (event_condition_list[cond_idx] == EVENT_STATUS_CLEAR) {
+			event_condition_list[cond_idx] = DCU_STATUS_WAITING;
+			break;
+		}
+	}
 
-	pm_runtime_put_sync(&pdev->dev);
-	pm_runtime_disable(&pdev->dev);
+	spin_unlock_irqrestore(&dcu_event_queue.lock, flags);
+
+	/* If no index was available, return unsuccessfully */
+	if (cond_idx >= DCU_EVENT_MAX_WAITING_PIDS)
+		return -EBUSY;
+
+	/* Wait until the DCU event occurs */
+	wait_event(dcu_event_queue,
+		event_condition_list[cond_idx] == DCU_STATUS_WAITED);
+
+	/* Release the entry in the waiting PID list */
+	spin_lock_irqsave(&dcu_event_queue.lock, flags);
+	event_condition_list[cond_idx] = EVENT_STATUS_CLEAR;
+	spin_unlock_irqrestore(&dcu_event_queue.lock, flags);
 
 	return 0;
+}
+EXPORT_SYMBOL_GPL(fsl_dcu_wait_for_vsync);
+
+/**********************************************************
+ * FUNCTION: fsl_dcu_event_callback
+ **********************************************************/
+void fsl_dcu_event_callback(void)
+{
+	unsigned long flags;
+	int i;
+
+	/* Notify all currently-waiting processes to resume */
+	spin_lock_irqsave(&dcu_event_queue.lock, flags);
+
+	for (i = 0; i < DCU_EVENT_MAX_WAITING_PIDS; ++i) {
+		if (event_condition_list[i] == DCU_STATUS_WAITING)
+			event_condition_list[i] = DCU_STATUS_WAITED;
+	}
+
+	spin_unlock_irqrestore(&dcu_event_queue.lock, flags);
+
+	wake_up_all(&dcu_event_queue);
 }
 
 /**********************************************************
@@ -577,6 +624,10 @@ void fsl_dcu_display(DCU_DISPLAY_TYPE display_type,
 
 	/* DCU set configuration, LVDS has fixed div according to RM - TODO */
 	DCU_Init(0, 150, &dcu_lcd_timings, DCU_FREQDIV_NORMAL);
+
+	/* Register and enable the callback for VSYNC */
+	DCU_RegisterCallbackVSYNC(0, fsl_dcu_event_callback);
+	DCU_EnableDisplayTimingIrq(0, DCU_INT_VSYNC_MASK);
 }
 
 /**********************************************************
@@ -586,9 +637,10 @@ void fsl_dcu_display(DCU_DISPLAY_TYPE display_type,
 void print_display_modes(struct fb_monspecs monspecs)
 {
 	int i;
-	for(i=0; i<monspecs.modedb_len; i++){
-		printk(KERN_INFO "hdmi %d %d %d %d %d %d %d %d %d\n",
-			monspecs.modedb[i].pixclock* 1000,
+
+	for (i = 0; i < monspecs.modedb_len; i++) {
+		dev_info(&dcu_pdev->dev, "hdmi %d %d %d %d %d %d %d %d %d\n",
+			monspecs.modedb[i].pixclock * 1000,
 			monspecs.modedb[i].xres,
 			monspecs.modedb[i].yres,
 			monspecs.modedb[i].upper_margin,
@@ -597,7 +649,7 @@ void print_display_modes(struct fb_monspecs monspecs)
 			monspecs.modedb[i].right_margin,
 			monspecs.modedb[i].hsync_len,
 			monspecs.modedb[i].vsync_len
-				);
+		);
 	}
 }
 
@@ -635,21 +687,24 @@ void fsl_dcu_configure_display(struct IOCTL_DISPLAY_CFG *display_cfg)
 
 		/* search mode and set */
 		for (i = 0; i < monspecs.modedb_len; i++) {
-			if ((monspecs.modedb[i].xres == dcu_lcd_timings.mDeltaX) &&
-			    (monspecs.modedb[i].yres == dcu_lcd_timings.mDeltaY)) {
-				dcu_lcd_timings.mHorzBP = monspecs.modedb[i].left_margin;
-				dcu_lcd_timings.mHorzFP = monspecs.modedb[i].right_margin;
-				dcu_lcd_timings.mHorzPW = monspecs.modedb[i].hsync_len;
-				dcu_lcd_timings.mVertBP = monspecs.modedb[i].upper_margin;
-				dcu_lcd_timings.mVertPW = monspecs.modedb[i].vsync_len;
-				dcu_lcd_timings.mVertFP = monspecs.modedb[i].lower_margin;
+			struct fb_videomode *mode = &monspecs.modedb[i];
+
+			if ((mode->xres == dcu_lcd_timings.mDeltaX) &&
+			    (mode->yres == dcu_lcd_timings.mDeltaY)) {
+				dcu_lcd_timings.mHorzBP  = mode->left_margin;
+				dcu_lcd_timings.mHorzFP  = mode->right_margin;
+				dcu_lcd_timings.mHorzPW  = mode->hsync_len;
+				dcu_lcd_timings.mVertBP  = mode->upper_margin;
+				dcu_lcd_timings.mVertPW  = mode->vsync_len;
+				dcu_lcd_timings.mVertFP  = mode->lower_margin;
 				dcu_lcd_timings.mSyncPol = 3;
-				dcu_lcd_timings.mVertFq = monspecs.modedb[i].refresh;
+				dcu_lcd_timings.mVertFq  = mode->refresh;
 				break;
 			}
 		}
+
 		if ((dcu_lcd_timings.mHorzPW + dcu_lcd_timings.mVertPW) == 0)
-			dev_warn(&dcu_pdev->dev, "no match for requested resolution in EDID\n");
+			dev_warn(&dcu_pdev->dev, "Requested resolution not in EDID\n");
 	}
 
 	/* set display configuration */
@@ -677,143 +732,142 @@ long device_ioctl(struct file *filp,
 	__TRACE__;
 
 	switch (ioctl_cmd) {
+	case IOCTL_GET_LAYER_POS:
+	{
+		/* copy from user space */
+		ret = copy_from_user(&layer_pos,
+			(struct IOCTL_LAYER_POS *)arg,
+				sizeof(layer_pos));
 
-		case IOCTL_GET_LAYER_POS:
-		{
-			/* copy from user space */
-			ret = copy_from_user(&layer_pos,
-				(struct IOCTL_LAYER_POS*)arg,
-					sizeof(layer_pos));
+		DCU_GetLayerPosition(0, layer_pos.id,
+				(Dcu_Position_t *)&layer_pos.pos);
 
-			DCU_GetLayerPosition(0, layer_pos.id,
-					(Dcu_Position_t*)&layer_pos.pos);
+		/* copy back to user space */
+		ret = copy_to_user((struct IOCTL_LAYER_POS *)arg,
+				&layer_pos, sizeof(layer_pos));
+	}
+	break;
 
-			/* copy back to user space */
-			ret = copy_to_user((struct IOCTL_LAYER_POS*)arg,
-					&layer_pos, sizeof(layer_pos));
-		}
-		break;
+	case IOCTL_SET_LAYER_POS:
+	{
+		/* copy from user space */
+		ret = copy_from_user(&layer_pos,
+			(struct IOCTL_LAYER_POS *)arg,
+				sizeof(layer_pos));
 
-		case IOCTL_SET_LAYER_POS:
-		{
-			/* copy from user space */
-			ret = copy_from_user(&layer_pos,
-				(struct IOCTL_LAYER_POS*)arg,
-					sizeof(layer_pos));
+		DCU_SetLayerPosition(0, layer_pos.id,
+				(Dcu_Position_t *)&layer_pos.pos);
+	}
+	break;
 
-			DCU_SetLayerPosition(0, layer_pos.id,
-					(Dcu_Position_t*)&layer_pos.pos);
-		}
-		break;
+	case IOCTL_GET_LAYER_ALPHA_VAL:
+	{
+		/* copy from user space */
+		ret = copy_from_user(&layer_alpha_val,
+			(struct IOCTL_LAYER_ALFA_VAL *)arg,
+				sizeof(layer_alpha_val));
 
-		case IOCTL_GET_LAYER_ALPHA_VAL:
-		{
-			/* copy from user space */
-			ret = copy_from_user(&layer_alpha_val,
-				(struct IOCTL_LAYER_ALFA_VAL*)arg,
-					sizeof(layer_alpha_val));
+		DCU_GetLayerAlphaVal(0, layer_alpha_val.id,
+				&layer_alpha_val.val);
 
-			DCU_GetLayerAlphaVal(0, layer_alpha_val.id,
-					&layer_alpha_val.val);
+		/* copy back to user space */
+		ret = copy_to_user((struct IOCTL_LAYER_ALFA_VAL *)arg,
+			&layer_alpha_val, sizeof(layer_alpha_val));
+	}
+	break;
 
-			/* copy back to user space */
-			ret = copy_to_user((struct IOCTL_LAYER_ALFA_VAL*)arg,
-				&layer_alpha_val, sizeof(layer_alpha_val));
-		}
-		break;
+	case IOCTL_SET_LAYER_ALPHA_VAL:
+	{
+		/* copy from user space */
+		ret = copy_from_user(&layer_alpha_val,
+			(struct IOCTL_LAYER_ALFA_VAL *)arg,
+				sizeof(layer_alpha_val));
 
-		case IOCTL_SET_LAYER_ALPHA_VAL:
-		{
-			/* copy from user space */
-			ret = copy_from_user(&layer_alpha_val,
-				(struct IOCTL_LAYER_ALFA_VAL*)arg,
-					sizeof(layer_alpha_val));
+		DCU_SetLayerAlphaVal(0, layer_alpha_val.id,
+				layer_alpha_val.val);
+	}
+	break;
 
-			DCU_SetLayerAlphaVal(0, layer_alpha_val.id,
-					layer_alpha_val.val);
-		}
-		break;
+	case IOCTL_GET_LAYER_ALPHA_MODE:
+	{
+		/* copy from user space */
+		ret = copy_from_user(&layer_alpha_key,
+			(struct DCU_IOCTL_LAYER_ALFA_KEY *)arg,
+				sizeof(layer_alpha_key));
 
-		case IOCTL_GET_LAYER_ALPHA_MODE:
-		{
-			/* copy from user space */
-			ret = copy_from_user(&layer_alpha_key,
-				(struct DCU_IOCTL_LAYER_ALFA_KEY*)arg,
-					sizeof(layer_alpha_key));
+		DCU_GetLayerAlphaMode(0, layer_alpha_key.id,
+				(Dcu_AlphaKey_t *)&layer_alpha_key.key);
 
-			DCU_GetLayerAlphaMode(0, layer_alpha_key.id,
-					(Dcu_AlphaKey_t*)&layer_alpha_key.key);
+		/* copy back to user space */
+		ret = copy_to_user((struct IOCTL_LAYER_ALFA_VAL *)arg,
+			&layer_alpha_key, sizeof(layer_alpha_key));
+	}
+	break;
 
-			/* copy back to user space */
-			ret = copy_to_user((struct IOCTL_LAYER_ALFA_VAL*)arg,
-				&layer_alpha_key, sizeof(layer_alpha_key));
-		}
-		break;
+	case IOCTL_SET_LAYER_ALPHA_MODE:
+	{
+		/* copy from user space */
+		ret = copy_from_user(&layer_alpha_key,
+			(struct DCU_IOCTL_LAYER_ALFA_KEY *)arg,
+				sizeof(layer_alpha_key));
 
-		case IOCTL_SET_LAYER_ALPHA_MODE:
-		{
-			/* copy from user space */
-			ret = copy_from_user(&layer_alpha_key,
-				(struct DCU_IOCTL_LAYER_ALFA_KEY*)arg,
-					sizeof(layer_alpha_key));
+		DCU_SetLayerAlphaMode(0, layer_alpha_key.id,
+				layer_alpha_key.key);
+	}
+	break;
 
-			DCU_SetLayerAlphaMode(0, layer_alpha_key.id,
-					layer_alpha_key.key);
-		}
-		break;
+	case IOCTL_SET_LAYER_CHROMA_KEY:
+	{
+		/* copy from user space */
+		ret = copy_from_user(&layer_chroma,
+			(struct IOCTL_LAYER_CHROMA *)arg,
+				sizeof(layer_chroma));
 
-		case IOCTL_SET_LAYER_CHROMA_KEY:
-		{
-			/* copy from user space */
-			ret = copy_from_user(&layer_chroma,
-				(struct IOCTL_LAYER_CHROMA*)arg,
-					sizeof(layer_chroma));
+		DCU_SetLayerChroma(0, layer_chroma.id,
+			(Dcu_Colour_t *)&layer_chroma.max,
+			(Dcu_Colour_t *)&layer_chroma.min);
 
-			DCU_SetLayerChroma(0, layer_chroma.id,
-				(Dcu_Colour_t*)&layer_chroma.max,
-				(Dcu_Colour_t*)&layer_chroma.min);
+		if (layer_chroma.state == IOCTL_DCU_CHROMA_ON)
+			DCU_LayerChromaEnable(0, layer_chroma.id);
+		else
+			DCU_LayerChromaDisable(0, layer_chroma.id);
+	}
+	break;
 
-			if(layer_chroma.state == IOCTL_DCU_CHROMA_ON)
-				DCU_LayerChromaEnable(0, layer_chroma.id);
-			else
-				DCU_LayerChromaDisable(0, layer_chroma.id);
-		}
-		break;
+	case IOCTL_GET_LAYER_CHROMA_KEY:
+	{
+		DCU_GetLayerChromaMax(0, 0,
+				(Dcu_Colour_t *)&layer_chroma.max);
+		DCU_GetLayerChromaMin(0, 0,
+				(Dcu_Colour_t *)&layer_chroma.min);
 
-		case IOCTL_GET_LAYER_CHROMA_KEY:
-		{
-			DCU_GetLayerChromaMax(0, 0,
-					(Dcu_Colour_t*)&layer_chroma.max);
-			DCU_GetLayerChromaMin(0, 0,
-					(Dcu_Colour_t*)&layer_chroma.min);
+		/* copy to user space */
+		ret = copy_to_user(&layer_chroma,
+			(struct IOCTL_LAYER_CHROMA *)arg,
+				sizeof(layer_chroma));
+	}
+	break;
 
-			/* copy to user space */
-			ret = copy_to_user(&layer_chroma,
-				(struct IOCTL_LAYER_CHROMA*)arg,
-					sizeof(layer_chroma));
-		}
-		break;
+	case IOCTL_PRINT_DISPLAY_INFO:
+	{
+		/* query HDMI IP for monitor specs through DDC/EDID */
+		monspecs = sii902x_get_monspecs();
 
-		case IOCTL_PRINT_DISPLAY_INFO:
-		{
-			/* query HDMI IP for monitor specs through DDC/EDID */
-			monspecs = sii902x_get_monspecs();
+		/* output HDMI display modes */
+		print_display_modes(monspecs);
+	}
+	break;
 
-			/* output HDMI display modes */
-			print_display_modes(monspecs);
-		}
-		break;
+	case IOCTL_SET_DISPLAY_CFG:
+	{
+		/* copy from user space */
+		ret = copy_from_user(&display_cfg,
+			(struct IOCTL_DISPLAY_CFG *)arg,
+			sizeof(display_cfg));
 
-		case IOCTL_SET_DISPLAY_CFG:
-		{
-			/* copy from user space */
-			ret = copy_from_user(&display_cfg,
-				(struct IOCTL_DISPLAY_CFG*)arg,
-				sizeof(display_cfg));
-
-			fsl_dcu_configure_display(&display_cfg);
-		}
-		break;
+		fsl_dcu_configure_display(&display_cfg);
+	}
+	break;
 	}
 	return 0;
 }
@@ -837,15 +891,18 @@ static int fsl_dcu_close(struct inode *inode, struct file *filp)
 /**********************************************************
  * FUNCTION: fsl_dcu_read
  **********************************************************/
-static ssize_t fsl_dcu_read(struct file *fil, char* buff,
-		size_t len, loff_t *off){
+static ssize_t fsl_dcu_read(struct file *fil, char *buff,
+		size_t len, loff_t *off)
+{
 
 	int max_bytes;
 	int bytes_read = 0;
+
 	__TRACE__;
 
 	max_bytes = wb_len - *off;
-	if(max_bytes > len)
+
+	if (max_bytes > len)
 		bytes_read = len;
 	else
 		bytes_read = max_bytes;
@@ -860,11 +917,11 @@ static ssize_t fsl_dcu_read(struct file *fil, char* buff,
 /**********************************************************
  * STRUCT operations
  **********************************************************/
-struct file_operations dcu_fops = {
-	.owner		= THIS_MODULE,
-	.read		= fsl_dcu_read,
-	.open		= fsl_dcu_open,
-	.release	= fsl_dcu_close,
+const struct file_operations dcu_fops = {
+	.owner			= THIS_MODULE,
+	.read			= fsl_dcu_read,
+	.open			= fsl_dcu_open,
+	.release		= fsl_dcu_close,
 	.unlocked_ioctl	= device_ioctl,	/*DCU IOCTL */
 };
 
@@ -874,25 +931,29 @@ struct file_operations dcu_fops = {
 int fsl_dcu_dev_create(struct platform_device *pdev)
 {
 	int ret;
-	dcu_pdev = pdev;
 
+	dcu_pdev = pdev;
 	__TRACE__;
 
 	/* Alloc MAJOR number for the character device  */
 	ret = alloc_chrdev_region(&dcu_devno, 0, 1, DEVICE_NAME);
 	if (ret < 0) {
-		printk ("alloc_chrdev_region failed with %d \n", ret);
+		dev_err(&dcu_pdev->dev,
+			"[fsl-DCU] alloc_chrdev_region error %d\n", ret);
 		return ret;
 	}
 
-	if (!(dcu_class = class_create(THIS_MODULE, DEVICE_NAME))) {
-		printk ("class_create failed with %d \n", ret);
+	dcu_class = class_create(THIS_MODULE, DEVICE_NAME);
+	if (!dcu_class) {
+		dev_err(&dcu_pdev->dev,
+			"[fsl-DCU] class_create error\n");
 		return -1;
 	}
 
 	if (!(device_create(dcu_class, NULL,
 			dcu_devno, NULL, DEVICE_NAME))) {
-		printk ("device_create failed with %d \n", ret);
+		dev_err(&dcu_pdev->dev,
+			"[fsl-DCU] device_create error\n");
 		return -1;
 	}
 
@@ -903,7 +964,8 @@ int fsl_dcu_dev_create(struct platform_device *pdev)
 	/* add file operations */
 	ret = cdev_add(dcu_cdev, dcu_devno, 1);
 	if (ret < 0) {
-		printk ("cdev_add failed with %d \n", ret);
+		dev_err(&dcu_pdev->dev,
+			"[fsl-DCU] cdev_add error %d\n", ret);
 		return ret;
 	}
 
@@ -914,7 +976,7 @@ int fsl_dcu_dev_create(struct platform_device *pdev)
  * FUNCTION: fsl_dcu_lcd
  **********************************************************/
 int fsl_dcu_lcd_timings(struct platform_device *pdev,
-		Dcu_LCD_Para_t* dcu_lcd_timings)
+		Dcu_LCD_Para_t *dcu_lcd_timings)
 {
 	int i, ret;
 	struct device_node *np = pdev->dev.of_node;
@@ -926,20 +988,20 @@ int fsl_dcu_lcd_timings(struct platform_device *pdev,
 
 	display_np = of_parse_phandle(np, "display", 0);
 	if (!display_np) {
-		printk ("of_parse_phandle failed \n");
+		dev_err(&dcu_pdev->dev, "[fsl-DCU] of_parse_phandle error\n");
 		return -ENOENT;
 	}
 
 	timings = of_get_display_timings(display_np);
 	if (!timings) {
-		printk ("of_get_display_timings failed with \n");
+		dev_err(&dcu_pdev->dev, "[fsl-DCU] of_get_display_timings error\n");
 		return -ENOENT;
 	}
 
 	timings_np = of_find_node_by_name(display_np,
 					"display-timings");
 	if (!timings_np) {
-		printk ("of_find_node_by_name failed with \n");
+		dev_err(&dcu_pdev->dev, "[fsl-DCU] of_find_node_by_name error\n");
 		return -ENOENT;
 	}
 
@@ -947,25 +1009,36 @@ int fsl_dcu_lcd_timings(struct platform_device *pdev,
 		struct videomode vm;
 
 		ret = videomode_from_timings(timings, &vm, i);
-		if(ret < 0){
-			printk ("videomode_from_timings failed with \n");
+		if (ret < 0) {
+			dev_err(&dcu_pdev->dev,
+				"[fsl-DCU] videomode_from_timings error %d\n",
+				ret);
 			return ret;
 		}
 
-		dcu_lcd_timings->mDeltaX = vm.hactive;
-		dcu_lcd_timings->mDeltaY = vm.vactive;
-		dcu_lcd_timings->mHorzBP = vm.hback_porch;
-		dcu_lcd_timings->mHorzFP = vm.hfront_porch;
-		dcu_lcd_timings->mHorzPW = vm.hsync_len;
-		dcu_lcd_timings->mVertBP = vm.vback_porch;
-		dcu_lcd_timings->mVertPW = vm.vsync_len;
-		dcu_lcd_timings->mVertFP = vm.vfront_porch;
-		dcu_lcd_timings->mSyncPol= 3;
-		dcu_lcd_timings->mVertFq = 60;
+		dcu_lcd_timings->mDeltaX	= vm.hactive;
+		dcu_lcd_timings->mDeltaY	= vm.vactive;
+		dcu_lcd_timings->mHorzBP	= vm.hback_porch;
+		dcu_lcd_timings->mHorzFP	= vm.hfront_porch;
+		dcu_lcd_timings->mHorzPW	= vm.hsync_len;
+		dcu_lcd_timings->mVertBP	= vm.vback_porch;
+		dcu_lcd_timings->mVertPW	= vm.vsync_len;
+		dcu_lcd_timings->mVertFP	= vm.vfront_porch;
+		dcu_lcd_timings->mSyncPol	= 3;
+		dcu_lcd_timings->mVertFq	= 60;
 		dcu_lcd_timings->mDivFactor = dcu_clk_val / vm.pixelclock;
 	}
 
 	return 0;
+}
+
+/**********************************************************
+ * FUNCTION: fsl_dcu_irq_handler_wrapper
+ **********************************************************/
+irqreturn_t fsl_dcu_irq_handler_wrapper(int irq, void *dev_id)
+{
+	DCU0_Timing_Isr();
+	return IRQ_HANDLED;
 }
 
 /**********************************************************
@@ -975,11 +1048,12 @@ int fsl_dcu_probe(struct platform_device *pdev)
 {
 	struct resource *res;
 	Dcu_LCD_Para_t dcu_lcd_timings;
-	int ret;
+	int ret, irq_num, i;
 
 	__TRACE__;
 
 	dcu_pdev = pdev;
+	g_enable_hdmi = false;
 	ret = 0;
 
 	/* create device and register it in /dev through sysfs */
@@ -1006,10 +1080,11 @@ int fsl_dcu_probe(struct platform_device *pdev)
 	dcu_fb_data->reg_base = dcu_reg_base;
 
 	/* allocate memory for base reg */
-	DCU_BASE_ADDRESS = kmalloc(sizeof(uint64_t) * DCU_DEV_COUNT, GFP_KERNEL);
+	DCU_BASE_ADDRESS = kmalloc(sizeof(uint64_t) * DCU_DEV_COUNT,
+							GFP_KERNEL);
 	if (!DCU_BASE_ADDRESS) {
 		dcu_init_status = DCU_INIT_ERR_CFG;
-		dev_err(&pdev->dev, "could allocate memory for reg_base\n");
+		dev_err(&pdev->dev, "could not allocate memory for reg_base\n");
 		goto failed_alloc_base;
 	}
 
@@ -1026,7 +1101,7 @@ int fsl_dcu_probe(struct platform_device *pdev)
 	}
 	clk_prepare_enable(dcu_clk);
 
-	/* get DCU clock in Hz*/
+	/* get DCU clock in Hz */
 	dcu_clk_val = clk_get_rate(dcu_clk);
 	dcu_fb_data->clk = dcu_clk;
 	pm_runtime_enable(&pdev->dev);
@@ -1034,6 +1109,21 @@ int fsl_dcu_probe(struct platform_device *pdev)
 
 	/* get lcd timings from device tree */
 	fsl_dcu_lcd_timings(pdev, &dcu_lcd_timings);
+
+	/* insert DCU interrupt handler */
+	init_waitqueue_head(&dcu_event_queue);
+
+	for (i = 0; i < DCU_EVENT_MAX_WAITING_PIDS; ++i)
+		event_condition_list[i] = EVENT_STATUS_CLEAR;
+
+	irq_num = platform_get_irq(pdev, 0);
+	ret = devm_request_irq(&pdev->dev, irq_num,
+		fsl_dcu_irq_handler_wrapper, 0, "2d-ace", NULL);
+
+	if (ret != 0) {
+		dev_err(&pdev->dev, "could not register 2d-ace interrupt handler\n");
+		return ret;
+	}
 
 	/* setup display type HDMI/LVDS, by adjusting IOMUX/LDB/TIMINGS */
 	if (g_enable_hdmi)
@@ -1049,7 +1139,7 @@ int fsl_dcu_probe(struct platform_device *pdev)
 
 	/* init has finalized */
 	dcu_init_status = DCU_INIT_TRUE;
-	
+
 	__TRACE__;
 
 	return 0;
@@ -1060,9 +1150,29 @@ failed_getclock:
 }
 
 /**********************************************************
+ * FUNCTION: fsl_dcu_remove
+ **********************************************************/
+int fsl_dcu_remove(struct platform_device *pdev)
+{
+	__TRACE__;
+
+	cdev_del(dcu_cdev);
+	device_destroy(dcu_class, dcu_devno);
+	class_destroy(dcu_class);
+	unregister_chrdev_region(dcu_devno, 1);
+
+	DCU_Disable(0);
+
+	pm_runtime_put_sync(&pdev->dev);
+	pm_runtime_disable(&pdev->dev);
+
+	return 0;
+}
+
+/**********************************************************
  * DCU Linux DTB query related operations
  **********************************************************/
-static struct of_device_id fsl_dcu_dt_ids[] = {
+static const struct of_device_id fsl_dcu_dt_ids[] = {
 	{
 		.compatible = "fsl,s32v234-dcu",
 	},
@@ -1072,12 +1182,14 @@ static struct of_device_id fsl_dcu_dt_ids[] = {
 static int fsl_dcu_runtime_suspend(struct device *dev)
 {
 	struct dcu_fb_data *dcufb = dev_get_drvdata(dev);
+
 	clk_disable_unprepare(dcufb->clk);
 	return 0;
 }
 static int fsl_dcu_runtime_resume(struct device *dev)
 {
 	struct dcu_fb_data *dcufb = dev_get_drvdata(dev);
+
 	clk_prepare_enable(dcufb->clk);
 	return 0;
 }
@@ -1086,7 +1198,6 @@ static const struct dev_pm_ops fsl_dcu_pm_ops = {
 	SET_RUNTIME_PM_OPS(fsl_dcu_runtime_suspend,
 			fsl_dcu_runtime_resume, NULL)
 };
-
 
 static struct platform_driver fsl_dcu_driver = {
 	.driver = {
