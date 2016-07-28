@@ -467,6 +467,12 @@ config VF_PIT_TIMER
 	help
 	  Support for Periodic Interrupt Timer on Freescale Vybrid Family SoCs.
 
+config FSL_STM_TIMER
+	bool "Nxp System Timer Module driver"
+	select CLKSRC_MMIO
+	help
+	  Support for Freescale System Timer Module.
+
 config OXNAS_RPS_TIMER
 	bool "Oxford Semiconductor OXNAS RPS Timers driver" if COMPILE_TEST
 	select TIMER_OF
