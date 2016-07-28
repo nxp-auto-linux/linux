@@ -452,6 +452,12 @@ config NXP_GLOBAL_TIME_STM
 	  read from any other core on the SoC as well as to read the value
 	  of that timer. Other cores can initialize that timer as well.
 
+config NXP_STM_TIMER
+	bool "NXP System Timer Module driver"
+	select CLKSRC_MMIO
+	help
+	  Support for NXP System Timer Module.
+
 config OXNAS_RPS_TIMER
 	bool "Oxford Semiconductor OXNAS RPS Timers driver" if COMPILE_TEST
 	select TIMER_OF
