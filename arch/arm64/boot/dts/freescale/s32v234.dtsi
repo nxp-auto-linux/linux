@@ -199,6 +199,16 @@
 				status = "disabled";
 			};
 
+			stm0: stm@4000D000{
+				compatible = "fsl,s32v234-stm";
+				reg = <0x0 0x4000D000 0x0 0x1000>;
+				interrupts= <0 19 8>;
+				clocks = <&clks S32V234_CLK_SYS6>;
+				clock-names = "stm";
+				cpu = <2>;
+				status = "disabled";
+			};
+
 			gpu: gpu@40020000 {
 				compatible = "fsl,s32v234-gpu";
 				reg = <0x0 0x40020000 0x0 0x1000>,
@@ -396,6 +406,16 @@
 			interrupt-parent = <&gic>;
 			reg = <0x0 0x40080000 0x0 0x70000>;
 			ranges;
+
+			stm1: stm@40087000{
+				compatible = "fsl,s32v234-stm";
+				reg = <0x0 0x40087000 0x0 0x1000>;
+				interrupts= <0 20 8>;
+				cpu = <3>;
+				clocks = <&clks S32V234_CLK_SYS6>;
+				clock-names = "stm";
+				status = "disabled";
+			};
 
 			mipicsi1: mipicsi2_1@400A0000{
 				compatible = "fsl,s32v234-mipicsi2-1";
