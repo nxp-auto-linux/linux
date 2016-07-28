@@ -224,6 +224,14 @@
 	};
 };
 
+&stm0 {
+	status = "okay";
+};
+
+&stm1 {
+	status = "okay";
+};
+
 &swt0 {
 	status = "okay";
 };
