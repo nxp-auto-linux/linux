@@ -461,6 +461,12 @@ config VF_PIT_TIMER
 	help
 	  Support for Periodic Interrupt Timer on Freescale Vybrid Family SoCs.
 
+config NXP_STM_TIMER
+	bool "NXP System Timer Module driver"
+	select CLKSRC_MMIO
+	help
+	  Support for NXP System Timer Module.
+
 config SYS_SUPPORTS_SH_CMT
 	bool
 
