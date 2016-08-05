@@ -101,6 +101,18 @@
 		compatible = "fsl,s32v234-dummy-pureg";
 	};
 
+	reserved-memory {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		/* Memory used exclusively for DCU & FB display surfaces */
+		dcu_surface_memory: dcu@0xC0000000 {
+			reg = <0x0 0xC0000000 0x0 0x01000000>;  /* 16 MB */
+			no-map;
+		};
+	};
+
 	timer {
 		compatible = "arm,armv8-timer";
 		interrupts = <1 13 0xf08>,
@@ -421,6 +433,7 @@
 				interrupts = <0 95 1>;
 				clocks = <&clks S32V234_CLK_SYS6>;
 				clock-names = "dcu";
+				memory-region = <&dcu_surface_memory>;
 				status = "disabled";
 			};
 		};
