@@ -92,9 +92,9 @@ unsigned long wb_phys_ptr;
 /* #define __LOG_TRACE__ 1 */
 
 #ifdef __LOG_TRACE__
-	#define __TRACE__ dev_info(&dcu_pdev->dev, "[fsl-DCU] %s\n", __func__)
+	#define __TRACE__ dev_info(&dcu_pdev->dev, "DCU: %s\n", __func__)
 	#define __MSG_TRACE__(string, args...) dev_info(&dcu_pdev->dev, \
-		"[fsl-DCU] %s : %d : " string, __func__, __LINE__, ##args)
+		"DCU: %s : %d : " string, __func__, __LINE__, ##args)
 #else
 	#define __TRACE__
 	#define __MSG_TRACE__(string, args...)
@@ -295,7 +295,7 @@ int fsl_dcu_config_layer(struct fb_info *info)
 			break;
 
 		default:
-			dev_err(dcufb->dev, "unsupported color depth: %u\n",
+			dev_err(dcufb->dev, "DCU: unsupported color depth: %u\n",
 				var->bits_per_pixel);
 			return -EINVAL;
 		}
@@ -387,11 +387,14 @@ int fsl_dcu_map_vram(struct fb_info *info)
 		info->fix.smem_len, (dma_addr_t *)&info->fix.smem_start,
 		GFP_KERNEL);
 	if (!info->screen_base) {
-		dev_err(dcufb->dev, "unable to allocate fb memory\n");
+		dev_err(dcufb->dev,
+			"DCU: unable to allocate memory for <fb%d> surface.\n",
+			mfbi->index);
 		return -ENOMEM;
 	}
 
 	memset(info->screen_base, 0, info->fix.smem_len);
+
 	return 0;
 }
 EXPORT_SYMBOL_GPL(fsl_dcu_map_vram);
@@ -527,7 +530,7 @@ int fsl_turn_panel_on(struct device_node *np,
 
 	panel_data_gpio = of_get_named_gpio(np, "panel-data-gpio", 0);
 	if (!gpio_is_valid(panel_data_gpio)) {
-		dev_err(&dcu_pdev->dev, "failed to get panel data GPIO\n");
+		dev_err(&dcu_pdev->dev, "DCU: failed to get panel data GPIO\n");
 		return err;
 	}
 
@@ -536,7 +539,7 @@ int fsl_turn_panel_on(struct device_node *np,
 
 	if (err) {
 		dev_err(&dcu_pdev->dev,
-			"failed to set panel data GPIO: %d\n", err);
+			"DCU: failed to set panel data GPIO: %d\n", err);
 		return err;
 	}
 
@@ -544,13 +547,13 @@ int fsl_turn_panel_on(struct device_node *np,
 			"panel-backlight-gpio", 0);
 	if (!gpio_is_valid(panel_backlight_gpio))
 		dev_warn(&dcu_pdev->dev,
-			"failed to get panel backlight GPIO\n");
+			"DCU: failed to get panel backlight GPIO\n");
 
 	err = gpio_request_one(panel_backlight_gpio, GPIOF_OUT_INIT_HIGH,
 			"panel_backlight_gpio");
 	if (err)
 		dev_warn(&dcu_pdev->dev,
-			"failed to set panel backlight GPIO: %d\n", err);
+			"DCU: failed to set panel backlight GPIO: %d\n", err);
 
 	return 0;
 }
@@ -704,7 +707,8 @@ void fsl_dcu_configure_display(struct IOCTL_DISPLAY_CFG *display_cfg)
 		}
 
 		if ((dcu_lcd_timings.mHorzPW + dcu_lcd_timings.mVertPW) == 0)
-			dev_warn(&dcu_pdev->dev, "Requested resolution not in EDID\n");
+			dev_warn(&dcu_pdev->dev,
+				"DCU: Requested resolution not in EDID\n");
 	}
 
 	/* set display configuration */
@@ -939,21 +943,21 @@ int fsl_dcu_dev_create(struct platform_device *pdev)
 	ret = alloc_chrdev_region(&dcu_devno, 0, 1, DEVICE_NAME);
 	if (ret < 0) {
 		dev_err(&dcu_pdev->dev,
-			"[fsl-DCU] alloc_chrdev_region error %d\n", ret);
+			"DCU: alloc_chrdev_region error %d\n", ret);
 		return ret;
 	}
 
 	dcu_class = class_create(THIS_MODULE, DEVICE_NAME);
 	if (!dcu_class) {
 		dev_err(&dcu_pdev->dev,
-			"[fsl-DCU] class_create error\n");
+			"DCU: class_create error\n");
 		return -1;
 	}
 
 	if (!(device_create(dcu_class, NULL,
 			dcu_devno, NULL, DEVICE_NAME))) {
 		dev_err(&dcu_pdev->dev,
-			"[fsl-DCU] device_create error\n");
+			"DCU: device_create error\n");
 		return -1;
 	}
 
@@ -965,7 +969,7 @@ int fsl_dcu_dev_create(struct platform_device *pdev)
 	ret = cdev_add(dcu_cdev, dcu_devno, 1);
 	if (ret < 0) {
 		dev_err(&dcu_pdev->dev,
-			"[fsl-DCU] cdev_add error %d\n", ret);
+			"DCU: cdev_add error %d\n", ret);
 		return ret;
 	}
 
@@ -988,20 +992,20 @@ int fsl_dcu_lcd_timings(struct platform_device *pdev,
 
 	display_np = of_parse_phandle(np, "display", 0);
 	if (!display_np) {
-		dev_err(&dcu_pdev->dev, "[fsl-DCU] of_parse_phandle error\n");
+		dev_err(&dcu_pdev->dev, "DCU: of_parse_phandle error\n");
 		return -ENOENT;
 	}
 
 	timings = of_get_display_timings(display_np);
 	if (!timings) {
-		dev_err(&dcu_pdev->dev, "[fsl-DCU] of_get_display_timings error\n");
+		dev_err(&dcu_pdev->dev, "DCU: of_get_display_timings error\n");
 		return -ENOENT;
 	}
 
 	timings_np = of_find_node_by_name(display_np,
 					"display-timings");
 	if (!timings_np) {
-		dev_err(&dcu_pdev->dev, "[fsl-DCU] of_find_node_by_name error\n");
+		dev_err(&dcu_pdev->dev, "DCU: of_find_node_by_name error\n");
 		return -ENOENT;
 	}
 
@@ -1011,7 +1015,7 @@ int fsl_dcu_lcd_timings(struct platform_device *pdev,
 		ret = videomode_from_timings(timings, &vm, i);
 		if (ret < 0) {
 			dev_err(&dcu_pdev->dev,
-				"[fsl-DCU] videomode_from_timings error %d\n",
+				"DCU: videomode_from_timings error %d\n",
 				ret);
 			return ret;
 		}
@@ -1042,6 +1046,62 @@ irqreturn_t fsl_dcu_irq_handler_wrapper(int irq, void *dev_id)
 }
 
 /**********************************************************
+ * FUNCTION: fsl_dcu_init_memory_pool
+ **********************************************************/
+void fsl_dcu_init_memory_pool(struct platform_device *pdev)
+{
+	struct device_node *dcu_mem_node;
+	__be32 *dcu_mem_region;
+	u64 dcu_mem_start, dcu_mem_len;
+	int prop_len, i;
+
+	/* get the memory region for DCU-managed surfaces */
+	dcu_mem_node = of_parse_phandle(pdev->dev.of_node, "memory-region", 0);
+
+	if (!dcu_mem_node)
+		goto dcu_use_default_pool;
+
+	dcu_mem_region =
+		(__be32 *)of_get_property(dcu_mem_node, "reg", &prop_len);
+
+	if (!dcu_mem_region || (prop_len <= 0))
+		goto dcu_use_default_pool;
+
+	/* get number of 32-bit words per value */
+	i = prop_len / sizeof(u64);
+
+	/* get the memory region for DCU surface allocations */
+	dcu_mem_start = of_read_number(&dcu_mem_region[0], i);
+	dcu_mem_len = of_read_number(&dcu_mem_region[i], i);
+
+	if (!devm_request_mem_region(&pdev->dev,
+			dcu_mem_start, dcu_mem_len, dev_name(&pdev->dev))) {
+		dev_err(&pdev->dev, "DCU: request memory region error\n");
+		goto dcu_use_default_pool;
+	}
+
+	dma_release_declared_memory(&pdev->dev);
+	if (dma_declare_coherent_memory(
+			&pdev->dev, dcu_mem_start,
+			dcu_mem_start, dcu_mem_len) == 0) {
+		dev_err(&dcu_pdev->dev, "DCU: memory pool creation error\n");
+		devm_release_mem_region(&pdev->dev, dcu_mem_start,
+			dcu_mem_len);
+		goto dcu_use_default_pool;
+	}
+
+	dev_info(&pdev->dev,
+		"DCU: surface memory space is [0x%08llX, 0x%08llX].\n",
+		dcu_mem_start, dcu_mem_start + dcu_mem_len);
+
+	return;
+
+dcu_use_default_pool:
+	dev_info(&pdev->dev,
+		"DCU: using default surface memory space.\n");
+}
+
+/**********************************************************
  * FUNCTION: fsl_dcu_probe
  **********************************************************/
 int fsl_dcu_probe(struct platform_device *pdev)
@@ -1055,6 +1115,9 @@ int fsl_dcu_probe(struct platform_device *pdev)
 	dcu_pdev = pdev;
 	g_enable_hdmi = false;
 	ret = 0;
+
+	/* initialize the DCU memory pool if configured in DTB */
+	fsl_dcu_init_memory_pool(pdev);
 
 	/* create device and register it in /dev through sysfs */
 	fsl_dcu_dev_create(pdev);
@@ -1074,7 +1137,7 @@ int fsl_dcu_probe(struct platform_device *pdev)
 	dcu_reg_base = devm_ioremap_resource(&pdev->dev, res);
 	if (IS_ERR(dcu_reg_base)) {
 		dcu_init_status = DCU_INIT_ERR_CFG;
-		dev_err(&pdev->dev, "could not ioremap resource\n");
+		dev_err(&pdev->dev, "DCU: could not ioremap resource\n");
 		return PTR_ERR(dcu_fb_data->reg_base);
 	}
 	dcu_fb_data->reg_base = dcu_reg_base;
@@ -1084,7 +1147,7 @@ int fsl_dcu_probe(struct platform_device *pdev)
 							GFP_KERNEL);
 	if (!DCU_BASE_ADDRESS) {
 		dcu_init_status = DCU_INIT_ERR_CFG;
-		dev_err(&pdev->dev, "could not allocate memory for reg_base\n");
+		dev_err(&pdev->dev, "DCU: could not allocate memory for reg_base\n");
 		goto failed_alloc_base;
 	}
 
@@ -1096,7 +1159,7 @@ int fsl_dcu_probe(struct platform_device *pdev)
 	if (IS_ERR(dcu_clk)) {
 		dcu_init_status = DCU_INIT_ERR_CFG;
 		ret = PTR_ERR(dcu_clk);
-		dev_err(&pdev->dev, "could not get clock\n");
+		dev_err(&pdev->dev, "DCU: could not get clock\n");
 		goto failed_getclock;
 	}
 	clk_prepare_enable(dcu_clk);
@@ -1121,7 +1184,8 @@ int fsl_dcu_probe(struct platform_device *pdev)
 		fsl_dcu_irq_handler_wrapper, 0, "2d-ace", NULL);
 
 	if (ret != 0) {
-		dev_err(&pdev->dev, "could not register 2d-ace interrupt handler\n");
+		dev_err(&pdev->dev,
+			"DCU: could not register interrupt handler\n");
 		return ret;
 	}
 
@@ -1215,5 +1279,3 @@ module_platform_driver(fsl_dcu_driver);
 MODULE_AUTHOR("Lupescu Grigore");
 MODULE_DESCRIPTION("Freescale fsl-DCU driver");
 MODULE_LICENSE("GPL");
-
-
