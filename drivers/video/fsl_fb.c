@@ -218,10 +218,8 @@ static int fsl_fb_set_par(struct fb_info *info)
 		}
 
 		__MSG_TRACE__("map_video_memory\n");
-		if (fsl_dcu_map_vram(info)) {
-			dev_err(dcufb->dev, "unable to allocate fb memory\n");
+		if (fsl_dcu_map_vram(info))
 			return -ENOMEM;
-		}
 	}
 
 	/* Configure display properties, valid only for HDMI */
