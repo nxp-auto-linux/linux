@@ -11,10 +11,16 @@ description: |
   Core driver for the S32V pin controller.
   Based on fsl,imx-pincontrol implementation.
 
+  fsl,s32v234-siul2 compatible node is <DEPRECATED>
+  Backward compatible string for the use cases
+  when the user boots kernel with an old device tree. It's not
+  recommended to use it anymore.
+
 properties:
   compatible:
     const:
-      fsl,s32v234-siul2
+      - fsl,s32v234-siul2-pinctrl
+      - fsl,s32v234-siul2
 
   fsl,pins:
     description: |
