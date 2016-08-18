@@ -14,6 +14,14 @@
 
 #include <uapi/video/fsl_dcu_ioctl.h>
 
+struct dcu_fb_color_format {
+	struct fb_bitfield channels[4];
+	int bpp;
+};
+
+extern const struct dcu_fb_color_format DCU_FB_COLOR_FORMATS[];
+extern const int dcu_fb_color_format_count;
+
 int fsl_dcu_config_layer(struct fb_info *info);
 void fsl_dcu_configure_display(struct IOCTL_DISPLAY_CFG *display_cfg);
 int fsl_dcu_reset_layer(struct fb_info *info);
@@ -25,5 +33,6 @@ struct platform_device *fsl_dcu_get_pdev(void);
 int fsl_dcu_num_layers(void);
 int fsl_dcu_init_status(void);
 int fsl_dcu_wait_for_vsync(void);
+int fsl_fb_get_color_format_match(const struct fb_var_screeninfo *var);
 
 #endif /* FSL_DCU_LINUX_H_ */
