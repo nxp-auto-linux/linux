@@ -73,6 +73,9 @@ static int fsl_fb_check_var(struct fb_var_screeninfo *var,
 {
 	struct mfb_info *mfbi = info->par;
 	struct dcu_fb_data *dcufb = mfbi->parent;
+	struct fb_bitfield *var_channels[] = {
+		&var->red, &var->green, &var->blue, &var->transp};
+	int color_fmt_idx, i;
 
 	__TRACE__;
 
@@ -104,84 +107,37 @@ static int fsl_fb_check_var(struct fb_var_screeninfo *var,
 	/* Check FOURCC */
 	if ((info->fix.capabilities & FB_CAP_FOURCC) &&
 		(var->grayscale > 1)) {
+		/* Handle grayscale and FOURCC color formats */
 		switch (var->grayscale) {
 		case V4L2_PIX_FMT_UYVY:
-			dev_info(dcufb->dev, "switch to UYVY format\n");
+			dev_info(dcufb->dev, "Switch to UYVY format.\n");
 			break;
 
 		default:
 			dev_err(dcufb->dev,
-				"unsupported FOURCC color format: %u\n",
+				"Unsupported FOURCC color format: %u\n",
 				var->grayscale);
 			return -EINVAL;
 		}
 	} else {
-		switch (var->bits_per_pixel) {
-		case 16:
-			var->red.length = 5;
-			var->red.offset = 11;
-			var->red.msb_right = 0;
+		/* Find the correct color format */
+		color_fmt_idx = fsl_fb_get_color_format_match(var);
 
-			var->green.length = 6;
-			var->green.offset = 5;
-			var->green.msb_right = 0;
-
-			var->blue.length = 5;
-			var->blue.offset = 0;
-			var->blue.msb_right = 0;
-
-			var->transp.length = 0;
-			var->transp.offset = 0;
-			var->transp.msb_right = 0;
-			break;
-
-		case 24:
-			var->red.length = 8;
-			var->red.offset = 16;
-			var->red.msb_right = 0;
-
-			var->green.length = 8;
-			var->green.offset = 8;
-			var->green.msb_right = 0;
-
-			var->blue.length = 8;
-			var->blue.offset = 0;
-			var->blue.msb_right = 0;
-
-			var->transp.length = 0;
-			var->transp.offset = 0;
-			var->transp.msb_right = 0;
-			break;
-
-		case 32:
-			var->red.length = 8;
-			var->red.offset = 16;
-			var->red.msb_right = 0;
-
-			var->green.length = 8;
-			var->green.offset = 8;
-			var->green.msb_right = 0;
-
-			var->blue.length = 8;
-			var->blue.offset = 0;
-			var->blue.msb_right = 0;
-
-			var->transp.length = 8;
-			var->transp.offset = 24;
-			var->transp.msb_right = 0;
-			break;
-
-		default:
-			dev_err(dcufb->dev,
-				"unsupported color depth: %u\n",
-				var->bits_per_pixel);
+		if (color_fmt_idx >= dcu_fb_color_format_count)
 			return -EINVAL;
-		}
+
+		/* Ensure color format description is updated */
+		for (i = 0; i < 4; ++i)
+			memcpy(var_channels[i],
+			 &DCU_FB_COLOR_FORMATS[color_fmt_idx].channels[i],
+			 sizeof(struct fb_bitfield));
+
+		var->bits_per_pixel =
+			DCU_FB_COLOR_FORMATS[color_fmt_idx].bpp;
 	}
 
 	return 0;
 }
-
 
 /**********************************************************
  * FUNCTION: fsl_fb_check_var
@@ -713,6 +669,6 @@ static void r_cleanup(void)
 /**********************************************************
  * INFO: Module info
  **********************************************************/
-MODULE_AUTHOR("Lupescu Grigore");
-MODULE_DESCRIPTION("Freescale fsl-FB driver");
+MODULE_AUTHOR("Lupescu Grigore, Trandafir Andrei");
+MODULE_DESCRIPTION("Freescale FB driver");
 MODULE_LICENSE("GPL");
