@@ -480,6 +480,16 @@ config GPIO_RCAR
 	help
 	  Say yes here to support GPIO on Renesas R-Car SoCs.
 
+config GPIO_S32V234
+	tristate "GPIO driver for S32V234"
+	depends on PINCTRL_S32V234
+	select GPIOLIB_IRQCHIP
+	help
+	  This enables support for the SIUL2 GPIOs found on the S32V234 chip.
+	  It includes an IRQ controller for all EIRQ pins.
+	  Say yes here to enable the SIUL2 to be used as an GPIO
+	  controller for S32V234.
+
 config GPIO_S32GEN1
 	tristate "GPIO driver for S32-GEN1"
 	depends on PINCTRL_S32GEN1
