@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2014 Freescale Semiconductor, Inc.
+ * Copyright 2012-2016 Freescale Semiconductor, Inc.
  *
  * Freescale fsl-DCU device driver
  *
@@ -137,6 +137,45 @@ wait_queue_head_t dcu_event_queue;
 static bool g_enable_hdmi;
 
 /**********************************************************
+ * GLOBAL DCU & FB supported color formats
+ **********************************************************/
+
+/* The color formats supported by the DCU & FB drivers */
+const struct dcu_fb_color_format DCU_FB_COLOR_FORMATS[] = {
+	{{ {16, 8, 0}, {8, 8, 0}, {0, 8, 0}, {24, 8, 0} }, 32}, /* ARGB8888 */
+	{{ {16, 8, 0}, {8, 8, 0}, {0, 8, 0}, { 0, 0, 0} }, 24}, /* RGB888 */
+	{{ {11, 5, 0}, {5, 6, 0}, {0, 5, 0}, { 0, 0, 0} }, 16}, /* RGB565 */
+	{{ {10, 5, 0}, {5, 5, 0}, {0, 5, 0}, {15, 1, 0} }, 16}, /* ARGB1555 */
+	{{ { 8, 4, 0}, {4, 4, 0}, {0, 4, 0}, {12, 4, 0} }, 16}, /* ARGB4444 */
+
+	{{ { 0, 0, 0}, {0, 0, 0}, {0, 0, 0}, { 0, 8, 0} },  8}, /* GRAY_8 */
+	{{ { 0, 0, 0}, {0, 0, 0}, {0, 0, 0}, { 0, 4, 0} },  4}, /* GRAY_4 */
+
+	{{ { 0, 0, 0}, {0, 0, 0}, {0, 0, 0}, { 0, 0, 0} },  8}, /* CLUT 8 BPP */
+	{{ { 0, 0, 0}, {0, 0, 0}, {0, 0, 0}, { 0, 0, 0} },  4}, /* CLUT 4 BPP */
+	{{ { 0, 0, 0}, {0, 0, 0}, {0, 0, 0}, { 0, 0, 0} },  2}, /* CLUT 2 BPP */
+	{{ { 0, 0, 0}, {0, 0, 0}, {0, 0, 0}, { 0, 0, 0} },  1}, /* CLUT 1 BPP */
+};
+
+const Dcu_BPP_t DCU_FB_COLOR_BPP[] = {
+	DCU_BPP_32,
+	DCU_BPP_24,
+	DCU_BPP_16,
+	DCU_BPP_16_ARGB1555,
+	DCU_BPP_16_ARGB4444,
+	DCU_BPP_TRANS_8,
+	DCU_BPP_TRANS_4,
+	DCU_BPP_8,
+	DCU_BPP_4,
+	DCU_BPP_2,
+	DCU_BPP_1
+};
+
+const int dcu_fb_color_format_count =
+	sizeof(DCU_FB_COLOR_FORMATS) /
+	sizeof(DCU_FB_COLOR_FORMATS[0]);
+
+/**********************************************************
  * HDMI/LVDS selection bootargs
  **********************************************************/
 static int __init enable_hdmi_display(char *str)
@@ -254,16 +293,56 @@ EXPORT_SYMBOL_GPL(fsl_dcu_registers);
 /**********************************************************
  * FUNCTION: fsl_dcu_config_layer
  **********************************************************/
+
+int fsl_fb_get_color_format_match(const struct fb_var_screeninfo *var)
+{
+	struct dcu_fb_color_format user_format = {
+		{
+		{var->red.offset, var->red.length, var->red.msb_right},
+		{var->green.offset, var->green.length, var->green.msb_right},
+		{var->blue.offset, var->blue.length, var->blue.msb_right},
+		{var->transp.offset, var->transp.length, var->transp.msb_right}
+		},
+		var->bits_per_pixel};
+	int i;
+
+	/* Search for an exact match for the color format */
+	for (i = 0; i < dcu_fb_color_format_count; ++i)
+		if ((memcmp(DCU_FB_COLOR_FORMATS[i].channels,
+				user_format.channels,
+				sizeof(user_format.channels)) == 0) &&
+				(user_format.bpp ==
+					DCU_FB_COLOR_FORMATS[i].bpp))
+			break;
+
+	if (i < dcu_fb_color_format_count)
+		return i;
+
+	/* Search for a default format using only the BPP value */
+	for (i = 0; i < dcu_fb_color_format_count; ++i)
+		if (user_format.bpp == DCU_FB_COLOR_FORMATS[i].bpp)
+			return i;
+
+	/* At this point, we could not identify any supported format match */
+	dev_err(&dcu_pdev->dev,
+			"Unsupported color format!\n");
+
+	return dcu_fb_color_format_count;
+}
+EXPORT_SYMBOL_GPL(fsl_fb_get_color_format_match);
+
+/**********************************************************
+ * FUNCTION: fsl_dcu_config_layer
+ **********************************************************/
 int fsl_dcu_config_layer(struct fb_info *info)
 {
 	struct fb_var_screeninfo *var = &info->var;
 	struct mfb_info *mfbi = info->par;
-	struct dcu_fb_data *dcufb = mfbi->parent;
-
 	Dcu_Size_t	layer_size;
 	Dcu_Position_t	layer_pos;
 	Dcu_Colour_t	layer_chroma_max;
 	Dcu_Colour_t	layer_chroma_min;
+	int color_format_idx;
 
 	__TRACE__;
 
@@ -277,47 +356,55 @@ int fsl_dcu_config_layer(struct fb_info *info)
 	DCU_SetLayerPosition(0, mfbi->index, &layer_pos);
 	DCU_SetLayerBuffAddr(0, mfbi->index, info->fix.smem_start);
 
+	DCU_SetLayerForeground(0, mfbi->index, 0x0);
+	DCU_SetLayerBackground(0, mfbi->index, 0x0);
+
 	if ((info->fix.capabilities & FB_CAP_FOURCC) &&
 		(var->grayscale == V4L2_PIX_FMT_UYVY)) {
 		DCU_SetLayerBPP(0, mfbi->index, DCU_BPP_YCbCr422);
 	} else {
-		switch (var->bits_per_pixel) {
-		case 16:
-			DCU_SetLayerBPP(0, mfbi->index, DCU_BPP_16);
+		color_format_idx = fsl_fb_get_color_format_match(var);
+
+		if (color_format_idx >= dcu_fb_color_format_count)
+			return -EINVAL;
+
+		switch (DCU_FB_COLOR_BPP[color_format_idx]) {
+		case DCU_BPP_TRANS_8:
+		case DCU_BPP_TRANS_4:
+			/* 8-BPP or 4-BPP grayscale */
+			DCU_SetLayerForeground(0, mfbi->index, 0x00FFFFFF);
+			DCU_SetLayerBackground(0, mfbi->index, 0x00000000);
 			break;
 
-		case 24:
-			DCU_SetLayerBPP(0, mfbi->index, DCU_BPP_24);
-			break;
-
-		case 32:
-			DCU_SetLayerBPP(0, mfbi->index, DCU_BPP_32);
+		case DCU_BPP_8:
+		case DCU_BPP_4:
+		case DCU_BPP_2:
+		case DCU_BPP_1:
+			/* CLUT initialization - TODO */
 			break;
 
 		default:
-			dev_err(dcufb->dev, "DCU: unsupported color depth: %u\n",
-				var->bits_per_pixel);
-			return -EINVAL;
+			break;
 		}
+
+		DCU_SetLayerBPP(0, mfbi->index,
+			DCU_FB_COLOR_BPP[color_format_idx]);
 	}
 
 	DCU_SetLayerAlphaVal(0, mfbi->index, mfbi->alpha);
 	DCU_SetLayerAlphaMode(0, mfbi->index, DCU_ALPHAKEY_WHOLEFRAME);
 	DCU_LayerEnable(0, mfbi->index);
 
-	layer_chroma_max.Blue_Value =  0xFF;
-	layer_chroma_max.Red_Value =  0xFF;
-	layer_chroma_max.Green_Value =  0xFF;
+	layer_chroma_max.Blue_Value  = 0xFF;
+	layer_chroma_max.Red_Value   = 0xFF;
+	layer_chroma_max.Green_Value = 0xFF;
 
-	layer_chroma_min.Blue_Value =  0x0;
-	layer_chroma_min.Red_Value =  0x0;
-	layer_chroma_min.Green_Value =  0x0;
+	layer_chroma_min.Blue_Value  = 0x0;
+	layer_chroma_min.Red_Value   = 0x0;
+	layer_chroma_min.Green_Value = 0x0;
 
 	DCU_SetLayerChroma(0, mfbi->index,
-			&layer_chroma_max, &layer_chroma_min);
-
-	DCU_SetLayerForeground(0, mfbi->index, 0);
-	DCU_SetLayerBackground(0, mfbi->index, 0);
+		&layer_chroma_max, &layer_chroma_min);
 
 	return 0;
 }
@@ -623,10 +710,18 @@ void fsl_dcu_event_callback(void)
 void fsl_dcu_display(DCU_DISPLAY_TYPE display_type,
 		Dcu_LCD_Para_t dcu_lcd_timings)
 {
+	Dcu_Colour_t bkgr_color;
+
 	__TRACE__;
 
 	/* DCU set configuration, LVDS has fixed div according to RM - TODO */
 	DCU_Init(0, 150, &dcu_lcd_timings, DCU_FREQDIV_NORMAL);
+
+	/* Initialize DCU background color */
+	bkgr_color.Red_Value	= 0x0;
+	bkgr_color.Green_Value	= 0x0;
+	bkgr_color.Blue_Value	= 0x0;
+	DCU_BGNDColorSet(0, &bkgr_color);
 
 	/* Register and enable the callback for VSYNC */
 	DCU_RegisterCallbackVSYNC(0, fsl_dcu_event_callback);
