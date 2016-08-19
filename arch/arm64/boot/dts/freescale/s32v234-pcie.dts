@@ -32,6 +32,18 @@
 	};
 };
 
+&can0 {
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_can0>;
+		status = "okay";
+};
+
+&can1 {
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_can1>;
+		status = "okay";
+};
+
 &dcu0 {
 	display = <&display>;
 	status = "okay";
@@ -141,7 +153,8 @@
 &pinctrl {
 	status = "okay";
 
-	s32v234-evb {
+	s32v234-pcie {
+
 		pinctrl_i2c1: i2c1grp {
 			fsl,pins = <
 				S32V234_PAD_PG5__I2C1_DATA_OUT
@@ -149,6 +162,22 @@
 				S32V234_PAD_PG6__I2C1_SCLK_OUT
 				S32V234_PAD_PG6__I2C1_SCLK_IN
 			>;
+		};
+
+		pinctrl_can0: can0grp {
+			fsl,pins = <
+				S32V234_PAD_PA2__CAN_FD0_TXD
+				S32V234_PAD_PA3__CAN_FD0_RXD_OUT
+				S32V234_PAD_PA3__CAN_FD0_RXD_IN
+				>;
+		};
+
+		pinctrl_can1: can1grp {
+			fsl,pins = <
+				S32V234_PAD_PA4__CAN_FD1_TXD
+				S32V234_PAD_PA5__CAN_FD1_RXD_OUT
+				S32V234_PAD_PA5__CAN_FD1_RXD_IN
+				>;
 		};
 
 		pinctrl_dcu: dcugrp {
