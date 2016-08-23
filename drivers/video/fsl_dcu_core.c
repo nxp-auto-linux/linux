@@ -5,7 +5,7 @@
 *	 @details It contains the code of the driver.
 */
 /*==================================================================================================
-*	 Copyright (c) 2014 Freescale Semiconductor, Inc
+*	 Copyright (c) 2014, 2016 Freescale Semiconductor, Inc
 *	 All Rights Reserved.
 ==================================================================================================*/
 /*==================================================================================================
@@ -450,29 +450,29 @@ Dcu_Err_t DCU_IsLayerEnabled(Dcu_Unit_t dcu_id, Dcu_Layer_t layer_id, Dcu_Enable
 	return (err);
 }
 
-Dcu_Err_t DCU_SetLayerSize(Dcu_Unit_t dcu_id, Dcu_Layer_t layer_id, Dcu_Size_t* pSize)
+Dcu_Err_t DCU_SetLayerSize(Dcu_Unit_t dcu_id, Dcu_Layer_t layer_id,
+	Dcu_Size_t *pSize)
 {
 	Dcu_Err_t err = DCU_ERR_OK;
 	uint32_t temp_reg = 0;
 
 #if ((1 == DCU_IRQ_SUPPORT) && (1 == DCU_IRQ_STATEMACHINE))
-	if(DCU_PROG_END!=gDCU_DisplayIStatus[dcu_id])
-	{
-		return(DCU_ERR_CALLTIME);
-	}
+	if (gDCU_DisplayIStatus[dcu_id] != DCU_PROG_END)
+		return DCU_ERR_CALLTIME;
 #endif /* DCU_IRQ_SUPPORT && DCU_IRQ_STATEMACHINE */
 
-  if ((Display_SizeY[dcu_id] >= pSize->mHeight) && (Display_SizeX[dcu_id] >= pSize->mWidth))
-	{
-      temp_reg  = ((pSize->mWidth) << DCU_CTRLDESCLn_1_WIDTH_SHIFT) & DCU_CTRLDESCLn_1_WIDTH_MASK;
-      temp_reg |= ((pSize->mHeight)<< DCU_CTRLDESCLn_1_HEIGHT_SHIFT)& DCU_CTRLDESCLn_1_HEIGHT_MASK;
+	if ((DCU_CTRLDESCLn_1_HEIGHT_LIMIT >= pSize->mHeight) &&
+		(DCU_CTRLDESCLn_1_WIDTH_LIMIT >= pSize->mWidth)) {
+		temp_reg = ((pSize->mWidth) << DCU_CTRLDESCLn_1_WIDTH_SHIFT)
+			& DCU_CTRLDESCLn_1_WIDTH_MASK;
+		temp_reg |= ((pSize->mHeight) << DCU_CTRLDESCLn_1_HEIGHT_SHIFT)
+			& DCU_CTRLDESCLn_1_HEIGHT_MASK;
+
 		REG_WRITE32(DCU_CTRLDESCL1_ADDR32(dcu_id, layer_id), temp_reg);
-	}
-	else
-	{
+	} else
 		err = DCU_ERR_RANGE;
-	}
-	return(err);
+
+	return err;
 }
 
 Dcu_Err_t DCU_GetLayerSize(Dcu_Unit_t dcu_id, Dcu_Layer_t layer_id, Dcu_Size_t* pValue)
@@ -986,6 +986,21 @@ Dcu_Err_t DCU_GetLayerBackground(Dcu_Unit_t dcu_id, Dcu_Layer_t layer_id, uint32
 		err = DCU_ERR_NULL_PTR;
 	}
 	return (err);
+}
+
+Dcu_Err_t DCU_SetLayerHorizontalSkip(Dcu_Unit_t dcu_id, Dcu_Layer_t layer_id,
+	uint16_t pre_skip, uint16_t post_skip)
+{
+	uint32_t skip_reg = 0;
+
+	skip_reg  = (pre_skip << DCU_CTRLDESCLn_10_PRE_SKIP_SHIFT)
+		& DCU_CTRLDESCLn_10_PRE_SKIP_COLOR_MASK;
+	skip_reg |= (post_skip << DCU_CTRLDESCLn_10_POST_SKIP_SHIFT)
+		& DCU_CTRLDESCLn_10_POST_SKIP_COLOR_MASK;
+
+	REG_WRITE32(DCU_CTRLDESCL10_ADDR32(dcu_id, layer_id), skip_reg);
+
+	return DCU_ERR_OK;
 }
 
 #if (1 == DCU_TILE_FUNCTIONALITY)
