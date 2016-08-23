@@ -190,7 +190,6 @@ __setup("hdmi", enable_hdmi_display);
 /**********************************************************
  * External HDMI function definitions
  **********************************************************/
-struct fb_monspecs sii902x_get_monspecs(void);
 
 #ifndef CONFIG_FB_MXS_SII902X
 /* FIXME: avoid direct communication with HDMI driver */
@@ -291,9 +290,8 @@ void fsl_dcu_registers(void)
 EXPORT_SYMBOL_GPL(fsl_dcu_registers);
 
 /**********************************************************
- * FUNCTION: fsl_dcu_config_layer
+ * FUNCTION: fsl_fb_get_color_format_match
  **********************************************************/
-
 int fsl_fb_get_color_format_match(const struct fb_var_screeninfo *var)
 {
 	struct dcu_fb_color_format user_format = {
@@ -347,13 +345,13 @@ int fsl_dcu_config_layer(struct fb_info *info)
 	__TRACE__;
 
 	layer_size.mHeight = var->yres;
-	layer_size.mWidth = var->xres;
+	layer_size.mWidth = var->xres_virtual;
 	DCU_SetLayerSize(0, mfbi->index, &layer_size);
 
 	layer_pos.mX = mfbi->x_layer_d;
 	layer_pos.mY = mfbi->y_layer_d;
-
 	DCU_SetLayerPosition(0, mfbi->index, &layer_pos);
+
 	DCU_SetLayerBuffAddr(0, mfbi->index, info->fix.smem_start);
 
 	DCU_SetLayerForeground(0, mfbi->index, 0x0);
@@ -427,12 +425,12 @@ int fsl_dcu_reset_layer(struct fb_info *info)
 
 	layer_size.mHeight = 0;
 	layer_size.mWidth = 0;
-
 	DCU_SetLayerSize(0, mfbi->index, &layer_size);
+
 	layer_pos.mX = 0;
 	layer_pos.mY = 0;
-
 	DCU_SetLayerPosition(0, mfbi->index, &layer_pos);
+
 	DCU_SetLayerBuffAddr(0, mfbi->index, 0);
 	DCU_SetLayerBPP(0, mfbi->index, DCU_BPP_1);
 	DCU_SetLayerAlphaVal(0, mfbi->index, 0);
@@ -511,16 +509,24 @@ int fsl_dcu_set_layer(struct fb_info *info)
 {
 	struct mfb_info *mfbi = info->par;
 	struct fb_var_screeninfo *var = &info->var;
-	int pixel_offset;
-	unsigned long addr;
+	Dcu_Position_t layer_pos;
+	uint32_t addr;
 
 	__TRACE__;
 
-	pixel_offset = (var->yoffset * var->xres_virtual) + var->xoffset;
 	addr = info->fix.smem_start +
-		(pixel_offset * (var->bits_per_pixel >> 3));
+		(var->yoffset * var->xres_virtual *
+		var->bits_per_pixel >> 3);
+
+	DCU_SetLayerHorizontalSkip(0, mfbi->index,
+		var->xoffset,
+		var->xres_virtual - var->xres - var->xoffset);
+
+	layer_pos.mX = mfbi->x_layer_d - var->xoffset;
+	layer_pos.mY = mfbi->y_layer_d;
 
 	DCU_SetLayerBuffAddr(0, mfbi->index, addr);
+	DCU_SetLayerPosition(0, mfbi->index, &layer_pos);
 
 	return 0;
 }
