@@ -5,7 +5,7 @@
 *   @details It contains the prototypes of the function and typedefs of parameters.
 */
 /*==================================================================================================
-*	 Copyright (c) 2014 Freescale Semiconductor, Inc
+*	 Copyright (c) 2014, 2016 Freescale Semiconductor, Inc
 *	 All Rights Reserved.
 ==================================================================================================*/
 /*==================================================================================================
@@ -61,7 +61,6 @@ extern "C" {
 /*****************************************************************************
 * local defines
 *****************************************************************************/
-
 
 /*****************************************************************************
 * local types
@@ -577,6 +576,8 @@ Dcu_Err_t DCU_SetLayerChroma(Dcu_Unit_t dcu_id, Dcu_Layer_t layer_id, Dcu_Colour
 Dcu_Err_t DCU_SetLayerForeground(Dcu_Unit_t dcu_id,Dcu_Layer_t layer_id, uint32_t value);
 Dcu_Err_t DCU_SetLayerBackground(Dcu_Unit_t dcu_id,Dcu_Layer_t layer_id, uint32_t value);
 Dcu_Err_t DCU_LayerRLEEnable(Dcu_Unit_t dcu_id, Dcu_Layer_t layer_id);
+Dcu_Err_t DCU_SetLayerHorizontalSkip(Dcu_Unit_t dcu_id, Dcu_Layer_t layer_id,
+	uint16_t pre_skip, uint16_t post_skip);
 #if ((1 == DCU_IRQ_SUPPORT) && (1 == DCU_IRQ_STATEMACHINE))
  #if (1 == DCU_RLE_FUNCTIONALITY)
 Dcu_Err_t DCU_LayerRLEDisable(Dcu_Unit_t dcu_id, Dcu_Layer_t layer_id);
