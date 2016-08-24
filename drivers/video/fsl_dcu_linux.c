@@ -131,6 +131,13 @@ int dcu_init_status = DCU_INIT_ERR_PROBE;
 int event_condition_list[DCU_EVENT_MAX_WAITING_PIDS];
 wait_queue_head_t dcu_event_queue;
 
+/* A global CLUT written by a process and read during VBLANK */
+uint32_t dcu_clut[256];
+uint32_t dcu_clut_size;
+uint32_t dcu_clut_offset;
+Dcu_Layer_t dcu_clut_layer;
+spinlock_t dcu_clut_lock;
+
 /**********************************************************
  * GLOBAL DCU display output type
  **********************************************************/
@@ -330,6 +337,42 @@ int fsl_fb_get_color_format_match(const struct fb_var_screeninfo *var)
 EXPORT_SYMBOL_GPL(fsl_fb_get_color_format_match);
 
 /**********************************************************
+ * FUNCTION: fsl_dcu_set_clut
+ **********************************************************/
+int fsl_dcu_set_clut(struct fb_info *info)
+{
+	struct mfb_info *mfbi = info->par;
+	struct fb_cmap *cmap = &info->cmap;
+	uint32_t clut[256], i;
+	uint16_t clut_offset = 256 * mfbi->index;
+	unsigned long flags;
+
+	/* Convert the FB color-map to a CLUT */
+	for (i = 0; i < cmap->len; ++i) {
+		if (cmap->transp)
+			clut[i] = (cmap->transp[i] & 0xFF) << 24;
+		else
+			clut[i] = 0xFF000000;
+
+		clut[i] |= (cmap->red[i] & 0xFF) << 16;
+		clut[i] |= (cmap->green[i] & 0xFF) << 8;
+		clut[i] |= (cmap->blue[i] & 0xFF);
+	}
+
+	spin_lock_irqsave(&dcu_clut_lock, flags);
+
+	dcu_clut_size = cmap->len;
+	dcu_clut_layer = mfbi->index;
+	dcu_clut_offset = clut_offset;
+	memcpy(dcu_clut, clut, cmap->len * sizeof(uint32_t));
+
+	spin_unlock_irqrestore(&dcu_clut_lock, flags);
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(fsl_dcu_set_clut);
+
+/**********************************************************
  * FUNCTION: fsl_dcu_config_layer
  **********************************************************/
 int fsl_dcu_config_layer(struct fb_info *info)
@@ -378,7 +421,9 @@ int fsl_dcu_config_layer(struct fb_info *info)
 		case DCU_BPP_4:
 		case DCU_BPP_2:
 		case DCU_BPP_1:
-			/* CLUT initialization - TODO */
+			if (mfbi->index >= 8)
+				/* Only first 8 layers can use the CLUT */
+				return -EINVAL;
 			break;
 
 		default:
@@ -689,9 +734,9 @@ int fsl_dcu_wait_for_vsync(void)
 EXPORT_SYMBOL_GPL(fsl_dcu_wait_for_vsync);
 
 /**********************************************************
- * FUNCTION: fsl_dcu_event_callback
+ * FUNCTION: fsl_dcu_event_VSYNC
  **********************************************************/
-void fsl_dcu_event_callback(void)
+void fsl_dcu_event_VSYNC(void)
 {
 	unsigned long flags;
 	int i;
@@ -707,6 +752,24 @@ void fsl_dcu_event_callback(void)
 	spin_unlock_irqrestore(&dcu_event_queue.lock, flags);
 
 	wake_up_all(&dcu_event_queue);
+}
+
+/**********************************************************
+ * FUNCTION: fsl_dcu_event_VBLANK
+ **********************************************************/
+void fsl_dcu_event_VBLANK(void)
+{
+	unsigned long flags;
+
+	spin_lock_irqsave(&dcu_clut_lock, flags);
+
+	if (dcu_clut_size > 0) {
+		DCU_CLUTLoad(0, dcu_clut_layer, dcu_clut_offset,
+			dcu_clut_size, dcu_clut);
+		dcu_clut_size = 0;
+	}
+
+	spin_unlock_irqrestore(&dcu_clut_lock, flags);
 }
 
 /**********************************************************
@@ -729,9 +792,12 @@ void fsl_dcu_display(DCU_DISPLAY_TYPE display_type,
 	bkgr_color.Blue_Value	= 0x0;
 	DCU_BGNDColorSet(0, &bkgr_color);
 
-	/* Register and enable the callback for VSYNC */
-	DCU_RegisterCallbackVSYNC(0, fsl_dcu_event_callback);
-	DCU_EnableDisplayTimingIrq(0, DCU_INT_VSYNC_MASK);
+	/* Register and enable the callbacks for VSYNC and VBLANK */
+	DCU_RegisterCallbackVSYNC(0, fsl_dcu_event_VSYNC);
+	DCU_RegisterCallbackVBLANK(0, fsl_dcu_event_VBLANK);
+
+	DCU_EnableDisplayTimingIrq(0,
+		DCU_INT_VSYNC_MASK | DCU_INT_VS_BLANK_MASK);
 }
 
 /**********************************************************
@@ -1270,6 +1336,10 @@ int fsl_dcu_probe(struct platform_device *pdev)
 	dcu_fb_data->clk = dcu_clk;
 	pm_runtime_enable(&pdev->dev);
 	pm_runtime_get_sync(&pdev->dev);
+
+	/* initialize the global CLUT */
+	spin_lock_init(&dcu_clut_lock);
+	dcu_clut_size = 0;
 
 	/* get lcd timings from device tree */
 	fsl_dcu_lcd_timings(pdev, &dcu_lcd_timings);

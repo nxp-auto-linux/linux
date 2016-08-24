@@ -258,6 +258,39 @@ static int fsl_fb_setcolreg(unsigned regno, unsigned red, unsigned green,
 }
 
 /**********************************************************
+ * FUNCTION: fsl_fb_setcmap
+ * INFO: set an entire color map
+ **********************************************************/
+int fsl_fb_setcmap(struct fb_cmap *cmap, struct fb_info *info)
+{
+	struct mfb_info *mfbi = info->par;
+	struct dcu_fb_data *dcufb = mfbi->parent;
+	int ret = 0;
+
+	__TRACE__;
+
+	if (!cmap)
+		return -EINVAL;
+
+	ret = fb_alloc_cmap(&info->cmap, cmap->len, cmap->transp != NULL);
+
+	if (ret == 0)
+		ret = fb_copy_cmap(cmap, &info->cmap);
+
+	/* CLUT layout will be 256 entries per layer for up to 8 layers */
+	if (mfbi->index >= 8) {
+		dev_err(dcufb->dev, "CLUT not available for layer %d\n",
+			mfbi->index);
+		return -EINVAL;
+	}
+
+	if (ret == 0)
+		ret = fsl_dcu_set_clut(info);
+
+	return ret;
+}
+
+/**********************************************************
  * FUNCTION: fsl_fb_pan_display
  * INFO: select view/region to display
  **********************************************************/
@@ -358,7 +391,7 @@ static int fsl_fb_ioctl(struct fb_info *info, unsigned int cmd,
 		break;
 
 	default:
-		dev_err(dcufb->dev, "unknown ioctl command (0x%08X)\n", cmd);
+		dev_err(dcufb->dev, "Unknown ioctl command (0x%08X)\n", cmd);
 		return -ENOIOCTLCMD;
 	}
 
@@ -408,6 +441,7 @@ static struct fb_ops fsl_dcu_ops = {
 	.fb_check_var = fsl_fb_check_var,
 	.fb_set_par = fsl_fb_set_par,
 	.fb_setcolreg = fsl_fb_setcolreg,
+	.fb_setcmap = fsl_fb_setcmap,
 	.fb_blank = fsl_fb_blank,
 	.fb_pan_display = fsl_fb_pan_display,
 	.fb_fillrect = cfb_fillrect,
