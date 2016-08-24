@@ -34,6 +34,7 @@ int fsl_dcu_num_layers(void);
 int fsl_dcu_init_status(void);
 int fsl_dcu_wait_for_vsync(void);
 int fsl_fb_get_color_format_match(const struct fb_var_screeninfo *var);
+int fsl_dcu_set_clut(struct fb_info *info);
 struct fb_monspecs sii902x_get_monspecs(void);
 
 #endif /* FSL_DCU_LINUX_H_ */
