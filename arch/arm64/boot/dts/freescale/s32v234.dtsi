@@ -169,7 +169,7 @@
 			stm0: stm@4000D000{
 				compatible = "fsl,s32v234-stm";
 				reg = <0x0 0x4000D000 0x0 0x1000>;
-				interrupts= <0 19 8>;
+				interrupts= <0 19 4>;
 				clocks = <&clks S32V234_CLK_SYS6>;
 				clock-names = "stm";
 				cpu = <2>;
@@ -229,7 +229,7 @@
 			pit0: pit@4003A000{
 				compatible = "fsl,s32v234-pit";
 				reg = <0x0 0x4003A000 0x0 0x1000>;
-				interrupts= <0 31 0xf08>;
+				interrupts= <0 31 4>;
 				clocks = <&clks S32V234_CLK_SYS6>;
 				clock-names = "pit";
 				cpu = <0>;
@@ -435,7 +435,7 @@
 			stm1: stm@40087000{
 				compatible = "fsl,s32v234-stm";
 				reg = <0x0 0x40087000 0x0 0x1000>;
-				interrupts= <0 20 8>;
+				interrupts= <0 20 4>;
 				cpu = <3>;
 				clocks = <&clks S32V234_CLK_SYS6>;
 				clock-names = "stm";
@@ -457,7 +457,7 @@
 			pit1: pit@400AA000{
 				compatible = "fsl,s32v234-pit";
 				reg = <0x0 0x400AA000 0x0 0x1000>;
-				interrupts= <0 32 0xf08>;
+				interrupts= <0 32 4>;
 				cpu = <1>;
 				clocks = <&clks S32V234_CLK_SYS6>;
 				clock-names = "pit";
