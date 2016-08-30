@@ -15,6 +15,7 @@
 #include <uapi/video/fsl_dcu_ioctl.h>
 
 struct dcu_fb_color_format {
+	char format_name[16];
 	struct fb_bitfield channels[4];
 	int bpp;
 };
@@ -28,12 +29,14 @@ int fsl_dcu_reset_layer(struct fb_info *info);
 int fsl_dcu_map_vram(struct fb_info *info);
 void fsl_dcu_unmap_vram(struct fb_info *info);
 int fsl_dcu_set_layer(struct fb_info *info);
+int fsl_dcu_register_timings_listener(struct fb_info *info);
 struct dcu_fb_data *fsl_dcu_get_dcufb(void);
 struct platform_device *fsl_dcu_get_pdev(void);
 int fsl_dcu_num_layers(void);
 int fsl_dcu_init_status(void);
 int fsl_dcu_wait_for_vsync(void);
-int fsl_fb_get_color_format_match(const struct fb_var_screeninfo *var);
+int fsl_dcu_get_color_format_match(const struct fb_var_screeninfo *var);
+int fsl_dcu_get_color_format_byname(const char *format_name);
 int fsl_dcu_set_clut(struct fb_info *info);
 struct fb_monspecs sii902x_get_monspecs(void);
 
