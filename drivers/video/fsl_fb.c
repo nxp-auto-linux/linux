@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2014 Freescale Semiconductor, Inc.
+ * Copyright 2012-2016 Freescale Semiconductor, Inc.
  *
  * Freescale fsl-FB device driver
  *
@@ -22,6 +22,8 @@
 #include <video/videomode.h>
 #include <linux/pm_runtime.h>
 #include <linux/videodev2.h>
+#include <linux/string.h>
+#include <linux/ctype.h>
 
 #include "fsl_dcu.h"
 #include "fsl_dcu_linux.h"
@@ -34,11 +36,8 @@
 #endif
 
 /**********************************************************
- * Various color formats
+ * Various support macros
  **********************************************************/
-#define BPP_16_RGB565		4
-#define BPP_24_RGB888		5
-#define BPP_32_ARGB8888		6
 
 #define MFB_SET_ALPHA	_IOW('M', 0, __u8)
 #define MFB_GET_ALPHA	_IOR('M', 0, __u8)
@@ -51,9 +50,9 @@
 /* #define __LOG_TRACE__ 1 */
 
 #ifdef __LOG_TRACE__
-#define __TRACE__ dev_info(&fsl_dcu_get_pdev()->dev, \
+#define __TRACE__ dev_info(fsl_dcu_get_dcufb()->dev, \
 	"[fsl-FB] %s\n", __func__)
-#define __MSG_TRACE__(string, args...) dev_info(&fsl_dcu_get_pdev()->dev, \
+#define __MSG_TRACE__(string, args...) dev_info(fsl_dcu_get_dcufb()->dev, \
 	"[fsl-FB] %s : %d : " string, __func__, __LINE__, ##args)
 #else
 	#define __TRACE__
@@ -65,6 +64,58 @@ struct layer_display_offset {
 	int y_layer_d;
 };
 
+/*********************************************************************
+ * The video format as read from the kernel command arguments at boot
+ ********************************************************************/
+
+struct fb_video_format {
+	int use_hdmi;
+	int fb_idx;
+	int res_x;
+	int res_y;
+	int refresh_rate;
+	int surf_format_idx;
+};
+
+struct fb_video_format video_format;
+
+/**********************************************************
+ * FUNCTION: fsl_fb_video_format_match
+ **********************************************************/
+int fsl_fb_video_format_match(struct fb_videomode *fb_mode,
+	struct fb_video_format *fb_format)
+{
+	/* Check for corresponding HDMI / LVDS format */
+	if ((fb_format->use_hdmi && !strstr(fb_mode->name, "HDMI"))
+		|| (!fb_format->use_hdmi && !strstr(fb_mode->name, "LVDS")))
+		return 0;
+
+	if ((fb_mode->xres != fb_format->res_x) ||
+		(fb_mode->yres != fb_format->res_y))
+		return 0;
+
+	return 1;
+}
+
+/**********************************************************
+ * FUNCTION: fsl_fb_init_color_format
+ **********************************************************/
+void fsl_fb_init_color_format(struct fb_var_screeninfo *var,
+	int color_fmt_idx)
+{
+	struct fb_bitfield *var_channels[] = {
+		&var->red, &var->green, &var->blue, &var->transp};
+	int i;
+
+	for (i = 0; i < 4; ++i)
+		memcpy(var_channels[i],
+			&DCU_FB_COLOR_FORMATS[color_fmt_idx].channels[i],
+			sizeof(struct fb_bitfield));
+
+	var->bits_per_pixel =
+		DCU_FB_COLOR_FORMATS[color_fmt_idx].bpp;
+}
+
 /**********************************************************
  * FUNCTION: fsl_fb_check_var
  **********************************************************/
@@ -73,25 +124,9 @@ static int fsl_fb_check_var(struct fb_var_screeninfo *var,
 {
 	struct mfb_info *mfbi = info->par;
 	struct dcu_fb_data *dcufb = mfbi->parent;
-	struct fb_bitfield *var_channels[] = {
-		&var->red, &var->green, &var->blue, &var->transp};
-	int color_fmt_idx, i;
+	int color_fmt_idx;
 
 	__TRACE__;
-
-	/* Check display configuration parameters */
-	if ((var->pixclock == info->var.pixclock) &&
-		(var->upper_margin == info->var.upper_margin) &&
-		(var->lower_margin == info->var.lower_margin) &&
-		(var->left_margin == info->var.left_margin) &&
-		(var->right_margin == info->var.right_margin) &&
-		(var->hsync_len == info->var.hsync_len) &&
-		(var->vsync_len == info->var.vsync_len)) {
-		/* Ensure display configuration will not be changed */
-		var->pixclock = var->upper_margin = var->lower_margin =
-		var->left_margin = var->right_margin = var->hsync_len =
-		var->vsync_len = 0;
-	}
 
 	if (var->xres_virtual < var->xres)
 		var->xres_virtual = var->xres;
@@ -110,7 +145,6 @@ static int fsl_fb_check_var(struct fb_var_screeninfo *var,
 		/* Handle grayscale and FOURCC color formats */
 		switch (var->grayscale) {
 		case V4L2_PIX_FMT_UYVY:
-			dev_info(dcufb->dev, "Switch to UYVY format.\n");
 			break;
 
 		default:
@@ -121,19 +155,15 @@ static int fsl_fb_check_var(struct fb_var_screeninfo *var,
 		}
 	} else {
 		/* Find the correct color format */
-		color_fmt_idx = fsl_fb_get_color_format_match(var);
+		color_fmt_idx = fsl_dcu_get_color_format_match(var);
 
-		if (color_fmt_idx >= dcu_fb_color_format_count)
+		if (color_fmt_idx >= dcu_fb_color_format_count) {
+			dev_info(dcufb->dev, "No valid color format found.\n");
 			return -EINVAL;
+		}
 
 		/* Ensure color format description is updated */
-		for (i = 0; i < 4; ++i)
-			memcpy(var_channels[i],
-			 &DCU_FB_COLOR_FORMATS[color_fmt_idx].channels[i],
-			 sizeof(struct fb_bitfield));
-
-		var->bits_per_pixel =
-			DCU_FB_COLOR_FORMATS[color_fmt_idx].bpp;
+		fsl_fb_init_color_format(var, color_fmt_idx);
 	}
 
 	return 0;
@@ -148,8 +178,6 @@ static int fsl_fb_set_par(struct fb_info *info)
 	unsigned long len;
 	struct fb_var_screeninfo *var = &info->var;
 	struct fb_fix_screeninfo *fix = &info->fix;
-	struct mfb_info *mfbi = info->par;
-	struct dcu_fb_data *dcufb = mfbi->parent;
 	struct IOCTL_DISPLAY_CFG ioctl_display_cfg;
 
 	__TRACE__;
@@ -178,26 +206,23 @@ static int fsl_fb_set_par(struct fb_info *info)
 			return -ENOMEM;
 	}
 
-	/* Configure display properties, valid only for HDMI */
-	if ((var->pixclock     != 0) && (var->upper_margin != 0) &&
-		(var->lower_margin != 0) && (var->left_margin  != 0) &&
-		(var->right_margin != 0) && (var->hsync_len    != 0) &&
-		(var->vsync_len    != 0)) {
-		ioctl_display_cfg.disp_type = IOCTL_DISPLAY_HDMI;
-		ioctl_display_cfg.clock_freq = var->pixclock * 1000;
-		ioctl_display_cfg.hactive = var->xres_virtual;
-		ioctl_display_cfg.vactive = var->yres_virtual;
-		ioctl_display_cfg.hback_porch = var->upper_margin;
-		ioctl_display_cfg.hfront_porch = var->lower_margin;
-		ioctl_display_cfg.vback_porch = var->left_margin;
-		ioctl_display_cfg.vfront_porch = var->right_margin;
-		ioctl_display_cfg.hsync_len = var->hsync_len;
-		ioctl_display_cfg.vsync_len = var->vsync_len;
+	/* Configure display properties */
+	memset(&ioctl_display_cfg, 0, sizeof(ioctl_display_cfg));
+	ioctl_display_cfg.disp_type = video_format.use_hdmi ?
+		IOCTL_DISPLAY_HDMI : IOCTL_DISPLAY_LVDS;
+	ioctl_display_cfg.clock_freq = var->pixclock * 1000;
+	ioctl_display_cfg.hactive = var->xres;
+	ioctl_display_cfg.vactive = var->yres;
+	ioctl_display_cfg.hback_porch = var->left_margin;
+	ioctl_display_cfg.hfront_porch = var->right_margin;
+	ioctl_display_cfg.vback_porch = var->upper_margin;
+	ioctl_display_cfg.vfront_porch = var->lower_margin;
+	ioctl_display_cfg.hsync_len = var->hsync_len;
+	ioctl_display_cfg.vsync_len = var->vsync_len;
 
-		fsl_dcu_configure_display(&ioctl_display_cfg);
-	}
-
+	fsl_dcu_configure_display(&ioctl_display_cfg);
 	fsl_dcu_config_layer(info);
+
 	return 0;
 }
 
@@ -208,8 +233,7 @@ static inline __u32 CNVT_TOHW(__u32 val, __u32 width)
 }
 
 /**********************************************************
- * FUNCTION: fsl_fb_check_var
- * INFO: map VRAM
+ * FUNCTION: fsl_fb_setcolreg
  **********************************************************/
 static int fsl_fb_setcolreg(unsigned regno, unsigned red, unsigned green,
 			unsigned blue, unsigned transp, struct fb_info *info)
@@ -225,7 +249,7 @@ static int fsl_fb_setcolreg(unsigned regno, unsigned red, unsigned green,
 	 */
 	if (info->var.grayscale)
 		red = green = blue = (19595 * red + 38470 * green +
-					7471 * blue) >> 16;
+			7471 * blue) >> 16;
 	switch (info->fix.visual) {
 	case FB_VISUAL_TRUECOLOR:
 		/*
@@ -279,7 +303,7 @@ int fsl_fb_setcmap(struct fb_cmap *cmap, struct fb_info *info)
 
 	/* CLUT layout will be 256 entries per layer for up to 8 layers */
 	if (mfbi->index >= 8) {
-		dev_err(dcufb->dev, "CLUT not available for layer %d\n",
+		dev_err(dcufb->dev, "CLUT not available for layer %d.\n",
 			mfbi->index);
 		return -EINVAL;
 	}
@@ -391,7 +415,7 @@ static int fsl_fb_ioctl(struct fb_info *info, unsigned int cmd,
 		break;
 
 	default:
-		dev_err(dcufb->dev, "Unknown ioctl command (0x%08X)\n", cmd);
+		dev_err(dcufb->dev, "Unknown ioctl command (0x%08X).\n", cmd);
 		return -ENOIOCTLCMD;
 	}
 
@@ -399,8 +423,7 @@ static int fsl_fb_ioctl(struct fb_info *info, unsigned int cmd,
 }
 
 /**********************************************************
- * FUNCTION: fsl_fb_ioctl
- * INFO: user-kernel communication
+ * FUNCTION: fsl_fb_open
  **********************************************************/
 static int fsl_fb_open(struct fb_info *info, int user)
 {
@@ -410,13 +433,10 @@ static int fsl_fb_open(struct fb_info *info, int user)
 	__TRACE__;
 
 	mfbi->index = info->node;
+	fsl_fb_check_var(&info->var, info);
 	fsl_fb_set_par(info);
 	mfbi->count++;
 
-	if (mfbi->count == 1) {
-		fsl_fb_check_var(&info->var, info);
-		ret = fsl_fb_set_par(info);
-	}
 	return ret;
 }
 
@@ -458,37 +478,41 @@ static struct fb_ops fsl_dcu_ops = {
 static int fsl_fb_init(struct fb_info *info)
 {
 	struct platform_device *pdev;
+	struct dcu_fb_data *dcufb;
 	struct device_node *np;
 	struct fb_var_screeninfo *var;
 	struct device_node *display_np;
 	struct device_node *timings_np;
+	struct device_node *timing;
 	struct display_timings *timings;
-	int ret;
-	int i;
+	char *name;
+	int i, j, name_len, ret;
 
 	__TRACE__;
 
 	ret = 0;
 	pdev = fsl_dcu_get_pdev();
+	dcufb = fsl_dcu_get_dcufb();
+
 	np = pdev->dev.of_node;
 	var = &info->var;
 
 	display_np = of_parse_phandle(np, "display", 0);
 	if (!display_np) {
-		dev_err(&pdev->dev, "failed to find display phandle\n");
+		dev_err(dcufb->dev, "Failed to find display phandle.\n");
 		return -ENOENT;
 	}
 
 	ret = of_property_read_u32(display_np, "bits-per-pixel",
 				&var->bits_per_pixel);
 	if (ret < 0) {
-		dev_err(&pdev->dev, "failed to get property bits-per-pixel\n");
+		dev_err(dcufb->dev, "Failed to get property 'bits-per-pixel'.\n");
 		goto put_display_node;
 	}
 
 	timings = of_get_display_timings(display_np);
 	if (!timings) {
-		dev_err(&pdev->dev, "failed to get display timings\n");
+		dev_err(dcufb->dev, "Failed to get display timings.\n");
 		ret = -ENOENT;
 		goto put_display_node;
 	}
@@ -496,15 +520,22 @@ static int fsl_fb_init(struct fb_info *info)
 	timings_np = of_find_node_by_name(display_np,
 					"display-timings");
 	if (!timings_np) {
-		dev_err(&pdev->dev, "failed to find display-timings node\n");
+		dev_err(dcufb->dev, "Failed to find display-timings node.\n");
 		ret = -ENOENT;
 		goto put_display_node;
 	}
+
+	INIT_LIST_HEAD(&info->modelist);
+	timing = of_get_next_child(timings_np, NULL);
 
 	for (i = 0; i < of_get_child_count(timings_np); i++) {
 		struct videomode vm;
 		struct fb_videomode fb_vm;
 
+		memset(&vm, 0, sizeof(vm));
+		memset(&fb_vm, 0, sizeof(fb_vm));
+
+		/* Initialize the FB videomode timings */
 		ret = videomode_from_timings(timings, &vm, i);
 		if (ret < 0)
 			goto put_timings_node;
@@ -513,7 +544,23 @@ static int fsl_fb_init(struct fb_info *info)
 		if (ret < 0)
 			goto put_timings_node;
 
+		/* We need the original pixclock */
+		fb_vm.pixclock = vm.pixelclock / 1000;
+
+		/* Set the FB videomode name, in uppercase */
+		name_len = strlen(timing->name);
+		name = kmalloc(name_len + 1, GFP_KERNEL);
+		if (!name)
+			goto put_timings_node;
+
+		strcpy(name, timing->name);
+		fb_vm.name = name;
+
+		for (j = 0; j < name_len; ++j)
+			name[j] = toupper(name[j]);
+
 		fb_add_videomode(&fb_vm, &info->modelist);
+		timing = of_get_next_child(timings_np, timing);
 	}
 
 	return 0;
@@ -527,12 +574,14 @@ put_display_node:
 /**********************************************************
  * FUNCTION: fsl_fb_install
  **********************************************************/
-static int fsl_fb_install(struct fb_info *info)
+static int fsl_fb_install(struct fb_info *info,
+	struct fb_video_format *video_format)
 {
 	struct mfb_info *mfbi = info->par;
 	struct dcu_fb_data *dcufb = mfbi->parent;
-	struct fb_modelist *modelist;
-	int ret;
+	struct fb_modelist *modelist = NULL;
+	struct list_head *pos;
+	int ret, found = 0;
 
 	__TRACE__;
 
@@ -541,24 +590,46 @@ static int fsl_fb_install(struct fb_info *info)
 	info->flags = FBINFO_FLAG_DEFAULT;
 	info->pseudo_palette = &mfbi->pseudo_palette;
 
+	ret = register_framebuffer(info);
+	if (ret < 0) {
+		dev_err(dcufb->dev, "Failed to register framebuffer device.\n");
+		goto fb_install_failed;
+	}
+
 	fb_alloc_cmap(&info->cmap, 16, 0);
-	INIT_LIST_HEAD(&info->modelist);
 
 	ret = fsl_fb_init(info);
 	if (ret)
-		return ret;
+		goto fb_install_failed;
 
-	modelist = list_first_entry(&info->modelist,
-			struct fb_modelist, list);
-	fb_videomode_to_var(&info->var, &modelist->mode);
+	list_for_each(pos, &info->modelist) {
+		modelist = list_entry(pos, struct fb_modelist, list);
 
-	fsl_fb_check_var(&info->var, info);
-	ret = register_framebuffer(info);
-	if (ret < 0) {
-		dev_err(dcufb->dev, "failed to register framebuffer device\n");
-		return ret;
+		if (!fsl_fb_video_format_match(&modelist->mode, video_format))
+			continue;
+
+		found = 1;
+		break;
 	}
+
+	if (!found) {
+		dev_warn(dcufb->dev,
+			"Invalid display mode for <fb %d> (using defaults).\n",
+			mfbi->index);
+		modelist = list_first_entry(&info->modelist,
+			struct fb_modelist, list);
+	}
+
+	/* Set video mode and color format */
+	fb_videomode_to_var(&info->var, &modelist->mode);
+	fsl_fb_init_color_format(&info->var, video_format->surf_format_idx);
+	fsl_fb_check_var(&info->var, info);
+
 	return 0;
+
+fb_install_failed:
+	unregister_framebuffer(info);
+	return ret;
 }
 
 /**********************************************************
@@ -566,24 +637,123 @@ static int fsl_fb_install(struct fb_info *info)
  **********************************************************/
 static void fsl_fb_uninstall(struct fb_info *info)
 {
+	struct list_head *pos;
+	struct fb_modelist *modelist;
+
 	__TRACE__;
-	unregister_framebuffer(info);
+
+	if (!info)
+		return;
+
+	list_for_each(pos, &info->modelist) {
+		modelist = list_entry(pos, struct fb_modelist, list);
+		kfree(modelist->mode.name);
+	}
 
 	__MSG_TRACE__("unmap video memory");
 	fsl_dcu_unmap_vram(info);
 
-	if (&info->cmap)
-		fb_dealloc_cmap(&info->cmap);
+	fb_dealloc_cmap(&info->cmap);
+	unregister_framebuffer(info);
 }
 
 /**********************************************************
  * INFO: DCU Linux driver configuration
  **********************************************************/
+char *video;
+core_param(video, video, charp, 0444);
+
 static int r_init(void);
 static void r_cleanup(void);
 
 module_init(r_init);
 module_exit(r_cleanup);
+
+/**********************************************************
+ * FUNCTION: fsl_fb_parse_video_format
+ * INFO: Parse the video format as given at kernel boot
+ **********************************************************/
+int fsl_fb_parse_video_format(char *video_str,
+	struct fb_video_format *video_format)
+{
+	const char *split = ",;|";
+	char *video_copy, *token, *rest;
+	int len = strlen(video_str);
+
+	if (len == 0)
+		return -EINVAL;
+
+	video_copy = kmalloc(len + 1, GFP_KERNEL);
+	if (!video_copy)
+		return -ENOMEM;
+
+	/* Work on a duplicate of the video argument */
+	strcpy(video_copy, video_str);
+	memset(video_format, 0, sizeof(struct fb_video_format));
+	rest = video_copy;
+
+	/* Parse the video mode (HDMI or LVDS) */
+	token = strsep(&rest, split);
+	if (strcasecmp(token, "HDMI") == 0)
+		video_format->use_hdmi = 1;
+	else
+		if (strcasecmp(token, "LVDS") == 0)
+			video_format->use_hdmi = 0;
+		else
+			return -EINVAL;
+
+	/* Parse the FB device to use */
+	token = strsep(&rest, split);
+	if (sscanf(token, "fb%d", &video_format->fb_idx) < 1)
+		return -EINVAL;
+
+	if ((video_format->fb_idx < 0) ||
+		(video_format->fb_idx >= fsl_dcu_num_layers()))
+		return -EINVAL;
+
+	/* Parse the resolution and refresh rate */
+	token = strsep(&rest, split);
+	if (sscanf(token, "%dx%d-%d", &video_format->res_x,
+			&video_format->res_y, &video_format->refresh_rate) < 3)
+		return -EINVAL;
+
+	if ((video_format->res_x <= 0) || (video_format->res_y <= 0)
+		|| (video_format->refresh_rate <= 0))
+		return -EINVAL;
+
+	/* Parse the color format */
+	token = strsep(&rest, split);
+	video_format->surf_format_idx = fsl_dcu_get_color_format_byname(token);
+
+	if (video_format->surf_format_idx < 0)
+		return -EINVAL;
+
+	dev_info(fsl_dcu_get_dcufb()->dev,
+		"Video mode: <%s> on </dev/fb%d>, <%d x %d @ %d Hz>, <%s>\n",
+		video_format->use_hdmi ? "HDMI" : "LVDS", video_format->fb_idx,
+		video_format->res_x, video_format->res_y,
+		video_format->refresh_rate, token);
+
+	kfree(video_copy);
+
+	return 0;
+}
+
+/**********************************************************
+ * FUNCTION: fsl_fb_init_first_layer
+ * INFO: initialize the first layer after kernel boot
+ **********************************************************/
+int fsl_fb_init_first_layer(struct fb_info *info)
+{
+	__u32 fb_activate_mask = info->var.activate;
+	int ret;
+
+	info->var.activate |= (FB_ACTIVATE_FORCE | FB_ACTIVATE_NOW);
+	ret = fb_set_var(info, &info->var);
+	info->var.activate = fb_activate_mask;
+
+	return ret;
+}
 
 /**********************************************************
  * FUNCTION: r_init
@@ -592,26 +762,28 @@ static int r_init(void)
 {
 	struct mfb_info *mfbi;
 	int dcu_num_layers = 0;
-	struct platform_device *pdev;
 	struct dcu_fb_data *dcufb;
-	int ret = 0;
-	int i;
+	int ret = 0, byte_len, i, j;
 
 	__TRACE__;
 	if (fsl_dcu_init_status() != 0)
 		return fsl_dcu_init_status();
 
-	pdev = fsl_dcu_get_pdev();
+	/* Parse the video format as given in the kernel boot arguments */
+	ret = fsl_fb_parse_video_format(video, &video_format);
+	if (ret != 0) {
+		/* On invalid / missing format use a default display mode */
+		memset(&video_format, 0, sizeof(video_format));
+	}
+
 	dcufb = fsl_dcu_get_dcufb();
 
 	dcu_num_layers = fsl_dcu_num_layers();
 	if (dcu_num_layers < 1) {
-		dev_err(&pdev->dev, "invalid number layers %d", dcu_num_layers);
-		goto failed_invalid_layers;
+		dev_err(dcufb->dev,
+			"Invalid number of layers (%d).", dcu_num_layers);
+		return -EINVAL;
 	}
-
-	/* probe and init DCU */
-	dcufb = fsl_dcu_get_dcufb();
 
 	/* allocate fsl_dcu_info layers info */
 	dcufb->fsl_dcu_info = (struct fb_info **)
@@ -620,25 +792,28 @@ static int r_init(void)
 
 	/* if alloc failed, clean up */
 	if (dcufb->fsl_dcu_info == NULL) {
-		dev_err(&pdev->dev, "could not alloc dcufb->fsl_dcu_info");
-		goto fatal_alloc_fb_info;
+		dev_err(dcufb->dev, "Could not allocate framebuffer list.\n");
+		return -ENOMEM;
 	}
 
-	/* dynamic number of layers */
+	memset(dcufb->fsl_dcu_info, 0, byte_len);
+
+	/* Allocate and initialize individual layers */
 	for (i = 0; i < dcu_num_layers; i++) {
 		dcufb->fsl_dcu_info[i] =
-			framebuffer_alloc(sizeof(struct mfb_info), &pdev->dev);
+			framebuffer_alloc(sizeof(struct mfb_info), dcufb->dev);
 		if (!dcufb->fsl_dcu_info[i]) {
 			ret = -ENOMEM;
-			goto failed_alloc_framebuffer;
+			dev_err(dcufb->dev,
+				"Could not allocate framebuffer %d.\n", i);
+			break;
 		}
 
 		dcufb->fsl_dcu_info[i]->fix.smem_start = 0;
 		dcufb->fsl_dcu_info[i]->fix.capabilities |= FB_CAP_FOURCC;
 
+		/* Set layer information */
 		mfbi = dcufb->fsl_dcu_info[i]->par;
-
-		/* set layer info */
 		mfbi->index = i;
 		mfbi->alpha = 0xFF;
 		mfbi->blend = 0;
@@ -647,24 +822,35 @@ static int r_init(void)
 		mfbi->y_layer_d = 0;
 		mfbi->parent = dcufb;
 
-		ret = fsl_fb_install(dcufb->fsl_dcu_info[i]);
+		ret = fsl_fb_install(dcufb->fsl_dcu_info[i], &video_format);
 		if (ret) {
-			dev_err(&pdev->dev,
-				"could not register framebuffer %d\n", i);
-			goto failed_register_framebuffer;
-		}
-	}
-	return 0;
-
-failed_register_framebuffer:
-	for (i = 0; i < dcu_num_layers; i++) {
-		if (dcufb->fsl_dcu_info[i])
+			dev_err(dcufb->dev,
+				"Could not register framebuffer %d.\n", i);
 			framebuffer_release(dcufb->fsl_dcu_info[i]);
+			break;
+		}
+
+		fsl_dcu_register_timings_listener(dcufb->fsl_dcu_info[i]);
 	}
 
-failed_alloc_framebuffer:
-fatal_alloc_fb_info:
-failed_invalid_layers:
+	/* Initialize the first layer if everything is OK so far */
+	if (i >= dcu_num_layers) {
+		ret = fsl_fb_init_first_layer(
+			dcufb->fsl_dcu_info[video_format.fb_idx]);
+
+		if (!ret)
+			return 0;
+	}
+
+	/* An error occurred, so all framebuffers get released */
+	dev_err(dcufb->dev, "Rolling back framebuffer initialization.\n");
+
+	for (j = 0; j < i; j++) {
+		fsl_fb_uninstall(dcufb->fsl_dcu_info[j]);
+		framebuffer_release(dcufb->fsl_dcu_info[j]);
+	}
+	kfree(dcufb->fsl_dcu_info);
+
 	return ret;
 }
 
@@ -685,8 +871,8 @@ static void r_cleanup(void)
 	dcu_num_layers = fsl_dcu_num_layers();
 
 	if (dcu_num_layers < 1) {
-		dev_err(&pdev->dev, "invalid number layers %d",
-				dcu_num_layers);
+		dev_err(dcufb->dev,
+			"invalid number of layers (%d)", dcu_num_layers);
 		return;
 	}
 
