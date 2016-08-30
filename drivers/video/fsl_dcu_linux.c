@@ -124,11 +124,8 @@ int dcu_init_status = DCU_INIT_ERR_PROBE;
 #define DCU_STATUS_WAITING	1
 #define DCU_STATUS_WAITED	2
 
-/* The maximum number of processes that can wait for VSYNC simultaneously */
-#define DCU_EVENT_MAX_WAITING_PIDS	32
-
 /* We use events and wait queues because completions are unsuitable */
-int event_condition_list[DCU_EVENT_MAX_WAITING_PIDS];
+int event_condition_list[DCU_LAYERS_NUM_MAX];
 wait_queue_head_t dcu_event_queue;
 
 /* A global CLUT written by a process and read during VBLANK */
@@ -138,10 +135,12 @@ uint32_t dcu_clut_offset;
 Dcu_Layer_t dcu_clut_layer;
 spinlock_t dcu_clut_lock;
 
-/**********************************************************
- * GLOBAL DCU display output type
- **********************************************************/
-static bool g_enable_hdmi;
+/* The most recent display configuration */
+struct IOCTL_DISPLAY_CFG current_display_cfg;
+
+/* The FB objects which listen for changes in display timings */
+struct fb_info *timings_listener_list[DCU_LAYERS_NUM_MAX];
+int timings_listener_list_size;
 
 /**********************************************************
  * GLOBAL DCU & FB supported color formats
@@ -149,19 +148,19 @@ static bool g_enable_hdmi;
 
 /* The color formats supported by the DCU & FB drivers */
 const struct dcu_fb_color_format DCU_FB_COLOR_FORMATS[] = {
-	{{ {16, 8, 0}, {8, 8, 0}, {0, 8, 0}, {24, 8, 0} }, 32}, /* ARGB8888 */
-	{{ {16, 8, 0}, {8, 8, 0}, {0, 8, 0}, { 0, 0, 0} }, 24}, /* RGB888 */
-	{{ {11, 5, 0}, {5, 6, 0}, {0, 5, 0}, { 0, 0, 0} }, 16}, /* RGB565 */
-	{{ {10, 5, 0}, {5, 5, 0}, {0, 5, 0}, {15, 1, 0} }, 16}, /* ARGB1555 */
-	{{ { 8, 4, 0}, {4, 4, 0}, {0, 4, 0}, {12, 4, 0} }, 16}, /* ARGB4444 */
+	{"ARGB8888",  { {16, 8, 0}, {8, 8, 0}, {0, 8, 0}, {24, 8, 0} }, 32},
+	{"RGB888",    { {16, 8, 0}, {8, 8, 0}, {0, 8, 0}, { 0, 0, 0} }, 24},
+	{"RGB565",    { {11, 5, 0}, {5, 6, 0}, {0, 5, 0}, { 0, 0, 0} }, 16},
+	{"ARGB1555",  { {10, 5, 0}, {5, 5, 0}, {0, 5, 0}, {15, 1, 0} }, 16},
+	{"ARGB4444",  { { 8, 4, 0}, {4, 4, 0}, {0, 4, 0}, {12, 4, 0} }, 16},
 
-	{{ { 0, 0, 0}, {0, 0, 0}, {0, 0, 0}, { 0, 8, 0} },  8}, /* GRAY_8 */
-	{{ { 0, 0, 0}, {0, 0, 0}, {0, 0, 0}, { 0, 4, 0} },  4}, /* GRAY_4 */
+	{"GRAY-8BPP", { { 0, 0, 0}, {0, 0, 0}, {0, 0, 0}, { 0, 8, 0} },  8},
+	{"GRAY-4BPP", { { 0, 0, 0}, {0, 0, 0}, {0, 0, 0}, { 0, 4, 0} },  4},
 
-	{{ { 0, 0, 0}, {0, 0, 0}, {0, 0, 0}, { 0, 0, 0} },  8}, /* CLUT 8 BPP */
-	{{ { 0, 0, 0}, {0, 0, 0}, {0, 0, 0}, { 0, 0, 0} },  4}, /* CLUT 4 BPP */
-	{{ { 0, 0, 0}, {0, 0, 0}, {0, 0, 0}, { 0, 0, 0} },  2}, /* CLUT 2 BPP */
-	{{ { 0, 0, 0}, {0, 0, 0}, {0, 0, 0}, { 0, 0, 0} },  1}, /* CLUT 1 BPP */
+	{"CLUT-8BPP", { { 0, 0, 0}, {0, 0, 0}, {0, 0, 0}, { 0, 0, 0} },  8},
+	{"CLUT-4BPP", { { 0, 0, 0}, {0, 0, 0}, {0, 0, 0}, { 0, 0, 0} },  4},
+	{"CLUT-2BPP", { { 0, 0, 0}, {0, 0, 0}, {0, 0, 0}, { 0, 0, 0} },  2},
+	{"CLUT-1BPP", { { 0, 0, 0}, {0, 0, 0}, {0, 0, 0}, { 0, 0, 0} },  1},
 };
 
 const Dcu_BPP_t DCU_FB_COLOR_BPP[] = {
@@ -181,18 +180,6 @@ const Dcu_BPP_t DCU_FB_COLOR_BPP[] = {
 const int dcu_fb_color_format_count =
 	sizeof(DCU_FB_COLOR_FORMATS) /
 	sizeof(DCU_FB_COLOR_FORMATS[0]);
-
-/**********************************************************
- * HDMI/LVDS selection bootargs
- **********************************************************/
-static int __init enable_hdmi_display(char *str)
-{
-	__TRACE__;
-	g_enable_hdmi = true;
-
-	return 1;
-}
-__setup("hdmi", enable_hdmi_display);
 
 /**********************************************************
  * External HDMI function definitions
@@ -297,11 +284,12 @@ void fsl_dcu_registers(void)
 EXPORT_SYMBOL_GPL(fsl_dcu_registers);
 
 /**********************************************************
- * FUNCTION: fsl_fb_get_color_format_match
+ * FUNCTION: fsl_dcu_get_color_format_match
  **********************************************************/
-int fsl_fb_get_color_format_match(const struct fb_var_screeninfo *var)
+int fsl_dcu_get_color_format_match(const struct fb_var_screeninfo *var)
 {
 	struct dcu_fb_color_format user_format = {
+		"",
 		{
 		{var->red.offset, var->red.length, var->red.msb_right},
 		{var->green.offset, var->green.length, var->green.msb_right},
@@ -334,7 +322,23 @@ int fsl_fb_get_color_format_match(const struct fb_var_screeninfo *var)
 
 	return dcu_fb_color_format_count;
 }
-EXPORT_SYMBOL_GPL(fsl_fb_get_color_format_match);
+EXPORT_SYMBOL_GPL(fsl_dcu_get_color_format_match);
+
+/**********************************************************
+ * FUNCTION: fsl_dcu_get_color_format_byname
+ **********************************************************/
+int fsl_dcu_get_color_format_byname(const char *format_name)
+{
+	int i;
+
+	for (i = 0; i < dcu_fb_color_format_count; ++i)
+		if (strcasecmp(DCU_FB_COLOR_FORMATS[i].format_name,
+				format_name) == 0)
+			return i;
+
+	return -EINVAL;
+}
+EXPORT_SYMBOL_GPL(fsl_dcu_get_color_format_byname);
 
 /**********************************************************
  * FUNCTION: fsl_dcu_set_clut
@@ -404,7 +408,7 @@ int fsl_dcu_config_layer(struct fb_info *info)
 		(var->grayscale == V4L2_PIX_FMT_UYVY)) {
 		DCU_SetLayerBPP(0, mfbi->index, DCU_BPP_YCbCr422);
 	} else {
-		color_format_idx = fsl_fb_get_color_format_match(var);
+		color_format_idx = fsl_dcu_get_color_format_match(var);
 
 		if (color_format_idx >= dcu_fb_color_format_count)
 			return -EINVAL;
@@ -707,7 +711,7 @@ int fsl_dcu_wait_for_vsync(void)
 	/* Try to get an entry in the waiting PID list */
 	spin_lock_irqsave(&dcu_event_queue.lock, flags);
 
-	for (cond_idx = 0; cond_idx < DCU_EVENT_MAX_WAITING_PIDS; ++cond_idx) {
+	for (cond_idx = 0; cond_idx < DCU_LAYERS_NUM_MAX; ++cond_idx) {
 		if (event_condition_list[cond_idx] == EVENT_STATUS_CLEAR) {
 			event_condition_list[cond_idx] = DCU_STATUS_WAITING;
 			break;
@@ -717,7 +721,7 @@ int fsl_dcu_wait_for_vsync(void)
 	spin_unlock_irqrestore(&dcu_event_queue.lock, flags);
 
 	/* If no index was available, return unsuccessfully */
-	if (cond_idx >= DCU_EVENT_MAX_WAITING_PIDS)
+	if (cond_idx >= DCU_LAYERS_NUM_MAX)
 		return -EBUSY;
 
 	/* Wait until the DCU event occurs */
@@ -744,7 +748,7 @@ void fsl_dcu_event_VSYNC(void)
 	/* Notify all currently-waiting processes to resume */
 	spin_lock_irqsave(&dcu_event_queue.lock, flags);
 
-	for (i = 0; i < DCU_EVENT_MAX_WAITING_PIDS; ++i) {
+	for (i = 0; i < DCU_LAYERS_NUM_MAX; ++i) {
 		if (event_condition_list[i] == DCU_STATUS_WAITING)
 			event_condition_list[i] = DCU_STATUS_WAITED;
 	}
@@ -777,14 +781,14 @@ void fsl_dcu_event_VBLANK(void)
  * DCU configure display
  **********************************************************/
 void fsl_dcu_display(DCU_DISPLAY_TYPE display_type,
-		Dcu_LCD_Para_t dcu_lcd_timings)
+		Dcu_LCD_Para_t *dcu_lcd_timings)
 {
 	Dcu_Colour_t bkgr_color;
 
 	__TRACE__;
 
 	/* DCU set configuration, LVDS has fixed div according to RM - TODO */
-	DCU_Init(0, 150, &dcu_lcd_timings, DCU_FREQDIV_NORMAL);
+	DCU_Init(0, 150, dcu_lcd_timings, DCU_FREQDIV_NORMAL);
 
 	/* Initialize DCU background color */
 	bkgr_color.Red_Value	= 0x0;
@@ -823,6 +827,56 @@ void print_display_modes(struct fb_monspecs monspecs)
 	}
 }
 
+/*******************************************************************
+ * FUNCTION: fsl_dcu_register_timings_listener
+ * Register a FB object for notifications of display timings changes
+ *******************************************************************/
+int fsl_dcu_register_timings_listener(struct fb_info *info)
+{
+	if (timings_listener_list_size >= DCU_LAYERS_NUM_MAX)
+		return -EINVAL;
+
+	timings_listener_list[timings_listener_list_size++] = info;
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(fsl_dcu_register_timings_listener);
+
+/*************************************************************************
+ * FUNCTION: update_display_timings
+ * Update the display timings stored by a FB object
+ ************************************************************************/
+void update_display_timings(struct IOCTL_DISPLAY_CFG *ioctl_display_cfg,
+	struct fb_info *info)
+{
+	struct fb_var_screeninfo *var = &info->var;
+
+	var->pixclock = ioctl_display_cfg->clock_freq / 1000;
+	var->left_margin = ioctl_display_cfg->hback_porch;
+	var->right_margin = ioctl_display_cfg->hfront_porch;
+	var->upper_margin = ioctl_display_cfg->vback_porch;
+	var->lower_margin = ioctl_display_cfg->vfront_porch;
+	var->hsync_len = ioctl_display_cfg->hsync_len;
+	var->vsync_len = ioctl_display_cfg->vsync_len;
+}
+
+/**********************************************************
+ * FUNCTION: fsl_dcu_compare_display_timings
+ **********************************************************/
+int fsl_dcu_display_configs_match(
+	struct IOCTL_DISPLAY_CFG *display_cfg1,
+	struct IOCTL_DISPLAY_CFG *display_cfg2)
+{
+	struct IOCTL_DISPLAY_CFG copy1 = *display_cfg1;
+	struct IOCTL_DISPLAY_CFG copy2 = *display_cfg2;
+
+	/* we only care about timings and the display type */
+	copy1.hactive = copy2.hactive = 0;
+	copy1.vactive = copy2.vactive = 0;
+
+	return (memcmp(&copy1, &copy2, sizeof(struct IOCTL_DISPLAY_CFG)) == 0);
+}
+
 /**********************************************************
  * FUNCTION: fsl_dcu_configure_display
  * Set the parameters of a DCU-managed display
@@ -833,24 +887,29 @@ void fsl_dcu_configure_display(struct IOCTL_DISPLAY_CFG *display_cfg)
 	struct fb_monspecs monspecs;
 	int i;
 
-	/* set configuration specific settings */
+	/* Don't configure the display to the same parameters */
+	if (fsl_dcu_display_configs_match(display_cfg, &current_display_cfg))
+		return;
+
+	/* Update the current display parameters */
+	memcpy(&current_display_cfg, display_cfg,
+		sizeof(struct IOCTL_DISPLAY_CFG));
+
+	/* Set specific parameters for the DCU to drive the display */
 	dcu_lcd_timings.mDeltaX = display_cfg->hactive;
 	dcu_lcd_timings.mDeltaY = display_cfg->vactive;
 	dcu_lcd_timings.mHorzBP = display_cfg->hback_porch;
 	dcu_lcd_timings.mHorzFP = display_cfg->hfront_porch;
 	dcu_lcd_timings.mHorzPW = display_cfg->hsync_len;
 	dcu_lcd_timings.mVertBP = display_cfg->vback_porch;
-	dcu_lcd_timings.mVertPW = display_cfg->vsync_len;
 	dcu_lcd_timings.mVertFP = display_cfg->vfront_porch;
+	dcu_lcd_timings.mVertPW = display_cfg->vsync_len;
 	dcu_lcd_timings.mSyncPol = 3;
 	dcu_lcd_timings.mVertFq = 60;
 	dcu_lcd_timings.mDivFactor = dcu_clk_val / display_cfg->clock_freq;
 
 	if (((display_cfg->hsync_len + display_cfg->vsync_len) == 0) &&
 		(display_cfg->disp_type == IOCTL_DISPLAY_HDMI)) {
-		/* set hdmi state */
-		enable_hdmi_display("");
-
 		/* query HDMI IP for monitor specs through DDC/EDID */
 		/* FIXME: avoid getting EDID info through HDMI direct call*/
 		monspecs = sii902x_get_monspecs();
@@ -865,8 +924,8 @@ void fsl_dcu_configure_display(struct IOCTL_DISPLAY_CFG *display_cfg)
 				dcu_lcd_timings.mHorzFP  = mode->right_margin;
 				dcu_lcd_timings.mHorzPW  = mode->hsync_len;
 				dcu_lcd_timings.mVertBP  = mode->upper_margin;
-				dcu_lcd_timings.mVertPW  = mode->vsync_len;
 				dcu_lcd_timings.mVertFP  = mode->lower_margin;
+				dcu_lcd_timings.mVertPW  = mode->vsync_len;
 				dcu_lcd_timings.mSyncPol = 3;
 				dcu_lcd_timings.mVertFq  = mode->refresh;
 				break;
@@ -879,7 +938,12 @@ void fsl_dcu_configure_display(struct IOCTL_DISPLAY_CFG *display_cfg)
 	}
 
 	/* set display configuration */
-	fsl_dcu_display(display_cfg->disp_type, dcu_lcd_timings);
+	fsl_dcu_display(display_cfg->disp_type, &dcu_lcd_timings);
+
+	/* notify all listeners of changes in display timings */
+	for (i = 0; i < timings_listener_list_size; ++i)
+		update_display_timings(display_cfg,
+			timings_listener_list[i]);
 }
 EXPORT_SYMBOL_GPL(fsl_dcu_configure_display);
 
@@ -1144,66 +1208,6 @@ int fsl_dcu_dev_create(struct platform_device *pdev)
 }
 
 /**********************************************************
- * FUNCTION: fsl_dcu_lcd
- **********************************************************/
-int fsl_dcu_lcd_timings(struct platform_device *pdev,
-		Dcu_LCD_Para_t *dcu_lcd_timings)
-{
-	int i, ret;
-	struct device_node *np = pdev->dev.of_node;
-	struct device_node *display_np;
-	struct device_node *timings_np;
-	struct display_timings *timings;
-
-	__TRACE__;
-
-	display_np = of_parse_phandle(np, "display", 0);
-	if (!display_np) {
-		dev_err(&dcu_pdev->dev, "DCU: of_parse_phandle error\n");
-		return -ENOENT;
-	}
-
-	timings = of_get_display_timings(display_np);
-	if (!timings) {
-		dev_err(&dcu_pdev->dev, "DCU: of_get_display_timings error\n");
-		return -ENOENT;
-	}
-
-	timings_np = of_find_node_by_name(display_np,
-					"display-timings");
-	if (!timings_np) {
-		dev_err(&dcu_pdev->dev, "DCU: of_find_node_by_name error\n");
-		return -ENOENT;
-	}
-
-	for (i = 0; i < of_get_child_count(timings_np); i++) {
-		struct videomode vm;
-
-		ret = videomode_from_timings(timings, &vm, i);
-		if (ret < 0) {
-			dev_err(&dcu_pdev->dev,
-				"DCU: videomode_from_timings error %d\n",
-				ret);
-			return ret;
-		}
-
-		dcu_lcd_timings->mDeltaX	= vm.hactive;
-		dcu_lcd_timings->mDeltaY	= vm.vactive;
-		dcu_lcd_timings->mHorzBP	= vm.hback_porch;
-		dcu_lcd_timings->mHorzFP	= vm.hfront_porch;
-		dcu_lcd_timings->mHorzPW	= vm.hsync_len;
-		dcu_lcd_timings->mVertBP	= vm.vback_porch;
-		dcu_lcd_timings->mVertPW	= vm.vsync_len;
-		dcu_lcd_timings->mVertFP	= vm.vfront_porch;
-		dcu_lcd_timings->mSyncPol	= 3;
-		dcu_lcd_timings->mVertFq	= 60;
-		dcu_lcd_timings->mDivFactor = dcu_clk_val / vm.pixelclock;
-	}
-
-	return 0;
-}
-
-/**********************************************************
  * FUNCTION: fsl_dcu_irq_handler_wrapper
  **********************************************************/
 irqreturn_t fsl_dcu_irq_handler_wrapper(int irq, void *dev_id)
@@ -1274,14 +1278,16 @@ dcu_use_default_pool:
 int fsl_dcu_probe(struct platform_device *pdev)
 {
 	struct resource *res;
-	Dcu_LCD_Para_t dcu_lcd_timings;
 	int ret, irq_num, i;
 
 	__TRACE__;
 
 	dcu_pdev = pdev;
-	g_enable_hdmi = false;
 	ret = 0;
+
+	memset(&current_display_cfg, 0, sizeof(current_display_cfg));
+	memset(timings_listener_list, 0, sizeof(timings_listener_list));
+	timings_listener_list_size = 0;
 
 	/* initialize the DCU memory pool if configured in DTB */
 	fsl_dcu_init_memory_pool(pdev);
@@ -1300,6 +1306,7 @@ int fsl_dcu_probe(struct platform_device *pdev)
 	dcu_fb_data = devm_kzalloc(&pdev->dev,
 			sizeof(struct dcu_fb_data), GFP_KERNEL);
 	dev_set_drvdata(&pdev->dev, dcu_fb_data);
+	dcu_fb_data->dev = &pdev->dev;
 
 	dcu_reg_base = devm_ioremap_resource(&pdev->dev, res);
 	if (IS_ERR(dcu_reg_base)) {
@@ -1341,13 +1348,10 @@ int fsl_dcu_probe(struct platform_device *pdev)
 	spin_lock_init(&dcu_clut_lock);
 	dcu_clut_size = 0;
 
-	/* get lcd timings from device tree */
-	fsl_dcu_lcd_timings(pdev, &dcu_lcd_timings);
-
 	/* insert DCU interrupt handler */
 	init_waitqueue_head(&dcu_event_queue);
 
-	for (i = 0; i < DCU_EVENT_MAX_WAITING_PIDS; ++i)
+	for (i = 0; i < DCU_LAYERS_NUM_MAX; ++i)
 		event_condition_list[i] = EVENT_STATUS_CLEAR;
 
 	irq_num = platform_get_irq(pdev, 0);
@@ -1359,12 +1363,6 @@ int fsl_dcu_probe(struct platform_device *pdev)
 			"DCU: could not register interrupt handler\n");
 		return ret;
 	}
-
-	/* setup display type HDMI/LVDS, by adjusting IOMUX/LDB/TIMINGS */
-	if (g_enable_hdmi)
-		fsl_dcu_display(DCU_DISPLAY_HDMI, dcu_lcd_timings);
-	else
-		fsl_dcu_display(DCU_DISPLAY_LVDS, dcu_lcd_timings);
 
 	/* prebare write back */
 #ifndef DCU_DISABLE_WRITEBACK
