@@ -1644,6 +1644,7 @@ static int do_register_framebuffer(struct fb_info *fb_info)
 	else
 		pm_vt_switch_required(fb_info->dev, true);
 
+	mode.name = NULL;
 	fb_var_to_videomode(&mode, &fb_info->var);
 	fb_add_videomode(&mode, &fb_info->modelist);
 	registered_fb[i] = fb_info;
