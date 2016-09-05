@@ -93,3 +93,36 @@ IOCTL_GET_LAYER_CHROMA_KEY - Get layer color keying chroma
 IOCTL_SET_DISPLAY_CFG - Set display DCU configuration (LVDS/HDMI + timmings)
 IOCTL_PRINT_DISPLAY_INFO - Show EDID settings read by DCU driver from HDMI
 driver
+
+The lower-level DCU driver is also directly responsible for configuring the
+display timings needed by the various display types used for LVDS or HDMI.
+For this, at module load, the FB driver will look for the argument named "video"
+in the kernel boot argument list. This argument must be of the form:
+
+video = <mode>,<fb_index>,<resX>x<resY>-<refresh-rate>,<color-format>
+
+Where:
+<mode> - is either "HDMI" or "LVDS" (case-insensitive)
+<fb_index> - an integer value between 0 and M - 1, where M is the maximum number
+	of framebuffer device files (/dev/fbX) created by the driver
+<resX> - the screen width (resolution) in pixels. It cannot exceed 2047.
+<resY> - the screen height (resolution) in pixel lines. It is limited by the
+	amount of memory available to a framebuffer surface.
+<refresh-rate> - the refresh rate of the display. Typical values are 50 or 60.
+<color-format> - the color format of the display surface. Permitted values are:
+	"argb8888" (32 BPP), "rgb888" (24 BPP), "argb1555", "argb4444", "rgb565"
+	(16 bpp), "gray-8bpp", "gray-4bpp" (grayscale), "clut-8bpp", "clut-4bpp",
+	"clut-2bpp", "clut-1bpp" (palette / color-lookup-table formats)
+
+Please note that the display mode defined by the parameters <mode>, <resX>,
+<resY> and <refresh-rate> must match a display mode entry present in the DTB.
+
+Example: video='hdmi,fb3,1280x720-60,argb8888' will configure the display for
+HDMI, with a resolution of 1280 x 720 @ 60 Hz and with a surface format of
+ARGB8888 (32 BPP) on device '/dev/fb3' (that is, assuming that an entry for
+"HDMI" with resolution "1280 x 720 @ 60 Hz" is available in the DTB).
+
+If the kernel argument "video" is either missing, in an incorrect format or does
+not map to an existing display configuration found in the DTB, then the argument
+will be ignored and the FB and DCU drivers will always default to the last entry
+in the DTB's display mode list in order to configure the display timings.
