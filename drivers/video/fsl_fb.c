@@ -712,7 +712,12 @@ int fsl_fb_parse_video_format(char *video_str,
 {
 	const char *split = ",;|";
 	char *video_copy, *token, *rest;
-	int len = strlen(video_str);
+	int len;
+
+	if (!video_str)
+		return -EINVAL;
+
+	len = strlen(video_str);
 
 	if (len == 0)
 		return -EINVAL;
