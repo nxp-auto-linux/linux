@@ -18,35 +18,24 @@
 #ifndef _CSE_CAPI_H
 #define _CSE_CAPI_H
 
-#include <linux/crypto.h>
-#include <crypto/internal/hash.h>
-#include <crypto/algapi.h>
-#include <crypto/aes.h>
+#ifdef CONFIG_CRYPTO_DEV_FSL_CSE3_CRYPTO_API
 
-/* Crypto API algorithms wrappers */
-struct cse_cipher_alg {
-	struct skcipher_alg alg;
-	u8 registered;
-};
+/**
+ * Register and unregister supported CSE3 crypto API algorithms
+ */
+void cse_register_crypto_api(void);
+void cse_unregister_crypto_api(void);
 
-struct cse_ahash_alg {
-	struct ahash_alg alg;
-	u8 registered;
-};
+#else
 
-int capi_aes_ecb_encrypt(struct skcipher_request *req);
-int capi_aes_ecb_decrypt(struct skcipher_request *req);
-int capi_aes_cbc_encrypt(struct skcipher_request *req);
-int capi_aes_cbc_decrypt(struct skcipher_request *req);
-int capi_aes_setkey(struct crypto_skcipher *tfm, const u8 *key,
-		unsigned int keylen);
+static inline void cse_register_crypto_api(void)
+{
+}
 
-int capi_cmac_finup(struct ahash_request *req);
-int capi_cmac_digest(struct ahash_request *req);
-int capi_cmac_init(struct ahash_request *req);
-int capi_cmac_setkey(struct crypto_ahash *tfm, const u8 *key,
-		unsigned int keylen);
+static inline void cse_unregister_crypto_api(void)
+{
+}
 
-int capi_cra_init(struct crypto_tfm *tfm);
-void capi_cra_exit(struct crypto_tfm *tfm);
+#endif
+
 #endif /* _CSE_CAPI_H */
