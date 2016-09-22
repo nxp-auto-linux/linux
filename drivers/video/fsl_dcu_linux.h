@@ -35,6 +35,7 @@ struct platform_device *fsl_dcu_get_pdev(void);
 int fsl_dcu_num_layers(void);
 int fsl_dcu_init_status(void);
 int fsl_dcu_wait_for_vsync(void);
+int fsl_dcu_wait_for_vblank(void);
 int fsl_dcu_get_color_format_match(const struct fb_var_screeninfo *var);
 int fsl_dcu_get_color_format_byname(const char *format_name);
 int fsl_dcu_set_clut(struct fb_info *info);

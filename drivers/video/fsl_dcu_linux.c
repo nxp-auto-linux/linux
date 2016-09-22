@@ -124,16 +124,14 @@ int dcu_init_status = DCU_INIT_ERR_PROBE;
 #define DCU_STATUS_WAITING	1
 #define DCU_STATUS_WAITED	2
 
-/* We use events and wait queues because completions are unsuitable */
-int event_condition_list[DCU_LAYERS_NUM_MAX];
-wait_queue_head_t dcu_event_queue;
+/* Supported DCU wait event types */
+#define DCU_EVENT_TYPE_VSYNC  0
+#define DCU_EVENT_TYPE_VBLANK 1
+#define DCU_EVENT_TYPE_MAX    2
 
-/* A global CLUT written by a process and read during VBLANK */
-uint32_t dcu_clut[256];
-uint32_t dcu_clut_size;
-uint32_t dcu_clut_offset;
-Dcu_Layer_t dcu_clut_layer;
-spinlock_t dcu_clut_lock;
+/* We use events and wait queues because completions are unsuitable */
+int event_condition_list[DCU_EVENT_TYPE_MAX][DCU_LAYERS_NUM_MAX];
+wait_queue_head_t dcu_event_queue;
 
 /* The most recent display configuration */
 struct IOCTL_DISPLAY_CFG current_display_cfg;
@@ -349,7 +347,6 @@ int fsl_dcu_set_clut(struct fb_info *info)
 	struct fb_cmap *cmap = &info->cmap;
 	uint32_t clut[256], i;
 	uint16_t clut_offset = 256 * mfbi->index;
-	unsigned long flags;
 
 	/* Convert the FB color-map to a CLUT */
 	for (i = 0; i < cmap->len; ++i) {
@@ -363,14 +360,9 @@ int fsl_dcu_set_clut(struct fb_info *info)
 		clut[i] |= (cmap->blue[i] & 0xFF);
 	}
 
-	spin_lock_irqsave(&dcu_clut_lock, flags);
-
-	dcu_clut_size = cmap->len;
-	dcu_clut_layer = mfbi->index;
-	dcu_clut_offset = clut_offset;
-	memcpy(dcu_clut, clut, cmap->len * sizeof(uint32_t));
-
-	spin_unlock_irqrestore(&dcu_clut_lock, flags);
+	/* wait vblank, and then write the CLUT */
+	fsl_dcu_wait_for_vblank();
+	DCU_CLUTLoad(0, mfbi->index, clut_offset, cmap->len, clut);
 
 	return 0;
 }
@@ -701,19 +693,25 @@ int fsl_turn_panel_on(struct device_node *np,
 }
 
 /**********************************************************
- * FUNCTION: fsl_dcu_wait_for_vsync
+ * FUNCTION: fsl_dcu_wait_for_event
  **********************************************************/
-int fsl_dcu_wait_for_vsync(void)
+int fsl_dcu_wait_for_event(uint32_t type)
 {
 	unsigned long flags;
 	int cond_idx;
+
+	if (type >= DCU_EVENT_TYPE_MAX)
+		return -EINVAL;
 
 	/* Try to get an entry in the waiting PID list */
 	spin_lock_irqsave(&dcu_event_queue.lock, flags);
 
 	for (cond_idx = 0; cond_idx < DCU_LAYERS_NUM_MAX; ++cond_idx) {
-		if (event_condition_list[cond_idx] == EVENT_STATUS_CLEAR) {
-			event_condition_list[cond_idx] = DCU_STATUS_WAITING;
+		if (event_condition_list[type][cond_idx] ==
+				EVENT_STATUS_CLEAR) {
+
+			event_condition_list[type][cond_idx] =
+					DCU_STATUS_WAITING;
 			break;
 		}
 	}
@@ -726,21 +724,38 @@ int fsl_dcu_wait_for_vsync(void)
 
 	/* Wait until the DCU event occurs */
 	wait_event(dcu_event_queue,
-		event_condition_list[cond_idx] == DCU_STATUS_WAITED);
+		event_condition_list[type][cond_idx] == DCU_STATUS_WAITED);
 
 	/* Release the entry in the waiting PID list */
 	spin_lock_irqsave(&dcu_event_queue.lock, flags);
-	event_condition_list[cond_idx] = EVENT_STATUS_CLEAR;
+	event_condition_list[type][cond_idx] = EVENT_STATUS_CLEAR;
 	spin_unlock_irqrestore(&dcu_event_queue.lock, flags);
 
 	return 0;
 }
+
+/**********************************************************
+ * FUNCTION: fsl_dcu_wait_for_vsync
+ **********************************************************/
+int fsl_dcu_wait_for_vsync(void)
+{
+	return fsl_dcu_wait_for_event(DCU_EVENT_TYPE_VSYNC);
+}
 EXPORT_SYMBOL_GPL(fsl_dcu_wait_for_vsync);
+
+/**********************************************************
+ * FUNCTION: fsl_dcu_wait_for_vsync
+ **********************************************************/
+int fsl_dcu_wait_for_vblank(void)
+{
+	return fsl_dcu_wait_for_event(DCU_EVENT_TYPE_VBLANK);
+}
+EXPORT_SYMBOL_GPL(fsl_dcu_wait_for_vblank);
 
 /**********************************************************
  * FUNCTION: fsl_dcu_event_VSYNC
  **********************************************************/
-void fsl_dcu_event_VSYNC(void)
+void fsl_dcu_event(uint32_t type)
 {
 	unsigned long flags;
 	int i;
@@ -749,8 +764,8 @@ void fsl_dcu_event_VSYNC(void)
 	spin_lock_irqsave(&dcu_event_queue.lock, flags);
 
 	for (i = 0; i < DCU_LAYERS_NUM_MAX; ++i) {
-		if (event_condition_list[i] == DCU_STATUS_WAITING)
-			event_condition_list[i] = DCU_STATUS_WAITED;
+		if (event_condition_list[type][i] == DCU_STATUS_WAITING)
+			event_condition_list[type][i] = DCU_STATUS_WAITED;
 	}
 
 	spin_unlock_irqrestore(&dcu_event_queue.lock, flags);
@@ -759,21 +774,19 @@ void fsl_dcu_event_VSYNC(void)
 }
 
 /**********************************************************
+ * FUNCTION: fsl_dcu_event_VSYNC
+ **********************************************************/
+void fsl_dcu_event_VSYNC(void)
+{
+	fsl_dcu_event(DCU_EVENT_TYPE_VSYNC);
+}
+
+/**********************************************************
  * FUNCTION: fsl_dcu_event_VBLANK
  **********************************************************/
 void fsl_dcu_event_VBLANK(void)
 {
-	unsigned long flags;
-
-	spin_lock_irqsave(&dcu_clut_lock, flags);
-
-	if (dcu_clut_size > 0) {
-		DCU_CLUTLoad(0, dcu_clut_layer, dcu_clut_offset,
-			dcu_clut_size, dcu_clut);
-		dcu_clut_size = 0;
-	}
-
-	spin_unlock_irqrestore(&dcu_clut_lock, flags);
+	fsl_dcu_event(DCU_EVENT_TYPE_VBLANK);
 }
 
 /**********************************************************
@@ -934,7 +947,9 @@ void fsl_dcu_configure_display(struct IOCTL_DISPLAY_CFG *display_cfg)
 
 		if ((dcu_lcd_timings.mHorzPW + dcu_lcd_timings.mVertPW) == 0)
 			dev_warn(&dcu_pdev->dev,
-				"DCU: Requested resolution not in EDID\n");
+				"DCU: Requested resolution %d:%d not in EDID\n",
+				dcu_lcd_timings.mDeltaX,
+				dcu_lcd_timings.mDeltaY);
 	}
 
 	/* set display configuration */
@@ -1278,7 +1293,7 @@ dcu_use_default_pool:
 int fsl_dcu_probe(struct platform_device *pdev)
 {
 	struct resource *res;
-	int ret, irq_num, i;
+	int ret, irq_num, i, j;
 
 	__TRACE__;
 
@@ -1344,15 +1359,12 @@ int fsl_dcu_probe(struct platform_device *pdev)
 	pm_runtime_enable(&pdev->dev);
 	pm_runtime_get_sync(&pdev->dev);
 
-	/* initialize the global CLUT */
-	spin_lock_init(&dcu_clut_lock);
-	dcu_clut_size = 0;
-
 	/* insert DCU interrupt handler */
 	init_waitqueue_head(&dcu_event_queue);
 
-	for (i = 0; i < DCU_LAYERS_NUM_MAX; ++i)
-		event_condition_list[i] = EVENT_STATUS_CLEAR;
+	for (i = 0; i < DCU_EVENT_TYPE_MAX; ++i)
+		for (j = 0; j < DCU_LAYERS_NUM_MAX; ++j)
+			event_condition_list[i][j] = EVENT_STATUS_CLEAR;
 
 	irq_num = platform_get_irq(pdev, 0);
 	ret = devm_request_irq(&pdev->dev, irq_num,
