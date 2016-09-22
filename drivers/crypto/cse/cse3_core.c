@@ -38,7 +38,7 @@
 
 struct cse_device_data *cse_dev_ptr;
 
-char *errmsg[35] = {
+static char *errmsg[35] = {
 	"", /* padding */
 	"", /* padding */
 	/* CSE3 error codes, ecr between 0x02-0x0C */
@@ -351,7 +351,7 @@ compl:
 	}
 }
 
-irqreturn_t cse_irq_handler(int irq_no, void *dev_id)
+static irqreturn_t cse_irq_handler(int irq_no, void *dev_id)
 {
 	struct cse_device_data *cse_dev = (struct cse_device_data *) dev_id;
 	uint32_t status = readl(&cse_dev->base->cse_sr);
