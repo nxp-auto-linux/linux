@@ -189,5 +189,3 @@ int cse_hw_comm(struct cse_device_data *dev, uint32_t flags, int phase)
 
 	return res;
 }
-EXPORT_SYMBOL(cse_hw_comm);
-
