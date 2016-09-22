@@ -18,6 +18,59 @@
 #include "cse3.h"
 #include "cse3_req.h"
 
+/**
+ * AES-128 Encryption/Decryption requests
+ * Note: The Key and IV values can be set
+ * independently and are stored in the context
+ * field from the base request
+ */
+struct cse_crypt_request {
+	cse_req_t	base;
+	uint8_t		*buffer_in;
+	uint8_t		*buffer_out;
+	uint32_t	len_in;
+	uint32_t	len_out;
+};
+
+/**
+ * Miyaguchi-Preneel (MP) compression request
+ */
+struct cse_mp_request {
+	cse_req_t	base;
+	uint8_t		*buffer_in;
+	uint8_t		buffer_out[MP_COMP_SIZE];
+	uint32_t	len_in;
+};
+
+/**
+ * Random number Generator request
+ */
+struct cse_rval_request {
+	cse_req_t	base;
+	uint8_t		rval[RND_VAL_SIZE];
+};
+
+/**
+ * Generate and Verify CMAC requests
+ */
+struct cse_cmac_request {
+	cse_req_t	base;
+	uint8_t		*buffer_in;
+	uint8_t		buffer_out[AES_MAC_SIZE];
+	uint32_t	len_in;
+	uint32_t	status;
+};
+
+/**
+ * Load Key request
+ */
+struct cse_ldkey_request {
+	cse_req_t	base;
+	uint8_t		m1[M1_KEY_SIZE];
+	uint8_t		m2[M2_KEY_SIZE];
+	uint8_t		m3[M3_KEY_SIZE];
+};
+
 static int cse_ioctl_copy_output(struct cse_device_data *dev,
 				 struct cse_request *req)
 {

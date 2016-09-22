@@ -7,7 +7,7 @@
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 or
- * later as publishhed by the Free Software Foundation.
+ * later as published by the Free Software Foundation.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -99,7 +99,6 @@ static int cse_rng_data_read(struct hwrng *rng, u32 *data)
 
 static struct hwrng cse_rng = {
 	.name		= "rng-cse",
-	/* .cleanup	= cse_rng_cleanup, */
 	.data_read	= cse_rng_data_read,
 	.read		= cse_rng_read,
 };
