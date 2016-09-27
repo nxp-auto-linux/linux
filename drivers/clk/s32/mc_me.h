@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2016 Freescale Semiconductor, Inc.
+ * Copyright 2017 NXP
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -66,7 +67,6 @@
 /* MC_ME_RUN_PCn */
 #define MC_ME_RUN_PCn(mc_me, n)         (mc_me + 0x00000080 + 0x4 * (n))
 
-#define MC_ME_RUN_PCn_MIN_IDX           (0)
 #define MC_ME_RUN_PCn_MAX_IDX           (7)
 #define MC_ME_RUN_PCn_RESET             BIT(0)
 #define MC_ME_RUN_PCn_TEST              BIT(1)
@@ -133,8 +133,7 @@ static inline void entry_to_target_mode(void __iomem *mc_me, u32 mode)
 static inline void enable_cpumodes_onperipheralconfig(void __iomem *mc_me,
 			u32 modes, u32 run_pc_idx)
 {
-	BUG_ON(run_pc_idx < MC_ME_RUN_PCn_MIN_IDX ||
-	       run_pc_idx >= MC_ME_RUN_PCn_MAX_IDX);
+	BUG_ON(run_pc_idx >= MC_ME_RUN_PCn_MAX_IDX);
 	writel_relaxed(modes, MC_ME_RUN_PCn(mc_me, run_pc_idx));
 }
 
