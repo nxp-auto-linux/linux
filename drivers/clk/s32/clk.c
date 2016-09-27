@@ -1,5 +1,6 @@
 /*
  * Copyright 2015 Freescale Semiconductor, Inc.
+ * Copyright 2017 NXP
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -19,7 +20,7 @@ DEFINE_SPINLOCK(s32_cgm_lock);
 
 void __init s32_check_clocks(struct clk *clks[], unsigned int count)
 {
-	unsigned i;
+	unsigned int i;
 
 	for (i = 0; i < count; i++)
 		if (IS_ERR(clks[i]))

@@ -1,6 +1,7 @@
 /*
  * Copyright 2015-2016 Freescale Semiconductor, Inc.
-  *
+ * Copyright 2017 NXP
+ *
  * The code contained herein is licensed under the GNU General Public
  * License. You may obtain a copy of the GNU General Public License
  * Version 2 or later at the following locations:
@@ -205,7 +206,7 @@ static int clk_plldig_set_rate(struct clk_hw *hw, unsigned long rate,
 			       unsigned long parent_rate)
 {
 	struct clk_plldig *pll = to_clk_plldig(hw);
-	u32 plldv, pllfd, prediv;
+	u32 pllfd, prediv;
 
 	unsigned long max_allowed_rate = get_pllx_max_vco_rate(pll->type);
 	unsigned long phi0_max_rate =  get_pllx_phiy_max_rate(pll->type, 0);
@@ -218,7 +219,6 @@ static int clk_plldig_set_rate(struct clk_hw *hw, unsigned long rate,
 	    ((rate/pll->plldv_rfdphi) > phi1_max_rate))
 		return -EINVAL;
 
-	plldv = readl_relaxed(PLLDIG_PLLDV(pll->base));
 	pllfd = readl_relaxed(PLLDIG_PLLFD(pll->base));
 	prediv = (parent_rate / rate) * (pll->plldv_mfd + pll->pllfd_mfn/20480);
 
@@ -291,12 +291,10 @@ struct clk *s32_clk_plldig(enum s32_plldig_type type, const char *name,
 	struct clk *clk;
 	struct clk_init_data init;
 
-	if ((plldv_rfdphi > PLLDIG_PLLDV_RFDPHI_MAXVALUE) ||
-	    (plldv_rfdphi < PLLDIG_PLLDV_RFDPHI_MINVALUE))
+	if (plldv_rfdphi > PLLDIG_PLLDV_RFDPHI_MAXVALUE)
 		return ERR_PTR(-EINVAL);
 
-	if ((plldv_rfdphi1 > PLLDIG_PLLDV_RFDPHI1_MAXVALUE) ||
-	    (plldv_rfdphi1 < PLLDIG_PLLDV_RFDPHI1_MINVALUE))
+	if (plldv_rfdphi1 > PLLDIG_PLLDV_RFDPHI1_MAXVALUE)
 		return ERR_PTR(-EINVAL);
 
 	pll = kzalloc(sizeof(*pll), GFP_KERNEL);
