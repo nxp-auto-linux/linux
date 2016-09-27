@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2016 Freescale Semiconductor, Inc.
+ * Copyright 2017 NXP
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -20,7 +21,6 @@
 					<< PLLDIG_PLLDV_RFDPHI_OFFSET))
 #define PLLDIG_PLLDV_RFDPHI_MASK	(0x003F0000)
 #define PLLDIG_PLLDV_RFDPHI_MAXVALUE	(0x3F)
-#define PLLDIG_PLLDV_RFDPHI_MINVALUE	(0x0)
 
 #define PLLDIG_PLLDV_RFDPHI_OFFSET	(16)
 
@@ -30,7 +30,6 @@
 					<< PLLDIG_PLLDV_RFDPHI1_OFFSET))
 #define PLLDIG_PLLDV_RFDPHI1_MASK	(0x7E000000)
 #define PLLDIG_PLLDV_RFDPHI1_MAXVALUE	(0x3F)
-#define PLLDIG_PLLDV_RFDPHI1_MINVALUE	(0x0)
 #define PLLDIG_PLLDV_RFDPHI1_OFFSET	(25)
 
 #define PLLDIG_PLLDV_PREDIV_SET(val)	(PLLDIG_PLLDV_PREDIV_MASK & \
