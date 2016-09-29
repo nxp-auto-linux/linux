@@ -20,6 +20,9 @@
 #include "pll.h"
 #include "src.h"
 
+#define PNAME(x) \
+	static const char *x[] __initconst
+
 extern spinlock_t s32_cgm_lock;
 
 void s32_check_clocks(struct clk *clks[], unsigned int count);
