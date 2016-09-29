@@ -22,42 +22,51 @@ static void __iomem *mc_me_base;
 static void __iomem *src_base;
 
 /* sources for multiplexer clocks, this is used multiple times */
-static const char *osc_sels[] = {"firc", "fxosc", };
+PNAME(osc_sels) = {"firc", "fxosc", };
 
-static const char *cores_sels[] = {"firc", "fxosc", "armpll_phi0", };
+PNAME(cores_sels) = {"firc", "fxosc", "armpll_phi0", };
 
-static const char *sys_sels[] = {"firc", "fxosc", "armpll_dfs0", };
+PNAME(sys_sels) = {"firc", "fxosc", "armpll_dfs0", };
 
-static const char *perifray_sels[] = {"firc", "fxosc", "dummy",
-			  "periphpll_phi0_div5", };
+PNAME(perifray_sels) = {"firc", "fxosc", "dummy",
+			"periphpll_phi0_div5", };
 
-static const char *can_sels[] = {"firc", "fxosc", "dummy",
-			  "periphpll_phi0_div5", };
+PNAME(can_sels) = {"firc", "fxosc", "dummy",
+		   "periphpll_phi0_div5", };
 
-static const char *lin_sels[] = {"firc", "fxosc", "dummy",
-			  "periphpll_phi0_div3", "dummy", "dummy",
-			  "dummy", "dummy", "sys6",};
+PNAME(lin_sels) = {"firc", "fxosc", "dummy",
+		   "periphpll_phi0_div3", "dummy", "dummy",
+		   "dummy", "dummy", "sys6",};
 
-static const char *sdhc_sels[] = {"firc", "fxosc", "dummy",
-			  "dummy", "enetpll_dfs3",};
+PNAME(sdhc_sels) = {"firc", "fxosc", "dummy",
+		    "dummy", "enetpll_dfs3",};
 
-static const char *enet_sels[] = {"firc", "fxosc", "dummy",
-			  "dummy", "enetpll_phi0",};
+PNAME(enet_sels) = {"firc", "fxosc", "dummy",
+		    "dummy", "enetpll_phi0",};
 
-static const char *enet_time_sels[] = {"firc", "fxosc", "dummy",
-			  "dummy", "enetpll_phi0",};
+PNAME(enet_time_sels) = {"firc", "fxosc", "dummy",
+			 "dummy", "enetpll_phi0",};
 
-static const char *dcu_sels[] = {"firc", "fxosc", "dummy", "dummy",
-			  "dummy", "dummy", "dummy", "dummy", "dummy",
-			  "sys6",};
+PNAME(dcu_sels) = {"firc", "fxosc", "dummy", "dummy",
+		   "dummy", "dummy", "dummy", "dummy", "dummy",
+		   "sys6",};
 
-static const char *gpu_sels[] = {"firc", "fxosc", "armpll_dfs1", };
+PNAME(gpu_sels) = {"firc", "fxosc", "armpll_dfs1", };
 
-static const char *gpu_shdmipi_sels[] = {"firc", "fxosc",
-			  "armpll_dfs2", };
+PNAME(gpu_shdmipi_sels) = {"firc", "fxosc",
+			   "armpll_dfs2", };
 
 static struct clk *clk[S32V234_CLK_END];
 static struct clk_onecell_data clk_data;
+
+static u32 share_count_sdhcgate;
+static u32 share_count_linflex0gate;
+static u32 share_count_linflex1gate;
+static u32 share_count_dcugate;
+#if 0
+/* TBD: Enable gating for ENET */
+static u32 share_count_enetgate;
+#endif
 
 static void __init s32v234_clocks_init(struct device_node *mc_cgm0_node)
 {
@@ -96,7 +105,7 @@ static void __init s32v234_clocks_init(struct device_node *mc_cgm0_node)
 					    MC_ME_RUN_PCn_RUN1 |
 					    MC_ME_RUN_PCn_RUN2 |
 					    MC_ME_RUN_PCn_RUN3,
-					    0);
+					    1);
 
 	/* turn on XOSC and FIRC */
 	enable_clocks_sources(MC_ME_MODE_MC_MVRON, MC_ME_MODE_MC_XOSCON |
@@ -197,6 +206,32 @@ static void __init s32v234_clocks_init(struct device_node *mc_cgm0_node)
 		CGM_SC_DCn(mc_cgm0_base, 2), MC_CGM_SC_DCn_PREDIV_OFFSET,
 		MC_CGM_SC_DCn_PREDIV_SIZE);
 
+	clk[S32V234_CLK_IIC0] = s32_clk_gate2("iic0", "sys6",
+		mc_me_base, IIC0_PCTL, 0, 1);
+	clk[S32V234_CLK_IIC1] = s32_clk_gate2("iic1", "sys6",
+		mc_me_base, IIC1_PCTL, 0, 1);
+	clk[S32V234_CLK_IIC2] = s32_clk_gate2("iic2", "sys6",
+		mc_me_base, IIC2_PCTL, 0, 1);
+
+	clk[S32V234_CLK_DMACHMUX0] = s32_clk_gate2("dmachmux0", "sys6",
+		mc_me_base, DMACHMUX0_PCTL, 0, 1);
+	clk[S32V234_CLK_DMACHMUX1] = s32_clk_gate2("dmachmux1", "sys6",
+		mc_me_base, DMACHMUX1_PCTL, 0, 1);
+
+	clk[S32V234_CLK_SPI0] = s32_clk_gate2("spi0", "sys6",
+		mc_me_base, DSPI0_PCTL, 0, 1);
+	clk[S32V234_CLK_SPI1] = s32_clk_gate2("spi1", "sys6",
+		mc_me_base, DSPI1_PCTL, 0, 1);
+	clk[S32V234_CLK_SPI2] = s32_clk_gate2("spi2", "sys6",
+		mc_me_base, DSPI2_PCTL, 0, 1);
+	clk[S32V234_CLK_SPI3] = s32_clk_gate2("spi3", "sys6",
+		mc_me_base, DSPI3_PCTL, 0, 1);
+
+	clk[S32V234_CLK_PIT0] = s32_clk_gate2("pit0", "sys6",
+		 mc_me_base, PIT0_PCTL, 0, 1);
+	clk[S32V234_CLK_PIT1] = s32_clk_gate2("pit1", "sys6",
+		 mc_me_base, PIT1_PCTL, 0, 1);
+
 	/* enable ARMPLL */
 	enable_clocks_sources(0, MC_ME_MODE_MC_ARMPLL,
 			      MC_ME_RUNn_MC(mc_me_base, 0));
@@ -250,8 +285,13 @@ static void __init s32v234_clocks_init(struct device_node *mc_cgm0_node)
 		MC_CGM_ACn_DCm_PREDIV_SIZE);
 
 	/* Can Clock */
+	clk[S32V234_CLK_CAN0] = s32_clk_gate2("can0", "sys6",
+		mc_me_base, CANFD0_PCTL, 0, 1);
+	clk[S32V234_CLK_CAN1] = s32_clk_gate2("can1", "sys6",
+		mc_me_base, CANFD1_PCTL, 0, 1);
 	clk[S32V234_CLK_CAN] = s32_clk_divider("can", "can_sel",
-		CGM_ACn_DCm(mc_cgm0_base, 6, 0), MC_CGM_ACn_DCm_PREDIV_OFFSET,
+		CGM_ACn_DCm(mc_cgm0_base, 6, 0),
+		MC_CGM_ACn_DCm_PREDIV_OFFSET,
 		MC_CGM_ACn_DCm_PREDIV_SIZE);
 
 	/* Lin Clock */
@@ -269,6 +309,17 @@ static void __init s32v234_clocks_init(struct device_node *mc_cgm0_node)
 	clk[S32V234_CLK_LIN_IPG] = s32_clk_fixed_factor("lin_ipg",
 		"lin", 1, 2);
 
+	clk[S32V234_CLK_LIN0]  = s32_clk_gate2_shared("lin0", "lin",
+		mc_me_base, LINFLEX0_PCTL, 0, 1, &share_count_linflex0gate);
+	clk[S32V234_CLK_LIN0_IPG] = s32_clk_gate2_shared("lin0_ipg",
+		"lin_ipg", mc_me_base, LINFLEX0_PCTL, 0, 1,
+		&share_count_linflex0gate);
+	clk[S32V234_CLK_LIN1]  = s32_clk_gate2_shared("lin1", "lin",
+		mc_me_base, LINFLEX1_PCTL, 0, 1, &share_count_linflex1gate);
+	clk[S32V234_CLK_LIN1_IPG] = s32_clk_gate2_shared("lin1_ipg",
+		"lin_ipg", mc_me_base, LINFLEX1_PCTL, 0, 1,
+		&share_count_linflex1gate);
+
 	/* enable DCU */
 	clk[S32V234_CLK_DCU_SEL] = s32_clk_mux("videopll_sel",
 		CGM_ACn_SC(mc_cgm0_base, 9),
@@ -276,10 +327,23 @@ static void __init s32v234_clocks_init(struct device_node *mc_cgm0_node)
 		MC_CGM_ACn_SEL_SIZE,
 		dcu_sels, ARRAY_SIZE(dcu_sels));
 
-	clk[S32V234_CLK_VIDEOPLL_DIV2] = s32_clk_divider("videopll_div",
-		"videopll_sel", CGM_ACn_DCm(mc_cgm0_base, 9, 0),
+	clk[S32V234_CLK_DCU_AXI_DIV] = s32_clk_divider("dcu_axi_div",
+		"videopll_sel", CGM_ACn_DCm(mc_cgm0_base, 9, 1),
 		MC_CGM_ACn_DCm_PREDIV_OFFSET,
 		MC_CGM_ACn_DCm_PREDIV_SIZE);
+
+	clk[S32V234_CLK_DCU_PIX_DIV] = s32_clk_divider("dcu_pix_div",
+		"videopll_sel", CGM_ACn_DCm(mc_cgm0_base, 9, 1),
+		MC_CGM_ACn_DCm_PREDIV_OFFSET,
+		MC_CGM_ACn_DCm_PREDIV_SIZE);
+
+	clk[S32V234_CLK_DCU_AXI] = s32_clk_gate2_shared("dcu_axi",
+		"dcu_axi_div", mc_me_base, DCU_PCTL, 0, 1,
+		 &share_count_dcugate);
+
+	clk[S32V234_CLK_DCU_PIX] = s32_clk_gate2_shared("dcu_pix",
+		"dcu_pix_div", mc_me_base, DCU_PCTL, 0, 1,
+		 &share_count_dcugate);
 
 	/* enable PERIPHPLL */
 	enable_clocks_sources(0, MC_ME_MODE_MC_PERIPHPLL,
@@ -341,7 +405,19 @@ static void __init s32v234_clocks_init(struct device_node *mc_cgm0_node)
 		CGM_ACn_DCm(mc_cgm0_base, 7, 1),
 		MC_CGM_ACn_DCm_PREDIV_OFFSET,
 		MC_CGM_ACn_DCm_PREDIV_SIZE);
-
+#if 0
+	/* Temporarily disabled until we have the clarifications
+	 about ENET clock from Design team */
+	clk[S32V234_CLK_ENET_AHB] = s32_clk_gate2_shared("enet_ahb",
+		"sys3", mc_me_base, ENET_PCTL, 0, 1,
+		&share_count_enetgate);
+	clk[S32V234_CLK_ENET_IPS] = s32_clk_gate2_shared("enet_ips",
+		"sys6", mc_me_base, ENET_PCTL, 0, 1,
+		&share_count_enetgate);
+	clk[S32V234_CLK_ENET_TIME] = s32_clk_gate2_shared("enet_time",
+		"enet_time_div", mc_me_base, ENET_PCTL, 0, 1,
+		&share_count_enetgate);
+#endif
 	/* SDHC Clock */
 	clk[S32V234_CLK_SDHC_SEL] = s32_clk_mux("sdhc_sel",
 		CGM_ACn_SC(mc_cgm0_base, 15),
@@ -349,10 +425,20 @@ static void __init s32v234_clocks_init(struct device_node *mc_cgm0_node)
 		MC_CGM_ACn_SEL_SIZE,
 		sdhc_sels, ARRAY_SIZE(sdhc_sels));
 
-	clk[S32V234_CLK_SDHC] = s32_clk_divider("sdhc", "sdhc_sel",
+	clk[S32V234_CLK_SDHC_DIV] = s32_clk_divider("sdhc_div", "sdhc_sel",
 		CGM_ACn_DCm(mc_cgm0_base, 15, 0),
 		MC_CGM_ACn_DCm_PREDIV_OFFSET,
 		MC_CGM_ACn_DCm_PREDIV_SIZE);
+	clk[S32V234_CLK_SDHC] = s32_clk_gate2_shared("sdhc",
+		"sdhc_div", mc_me_base, SDHC_PCTL, 0, 1,
+		&share_count_sdhcgate);
+	clk[S32V234_CLK_SDHC_IPS] = s32_clk_gate2_shared("sdhc_ips",
+		"sys6", mc_me_base, SDHC_PCTL, 0, 1,
+		&share_count_sdhcgate);
+	clk[S32V234_CLK_SDHC_AHB] = s32_clk_gate2_shared("sdhc_ahb",
+		"sys6", mc_me_base, SDHC_PCTL, 0, 1,
+		&share_count_sdhcgate);
+
 
 	/* GPU Clocks */
 	clk[S32V234_CLK_GPU_SEL] = s32_clk_mux("gpu_sels",
