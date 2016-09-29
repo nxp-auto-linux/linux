@@ -165,8 +165,8 @@
 						  "edma-tx_16-31",
 						  "edma-err";
 				clock-names = "dmamux0", "dmamux1";
-				clocks = <&clks S32V234_CLK_SYS6>,
-					 <&clks S32V234_CLK_SYS6>;
+				clocks = <&clks S32V234_CLK_DMACHMUX0>,
+					 <&clks S32V234_CLK_DMACHMUX1>;
 				status = "disabled";
 			};
 
@@ -222,17 +222,17 @@
 				compatible = "fsl,s32v234-fec";
 				reg = <0x0 0x40032000 0x0 0x1000>;
 				interrupts = <0 35 4>,
-							 <0 36 4>,
-							 <0 37 4>,
-							 <0 38 4>;
+					     <0 36 4>,
+					     <0 37 4>,
+					     <0 38 4>;
 				clocks = <&clks S32V234_CLK_SYS6>,
-						 <&clks S32V234_CLK_SYS3>,
-						 <&clks S32V234_CLK_ENET_TIME>,
-						 <&clks S32V234_CLK_ENET>,
-						 <&clks S32V234_CLK_ENET_TIME>;
+					 <&clks S32V234_CLK_SYS3>,
+					 <&clks S32V234_CLK_ENET_TIME>,
+					 <&clks S32V234_CLK_ENET>,
+					 <&clks S32V234_CLK_ENET_TIME>;
 				clock-names = "ipg", "ahb", "ptp",
-							  "enet_clk_ref",
-							  "enet_out";
+					      "enet_clk_ref",
+					      "enet_out";
 				fsl,num-tx-queues=<3>;
 				fsl,num-rx-queues=<3>;
 				status = "disabled";
@@ -242,7 +242,7 @@
 				compatible = "fsl,s32v234-pit";
 				reg = <0x0 0x4003A000 0x0 0x1000>;
 				interrupts= <0 31 4>;
-				clocks = <&clks S32V234_CLK_SYS6>;
+				clocks = <&clks S32V234_CLK_PIT0>;
 				clock-names = "pit";
 				cpu = <0>;
 				status = "disabled";
@@ -281,7 +281,7 @@
 				compatible = "fsl,s32v234-i2c";
 				reg = <0x0 0x40051000 0x0 0x1000>;
 				interrupts =<0 67 4>;
-				clocks = <&clks S32V234_CLK_SYS6>;
+				clocks = <&clks S32V234_CLK_IIC0>;
 				clock-names = "ipg";
 				dmas = <&edma 0 5>,
 				       <&edma 0 6>;
@@ -293,8 +293,9 @@
 				compatible = "fsl,s32v234-linflexuart";
 				reg = <0x0 0x40053000 0x0 0x1000>;
 				interrupts = <0 59 1>;
-				clocks = <&clks S32V234_CLK_LIN>;
-				clock-names = "lin";
+				clocks = <&clks S32V234_CLK_LIN0>,
+					 <&clks S32V234_CLK_LIN0_IPG>;
+				clock-names = "lin", "ipg";
 				dmas = <&edma 0 20>,
 				       <&edma 0 19>;
 				dma-names = "rx", "tx";
@@ -306,15 +307,15 @@
 				reg = <0x0 0x40055000 0x0 0x1000>;
 				interrupts = <0 42 4>;
 				clocks = <&clks S32V234_CLK_CAN>,
-						<&clks S32V234_CLK_CAN>;
-						clock-names = "ipg", "per";
+					 <&clks S32V234_CLK_CAN0>;
+				clock-names = "ipg", "per";
 			};
 
 			spi0: spi@40057000 {
 				compatible = "fsl,s32v234-dspi";
 				reg = <0x0 0x40057000 0x0 0x1000>;
 				interrupts = <0 61 4>;
-				clocks = <&clks S32V234_CLK_SYS6>;
+				clocks = <&clks S32V234_CLK_SPI0>;
 				clock-names = "dspi";
 				spi-num-chipselects = <8>;
 				bus-num = <0>;
@@ -327,7 +328,7 @@
 				compatible = "fsl,s32v234-dspi";
 				reg = <0x0 0x40059000 0x0 0x1000>;
 				interrupts = <0 63 4>;
-				clocks = <&clks S32V234_CLK_SYS6>;
+				clocks = <&clks S32V234_CLK_SPI2>;
 				clock-names = "dspi";
 				spi-num-chipselects = <4>;
 				bus-num = <2>;
@@ -340,8 +341,8 @@
 				compatible = "fsl,s32v234-usdhc", "fsl,sac85r-usdhc";
 				reg = <0x0 0x4005D000 0x0 0x1000>;
 				interrupts = <0 28 4>;
-				clocks = <&clks S32V234_CLK_SDHC>,
-					 <&clks S32V234_CLK_SDHC>,
+				clocks = <&clks S32V234_CLK_SDHC_IPS>,
+					 <&clks S32V234_CLK_SDHC_AHB>,
 					 <&clks S32V234_CLK_SDHC>;
 				clock-names = "ipg", "ahb", "per";
 				bus-width = <8>;
@@ -431,8 +432,9 @@
 				compatible = "fsl,s32v234-dcu";
 				reg = <0x0 0x40028000 0x0 0x5000>;
 				interrupts = <0 95 1>;
-				clocks = <&clks S32V234_CLK_SYS6>;
-				clock-names = "dcu";
+				clocks = <&clks S32V234_CLK_DCU_AXI>,
+					 <&clks S32V234_CLK_DCU_PIX>;
+				clock-names = "dcu", "ipg";
 				memory-region = <&dcu_surface_memory>;
 				status = "disabled";
 			};
@@ -473,7 +475,7 @@
 				reg = <0x0 0x400AA000 0x0 0x1000>;
 				interrupts= <0 32 4>;
 				cpu = <1>;
-				clocks = <&clks S32V234_CLK_SYS6>;
+				clocks = <&clks S32V234_CLK_PIT1>;
 				clock-names = "pit";
 				status = "disabled";
 			};
@@ -484,7 +486,7 @@
 				compatible = "fsl,s32v234-i2c";
 				reg = <0x0 0x400b8000 0x0 0x1000>;
 				interrupts =<0 68 4>;
-				clocks = <&clks S32V234_CLK_SYS6>;
+				clocks = <&clks S32V234_CLK_IIC1>;
 				clock-names = "ipg";
 				dmas = <&edma 1 14>,
 				       <&edma 1 15>;
@@ -498,7 +500,7 @@
 				compatible = "fsl,s32v234-i2c";
 				reg = <0x0 0x400ba000 0x0 0x1000>;
 				interrupts =<0 69 4>;
-				clocks = <&clks S32V234_CLK_SYS6>;
+				clocks = <&clks S32V234_CLK_IIC2>;
 				clock-names = "ipg";
 				dmas = <&edma 1 16>,
 				       <&edma 1 17>;
@@ -510,8 +512,9 @@
 				compatible = "fsl,s32v234-linflexuart";
 				reg = <0x0 0x400bc000 0x0 0x1000>;
 				interrupts = <0 60 1>;
-				clocks = <&clks S32V234_CLK_LIN>;
-				clock-names = "lin";
+				clocks = <&clks S32V234_CLK_LIN1>,
+					 <&clks S32V234_CLK_LIN1_IPG>;
+				clock-names = "lin", "ipg";
 				dmas = <&edma 1 13>,
 				       <&edma 1 12>;
 				dma-names = "rx", "tx";
@@ -523,7 +526,7 @@
 				reg = <0x0 0x400be000 0x0 0x1000>;
 				interrupts = <0 44 4>;
 				clocks = <&clks S32V234_CLK_CAN>,
-					 <&clks S32V234_CLK_CAN>;
+					 <&clks S32V234_CLK_CAN1>;
 				clock-names = "ipg", "per";
 			};
 
@@ -531,7 +534,7 @@
 				compatible = "fsl,s32v234-dspi";
 				reg = <0x0 0x400C0000 0x0 0x1000>;
 				interrupts = <0 62 4>;
-				clocks = <&clks S32V234_CLK_SYS6>;
+				clocks = <&clks S32V234_CLK_SPI1>;
 				clock-names = "dspi";
 				spi-num-chipselects = <4>;
 				bus-num = <1>;
@@ -544,7 +547,7 @@
 				compatible = "fsl,s32v234-dspi";
 				reg = <0x0 0x400C2000 0x0 0x1000>;
 				interrupts = <0 64 4>;
-				clocks = <&clks S32V234_CLK_SYS6>;
+				clocks = <&clks S32V234_CLK_SPI3>;
 				clock-names = "dspi";
 				spi-num-chipselects = <4>;
 				bus-num = <3>;
