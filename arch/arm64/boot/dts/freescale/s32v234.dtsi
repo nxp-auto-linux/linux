@@ -212,8 +212,11 @@
 				interrupts = <0 91 1>,
 					     <0 93 1>;
 				sensor = <0x0>; // nothing connected
-				clocks = <&clks S32V234_CLK_SYS6>;
-				clock-names = "mipicsi2";
+				clocks = <&clks S32V234_CLK_CSI0>,
+					 <&clks S32V234_CLK_CSI0_CLI>,
+					 <&clks S32V234_CLK_CSI0_CUI>,
+					 <&clks S32V234_CLK_CSI0_DPHY>;
+				clock-names = "csi", "cli", "cui", "dphy";
 
 				status = "disabled";
 			};
@@ -353,8 +356,9 @@
 				compatible = "fsl,s32v234-viulite0";
 				reg = <0x0 0x40064000 0x0 0x1000>;
 				interrupts = <0 96 1>;
-				clocks = <&clks S32V234_CLK_SYS6>;
-				clock-names = "fsl_viulite0";
+				clocks = <&clks S32V234_CLK_VIU0_AHB>,
+					 <&clks S32V234_CLK_VIU0_IPS>;
+				clock-names = "fsl_viulite0", "per";
 				status = "disabled";
 			};
 
@@ -464,9 +468,11 @@
 				interrupts = <0 92 1>,
 					     <0 94 1>;
 				sensor = <0x0>;   // nothing connected
-				clocks = <&clks S32V234_CLK_SYS6>;
-				clock-names = "mipicsi2";
-
+				clocks = <&clks S32V234_CLK_CSI1>,
+					 <&clks S32V234_CLK_CSI1_CLI>,
+					 <&clks S32V234_CLK_CSI1_CUI>,
+					 <&clks S32V234_CLK_CSI1_DPHY>;
+				clock-names = "csi", "cli", "cui", "dphy";
 				status = "disabled";
 			};
 
@@ -560,8 +566,9 @@
 				compatible = "fsl,s32v234-viulite1";
 				reg = <0x0 0x400D0000 0x0 0x1000>;
 				interrupts = <0 100 1>;
-				clocks = <&clks S32V234_CLK_SYS6>;
-				clock-names = "fsl_viulite1";
+				clocks = <&clks S32V234_CLK_VIU1_AHB>,
+					 <&clks S32V234_CLK_VIU1_IPS>;
+				clock-names = "fsl_viulite1", "per";
 				status = "disabled";
 			};
 
@@ -577,8 +584,9 @@
 					     <0 134 1>,
 					     <0 135 1>;
 				clocks = <&clks S32V234_CLK_MJPEG>,
-					 <&clks S32V234_CLK_SYS6>;
-				clock-names = "fsl_jpegdcd", "bclock";
+					 <&clks S32V234_CLK_JPEG_IPS>,
+					 <&clks S32V234_CLK_JPEG_SRAM_IPS>;
+				clock-names = "per", "ipg", "bclock";
 				status = "disabled";
 			};
 
@@ -599,9 +607,11 @@
 					     <0 147 1>,
 					     <0 148 1>,
 					     <0 149 1>;
-				clocks = <&clks S32V234_CLK_H264_DEC>,
-					 <&clks S32V234_CLK_SYS6>;
-				clock-names = "fsl_h264dcd", "ips_clock";
+				clocks = <&clks S32V234_CLK_H264DCD>,
+				    <&clks S32V234_CLK_H264DCD_IPS>,
+				    <&clks S32V234_CLK_H264DCD_SRAM_IPS>;
+					 clock-names = "h264dcd", "ipg",
+							"bclock";
 				status = "disabled";
 			};
 
@@ -616,6 +626,11 @@
 					     <0 155 1>,
 					     <0 156 1>,
 					     <0 157 1>;
+				clocks = <&clks S32V234_CLK_H264ENC>,
+					 <&clks S32V234_CLK_H264ENC_IPS>,
+					 <&clks S32V234_CLK_H264ENC_SRAM_IPS>;
+				clock-names = "fsl_h264enc", "per",
+					      "bclock";
 				status = "disabled";
 			};
 		};
