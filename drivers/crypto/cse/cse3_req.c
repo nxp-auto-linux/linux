@@ -43,14 +43,6 @@ struct cse_mp_request {
 };
 
 /**
- * Random number Generator request
- */
-struct cse_rval_request {
-	cse_req_t	base;
-	uint8_t		rval[RND_VAL_SIZE];
-};
-
-/**
  * Generate and Verify CMAC requests
  */
 struct cse_cmac_request {
