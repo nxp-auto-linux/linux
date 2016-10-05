@@ -20,6 +20,14 @@
 
 #include <linux/fsl/cse3_ioctl.h>
 
+/**
+ * Random number Generator request
+ */
+struct cse_rval_request {
+	cse_req_t	base;
+	uint8_t		rval[RND_VAL_SIZE];
+};
+
 int cse_ioctl_rnd(cse_ctx_t *ctx, unsigned int cmd, unsigned long arg);
 int cse_ioctl_load_plkey(cse_ctx_t *ctx, unsigned int cmd, unsigned long arg);
 int cse_ioctl_load_key(cse_ctx_t *ctx, unsigned int cmd, unsigned long arg);
