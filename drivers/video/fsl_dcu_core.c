@@ -130,32 +130,29 @@ Dcu_Err_t DCU_Init(Dcu_Unit_t dcu_id, uint32_t aDCUclk, const Dcu_LCD_Para_t* ap
 	REG_WRITE32(DCU_SYNPOL_ADDR32(dcu_id),apcLCD->mSyncPol);
 
 	/* Calculation of the frequency division factor */
-	if (DCU_FREQDIV_NORMAL == aDivCalcType)
-	{
-    rezpart = ((uint32_t)(apcLCD->mDeltaX)+(uint32_t)(apcLCD->mHorzBP)+(uint32_t)(apcLCD->mHorzPW)+(uint32_t)(apcLCD->mHorzFP))*((uint32_t)(apcLCD->mDeltaY)+(uint32_t)(apcLCD->mVertBP)+(uint32_t)(apcLCD->mVertPW)+(uint32_t)(apcLCD->mVertFP));
-    div32 = (aDCUclk*1000000)/(((uint32_t)(apcLCD->mVertFq)) * rezpart) - 1;
+	if (aDivCalcType == DCU_FREQDIV_NORMAL)	{
+		rezpart = ((uint32_t)(apcLCD->mDeltaX)
+					+(uint32_t)(apcLCD->mHorzBP)
+					+(uint32_t)(apcLCD->mHorzPW)
+					+(uint32_t)(apcLCD->mHorzFP))
+				*((uint32_t)(apcLCD->mDeltaY)
+					+(uint32_t)(apcLCD->mVertBP)
+					+(uint32_t)(apcLCD->mVertPW)
+					+(uint32_t)(apcLCD->mVertFP));
+		div32 = (aDCUclk)/(((uint32_t)(apcLCD->mVertFq)) * rezpart) - 1;
 	}
 
 	if (DCU_FREQDIV_HDMI == aDivCalcType)
-	{
-    div32 = (((aDCUclk * 1000)/(uint32_t)(apcLCD->mVertFq)) - 1);
-	}
+		div32 = (((aDCUclk * 1000)/(uint32_t)(apcLCD->mVertFq)) - 1);
 
 	if (DCU_FREQDIV_LVDS == aDivCalcType)
-	{
 		div32 = (apcLCD->mDivFactor) - 1;
-	}
 
-  if( 0UL != (0xFFFFFF00 & div32))
-	{
+	if (0UL != (~DCU_DIV_RATIO_MASK & div32))
 		err = DCU_ERR_RANGE;
-  }
-		div = (uint8_t)div32;
 
-	if(div32 < 1)
-	{
-		div = 1;
-	}
+	div = (uint8_t)div32;
+
   REG_RMW32(DCU_DIV_RATIO_ADDR32(dcu_id), DCU_DIV_RATIO_MASK, div << DCU_DIV_RATIO_SHIFT);
 
 	/* Init global variables for DCU */
