@@ -69,6 +69,7 @@ static Dcu_Callback_t		gpCallbackLYRTRANSFIN[DCU_NUMBER];
 static Dcu_Callback_t		gpCallbackPROGEND[DCU_NUMBER];
 static Dcu_Callback_t		gpCallbackCRCREADY[DCU_NUMBER];
 static Dcu_Callback_t		gpCallbackCRCOFV[DCU_NUMBER];
+static Dcu_Callback_t		gpCallbackUNDRUN[DCU_NUMBER];
 #if (1 == DCU_HUD_FUNCTIONALITY)
 static Dcu_Callback_t		gpCallbackWARPLDDONE[DCU_NUMBER];
 static Dcu_Callback_t		gpCallbackWARPXOVFLW[DCU_NUMBER];
@@ -165,6 +166,7 @@ Dcu_Err_t DCU_Init(Dcu_Unit_t dcu_id, uint32_t aDCUclk, const Dcu_LCD_Para_t* ap
 	gpCallbackPROGEND[dcu_id]		 = NULL_PTR;
 	gpCallbackCRCREADY[dcu_id]		= NULL_PTR;
 	gpCallbackCRCOFV[dcu_id]			= NULL_PTR;
+	gpCallbackUNDRUN[dcu_id]		= NULL_PTR;
 #if (1 == DCU_HUD_FUNCTIONALITY)
 	if ((uint8_t)HUD_DCU == (uint8_t)dcu_id)
 	{
@@ -1544,7 +1546,7 @@ static void DCU_Timing_Isr(Dcu_Unit_t dcu_id)
   int_status = REG_BIT_GET32(DCU_INT_STATUS_ADDR32(dcu_id), DCU_INT_STATUS_VS_BLANK_MASK);
 	if(0 != int_status)
 	{
-    gDCU_DisplayIStatus[dcu_id] = DCU_VBLANK;
+		gDCU_DisplayIStatus[dcu_id] = DCU_VBLANK;
 
 		/* Call callback function */
 		if (gpCallbackVSBLANK[dcu_id] != NULL_PTR)
@@ -1649,6 +1651,19 @@ static void DCU_Timing_Isr(Dcu_Unit_t dcu_id)
     REG_WRITE32(DCU_INT_STATUS_ADDR32(dcu_id), DCU_INT_STATUS_CRC_OVERFLOW_MASK);
 		}
 #endif /* DCU_SAFETY_FUNCTIONALITY */
+
+	  /* Check underrun interrupt */
+	int_status = REG_BIT_GET32(DCU_INT_STATUS_ADDR32(dcu_id),
+			DCU_INT_STATUS_UNDRUN_MASK);
+	if (int_status != 0) {
+		/* Call callback function */
+		if (gpCallbackUNDRUN[dcu_id] != NULL_PTR)
+			gpCallbackUNDRUN[dcu_id]();
+
+		/* Clear the interrupt flag */
+		REG_WRITE32(DCU_INT_STATUS_ADDR32(dcu_id),
+			DCU_INT_STATUS_UNDRUN_MASK);
+	}
 
 }/* Dcu_Timing_Isr() */
 
@@ -2181,6 +2196,51 @@ Dcu_Err_t DCU_RegisterCallbackVSYNC(Dcu_Unit_t dcu_id, Dcu_Callback_t aCallback)
 	return(err);
 }
 
+
+/**
+ * @brief It registers the UNDERRUN callback.
+ * @details This function registers the gpCallbackUNDRUN callback function
+ *		if the pointer is not NULL.
+ *
+ * @param[in]	dcu_id		selects the DCU unit to be accessed.
+ *		aCallback	the callback function.
+ *
+ * @return	error code -DCU_ERR_NOCALLBACK for NULL pointer to the callback.
+ */
+Dcu_Err_t
+DCU_RegisterCallbackUNDERRUN(Dcu_Unit_t dcu_id, Dcu_Callback_t aCallback)
+{
+	Dcu_Err_t err = DCU_ERR_OK;
+
+	if (aCallback != NULL_PTR)
+		gpCallbackUNDRUN[dcu_id] = aCallback;
+	else
+		err = DCU_ERR_NOCALLBACK;
+
+	return err;
+}
+
+/**
+ * @brief Clear any registered UNDERRUN callback.
+ * @details This function clears the gpCallbackUNDRUN callback function
+ *		if the pointer is not NULL.
+ *
+ * @param[in]	dcu_id		selects the DCU unit to be accessed.
+ *
+ * @return	error code -DCU_ERR_NOCALLBACK if no callback had to be cleared.
+ */
+Dcu_Err_t DCU_ClearCallbackUNDERRUN(Dcu_Unit_t dcu_id)
+{
+	Dcu_Err_t err = DCU_ERR_OK;
+
+	if (gpCallbackUNDRUN[dcu_id] != NULL_PTR)
+		gpCallbackUNDRUN[dcu_id] = NULL_PTR;
+	else
+		err = DCU_ERR_NOCALLBACK;
+
+	return err;
+}
+
 /**
 * @brief	 It registers the LSBVFS callback.
 * @details This function registers the gpCallbackLSBFVS callback function
@@ -2210,13 +2270,13 @@ Dcu_Err_t DCU_RegisterCallbackLSBFVS(Dcu_Unit_t dcu_id, Dcu_Callback_t aCallback
 /**
 * @brief	 The function enables the display interface timing interrupts.
 * @details The function enables one of, more or all display interface interrupts:
-*	VS_BLANK, LS_BF_VS, VSYNC, LYR_TRANS_FINISH, DATA_TRANS_FINISH
+*	VS_BLANK, LS_BF_VS, VSYNC, LYR_TRANS_FINISH, DATA_TRANS_FINISH, UNDRUN
 *	and/or PROG_END. The interrupts which are not in the mask remain
 *	as previous this function call(enabled or disabled).
 *
 * @param[in]	dcu_id		selects the DCU unit to be accessed.
 *             int_mask    the interrupt mask: VS_BLANK, LS_BF_VS, VSYNC,
-*		LYR_TRANS_FINISH, DATA_TRANS_FINISH, PROG_END,
+*		LYR_TRANS_FINISH, DATA_TRANS_FINISH, UNDRUN, PROG_END,
 *		or an OR between any of them.
 *
 * @return	err code	- DCU_ERR_MASK	for a wrong interrupt mask.
@@ -2248,13 +2308,13 @@ Dcu_Err_t DCU_EnableDisplayTimingIrq(Dcu_Unit_t dcu_id, uint32_t int_mask)
 /**
 * @brief	 The function disables the display interface timing interrupts.
 * @details The function disables one, more or all the display interface interrupts:
-*		VS_BLANK, LS_BF_VS, VSYNC, LYR_TRANS_FINISH, DATA_TRANS_FINISH
-*		and/or PROG_END. The interrupts which are not in the mask remain
-*		as previous this function call(enabled or disabled).
+*		VS_BLANK, LS_BF_VS, VSYNC, LYR_TRANS_FINISH, DATA_TRANS_FINISH,
+*		UNDRUN and/or PROG_END. The interrupts which are not in the mask
+*		remain as previous this function call(enabled or disabled).
 *
 * @param[in]  dcu_id      selects the DCU unit to be accessed.
 *             int_mask    the interrupt mask: VS_BLANK, LS_BF_VS and/or VSYNC
-*			LYR_TRANS_FINISH, DATA_TRANS_FINISH, PROG_END,
+*			LYR_TRANS_FINISH, DATA_TRANS_FINISH, UNDRUN, PROG_END,
 *			or an OR between any of them.
 *
 * @return	 err code	- DCU_ERR_MASK	for a wrong interrupt mask.
