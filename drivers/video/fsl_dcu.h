@@ -646,6 +646,10 @@ Dcu_Err_t DCU_RegisterCallbackProgDone(Dcu_Unit_t dcu_id, Dcu_Callback_t aCallba
 Dcu_Err_t DCU_RegisterCallbackDataTransferDone(Dcu_Unit_t dcu_id, Dcu_Callback_t aCallback);
 Dcu_Err_t DCU_RegisterCallbackLyrCfgTransferDone(Dcu_Unit_t dcu_id, Dcu_Callback_t aCallback);
 
+Dcu_Err_t
+DCU_RegisterCallbackUNDERRUN(Dcu_Unit_t dcu_id, Dcu_Callback_t aCallback);
+Dcu_Err_t DCU_ClearCallbackUNDERRUN(Dcu_Unit_t dcu_id);
+
 #if (1 == DCU_SAFETY_FUNCTIONALITY)
 Dcu_Err_t DCU_EnableSafetyIrq(Dcu_Unit_t dcu_id, uint32_t int_mask);
 Dcu_Err_t DCU_DisableSafetyIrq(Dcu_Unit_t dcu_id, uint32_t int_mask);
