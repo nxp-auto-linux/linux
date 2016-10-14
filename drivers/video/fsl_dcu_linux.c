@@ -35,6 +35,7 @@
 #include <linux/cdev.h>
 #include <linux/videodev2.h>
 #include <linux/uaccess.h>
+#include <linux/atomic.h>
 
 #include <video/of_display_timing.h>
 #include <video/videomode.h>
@@ -139,6 +140,10 @@ struct IOCTL_DISPLAY_CFG current_display_cfg;
 /* The FB objects which listen for changes in display timings */
 struct fb_info *timings_listener_list[DCU_LAYERS_NUM_MAX];
 int timings_listener_list_size;
+
+/* FB error counters */
+static atomic_t	dcu_undrun_cnt = ATOMIC_INIT(0);
+static atomic_t	dcu_undrun_enabled = ATOMIC_INIT(0);
 
 /**********************************************************
  * GLOBAL DCU & FB supported color formats
@@ -794,6 +799,43 @@ void fsl_dcu_event_VBLANK(void)
 }
 
 /**********************************************************
+ * FUNCTION: fsl_dcu_event_undrun
+ **********************************************************/
+void fsl_dcu_event_undrun(void)
+{
+	atomic_inc(&dcu_undrun_cnt);
+}
+
+/**********************************************************
+ * FUNCTION: fsl_dcu_undrun_enable
+ * enable/disable undrun reporting
+ **********************************************************/
+void fsl_dcu_undrun_enable(uint8_t enabled)
+{
+	if (atomic_read(&dcu_undrun_enabled) != enabled) {
+		atomic_set(&dcu_undrun_enabled, enabled);
+		if (atomic_read(&dcu_undrun_enabled)) {
+			DCU_RegisterCallbackUNDERRUN(0, fsl_dcu_event_undrun);
+			DCU_EnableDisplayTimingIrq(0,
+					DCU_INT_MASK_M_UNDRUN_MASK);
+		} else {
+			DCU_DisableDisplayTimingIrq(0,
+					DCU_INT_MASK_M_UNDRUN_MASK);
+			DCU_ClearCallbackUNDERRUN(0);
+		}
+	}
+}
+
+/**********************************************************
+ * FUNCTION: fsl_dcu_undrun_status
+ *
+ **********************************************************/
+uint8_t fsl_dcu_undrun_status(void)
+{
+	return atomic_read(&dcu_undrun_enabled);
+}
+
+/**********************************************************
  * FUNCTION: fsl_dcu_display
  * DCU configure display
  **********************************************************/
@@ -817,8 +859,11 @@ void fsl_dcu_display(DCU_DISPLAY_TYPE display_type,
 	DCU_RegisterCallbackVSYNC(0, fsl_dcu_event_VSYNC);
 	DCU_RegisterCallbackVBLANK(0, fsl_dcu_event_VBLANK);
 
-	DCU_EnableDisplayTimingIrq(0,
-		DCU_INT_VSYNC_MASK | DCU_INT_VS_BLANK_MASK);
+	DCU_EnableDisplayTimingIrq(0, DCU_INT_VSYNC_MASK |
+			DCU_INT_VS_BLANK_MASK);
+
+	/* set as disabled underrun reporting by default*/
+	fsl_dcu_undrun_enable(0);
 }
 
 /**********************************************************
@@ -1444,12 +1489,52 @@ static const struct dev_pm_ops fsl_dcu_pm_ops = {
 			fsl_dcu_runtime_resume, NULL)
 };
 
+/**********************************************************
+ * DCU exported SYSFS attributes
+ * Can be accessed at /sys/bus/platform/drivers/fsl_dcu
+ **********************************************************/
+static ssize_t undrun_show(struct bus_type *bt, char *buf)
+{
+	return sprintf(buf, "%d\n", atomic_read(&dcu_undrun_cnt));
+}
+
+static ssize_t undrun_mode_store(struct bus_type *bt,
+			   const char *buf, size_t count)
+{
+	int ret = count;
+
+	if (sysfs_streq(buf, "on"))
+		fsl_dcu_undrun_enable(1);
+	else if (sysfs_streq(buf, "off"))
+		fsl_dcu_undrun_enable(0);
+	else
+		ret = -EINVAL;
+	return ret;
+}
+
+static ssize_t undrun_mode_show(struct bus_type *bt, char *buf)
+{
+	return sprintf(buf, "%s\n",
+			fsl_dcu_undrun_status() != 0 ? "on" : "off");
+}
+
+static BUS_ATTR_RO(undrun);
+static BUS_ATTR_RW(undrun_mode);
+
+static struct attribute *fsl_dcu_device_attrs[] = {
+	&bus_attr_undrun.attr,
+	&bus_attr_undrun_mode.attr,
+	NULL,
+};
+ATTRIBUTE_GROUPS(fsl_dcu_device);
+
 static struct platform_driver fsl_dcu_driver = {
 	.driver = {
 		.name = DRIVER_NAME,
 		.owner = THIS_MODULE,
 		.of_match_table = fsl_dcu_dt_ids,
 		.pm = &fsl_dcu_pm_ops,
+		.groups = fsl_dcu_device_groups,
 	},
 	.probe = fsl_dcu_probe,
 	.remove = fsl_dcu_remove,
