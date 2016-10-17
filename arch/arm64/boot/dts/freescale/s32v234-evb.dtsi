@@ -556,8 +556,7 @@
 
 		pinctrl_uart0: uart0grp {
 			fsl,pins = <
-				S32V234_PAD_PA12__UART0_TXD
-				S32V234_PAD_PA11__UART0_RXD_OUT
+				S32V234_PAD_PA12__UART0_TXD_OUT
 				S32V234_PAD_PA11__UART0_RXD_IN
 			>;
 		};
