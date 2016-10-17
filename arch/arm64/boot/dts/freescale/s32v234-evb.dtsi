@@ -562,6 +562,13 @@
 			>;
 		};
 
+		pinctrl_uart1: uart1grp {
+			fsl,pins = <
+				S32V234_PAD_PA14__UART1_TXD_OUT
+				S32V234_PAD_PA13__UART1_RXD_IN
+			>;
+		};
+
 		pinctrl_usdhc0: usdhc0grp {
 			fsl,pins = <
 				S32V234_PAD_PK6__USDHC_CLK_OUT
@@ -718,6 +725,8 @@
 };
 
 &uart1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_uart1>;
 	status = "okay";
 };
 
