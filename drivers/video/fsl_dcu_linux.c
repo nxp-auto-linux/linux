@@ -340,6 +340,7 @@ EXPORT_SYMBOL_GPL(fsl_dcu_get_color_format_byname);
  **********************************************************/
 int fsl_dcu_set_clut(struct fb_info *info)
 {
+	int ret = 0;
 	struct mfb_info *mfbi = info->par;
 	struct fb_cmap *cmap = &info->cmap;
 	uint32_t clut[256], i;
@@ -358,10 +359,11 @@ int fsl_dcu_set_clut(struct fb_info *info)
 	}
 
 	/* wait vblank, and then write the CLUT */
-	fsl_dcu_wait_for_vblank();
-	DCU_CLUTLoad(0, mfbi->index, clut_offset, cmap->len, clut);
+	ret = fsl_dcu_wait_for_vblank();
+	if (!ret)
+		DCU_CLUTLoad(0, mfbi->index, clut_offset, cmap->len, clut);
 
-	return 0;
+	return ret;
 }
 EXPORT_SYMBOL_GPL(fsl_dcu_set_clut);
 
@@ -695,6 +697,7 @@ int fsl_dcu_wait_for_event(uint32_t type)
 {
 	unsigned long flags;
 	int cond_idx;
+	int ret = 0;
 
 	if (type >= DCU_EVENT_TYPE_MAX)
 		return -EINVAL;
@@ -719,15 +722,15 @@ int fsl_dcu_wait_for_event(uint32_t type)
 		return -EBUSY;
 
 	/* Wait until the DCU event occurs */
-	wait_event(dcu_event_queue,
+	ret = wait_event_interruptible(dcu_event_queue,
 		event_condition_list[type][cond_idx] == DCU_STATUS_WAITED);
 
-	/* Release the entry in the waiting PID list */
+	/* Release the entry in the waiting PID list even if interrupted */
 	spin_lock_irqsave(&dcu_event_queue.lock, flags);
 	event_condition_list[type][cond_idx] = EVENT_STATUS_CLEAR;
 	spin_unlock_irqrestore(&dcu_event_queue.lock, flags);
 
-	return 0;
+	return !ret ? 0 : -ERESTARTSYS;
 }
 
 /**********************************************************
