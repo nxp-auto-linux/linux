@@ -411,8 +411,7 @@ static int fsl_fb_ioctl(struct fb_info *info, unsigned int cmd,
 		break;
 
 	case FBIO_WAITFORVSYNC:
-		fsl_dcu_wait_for_vsync();
-		break;
+		return fsl_dcu_wait_for_vsync();
 
 	default:
 		dev_err(dcufb->dev, "Unknown ioctl command (0x%08X).\n", cmd);
