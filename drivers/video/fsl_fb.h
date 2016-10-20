@@ -35,6 +35,7 @@ struct mfb_info {
 	unsigned int count;
 	int x_layer_d;	/* layer display x offset to physical screen */
 	int y_layer_d;	/* layer display y offset to physical screen */
+	int tiled;	/* layer in tiled format */
 	struct dcu_fb_data *parent;
 };
 
