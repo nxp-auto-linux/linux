@@ -995,7 +995,9 @@ Dcu_Err_t DCU_SetLayerHorizontalSkip(Dcu_Unit_t dcu_id, Dcu_Layer_t layer_id,
 	skip_reg |= (post_skip << DCU_CTRLDESCLn_10_POST_SKIP_SHIFT)
 		& DCU_CTRLDESCLn_10_POST_SKIP_COLOR_MASK;
 
-	REG_WRITE32(DCU_CTRLDESCL10_ADDR32(dcu_id, layer_id), skip_reg);
+	REG_RMW32(DCU_CTRLDESCL10_ADDR32(dcu_id, layer_id),
+			DCU_CTRLDESCLn_10_PRE_SKIP_COLOR_MASK |
+			DCU_CTRLDESCLn_10_POST_SKIP_COLOR_MASK, skip_reg);
 
 	return DCU_ERR_OK;
 }

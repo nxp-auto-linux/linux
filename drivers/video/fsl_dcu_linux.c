@@ -429,6 +429,11 @@ int fsl_dcu_config_layer(struct fb_info *info)
 			DCU_FB_COLOR_BPP[color_format_idx]);
 	}
 
+	if (mfbi->tiled && var->nonstd)
+		DCU_LayerTileEnable(0, mfbi->index);
+	else
+		DCU_LayerTileDisable(0, mfbi->index);
+
 	DCU_SetLayerAlphaVal(0, mfbi->index, mfbi->alpha);
 	DCU_SetLayerAlphaMode(0, mfbi->index, DCU_ALPHAKEY_WHOLEFRAME);
 	DCU_LayerEnable(0, mfbi->index);
