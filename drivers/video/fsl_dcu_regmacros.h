@@ -466,21 +466,24 @@ extern "C"{
 * @violates @ref Reg_Macros_h_REF_1 MISRA 2004 Advisory Rule 19.7, A function should be used in
 * preference to a function-like macro.
 */
-#define REG_BIT_CLEAR8(address, mask)     ((*(volatile uint8*)(REG_ADDR(address)))&= ((uint8)~((uint8)(mask))))
+#define REG_BIT_CLEAR8(address, mask)     (REG_WRITE8((address),\
+					   REG_READ8(address) & ((uint8)~((uint8)(mask)))))
 /**
 * @brief 16 bits bits clearing macro.
 * @implements DBASE09007
 * @violates @ref Reg_Macros_h_REF_1 MISRA 2004 Advisory Rule 19.7, A function should be used in
 * preference to a function-like macro.
 */
-#define REG_BIT_CLEAR16(address, mask)    ((*(volatile uint16*)(REG_ADDR(address)))&= ((uint16)~((uint16)(mask))))
+#define REG_BIT_CLEAR16(address, mask)    (REG_WRITE16((address),\
+					   REG_READ16(address) & ((uint16)~((uint16)(mask)))))
 /**
 * @brief 32 bits bits clearing macro.
 * @implements DBASE09008
 * @violates @ref Reg_Macros_h_REF_1 MISRA 2004 Advisory Rule 19.7, A function should be used in
 * preference to a function-like macro.
 */
-#define REG_BIT_CLEAR32(address, mask)    ((*(volatile uint32_t*)(REG_ADDR(address)))&= ((uint32_t)~((uint32_t)(mask))))
+#define REG_BIT_CLEAR32(address, mask)    (REG_WRITE32((address),\
+					   REG_READ32(address) & ((uint32_t)~((uint32_t)(mask)))))
 
 
 /**
@@ -489,21 +492,21 @@ extern "C"{
 * @violates @ref Reg_Macros_h_REF_1 MISRA 2004 Advisory Rule 19.7, A function should be used in
 * preference to a function-like macro.
 */
-#define REG_BIT_GET8(address, mask)       ((*(volatile uint8*)(REG_ADDR(address)))& (uint8)(mask))
+#define REG_BIT_GET8(address, mask)       (REG_READ8(address) & (uint8)(mask))
 /**
 * @brief 16 bits bits getting macro.
 * @implements DBASE09010
 * @violates @ref Reg_Macros_h_REF_1 MISRA 2004 Advisory Rule 19.7, A function should be used in
 * preference to a function-like macro.
 */
-#define REG_BIT_GET16(address, mask)      ((*(volatile uint16*)(REG_ADDR(address)))& (uint16)(mask))
+#define REG_BIT_GET16(address, mask)      (REG_READ16(address) & (uint16)(mask))
 /**
 * @brief 32 bits bits getting macro.
 * @implements DBASE09011
 * @violates @ref Reg_Macros_h_REF_1 MISRA 2004 Advisory Rule 19.7, A function should be used in
 * preference to a function-like macro.
 */
-#define REG_BIT_GET32(address, mask)      ((*(volatile uint32_t*)(REG_ADDR(address)))& (uint32_t)(mask))
+#define REG_BIT_GET32(address, mask)      (REG_READ32(address) & (uint32_t)(mask))
 
 
 /**
@@ -512,21 +515,24 @@ extern "C"{
 * @violates @ref Reg_Macros_h_REF_1 MISRA 2004 Advisory Rule 19.7, A function should be used in
 * preference to a function-like macro.
 */
-#define REG_BIT_SET8(address, mask)       ((*(volatile uint8*)(REG_ADDR(address)))|= (uint8)(mask))
+#define REG_BIT_SET8(address, mask)       (REG_WRITE8((address),\
+					   REG_READ8(address) | (uint8)(mask)))
 /**
 * @brief 16 bits bits setting macro.
 * @implements DBASE09013
 * @violates @ref Reg_Macros_h_REF_1 MISRA 2004 Advisory Rule 19.7, A function should be used in
 * preference to a function-like macro.
 */
-#define REG_BIT_SET16(address, mask)      ((*(volatile uint16*)(REG_ADDR(address)))|= (uint16)(mask))
+#define REG_BIT_SET16(address, mask)      (REG_WRITE16((address),\
+					   REG_READ16(address) | (uint16)(mask)))
 /**
 * @brief 32 bits bits setting macro.
 * @implements DBASE09014
 * @violates @ref Reg_Macros_h_REF_1 MISRA 2004 Advisory Rule 19.7, A function should be used in
 * preference to a function-like macro.
 */
-#define REG_BIT_SET32(address, mask)      ((*(volatile uint32_t*)(REG_ADDR(address)))|= (uint32_t)(mask))
+#define REG_BIT_SET32(address, mask)      (REG_WRITE32((address),\
+					   REG_READ32(address) | (uint32_t)(mask)))
 
 
 /**
