@@ -44,6 +44,15 @@
 #define MFB_SET_LAYER	_IOW('M', 4, struct layer_display_offset)
 #define MFB_GET_LAYER	_IOR('M', 4, struct layer_display_offset)
 
+/**
+ * iMX6 IPU tiled formats and IOCTL calls used by Vivante driver
+ */
+#define MXCFB_SET_PREFETCH	_IOW('F', 0x30, int)
+#define MXCFB_GET_PREFETCH	_IOR('F', 0x31, int)
+
+/* 32bit single buf 4x4 standard */
+#define IPU_PIX_FMT_GPU32_ST     v4l2_fourcc('5', 'I', '4', 'S')
+
 /**********************************************************
  * Macros for tracing
  **********************************************************/
@@ -176,6 +185,7 @@ static int fsl_fb_check_var(struct fb_var_screeninfo *var,
 static int fsl_fb_set_par(struct fb_info *info)
 {
 	unsigned long len;
+	struct mfb_info *mfbi = info->par;
 	struct fb_var_screeninfo *var = &info->var;
 	struct fb_fix_screeninfo *fix = &info->fix;
 	struct IOCTL_DISPLAY_CFG ioctl_display_cfg;
@@ -185,6 +195,8 @@ static int fsl_fb_set_par(struct fb_info *info)
 	if ((fix->capabilities & FB_CAP_FOURCC) &&
 		(var->grayscale == V4L2_PIX_FMT_UYVY))
 		var->bits_per_pixel = 16;
+
+	var->nonstd = mfbi->tiled ? IPU_PIX_FMT_GPU32_ST : 0;
 
 	fix->line_length = var->xres_virtual * var->bits_per_pixel / 8;
 	fix->type = FB_TYPE_PACKED_PIXELS;
@@ -196,12 +208,13 @@ static int fsl_fb_set_par(struct fb_info *info)
 	len = info->var.yres_virtual * info->fix.line_length;
 
 	if (len != info->fix.smem_len) {
-		if (info->fix.smem_start) {
-			__MSG_TRACE__("unmap_video_memory\n");
+		if (info->fix.smem_start)
 			fsl_dcu_unmap_vram(info);
-		}
 
-		__MSG_TRACE__("map_video_memory\n");
+		__MSG_TRACE__("map_video_memory [xv=%d,yv=%d;bpp=%d]\n",
+				var->xres_virtual, var->yres_virtual,
+				var->bits_per_pixel);
+
 		if (fsl_dcu_map_vram(info))
 			return -ENOMEM;
 	}
@@ -321,7 +334,6 @@ int fsl_fb_setcmap(struct fb_cmap *cmap, struct fb_info *info)
 static int fsl_fb_pan_display(struct fb_var_screeninfo *var,
 				struct fb_info *info)
 {
-	__TRACE__;
 	if ((info->var.xoffset == var->xoffset) &&
 		(info->var.yoffset == var->yoffset))
 		return 0;
@@ -339,7 +351,10 @@ static int fsl_fb_pan_display(struct fb_var_screeninfo *var,
 		info->var.vmode &= ~FB_VMODE_YWRAP;
 
 	fsl_dcu_set_layer(info);
-	__MSG_TRACE__("fsl_dcu_set_layer\n");
+
+	__MSG_TRACE__("layer(%d):xoff=%d;yoff=%d\n",
+			((struct mfb_info *)info->par)->index,
+			info->var.xoffset, info->var.yoffset);
 
 	return 0;
 }
@@ -413,6 +428,24 @@ static int fsl_fb_ioctl(struct fb_info *info, unsigned int cmd,
 	case FBIO_WAITFORVSYNC:
 		return fsl_dcu_wait_for_vsync();
 
+	case MXCFB_GET_PREFETCH:
+	{
+		if (copy_to_user(buf, &mfbi->tiled, sizeof(mfbi->tiled)))
+			return -EFAULT;
+		break;
+	}
+	case MXCFB_SET_PREFETCH:
+	{
+		int enable = 0;
+
+		if (copy_from_user(&enable, buf, sizeof(enable)))
+			return -EFAULT;
+
+		/* enable tile */
+		mfbi->tiled = enable;
+		fsl_fb_set_par(info);
+		break;
+	}
 	default:
 		dev_err(dcufb->dev, "Unknown ioctl command (0x%08X).\n", cmd);
 		return -ENOIOCTLCMD;
