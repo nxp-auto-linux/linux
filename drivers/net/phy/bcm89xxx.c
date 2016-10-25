@@ -78,14 +78,14 @@ static struct phy_driver bcm89xxx_driver[] = {
 		.read_status	= genphy_read_status,
 		.ack_interrupt	= bcm89xxx_ack_interrupt,
 		.config_intr	= bcm89xxx_config_intr,
-		.driver		= { .owner = THIS_MODULE },
 	}
 };
 
 static int __init bcm89xxx_phy_init(void)
 {
 	return phy_drivers_register(bcm89xxx_driver,
-				    ARRAY_SIZE(bcm89xxx_driver));
+				    ARRAY_SIZE(bcm89xxx_driver),
+				    THIS_MODULE);
 }
 
 static void __exit bcm89xxx_phy_exit(void)
