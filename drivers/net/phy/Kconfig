@@ -239,6 +239,13 @@ config NXP_TJA11XX_PHY
 	help
 	  Currently supports the NXP TJA1100 and TJA1101 PHY.
 
+config NXP_TJA110X_PHY
+	tristate "NXP TJA110X PHY support"
+	help
+	  This is the NXP TJA110X PHY driver module
+	  To compile this driver as a module, choose M here: the
+	  module will be called nxp-tja110x.ko.
+
 config AT803X_PHY
 	tristate "Qualcomm Atheros AR803X PHYs"
 	depends on REGULATOR
