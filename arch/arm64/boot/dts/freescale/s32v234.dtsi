@@ -435,7 +435,7 @@
 			dcu0: dcu@40028000 {
 				compatible = "fsl,s32v234-dcu";
 				reg = <0x0 0x40028000 0x0 0x5000>;
-				interrupts = <0 95 1>;
+				interrupts = <0 95 4>;
 				clocks = <&clks S32V234_CLK_DCU_AXI>,
 					 <&clks S32V234_CLK_DCU_PIX>;
 				clock-names = "dcu", "ipg";
