@@ -698,7 +698,7 @@
 	/* This is an example entry to illustrate SPI device setup.
 	 * To be hooked up to the expansion port SPI3 CS0 for testing.
 	 */
-	tja1145: tja1145@0 {
+	spidev0: spidev@0 {
 		compatible = "rohm,dh2228fv";
 		spi-max-frequency = <4000000>;
 		reg = <0>;
