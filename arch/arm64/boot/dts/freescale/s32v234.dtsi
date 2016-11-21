@@ -358,7 +358,7 @@
 				interrupts = <0 96 1>;
 				clocks = <&clks S32V234_CLK_VIU0_AHB>,
 					 <&clks S32V234_CLK_VIU0_IPS>;
-				clock-names = "fsl_viulite0", "per";
+				clock-names = "viulite0", "per";
 				status = "disabled";
 			};
 
@@ -568,7 +568,7 @@
 				interrupts = <0 100 1>;
 				clocks = <&clks S32V234_CLK_VIU1_AHB>,
 					 <&clks S32V234_CLK_VIU1_IPS>;
-				clock-names = "fsl_viulite1", "per";
+				clock-names = "viulite1", "per";
 				status = "disabled";
 			};
 
