@@ -32,6 +32,14 @@
 #define MASTER_CPU	0
 #define TIMER_NAME	"NXP PIT Timer"
 
+#ifndef CONFIG_PIT_CLKSRC_RATE
+#define CONFIG_PIT_CLKSRC_RATE	460
+#endif
+
+#ifndef CONFIG_PIT_CLKEVT_RATE
+#define CONFIG_PIT_CLKEVT_RATE	460
+#endif
+
 struct pit_timer {
 	void __iomem *clksrc_base;
 	void __iomem *clkevt_base;
