@@ -24,3 +24,119 @@
 		};
 	};
 };
+
+&spi0 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	sja1105_0: sja1105@0 {
+		compatible = "nxp,sja1105-switch-1-3";
+		spi-max-frequency = <4000000>;
+		spi-cpha;
+		reg = <0>;
+		port-0 {
+			is-host = <1>;
+			speed = <1000>;
+			xmii-mode = "RGMII";
+			null-phy =  <1>;
+		};
+		port-1 {
+			is-host = <0>;
+			speed = <1000>;
+			xmii-mode = "RGMII";
+			null-phy =  <0>;
+		};
+		port-2 {
+			is-host = <0>;
+			speed = <100>;
+			xmii-mode = "RMII";
+			null-phy = <0>;
+		};
+		port-3 {
+			is-host = <0>;
+			speed = <1000>;
+			xmii-mode = "RGMII";
+			null-phy = <0>;
+		};
+		port-4 {
+			is-host = <0>;
+			speed = <1000>;
+			xmii-mode = "RGMII";
+			null-phy = <0>;
+		};
+	};
+
+	sja1105_1: sja1105@1 {
+		compatible = "nxp,sja1105-switch-2-3";
+		spi-max-frequency = <4000000>;
+		spi-cpha;
+		reg = <5>;
+		port-0 {
+			is-host = <1>;
+			speed = <1000>;
+			xmii-mode = "RGMII";
+			null-phy =  <1>;
+		};
+		port-1 {
+			is-host = <0>;
+			speed = <100>;
+			xmii-mode = "RMII";
+			null-phy =  <0>;
+		};
+		port-2 {
+			is-host = <0>;
+			speed = <100>;
+			xmii-mode = "RMII";
+			null-phy = <0>;
+		};
+		port-3 {
+			is-host = <0>;
+			speed = <100>;
+			xmii-mode = "RMII";
+			null-phy = <0>;
+		};
+		port-4 {
+			is-host = <0>;
+			speed = <100>;
+			xmii-mode = "RMII";
+			null-phy = <0>;
+		};
+	};
+
+	sja1105_2: sja1105@2 {
+		compatible = "nxp,sja1105-switch-3-3";
+		spi-max-frequency = <4000000>;
+		spi-cpha;
+		reg = <4>;
+		port-0 {
+			is-host = <1>;
+			speed = <1000>;
+			xmii-mode = "RGMII";
+			null-phy =  <1>;
+		};
+		port-1 {
+			is-host = <0>;
+			speed = <100>;
+			xmii-mode = "RMII";
+			null-phy =  <0>;
+		};
+		port-2 {
+			is-host = <0>;
+			speed = <100>;
+			xmii-mode = "RMII";
+			null-phy = <0>;
+		};
+		port-3 {
+			is-host = <0>;
+			speed = <100>;
+			xmii-mode = "RMII";
+			null-phy = <0>;
+		};
+		port-4 {
+			is-host = <0>;
+			speed = <100>;
+			xmii-mode = "RMII";
+			null-phy = <0>;
+		};
+	};
+};
