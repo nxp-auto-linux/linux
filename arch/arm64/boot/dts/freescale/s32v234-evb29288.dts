@@ -22,6 +22,36 @@
 		phy0: ethernet-phy@3 {
 			reg = <3>;
 		};
+		/* S32V234EVB, rev 29288, has 6 NXP TJA1102 PHYs.*/
+		phy1: ethernet-phy@4 {
+			reg = <4>;
+			max-speed = <100>;
+		};
+		phy2: ethernet-phy@5 {
+			reg = <5>;
+			max-speed = <100>;
+		};
+		phy3: ethernet-phy@6 {
+			reg = <6>;
+			max-speed = <100>;
+		};
+		phy4: ethernet-phy@7 {
+			reg = <7>;
+			max-speed = <100>;
+		};
+		/*
+		 * This assumes that a HW fix was done on S32V234EVB,
+		 * rev 29288 in order to avoid the address conflict
+		 * with Micrel PHY.
+		 */
+		phy5: ethernet-phy@10 {
+			reg = <10>;
+			max-speed = <100>;
+		};
+		phy6: ethernet-phy@11 {
+			reg = <11>;
+			max-speed = <100>;
+		};
 	};
 };
 
