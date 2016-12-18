@@ -22,6 +22,39 @@
 		phy0: ethernet-phy@3 {
 			reg = <3>;
 		};
+		/* Mini Bluebox has 8 NXP TJA1102 PHYs. */
+		phy1: ethernet-phy@4 {
+			reg = <4>;
+			max-speed = <100>;
+		};
+		phy2: ethernet-phy@5 {
+			reg = <5>;
+			max-speed = <100>;
+		};
+		phy3: ethernet-phy@6 {
+			reg = <6>;
+			max-speed = <100>;
+		};
+		phy4: ethernet-phy@7 {
+			reg = <7>;
+			max-speed = <100>;
+		};
+		phy5: ethernet-phy@8 {
+			reg = <8>;
+			max-speed = <100>;
+		};
+		phy6: ethernet-phy@9 {
+			reg = <9>;
+			max-speed = <100>;
+		};
+		phy7: ethernet-phy@10 {
+			reg = <10>;
+			max-speed = <100>;
+		};
+		phy8: ethernet-phy@11 {
+			reg = <11>;
+			max-speed = <100>;
+		};
 	};
 };
 
