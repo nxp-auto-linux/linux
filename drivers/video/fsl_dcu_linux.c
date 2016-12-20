@@ -843,6 +843,7 @@ void fsl_dcu_display(DCU_DISPLAY_TYPE display_type,
 		Dcu_LCD_Para_t *dcu_lcd_timings)
 {
 	Dcu_Colour_t bkgr_color;
+	struct Dcu_Threshold_IB_t qos_threshold = { 0x7f, 0x7f, 0x7f, 0x7f};
 
 	__TRACE__;
 
@@ -861,6 +862,12 @@ void fsl_dcu_display(DCU_DISPLAY_TYPE display_type,
 
 	DCU_EnableDisplayTimingIrq(0, DCU_INT_VSYNC_MASK |
 			DCU_INT_VS_BLANK_MASK);
+
+	/* Set QoS values. Needed to be able to drive constant data
+	 * throughput for 1920*1080 resolution
+	 */
+	DCU_SetInputBufThreshold(0, &qos_threshold);
+	DCU_SetEscalationLevel(0, 0x0F);
 
 	/* set as disabled underrun reporting by default*/
 	fsl_dcu_undrun_enable(0);
