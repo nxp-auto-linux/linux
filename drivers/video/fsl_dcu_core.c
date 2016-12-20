@@ -3044,3 +3044,56 @@ Dcu_Err_t DCU_WriteBackReadyCheck(Dcu_Unit_t dcu_id)
 	return(err);
 }
 #endif /* DCU_WRITEBACK_FUNCTIONALITY */
+
+/***************	QoS SUPPORT	***************/
+
+/**
+ * @brief	Control escalation of bus QoS for DCU.
+ * @details	This sets number of outstanding transaction that will
+ *			trigger QoS bus escalation
+ *
+ * @param[in]	dcu_id		selects the DCU unit to be accessed.
+ *		level	number of outstanding transaction
+ */
+Dcu_Err_t
+DCU_SetEscalationLevel(Dcu_Unit_t dcu_id, uint8_t level)
+{
+	REG_RMW32(DCU_TX_ESCAL_LVL_ADDR32(dcu_id), DCU_TX_ESCAL_LVL_MASK,
+			level << DCU_TX_ESCAL_LVL_SHIFT);
+	return DCU_ERR_OK;
+}
+
+/**
+ * @brief	Control escalation of bus QoS for DCU.
+ * @details	This sets input FIFO buffer high and low thresholds
+ *			that will trigger QoS bus escalation
+ *
+ * @param[in]	dcu_id		selects the DCU unit to be accessed.
+ *		pValue	high and low thresholds for input FIFO
+ */
+Dcu_Err_t
+DCU_SetInputBufThreshold(Dcu_Unit_t dcu_id, struct Dcu_Threshold_IB_t *pValue)
+{
+	Dcu_Err_t err = DCU_ERR_OK;
+
+	if (pValue != NULL_PTR)	{
+		uint32_t reg_temp;
+
+		reg_temp = (pValue->TIB_p1_high <<
+			DCU_THRESHOLD_INP_BUF_1_INP_BUF_P1_HI_SHIFT) &
+				DCU_THRESHOLD_INP_BUF_1_INP_BUF_P1_HI_MASK;
+		reg_temp |= (pValue->TIB_p1_low <<
+			DCU_THRESHOLD_INP_BUF_1_INP_BUF_P1_LO_SHIFT) &
+				DCU_THRESHOLD_INP_BUF_1_INP_BUF_P1_LO_MASK;
+		reg_temp |= (pValue->TIB_p2_high <<
+			DCU_THRESHOLD_INP_BUF_1_INP_BUF_P2_HI_SHIFT) &
+				DCU_THRESHOLD_INP_BUF_1_INP_BUF_P2_HI_MASK;
+		reg_temp |= (pValue->TIB_p2_low <<
+			DCU_THRESHOLD_INP_BUF_1_INP_BUF_P2_LO_SHIFT) &
+				DCU_THRESHOLD_INP_BUF_1_INP_BUF_P2_LO_MASK;
+		REG_WRITE32(DCU_THRESHOLD_INP_BUF_1_ADDR32(dcu_id), reg_temp);
+	} else {
+		err = DCU_ERR_NULL_PTR;
+	}
+	return err;
+}
