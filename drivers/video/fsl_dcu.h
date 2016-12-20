@@ -502,6 +502,14 @@ typedef struct
 	uint8_t			 WBAlphaVal;	/** writeback alpha value */
 }Dcu_WriteBack_t;
 #endif /* DCU_WRITEBACK_FUNCTIONALITY */
+
+struct Dcu_Threshold_IB_t {
+	uint8_t	TIB_p1_high;	/** high threshold for FIFO 1 */
+	uint8_t	TIB_p1_low;	/** low threshold for FIFO 1 */
+	uint8_t	TIB_p2_high;	/** high threshold for FIFO 2 */
+	uint8_t	TIB_p2_low;	/** low threshold for FIFO 2 */
+};
+
 /*****************************************************************************
 * publics functions (prototypes)
 *****************************************************************************/
@@ -696,6 +704,14 @@ Dcu_Err_t DCU_GetWriteBackMode(Dcu_Unit_t dcu_id, Dcu_WBmode_t* pValue);
 Dcu_Err_t DCU_WriteBackErrCheck(Dcu_Unit_t dcu_id, uint32_t* pValue, uint32_t uiMask);
 Dcu_Err_t DCU_WriteBackReadyCheck(Dcu_Unit_t dcu_id);
 #endif /* DCU_WRITEBACK_FUNCTIONALITY */
+
+/***************	QoS SUPPORT	***************/
+Dcu_Err_t
+DCU_SetEscalationLevel(Dcu_Unit_t dcu_id, uint8_t level);
+
+Dcu_Err_t
+DCU_SetInputBufThreshold(Dcu_Unit_t dcu_id, struct Dcu_Threshold_IB_t *pValue);
+
 #ifdef	__cplusplus
 }
 #endif
