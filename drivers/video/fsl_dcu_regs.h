@@ -891,6 +891,7 @@ vuint32_t GAMMACURSOR[0x400];         /* offset: 0x00004C00*/
   #define DCU_CRC_FRM_CTRL_OFFSET           0x000000E0
   #define DCU_CRC_FRM_VAL_OFFSET            0x000000E4
 #endif /*(DCU_SAFETY_FUNCTIONALITY)*/
+#define DCU_TX_ESCAL_LVL_OFFSET             0x000000E8
 #define DCU_GPR_OFFSET                      0x00000100
 #define DCU_SLR_L0_OFFSET                   0x00000104
 #define DCU_SLR_L1_OFFSET                   0x00000108
@@ -2903,6 +2904,10 @@ vuint32_t GAMMACURSOR[0x400];         /* offset: 0x00004C00*/
 #define DCU_MASK_PARR_ERR_STATUS3_M_DISP_ERR_MASK   \
 	((1) << (DCU_MASK_PARR_ERR_STATUS3_M_DISP_ERR_SHIFT))
 
+/************ INPUT BUFFER THRESHOLD REGISTERS ************/
+
+#define DCU_THRESHOLD_INP_BUF_1_ADDR32(dcu_id)        \
+	(DCU_BASE_ADDRESS[(dcu_id)] + DCU_THRESHOLD_INP_BUF_1_OFFSET)
 
 /* Field definitions for THRESHOLD_INP_BUF_1 */
 #define DCU_THRESHOLD_INP_BUF_1_INP_BUF_P2_HI_SHIFT (24)
@@ -3171,6 +3176,14 @@ vuint32_t GAMMACURSOR[0x400];         /* offset: 0x00004C00*/
 	(DCU_BASE_ADDRESS[(uint8_t)(dcu)] + DCU_CRC_FRM_VAL_OFFSET)
 #endif /*(DCU_SAFETY_FUNCTIONALITY)*/
 
+/************ TX_ESCAL_LVL REGISTER ************/
+#define DCU_TX_ESCAL_LVL_ADDR32(dcu_id)					\
+	(DCU_BASE_ADDRESS[(dcu_id)] + DCU_TX_ESCAL_LVL_OFFSET)
+
+/* Field definitions for TX_ESCAL_LVL */
+#define DCU_TX_ESCAL_LVL_SHIFT                       (0)
+#define DCU_TX_ESCAL_LVL_MASK                        \
+	((0x0F) << (DCU_TX_ESCAL_LVL_SHIFT))
 
 /* Field definitions for GPR */
 #define DCU_GPR_HLB_SHIFT                       (31)
