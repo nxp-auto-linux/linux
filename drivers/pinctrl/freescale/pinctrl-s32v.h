@@ -44,13 +44,9 @@ enum s32v_pinctrl_version {
 };
 
 /**
- * struct s32v_pin_group - describes a single S32V pin
- * @pin: the pin_id of this pin
- * @mux_mode: the mux mode for this pin.
- * @input_reg: the select input register offset for this pin if any
- *	0 if no select input setting needed.
- * @input_val: the select input value for this pin.
- * @configs: the config for this pin.
+ * struct s32v_pin - describes a single S32V pin
+ * @pin_id: the pin_id of this pin
+ * @config: the config for this pin.
  */
 struct s32v_pin {
 	unsigned int pin_id;
