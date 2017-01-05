@@ -55,14 +55,31 @@ PNAME(gpu_sels) = {"firc", "fxosc", "armpll_dfs1", };
 
 PNAME(gpu_shdmipi_sels) = {"firc", "fxosc",
 			   "armpll_dfs2", };
+PNAME(h264dcd_sels) = {"firc", "fxosc", "dummy", "dummy",
+		       "enetpll_dfs0", };
+PNAME(h264enc_sels) = {"firc", "fxosc", "dummy", "dummy",
+		       "enetpll_dfs1", };
+PNAME(jpegdec_sels) = {"firc", "fxosc", "dummy", "dummy",
+		       "dummy", "ddrpll_dfs2", };
 
 static struct clk *clk[S32V234_CLK_END];
 static struct clk_onecell_data clk_data;
 
-static u32 share_count_sdhcgate;
+static u32 share_count_csi0gate;
+static u32 share_count_csi1gate;
+static u32 share_count_dcugate;
+#if defined(DEC200_CLK)
+static u32 share_count_dec200gate;
+#endif
+static u32 share_count_h264dcdgate;
+static u32 share_count_h264encgate;
+static u32 share_count_jpegdecgate;
 static u32 share_count_linflex0gate;
 static u32 share_count_linflex1gate;
-static u32 share_count_dcugate;
+static u32 share_count_sdhcgate;
+static u32 share_count_viu0gate;
+static u32 share_count_viu1gate;
+
 #if 0
 /* TBD: Enable gating for ENET */
 static u32 share_count_enetgate;
@@ -213,6 +230,18 @@ static void __init s32v234_clocks_init(struct device_node *mc_cgm0_node)
 	clk[S32V234_CLK_IIC2] = s32_clk_gate2("iic2", "sys6",
 		mc_me_base, IIC2_PCTL, 0, 1);
 
+#if defined(DEC200_CLK)
+	clk[S32V234_CLK_DEC200_ENC_AHB] = s32_clk_gate2_shared(
+		"dec200_enc_ahb", "sys3", mc_me_base,
+		DEC200_PCTL, 0, 1,
+		&share_count_dec200gate);
+
+	clk[S32V234_CLK_DEC200_ENC_IPS] = s32_clk_gate2_shared(
+		"dec200_enc_ips", "sys6", mc_me_base,
+		DEC200_PCTL, 0, 1,
+		&share_count_dec200gate);
+#endif
+
 	clk[S32V234_CLK_DMACHMUX0] = s32_clk_gate2("dmachmux0", "sys6",
 		mc_me_base, DMACHMUX0_PCTL, 0, 1);
 	clk[S32V234_CLK_DMACHMUX1] = s32_clk_gate2("dmachmux1", "sys6",
@@ -231,6 +260,20 @@ static void __init s32v234_clocks_init(struct device_node *mc_cgm0_node)
 		 mc_me_base, PIT0_PCTL, 0, 1);
 	clk[S32V234_CLK_PIT1] = s32_clk_gate2("pit1", "sys6",
 		 mc_me_base, PIT1_PCTL, 0, 1);
+
+	clk[S32V234_CLK_VIU0_AHB]  = s32_clk_gate2_shared("viu0_ahb",
+		"sys3",
+		mc_me_base, VIU0_PCTL, 0, 1, &share_count_viu0gate);
+	clk[S32V234_CLK_VIU0_IPS] = s32_clk_gate2_shared("viu0_ips",
+		"sys6", mc_me_base, VIU0_PCTL, 0, 1,
+		&share_count_viu0gate);
+
+	clk[S32V234_CLK_VIU1_AHB]  = s32_clk_gate2_shared("viu1_ahb",
+		"sys3",
+		mc_me_base, VIU1_PCTL, 0, 1, &share_count_viu0gate);
+	clk[S32V234_CLK_VIU1_IPS] = s32_clk_gate2_shared("viu1_ips",
+		"sys6", mc_me_base, VIU1_PCTL, 0, 1,
+		&share_count_viu1gate);
 
 	/* enable ARMPLL */
 	enable_clocks_sources(0, MC_ME_MODE_MC_ARMPLL,
@@ -389,6 +432,7 @@ static void __init s32v234_clocks_init(struct device_node *mc_cgm0_node)
 		MC_CGM_ACn_SEL_OFFSET,
 		MC_CGM_ACn_SEL_SIZE,
 		enet_sels, ARRAY_SIZE(enet_sels));
+
 	clk[S32V234_CLK_ENET_TIME_SEL] = s32_clk_mux("enet_time_sel",
 		CGM_ACn_SC(mc_cgm0_base, 7),
 		MC_CGM_ACn_SEL_OFFSET,
@@ -418,6 +462,49 @@ static void __init s32v234_clocks_init(struct device_node *mc_cgm0_node)
 		"enet_time_div", mc_me_base, ENET_PCTL, 0, 1,
 		&share_count_enetgate);
 #endif
+	/* H264DCD Clock */
+	clk[S32V234_CLK_H264DCD_SEL] = s32_clk_mux("h264dcd_sel",
+		CGM_ACn_SC(mc_cgm0_base, 12),
+		MC_CGM_ACn_SEL_OFFSET,
+		MC_CGM_ACn_SEL_SIZE,
+		h264dcd_sels, ARRAY_SIZE(h264dcd_sels));
+	clk[S32V234_CLK_H264DCD_DIV] = s32_clk_divider("h264dcd_div",
+		"h264dec_sel", CGM_ACn_DCm(mc_cgm0_base, 12, 0),
+		MC_CGM_ACn_DCm_PREDIV_OFFSET,
+		MC_CGM_ACn_DCm_PREDIV_SIZE);
+	clk[S32V234_CLK_H264DCD] = s32_clk_gate2_shared("h264dcd",
+		"h264dec_div", mc_me_base, H264DEC_PCTL, 0, 1,
+		&share_count_h264dcdgate);
+	clk[S32V234_CLK_H264DCD_IPS] = s32_clk_gate2_shared("h264dcd_ips",
+		"sys6", mc_me_base, H264DEC_PCTL, 0, 1,
+		&share_count_h264dcdgate);
+	clk[S32V234_CLK_H264DCD_SRAM_IPS] =
+		s32_clk_gate2_shared("h264dcd_sram_ips",
+		"sys3", mc_me_base, H264DEC_PCTL, 0, 1,
+		&share_count_h264dcdgate);
+
+
+	/* H264ENC Clock */
+	clk[S32V234_CLK_H264ENC_SEL] = s32_clk_mux("h264enc_sel",
+		CGM_ACn_SC(mc_cgm0_base, 13),
+		MC_CGM_ACn_SEL_OFFSET,
+		MC_CGM_ACn_SEL_SIZE,
+		h264enc_sels, ARRAY_SIZE(h264enc_sels));
+	clk[S32V234_CLK_H264ENC_DIV] = s32_clk_divider("h264enc_div",
+		"h264enc_sel", CGM_ACn_DCm(mc_cgm0_base, 13, 0),
+		MC_CGM_ACn_DCm_PREDIV_OFFSET,
+		MC_CGM_ACn_DCm_PREDIV_SIZE);
+	clk[S32V234_CLK_H264ENC] = s32_clk_gate2_shared("h264enc",
+		"h264enc_div", mc_me_base, H264ENC_PCTL, 0, 1,
+		&share_count_h264encgate);
+	clk[S32V234_CLK_H264ENC_IPS] = s32_clk_gate2_shared("h264enc_ips",
+		"sys6", mc_me_base, H264ENC_PCTL, 0, 1,
+		&share_count_h264encgate);
+	clk[S32V234_CLK_H264ENC_SRAM_IPS] =
+		s32_clk_gate2_shared("h264enc_sram_ips",
+		"sys3", mc_me_base, H264ENC_PCTL, 0, 1,
+		&share_count_h264encgate);
+
 	/* SDHC Clock */
 	clk[S32V234_CLK_SDHC_SEL] = s32_clk_mux("sdhc_sel",
 		CGM_ACn_SC(mc_cgm0_base, 15),
@@ -438,7 +525,6 @@ static void __init s32v234_clocks_init(struct device_node *mc_cgm0_node)
 	clk[S32V234_CLK_SDHC_AHB] = s32_clk_gate2_shared("sdhc_ahb",
 		"sys6", mc_me_base, SDHC_PCTL, 0, 1,
 		&share_count_sdhcgate);
-
 
 	/* GPU Clocks */
 	clk[S32V234_CLK_GPU_SEL] = s32_clk_mux("gpu_sels",
@@ -462,8 +548,93 @@ static void __init s32v234_clocks_init(struct device_node *mc_cgm0_node)
 		CGM_SC_DCn(mc_cgm3_base, 0), MC_CGM_SC_DCn_PREDIV_OFFSET,
 		MC_CGM_SC_DCn_PREDIV_SIZE);
 
+	clk[S32V234_CLK_MIPI_LI] = s32_clk_divider("mipi_li",
+		"gpu_shdmipi_sels",
+		CGM_SC_DCn(mc_cgm3_base, 1), MC_CGM_SC_DCn_PREDIV_OFFSET,
+		MC_CGM_SC_DCn_PREDIV_SIZE);
+
+	clk[S32V234_CLK_CSI0] = s32_clk_gate2_shared("csi0",
+		"sys6", mc_me_base, CSI0_PCTL, 0, 1,
+		&share_count_csi0gate);
+	clk[S32V234_CLK_CSI0_CLI] = s32_clk_gate2_shared("csi0_cli",
+		"mipi_li", mc_me_base, CSI0_PCTL, 0, 1,
+		&share_count_csi0gate);
+	clk[S32V234_CLK_CSI0_CUI] = s32_clk_gate2_shared("csi0_cui",
+		"sys3", mc_me_base, CSI0_PCTL, 0, 1,
+		&share_count_csi0gate);
+	clk[S32V234_CLK_CSI0_DPHY] = s32_clk_gate2_shared("csi0_dphy",
+		"sys6_div2", mc_me_base, CSI0_PCTL, 0, 1,
+		&share_count_csi0gate);
+
+	clk[S32V234_CLK_CSI1] = s32_clk_gate2_shared("csi1",
+		"sys6", mc_me_base, CSI1_PCTL, 0, 1,
+		&share_count_csi1gate);
+	clk[S32V234_CLK_CSI1_CLI] = s32_clk_gate2_shared("csi1_cli",
+		"mipi_li", mc_me_base, CSI1_PCTL, 0, 1,
+		&share_count_csi1gate);
+	clk[S32V234_CLK_CSI1_CUI] = s32_clk_gate2_shared("csi1_cui",
+		"sys3", mc_me_base, CSI1_PCTL, 0, 1,
+		&share_count_csi1gate);
+	clk[S32V234_CLK_CSI1_DPHY] = s32_clk_gate2_shared("csi1_dphy",
+		"sys6_div2", mc_me_base, CSI1_PCTL, 0, 1,
+		&share_count_csi1gate);
+
 	/* enable ENETPLL */
 	enable_clocks_sources(0, MC_ME_MODE_MC_ENETPLL,
+			      MC_ME_RUNn_MC(mc_me_base, 0));
+	/* DDR_PLL */
+	clk[S32V234_CLK_DDRPLL_VCO] = s32_clk_plldig(S32_PLLDIG_DDR,
+		"ddrpll_vco", "ddrpll_sel", DDRPLL_PLLDIG(mc_cgm0_base),
+		DDRPLL_PLLDIG_PLLDV_MFD, DDRPLL_PLLDIG_PLLDV_MFN,
+		DDRPLL_PLLDIG_PLLDV_RFDPHI0, DDRPLL_PLLDIG_PLLDV_RFDPHI1);
+
+	clk[S32V234_CLK_DDRPLL_PHI0] = s32_clk_plldig_phi(S32_PLLDIG_DDR,
+		"ddrpll_phi0", "ddrpll_vco",
+		DDRPLL_PLLDIG(mc_cgm0_base), 0);
+
+	clk[S32V234_CLK_DDRPLL_PHI1] = s32_clk_plldig_phi(S32_PLLDIG_DDR,
+		"ddrpll_phi1", "ddrpll_vco",
+		DDRPLL_PLLDIG(mc_cgm0_base), 1);
+
+	clk[S32V234_CLK_DDRPLL_DFS0] = s32_clk_dfs(S32_PLLDIG_DDR,
+		 "ddrpll_dfs0", "ddrpll_phi1",
+		 DDRPLL_PLLDIG_DFS(mc_cgm0_base), 0,
+		 DDRPLL_PLLDIG_DFS0_MFN);
+
+	clk[S32V234_CLK_DDRPLL_DFS1] = s32_clk_dfs(S32_PLLDIG_DDR,
+		 "ddrpll_dfs1", "ddrpll_phi1",
+		 DDRPLL_PLLDIG_DFS(mc_cgm0_base), 1,
+		 DDRPLL_PLLDIG_DFS1_MFN);
+
+	clk[S32V234_CLK_DDRPLL_DFS2] = s32_clk_dfs(S32_PLLDIG_DDR,
+		 "ddrpll_dfs2", "ddrpll_phi1",
+		 DDRPLL_PLLDIG_DFS(mc_cgm0_base), 2,
+		 DDRPLL_PLLDIG_DFS2_MFN);
+
+	/* JPEGDEC Clock */
+	clk[S32V234_CLK_MJPEG_SEL] = s32_clk_mux("mjpeg_sel",
+		CGM_ACn_SC(mc_cgm0_base, 2),
+		MC_CGM_ACn_SEL_OFFSET,
+		MC_CGM_ACn_SEL_SIZE,
+		jpegdec_sels, ARRAY_SIZE(jpegdec_sels));
+
+	clk[S32V234_CLK_MJPEG_DIV] = s32_clk_divider("mjpeg_div",
+		"mjpeg_sel", CGM_ACn_DCm(mc_cgm0_base, 2, 0),
+		MC_CGM_ACn_DCm_PREDIV_OFFSET,
+		MC_CGM_ACn_DCm_PREDIV_SIZE);
+
+	clk[S32V234_CLK_MJPEG] = s32_clk_gate2_shared("mjpeg",
+		"mjpeg_div", mc_me_base, JPEG_PCTL, 0, 1,
+		&share_count_jpegdecgate);
+	clk[S32V234_CLK_JPEG_IPS] = s32_clk_gate2_shared("jpeg_ips",
+		"sys6", mc_me_base, JPEG_PCTL, 0, 1,
+		&share_count_jpegdecgate);
+	clk[S32V234_CLK_JPEG_SRAM_IPS] = s32_clk_gate2_shared("jpeg_sram_ips",
+		"sys3", mc_me_base, JPEG_PCTL, 0, 1,
+		&share_count_jpegdecgate);
+
+	/* enable DDRPLL */
+	enable_clocks_sources(0, MC_ME_MODE_MC_DDRPLL,
 			      MC_ME_RUNn_MC(mc_me_base, 0));
 
 	/* set the system clock */
