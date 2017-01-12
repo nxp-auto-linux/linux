@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * NXP S32V reboot driver
- *
- * Copyright (c) 2015, NXP Semiconductors.
+ * Copyright 2015-2016 Freescale Semiconductors, Inc.
+ * Copyright 2017 NXP
  * Author: Stoica Cosmin <cosmin.stoica@nxp.com>
  *
  * This program is free software; you can redistribute it and/or modify
@@ -36,9 +36,15 @@
 #define MC_ME_MCTL_KEY			(0x00005AF0)
 #define MC_ME_MCTL_INVERTEDKEY		(0x0000A50F)
 
+/* MC_RGM_FRET */
+#define MC_RGM_FRET(mc_rgm)		((mc_rgm) + 0x607)
+
+#define MC_RGM_FRET_VALUE		(0xF)
+
 struct	s32v_reboot_priv {
 	struct device *dev;
 	void __iomem *mc_me;
+	void __iomem *mc_rgm;
 };
 
 static struct s32v_reboot_priv	*s32v_reboot_priv;
@@ -49,6 +55,8 @@ static void s32v_reboot(enum reboot_mode reboot_mode, const char *cmd)
 	unsigned long timeout;
 
 	if (s32v_reboot_priv) {
+		writeb(MC_RGM_FRET_VALUE,
+			MC_RGM_FRET(s32v_reboot_priv->mc_rgm));
 		writel_relaxed(MC_ME_MCTL_RESET | MC_ME_MCTL_KEY,
 				MC_ME_MCTL(priv->mc_me));
 		writel_relaxed(MC_ME_MCTL_RESET | MC_ME_MCTL_INVERTEDKEY,
@@ -66,13 +74,31 @@ static void s32v_reboot(enum reboot_mode reboot_mode, const char *cmd)
 
 static int s32v_reboot_probe(struct platform_device *pdev)
 {
+	struct device_node *np;
 	s32v_reboot_priv = devm_kzalloc(&pdev->dev,
 			sizeof(*s32v_reboot_priv), GFP_KERNEL);
+
 	if (!s32v_reboot_priv)
 		return -ENOMEM;
 
 	s32v_reboot_priv->mc_me = of_iomap(pdev->dev.of_node, 0);
 	if (!s32v_reboot_priv->mc_me) {
+		devm_kfree(&pdev->dev, s32v_reboot_priv);
+		dev_err(&pdev->dev, "can not map resource\n");
+		return -ENODEV;
+	}
+
+	np = of_find_compatible_node(NULL, NULL, "fsl,s32v234-mc_rgm");
+	if (!np) {
+		iounmap(s32v_reboot_priv->mc_me);
+		devm_kfree(&pdev->dev, s32v_reboot_priv);
+		dev_err(&pdev->dev, "unable to find MC_RGM node\n");
+		return -ENODEV;
+	}
+
+	s32v_reboot_priv->mc_rgm = of_iomap(np, 0);
+	if (!s32v_reboot_priv->mc_rgm) {
+		iounmap(s32v_reboot_priv->mc_me);
 		devm_kfree(&pdev->dev, s32v_reboot_priv);
 		dev_err(&pdev->dev, "can not map resource\n");
 		return -ENODEV;
