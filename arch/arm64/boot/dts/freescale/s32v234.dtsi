@@ -93,6 +93,10 @@
 			     <0 164 0x4>,
 			     <0 165 0x4>,
 			     <0 166 0x4>;
+		interrupt-affinity = <&cpu0>,
+				     <&cpu1>,
+				     <&cpu2>,
+				     <&cpu3>;
 	};
 
 	pu_dummy: pudummy_reg {
