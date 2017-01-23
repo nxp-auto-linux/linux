@@ -313,8 +313,8 @@
 				compatible = "fsl,s32v234-flexcan";
 				reg = <0x0 0x40055000 0x0 0x1000>;
 				interrupts = <0 42 4>;
-				clocks = <&clks S32V234_CLK_CAN>,
-					 <&clks S32V234_CLK_CAN0>;
+				clocks = <&clks S32V234_CLK_CAN0>,
+					 <&clks S32V234_CLK_CAN>;
 				clock-names = "ipg", "per";
 			};
 
@@ -535,8 +535,8 @@
 				compatible = "fsl,s32v234-flexcan";
 				reg = <0x0 0x400be000 0x0 0x1000>;
 				interrupts = <0 44 4>;
-				clocks = <&clks S32V234_CLK_CAN>,
-					 <&clks S32V234_CLK_CAN1>;
+				clocks = <&clks S32V234_CLK_CAN1>,
+					 <&clks S32V234_CLK_CAN>;
 				clock-names = "ipg", "per";
 			};
 
