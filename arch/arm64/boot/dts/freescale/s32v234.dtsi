@@ -463,6 +463,16 @@
 			reg = <0x0 0x40080000 0x0 0x70000>;
 			ranges;
 
+			mscm1: mscm@40081000 {
+				compatible = "fsl,s32v234-mscm";
+				reg = <0x0 0x40081000 0x0 0x1000>;
+				/* CPU2CPU interrupts */
+				interrupts = <0 0 4 >,
+					     <0 1 4 >,
+					     <0 2 4 >,
+					     <0 3 4 >;
+			};
+
 			stm1: stm@40087000{
 				compatible = "fsl,s32v234-stm";
 				reg = <0x0 0x40087000 0x0 0x1000>;
@@ -708,6 +718,12 @@
 			     <0 103 4>,
 			     <0 104 4>,
 			     <0 105 4>;
+	};
+
+	sram: sram@3E800000 {
+		device_type = "sram";
+		compatible = "mmio-sram","fsl,s32v234-sram";
+		reg = <0 0x3E800000 0 0x400000>;
 	};
 
 	memory_DDR0@80000000 {
