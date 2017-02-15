@@ -1,5 +1,6 @@
 /*
  * Copyright 2012-2016 Freescale Semiconductor, Inc.
+ * Copyright 2017 NXP
  *
  * Freescale fsl-DCU device driver
  *
@@ -107,7 +108,7 @@ unsigned long wb_phys_ptr;
  **********************************************************/
 uint64_t *DCU_BASE_ADDRESS;
 void __iomem *dcu_reg_base;
-struct clk *dcu_clk;
+
 struct dcu_fb_data *dcu_fb_data;
 struct platform_device *dcu_pdev;
 struct cdev *dcu_cdev;
@@ -129,6 +130,10 @@ int dcu_init_status = DCU_INIT_ERR_PROBE;
 #define DCU_EVENT_TYPE_VSYNC  0
 #define DCU_EVENT_TYPE_VBLANK 1
 #define DCU_EVENT_TYPE_MAX    2
+
+/* DCU clock definitions */
+#define DCU_PIXEL_CLOCK_NAME	"dcu"
+#define DCU_AXI_CLOCK_NAME		"ipg"
 
 /* We use events and wait queues because completions are unsuitable */
 int event_condition_list[DCU_EVENT_TYPE_MAX][DCU_LAYERS_NUM_MAX];
@@ -1350,6 +1355,7 @@ int fsl_dcu_probe(struct platform_device *pdev)
 {
 	struct resource *res;
 	int ret, irq_num, i, j;
+	struct clk *dcu_clk, *pxl_clk;
 
 	dcu_pdev = pdev;
 	ret = 0;
@@ -1397,19 +1403,32 @@ int fsl_dcu_probe(struct platform_device *pdev)
 	/* save DCU0 register map to global variable for DCU agnostic layer */
 	DCU_BASE_ADDRESS[0] = (uint64_t)dcu_reg_base;
 
-	/* enable clocks for DCU */
-	dcu_clk = devm_clk_get(&pdev->dev, "dcu");
+	/* enable AXI clocks for DCU */
+	dcu_clk = devm_clk_get(&pdev->dev, DCU_AXI_CLOCK_NAME);
 	if (IS_ERR(dcu_clk)) {
 		dcu_init_status = DCU_INIT_ERR_CFG;
 		ret = PTR_ERR(dcu_clk);
-		dev_err(&pdev->dev, "DCU: could not get clock\n");
+		dev_err(&pdev->dev, "DCU: could not get axi clock\n");
 		goto failed_getclock;
 	}
 	clk_prepare_enable(dcu_clk);
+	dcu_fb_data->dcu_clk = dcu_clk;
 
-	/* get DCU clock in Hz */
-	dcu_clk_val = clk_get_rate(dcu_clk);
-	dcu_fb_data->clk = dcu_clk;
+	/* enable pixel clocks for DCU */
+	pxl_clk = devm_clk_get(&pdev->dev, DCU_PIXEL_CLOCK_NAME);
+	if (IS_ERR(pxl_clk)) {
+		dcu_init_status = DCU_INIT_ERR_CFG;
+		ret = PTR_ERR(pxl_clk);
+		dev_err(&pdev->dev, "DCU: could not get pixel clock\n");
+		goto failed_getclock;
+	}
+	clk_prepare_enable(pxl_clk);
+	dcu_fb_data->pxl_clk = pxl_clk;
+
+	/* get pixel clock in Hz */
+	dcu_clk_val = clk_get_rate(pxl_clk);
+
+
 	pm_runtime_enable(&pdev->dev);
 	pm_runtime_get_sync(&pdev->dev);
 
@@ -1480,14 +1499,16 @@ static int fsl_dcu_runtime_suspend(struct device *dev)
 {
 	struct dcu_fb_data *dcufb = dev_get_drvdata(dev);
 
-	clk_disable_unprepare(dcufb->clk);
+	clk_disable_unprepare(dcufb->pxl_clk);
+	clk_disable_unprepare(dcufb->dcu_clk);
 	return 0;
 }
 static int fsl_dcu_runtime_resume(struct device *dev)
 {
 	struct dcu_fb_data *dcufb = dev_get_drvdata(dev);
 
-	clk_prepare_enable(dcufb->clk);
+	clk_prepare_enable(dcufb->pxl_clk);
+	clk_prepare_enable(dcufb->dcu_clk);
 	return 0;
 }
 
