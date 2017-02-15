@@ -1,5 +1,6 @@
 /*
  * Copyright 2012-2016 Freescale Semiconductor, Inc.
+ * Copyright 2017 NXP
  *
  * Freescale fsl-FB device driver
  *
@@ -909,7 +910,8 @@ static void r_cleanup(void)
 	}
 
 	pm_runtime_get_sync(&pdev->dev);
-	clk_disable_unprepare(dcufb->clk);
+	clk_disable_unprepare(dcufb->dcu_clk);
+	clk_disable_unprepare(dcufb->pxl_clk);
 
 	/* dynamic number of layers */
 	for (i = 0; i < dcu_num_layers; i++) {
