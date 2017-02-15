@@ -1,5 +1,6 @@
 /*
- * Copyright 2012-2014 Freescale Semiconductor, Inc.
+ * Copyright 2012-2014,2016 Freescale Semiconductor, Inc.
+ * Copyright 2017 NXP
  *
  * Freescale fsl-FB device driver
  *
@@ -21,7 +22,8 @@ struct dcu_fb_data {
 	struct device *dev;
 	void __iomem *reg_base;
 	unsigned int irq;
-	struct clk *clk;
+	struct clk *pxl_clk;
+	struct clk *dcu_clk;
 };
 
 /****************************************
