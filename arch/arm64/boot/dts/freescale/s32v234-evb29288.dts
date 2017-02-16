@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0+
 /*
  * Copyright 2015-2016 Freescale Semiconductor, Inc.
- * Copyright 2016 NXP
+ * Copyright 2016-2017 NXP
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -167,13 +167,13 @@
 		port-1 {
 			is-host = <0>;
 			speed = <100>;
-			xmii-mode = "RMII";
+			xmii-mode = "MII";
 			null-phy =  <0>;
 		};
 		port-2 {
 			is-host = <0>;
 			speed = <100>;
-			xmii-mode = "RMII";
+			xmii-mode = "MII";
 			null-phy = <0>;
 		};
 		port-3 {
@@ -204,25 +204,25 @@
 		port-1 {
 			is-host = <0>;
 			speed = <100>;
-			xmii-mode = "RMII";
+			xmii-mode = "MII";
 			null-phy =  <0>;
 		};
 		port-2 {
 			is-host = <0>;
 			speed = <100>;
-			xmii-mode = "RMII";
+			xmii-mode = "MII";
 			null-phy = <0>;
 		};
 		port-3 {
 			is-host = <0>;
 			speed = <100>;
-			xmii-mode = "RMII";
+			xmii-mode = "MII";
 			null-phy = <0>;
 		};
 		port-4 {
 			is-host = <0>;
 			speed = <100>;
-			xmii-mode = "RMII";
+			xmii-mode = "MII";
 			null-phy = <0>;
 		};
 	};
