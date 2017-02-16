@@ -1,6 +1,6 @@
 /*
- * Copyright (C) 2015-2016 by Freescale Semiconductor
- * Copyright (C) 2016 NXP
+ * Copyright 2015-2016 by Freescale Semiconductor
+ * Copyright 2016-2017 NXP
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -153,6 +153,10 @@
 
 /* DCU CFG = 0x20C101 */
 #define PAD_CTL_DCU_CFG		(PAD_CTL_DSE_80 | PAD_CTL_SRE_HIGH_200MHZ | \
+				PAD_CTL_OBE | PAD_CTL_IBE | \
+				PAD_CTL_MUX_MODE_ALT1)
+
+#define PAD_CTL_DCU_CLK_CFG	(PAD_CTL_DSE_34 | PAD_CTL_SRE_HIGH_200MHZ | \
 				PAD_CTL_OBE | PAD_CTL_IBE | \
 				PAD_CTL_MUX_MODE_ALT1)
 
