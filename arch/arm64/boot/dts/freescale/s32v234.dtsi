@@ -680,12 +680,10 @@
 		interrupt-names = "link_req_rst_not", "dma","msi";
 		#interrupt-cells = <1>;
 		interrupt-map-mask = <0 0 0 0x7>;
-		interrupt-map = <0 0 0 1 &gic 0 103 4>,
-						<0 0 0 1 &gic 0 104 4>,
-						<0 0 0 1 &gic 0 105 4>,
-						<0 0 0 2 &gic 0 106 4>,
-						<0 0 0 3 &gic 0 107 4>,
-						<0 0 0 4 &gic 0 108 4>;
+		interrupt-map = <0 0 0 1 &gic 0 108 4>,
+				<0 0 0 2 &gic 0 107 4>,
+				<0 0 0 3 &gic 0 106 4>,
+				<0 0 0 4 &gic 0 105 4>;
 		status = "disabled";
 	};
 
