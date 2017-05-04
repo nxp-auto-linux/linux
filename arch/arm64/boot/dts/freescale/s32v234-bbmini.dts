@@ -69,6 +69,9 @@
 		compatible = "nxp,sja1105-switch-1-3";
 		spi-max-frequency = <4000000>;
 		spi-cpha;
+		fsl,spi-cs-sck-delay = <100>;
+		fsl,spi-sck-cs-delay = <100>;
+
 		reg = <0>;
 		port-0 {
 			is-host = <1>;
@@ -106,6 +109,9 @@
 		compatible = "nxp,sja1105-switch-2-3";
 		spi-max-frequency = <4000000>;
 		spi-cpha;
+		fsl,spi-cs-sck-delay = <100>;
+		fsl,spi-sck-cs-delay = <100>;
+
 		reg = <5>;
 		port-0 {
 			is-host = <1>;
@@ -143,6 +149,9 @@
 		compatible = "nxp,sja1105-switch-3-3";
 		spi-max-frequency = <4000000>;
 		spi-cpha;
+		fsl,spi-cs-sck-delay = <100>;
+		fsl,spi-sck-cs-delay = <100>;
+
 		reg = <4>;
 		port-0 {
 			is-host = <1>;
