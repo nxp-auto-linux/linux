@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0+
 /*
  * Copyright 2015-2016 Freescale Semiconductor, Inc.
+ * Copyright 2017 NXP
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -248,7 +249,7 @@
 				S32V234_PAD_PH8__DCU_HSYNC_C1
 				S32V234_PAD_PH9__DCU_VSYNC_C2
 				S32V234_PAD_PH10__DCU_DE_C3
-				S32V234_PAD_PH12__DCU_PCLK_D1
+				S32V234_PAD_PH12__DCU_PCLK_D1_DSE_34
 				S32V234_PAD_PH13__DCU_R0_D2
 				S32V234_PAD_PH14__DCU_R1_D3
 				S32V234_PAD_PH15__DCU_R2_D4
