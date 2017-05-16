@@ -17,7 +17,7 @@
  *	Copyright (C) 2008 Darius Augulis <darius.augulis at teltonika.lt>
  *
  *	Copyright 2013 Freescale Semiconductor, Inc.
- *
+ *	Copyright 2017 NXP
  */
 
 #include <linux/acpi.h>
@@ -155,24 +155,26 @@ static struct imx_i2c_clk_pair vf610_i2c_clk_div[] = {
 	{ 2304, 0x3C }, { 2560, 0x3D }, { 3072, 0x3E }, { 3584, 0x7A },
 	{ 3840, 0x3F }, { 4096, 0x7B }, { 5120, 0x7D }, { 6144, 0x7E },
 };
-/* S32V234 clock divider, register value pairs:
- * TODO: Please update this according to S32V234 RM*/
+/* S32V234 clock divider, register value pairs */
 static struct imx_i2c_clk_pair s32v234_i2c_clk_div[] = {
-	{ 20,   0x00 }, { 22,   0x01 }, { 24,   0x02 }, { 26,   0x03 },
-	{ 28,   0x04 }, { 30,   0x05 }, { 32,   0x09 }, { 34,   0x06 },
-	{ 36,   0x0A }, { 40,   0x07 }, { 44,   0x0C }, { 48,   0x0D },
-	{ 52,   0x43 }, { 56,   0x0E }, { 60,   0x45 }, { 64,   0x12 },
-	{ 68,   0x0F }, { 72,   0x13 }, { 80,   0x14 }, { 88,   0x15 },
-	{ 96,   0x19 }, { 104,  0x16 }, { 112,  0x1A }, { 128,  0x17 },
-	{ 136,  0x4F }, { 144,  0x1C }, { 160,  0x1D }, { 176,  0x55 },
-	{ 192,  0x1E }, { 208,  0x56 }, { 224,  0x22 }, { 228,  0x24 },
-	{ 240,  0x1F }, { 256,  0x23 }, { 288,  0x5C }, { 320,  0x25 },
-	{ 384,  0x26 }, { 448,  0x2A }, { 480,  0x27 }, { 512,  0x2B },
-	{ 576,  0x2C }, { 640,  0x2D }, { 768,  0x31 }, { 896,  0x32 },
-	{ 960,  0x2F }, { 1024, 0x33 }, { 1152, 0x34 }, { 1280, 0x35 },
-	{ 1536, 0x36 }, { 1792, 0x3A }, { 1920, 0x37 }, { 2048, 0x3B },
-	{ 2304, 0x3C }, { 2560, 0x3D }, { 3072, 0x3E }, { 3584, 0x7A },
-	{ 3840, 0x3F }, { 4096, 0x7B }, { 5120, 0x7D }, { 6144, 0x7E },
+	{ 20,    0x00 }, { 22,    0x01 }, { 24,    0x02 }, { 26,   0x03 },
+	{ 28,    0x04 }, { 30,    0x05 }, { 32,    0x09 }, { 34,   0x06 },
+	{ 36,    0x0A }, { 40,    0x07 }, { 44,    0x0C }, { 48,   0x0D },
+	{ 52,    0x43 }, { 56,    0x0E }, { 60,    0x45 }, { 64,   0x12 },
+	{ 68,    0x0F }, { 72,    0x13 }, { 80,    0x14 }, { 88,   0x15 },
+	{ 96,    0x19 }, { 104,   0x16 }, { 112,   0x1A }, { 120,  0x85 },
+	{ 128,   0x17 }, { 136,   0x4F }, { 144,   0x1C }, { 160,  0x1D },
+	{ 176,   0x55 }, { 192,   0x1E }, { 208,   0x56 }, { 224,  0x22 },
+	{ 240,   0x1F }, { 256,   0x23 }, { 272,   0x8F }, { 288,  0x24 },
+	{ 320,   0x25 }, { 352,   0x95 }, { 384,   0x26 }, { 416,  0x96 },
+	{ 448,   0x2A }, { 480,   0x27 }, { 512,   0x2B }, { 576,  0x2C },
+	{ 640,   0x2D }, { 768,   0x2E }, { 896,   0x32 }, { 960,  0x2F },
+	{ 1024,  0x33 }, { 1152,  0x34 }, { 1280,  0x35 }, { 1536, 0x36 },
+	{ 1792,  0x3A }, { 1920,  0x37 }, { 2048,  0x3B }, { 2304, 0x3C },
+	{ 2560,  0x3D }, { 3072,  0x3E }, { 3584,  0x7A }, { 3840, 0x3F },
+	{ 4096,  0x7B }, { 4608,  0x7C }, { 5120,  0x7D }, { 6144, 0x7E },
+	{ 7168,  0xBA }, { 7680,  0x7F }, { 8192,  0xBB }, { 9216, 0xBC },
+	{ 10240, 0xBD }, { 12288, 0xBE }, { 15360, 0xBF },
 };
 
 enum imx_i2c_type {
@@ -566,9 +568,23 @@ static void i2c_imx_set_clk(struct imx_i2c_struct *i2c_imx,
 		i = 0;
 	else if (div > i2c_clk_div[i2c_imx->hwdata->ndivs - 1].div)
 		i = i2c_imx->hwdata->ndivs - 1;
-	else
+	else {
+		/* if div is the required divider, then i will be the index of
+		 * the closest greater divider value, while i - 1 will be the
+		 * index of the closest smaller divider in table i2c_clk_div */
 		for (i = 0; i2c_clk_div[i].div < div; i++)
-			;
+				;
+
+		if (i != 0) {
+			/* find the closest divider */
+			int divg = i2c_clk_div[i].div;
+			int divl = i2c_clk_div[i - 1].div;
+			dev_dbg(&i2c_imx->adapter.dev,
+				"REQ DIV=%d, LO DIV=%d, HI DIV=%d\n",
+				div, divl, divg);
+			i = (divg - div > div - divl ? i - 1 : i);
+		}
+	}
 
 	/* Store divider value */
 	i2c_imx->ifdr = i2c_clk_div[i].val;
