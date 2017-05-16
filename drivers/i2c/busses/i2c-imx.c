@@ -17,7 +17,7 @@
  *	Copyright (C) 2008 Darius Augulis <darius.augulis at teltonika.lt>
  *
  *	Copyright 2013 Freescale Semiconductor, Inc.
- *	Copyright 2020 NXP
+ *	Copyright 2017,2020 NXP
  *
  */
 
@@ -585,13 +585,29 @@ static void i2c_imx_set_clk(struct imx_i2c_struct *i2c_imx,
 	i2c_imx->cur_clk = i2c_clk_rate;
 
 	div = DIV_ROUND_UP(i2c_clk_rate, i2c_imx->bitrate);
-	if (div < i2c_clk_div[0].div)
+	if (div < i2c_clk_div[0].div) {
 		i = 0;
-	else if (div > i2c_clk_div[i2c_imx->hwdata->ndivs - 1].div)
+	} else if (div > i2c_clk_div[i2c_imx->hwdata->ndivs - 1].div) {
 		i = i2c_imx->hwdata->ndivs - 1;
-	else
+	} else {
+		/* if div is the required divider, then i will be the index of
+		 * the closest greater divider value, while i - 1 will be the
+		 * index of the closest smaller divider in table i2c_clk_div
+		 */
 		for (i = 0; i2c_clk_div[i].div < div; i++)
 			;
+
+		if (i != 0) {
+			/* find the closest divider */
+			int divg = i2c_clk_div[i].div;
+			int divl = i2c_clk_div[i - 1].div;
+
+			dev_dbg(&i2c_imx->adapter.dev,
+				"REQ DIV=%d, LO DIV=%d, HI DIV=%d\n",
+				div, divl, divg);
+			i = (divg - div > div - divl ? i - 1 : i);
+		}
+	}
 
 	/* Store divider value */
 	i2c_imx->ifdr = i2c_clk_div[i].val;
