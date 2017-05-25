@@ -117,6 +117,7 @@ obj-$(CONFIG_STM32_DFSDM_CORE) += stm32-dfsdm-core.o
 obj-$(CONFIG_STMPE_ADC) += stmpe-adc.o
 obj-$(CONFIG_SUN20I_GPADC) += sun20i-gpadc-iio.o
 obj-$(CONFIG_SUN4I_GPADC) += sun4i-gpadc-iio.o
+obj-$(CONFIG_S32CC_ADC) += s32cc_adc.o
 obj-$(CONFIG_TI_ADC081C) += ti-adc081c.o
 obj-$(CONFIG_TI_ADC0832) += ti-adc0832.o
 obj-$(CONFIG_TI_ADC084S021) += ti-adc084s021.o
