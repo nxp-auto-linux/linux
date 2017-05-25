@@ -461,6 +461,15 @@
 				memory-region = <&dcu_surface_memory>;
 				status = "disabled";
 			};
+
+			saradc0: adc@4004d000 {
+				compatible = "fsl,s32v234-adc";
+				reg = <0x0 0x4004d000 0x0 0x1000>;
+				interrupts = <0 39 4>;
+				clocks = <&clks S32V234_CLK_SARADC0>;
+				clock-names = "adc";
+				status = "okay";
+			};
 		};
 
 		aips1: bus@40080000 {
