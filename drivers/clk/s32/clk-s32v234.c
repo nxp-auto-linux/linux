@@ -1,5 +1,6 @@
 /*
  * Copyright 2015-2016 Freescale Semiconductor, Inc.
+ * Copyright 2017 NXP
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -320,6 +321,9 @@ static void __init s32v234_clocks_init(struct device_node *mc_cgm0_node)
 		CGM_ACn_DCm(mc_cgm0_base, 5, 0),
 		MC_CGM_ACn_DCm_PREDIV_OFFSET,
 		MC_CGM_ACn_DCm_PREDIV_SIZE);
+
+	clk[S32V234_CLK_SARADC0] = s32_clk_gate2("adc", "peri",
+		mc_me_base, SARADC0_PCTL, 0, 1);
 
 	clk[S32V234_CLK_PERI_FRAY_PLL] = s32_clk_divider("perifray",
 		"perifray_sel",
