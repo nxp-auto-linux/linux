@@ -1005,6 +1005,16 @@ config SUN4I_GPADC
 	  To compile this driver as a module, choose M here: the module will be
 	  called sun4i-gpadc-iio.
 
+config S32_ADC
+	tristate "NXP S32 SAR-ADC driver"
+	depends on OF
+	help
+	  Say yes here to support for S32V234 board or S32GEN1 boards
+	  analog-to-digital converter.
+
+	  This driver can also be built as a module. If so, the module will be
+	  called s32_adc.
+
 config TI_ADC081C
 	tristate "Texas Instruments ADC081C/ADC101C/ADC121C family"
 	depends on I2C
