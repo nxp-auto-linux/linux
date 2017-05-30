@@ -34,6 +34,13 @@
 /* S32 ADC registers */
 #define REG_ADC_MCR		0x00
 #define REG_ADC_MSR		0x04
+#define REG_ADC_ISR		0x10
+#define REG_ADC_CEOCFR(g)		(0x14 + ((g) << 2))
+#define REG_ADC_IMR		0X20
+#define REG_ADC_CIMR(g)		(0x24 + ((g) << 2))
+#define REG_ADC_CTR(g)		(0x94 + ((g) << 2))
+#define REG_ADC_NCMR(g)		(0xa4 + ((g) << 2))
+#define REG_ADC_CDR(c)		(0x100 + ((c) << 2))
 #define REG_ADC_CALSTAT		0x39c
 
 /* Main Configuration Register field define */
@@ -48,11 +55,38 @@
 #define ADC_NRSMPL_MASK		0x1800
 #define ADC_AVGEN			0x2000
 #define ADC_CALSTART		0x4000
-#define ADC_OVWREN			0x80000000
+#define ADC_NSTART			0x1000000
+#define ADC_MODE			0x20000000
+#define ADC_OWREN			0x80000000
 
 /* Main Status Register field define */
 #define ADC_CALBUSY		0x20000000
 #define ADC_CALFAIL		0x40000000
+
+/* Interrupt Status Register field define */
+#define ADC_ECH			0x01
+#define ADC_EOC			0x02
+
+/* Channel Pending Register field define */
+#define ADC_EOC_CH(c)		(1 << (c) % 32)
+
+/* Interrupt Mask Register field define */
+#define ADC_MSKECH			0x01
+
+/* Channel Interrupt Mask Register field define */
+#define ADC_CIM(c)			(1 << (c) % 32)
+#define ADC_CIM_MASK		0xFF
+
+/* Conversion Timing Register field define */
+#define ADC_INPSAMP_MAX		0xFF
+
+/* Normal Conversion Mask Register field define */
+#define ADC_CH(c)			(1 << (c) % 32)
+#define ADC_CH_MASK		0xFF
+
+/* Channel Data Register field define */
+#define ADC_CDATA_MASK		0xFFF
+#define ADC_VALID			0x80000
 
 /* Calibration Status Register field define */
 #define ADC_TEST_RESULT(x)		((x) >> 16)
@@ -62,8 +96,12 @@
 #define ADC_CLK_FREQ_40MHz		40000000
 #define ADC_CLK_FREQ_80MHz		80000000
 #define ADC_CLK_FREQ_160MHz	160000000
-#define ADC_TIMEOUT		100 /* ms */
+#define ADC_CONV_TIMEOUT		100 /* ms */
+#define ADC_CAL_TIMEOUT		100 /* ms */
 #define ADC_WAIT			2   /* ms */
+#define ADC_NSEC_PER_SEC		1000000000
+#define ADC_NUM_CAL_STEPS		14
+#define ADC_NUM_GROUPS		2
 
 enum freq_sel {
 	ADC_BUSCLK_EQUAL,
@@ -81,6 +119,7 @@ enum average_sel {
 struct s32_adc_feature {
 	enum freq_sel	freq_sel;
 
+	int	sampling_duration[ADC_NUM_GROUPS];
 	int	sample_num;
 
 	bool	auto_clk_off;
@@ -93,7 +132,11 @@ struct s32_adc {
 	void __iomem *regs;
 	struct clk *clk;
 
+	u16 value;
+	int current_channel;
 	struct s32_adc_feature adc_feature;
+
+	struct completion completion;
 };
 
 #define ADC_CHAN(_idx, _chan_type) {			\
@@ -101,8 +144,6 @@ struct s32_adc {
 	.indexed = 1,						\
 	.channel = (_idx),					\
 	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW),		\
-	.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SCALE) |	\
-				BIT(IIO_CHAN_INFO_SAMP_FREQ),	\
 }
 
 static const struct iio_chan_spec s32_adc_iio_channels[] = {
@@ -117,6 +158,15 @@ static const struct iio_chan_spec s32_adc_iio_channels[] = {
 	/* sentinel */
 };
 
+static inline int group_idx(int channel)
+{
+	if (channel >= 0 && channel <= 7)
+		return 0;
+	if (channel >= 32 && channel <= 38)
+		return 1;
+	return -ECHRNG;
+}
+
 static inline void s32_adc_cfg_init(struct s32_adc *info)
 {
 	struct s32_adc_feature *adc_feature = &info->adc_feature;
@@ -127,13 +177,16 @@ static inline void s32_adc_cfg_init(struct s32_adc *info)
 	adc_feature->calibration = true;
 	adc_feature->ovwren = false;
 
+	adc_feature->sampling_duration[0] =
+		adc_feature->sampling_duration[1] = 20;
 	adc_feature->sample_num = ADC_SAMPLE_512;
 }
 
 static void s32_adc_cfg_post_set(struct s32_adc *info)
 {
 	struct s32_adc_feature *adc_feature = &info->adc_feature;
-	int mcr_data = 0;
+	int mcr_data = 0, ctr_data = 0, imr_data = 0;
+	int group;
 
 	/* auto-clock-off mode enable */
 	if (adc_feature->auto_clk_off)
@@ -141,9 +194,20 @@ static void s32_adc_cfg_post_set(struct s32_adc *info)
 
 	/* data overwrite enable */
 	if (adc_feature->ovwren)
-		mcr_data |= ADC_OVWREN;
+		mcr_data |= ADC_OWREN;
 
 	writel(mcr_data, info->regs + REG_ADC_MCR);
+
+	/* sampling phase duration set */
+	for (group = 0; group < ADC_NUM_GROUPS; group++) {
+		ctr_data |= min(adc_feature->sampling_duration[group],
+			ADC_INPSAMP_MAX);
+		writel(ctr_data, info->regs + REG_ADC_CTR(group));
+	}
+
+	/* End of Conversion Chain interrupt enable */
+	imr_data |= ADC_MSKECH;
+	writel(imr_data, info->regs + REG_ADC_IMR);
 }
 
 static void s32_adc_calibration(struct s32_adc *info)
@@ -210,20 +274,24 @@ static void s32_adc_calibration(struct s32_adc *info)
 		do_gettimeofday(&tv_current);
 		ms_passed = (tv_current.tv_sec - tv_start.tv_sec) * 1000 +
 			(tv_current.tv_usec - tv_start.tv_usec) / 1000;
-	} while (msr_data & ADC_CALBUSY && ms_passed < ADC_TIMEOUT);
+	} while (msr_data & ADC_CALBUSY &&
+		ms_passed < ADC_CAL_TIMEOUT);
 
 	if (msr_data & ADC_CALBUSY) {
 		dev_err(info->dev, "Timeout for adc calibration\n");
 	} else if (msr_data & ADC_CALFAIL) {
 		dev_err(info->dev, "ADC calibration failed\nStep status:\n");
 		calstat_data = readl(info->regs + REG_ADC_CALSTAT);
-		for (step = 1; step <= 14; step++)
+		for (step = 1; step <= ADC_NUM_CAL_STEPS; step++)
 			dev_err(info->dev, "Step %d: %s\n", step,
 				ADC_STAT_n(calstat_data, step) ?
 				"failed" : "passed");
 		dev_err(info->dev, "Result for the last failed test: %d\n",
 			ADC_TEST_RESULT(calstat_data));
 	}
+
+	mcr_data |= ADC_PWDN;
+	writel(mcr_data, info->regs + REG_ADC_MCR);
 
 	/* restore preferred AD_clk frequency */
 	mcr_data &= ~ADC_ADCLKSEL & ~ADC_ADCLKDIV;
@@ -240,8 +308,9 @@ static void s32_adc_calibration(struct s32_adc *info)
 		dev_err(info->dev, "error frequency selection\n");
 	}
 
-	mcr_data |= ADC_PWDN;
+	writel(mcr_data, info->regs + REG_ADC_MCR);
 
+	mcr_data &= ~ADC_PWDN;
 	writel(mcr_data, info->regs + REG_ADC_MCR);
 	info->adc_feature.calibration = false;
 }
@@ -257,6 +326,34 @@ static void s32_adc_hw_init(struct s32_adc *info)
 
 static irqreturn_t s32_adc_isr(int irq, void *dev_id)
 {
+	struct s32_adc *info = (struct s32_adc *)dev_id;
+	int isr_data, ceocfr_data, cdr_data;
+	int group;
+
+	isr_data = readl(info->regs + REG_ADC_ISR);
+	if (isr_data & ADC_ECH) {
+		writel(ADC_ECH | ADC_EOC,
+		       info->regs + REG_ADC_ISR);
+		group = group_idx(info->current_channel);
+
+		ceocfr_data = readl(info->regs + REG_ADC_CEOCFR(group));
+		if (!(ceocfr_data & ADC_EOC_CH(info->current_channel)))
+			return IRQ_HANDLED;
+
+		writel(ADC_EOC_CH(info->current_channel),
+		       info->regs + REG_ADC_CEOCFR(group));
+
+		cdr_data = readl(info->regs +
+			REG_ADC_CDR(info->current_channel));
+		if (!(cdr_data & ADC_VALID)) {
+			dev_err(info->dev, "error invalid data\n");
+			return IRQ_HANDLED;
+		}
+
+		info->value = cdr_data & ADC_CDATA_MASK;
+		complete(&info->completion);
+	}
+
 	return IRQ_HANDLED;
 }
 
@@ -266,7 +363,91 @@ static int s32_read_raw(struct iio_dev *indio_dev,
 			 int *val2,
 			 long mask)
 {
-	return 0;
+	struct s32_adc *info = iio_priv(indio_dev);
+	int group, i;
+	int mcr_data, ncmr_data, cimr_data;
+	int clk_rate;
+	long ret;
+
+	switch (mask) {
+	case IIO_CHAN_INFO_RAW:
+		mutex_lock(&indio_dev->mlock);
+		reinit_completion(&info->completion);
+
+		group = group_idx(chan->channel);
+		if (group < 0) {
+			mutex_unlock(&indio_dev->mlock);
+			return group;
+		}
+
+		for (i = 0; i < ADC_NUM_GROUPS; i++) {
+			ncmr_data = readl(info->regs + REG_ADC_NCMR(i));
+			cimr_data = readl(info->regs + REG_ADC_CIMR(i));
+
+			ncmr_data &= ~ADC_CH_MASK;
+			cimr_data &= ~ADC_CIM_MASK;
+			if (i == group) {
+				ncmr_data |= ADC_CH(chan->channel);
+				cimr_data |= ADC_CIM(chan->channel);
+			}
+
+			writel(ncmr_data, info->regs + REG_ADC_NCMR(i));
+			writel(cimr_data, info->regs + REG_ADC_CIMR(i));
+		}
+
+		mcr_data = readl(info->regs + REG_ADC_MCR);
+		mcr_data &= ~ADC_MODE;
+		mcr_data &= ~ADC_PWDN;
+		writel(mcr_data, info->regs + REG_ADC_MCR);
+
+		info->current_channel = chan->channel;
+
+		/* Ensure there are at least three cycles between the
+		 * configuration of NCMR and the setting of NSTART */
+		clk_rate = clk_get_rate(info->clk);
+		if (!(mcr_data & ADC_ADCLKSEL)) {
+			if (mcr_data & ADC_ADCLKDIV)
+				clk_rate >>= 2;
+			else
+				clk_rate >>= 1;
+		}
+		ndelay(ADC_NSEC_PER_SEC / clk_rate * 3);
+
+		mcr_data |= ADC_NSTART;
+		writel(mcr_data, info->regs + REG_ADC_MCR);
+
+		ret = wait_for_completion_interruptible_timeout
+			(&info->completion,
+			msecs_to_jiffies(ADC_CONV_TIMEOUT));
+
+		ncmr_data &= ~ADC_CH(info->current_channel);
+		cimr_data &= ~ADC_CIM(info->current_channel);
+		writel(ncmr_data, info->regs + REG_ADC_NCMR(group));
+		writel(cimr_data, info->regs + REG_ADC_CIMR(group));
+
+		mcr_data = readl(info->regs + REG_ADC_MCR);
+		mcr_data |= ADC_PWDN;
+		writel(mcr_data, info->regs + REG_ADC_MCR);
+
+		if (ret == 0) {
+			mutex_unlock(&indio_dev->mlock);
+			return -ETIMEDOUT;
+		}
+		if (ret < 0) {
+			mutex_unlock(&indio_dev->mlock);
+			return ret;
+		}
+
+		*val = info->value;
+
+		mutex_unlock(&indio_dev->mlock);
+		return IIO_VAL_INT;
+
+	default:
+		break;
+	}
+
+	return -EINVAL;
 }
 
 static int s32_write_raw(struct iio_dev *indio_dev,
@@ -334,6 +515,8 @@ static int s32_adc_probe(struct platform_device *pdev)
 	}
 
 	platform_set_drvdata(pdev, indio_dev);
+
+	init_completion(&info->completion);
 
 	indio_dev->name = dev_name(&pdev->dev);
 	indio_dev->dev.parent = &pdev->dev;
