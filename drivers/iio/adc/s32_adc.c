@@ -41,6 +41,7 @@
 #define REG_ADC_CTR(g)		(0x94 + ((g) << 2))
 #define REG_ADC_NCMR(g)		(0xa4 + ((g) << 2))
 #define REG_ADC_CDR(c)		(0x100 + ((c) << 2))
+#define REG_ADC_CALCFG(g)		(0x3a0 + ((g) << 2))
 #define REG_ADC_CALSTAT		0x39c
 
 /* Main Configuration Register field define */
@@ -278,8 +279,14 @@ static void s32_adc_calibration(struct s32_adc *info)
 	}
 
 	mcr_data &= ~ADC_PWDN;
-	mcr_data |= ADC_CALSTART;
+	writel(mcr_data, info->regs + REG_ADC_MCR);
 
+	/* remove for production silicon where these values will be auto-loaded
+	 * from fuses */
+	writel(0x371b4fee, info->regs + REG_ADC_CALCFG(0));
+	writel(0x00000000, info->regs + REG_ADC_CALCFG(1));
+
+	mcr_data |= ADC_CALSTART;
 	writel(mcr_data, info->regs + REG_ADC_MCR);
 
 	do_gettimeofday(&tv_start);
