@@ -203,6 +203,20 @@
 				status = "disabled";
 			};
 
+			qspi0: qspi@400A6000 {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				compatible = "fsl,s32v234-qspi";
+				reg = <0x0 0x400A6000 0x0 0x1000>,
+				      <0x0 0x20000000 0x0 0x10000000>;
+				reg-names = "QuadSPI", "QuadSPI-memory";
+				interrupts = <0 24 4>;
+				clocks = <&clks S32V234_CLK_QUADSPI0_AHB>,
+					 <&clks S32V234_CLK_QUADSPI0>;
+				clock-names = "qspi_en", "qspi";
+				status = "disabled";
+			};
+
 			gpu: gpu@40020000 {
 				compatible = "fsl,s32v234-gpu";
 				reg = <0x0 0x40020000 0x0 0x1000>,
