@@ -37,6 +37,7 @@
 #include <linux/videodev2.h>
 #include <linux/uaccess.h>
 #include <linux/atomic.h>
+#include <linux/ktime.h>
 
 #include <video/of_display_timing.h>
 #include <video/videomode.h>
@@ -76,6 +77,8 @@ unsigned long wb_phys_ptr;
 #define DRIVER_NAME			"fsl_dcu"
 #define DCU_LAYER_NUM_MAX	8
 
+#define DCU_CLUT_PALETTE_LENGTH	256
+
 #define TCON_CTRL			0x0
 #define TCON_BYPASS_ENABLE	(1 << 29)
 #define TCON_ENABLE			(1 << 31)
@@ -102,6 +105,24 @@ unsigned long wb_phys_ptr;
 	#define __MSG_TRACE__(string, args...)
 	#define __HERE__ dev_info(&dcu_pdev->dev, " HERE %s\n", __func__)
 #endif
+
+#ifdef __LOG_TRACE__
+static ktime_t vblank_time_start;
+static s64 vblank_time_diff;
+static s64 prog_end_diff;
+#endif
+
+/**********************************************************
+ * DCU internal types
+ **********************************************************/
+
+/* CLUT update requests. */
+struct dcu_clut_update_req {
+	atomic_t enabled;
+	uint16_t clut_offset;
+	uint16_t lut_size;
+	uint32_t clut[DCU_CLUT_PALETTE_LENGTH];
+};
 
 /**********************************************************
  * GLOBAL DCU configuration registers
@@ -149,6 +170,11 @@ int timings_listener_list_size;
 /* FB error counters */
 static atomic_t	dcu_undrun_cnt = ATOMIC_INIT(0);
 static atomic_t	dcu_undrun_enabled = ATOMIC_INIT(0);
+
+/* CLUT update requests. Cache of last written CLUT tables,
+ * We write to DCU HW the new CLUT only when changed
+ */
+struct dcu_clut_update_req clut_update_reqs[DCU_LAYER_NUM_MAX];
 
 /**********************************************************
  * GLOBAL DCU & FB supported color formats
@@ -345,6 +371,51 @@ int fsl_dcu_get_color_format_byname(const char *format_name)
 }
 EXPORT_SYMBOL_GPL(fsl_dcu_get_color_format_byname);
 
+/*
+ * Upload_clut to DCU in a tasklet
+ * This avoids long-running irq contexts
+ */
+static void fsl_dcu_upload_clut(unsigned long not_used)
+{
+	int layer = 0;
+	int clut_written = 0;
+
+#ifdef __LOG_TRACE__
+	ktime_t start_op = ktime_get();
+	s64 notif_diff = ktime_us_delta(start_op,
+			vblank_time_start);
+#endif
+
+	for (layer = 0; layer < DCU_LAYER_NUM_MAX; layer++) {
+		struct dcu_clut_update_req *req = &clut_update_reqs[layer];
+
+		if (atomic_read(&req->enabled)) {
+			DCU_CLUTLoad(0, layer,
+					req->clut_offset,
+					req->lut_size,
+					req->clut);
+			atomic_set(&req->enabled, 0);
+			clut_written++;
+		}
+	}
+
+#ifdef __LOG_TRACE__
+	if (clut_written > 0) {
+		s64 clut_diff;
+		/* time to load CLUT */
+		clut_diff = ktime_us_delta(ktime_get(),
+				start_op);
+		dev_info(&dcu_pdev->dev,
+			"DCU VBLANK_LATENCY=%lld; CLUT=%lld;"
+			" PROGEND=%lld; VBLANK_DIFF=%lld",
+			notif_diff, clut_diff, prog_end_diff, vblank_time_diff);
+	}
+#endif
+
+}
+
+static DECLARE_TASKLET_OLD(fsl_dcu_tasklet, fsl_dcu_upload_clut);
+
 /**********************************************************
  * FUNCTION: fsl_dcu_set_clut
  **********************************************************/
@@ -353,25 +424,57 @@ int fsl_dcu_set_clut(struct fb_info *info)
 	int ret = 0;
 	struct mfb_info *mfbi = info->par;
 	struct fb_cmap *cmap = &info->cmap;
-	uint32_t clut[256], i;
-	uint16_t clut_offset = 256 * mfbi->index;
+	uint32_t lclut[DCU_CLUT_PALETTE_LENGTH] = {0};
+	uint32_t i;
+	uint16_t clut_offset = DCU_CLUT_PALETTE_LENGTH * mfbi->index;
+	struct dcu_clut_update_req *req = &clut_update_reqs[mfbi->index];
+
+	if (cmap->len > DCU_CLUT_PALETTE_LENGTH) {
+		dev_err(&dcu_pdev->dev, "Maximum color map size is %d.\n",
+				DCU_CLUT_PALETTE_LENGTH);
+		return -EINVAL;
+	}
 
 	/* Convert the FB color-map to a CLUT */
 	for (i = 0; i < cmap->len; ++i) {
 		if (cmap->transp)
-			clut[i] = (cmap->transp[i] & 0xFF) << 24;
+			lclut[i] = (cmap->transp[i] & 0xFF) << 24;
 		else
-			clut[i] = 0xFF000000;
+			lclut[i] = 0xFF000000;
 
-		clut[i] |= (cmap->red[i] & 0xFF) << 16;
-		clut[i] |= (cmap->green[i] & 0xFF) << 8;
-		clut[i] |= (cmap->blue[i] & 0xFF);
+		lclut[i] |= (cmap->red[i] & 0xFF) << 16;
+		lclut[i] |= (cmap->green[i] & 0xFF) << 8;
+		lclut[i] |= (cmap->blue[i] & 0xFF);
 	}
 
-	/* wait vblank, and then write the CLUT */
-	ret = fsl_dcu_wait_for_vblank();
-	if (!ret)
-		DCU_CLUTLoad(0, mfbi->index, clut_offset, cmap->len, clut);
+	if (cmap->len != req->lut_size ||
+			clut_offset != req->clut_offset ||
+			memcmp(lclut, req->clut, sizeof(lclut)) != 0) {
+
+#ifdef __LOG_TRACE__
+		dev_info(&dcu_pdev->dev,
+					"DCU: CLUT differ. Schedule write to DCU");
+#endif
+		/*
+		 * guard for concurrent access:
+		 * wait for tasklet to finish its job, update
+		 * and enable it back
+		 */
+		tasklet_disable(&fsl_dcu_tasklet);
+
+		req->clut_offset = clut_offset;
+		req->lut_size = cmap->len;
+		memcpy(req->clut, lclut, sizeof(lclut));
+
+		/* enable clut write */
+		atomic_set(&req->enabled, 1);
+		tasklet_enable(&fsl_dcu_tasklet);
+	} else {
+#ifdef __LOG_TRACE__
+		dev_info(&dcu_pdev->dev,
+					"DCU: skipping writing CLUT. Same value.");
+#endif
+	}
 
 	return ret;
 }
@@ -800,7 +903,26 @@ void fsl_dcu_event_VSYNC(void)
  **********************************************************/
 void fsl_dcu_event_VBLANK(void)
 {
+#ifdef __LOG_TRACE__
+	ktime_t newTime = ktime_get();
+
+	vblank_time_diff = ktime_us_delta(newTime, vblank_time_start);
+	vblank_time_start = newTime;
+#endif
+
+	tasklet_schedule(&fsl_dcu_tasklet);
 	fsl_dcu_event(DCU_EVENT_TYPE_VBLANK);
+}
+
+/**********************************************************
+ * FUNCTION: fsl_dcu_event_VBLANK
+ **********************************************************/
+void fsl_dcu_event_PROG_END(void)
+{
+#ifdef __LOG_TRACE__
+	prog_end_diff = ktime_us_delta(ktime_get(),
+			vblank_time_start);
+#endif
 }
 
 /**********************************************************
@@ -864,9 +986,10 @@ void fsl_dcu_display(DCU_DISPLAY_TYPE display_type,
 	/* Register and enable the callbacks for VSYNC and VBLANK */
 	DCU_RegisterCallbackVSYNC(0, fsl_dcu_event_VSYNC);
 	DCU_RegisterCallbackVBLANK(0, fsl_dcu_event_VBLANK);
+	DCU_RegisterCallbackProgDone(0, fsl_dcu_event_PROG_END);
 
 	DCU_EnableDisplayTimingIrq(0, DCU_INT_VSYNC_MASK |
-			DCU_INT_VS_BLANK_MASK);
+			DCU_INT_VS_BLANK_MASK | DCU_INT_PROG_END_MASK);
 
 	/* Set QoS values. Needed to be able to drive constant data
 	 * throughput for 1920*1080 resolution
@@ -1362,6 +1485,8 @@ int fsl_dcu_probe(struct platform_device *pdev)
 
 	memset(&current_display_cfg, 0, sizeof(current_display_cfg));
 	memset(timings_listener_list, 0, sizeof(timings_listener_list));
+	memset(clut_update_reqs, 0, sizeof(clut_update_reqs));
+
 	timings_listener_list_size = 0;
 
 	/* initialize the DCU memory pool if configured in DTB */
