@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2015-2016 Freescale Semiconductor, Inc.
+ * Copyright 2017 NXP
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -176,20 +177,21 @@
 #define	S32V234_CLK_PIT0			138
 #define	S32V234_CLK_PIT1			139
 #define	S32V234_CLK_QUADSPI0			140
-#define	S32V234_CLK_SARADC0			141
-#define	S32V234_CLK_SDHC			142
-#define	S32V234_CLK_SDHC_AHB			143
-#define	S32V234_CLK_SDHC_IPS			144
-#define	S32V234_CLK_SPI0			145
-#define	S32V234_CLK_SPI1			146
-#define	S32V234_CLK_SPI2			147
-#define	S32V234_CLK_SPI3			148
-#define	S32V234_CLK_SIPI			149
-#define	S32V234_CLK_TSENS			150
-#define	S32V234_CLK_VIU0_AHB			151
-#define	S32V234_CLK_VIU0_IPS			152
-#define	S32V234_CLK_VIU1_AHB			153
-#define	S32V234_CLK_VIU1_IPS			154
+#define	S32V234_CLK_QUADSPI0_AHB		141
+#define	S32V234_CLK_SARADC0			142
+#define	S32V234_CLK_SDHC			143
+#define	S32V234_CLK_SDHC_AHB			144
+#define	S32V234_CLK_SDHC_IPS			145
+#define	S32V234_CLK_SPI0			146
+#define	S32V234_CLK_SPI1			147
+#define	S32V234_CLK_SPI2			148
+#define	S32V234_CLK_SPI3			149
+#define	S32V234_CLK_SIPI			150
+#define	S32V234_CLK_TSENS			151
+#define	S32V234_CLK_VIU0_AHB			152
+#define	S32V234_CLK_VIU0_IPS			153
+#define	S32V234_CLK_VIU1_AHB			154
+#define	S32V234_CLK_VIU1_IPS			155
 
-#define	S32V234_CLK_END				155
+#define	S32V234_CLK_END				156
 #endif /* __DT_BINDINGS_CLOCK_S32V234_H */
