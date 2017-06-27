@@ -224,7 +224,7 @@ static int fsl_fb_set_par(struct fb_info *info)
 	memset(&ioctl_display_cfg, 0, sizeof(ioctl_display_cfg));
 	ioctl_display_cfg.disp_type = video_format.use_hdmi ?
 		IOCTL_DISPLAY_HDMI : IOCTL_DISPLAY_LVDS;
-	ioctl_display_cfg.clock_freq = var->pixclock * 1000;
+	ioctl_display_cfg.clock_freq = PICOS2KHZ(var->pixclock) * 1000;
 	ioctl_display_cfg.hactive = var->xres;
 	ioctl_display_cfg.vactive = var->yres;
 	ioctl_display_cfg.hback_porch = var->left_margin;
