@@ -59,87 +59,99 @@
 			native-mode = <&timing2>;
 
 			timing0: hdmi-fhd {
-				clock-frequency = <5787000>;
+				clock-frequency = <6666000>;
 				hactive = <1920>;
 				vactive = <1080>;
-				vback-porch = <34>;
-				vfront-porch = <1>;
-				hback-porch = <328>;
-				hfront-porch = <120>;
-				hsync-len = <208>;
-				vsync-len = <3>;
+				vback-porch = <36>;
+				vfront-porch = <4>;
+				hback-porch = <148>;
+				hfront-porch = <88>;
+				hsync-len = <45>;
+				vsync-len = <16>;
 			};
 
-			timing1: hdmi-ntsc {
-				clock-frequency = <37037000>;
-				hactive = <720>;
-				vactive = <480>;
-				vback-porch = <30>;
-				vfront-porch = <9>;
-				hback-porch = <60>;
-				hfront-porch = <16>;
-				hsync-len = <62>;
-				vsync-len = <6>;
-			};
-
-			timing2: hdmi-pal {
-				clock-frequency = <37037000>;
-				hactive = <720>;
-				vactive = <576>;
-				vback-porch = <39>;
+			timing1: hdmi-wuxga {
+				clock-frequency = <6666000>;
+				hactive = <1920>;
+				vactive = <1200>;
+				vback-porch = <40>;
 				vfront-porch = <5>;
-				hback-porch = <68>;
-				hfront-porch = <12>;
-				hsync-len = <64>;
+				hback-porch = <65>;
+				hfront-porch = <13>;
+				hsync-len = <2>;
 				vsync-len = <5>;
 			};
 
-			timing3: hdmi-vga {
-				clock-frequency = <39722000>;
+			timing2: hdmi-ntsc {
+				clock-frequency = <40000000>;
+				hactive = <720>;
+				vactive = <480>;
+				vback-porch = <10>;
+				vfront-porch = <1>;
+				hback-porch = <85>;
+				hfront-porch = <17>;
+				hsync-len = <21>;
+				vsync-len = <3>;
+			};
+
+			timing3: hdmi-pal {
+				clock-frequency = <20000000>;
+				hactive = <720>;
+				vactive = <576>;
+				vback-porch = <83>;
+				vfront-porch = <21>;
+				hback-porch = <385>;
+				hfront-porch = <24>;
+				hsync-len = <91>;
+				vsync-len = <3>;
+			};
+
+			timing4: hdmi-vga {
+				clock-frequency = <40000000>;
 				hactive = <640>;
 				vactive = <480>;
 				vback-porch = <33>;
-				vfront-porch = <10>;
+				vfront-porch = <9>;
 				hback-porch = <48>;
 				hfront-porch = <16>;
-				hsync-len = <96>;
+				hsync-len = <91>;
 				vsync-len = <2>;
 			};
 
-			timing4: hdmi-wxga {
-				clock-frequency = <13468000>;
+			timing5: hdmi-wxga {
+				clock-frequency = <13333000>;
 				hactive = <1280>;
 				vactive = <720>;
 				vback-porch = <20>;
 				vfront-porch = <5>;
 				hback-porch = <220>;
 				hfront-porch = <110>;
-				hsync-len = <40>;
-				vsync-len = <5>;
+				hsync-len = <37>;
+				vsync-len = <14>;
 			};
 
-			timing5: hdmi-xga {
-				clock-frequency = <12690000>;
+			timing6: hdmi-xga {
+				clock-frequency = <13333000>;
 				hactive = <1024>;
 				vactive = <768>;
-				vback-porch = <28>;
-				vfront-porch = <1>;
-				hback-porch = <176>;
-				hfront-porch = <16>;
-				hsync-len = <96>;
-				vsync-len = <3>;
+				vback-porch = <49>;
+				vfront-porch = <10>;
+				hback-porch = <272>;
+				hfront-porch = <69>;
+				hsync-len = <136>;
+				vsync-len = <6>;
 			};
 
-			timing6: lvds-fhd {
-				clock-frequency = <56000000>;
+			timing7: lvds-fhd {
+				clock-frequency = <6667000>;
 				hactive = <1920>;
 				vactive = <1080>;
-				hback-porch = <30>;
-				hfront-porch = <60>;
-				vback-porch = <30>;
-				vfront-porch = <3>;
-				hsync-len = <60>;
-				vsync-len = <3>;
+				vback-porch = <36>;
+				vfront-porch = <4>;
+				hback-porch = <148>;
+				hfront-porch = <88>;
+				hsync-len = <45>;
+				vsync-len = <16>;
 			};
 		};
 	};
