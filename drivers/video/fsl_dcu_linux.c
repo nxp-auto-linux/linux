@@ -994,8 +994,8 @@ void fsl_dcu_display(DCU_DISPLAY_TYPE display_type,
 
 	__TRACE__;
 
-	/* DCU set configuration, LVDS has fixed div according to RM - TODO */
-	DCU_Init(0, dcu_clk_val, dcu_lcd_timings, DCU_FREQDIV_NORMAL);
+	/* DCU set configuration, Use already calculated frequency divider */
+	DCU_Init(0, dcu_clk_val, dcu_lcd_timings, DCU_FREQDIV_LVDS);
 
 	/* Initialize DCU background color */
 	bkgr_color.Red_Value	= 0x0;
@@ -1095,6 +1095,15 @@ int fsl_dcu_display_configs_match(
 }
 
 /**********************************************************
+ * FUNCTION: round_div
+ * compute rounded divide operation
+ **********************************************************/
+static inline int round_div(int num, int den)
+{
+	return (num + (den / 2)) / den;
+}
+
+/**********************************************************
  * FUNCTION: fsl_dcu_configure_display
  * Set the parameters of a DCU-managed display
  **********************************************************/
@@ -1145,22 +1154,9 @@ void fsl_dcu_configure_display(struct IOCTL_DISPLAY_CFG *display_cfg)
 	dcu_lcd_timings.mVertFP = display_cfg->vfront_porch;
 	dcu_lcd_timings.mVertPW = display_cfg->vsync_len;
 	dcu_lcd_timings.mSyncPol = 3;
-	dcu_lcd_timings.mVertFq = 60; /* attempted freq */
-
-	dcu_lcd_timings.mDivFactor = dcu_clk_val/
-			(dcu_lcd_timings.mVertFq
-				* (dcu_lcd_timings.mDeltaX
-					+ dcu_lcd_timings.mHorzBP
-					+ dcu_lcd_timings.mHorzPW
-					+ dcu_lcd_timings.mHorzFP)
-				* (dcu_lcd_timings.mDeltaY
-					+ dcu_lcd_timings.mVertBP
-					+ dcu_lcd_timings.mVertPW
-					+ dcu_lcd_timings.mVertFP)
-			);
-	/* minimum divider is 1 */
-	if (dcu_lcd_timings.mDivFactor == 0)
-		dcu_lcd_timings.mDivFactor = 1;
+	dcu_lcd_timings.mVertFq = 60; /* not used */
+	dcu_lcd_timings.mDivFactor = (dcu_clk_val >= display_cfg->clock_freq) ?
+			round_div(dcu_clk_val, display_cfg->clock_freq)  : 1;
 
 	/* adjust input frequency to what actually is set on target */
 	display_cfg->clock_freq = dcu_clk_val / dcu_lcd_timings.mDivFactor;
