@@ -400,6 +400,14 @@
 				#address-cells = <2>;
 				#size-cells = <2>;
 
+					/*
+					 * MIDR registers
+					 * They physically exist in EIRQ
+					 * addr space but they don't belong
+					 * to GPIO
+					 */
+				midr-reg = <0x0 0x4006C000 0x0 0x10>;
+
 					  /* EIRQs */
 				ranges = <0 0 0x0 0x4006C000 0x0 0xC4>,
 					  /* PINCTRL */
