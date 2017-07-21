@@ -152,6 +152,10 @@ int dcu_init_status = DCU_INIT_ERR_PROBE;
 #define DCU_EVENT_TYPE_VBLANK 1
 #define DCU_EVENT_TYPE_MAX    2
 
+/* The state of vertical blanking period */
+#define DCU_VBLANK_OFF	0
+#define DCU_VBLANK_ON	1
+
 /* DCU clock definitions */
 #define DCU_PIXEL_CLOCK_NAME	"dcu"
 #define DCU_AXI_CLOCK_NAME		"ipg"
@@ -175,6 +179,8 @@ static atomic_t	dcu_undrun_enabled = ATOMIC_INIT(0);
  * We write to DCU HW the new CLUT only when changed
  */
 struct dcu_clut_update_req clut_update_reqs[DCU_LAYER_NUM_MAX];
+
+static atomic_t	dcu_vblank_state = ATOMIC_INIT(DCU_VBLANK_OFF);
 
 /**********************************************************
  * GLOBAL DCU & FB supported color formats
@@ -388,8 +394,19 @@ static void fsl_dcu_upload_clut(unsigned long not_used)
 
 	for (layer = 0; layer < DCU_LAYER_NUM_MAX; layer++) {
 		struct dcu_clut_update_req *req = &clut_update_reqs[layer];
-
 		if (atomic_read(&req->enabled)) {
+			if (atomic_read(&dcu_vblank_state) == DCU_VBLANK_OFF) {
+				dev_warn(&dcu_pdev->dev,
+					"DCU: vblank period ended before uploading CLUT.\n");
+				/*
+				 * prog end event, thus end of blanking period
+				 * happened before tasklet has been scheduled.
+				 * Wait for next vblank opportunity to upload
+				 * CLUT
+				 */
+				return;
+			}
+
 			DCU_CLUTLoad(0, layer,
 					req->clut_offset,
 					req->lut_size,
@@ -406,7 +423,7 @@ static void fsl_dcu_upload_clut(unsigned long not_used)
 		clut_diff = ktime_us_delta(ktime_get(),
 				start_op);
 		dev_info(&dcu_pdev->dev,
-			"DCU VBLANK_LATENCY=%lld; CLUT=%lld;"
+			"DCU VBLANK_LATENCY(us)=%lld; CLUT=%lld;"
 			" PROGEND=%lld; VBLANK_DIFF=%lld",
 			notif_diff, clut_diff, prog_end_diff, vblank_time_diff);
 	}
@@ -904,11 +921,13 @@ void fsl_dcu_event_VSYNC(void)
 void fsl_dcu_event_VBLANK(void)
 {
 #ifdef __LOG_TRACE__
-	ktime_t newTime = ktime_get();
+	ktime_t new_time = ktime_get();
 
-	vblank_time_diff = ktime_us_delta(newTime, vblank_time_start);
-	vblank_time_start = newTime;
+	vblank_time_diff = ktime_us_delta(new_time, vblank_time_start);
+	vblank_time_start = new_time;
 #endif
+
+	atomic_set(&dcu_vblank_state, DCU_VBLANK_ON);
 
 	tasklet_schedule(&fsl_dcu_tasklet);
 	fsl_dcu_event(DCU_EVENT_TYPE_VBLANK);
@@ -923,6 +942,7 @@ void fsl_dcu_event_PROG_END(void)
 	prog_end_diff = ktime_us_delta(ktime_get(),
 			vblank_time_start);
 #endif
+	atomic_set(&dcu_vblank_state, DCU_VBLANK_OFF);
 }
 
 /**********************************************************
