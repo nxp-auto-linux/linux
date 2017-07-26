@@ -1,0 +1,48 @@
+# SPDX-License-Identifier: GPL-2.0
+%YAML 1.2
+---
+
+title: Temperature sensor driver for NXP s32v234 SoCs
+
+maintainers:
+  - Dorin Ionita <dorin.ionita@nxp.com>
+
+description: |
+  Support for Temperature Monitoring Unit (TMU) found on NXP s32v234
+  SoCs. It supports reporting the immediate and average temperature
+  in a manner compatible with lm-sensors
+
+properties:
+  compatible:
+    const:
+      - fsl,s32v234-tmu
+
+  reg:
+    description:
+      Address range of the TMU registers
+
+  clocks:
+    description: |
+      One entry, the clock for the TMU device
+
+  clock-names:
+    description: tsens
+
+required:
+  - compatible
+  - reg
+  - clocks
+  - clock-names
+
+additionalProperties: false
+
+examples:
+  - |
+    tmu: tmu@400CE000 {
+      compatible = "fsl,s32v234-tmu";
+      reg = <0x0 0x400CE000 0x0 0x1000>;
+      clocks = <&clks S32V234_CLK_TSENS>;
+      clock-names = "tsens";
+      status = "disabled";
+    };
+...
