@@ -341,6 +341,10 @@ static void __init s32v234_clocks_init(struct device_node *mc_cgm0_node)
 		MC_CGM_ACn_DCm_PREDIV_OFFSET,
 		MC_CGM_ACn_DCm_PREDIV_SIZE);
 
+	/* TSENS Clock */
+	clk[S32V234_CLK_TSENS] = s32_clk_gate2("tsens", "sys6",
+		mc_me_base, TSENS_PCTL, 0, 1);
+
 	/* Lin Clock */
 	clk[S32V234_CLK_LIN_SEL] = s32_clk_mux("lin_sel",
 		CGM_ACn_SC(mc_cgm0_base, 5),
