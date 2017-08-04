@@ -623,6 +623,14 @@
 				status = "disabled";
 			};
 
+			tmu: tmu@400CE000 {
+				compatible = "fsl,s32v234-tmu";
+				reg = <0x0 0x400CE000 0x0 0x1000>;
+				clocks = <&clks S32V234_CLK_TSENS>;
+				clock-names = "tsens";
+				status = "disabled";
+			};
+
 			viulite1: viulite1@400D0000 {
 				compatible = "fsl,s32v234-viulite1";
 				reg = <0x0 0x400D0000 0x0 0x1000>;
