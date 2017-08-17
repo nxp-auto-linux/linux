@@ -84,10 +84,12 @@
 		fxosc {
 			compatible = "fixed-clock";
 			clock-frequency = <40000000>;
+			#clock-cells = <0>;
 		};
 		firc {
 			compatible = "fixed-clock";
 			clock-frequency = <48000000>;
+			#clock-cells = <0>;
 		};
 	};
 
