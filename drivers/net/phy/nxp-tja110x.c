@@ -2006,20 +2006,91 @@ static struct phy_device *search_mdio_by_id(struct mii_bus *bus, int phy_id)
 	return NULL;
 }
 
+static int mdio_bus_name_matches(struct device *found_device,
+				 const void *desired_name)
+{
+	struct mii_bus *mdio_bus;
+
+	/* Since we know 'found_dev' belongs to a class with the name
+	 * 'mdio_bus', we assume it is a member of a 'struct mii_bus',
+	 * and therefore it is safe to call container_of
+	 */
+	mdio_bus = container_of(found_device, struct mii_bus, dev);
+
+	/* Double check that this is indeed a 'struct mii_bus'. If it is,
+	 * it's state should be MDIO_REGISTERED at this point. If it is not,
+	 * it is either not a 'struct mii_bus', either it is in an
+	 * undesired state.
+	 */
+	if (mdio_bus->state != MDIOBUS_REGISTERED)
+		return 0;
+
+	if (strcmp(mdio_bus->name, (char *)desired_name) == 0)
+		return 1;
+	return 0;
+}
+
+static struct mii_bus *find_mdio_bus_by_name(const char *name,
+					     struct class *mdio_bus_class)
+{
+	struct device *found_device;
+
+	found_device = class_find_device(mdio_bus_class,
+					 NULL,
+					 (void *)name,
+					 mdio_bus_name_matches);
+	if (found_device)
+		return container_of(found_device, struct mii_bus, dev);
+	else
+		return NULL;
+}
+
+static struct class *bus_class_from_net_device(struct net_device *net_device,
+					       const char *required_name)
+{
+	struct class *bus_class;
+
+	if (!net_device ||
+	    !net_device->phydev ||
+	    !net_device->phydev->mdio.bus ||
+	    !net_device->phydev->mdio.bus->dev.class ||
+	    !net_device->phydev->mdio.bus->dev.class->name)
+		return NULL;
+
+	bus_class = net_device->phydev->mdio.bus->dev.class;
+	if (strcmp(bus_class->name, required_name) != 0)
+		return NULL;
+
+	return bus_class;
+}
+
 /* Helper function: Search net devices for a specific phy with given id.
  *
  * @return        pyhdev if found, NULL else
  */
 static struct phy_device *search_phy_by_id(int phy_id)
 {
-	struct net_device *dev;
+	struct mii_bus *mdio_bus;
+	struct class *bus_class;
+	struct net_device *net_device;
 
-	/* search the net devices for attached phy */
-	dev = first_net_device(&init_net);
-	while (dev) {
-		if (dev->phydev)
-			return search_mdio_by_id(dev->phydev->bus, phy_id);
-		dev = next_net_device(dev);
+	/* We need a pointer to a certain 'struct mii_bus', but in order to
+	 * look for it using 'class_find_device', we need a pointer to the
+	 * 'mdio_bus' class. Therefore we enumerate through all 'struct
+	 * net_device' in search for a pointer to said class. After we obtain
+	 * the 'struct mii_bus *' we can search the 'phy_device' on it.
+	 */
+
+	net_device = first_net_device(&init_net);
+	while (net_device) {
+		bus_class = bus_class_from_net_device(net_device, "mdio_bus");
+		if (bus_class) {
+			mdio_bus = find_mdio_bus_by_name("fec_enet_mii_bus",
+							 bus_class);
+			if (mdio_bus)
+				return search_mdio_by_id(mdio_bus, phy_id);
+		}
+		net_device = next_net_device(net_device);
 	}
 	return NULL;
 }
