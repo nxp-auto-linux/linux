@@ -133,7 +133,7 @@ static inline void entry_to_target_mode(void __iomem *mc_me, u32 mode)
 static inline void enable_cpumodes_onperipheralconfig(void __iomem *mc_me,
 			u32 modes, u32 run_pc_idx)
 {
-	BUG_ON(run_pc_idx >= MC_ME_RUN_PCn_MAX_IDX);
+	BUG_ON(run_pc_idx > MC_ME_RUN_PCn_MAX_IDX);
 	writel_relaxed(modes, MC_ME_RUN_PCn(mc_me, run_pc_idx));
 }
 
