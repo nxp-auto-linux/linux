@@ -13,6 +13,8 @@ if ARCH_S32
 menu "S32 SOC selection"
 	config SOC_S32V234
 		bool "S32V234 SOC"
+	config SOC_S32GEN1
+		bool "S32 GEN1 SOC"
 endmenu
 
 menu "STM timer used as system timer"
@@ -37,6 +39,15 @@ menu "PIT timer used as system timer"
 	config PIT_CLKEVT_RATE
 		int "PIT Rating for ClockEvents"
 		default 460
+endmenu
+
+if SOC_S32GEN1
+menu "S32 GEN1 execution target"
+	config S32GEN1_SIMULATOR
+		bool "S32GEN1 Synopsys Simulator"
+		help
+		   S32GEN1 Software Simulator from Synopsys is a presilicon
+		   development solution.
 endmenu
 
 if SOC_S32V234
