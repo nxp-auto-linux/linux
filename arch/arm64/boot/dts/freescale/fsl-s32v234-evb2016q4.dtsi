@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0+
 /*
  * Copyright 2015-2016 Freescale Semiconductor, Inc.
- * Copyright 2017-2019 NXP
+ * Copyright 2016-2019 NXP
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -9,23 +9,13 @@
  * (at your option) any later version.
  */
 
-#include "s32v234.dtsi"
+#include "fsl-s32v234.dtsi"
 / {
 	model = "Freescale S32V234";
-	compatible = "fsl,s32v234-pcie", "fsl,s32v234";
+	compatible = "fsl,s32v234-evb2016q4", "fsl,s32v234";
 
 	chosen {
-		bootargs = "console=ttyLF1,115200";
-	};
-
-	memory_DDR0@80000000 {
-		device_type = "memory";
-		reg = <0 0x80000000 0 0x10000000>;
-	};
-
-	memory_DDR1@c0000000 {
-		device_type = "memory";
-		reg = <0 0xc0000000 0 0x10000000>;
+		bootargs = "console=ttyLF0,115200";
 	};
 };
 
@@ -42,6 +32,14 @@
 };
 
 &cse3 {
+	status = "okay";
+};
+
+&dec200_dec {
+	status = "okay";
+};
+
+&dec200_enc {
 	status = "okay";
 };
 
@@ -237,7 +235,7 @@
 &pinctrl {
 	status = "okay";
 
-	s32v234-pcie {
+	s32v234-evb {
 
 		pinctrl_can0: can0grp {
 			fsl,pins = <
@@ -255,56 +253,17 @@
 			>;
 		};
 
-		pinctrl_dcu: dcugrp {
-			fsl,pins = <
-				S32V234_PAD_PH8__DCU_HSYNC_C1
-				S32V234_PAD_PH9__DCU_VSYNC_C2
-				S32V234_PAD_PH10__DCU_DE_C3
-				S32V234_PAD_PH12__DCU_PCLK_D1_DSE_34
-				S32V234_PAD_PH13__DCU_R0_D2
-				S32V234_PAD_PH14__DCU_R1_D3
-				S32V234_PAD_PH15__DCU_R2_D4
-				S32V234_PAD_PJ0__DCU_R3_D5
-				S32V234_PAD_PJ1__DCU_R4_D6
-				S32V234_PAD_PJ2__DCU_R5_D7
-				S32V234_PAD_PJ3__DCU_R6_D8
-				S32V234_PAD_PJ4__DCU_R7_D9
-				S32V234_PAD_PJ5__DCU_G0_D10
-				S32V234_PAD_PJ6__DCU_G1_D11
-				S32V234_PAD_PJ7__DCU_G2_D12
-				S32V234_PAD_PJ8__DCU_G3_D13
-				S32V234_PAD_PJ9__DCU_G4_D14
-				S32V234_PAD_PJ10__DCU_G5_D15
-				S32V234_PAD_PJ11__DCU_G6_D16
-				S32V234_PAD_PJ12__DCU_G7_D17
-				S32V234_PAD_PJ13__DCU_B0_D18
-				S32V234_PAD_PJ14__DCU_B1_D19
-				S32V234_PAD_PJ15__DCU_B2_D20
-				S32V234_PAD_PK0__DCU_B3_D21
-				S32V234_PAD_PK1__DCU_B4_D22
-				S32V234_PAD_PK2__DCU_B5_D23
-				S32V234_PAD_PK3__DCU_B6_D24
-				S32V234_PAD_PK4__DCU_B7_D25
-				>;
-		};
-
 		pinctrl_dspi0: dspi0grp {
 			fsl,pins = <
 				S32V234_PAD_PB8__SPI0_CS0_OUT
+				S32V234_PAD_PC0__SPI0_CS4_OUT
+				S32V234_PAD_PC1__SPI0_CS5_OUT
+				S32V234_PAD_PC2__SPI0_CS6_OUT
+				S32V234_PAD_PC3__SPI0_CS7_OUT
 				S32V234_PAD_PB6__SPI0_SOUT_OUT
 				S32V234_PAD_PB5__SPI0_SCK_OUT
 				S32V234_PAD_PB7__SPI0_SIN_OUT
 				S32V234_PAD_PB7__SPI0_SIN_IN
-			>;
-		};
-
-		pinctrl_dspi3: dspi3grp {
-			fsl,pins = <
-				S32V234_PAD_PC4__SPI3_CS0_OUT
-				S32V234_PAD_PC2__SPI3_SOUT_OUT
-				S32V234_PAD_PC1__SPI3_SCK_OUT
-				S32V234_PAD_PC3__SPI3_SIN_OUT
-				S32V234_PAD_PC3__SPI3_SIN_IN
 			>;
 		};
 
@@ -615,23 +574,17 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_dspi0>;
 	status = "okay";
-};
 
-&spi3 {
-	#address-cells = <1>;
-	#size-cells = <0>;
-
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_dspi3>;
-	status = "okay";
-
-	/* This is an example entry to illustrate SPI device setup.
-	 * To be hooked up to the expansion port SPI3 CS0 for testing.
-	 */
-	spidev0: spidev@0 {
+	tja1145_0: spidev@6 {
 		compatible = "rohm,dh2228fv";
 		spi-max-frequency = <4000000>;
-		reg = <0>;
+		reg = <6>;
+	};
+
+	tja1145_1: spidev@7 {
+		compatible = "rohm,dh2228fv";
+		spi-max-frequency = <4000000>;
+		reg = <7>;
 	};
 };
 

@@ -5,7 +5,7 @@
  */
 
 /dts-v1/;
-#include "s32v234-evb28899.dtsi"
+#include "fsl-s32v234-evb28899.dtsi"
 
 &fec {
 	phy-mode = "rgmii";
