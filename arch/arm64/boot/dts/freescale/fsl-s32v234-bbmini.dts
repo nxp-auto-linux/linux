@@ -10,7 +10,7 @@
  */
 
 /dts-v1/;
-#include "s32v234-evb2016q4.dtsi"
+#include "fsl-s32v234-evb2016q4.dtsi"
 
 / {
 	compatible = "fsl,s32v234-bbmini", "fsl,s32v234-evb2016q4", "fsl,s32v234";

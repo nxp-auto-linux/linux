@@ -9,7 +9,7 @@
  * (at your option) any later version.
  */
 
-#include "s32v234.dtsi"
+#include "fsl-s32v234.dtsi"
 / {
 	model = "Freescale S32V234";
 	compatible = "fsl,s32v234-evb28899", "fsl,s32v234";

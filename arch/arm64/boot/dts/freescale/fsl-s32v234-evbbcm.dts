@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0+
 /*
- * Copyright 2016 Freescale Semiconductor, Inc.
+ * Copyright 2015 Freescale Semiconductor, Inc.
+ * Copyright 2017 NXP
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -9,7 +10,7 @@
  */
 
 /dts-v1/;
-#include "s32v234-pcie.dtsi"
+#include "fsl-s32v234-evb28899.dtsi"
 
 &fec {
 	phy-mode = "rgmii";

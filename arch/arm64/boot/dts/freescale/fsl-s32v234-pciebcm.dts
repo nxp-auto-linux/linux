@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0+
 /*
- * (C) Copyright 2018 NXP
+ * Copyright 2016 Freescale Semiconductor, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -9,17 +9,10 @@
  */
 
 /dts-v1/;
-#include "s32v234-ccpb.dtsi"
+#include "fsl-s32v234-pcie.dtsi"
 
 &fec {
 	phy-mode = "rgmii";
+	fixed-link = <1 1 1000 0 0>;
 	status = "okay";
-	fixed-link {
-		speed=<1000>;
-		full-duplex;
-	};
-	mdio {
-		#address-cells = <1>;
-		#size-cells = <0>;
-	};
 };
