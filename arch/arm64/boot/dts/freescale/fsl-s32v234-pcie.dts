@@ -9,7 +9,7 @@
  */
 
 /dts-v1/;
-#include "s32v234-pcie.dtsi"
+#include "fsl-s32v234-pcie.dtsi"
 
 &fec {
 	phy-mode = "rgmii";
