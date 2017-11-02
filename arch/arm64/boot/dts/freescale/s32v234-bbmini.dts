@@ -14,11 +14,8 @@
 
 &fec {
 	phy-mode = "rgmii";
+	phy-handle = <&phy0>;
 	status = "okay";
-	fixed-link {
-		speed=<1000>;
-		full-duplex;
-	};
 	mdio {
 		#address-cells = <1>;
 		#size-cells = <0>;
