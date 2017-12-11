@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0+
 /*
  * Copyright 2015-2016 Freescale Semiconductor, Inc.
- * Copyright 2016-2017 NXP
+ * Copyright 2016-2020 NXP
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -65,124 +65,107 @@
 	#address-cells = <1>;
 	#size-cells = <0>;
 
-	sja1105_0: sja1105@0 {
-		compatible = "nxp,sja1105-switch-1-3";
-		spi-max-frequency = <4000000>;
+	sja1105p@0 {
+		compatible = "nxp,sja1105p-switch";
+		spi-max-frequency = <0x3D0900>;  // 4000000
 		spi-cpha;
 		fsl,spi-cs-sck-delay = <100>;
 		fsl,spi-sck-cs-delay = <100>;
 
 		reg = <0>;
 		port-0 {
-			is-host = <1>;
-			speed = <1000>;
-			xmii-mode = "RGMII";
-			null-phy =  <1>;
+			is-host = <0x1>;
+			null-phy = <0x1>;
+			phy-ref = < 0 >;
 		};
 		port-1 {
-			is-host = <0>;
-			speed = <1000>;
-			xmii-mode = "RGMII";
-			null-phy =  <0>;
+			is-host = <0x0>;
+			null-phy = <0x1>;
+			phy-ref = < 0 >;
 		};
 		port-2 {
-			is-host = <0>;
-			speed = <100>;
-			xmii-mode = "RMII";
-			null-phy = <0>;
+			is-host = <0x0>;
+			null-phy = <0x1>;
+			phy-ref = < 0 >;
 		};
 		port-3 {
-			is-host = <0>;
-			speed = <1000>;
-			xmii-mode = "RGMII";
-			null-phy = <0>;
+			is-host = <0x0>;
+			null-phy = <0x1>;
+			phy-ref = < 0 >;
 		};
 		port-4 {
-			is-host = <0>;
-			speed = <1000>;
-			xmii-mode = "RGMII";
-			null-phy = <0>;
-			phy-handle = <&phy0>;
+			is-host = <0x0>;
+			null-phy = <0x0>;
+			phy-ref = < &phy0 >;
 		};
 	};
 
-	sja1105_1: sja1105@1 {
-		compatible = "nxp,sja1105-switch-2-3";
-		spi-max-frequency = <4000000>;
+	sja1105p@5 {
+		compatible = "nxp,sja1105p-switch";
+		spi-max-frequency = <0x3D0900>;
 		spi-cpha;
 		fsl,spi-cs-sck-delay = <100>;
 		fsl,spi-sck-cs-delay = <100>;
 
 		reg = <5>;
 		port-0 {
-			is-host = <1>;
-			speed = <1000>;
-			xmii-mode = "RGMII";
-			null-phy =  <1>;
+			is-host = <0x1>;
+			null-phy = <0x1>;
+			phy-ref = < 0 >;
 		};
 		port-1 {
-			is-host = <0>;
-			speed = <100>;
-			xmii-mode = "MII";
-			null-phy =  <0>;
+			is-host = <0x0>;
+			null-phy = <0x1>;
+			phy-ref = < 0 >;
 		};
 		port-2 {
-			is-host = <0>;
-			speed = <100>;
-			xmii-mode = "MII";
-			null-phy = <0>;
+			is-host = <0x0>;
+			null-phy = <0x1>;
+			phy-ref = < 0 >;
 		};
 		port-3 {
-			is-host = <0>;
-			speed = <100>;
-			xmii-mode = "MII";
-			null-phy = <0>;
+			is-host = <0x0>;
+			null-phy = <0x1>;
+			phy-ref = < 0 >;
 		};
 		port-4 {
-			is-host = <0>;
-			speed = <100>;
-			xmii-mode = "MII";
-			null-phy = <0>;
+			is-host = <0x0>;
+			null-phy = <0x1>;
+			phy-ref = < 0 >;
 		};
 	};
 
-	sja1105_2: sja1105@2 {
-		compatible = "nxp,sja1105-switch-3-3";
-		spi-max-frequency = <4000000>;
-		spi-cpha;
+	sja1105p@4 {
+		compatible = "nxp,sja1105p-switch";
+		spi-max-frequency = <0x3D0900>;
 		fsl,spi-cs-sck-delay = <100>;
 		fsl,spi-sck-cs-delay = <100>;
 
 		reg = <4>;
 		port-0 {
-			is-host = <1>;
-			speed = <1000>;
-			xmii-mode = "RGMII";
-			null-phy =  <1>;
+			is-host = <0x1>;
+			null-phy = <0x1>;
+			phy-ref = < 0 >;
 		};
 		port-1 {
-			is-host = <0>;
-			speed = <100>;
-			xmii-mode = "MII";
-			null-phy =  <0>;
+			is-host = <0x0>;
+			null-phy = <0x1>;
+			phy-ref = < 0 >;
 		};
 		port-2 {
-			is-host = <0>;
-			speed = <100>;
-			xmii-mode = "MII";
-			null-phy = <0>;
+			is-host = <0x0>;
+			null-phy = <0x1>;
+			phy-ref = < 0 >;
 		};
 		port-3 {
-			is-host = <0>;
-			speed = <100>;
-			xmii-mode = "MII";
-			null-phy = <0>;
+			is-host = <0x0>;
+			null-phy = <0x1>;
+			phy-ref = < 0 >;
 		};
 		port-4 {
-			is-host = <0>;
-			speed = <100>;
-			xmii-mode = "MII";
-			null-phy = <0>;
+			is-host = <0x0>;
+			null-phy = <0x1>;
+			phy-ref = < 0 >;
 		};
 	};
 };
