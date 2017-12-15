@@ -13,8 +13,7 @@
 #include "s32v234-evb2016q4.dtsi"
 
 / {
-	compatible = "fsl,s32v234-bbmini", "fsl,s32v234-evb2016q4", "fsl,s32v234",
-		     "arm,vexpress";
+	compatible = "fsl,s32v234-bbmini", "fsl,s32v234-evb2016q4", "fsl,s32v234";
 };
 
 &fec {
