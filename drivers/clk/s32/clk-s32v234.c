@@ -1,6 +1,6 @@
 /*
  * Copyright 2015-2016 Freescale Semiconductor, Inc.
- * Copyright 2017 NXP
+ * Copyright 2017-2018 NXP
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -47,10 +47,6 @@ PNAME(enet_sels) = {"firc", "fxosc", "dummy",
 
 PNAME(enet_time_sels) = {"firc", "fxosc", "dummy",
 			 "dummy", "enetpll_phi0",};
-
-PNAME(dcu_sels) = {"firc", "fxosc", "dummy", "dummy",
-		   "dummy", "dummy", "dummy", "dummy", "dummy",
-		   "sys6",};
 
 PNAME(gpu_sels) = {"firc", "fxosc", "armpll_dfs1", };
 
@@ -371,31 +367,6 @@ static void __init s32v234_clocks_init(struct device_node *mc_cgm0_node)
 		"lin_ipg", mc_me_base, LINFLEX1_PCTL, 0, 1,
 		&share_count_linflex1gate);
 
-	/* enable DCU */
-	clk[S32V234_CLK_DCU_SEL] = s32_clk_mux("videopll_sel",
-		CGM_ACn_SC(mc_cgm0_base, 9),
-		MC_CGM_ACn_SEL_OFFSET,
-		MC_CGM_ACn_SEL_SIZE,
-		dcu_sels, ARRAY_SIZE(dcu_sels));
-
-	clk[S32V234_CLK_DCU_AXI_DIV] = s32_clk_divider("dcu_axi_div",
-		"videopll_sel", CGM_ACn_DCm(mc_cgm0_base, 9, 1),
-		MC_CGM_ACn_DCm_PREDIV_OFFSET,
-		MC_CGM_ACn_DCm_PREDIV_SIZE);
-
-	clk[S32V234_CLK_DCU_PIX_DIV] = s32_clk_divider("dcu_pix_div",
-		"videopll_sel", CGM_ACn_DCm(mc_cgm0_base, 9, 1),
-		MC_CGM_ACn_DCm_PREDIV_OFFSET,
-		MC_CGM_ACn_DCm_PREDIV_SIZE);
-
-	clk[S32V234_CLK_DCU_AXI] = s32_clk_gate2_shared("dcu_axi",
-		"dcu_axi_div", mc_me_base, DCU_PCTL, 0, 1,
-		 &share_count_dcugate);
-
-	clk[S32V234_CLK_DCU_PIX] = s32_clk_gate2_shared("dcu_pix",
-		"dcu_pix_div", mc_me_base, DCU_PCTL, 0, 1,
-		 &share_count_dcugate);
-
 	/* enable PERIPHPLL */
 	enable_clocks_sources(0, MC_ME_MODE_MC_PERIPHPLL,
 			      MC_ME_RUNn_MC(mc_me_base, 0));
@@ -643,6 +614,47 @@ static void __init s32v234_clocks_init(struct device_node *mc_cgm0_node)
 
 	/* enable DDRPLL */
 	enable_clocks_sources(0, MC_ME_MODE_MC_DDRPLL,
+			      MC_ME_RUNn_MC(mc_me_base, 0));
+
+	/* VIDEO_PLL */
+	clk[S32V234_CLK_VIDEOPLL_VCO] = s32_clk_plldig(S32_PLLDIG_VIDEO,
+		"videopll_vco", "videopll_sel",
+		VIDEOPLL_PLLDIG(mc_cgm0_base),
+		VIDEOPLL_PLLDIG_PLLDV_MFD, VIDEOPLL_PLLDIG_PLLDV_MFN,
+		VIDEOPLL_PLLDIG_PLLDV_RFDPHI0,
+		VIDEOPLL_PLLDIG_PLLDV_RFDPHI1);
+
+	clk[S32V234_CLK_VIDEOPLL_PHI0] =
+		s32_clk_plldig_phi(S32_PLLDIG_VIDEO,
+		"videopll_phi0", "videopll_vco",
+		VIDEOPLL_PLLDIG(mc_cgm0_base), 0);
+
+	/* Fixed divider for DCU clocks */
+	clk[S32V234_CLK_VIDEOPLLDIV2] =
+		s32_clk_fixed_factor("videopll_phi0div2", "videopll_phi0",
+					1U, 2U);
+
+	/* enable DCU */
+	clk[S32V234_CLK_DCU_AXI_DIV] = s32_clk_divider("dcu_axi_div",
+		"videopll_phi0div2", CGM_ACn_DCm(mc_cgm0_base, 9, 0),
+		MC_CGM_ACn_DCm_PREDIV_OFFSET,
+		MC_CGM_ACn_DCm_PREDIV_SIZE);
+
+	clk[S32V234_CLK_DCU_PIX_DIV] = s32_clk_divider("dcu_pix_div",
+		"videopll_phi0div2", CGM_ACn_DCm(mc_cgm0_base, 9, 1),
+		MC_CGM_ACn_DCm_PREDIV_OFFSET,
+		MC_CGM_ACn_DCm_PREDIV_SIZE);
+
+	clk[S32V234_CLK_DCU_AXI] = s32_clk_gate2_shared("dcu_axi",
+		"dcu_axi_div", mc_me_base, DCU_PCTL, 0, 1,
+		 &share_count_dcugate);
+
+	clk[S32V234_CLK_DCU_PIX] = s32_clk_gate2_shared("dcu_pix",
+		"dcu_pix_div", mc_me_base, DCU_PCTL, 0, 1,
+		 &share_count_dcugate);
+
+	/* enable VIDEOPLL */
+	enable_clocks_sources(0, MC_ME_MODE_MC_VIDEOPLL,
 			      MC_ME_RUNn_MC(mc_me_base, 0));
 
 	/* set the system clock */
