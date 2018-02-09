@@ -1,6 +1,6 @@
 /*
  * Copyright 2015-2016 Freescale Semiconductor, Inc.
- * Copyright 2017 NXP
+ * Copyright 2017-2018 NXP
  *
  * The code contained herein is licensed under the GNU General Public
  * License. You may obtain a copy of the GNU General Public License
@@ -30,15 +30,14 @@
 struct clk_dfs {
 	struct clk_hw	hw;
 	void __iomem	*reg;
-	enum s32_plldig_type plltype;
+	enum s32v234_plldig_type plltype;
 	u8		idx;
 	u32		mfn;
-	u32		plldv_rfdphi1;
 };
 
 #define to_clk_dfs(_hw) container_of(_hw, struct clk_dfs, hw)
 
-static int get_pllx_dfs_nr(enum s32_plldig_type plltype)
+static int get_pllx_dfs_nr(enum s32v234_plldig_type plltype)
 {
 	switch (plltype) {
 	case S32_PLLDIG_ARM:
@@ -55,7 +54,7 @@ static int get_pllx_dfs_nr(enum s32_plldig_type plltype)
 
 	return -EINVAL;
 }
-static unsigned long get_pllx_dfsy_max_rate(enum s32_plldig_type plltype,
+static unsigned long get_pllx_dfsy_max_rate(enum s32v234_plldig_type plltype,
 					    int dfsno)
 {
 	switch (plltype) {
@@ -196,7 +195,7 @@ static const struct clk_ops clk_dfs_ops = {
 	.is_enabled	= clk_dfs_is_enabled,
 };
 
-struct clk *s32_clk_dfs(enum s32_plldig_type type, const char *name,
+struct clk *s32v234_clk_dfs(enum s32v234_plldig_type type, const char *name,
 			const char *parent_name, void __iomem *reg,
 			u8 idx, u32 mfn)
 {

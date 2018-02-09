@@ -16,8 +16,6 @@
 #include <linux/spinlock.h>
 #include "clk.h"
 
-DEFINE_SPINLOCK(s32_cgm_lock);
-
 void __init s32_check_clocks(struct clk *clks[], unsigned int count)
 {
 	unsigned int i;
