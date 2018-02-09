@@ -1,6 +1,6 @@
 /*
  * Copyright 2015-2016 Freescale Semiconductor, Inc.
- * Copyright 2017 NXP
+ * Copyright 2017-2018 NXP
  *
  * The code contained herein is licensed under the GNU General Public
  * License. You may obtain a copy of the GNU General Public License
@@ -32,7 +32,7 @@
 struct clk_plldig {
 	struct clk_hw	hw;
 	void __iomem	*base;
-	enum s32_plldig_type type;
+	enum s32v234_plldig_type type;
 	u32		plldv_mfd;
 	u32		pllfd_mfn;
 	u32		plldv_rfdphi;
@@ -41,7 +41,7 @@ struct clk_plldig {
 
 #define to_clk_plldig(_hw) container_of(_hw, struct clk_plldig, hw)
 
-static unsigned long get_pllx_max_vco_rate(enum s32_plldig_type plltype)
+static unsigned long get_pllx_max_vco_rate(enum s32v234_plldig_type plltype)
 {
 	switch (plltype) {
 	case S32_PLLDIG_ARM:
@@ -62,7 +62,7 @@ static unsigned long get_pllx_max_vco_rate(enum s32_plldig_type plltype)
 	}
 }
 
-static unsigned long get_pllx_phiy_max_rate(enum s32_plldig_type plltype,
+static unsigned long get_pllx_phiy_max_rate(enum s32v234_plldig_type plltype,
 					    unsigned int phino)
 {
 	switch (plltype) {
@@ -246,9 +246,9 @@ static const struct clk_ops clk_plldig_ops = {
 	.set_rate	= clk_plldig_set_rate,
 };
 
-struct clk *s32_clk_plldig_phi(enum s32_plldig_type type, const char *name,
-			       const char *parent, void __iomem *base,
-			       u32 phi)
+struct clk *s32v234_clk_plldig_phi(enum s32v234_plldig_type type,
+			       const char *name, const char *parent,
+			       void __iomem *base, u32 phi)
 {
 	u32 plldv, rfd_phi;
 
@@ -281,7 +281,7 @@ struct clk *s32_clk_plldig_phi(enum s32_plldig_type type, const char *name,
 
 }
 
-struct clk *s32_clk_plldig(enum s32_plldig_type type, const char *name,
+struct clk *s32v234_clk_plldig(enum s32v234_plldig_type type, const char *name,
 			       const char *parent_name, void __iomem *base,
 			       u32 plldv_mfd, u32 pllfd_mfn,
 			       u32 plldv_rfdphi, u32 plldv_rfdphi1)
