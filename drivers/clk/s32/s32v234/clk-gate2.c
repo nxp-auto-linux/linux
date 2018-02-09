@@ -1,7 +1,7 @@
 /*
  * Copyright (C) 2010-2011 Canonical Ltd <jeremy.kerr@canonical.com>
  * Copyright (C) 2011-2012 Mike Turquette, Linaro Ltd <mturquette@linaro.org>
- * Copyright (C) 2016 NXP Semiconductors, Inc
+ * Copyright (C) 2016-2019 NXP
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -41,7 +41,7 @@ struct clk_gate2 {
 
 #define to_clk_gate2(_hw) container_of(_hw, struct clk_gate2, hw)
 
-static int clk_gate2_enable(struct clk_hw *hw)
+static int s32v234_clk_gate2_enable(struct clk_hw *hw)
 {
 	struct clk_gate2 *gate = to_clk_gate2(hw);
 	u8 reg;
@@ -64,7 +64,7 @@ out:
 	return 0;
 }
 
-static void clk_gate2_disable(struct clk_hw *hw)
+static void s32v234_clk_gate2_disable(struct clk_hw *hw)
 {
 	struct clk_gate2 *gate = to_clk_gate2(hw);
 	u8 reg;
@@ -88,24 +88,18 @@ out:
 	spin_unlock_irqrestore(gate->lock, flags);
 }
 
-static int clk_gate2_reg_is_enabled(void __iomem *reg, u8 bit_idx)
+static int clk_gate2_is_enabled(struct clk_hw *hw)
 {
-	u8 val = readb(reg);
+	struct clk_gate2 *gate = to_clk_gate2(hw);
+	u8 val = readb(MC_ME_PCTLn(gate->reg, gate->pctln));
 
-	if (((val >> bit_idx) & GATE_MASK))
+	if (((val >> gate->bit_idx) & GATE_MASK))
 		return 1;
 
 	return 0;
 }
 
-static int clk_gate2_is_enabled(struct clk_hw *hw)
-{
-	struct clk_gate2 *gate = to_clk_gate2(hw);
-
-	return clk_gate2_reg_is_enabled(gate->reg, gate->bit_idx);
-}
-
-static void clk_gate2_disable_unused(struct clk_hw *hw)
+static void s32v234_clk_gate2_disable_unused(struct clk_hw *hw)
 {
 	struct clk_gate2 *gate = to_clk_gate2(hw);
 	unsigned long flags = 0;
@@ -124,13 +118,13 @@ static void clk_gate2_disable_unused(struct clk_hw *hw)
 }
 
 static struct clk_ops clk_gate2_ops = {
-	.enable = clk_gate2_enable,
-	.disable = clk_gate2_disable,
-	.disable_unused = clk_gate2_disable_unused,
+	.enable = s32v234_clk_gate2_enable,
+	.disable = s32v234_clk_gate2_disable,
+	.disable_unused = s32v234_clk_gate2_disable_unused,
 	.is_enabled = clk_gate2_is_enabled,
 };
 
-struct clk *clk_register_gate2(struct device *dev, const char *name,
+struct clk *s32v234_clk_register_gate2(struct device *dev, const char *name,
 		const char *parent_name, unsigned long flags,
 		void __iomem *reg, u32 pctln, u8 bit_idx, u8 val,
 		u8 clk_gate2_flags, spinlock_t *lock,
