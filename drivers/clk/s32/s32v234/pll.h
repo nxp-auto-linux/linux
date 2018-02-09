@@ -1,14 +1,14 @@
 /*
  * Copyright (C) 2016 Freescale Semiconductor, Inc.
- * Copyright 2017 NXP
+ * Copyright 2017-2018 NXP
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
  * (at your option) any later version.
  */
-#ifndef _PLL_H
-#define _PLL_H
+#ifndef _PLL_S32V234_H
+#define _PLL_S32V234_H
 
 /* PLLDIG PLL Divider Register (PLLDIG_PLLDV) */
 #define PLLDIG_PLLDV(base)		((base) + 0x00000028)
@@ -81,5 +81,13 @@
 /* The maximum value for PLL VCO according to data sheet */
 #define MAX_VCO_RATE			(1300000000)
 #define MIN_VCO_RATE			(650000000)
+
+enum s32v234_plldig_type {
+	S32_PLLDIG_ARM,
+	S32_PLLDIG_PERIPH,
+	S32_PLLDIG_ENET,
+	S32_PLLDIG_DDR,
+	S32_PLLDIG_VIDEO,
+};
 
 #endif
