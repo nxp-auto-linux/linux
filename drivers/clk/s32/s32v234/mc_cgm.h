@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2016 Freescale Semiconductor, Inc.
+ * Copyright 2018 NXP
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -15,9 +16,9 @@
 #define ARMPLL_PLLDIG_PLLDV_MFN		(0)
 #define ARMPLL_PLLDIG_PLLDV_RFDPHI0	(1)
 #define ARMPLL_PLLDIG_PLLDV_RFDPHI1	(1)
-#define ARMPLL_PLLDIG_DFS0_MFN		(194)
-#define ARMPLL_PLLDIG_DFS1_MFN		(170)
-#define ARMPLL_PLLDIG_DFS2_MFN		(170)
+#define ARMPLL_PLLDIG_DFS0_MFN		(195)
+#define ARMPLL_PLLDIG_DFS1_MFN		(171)
+#define ARMPLL_PLLDIG_DFS2_MFN		(171)
 #define PERIPHPLL_PLLDIG(mc_cgm)	((mc_cgm) + 0x80)
 #define PERIPHPLL_PLLDIG_PLLDV_MFD	(30)
 #define PERIPHPLL_PLLDIG_PLLDV_MFN	(0)
@@ -29,19 +30,19 @@
 #define ENETPLL_PLLDIG_PLLDV_MFN	(0)
 #define ENETPLL_PLLDIG_PLLDV_RFDPHI0	(0x1)
 #define ENETPLL_PLLDIG_PLLDV_RFDPHI1	(0x1)
-#define ENETPLL_PLLDIG_DFS0_MFN		(219)
-#define ENETPLL_PLLDIG_DFS1_MFN		(219)
-#define ENETPLL_PLLDIG_DFS2_MFN		(32)
-#define ENETPLL_PLLDIG_DFS3_MFN		(0)
+#define ENETPLL_PLLDIG_DFS0_MFN		(220)
+#define ENETPLL_PLLDIG_DFS1_MFN		(220)
+#define ENETPLL_PLLDIG_DFS2_MFN		(33)
+#define ENETPLL_PLLDIG_DFS3_MFN		(1)
 #define DDRPLL_PLLDIG(mc_cgm)		((mc_cgm) + 0x180)
 #define DDRPLL_PLLDIG_DFS(mc_cgm)	((mc_cgm) + 0x180 + 0x40)
 #define DDRPLL_PLLDIG_PLLDV_MFD		(53)
 #define DDRPLL_PLLDIG_PLLDV_MFN		(6144)
 #define DDRPLL_PLLDIG_PLLDV_RFDPHI0	(0x1)
 #define DDRPLL_PLLDIG_PLLDV_RFDPHI1	(0x1)
-#define DDRPLL_PLLDIG_DFS0_MFN		(33)
-#define DDRPLL_PLLDIG_DFS1_MFN		(33)
-#define DDRPLL_PLLDIG_DFS2_MFN		(11)
+#define DDRPLL_PLLDIG_DFS0_MFN		(34)
+#define DDRPLL_PLLDIG_DFS1_MFN		(34)
+#define DDRPLL_PLLDIG_DFS2_MFN		(12)
 #define VIDEOPLL_PLLDIG(mc_cgm)		((mc_cgm) + 0x200)
 #define VIDEOPLL_PLLDIG_PLLDV_MFD	(30)
 #define VIDEOPLL_PLLDIG_PLLDV_MFN	(0)
