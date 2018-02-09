@@ -1,0 +1,46 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+
+title: NXP S32GEN1 Clock Generation Modules (MC_CGMs)
+
+maintainers:
+  - Ghennadi Procopciuc <Ghennadi.Procopciuc@nxp.com>
+  - Larisa Grigore <Larisa.Grigore@nxp.com>
+
+description: |
+  Clock Generation Modules provides registers for system and peripherals clock
+  source selection and division.
+
+  This binding uses the common clock binding
+    Documentation/devicetree/bindings/clock/clock-bindings.txt
+
+properties:
+  compatible:
+    const:
+      - fsl,s32gen1-mc_cgm0  # for MC_CGM_0
+      - fsl,s32gen1-mc_cgm1  # for MC_CGM_1
+      - fsl,s32gen1-mc_cgm5  # for MC_CGM_5
+
+  reg:
+    Location and length of the register set
+
+  clock-cells: |  # (only for MC_CGM_0)
+    - Should be <1>. See dt-bindings/clock/s32gen1-clock.h for the clock
+      specifiers allowed in the clocks property of consumers.
+
+required:
+  - compatible
+  - reg
+  - clock-cells
+
+additionalProperties: false
+
+examples:
+  - |
+    clks: mc_cgm0@40030000 {
+        compatible = "fsl,s32gen1-mc_cgm0";
+        reg = <0x0 0x40030000 0x0 0x3000>;
+        #clock-cells = <1>;
+    };
+...
