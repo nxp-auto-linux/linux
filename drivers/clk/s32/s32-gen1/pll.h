@@ -6,6 +6,7 @@
  * the Free Software Foundation; either version 2 of the License, or
  * (at your option) any later version.
  */
+
 #ifndef _PLL_S32GEN1_H
 #define _PLL_S32GEN1_H
 
