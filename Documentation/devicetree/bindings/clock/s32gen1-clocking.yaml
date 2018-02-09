@@ -1,0 +1,60 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+
+title: NXP S32GEN1 CLOCKING
+
+maintainers:
+  - Ghennadi Procopciuc <Ghennadi.Procopciuc@nxp.com>
+  - Larisa Grigore <Larisa.Grigore@nxp.com>
+
+description: |
+  The internal clocks are generated from one of these input clock sources
+  FIRC 48 MHz (mainly used as backup clock)
+  SIRC 32 kHz
+  FXOSC 20-40 MHz
+  PLLs
+    CORE_PLL (FM)
+    PERIPH_PLL (Non-FM)
+    DDR_PLL (Non-FM)
+    ACCEL_PLL (FM)
+    AURORA_PLL (Non-FM)
+  DFS blocks
+    CORE_PLL DFS
+    PERIPH_PLL DFS
+
+  The PLLDIG module provides a user interface and control
+  over PLL system composed of a single PLL analog block and
+  the digital interface. The DFS digital block implements
+  registers to control the analog DFS block.
+
+properties:
+  compatible:
+    const:
+      - fsl,s32r45-clocking
+      - fsl,s32g274-clocking
+
+  reg:
+    Location and length of the register set
+
+required:
+  - compatible
+  - reg
+
+additionalProperties: false
+
+examples:
+  - |
+    clks: clocking@40038000 {
+        compatible = "fsl,s32r45-clocking";
+        reg = <0x0 0x40038000 0x0 0x3000>, /*armpll*/
+            <0x0 0x4003C000 0x0 0x3000>, /*periphpll*/
+            <0x0 0x40040000 0x0 0x3000>, /*accelpll*/
+            <0x0 0x40044000 0x0 0x3000>, /*ddrpll*/
+            <0x0 0x40048000 0x0 0x3000>, /*aurorapll*/
+            <0x0 0x40050000 0x0 0x3000>, /*xosc*/
+            <0x0 0x40054000 0x0 0x3000>, /*armdfs*/
+            <0x0 0x40058000 0x0 0x3000>; /*periphdfs*/
+            #clock-cells = <1>;
+    };
+...
