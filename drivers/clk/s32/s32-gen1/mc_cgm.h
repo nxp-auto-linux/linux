@@ -1,0 +1,95 @@
+/*
+ * Copyright 2018 NXP
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ */
+#ifndef _MC_CGM_S32GEN1_H
+#define _MC_CGM_S32GEN1_H
+
+#define ARMPLL_PLLDIG_PLLDV_MFI		(100)
+#define ARMPLL_PLLDIG_PLLDV_MFN		(0)
+#define ARMPLL_PLLDIG_DFS1_MFN		(9)
+#define ARMPLL_PLLDIG_DFS2_MFN		(9)
+#define ARMPLL_PLLDIG_DFS3_MFN		(0)
+#define ARMPLL_PLLDIG_DFS4_MFN		(12)
+#define ARMPLL_PLLDIG_DFS5_MFN		(24)
+#define ARMPLL_PLLDIG_DFS6_MFN		(24)
+
+#define PERIPHPLL_PLLDIG_PLLDV_MFI	(100)
+#define PERIPHPLL_PLLDIG_PLLDV_MFN	(0)
+#define PERIPHPLL_PLLDIG_DFS1_MFN	(9)
+#define PERIPHPLL_PLLDIG_DFS2_MFN	(1)
+#define PERIPHPLL_PLLDIG_DFS3_MFN	(9)
+#define PERIPHPLL_PLLDIG_DFS4_MFN	(24)
+#define PERIPHPLL_PLLDIG_DFS5_MFN	(1)
+#define PERIPHPLL_PLLDIG_DFS6_MFN	(0)
+
+#define DDRPLL_PLLDIG_PLLDV_MFI		(40)
+#define DDRPLL_PLLDIG_PLLDV_MFN		(0)
+
+#define ACCELPLL_PLLDIG_PLLDV_MFI	(60)
+#define ACCELPLL_PLLDIG_PLLDV_MFN	(0)
+
+#define AURORAPLL_PLLDIG_PLLDV_MFI	(125)
+#define AURORAPLL_PLLDIG_PLLDV_MFN	(0)
+
+/* MC_CGM registers definitions */
+/* MC_CGM_MUX_n_CSC */
+#define CGM_MUXn_CSC(cgm_addr, mux)	(((cgm_addr) + 0x300 + (mux) * 0x40))
+#define MC_CGM_MUXn_CSC_SELCTL(val)	(MC_CGM_MUXn_CSC_SELCTL_MASK & ((val) \
+					 << MC_CGM_MUXn_CSC_SELCTL_OFFSET))
+#define MC_CGM_MUXn_CSC_SELCTL_MASK	(0x3F000000)
+#define MC_CGM_MUXn_CSC_SELCTL_OFFSET	(24)
+#define MC_CGM_MUXn_CSC_SELCTL_SIZE	(6)
+
+#define MC_CGM_MUXn_CSC_CLK_SW		(1 << 2)
+
+/* Clock source mapping on MC_CGM clock selectors. */
+/* Clock source / Clock selector index */
+#define MC_CGM_MUXn_CSC_SEL_FIRC			0
+#define MC_CGM_MUXn_CSC_SEL_SIRC			1
+#define MC_CGM_MUXn_CSC_SEL_FXOSC			2
+#define MC_CGM_MUXn_CSC_SEL_SXOSC			3
+#define MC_CGM_MUXn_CSC_SEL_ARM_PLL_PHI0		4
+#define MC_CGM_MUXn_CSC_SEL_ARM_PLL_PHI1		5
+#define MC_CGM_MUXn_CSC_SEL_ARM_PLL_PHI2		6
+#define MC_CGM_MUXn_CSC_SEL_ARM_PLL_PHI3		7
+#define MC_CGM_MUXn_CSC_SEL_ARM_PLL_PHI4		8
+#define MC_CGM_MUXn_CSC_SEL_ARM_PLL_PHI5		9
+#define MC_CGM_MUXn_CSC_SEL_ARM_PLL_PHI6		10
+#define MC_CGM_MUXn_CSC_SEL_ARM_PLL_PHI7		11
+#define MC_CGM_MUXn_CSC_SEL_ARM_PLL_DFS1		12
+#define MC_CGM_MUXn_CSC_SEL_ARM_PLL_DFS2		13
+#define MC_CGM_MUXn_CSC_SEL_ARM_PLL_DFS3		14
+#define MC_CGM_MUXn_CSC_SEL_ARM_PLL_DFS4		15
+#define MC_CGM_MUXn_CSC_SEL_ARM_PLL_DFS5		16
+#define MC_CGM_MUXn_CSC_SEL_ARM_PLL_DFS6		17
+#define MC_CGM_MUXn_CSC_SEL_PERIPH_PLL_PHI0		18
+#define MC_CGM_MUXn_CSC_SEL_PERIPH_PLL_PHI1		19
+#define MC_CGM_MUXn_CSC_SEL_PERIPH_PLL_PHI2		20
+#define MC_CGM_MUXn_CSC_SEL_PERIPH_PLL_PHI3		21
+#define MC_CGM_MUXn_CSC_SEL_PERIPH_PLL_PHI4		22
+#define MC_CGM_MUXn_CSC_SEL_PERIPH_PLL_PHI5		23
+#define MC_CGM_MUXn_CSC_SEL_PERIPH_PLL_PHI6		24
+#define MC_CGM_MUXn_CSC_SEL_PERIPH_PLL_PHI7		25
+#define MC_CGM_MUXn_CSC_SEL_PERIPH_PLL_DFS1		26
+#define MC_CGM_MUXn_CSC_SEL_PERIPH_PLL_DFS2		27
+#define MC_CGM_MUXn_CSC_SEL_PERIPH_PLL_DFS3		28
+#define MC_CGM_MUXn_CSC_SEL_PERIPH_PLL_DFS4		29
+#define MC_CGM_MUXn_CSC_SEL_PERIPH_PLL_DFS5		30
+#define MC_CGM_MUXn_CSC_SEL_PERIPH_PLL_DFS6		31
+#define MC_CGM_MUXn_CSC_SEL_FTM0_EXT_REF		34
+#define MC_CGM_MUXn_CSC_SEL_FTM1_EXT_REF		35
+#define MC_CGM_MUXn_CSC_SEL_GMAC_TX_CLK			37
+#define MC_CGM_MUXn_CSC_SEL_GMAC_RX_CLK			38
+#define MC_CGM_MUXn_CSC_SEL_GMAC_REF_CLK		39
+#define MC_CGM_MUXn_CSC_SEL_SERDES_TX_CLK		40
+#define MC_CGM_MUXn_CSC_SEL_SERDES_CDR_CLK		41
+#define MC_CGM_MUXn_CSC_SEL_LFAST_EXT_REF		42
+#define MC_CGM_MUXn_CSC_SEL_PERIPH_PLL_PHI8		43
+#define MC_CGM_MUXn_CSC_SEL_GMAC_TS_CLK			44
+#define MC_CGM_MUXn_CSC_SEL_GMAC_0_REF_DIV_CLK		45
+#endif
