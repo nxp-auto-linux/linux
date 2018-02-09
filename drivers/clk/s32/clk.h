@@ -97,6 +97,17 @@ static inline struct clk *s32_clk_mux_flags(const char *name,
 			lock);
 }
 
+static inline struct clk *s32_clk_mux_table(const char *name, void __iomem *reg,
+		u8 shift, u8 width, const char **parents, int num_parents,
+		u32 *table, spinlock_t *lock)
+{
+	u32 mask = BIT(width) - 1;
+
+	return clk_register_mux_table(NULL, name, parents, num_parents,
+			CLK_SET_RATE_NO_REPARENT, reg, shift,
+			mask, 0, table, lock);
+}
+
 static inline struct clk *s32_clk_fixed_factor(const char *name,
 		const char *parent, unsigned int mult, unsigned int div)
 {
