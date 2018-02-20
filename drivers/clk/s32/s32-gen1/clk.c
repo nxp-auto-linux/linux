@@ -38,6 +38,11 @@ static u32 lin_mux_idx[] = {
 	MC_CGM_MUXn_CSC_SEL_PERIPH_PLL_PHI3,
 };
 
+PNAME(dspi_sels) = {"firc", "periphpll_phi7", };
+static u32 dspi_mux_idx[] = {
+	MC_CGM_MUXn_CSC_SEL_FIRC, MC_CGM_MUXn_CSC_SEL_PERIPH_PLL_PHI7,
+};
+
 static struct clk *clk[S32GEN1_CLK_END];
 static struct clk_onecell_data clk_data;
 
@@ -208,6 +213,11 @@ static void __init s32gen1_clocks_init(struct device_node *clocking_node)
 		"periphpll_phi6", "periphpll_vco",
 		periphpll, 6);
 
+	clk[S32GEN1_CLK_PERIPHPLL_PHI7] =
+		s32gen1_clk_plldig_phi(S32GEN1_PLLDIG_PERIPH,
+		"periphpll_phi7", "periphpll_vco",
+		periphpll, 7);
+
 	clk[S32GEN1_CLK_PERIPHPLL_DFS1] = s32gen1_clk_dfs(S32GEN1_PLLDIG_PERIPH,
 		 "periphll_dfs1", "periphpll_vco",
 		 periphdfs, 1);
@@ -260,6 +270,26 @@ static void __init s32gen1_clocks_init(struct device_node *clocking_node)
 	clk[S32GEN1_CLK_LIN2] = s32gen1_clk_gate2_shared("lin2",
 		"lin", NULL, 0, 0, 1,
 		&share_count_linflex2gate, &s32gen1_lock);
+
+	/* DSPI Clock */
+	clk[S32GEN1_CLK_DSPI] = s32_clk_mux_table("spi_sel",
+		CGM_MUXn_CSC(mc_cgm0_base, 16),
+		MC_CGM_MUXn_CSC_SELCTL_OFFSET,
+		MC_CGM_MUXn_CSC_SELCTL_SIZE,
+		dspi_sels, ARRAY_SIZE(dspi_sels), dspi_mux_idx, &s32gen1_lock);
+
+	clk[S32GEN1_CLK_SPI0]  = s32gen1_clk_gate2("spi0",
+		"spi_sel", NULL, 0, 0, 1, &s32gen1_lock);
+	clk[S32GEN1_CLK_SPI1]  = s32gen1_clk_gate2("spi1",
+		"spi_sel", NULL, 0, 0, 1, &s32gen1_lock);
+	clk[S32GEN1_CLK_SPI2]  = s32gen1_clk_gate2("spi2",
+		"spi_sel", NULL, 0, 0, 1, &s32gen1_lock);
+	clk[S32GEN1_CLK_SPI3]  = s32gen1_clk_gate2("spi3",
+		"spi_sel", NULL, 0, 0, 1, &s32gen1_lock);
+	clk[S32GEN1_CLK_SPI4]  = s32gen1_clk_gate2("spi4",
+		"spi_sel", NULL, 0, 0, 1, &s32gen1_lock);
+	clk[S32GEN1_CLK_SPI5]  = s32gen1_clk_gate2("spi5",
+		"spi_sel", NULL, 0, 0, 1, &s32gen1_lock);
 
 	/* DDR_PLL */
 	clk[S32GEN1_CLK_DDRPLL_VCO] = s32gen1_clk_plldig(S32GEN1_PLLDIG_DDR,

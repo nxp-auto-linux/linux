@@ -48,7 +48,8 @@ static const unsigned long periph_phis_max_freq[] = {
 	PERIPHPLL_MAX_PHI3_MAX_RATE,
 	PERIPHPLL_MAX_PHI4_MAX_RATE,
 	PERIPHPLL_MAX_PHI5_MAX_RATE,
-	PERIPHPLL_MAX_PHI6_MAX_RATE
+	PERIPHPLL_MAX_PHI6_MAX_RATE,
+	PERIPHPLL_MAX_PHI7_MAX_RATE
 };
 
 static const unsigned long ddr_phis_max_freq[] = {
