@@ -74,7 +74,7 @@
 
 /* Number of PHIs */
 #define ARMPLL_PHI_Nr			(2)
-#define PERIPHPLL_PHI_Nr		(7)
+#define PERIPHPLL_PHI_Nr		(8)
 #define DDRPLL_PHI_Nr			(1)
 #define ACCELPLL_PHI_Nr			(2)
 #define AURORAPLL_PHI_Nr		(1)
@@ -89,6 +89,7 @@
 #define PERIPHPLL_MAX_PHI4_MAX_RATE	(200000000)
 #define PERIPHPLL_MAX_PHI5_MAX_RATE	(125000000)
 #define PERIPHPLL_MAX_PHI6_MAX_RATE	(100000000)
+#define PERIPHPLL_MAX_PHI7_MAX_RATE	(100000000)
 #define DDRPLL_MAX_PHI0_MAX_RATE	(80000000)
 #define ACCELPLL_MAX_PHI0_MAX_RATE	(80000000)
 #define ACCELPLL_MAX_PHI1_MAX_RATE	(80000000)
@@ -98,7 +99,7 @@
 #define MAX_VCO_RATE			(5000000000)
 #define MIN_VCO_RATE			(1300000000)
 
-#define PHI_MAXNUMBER                   (7)
+#define PHI_MAXNUMBER                   (8)
 #define DFS_MAXNUMBER                   (6)
 
 /* DIV for each PHI. */
