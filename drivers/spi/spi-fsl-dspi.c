@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0+
 //
 // Copyright 2013-2016 Freescale Semiconductor, Inc.
+// Copyright 2018 NXP
 //
 // Freescale DSPI driver
 // This file contains a driver for the Freescale DSPI
@@ -40,6 +41,7 @@
 #define SPI_MCR_CLR_TXF			BIT(11)
 #define SPI_MCR_CLR_RXF			BIT(10)
 #define SPI_MCR_XSPI			BIT(3)
+#define SPI_MCR_HALT			BIT(0)
 
 /* Transfer Count Register (SPI_TCR) */
 #define SPI_TCR				0x08
@@ -66,6 +68,7 @@
 /* Status Register (SPI_SR) */
 #define SPI_SR				0x2c
 #define SPI_SR_TCFQF			BIT(31)
+#define SPI_SR_TXRXS			BIT(30)
 #define SPI_SR_EOQF			BIT(28)
 #define SPI_SR_TFUF			BIT(27)
 #define SPI_SR_TFFF			BIT(25)
@@ -746,6 +749,7 @@ static int dspi_transfer_one_message(struct spi_controller *ctlr,
 	enum dspi_trans_mode trans_mode;
 	struct spi_transfer *transfer;
 	int status = 0;
+	unsigned int val;
 
 	message->actual_length = 0;
 
@@ -788,9 +792,13 @@ static int dspi_transfer_one_message(struct spi_controller *ctlr,
 		else
 			dspi->bytes_per_word = 4;
 
+		/* Put DSPI in stopped mode. */
 		regmap_update_bits(dspi->regmap, SPI_MCR,
-				   SPI_MCR_CLR_TXF | SPI_MCR_CLR_RXF,
-				   SPI_MCR_CLR_TXF | SPI_MCR_CLR_RXF);
+				SPI_MCR_HALT, SPI_MCR_HALT);
+		while (regmap_read(dspi->regmap, SPI_SR, &val) >= 0 &&
+				val & SPI_SR_TXRXS)
+			;
+
 		regmap_write(dspi->regmap, SPI_CTAR(0),
 			     dspi->cur_chip->ctar_val |
 			     SPI_FRAME_BITS(transfer->bits_per_word));
@@ -803,16 +811,28 @@ static int dspi_transfer_one_message(struct spi_controller *ctlr,
 		switch (trans_mode) {
 		case DSPI_EOQ_MODE:
 			regmap_write(dspi->regmap, SPI_RSER, SPI_RSER_EOQFE);
+			regmap_update_bits(dspi->regmap, SPI_MCR,
+					   SPI_MCR_CLR_TXF | SPI_MCR_CLR_RXF |
+					   SPI_MCR_HALT,
+					   SPI_MCR_CLR_TXF | SPI_MCR_CLR_RXF);
 			dspi_eoq_write(dspi);
 			break;
 		case DSPI_TCFQ_MODE:
 			regmap_write(dspi->regmap, SPI_RSER, SPI_RSER_TCFQE);
+			regmap_update_bits(dspi->regmap, SPI_MCR,
+					   SPI_MCR_CLR_TXF | SPI_MCR_CLR_RXF |
+					   SPI_MCR_HALT,
+					   SPI_MCR_CLR_TXF | SPI_MCR_CLR_RXF);
 			dspi_tcfq_write(dspi);
 			break;
 		case DSPI_DMA_MODE:
 			regmap_write(dspi->regmap, SPI_RSER,
 				     SPI_RSER_TFFFE | SPI_RSER_TFFFD |
 				     SPI_RSER_RFDFE | SPI_RSER_RFDFD);
+			regmap_update_bits(dspi->regmap, SPI_MCR,
+					   SPI_MCR_CLR_TXF | SPI_MCR_CLR_RXF |
+					   SPI_MCR_HALT,
+					   SPI_MCR_CLR_TXF | SPI_MCR_CLR_RXF);
 			status = dspi_dma_xfer(dspi);
 			break;
 		default:
