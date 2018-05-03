@@ -469,10 +469,12 @@ static void linflex_timer_func(unsigned long data)
 	int count;
 
 #ifdef CONFIG_CONSOLE_POLL
+	spin_lock_irqsave(&sport->port.lock, flags);
 	if (!kgdb_connected && sport->poll_ctx.in_use) {
 		sport->poll_ctx.in_use = false;
 		linflex_poll_release(sport);
 	}
+	spin_unlock_irqrestore(&sport->port.lock, flags);
 #endif
 
 	del_timer(&sport->timer);
