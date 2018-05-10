@@ -1,0 +1,11 @@
+#
+# FCCU device configuration
+#
+
+config FCCU
+	tristate "Fault Collection and Control Unit"
+	depends on SOC_S32V234 || SOC_S32GEN1
+	default y
+	help
+	  This is the driver for Fault Collection and Control Unit
+	  on the Freescale/NXP S32V234 and S32Gen1 SoC.
