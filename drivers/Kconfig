@@ -87,6 +87,8 @@ source "drivers/thermal/Kconfig"
 
 source "drivers/watchdog/Kconfig"
 
+source "drivers/misc/fccu/Kconfig"
+
 source "drivers/ssb/Kconfig"
 
 source "drivers/bcma/Kconfig"
