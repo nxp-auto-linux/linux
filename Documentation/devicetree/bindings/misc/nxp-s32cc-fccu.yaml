@@ -1,0 +1,93 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/misc/nxp-s32cc-fccu.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Fault Collection and Control Unit (FCCU) for S32CC
+
+maintainers:
+  - Phu Luu An <phu.luuan@nxp.com>
+
+description: |
+  This module is used to collect and control fault signals from
+  peripherals. It requires a correct configuration to enable reception and react
+  to a signal from a channel.
+
+  After it is configured successfully, a reset signal from a configured
+  channel can reset the system. If a signal is generated before FCCU
+  is configured, the signal will be ignored.
+
+properties:
+  compatible:
+    enum:
+      - nxp,s32cc-fccu
+
+  nxp,ncf_fault_list:
+    description: Array of faults for NCF_Sn registers
+    $ref: /schemas/types.yaml#/definitions/uint32-array
+
+  nxp,ncf_actions:
+    description: Array of actions for NCF. Available actions are defined in
+                 dt-bindings/misc/s32cc-fccu.h. One can select multiple actions
+                 using '|' operator.
+    $ref: /schemas/types.yaml#/definitions/uint32-array
+
+  interrupt-names:
+    items:
+      - const: fccu_alarm
+      - const: fccu_misc
+
+  interrupts:
+    items:
+      - description: fccu alarm state interrupt
+      - description: fccu misc interrupt (configuration timeout)
+
+  reg:
+    description: The address range
+
+  clocks:
+    description: Clock access
+
+  clock-names:
+    const: fccu
+
+  status:
+    enum:
+      - enabled
+      - disabled
+
+required:
+  - compatible
+  - interrupts
+  - interrupt-names
+  - reg
+
+additionalProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/interrupt-controller/arm-gic.h>
+    #include <dt-bindings/interrupt-controller/irq.h>
+    #include <dt-bindings/misc/s32cc-fccu.h>
+
+    #define S32CC_SCMI_CLK_FCCU_MODULE
+    fccu: fccu@4030c000 {
+      compatible = "nxp,s32cc-fccu";
+      reg = <0x4030c000 0x3000>;
+      interrupts = <GIC_SPI 100 IRQ_TYPE_LEVEL_HIGH>,
+                   <GIC_SPI 101 IRQ_TYPE_LEVEL_HIGH>;
+      interrupt-names = "fccu_alarm",
+                        "fccu_misc";
+      clocks = <&clks S32CC_SCMI_CLK_FCCU_MODULE>;
+      clock-names = "fccu";
+      /* A53 NCF fault list */
+      nxp,ncf_fault_list = <0 10 35 36 37 38>;
+      nxp,ncf_actions = <S32CC_FCCU_REACTION_ALARM
+                         S32CC_FCCU_REACTION_ALARM
+                         S32CC_FCCU_REACTION_NONE
+                         S32CC_FCCU_REACTION_NONE
+                         S32CC_FCCU_REACTION_NONE
+                         S32CC_FCCU_REACTION_NONE>;
+      status = "disabled";
+    };
