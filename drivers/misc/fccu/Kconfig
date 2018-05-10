@@ -1,0 +1,11 @@
+#
+# FCCU device configuration
+#
+
+config S32CC_FCCU
+	tristate "Fault Collection and Control Unit"
+	depends on SOC_S32CC
+	default y
+	help
+	  This is the driver for Fault Collection and Control Unit
+	  on the NXP S32CC SoC.
