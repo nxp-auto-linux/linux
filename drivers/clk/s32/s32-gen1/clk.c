@@ -43,6 +43,12 @@ static u32 dspi_mux_idx[] = {
 	MC_CGM_MUXn_CSC_SEL_FIRC, MC_CGM_MUXn_CSC_SEL_PERIPH_PLL_PHI7,
 };
 
+PNAME(xbar_sels) = {"firc", "armpll_dfs1", };
+static u32 xbar_mux_idx[] = {
+	MC_CGM_MUXn_CSC_SEL_FIRC,
+	MC_CGM_MUXn_CSC_SEL_ARM_PLL_DFS1,
+};
+
 static struct clk *clk[S32GEN1_CLK_END];
 static struct clk_onecell_data clk_data;
 
@@ -170,6 +176,27 @@ static void __init s32gen1_clocks_init(struct device_node *clocking_node)
 	clk[S32GEN1_CLK_ARMPLL_DFS6] = s32gen1_clk_dfs(S32GEN1_PLLDIG_ARM,
 		 "armpll_dfs6", "armpll_vco",
 		 armdfs, 6);
+
+	/* XBAR CLKS */
+	clk[S32GEN1_CLK_XBAR_SEL] = s32_clk_mux_table("xbar_sel",
+		CGM_MUXn_CSC(mc_cgm0_base, 0),
+		MC_CGM_MUXn_CSC_SELCTL_OFFSET,
+		MC_CGM_MUXn_CSC_SELCTL_SIZE,
+		xbar_sels, ARRAY_SIZE(xbar_sels), xbar_mux_idx, &s32gen1_lock);
+
+	clk[S32GEN1_CLK_XBAR] = s32_clk_divider("xbar", "xbar_sel",
+		CGM_MUXn_DC(mc_cgm0_base, 0), MC_CGM_MUX_DCn_DIV_OFFSET,
+		MC_CGM_MUX_DCn_DIV_SIZE, &s32gen1_lock);
+
+	clk[S32GEN1_CLK_XBAR_DIV2] = s32_clk_fixed_factor("xbar_div2",
+		"xbar", 1, 2);
+	clk[S32GEN1_CLK_XBAR_DIV3] = s32_clk_fixed_factor("xbar_div3",
+		"xbar", 1, 3);
+	clk[S32GEN1_CLK_XBAR_DIV4] = s32_clk_fixed_factor("xbar_div4",
+		"xbar", 1, 4);
+
+	clk[S32GEN1_CLK_XBAR_DIV6] = s32_clk_fixed_factor("xbar_div6",
+		"xbar", 1, 6);
 
 	/* PERIPH_PLL */
 	clk[S32GEN1_CLK_PERIPHPLL_VCO] = s32gen1_clk_plldig(
