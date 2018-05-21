@@ -56,6 +56,68 @@
 		#clock-cells = <1>;
 	};
 
+	siul2_1 {
+		compatible = "simple-mfd";
+		#address-cells = <2>;
+		#size-cells = <2>;
+
+			  /* 32 EIRQs*/
+		ranges = <0 0 0x0 0x44010000 0x0 0xC4>,
+			  /* PINCTRL */
+			 <1 0 0x0 0x44010240 0x0 0xA00>,
+			  /* Pad Data Output Register */
+			 <2 0 0x0 0x44011300 0x0 0xC0>,
+			  /* Pad Data Input Register */
+			 <3 0 0x0 0x44011500 0x0 0xC0>,
+			  /* Parallel GPIO Pad Data
+			     Out/Input Register */
+			 <4 0 0x0 0x44011700 0x0 0x58>;
+
+		pinctrl1: siul2-pinctrl1@44010000 {
+			compatible =
+				"fsl,s32v234-siul2-pinctrl";
+			reg = <0x1 0x0 0x0 0xA00>;
+			status = "disabled";
+		};
+
+		gpioeirq1: siul2-gpio1@44010000 {
+			compatible = "fsl,s32gen1-siul2-gpio";
+			gpio-controller;
+			#gpio-cells = <2>;
+				/* GPIO 0-31 */
+			gpio-ranges = <&pinctrl1 0 0 32>,
+				/* EIRQ pins */
+				<&pinctrl1 590 590 32>; //TODO
+				/* Output pad */
+			reg = <0x4 0x0 0x0 0x4>,
+				/* Input Pad */
+				<0x4 0x40 0x0 0x4>,
+				/* Reserved */
+				<0x2 0x0 0x0 0x1C>,
+				<0x3 0x0 0x0 0x1C>,
+				/* EIRQ */
+				<0x0 0x0 0x0 0xC4>;
+			interrupt-controller;
+			interrupts = <0 210 4>;
+			status = "disabled";
+		};
+
+		gpioother1: siul2-gpio1@44010704 {
+			compatible = "fsl,s32gen1-siul2-gpio";
+			gpio-controller;
+			#gpio-cells = <2>;
+			gpio-ranges = <&pinctrl1 0 32 131>;
+				/* Output pad */
+			reg = <0x4 0x4 0x0 0x14>,
+				/* Input Pad */
+				<0x4 0x44 0x0 0x14>,
+				/* Reserved */
+				<0x2 0x1C 0x0 0xA4>,
+				<0x3 0x1C 0x0 0xA4>;
+			status = "disabled";
+		};
+	};
+
 	uart@20020000 {
 		compatible = "arm,pl011", "arm,primecell";
 		reg = <0x0 0x20020000 0x0 0x1000>;
