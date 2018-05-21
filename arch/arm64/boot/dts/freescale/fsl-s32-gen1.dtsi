@@ -213,6 +213,46 @@
 		status = "disabled";
 	};
 
+	siul2_0 {
+		compatible = "simple-mfd";
+		#address-cells = <2>;
+		#size-cells = <2>;
+
+			 /* 1 EIRQs */
+		ranges = <0 0 0x0 0x4009C000 0x0 0xC4>,
+			 /* PINCTRL */
+			<1 0 0x0 0x4009C240 0x0 0xA00>,
+			 /* Pad Data Output Register */
+			<2 0 0x0 0x4009D300 0x0 0x68>,
+			 /* Pad Data Input Register */
+			<3 0 0x0 0x4009D500 0x0 0x68>,
+			 /* Parallel GPIO Pad Data
+			    Out/Input Register */
+			<4 0 0x0 0x4009D700 0x0 0x50>;
+
+		pinctrl0: siul2-pinctrl0@4009C000 {
+			compatible =
+			        "fsl,s32v234-siul2-pinctrl";
+			reg = <0x1 0x0 0x0 0xA00>;
+			status = "disabled";
+		};
+
+		gpioother0: siul2-gpio0@4009D704 {
+			compatible = "fsl,s32gen1-siul2-gpio";
+			gpio-controller;
+			#gpio-cells = <2>;
+			gpio-ranges = <&pinctrl0 0 0 131>;
+			        /* Output pad */
+			reg = <0x4 0x0 0x0 0x10>,
+			        /* Input Pad */
+			        <0x4 0x0 0x0 0x10>,
+			        /* Reserved */
+			        <0x2 0x0 0x0 0x68>,
+			        <0x3 0x0 0x0 0x68>;
+			status = "disabled";
+		};
+	};
+
 	siul2_1 {
 		compatible = "simple-mfd";
 		#address-cells = <2>;
