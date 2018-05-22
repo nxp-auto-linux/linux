@@ -1,0 +1,39 @@
+# SPDX-License-Identifier: GPL-2.0
+%YAML 1.2
+---
+
+title: NXP S32GEN1 Reboot
+
+maintainers:
+  - Ciprian Costea <ciprianmarian.costea@nxp.com>
+
+description: |
+  - Reboot support for the NXP S32GEN1 SoCs
+
+properties:
+  compatible:
+    const:
+      - fsl,s32gen1-reset
+
+  reg:
+    description: |
+      A pair of addresses and lengths of the register set for the device.
+      first one is for the MC RGM registers, the second is for the
+      MC ME registers.
+
+required:
+  - compatible
+  - reg
+
+additionalProperties: false
+
+examples:
+  - |
+    reset_0: reset@40078000 {
+      compatible = "fsl,s32gen1-reset";
+        /* MC RGM */
+      reg = <0x0 0x40078000 0x0 0x3000>,
+        /* MC ME */
+        <0x0 0x40088000 0x0 0x1000>;
+    };
+...
