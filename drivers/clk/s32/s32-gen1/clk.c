@@ -32,6 +32,13 @@ static u32 osc_mux_ids[] = {
 	PLLDIG_PLLCLKMUX_REFCLKSEL_SET_XOSC,
 };
 
+PNAME(can_sels) = {"firc", "fxosc", "periphpll_phi2", };
+static u32 can_mux_ids[] = {
+	MC_CGM_MUXn_CSC_SEL_FIRC,
+	MC_CGM_MUXn_CSC_SEL_FXOSC,
+	MC_CGM_MUXn_CSC_SEL_PERIPH_PLL_PHI2,
+};
+
 PNAME(lin_sels) = {"firc", "fxosc", "periphpll_phi3", };
 static u32 lin_mux_idx[] = {
 	MC_CGM_MUXn_CSC_SEL_FIRC, MC_CGM_MUXn_CSC_SEL_FXOSC,
@@ -270,6 +277,13 @@ static void __init s32gen1_clocks_init(struct device_node *clocking_node)
 	clk[S32GEN1_CLK_PERIPHPLL_DFS6] = s32gen1_clk_dfs(S32GEN1_PLLDIG_PERIPH,
 		 "periphll_dfs6", "periphpll_vco",
 		 periphdfs, 6);
+
+	/* Can Clock */
+	clk[S32GEN1_CLK_CAN] = s32_clk_mux_table("can",
+		CGM_MUXn_CSC(mc_cgm0_base, 7),
+		MC_CGM_MUXn_CSC_SELCTL_OFFSET,
+		MC_CGM_MUXn_CSC_SELCTL_SIZE,
+		can_sels, ARRAY_SIZE(can_sels), can_mux_ids, &s32gen1_lock);
 
 	/* Lin Clock */
 	clk[S32GEN1_CLK_LIN_BAUD] = s32_clk_mux_table("lin_baud",
