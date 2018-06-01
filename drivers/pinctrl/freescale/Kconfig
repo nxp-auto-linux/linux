@@ -1,4 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0-only
+# Copyright 2018 NXP
+
 config PINCTRL_IMX
 	tristate
 	depends on OF
@@ -192,3 +194,15 @@ config PINCTRL_IMX23
 config PINCTRL_IMX28
 	bool
 	select PINCTRL_MXS
+
+config PINCTRL_S32CC
+	bool "Driver for the NXP S32CC family pin controller"
+	depends on OF
+	select GENERIC_PINCTRL_GROUPS
+	select GENERIC_PINMUX_FUNCTIONS
+	select GENERIC_PINCONF
+	select REGMAP
+	help
+	  Say Y here to enable S32CC family pin controller
+	  The S32CC core is shared between the S32R45 and S32G
+	  pinctrl drivers.
