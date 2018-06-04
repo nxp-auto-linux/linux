@@ -311,3 +311,4 @@ static int __init stm_timer_init(struct device_node *np)
 }
 
 TIMER_OF_DECLARE(s32v234, "fsl,s32v234-stm", stm_timer_init);
+TIMER_OF_DECLARE(s32gen1, "fsl,s32gen1-stm", stm_timer_init);
