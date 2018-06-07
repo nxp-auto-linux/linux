@@ -52,9 +52,6 @@ static u32 xbar_mux_idx[] = {
 static struct clk *clk[S32GEN1_CLK_END];
 static struct clk_onecell_data clk_data;
 
-static u32 share_count_linflex0gate, share_count_linflex1gate,
-	   share_count_linflex2gate;
-
 static void __init s32gen1_clocks_init(struct device_node *clocking_node)
 {
 	struct device_node *np;
@@ -279,44 +276,12 @@ static void __init s32gen1_clocks_init(struct device_node *clocking_node)
 	clk[S32GEN1_CLK_LIN] = s32_clk_fixed_factor("lin",
 		"lin_baud", 1, 2);
 
-	clk[S32GEN1_CLK_LIN0_BAUD]  = s32gen1_clk_gate2_shared("lin0_baud",
-		"lin_baud", NULL, 0, 0, 1,
-		&share_count_linflex0gate, &s32gen1_lock);
-	clk[S32GEN1_CLK_LIN0] = s32gen1_clk_gate2_shared("lin0",
-		"lin", NULL, 0, 0, 1,
-		&share_count_linflex0gate, &s32gen1_lock);
-	clk[S32GEN1_CLK_LIN1_BAUD]  = s32gen1_clk_gate2_shared("lin1_baud",
-		"lin_baud", NULL, 0, 0, 1,
-		&share_count_linflex1gate, &s32gen1_lock);
-	clk[S32GEN1_CLK_LIN1] = s32gen1_clk_gate2_shared("lin1",
-		"lin", NULL, 0, 0, 1,
-		&share_count_linflex1gate, &s32gen1_lock);
-	clk[S32GEN1_CLK_LIN2_BAUD]  = s32gen1_clk_gate2_shared("lin2_baud",
-		"lin_baud", NULL, 0, 0, 1,
-		&share_count_linflex2gate, &s32gen1_lock);
-	clk[S32GEN1_CLK_LIN2] = s32gen1_clk_gate2_shared("lin2",
-		"lin", NULL, 0, 0, 1,
-		&share_count_linflex2gate, &s32gen1_lock);
-
 	/* DSPI Clock */
-	clk[S32GEN1_CLK_DSPI] = s32_clk_mux_table("spi_sel",
+	clk[S32GEN1_CLK_DSPI] = s32_clk_mux_table("dspi",
 		CGM_MUXn_CSC(mc_cgm0_base, 16),
 		MC_CGM_MUXn_CSC_SELCTL_OFFSET,
 		MC_CGM_MUXn_CSC_SELCTL_SIZE,
 		dspi_sels, ARRAY_SIZE(dspi_sels), dspi_mux_idx, &s32gen1_lock);
-
-	clk[S32GEN1_CLK_SPI0]  = s32gen1_clk_gate2("spi0",
-		"spi_sel", NULL, 0, 0, 1, &s32gen1_lock);
-	clk[S32GEN1_CLK_SPI1]  = s32gen1_clk_gate2("spi1",
-		"spi_sel", NULL, 0, 0, 1, &s32gen1_lock);
-	clk[S32GEN1_CLK_SPI2]  = s32gen1_clk_gate2("spi2",
-		"spi_sel", NULL, 0, 0, 1, &s32gen1_lock);
-	clk[S32GEN1_CLK_SPI3]  = s32gen1_clk_gate2("spi3",
-		"spi_sel", NULL, 0, 0, 1, &s32gen1_lock);
-	clk[S32GEN1_CLK_SPI4]  = s32gen1_clk_gate2("spi4",
-		"spi_sel", NULL, 0, 0, 1, &s32gen1_lock);
-	clk[S32GEN1_CLK_SPI5]  = s32gen1_clk_gate2("spi5",
-		"spi_sel", NULL, 0, 0, 1, &s32gen1_lock);
 
 	/* DDR_PLL */
 	clk[S32GEN1_CLK_DDRPLL_VCO] = s32gen1_clk_plldig(S32GEN1_PLLDIG_DDR,
