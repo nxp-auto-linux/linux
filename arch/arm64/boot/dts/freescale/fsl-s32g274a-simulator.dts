@@ -17,9 +17,9 @@
 
 	chosen {
 		bootargs = "console=ttyAMA0 earlyprintk=pl011,0x20020000";
-		linux,initrd-start = <0xa0000000>;
-		linux,initrd-end = <0xa2000000>;
-
+		linux,initrd-start = <0x84000000>;
+		linux,initrd-end = <0x8A000000>;
+		stdout-path = "serial0:115200n8";
 	};
 
 	memory_DDR0@80000000 {
