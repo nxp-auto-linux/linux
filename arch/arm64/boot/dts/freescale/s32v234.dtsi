@@ -195,6 +195,15 @@
 				status = "disabled";
 			};
 
+			swt1:swt@4000B000 {
+				compatible = "fsl,s32v234-wdt",
+							 "fsl,sac58r-wdt";
+				reg = <0x0 0x4000B000 0x0 0x1000>;
+				clocks = <&clks S32V234_CLK_FIRC>;
+				clock-names = "swt";
+				status = "disabled";
+			};
+
 			stm0: stm@4000D000{
 				compatible = "fsl,s32v234-stm";
 				reg = <0x0 0x4000D000 0x0 0x1000>;
@@ -514,6 +523,24 @@
 					     <0 1 4 >,
 					     <0 2 4 >,
 					     <0 3 4 >;
+			};
+
+			swt2:swt@40084000 {
+				compatible = "fsl,s32v234-wdt",
+							 "fsl,sac58r-wdt";
+				reg = <0x0 0x40084000 0x0 0x1000>;
+				clocks = <&clks S32V234_CLK_FIRC>;
+				clock-names = "swt";
+				status = "disabled";
+			};
+
+			swt3:swt@40085000 {
+				compatible = "fsl,s32v234-wdt",
+							 "fsl,sac58r-wdt";
+				reg = <0x0 0x40085000 0x0 0x1000>;
+				clocks = <&clks S32V234_CLK_FIRC>;
+				clock-names = "swt";
+				status = "disabled";
 			};
 
 			stm1: stm@40087000{
