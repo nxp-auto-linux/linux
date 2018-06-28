@@ -59,7 +59,7 @@
 			native-mode = <&timing2>;
 
 			timing0: hdmi-fhd {
-				clock-frequency = <6666000>;
+				clock-frequency = <150000000>;
 				hactive = <1920>;
 				vactive = <1080>;
 				vback-porch = <36>;
@@ -71,7 +71,7 @@
 			};
 
 			timing1: hdmi-wuxga {
-				clock-frequency = <6666000>;
+				clock-frequency = <150000000>;
 				hactive = <1920>;
 				vactive = <1200>;
 				vback-porch = <40>;
@@ -83,7 +83,7 @@
 			};
 
 			timing2: hdmi-ntsc {
-				clock-frequency = <40000000>;
+				clock-frequency = <25000000>;
 				hactive = <720>;
 				vactive = <480>;
 				vback-porch = <10>;
@@ -95,7 +95,7 @@
 			};
 
 			timing3: hdmi-pal {
-				clock-frequency = <20000000>;
+				clock-frequency = <50000000>;
 				hactive = <720>;
 				vactive = <576>;
 				vback-porch = <83>;
@@ -107,7 +107,7 @@
 			};
 
 			timing4: hdmi-vga {
-				clock-frequency = <40000000>;
+				clock-frequency = <25000000>;
 				hactive = <640>;
 				vactive = <480>;
 				vback-porch = <33>;
@@ -119,7 +119,7 @@
 			};
 
 			timing5: hdmi-wxga {
-				clock-frequency = <13333000>;
+				clock-frequency = <75000000>;
 				hactive = <1280>;
 				vactive = <720>;
 				vback-porch = <20>;
@@ -131,7 +131,7 @@
 			};
 
 			timing6: hdmi-xga {
-				clock-frequency = <13333000>;
+				clock-frequency = <75000000>;
 				hactive = <1024>;
 				vactive = <768>;
 				vback-porch = <49>;
@@ -143,7 +143,7 @@
 			};
 
 			timing7: lvds-fhd {
-				clock-frequency = <6667000>;
+				clock-frequency = <150000000>;
 				hactive = <1920>;
 				vactive = <1080>;
 				vback-porch = <36>;
