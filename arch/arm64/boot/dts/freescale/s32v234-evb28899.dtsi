@@ -748,6 +748,18 @@
 	status = "okay";
 };
 
+&swt1 {
+	status = "okay";
+};
+
+&swt2 {
+	status = "okay";
+};
+
+&swt3 {
+	status = "okay";
+};
+
 &fccu {
 	status = "okay";
 };
