@@ -34,29 +34,49 @@
 #define MC_ME_MODE_UPD(mc_me)		((mc_me) + 0x00000008)
 #define MC_ME_MODE_UPD_UPD		(0x1 << 0)
 
+/* MC_RGM_FRET */
+#define MC_RGM_FRET(mc_rgm)		((mc_rgm) + 0x18)
+
+#define MC_RGM_FRET_VALUE		(0xF)
+
+#define OF_MATCH_MC_ME	0
+#define OF_MATCH_MC_RGM	1
+
+static const struct of_device_id s32gen1_reboot_of_match[] = {
+	{ .compatible = "fsl,s32gen1-reset", .data = (void *) OF_MATCH_MC_ME },
+	{ .compatible = "fsl,s32gen1-mc_rgm",
+	  .data = (void *) OF_MATCH_MC_RGM },
+	{}
+};
+
 struct	s32gen1_reboot_priv {
 	struct device *dev;
 	void __iomem *mc_me;
+	void __iomem *mc_rgm;
 };
 
-static struct s32gen1_reboot_priv	*s32gen1_reboot_priv;
+static struct s32gen1_reboot_priv s32gen1_reboot_priv;
 
 static void s32gen1_reboot(enum reboot_mode reboot_mode, const char *cmd)
 {
-	struct s32gen1_reboot_priv	*priv = s32gen1_reboot_priv;
 	unsigned long timeout;
 
-	if (priv) {
+	if (s32gen1_reboot_priv.mc_rgm) {
+		writeb(MC_RGM_FRET_VALUE,
+			MC_RGM_FRET(s32gen1_reboot_priv.mc_rgm));
+	}
+
+	if (s32gen1_reboot_priv.mc_me) {
 		writel_relaxed(MC_ME_MODE_CONF_FUNC_RST,
-				MC_ME_MODE_CONF(priv->mc_me));
+				MC_ME_MODE_CONF(s32gen1_reboot_priv.mc_me));
 
 		writel_relaxed(MC_ME_MODE_UPD_UPD,
-				MC_ME_MODE_UPD(priv->mc_me));
+				MC_ME_MODE_UPD(s32gen1_reboot_priv.mc_me));
 
 		writel_relaxed(MC_ME_CTL_KEY_KEY,
-				MC_ME_CTL_KEY(priv->mc_me));
+				MC_ME_CTL_KEY(s32gen1_reboot_priv.mc_me));
 		writel_relaxed(MC_ME_CTL_KEY_INVERTEDKEY,
-				MC_ME_CTL_KEY(priv->mc_me));
+				MC_ME_CTL_KEY(s32gen1_reboot_priv.mc_me));
 	}
 
 	timeout = jiffies + HZ;
@@ -66,29 +86,30 @@ static void s32gen1_reboot(enum reboot_mode reboot_mode, const char *cmd)
 
 static int s32gen1_reboot_probe(struct platform_device *pdev)
 {
-	s32gen1_reboot_priv = devm_kzalloc(&pdev->dev,
-		sizeof(*s32gen1_reboot_priv), GFP_KERNEL);
-	if (!s32gen1_reboot_priv)
-		return -ENOMEM;
+	const struct of_device_id *of;
 
-	s32gen1_reboot_priv->mc_me = of_iomap(pdev->dev.of_node, 0);
-	if (!s32gen1_reboot_priv->mc_me) {
-		devm_kfree(&pdev->dev, s32gen1_reboot_priv);
-		dev_err(&pdev->dev, "Can not map resource\n");
+	of = of_match_device(s32gen1_reboot_of_match, &pdev->dev);
+	if (of == NULL)
 		return -ENODEV;
+
+	if (of->data == OF_MATCH_MC_ME) {
+		s32gen1_reboot_priv.mc_me = of_iomap(pdev->dev.of_node, 0);
+		if (!s32gen1_reboot_priv.mc_me) {
+			dev_err(&pdev->dev, "Can not map resource\n");
+			return -ENODEV;
+		}
+
+		arm_pm_restart = s32gen1_reboot;
+	} else {
+		s32gen1_reboot_priv.mc_rgm = of_iomap(pdev->dev.of_node, 0);
+		if (!s32gen1_reboot_priv.mc_rgm) {
+			dev_err(&pdev->dev, "Can not map resource\n");
+			return -ENODEV;
+		}
 	}
-
-	s32gen1_reboot_priv->dev = &pdev->dev;
-
-	arm_pm_restart = s32gen1_reboot;
 
 	return 0;
 }
-
-static const struct of_device_id s32gen1_reboot_of_match[] = {
-	{ .compatible = "fsl,s32gen1-reset" },
-	{}
-};
 
 static struct platform_driver s32gen1_reboot_driver = {
 	.probe = s32gen1_reboot_probe,
