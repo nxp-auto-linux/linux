@@ -38,6 +38,11 @@ static u32 lin_mux_idx[] = {
 	MC_CGM_MUXn_CSC_SEL_PERIPH_PLL_PHI3,
 };
 
+PNAME(sdhc_sels) = {"firc", "periphll_dfs3",};
+static u32 sdhc_mux_idx[] = {
+	MC_CGM_MUXn_CSC_SEL_FIRC, MC_CGM_MUXn_CSC_SEL_PERIPH_PLL_DFS3,
+};
+
 PNAME(dspi_sels) = {"firc", "periphpll_phi7", };
 static u32 dspi_mux_idx[] = {
 	MC_CGM_MUXn_CSC_SEL_FIRC, MC_CGM_MUXn_CSC_SEL_PERIPH_PLL_PHI7,
@@ -282,6 +287,17 @@ static void __init s32gen1_clocks_init(struct device_node *clocking_node)
 		MC_CGM_MUXn_CSC_SELCTL_OFFSET,
 		MC_CGM_MUXn_CSC_SELCTL_SIZE,
 		dspi_sels, ARRAY_SIZE(dspi_sels), dspi_mux_idx, &s32gen1_lock);
+
+	/* SDHC Clock */
+	clk[S32GEN1_CLK_SDHC_SEL] = s32_clk_mux_table("sdhc_sel",
+		CGM_MUXn_CSC(mc_cgm0_base, 14),
+		MC_CGM_MUXn_CSC_SELCTL_OFFSET,
+		MC_CGM_MUXn_CSC_SELCTL_SIZE,
+		sdhc_sels, ARRAY_SIZE(sdhc_sels), sdhc_mux_idx, &s32gen1_lock);
+
+	clk[S32GEN1_CLK_SDHC] = s32_clk_divider("sdhc", "sdhc_sel",
+		CGM_MUXn_DC(mc_cgm0_base, 14), MC_CGM_MUX_DCn_DIV_OFFSET,
+		MC_CGM_MUX_DCn_DIV_SIZE, &s32gen1_lock);
 
 	/* DDR_PLL */
 	clk[S32GEN1_CLK_DDRPLL_VCO] = s32gen1_clk_plldig(S32GEN1_PLLDIG_DDR,
