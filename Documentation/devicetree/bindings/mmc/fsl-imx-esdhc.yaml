@@ -34,6 +34,7 @@ properties:
           - fsl,imx7d-usdhc
           - fsl,imx7ulp-usdhc
           - fsl,s32v234-usdhc
+          - fsl,s32gen1-usdhc
       - items:
           - enum:
               - fsl,imx8mm-usdhc
