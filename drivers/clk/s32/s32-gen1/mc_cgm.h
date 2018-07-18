@@ -47,6 +47,11 @@
 
 #define MC_CGM_MUXn_CSC_CLK_SW		(1 << 2)
 
+/* MC_CGM_MUX_n_DC */
+#define CGM_MUXn_DC(cgm_addr, mux)	(((cgm_addr) + 0x308 + (mux) * 0x40))
+#define MC_CGM_MUX_DCn_DIV_OFFSET	(16)
+#define MC_CGM_MUX_DCn_DIV_SIZE		(8)
+
 /* Clock source mapping on MC_CGM clock selectors. */
 /* Clock source / Clock selector index */
 #define MC_CGM_MUXn_CSC_SEL_FIRC			0
