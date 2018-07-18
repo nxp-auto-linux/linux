@@ -280,6 +280,11 @@ static struct esdhc_soc_data usdhc_s32v234_data = {
 	.flags = ESDHC_FLAG_USDHC | ESDHC_FLAG_HS400_ES,
 };
 
+static struct esdhc_soc_data usdhc_s32gen1_data = {
+	.flags = ESDHC_FLAG_USDHC | ESDHC_FLAG_HS400_ES
+			| ESDHC_FLAG_HS200,
+};
+
 struct pltfm_imx_data {
 	u32 scratchpad;
 	struct pinctrl *pinctrl;
@@ -331,6 +336,7 @@ static const struct of_device_id imx_esdhc_dt_ids[] = {
 	{ .compatible = "fsl,imx8qxp-usdhc", .data = &usdhc_imx8qxp_data, },
 	{ .compatible = "fsl,imx8mm-usdhc", .data = &usdhc_imx8mm_data, },
 	{ .compatible = "fsl,s32v234-usdhc", .data = &usdhc_s32v234_data, },
+	{ .compatible = "fsl,s32gen1-usdhc", .data = &usdhc_s32gen1_data, },
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, imx_esdhc_dt_ids);
@@ -353,6 +359,11 @@ static inline int is_imx6q_usdhc(struct pltfm_imx_data *data)
 static inline int is_s32v234_usdhc(struct pltfm_imx_data *data)
 {
 	return data->socdata == &usdhc_s32v234_data;
+}
+
+static inline int is_s32gen1_usdhc(struct pltfm_imx_data *data)
+{
+	return data->socdata == &usdhc_s32gen1_data;
 }
 
 static inline int esdhc_is_usdhc(struct pltfm_imx_data *data)
@@ -447,7 +458,8 @@ static u32 esdhc_readl_le(struct sdhci_host *host, int reg)
 				val = readl(host->ioaddr + SDHCI_CAPABILITIES)
 					& 0xFFFF;
 			else {
-				if (is_s32v234_usdhc(imx_data)) {
+				if (is_s32v234_usdhc(imx_data)
+					|| is_s32gen1_usdhc(imx_data)) {
 					/*
 					 * sac58r and s32v234 HOST_CTRL_CAP
 					 * register does not provide speed info.
@@ -1754,7 +1766,7 @@ static int sdhci_esdhc_imx_probe(struct platform_device *pdev)
 
 	sdhci_esdhc_imx_hwinit(host);
 
-	if (is_s32v234_usdhc(imx_data))
+	if (is_s32v234_usdhc(imx_data) || is_s32gen1_usdhc(imx_data))
 		host->quirks2 |= SDHCI_QUIRK2_NO_1_8_V;
 
 	err = sdhci_add_host(host);
