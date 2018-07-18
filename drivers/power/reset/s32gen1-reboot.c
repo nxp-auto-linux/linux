@@ -39,13 +39,11 @@
 
 #define MC_RGM_FRET_VALUE		(0xF)
 
-#define OF_MATCH_MC_ME	0
-#define OF_MATCH_MC_RGM	1
+#define OF_MATCH_MC_RGM		0
+#define OF_MATCH_MC_ME		1
 
 static const struct of_device_id s32gen1_reboot_of_match[] = {
-	{ .compatible = "fsl,s32gen1-reset", .data = (void *) OF_MATCH_MC_ME },
-	{ .compatible = "fsl,s32gen1-mc_rgm",
-	  .data = (void *) OF_MATCH_MC_RGM },
+	{ .compatible = "fsl,s32gen1-reset" },
 	{}
 };
 
@@ -92,20 +90,18 @@ static int s32gen1_reboot_probe(struct platform_device *pdev)
 	if (of == NULL)
 		return -ENODEV;
 
-	if (of->data == OF_MATCH_MC_ME) {
-		s32gen1_reboot_priv.mc_me = of_iomap(pdev->dev.of_node, 0);
-		if (!s32gen1_reboot_priv.mc_me) {
-			dev_err(&pdev->dev, "Can not map resource\n");
-			return -ENODEV;
-		}
+	s32gen1_reboot_priv.mc_me = of_iomap(pdev->dev.of_node, OF_MATCH_MC_ME);
+	if (!s32gen1_reboot_priv.mc_me) {
+		dev_err(&pdev->dev, "Can not map resource\n");
+		return -ENODEV;
+	}
 
-		arm_pm_restart = s32gen1_reboot;
-	} else {
-		s32gen1_reboot_priv.mc_rgm = of_iomap(pdev->dev.of_node, 0);
-		if (!s32gen1_reboot_priv.mc_rgm) {
-			dev_err(&pdev->dev, "Can not map resource\n");
-			return -ENODEV;
-		}
+	s32gen1_reboot_priv.mc_rgm = of_iomap(pdev->dev.of_node,
+					      OF_MATCH_MC_RGM);
+	if (!s32gen1_reboot_priv.mc_rgm) {
+		iounmap(s32gen1_reboot_priv.mc_me);
+		dev_err(&pdev->dev, "Can not map resource\n");
+		return -ENODEV;
 	}
 
 	return 0;
