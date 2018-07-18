@@ -48,14 +48,14 @@ static const struct of_device_id s32gen1_reboot_of_match[] = {
 };
 
 struct	s32gen1_reboot_priv {
-	struct device *dev;
 	void __iomem *mc_me;
 	void __iomem *mc_rgm;
 };
 
 static struct s32gen1_reboot_priv s32gen1_reboot_priv;
 
-static void s32gen1_reboot(enum reboot_mode reboot_mode, const char *cmd)
+static int s32gen1_reboot(struct notifier_block *this, unsigned long mode,
+			  void *cmd)
 {
 	unsigned long timeout;
 
@@ -80,11 +80,19 @@ static void s32gen1_reboot(enum reboot_mode reboot_mode, const char *cmd)
 	timeout = jiffies + HZ;
 	while (time_before(jiffies, timeout))
 		cpu_relax();
+
+	return 0;
 }
+
+static struct notifier_block s32gen1_reboot_nb = {
+	.notifier_call = s32gen1_reboot,
+	.priority = 192,
+};
 
 static int s32gen1_reboot_probe(struct platform_device *pdev)
 {
 	const struct of_device_id *of;
+	int err;
 
 	of = of_match_device(s32gen1_reboot_of_match, &pdev->dev);
 	if (of == NULL)
@@ -102,6 +110,14 @@ static int s32gen1_reboot_probe(struct platform_device *pdev)
 		iounmap(s32gen1_reboot_priv.mc_me);
 		dev_err(&pdev->dev, "Can not map resource\n");
 		return -ENODEV;
+	}
+
+	err = register_restart_handler(&s32gen1_reboot_nb);
+	if (err) {
+		iounmap(s32gen1_reboot_priv.mc_rgm);
+		iounmap(s32gen1_reboot_priv.mc_me);
+		dev_err(&pdev->dev, "Failed to register handler\n");
+		return err;
 	}
 
 	return 0;
