@@ -169,3 +169,7 @@
 &spi5 {
 	status = "okay";
 };
+
+&gmac0 {
+	status = "okay";
+};

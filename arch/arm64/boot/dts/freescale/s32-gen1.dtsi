@@ -429,6 +429,15 @@
 		status = "disabled";
 	};
 
+	gmac0: ethernet@4033c000 {
+		compatible = "fsl,dwc-eqos";
+		reg = <0x0 0x4033c000 0x0 0x2000>;
+		interrupt-parent = <&gic>;
+		interrupts = <0 57 4>;
+		interrupt-names = "macirq";
+		status = "disabled";
+	};
+
 	gic: interrupt-controller@50800000 {
 		compatible = "arm,gic-v3";
 		#interrupt-cells = <3>;
