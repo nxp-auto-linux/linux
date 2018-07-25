@@ -755,13 +755,14 @@ config IMX7ULP_WDT
 	  module will be called imx7ulp_wdt.
 
 config SAC58R_WDT
-	tristate "SAC58R/S32V234 Watchdog"
-	depends on (ARCH_MXC && SOC_SAC58R) || (ARCH_S32 && SOC_S32V234)
+	tristate "SAC58R/S32V234/S32GEN1 Watchdog"
+	depends on (ARCH_MXC && SOC_SAC58R) || (ARCH_S32 && SOC_S32V234) || \
+				(ARCH_S32 && SOC_S32GEN1)
 	select WATCHDOG_CORE
 	help
-	  This is the driver for the hardware watchdog
-	  on the Freescale SAC58R and S32V234 processors.
-	  If you have these processors and wish to have
+	  This is the driver for the hardware watchdog on the
+	  Freescale SAC58R, S32V234 and S32Gen1 processors.
+	  If you have one of these processors and wish to have
 	  watchdog support enabled, say Y, otherwise say N.
 
 config UX500_WATCHDOG
