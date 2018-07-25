@@ -1,0 +1,17 @@
+* NXP S32GEN1 GMAC
+
+Required properties:
+- compatible: Should be "fsl,dwc-eqos"
+- reg: The location and length of the register set for the device
+- interrupt-parent: The phandle for the interrupt controller
+- interrupts: The interrupts for the device
+- interrupt-names: Should be "macirq"
+
+Example:
+gmac0: ethernet@4033c000 {
+	compatible = "fsl,dwc-eqos";
+	reg = <0x0 0x4033c000 0x0 0x2000>;
+	interrupt-parent = <&gic>;
+	interrupts = <0 57 4>;
+	interrupt-names = "macirq";
+};
