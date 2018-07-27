@@ -39,6 +39,12 @@
 		clock-output-names = "sysclk";
 	};
 
+	virtio_block@39501000 {
+		compatible = "virtio,mmio";
+		reg = <0x0 0x39501000 0x0 0x1000>;
+		interrupts = <0 68 4>;
+	};
+
 	clks: clks@40038000 {
 		compatible = "fsl,s32g274-clocking";
 		reg = <0x0 0x40038000 0x0 0x3000>, /*armpll*/
