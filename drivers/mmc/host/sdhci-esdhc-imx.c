@@ -1532,6 +1532,9 @@ sdhci_esdhc_imx_probe_dt(struct platform_device *pdev,
 	if (of_property_read_bool(np, "wp-gpios"))
 		boarddata->wp_type = ESDHC_WP_GPIO;
 
+	if (boarddata->wp_type == ESDHC_WP_NONE)
+		host->mmc->caps2 |= MMC_CAP2_NO_WRITE_PROTECT;
+
 	of_property_read_u32(np, "fsl,tuning-step", &boarddata->tuning_step);
 	of_property_read_u32(np, "fsl,tuning-start-tap",
 			     &boarddata->tuning_start_tap);
