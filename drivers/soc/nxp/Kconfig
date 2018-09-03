@@ -1,0 +1,17 @@
+# SPDX-License-Identifier: GPL-2.0-only
+#
+# NXP Userspace Reg Access driver
+#
+
+menu "NXP Userspace Reg Access driver"
+
+config S32CC_DEBUG_REGACCESS
+	tristate "Userspace access to SoC registers"
+	default n
+	help
+	  Enabling this option leads to the creation
+	  of entries in /sys/kernel/s32cc_regaccess which
+	  can be used to read and write SoC registers
+	  from userspace.
+
+endmenu
