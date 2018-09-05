@@ -15,6 +15,7 @@
 #include "mc_cgm.h"
 
 static void __iomem *mc_cgm0_base;
+static void __iomem *mc_cgm5_base;
 static void *armpll;
 static void *periphpll;
 static void *ddrpll;
@@ -59,6 +60,12 @@ PNAME(xbar_sels) = {"firc", "armpll_dfs1", };
 static u32 xbar_mux_idx[] = {
 	MC_CGM_MUXn_CSC_SEL_FIRC,
 	MC_CGM_MUXn_CSC_SEL_ARM_PLL_DFS1,
+};
+
+PNAME(ddr_sels) = {"firc", "ddrpll_phi0", };
+static u32 ddr_mux_idx[] = {
+	MC_CGM_MUXn_CSC_SEL_FIRC,
+	MC_CGM_MUXn_CSC_SEL_DDR_PLL_PHI0,
 };
 
 static struct clk *clk[S32GEN1_CLK_END];
@@ -118,6 +125,11 @@ static void __init s32gen1_clocks_init(struct device_node *clocking_node)
 	np = of_find_compatible_node(NULL, NULL, "fsl,s32gen1-mc_cgm0");
 	mc_cgm0_base = of_iomap(np, 0);
 	if (WARN_ON(!mc_cgm0_base))
+		return;
+
+	np = of_find_compatible_node(NULL, NULL, "fsl,s32gen1-mc_cgm5");
+	mc_cgm5_base = of_iomap(np, 0);
+	if (WARN_ON(!mc_cgm5_base))
 		return;
 
 	clk[S32GEN1_CLK_ARMPLL_SRC_SEL] = s32_clk_mux_table("armpll_sel",
@@ -347,6 +359,12 @@ static void __init s32gen1_clocks_init(struct device_node *clocking_node)
 		s32gen1_clk_plldig_phi(S32GEN1_PLLDIG_AURORA,
 		"aurorapll_phi0", "aurorapll_vco",
 		aurorapll, 0);
+
+	clk[S32GEN1_CLK_DDR] = s32_clk_mux_table("ddr",
+		CGM_MUXn_CSC(mc_cgm5_base, 0),
+		MC_CGM_MUXn_CSC_SELCTL_OFFSET,
+		MC_CGM_MUXn_CSC_SELCTL_SIZE,
+		ddr_sels, ARRAY_SIZE(ddr_sels), ddr_mux_idx, &s32gen1_lock);
 
 	/* Add the clocks to provider list */
 	clk_data.clks = clk;
