@@ -78,6 +78,8 @@
 #define S32GEN1_CLK_SDHC			55
 /* CAN Clock */
 #define	S32GEN1_CLK_CAN				56
+/* DDR Clock */
+#define	S32GEN1_CLK_DDR				57
 
-#define	S32GEN1_CLK_END				57
+#define	S32GEN1_CLK_END				58
 #endif /* __DT_BINDINGS_CLOCK_S32GEN1_H */
