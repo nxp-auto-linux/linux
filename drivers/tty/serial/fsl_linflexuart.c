@@ -810,6 +810,7 @@ static void linflex_dma_rx_free(struct uart_port *port)
 
 	dma_unmap_single(sport->port.dev, sport->dma_rx_buf_bus,
 			 FSL_UART_RX_DMA_BUFFER_SIZE, DMA_FROM_DEVICE);
+	devm_kfree(sport->port.dev, sport->dma_rx_buf_virt);
 
 	sport->dma_rx_buf_bus = 0;
 	sport->dma_rx_buf_virt = NULL;
