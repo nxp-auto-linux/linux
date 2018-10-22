@@ -31,11 +31,7 @@
 /* Module Configuration Register (SPI_MCR) */
 #define SPI_MCR				0x00
 #define SPI_MCR_MASTER			BIT(31)
-#if defined(CONFIG_SOC_S32V234)
-#define SPI_MCR_PCSIS			(0xFF << 16)
-#else
-#define SPI_MCR_PCSIS			(0x3F << 16)
-#endif
+#define SPI_MCR_PCSIS(x)		((x) << 16)
 #define SPI_MCR_CLR_TXF			BIT(11)
 #define SPI_MCR_CLR_RXF			BIT(10)
 #define SPI_MCR_XSPI			BIT(3)
@@ -98,11 +94,7 @@
 #define SPI_PUSHR_CMD_CTAS(x)		(((x) << 12 & GENMASK(14, 12)))
 #define SPI_PUSHR_CMD_EOQ		BIT(11)
 #define SPI_PUSHR_CMD_CTCNT		BIT(10)
-#if defined(CONFIG_SOC_S32V234)
-#define SPI_PUSHR_CMD_PCS(x)		(BIT(x) & GENMASK(7, 0))
-#else
-#define SPI_PUSHR_CMD_PCS(x)		(BIT(x) & GENMASK(5, 0))
-#endif
+#define SPI_PUSHR_CMD_PCS(x, y)		(BIT(x) & (y))
 
 #define SPI_PUSHR_SLAVE			0x34
 
@@ -220,6 +212,7 @@ struct fsl_dspi {
 	u8					bytes_per_word;
 	const struct fsl_dspi_devtype_data	*devtype_data;
 	size_t					fifo_size;
+	u32					pcs_mask;
 
 	wait_queue_head_t			waitq;
 	u32					waitflags;
@@ -758,7 +751,8 @@ static int dspi_transfer_one_message(struct spi_controller *ctlr,
 		dspi->cur_chip = spi_get_ctldata(spi);
 		/* Prepare command word for CMD FIFO */
 		dspi->tx_cmd = SPI_PUSHR_CMD_CTAS(0) |
-			       SPI_PUSHR_CMD_PCS(spi->chip_select);
+			       SPI_PUSHR_CMD_PCS(spi->chip_select,
+						 dspi->pcs_mask);
 		if (list_is_last(&dspi->cur_transfer->transfer_list,
 				 &dspi->cur_msg->transfers)) {
 			/* Leave PCS activated after last transfer when
@@ -1033,7 +1027,7 @@ static const struct regmap_config dspi_xspi_regmap_config[] = {
 
 static void dspi_init(struct fsl_dspi *dspi)
 {
-	unsigned int mcr = SPI_MCR_PCSIS;
+	unsigned int mcr = SPI_MCR_PCSIS(dspi->pcs_mask);
 
 	if (dspi->devtype_data->xspi_mode)
 		mcr |= SPI_MCR_XSPI;
@@ -1106,6 +1100,8 @@ static int dspi_probe(struct platform_device *pdev)
 			goto out_ctlr_put;
 		}
 	}
+
+	dspi->pcs_mask = GENMASK(ctlr->num_chipselect - 1, 0);
 
 	if (dspi->devtype_data->xspi_mode)
 		ctlr->bits_per_word_mask = SPI_BPW_RANGE_MASK(4, 32);
