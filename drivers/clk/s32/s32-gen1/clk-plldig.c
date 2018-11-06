@@ -61,10 +61,6 @@ static const unsigned long accel_phis_max_freq[] = {
 	ACCELPLL_MAX_PHI1_MAX_RATE
 };
 
-static const unsigned long aurora_phis_max_freq[] = {
-	AURORAPLL_MAX_PHI0_MAX_RATE
-};
-
 #define to_clk_plldig(_hw) container_of(_hw, struct clk_plldig, hw)
 static unsigned long get_pllx_max_vco_rate(enum s32gen1_plldig_type type)
 {
@@ -77,12 +73,10 @@ static unsigned long get_pllx_max_vco_rate(enum s32gen1_plldig_type type)
 		return DDRPLL_MAX_VCO_RATE;
 	case S32GEN1_PLLDIG_ACCEL:
 		return ACCELPLL_MAX_VCO_RATE;
-	case S32GEN1_PLLDIG_AURORA:
-		return AURORAPLL_MAX_VCO_RATE;
 	default:
 		pr_warn("Unsupported PLL. Use: %d or %d\n",
 			S32GEN1_PLLDIG_ARM,
-			S32GEN1_PLLDIG_AURORA);
+			S32GEN1_PLLDIG_ACCEL);
 		return 0;
 	}
 }
@@ -98,8 +92,6 @@ static int get_pllx_phi_nr(enum s32gen1_plldig_type type)
 		return ACCELPLL_PHI_Nr;
 	case S32GEN1_PLLDIG_DDR:
 		return DDRPLL_PHI_Nr;
-	case S32GEN1_PLLDIG_AURORA:
-		return AURORAPLL_PHI_Nr;
 	default:
 		return -EINVAL;
 	}
@@ -120,12 +112,10 @@ static unsigned long get_pllx_phiy_max_rate(enum s32gen1_plldig_type type,
 		return accel_phis_max_freq[phi];
 	case S32GEN1_PLLDIG_DDR:
 		return ddr_phis_max_freq[phi];
-	case S32GEN1_PLLDIG_AURORA:
-		return aurora_phis_max_freq[phi];
 	default:
 		pr_warn("Unsupported PLL. Use: %d or %d\n",
 			S32GEN1_PLLDIG_ARM,
-			S32GEN1_PLLDIG_AURORA);
+			S32GEN1_PLLDIG_ACCEL);
 	}
 	return 0;
 }
