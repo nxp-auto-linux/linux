@@ -43,7 +43,6 @@ static int get_pllx_dfs_nr(enum s32gen1_plldig_type plltype)
 		return PERIPHPLL_DFS_NR;
 	case S32GEN1_PLLDIG_DDR:
 	case S32GEN1_PLLDIG_ACCEL:
-	case S32GEN1_PLLDIG_AURORA:
 		pr_warn("Current selected PLL has no DFS\n");
 		break;
 	}
@@ -88,12 +87,11 @@ static unsigned long get_pllx_dfsy_max_rate(enum s32gen1_plldig_type plltype,
 		break;
 	case S32GEN1_PLLDIG_DDR:
 	case S32GEN1_PLLDIG_ACCEL:
-	case S32GEN1_PLLDIG_AURORA:
 		pr_warn("Current selected PLL has no DFS.");
 		break;
 	default:
 		pr_warn("Unsupported PLL. Use %d or %d\n",
-			S32GEN1_PLLDIG_ARM,	S32GEN1_PLLDIG_AURORA);
+			S32GEN1_PLLDIG_ARM, S32GEN1_PLLDIG_ACCEL);
 		break;
 	}
 
