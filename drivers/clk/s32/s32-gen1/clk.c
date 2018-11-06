@@ -20,7 +20,6 @@ static void *armpll;
 static void *periphpll;
 static void *ddrpll;
 static void *accelpll;
-static void *aurorapll;
 static void *armdfs;
 static void *periphdfs;
 
@@ -87,7 +86,6 @@ static void __init s32gen1_clocks_init(struct device_node *clocking_node)
 	u32 accelpll_pllodiv[] = {
 		ACCEL_PLLDIG_PLLODIV0, ACCEL_PLLDIG_PLLODIV1
 	};
-	u32 aurorapll_pllodiv[] = { AURORA_PLLDIG_PLLODIV0 };
 
 	clk[S32GEN1_CLK_DUMMY] = s32_clk_fixed("dummy", 0);
 	clk[S32GEN1_CLK_FXOSC] = s32_obtain_fixed_clock("fxosc", 0);
@@ -110,15 +108,11 @@ static void __init s32gen1_clocks_init(struct device_node *clocking_node)
 	if (WARN_ON(!ddrpll))
 		return;
 
-	aurorapll = of_iomap(np, 4);
-	if (WARN_ON(!aurorapll))
-		return;
-
-	armdfs = of_iomap(np, 5);
+	armdfs = of_iomap(np, 4);
 	if (WARN_ON(!armdfs))
 		return;
 
-	periphdfs = of_iomap(np, 6);
+	periphdfs = of_iomap(np, 5);
 	if (WARN_ON(!periphdfs))
 		return;
 
@@ -152,12 +146,6 @@ static void __init s32gen1_clocks_init(struct device_node *clocking_node)
 
 	clk[S32GEN1_CLK_ACCELPLL_SRC_SEL] = s32_clk_mux_table("accelpll_sel",
 		PLLDIG_PLLCLKMUX(accelpll),
-		PLLDIG_PLLCLKMUX_REFCLKSEL_OFFSET,
-		PLLDIG_PLLCLKMUX_REFCLKSEL_SIZE,
-		osc_sels, ARRAY_SIZE(osc_sels), osc_mux_ids, &s32gen1_lock);
-
-	clk[S32GEN1_CLK_AURORAPLL_SRC_SEL] = s32_clk_mux_table("aurorapll_sel",
-		PLLDIG_PLLCLKMUX(aurorapll),
 		PLLDIG_PLLCLKMUX_REFCLKSEL_OFFSET,
 		PLLDIG_PLLCLKMUX_REFCLKSEL_SIZE,
 		osc_sels, ARRAY_SIZE(osc_sels), osc_mux_ids, &s32gen1_lock);
@@ -347,18 +335,6 @@ static void __init s32gen1_clocks_init(struct device_node *clocking_node)
 	clk[S32GEN1_CLK_ACCELPLL_PHI1] = s32gen1_clk_plldig_phi(
 		S32GEN1_PLLDIG_ACCEL, "accelpll_phi1", "accelpll_vco",
 		accelpll, 1);
-
-	/* AURORA_PLL */
-	clk[S32GEN1_CLK_AURORAPLL_VCO] = s32gen1_clk_plldig(
-		S32GEN1_PLLDIG_AURORA, "aurorapll_vco", "aurorapll_sel",
-		aurorapll, AURORAPLL_PLLDIG_PLLDV_MFI,
-		AURORAPLL_PLLDIG_PLLDV_MFN,
-		aurorapll_pllodiv, AURORAPLL_PHI_Nr);
-
-	clk[S32GEN1_CLK_AURORAPLL_PHI0] =
-		s32gen1_clk_plldig_phi(S32GEN1_PLLDIG_AURORA,
-		"aurorapll_phi0", "aurorapll_vco",
-		aurorapll, 0);
 
 	clk[S32GEN1_CLK_DDR] = s32_clk_mux_table("ddr",
 		CGM_MUXn_CSC(mc_cgm5_base, 0),

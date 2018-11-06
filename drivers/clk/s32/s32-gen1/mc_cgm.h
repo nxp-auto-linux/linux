@@ -33,9 +33,6 @@
 #define ACCELPLL_PLLDIG_PLLDV_MFI	(60)
 #define ACCELPLL_PLLDIG_PLLDV_MFN	(0)
 
-#define AURORAPLL_PLLDIG_PLLDV_MFI	(125)
-#define AURORAPLL_PLLDIG_PLLDV_MFN	(0)
-
 /* MC_CGM registers definitions */
 /* MC_CGM_MUX_n_CSC */
 #define CGM_MUXn_CSC(cgm_addr, mux)	(((cgm_addr) + 0x300 + (mux) * 0x40))
