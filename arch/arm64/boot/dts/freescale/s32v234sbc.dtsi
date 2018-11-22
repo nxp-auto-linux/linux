@@ -13,7 +13,7 @@
 #include "s32v234.dtsi"
 / {
 	model = "Freescale S32V234";
-	compatible = "fsl,s32v234-pcie", "fsl,s32v234-evb", "fsl,s32v234",
+	compatible = "fsl,s32v234-sbc", "fsl,s32v234",
 		   "arm,vexpress,v2p-aarch64", "arm,vexpress";
 
 	chosen {
