@@ -12,7 +12,7 @@
 #include "s32v234.dtsi"
 / {
 	model = "Freescale S32V234";
-	compatible = "fsl,s32v234-evb", "fsl,s32v234", "arm,vexpress";
+	compatible = "fsl,s32v234-evb28899", "fsl,s32v234", "arm,vexpress";
 
 	chosen {
 		bootargs = "console=ttyLF0,115200";
