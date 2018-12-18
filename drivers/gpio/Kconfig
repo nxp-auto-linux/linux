@@ -492,6 +492,15 @@ config GPIO_RCAR
 	help
 	  Say yes here to support GPIO on Renesas R-Car or RZ/G SoCs.
 
+config GPIO_S32CC
+	tristate "GPIO driver for S32CC"
+	select GPIOLIB_IRQCHIP
+	help
+	  This enables support for the SIUL2 GPIOs found on the S32CC chips.
+	  It includes an IRQ controller for all EIRQ pins.
+	  Say yes here to enable the SIUL2 to be used as an GPIO
+	  controller for S32CC a platform.
+
 config GPIO_RDA
 	bool "RDA Micro GPIO controller support"
 	depends on ARCH_RDA || COMPILE_TEST
