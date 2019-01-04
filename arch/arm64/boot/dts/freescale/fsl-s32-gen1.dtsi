@@ -374,8 +374,8 @@
 		clocks = <&clks S32GEN1_SCMI_CLK_LINFLEX_LIN>,
 			 <&clks S32GEN1_SCMI_CLK_LINFLEX_XBAR>;
 		clock-names = "lin", "ipg";
-		dmas = <&edma0 0 3>,
-		       <&edma0 0 2>;
+		dmas = <&edma0 0 4>,
+		       <&edma0 0 3>;
 		dma-names = "rx", "tx";
 	};
 
@@ -386,8 +386,8 @@
 		clocks = <&clks S32GEN1_SCMI_CLK_LINFLEX_LIN>,
 			 <&clks S32GEN1_SCMI_CLK_LINFLEX_XBAR>;
 		clock-names = "lin", "ipg";
-		dmas = <&edma0 0 5>,
-		       <&edma0 0 4>;
+		dmas = <&edma0 0 6>,
+		       <&edma0 0 5>;
 		dma-names = "rx", "tx";
 	};
 
@@ -461,8 +461,8 @@
 		interrupts =<0 92 4>;
 		clocks = <&clks S32GEN1_SCMI_CLK_I2C_MODULE>;
 		clock-names = "ipg";
-		dmas = <&edma0 0 15>,
-		       <&edma0 0 16>;
+		dmas = <&edma0 0 16>,
+		       <&edma0 0 17>;
 		dma-names = "rx","tx";
 		status = "disabled";
 	};
@@ -475,8 +475,8 @@
 		interrupts =<0 93 4>;
 		clocks = <&clks S32GEN1_SCMI_CLK_I2C_MODULE>;
 		clock-names = "ipg";
-		dmas = <&edma0 0 17>,
-		       <&edma0 0 18>;
+		dmas = <&edma0 0 18>,
+		       <&edma0 0 19>;
 		dma-names = "rx","tx";
 		status = "disabled";
 	};
@@ -489,8 +489,8 @@
 		interrupts =<0 94 4>;
 		clocks = <&clks S32GEN1_SCMI_CLK_I2C_MODULE>;
 		clock-names = "ipg";
-		dmas = <&edma1 1 15>,
-		       <&edma1 1 16>;
+		dmas = <&edma1 1 16>,
+		       <&edma1 1 17>;
 		dma-names = "rx","tx";
 		status = "disabled";
 	};
@@ -632,8 +632,8 @@
 		clocks = <&clks S32GEN1_SCMI_CLK_LINFLEX_LIN>,
 			 <&clks S32GEN1_SCMI_CLK_LINFLEX_XBAR>;
 		clock-names = "lin", "ipg";
-		dmas = <&edma1 1 3>,
-		       <&edma1 1 2>;
+		dmas = <&edma1 1 4>,
+		       <&edma1 1 3>;
 		dma-names = "rx", "tx";
 	};
 
@@ -693,8 +693,8 @@
 		interrupts =<0 95 4>;
 		clocks = <&clks S32GEN1_SCMI_CLK_I2C_MODULE>;
 		clock-names = "ipg";
-		dmas = <&edma1 1 17>,
-		       <&edma1 1 18>;
+		dmas = <&edma1 1 18>,
+		       <&edma1 1 19>;
 		dma-names = "rx","tx";
 		status = "disabled";
 	};
@@ -707,8 +707,8 @@
 		interrupts =<0 96 4>;
 		clocks = <&clks S32GEN1_SCMI_CLK_I2C_MODULE>;
 		clock-names = "ipg";
-		dmas = <&edma1 1 19>,
-		       <&edma1 1 20>;
+		dmas = <&edma1 1 20>,
+		       <&edma1 1 21>;
 		dma-names = "rx","tx";
 		status = "disabled";
 	};
