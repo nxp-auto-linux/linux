@@ -1955,4 +1955,12 @@ config RTC_DRV_WILCO_EC
 	  This can also be built as a module. If so, the module will
 	  be named "rtc_wilco_ec".
 
+config RTC_DRV_S32GEN1
+	bool "RTC driver for S32GEN1"
+	depends on TARGET_S32V344 || TARGET_S32G275 || TARGET_S32R45X || SOC_S32GEN1
+	default y
+	help
+	  Say yes to enable RTC driver for platforms based on the S32GEN1 SoC
+	  family.
+
 endif # RTC_CLASS
