@@ -1935,4 +1935,14 @@ config RTC_DRV_WILCO_EC
 	  This can also be built as a module. If so, the module will
 	  be named "rtc_wilco_ec".
 
+config RTC_DRV_S32CC
+	bool "RTC driver for S32CC"
+	depends on SOC_S32CC
+	default y
+	help
+	  Say yes to enable RTC driver for
+	  platforms based on the S32CC SoC
+	  family. This RTC module is being used in cases
+	  such as STR (Suspend-To-RAM).
+
 endif # RTC_CLASS
