@@ -100,5 +100,10 @@ config DCU_FSL
 	select FB_MODE_HELPERS
 	help
 	DCU driver for the Freescale SoC DCU
-
+config DEC200_FSL
+	tristate "Freescale DEC200 support"
+	depends on DCU_FSL
+	default n
+	help
+	DEC200 driver for the Freescale SoC DEC200
 endmenu
