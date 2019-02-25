@@ -35,6 +35,14 @@
 	status = "okay";
 };
 
+&dec200_dec {
+	status = "okay";
+};
+
+&dec200_enc {
+	status = "okay";
+};
+
 &dcu0 {
 	display = <&display>;
 	status = "okay";

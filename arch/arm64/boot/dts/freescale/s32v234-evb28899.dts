@@ -19,3 +19,11 @@
 		};
 	};
 };
+
+&dec200_dec {
+	status = "okay";
+};
+
+&dec200_enc {
+	status = "okay";
+};
