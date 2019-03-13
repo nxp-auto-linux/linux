@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright 2015-2016 Freescale Semiconductor, Inc.
- * Copyright 2016-2018 NXP
+ * Copyright 2017-2019 NXP
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
@@ -357,6 +357,7 @@
 				clocks = <&clks S32V234_CLK_CAN0>,
 					 <&clks S32V234_CLK_CAN>;
 				clock-names = "ipg", "per";
+				s32v234-ocotp = <&ocotp>;
 			};
 
 			spi0: spi@40057000 {
@@ -398,6 +399,12 @@
 					 <&clks S32V234_CLK_SDHC>;
 				clock-names = "ipg", "ahb", "per";
 				bus-width = <8>;
+				status = "disabled";
+			};
+
+			ocotp: ocotp@4005F000 {
+				reg = <0x0 0x4005F000 0x0 0x1000>;
+				clocks = <&clks S32V234_CLK_SYS6>;
 				status = "disabled";
 			};
 
@@ -663,6 +670,7 @@
 				clocks = <&clks S32V234_CLK_CAN1>,
 					 <&clks S32V234_CLK_CAN>;
 				clock-names = "ipg", "per";
+				s32v234-ocotp = <&ocotp>;
 			};
 
 			spi1: spi@400C0000 {
