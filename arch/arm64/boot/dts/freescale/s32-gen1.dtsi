@@ -534,6 +534,26 @@
 		status = "disabled";
 	};
 
+	gmac0: ethernet@4033c000 {
+		compatible = "fsl,s32cc-dwmac", "fsl,dwc-eqos";
+		reg = <0x0 0x4033c000 0x0 0x2000>;
+		interrupt-parent = <&gic>;
+		interrupts = <0 57 4>;
+		interrupt-names = "macirq";
+		clocks = <&sysclk>, <&sysclk>;
+		clock-names = "stmmaceth", "pclk";
+		phy-mode = "gmii";
+		phy-handle = <&phy1>;
+		mdio0 {
+			compatible = "snps,dwmac-mdio";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			phy1: ethernet-phy@1 {
+				reg = <1>;
+			};
+		};
+	};
+
 	can4: flexcan@44000000{
 		compatible = "fsl,s32gen1-flexcan";
 		reg = <0x0 0x44000000 0x0 0xA000>;
