@@ -285,6 +285,8 @@ config CRYPTO_DEV_HIFN_795X_RNG
 
 source "drivers/crypto/caam/Kconfig"
 
+source "drivers/crypto/hse/Kconfig"
+
 config CRYPTO_DEV_TALITOS
 	tristate "Talitos Freescale Security Engine (SEC)"
 	select CRYPTO_AEAD
