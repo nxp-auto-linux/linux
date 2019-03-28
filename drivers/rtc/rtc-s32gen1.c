@@ -120,8 +120,6 @@ static irqreturn_t s32gen1_rtc_handler(int irq, void *dev)
 
 static int s32gen1_rtc_read_time(struct device *dev, struct rtc_time *tm)
 {
-	struct rtc_s32gen1_priv *priv = dev_get_drvdata(dev);
-
 	/* Dummy reading so we appease rtc_valid_tm(); note that this means
 	 * we won't have a monotonic timestamp, in case someone wants to use
 	 * this RTC as the system timer.
@@ -140,10 +138,11 @@ static int s32gen1_rtc_read_time(struct device *dev, struct rtc_time *tm)
 	return 0;
 }
 
-static int s32gen1_rtc_read_alarm(struct device *dev, struct rtc_wkalrm *t)
+static int s32gen1_rtc_read_alarm(struct device *dev, struct rtc_wkalrm *alrm)
 {
-	struct rtc_s32gen1_priv *priv = dev_get_drvdata(dev);
-
+	/* For the moment, leave this callback empty as it is here to shun a
+	 * run-time warning from rtcwake.
+	 */
 	return 0;
 }
 
@@ -229,11 +228,23 @@ static void s32gen1_rtc_enable(struct rtc_s32gen1_priv *priv)
 	iowrite32(rtcc, priv->rtc_base + RTCC_OFFSET);
 }
 
+static unsigned long s32gen1_get_firc_hz(void)
+{
+#define S32GEN1_FIRC_HZ		(48 * 1000 * 1000)
+	return S32GEN1_FIRC_HZ;
+}
+
+static unsigned long s32gen1_get_sirc_hz(void)
+{
+#define S32GEN1_SIRC_HZ		(32 * 1000)
+	return S32GEN1_SIRC_HZ;
+}
+
 /* RTC specific initializations
  * Note: This function will leave the clock disabled. This means APIVAL and
  *       RTCVAL will need to be configured (again) *after* this call.
  */
-static int s32gen1_priv_setup(struct rtc_s32gen1_priv *priv)
+static int s32gen1_rtc_init(struct rtc_s32gen1_priv *priv)
 {
 	u32 rtcc = 0;
 	u32 clksel;
@@ -247,14 +258,17 @@ static int s32gen1_priv_setup(struct rtc_s32gen1_priv *priv)
 	/* Precompute the base frequency of the clock */
 	switch (clksel) {
 	case RTCC_CLKSEL(S32GEN1_RTC_SOURCE_SIRC):
-		priv->rtc_hz = S32GEN1_SIRC_HZ;
+		priv->rtc_hz = s32gen1_get_sirc_hz();
 		break;
 	case RTCC_CLKSEL(S32GEN1_RTC_SOURCE_FIRC):
-		priv->rtc_hz = S32GEN1_FIRC_HZ;
+		priv->rtc_hz = s32gen1_get_firc_hz();
 		break;
 	default:
 		return -EINVAL;
 	}
+	if (!priv->rtc_hz)
+		return -EINVAL;
+
 	/* Adjust frequency if dividers are enabled */
 	if (priv->div512) {
 		rtcc |= RTCC_DIV512EN;
@@ -271,10 +285,55 @@ static int s32gen1_priv_setup(struct rtc_s32gen1_priv *priv)
 	return 0;
 }
 
+/* Initialize priv members with values from the device-tree */
+static int s32g_priv_dts_init(const struct platform_device *pdev,
+			      struct rtc_s32gen1_priv *priv)
+{
+	struct device_node *rtc_node;
+	u32 div[2];	/* div512 and div32 */
+	u32 clksel;
+
+	rtc_node = of_find_compatible_node(NULL, NULL, "fsl,s32gen1-rtc");
+	if (!rtc_node) {
+		dev_err(&pdev->dev, "Unable to find RTC node\n");
+		return -ENXIO;
+	}
+
+	priv->dt_irq_id = of_irq_get(rtc_node, 0);
+	of_node_put(rtc_node);
+	if (priv->dt_irq_id <= 0) {
+		dev_err(&pdev->dev, "Error reading interrupt # from dts\n");
+		return -EINVAL;
+	}
+
+	if (of_property_read_u32_array(rtc_node, "dividers", div,
+				       ARRAY_SIZE(div))) {
+		dev_err(&pdev->dev, "Error reading dividers configuration\n");
+		return -EINVAL;
+	}
+	priv->div512 = !!div[0];
+	priv->div32 = !!div[1];
+
+	if (of_property_read_u32(rtc_node, "clksel", &clksel)) {
+		dev_err(&pdev->dev, "Error reading clksel configuration\n");
+		return -EINVAL;
+	}
+	switch (clksel) {
+	case S32GEN1_RTC_SOURCE_SIRC:
+	case S32GEN1_RTC_SOURCE_FIRC:
+		priv->clk_source = clksel;
+		break;
+	default:
+		dev_err(&pdev->dev, "Unsupported clksel: %d\n", clksel);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
 static int s32gen1_rtc_probe(struct platform_device *pdev)
 {
 	struct rtc_s32gen1_priv *priv = NULL;
-	struct device_node *rtc_node;
 	int err = 0;
 
 	dev_dbg(&pdev->dev, "Probing platform device: %s\n", pdev->name);
@@ -319,29 +378,14 @@ static int s32gen1_rtc_probe(struct platform_device *pdev)
 		goto err_device_init_wakeup;
 	}
 
-	rtc_node = of_find_compatible_node(NULL, NULL, "fsl,s32gen1-rtc");
-	if (!rtc_node) {
-		dev_err(&pdev->dev, "Unable to find RTC node\n");
-		err = -ENXIO;
-		goto err_of_find_compatible;
-	}
-	priv->dt_irq_id = of_irq_get(rtc_node, 0);
-	of_node_put(rtc_node);
-
-	if (priv->dt_irq_id <= 0) {
-		err = -ENXIO;
-		goto err_of_irq_get;
-	}
-
-	/* Input clock selection: use the 48MHz FIRC with DIV512,
-	 * for a roll-over time of just under 13 hours.
-	 * TODO: clock selection and dividers should be configured in the dts
-	 */
-	priv->div512 = true;
-	priv->clk_source = S32GEN1_RTC_SOURCE_FIRC;
-	if (s32gen1_priv_setup(priv)) {
+	if (s32g_priv_dts_init(pdev, priv)) {
 		err = -EINVAL;
-		goto err_priv_setup;
+		goto err_dts_init;
+	}
+
+	if (s32gen1_rtc_init(priv)) {
+		err = -EINVAL;
+		goto err_rtc_init;
 	}
 
 	priv->pdev = pdev;
@@ -362,9 +406,8 @@ static int s32gen1_rtc_probe(struct platform_device *pdev)
 	return 0;
 
 err_devm_request_irq:
-err_priv_setup:
-err_of_irq_get:
-err_of_find_compatible:
+err_rtc_init:
+err_dts_init:
 err_device_init_wakeup:
 err_devm_rtc_device_register:
 err_ioremap_nocache:
