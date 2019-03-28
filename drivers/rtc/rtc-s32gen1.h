@@ -43,8 +43,4 @@
 #define S32GEN1_RTC_SOURCE_FIRC	0x2
 #define S32GEN1_RTC_SOURCE_SIRC	0x0
 
-/* FIXME take clock frequencies from the device-tree! */
-#define S32GEN1_FIRC_HZ		(48 * 1000 * 1000)
-#define S32GEN1_SIRC_HZ		(32 * 1000)
-
 #endif /* _RTC_S32GEN1_H_ */
