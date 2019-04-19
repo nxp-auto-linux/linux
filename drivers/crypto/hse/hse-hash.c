@@ -34,10 +34,14 @@ static struct hse_hash_data {
 /**
  * struct hse_hash_state - crypto request context
  * @srv_desc: HSE service descriptor
+ * @buf: linearized input buffer
+ * @len: digest size
  * @channel: MU channel
  */
 struct hse_hash_state {
 	struct hse_srv_desc *srv_desc;
+	void *buf;
+	u64 *len;
 	u8 channel;
 };
 
@@ -64,6 +68,20 @@ struct hse_halg {
 	struct ahash_alg ahash_alg;
 };
 
+static void ahash_done(void *mu_inst, u8 channel, void *ctx)
+{
+	struct ahash_request *req = ctx;
+	struct hse_hash_state *state = ahash_request_ctx(req);
+	u32 reply;
+
+	reply = hse_mu_recv_response(priv.mu_inst, channel);
+
+	req->base.complete(&req->base, reply == HSE_SRV_RSP_OK ? 0 : -EFAULT);
+
+	kfree(state->len);
+	kfree(state->srv_desc);
+}
+
 static int ahash_init(struct ahash_request *req)
 {
 	return -EOPNOTSUPP;
@@ -81,7 +99,60 @@ static int ahash_final(struct ahash_request *req)
 
 static int ahash_digest(struct ahash_request *req)
 {
-	return -EOPNOTSUPP;
+	struct crypto_ahash *ahash = crypto_ahash_reqtfm(req);
+	int digestsize = crypto_ahash_digestsize(ahash);
+	struct hse_hash_state *state = ahash_request_ctx(req);
+	int err;
+	u8 channel;
+
+	struct crypto_alg *base = ahash->base.__crt_alg;
+	struct hash_alg_common *halg = container_of(base,
+						    struct hash_alg_common,
+						    base);
+	struct ahash_alg *alg = container_of(halg, struct ahash_alg, halg);
+	struct hse_halg *t_alg = container_of(alg, struct hse_halg, ahash_alg);
+
+	state->len = kzalloc(sizeof(*state->len) + req->nbytes, GFP_KERNEL);
+	if (!state->len)
+		return -ENOMEM;
+	*state->len = digestsize;
+	state->buf = state->len + 1;
+
+	state->srv_desc = kzalloc(sizeof(*state->srv_desc), GFP_KERNEL);
+	if (!state->srv_desc) {
+		err = -ENOMEM;
+		goto err_free_buf;
+	}
+
+	state->srv_desc->srv_id = t_alg->srv_id;
+	state->srv_desc->srv_meta_data.prio = HSE_SRV_PRIO_MED;
+	state->srv_desc->hash_req.hash_algo = t_alg->alg_type;
+
+	state->srv_desc->hash_req.access_mode = HSE_ACCESS_MODE_ONE_PASS;
+	state->srv_desc->hash_req.input_len = req->nbytes;
+	state->srv_desc->hash_req.p_input = hse_addr(state->buf);
+	state->srv_desc->hash_req.p_hash_len = hse_addr(state->len);
+	state->srv_desc->hash_req.p_hash = hse_addr(req->result);
+
+	scatterwalk_map_and_copy(state->buf, req->src, 0, req->nbytes, 0);
+
+	channel = hse_mu_next_free_channel(priv.mu_inst);
+	if (channel == HSE_INVALID_CHANNEL) {
+		err = -ENOSR;
+		goto err_free_desc;
+	}
+
+	err = hse_mu_send_request(priv.mu_inst, channel,
+				  hse_addr(state->srv_desc), req, ahash_done);
+	if (err)
+		goto err_free_desc;
+
+	return -EINPROGRESS;
+err_free_desc:
+	kfree(state->srv_desc);
+err_free_buf:
+	kfree(state->len);
+	return err;
 }
 
 static int hse_hash_cra_init(struct crypto_tfm *tfm)
@@ -106,11 +177,7 @@ static const struct hse_hash_template driver_hash[] = {
 			.init = ahash_init,
 			.update = ahash_update,
 			.final = ahash_final,
-			.finup = NULL,
 			.digest = ahash_digest,
-			.export = NULL,
-			.import = NULL,
-			.setkey = NULL,
 			.halg = {
 				.digestsize = MD5_DIGEST_SIZE,
 				.statesize = sizeof(struct hse_hash_ctx),
@@ -125,11 +192,7 @@ static const struct hse_hash_template driver_hash[] = {
 			.init = ahash_init,
 			.update = ahash_update,
 			.final = ahash_final,
-			.finup = NULL,
 			.digest = ahash_digest,
-			.export = NULL,
-			.import = NULL,
-			.setkey = NULL,
 			.halg = {
 				.digestsize = SHA1_DIGEST_SIZE,
 				.statesize = sizeof(struct hse_hash_ctx),
