@@ -17,10 +17,15 @@
 #include <linux/io.h>
 
 #include "hse-mu.h"
+#include "hse-abi.h"
 
 #define HSE_MU_INST    "mu" __stringify(CONFIG_CRYPTO_DEV_NXP_HSE_MU_ID) "b"
 #define HSE_RX_IRQ     "hse-" HSE_MU_INST "-rx"
 #define HSE_ERR_IRQ    "hse-" HSE_MU_INST "-err"
+
+#define HSE_STREAM_COUNT    2u /* number of usable streams per MU instance*/
+#define HSE_NUM_CHANNELS    16u /* number of available service channels */
+#define HSE_ALL_CHANNELS    0x0000FFFFul /* available channels irq mask */
 
 /**
  * struct hse_mu_regs - HSE Messaging Unit Registers
@@ -69,6 +74,7 @@ struct hse_mu_regs {
  * @mu_base: HSE MU instance base virtual address
  * @rx_cbk[n].cbk: upper layer rx callback for channel n
  * @rx_cbk[n].ctx: context passed to the rx callback n
+ * @stream_status: status of current MU instance streams
  * @mu_lock: spinlock guarding access to HSE MU registers
  */
 struct hse_mu_data {
@@ -78,49 +84,23 @@ struct hse_mu_data {
 		void (*cbk)(void *mu_inst, u8 channel, void *ctx);
 		void *ctx;
 	} rx_cbk[HSE_NUM_CHANNELS];
+	u16 stream_status;
 	spinlock_t mu_lock; /* used for concurrent MU access */
 };
 
 /**
- * hse_mu_response_ready -  check if a HSE response is ready to be read
- * @mu_inst: MU instance
- * @channel: service channel index
- *
- * Return: true for response ready, false otherwise
+ * enum hse_mu_irq_type - HSE MU interrupt type
+ * @HSE_MU_INT_ACK_REQUEST: TX Interrupt, triggered when HSE acknowledged the
+ *                          service request and released the service channel
+ * @HSE_MU_INT_RESPONSE: RX Interrupt, triggered when HSE wrote the response
+ * @HSE_MU_INT_SYS_EVENT: General Purpose Interrupt, triggered when HSE sends
+ *                        a system event, generally an error notification
  */
-static bool hse_mu_response_ready(void *mu_inst, u8 channel)
-{
-	struct hse_mu_data *priv = mu_inst;
-	struct hse_mu_regs *mu = priv->mu_base;
-	u32 rsrval;
-
-	if (unlikely(channel >= HSE_NUM_CHANNELS))
-		return false;
-
-	rsrval = ioread32(&mu->rsr) & (1 << channel);
-	if (!rsrval)
-		return false;
-
-	return true;
-}
-
-/**
- * hse_mu_get_status - check the HSE global status
- * @mu_inst: MU instance
- *
- * Return: 16 MSB of MU instance FSR
- */
-static u16 hse_mu_get_status(void *mu_inst)
-{
-	struct hse_mu_data *priv = mu_inst;
-	struct hse_mu_regs *mu = priv->mu_base;
-	u32 fsrval;
-
-	fsrval = ioread32(&mu->fsr);
-	fsrval = (fsrval & 0xFFFF0000ul) >> 16;
-
-	return (u16)fsrval;
-}
+enum hse_irq_type {
+	HSE_MU_INT_ACK_REQUEST = 0x00u,
+	HSE_MU_INT_RESPONSE    = 0x01u,
+	HSE_MU_INT_SYS_EVENT   = 0x02u,
+};
 
 /**
  * hse_mu_channel_available - check service channel status
@@ -136,7 +116,7 @@ static bool hse_mu_channel_available(void *mu_inst, u8 channel)
 {
 	struct hse_mu_data *priv = mu_inst;
 	struct hse_mu_regs *mu = priv->mu_base;
-	u32 fsrval = 0, tsrval = 0, rsrval = 0;
+	u32 fsrval, tsrval, rsrval;
 
 	if (unlikely(channel >= HSE_NUM_CHANNELS))
 		return false;
@@ -155,17 +135,90 @@ static bool hse_mu_channel_available(void *mu_inst, u8 channel)
  * hse_mu_next_free_channel - find the next free service channel
  * @mu_inst: MU instance
  *
+ * Find an available service channel, excluding any reserved for streaming use.
+ *
  * Return: channel index, HSE_INVALID_CHANNEL if none available
  */
-u8 hse_mu_next_free_channel(void *mu_inst)
+static u8 hse_mu_next_free_channel(void *mu_inst)
 {
 	u8 channel;
 
-	for (channel = 0; channel < HSE_NUM_CHANNELS; channel++)
+	for (channel = HSE_STREAM_COUNT; channel < HSE_NUM_CHANNELS; channel++)
 		if (hse_mu_channel_available(mu_inst, channel))
 			return channel;
 
 	return HSE_INVALID_CHANNEL;
+}
+
+/**
+ * hse_mu_reserve_channel - reserve a channel and its associated stream resource
+ * @mu_inst: MU instance
+ * @channel: service channel index
+ *
+ * The first HSE_STREAM_COUNT channels of the MU instance are restricted for
+ * streaming usage. Provided that there is at least one stream resource
+ * currently available, this function reserves one of these channels and returns
+ * the channel index to the caller, which matches the stream ID for convenience.
+ *
+ * Return: 0 on success, -EINVAL for invalid parameter, -ENOSR for no stream
+ *         resource currently available
+ */
+int hse_mu_reserve_channel(void *mu_inst, u8 *channel)
+{
+	struct hse_mu_data *priv = mu_inst;
+	unsigned long flags;
+	u8 stream;
+
+	if (!mu_inst || !channel)
+		return -EINVAL;
+
+	spin_lock_irqsave(&priv->mu_lock, flags);
+
+	for (stream = 0; stream < HSE_STREAM_COUNT; stream++) {
+		if ((priv->stream_status & (1 << stream)) == 0) {
+			priv->stream_status |= (1 << stream);
+			break;
+		}
+	}
+
+	spin_unlock_irqrestore(&priv->mu_lock, flags);
+
+	if (stream >= HSE_STREAM_COUNT) {
+		*channel = HSE_INVALID_CHANNEL;
+		return -ENOSR;
+	}
+
+	*channel = stream;
+
+	return 0;
+}
+
+/**
+ * hse_mu_release_channel - release a channel and its associated stream resource
+ * @mu_inst: MU instance
+ * @channel: service channel index
+ *
+ * Return: 0 on success, -EINVAL for invalid parameter, -ECHRNG for channel
+ *         index out of range
+ */
+int hse_mu_release_channel(void *mu_inst, u8 channel)
+{
+	struct hse_mu_data *priv = mu_inst;
+	unsigned long flags;
+
+	if (!mu_inst)
+		return -EINVAL;
+
+	if (channel > HSE_STREAM_COUNT)
+		return -ECHRNG;
+
+	spin_lock_irqsave(&priv->mu_lock, flags);
+
+	priv->stream_status &= ~(1 << channel);
+
+	spin_unlock_irqrestore(&priv->mu_lock, flags);
+
+	return 0;
 }
 
 /**
@@ -183,13 +236,13 @@ static void hse_mu_irq_enable(void *mu_inst, enum hse_irq_type type, u32 mask)
 	u32 regval;
 
 	switch (type) {
-	case HSE_INT_ACK_REQUEST:
+	case HSE_MU_INT_ACK_REQUEST:
 		regaddr = &mu->tcr;
 		break;
-	case HSE_INT_RESPONSE:
+	case HSE_MU_INT_RESPONSE:
 		regaddr = &mu->rcr;
 		break;
-	case HSE_INT_SYS_EVENT:
+	case HSE_MU_INT_SYS_EVENT:
 		regaddr = &mu->gier;
 		break;
 	default:
@@ -220,13 +273,13 @@ static void hse_mu_irq_disable(void *mu_inst, enum hse_irq_type type, u32 mask)
 	u32 regval;
 
 	switch (type) {
-	case HSE_INT_ACK_REQUEST:
+	case HSE_MU_INT_ACK_REQUEST:
 		regaddr = &mu->tcr;
 		break;
-	case HSE_INT_RESPONSE:
+	case HSE_MU_INT_RESPONSE:
 		regaddr = &mu->rcr;
 		break;
-	case HSE_INT_SYS_EVENT:
+	case HSE_MU_INT_SYS_EVENT:
 		regaddr = &mu->gier;
 		break;
 	default:
@@ -254,7 +307,7 @@ static void hse_mu_irq_clear(void *mu_inst, enum hse_irq_type type, u32 mask)
 	struct hse_mu_regs *mu = priv->mu_base;
 	u32 gierval;
 
-	if (unlikely(type != HSE_INT_SYS_EVENT))
+	if (unlikely(type != HSE_MU_INT_SYS_EVENT))
 		return;
 
 	gierval = ioread32(&mu->gier);
@@ -273,27 +326,31 @@ static void hse_mu_irq_clear(void *mu_inst, enum hse_irq_type type, u32 mask)
  * Send (non-blocking) a HSE service descriptor on the selected channel and
  * register a callback function to be executed when the operation completes.
  *
- * Return: 0 on success, -ECHRNG for channel out of range, -EINVAL for invalid
- *         rx callback function or context, -EBUSY if service channel busy
+ * Return: 0 on success, -EINVAL for invalid parameter, -ECHRNG for channel
+ *         index out of range, -EBUSY for service channel busy
  */
 int hse_mu_send_request(void *mu_inst, u8 channel, u32 srv_desc, void *ctx,
 			void (*rx_cbk)(void *mu_inst, u8 channel, void *ctx))
 {
 	struct hse_mu_data *priv = mu_inst;
-	struct hse_mu_regs *mu = priv->mu_base;
+	struct hse_mu_regs *mu;
 	unsigned long flags;
 
-	if (unlikely(channel >= HSE_NUM_CHANNELS))
+	if (unlikely(!mu_inst || !rx_cbk || !ctx))
+		return -EINVAL;
+	mu = priv->mu_base;
+
+	if (unlikely(channel >= HSE_NUM_CHANNELS && channel != HSE_ANY_CHANNEL))
 		return -ECHRNG;
 
-	if (unlikely(!rx_cbk || !ctx))
-		return -EINVAL;
+	if (channel == HSE_ANY_CHANNEL)
+		channel = hse_mu_next_free_channel(mu_inst);
 
 	spin_lock_irqsave(&priv->mu_lock, flags);
 
 	if (!hse_mu_channel_available(mu_inst, channel)) {
 		spin_unlock_irqrestore(&priv->mu_lock, flags);
-		dev_err(priv->dev, "service channel %d busy\n", channel);
+		dev_dbg(priv->dev, "service channel %d busy\n", channel);
 		return -EBUSY;
 	}
 
@@ -304,9 +361,32 @@ int hse_mu_send_request(void *mu_inst, u8 channel, u32 srv_desc, void *ctx,
 
 	spin_unlock_irqrestore(&priv->mu_lock, flags);
 
-	hse_mu_irq_enable(mu_inst, HSE_INT_RESPONSE, (1 << channel));
+	hse_mu_irq_enable(mu_inst, HSE_MU_INT_RESPONSE, (1 << channel));
 
 	return 0;
+}
+
+/**
+ * hse_mu_response_ready - check if a HSE response is ready to be read
+ * @mu_inst: MU instance
+ * @channel: service channel index
+ *
+ * Return: true for response ready, false otherwise
+ */
+static bool hse_mu_response_ready(void *mu_inst, u8 channel)
+{
+	struct hse_mu_data *priv = mu_inst;
+	struct hse_mu_regs *mu = priv->mu_base;
+	u32 rsrval;
+
+	if (unlikely(channel >= HSE_NUM_CHANNELS))
+		return false;
+
+	rsrval = ioread32(&mu->rsr) & (1 << channel);
+	if (!rsrval)
+		return false;
+
+	return true;
 }
 
 /**
@@ -314,29 +394,72 @@ int hse_mu_send_request(void *mu_inst, u8 channel, u32 srv_desc, void *ctx,
  * @mu_inst: MU instance
  * @channel: service channel index
  *
- * Return: HSE response on selected channel, 0 if response not pending
+ * Return: 0 on success, -EINVAL for invalid parameter, -ENOMSG for response
+ *         not pending on selected service channel, HSE error code otherwise
  */
-u32 hse_mu_recv_response(void *mu_inst, u8 channel)
+int hse_mu_recv_response(void *mu_inst, u8 channel)
 {
 	struct hse_mu_data *priv = mu_inst;
-	struct hse_mu_regs *mu = priv->mu_base;
+	struct hse_mu_regs *mu;
+	u32 srv_rsp;
+	int err;
+
+	if (unlikely(!mu_inst))
+		return -EINVAL;
+	mu = priv->mu_base;
 
 	if (unlikely(!hse_mu_response_ready(mu_inst, channel)))
-		return 0;
+		return -ENOMSG;
 
 	priv->rx_cbk[channel].cbk = NULL;
 	priv->rx_cbk[channel].ctx = NULL;
 
-	return ioread32(&mu->rr[channel]);
+	srv_rsp = ioread32(&mu->rr[channel]);
+
+	switch (srv_rsp) {
+	case HSE_SRV_RSP_OK:
+		err = 0;
+		break;
+	case HSE_SRV_RSP_INVALID_ADDR:
+		err = -EBADR;
+		break;
+	case HSE_SRV_RSP_INVALID_PARAM:
+		err = -EBADR;
+		break;
+	case HSE_SRV_RSP_NOT_SUPPORTED:
+		err = -EOPNOTSUPP;
+		break;
+	case HSE_SRV_RSP_NOT_ALLOWED:
+		err = -EPERM;
+		break;
+	case HSE_SRV_RSP_NOT_ENOUGH_SPACE:
+		err = -ENOMEM;
+		break;
+	case HSE_SRV_RSP_CANCELED:
+		err = -ECANCELED;
+		break;
+	default:
+		err = -EFAULT;
+		break;
+	}
+
+	if (err)
+		dev_dbg(priv->dev, "service response 0x%08x on channel %d\n",
+			srv_rsp, channel);
+
+	return err;
 }
 
-static irqreturn_t hse_rx_handler(int irq, void *mu_inst)
+/**
+ * hse_mu_rx_handler - ISR for HSE_MU_INT_RESPONSE type interrupts
+ */
+static irqreturn_t hse_mu_rx_handler(int irq, void *mu_inst)
 {
 	struct hse_mu_data *priv = mu_inst;
 	u8 channel;
 	void *ctx;
 
-	hse_mu_irq_disable(mu_inst, HSE_INT_RESPONSE, HSE_ALL_CHANNELS);
+	hse_mu_irq_disable(mu_inst, HSE_MU_INT_RESPONSE, HSE_ALL_CHANNELS);
 
 	for (channel = 0; channel < HSE_NUM_CHANNELS; channel++)
 		if (hse_mu_response_ready(mu_inst, channel) &&
@@ -348,12 +471,33 @@ static irqreturn_t hse_rx_handler(int irq, void *mu_inst)
 	return IRQ_HANDLED;
 }
 
-static irqreturn_t hse_err_handler(int irq, void *mu_inst)
+/**
+ * hse_mu_get_status - check the HSE global status
+ * @mu_inst: MU instance
+ *
+ * Return: 16 MSB of MU instance FSR
+ */
+static u16 hse_mu_get_status(void *mu_inst)
+{
+	struct hse_mu_data *priv = mu_inst;
+	struct hse_mu_regs *mu = priv->mu_base;
+	u32 fsrval;
+
+	fsrval = ioread32(&mu->fsr);
+	fsrval = (fsrval & 0xFFFF0000ul) >> 16;
+
+	return (u16)fsrval;
+}
+
+/**
+ * hse_mu_err_handler - ISR for HSE_MU_INT_SYS_EVENT type interrupts
+ */
+static irqreturn_t hse_mu_err_handler(int irq, void *mu_inst)
 {
 	struct hse_mu_data *priv = mu_inst;
 	u16 status = hse_mu_get_status(mu_inst);
 
-	hse_mu_irq_clear(mu_inst, HSE_INT_SYS_EVENT, HSE_ALL_CHANNELS);
+	hse_mu_irq_clear(mu_inst, HSE_MU_INT_SYS_EVENT, HSE_ALL_CHANNELS);
 
 	dev_err(priv->dev, "system error reported by HSE\n");
 	dev_err(priv->dev, "HSE status: 0x%04x\n", status);
@@ -417,18 +561,18 @@ void *hse_mu_init(struct device *dev)
 	spin_lock_init(&mu_inst->mu_lock);
 
 	/* disable all interrupt sources */
-	hse_mu_irq_disable(mu_inst, HSE_INT_ACK_REQUEST, HSE_ALL_CHANNELS);
-	hse_mu_irq_disable(mu_inst, HSE_INT_RESPONSE, HSE_ALL_CHANNELS);
-	hse_mu_irq_disable(mu_inst, HSE_INT_SYS_EVENT, HSE_ALL_CHANNELS);
+	hse_mu_irq_disable(mu_inst, HSE_MU_INT_ACK_REQUEST, HSE_ALL_CHANNELS);
+	hse_mu_irq_disable(mu_inst, HSE_MU_INT_RESPONSE, HSE_ALL_CHANNELS);
+	hse_mu_irq_disable(mu_inst, HSE_MU_INT_SYS_EVENT, HSE_ALL_CHANNELS);
 
-	err = devm_request_irq(dev, rx_irq, hse_rx_handler, 0,
+	err = devm_request_irq(dev, rx_irq, hse_mu_rx_handler, 0,
 			       HSE_RX_IRQ, mu_inst);
 	if (unlikely(err)) {
 		dev_err(dev, "register irq %d failed\n", rx_irq);
-		return ERR_PTR(ENXIO);
+		return ERR_PTR(-ENXIO);
 	}
 
-	err = devm_request_irq(dev, err_irq, hse_err_handler, 0,
+	err = devm_request_irq(dev, err_irq, hse_mu_err_handler, 0,
 			       HSE_ERR_IRQ, mu_inst);
 	if (unlikely(err)) {
 		dev_err(dev, "register irq %d failed\n", err_irq);
@@ -436,7 +580,7 @@ void *hse_mu_init(struct device *dev)
 	}
 
 	/* enable error notification */
-	hse_mu_irq_enable(mu_inst, HSE_INT_SYS_EVENT, HSE_ALL_CHANNELS);
+	hse_mu_irq_enable(mu_inst, HSE_MU_INT_SYS_EVENT, HSE_ALL_CHANNELS);
 
 	return mu_inst;
 err_node_put:
@@ -451,7 +595,7 @@ err_node_put:
 void hse_mu_free(void *mu_inst)
 {
 	/* disable all interrupt sources */
-	hse_mu_irq_disable(mu_inst, HSE_INT_ACK_REQUEST, HSE_ALL_CHANNELS);
-	hse_mu_irq_disable(mu_inst, HSE_INT_RESPONSE, HSE_ALL_CHANNELS);
-	hse_mu_irq_disable(mu_inst, HSE_INT_SYS_EVENT, HSE_ALL_CHANNELS);
+	hse_mu_irq_disable(mu_inst, HSE_MU_INT_ACK_REQUEST, HSE_ALL_CHANNELS);
+	hse_mu_irq_disable(mu_inst, HSE_MU_INT_RESPONSE, HSE_ALL_CHANNELS);
+	hse_mu_irq_disable(mu_inst, HSE_MU_INT_SYS_EVENT, HSE_ALL_CHANNELS);
 }
