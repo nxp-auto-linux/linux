@@ -15,21 +15,9 @@
 
 #include "hse.h"
 #include "hse-mu.h"
-#include "hse-hash.h"
+#include "hse-abi.h"
 
-#define HSE_CRA_PRIORITY    2000u
-
-/**
- * struct hse_hash_data - HASH component private data
- * @hash_list: list of supported crypto algorithms
- * @dev: parent device to be used for error logging
- * @mu_inst: MU instance
- */
-static struct hse_hash_data {
-	struct list_head hash_list;
-	struct device *dev;
-	void *mu_inst;
-} priv;
+#define HSE_MAX_DIGEST_SIZE    SHA512_DIGEST_SIZE
 
 /**
  * struct hse_hash_state - crypto request context
@@ -47,10 +35,10 @@ struct hse_hash_state {
 
 /**
  * struct hse_hash_ctx - crypto transformation context
- * @stream_id: stream to use for START, UPDATE, FINISH access modes
+ * @partial_hash: buffer containing the intermediate result
  */
 struct hse_hash_ctx {
-	u8 stream_id;
+	u8 partial_hash[HSE_MAX_DIGEST_SIZE];
 };
 
 struct hse_hash_template {
@@ -66,17 +54,32 @@ struct hse_halg {
 	u8 alg_type;
 	u32 srv_id;
 	struct ahash_alg ahash_alg;
+	struct device *dev;
+	void *mu_inst;
 };
 
-static void ahash_done(void *mu_inst, u8 channel, void *ctx)
+static struct hse_halg *hse_get_halg(struct ahash_request *req)
 {
-	struct ahash_request *req = ctx;
+	struct crypto_ahash *ahash = crypto_ahash_reqtfm(req);
+	struct crypto_alg *base = ahash->base.__crt_alg;
+	struct hash_alg_common *halg = container_of(base,
+						    struct hash_alg_common,
+						    base);
+	struct ahash_alg *alg = container_of(halg, struct ahash_alg, halg);
+	struct hse_halg *t_alg = container_of(alg, struct hse_halg, ahash_alg);
+
+	return t_alg;
+}
+
+static void ahash_done(void *mu_inst, u8 channel, void *req)
+{
+	struct hse_halg *t_alg = hse_get_halg(req);
 	struct hse_hash_state *state = ahash_request_ctx(req);
 	u32 reply;
 
-	reply = hse_mu_recv_response(priv.mu_inst, channel);
+	reply = hse_mu_recv_response(t_alg->mu_inst, channel);
 
-	req->base.complete(&req->base, reply == HSE_SRV_RSP_OK ? 0 : -EFAULT);
+	ahash_request_complete(req, reply == HSE_SRV_RSP_OK ? 0 : -EFAULT);
 
 	kfree(state->len);
 	kfree(state->srv_desc);
@@ -102,15 +105,9 @@ static int ahash_digest(struct ahash_request *req)
 	struct crypto_ahash *ahash = crypto_ahash_reqtfm(req);
 	int digestsize = crypto_ahash_digestsize(ahash);
 	struct hse_hash_state *state = ahash_request_ctx(req);
+	struct hse_halg *t_alg = hse_get_halg(req);
 	int err;
 	u8 channel;
-
-	struct crypto_alg *base = ahash->base.__crt_alg;
-	struct hash_alg_common *halg = container_of(base,
-						    struct hash_alg_common,
-						    base);
-	struct ahash_alg *alg = container_of(halg, struct ahash_alg, halg);
-	struct hse_halg *t_alg = container_of(alg, struct hse_halg, ahash_alg);
 
 	state->len = kzalloc(sizeof(*state->len) + req->nbytes, GFP_KERNEL);
 	if (!state->len)
@@ -136,13 +133,13 @@ static int ahash_digest(struct ahash_request *req)
 
 	scatterwalk_map_and_copy(state->buf, req->src, 0, req->nbytes, 0);
 
-	channel = hse_mu_next_free_channel(priv.mu_inst);
+	channel = hse_mu_next_free_channel(t_alg->mu_inst);
 	if (channel == HSE_INVALID_CHANNEL) {
 		err = -ENOSR;
 		goto err_free_desc;
 	}
 
-	err = hse_mu_send_request(priv.mu_inst, channel,
+	err = hse_mu_send_request(t_alg->mu_inst, channel,
 				  hse_addr(state->srv_desc), req, ahash_done);
 	if (err)
 		goto err_free_desc;
@@ -205,6 +202,7 @@ static const struct hse_hash_template driver_hash[] = {
 static struct hse_halg *hse_hash_alloc(struct device *dev, bool keyed,
 				       const struct hse_hash_template *tpl)
 {
+	struct hse_drvdata *drvdata = dev_get_drvdata(dev);
 	struct hse_halg *t_alg;
 	struct ahash_alg *halg;
 	struct crypto_alg *alg;
@@ -232,6 +230,8 @@ static struct hse_halg *hse_hash_alloc(struct device *dev, bool keyed,
 
 	t_alg->alg_type = tpl->alg_type;
 	t_alg->srv_id = HSE_SRV_ID_HASH;
+	t_alg->dev = dev;
+	t_alg->mu_inst = drvdata->mu_inst;
 
 	return t_alg;
 }
@@ -239,18 +239,15 @@ static struct hse_halg *hse_hash_alloc(struct device *dev, bool keyed,
 /**
  * hse_hash_init - HASH component initial setup
  * @dev: parent device
- * @mu_inst: MU instance
  *
  * Return: 0 on success, error code otherwise
  */
-int hse_hash_init(struct device *dev, void *mu_inst)
+int hse_hash_init(struct device *dev)
 {
+	struct hse_drvdata *drvdata = dev_get_drvdata(dev);
 	int i, err = 0;
 
-	INIT_LIST_HEAD(&priv.hash_list);
-
-	priv.dev = dev;
-	priv.mu_inst = mu_inst;
+	INIT_LIST_HEAD(&drvdata->hash_list);
 
 	/* register crypto algorithms the device supports */
 	for (i = 0; i < ARRAY_SIZE(driver_hash); i++) {
@@ -272,7 +269,7 @@ int hse_hash_init(struct device *dev, void *mu_inst)
 			dev_err(dev, "failed to register %s: %d\n", name, err);
 			continue;
 		} else {
-			list_add_tail(&t_alg->entry, &priv.hash_list);
+			list_add_tail(&t_alg->entry, &drvdata->hash_list);
 			dev_info(dev, "successfully registered alg %s\n", name);
 		}
 	}
@@ -282,15 +279,17 @@ int hse_hash_init(struct device *dev, void *mu_inst)
 
 /**
  * hse_hash_free - HASH component final cleanup
+ * @dev: parent device
  */
-void hse_hash_free(void)
+void hse_hash_free(struct device *dev)
 {
+	struct hse_drvdata *drvdata = dev_get_drvdata(dev);
 	struct hse_halg *t_alg, *n;
 
-	if (!priv.hash_list.next)
+	if (!drvdata->hash_list.next)
 		return;
 
-	list_for_each_entry_safe(t_alg, n, &priv.hash_list, entry) {
+	list_for_each_entry_safe(t_alg, n, &drvdata->hash_list, entry) {
 		crypto_unregister_ahash(&t_alg->ahash_alg);
 		list_del(&t_alg->entry);
 	}
