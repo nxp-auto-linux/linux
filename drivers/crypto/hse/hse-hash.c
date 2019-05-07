@@ -75,11 +75,11 @@ static void ahash_done(void *mu_inst, u8 channel, void *req)
 {
 	struct hse_halg *t_alg = hse_get_halg(req);
 	struct hse_hash_state *state = ahash_request_ctx(req);
-	u32 reply;
+	int err;
 
-	reply = hse_mu_recv_response(t_alg->mu_inst, channel);
+	err = hse_mu_recv_response(t_alg->mu_inst, channel);
 
-	ahash_request_complete(req, reply == HSE_SRV_RSP_OK ? 0 : -EFAULT);
+	ahash_request_complete(req, err);
 
 	kfree(state->len);
 	kfree(state->srv_desc);
@@ -107,7 +107,6 @@ static int ahash_digest(struct ahash_request *req)
 	struct hse_hash_state *state = ahash_request_ctx(req);
 	struct hse_halg *t_alg = hse_get_halg(req);
 	int err;
-	u8 channel;
 
 	state->len = kzalloc(sizeof(*state->len) + req->nbytes, GFP_KERNEL);
 	if (!state->len)
@@ -133,13 +132,7 @@ static int ahash_digest(struct ahash_request *req)
 
 	scatterwalk_map_and_copy(state->buf, req->src, 0, req->nbytes, 0);
 
-	channel = hse_mu_next_free_channel(t_alg->mu_inst);
-	if (channel == HSE_INVALID_CHANNEL) {
-		err = -ENOSR;
-		goto err_free_desc;
-	}
-
-	err = hse_mu_send_request(t_alg->mu_inst, channel,
+	err = hse_mu_send_request(t_alg->mu_inst, HSE_ANY_CHANNEL,
 				  hse_addr(state->srv_desc), req, ahash_done);
 	if (err)
 		goto err_free_desc;
