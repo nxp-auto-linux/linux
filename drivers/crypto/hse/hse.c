@@ -10,16 +10,8 @@
 #include <linux/platform_device.h>
 #include <linux/mod_devicetable.h>
 
+#include "hse.h"
 #include "hse-mu.h"
-#include "hse-hash.h"
-
-/**
- * struct hse_drvdata - HSE driver private data
- * @mu_inst: MU instance
- */
-struct hse_drvdata {
-	void *mu_inst;
-};
 
 static int hse_probe(struct platform_device *pdev)
 {
@@ -38,7 +30,7 @@ static int hse_probe(struct platform_device *pdev)
 	if (IS_ERR(pdata->mu_inst))
 		return PTR_ERR(pdata->mu_inst);
 
-	err = hse_hash_init(&pdev->dev, pdata->mu_inst);
+	err = hse_hash_init(&pdev->dev);
 	if (err)
 		return err;
 
@@ -51,7 +43,7 @@ static int hse_remove(struct platform_device *pdev)
 {
 	struct hse_drvdata *pdata = platform_get_drvdata(pdev);
 
-	hse_hash_free();
+	hse_hash_free(&pdev->dev);
 	hse_mu_free(pdata->mu_inst);
 
 	dev_info(&pdev->dev, "HSE device %s removed", pdev->name);
