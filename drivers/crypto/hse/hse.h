@@ -45,4 +45,8 @@ int hse_hash_init(struct device *dev);
 
 void hse_hash_free(struct device *dev);
 
+int hse_skcipher_init(struct device *dev);
+
+void hse_skcipher_free(void);
+
 #endif /* HSE_H */
