@@ -5,4 +5,4 @@
 
 obj-$(CONFIG_CRYPTO_DEV_NXP_HSE) += nxp-hse.o
 
-nxp-hse-y := hse.o hse-mu.o hse-hash.o
+nxp-hse-y := hse.o hse-mu.o hse-hash.o hse-skcipher.o

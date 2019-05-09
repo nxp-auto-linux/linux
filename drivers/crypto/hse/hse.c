@@ -73,6 +73,10 @@ static int hse_probe(struct platform_device *pdev)
 	if (err)
 		return err;
 
+	err = hse_skcipher_init(&pdev->dev);
+	if (err)
+		return err;
+
 	dev_info(&pdev->dev, "HSE device %s initialized\n", pdev->name);
 
 	return 0;
@@ -83,6 +87,7 @@ static int hse_remove(struct platform_device *pdev)
 	struct hse_drvdata *pdata = platform_get_drvdata(pdev);
 
 	hse_hash_free(&pdev->dev);
+	hse_skcipher_free();
 	hse_mu_free(pdata->mu_inst);
 
 	dev_info(&pdev->dev, "HSE device %s removed", pdev->name);
