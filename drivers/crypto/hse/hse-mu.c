@@ -17,7 +17,6 @@
 #include <linux/io.h>
 
 #include "hse-mu.h"
-#include "hse-abi.h"
 
 #define HSE_MU_INST    "mu" __stringify(CONFIG_CRYPTO_DEV_NXP_HSE_MU_ID) "b"
 #define HSE_RX_IRQ     "hse-" HSE_MU_INST "-rx"
@@ -185,6 +184,7 @@ int hse_mu_reserve_channel(void *mu_inst, u8 *channel)
 
 	if (stream >= HSE_STREAM_COUNT) {
 		*channel = HSE_INVALID_CHANNEL;
+		dev_dbg(priv->dev, "failed to acquire stream resource\n");
 		return -ENOSR;
 	}
 
@@ -327,7 +327,8 @@ static void hse_mu_irq_clear(void *mu_inst, enum hse_irq_type type, u32 mask)
  * register a callback function to be executed when the operation completes.
  *
  * Return: 0 on success, -EINVAL for invalid parameter, -ECHRNG for channel
- *         index out of range, -EBUSY for service channel busy
+ *         index out of range, -EBUSY for service channel busy, -ENOSR for
+ *         stream resource unavailable (the channel has not been reserved)
  */
 int hse_mu_send_request(void *mu_inst, u8 channel, u32 srv_desc, void *ctx,
 			void (*rx_cbk)(void *mu_inst, u8 channel, void *ctx))
@@ -343,8 +344,12 @@ int hse_mu_send_request(void *mu_inst, u8 channel, u32 srv_desc, void *ctx,
 	if (unlikely(channel >= HSE_NUM_CHANNELS && channel != HSE_ANY_CHANNEL))
 		return -ECHRNG;
 
-	if (channel == HSE_ANY_CHANNEL)
+	if (channel == HSE_ANY_CHANNEL) {
 		channel = hse_mu_next_free_channel(mu_inst);
+	} else if (!(priv->stream_status & (1 << channel))) {
+		dev_dbg(priv->dev, "stream %d not available\n", channel);
+		return -ENOSR;
+	}
 
 	spin_lock_irqsave(&priv->mu_lock, flags);
 
@@ -393,61 +398,31 @@ static bool hse_mu_response_ready(void *mu_inst, u8 channel)
  * hse_mu_recv_response - read (non-blocking) the HSE response
  * @mu_inst: MU instance
  * @channel: service channel index
+ * @srv_rsp: HSE service response
  *
  * Return: 0 on success, -EINVAL for invalid parameter, -ENOMSG for response
- *         not pending on selected service channel, HSE error code otherwise
+ *         not pending on selected service channel
  */
-int hse_mu_recv_response(void *mu_inst, u8 channel)
+int hse_mu_recv_response(void *mu_inst, u8 channel, u32 *srv_rsp)
 {
 	struct hse_mu_data *priv = mu_inst;
 	struct hse_mu_regs *mu;
-	u32 srv_rsp;
-	int err;
 
-	if (unlikely(!mu_inst))
+	if (unlikely(!mu_inst || !srv_rsp))
 		return -EINVAL;
 	mu = priv->mu_base;
 
-	if (unlikely(!hse_mu_response_ready(mu_inst, channel)))
+	if (unlikely(!hse_mu_response_ready(mu_inst, channel))) {
+		dev_dbg(priv->dev, "no response yet on channel %d\n", channel);
 		return -ENOMSG;
+	}
 
 	priv->rx_cbk[channel].cbk = NULL;
 	priv->rx_cbk[channel].ctx = NULL;
 
-	srv_rsp = ioread32(&mu->rr[channel]);
+	*srv_rsp = ioread32(&mu->rr[channel]);
 
-	switch (srv_rsp) {
-	case HSE_SRV_RSP_OK:
-		err = 0;
-		break;
-	case HSE_SRV_RSP_INVALID_ADDR:
-		err = -EBADR;
-		break;
-	case HSE_SRV_RSP_INVALID_PARAM:
-		err = -EBADR;
-		break;
-	case HSE_SRV_RSP_NOT_SUPPORTED:
-		err = -EOPNOTSUPP;
-		break;
-	case HSE_SRV_RSP_NOT_ALLOWED:
-		err = -EPERM;
-		break;
-	case HSE_SRV_RSP_NOT_ENOUGH_SPACE:
-		err = -ENOMEM;
-		break;
-	case HSE_SRV_RSP_CANCELED:
-		err = -ECANCELED;
-		break;
-	default:
-		err = -EFAULT;
-		break;
-	}
-
-	if (err)
-		dev_dbg(priv->dev, "service response 0x%08x on channel %d\n",
-			srv_rsp, channel);
-
-	return err;
+	return 0;
 }
 
 /**
