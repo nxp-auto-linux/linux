@@ -24,7 +24,7 @@ struct hse_drvdata {
  * hse_addr - HSE Address Translation
  * @virt_addr: virtual address to be translated
  *
- * This function only admits addresses from the kernel linear address space
+ * This function only admits addresses from the kernel linear address space.
  *
  * Return: physical address as seen by HSE, zero for failed translation
  */
@@ -38,6 +38,8 @@ static __always_inline phys_addr_t hse_addr(void *virt_addr)
 
 	return 0ull;
 }
+
+int hse_err_decode(u32 srv_rsp);
 
 int hse_hash_init(struct device *dev);
 
