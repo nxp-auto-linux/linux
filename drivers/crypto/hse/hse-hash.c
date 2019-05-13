@@ -76,8 +76,11 @@ static void ahash_done(void *mu_inst, u8 channel, void *req)
 	struct hse_halg *t_alg = hse_get_halg(req);
 	struct hse_hash_state *state = ahash_request_ctx(req);
 	int err;
+	u32 reply;
 
-	err = hse_mu_recv_response(t_alg->mu_inst, channel);
+	err = hse_mu_recv_response(t_alg->mu_inst, channel, &reply);
+	if (!err)
+		err = hse_err_decode(reply);
 
 	ahash_request_complete(req, err);
 
