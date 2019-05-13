@@ -12,6 +12,45 @@
 
 #include "hse.h"
 #include "hse-mu.h"
+#include "hse-abi.h"
+
+/**
+ * hse_err_decode - HSE Error Code Translation
+ * @srv_rsp: HSE service response
+ *
+ * Return: 0 on service request success, error code otherwise
+ */
+int hse_err_decode(u32 srv_rsp)
+{
+	int err;
+
+	switch (srv_rsp) {
+	case HSE_SRV_RSP_OK:
+		err = 0;
+		break;
+	case HSE_SRV_RSP_INVALID_ADDR:
+	case HSE_SRV_RSP_INVALID_PARAM:
+		err = -EBADR;
+		break;
+	case HSE_SRV_RSP_NOT_SUPPORTED:
+		err = -EOPNOTSUPP;
+		break;
+	case HSE_SRV_RSP_NOT_ALLOWED:
+		err = -EPERM;
+		break;
+	case HSE_SRV_RSP_NOT_ENOUGH_SPACE:
+		err = -ENOMEM;
+		break;
+	case HSE_SRV_RSP_CANCELED:
+		err = -ECANCELED;
+		break;
+	default:
+		err = -EFAULT;
+		break;
+	}
+
+	return err;
+}
 
 static int hse_probe(struct platform_device *pdev)
 {
