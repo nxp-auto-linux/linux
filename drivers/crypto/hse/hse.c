@@ -41,6 +41,15 @@ int hse_err_decode(u32 srv_rsp)
 	case HSE_SRV_RSP_NOT_ENOUGH_SPACE:
 		err = -ENOMEM;
 		break;
+	case HSE_SRV_RSP_KEY_NOT_AVAILABLE:
+	case HSE_SRV_RSP_KEY_EMPTY:
+		err = -ENOKEY;
+		break;
+	case HSE_SRV_RSP_KEY_INVALID:
+	case HSE_SRV_RSP_KEY_WRITE_PROTECTED:
+	case HSE_SRV_RSP_KEY_UPDATE_ERROR:
+		err = -EKEYREJECTED;
+		break;
 	case HSE_SRV_RSP_CANCELED:
 		err = -ECANCELED;
 		break;
