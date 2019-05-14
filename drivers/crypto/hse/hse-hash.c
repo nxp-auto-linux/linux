@@ -122,7 +122,7 @@ static void ahash_done(void *mu_inst, u8 channel, void *req)
 	err = hse_mu_recv_response(mu_inst, channel, &reply);
 	err = err ? err : hse_err_decode(reply);
 	if (err)
-		dev_dbg(t_alg->dev, "service response 0x%08x on channel %d\n",
+		dev_dbg(t_alg->dev, "service response 0x%08X on channel %d\n",
 			reply, channel);
 
 	switch (access_mode) {
@@ -177,7 +177,7 @@ static int ahash_init(struct ahash_request *req)
 	state->channel = channel;
 
 	state->srv_desc->srv_id = t_alg->srv_id;
-	state->srv_desc->srv_meta_data.prio = HSE_SRV_PRIO_MED;
+	state->srv_desc->priority = HSE_SRV_PRIO_MED;
 	state->srv_desc->hash_req.hash_algo = t_alg->alg_type;
 	state->srv_desc->hash_req.access_mode = HSE_ACCESS_MODE_START;
 	state->srv_desc->hash_req.input_len = 0;
@@ -299,7 +299,7 @@ static int ahash_digest(struct ahash_request *req)
 	}
 
 	state->srv_desc->srv_id = t_alg->srv_id;
-	state->srv_desc->srv_meta_data.prio = HSE_SRV_PRIO_LOW;
+	state->srv_desc->priority = HSE_SRV_PRIO_LOW;
 	state->srv_desc->hash_req.hash_algo = t_alg->alg_type;
 
 	state->srv_desc->hash_req.access_mode = HSE_ACCESS_MODE_ONE_PASS;
