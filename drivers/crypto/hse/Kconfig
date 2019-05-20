@@ -10,12 +10,20 @@ config CRYPTO_DEV_NXP_HSE
 	  Enables the driver module for NXP's Hardware Security Engine (HSE).
 
 	  To compile this driver as a module, choose M here: the module
-	  will be called hse.
+	  will be called nxp-hse.
 
 config CRYPTO_DEV_NXP_HSE_MU_ID
 	depends on CRYPTO_DEV_NXP_HSE
-	int "Message Unit (MU) used by HSE: [0-3]"
+	int "Message Unit (MU) Instance: [0-3]"
 	range 0 3
 	default "0"
 	help
-	  Specify which Message Unit (MU) is used by HSE driver, within range 0-3.
+	  The Message Unit (MU) Instance index used by HSE crypto driver.
+
+config CRYPTO_DEV_NXP_HSE_AES_KEY_GID
+	depends on CRYPTO_DEV_NXP_HSE
+	int "AES Key Group ID within RAM Key Catalog: [0-256]"
+	range 0 256
+	default "1"
+	help
+	  The AES 256-bit Key Group ID within RAM Key Catalog.
