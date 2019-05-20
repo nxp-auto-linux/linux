@@ -327,8 +327,8 @@ static void hse_mu_irq_clear(void *mu_inst, enum hse_irq_type type, u32 mask)
  * register a callback function to be executed when the operation completes.
  *
  * Return: 0 on success, -EINVAL for invalid parameter, -ECHRNG for channel
- *         index out of range, -EBUSY for service channel busy, -ENOSR for
- *         stream resource unavailable (the channel has not been reserved)
+ *         index out of range, -EBUSY for service channel busy, -ENOSTR for
+ *         channel not a valid stream, -EAGAIN for no channel available
  */
 int hse_mu_send_request(void *mu_inst, u8 channel, u32 srv_desc, void *ctx,
 			void (*rx_cbk)(void *mu_inst, u8 channel, void *ctx))
@@ -347,8 +347,13 @@ int hse_mu_send_request(void *mu_inst, u8 channel, u32 srv_desc, void *ctx,
 	if (channel == HSE_ANY_CHANNEL) {
 		channel = hse_mu_next_free_channel(mu_inst);
 	} else if (!(priv->stream_status & (1 << channel))) {
-		dev_dbg(priv->dev, "stream %d not available\n", channel);
-		return -ENOSR;
+		dev_dbg(priv->dev, "channel %d not a valid stream\n", channel);
+		return -ENOSTR;
+	}
+
+	if (unlikely(channel == HSE_INVALID_CHANNEL)) {
+		dev_dbg(priv->dev, "all normal channels busy\n");
+		return -EAGAIN;
 	}
 
 	spin_lock_irqsave(&priv->mu_lock, flags);
@@ -475,7 +480,7 @@ static irqreturn_t hse_mu_err_handler(int irq, void *mu_inst)
 	hse_mu_irq_clear(mu_inst, HSE_MU_INT_SYS_EVENT, HSE_ALL_CHANNELS);
 
 	dev_err(priv->dev, "system error reported by HSE\n");
-	dev_err(priv->dev, "HSE status: 0x%04x\n", status);
+	dev_err(priv->dev, "HSE status: 0x%04X\n", status);
 
 	return IRQ_HANDLED;
 }
