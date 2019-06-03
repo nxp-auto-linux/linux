@@ -16,6 +16,8 @@
 
 void *hse_mu_init(struct device *dev);
 
+u16 hse_mu_get_status(void *mu_inst);
+
 int hse_mu_reserve_channel(void *mu_inst, u8 *channel);
 
 int hse_mu_send_request(void *mu_inst, u8 channel, u32 srv_desc, void *ctx,
