@@ -25,6 +25,7 @@
 #define HSE_STREAM_COUNT    2u /* number of usable streams per MU instance*/
 #define HSE_NUM_CHANNELS    16u /* number of available service channels */
 #define HSE_ALL_CHANNELS    0x0000FFFFul /* available channels irq mask */
+#define HSE_STATUS_MASK     0xFFFF0000ul /* HSE global status FSR mask */
 
 /**
  * struct hse_mu_regs - HSE Messaging Unit Registers
@@ -457,14 +458,14 @@ static irqreturn_t hse_mu_rx_handler(int irq, void *mu_inst)
  *
  * Return: 16 MSB of MU instance FSR
  */
-static u16 hse_mu_get_status(void *mu_inst)
+u16 hse_mu_get_status(void *mu_inst)
 {
 	struct hse_mu_data *priv = mu_inst;
 	struct hse_mu_regs *mu = priv->mu_base;
 	u32 fsrval;
 
 	fsrval = ioread32(&mu->fsr);
-	fsrval = (fsrval & 0xFFFF0000ul) >> 16;
+	fsrval = (fsrval & HSE_STATUS_MASK) >> 16u;
 
 	return (u16)fsrval;
 }
