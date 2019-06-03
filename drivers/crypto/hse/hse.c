@@ -65,6 +65,7 @@ static int hse_probe(struct platform_device *pdev)
 {
 	struct hse_drvdata *pdata;
 	int err;
+	u16 status, init_ok_mask;
 
 	dev_info(&pdev->dev, "probing HSE device %s\n", pdev->name);
 
@@ -78,25 +79,40 @@ static int hse_probe(struct platform_device *pdev)
 	if (IS_ERR(pdata->mu_inst))
 		return PTR_ERR(pdata->mu_inst);
 
+	init_ok_mask = HSE_STATUS_INIT_OK | HSE_STATUS_RNG_INIT_OK |
+		       HSE_STATUS_INSTALL_OK | HSE_STATUS_BOOT_OK;
+
+	status = hse_mu_get_status(pdata->mu_inst);
+	if (unlikely((status & init_ok_mask) != init_ok_mask)) {
+		dev_err(&pdev->dev, "init failed with status 0x%04X\n", status);
+		return -ENODEV;
+	}
+
 	err = hse_hash_init(&pdev->dev);
 	if (err)
-		return err;
+		goto err_free_hash;
 
 	err = hse_skcipher_init(&pdev->dev);
 	if (err)
-		return err;
+		goto err_free_skcipher;
 
 	dev_info(&pdev->dev, "HSE device %s initialized\n", pdev->name);
 
 	return 0;
+err_free_skcipher:
+	hse_skcipher_free();
+err_free_hash:
+	hse_hash_free(&pdev->dev);
+	hse_mu_free(pdata->mu_inst);
+	return err;
 }
 
 static int hse_remove(struct platform_device *pdev)
 {
 	struct hse_drvdata *pdata = platform_get_drvdata(pdev);
 
-	hse_hash_free(&pdev->dev);
 	hse_skcipher_free();
+	hse_hash_free(&pdev->dev);
 	hse_mu_free(pdata->mu_inst);
 
 	dev_info(&pdev->dev, "HSE device %s removed", pdev->name);
