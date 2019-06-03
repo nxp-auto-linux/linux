@@ -15,6 +15,24 @@
 					((group) << 8u) | (slot))
 
 /**
+ * enum hse_status - HSE status
+ * @HSE_STATUS_INIT_OK: HSE initialization successfully completed
+ * @HSE_STATUS_RNG_INIT_OK: RNG initialization successfully completed
+ * @HSE_STATUS_INSTALL_OK: HSE installation phase successfully completed,
+ *                         key stores have been formatted and can be used
+ * @HSE_STATUS_BOOT_OK: HSE secure booting phase successfully completed
+ *
+ * Note that if SMR is empty (no secure boot configured), HSE always
+ * signals that the booting phase completed successfully.
+ */
+enum hse_status {
+	HSE_STATUS_INIT_OK = (1u << 0u),
+	HSE_STATUS_RNG_INIT_OK = (1u << 1u),
+	HSE_STATUS_INSTALL_OK = (1u << 2u),
+	HSE_STATUS_BOOT_OK = (1u << 3u),
+};
+
+/**
  * enum hse_srv_id - HSE service ID
  * @HSE_SRV_ID_IMPORT_KEY: import/update key into a key store
  * @HSE_SRV_ID_HASH: perform a hash operation
@@ -52,9 +70,6 @@ enum hse_srv_id {
  * @HSE_SRV_RSP_CANCELED: service has been canceled
  * @HSE_SRV_RSP_GENERAL_ERROR: returned if an error not covered by the error
  *                             codes above is detected inside HSE
- *
- * The Service response is provided by MUB_RRx register after the service
- * execution.
  */
 enum hse_srv_response {
 	HSE_SRV_RSP_OK = 0x55A5AA33ul,
@@ -152,9 +167,9 @@ enum hse_cipher_dir {
  * @HSE_KF_USAGE_DECRYPT: key used for decryption
  */
 enum hse_key_flags {
-	HSE_KF_MU_INST = (1 << CONFIG_CRYPTO_DEV_NXP_HSE_MU_ID),
-	HSE_KF_USAGE_ENCRYPT = (1 << 4u),
-	HSE_KF_USAGE_DECRYPT = (1 << 5u),
+	HSE_KF_MU_INST = (1u << CONFIG_CRYPTO_DEV_NXP_HSE_MU_ID),
+	HSE_KF_USAGE_ENCRYPT = (1u << 4u),
+	HSE_KF_USAGE_DECRYPT = (1u << 5u),
 };
 
 /**
