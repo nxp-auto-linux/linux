@@ -22,9 +22,9 @@
 #define HSE_RX_IRQ     "hse-" HSE_MU_INST "-rx"
 #define HSE_ERR_IRQ    "hse-" HSE_MU_INST "-err"
 
-#define HSE_STREAM_COUNT    2u /* number of usable streams per MU instance*/
+#define HSE_STREAM_COUNT    2u /* number of usable streams per MU instance */
 #define HSE_NUM_CHANNELS    16u /* number of available service channels */
-#define HSE_ALL_CHANNELS    0x0000FFFFul /* available channels irq mask */
+#define HSE_CH_MASK_ALL     0x0000FFFFul /* all available channels irq mask */
 #define HSE_STATUS_MASK     0xFFFF0000ul /* HSE global status FSR mask */
 
 /**
@@ -72,19 +72,19 @@ struct hse_mu_regs {
  * struct hse_mu_data - MU interface private data
  * @dev: parent device to be used for error logging
  * @mu_base: HSE MU instance base virtual address
- * @rx_cbk[n].cbk: upper layer rx callback for channel n
+ * @rx_cbk[n].fn: upper layer rx callback for channel n
  * @rx_cbk[n].ctx: context passed to the rx callback n
- * @stream_status: status of current MU instance streams
+ * @status: stream or reserved channel status
  * @mu_lock: spinlock guarding access to HSE MU registers
  */
 struct hse_mu_data {
 	struct device *dev;
 	void __iomem *mu_base;
 	struct {
-		void (*cbk)(void *mu_inst, u8 channel, void *ctx);
+		void (*fn)(void *mu_inst, u8 channel, void *ctx);
 		void *ctx;
 	} rx_cbk[HSE_NUM_CHANNELS];
-	u16 stream_status;
+	u16 status;
 	spinlock_t mu_lock; /* used for concurrent MU access */
 };
 
@@ -121,9 +121,9 @@ static bool hse_mu_channel_available(void *mu_inst, u8 channel)
 	if (unlikely(channel >= HSE_NUM_CHANNELS))
 		return false;
 
-	fsrval = ioread32(&mu->fsr) & (1 << channel);
-	tsrval = ioread32(&mu->tsr) & (1 << channel);
-	rsrval = ioread32(&mu->rsr) & (1 << channel);
+	fsrval = ioread32(&mu->fsr) & (1u << channel);
+	tsrval = ioread32(&mu->tsr) & (1u << channel);
+	rsrval = ioread32(&mu->rsr) & (1u << channel);
 
 	if (fsrval || !tsrval || rsrval)
 		return false;
@@ -134,68 +134,76 @@ static bool hse_mu_channel_available(void *mu_inst, u8 channel)
 /**
  * hse_mu_next_free_channel - find the next free service channel
  * @mu_inst: MU instance
+ * @streaming: streaming use
  *
- * Find an available service channel, excluding any reserved for streaming use.
+ * If called with streaming=true, select an available channel from the first
+ * HSE_STREAM_COUNT channels, which are restricted for streaming use. Otherwise,
+ * find an available service channel, excluding any reserved for streaming use.
  *
  * Return: channel index, HSE_INVALID_CHANNEL if none available
  */
-static u8 hse_mu_next_free_channel(void *mu_inst)
+static u8 hse_mu_next_free_channel(void *mu_inst, bool streaming)
 {
-	u8 channel;
+	struct hse_mu_data *priv = mu_inst;
+	u8 channel, start_idx, end_idx;
 
-	for (channel = HSE_STREAM_COUNT; channel < HSE_NUM_CHANNELS; channel++)
-		if (hse_mu_channel_available(mu_inst, channel))
+	if (streaming) {
+		start_idx = 0u;
+		end_idx = HSE_STREAM_COUNT;
+	} else {
+		start_idx = HSE_STREAM_COUNT;
+		end_idx = HSE_NUM_CHANNELS;
+	}
+
+	for (channel = start_idx; channel < end_idx; channel++)
+		if (hse_mu_channel_available(mu_inst, channel) &&
+		    !(priv->status & (1u << channel)))
 			return channel;
 
 	return HSE_INVALID_CHANNEL;
 }
 
 /**
- * hse_mu_reserve_channel - reserve a channel and its associated stream resource
+ * hse_mu_reserve_channel - reserve a channel
  * @mu_inst: MU instance
  * @channel: service channel index
+ * @streaming: streaming use
  *
- * The first HSE_STREAM_COUNT channels of the MU instance are restricted for
- * streaming usage. Provided that there is at least one stream resource
- * currently available, this function reserves one of these channels and returns
- * the channel index to the caller, which matches the stream ID for convenience.
+ * The first HSE_STREAM_COUNT channels of the MU instance are restricted to
+ * streaming use. If called with streaming=true and provided there is at least
+ * one stream resource currently available, reserve one of these channels and
+ * return the channel index, which matches the stream ID for convenience.
  *
- * Return: 0 on success, -EINVAL for invalid parameter, -ENOSR for no stream
- *         resource currently available
+ * Return: 0 on success, -EINVAL for invalid parameter, -EBUSY for all normal
+ *         channels busy or no stream resource currently available
  */
-int hse_mu_reserve_channel(void *mu_inst, u8 *channel)
+int hse_mu_reserve_channel(void *mu_inst, u8 *channel, bool streaming)
 {
 	struct hse_mu_data *priv = mu_inst;
 	unsigned long flags;
-	u8 stream;
 
-	if (!mu_inst || !channel)
+	if (unlikely(!mu_inst || !channel))
 		return -EINVAL;
 
 	spin_lock_irqsave(&priv->mu_lock, flags);
 
-	for (stream = 0; stream < HSE_STREAM_COUNT; stream++) {
-		if ((priv->stream_status & (1 << stream)) == 0) {
-			priv->stream_status |= (1 << stream);
-			break;
-		}
+	*channel = hse_mu_next_free_channel(mu_inst, streaming);
+	if (*channel == HSE_INVALID_CHANNEL) {
+		spin_unlock_irqrestore(&priv->mu_lock, flags);
+		dev_dbg(priv->dev, "failed to acquire channel\n");
+		return -EBUSY;
 	}
+
+	/* mark channel as reserved */
+	priv->status |= (1u << *channel);
 
 	spin_unlock_irqrestore(&priv->mu_lock, flags);
-
-	if (stream >= HSE_STREAM_COUNT) {
-		*channel = HSE_INVALID_CHANNEL;
-		dev_dbg(priv->dev, "failed to acquire stream resource\n");
-		return -ENOSR;
-	}
-
-	*channel = stream;
 
 	return 0;
 }
 
 /**
- * hse_mu_release_channel - release a channel and its associated stream resource
+ * hse_mu_release_channel - release a channel
  * @mu_inst: MU instance
  * @channel: service channel index
  *
@@ -207,15 +215,15 @@ int hse_mu_release_channel(void *mu_inst, u8 channel)
 	struct hse_mu_data *priv = mu_inst;
 	unsigned long flags;
 
-	if (!mu_inst)
+	if (unlikely(!mu_inst))
 		return -EINVAL;
 
-	if (channel > HSE_STREAM_COUNT)
+	if (channel > HSE_NUM_CHANNELS)
 		return -ECHRNG;
 
 	spin_lock_irqsave(&priv->mu_lock, flags);
 
-	priv->stream_status &= ~(1 << channel);
+	priv->status &= ~(1u << channel);
 
 	spin_unlock_irqrestore(&priv->mu_lock, flags);
 
@@ -253,7 +261,7 @@ static void hse_mu_irq_enable(void *mu_inst, enum hse_irq_type type, u32 mask)
 	spin_lock_irqsave(&priv->mu_lock, flags);
 
 	regval = ioread32(regaddr);
-	regval |= mask & HSE_ALL_CHANNELS;
+	regval |= mask & HSE_CH_MASK_ALL;
 	iowrite32(regval, regaddr);
 
 	spin_unlock_irqrestore(&priv->mu_lock, flags);
@@ -290,7 +298,7 @@ static void hse_mu_irq_disable(void *mu_inst, enum hse_irq_type type, u32 mask)
 	spin_lock_irqsave(&priv->mu_lock, flags);
 
 	regval = ioread32(regaddr);
-	regval &= ~(mask & HSE_ALL_CHANNELS);
+	regval &= ~(mask & HSE_CH_MASK_ALL);
 	iowrite32(regval, regaddr);
 
 	spin_unlock_irqrestore(&priv->mu_lock, flags);
@@ -312,7 +320,7 @@ static void hse_mu_irq_clear(void *mu_inst, enum hse_irq_type type, u32 mask)
 		return;
 
 	gierval = ioread32(&mu->gier);
-	gierval |= mask & HSE_ALL_CHANNELS;
+	gierval |= mask & HSE_CH_MASK_ALL;
 	iowrite32(gierval, &mu->gier);
 }
 
@@ -328,8 +336,8 @@ static void hse_mu_irq_clear(void *mu_inst, enum hse_irq_type type, u32 mask)
  * register a callback function to be executed when the operation completes.
  *
  * Return: 0 on success, -EINVAL for invalid parameter, -ECHRNG for channel
- *         index out of range, -EBUSY for service channel busy, -ENOSTR for
- *         channel not a valid stream, -EAGAIN for no channel available
+ *         index out of range, -EBUSY for service channel busy or no channel
+ *         currently available, -ENOSTR for channel not a valid stream
  */
 int hse_mu_send_request(void *mu_inst, u8 channel, u32 srv_desc, void *ctx,
 			void (*rx_cbk)(void *mu_inst, u8 channel, void *ctx))
@@ -346,15 +354,15 @@ int hse_mu_send_request(void *mu_inst, u8 channel, u32 srv_desc, void *ctx,
 		return -ECHRNG;
 
 	if (channel == HSE_ANY_CHANNEL) {
-		channel = hse_mu_next_free_channel(mu_inst);
-	} else if (!(priv->stream_status & (1 << channel))) {
+		channel = hse_mu_next_free_channel(mu_inst, false);
+	} else if (!(priv->status & (1u << channel))) {
 		dev_dbg(priv->dev, "channel %d not a valid stream\n", channel);
 		return -ENOSTR;
 	}
 
 	if (unlikely(channel == HSE_INVALID_CHANNEL)) {
 		dev_dbg(priv->dev, "all normal channels busy\n");
-		return -EAGAIN;
+		return -EBUSY;
 	}
 
 	spin_lock_irqsave(&priv->mu_lock, flags);
@@ -365,14 +373,14 @@ int hse_mu_send_request(void *mu_inst, u8 channel, u32 srv_desc, void *ctx,
 		return -EBUSY;
 	}
 
-	priv->rx_cbk[channel].cbk = rx_cbk;
+	priv->rx_cbk[channel].fn = rx_cbk;
 	priv->rx_cbk[channel].ctx = ctx;
 
 	iowrite32(srv_desc, &mu->tr[channel]);
 
 	spin_unlock_irqrestore(&priv->mu_lock, flags);
 
-	hse_mu_irq_enable(mu_inst, HSE_MU_INT_RESPONSE, (1 << channel));
+	hse_mu_irq_enable(mu_inst, HSE_MU_INT_RESPONSE, (1u << channel));
 
 	return 0;
 }
@@ -393,7 +401,7 @@ static bool hse_mu_response_ready(void *mu_inst, u8 channel)
 	if (unlikely(channel >= HSE_NUM_CHANNELS))
 		return false;
 
-	rsrval = ioread32(&mu->rsr) & (1 << channel);
+	rsrval = ioread32(&mu->rsr) & (1u << channel);
 	if (!rsrval)
 		return false;
 
@@ -406,8 +414,8 @@ static bool hse_mu_response_ready(void *mu_inst, u8 channel)
  * @channel: service channel index
  * @srv_rsp: HSE service response
  *
- * Return: 0 on success, -EINVAL for invalid parameter, -ENOMSG for response
- *         not pending on selected service channel
+ * Return: 0 on success, -EINVAL for invalid parameter, -ECHRNG for channel
+ *         index out of range, -ENOMSG for no reply pending on selected channel
  */
 int hse_mu_recv_response(void *mu_inst, u8 channel, u32 *srv_rsp)
 {
@@ -418,12 +426,15 @@ int hse_mu_recv_response(void *mu_inst, u8 channel, u32 *srv_rsp)
 		return -EINVAL;
 	mu = priv->mu_base;
 
+	if (unlikely(channel > HSE_NUM_CHANNELS))
+		return -ECHRNG;
+
 	if (unlikely(!hse_mu_response_ready(mu_inst, channel))) {
 		dev_dbg(priv->dev, "no response yet on channel %d\n", channel);
 		return -ENOMSG;
 	}
 
-	priv->rx_cbk[channel].cbk = NULL;
+	priv->rx_cbk[channel].fn = NULL;
 	priv->rx_cbk[channel].ctx = NULL;
 
 	*srv_rsp = ioread32(&mu->rr[channel]);
@@ -440,13 +451,14 @@ static irqreturn_t hse_mu_rx_handler(int irq, void *mu_inst)
 	u8 channel;
 	void *ctx;
 
-	hse_mu_irq_disable(mu_inst, HSE_MU_INT_RESPONSE, HSE_ALL_CHANNELS);
+	hse_mu_irq_disable(mu_inst, HSE_MU_INT_RESPONSE, HSE_CH_MASK_ALL);
 
 	for (channel = 0; channel < HSE_NUM_CHANNELS; channel++)
-		if (hse_mu_response_ready(mu_inst, channel) &&
-		    priv->rx_cbk[channel].cbk) {
-			ctx = priv->rx_cbk[channel].ctx;
-			priv->rx_cbk[channel].cbk(mu_inst, channel, ctx);
+		if (hse_mu_response_ready(mu_inst, channel)) {
+			if (priv->rx_cbk[channel].fn) {
+				ctx = priv->rx_cbk[channel].ctx;
+				priv->rx_cbk[channel].fn(mu_inst, channel, ctx);
+			}
 		}
 
 	return IRQ_HANDLED;
@@ -478,7 +490,7 @@ static irqreturn_t hse_mu_err_handler(int irq, void *mu_inst)
 	struct hse_mu_data *priv = mu_inst;
 	u16 status = hse_mu_get_status(mu_inst);
 
-	hse_mu_irq_clear(mu_inst, HSE_MU_INT_SYS_EVENT, HSE_ALL_CHANNELS);
+	hse_mu_irq_clear(mu_inst, HSE_MU_INT_SYS_EVENT, HSE_CH_MASK_ALL);
 
 	dev_err(priv->dev, "system error reported by HSE\n");
 	dev_err(priv->dev, "HSE status: 0x%04X\n", status);
@@ -542,9 +554,9 @@ void *hse_mu_init(struct device *dev)
 	spin_lock_init(&mu_inst->mu_lock);
 
 	/* disable all interrupt sources */
-	hse_mu_irq_disable(mu_inst, HSE_MU_INT_ACK_REQUEST, HSE_ALL_CHANNELS);
-	hse_mu_irq_disable(mu_inst, HSE_MU_INT_RESPONSE, HSE_ALL_CHANNELS);
-	hse_mu_irq_disable(mu_inst, HSE_MU_INT_SYS_EVENT, HSE_ALL_CHANNELS);
+	hse_mu_irq_disable(mu_inst, HSE_MU_INT_ACK_REQUEST, HSE_CH_MASK_ALL);
+	hse_mu_irq_disable(mu_inst, HSE_MU_INT_RESPONSE, HSE_CH_MASK_ALL);
+	hse_mu_irq_disable(mu_inst, HSE_MU_INT_SYS_EVENT, HSE_CH_MASK_ALL);
 
 	err = devm_request_irq(dev, rx_irq, hse_mu_rx_handler, 0,
 			       HSE_RX_IRQ, mu_inst);
@@ -561,7 +573,7 @@ void *hse_mu_init(struct device *dev)
 	}
 
 	/* enable error notification */
-	hse_mu_irq_enable(mu_inst, HSE_MU_INT_SYS_EVENT, HSE_ALL_CHANNELS);
+	hse_mu_irq_enable(mu_inst, HSE_MU_INT_SYS_EVENT, HSE_CH_MASK_ALL);
 
 	return mu_inst;
 err_node_put:
@@ -576,7 +588,7 @@ err_node_put:
 void hse_mu_free(void *mu_inst)
 {
 	/* disable all interrupt sources */
-	hse_mu_irq_disable(mu_inst, HSE_MU_INT_ACK_REQUEST, HSE_ALL_CHANNELS);
-	hse_mu_irq_disable(mu_inst, HSE_MU_INT_RESPONSE, HSE_ALL_CHANNELS);
-	hse_mu_irq_disable(mu_inst, HSE_MU_INT_SYS_EVENT, HSE_ALL_CHANNELS);
+	hse_mu_irq_disable(mu_inst, HSE_MU_INT_ACK_REQUEST, HSE_CH_MASK_ALL);
+	hse_mu_irq_disable(mu_inst, HSE_MU_INT_RESPONSE, HSE_CH_MASK_ALL);
+	hse_mu_irq_disable(mu_inst, HSE_MU_INT_SYS_EVENT, HSE_CH_MASK_ALL);
 }
