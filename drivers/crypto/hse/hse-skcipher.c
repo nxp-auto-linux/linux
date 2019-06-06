@@ -91,20 +91,6 @@ static struct hse_skcipher_alg
 }
 
 /**
- * setkey_done - setkey operation rx callback
- * @mu_inst: MU instance
- * @channel: service channel index
- * @skctx: symmetric key cipher context
- */
-static void setkey_done(void *mu_inst, u8 channel, void *skctx)
-{
-	struct hse_skcipher_ctx *ctx = skctx;
-
-	ctx->channel = channel;
-	complete(&ctx->completion);
-}
-
-/**
  * skcipher_setkey - setkey operation
  * @skcipher: symmetric key cipher
  * @key: input key
@@ -135,20 +121,11 @@ static int skcipher_setkey(struct crypto_skcipher *skcipher, const u8 *key,
 	ctx->key_srv_desc.import_key_req.cipher_key = HSE_INVALID_KEY_HANDLE;
 	ctx->key_srv_desc.import_key_req.auth_key = HSE_INVALID_KEY_HANDLE;
 
-	err = hse_mu_send_request(hsealg->mu_inst, HSE_ANY_CHANNEL,
-				  hse_addr(&ctx->key_srv_desc), ctx,
-				  setkey_done);
-	if (err)
-		return err;
-
-	wait_for_completion_interruptible(&ctx->completion);
-	reinit_completion(&ctx->completion);
-
-	err = hse_mu_recv_response(hsealg->mu_inst, ctx->channel, &reply);
+	err = hse_mu_request_srv(hsealg->mu_inst, HSE_ANY_CHANNEL,
+				 hse_addr(&ctx->key_srv_desc), &reply);
 	err = err ? err : hse_err_decode(reply);
 	if (err)
-		dev_dbg(hsealg->dev, "service response 0x%08X on channel %d\n",
-			reply, ctx->channel);
+		dev_dbg(hsealg->dev, "service response 0x%08X\n", reply);
 
 	return err;
 }
