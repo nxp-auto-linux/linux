@@ -25,6 +25,8 @@ int hse_mu_send_request(void *mu_inst, u8 channel, u32 srv_desc, void *ctx,
 
 int hse_mu_recv_response(void *mu_inst, u8 channel, u32 *srv_rsp);
 
+int hse_mu_request_srv(void *mu_inst, u8 channel, u32 srv_desc, u32 *srv_rsp);
+
 int hse_mu_release_channel(void *mu_inst, u8 channel);
 
 void hse_mu_free(void *mu_inst);
