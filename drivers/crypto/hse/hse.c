@@ -29,6 +29,9 @@ static int hse_err_decode(u32 srv_rsp)
 	case HSE_SRV_RSP_OK:
 		err = 0;
 		break;
+	case HSE_SRV_RSP_VERIFY_FAILED:
+		err = -EBADMSG;
+		break;
 	case HSE_SRV_RSP_INVALID_ADDR:
 	case HSE_SRV_RSP_INVALID_PARAM:
 		err = -EBADR;
@@ -136,15 +139,17 @@ static int hse_probe(struct platform_device *pdev)
 	if (err)
 		return err;
 
-	hse_hash_register(&pdev->dev);
-
 	err = hse_init_key_ring(&pdev->dev, &pdata->aes_keys,
 				CONFIG_CRYPTO_DEV_NXP_HSE_AES_KEY_GID,
 				CONFIG_CRYPTO_DEV_NXP_HSE_AES_KEY_GSIZE);
 	if (err)
 		return err;
 
+	hse_hash_register(&pdev->dev);
+
 	hse_skcipher_register(&pdev->dev);
+
+	hse_aead_register(&pdev->dev);
 
 	if (IS_ENABLED(CONFIG_CRYPTO_DEV_NXP_HSE_HWRNG))
 		hse_hwrng_register(&pdev->dev);
@@ -158,10 +163,11 @@ static int hse_remove(struct platform_device *pdev)
 {
 	struct hse_drvdata *pdata = platform_get_drvdata(pdev);
 
+	hse_aead_unregister();
 	hse_skcipher_unregister();
-	hse_free_key_ring(&pdata->aes_keys);
-
 	hse_hash_unregister(&pdev->dev);
+
+	hse_free_key_ring(&pdata->aes_keys);
 	hse_free_key_ring(&pdata->hmac_keys);
 
 	hse_mu_free(pdata->mu_inst);
@@ -180,7 +186,7 @@ MODULE_DEVICE_TABLE(of, hse_of_match);
 
 static struct platform_driver hse_driver = {
 	.driver = {
-		.name = "nxp_hse",
+		.name = KBUILD_MODNAME,
 		.of_match_table	= hse_of_match,
 	},
 	.probe = hse_probe,

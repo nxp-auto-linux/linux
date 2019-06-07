@@ -10,7 +10,6 @@
 
 #include <linux/kernel.h>
 #include <linux/crypto.h>
-#include <crypto/aes.h>
 #include <crypto/skcipher.h>
 #include <crypto/scatterwalk.h>
 #include <crypto/internal/skcipher.h>
@@ -99,6 +98,15 @@ static int hse_skcipher_setkey(struct crypto_skcipher *skcipher, const u8 *key,
 	u32 srv_desc_addr = lower_32_bits(hse_addr(&state->key_srv_desc));
 	int err;
 
+	if (hsealg->cipher_type == HSE_CIPHER_ALGO_AES) {
+		err = hse_check_aes_keylen(keylen);
+		if (err) {
+			crypto_skcipher_set_flags(skcipher,
+						  CRYPTO_TFM_RES_BAD_KEY_LEN);
+			return err;
+		}
+	}
+
 	memcpy(&state->keybuf, key, keylen);
 
 	state->key_info.key_flags = HSE_KF_MU_INST | HSE_KF_USAGE_ENCRYPT |
@@ -145,14 +153,18 @@ static void hse_skcipher_done(void *mu_inst, u8 channel, void *skreq)
 	int err, nbytes, ivsize = crypto_skcipher_ivsize(skcipher);
 
 	err = hse_mu_async_req_recv(mu_inst, channel);
-	if (unlikely(err))
+	if (unlikely(err)) {
 		dev_dbg(hsealg->dev, "%s: skcipher request failed: %d\n",
 			__func__, err);
+		goto out;
+	}
 
 	nbytes = sg_copy_from_buffer(req->dst, sg_nents(req->dst),
 				     ctx->buf, req->cryptlen);
-	if (nbytes != req->cryptlen)
+	if (nbytes != req->cryptlen) {
 		err = -ENODATA;
+		goto out;
+	}
 
 	/* req->iv is expected to be set to the last ciphertext block */
 	if (ctx->direction == HSE_CIPHER_DIR_ENCRYPT &&
@@ -161,6 +173,8 @@ static void hse_skcipher_done(void *mu_inst, u8 channel, void *skreq)
 		scatterwalk_map_and_copy(req->iv, req->dst, req->cryptlen -
 					 ivsize, ivsize, 0);
 
+out:
+	kfree(ctx->buf);
 	skcipher_request_complete(req, err);
 }
 
@@ -178,9 +192,15 @@ static int hse_skcipher_crypt(struct skcipher_request *req, u8 direction)
 	int err, nbytes, ivsize = crypto_skcipher_ivsize(skcipher);
 	u32 srv_desc_addr = lower_32_bits(hse_addr(&ctx->srv_desc));
 
+	/* handle zero-length input because it's a valid operation */
+	if (!req->cryptlen)
+		return 0;
+
 	ctx->buf = kzalloc(req->cryptlen, GFP_KERNEL);
 	if (IS_ERR_OR_NULL(ctx->buf))
 		return -ENOMEM;
+
+	/* Make sure IV is located in a DMAable area */
 	memcpy(&ctx->iv, req->iv, ivsize);
 
 	ctx->srv_desc.srv_id = HSE_SRV_ID_SYM_CIPHER;
@@ -242,17 +262,21 @@ static int hse_skcipher_init(struct crypto_skcipher *tfm)
 {
 	struct hse_skcipher_state *state = crypto_skcipher_ctx(tfm);
 	struct hse_skcipher_alg *hsealg = hse_get_skcipher(tfm);
+	struct hse_drvdata *drv = dev_get_drvdata(hsealg->dev);
 
 	crypto_skcipher_set_reqsize(tfm, sizeof(struct hse_skcipher_ctx));
 
-	/* remove key slot from appropriate ring */
+	/* acquire key handle from key list */
+	spin_lock(&drv->key_lock);
 	state->crt_key = list_first_entry_or_null(hsealg->keys_list,
 						  struct hse_key, entry);
 	if (IS_ERR_OR_NULL(state->crt_key)) {
 		dev_dbg(hsealg->dev, "%s: cannot acquire key slot\n", __func__);
+		spin_unlock(&drv->key_lock);
 		return -ENOKEY;
 	}
 	list_del(&state->crt_key->entry);
+	spin_unlock(&drv->key_lock);
 
 	return 0;
 }
