@@ -8,7 +8,9 @@
 #ifndef HSE_H
 #define HSE_H
 
-#define HSE_CRA_PRIORITY    2000u /* crypto algorithm priority */
+#include <crypto/aes.h>
+
+#define HSE_CRA_PRIORITY    2000u /* HSE crypto algorithm priority */
 
 /**
  * struct hse_key - HSE key
@@ -26,13 +28,23 @@ struct hse_key {
  * @hash_algs: supported hash algorithms
  * @hmac_keys: available HMAC key slots
  * @hmac_keys: available AES key slots
+ * @key_lock: lock for acquiring key handle
  */
 struct hse_drvdata {
 	void *mu_inst;
 	struct list_head hash_algs;
 	struct list_head hmac_keys;
 	struct list_head aes_keys;
+	spinlock_t key_lock; /* lock for acquiring key handle */
 };
+
+/**
+ * Translate address with 512MB, as seen by HSE
+ */
+static inline dma_addr_t _hse_addr(dma_addr_t addr)
+{
+	return addr - 0x20000000ull;
+}
 
 /**
  * hse_addr - HSE Address Translation
@@ -48,7 +60,7 @@ static __always_inline phys_addr_t hse_addr(void *virt_addr)
 
 	/* translate DDR addresses */
 	if (addr >= 0x80000000ull && addr <= 0xFFFFFFFFull)
-		return addr - 0x20000000ull;
+		return _hse_addr(addr);
 
 	return 0ull;
 }
@@ -60,6 +72,10 @@ void hse_hash_unregister(struct device *dev);
 void hse_skcipher_register(struct device *dev);
 
 void hse_skcipher_unregister(void);
+
+void hse_aead_register(struct device *dev);
+
+void hse_aead_unregister(void);
 
 void hse_hwrng_register(struct device *dev);
 
