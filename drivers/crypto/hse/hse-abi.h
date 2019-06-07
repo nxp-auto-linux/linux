@@ -40,6 +40,7 @@ enum hse_status {
  * @HSE_SRV_ID_HASH: perform a hash operation
  * @HSE_SRV_ID_MAC: generate a message authentication code
  * @HSE_SRV_ID_SYM_CIPHER: symmetric cipher encryption/decryption
+ * @HSE_SRV_ID_AEAD: AEAD encryption/decryption
  * @HSE_SRV_ID_GET_RANDOM_NUM: hardware random number generator
  */
 enum hse_srv_id {
@@ -47,12 +48,14 @@ enum hse_srv_id {
 	HSE_SRV_ID_HASH = 0x00000200ul,
 	HSE_SRV_ID_MAC = 0x00000201ul,
 	HSE_SRV_ID_SYM_CIPHER = 0x00000203ul,
+	HSE_SRV_ID_AEAD = 0x00000205ul,
 	HSE_SRV_ID_GET_RANDOM_NUM = 0x00000300ul,
 };
 
 /**
  * enum hse_srv_response - HSE service response
  * @HSE_SRV_RSP_OK: HSE service successfully executed with no error
+ * @HSE_SRV_RSP_VERIFY_FAILED: verification request fails (MAC or Signature)
  * @HSE_SRV_RSP_INVALID_ADDR: address parameters are invalid
  * @HSE_SRV_RSP_INVALID_PARAM: HSE request parameters are invalid
  * @HSE_SRV_RSP_NOT_SUPPORTED: operation or feature is not supported
@@ -79,6 +82,7 @@ enum hse_srv_id {
  */
 enum hse_srv_response {
 	HSE_SRV_RSP_OK = 0x55A5AA33ul,
+	HSE_SRV_RSP_VERIFY_FAILED = 0x55A5AA35ul,
 	HSE_SRV_RSP_INVALID_ADDR = 0x55A5AA55ul,
 	HSE_SRV_RSP_INVALID_PARAM = 0x55A5AA56ul,
 	HSE_SRV_RSP_NOT_SUPPORTED = 0xAA55A569ul,
@@ -175,6 +179,14 @@ enum hse_cipher_dir {
 };
 
 /**
+ * enum hse_auth_cipher_mode - HSE Authenticated cipher/encryption mode
+ * @HSE_AUTH_CIPHER_MODE_GCM: GCM mode
+ */
+enum hse_auth_cipher_mode {
+	HSE_AUTH_CIPHER_MODE_GCM = 2u,
+};
+
+/**
  * enum hse_auth_dir - HSE authentication direction
  * @HSE_AUTH_DIR_GENERATE: generate authentication tag
  */
@@ -235,6 +247,11 @@ enum hse_rng_class {
  *            hash length shall not be zero for ONE-PASS or FINISH steps
  * @hash: the address where output hash will be stored
  *
+ * This service is accessible in ONE-PASS or streaming (SUF) mode. In case of
+ * streaming mode, three steps (calls) are needed: START, UPDATE, FINISH. For
+ * each streaming step, any fields that aren't mandatory shall be set NULL or 0.
+ * The table below summarizes which fields are required for each access mode.
+ *
  * | Field \ Mode | ONE-PASS | START | UPDATE | FINISH |
  * |--------------+----------+-------+--------+--------|
  * | access_mode  |     *    |   *   |    *   |    *   |
@@ -245,10 +262,6 @@ enum hse_rng_class {
  * | hash_len     |     *    |       |        |    *   |
  * | hash         |     *    |       |        |    *   |
  *
- * This service is accessible in ONE-PASS or streaming (SUF) mode. In case of
- * streaming mode, three steps (calls) are needed: START, UPDATE, FINISH. For
- * each streaming step, any fields that aren't mandatory shall be set NULL or 0.
- * The table above summarizes which fields are required for each access mode.
  */
 struct hse_hash_srv {
 	u8 access_mode;
@@ -284,6 +297,11 @@ struct hse_hash_srv {
  *           tag length shall not be zero for ONE-PASS or FINISH steps
  * @tag: the address where output tag will be stored
  *
+ * This service is accessible in ONE-PASS or streaming (SUF) mode. In case of
+ * streaming mode, three steps (calls) are needed: START, UPDATE, FINISH. For
+ * each streaming step, any fields that aren't mandatory shall be set NULL or 0.
+ * The table below summarizes which fields are required for each access mode.
+ *
  * | Field \ Mode | ONE-PASS | START | UPDATE | FINISH |
  * |--------------+----------+-------+--------+--------|
  * | access_mode  |     *    |   *   |    *   |    *   |
@@ -296,10 +314,6 @@ struct hse_hash_srv {
  * | hash_len     |     *    |       |        |    *   |
  * | hash         |     *    |       |        |    *   |
  *
- * This service is accessible in ONE-PASS or streaming (SUF) mode. In case of
- * streaming mode, three steps (calls) are needed: START, UPDATE, FINISH. For
- * each streaming step, any fields that aren't mandatory shall be set NULL or 0.
- * The table above summarizes which fields are required for each access mode.
  */
 struct hse_mac_srv {
 	u8 access_mode;
@@ -342,7 +356,7 @@ struct hse_mac_srv {
  * To perform encryption/decryption with a block cipher in ECB or CBC mode, the
  * length of the input must be an exact multiple of the block size. For all AES
  * variants it is 16 bytes (128 bits). If the input plaintext is not an exact
- * multiple of block size, it must be padded by application For other modes,
+ * multiple of block size, it must be padded by application. For other modes,
  * such as counter mode (CTR) or OFB or CFB, padding is not required. In these
  * cases, the ciphertext is always the same length as the plaintext.
  */
@@ -358,6 +372,55 @@ struct hse_skcipher_srv {
 	u64 iv;
 	u32 input_len;
 	u64 input;
+	u64 output;
+} __packed;
+
+/**
+ * struct hse_aead_srv - HSE AEAD service.
+ * @access_mode: Service access mode from &enum hse_srv_access_modes
+ * @auth_cipher_mode: Authenticated cipher mode from &enum hse_auth_cipher_mode
+ * @cipher_dir: Direction - encrypt/decrypt from &enum hse_cipher_dir
+ * @key_handle: Handle of key from RAM Key catalog
+ * @iv_len: Length of the Initialization Vector/Nonce (in bytes).
+ *          CCM valid sizes: 7, 8, 9, 10, 11, 12, 13 bytes
+ *          GCM recommended sizes: 12 bytes or less. Zero is not allowed
+ * @iv: Address of the Initialization Vector/Nonce
+ * @aad_len: Length of AAD Header data (in bytes). Can be zero.
+ *           For CCM must be <= (2^16 - 2^8) bytes
+ * @aad: Address of AAD header data. Ignored if aad_len is zero.
+ * @input_len: Length of the plaintext and ciphertext (in bytes).
+ *             Can be zero (compute/verify the tag without input message).
+ * @input: Address of plaintext for encryption or ciphertext decryption
+ * @tag_len: Length of tag (in bytes)
+ *           CCM valid Tag sizes: 4, 6, 8, 10, 12, 14, 16
+ *           GCM valid Tag sizes 16, 15, 14, 13, 12, 8 or 4
+ * @tag: Address of output/input tag for authenticated encryption/decryption
+ * @output: Address of ciphertext for encryption or plaintext for decryption
+ *
+ * Authenticated Encryption with Associated Data (AEAD) is a block cipher mode
+ * of operation which also allows integrity checks (e.g. AES-GCM). Additional
+ * authenticated data (AAD) is optional additional input header which is
+ * authenticated, but not encrypted. Both confidentiality and message
+ * authentication is provided on the input plaintext.
+ *
+ * The key usage flags used with AEAD operations mean:
+ *  - HSE_KF_USAGE_ENCRYPT: key used for encryption and tag computation
+ *  - HSE_KF_USAGE_DECRYPT: key used for decryption and tag verification
+ */
+struct hse_aead_srv {
+	u8 access_mode;
+	u8 reserved0;
+	u8 auth_cipher_mode;
+	u8 cipher_dir;
+	u32 key_handle;
+	u32 iv_len;
+	u64 iv;
+	u32 aad_len;
+	u64 aad;
+	u32 input_len;
+	u64 input;
+	u32 tag_len;
+	u64 tag;
 	u64 output;
 } __packed;
 
@@ -402,7 +465,12 @@ struct hse_rng_srv {
  * struct hse_srv_desc - HSE service descriptor
  * @srv_id: service ID of the HSE request
  * @priority: priority of the HSE request
- * @hse_srv: service identified by the service ID
+ * @hash_req: hash service request
+ * @mac_req: MAC service request
+ * @skcipher_req: symmetric cipher service request
+ * @aead_req: AEAD service request
+ * @import_key_req: import key service request
+ * @rng_req: RNG service request
  */
 struct hse_srv_desc {
 	u32 srv_id;
@@ -412,6 +480,7 @@ struct hse_srv_desc {
 		struct hse_hash_srv hash_req;
 		struct hse_mac_srv mac_req;
 		struct hse_skcipher_srv skcipher_req;
+		struct hse_aead_srv aead_req;
 		struct hse_import_key_srv import_key_req;
 		struct hse_rng_srv rng_req;
 	};
@@ -419,9 +488,9 @@ struct hse_srv_desc {
 
 /**
  * struct hse_key_info - key properties
- * @key_flags: the targeted key flags
+ * @key_flags: the targeted key flags; see &enum hse_key_flags
  * @key_bit_len: length of the key in bits
- * @key_type: targeted key type
+ * @key_type: targeted key type; see &enum hse_key_types
  */
 struct hse_key_info {
 	u16 key_flags;
