@@ -101,8 +101,8 @@ static int skcipher_setkey(struct crypto_skcipher *skcipher, const u8 *key,
 {
 	struct hse_skcipher_ctx *ctx = crypto_skcipher_ctx(skcipher);
 	struct hse_skcipher_alg *hsealg = get_hse_skcipher_alg(skcipher);
+	u32 reply, srv_desc_addr = lower_32_bits(hse_addr(&ctx->key_srv_desc));
 	int err;
-	u32 reply;
 
 	memcpy(ctx->keybuf, key, keylen);
 
@@ -122,7 +122,7 @@ static int skcipher_setkey(struct crypto_skcipher *skcipher, const u8 *key,
 	ctx->key_srv_desc.import_key_req.auth_key = HSE_INVALID_KEY_HANDLE;
 
 	err = hse_mu_request_srv(hsealg->mu_inst, HSE_ANY_CHANNEL,
-				 hse_addr(&ctx->key_srv_desc), &reply);
+				 srv_desc_addr, &reply);
 	err = err ? err : hse_err_decode(reply);
 	if (err)
 		dev_dbg(hsealg->dev, "service response 0x%08X\n", reply);
@@ -176,6 +176,7 @@ static int skcipher_crypt(struct skcipher_request *req, u8 direction)
 	struct hse_skcipher_reqctx *reqctx = skcipher_request_ctx(req);
 	struct hse_skcipher_alg *hsealg = get_hse_skcipher_alg(skcipher);
 	int err, nbytes, ivsize = crypto_skcipher_ivsize(skcipher);
+	u32 srv_desc_addr;
 
 	reqctx->iv = kzalloc(ivsize + req->cryptlen, GFP_KERNEL);
 	if (IS_ERR_OR_NULL(reqctx->iv))
@@ -210,9 +211,10 @@ static int skcipher_crypt(struct skcipher_request *req, u8 direction)
 		goto err_free_desc;
 	}
 
+	srv_desc_addr = lower_32_bits(hse_addr(reqctx->srv_desc));
+
 	err = hse_mu_send_request(hsealg->mu_inst, HSE_ANY_CHANNEL,
-				  hse_addr(reqctx->srv_desc), req,
-				  skcipher_done);
+				  srv_desc_addr, req, skcipher_done);
 	if (err)
 		goto err_free_desc;
 
