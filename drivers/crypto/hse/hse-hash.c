@@ -3,7 +3,7 @@
  * NXP HSE Driver - Hash Support
  *
  * This file contains the kernel crypto API implementation for the hash
- * algorithms and message authentication codes supported by HSE.
+ * algorithms and hash-based message authentication codes supported by HSE.
  *
  * Copyright 2019 NXP
  */
@@ -21,30 +21,31 @@
 #include "hse-abi.h"
 
 #define HSE_MAX_DIGEST_SIZE    SHA512_DIGEST_SIZE
+#define HSE_MAX_BLOCK_SIZE     SHA512_BLOCK_SIZE
 
 /**
- * struct hse_hash_state - crypto request context
+ * struct hse_hash_ctx - crypto request context
  * @srv_desc: HSE service descriptor
  * @crt_buf: linearized input buffer
- * @large_buf: buffer larger than block size
+ * @dyn_buf: dynamically allocated buffer
  * @len: digest size
  * @crt_idx: current byte index in buffer
  * @channel: MU channel/stream
  */
-struct hse_hash_state {
-	struct hse_srv_desc *srv_desc;
-	void *crt_buf;
-	void *large_buf;
-	u32 *len;
+struct hse_hash_ctx {
+	struct hse_srv_desc srv_desc;
+	u8 crt_buf[HSE_MAX_BLOCK_SIZE];
+	void *dyn_buf;
+	u32 len;
 	u32 crt_idx;
 	u8 channel;
 };
 
 /**
- * struct hse_hash_ctx - crypto transformation context
+ * struct hse_hash_state - crypto transformation state
  * @partial_hash: buffer containing the intermediate result
  */
-struct hse_hash_ctx {
+struct hse_hash_state {
 	u8 partial_hash[HSE_MAX_DIGEST_SIZE];
 };
 
@@ -54,7 +55,7 @@ struct hse_hash_ctx {
  * @drvname: driver name
  * @blocksize: block size
  * @ahash_alg: hash algorithm template
- * @alg_type: HSE algorithm type (hash/mac)
+ * @alg_type: HSE algorithm type (hash/hmac)
  */
 struct hse_hash_template {
 	char name[CRYPTO_MAX_ALG_NAME];
@@ -67,7 +68,7 @@ struct hse_hash_template {
 /**
  * hse_halg - hash algorithm data
  * @entry: list of supported algorithms
- * @alg_type: HSE algorithm type (hash/mac)
+ * @alg_type: HSE algorithm type (hash/hmac)
  * @srv_id: HSE service ID
  * @ahash_alg: hash algorithm
  * @dev: HSE device
@@ -88,17 +89,16 @@ struct hse_halg {
  *
  * Return: pointer to hash algorithm data
  */
-static struct hse_halg *hse_get_halg(struct ahash_request *req)
+static inline struct hse_halg *hse_get_halg(struct ahash_request *req)
 {
 	struct crypto_ahash *ahash = crypto_ahash_reqtfm(req);
 	struct crypto_alg *base = ahash->base.__crt_alg;
 	struct hash_alg_common *halg = container_of(base,
 						    struct hash_alg_common,
 						    base);
-	struct ahash_alg *alg = container_of(halg, struct ahash_alg, halg);
-	struct hse_halg *t_alg = container_of(alg, struct hse_halg, ahash_alg);
+	struct ahash_alg *ahalg = container_of(halg, struct ahash_alg, halg);
 
-	return t_alg;
+	return container_of(ahalg, struct hse_halg, ahash_alg);
 }
 
 /**
@@ -111,30 +111,34 @@ static struct hse_halg *hse_get_halg(struct ahash_request *req)
  */
 static void ahash_done(void *mu_inst, u8 channel, void *req)
 {
-	struct hse_hash_state *state = ahash_request_ctx(req);
+	struct hse_hash_ctx *ctx = ahash_request_ctx(req);
 	struct crypto_ahash *ahash = crypto_ahash_reqtfm(req);
 	unsigned int blocksize = crypto_ahash_blocksize(ahash);
-	unsigned int access_mode = state->srv_desc->hash_req.access_mode;
-	struct hse_halg *t_alg = hse_get_halg(req);
+	unsigned int access_mode = ctx->srv_desc.hash_req.access_mode;
+	struct hse_halg *halg = hse_get_halg(req);
 	int err;
 	u32 reply;
 
 	err = hse_mu_recv_response(mu_inst, channel, &reply);
 	err = err ? err : hse_err_decode(reply);
 	if (err)
-		dev_dbg(t_alg->dev, "service response 0x%08X on channel %d\n",
+		dev_dbg(halg->dev, "service response 0x%08X on channel %d\n",
 			reply, channel);
 
 	switch (access_mode) {
+	case HSE_ACCESS_MODE_START:
+		if (err)
+			hse_mu_release_channel(mu_inst, channel);
+		break;
 	case HSE_ACCESS_MODE_UPDATE:
-		if (state->srv_desc->hash_req.input_len > blocksize)
-			kfree(state->large_buf);
+		if (ctx->srv_desc.hash_req.input_len > blocksize)
+			kfree(ctx->dyn_buf);
 		break;
 	case HSE_ACCESS_MODE_FINISH:
-		err = hse_mu_release_channel(mu_inst, channel);
+		hse_mu_release_channel(mu_inst, channel);
+		break;
 	case HSE_ACCESS_MODE_ONE_PASS:
-		kfree(state->len);
-		kfree(state->srv_desc);
+		kfree(ctx->dyn_buf);
 		break;
 	default:
 		break;
@@ -149,51 +153,34 @@ static void ahash_done(void *mu_inst, u8 channel, void *req)
  */
 static int ahash_init(struct ahash_request *req)
 {
-	struct hse_hash_state *state = ahash_request_ctx(req);
-	struct hse_halg *t_alg = hse_get_halg(req);
+	struct hse_hash_ctx *ctx = ahash_request_ctx(req);
+	struct hse_halg *halg = hse_get_halg(req);
 	struct crypto_ahash *ahash = crypto_ahash_reqtfm(req);
-	unsigned int blocksize = crypto_ahash_blocksize(ahash);
+	u32 srv_desc_addr = lower_32_bits(hse_addr(&ctx->srv_desc));
 	int err;
-	u8 channel;
 
-	state->len = kzalloc(sizeof(*state->len) + blocksize, GFP_KERNEL);
-	if (!state->len)
-		return -ENOMEM;
-	*state->len = crypto_ahash_digestsize(ahash);
-	state->crt_buf = state->len + 1;
-	state->crt_idx = 0;
+	ctx->crt_idx = 0;
+	ctx->len = crypto_ahash_digestsize(ahash);
 
-	state->srv_desc = kzalloc(sizeof(*state->srv_desc), GFP_KERNEL);
-	if (!state->srv_desc) {
-		err = -ENOMEM;
-		goto err_free_buf;
+	err = hse_mu_reserve_channel(halg->mu_inst, &ctx->channel, true);
+	if (err)
+		return -EBUSY;
+
+	ctx->srv_desc.srv_id = halg->srv_id;
+	ctx->srv_desc.priority = HSE_SRV_PRIO_MED;
+	ctx->srv_desc.hash_req.hash_algo = halg->alg_type;
+	ctx->srv_desc.hash_req.access_mode = HSE_ACCESS_MODE_START;
+	ctx->srv_desc.hash_req.stream_id = ctx->channel;
+	ctx->srv_desc.hash_req.input_len = 0;
+
+	err = hse_mu_send_request(halg->mu_inst, ctx->channel,
+				  srv_desc_addr, req, ahash_done);
+	if (err) {
+		hse_mu_release_channel(halg->mu_inst, ctx->channel);
+		return err;
 	}
 
-	err = hse_mu_reserve_channel(t_alg->mu_inst, &channel);
-	if (err)
-		goto err_free_desc;
-
-	state->srv_desc->hash_req.stream_id = channel;
-	state->channel = channel;
-
-	state->srv_desc->srv_id = t_alg->srv_id;
-	state->srv_desc->priority = HSE_SRV_PRIO_MED;
-	state->srv_desc->hash_req.hash_algo = t_alg->alg_type;
-	state->srv_desc->hash_req.access_mode = HSE_ACCESS_MODE_START;
-	state->srv_desc->hash_req.input_len = 0;
-
-	err = hse_mu_send_request(t_alg->mu_inst, channel,
-				  hse_addr(state->srv_desc), req, ahash_done);
-	if (err)
-		goto err_free_desc;
-
 	return -EINPROGRESS;
-
-err_free_desc:
-	kfree(state->srv_desc);
-err_free_buf:
-	kfree(state->len);
-	return err;
 }
 
 /**
@@ -202,55 +189,55 @@ err_free_buf:
  */
 static int ahash_update(struct ahash_request *req)
 {
-	struct hse_hash_state *state = ahash_request_ctx(req);
-	struct hse_halg *t_alg = hse_get_halg(req);
+	struct hse_hash_ctx *ctx = ahash_request_ctx(req);
+	struct hse_halg *halg = hse_get_halg(req);
 	struct crypto_ahash *ahash = crypto_ahash_reqtfm(req);
 	unsigned int blocksize = crypto_ahash_blocksize(ahash);
+	unsigned int num_blocks, bytes_left = ctx->crt_idx + req->nbytes;
+	u32 srv_desc_addr = lower_32_bits(hse_addr(&ctx->srv_desc));
 	int err;
-	unsigned int num_blocks, bytes_left = state->crt_idx + req->nbytes;
 
 	if (req->nbytes == 0) {
-		state->srv_desc->hash_req.input_len = state->crt_idx;
+		ctx->srv_desc.hash_req.input_len = ctx->crt_idx;
 		return 0;
 	}
 
 	if (bytes_left <= blocksize) {
-		scatterwalk_map_and_copy(state->crt_buf + state->crt_idx,
+		scatterwalk_map_and_copy(ctx->crt_buf + ctx->crt_idx,
 					 req->src, 0, req->nbytes, 0);
-		state->crt_idx += req->nbytes;
+		ctx->crt_idx += req->nbytes;
 		return 0;
 	}
 
 	num_blocks = bytes_left / blocksize;
 
-	state->large_buf = kzalloc(num_blocks * blocksize, GFP_KERNEL);
-	if (IS_ERR_OR_NULL(state->large_buf))
+	ctx->dyn_buf = kzalloc(num_blocks * blocksize, GFP_KERNEL);
+	if (IS_ERR_OR_NULL(ctx->dyn_buf))
 		return -ENOMEM;
 
 	/* copy full blocks */
-	memcpy(state->large_buf, state->crt_buf, state->crt_idx);
-	scatterwalk_map_and_copy(state->large_buf + state->crt_idx,
+	memcpy(ctx->dyn_buf, ctx->crt_buf, ctx->crt_idx);
+	scatterwalk_map_and_copy(ctx->dyn_buf + ctx->crt_idx,
 				 req->src, 0, num_blocks * blocksize, 0);
 	bytes_left -= num_blocks * blocksize;
 
 	/* copy residue */
-	scatterwalk_map_and_copy(state->crt_buf + state->crt_idx, req->src,
+	scatterwalk_map_and_copy(ctx->crt_buf + ctx->crt_idx, req->src,
 				 num_blocks * blocksize, bytes_left, 0);
-	state->crt_idx = bytes_left;
+	ctx->crt_idx = bytes_left;
 
-	state->srv_desc->hash_req.access_mode = HSE_ACCESS_MODE_UPDATE;
-	state->srv_desc->hash_req.input_len = num_blocks * blocksize;
-	state->srv_desc->hash_req.p_input = hse_addr(state->large_buf);
+	ctx->srv_desc.hash_req.access_mode = HSE_ACCESS_MODE_UPDATE;
+	ctx->srv_desc.hash_req.input_len = num_blocks * blocksize;
+	ctx->srv_desc.hash_req.p_input = hse_addr(ctx->dyn_buf);
 
-	err = hse_mu_send_request(t_alg->mu_inst, state->channel,
-				  hse_addr(state->srv_desc), req, ahash_done);
-	if (err)
-		goto err_free_buf;
+	err = hse_mu_send_request(halg->mu_inst, ctx->channel,
+				  srv_desc_addr, req, ahash_done);
+	if (err) {
+		kfree(ctx->dyn_buf);
+		return err;
+	}
 
 	return -EINPROGRESS;
-err_free_buf:
-	kfree(state->large_buf);
-	return err;
 }
 
 /**
@@ -259,18 +246,19 @@ err_free_buf:
  */
 static int ahash_final(struct ahash_request *req)
 {
-	struct hse_hash_state *state = ahash_request_ctx(req);
-	struct hse_halg *t_alg = hse_get_halg(req);
+	struct hse_hash_ctx *ctx = ahash_request_ctx(req);
+	struct hse_halg *halg = hse_get_halg(req);
+	u32 srv_desc_addr = lower_32_bits(hse_addr(&ctx->srv_desc));
 	int err;
 
-	state->srv_desc->hash_req.access_mode = HSE_ACCESS_MODE_FINISH;
-	state->srv_desc->hash_req.input_len = state->crt_idx;
-	state->srv_desc->hash_req.p_input = hse_addr(state->crt_buf);
-	state->srv_desc->hash_req.p_hash_len = hse_addr(state->len);
-	state->srv_desc->hash_req.p_hash = hse_addr(req->result);
+	ctx->srv_desc.hash_req.access_mode = HSE_ACCESS_MODE_FINISH;
+	ctx->srv_desc.hash_req.input_len = ctx->crt_idx;
+	ctx->srv_desc.hash_req.p_input = hse_addr(ctx->crt_buf);
+	ctx->srv_desc.hash_req.p_hash_len = hse_addr(&ctx->len);
+	ctx->srv_desc.hash_req.p_hash = hse_addr(req->result);
 
-	err = hse_mu_send_request(t_alg->mu_inst, state->channel,
-				  hse_addr(state->srv_desc), req, ahash_done);
+	err = hse_mu_send_request(halg->mu_inst, ctx->channel,
+				  srv_desc_addr, req, ahash_done);
 
 	return !err ? -EINPROGRESS : err;
 }
@@ -282,45 +270,36 @@ static int ahash_final(struct ahash_request *req)
 static int ahash_digest(struct ahash_request *req)
 {
 	struct crypto_ahash *ahash = crypto_ahash_reqtfm(req);
-	struct hse_hash_state *state = ahash_request_ctx(req);
-	struct hse_halg *t_alg = hse_get_halg(req);
+	struct hse_hash_ctx *ctx = ahash_request_ctx(req);
+	struct hse_halg *halg = hse_get_halg(req);
+	u32 srv_desc_addr = lower_32_bits(hse_addr(&ctx->srv_desc));
 	int err;
 
-	state->len = kzalloc(sizeof(*state->len) + req->nbytes, GFP_KERNEL);
-	if (!state->len)
+	ctx->dyn_buf = kzalloc(req->nbytes, GFP_KERNEL);
+	if (IS_ERR_OR_NULL(ctx->dyn_buf))
 		return -ENOMEM;
-	*state->len = crypto_ahash_digestsize(ahash);
-	state->crt_buf = state->len + 1;
+	ctx->len = crypto_ahash_digestsize(ahash);
 
-	state->srv_desc = kzalloc(sizeof(*state->srv_desc), GFP_KERNEL);
-	if (!state->srv_desc) {
-		err = -ENOMEM;
-		goto err_free_buf;
+	ctx->srv_desc.srv_id = halg->srv_id;
+	ctx->srv_desc.priority = HSE_SRV_PRIO_LOW;
+	ctx->srv_desc.hash_req.hash_algo = halg->alg_type;
+
+	ctx->srv_desc.hash_req.access_mode = HSE_ACCESS_MODE_ONE_PASS;
+	ctx->srv_desc.hash_req.input_len = req->nbytes;
+	ctx->srv_desc.hash_req.p_input = hse_addr(ctx->dyn_buf);
+	ctx->srv_desc.hash_req.p_hash_len = hse_addr(&ctx->len);
+	ctx->srv_desc.hash_req.p_hash = hse_addr(req->result);
+
+	scatterwalk_map_and_copy(ctx->dyn_buf, req->src, 0, req->nbytes, 0);
+
+	err = hse_mu_send_request(halg->mu_inst, HSE_ANY_CHANNEL,
+				  srv_desc_addr, req, ahash_done);
+	if (err) {
+		kfree(ctx->dyn_buf);
+		return err;
 	}
 
-	state->srv_desc->srv_id = t_alg->srv_id;
-	state->srv_desc->priority = HSE_SRV_PRIO_LOW;
-	state->srv_desc->hash_req.hash_algo = t_alg->alg_type;
-
-	state->srv_desc->hash_req.access_mode = HSE_ACCESS_MODE_ONE_PASS;
-	state->srv_desc->hash_req.input_len = req->nbytes;
-	state->srv_desc->hash_req.p_input = hse_addr(state->crt_buf);
-	state->srv_desc->hash_req.p_hash_len = hse_addr(state->len);
-	state->srv_desc->hash_req.p_hash = hse_addr(req->result);
-
-	scatterwalk_map_and_copy(state->crt_buf, req->src, 0, req->nbytes, 0);
-
-	err = hse_mu_send_request(t_alg->mu_inst, HSE_ANY_CHANNEL,
-				  hse_addr(state->srv_desc), req, ahash_done);
-	if (err)
-		goto err_free_desc;
-
 	return -EINPROGRESS;
-err_free_desc:
-	kfree(state->srv_desc);
-err_free_buf:
-	kfree(state->len);
-	return err;
 }
 
 /**
@@ -331,7 +310,7 @@ static int hse_hash_cra_init(struct crypto_tfm *tfm)
 {
 	struct crypto_ahash *ahash = __crypto_ahash_cast(tfm);
 
-	crypto_ahash_set_reqsize(ahash, sizeof(struct hse_hash_state));
+	crypto_ahash_set_reqsize(ahash, sizeof(struct hse_hash_ctx));
 
 	return 0;
 }
@@ -356,7 +335,7 @@ static const struct hse_hash_template driver_hash[] = {
 			.digest = ahash_digest,
 			.halg = {
 				.digestsize = MD5_DIGEST_SIZE,
-				.statesize = sizeof(struct hse_hash_ctx),
+				.statesize = sizeof(struct hse_hash_state),
 			},
 		},
 		.alg_type = HSE_HASH_ALGO_MD5,
@@ -371,7 +350,7 @@ static const struct hse_hash_template driver_hash[] = {
 			.digest = ahash_digest,
 			.halg = {
 				.digestsize = SHA1_DIGEST_SIZE,
-				.statesize = sizeof(struct hse_hash_ctx),
+				.statesize = sizeof(struct hse_hash_state),
 			},
 		},
 		.alg_type = HSE_HASH_ALGO_SHA_1,
@@ -381,24 +360,22 @@ static const struct hse_hash_template driver_hash[] = {
 /**
  * hse_hash_alloc - allocate hash algorithm
  * @dev: HSE device
- * @keyed: unkeyed/hash or keyed/mac
+ * @keyed: unkeyed/hash or keyed/hmac
  * @tpl: hash algorithm template
  */
 static struct hse_halg *hse_hash_alloc(struct device *dev, bool keyed,
 				       const struct hse_hash_template *tpl)
 {
 	struct hse_drvdata *drvdata = dev_get_drvdata(dev);
-	struct hse_halg *t_alg;
-	struct ahash_alg *halg;
+	struct hse_halg *halg;
 	struct crypto_alg *alg;
 
-	t_alg = devm_kzalloc(dev, sizeof(*t_alg), GFP_KERNEL);
-	if (!t_alg)
+	halg = devm_kzalloc(dev, sizeof(*halg), GFP_KERNEL);
+	if (IS_ERR_OR_NULL(halg))
 		return ERR_PTR(-ENOMEM);
 
-	t_alg->ahash_alg = tpl->template_ahash;
-	halg = &t_alg->ahash_alg;
-	alg = &halg->halg.base;
+	halg->ahash_alg = tpl->template_ahash;
+	alg = &halg->ahash_alg.halg.base;
 
 	snprintf(alg->cra_name, CRYPTO_MAX_ALG_NAME, "%s", tpl->name);
 	snprintf(alg->cra_driver_name, CRYPTO_MAX_ALG_NAME, "%s", tpl->drvname);
@@ -406,23 +383,23 @@ static struct hse_halg *hse_hash_alloc(struct device *dev, bool keyed,
 	alg->cra_module = THIS_MODULE;
 	alg->cra_init = hse_hash_cra_init;
 	alg->cra_exit = hse_hash_cra_exit;
-	alg->cra_ctxsize = sizeof(struct hse_hash_ctx);
+	alg->cra_ctxsize = sizeof(struct hse_hash_state);
 	alg->cra_priority = HSE_CRA_PRIORITY;
 	alg->cra_blocksize = tpl->blocksize;
 	alg->cra_alignmask = 0;
 	alg->cra_flags = CRYPTO_ALG_ASYNC | CRYPTO_ALG_TYPE_AHASH;
 	alg->cra_type = &crypto_ahash_type;
 
-	t_alg->alg_type = tpl->alg_type;
-	t_alg->srv_id = HSE_SRV_ID_HASH;
-	t_alg->dev = dev;
-	t_alg->mu_inst = drvdata->mu_inst;
+	halg->alg_type = tpl->alg_type;
+	halg->srv_id = HSE_SRV_ID_HASH;
+	halg->dev = dev;
+	halg->mu_inst = drvdata->mu_inst;
 
-	return t_alg;
+	return halg;
 }
 
 /**
- * hse_hash_init - hash component initial setup
+ * hse_hash_init - register hash and hmac algorithms
  * @dev: HSE device
  *
  * Return: 0 on success, error code otherwise
@@ -436,25 +413,25 @@ int hse_hash_init(struct device *dev)
 
 	/* register crypto algorithms the device supports */
 	for (i = 0; i < ARRAY_SIZE(driver_hash); i++) {
-		struct hse_halg *t_alg;
+		struct hse_halg *halg;
 		const struct hse_hash_template *alg = &driver_hash[i];
 		char *name;
 
 		/* register unkeyed hash */
-		t_alg = hse_hash_alloc(dev, false, alg);
-		if (IS_ERR(t_alg)) {
-			err = PTR_ERR(t_alg);
+		halg = hse_hash_alloc(dev, false, alg);
+		if (IS_ERR(halg)) {
+			err = PTR_ERR(halg);
 			dev_err(dev, "failed to allocate %s\n", alg->drvname);
 			continue;
 		}
-		name = t_alg->ahash_alg.halg.base.cra_driver_name;
+		name = halg->ahash_alg.halg.base.cra_driver_name;
 
-		err = crypto_register_ahash(&t_alg->ahash_alg);
+		err = crypto_register_ahash(&halg->ahash_alg);
 		if (err) {
 			dev_err(dev, "failed to register %s: %d\n", name, err);
 			continue;
 		} else {
-			list_add_tail(&t_alg->entry, &drvdata->hash_list);
+			list_add_tail(&halg->entry, &drvdata->hash_list);
 			dev_info(dev, "successfully registered alg %s\n", name);
 		}
 	}
@@ -463,19 +440,19 @@ int hse_hash_init(struct device *dev)
 }
 
 /**
- * hse_hash_free - hash component final cleanup
+ * hse_hash_free - unregister hash and hmac algorithms
  * @dev: HSE device
  */
 void hse_hash_free(struct device *dev)
 {
 	struct hse_drvdata *drvdata = dev_get_drvdata(dev);
-	struct hse_halg *t_alg, *n;
+	struct hse_halg *halg, *n;
 
 	if (!drvdata->hash_list.next)
 		return;
 
-	list_for_each_entry_safe(t_alg, n, &drvdata->hash_list, entry) {
-		crypto_unregister_ahash(&t_alg->ahash_alg);
-		list_del(&t_alg->entry);
+	list_for_each_entry_safe(halg, n, &drvdata->hash_list, entry) {
+		crypto_unregister_ahash(&halg->ahash_alg);
+		list_del(&halg->entry);
 	}
 }
