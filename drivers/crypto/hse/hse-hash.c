@@ -579,6 +579,7 @@ static int hse_ahash_cra_init(struct crypto_tfm *gtfm)
 	struct crypto_ahash *tfm = __crypto_ahash_cast(gtfm);
 	struct hse_ahash_state *state = crypto_ahash_ctx(tfm);
 	struct hse_halg *halg = hse_get_halg(tfm);
+	struct hse_drvdata *drv = dev_get_drvdata(halg->dev);
 
 	crypto_ahash_set_reqsize(tfm, sizeof(struct hse_ahash_ctx));
 
@@ -586,13 +587,16 @@ static int hse_ahash_cra_init(struct crypto_tfm *gtfm)
 		return 0;
 
 	/* remove key slot from hmac ring */
+	spin_lock(&drv->key_lock);
 	state->crt_key = list_first_entry_or_null(halg->hmac_keys,
 						  struct hse_key, entry);
 	if (IS_ERR_OR_NULL(state->crt_key)) {
 		dev_dbg(halg->dev, "%s: cannot acquire key slot\n", __func__);
+		spin_unlock(&drv->key_lock);
 		return -ENOKEY;
 	}
 	list_del(&state->crt_key->entry);
+	spin_unlock(&drv->key_lock);
 
 	return 0;
 }
