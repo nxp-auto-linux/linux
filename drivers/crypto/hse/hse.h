@@ -8,16 +8,28 @@
 #ifndef HSE_H
 #define HSE_H
 
-#define HSE_CRA_PRIORITY    2000u
+#define HSE_CRA_PRIORITY    2000u /* crypto algorithm priority */
+
+/**
+ * struct hse_key - HSE key
+ * @entry: list position
+ * @handle: key handle
+ */
+struct hse_key {
+	struct list_head entry;
+	u32 handle;
+};
 
 /**
  * struct hse_drvdata - HSE driver private data
  * @mu_inst: MU instance
- * @hash_list: supported hash algorithms
+ * @hash_algs: supported hash algorithms
+ * @hmac_keys: available AES key slots
  */
 struct hse_drvdata {
 	void *mu_inst;
-	struct list_head hash_list;
+	struct list_head hash_algs;
+	struct list_head aes_keys;
 };
 
 /**
@@ -41,12 +53,12 @@ static __always_inline phys_addr_t hse_addr(void *virt_addr)
 
 int hse_err_decode(u32 srv_rsp);
 
-int hse_hash_init(struct device *dev);
+void hse_hash_register(struct device *dev);
 
-void hse_hash_free(struct device *dev);
+void hse_hash_unregister(struct device *dev);
 
-int hse_skcipher_init(struct device *dev);
+void hse_skcipher_register(struct device *dev);
 
-void hse_skcipher_free(void);
+void hse_skcipher_unregister(void);
 
 #endif /* HSE_H */
