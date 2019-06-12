@@ -26,10 +26,10 @@
  * signals that the booting phase completed successfully.
  */
 enum hse_status {
-	HSE_STATUS_INIT_OK = (1u << 0u),
-	HSE_STATUS_RNG_INIT_OK = (1u << 1u),
-	HSE_STATUS_INSTALL_OK = (1u << 2u),
-	HSE_STATUS_BOOT_OK = (1u << 3u),
+	HSE_STATUS_INIT_OK = BIT(0),
+	HSE_STATUS_RNG_INIT_OK = BIT(1),
+	HSE_STATUS_INSTALL_OK = BIT(2),
+	HSE_STATUS_BOOT_OK = BIT(3),
 };
 
 /**
@@ -167,9 +167,9 @@ enum hse_cipher_dir {
  * @HSE_KF_USAGE_DECRYPT: key used for decryption
  */
 enum hse_key_flags {
-	HSE_KF_MU_INST = (1u << CONFIG_CRYPTO_DEV_NXP_HSE_MU_ID),
-	HSE_KF_USAGE_ENCRYPT = (1u << 4u),
-	HSE_KF_USAGE_DECRYPT = (1u << 5u),
+	HSE_KF_MU_INST = BIT(CONFIG_CRYPTO_DEV_NXP_HSE_MU_ID),
+	HSE_KF_USAGE_ENCRYPT = BIT(4),
+	HSE_KF_USAGE_DECRYPT = BIT(5),
 };
 
 /**
@@ -189,20 +189,17 @@ enum hse_key_types {
  * @input_len: length of the input message - must be an integer multiple of
  *             algorithm block size for START and UPDATE access modes, can be
  *             zero for START and FINISH, there are no restrictions for ONE-PASS
- * @p_input: address of the input message - mandatory for ONE-PASS and UPDATE
- *           access modes, can be zero for START and FINISH
- * @p_hash_len: holds the address to a u32 location in which the hash length
- *              in bytes is stored. On calling this service, this parameter
- *              shall contain the size of the buffer provided by host. When the
- *              request has finished, the actual length of the returned value
- *              shall be stored. If the buffer is smaller than the size of the
- *              hash, the hash will be truncated. If the buffer is larger,
- *              *p_hash_len is adjusted to the size of the hash. The input
- *              hash length shall not be zero for ONE-PASS or FINISH steps
- * @p_hash: the address where output hash will be stored
- *
- * The table below summarizes which fields are used by each access mode.
- * Unless stated otherwise, the unused fields shall be NULL or 0.
+ * @input: address of the input message - mandatory for ONE-PASS and UPDATE
+ *         access modes, can be zero for START and FINISH
+ * @hash_len: holds the address to a u32 location in which the hash length
+ *            in bytes is stored. On calling this service, this parameter
+ *            shall contain the size of the buffer provided by host. When the
+ *            request has finished, the actual length of the returned value
+ *            shall be stored. If the buffer is smaller than the size of the
+ *            hash, the hash will be truncated. If the buffer is larger,
+ *            *hash_len is adjusted to the size of the hash. The input
+ *            hash length shall not be zero for ONE-PASS or FINISH steps
+ * @hash: the address where output hash will be stored
  *
  * | Field \ Mode | ONE-PASS | START | UPDATE | FINISH |
  * |--------------+----------+-------+--------+--------|
@@ -210,14 +207,14 @@ enum hse_key_types {
  * | stream_id    |          |   *   |    *   |    *   |
  * | hash_algo    |     *    |   *   |    *   |    *   |
  * | input_len    |     *    |   *   |    *   |    *   |
- * | p_input      |     *    |   *   |    *   |    *   |
- * | p_hash_len   |     *    |       |        |    *   |
- * | p_hash       |     *    |       |        |    *   |
+ * | input        |     *    |   *   |    *   |    *   |
+ * | hash_len     |     *    |       |        |    *   |
+ * | hash         |     *    |       |        |    *   |
  *
- * The hash service can be accessible in ONE-PASS or streaming (SUF) mode. In
- * case of streaming mode, three steps (calls) are needed: START, UPDATE,
- * FINISH. For each streaming step, the fields that are not mandatory shall be
- * set NULL or 0.
+ * This service is accessible in ONE-PASS or streaming (SUF) mode. In case of
+ * streaming mode, three steps (calls) are needed: START, UPDATE, FINISH. For
+ * each streaming step, any fields that aren't mandatory shall be set NULL or 0.
+ * The table above summarizes which fields are required for each access mode.
  */
 struct hse_hash_srv {
 	u8 access_mode;
@@ -225,28 +222,26 @@ struct hse_hash_srv {
 	u8 hash_algo;
 	u8 reserved;
 	u32 input_len;
-	u64 p_input;
-	u64 p_hash_len;
-	u64 p_hash;
+	u64 input;
+	u64 hash_len;
+	u64 hash;
 } __packed;
 
 /**
  * struct hse_skcipher_srv - symmetric cipher encryption/decryption
- * @access_mode: ONE-PASS, START, UPDATE, FINISH.
+ * @access_mode: must be set to ONE-PASS
  * @cipher_algo: cipher algorithm
  * @block_mode: cipher block mode
- * @cipher_dir: direction - encrypt/decrypt.
+ * @cipher_dir: direction - encrypt/decrypt
  * @key_handle: key handle from RAM catalog
  * @iv_len: initialization vector length. Ignored for NULL and ECB block
  *          modes. Must be the block length corresponding to the block mode
- * @p_iv: address of the initialization vector/nonce. Ignored for NULL and ECB
- *        block modes
+ * @iv: address of the initialization vector/nonce. Ignored for NULL and ECB
+ *      block modes
  * @input_len: the plaintext and ciphertext length. For ECB, CBC and CFB
  *             cipher block modes, it must be a multiple of block length
- * @p_input: address of the plaintext for encryption, or ciphertext for
- *           decryption
- * @p_output: address of the plaintext for decryption, or ciphertext for
- *            encryption
+ * @input: address of the plaintext for encryption, or ciphertext for decryption
+ * @output: address of plaintext for decryption, or ciphertext for encryption
  *
  * To perform encryption/decryption with a block cipher in ECB or CBC mode, the
  * length of the input must be an exact multiple of the block size. For all AES
@@ -264,27 +259,27 @@ struct hse_skcipher_srv {
 	u8 reserved1[3];
 	u32 key_handle;
 	u32 iv_len;
-	u64 p_iv;
+	u64 iv;
 	u32 input_len;
-	u64 p_input;
-	u64 p_output;
+	u64 input;
+	u64 output;
 } __packed;
 
 /**
  * struct hse_import_key_srv - import/update key into a key store
- * @target_key_handle: slot in which to add or update a key
- * @p_key_info: pointer to hse_key_info struct, specifying usage flags,
- *              restriction access, key length in bits, etc.
- * @p_key: pointer to key values. Contains the symmetric key
+ * @key_handle: key slot to update
+ * @key_info: address of associated hse_key_info struct (specifying usage
+ *            flags, restriction access, key length in bits, etc.)
+ * @key: address of the key value
  * @key_len: key length in bytes
- * @cipher_key: unused, must be HSE_INVALID_KEY_HANDLE
- * @auth_key: unused, must be HSE_INVALID_KEY_HANDLE
+ * @cipher_key: unused, must be set to HSE_INVALID_KEY_HANDLE
+ * @auth_key: unused, must be set to HSE_INVALID_KEY_HANDLE
  */
 struct hse_import_key_srv {
-	u32 target_key_handle;
-	u64 p_key_info;
+	u32 key_handle;
+	u64 key_info;
 	u8 reserved0[16];
-	u64 p_key;
+	u64 key;
 	u8 reserved1[4];
 	u16 key_len;
 	u8 reserved2[2];
