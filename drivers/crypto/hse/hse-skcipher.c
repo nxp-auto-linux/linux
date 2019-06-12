@@ -3,7 +3,7 @@
  * NXP HSE Driver - Symmetric Key Cipher Support
  *
  * This file contains the kernel crypto API implementation for the
- * symmetric key cipher algorithms supported by HSE.
+ * symmetric key block cipher algorithms supported by HSE.
  *
  * Copyright 2019 NXP
  */
@@ -18,16 +18,6 @@
 #include "hse.h"
 #include "hse-abi.h"
 #include "hse-mu.h"
-
-/**
- * struct hse_symkey - symmetric key entry
- * @entry: key entry in the available keys list
- * @handle: hse key handle
- */
-struct hse_symkey {
-	struct list_head entry;
-	u32 handle;
-};
 
 /**
  * struct hse_skcipher_ctx - skcipher request context
@@ -49,14 +39,12 @@ struct hse_skcipher_ctx {
  * @key_info: key flags, used for import
  * @crt_key: key currently in use
  * @keybuf: buffer containing the current key
- * @channel: MU channel
  */
 struct hse_skcipher_state {
 	struct hse_srv_desc key_srv_desc;
 	struct hse_key_info key_info;
-	struct hse_symkey *crt_key;
+	struct hse_key *crt_key;
 	u8 keybuf[AES_MAX_KEY_SIZE];
-	u8 channel;
 };
 
 /**
@@ -65,8 +53,7 @@ struct hse_skcipher_state {
  * @registered: tfm registered/pending
  * @cipher_type: HSE cipher type
  * @block_mode: cipher block mode
- * @key_group_id: key group id from key catalog
- * @keys_list: list of available symmetric aes key slots
+ * @keys_list: available symmetric key slots
  * @dev: HSE device
  * @mu_inst: MU instance
  */
@@ -75,21 +62,18 @@ struct hse_skcipher_alg {
 	bool registered;
 	u8 cipher_type;
 	u8 block_mode;
-	u8 key_group_id;
-	u8 key_group_size;
-	struct list_head keys_list;
+	struct list_head *keys_list;
 	struct device *dev;
 	void *mu_inst;
 };
 
 /**
- * hse_get_skcipher_alg - get cipher algorithm data from crypto request
- * @req: symmetric key cipher request
+ * hse_get_skcipher_alg - get cipher algorithm data from crypto transformation
+ * @tfm: symmetric key cipher transformation
  *
  * Return: pointer to cipher algorithm data
  */
-static struct hse_skcipher_alg
-*get_hse_skcipher_alg(struct crypto_skcipher *tfm)
+static struct hse_skcipher_alg *hse_get_skcipher(struct crypto_skcipher *tfm)
 {
 	struct crypto_alg *base = tfm->base.__crt_alg;
 	struct skcipher_alg *alg = container_of(base, struct skcipher_alg,
@@ -102,16 +86,16 @@ static struct hse_skcipher_alg
 }
 
 /**
- * skcipher_setkey - setkey operation
+ * hse_skcipher_setkey - symmetric key cipher setkey operation
  * @skcipher: symmetric key cipher
  * @key: input key
  * @keylen: input key size
  */
-static int skcipher_setkey(struct crypto_skcipher *skcipher, const u8 *key,
-			   unsigned int keylen)
+static int hse_skcipher_setkey(struct crypto_skcipher *skcipher, const u8 *key,
+			       unsigned int keylen)
 {
 	struct hse_skcipher_state *state = crypto_skcipher_ctx(skcipher);
-	struct hse_skcipher_alg *hsealg = get_hse_skcipher_alg(skcipher);
+	struct hse_skcipher_alg *hsealg = hse_get_skcipher(skcipher);
 	u32 srv_desc_addr = lower_32_bits(hse_addr(&state->key_srv_desc));
 	u32 reply;
 	int err;
@@ -121,16 +105,18 @@ static int skcipher_setkey(struct crypto_skcipher *skcipher, const u8 *key,
 	state->key_info.key_flags = HSE_KF_MU_INST | HSE_KF_USAGE_ENCRYPT |
 			      HSE_KF_USAGE_DECRYPT;
 	state->key_info.key_bit_len = keylen << 3;
-	state->key_info.key_type = HSE_KEY_TYPE_AES;
+
+	if (hsealg->cipher_type == HSE_CIPHER_ALGO_AES)
+		state->key_info.key_type = HSE_KEY_TYPE_AES;
 
 	state->key_srv_desc.srv_id = HSE_SRV_ID_IMPORT_KEY;
 	state->key_srv_desc.priority = HSE_SRV_PRIO_HIGH;
 
-	state->key_srv_desc.import_key_req.target_key_handle =
+	state->key_srv_desc.import_key_req.key_handle =
 		state->crt_key->handle;
-	state->key_srv_desc.import_key_req.p_key_info =
+	state->key_srv_desc.import_key_req.key_info =
 		hse_addr(&state->key_info);
-	state->key_srv_desc.import_key_req.p_key = hse_addr(&state->keybuf);
+	state->key_srv_desc.import_key_req.key = hse_addr(&state->keybuf);
 	state->key_srv_desc.import_key_req.key_len = keylen;
 	state->key_srv_desc.import_key_req.cipher_key = HSE_INVALID_KEY_HANDLE;
 	state->key_srv_desc.import_key_req.auth_key = HSE_INVALID_KEY_HANDLE;
@@ -145,19 +131,19 @@ static int skcipher_setkey(struct crypto_skcipher *skcipher, const u8 *key,
 }
 
 /**
- * skcipher_done - symmetric key cipher rx callback
+ * hse_skcipher_done - symmetric key cipher rx callback
  * @mu_inst: MU instance
  * @channel: service channel index
  * @skreq: symmetric key cipher request
  *
  * Common RX callback for symmetric key cipher operations.
  */
-static void skcipher_done(void *mu_inst, u8 channel, void *skreq)
+static void hse_skcipher_done(void *mu_inst, u8 channel, void *skreq)
 {
 	struct skcipher_request *req = skreq;
 	struct hse_skcipher_ctx *ctx = skcipher_request_ctx(req);
 	struct crypto_skcipher *skcipher = crypto_skcipher_reqtfm(req);
-	struct hse_skcipher_alg *hsealg = get_hse_skcipher_alg(skcipher);
+	struct hse_skcipher_alg *hsealg = hse_get_skcipher(skcipher);
 	int err, nbytes, ivsize = crypto_skcipher_ivsize(skcipher);
 	u32 reply;
 
@@ -172,10 +158,7 @@ static void skcipher_done(void *mu_inst, u8 channel, void *skreq)
 	if (nbytes != req->cryptlen)
 		err = -ENODATA;
 
-	/*
-	 * The crypto API expects us to set the IV (req->iv) to the last
-	 * ciphertext block
-	 */
+	/* req->iv is expected to be set to the last ciphertext block */
 	if (ctx->direction == HSE_CIPHER_DIR_ENCRYPT &&
 	    hsealg->cipher_type == HSE_CIPHER_ALGO_AES &&
 	    hsealg->block_mode == HSE_CIPHER_BLOCK_MODE_CBC)
@@ -186,16 +169,16 @@ static void skcipher_done(void *mu_inst, u8 channel, void *skreq)
 }
 
 /**
- * skcipher_crypt - symmetric cipher operation
+ * hse_skcipher_crypt - symmetric key cipher operation
  * @req: symmetric key cipher request
  * @direction: encrypt/decrypt
  */
-static int skcipher_crypt(struct skcipher_request *req, u8 direction)
+static int hse_skcipher_crypt(struct skcipher_request *req, u8 direction)
 {
 	struct crypto_skcipher *skcipher = crypto_skcipher_reqtfm(req);
 	struct hse_skcipher_state *state = crypto_skcipher_ctx(skcipher);
 	struct hse_skcipher_ctx *ctx = skcipher_request_ctx(req);
-	struct hse_skcipher_alg *hsealg = get_hse_skcipher_alg(skcipher);
+	struct hse_skcipher_alg *hsealg = hse_get_skcipher(skcipher);
 	int err, nbytes, ivsize = crypto_skcipher_ivsize(skcipher);
 	u32 srv_desc_addr = lower_32_bits(hse_addr(&ctx->srv_desc));
 
@@ -213,10 +196,10 @@ static int skcipher_crypt(struct skcipher_request *req, u8 direction)
 	ctx->srv_desc.skcipher_req.cipher_dir = direction;
 	ctx->srv_desc.skcipher_req.key_handle = state->crt_key->handle;
 	ctx->srv_desc.skcipher_req.iv_len = ivsize;
-	ctx->srv_desc.skcipher_req.p_iv = hse_addr(&ctx->iv);
+	ctx->srv_desc.skcipher_req.iv = hse_addr(&ctx->iv);
 	ctx->srv_desc.skcipher_req.input_len = req->cryptlen;
-	ctx->srv_desc.skcipher_req.p_input = hse_addr(ctx->buf);
-	ctx->srv_desc.skcipher_req.p_output = hse_addr(ctx->buf);
+	ctx->srv_desc.skcipher_req.input = hse_addr(ctx->buf);
+	ctx->srv_desc.skcipher_req.output = hse_addr(ctx->buf);
 
 	nbytes = sg_copy_to_buffer(req->src, sg_nents(req->src),
 				   ctx->buf, req->cryptlen);
@@ -227,10 +210,7 @@ static int skcipher_crypt(struct skcipher_request *req, u8 direction)
 
 	ctx->direction = direction;
 
-	/*
-	 * The crypto API expects us to set the IV (req->iv) to the last
-	 * ciphertext block
-	 */
+	/* req->iv is expected to be set to the last ciphertext block */
 	if (direction == HSE_CIPHER_DIR_DECRYPT &&
 	    hsealg->cipher_type == HSE_CIPHER_ALGO_AES &&
 	    hsealg->block_mode == HSE_CIPHER_BLOCK_MODE_CBC)
@@ -238,7 +218,7 @@ static int skcipher_crypt(struct skcipher_request *req, u8 direction)
 					 ivsize, ivsize, 0);
 
 	err = hse_mu_send_request(hsealg->mu_inst, HSE_ANY_CHANNEL,
-				  srv_desc_addr, req, skcipher_done);
+				  srv_desc_addr, req, hse_skcipher_done);
 	if (err)
 		goto err_free_buf;
 
@@ -248,46 +228,50 @@ err_free_buf:
 	return err;
 }
 
-static int skcipher_encrypt(struct skcipher_request *req)
+static int hse_skcipher_encrypt(struct skcipher_request *req)
 {
-	return skcipher_crypt(req, HSE_CIPHER_DIR_ENCRYPT);
+	return hse_skcipher_crypt(req, HSE_CIPHER_DIR_ENCRYPT);
 }
 
-static int skcipher_decrypt(struct skcipher_request *req)
+static int hse_skcipher_decrypt(struct skcipher_request *req)
 {
-	return skcipher_crypt(req, HSE_CIPHER_DIR_DECRYPT);
+	return hse_skcipher_crypt(req, HSE_CIPHER_DIR_DECRYPT);
 }
 
 /**
- * hse_skcipher_cra_init - cryto algorithm init
- * @tfm: crypto transformation
+ * hse_skcipher_init - symmetric key cipher init
+ * @tfm: symmetric key cipher transformation
  */
-static int hse_skcipher_cra_init(struct crypto_skcipher *tfm)
+static int hse_skcipher_init(struct crypto_skcipher *tfm)
 {
 	struct hse_skcipher_state *state = crypto_skcipher_ctx(tfm);
-	struct hse_skcipher_alg *hsealg = get_hse_skcipher_alg(tfm);
+	struct hse_skcipher_alg *hsealg = hse_get_skcipher(tfm);
 
 	crypto_skcipher_set_reqsize(tfm, sizeof(struct hse_skcipher_ctx));
 
-	state->crt_key = list_first_entry_or_null(&hsealg->keys_list,
-						  struct hse_symkey, entry);
-	if (IS_ERR_OR_NULL(state->crt_key))
+	/* remove key slot from appropriate ring */
+	state->crt_key = list_first_entry_or_null(hsealg->keys_list,
+						  struct hse_key, entry);
+	if (IS_ERR_OR_NULL(state->crt_key)) {
+		dev_dbg(hsealg->dev, "%s: cannot acquire key slot\n", __func__);
 		return -ENOKEY;
+	}
 	list_del(&state->crt_key->entry);
 
 	return 0;
 }
 
 /**
- * hse_skcipher_cra_exit - cryto algorithm exit
- * @tfm: crypto transformation
+ * hse_skcipher_exit - symmetric key cipher exit
+ * @tfm: symmetric key cipher transformation
  */
-static void hse_skcipher_cra_exit(struct crypto_skcipher *tfm)
+static void hse_skcipher_exit(struct crypto_skcipher *tfm)
 {
 	struct hse_skcipher_state *state = crypto_skcipher_ctx(tfm);
-	struct hse_skcipher_alg *hsealg = get_hse_skcipher_alg(tfm);
+	struct hse_skcipher_alg *hsealg = hse_get_skcipher(tfm);
 
-	list_add_tail(&state->crt_key->entry, &hsealg->keys_list);
+	/* add key slot back to appropriate ring */
+	list_add_tail(&state->crt_key->entry, hsealg->keys_list);
 }
 
 static struct hse_skcipher_alg skcipher_algs[] = {
@@ -304,11 +288,11 @@ static struct hse_skcipher_alg skcipher_algs[] = {
 					sizeof(struct hse_skcipher_state),
 				.cra_blocksize = AES_BLOCK_SIZE,
 			},
-			.setkey = skcipher_setkey,
-			.encrypt = skcipher_encrypt,
-			.decrypt = skcipher_decrypt,
-			.init = hse_skcipher_cra_init,
-			.exit = hse_skcipher_cra_exit,
+			.setkey = hse_skcipher_setkey,
+			.encrypt = hse_skcipher_encrypt,
+			.decrypt = hse_skcipher_decrypt,
+			.init = hse_skcipher_init,
+			.exit = hse_skcipher_exit,
 			.min_keysize = AES_MIN_KEY_SIZE,
 			.max_keysize = AES_MAX_KEY_SIZE,
 			.ivsize = AES_BLOCK_SIZE,
@@ -316,21 +300,16 @@ static struct hse_skcipher_alg skcipher_algs[] = {
 		.registered = false,
 		.cipher_type = HSE_CIPHER_ALGO_AES,
 		.block_mode = HSE_CIPHER_BLOCK_MODE_CBC,
-		.key_group_id = CONFIG_CRYPTO_DEV_NXP_HSE_AES_KEY_GID,
-		.key_group_size = CONFIG_CRYPTO_DEV_NXP_HSE_AES_KEY_GSIZE,
 	},
 };
 
 /**
- * hse_skcipher_init - init skcipher algs
+ * hse_skcipher_register - register symmetric key algorithms
  * @dev: HSE device
- *
- * Return: skcipher component pointer, error code otherwise
  */
-int hse_skcipher_init(struct device *dev)
+void hse_skcipher_register(struct device *dev)
 {
 	struct hse_drvdata *drvdata = dev_get_drvdata(dev);
-	struct hse_symkey *key, *tmp;
 	int i, err = 0;
 
 	/* register crypto algorithms the device supports */
@@ -341,22 +320,10 @@ int hse_skcipher_init(struct device *dev)
 		alg->dev = dev;
 		alg->mu_inst = drvdata->mu_inst;
 
-		INIT_LIST_HEAD(&alg->keys_list);
-		for (i = 0; i < alg->key_group_size; i++) {
-			key = kzalloc(sizeof(*key), GFP_KERNEL);
-			if (IS_ERR_OR_NULL(key)) {
-				err = -ENOMEM;
-				list_for_each_entry_safe(key, tmp,
-							 &alg->keys_list,
-							 entry) {
-					list_del(&key->entry);
-					kfree(key);
-				}
-				return err;
-			}
-			key->handle = HSE_KEY_HANDLE(alg->key_group_id, i);
-			list_add_tail(&key->entry, &alg->keys_list);
-		}
+		if (alg->cipher_type == HSE_CIPHER_ALGO_AES)
+			alg->keys_list = &drvdata->aes_keys;
+		else
+			alg->keys_list = NULL;
 
 		err = crypto_register_skcipher(&alg->skcipher);
 		if (err) {
@@ -366,29 +333,16 @@ int hse_skcipher_init(struct device *dev)
 			dev_info(dev, "successfully registered alg %s\n", name);
 		}
 	}
-
-	return err;
 }
 
 /**
- * hse_skcipher_free - free skcipher algs
+ * hse_skcipher_unregister - unregister symmetric key algorithms
  */
-void hse_skcipher_free(void)
+void hse_skcipher_unregister(void)
 {
 	int i;
-	struct hse_symkey *key, *tmp;
 
-	for (i = 0; i < ARRAY_SIZE(skcipher_algs); i++) {
-		struct hse_skcipher_alg *alg = &skcipher_algs[i];
-
-		if (alg->registered) {
-			crypto_unregister_skcipher(&alg->skcipher);
-
-			list_for_each_entry_safe(key, tmp,
-						 &alg->keys_list, entry) {
-				list_del(&key->entry);
-				kfree(key);
-			}
-		}
-	}
+	for (i = 0; i < ARRAY_SIZE(skcipher_algs); i++)
+		if (skcipher_algs[i].registered)
+			crypto_unregister_skcipher(&skcipher_algs[i].skcipher);
 }
