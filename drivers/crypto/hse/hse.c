@@ -61,6 +61,48 @@ int hse_err_decode(u32 srv_rsp)
 	return err;
 }
 
+/**
+ * hse_init_key_ring - initialize all keys in a specific key group
+ * @dev: HSE device
+ * @key_ring: output key ring
+ * @group_id: key group ID
+ * @group_size: key group size
+ *
+ * Return: 0 on success, -ENOMEM for failed key ring allocation
+ */
+static int hse_init_key_ring(struct device *dev, struct list_head *key_ring,
+			     u8 group_id, u8 group_size)
+{
+	struct hse_key *ring;
+	unsigned int i;
+
+	ring = devm_kzalloc(dev, group_size * sizeof(*ring), GFP_KERNEL);
+	if (IS_ERR_OR_NULL(ring))
+		return -ENOMEM;
+
+	INIT_LIST_HEAD(key_ring);
+
+	for (i = 0; i < group_size; i++) {
+		ring[i].handle = HSE_KEY_HANDLE(group_id, i);
+		list_add_tail(&ring[i].entry, key_ring);
+	}
+
+	return 0;
+}
+
+/**
+ * hse_free_key_ring - remove all keys in a specific key group
+ * @key_ring: input key ring
+ */
+static void hse_free_key_ring(struct list_head *key_ring)
+{
+	struct hse_key *key, *tmp;
+
+	list_for_each_entry_safe(key, tmp, key_ring, entry) {
+		list_del(&key->entry);
+	}
+}
+
 static int hse_probe(struct platform_device *pdev)
 {
 	struct hse_drvdata *pdata;
@@ -88,31 +130,30 @@ static int hse_probe(struct platform_device *pdev)
 		return -ENODEV;
 	}
 
-	err = hse_hash_init(&pdev->dev);
-	if (err)
-		goto err_free_hash;
+	hse_hash_register(&pdev->dev);
 
-	err = hse_skcipher_init(&pdev->dev);
+	err = hse_init_key_ring(&pdev->dev, &pdata->aes_keys,
+				CONFIG_CRYPTO_DEV_NXP_HSE_AES_KEY_GID,
+				CONFIG_CRYPTO_DEV_NXP_HSE_AES_KEY_GSIZE);
 	if (err)
-		goto err_free_skcipher;
+		return err;
+
+	hse_skcipher_register(&pdev->dev);
 
 	dev_info(&pdev->dev, "HSE device %s initialized\n", pdev->name);
 
 	return 0;
-err_free_skcipher:
-	hse_skcipher_free();
-err_free_hash:
-	hse_hash_free(&pdev->dev);
-	hse_mu_free(pdata->mu_inst);
-	return err;
 }
 
 static int hse_remove(struct platform_device *pdev)
 {
 	struct hse_drvdata *pdata = platform_get_drvdata(pdev);
 
-	hse_skcipher_free();
-	hse_hash_free(&pdev->dev);
+	hse_skcipher_unregister();
+	hse_free_key_ring(&pdata->aes_keys);
+
+	hse_hash_unregister(&pdev->dev);
+
 	hse_mu_free(pdata->mu_inst);
 
 	dev_info(&pdev->dev, "HSE device %s removed", pdev->name);
