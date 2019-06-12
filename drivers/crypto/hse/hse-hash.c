@@ -228,7 +228,7 @@ static int ahash_update(struct ahash_request *req)
 
 	ctx->srv_desc.hash_req.access_mode = HSE_ACCESS_MODE_UPDATE;
 	ctx->srv_desc.hash_req.input_len = num_blocks * blocksize;
-	ctx->srv_desc.hash_req.p_input = hse_addr(ctx->dyn_buf);
+	ctx->srv_desc.hash_req.input = hse_addr(ctx->dyn_buf);
 
 	err = hse_mu_send_request(halg->mu_inst, ctx->channel,
 				  srv_desc_addr, req, ahash_done);
@@ -253,9 +253,9 @@ static int ahash_final(struct ahash_request *req)
 
 	ctx->srv_desc.hash_req.access_mode = HSE_ACCESS_MODE_FINISH;
 	ctx->srv_desc.hash_req.input_len = ctx->crt_idx;
-	ctx->srv_desc.hash_req.p_input = hse_addr(ctx->crt_buf);
-	ctx->srv_desc.hash_req.p_hash_len = hse_addr(&ctx->len);
-	ctx->srv_desc.hash_req.p_hash = hse_addr(req->result);
+	ctx->srv_desc.hash_req.input = hse_addr(ctx->crt_buf);
+	ctx->srv_desc.hash_req.hash_len = hse_addr(&ctx->len);
+	ctx->srv_desc.hash_req.hash = hse_addr(req->result);
 
 	err = hse_mu_send_request(halg->mu_inst, ctx->channel,
 				  srv_desc_addr, req, ahash_done);
@@ -286,9 +286,9 @@ static int ahash_digest(struct ahash_request *req)
 
 	ctx->srv_desc.hash_req.access_mode = HSE_ACCESS_MODE_ONE_PASS;
 	ctx->srv_desc.hash_req.input_len = req->nbytes;
-	ctx->srv_desc.hash_req.p_input = hse_addr(ctx->dyn_buf);
-	ctx->srv_desc.hash_req.p_hash_len = hse_addr(&ctx->len);
-	ctx->srv_desc.hash_req.p_hash = hse_addr(req->result);
+	ctx->srv_desc.hash_req.input = hse_addr(ctx->dyn_buf);
+	ctx->srv_desc.hash_req.hash_len = hse_addr(&ctx->len);
+	ctx->srv_desc.hash_req.hash = hse_addr(req->result);
 
 	scatterwalk_map_and_copy(ctx->dyn_buf, req->src, 0, req->nbytes, 0);
 
@@ -399,23 +399,21 @@ static struct hse_halg *hse_hash_alloc(struct device *dev, bool keyed,
 }
 
 /**
- * hse_hash_init - register hash and hmac algorithms
+ * hse_hash_register - register hash and hmac algorithms
  * @dev: HSE device
- *
- * Return: 0 on success, error code otherwise
  */
-int hse_hash_init(struct device *dev)
+void hse_hash_register(struct device *dev)
 {
 	struct hse_drvdata *drvdata = dev_get_drvdata(dev);
 	int i, err = 0;
 
-	INIT_LIST_HEAD(&drvdata->hash_list);
+	INIT_LIST_HEAD(&drvdata->hash_algs);
 
-	/* register crypto algorithms the device supports */
+	/* register crypto algorithms supported by device */
 	for (i = 0; i < ARRAY_SIZE(driver_hash); i++) {
 		struct hse_halg *halg;
 		const struct hse_hash_template *alg = &driver_hash[i];
-		char *name;
+		const char *name;
 
 		/* register unkeyed hash */
 		halg = hse_hash_alloc(dev, false, alg);
@@ -427,31 +425,29 @@ int hse_hash_init(struct device *dev)
 		name = halg->ahash_alg.halg.base.cra_driver_name;
 
 		err = crypto_register_ahash(&halg->ahash_alg);
-		if (err) {
+		if (unlikely(err)) {
 			dev_err(dev, "failed to register %s: %d\n", name, err);
 			continue;
 		} else {
-			list_add_tail(&halg->entry, &drvdata->hash_list);
+			list_add_tail(&halg->entry, &drvdata->hash_algs);
 			dev_info(dev, "successfully registered alg %s\n", name);
 		}
 	}
-
-	return err;
 }
 
 /**
- * hse_hash_free - unregister hash and hmac algorithms
+ * hse_hash_unregister - unregister hash and hmac algorithms
  * @dev: HSE device
  */
-void hse_hash_free(struct device *dev)
+void hse_hash_unregister(struct device *dev)
 {
 	struct hse_drvdata *drvdata = dev_get_drvdata(dev);
 	struct hse_halg *halg, *n;
 
-	if (!drvdata->hash_list.next)
+	if (!drvdata->hash_algs.next)
 		return;
 
-	list_for_each_entry_safe(halg, n, &drvdata->hash_list, entry) {
+	list_for_each_entry_safe(halg, n, &drvdata->hash_algs, entry) {
 		crypto_unregister_ahash(&halg->ahash_alg);
 		list_del(&halg->entry);
 	}
