@@ -791,7 +791,7 @@
 };
 
 &usdhc0 {
-	no-1-8-V;
+	no-1-8-v;
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_usdhc0>;
 	status = "okay";
