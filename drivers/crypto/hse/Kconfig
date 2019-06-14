@@ -27,3 +27,11 @@ config CRYPTO_DEV_NXP_HSE_AES_KEY_GID
 	default "1"
 	help
 	  The AES 256-bit Key Group ID within RAM Key Catalog.
+
+config CRYPTO_DEV_NXP_HSE_AES_KEY_GSIZE
+	depends on CRYPTO_DEV_NXP_HSE
+	int "Number of AES Key Slots in AES Key Group: [0-256]"
+	range 0 256
+	default "20"
+	help
+	  Number of Key Slots available in the 256-bit AES Key Group.
