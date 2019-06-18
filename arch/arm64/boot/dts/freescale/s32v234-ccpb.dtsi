@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0+
 /*
- * Copyright 2018 NXP
+ * Copyright 2018-2019 NXP
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -594,14 +594,16 @@
 
 		pinctrl_uart0: uart0grp {
 			fsl,pins = <
-				S32V234_PAD_PA12__UART0_TXD_OUT
+				S32V234_PAD_PA12__UART0_TXD
+				S32V234_PAD_PA11__UART0_RXD_OUT
 				S32V234_PAD_PA11__UART0_RXD_IN
 			>;
 		};
 
 		pinctrl_uart1: uart1grp {
 			fsl,pins = <
-				S32V234_PAD_PA14__UART1_TXD_OUT
+				S32V234_PAD_PA14__UART1_TXD
+				S32V234_PAD_PA13__UART1_RXD_OUT
 				S32V234_PAD_PA13__UART1_RXD_IN
 			>;
 		};
