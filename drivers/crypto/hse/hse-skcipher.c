@@ -33,11 +33,13 @@ struct hse_symkey {
  * struct hse_skcipher_ctx - skcipher request context
  * @srv_desc: HSE service descriptor
  * @iv: initialization vector
+ * @direction: encrypt/decrypt selector
  * @buf: linearized buffer
  */
 struct hse_skcipher_ctx {
 	struct hse_srv_desc srv_desc;
 	u8 iv[AES_BLOCK_SIZE];
+	u8 direction;
 	void *buf;
 };
 
@@ -170,6 +172,16 @@ static void skcipher_done(void *mu_inst, u8 channel, void *skreq)
 	if (nbytes != req->cryptlen)
 		err = -ENODATA;
 
+	/*
+	 * The crypto API expects us to set the IV (req->iv) to the last
+	 * ciphertext block
+	 */
+	if (ctx->direction == HSE_CIPHER_DIR_ENCRYPT &&
+	    hsealg->cipher_type == HSE_CIPHER_ALGO_AES &&
+	    hsealg->block_mode == HSE_CIPHER_BLOCK_MODE_CBC)
+		scatterwalk_map_and_copy(req->iv, req->dst, req->cryptlen -
+					 ivsize, ivsize, 0);
+
 	skcipher_request_complete(req, err);
 }
 
@@ -212,6 +224,18 @@ static int skcipher_crypt(struct skcipher_request *req, u8 direction)
 		err = -ENODATA;
 		goto err_free_buf;
 	}
+
+	ctx->direction = direction;
+
+	/*
+	 * The crypto API expects us to set the IV (req->iv) to the last
+	 * ciphertext block
+	 */
+	if (direction == HSE_CIPHER_DIR_DECRYPT &&
+	    hsealg->cipher_type == HSE_CIPHER_ALGO_AES &&
+	    hsealg->block_mode == HSE_CIPHER_BLOCK_MODE_CBC)
+		scatterwalk_map_and_copy(req->iv, req->src, req->cryptlen -
+					 ivsize, ivsize, 0);
 
 	err = hse_mu_send_request(hsealg->mu_inst, HSE_ANY_CHANNEL,
 				  srv_desc_addr, req, skcipher_done);
