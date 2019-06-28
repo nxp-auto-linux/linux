@@ -14,6 +14,8 @@
 #define HSE_KEY_HANDLE(group, slot)    ((HSE_KEY_CATALOG_ID_RAM << 16u) |      \
 					((group) << 8u) | (slot))
 
+#define HSE_KEY_HMAC_MIN_SIZE    16u /* minimum key size admitted for HMAC */
+
 /**
  * enum hse_status - HSE status
  * @HSE_STATUS_INIT_OK: HSE initialization successfully completed
@@ -36,11 +38,13 @@ enum hse_status {
  * enum hse_srv_id - HSE service ID
  * @HSE_SRV_ID_IMPORT_KEY: import/update key into a key store
  * @HSE_SRV_ID_HASH: perform a hash operation
+ * @HSE_SRV_ID_MAC: generate a message authentication code
  * @HSE_SRV_ID_SYM_CIPHER: symmetric cipher encryption/decryption
  */
 enum hse_srv_id {
 	HSE_SRV_ID_IMPORT_KEY = 0x00000104ul,
 	HSE_SRV_ID_HASH = 0x00000200ul,
+	HSE_SRV_ID_MAC = 0x00000201ul,
 	HSE_SRV_ID_SYM_CIPHER = 0x00000203ul,
 };
 
@@ -131,6 +135,14 @@ enum hse_hash_algorithms {
 };
 
 /**
+ * enum hse_mac_algorithms - supported MAC algorithm types
+ * @HSE_HASH_ALGO_HMAC: HMAC
+ */
+enum hse_mac_algorithms {
+	HSE_MAC_ALGO_HMAC = 0x20u,
+};
+
+/**
  * enum hse_cipher_algorithms - supported cipher algorithm types
  * @HSE_CIPHER_ALGO_NULL: none
  * @HSE_CIPHER_ALGO_AES: AES cipher
@@ -161,23 +173,35 @@ enum hse_cipher_dir {
 };
 
 /**
+ * enum hse_auth_dir - HSE authentication direction
+ * @HSE_AUTH_DIR_GENERATE: generate authentication tag
+ */
+enum hse_auth_dir {
+	HSE_AUTH_DIR_GENERATE = 0u,
+};
+
+/**
  * enum hse_key_flags - key properties
  * @HSE_KF_MU_INST: key used on current MU instance
  * @HSE_KF_USAGE_ENCRYPT: key used for encryption
  * @HSE_KF_USAGE_DECRYPT: key used for decryption
+ * @HSE_KF_USAGE_SIGN: key used for MAC generation
  */
 enum hse_key_flags {
 	HSE_KF_MU_INST = BIT(CONFIG_CRYPTO_DEV_NXP_HSE_MU_ID),
 	HSE_KF_USAGE_ENCRYPT = BIT(4),
 	HSE_KF_USAGE_DECRYPT = BIT(5),
+	HSE_KF_USAGE_SIGN = BIT(6),
 };
 
 /**
  * enum hse_key_types - key types used by HSE
  * @HSE_KEY_TYPE_AES: AES 128, 192 or 256-bit key
+ * @HSE_KEY_TYPE_HMAC: HMAC key
  */
 enum hse_key_types {
 	HSE_KEY_TYPE_AES = 0x12u,
+	HSE_KEY_TYPE_HMAC = 0x20u,
 };
 
 /**
@@ -225,6 +249,68 @@ struct hse_hash_srv {
 	u64 input;
 	u64 hash_len;
 	u64 hash;
+} __packed;
+
+/**
+ * struct hse_mac_srv - generate a message authentication code
+ * @access_mode: ONE-PASS, START, UPDATE, FINISH
+ * @stream_id: ID for START, UPDATE, FINISH access modes - only a limited number
+ *             of channels per MU instance are available for streaming use
+ * @auth_dir: direction - generate MAC
+ * @scheme: MAC scheme to be used
+ * @key_handle: key handle from RAM catalog
+ * @input_len: length of the input message - must be an integer multiple of
+ *             algorithm block size for START and UPDATE access modes, cannot
+ *             be zero for any SUF access mode, no restrictions for ONE-PASS
+ * @input: address of the input message - mandatory for ONE-PASS and UPDATE
+ *         access modes, cannot be zero for any SUF access mode
+ * @tag_len: holds the address to a u32 location in which the tag length
+ *           in bytes is stored. On calling this service, this parameter
+ *           shall contain the size of the buffer provided by host. When the
+ *           request has finished, the actual length of the returned value
+ *           shall be stored. If the buffer is smaller than the size of the
+ *           tag, the tag will be truncated. If the buffer is larger,
+ *           *tag_len is adjusted to the size of the tag. The input
+ *           tag length shall not be zero for ONE-PASS or FINISH steps
+ * @tag: the address where output tag will be stored
+ *
+ * | Field \ Mode | ONE-PASS | START | UPDATE | FINISH |
+ * |--------------+----------+-------+--------+--------|
+ * | access_mode  |     *    |   *   |    *   |    *   |
+ * | stream_id    |          |   *   |    *   |    *   |
+ * | auth_dir     |     *    |   *   |    *   |    *   |
+ * | scheme       |     *    |   *   |    *   |    *   |
+ * | key_handle   |     *    |   *   |        |        |
+ * | input_len    |     *    |   *   |    *   |    *   |
+ * | input        |     *    |   *   |    *   |    *   |
+ * | hash_len     |     *    |       |        |    *   |
+ * | hash         |     *    |       |        |    *   |
+ *
+ * This service is accessible in ONE-PASS or streaming (SUF) mode. In case of
+ * streaming mode, three steps (calls) are needed: START, UPDATE, FINISH. For
+ * each streaming step, any fields that aren't mandatory shall be set NULL or 0.
+ * The table above summarizes which fields are required for each access mode.
+ */
+struct hse_mac_srv {
+	u8 access_mode;
+	u8 stream_id;
+	u8 auth_dir;
+	u8 reserved0;
+	struct hse_mac_scheme {
+		u8 mac_algo;
+		u8 reserved1[3];
+		union {
+			struct {
+				u8 hash_algo;
+			} hmac;
+			u8 reserved2[12];
+		};
+	} scheme;
+	u32 key_handle;
+	u32 input_len;
+	u64 input;
+	u64 tag_len;
+	u64 tag;
 } __packed;
 
 /**
@@ -301,6 +387,7 @@ struct hse_srv_desc {
 	u8 reserved[3];
 	union {
 		struct hse_hash_srv hash_req;
+		struct hse_mac_srv mac_req;
 		struct hse_skcipher_srv skcipher_req;
 		struct hse_import_key_srv import_key_req;
 	};
