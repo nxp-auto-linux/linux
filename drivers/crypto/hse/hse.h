@@ -61,4 +61,6 @@ void hse_skcipher_register(struct device *dev);
 
 void hse_skcipher_unregister(void);
 
+void hse_hwrng_register(struct device *dev);
+
 #endif /* HSE_H */
