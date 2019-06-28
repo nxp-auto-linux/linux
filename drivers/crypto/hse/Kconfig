@@ -20,6 +20,13 @@ config CRYPTO_DEV_NXP_HSE_MU_ID
 	help
 	  The Message Unit (MU) Instance index used by HSE crypto driver.
 
+config CRYPTO_DEV_NXP_HSE_HWRNG
+	bool "NXP HSE hardware RNG support"
+	depends on CRYPTO_DEV_NXP_HSE
+	default y
+	help
+	  Enables the hardware RNG support for NXP's HSE.
+
 config CRYPTO_DEV_NXP_HSE_HMAC_KEY_GID
 	depends on CRYPTO_DEV_NXP_HSE
 	int "HMAC Key Group ID within RAM Key Catalog: [0-256]"
