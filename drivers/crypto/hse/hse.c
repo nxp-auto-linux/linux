@@ -130,6 +130,12 @@ static int hse_probe(struct platform_device *pdev)
 		return -ENODEV;
 	}
 
+	err = hse_init_key_ring(&pdev->dev, &pdata->hmac_keys,
+				CONFIG_CRYPTO_DEV_NXP_HSE_HMAC_KEY_GID,
+				CONFIG_CRYPTO_DEV_NXP_HSE_HMAC_KEY_GSIZE);
+	if (err)
+		return err;
+
 	hse_hash_register(&pdev->dev);
 
 	err = hse_init_key_ring(&pdev->dev, &pdata->aes_keys,
@@ -153,6 +159,7 @@ static int hse_remove(struct platform_device *pdev)
 	hse_free_key_ring(&pdata->aes_keys);
 
 	hse_hash_unregister(&pdev->dev);
+	hse_free_key_ring(&pdata->hmac_keys);
 
 	hse_mu_free(pdata->mu_inst);
 
