@@ -20,6 +20,22 @@ config CRYPTO_DEV_NXP_HSE_MU_ID
 	help
 	  The Message Unit (MU) Instance index used by HSE crypto driver.
 
+config CRYPTO_DEV_NXP_HSE_HMAC_KEY_GID
+	depends on CRYPTO_DEV_NXP_HSE
+	int "HMAC Key Group ID within RAM Key Catalog: [0-256]"
+	range 0 256
+	default "2"
+	help
+	  The HMAC Key Group ID within RAM Key Catalog.
+
+config CRYPTO_DEV_NXP_HSE_HMAC_KEY_GSIZE
+	depends on CRYPTO_DEV_NXP_HSE
+	int "Number of HMAC Key Slots in HMAC Key Group: [0-256]"
+	range 0 256
+	default "10"
+	help
+	  Number of Key Slots available in the HMAC Key Group.
+
 config CRYPTO_DEV_NXP_HSE_AES_KEY_GID
 	depends on CRYPTO_DEV_NXP_HSE
 	int "AES Key Group ID within RAM Key Catalog: [0-256]"
