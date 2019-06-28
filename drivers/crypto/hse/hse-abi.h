@@ -40,12 +40,14 @@ enum hse_status {
  * @HSE_SRV_ID_HASH: perform a hash operation
  * @HSE_SRV_ID_MAC: generate a message authentication code
  * @HSE_SRV_ID_SYM_CIPHER: symmetric cipher encryption/decryption
+ * @HSE_SRV_ID_GET_RANDOM_NUM: hardware random number generator
  */
 enum hse_srv_id {
 	HSE_SRV_ID_IMPORT_KEY = 0x00000104ul,
 	HSE_SRV_ID_HASH = 0x00000200ul,
 	HSE_SRV_ID_MAC = 0x00000201ul,
 	HSE_SRV_ID_SYM_CIPHER = 0x00000203ul,
+	HSE_SRV_ID_GET_RANDOM_NUM = 0x00000300ul,
 };
 
 /**
@@ -202,6 +204,14 @@ enum hse_key_flags {
 enum hse_key_types {
 	HSE_KEY_TYPE_AES = 0x12u,
 	HSE_KEY_TYPE_HMAC = 0x20u,
+};
+
+/**
+ * enum hse_rng_class - rng generation method
+ * @HSE_RNG_CLASS_PTG3: prediction resistance, reseed every 16 bytes
+ */
+enum hse_rng_class {
+	HSE_RNG_CLASS_PTG3 = 2u,
 };
 
 /**
@@ -376,6 +386,19 @@ struct hse_import_key_srv {
 } __packed;
 
 /**
+ * struct hse_rng_srv - random number generation
+ * @rng_class: random number generation method
+ * @random_num_len: length of the generated number in bytes
+ * @random_num: the address where the generated number will be stored
+ */
+struct hse_rng_srv {
+	u8 rng_class;
+	u8 reserved[3];
+	u32 random_num_len;
+	u64 random_num;
+} __packed;
+
+/**
  * struct hse_srv_desc - HSE service descriptor
  * @srv_id: service ID of the HSE request
  * @priority: priority of the HSE request
@@ -390,6 +413,7 @@ struct hse_srv_desc {
 		struct hse_mac_srv mac_req;
 		struct hse_skcipher_srv skcipher_req;
 		struct hse_import_key_srv import_key_req;
+		struct hse_rng_srv rng_req;
 	};
 };
 

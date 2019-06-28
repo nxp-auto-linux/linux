@@ -146,6 +146,10 @@ static int hse_probe(struct platform_device *pdev)
 
 	hse_skcipher_register(&pdev->dev);
 
+#ifdef CONFIG_CRYPTO_DEV_NXP_HSE_HWRNG
+	hse_hwrng_register(&pdev->dev);
+#endif
+
 	dev_info(&pdev->dev, "HSE device %s initialized\n", pdev->name);
 
 	return 0;
