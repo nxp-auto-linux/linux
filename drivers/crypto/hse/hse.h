@@ -24,11 +24,13 @@ struct hse_key {
  * struct hse_drvdata - HSE driver private data
  * @mu_inst: MU instance
  * @hash_algs: supported hash algorithms
+ * @hmac_keys: available HMAC key slots
  * @hmac_keys: available AES key slots
  */
 struct hse_drvdata {
 	void *mu_inst;
 	struct list_head hash_algs;
+	struct list_head hmac_keys;
 	struct list_head aes_keys;
 };
 
