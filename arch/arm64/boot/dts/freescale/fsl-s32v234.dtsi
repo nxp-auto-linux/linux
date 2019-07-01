@@ -821,6 +821,8 @@
 		reg = <0x0 0x7C040000 0x0 0x1000>;
 		interrupts = <0 83 1>,
 			     <0 84 1>;
+		clocks = <&clks S32V234_CLK_FDMA_AHB>;
+		clock-names = "sys3";
 		status = "disabled";
 	};
 
