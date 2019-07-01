@@ -1,6 +1,6 @@
 /*
  * Copyright 2015-2016 Freescale Semiconductor, Inc.
- * Copyright 2017-2018 NXP
+ * Copyright 2017-2019 NXP
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -661,6 +661,12 @@ static void __init s32v234_clocks_init(struct device_node *mc_cgm0_node)
 	clk[S32V234_CLK_DCU_PIX] = s32v234_clk_gate2_shared("dcu_pix",
 		"dcu_pix_div", mc_me_base, DCU_PCTL, 0, 1,
 		 &share_count_dcugate, &s32v234_lock);
+
+	/* enable FastDMA */
+	clk[S32V234_CLK_FDMA_AHB] = s32v234_clk_gate2_shared(
+		"fdma_ahb", "sys3", mc_me_base,
+		FDMA_PCTL, 0, 1,
+		&share_count_dec200gate, &s32v234_lock);
 
 	/* enable VIDEOPLL */
 	enable_clocks_sources(0, MC_ME_MODE_MC_VIDEOPLL,
