@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2015-2016 Freescale Semiconductor, Inc.
- * Copyright 2017-2018 NXP
+ * Copyright 2017-2019 NXP
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -193,6 +193,7 @@
 #define	S32V234_CLK_VIU1_AHB			154
 #define	S32V234_CLK_VIU1_IPS			155
 #define	S32V234_CLK_VIDEOPLLDIV2		156
+#define	S32V234_CLK_FDMA_AHB			157
 
-#define	S32V234_CLK_END				157
+#define	S32V234_CLK_END				158
 #endif /* __DT_BINDINGS_CLOCK_S32V234_H */
