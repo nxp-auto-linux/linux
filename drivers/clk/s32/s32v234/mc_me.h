@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2016 Freescale Semiconductor, Inc.
- * Copyright 2017 NXP
+ * Copyright 2017,2019 NXP
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -81,6 +81,7 @@
 
 /* Peripherals PCTL indexes */
 #define DEC200_PCTL	39
+#define FDMA_PCTL	39
 #define DCU_PCTL	40
 #define CSI0_PCTL	48
 #define DMACHMUX0_PCTL	49
