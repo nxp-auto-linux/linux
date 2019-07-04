@@ -97,7 +97,6 @@ static int hse_skcipher_setkey(struct crypto_skcipher *skcipher, const u8 *key,
 	struct hse_skcipher_state *state = crypto_skcipher_ctx(skcipher);
 	struct hse_skcipher_alg *hsealg = hse_get_skcipher(skcipher);
 	u32 srv_desc_addr = lower_32_bits(hse_addr(&state->key_srv_desc));
-	u32 reply;
 	int err;
 
 	memcpy(&state->keybuf, key, keylen);
@@ -122,10 +121,10 @@ static int hse_skcipher_setkey(struct crypto_skcipher *skcipher, const u8 *key,
 	state->key_srv_desc.import_key_req.auth_key = HSE_INVALID_KEY_HANDLE;
 
 	err = hse_mu_request_srv(hsealg->mu_inst, HSE_ANY_CHANNEL,
-				 srv_desc_addr, &reply);
-	err = err ? err : hse_err_decode(reply);
-	if (err)
-		dev_dbg(hsealg->dev, "service response 0x%08X\n", reply);
+				 srv_desc_addr);
+	if (unlikely(err))
+		dev_dbg(hsealg->dev, "%s: key import request failed: %d\n",
+			__func__, err);
 
 	return err;
 }
@@ -145,13 +144,11 @@ static void hse_skcipher_done(void *mu_inst, u8 channel, void *skreq)
 	struct crypto_skcipher *skcipher = crypto_skcipher_reqtfm(req);
 	struct hse_skcipher_alg *hsealg = hse_get_skcipher(skcipher);
 	int err, nbytes, ivsize = crypto_skcipher_ivsize(skcipher);
-	u32 reply;
 
-	err = hse_mu_recv_response(mu_inst, channel, &reply);
-	err = err ? err : hse_err_decode(reply);
-	if (err)
-		dev_dbg(hsealg->dev, "service response 0x%08X on channel %d\n",
-			reply, channel);
+	err = hse_mu_recv_response(mu_inst, channel);
+	if (unlikely(err))
+		dev_dbg(hsealg->dev, "%s: skcipher request failed: %d\n",
+			__func__, err);
 
 	nbytes = sg_copy_from_buffer(req->dst, sg_nents(req->dst),
 				     ctx->buf, req->cryptlen);
