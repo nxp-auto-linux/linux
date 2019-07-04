@@ -53,8 +53,6 @@ static __always_inline phys_addr_t hse_addr(void *virt_addr)
 	return 0ull;
 }
 
-int hse_err_decode(u32 srv_rsp);
-
 void hse_hash_register(struct device *dev);
 
 void hse_hash_unregister(struct device *dev);
