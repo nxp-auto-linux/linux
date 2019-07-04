@@ -20,7 +20,7 @@
  *
  * Return: 0 on service request success, error code otherwise
  */
-int hse_err_decode(u32 srv_rsp)
+static int hse_err_decode(u32 srv_rsp)
 {
 	int err;
 
@@ -117,7 +117,7 @@ static int hse_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, pdata);
 
-	pdata->mu_inst = hse_mu_init(&pdev->dev);
+	pdata->mu_inst = hse_mu_init(&pdev->dev, hse_err_decode);
 	if (IS_ERR(pdata->mu_inst))
 		return PTR_ERR(pdata->mu_inst);
 
