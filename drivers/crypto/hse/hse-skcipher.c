@@ -120,8 +120,7 @@ static int hse_skcipher_setkey(struct crypto_skcipher *skcipher, const u8 *key,
 	state->key_srv_desc.import_key_req.cipher_key = HSE_INVALID_KEY_HANDLE;
 	state->key_srv_desc.import_key_req.auth_key = HSE_INVALID_KEY_HANDLE;
 
-	err = hse_mu_request_srv(hsealg->mu_inst, HSE_ANY_CHANNEL,
-				 srv_desc_addr);
+	err = hse_mu_sync_req(hsealg->mu_inst, HSE_ANY_CHANNEL, srv_desc_addr);
 	if (unlikely(err))
 		dev_dbg(hsealg->dev, "%s: key import request failed: %d\n",
 			__func__, err);
@@ -145,7 +144,7 @@ static void hse_skcipher_done(void *mu_inst, u8 channel, void *skreq)
 	struct hse_skcipher_alg *hsealg = hse_get_skcipher(skcipher);
 	int err, nbytes, ivsize = crypto_skcipher_ivsize(skcipher);
 
-	err = hse_mu_recv_response(mu_inst, channel);
+	err = hse_mu_async_req_recv(mu_inst, channel);
 	if (unlikely(err))
 		dev_dbg(hsealg->dev, "%s: skcipher request failed: %d\n",
 			__func__, err);
@@ -214,8 +213,8 @@ static int hse_skcipher_crypt(struct skcipher_request *req, u8 direction)
 		scatterwalk_map_and_copy(req->iv, req->src, req->cryptlen -
 					 ivsize, ivsize, 0);
 
-	err = hse_mu_send_request(hsealg->mu_inst, HSE_ANY_CHANNEL,
-				  srv_desc_addr, req, hse_skcipher_done);
+	err = hse_mu_async_req_send(hsealg->mu_inst, HSE_ANY_CHANNEL,
+				    srv_desc_addr, req, hse_skcipher_done);
 	if (err)
 		goto err_free_buf;
 
@@ -312,7 +311,7 @@ void hse_skcipher_register(struct device *dev)
 	/* register crypto algorithms the device supports */
 	for (i = 0; i < ARRAY_SIZE(skcipher_algs); i++) {
 		struct hse_skcipher_alg *alg = &skcipher_algs[i];
-		const char *name = alg->skcipher.base.cra_driver_name;
+		const char *name = alg->skcipher.base.cra_name;
 
 		alg->dev = dev;
 		alg->mu_inst = drvdata->mu_inst;
@@ -327,7 +326,7 @@ void hse_skcipher_register(struct device *dev)
 			dev_err(dev, "failed to register %s: %d", name, err);
 		} else {
 			alg->registered = true;
-			dev_info(dev, "successfully registered alg %s\n", name);
+			dev_info(dev, "registered alg %s\n", name);
 		}
 	}
 }
