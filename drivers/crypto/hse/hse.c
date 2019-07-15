@@ -9,6 +9,7 @@
 #include <linux/module.h>
 #include <linux/platform_device.h>
 #include <linux/mod_devicetable.h>
+#include <linux/crypto.h>
 
 #include "hse.h"
 #include "hse-mu.h"
@@ -76,7 +77,7 @@ static int hse_init_key_ring(struct device *dev, struct list_head *key_ring,
 	struct hse_key *ring;
 	unsigned int i;
 
-	ring = devm_kzalloc(dev, group_size * sizeof(*ring), GFP_KERNEL);
+	ring = devm_kmalloc_array(dev, group_size, sizeof(*ring), GFP_KERNEL);
 	if (IS_ERR_OR_NULL(ring))
 		return -ENOMEM;
 
@@ -98,18 +99,17 @@ static void hse_free_key_ring(struct list_head *key_ring)
 {
 	struct hse_key *key, *tmp;
 
-	list_for_each_entry_safe(key, tmp, key_ring, entry) {
+	list_for_each_entry_safe(key, tmp, key_ring, entry)
 		list_del(&key->entry);
-	}
 }
 
 static int hse_probe(struct platform_device *pdev)
 {
 	struct hse_drvdata *pdata;
-	int err;
 	u16 status, init_ok_mask;
+	int err;
 
-	dev_info(&pdev->dev, "probing HSE device %s\n", pdev->name);
+	dev_info(&pdev->dev, "probing device\n");
 
 	pdata = devm_kzalloc(&pdev->dev, sizeof(*pdata), GFP_KERNEL);
 	if (IS_ERR_OR_NULL(pdata))
@@ -124,7 +124,7 @@ static int hse_probe(struct platform_device *pdev)
 	init_ok_mask = HSE_STATUS_INIT_OK | HSE_STATUS_RNG_INIT_OK |
 		       HSE_STATUS_INSTALL_OK | HSE_STATUS_BOOT_OK;
 
-	status = hse_mu_get_status(pdata->mu_inst);
+	status = hse_mu_status(pdata->mu_inst);
 	if (unlikely((status & init_ok_mask) != init_ok_mask)) {
 		dev_err(&pdev->dev, "init failed with status 0x%04X\n", status);
 		return -ENODEV;
@@ -146,11 +146,10 @@ static int hse_probe(struct platform_device *pdev)
 
 	hse_skcipher_register(&pdev->dev);
 
-#ifdef CONFIG_CRYPTO_DEV_NXP_HSE_HWRNG
-	hse_hwrng_register(&pdev->dev);
-#endif
+	if (IS_ENABLED(CONFIG_CRYPTO_DEV_NXP_HSE_HWRNG))
+		hse_hwrng_register(&pdev->dev);
 
-	dev_info(&pdev->dev, "HSE device %s initialized\n", pdev->name);
+	dev_info(&pdev->dev, "device ready, status 0x%04X\n", status);
 
 	return 0;
 }
@@ -167,7 +166,7 @@ static int hse_remove(struct platform_device *pdev)
 
 	hse_mu_free(pdata->mu_inst);
 
-	dev_info(&pdev->dev, "HSE device %s removed", pdev->name);
+	dev_info(&pdev->dev, "device removed\n");
 
 	return 0;
 }
@@ -192,5 +191,5 @@ module_platform_driver(hse_driver);
 
 MODULE_AUTHOR("NXP");
 MODULE_LICENSE("Dual BSD/GPL");
-MODULE_ALIAS("nxp_hse");
+MODULE_ALIAS_CRYPTO("nxp_hse");
 MODULE_DESCRIPTION("NXP Hardware Security Engine (HSE) Driver");
