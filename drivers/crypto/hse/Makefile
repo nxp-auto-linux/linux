@@ -3,6 +3,6 @@
 # Copyright 2019 NXP
 #
 
-obj-$(CONFIG_CRYPTO_DEV_NXP_HSE) += nxp-hse.o
+obj-$(CONFIG_CRYPTO_DEV_NXP_HSE) += nxp_hse.o
 
-nxp-hse-y := hse.o hse-mu.o hse-hash.o hse-skcipher.o hse-rng.o
+nxp_hse-y := hse.o hse-mu.o hse-hash.o hse-skcipher.o hse-rng.o

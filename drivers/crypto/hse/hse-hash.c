@@ -20,8 +20,7 @@
 #include "hse-mu.h"
 #include "hse-abi.h"
 
-#define HSE_MAX_DIGEST_SIZE    SHA512_DIGEST_SIZE
-#define HSE_MAX_BLOCK_SIZE     SHA512_BLOCK_SIZE
+#define HSE_MAX_BLOCK_SIZE    SHA512_BLOCK_SIZE
 
 /**
  * struct hse_ahash_ctx - crypto request context
@@ -31,7 +30,7 @@
  * @len: output buffer/digest size
  * @crt_idx: current byte index in buffer
  * @start_pending: true until the first streaming mode request has been sent
- * @stream: reserved MU stream, if any
+ * @stream: MU stream type channel acquired, if any
  */
 struct hse_ahash_ctx {
 	struct hse_srv_desc srv_desc;
@@ -133,7 +132,7 @@ static void hse_ahash_done(void *mu_inst, u8 channel, void *req)
 	u8 access_mode;
 	int err;
 
-	err = hse_mu_recv_response(mu_inst, channel);
+	err = hse_mu_async_req_recv(mu_inst, channel);
 	if (unlikely(err))
 		dev_dbg(halg->dev, "%s: hash/hmac request failed: %d\n",
 			__func__, err);
@@ -154,7 +153,7 @@ static void hse_ahash_done(void *mu_inst, u8 channel, void *req)
 	}
 
 	if (access_mode == HSE_ACCESS_MODE_FINISH && !err)
-		hse_mu_release_stream(halg->mu_inst, ctx->stream);
+		hse_mu_channel_release(halg->mu_inst, ctx->stream);
 
 	if (input_len > blocksize)
 		kfree(ctx->dyn_buf);
@@ -241,7 +240,7 @@ static int hse_ahash_update(struct ahash_request *req)
 		access_mode = HSE_ACCESS_MODE_START;
 		ctx->start_pending = false;
 
-		err = hse_mu_acquire_stream(halg->mu_inst, &ctx->stream);
+		err = hse_mu_channel_acquire(halg->mu_inst, &ctx->stream, true);
 		if (unlikely(err))
 			goto err_free_buf;
 	} else {
@@ -267,8 +266,8 @@ static int hse_ahash_update(struct ahash_request *req)
 		goto err_release_channel;
 	}
 
-	err = hse_mu_send_request(halg->mu_inst, ctx->stream,
-				  srv_desc_addr, req, hse_ahash_done);
+	err = hse_mu_async_req_send(halg->mu_inst, ctx->stream,
+				    srv_desc_addr, req, hse_ahash_done);
 	if (unlikely(err))
 		goto err_release_channel;
 
@@ -280,7 +279,7 @@ static int hse_ahash_update(struct ahash_request *req)
 	return -EINPROGRESS;
 err_release_channel:
 	if (access_mode == HSE_ACCESS_MODE_START)
-		hse_mu_release_stream(halg->mu_inst, ctx->stream);
+		hse_mu_channel_release(halg->mu_inst, ctx->stream);
 err_free_buf:
 	kfree(ctx->dyn_buf);
 	return err;
@@ -333,8 +332,8 @@ static int hse_ahash_final(struct ahash_request *req)
 		return -EIDRM;
 	}
 
-	err = hse_mu_send_request(halg->mu_inst, ctx->stream,
-				  srv_desc_addr, req, hse_ahash_done);
+	err = hse_mu_async_req_send(halg->mu_inst, ctx->stream,
+				    srv_desc_addr, req, hse_ahash_done);
 
 	return !err ? -EINPROGRESS : err;
 }
@@ -403,8 +402,8 @@ static int hse_ahash_finup(struct ahash_request *req)
 		goto err_free_buf;
 	}
 
-	err = hse_mu_send_request(halg->mu_inst, ctx->stream,
-				  srv_desc_addr, req, hse_ahash_done);
+	err = hse_mu_async_req_send(halg->mu_inst, ctx->stream,
+				    srv_desc_addr, req, hse_ahash_done);
 	if (unlikely(err))
 		goto err_free_buf;
 
@@ -469,8 +468,8 @@ static int hse_ahash_digest(struct ahash_request *req)
 
 	scatterwalk_map_and_copy(ctx->dyn_buf, req->src, 0, req->nbytes, 0);
 
-	err = hse_mu_send_request(halg->mu_inst, HSE_ANY_CHANNEL,
-				  srv_desc_addr, req, hse_ahash_done);
+	err = hse_mu_async_req_send(halg->mu_inst, HSE_ANY_CHANNEL,
+				    srv_desc_addr, req, hse_ahash_done);
 	if (unlikely(err))
 		goto err_free_buf;
 
@@ -501,7 +500,7 @@ static int hse_ahash_setkey(struct crypto_ahash *tfm, const u8 *key,
 	int err;
 
 	/* do not update the key if already imported */
-	if (strncmp(key, state->keybuf, keylen) == 0)
+	if (!crypto_memneq(key, state->keybuf, keylen))
 		return 0;
 
 	if (keylen > blocksize) {
@@ -518,8 +517,8 @@ static int hse_ahash_setkey(struct crypto_ahash *tfm, const u8 *key,
 		state->srv_desc.hash_req.hash_len = hse_addr(&state->keylen);
 		state->srv_desc.hash_req.hash = hse_addr(state->keybuf);
 
-		err = hse_mu_request_srv(halg->mu_inst, HSE_ANY_CHANNEL,
-					 srv_desc_addr);
+		err = hse_mu_sync_req(halg->mu_inst, HSE_ANY_CHANNEL,
+				      srv_desc_addr);
 		if (unlikely(err)) {
 			dev_dbg(halg->dev, "%s: key hash request failed: %d\n",
 				__func__, err);
@@ -547,8 +546,7 @@ static int hse_ahash_setkey(struct crypto_ahash *tfm, const u8 *key,
 	state->srv_desc.import_key_req.cipher_key = HSE_INVALID_KEY_HANDLE;
 	state->srv_desc.import_key_req.auth_key = HSE_INVALID_KEY_HANDLE;
 
-	err = hse_mu_request_srv(halg->mu_inst, HSE_ANY_CHANNEL,
-				 srv_desc_addr);
+	err = hse_mu_sync_req(halg->mu_inst, HSE_ANY_CHANNEL, srv_desc_addr);
 	if (unlikely(err))
 		dev_dbg(halg->dev, "%s: key import request failed: %d\n",
 			__func__, err);
@@ -557,7 +555,7 @@ static int hse_ahash_setkey(struct crypto_ahash *tfm, const u8 *key,
 }
 
 /**
- * hse_hash_cra_init - cryto algorithm init
+ * hse_ahash_cra_init - cryto algorithm init
  * @gtfm: generic crypto transformation
  */
 static int hse_ahash_cra_init(struct crypto_tfm *gtfm)
@@ -584,7 +582,7 @@ static int hse_ahash_cra_init(struct crypto_tfm *gtfm)
 }
 
 /**
- * hse_hash_cra_exit - cryto algorithm exit
+ * hse_ahash_cra_exit - cryto algorithm exit
  * @gtfm: generic crypto transformation
  */
 static void hse_ahash_cra_exit(struct crypto_tfm *gtfm)
@@ -704,7 +702,6 @@ void hse_hash_register(struct device *dev)
 	for (i = 0; i < ARRAY_SIZE(driver_hash); i++) {
 		struct hse_halg *halg;
 		const struct hse_hash_template *alg = &driver_hash[i];
-		const char *name;
 
 		/* register unkeyed hash */
 		halg = hse_hash_alloc(dev, false, alg);
@@ -712,15 +709,14 @@ void hse_hash_register(struct device *dev)
 			dev_err(dev, "failed to allocate %s\n", alg->hash_drv);
 			continue;
 		}
-		name = halg->ahash_alg.halg.base.cra_driver_name;
 
 		err = crypto_register_ahash(&halg->ahash_alg);
 		if (unlikely(err)) {
-			dev_err(dev, "failed to register %s: %d\n", name, err);
+			dev_err(dev, "failed to register alg %s: %d\n",
+				alg->hash_name, err);
 			continue;
 		} else {
 			list_add_tail(&halg->entry, &drvdata->hash_algs);
-			dev_info(dev, "successfully registered alg %s\n", name);
 		}
 
 		/* register hmac version */
@@ -729,16 +725,19 @@ void hse_hash_register(struct device *dev)
 			dev_err(dev, "failed to allocate %s\n", alg->hmac_drv);
 			continue;
 		}
-		name = halg->ahash_alg.halg.base.cra_driver_name;
 
 		err = crypto_register_ahash(&halg->ahash_alg);
 		if (unlikely(err)) {
-			dev_err(dev, "failed to register %s: %d\n", name, err);
+			dev_info(dev, "registered alg %s\n", alg->hash_name);
+			dev_err(dev, "failed to register alg %s: %d\n",
+				alg->hmac_name, err);
 			continue;
 		} else {
 			list_add_tail(&halg->entry, &drvdata->hash_algs);
-			dev_info(dev, "successfully registered alg %s\n", name);
 		}
+
+		dev_info(dev, "registered algs %s, %s\n", alg->hash_name,
+			 alg->hmac_name);
 	}
 }
 
@@ -750,18 +749,16 @@ void hse_hash_unregister(struct device *dev)
 {
 	struct hse_drvdata *drvdata = dev_get_drvdata(dev);
 	struct hse_halg *halg, *tmp;
-	const char *name;
 	int err;
 
 	if (unlikely(!drvdata->hash_algs.next))
 		return;
 
 	list_for_each_entry_safe(halg, tmp, &drvdata->hash_algs, entry) {
-		name = halg->ahash_alg.halg.base.cra_driver_name;
-
 		err = crypto_unregister_ahash(&halg->ahash_alg);
 		if (unlikely(err))
-			dev_warn(dev, "%s unregister failed: %d\n", name, err);
+			dev_warn(dev, "failed to unregister %s: %d\n",
+				 halg->ahash_alg.halg.base.cra_name, err);
 		else
 			list_del(&halg->entry);
 	}
