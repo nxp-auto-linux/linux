@@ -353,7 +353,9 @@
 			can0: flexcan@40055000 {
 				compatible = "fsl,s32v234-flexcan";
 				reg = <0x0 0x40055000 0x0 0x1000>;
-				interrupts = <0 42 4>;
+				interrupts = <0 41 4>,
+					     <0 42 4>;
+				interrupt-names = "state-berr", "mb";
 				clocks = <&clks S32V234_CLK_CAN0>,
 					 <&clks S32V234_CLK_CAN>;
 				clock-names = "ipg", "per";
@@ -666,7 +668,9 @@
 			can1: flexcan@400be000 {
 				compatible = "fsl,s32v234-flexcan";
 				reg = <0x0 0x400be000 0x0 0x1000>;
-				interrupts = <0 44 4>;
+				interrupts = <0 43 4>,
+					     <0 44 4>;
+				interrupt-names = "state-berr", "mb";
 				clocks = <&clks S32V234_CLK_CAN1>,
 					 <&clks S32V234_CLK_CAN>;
 				clock-names = "ipg", "per";
