@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: BSD 3-clause
 /*
- * NXP HSE Driver - HWRNG Support
+ * NXP HSE Driver - Hardware True RNG Support
  *
- * This file contains the kernel implementation for the hardware TRNG
- * algorithm supported by HSE.
+ * This file contains hw_random framework support for HSE hardware true RNG.
  *
  * Copyright 2019 NXP
  */
@@ -33,15 +32,16 @@ struct hse_rng_ctx {
 };
 
 /**
- * hwrng_read - read max bytes of data into buffer
- *              though crypto API expects up to max bytes, HSE will always
- *              provide as many bytes as requested
+ * hse_hwrng_read - read max bytes of data into buffer
  * @rng: hwrng instance
  * @data: destination buffer
  * @max: max bytes to read, multiple of 4 and >= 32 bytes
  * @wait: wait for data
+ *
+ * Though crypto API expects up to max bytes, HSE will always provide the
+ * exact number of bytes requested.
  */
-static int hwrng_read(struct hwrng *rng, void *data, size_t max, bool wait)
+static int hse_hwrng_read(struct hwrng *rng, void *data, size_t max, bool wait)
 {
 	struct hse_rng_ctx *ctx = (struct hse_rng_ctx *)rng->priv;
 	int err;
@@ -53,11 +53,9 @@ static int hwrng_read(struct hwrng *rng, void *data, size_t max, bool wait)
 	ctx->srv_desc.rng_req.random_num_len = max;
 	ctx->srv_desc.rng_req.random_num = hse_addr(data);
 
-	err = hse_mu_request_srv(ctx->mu_inst, HSE_ANY_CHANNEL,
-				  srv_desc_addr);
+	err = hse_mu_sync_req(ctx->mu_inst, HSE_ANY_CHANNEL, srv_desc_addr);
 	if (unlikely(err)) {
-		dev_dbg(ctx->dev, "%s: service response 0x%08X\n",
-			__func__, err);
+		dev_dbg(ctx->dev, "%s: request failed: %d\n", __func__, err);
 		return 0;
 	}
 
@@ -66,7 +64,7 @@ static int hwrng_read(struct hwrng *rng, void *data, size_t max, bool wait)
 
 static struct hwrng hse_rng = {
 	.name = "hwrng-hse",
-	.read = hwrng_read,
+	.read = hse_hwrng_read,
 	.quality = HSE_RNG_QUALITY,
 };
 
@@ -98,5 +96,5 @@ void hse_hwrng_register(struct device *dev)
 		return;
 	}
 
-	dev_info(dev, "successfully registered alg %s\n", name);
+	dev_info(dev, "registered %s\n", name);
 }
