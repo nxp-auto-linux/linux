@@ -16,18 +16,18 @@
 
 void *hse_mu_init(struct device *dev, int (*decode)(u32 srv_rsp));
 
-u16 hse_mu_get_status(void *mu_inst);
+u16 hse_mu_status(void *mu_inst);
 
-int hse_mu_acquire_stream(void *mu_inst, u8 *channel);
+int hse_mu_channel_acquire(void *mu_inst, u8 *channel, bool request_stream);
 
-int hse_mu_send_request(void *mu_inst, u8 channel, u32 srv_desc, void *ctx,
-			void (*rx_cbk)(void *mu_inst, u8 channel, void *ctx));
+int hse_mu_async_req_send(void *mu_inst, u8 channel, u32 srv_desc, void *ctx,
+			  void (*rx_cbk)(void *mu_inst, u8 channel, void *ctx));
 
-int hse_mu_recv_response(void *mu_inst, u8 channel);
+int hse_mu_async_req_recv(void *mu_inst, u8 channel);
 
-int hse_mu_request_srv(void *mu_inst, u8 channel, u32 srv_desc);
+int hse_mu_sync_req(void *mu_inst, u8 channel, u32 srv_desc);
 
-int hse_mu_release_stream(void *mu_inst, u8 channel);
+int hse_mu_channel_release(void *mu_inst, u8 channel);
 
 void hse_mu_free(void *mu_inst);
 
