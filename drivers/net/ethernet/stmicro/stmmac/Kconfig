@@ -57,6 +57,18 @@ config DWMAC_GENERIC
 	  platform specific code to function or is using platform
 	  data for setup.
 
+config DWMAC_S32CC
+	tristate "S32CC GMAC support"
+	default ARCH_S32
+	depends on OF && (ARCH_S32 || COMPILE_TEST) && SOC_S32CC
+	select MFD_SYSCON
+	help
+	  Support for ethernet controller on NXP S32CC SOCs.
+
+	  This selects NXP SoC glue layer support for the stmmac
+	  device driver. This driver is used on for the S32CC series
+	  SOCs GMAC ethernet controller.
+
 config DWMAC_ANARION
 	tristate "Adaptrum Anarion GMAC support"
 	default ARC
