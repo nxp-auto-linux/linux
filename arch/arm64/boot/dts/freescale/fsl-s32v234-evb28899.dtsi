@@ -1,5 +1,6 @@
 /*
- * Copyright 2018 NXP
+ * Copyright 2015-2016 Freescale Semiconductor, Inc.
+ * Copyright 2017-2018 NXP
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -7,11 +8,10 @@
  * (at your option) any later version.
  */
 
-#include "s32v234.dtsi"
+#include "fsl-s32v234.dtsi"
 / {
 	model = "Freescale S32V234";
-	compatible = "fsl,s32v234-ccpb", "fsl,s32v234",
-		"arm,vexpress,v2p-aarch64", "arm,vexpress";
+	compatible = "fsl,s32v234-evb28899", "fsl,s32v234", "arm,vexpress";
 
 	chosen {
 		bootargs = "console=ttyLF0,115200";
@@ -19,12 +19,12 @@
 
 	memory_DDR0@80000000 {
 		device_type = "memory";
-		reg = <0 0x80000000 0 0x40000000>;
+		reg = <0 0x80000000 0 0x10000000>;
 	};
 
 	memory_DDR1@c0000000 {
 		device_type = "memory";
-		reg = <0 0xc0000000 0 0x40000000>;
+		reg = <0 0xc0000000 0 0x10000000>;
 	};
 };
 
@@ -190,6 +190,12 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_i2c0>;
 	status = "okay";
+};
+
+&i2c1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_i2c1>;
+	status = "okay";
 
 	hdmi: sii9022a@39 {
 		compatible = "fsl,sii902x";
@@ -197,24 +203,10 @@
 	};
 };
 
-&i2c1 {
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_i2c1>;
-	status = "okay";
-};
-
 &i2c2 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_i2c2>;
 	status = "okay";
-
-	rtc@51 {
-		compatible = "nxp,pcf85263";
-		reg = <0x51>;
-
-		quartz-load-capacitance = <2>;
-		quartz-drive-strength = <1>;
-	};
 };
 
 &jpegdecoder {
@@ -244,22 +236,14 @@
 &pinctrl {
 	status = "okay";
 
-	s32v234-ccpb {
+	s32v234-evb {
+
 		pinctrl_can0: can0grp {
 			fsl,pins = <
 				S32V234_PAD_PA2__CAN_FD0_TXD
 				S32V234_PAD_PA3__CAN_FD0_RXD_OUT
 				S32V234_PAD_PA3__CAN_FD0_RXD_IN
-				/*
-				 * Configure pin C12 as GPIO[6] in MSCR#6.
-				 * Effect: the S-pin at CAN is not longer
-				 * flowting at ~0.75V, but driven to low ~0.0V.
-				 */
-				6	(PAD_CTL_MUX_MODE_ALT0 \
-						|PAD_CTL_OBE \
-						|PAD_CTL_DSE_34 \
-						|PAD_CTL_PUS_33K_UP)
-				>;
+			>;
 		};
 
 		pinctrl_can1: can1grp {
@@ -267,16 +251,7 @@
 				S32V234_PAD_PA4__CAN_FD1_TXD
 				S32V234_PAD_PA5__CAN_FD1_RXD_OUT
 				S32V234_PAD_PA5__CAN_FD1_RXD_IN
-				/*
-				 * Configure pin C11 as GPIO[7] in MSCR#7.
-				 * Effect: the S-pin at CAN is not longer
-				 * flowting at ~0.39V, but driven to low ~0.0V.
-				 */
-				7	(PAD_CTL_MUX_MODE_ALT0 \
-						|PAD_CTL_OBE \
-						|PAD_CTL_DSE_34 \
-						|PAD_CTL_PUS_33K_UP)
-				>;
+			>;
 		};
 
 		pinctrl_dcu: dcugrp {
@@ -309,7 +284,7 @@
 				S32V234_PAD_PK2__DCU_B5_D23
 				S32V234_PAD_PK3__DCU_B6_D24
 				S32V234_PAD_PK4__DCU_B7_D25
-			>;
+				>;
 		};
 
 		pinctrl_dspi0: dspi0grp {
@@ -524,7 +499,7 @@
 				S32V234_PAD_PL0__SIUL_GPIO160
 				S32V234_PAD_PL1__SIUL_GPIO161
 				S32V234_PAD_PL2__SIUL_GPIO162
-			>;
+				>;
 		};
 
 		pinctrl_gpioeirq: gpioeirqgrp {
@@ -566,10 +541,10 @@
 
 		pinctrl_i2c0: i2c0grp {
 			fsl,pins = <
-				S32V234_PAD_PA15__I2C0_DATA_OUT
-				S32V234_PAD_PA15__I2C0_DATA_IN
-				S32V234_PAD_PB0__I2C0_SCLK_OUT
-				S32V234_PAD_PB0__I2C0_SCLK_IN
+				S32V234_PAD_PG3__I2C0_DATA_OUT
+				S32V234_PAD_PG3__I2C0_DATA_IN
+				S32V234_PAD_PG4__I2C0_SCLK_OUT
+				S32V234_PAD_PG4__I2C0_SCLK_IN
 			>;
 		};
 
@@ -605,6 +580,33 @@
 			>;
 		};
 
+		pinctrl_qspi0: qspi0grp {
+			fsl,pins = <
+				S32V234_PAD_PK5__QSPI_A_CS0
+				S32V234_PAD_PF12__QSPI_A_CS1
+				S32V234_PAD_PK8__QSPI_A_DATA0_IN
+				S32V234_PAD_PK8__QSPI_A_DATA0_OUT
+				S32V234_PAD_PK9__QSPI_A_DATA1_IN
+				S32V234_PAD_PK9__QSPI_A_DATA1_OUT
+				S32V234_PAD_PK10__QSPI_A_DATA2_IN
+				S32V234_PAD_PK10__QSPI_A_DATA2_OUT
+				S32V234_PAD_PK11__QSPI_A_DATA3_IN
+				S32V234_PAD_PK11__QSPI_A_DATA3_OUT
+				S32V234_PAD_PK6__QSPI_A_SCK
+				S32V234_PAD_PK12__QSPI_B_CS0
+				S32V234_PAD_PF13__QSPI_B_CS1
+				S32V234_PAD_PK15__QSPI_B_DATA0_IN
+				S32V234_PAD_PK15__QSPI_B_DATA0_OUT
+				S32V234_PAD_PL0__QSPI_B_DATA1_IN
+				S32V234_PAD_PL0__QSPI_B_DATA1_OUT
+				S32V234_PAD_PL1__QSPI_B_DATA2_IN
+				S32V234_PAD_PL1__QSPI_B_DATA2_OUT
+				S32V234_PAD_PL2__QSPI_B_DATA3_IN
+				S32V234_PAD_PL2__QSPI_B_DATA3_OUT
+				S32V234_PAD_PK13__QSPI_B_SCK
+			>;
+		};
+
 		pinctrl_usdhc0: usdhc0grp {
 			fsl,pins = <
 				S32V234_PAD_PK6__USDHC_CLK_OUT
@@ -628,6 +630,92 @@
 				S32V234_PAD_PL2__USDHC_DAT7_OUT
 				S32V234_PAD_PL2__USDHC_DAT7_IN
 			>;
+		};
+
+		pinctrl_viulite0: viulite0grp {
+			fsl,pins = <
+				S32V234_PAD_PD13__VIU0_EN
+				S32V234_PAD_PD13__VIU0_PCLK
+				S32V234_PAD_PD14__VIU0_EN
+				S32V234_PAD_PD14__VIU0_HSYNC
+				S32V234_PAD_PD15__VIU0_EN
+				S32V234_PAD_PD15__VIU0_VSYNC
+				S32V234_PAD_PE0__VIU0_EN
+				S32V234_PAD_PE0__VIU0_D8
+				S32V234_PAD_PE1__VIU0_EN
+				S32V234_PAD_PE1__VIU0_D9
+				S32V234_PAD_PE2__VIU0_EN
+				S32V234_PAD_PE2__VIU0_D10
+				S32V234_PAD_PE3__VIU0_EN
+				S32V234_PAD_PE3__VIU0_D11
+				S32V234_PAD_PE4__VIU0_EN
+				S32V234_PAD_PE4__VIU0_D12
+				S32V234_PAD_PE5__VIU0_EN
+				S32V234_PAD_PE5__VIU0_D13
+				S32V234_PAD_PE6__VIU0_EN
+				S32V234_PAD_PE6__VIU0_D14
+				S32V234_PAD_PE7__VIU0_EN
+				S32V234_PAD_PE7__VIU0_D15
+				S32V234_PAD_PE8__VIU0_EN
+				S32V234_PAD_PE8__VIU0_D16
+				S32V234_PAD_PE9__VIU0_EN
+				S32V234_PAD_PE9__VIU0_D17
+				S32V234_PAD_PE10__VIU0_EN
+				S32V234_PAD_PE10__VIU0_D18
+				S32V234_PAD_PE11__VIU0_EN
+				S32V234_PAD_PE11__VIU0_D19
+				S32V234_PAD_PE12__VIU0_EN
+				S32V234_PAD_PE12__VIU0_D20
+				S32V234_PAD_PE13__VIU0_EN
+				S32V234_PAD_PE13__VIU0_D21
+				S32V234_PAD_PE14__VIU0_EN
+				S32V234_PAD_PE14__VIU0_D22
+				S32V234_PAD_PE15__VIU0_EN
+				S32V234_PAD_PE15__VIU0_D23
+				>;
+		};
+
+		pinctrl_viulite1: viulite1grp {
+			fsl,pins = <
+				S32V234_PAD_PF0__VIU1_EN
+				S32V234_PAD_PF0__VIU1_PCLK
+				S32V234_PAD_PF1__VIU1_EN
+				S32V234_PAD_PF1__VIU1_HSYNC
+				S32V234_PAD_PF2__VIU1_EN
+				S32V234_PAD_PF2__VIU1_VSYNC
+				S32V234_PAD_PF3__VIU_EN
+				S32V234_PAD_PF3__VIU1_D8
+				S32V234_PAD_PF4__VIU_EN
+				S32V234_PAD_PF4__VIU1_D9
+				S32V234_PAD_PF5__VIU_EN
+				S32V234_PAD_PF5__VIU1_D10
+				S32V234_PAD_PF6__VIU_EN
+				S32V234_PAD_PF6__VIU1_D11
+				S32V234_PAD_PF7__VIU1_EN
+				S32V234_PAD_PF7__VIU1_D12
+				S32V234_PAD_PF8__VIU1_EN
+				S32V234_PAD_PF8__VIU1_D13
+				S32V234_PAD_PF9__VIU1_EN
+				S32V234_PAD_PF9__VIU1_D14
+				S32V234_PAD_PF10__VIU1_EN
+				S32V234_PAD_PF10__VIU1_D15
+				S32V234_PAD_PF11__VIU1_EN
+				S32V234_PAD_PF11__VIU1_D16
+				S32V234_PAD_PF12__VIU1_EN
+				S32V234_PAD_PF12__VIU1_D17
+				S32V234_PAD_PF13__VIU1_EN
+				S32V234_PAD_PF13__VIU1_D18
+				S32V234_PAD_PF14__VIU1_EN
+				S32V234_PAD_PF14__VIU1_D19
+				S32V234_PAD_PF15__VIU1_EN
+				S32V234_PAD_PF15__VIU1_D20
+				S32V234_PAD_PG0__VIU1_EN
+				S32V234_PAD_PG0__VIU1_D21
+				S32V234_PAD_PG1__VIU1_EN
+				S32V234_PAD_PG1__VIU1_D22
+				S32V234_PAD_PG2__VIU1_EN
+				S32V234_PAD_PG2__VIU1_D23
+				>;
 		};
 
 	};
@@ -655,6 +743,10 @@
 		spi-max-frequency = <4000000>;
 		reg = <0>;
 	};
+};
+
+&tmu {
+	status = "okay";
 };
 
 &stm0 {
@@ -704,10 +796,18 @@
 	status = "okay";
 };
 
-&vseq {
+&viulite0{
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_viulite0>;
 	status = "okay";
 };
 
-&tmu {
+&viulite1{
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_viulite1>;
+	status = "okay";
+};
+
+&vseq {
 	status = "okay";
 };

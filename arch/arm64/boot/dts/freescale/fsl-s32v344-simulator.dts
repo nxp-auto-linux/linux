@@ -8,7 +8,7 @@
  */
 
 /dts-v1/;
-#include "s32-gen1.dtsi"
+#include "fsl-s32-gen1.dtsi"
 #include <dt-bindings/pinctrl/s32v344-pinctrl.h>
 / {
 	model = "Freescale S32V344";

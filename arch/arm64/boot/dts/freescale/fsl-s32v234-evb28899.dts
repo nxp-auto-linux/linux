@@ -9,10 +9,25 @@
  */
 
 /dts-v1/;
-#include "s32v234-evb28899.dtsi"
+#include "fsl-s32v234-evb28899.dtsi"
 
 &fec {
 	phy-mode = "rgmii";
-	fixed-link = <1 1 1000 0 0>;
+	phy-handle = <&phy0>;
+	status = "okay";
+	mdio {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		phy0: ethernet-phy@7 {
+			reg = <7>;
+		};
+	};
+};
+
+&dec200_dec {
+	status = "okay";
+};
+
+&dec200_enc {
 	status = "okay";
 };

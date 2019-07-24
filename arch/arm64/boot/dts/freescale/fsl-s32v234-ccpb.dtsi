@@ -1,6 +1,5 @@
 /*
- * Copyright 2015-2016 Freescale Semiconductor, Inc.
- * Copyright 2017-2018 NXP
+ * Copyright 2018 NXP
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -8,23 +7,24 @@
  * (at your option) any later version.
  */
 
-#include "s32v234.dtsi"
+#include "fsl-s32v234.dtsi"
 / {
 	model = "Freescale S32V234";
-	compatible = "fsl,s32v234-pcie", "fsl,s32v234", "arm,vexpress";
+	compatible = "fsl,s32v234-ccpb", "fsl,s32v234",
+		"arm,vexpress,v2p-aarch64", "arm,vexpress";
 
 	chosen {
-		bootargs = "console=ttyLF1,115200";
+		bootargs = "console=ttyLF0,115200";
 	};
 
 	memory_DDR0@80000000 {
 		device_type = "memory";
-		reg = <0 0x80000000 0 0x10000000>;
+		reg = <0 0x80000000 0 0x40000000>;
 	};
 
 	memory_DDR1@c0000000 {
 		device_type = "memory";
-		reg = <0 0xc0000000 0 0x10000000>;
+		reg = <0 0xc0000000 0 0x40000000>;
 	};
 };
 
@@ -190,12 +190,6 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_i2c0>;
 	status = "okay";
-};
-
-&i2c1 {
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_i2c1>;
-	status = "okay";
 
 	hdmi: sii9022a@39 {
 		compatible = "fsl,sii902x";
@@ -203,10 +197,24 @@
 	};
 };
 
+&i2c1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_i2c1>;
+	status = "okay";
+};
+
 &i2c2 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_i2c2>;
 	status = "okay";
+
+	rtc@51 {
+		compatible = "nxp,pcf85263";
+		reg = <0x51>;
+
+		quartz-load-capacitance = <2>;
+		quartz-drive-strength = <1>;
+	};
 };
 
 &jpegdecoder {
@@ -236,14 +244,22 @@
 &pinctrl {
 	status = "okay";
 
-	s32v234-pcie {
-
+	s32v234-ccpb {
 		pinctrl_can0: can0grp {
 			fsl,pins = <
 				S32V234_PAD_PA2__CAN_FD0_TXD
 				S32V234_PAD_PA3__CAN_FD0_RXD_OUT
 				S32V234_PAD_PA3__CAN_FD0_RXD_IN
-			>;
+				/*
+				 * Configure pin C12 as GPIO[6] in MSCR#6.
+				 * Effect: the S-pin at CAN is not longer
+				 * flowting at ~0.75V, but driven to low ~0.0V.
+				 */
+				6	(PAD_CTL_MUX_MODE_ALT0 \
+						|PAD_CTL_OBE \
+						|PAD_CTL_DSE_34 \
+						|PAD_CTL_PUS_33K_UP)
+				>;
 		};
 
 		pinctrl_can1: can1grp {
@@ -251,7 +267,16 @@
 				S32V234_PAD_PA4__CAN_FD1_TXD
 				S32V234_PAD_PA5__CAN_FD1_RXD_OUT
 				S32V234_PAD_PA5__CAN_FD1_RXD_IN
-			>;
+				/*
+				 * Configure pin C11 as GPIO[7] in MSCR#7.
+				 * Effect: the S-pin at CAN is not longer
+				 * flowting at ~0.39V, but driven to low ~0.0V.
+				 */
+				7	(PAD_CTL_MUX_MODE_ALT0 \
+						|PAD_CTL_OBE \
+						|PAD_CTL_DSE_34 \
+						|PAD_CTL_PUS_33K_UP)
+				>;
 		};
 
 		pinctrl_dcu: dcugrp {
@@ -259,7 +284,7 @@
 				S32V234_PAD_PH8__DCU_HSYNC_C1
 				S32V234_PAD_PH9__DCU_VSYNC_C2
 				S32V234_PAD_PH10__DCU_DE_C3
-				S32V234_PAD_PH12__DCU_PCLK_D1_DSE_34
+				S32V234_PAD_PH12__DCU_PCLK_D1_DSE_80
 				S32V234_PAD_PH13__DCU_R0_D2
 				S32V234_PAD_PH14__DCU_R1_D3
 				S32V234_PAD_PH15__DCU_R2_D4
@@ -284,7 +309,7 @@
 				S32V234_PAD_PK2__DCU_B5_D23
 				S32V234_PAD_PK3__DCU_B6_D24
 				S32V234_PAD_PK4__DCU_B7_D25
-				>;
+			>;
 		};
 
 		pinctrl_dspi0: dspi0grp {
@@ -499,7 +524,7 @@
 				S32V234_PAD_PL0__SIUL_GPIO160
 				S32V234_PAD_PL1__SIUL_GPIO161
 				S32V234_PAD_PL2__SIUL_GPIO162
-				>;
+			>;
 		};
 
 		pinctrl_gpioeirq: gpioeirqgrp {
@@ -541,10 +566,10 @@
 
 		pinctrl_i2c0: i2c0grp {
 			fsl,pins = <
-				S32V234_PAD_PG3__I2C0_DATA_OUT
-				S32V234_PAD_PG3__I2C0_DATA_IN
-				S32V234_PAD_PG4__I2C0_SCLK_OUT
-				S32V234_PAD_PG4__I2C0_SCLK_IN
+				S32V234_PAD_PA15__I2C0_DATA_OUT
+				S32V234_PAD_PA15__I2C0_DATA_IN
+				S32V234_PAD_PB0__I2C0_SCLK_OUT
+				S32V234_PAD_PB0__I2C0_SCLK_IN
 			>;
 		};
 
@@ -632,10 +657,6 @@
 	};
 };
 
-&tmu {
-	status = "okay";
-};
-
 &stm0 {
 	status = "okay";
 };
@@ -684,5 +705,9 @@
 };
 
 &vseq {
+	status = "okay";
+};
+
+&tmu {
 	status = "okay";
 };

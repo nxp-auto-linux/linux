@@ -1,6 +1,6 @@
 /*
  * Copyright 2015-2016 Freescale Semiconductor, Inc.
- * Copyright 2017 NXP
+ * Copyright 2017-2018 NXP
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -8,14 +8,13 @@
  * (at your option) any later version.
  */
 
-/dts-v1/;
-#include "s32v234.dtsi"
+#include "fsl-s32v234.dtsi"
 / {
 	model = "Freescale S32V234";
-	compatible = "fsl,s32v234-tmdp", "fsl,s32v234", "arm,vexpress";
+	compatible = "fsl,s32v234-pcie", "fsl,s32v234", "arm,vexpress";
 
 	chosen {
-		bootargs = "console=ttyLF0";
+		bootargs = "console=ttyLF1,115200";
 	};
 
 	memory_DDR0@80000000 {
@@ -35,6 +34,16 @@
 	status = "okay";
 };
 
+&can1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_can1>;
+	status = "okay";
+};
+
+&cse3 {
+	status = "okay";
+};
+
 &dcu0 {
 	display = <&display>;
 	status = "okay";
@@ -48,40 +57,100 @@
 		display-timings {
 			native-mode = <&timing2>;
 
-			timing0: hdmi-xga {
-				clock-frequency = <12690000>;
-				hactive = <1024>;
-				vactive = <768>;
-				vback-porch = <28>;
+			timing0: hdmi-fhd {
+				clock-frequency = <150000000>;
+				hactive = <1920>;
+				vactive = <1080>;
+				vback-porch = <36>;
+				vfront-porch = <4>;
+				hback-porch = <148>;
+				hfront-porch = <88>;
+				hsync-len = <45>;
+				vsync-len = <16>;
+			};
+
+			timing1: hdmi-wuxga {
+				clock-frequency = <150000000>;
+				hactive = <1920>;
+				vactive = <1200>;
+				vback-porch = <40>;
+				vfront-porch = <5>;
+				hback-porch = <65>;
+				hfront-porch = <13>;
+				hsync-len = <2>;
+				vsync-len = <5>;
+			};
+
+			timing2: hdmi-ntsc {
+				clock-frequency = <25000000>;
+				hactive = <720>;
+				vactive = <480>;
+				vback-porch = <10>;
 				vfront-porch = <1>;
-				hback-porch = <176>;
-				hfront-porch = <16>;
-				hsync-len = <96>;
+				hback-porch = <85>;
+				hfront-porch = <17>;
+				hsync-len = <21>;
 				vsync-len = <3>;
 			};
 
-			timing1: hdmi-wxga {
-				clock-frequency = <13468000>;
+			timing3: hdmi-pal {
+				clock-frequency = <50000000>;
+				hactive = <720>;
+				vactive = <576>;
+				vback-porch = <83>;
+				vfront-porch = <21>;
+				hback-porch = <385>;
+				hfront-porch = <24>;
+				hsync-len = <91>;
+				vsync-len = <3>;
+			};
+
+			timing4: hdmi-vga {
+				clock-frequency = <25000000>;
+				hactive = <640>;
+				vactive = <480>;
+				vback-porch = <33>;
+				vfront-porch = <9>;
+				hback-porch = <48>;
+				hfront-porch = <16>;
+				hsync-len = <91>;
+				vsync-len = <2>;
+			};
+
+			timing5: hdmi-wxga {
+				clock-frequency = <75000000>;
 				hactive = <1280>;
 				vactive = <720>;
 				vback-porch = <20>;
 				vfront-porch = <5>;
 				hback-porch = <220>;
 				hfront-porch = <110>;
-				hsync-len = <40>;
-				vsync-len = <5>;
+				hsync-len = <37>;
+				vsync-len = <14>;
 			};
 
-			timing2: lvds-fhd {
-				clock-frequency = <56000000>;
+			timing6: hdmi-xga {
+				clock-frequency = <75000000>;
+				hactive = <1024>;
+				vactive = <768>;
+				vback-porch = <49>;
+				vfront-porch = <10>;
+				hback-porch = <272>;
+				hfront-porch = <69>;
+				hsync-len = <136>;
+				vsync-len = <6>;
+			};
+
+			timing7: lvds-fhd {
+				clock-frequency = <150000000>;
 				hactive = <1920>;
 				vactive = <1080>;
-				hback-porch = <30>;
-				hfront-porch = <60>;
-				vback-porch = <30>;
-				vfront-porch = <3>;
-				hsync-len = <60>;
-				vsync-len = <3>;
+				vback-porch = <36>;
+				vfront-porch = <4>;
+				hback-porch = <148>;
+				hfront-porch = <88>;
+				hsync-len = <45>;
+				vsync-len = <16>;
 			};
 		};
 	};
@@ -96,8 +165,6 @@
 };
 
 &fec {
-	phy-mode = "rgmii";
-	fixed-link = <1 1 100 0 0>;
 	status = "okay";
 };
 
@@ -120,12 +187,15 @@
 };
 
 &i2c0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_i2c0>;
 	status = "okay";
 };
 
 &i2c1 {
-	status = "okay";
+	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_i2c1>;
+	status = "okay";
 
 	hdmi: sii9022a@39 {
 		compatible = "fsl,sii902x";
@@ -134,6 +204,12 @@
 };
 
 &i2c2 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_i2c2>;
+	status = "okay";
+};
+
+&jpegdecoder {
 	status = "okay";
 };
 
@@ -153,17 +229,29 @@
 	status = "okay";
 };
 
+&pcie {
+	status = "okay";
+};
+
 &pinctrl {
 	status = "okay";
 
-	s32v234-tmdp {
+	s32v234-pcie {
 
 		pinctrl_can0: can0grp {
 			fsl,pins = <
 				S32V234_PAD_PA2__CAN_FD0_TXD
 				S32V234_PAD_PA3__CAN_FD0_RXD_OUT
 				S32V234_PAD_PA3__CAN_FD0_RXD_IN
-				>;
+			>;
+		};
+
+		pinctrl_can1: can1grp {
+			fsl,pins = <
+				S32V234_PAD_PA4__CAN_FD1_TXD
+				S32V234_PAD_PA5__CAN_FD1_RXD_OUT
+				S32V234_PAD_PA5__CAN_FD1_RXD_IN
+			>;
 		};
 
 		pinctrl_dcu: dcugrp {
@@ -197,6 +285,53 @@
 				S32V234_PAD_PK3__DCU_B6_D24
 				S32V234_PAD_PK4__DCU_B7_D25
 				>;
+		};
+
+		pinctrl_dspi0: dspi0grp {
+			fsl,pins = <
+				S32V234_PAD_PB8__SPI0_CS0_OUT
+				S32V234_PAD_PB6__SPI0_SOUT_OUT
+				S32V234_PAD_PB5__SPI0_SCK_OUT
+				S32V234_PAD_PB7__SPI0_SIN_OUT
+				S32V234_PAD_PB7__SPI0_SIN_IN
+			>;
+		};
+
+		pinctrl_dspi3: dspi3grp {
+			fsl,pins = <
+				S32V234_PAD_PC4__SPI3_CS0_OUT
+				S32V234_PAD_PC2__SPI3_SOUT_OUT
+				S32V234_PAD_PC1__SPI3_SCK_OUT
+				S32V234_PAD_PC3__SPI3_SIN_OUT
+				S32V234_PAD_PC3__SPI3_SIN_IN
+			>;
+		};
+
+		pinctrl_enet: enetgrp {
+			fsl,pins = <
+				S32V234_PAD_PC13__MDC
+				S32V234_PAD_PC14__MDIO_OUT
+				S32v234_PAD_PC14__MDIO_IN
+				S32V234_PAD_PC15__TXCLK_OUT
+				S32V234_PAD_PC15__TXCLK_IN
+				S32V234_PAD_PD0__RXCLK_OUT
+				S32V234_PAD_PD0__RXCLK_IN
+				S32V234_PAD_PD1__RX_D0_OUT
+				S32V234_PAD_PD1__RX_D0_IN
+				S32V234_PAD_PD2__RX_D1_OUT
+				S32V234_PAD_PD2__RX_D1_IN
+				S32V234_PAD_PD3__RX_D2_OUT
+				S32V234_PAD_PD3__RX_D2_IN
+				S32V234_PAD_PD4__RX_D3_OUT
+				S32V234_PAD_PD4__RX_D3_IN
+				S32V234_PAD_PD4__RX_DV_OUT
+				S32V234_PAD_PD4__RX_DV_IN
+				S32V234_PAD_PD7__TX_D0_OUT
+				S32V234_PAD_PD8__TX_D1_OUT
+				S32V234_PAD_PD9__TX_D2_OUT
+				S32V234_PAD_PD10__TX_D3_OUT
+				S32V234_PAD_PD11__TX_EN_OUT
+			>;
 		};
 
 		pinctrl_gpio: gpiogrp {
@@ -404,6 +539,15 @@
 			>;
 		};
 
+		pinctrl_i2c0: i2c0grp {
+			fsl,pins = <
+				S32V234_PAD_PG3__I2C0_DATA_OUT
+				S32V234_PAD_PG3__I2C0_DATA_IN
+				S32V234_PAD_PG4__I2C0_SCLK_OUT
+				S32V234_PAD_PG4__I2C0_SCLK_IN
+			>;
+		};
+
 		pinctrl_i2c1: i2c1grp {
 			fsl,pins = <
 				S32V234_PAD_PG5__I2C1_DATA_OUT
@@ -413,9 +557,83 @@
 			>;
 		};
 
+		pinctrl_i2c2: i2c2grp {
+			fsl,pins = <
+				S32V234_PAD_PB3__I2C2_DATA_OUT
+				S32V234_PAD_PB3__I2C2_DATA_IN
+				S32V234_PAD_PB4__I2C2_SCLK_OUT
+				S32V234_PAD_PB4__I2C2_SCLK_IN
+			>;
+		};
 
+		pinctrl_uart0: uart0grp {
+			fsl,pins = <
+				S32V234_PAD_PA12__UART0_TXD_OUT
+				S32V234_PAD_PA11__UART0_RXD_IN
+			>;
+		};
+
+		pinctrl_uart1: uart1grp {
+			fsl,pins = <
+				S32V234_PAD_PA14__UART1_TXD_OUT
+				S32V234_PAD_PA13__UART1_RXD_IN
+			>;
+		};
+
+		pinctrl_usdhc0: usdhc0grp {
+			fsl,pins = <
+				S32V234_PAD_PK6__USDHC_CLK_OUT
+				S32V234_PAD_PK6__USDHC_CLK_IN
+				S32V234_PAD_PK7__USDHC_CMD_OUT
+				S32V234_PAD_PK7__USDHC_CMD_IN
+				S32V234_PAD_PK8__USDHC_DAT0_OUT
+				S32V234_PAD_PK8__USDHC_DAT0_IN
+				S32V234_PAD_PK9__USDHC_DAT1_OUT
+				S32V234_PAD_PK9__USDHC_DAT1_IN
+				S32V234_PAD_PK10__USDHC_DAT2_OUT
+				S32V234_PAD_PK10__USDHC_DAT2_IN
+				S32V234_PAD_PK11__USDHC_DAT3_OUT
+				S32V234_PAD_PK11__USDHC_DAT3_IN
+				S32V234_PAD_PK15__USDHC_DAT4_OUT
+				S32V234_PAD_PK15__USDHC_DAT4_IN
+				S32V234_PAD_PL0__USDHC_DAT5_OUT
+				S32V234_PAD_PL0__USDHC_DAT5_IN
+				S32V234_PAD_PL1__USDHC_DAT6_OUT
+				S32V234_PAD_PL1__USDHC_DAT6_IN
+				S32V234_PAD_PL2__USDHC_DAT7_OUT
+				S32V234_PAD_PL2__USDHC_DAT7_IN
+			>;
+		};
 
 	};
+};
+
+&spi0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_dspi0>;
+	status = "okay";
+};
+
+&spi3 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_dspi3>;
+	status = "okay";
+
+	/* This is an example entry to illustrate SPI device setup.
+	 * To be hooked up to the expansion port SPI3 CS0 for testing.
+	 */
+	spidev0: spidev@0 {
+		compatible = "spidev";
+		spi-max-frequency = <4000000>;
+		reg = <0>;
+	};
+};
+
+&tmu {
+	status = "okay";
 };
 
 &stm0 {
@@ -430,12 +648,38 @@
 	status = "okay";
 };
 
+&swt1 {
+	status = "okay";
+};
+
+&swt2 {
+	status = "okay";
+};
+
+&swt3 {
+	status = "okay";
+};
+
+&fccu {
+	status = "okay";
+};
+
 &uart0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_uart0>;
+	status = "okay";
+};
+
+&uart1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_uart1>;
 	status = "okay";
 };
 
 &usdhc0 {
 	no-1-8-V;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_usdhc0>;
 	status = "okay";
 };
 

@@ -1,6 +1,5 @@
 /*
- * Copyright 2015 Freescale Semiconductor, Inc.
- * Copyright 2017 NXP
+ * Copyright 2016 Freescale Semiconductor, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -9,25 +8,10 @@
  */
 
 /dts-v1/;
-#include "s32v234-evb28899.dtsi"
+#include "fsl-s32v234-pcie.dtsi"
 
 &fec {
 	phy-mode = "rgmii";
-	phy-handle = <&phy0>;
-	status = "okay";
-	mdio {
-		#address-cells = <1>;
-		#size-cells = <0>;
-		phy0: ethernet-phy@7 {
-			reg = <7>;
-		};
-	};
-};
-
-&dec200_dec {
-	status = "okay";
-};
-
-&dec200_enc {
+	fixed-link = <1 1 1000 0 0>;
 	status = "okay";
 };

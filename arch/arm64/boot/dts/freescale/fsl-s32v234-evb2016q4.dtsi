@@ -1,6 +1,6 @@
 /*
  * Copyright 2015-2016 Freescale Semiconductor, Inc.
- * Copyright 2017-2018 NXP
+ * Copyright 2016-2018 NXP
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -8,23 +8,13 @@
  * (at your option) any later version.
  */
 
-#include "s32v234.dtsi"
+#include "fsl-s32v234.dtsi"
 / {
 	model = "Freescale S32V234";
-	compatible = "fsl,s32v234-evb28899", "fsl,s32v234", "arm,vexpress";
+	compatible = "fsl,s32v234-evb2016q4", "fsl,s32v234", "arm,vexpress";
 
 	chosen {
 		bootargs = "console=ttyLF0,115200";
-	};
-
-	memory_DDR0@80000000 {
-		device_type = "memory";
-		reg = <0 0x80000000 0 0x10000000>;
-	};
-
-	memory_DDR1@c0000000 {
-		device_type = "memory";
-		reg = <0 0xc0000000 0 0x10000000>;
 	};
 };
 
@@ -41,6 +31,14 @@
 };
 
 &cse3 {
+	status = "okay";
+};
+
+&dec200_dec {
+	status = "okay";
+};
+
+&dec200_enc {
 	status = "okay";
 };
 
@@ -254,56 +252,17 @@
 			>;
 		};
 
-		pinctrl_dcu: dcugrp {
-			fsl,pins = <
-				S32V234_PAD_PH8__DCU_HSYNC_C1
-				S32V234_PAD_PH9__DCU_VSYNC_C2
-				S32V234_PAD_PH10__DCU_DE_C3
-				S32V234_PAD_PH12__DCU_PCLK_D1_DSE_80
-				S32V234_PAD_PH13__DCU_R0_D2
-				S32V234_PAD_PH14__DCU_R1_D3
-				S32V234_PAD_PH15__DCU_R2_D4
-				S32V234_PAD_PJ0__DCU_R3_D5
-				S32V234_PAD_PJ1__DCU_R4_D6
-				S32V234_PAD_PJ2__DCU_R5_D7
-				S32V234_PAD_PJ3__DCU_R6_D8
-				S32V234_PAD_PJ4__DCU_R7_D9
-				S32V234_PAD_PJ5__DCU_G0_D10
-				S32V234_PAD_PJ6__DCU_G1_D11
-				S32V234_PAD_PJ7__DCU_G2_D12
-				S32V234_PAD_PJ8__DCU_G3_D13
-				S32V234_PAD_PJ9__DCU_G4_D14
-				S32V234_PAD_PJ10__DCU_G5_D15
-				S32V234_PAD_PJ11__DCU_G6_D16
-				S32V234_PAD_PJ12__DCU_G7_D17
-				S32V234_PAD_PJ13__DCU_B0_D18
-				S32V234_PAD_PJ14__DCU_B1_D19
-				S32V234_PAD_PJ15__DCU_B2_D20
-				S32V234_PAD_PK0__DCU_B3_D21
-				S32V234_PAD_PK1__DCU_B4_D22
-				S32V234_PAD_PK2__DCU_B5_D23
-				S32V234_PAD_PK3__DCU_B6_D24
-				S32V234_PAD_PK4__DCU_B7_D25
-				>;
-		};
-
 		pinctrl_dspi0: dspi0grp {
 			fsl,pins = <
 				S32V234_PAD_PB8__SPI0_CS0_OUT
+				S32V234_PAD_PC0__SPI0_CS4_OUT
+				S32V234_PAD_PC1__SPI0_CS5_OUT
+				S32V234_PAD_PC2__SPI0_CS6_OUT
+				S32V234_PAD_PC3__SPI0_CS7_OUT
 				S32V234_PAD_PB6__SPI0_SOUT_OUT
 				S32V234_PAD_PB5__SPI0_SCK_OUT
 				S32V234_PAD_PB7__SPI0_SIN_OUT
 				S32V234_PAD_PB7__SPI0_SIN_IN
-			>;
-		};
-
-		pinctrl_dspi3: dspi3grp {
-			fsl,pins = <
-				S32V234_PAD_PC4__SPI3_CS0_OUT
-				S32V234_PAD_PC2__SPI3_SOUT_OUT
-				S32V234_PAD_PC1__SPI3_SCK_OUT
-				S32V234_PAD_PC3__SPI3_SIN_OUT
-				S32V234_PAD_PC3__SPI3_SIN_IN
 			>;
 		};
 
@@ -580,33 +539,6 @@
 			>;
 		};
 
-		pinctrl_qspi0: qspi0grp {
-			fsl,pins = <
-				S32V234_PAD_PK5__QSPI_A_CS0
-				S32V234_PAD_PF12__QSPI_A_CS1
-				S32V234_PAD_PK8__QSPI_A_DATA0_IN
-				S32V234_PAD_PK8__QSPI_A_DATA0_OUT
-				S32V234_PAD_PK9__QSPI_A_DATA1_IN
-				S32V234_PAD_PK9__QSPI_A_DATA1_OUT
-				S32V234_PAD_PK10__QSPI_A_DATA2_IN
-				S32V234_PAD_PK10__QSPI_A_DATA2_OUT
-				S32V234_PAD_PK11__QSPI_A_DATA3_IN
-				S32V234_PAD_PK11__QSPI_A_DATA3_OUT
-				S32V234_PAD_PK6__QSPI_A_SCK
-				S32V234_PAD_PK12__QSPI_B_CS0
-				S32V234_PAD_PF13__QSPI_B_CS1
-				S32V234_PAD_PK15__QSPI_B_DATA0_IN
-				S32V234_PAD_PK15__QSPI_B_DATA0_OUT
-				S32V234_PAD_PL0__QSPI_B_DATA1_IN
-				S32V234_PAD_PL0__QSPI_B_DATA1_OUT
-				S32V234_PAD_PL1__QSPI_B_DATA2_IN
-				S32V234_PAD_PL1__QSPI_B_DATA2_OUT
-				S32V234_PAD_PL2__QSPI_B_DATA3_IN
-				S32V234_PAD_PL2__QSPI_B_DATA3_OUT
-				S32V234_PAD_PK13__QSPI_B_SCK
-			>;
-		};
-
 		pinctrl_usdhc0: usdhc0grp {
 			fsl,pins = <
 				S32V234_PAD_PK6__USDHC_CLK_OUT
@@ -632,92 +564,6 @@
 			>;
 		};
 
-		pinctrl_viulite0: viulite0grp {
-			fsl,pins = <
-				S32V234_PAD_PD13__VIU0_EN
-				S32V234_PAD_PD13__VIU0_PCLK
-				S32V234_PAD_PD14__VIU0_EN
-				S32V234_PAD_PD14__VIU0_HSYNC
-				S32V234_PAD_PD15__VIU0_EN
-				S32V234_PAD_PD15__VIU0_VSYNC
-				S32V234_PAD_PE0__VIU0_EN
-				S32V234_PAD_PE0__VIU0_D8
-				S32V234_PAD_PE1__VIU0_EN
-				S32V234_PAD_PE1__VIU0_D9
-				S32V234_PAD_PE2__VIU0_EN
-				S32V234_PAD_PE2__VIU0_D10
-				S32V234_PAD_PE3__VIU0_EN
-				S32V234_PAD_PE3__VIU0_D11
-				S32V234_PAD_PE4__VIU0_EN
-				S32V234_PAD_PE4__VIU0_D12
-				S32V234_PAD_PE5__VIU0_EN
-				S32V234_PAD_PE5__VIU0_D13
-				S32V234_PAD_PE6__VIU0_EN
-				S32V234_PAD_PE6__VIU0_D14
-				S32V234_PAD_PE7__VIU0_EN
-				S32V234_PAD_PE7__VIU0_D15
-				S32V234_PAD_PE8__VIU0_EN
-				S32V234_PAD_PE8__VIU0_D16
-				S32V234_PAD_PE9__VIU0_EN
-				S32V234_PAD_PE9__VIU0_D17
-				S32V234_PAD_PE10__VIU0_EN
-				S32V234_PAD_PE10__VIU0_D18
-				S32V234_PAD_PE11__VIU0_EN
-				S32V234_PAD_PE11__VIU0_D19
-				S32V234_PAD_PE12__VIU0_EN
-				S32V234_PAD_PE12__VIU0_D20
-				S32V234_PAD_PE13__VIU0_EN
-				S32V234_PAD_PE13__VIU0_D21
-				S32V234_PAD_PE14__VIU0_EN
-				S32V234_PAD_PE14__VIU0_D22
-				S32V234_PAD_PE15__VIU0_EN
-				S32V234_PAD_PE15__VIU0_D23
-				>;
-		};
-
-		pinctrl_viulite1: viulite1grp {
-			fsl,pins = <
-				S32V234_PAD_PF0__VIU1_EN
-				S32V234_PAD_PF0__VIU1_PCLK
-				S32V234_PAD_PF1__VIU1_EN
-				S32V234_PAD_PF1__VIU1_HSYNC
-				S32V234_PAD_PF2__VIU1_EN
-				S32V234_PAD_PF2__VIU1_VSYNC
-				S32V234_PAD_PF3__VIU_EN
-				S32V234_PAD_PF3__VIU1_D8
-				S32V234_PAD_PF4__VIU_EN
-				S32V234_PAD_PF4__VIU1_D9
-				S32V234_PAD_PF5__VIU_EN
-				S32V234_PAD_PF5__VIU1_D10
-				S32V234_PAD_PF6__VIU_EN
-				S32V234_PAD_PF6__VIU1_D11
-				S32V234_PAD_PF7__VIU1_EN
-				S32V234_PAD_PF7__VIU1_D12
-				S32V234_PAD_PF8__VIU1_EN
-				S32V234_PAD_PF8__VIU1_D13
-				S32V234_PAD_PF9__VIU1_EN
-				S32V234_PAD_PF9__VIU1_D14
-				S32V234_PAD_PF10__VIU1_EN
-				S32V234_PAD_PF10__VIU1_D15
-				S32V234_PAD_PF11__VIU1_EN
-				S32V234_PAD_PF11__VIU1_D16
-				S32V234_PAD_PF12__VIU1_EN
-				S32V234_PAD_PF12__VIU1_D17
-				S32V234_PAD_PF13__VIU1_EN
-				S32V234_PAD_PF13__VIU1_D18
-				S32V234_PAD_PF14__VIU1_EN
-				S32V234_PAD_PF14__VIU1_D19
-				S32V234_PAD_PF15__VIU1_EN
-				S32V234_PAD_PF15__VIU1_D20
-				S32V234_PAD_PG0__VIU1_EN
-				S32V234_PAD_PG0__VIU1_D21
-				S32V234_PAD_PG1__VIU1_EN
-				S32V234_PAD_PG1__VIU1_D22
-				S32V234_PAD_PG2__VIU1_EN
-				S32V234_PAD_PG2__VIU1_D23
-				>;
-		};
-
 	};
 };
 
@@ -725,23 +571,17 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_dspi0>;
 	status = "okay";
-};
 
-&spi3 {
-	#address-cells = <1>;
-	#size-cells = <0>;
-
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_dspi3>;
-	status = "okay";
-
-	/* This is an example entry to illustrate SPI device setup.
-	 * To be hooked up to the expansion port SPI3 CS0 for testing.
-	 */
-	spidev0: spidev@0 {
+	tja1145_0: spidev@6 {
 		compatible = "spidev";
 		spi-max-frequency = <4000000>;
-		reg = <0>;
+		reg = <6>;
+	};
+
+	tja1145_1: spidev@7 {
+		compatible = "spidev";
+		spi-max-frequency = <4000000>;
+		reg = <7>;
 	};
 };
 
@@ -793,18 +633,6 @@
 	no-1-8-V;
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_usdhc0>;
-	status = "okay";
-};
-
-&viulite0{
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_viulite0>;
-	status = "okay";
-};
-
-&viulite1{
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_viulite1>;
 	status = "okay";
 };
 
