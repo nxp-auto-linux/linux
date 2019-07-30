@@ -123,9 +123,9 @@
 		};
 
 		/* 4Mb shared memory */
-		shared_memory: shm@0xFD000000 {
+		shared_memory: shm@0xC1000000 {
 			compatible = "fsl,s32v234-shm";
-			reg = <0x0 0xFD000000 0x0 0x400000>;    /* 4 MB */
+			reg = <0x0 0xC1000000 0x0 0x400000>;    /* 4 MB */
 			no-map;
 		};
 	};
