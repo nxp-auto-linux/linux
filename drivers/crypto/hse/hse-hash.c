@@ -480,6 +480,22 @@ err_free_buf:
 }
 
 /**
+ * HSE doesn't support import/export operations
+ */
+static int hse_ahash_export(struct ahash_request *req, void *out)
+{
+	return -EOPNOTSUPP;
+}
+
+/**
+ * HSE doesn't support import/export operations
+ */
+static int hse_ahash_import(struct ahash_request *req, const void *in)
+{
+	return -EOPNOTSUPP;
+}
+
+/**
  * hse_ahash_setkey - asynchronous hash setkey operation
  * @tfm: crypto ahash transformation
  * @key: input key
@@ -657,6 +673,8 @@ static struct hse_halg *hse_hash_alloc(struct device *dev, bool keyed,
 	halg->ahash_alg.final = hse_ahash_final;
 	halg->ahash_alg.finup = hse_ahash_finup;
 	halg->ahash_alg.digest = hse_ahash_digest;
+	halg->ahash_alg.export = hse_ahash_export;
+	halg->ahash_alg.import = hse_ahash_import;
 	halg->ahash_alg.halg.statesize = sizeof(struct hse_ahash_state);
 
 	if (keyed) {
