@@ -2,7 +2,7 @@
 /*
  * Copyright 2015-2016 Freescale Semiconductor, Inc.
  * Copyright 2017 MicroSys Electronics GmbH
- * Copyright 2018-2019 NXP
+ * Copyright 2018-2020 NXP
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -16,7 +16,7 @@
 	compatible = "fsl,s32v234-sbc", "fsl,s32v234";
 
 	chosen {
-		bootargs = "console=ttyLF0,115200";
+		stdout-path = "serial0:115200n8";
 	};
 
 	memory_DDR0@80000000 {
