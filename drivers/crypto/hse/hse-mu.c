@@ -338,14 +338,14 @@ static void hse_mu_irq_disable(void *mu_inst, enum hse_irq_type type, u32 mask)
 static void hse_mu_irq_clear(void *mu_inst, enum hse_irq_type type, u32 mask)
 {
 	struct hse_mu_data *priv = mu_inst;
-	u32 gierval;
+	u32 gsrval;
 
 	if (unlikely(type != HSE_MU_INT_SYS_EVENT))
 		return;
 
-	gierval = ioread32(&priv->regs->gier);
-	gierval |= mask & HSE_CH_MASK_ALL;
-	iowrite32(gierval, &priv->regs->gier);
+	gsrval = ioread32(&priv->regs->gsr);
+	gsrval |= mask & HSE_CH_MASK_ALL;
+	iowrite32(gsrval, &priv->regs->gsr);
 }
 
 /**
