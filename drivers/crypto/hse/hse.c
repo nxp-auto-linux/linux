@@ -124,9 +124,9 @@ static int hse_probe(struct platform_device *pdev)
 	if (IS_ERR(pdata->mu_inst))
 		return PTR_ERR(pdata->mu_inst);
 
-	init_ok_mask = HSE_STATUS_INIT_OK | HSE_STATUS_RNG_INIT_OK |
-		       HSE_STATUS_INSTALL_OK | HSE_STATUS_BOOT_OK;
-
+	init_ok_mask = HSE_STATUS_INIT_OK | HSE_STATUS_INSTALL_OK;
+	if (IS_ENABLED(CONFIG_CRYPTO_DEV_NXP_HSE_HWRNG))
+		init_ok_mask |= HSE_STATUS_RNG_INIT_OK;
 	status = hse_mu_status(pdata->mu_inst);
 	if (unlikely((status & init_ok_mask) != init_ok_mask)) {
 		dev_err(&pdev->dev, "init failed with status 0x%04X\n", status);
