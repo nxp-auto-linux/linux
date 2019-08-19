@@ -107,10 +107,9 @@ static int hse_skcipher_setkey(struct crypto_skcipher *skcipher, const u8 *key,
 		}
 	}
 
-	memcpy(&state->keybuf, key, keylen);
+	memcpy(state->keybuf, key, keylen);
 
-	state->key_info.key_flags = HSE_KF_MU_INST | HSE_KF_USAGE_ENCRYPT |
-			      HSE_KF_USAGE_DECRYPT;
+	state->key_info.key_flags = HSE_KF_USAGE_ENCRYPT | HSE_KF_USAGE_DECRYPT;
 	state->key_info.key_bit_len = keylen << 3;
 
 	if (hsealg->cipher_type == HSE_CIPHER_ALGO_AES)
@@ -123,7 +122,7 @@ static int hse_skcipher_setkey(struct crypto_skcipher *skcipher, const u8 *key,
 		state->crt_key->handle;
 	state->key_srv_desc.import_key_req.key_info =
 		hse_addr(&state->key_info);
-	state->key_srv_desc.import_key_req.key = hse_addr(&state->keybuf);
+	state->key_srv_desc.import_key_req.key = hse_addr(state->keybuf);
 	state->key_srv_desc.import_key_req.key_len = keylen;
 	state->key_srv_desc.import_key_req.cipher_key = HSE_INVALID_KEY_HANDLE;
 	state->key_srv_desc.import_key_req.auth_key = HSE_INVALID_KEY_HANDLE;
@@ -201,7 +200,7 @@ static int hse_skcipher_crypt(struct skcipher_request *req, u8 direction)
 		return -ENOMEM;
 
 	/* Make sure IV is located in a DMAable area */
-	memcpy(&ctx->iv, req->iv, ivsize);
+	memcpy(ctx->iv, req->iv, ivsize);
 
 	ctx->srv_desc.srv_id = HSE_SRV_ID_SYM_CIPHER;
 	ctx->srv_desc.priority = HSE_SRV_PRIO_LOW;
@@ -212,7 +211,7 @@ static int hse_skcipher_crypt(struct skcipher_request *req, u8 direction)
 	ctx->srv_desc.skcipher_req.cipher_dir = direction;
 	ctx->srv_desc.skcipher_req.key_handle = state->crt_key->handle;
 	ctx->srv_desc.skcipher_req.iv_len = ivsize;
-	ctx->srv_desc.skcipher_req.iv = hse_addr(&ctx->iv);
+	ctx->srv_desc.skcipher_req.iv = hse_addr(ctx->iv);
 	ctx->srv_desc.skcipher_req.input_len = req->cryptlen;
 	ctx->srv_desc.skcipher_req.input = hse_addr(ctx->buf);
 	ctx->srv_desc.skcipher_req.output = hse_addr(ctx->buf);
