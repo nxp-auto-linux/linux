@@ -117,10 +117,9 @@ static int hse_gcm_setkey(struct crypto_aead *tfm, const u8 *key,
 				     16, 4, key, keylen, false);
 
 	/* Make sure key is located in a DMAable area */
-	memcpy(&tctx->key_buf, key, keylen);
+	memcpy(tctx->key_buf, key, keylen);
 
-	tctx->key_info.key_flags = HSE_KF_MU_INST | HSE_KF_USAGE_ENCRYPT |
-				   HSE_KF_USAGE_DECRYPT;
+	tctx->key_info.key_flags = HSE_KF_USAGE_ENCRYPT | HSE_KF_USAGE_DECRYPT;
 	tctx->key_info.key_bit_len = keylen * BITS_PER_BYTE;
 	tctx->key_info.key_type = HSE_KEY_TYPE_AES;
 
@@ -516,7 +515,7 @@ void hse_aead_register(struct device *dev)
 	/* register crypto algorithms the device supports */
 	for (i = 0; i < ARRAY_SIZE(aead_algs); i++) {
 		struct hse_aead_alg *alg = &aead_algs[i];
-		const char *name = alg->aead.base.cra_driver_name;
+		const char *name = alg->aead.base.cra_name;
 
 		alg->dev = dev;
 		alg->mu_inst = drvdata->mu_inst;

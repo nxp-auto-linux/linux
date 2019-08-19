@@ -45,10 +45,10 @@ enum hse_status {
  */
 enum hse_srv_id {
 	HSE_SRV_ID_IMPORT_KEY = 0x00000104ul,
-	HSE_SRV_ID_HASH = 0x00000200ul,
-	HSE_SRV_ID_MAC = 0x00000201ul,
-	HSE_SRV_ID_SYM_CIPHER = 0x00000203ul,
-	HSE_SRV_ID_AEAD = 0x00000205ul,
+	HSE_SRV_ID_HASH = 0x00A50200ul,
+	HSE_SRV_ID_MAC = 0x00A50201ul,
+	HSE_SRV_ID_SYM_CIPHER = 0x00A50202ul,
+	HSE_SRV_ID_AEAD = 0x00A50203ul,
 	HSE_SRV_ID_GET_RANDOM_NUM = 0x00000300ul,
 };
 
@@ -196,16 +196,14 @@ enum hse_auth_dir {
 
 /**
  * enum hse_key_flags - key properties
- * @HSE_KF_MU_INST: key used on current MU instance
  * @HSE_KF_USAGE_ENCRYPT: key used for encryption
  * @HSE_KF_USAGE_DECRYPT: key used for decryption
  * @HSE_KF_USAGE_SIGN: key used for MAC generation
  */
 enum hse_key_flags {
-	HSE_KF_MU_INST = BIT(CONFIG_CRYPTO_DEV_NXP_HSE_MU_ID),
-	HSE_KF_USAGE_ENCRYPT = BIT(4),
-	HSE_KF_USAGE_DECRYPT = BIT(5),
-	HSE_KF_USAGE_SIGN = BIT(6),
+	HSE_KF_USAGE_ENCRYPT = BIT(0),
+	HSE_KF_USAGE_DECRYPT = BIT(1),
+	HSE_KF_USAGE_SIGN = BIT(2),
 };
 
 /**
@@ -445,7 +443,7 @@ struct hse_import_key_srv {
 	u32 cipher_key;
 	u8 reserved3[32];
 	u32 auth_key;
-	u8 reserved4[28];
+	u8 reserved4[36];
 } __packed;
 
 /**
