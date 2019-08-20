@@ -134,8 +134,8 @@ static int hse_gcm_setkey(struct crypto_aead *tfm, const u8 *key,
 	tctx->key_desc.priority = HSE_SRV_PRIO_HIGH;
 
 	tctx->key_desc.import_key_req.key_handle = tctx->key_handle->handle;
-	tctx->key_desc.import_key_req.key_info = _hse_addr(tctx->key_info_dma);
-	tctx->key_desc.import_key_req.key = _hse_addr(tctx->key_buf_dma);
+	tctx->key_desc.import_key_req.key_info = tctx->key_info_dma;
+	tctx->key_desc.import_key_req.key = tctx->key_buf_dma;
 	tctx->key_desc.import_key_req.key_len = keylen;
 	tctx->key_desc.import_key_req.cipher_key = HSE_INVALID_KEY_HANDLE;
 	tctx->key_desc.import_key_req.auth_key = HSE_INVALID_KEY_HANDLE;
@@ -153,7 +153,7 @@ static int hse_gcm_setkey(struct crypto_aead *tfm, const u8 *key,
 	}
 
 	err = hse_mu_sync_req(alg->mu_inst, HSE_ANY_CHANNEL,
-			      lower_32_bits(_hse_addr(tctx->key_desc_dma)));
+			      lower_32_bits(tctx->key_desc_dma));
 	if (unlikely(err))
 		dev_dbg(alg->dev, "%s: key import request failed: %d\n",
 			__func__, err);
@@ -304,9 +304,9 @@ static int hse_gcm_crypt(struct aead_request *req, bool encrypt)
 		encrypt ? HSE_CIPHER_DIR_ENCRYPT : HSE_CIPHER_DIR_DECRYPT;
 	hse_req->key_handle = tctx->key_handle->handle;
 	hse_req->iv_len = ivlen;
-	hse_req->iv = _hse_addr(rctx->iv_dma);
+	hse_req->iv = rctx->iv_dma;
 	hse_req->aad_len = req->assoclen;
-	hse_req->aad = _hse_addr(rctx->buf_dma);
+	hse_req->aad = rctx->buf_dma;
 	hse_req->input_len = cryptlen;
 	hse_req->input = hse_req->aad + req->assoclen;
 	hse_req->tag_len = maclen;
@@ -333,7 +333,7 @@ static int hse_gcm_crypt(struct aead_request *req, bool encrypt)
 
 	rctx->encrypt = encrypt;
 	err = hse_mu_async_req_send(alg->mu_inst, tctx->channel,
-				    lower_32_bits(_hse_addr(rctx->desc_dma)),
+				    lower_32_bits(rctx->desc_dma),
 				    req, hse_aead_done);
 	if (err)
 		goto err_unmap_desc;
