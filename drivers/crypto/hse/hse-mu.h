@@ -11,6 +11,8 @@
 #ifndef HSE_MU_H
 #define HSE_MU_H
 
+#define HSE_MU_INST    "mu" __stringify(CONFIG_CRYPTO_DEV_NXP_HSE_MU_ID) "b"
+
 #define HSE_ANY_CHANNEL        0xACu
 #define HSE_INVALID_CHANNEL    0xFFu
 
