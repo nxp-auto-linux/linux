@@ -177,6 +177,7 @@ static void hse_remove(struct platform_device *pdev)
 
 static const struct of_device_id hse_of_match[] = {
 	{
+		.name = HSE_MU_INST,
 		.compatible = "nxp,s32cc-hse"
 	}, {}
 };
@@ -195,5 +196,5 @@ module_platform_driver(hse_driver);
 
 MODULE_AUTHOR("NXP");
 MODULE_LICENSE("Dual BSD/GPL");
-MODULE_ALIAS_CRYPTO("nxp_hse");
+MODULE_ALIAS_CRYPTO(KBUILD_MODNAME);
 MODULE_DESCRIPTION("NXP Hardware Security Engine (HSE) Driver");
