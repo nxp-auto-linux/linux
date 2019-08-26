@@ -527,16 +527,29 @@ int hse_mu_sync_req(void *mu_inst, u8 channel, u32 srv_desc)
 
 /**
  * hse_mu_rx_handler - ISR for HSE_MU_INT_RESPONSE type interrupts
- * @irq: interrupt index
+ * @irq: interrupt line
  * @mu_inst: MU instance
  */
 static irqreturn_t hse_mu_rx_handler(int irq, void *mu_inst)
 {
+	hse_mu_irq_disable(mu_inst, HSE_MU_INT_RESPONSE, HSE_CH_MASK_ALL);
+
+	return IRQ_WAKE_THREAD;
+}
+
+/**
+ * hse_rx_soft_handler - deferred handler for HSE_MU_INT_RESPONSE interrupts
+ * @irq: interrupt line
+ * @mu_inst: MU instance
+ *
+ * For each pending service response, execute the upper layer callback in case
+ * of an asynchronous request or signal completion of a synchronous request.
+ */
+static irqreturn_t hse_rx_soft_handler(int irq, void *mu_inst)
+{
 	struct hse_mu_data *priv = mu_inst;
 	u8 channel;
 	void *ctx;
-
-	hse_mu_irq_disable(mu_inst, HSE_MU_INT_RESPONSE, HSE_CH_MASK_ALL);
 
 	for (channel = 0; channel < HSE_NUM_CHANNELS; channel++)
 		if (hse_mu_response_ready(mu_inst, channel)) {
@@ -570,17 +583,19 @@ u16 hse_mu_status(void *mu_inst)
 
 /**
  * hse_mu_err_handler - ISR for HSE_MU_INT_SYS_EVENT type interrupts
- * @irq: interrupt index
+ * @irq: interrupt line
  * @mu_inst: MU instance
  */
 static irqreturn_t hse_mu_err_handler(int irq, void *mu_inst)
 {
 	struct hse_mu_data *priv = mu_inst;
 	u16 status = hse_mu_status(mu_inst);
+	u32 gsrval = ioread32(&priv->regs->gsr);
 
-	hse_mu_irq_clear(mu_inst, HSE_MU_INT_SYS_EVENT, HSE_CH_MASK_ALL);
+	dev_crit(priv->dev, "system error 0x%x reported, status 0x%04x\n",
+		 gsrval, status);
 
-	dev_crit(priv->dev, "system error reported, status 0x%04X\n", status);
+	hse_mu_irq_clear(mu_inst, HSE_MU_INT_SYS_EVENT, gsrval);
 
 	return IRQ_HANDLED;
 }
@@ -626,8 +641,9 @@ void *hse_mu_init(struct device *dev, int (*decode)(u32 srv_rsp))
 	hse_mu_irq_disable(mu_inst, HSE_MU_INT_SYS_EVENT, HSE_CH_MASK_ALL);
 
 	irq = platform_get_irq_byname(pdev, HSE_MU_RX_IRQ);
-	err = devm_request_irq(dev, irq, hse_mu_rx_handler, IRQF_TRIGGER_NONE,
-			       HSE_MU_RX_IRQ, mu_inst);
+	err = devm_request_threaded_irq(dev, irq, hse_mu_rx_handler,
+					hse_rx_soft_handler, IRQF_TRIGGER_NONE,
+					HSE_MU_RX_IRQ, mu_inst);
 	if (unlikely(err)) {
 		dev_err(dev, "failed to register %s irq, line %d\n",
 			HSE_MU_RX_IRQ, irq);
