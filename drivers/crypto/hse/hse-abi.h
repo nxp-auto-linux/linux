@@ -35,6 +35,17 @@ enum hse_status {
 };
 
 /**
+ * enum hse_error - HSE system error
+ * @HSE_ERR_NON_FATAL_INTRUSION: non-fatal intrusion detected by HSE
+ * @HSE_ERR_FATAL_INTRUSION: fatal intrusion detected by HSE, can only be
+ *                           recovered by resetting the entire system
+ */
+enum hse_error {
+	HSE_ERR_NON_FATAL_INTRUSION = BIT(0),
+	HSE_ERR_FATAL_INTRUSION = BIT(1),
+};
+
+/**
  * enum hse_srv_id - HSE service ID
  * @HSE_SRV_ID_IMPORT_KEY: import/update key into a key store
  * @HSE_SRV_ID_HASH: perform a hash operation
