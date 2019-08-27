@@ -18,7 +18,7 @@
 	chosen {
 		linux,initrd-start = <0x84000000>;
 		linux,initrd-end = <0x8A000000>;
-
+		stdout-path = "serial1:115200n8";
 	};
 
 	sysclk: clk10000000 {
