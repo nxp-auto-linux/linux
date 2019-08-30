@@ -32,7 +32,7 @@ struct hse_key {
  */
 struct hse_drvdata {
 	void *mu_inst;
-	struct list_head hash_algs;
+	struct list_head ahash_algs;
 	struct list_head hmac_keys;
 	struct list_head aes_keys;
 	spinlock_t key_lock; /* lock for acquiring key handle */
@@ -65,9 +65,9 @@ static __always_inline phys_addr_t hse_addr(void *virt_addr)
 	return 0ull;
 }
 
-void hse_hash_register(struct device *dev);
+void hse_ahash_register(struct device *dev);
 
-void hse_hash_unregister(struct device *dev);
+void hse_ahash_unregister(struct device *dev);
 
 void hse_skcipher_register(struct device *dev);
 
