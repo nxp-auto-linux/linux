@@ -145,7 +145,7 @@ static int hse_probe(struct platform_device *pdev)
 	if (err)
 		return err;
 
-	hse_hash_register(&pdev->dev);
+	hse_ahash_register(&pdev->dev);
 
 	hse_skcipher_register(&pdev->dev);
 
@@ -165,7 +165,7 @@ static int hse_remove(struct platform_device *pdev)
 
 	hse_aead_unregister();
 	hse_skcipher_unregister();
-	hse_hash_unregister(&pdev->dev);
+	hse_ahash_unregister(&pdev->dev);
 
 	hse_free_key_ring(&pdata->aes_keys);
 	hse_free_key_ring(&pdata->hmac_keys);
