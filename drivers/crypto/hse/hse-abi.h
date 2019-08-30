@@ -320,8 +320,8 @@ struct hse_hash_srv {
  * | key_handle   |     *    |   *   |        |        |
  * | input_len    |     *    |   *   |    *   |    *   |
  * | input        |     *    |   *   |    *   |    *   |
- * | hash_len     |     *    |       |        |    *   |
- * | hash         |     *    |       |        |    *   |
+ * | tag_len      |     *    |       |        |    *   |
+ * | tag          |     *    |       |        |    *   |
  *
  */
 struct hse_mac_srv {
