@@ -8,7 +8,7 @@
  */
 
 #include <linux/kernel.h>
-#include <linux/of_platform.h>
+#include <linux/dma-mapping.h>
 #include <linux/crypto.h>
 #include <linux/hw_random.h>
 
@@ -16,8 +16,7 @@
 #include "hse-abi.h"
 #include "hse-mu.h"
 
-/* 1-1024, number of entropy bits per 1024 bits, 0 for unknown */
-#define HSE_RNG_QUALITY 1024u
+#define HSE_RNG_QUALITY    1024u /* number of entropy bits per 1024 bits */
 
 /**
  * struct hse_rng_ctx - hwrng context
@@ -39,27 +38,41 @@ struct hse_rng_ctx {
  * @wait: wait for data
  *
  * Though crypto API expects up to max bytes, HSE will always provide the
- * exact number of bytes requested.
+ * exact number of bytes requested or zero in case of any error.
  */
 static int hse_hwrng_read(struct hwrng *rng, void *data, size_t max, bool wait)
 {
 	struct hse_rng_ctx *ctx = (struct hse_rng_ctx *)rng->priv;
+	dma_addr_t srv_desc_dma, data_dma;
 	int err;
-	u32 srv_desc_addr = lower_32_bits(hse_addr(&ctx->srv_desc));
+
+	data_dma = dma_map_single(ctx->dev, data, max, DMA_FROM_DEVICE);
+	if (unlikely(dma_mapping_error(ctx->dev, data_dma)))
+		return 0;
 
 	ctx->srv_desc.srv_id = HSE_SRV_ID_GET_RANDOM_NUM;
 	ctx->srv_desc.priority = HSE_SRV_PRIO_MED;
 	ctx->srv_desc.rng_req.rng_class = HSE_RNG_CLASS_PTG3;
 	ctx->srv_desc.rng_req.random_num_len = max;
-	ctx->srv_desc.rng_req.random_num = hse_addr(data);
+	ctx->srv_desc.rng_req.random_num = data_dma;
 
-	err = hse_mu_sync_req(ctx->mu_inst, HSE_ANY_CHANNEL, srv_desc_addr);
-	if (unlikely(err)) {
-		dev_dbg(ctx->dev, "%s: request failed: %d\n", __func__, err);
+	srv_desc_dma = dma_map_single(ctx->dev, &ctx->srv_desc,
+				      sizeof(ctx->srv_desc), DMA_TO_DEVICE);
+	if (unlikely(dma_mapping_error(ctx->dev, srv_desc_dma))) {
+		dma_unmap_single(ctx->dev, data_dma, max, DMA_FROM_DEVICE);
 		return 0;
 	}
 
-	return max;
+	err = hse_mu_sync_req(ctx->mu_inst, HSE_ANY_CHANNEL,
+			      lower_32_bits(srv_desc_dma));
+	if (unlikely(err))
+		dev_dbg(ctx->dev, "%s: request failed: %d\n", __func__, err);
+
+	dma_unmap_single(ctx->dev, srv_desc_dma, sizeof(ctx->srv_desc),
+			 DMA_TO_DEVICE);
+	dma_unmap_single(ctx->dev, data_dma, max, DMA_FROM_DEVICE);
+
+	return !err ? max : 0;
 }
 
 static struct hwrng hse_rng = {
@@ -69,21 +82,18 @@ static struct hwrng hse_rng = {
 };
 
 /**
- * hse_hwrng_register - register hwrng
+ * hse_hwrng_register - register random number generator
  * @dev: HSE device
  */
 void hse_hwrng_register(struct device *dev)
 {
 	struct hse_drvdata *drvdata = dev_get_drvdata(dev);
 	struct hse_rng_ctx *ctx;
-	const char *name = hse_rng.name;
-	int err = 0;
+	int err;
 
 	ctx = devm_kzalloc(dev, sizeof(*ctx), GFP_KERNEL);
-	if (IS_ERR_OR_NULL(ctx)) {
-		err = -ENOMEM;
+	if (IS_ERR_OR_NULL(ctx))
 		return;
-	}
 
 	ctx->dev = dev;
 	ctx->mu_inst = drvdata->mu_inst;
@@ -92,9 +102,10 @@ void hse_hwrng_register(struct device *dev)
 
 	err = devm_hwrng_register(dev, &hse_rng);
 	if (err) {
-		dev_err(dev, "failed to register %s: %d", name, err);
+		dev_err(dev, "failed to register %s: %d", hse_rng.name, err);
+		kfree(ctx);
 		return;
 	}
 
-	dev_info(dev, "registered %s\n", name);
+	dev_info(dev, "registered %s\n", hse_rng.name);
 }
