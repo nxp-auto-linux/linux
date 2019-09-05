@@ -893,10 +893,8 @@ static const struct hse_ahash_tpl hse_ahash_algs_tpl[] = {
 		.hmac_name = "hmac(md5)",
 		.hmac_drv = "hmac-md5-hse",
 		.blocksize = MD5_BLOCK_WORDS * 4,
-		.ahash_tpl = {
-			.halg = {
-				.digestsize = MD5_DIGEST_SIZE,
-			},
+		.ahash_tpl.halg = {
+			.digestsize = MD5_DIGEST_SIZE,
 		},
 		.alg_type = HSE_HASH_ALGO_MD5,
 	}, {
@@ -905,12 +903,50 @@ static const struct hse_ahash_tpl hse_ahash_algs_tpl[] = {
 		.hmac_name = "hmac(sha1)",
 		.hmac_drv = "hmac-sha1-hse",
 		.blocksize = SHA1_BLOCK_SIZE,
-		.ahash_tpl = {
-			.halg = {
-				.digestsize = SHA1_DIGEST_SIZE,
-			},
+		.ahash_tpl.halg = {
+			.digestsize = SHA1_DIGEST_SIZE,
 		},
-		.alg_type = HSE_HASH_ALGO_SHA_1,
+		.alg_type = HSE_HASH_ALGO_SHA1,
+	}, {
+		.hash_name = "sha224",
+		.hash_drv = "sha224-hse",
+		.hmac_name = "hmac(sha224)",
+		.hmac_drv = "hmac-sha224-hse",
+		.blocksize = SHA224_BLOCK_SIZE,
+		.ahash_tpl.halg = {
+			.digestsize = SHA224_DIGEST_SIZE,
+		},
+		.alg_type = HSE_HASH_ALGO_SHA2_224,
+	}, {
+		.hash_name = "sha256",
+		.hash_drv = "sha256-hse",
+		.hmac_name = "hmac(sha256)",
+		.hmac_drv = "hmac-sha256-hse",
+		.blocksize = SHA256_BLOCK_SIZE,
+		.ahash_tpl.halg = {
+			.digestsize = SHA256_DIGEST_SIZE,
+		},
+		.alg_type = HSE_HASH_ALGO_SHA2_256,
+	}, {
+		.hash_name = "sha384",
+		.hash_drv = "sha384-hse",
+		.hmac_name = "hmac(sha384)",
+		.hmac_drv = "hmac-sha384-hse",
+		.blocksize = SHA384_BLOCK_SIZE,
+		.ahash_tpl.halg = {
+			.digestsize = SHA384_DIGEST_SIZE,
+		},
+		.alg_type = HSE_HASH_ALGO_SHA2_384,
+	}, {
+		.hash_name = "sha512",
+		.hash_drv = "sha512-hse",
+		.hmac_name = "hmac(sha512)",
+		.hmac_drv = "hmac-sha512-hse",
+		.blocksize = SHA512_BLOCK_SIZE,
+		.ahash_tpl.halg = {
+			.digestsize = SHA512_DIGEST_SIZE,
+		},
+		.alg_type = HSE_HASH_ALGO_SHA2_512,
 	},
 };
 
