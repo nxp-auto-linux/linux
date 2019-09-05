@@ -141,14 +141,20 @@ enum hse_srv_access_modes {
 
 /**
  * enum hse_hash_algorithms - supported hash algorithm types
- * @HSE_HASH_ALGO_NULL: none
  * @HSE_HASH_ALGO_MD5: MD5 hash
- * @HSE_HASH_ALGO_SHA_1: SHA1 hash
+ * @HSE_HASH_ALGO_SHA1: SHA1 hash
+ * @HSE_HASH_ALGO_SHA2_224: SHA2-224 hash
+ * @HSE_HASH_ALGO_SHA2_256: SHA2-256 hash
+ * @HSE_HASH_ALGO_SHA2_384: SHA2-384 hash
+ * @HSE_HASH_ALGO_SHA2_512: SHA2-512 hash
  */
 enum hse_hash_algorithms {
-	HSE_HASH_ALGO_NULL = 0u,
 	HSE_HASH_ALGO_MD5 = 1u,
-	HSE_HASH_ALGO_SHA_1 = 2u,
+	HSE_HASH_ALGO_SHA1 = 2u,
+	HSE_HASH_ALGO_SHA2_224 = 3u,
+	HSE_HASH_ALGO_SHA2_256 = 4u,
+	HSE_HASH_ALGO_SHA2_384 = 5u,
+	HSE_HASH_ALGO_SHA2_512 = 6u,
 };
 
 /**
