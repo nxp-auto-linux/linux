@@ -26,7 +26,7 @@
 /**
  * struct hse_mu_regs - HSE Messaging Unit Registers
  * @ver: Version ID Register, offset 0x0
- * @par: Version ID Register, offset 0x4
+ * @par: Parameter Register, offset 0x4
  * @cr: Control Register, offset 0x8
  * @sr: Status Register, offset 0xC
  * @fcr: Flag Control Register, offset 0x100
@@ -526,15 +526,20 @@ int hse_mu_sync_req(void *mu_inst, u8 channel, u32 srv_desc)
 }
 
 /**
- * hse_mu_rx_handler - ISR for HSE_MU_INT_RESPONSE type interrupts
- * @irq: interrupt line
+ * hse_mu_next_pending - find the next channel with a service response pending
  * @mu_inst: MU instance
+ *
+ * Return: channel index, HSE_INVALID_CHANNEL if none pending
  */
-static irqreturn_t hse_mu_rx_handler(int irq, void *mu_inst)
+static u8 hse_mu_next_pending(void *mu_inst)
 {
-	hse_mu_irq_disable(mu_inst, HSE_MU_INT_RESPONSE, HSE_CH_MASK_ALL);
+	struct hse_mu_data *priv = mu_inst;
+	u32 rsrval = ioread32(&priv->regs->rsr) & HSE_CH_MASK_ALL;
 
-	return IRQ_WAKE_THREAD;
+	if (!ffs(rsrval))
+		return HSE_INVALID_CHANNEL;
+
+	return ffs(rsrval) - 1;
 }
 
 /**
@@ -548,18 +553,20 @@ static irqreturn_t hse_mu_rx_handler(int irq, void *mu_inst)
 static irqreturn_t hse_rx_soft_handler(int irq, void *mu_inst)
 {
 	struct hse_mu_data *priv = mu_inst;
-	u8 channel;
-	void *ctx;
+	u8 channel = hse_mu_next_pending(mu_inst);
 
-	for (channel = 0; channel < HSE_NUM_CHANNELS; channel++)
-		if (hse_mu_response_ready(mu_inst, channel)) {
-			if (priv->rx_cbk[channel].fn) {
-				ctx = priv->rx_cbk[channel].ctx;
-				priv->rx_cbk[channel].fn(mu_inst, channel, ctx);
-			} else {
-				complete(&priv->sync[channel]);
-			}
+	while (channel != HSE_INVALID_CHANNEL) {
+		hse_mu_irq_disable(mu_inst, HSE_MU_INT_RESPONSE, BIT(channel));
+
+		if (priv->rx_cbk[channel].fn) {
+			void *ctx = priv->rx_cbk[channel].ctx;
+
+			priv->rx_cbk[channel].fn(mu_inst, channel, ctx);
+		} else {
+			complete(&priv->sync[channel]);
 		}
+		channel = hse_mu_next_pending(mu_inst);
+	}
 
 	return IRQ_HANDLED;
 }
@@ -641,9 +648,8 @@ void *hse_mu_init(struct device *dev, int (*decode)(u32 srv_rsp))
 	hse_mu_irq_disable(mu_inst, HSE_MU_INT_SYS_EVENT, HSE_CH_MASK_ALL);
 
 	irq = platform_get_irq_byname(pdev, HSE_MU_RX_IRQ);
-	err = devm_request_threaded_irq(dev, irq, hse_mu_rx_handler,
-					hse_rx_soft_handler, IRQF_TRIGGER_NONE,
-					HSE_MU_RX_IRQ, mu_inst);
+	err = devm_request_threaded_irq(dev, irq, NULL, hse_rx_soft_handler,
+					IRQF_ONESHOT, HSE_MU_RX_IRQ, mu_inst);
 	if (unlikely(err)) {
 		dev_err(dev, "failed to register %s irq, line %d\n",
 			HSE_MU_RX_IRQ, irq);
