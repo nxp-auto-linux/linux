@@ -214,8 +214,8 @@ static void bpf_map_free_deferred(struct work_struct *work)
 static void bpf_map_put_uref(struct bpf_map *map)
 {
 	if (atomic_dec_and_test(&map->usercnt)) {
-		if (map->map_type == BPF_MAP_TYPE_PROG_ARRAY)
-			bpf_fd_array_map_clear(map);
+		if (map->ops->map_release_uref)
+			map->ops->map_release_uref(map);
 	}
 }
 
@@ -493,7 +493,10 @@ static int map_lookup_elem(union bpf_attr *attr)
 		err = bpf_fd_htab_map_lookup_elem(map, key, value);
 	} else {
 		rcu_read_lock();
-		ptr = map->ops->map_lookup_elem(map, key);
+		if (map->ops->map_lookup_elem_sys_only)
+			ptr = map->ops->map_lookup_elem_sys_only(map, key);
+		else
+			ptr = map->ops->map_lookup_elem(map, key);
 		if (ptr)
 			memcpy(value, ptr, value_size);
 		rcu_read_unlock();
@@ -517,6 +520,17 @@ free_key:
 err_put:
 	fdput(f);
 	return err;
+}
+
+static void maybe_wait_bpf_programs(struct bpf_map *map)
+{
+	/* Wait for any running BPF programs to complete so that
+	 * userspace, when we return to it, knows that all programs
+	 * that could be running use the new map value.
+	 */
+	if (map->map_type == BPF_MAP_TYPE_HASH_OF_MAPS ||
+	    map->map_type == BPF_MAP_TYPE_ARRAY_OF_MAPS)
+		synchronize_rcu();
 }
 
 #define BPF_MAP_UPDATE_ELEM_LAST_FIELD flags
@@ -592,6 +606,7 @@ static int map_update_elem(union bpf_attr *attr)
 	}
 	__this_cpu_dec(bpf_prog_active);
 	preempt_enable();
+	maybe_wait_bpf_programs(map);
 
 	if (!err)
 		trace_bpf_map_update_elem(map, ufd, key, value);
@@ -636,6 +651,7 @@ static int map_delete_elem(union bpf_attr *attr)
 	rcu_read_unlock();
 	__this_cpu_dec(bpf_prog_active);
 	preempt_enable();
+	maybe_wait_bpf_programs(map);
 
 	if (!err)
 		trace_bpf_map_delete_elem(map, ufd, key);

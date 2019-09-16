@@ -217,7 +217,7 @@
 #define FLEXCAN_MB_CNT_LENGTH(x)	(((x) & 0xf) << 16)
 #define FLEXCAN_MB_CNT_TIMESTAMP(x)	((x) & 0xffff)
 
-#define FLEXCAN_TIMEOUT_US		(50)
+#define FLEXCAN_TIMEOUT_US		(250)
 
 #define FLEXCAN_WORDS_TOUCHED(bytes)	(((bytes) + 3) / 4)
 
@@ -734,7 +734,7 @@ static void flexcan_irq_bus_err(struct net_device *dev, u32 reg_esr)
 	if (tx_errors)
 		dev->stats.tx_errors++;
 
-	can_rx_offload_irq_queue_err_skb(&priv->offload, skb);
+	can_rx_offload_queue_tail(&priv->offload, skb);
 }
 
 static int flexcan_irq_state(struct net_device *dev, u32 reg_esr)
@@ -782,7 +782,7 @@ static int flexcan_irq_state(struct net_device *dev, u32 reg_esr)
 
 		can_led_event(dev, CAN_LED_EVENT_RX);
 	} else {
-		can_rx_offload_irq_queue_err_skb(&priv->offload, skb);
+		can_rx_offload_queue_tail(&priv->offload, skb);
 	}
 
 	return 1;

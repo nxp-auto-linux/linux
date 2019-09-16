@@ -228,7 +228,7 @@ int irq_set_affinity_locked(struct irq_data *data, const struct cpumask *mask,
 		kref_get(&desc->affinity_notify->kref);
 
 #ifdef CONFIG_PREEMPT_RT_BASE
-		swork_queue(&desc->affinity_notify->swork);
+		kthread_schedule_work(&desc->affinity_notify->work);
 #else
 		schedule_work(&desc->affinity_notify->work);
 #endif
@@ -293,21 +293,11 @@ out:
 }
 
 #ifdef CONFIG_PREEMPT_RT_BASE
-static void init_helper_thread(void)
-{
-	static int init_sworker_once;
 
-	if (init_sworker_once)
-		return;
-	if (WARN_ON(swork_get()))
-		return;
-	init_sworker_once = 1;
-}
-
-static void irq_affinity_notify(struct swork_event *swork)
+static void irq_affinity_notify(struct kthread_work *work)
 {
 	struct irq_affinity_notify *notify =
-		container_of(swork, struct irq_affinity_notify, swork);
+		container_of(work, struct irq_affinity_notify, work);
 	_irq_affinity_notify(notify);
 }
 
@@ -350,8 +340,7 @@ irq_set_affinity_notifier(unsigned int irq, struct irq_affinity_notify *notify)
 		notify->irq = irq;
 		kref_init(&notify->kref);
 #ifdef CONFIG_PREEMPT_RT_BASE
-		INIT_SWORK(&notify->swork, irq_affinity_notify);
-		init_helper_thread();
+		kthread_init_work(&notify->work, irq_affinity_notify);
 #else
 		INIT_WORK(&notify->work, irq_affinity_notify);
 #endif
@@ -362,8 +351,14 @@ irq_set_affinity_notifier(unsigned int irq, struct irq_affinity_notify *notify)
 	desc->affinity_notify = notify;
 	raw_spin_unlock_irqrestore(&desc->lock, flags);
 
-	if (old_notify)
+	if (old_notify) {
+#ifdef CONFIG_PREEMPT_RT_BASE
+		kthread_cancel_work_sync(&notify->work);
+#else
+		cancel_work_sync(&old_notify->work);
+#endif
 		kref_put(&old_notify->kref, old_notify->release);
+	}
 
 	return 0;
 }
@@ -399,6 +394,9 @@ int irq_setup_affinity(struct irq_desc *desc)
 	}
 
 	cpumask_and(&mask, cpu_online_mask, set);
+	if (cpumask_empty(&mask))
+		cpumask_copy(&mask, cpu_online_mask);
+
 	if (node != NUMA_NO_NODE) {
 		const struct cpumask *nodemask = cpumask_of_node(node);
 
@@ -921,6 +919,9 @@ irq_forced_thread_fn(struct irq_desc *desc, struct irqaction *action)
 
 	local_bh_disable();
 	ret = action->thread_fn(action->irq, action->dev_id);
+	if (ret == IRQ_HANDLED)
+		atomic_inc(&desc->threads_handled);
+
 	irq_finalize_oneshot(desc, action);
 	/*
 	 * Interrupts which have real time requirements can be set up
@@ -945,6 +946,9 @@ static irqreturn_t irq_thread_fn(struct irq_desc *desc,
 	irqreturn_t ret;
 
 	ret = action->thread_fn(action->irq, action->dev_id);
+	if (ret == IRQ_HANDLED)
+		atomic_inc(&desc->threads_handled);
+
 	irq_finalize_oneshot(desc, action);
 	return ret;
 }
@@ -1022,8 +1026,6 @@ static int irq_thread(void *data)
 		irq_thread_check_affinity(desc, action);
 
 		action_ret = handler_fn(desc, action);
-		if (action_ret == IRQ_HANDLED)
-			atomic_inc(&desc->threads_handled);
 		if (action_ret == IRQ_WAKE_THREAD)
 			irq_wake_secondary(desc, action);
 
