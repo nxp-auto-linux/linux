@@ -162,10 +162,10 @@ static void hse_ahash_done(void *mu_inst, u8 channel, void *req)
 			__func__, crypto_ahash_alg_name(tfm), access_mode, err);
 
 		switch (access_mode) {
-		case HSE_ACCESS_MODE_ONE_PASS:
+		case HSE_ACCESS_MODE_FINISH:
 			hse_mu_channel_release(alg->mu_inst, rctx->stream);
 			fallthrough;
-		case HSE_ACCESS_MODE_FINISH:
+		case HSE_ACCESS_MODE_ONE_PASS:
 			dma_unmap_single(alg->dev, rctx->result_dma,
 					 rctx->outlen, DMA_FROM_DEVICE);
 			dma_unmap_single(alg->dev, rctx->outlen_dma,
@@ -661,18 +661,36 @@ err_release_channel:
 }
 
 /**
- * HSE doesn't support import/export operations
+ * hse_ahash_export - HSE doesn't support import/export operations
  */
 static int hse_ahash_export(struct ahash_request *req, void *out)
 {
+	struct hse_ahash_req_ctx *rctx = ahash_request_ctx(req);
+	struct crypto_ahash *tfm = crypto_ahash_reqtfm(req);
+	struct hse_ahash_alg *alg = hse_ahash_get_alg(tfm);
+
+	dev_err(alg->dev, "%s: partial hash ops not supported\n", __func__);
+
+	hse_mu_channel_release(alg->mu_inst, rctx->stream);
+	dma_free_coherent(alg->dev, rctx->buflen, rctx->buf,
+			  rctx->buf_dma);
+	dma_unmap_single(alg->dev, rctx->srv_desc_dma, sizeof(rctx->srv_desc),
+			 DMA_TO_DEVICE);
+
 	return -EOPNOTSUPP;
 }
 
 /**
- * HSE doesn't support import/export operations
+ * hse_ahash_import - HSE doesn't support import/export operations
  */
 static int hse_ahash_import(struct ahash_request *req, const void *in)
 {
+	struct hse_ahash_req_ctx *rctx = ahash_request_ctx(req);
+	struct crypto_ahash *tfm = crypto_ahash_reqtfm(req);
+	struct hse_ahash_alg *alg = hse_ahash_get_alg(tfm);
+
+	dev_err(alg->dev, "%s: partial hash ops not supported\n", __func__);
+
 	return -EOPNOTSUPP;
 }
 
