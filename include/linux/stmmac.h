@@ -76,6 +76,9 @@
 			| DMA_AXI_BLEN_32 | DMA_AXI_BLEN_64 \
 			| DMA_AXI_BLEN_128 | DMA_AXI_BLEN_256)
 
+/* quirk bits definition for quirk_mask_id */
+#define QUIRK_MASK_ERRATA_E50082	(1 << 0)
+
 /* Platfrom data for platform device structure's platform_data field */
 
 struct stmmac_mdio_bus_data {
@@ -202,5 +205,6 @@ struct plat_stmmacenet_data {
 	bool vlan_fail_q_en;
 	u8 vlan_fail_q;
 	unsigned int eee_usecs_rate;
+	u32 quirk_mask_id;
 };
 #endif
