@@ -39,6 +39,9 @@ static int s32cc_dwmac_probe(struct platform_device *pdev)
 	plat_dat->pmt = 1;
 	plat_dat->tso_en = of_property_read_bool(pdev->dev.of_node, "snps,tso");
 
+	/* configure bitfield for quirks */
+	plat_dat->quirk_mask_id = QUIRK_MASK_ERRATA_E50082;
+
 	ret = stmmac_dvr_probe(&pdev->dev, plat_dat, &stmmac_res);
 	if (ret)
 		goto err_remove_config_dt;
