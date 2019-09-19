@@ -81,6 +81,18 @@ static int stmmac_dwmac4_quirks(struct stmmac_priv *priv)
 	return 0;
 }
 
+static int stmmac_dwmac_510_quirks(struct stmmac_priv *priv)
+{
+	struct mac_device_info *mac = priv->hw;
+
+	if (priv->plat->quirk_mask_id & QUIRK_MASK_ERRATA_E50082) {
+		dev_info(priv->device, "Enabled workaround for s32cc ERRATA_E50082\n");
+		mac->dma = &dwmac410_s32cc_dma_ops;
+	}
+
+	return 0;
+}
+
 static int stmmac_dwxlgmac_quirks(struct stmmac_priv *priv)
 {
 	priv->hw->xlgmac = true;
@@ -212,7 +224,7 @@ static const struct stmmac_hwif_entry {
 		.tc = &dwmac510_tc_ops,
 		.mmc = &dwmac_mmc_ops,
 		.setup = dwmac4_setup,
-		.quirks = NULL,
+		.quirks = stmmac_dwmac_510_quirks,
 	}, {
 		.gmac = false,
 		.gmac4 = false,
