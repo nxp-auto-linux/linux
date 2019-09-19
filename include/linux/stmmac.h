@@ -76,6 +76,9 @@
 			| DMA_AXI_BLEN_32 | DMA_AXI_BLEN_64 \
 			| DMA_AXI_BLEN_128 | DMA_AXI_BLEN_256)
 
+/* quirk bits definition for quirk_mask_id */
+#define QUIRK_MASK_ERRATA_E50082	BIT(0)
+
 /* Platfrom data for platform device structure's platform_data field */
 
 struct stmmac_mdio_bus_data {
@@ -271,5 +274,6 @@ struct plat_stmmacenet_data {
 	int msi_tx_base_vec;
 	bool use_phy_wol;
 	bool sph_disable;
+	u32 quirk_mask_id;
 };
 #endif
