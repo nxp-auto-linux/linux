@@ -41,7 +41,7 @@ struct hse_skcipher_req_ctx {
 	dma_addr_t buf_dma;
 	u32 buflen;
 	u8 direction;
-};
+} ____cacheline_aligned;
 
 /**
  * struct hse_skcipher_tfm_ctx - crypto transformation context
@@ -63,7 +63,7 @@ struct hse_skcipher_tfm_ctx {
 	u8 keybuf[HSE_SKCIPHER_MAX_KEY_SIZE];
 	dma_addr_t keybuf_dma;
 	unsigned int keylen;
-};
+} ____cacheline_aligned;
 
 /**
  * hse_skcipher_alg - symmetric key cipher data
