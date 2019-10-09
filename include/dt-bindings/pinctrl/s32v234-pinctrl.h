@@ -120,8 +120,7 @@
 #define PAD_CTL_QSPI_B_DATA0_3    (PAD_CTL_QSPI_BASE | PAD_CTL_MUX_MODE_ALT1)
 
 /* EIRQ configuration */
-#define PAD_CTL_EIRQ            (PAD_CTL_MUX_MODE_ALT2 | PAD_CTL_IBE | \
-				 PAD_CTL_PKE | PAD_CTL_PUS_100K_DOWN)
+#define PAD_CTL_EIRQ              PAD_CTL_MUX_MODE_ALT2
 
 /* I2C0 - Serial Data Input PA15 */
 #define PAD_CTL_I2C0_MSCR_SDA_PA15    (PAD_CTL_MUX_MODE_ALT1 | PAD_CTL_OBE | \
