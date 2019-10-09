@@ -53,9 +53,9 @@ struct hse_ahash_req_ctx {
 	u32 buflen;
 	u32 outlen;
 	dma_addr_t outlen_dma;
-	u8 result[HSE_AHASH_MAX_DIGEST_SIZE];
+	u8 result[HSE_AHASH_MAX_DIGEST_SIZE] ____cacheline_aligned;
 	dma_addr_t result_dma;
-};
+} ____cacheline_aligned;
 
 /**
  * struct hse_ahash_tfm_ctx - crypto transformation context
@@ -64,10 +64,10 @@ struct hse_ahash_req_ctx {
  * @key_slot: current key entry in hmac keyring
  * @keyinf: key information/flags, used for import
  * @keyinf_dma: key information/flags DMA address
- * @keybuf: buffer containing current shortened key
- * @keybuf_dma: current shortened key DMA address
  * @keylen: shortened key size, less than block size
  * @keylen_dma: shortened key size DMA address
+ * @keybuf: buffer containing current shortened key
+ * @keybuf_dma: current shortened key DMA address
  */
 struct hse_ahash_tfm_ctx {
 	struct hse_srv_desc srv_desc;
@@ -75,11 +75,11 @@ struct hse_ahash_tfm_ctx {
 	struct hse_key *key_slot;
 	struct hse_key_info keyinf;
 	dma_addr_t keyinf_dma;
-	u8 keybuf[HSE_AHASH_MAX_BLOCK_SIZE];
-	dma_addr_t keybuf_dma;
 	u32 keylen;
 	dma_addr_t keylen_dma;
-};
+	u8 keybuf[HSE_AHASH_MAX_BLOCK_SIZE] ____cacheline_aligned;
+	dma_addr_t keybuf_dma;
+} ____cacheline_aligned;
 
 /**
  * struct hse_ahash_tpl - algorithm template
@@ -158,7 +158,7 @@ static void hse_ahash_done(void *mu_inst, u8 channel, void *req)
 
 	err = hse_mu_async_req_recv(mu_inst, channel);
 	if (unlikely(err)) {
-		dev_dbg(alg->dev, "%s: %s mode %d request failed: %d\n",
+		dev_dbg(alg->dev, "%s: %s request in mode %d failed: %d\n",
 			__func__, crypto_ahash_alg_name(tfm), access_mode, err);
 
 		switch (access_mode) {
@@ -166,10 +166,10 @@ static void hse_ahash_done(void *mu_inst, u8 channel, void *req)
 			hse_mu_channel_release(alg->mu_inst, rctx->stream);
 			fallthrough;
 		case HSE_ACCESS_MODE_ONE_PASS:
-			dma_unmap_single(alg->dev, rctx->result_dma,
-					 rctx->outlen, DMA_FROM_DEVICE);
 			dma_unmap_single(alg->dev, rctx->outlen_dma,
 					 sizeof(rctx->outlen), DMA_TO_DEVICE);
+			dma_unmap_single(alg->dev, rctx->result_dma,
+					 rctx->outlen, DMA_FROM_DEVICE);
 			fallthrough;
 		default:
 			dma_unmap_single(alg->dev, rctx->srv_desc_dma,
@@ -197,10 +197,11 @@ static void hse_ahash_done(void *mu_inst, u8 channel, void *req)
 		dma_free_coherent(alg->dev, rctx->buflen, rctx->buf,
 				  rctx->buf_dma);
 		rctx->buflen = 0;
-		dma_unmap_single(alg->dev, rctx->result_dma, rctx->outlen,
-				 DMA_FROM_DEVICE);
+
 		dma_unmap_single(alg->dev, rctx->outlen_dma,
 				 sizeof(rctx->outlen), DMA_TO_DEVICE);
+		dma_unmap_single(alg->dev, rctx->result_dma, rctx->outlen,
+				 DMA_FROM_DEVICE);
 
 		/* copy message digest */
 		memcpy(((struct ahash_request *)req)->result, rctx->result,
@@ -263,8 +264,7 @@ static int hse_ahash_init(struct ahash_request *req)
 
 	return 0;
 err_free_buf:
-	dma_free_coherent(alg->dev, rctx->buflen, rctx->buf,
-			  rctx->buf_dma);
+	dma_free_coherent(alg->dev, rctx->buflen, rctx->buf, rctx->buf_dma);
 err_unmap_srv_desc:
 	dma_unmap_single(alg->dev, rctx->srv_desc_dma, sizeof(rctx->srv_desc),
 			 DMA_TO_DEVICE);
@@ -359,8 +359,7 @@ static int hse_ahash_update(struct ahash_request *req)
 	return -EINPROGRESS;
 err_release_channel:
 	hse_mu_channel_release(alg->mu_inst, rctx->stream);
-	dma_free_coherent(alg->dev, rctx->buflen, rctx->buf,
-			  rctx->buf_dma);
+	dma_free_coherent(alg->dev, rctx->buflen, rctx->buf, rctx->buf_dma);
 	dma_unmap_single(alg->dev, rctx->srv_desc_dma, sizeof(rctx->srv_desc),
 			 DMA_TO_DEVICE);
 	return err;
@@ -444,8 +443,7 @@ err_unmap_result:
 			 DMA_FROM_DEVICE);
 err_release_channel:
 	hse_mu_channel_release(alg->mu_inst, rctx->stream);
-	dma_free_coherent(alg->dev, rctx->buflen, rctx->buf,
-			  rctx->buf_dma);
+	dma_free_coherent(alg->dev, rctx->buflen, rctx->buf, rctx->buf_dma);
 	dma_unmap_single(alg->dev, rctx->srv_desc_dma, sizeof(rctx->srv_desc),
 			 DMA_TO_DEVICE);
 	return err;
@@ -550,8 +548,7 @@ err_unmap_result:
 			 DMA_FROM_DEVICE);
 err_release_channel:
 	hse_mu_channel_release(alg->mu_inst, rctx->stream);
-	dma_free_coherent(alg->dev, rctx->buflen, rctx->buf,
-			  rctx->buf_dma);
+	dma_free_coherent(alg->dev, rctx->buflen, rctx->buf, rctx->buf_dma);
 	dma_unmap_single(alg->dev, rctx->srv_desc_dma, sizeof(rctx->srv_desc),
 			 DMA_TO_DEVICE);
 	return err;
@@ -573,10 +570,9 @@ static int hse_ahash_digest(struct ahash_request *req)
 	rctx->outlen = crypto_ahash_digestsize(tfm);
 	rctx->result_dma = dma_map_single(alg->dev, rctx->result,
 					  rctx->outlen, DMA_FROM_DEVICE);
-	if (unlikely(dma_mapping_error(alg->dev, rctx->result_dma))) {
-		err = -ENOMEM;
-		goto err_release_channel;
-	}
+	if (unlikely(dma_mapping_error(alg->dev, rctx->result_dma)))
+		return -ENOMEM;
+
 	rctx->outlen_dma = dma_map_single(alg->dev, &rctx->outlen,
 					  sizeof(rctx->outlen), DMA_TO_DEVICE);
 	if (unlikely(dma_mapping_error(alg->dev, rctx->outlen_dma))) {
@@ -642,21 +638,14 @@ err_unmap_srv_desc:
 	dma_unmap_single(alg->dev, rctx->srv_desc_dma, sizeof(rctx->srv_desc),
 			 DMA_TO_DEVICE);
 err_free_buf:
-	dma_free_coherent(alg->dev, rctx->buflen, rctx->buf,
-			  rctx->buf_dma);
+	dma_free_coherent(alg->dev, rctx->buflen, rctx->buf, rctx->buf_dma);
+	rctx->buflen = 0;
 err_unmap_outlen:
 	dma_unmap_single(alg->dev, rctx->outlen_dma, sizeof(rctx->outlen),
 			 DMA_TO_DEVICE);
 err_unmap_result:
 	dma_unmap_single(alg->dev, rctx->result_dma, rctx->outlen,
 			 DMA_FROM_DEVICE);
-	rctx->buflen = 0;
-err_release_channel:
-	hse_mu_channel_release(alg->mu_inst, rctx->stream);
-	dma_free_coherent(alg->dev, rctx->buflen, rctx->buf,
-			  rctx->buf_dma);
-	dma_unmap_single(alg->dev, rctx->srv_desc_dma, sizeof(rctx->srv_desc),
-			 DMA_TO_DEVICE);
 	return err;
 }
 
@@ -672,8 +661,7 @@ static int hse_ahash_export(struct ahash_request *req, void *out)
 	dev_err(alg->dev, "%s: partial hash ops not supported\n", __func__);
 
 	hse_mu_channel_release(alg->mu_inst, rctx->stream);
-	dma_free_coherent(alg->dev, rctx->buflen, rctx->buf,
-			  rctx->buf_dma);
+	dma_free_coherent(alg->dev, rctx->buflen, rctx->buf, rctx->buf_dma);
 	dma_unmap_single(alg->dev, rctx->srv_desc_dma, sizeof(rctx->srv_desc),
 			 DMA_TO_DEVICE);
 
@@ -685,7 +673,6 @@ static int hse_ahash_export(struct ahash_request *req, void *out)
  */
 static int hse_ahash_import(struct ahash_request *req, const void *in)
 {
-	struct hse_ahash_req_ctx *rctx = ahash_request_ctx(req);
 	struct crypto_ahash *tfm = crypto_ahash_reqtfm(req);
 	struct hse_ahash_alg *alg = hse_ahash_get_alg(tfm);
 
@@ -711,7 +698,6 @@ static int hse_ahash_setkey(struct crypto_ahash *tfm, const u8 *key,
 	struct hse_ahash_tfm_ctx *tctx = crypto_ahash_ctx(tfm);
 	struct hse_ahash_alg *alg = hse_ahash_get_alg(tfm);
 	unsigned int blocksize = crypto_ahash_blocksize(tfm);
-	dma_addr_t input_key_dma;
 	int err;
 
 	/* do not update the key if already imported */
@@ -720,12 +706,23 @@ static int hse_ahash_setkey(struct crypto_ahash *tfm, const u8 *key,
 		return 0;
 
 	if (keylen > blocksize) {
+		void *tmp_keybuf;
+		dma_addr_t tmp_keybuf_dma;
+
+		tmp_keybuf = kmemdup(key, keylen, GFP_KERNEL);
+		if (IS_ERR_OR_NULL(tmp_keybuf))
+			return -ENOMEM;
+
+		tmp_keybuf_dma = dma_map_single(alg->dev, tmp_keybuf, keylen,
+						DMA_TO_DEVICE);
+		if (unlikely(dma_mapping_error(alg->dev, tmp_keybuf_dma))) {
+			kfree(tmp_keybuf);
+			return -ENOMEM;
+		}
+
 		tctx->keylen = crypto_ahash_digestsize(tfm);
 		dma_sync_single_for_device(alg->dev, tctx->keylen_dma,
 					   sizeof(tctx->keylen), DMA_TO_DEVICE);
-
-		input_key_dma = dma_map_single(alg->dev, (u8 *)key, keylen,
-					       DMA_TO_DEVICE);
 
 		tctx->srv_desc.srv_id = HSE_SRV_ID_HASH;
 		tctx->srv_desc.priority = HSE_SRV_PRIO_HIGH;
@@ -733,7 +730,7 @@ static int hse_ahash_setkey(struct crypto_ahash *tfm, const u8 *key,
 		tctx->srv_desc.hash_req.access_mode = HSE_ACCESS_MODE_ONE_PASS;
 		tctx->srv_desc.hash_req.hash_algo = alg->alg_type;
 		tctx->srv_desc.hash_req.input_len = keylen;
-		tctx->srv_desc.hash_req.input = input_key_dma;
+		tctx->srv_desc.hash_req.input = tmp_keybuf_dma;
 		tctx->srv_desc.hash_req.hash_len = tctx->keylen_dma;
 		tctx->srv_desc.hash_req.hash = tctx->keybuf_dma;
 
@@ -743,25 +740,24 @@ static int hse_ahash_setkey(struct crypto_ahash *tfm, const u8 *key,
 
 		err = hse_mu_sync_req(alg->mu_inst, HSE_ANY_CHANNEL,
 				      lower_32_bits(tctx->srv_desc_dma));
+		memzero_explicit(&tctx->srv_desc, sizeof(tctx->srv_desc));
+		dma_unmap_single(alg->dev, tmp_keybuf_dma, keylen,
+				 DMA_TO_DEVICE);
+		kfree(tmp_keybuf);
 		if (unlikely(err)) {
-			dma_unmap_single(alg->dev, input_key_dma, keylen,
-					 DMA_TO_DEVICE);
 			dev_dbg(alg->dev, "%s: shorten key failed for %s: %d\n",
 				__func__, crypto_ahash_alg_name(tfm), err);
-			goto err_unmap_key;
+			return err;
 		}
-
-		dma_unmap_single(alg->dev, input_key_dma, keylen,
-				 DMA_TO_DEVICE);
-		memzero_explicit(&tctx->srv_desc, sizeof(tctx->srv_desc));
+		dma_sync_single_for_cpu(alg->dev, tctx->keylen_dma,
+					sizeof(tctx->keylen), DMA_FROM_DEVICE);
 	} else {
 		tctx->keylen = max(HSE_KEY_HMAC_MIN_SIZE, keylen);
 		memcpy(tctx->keybuf, key, keylen);
 		memzero_explicit(tctx->keybuf + keylen, tctx->keylen - keylen);
+		dma_sync_single_for_device(alg->dev, tctx->keybuf_dma,
+					   tctx->keylen, DMA_TO_DEVICE);
 	}
-
-	dma_sync_single_for_device(alg->dev, tctx->keybuf_dma, keylen,
-				   DMA_TO_DEVICE);
 
 	tctx->keyinf.key_flags = HSE_KF_USAGE_SIGN;
 	tctx->keyinf.key_bit_len = tctx->keylen * BITS_PER_BYTE;
@@ -788,10 +784,6 @@ static int hse_ahash_setkey(struct crypto_ahash *tfm, const u8 *key,
 		dev_dbg(alg->dev, "%s: key import request failed for %s: %d\n",
 			__func__, crypto_ahash_alg_name(tfm), err);
 
-	return err;
-err_unmap_key:
-	dma_unmap_single(alg->dev, input_key_dma, keylen, DMA_TO_DEVICE);
-	memzero_explicit(&tctx->srv_desc, sizeof(tctx->srv_desc));
 	return err;
 }
 
@@ -845,7 +837,7 @@ static int hse_ahash_cra_init(struct crypto_tfm *gtfm)
 
 	tctx->keybuf_dma = dma_map_single_attrs(alg->dev, tctx->keybuf,
 						sizeof(tctx->keybuf),
-						DMA_TO_DEVICE,
+						DMA_BIDIRECTIONAL,
 						DMA_ATTR_SKIP_CPU_SYNC);
 	if (unlikely(dma_mapping_error(alg->dev, tctx->keybuf_dma))) {
 		err = -ENOMEM;
@@ -854,7 +846,7 @@ static int hse_ahash_cra_init(struct crypto_tfm *gtfm)
 
 	tctx->keylen_dma = dma_map_single_attrs(alg->dev, &tctx->keylen,
 						sizeof(tctx->keylen),
-						DMA_TO_DEVICE,
+						DMA_BIDIRECTIONAL,
 						DMA_ATTR_SKIP_CPU_SYNC);
 	if (unlikely(dma_mapping_error(alg->dev, tctx->keylen_dma))) {
 		err = -ENOMEM;
@@ -865,7 +857,7 @@ static int hse_ahash_cra_init(struct crypto_tfm *gtfm)
 	return 0;
 err_unmap_keybuf:
 	dma_unmap_single_attrs(alg->dev, tctx->keybuf_dma, sizeof(tctx->keybuf),
-			       DMA_TO_DEVICE, DMA_ATTR_SKIP_CPU_SYNC);
+			       DMA_BIDIRECTIONAL, DMA_ATTR_SKIP_CPU_SYNC);
 err_unmap_keyinf:
 	dma_unmap_single_attrs(alg->dev, tctx->keyinf_dma, sizeof(tctx->keyinf),
 			       DMA_TO_DEVICE, DMA_ATTR_SKIP_CPU_SYNC);
@@ -900,9 +892,9 @@ static void hse_ahash_cra_exit(struct crypto_tfm *gtfm)
 	dma_unmap_single_attrs(alg->dev, tctx->keyinf_dma, sizeof(tctx->keyinf),
 			       DMA_TO_DEVICE, DMA_ATTR_SKIP_CPU_SYNC);
 	dma_unmap_single_attrs(alg->dev, tctx->keybuf_dma, sizeof(tctx->keybuf),
-			       DMA_TO_DEVICE, DMA_ATTR_SKIP_CPU_SYNC);
+			       DMA_BIDIRECTIONAL, DMA_ATTR_SKIP_CPU_SYNC);
 	dma_unmap_single_attrs(alg->dev, tctx->keylen_dma, sizeof(tctx->keylen),
-			       DMA_TO_DEVICE, DMA_ATTR_SKIP_CPU_SYNC);
+			       DMA_BIDIRECTIONAL, DMA_ATTR_SKIP_CPU_SYNC);
 }
 
 static const struct hse_ahash_tpl hse_ahash_algs_tpl[] = {
