@@ -59,7 +59,7 @@ struct hse_aead_tfm_ctx {
 	u8 key_buf[HSE_AEAD_MAX_KEY_SIZE];
 	dma_addr_t key_buf_dma;
 	u8 channel;
-};
+} ____cacheline_aligned;
 
 /**
  * struct hse_aead_req_ctx - AEAD request context
@@ -81,7 +81,7 @@ struct hse_aead_req_ctx {
 	dma_addr_t buf_dma;
 	u32 buflen;
 	bool encrypt;
-};
+} ____cacheline_aligned;
 
 /**
  * Get HSE AEAD algorithm data from AEAD transformation
