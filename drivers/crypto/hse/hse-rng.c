@@ -23,11 +23,13 @@
  * @srv_desc: HSE service descriptor
  * @dev: HSE device
  * @mu_inst: MU instance
+ * @req_lock: descriptor mutex
  */
 struct hse_rng_ctx {
 	struct hse_srv_desc srv_desc;
 	struct device *dev;
 	void *mu_inst;
+	struct mutex req_lock; /* descriptor mutex */
 };
 
 /**
@@ -45,6 +47,11 @@ static int hse_hwrng_read(struct hwrng *rng, void *data, size_t max, bool wait)
 	struct hse_rng_ctx *ctx = (struct hse_rng_ctx *)rng->priv;
 	dma_addr_t srv_desc_dma, data_dma;
 	int err;
+
+	if (!mutex_trylock(&ctx->req_lock)) {
+		dev_dbg(ctx->dev, "%s: request in progress\n", __func__);
+		return 0;
+	}
 
 	data_dma = dma_map_single(ctx->dev, data, max, DMA_FROM_DEVICE);
 	if (unlikely(dma_mapping_error(ctx->dev, data_dma)))
@@ -72,6 +79,8 @@ static int hse_hwrng_read(struct hwrng *rng, void *data, size_t max, bool wait)
 			 DMA_TO_DEVICE);
 	dma_unmap_single(ctx->dev, data_dma, max, DMA_FROM_DEVICE);
 
+	mutex_unlock(&ctx->req_lock);
+
 	return !err ? max : 0;
 }
 
@@ -97,6 +106,8 @@ void hse_hwrng_register(struct device *dev)
 
 	ctx->dev = dev;
 	ctx->mu_inst = drvdata->mu_inst;
+
+	mutex_init(&ctx->req_lock);
 
 	hse_rng.priv = (unsigned long)ctx;
 
