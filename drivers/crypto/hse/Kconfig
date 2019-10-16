@@ -6,6 +6,7 @@ config CRYPTO_DEV_NXP_HSE
 	default m
 	select CRYPTO_BLKCIPHER
 	select CRYPTO_HASH
+	select CRYPTO_AEAD
 	help
 	  Enables the driver module for NXP's Hardware Security Engine (HSE).
 
@@ -24,6 +25,7 @@ config CRYPTO_DEV_NXP_HSE_HWRNG
 	bool "NXP HSE hardware RNG support"
 	depends on CRYPTO_DEV_NXP_HSE
 	default y
+	select HW_RANDOM
 	help
 	  Enables the hardware RNG support for NXP's HSE.
 
