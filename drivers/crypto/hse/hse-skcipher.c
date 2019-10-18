@@ -222,6 +222,9 @@ static int hse_skcipher_crypt(struct skcipher_request *req, u8 direction)
 	struct hse_skcipher_alg *alg = hse_skcipher_get_alg(tfm);
 	int err, nbytes, ivsize = crypto_skcipher_ivsize(tfm);
 
+	if (unlikely(!tctx->keylen))
+		return -ENOKEY;
+
 	/* handle zero-length input because it's a valid operation */
 	if (!req->cryptlen)
 		return 0;
@@ -281,14 +284,14 @@ static int hse_skcipher_crypt(struct skcipher_request *req, u8 direction)
 		scatterwalk_map_and_copy(req->iv, req->src, req->cryptlen -
 					 ivsize, ivsize, 0);
 
+	rctx->direction = direction;
+	rctx->buflen = req->cryptlen;
+
 	err = hse_mu_async_req_send(alg->mu_inst, HSE_ANY_CHANNEL,
 				    lower_32_bits(rctx->srv_desc_dma), req,
 				    hse_skcipher_done);
 	if (err)
 		goto err_unmap_srv_desc;
-
-	rctx->direction = direction;
-	rctx->buflen = req->cryptlen;
 
 	return -EINPROGRESS;
 err_unmap_srv_desc:
@@ -366,6 +369,8 @@ static int hse_skcipher_init(struct crypto_skcipher *tfm)
 		err = -ENOMEM;
 		goto err_unmap_keyinf;
 	}
+
+	tctx->keylen = 0;
 
 	return 0;
 err_unmap_keyinf:
