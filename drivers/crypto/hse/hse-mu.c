@@ -72,6 +72,7 @@ struct hse_mu_regs {
  * @rx_cbk[n].ctx: context passed to the callback on channel n
  * @sync[n]: completion for synchronous request rx on channel n
  * @refcnt: number of times each channel is currently acquired
+ * @channel_busy[n]: internally cached status of MU channel n
  * @acq_lock: spinlock guarding stream channel acquisition
  * @tx_lock: spinlock guarding service request transmission
  * @reg_lock: spinlock guarding concurrent register access
@@ -86,6 +87,7 @@ struct hse_mu_data {
 	} rx_cbk[HSE_NUM_CHANNELS];
 	struct completion sync[HSE_NUM_CHANNELS];
 	atomic_t refcnt[HSE_NUM_CHANNELS];
+	bool channel_busy[HSE_NUM_CHANNELS];
 	spinlock_t acq_lock; /* for stream channel acquisition */
 	spinlock_t tx_lock; /* for service request transmission */
 	spinlock_t reg_lock; /* for concurrent register access */
@@ -122,6 +124,9 @@ static bool hse_mu_channel_available(void *mu_inst, u8 channel)
 	u32 fsrval, tsrval, rsrval;
 
 	if (unlikely(channel >= HSE_NUM_CHANNELS))
+		return false;
+
+	if (priv->channel_busy[channel])
 		return false;
 
 	fsrval = ioread32(&priv->regs->fsr) & BIT(channel);
@@ -245,7 +250,7 @@ int hse_mu_channel_release(void *mu_inst, u8 channel)
 	if (unlikely(!mu_inst))
 		return -EINVAL;
 
-	if (channel > HSE_NUM_CHANNELS)
+	if (channel >= HSE_NUM_CHANNELS)
 		return -ECHRNG;
 
 	atomic_dec_if_positive(&priv->refcnt[channel]);
@@ -369,12 +374,15 @@ int hse_mu_async_req_send(void *mu_inst, u8 channel, u32 srv_desc, void *ctx,
 	if (unlikely(!mu_inst || !rx_cbk || !ctx))
 		return -EINVAL;
 
-	if (unlikely(channel != HSE_ANY_CHANNEL && channel > HSE_NUM_CHANNELS))
+	if (unlikely(channel != HSE_ANY_CHANNEL && channel >= HSE_NUM_CHANNELS))
 		return -ECHRNG;
+
+	spin_lock(&priv->tx_lock);
 
 	if (channel == HSE_ANY_CHANNEL) {
 		channel = hse_mu_next_free_channel(mu_inst, false);
 		if (unlikely(channel == HSE_INVALID_CHANNEL)) {
+			spin_unlock(&priv->tx_lock);
 			dev_dbg(priv->dev, "no service channel available\n");
 			return -EBUSY;
 		}
@@ -383,22 +391,22 @@ int hse_mu_async_req_send(void *mu_inst, u8 channel, u32 srv_desc, void *ctx,
 		return -ENOSTR;
 	}
 
-	spin_lock(&priv->tx_lock);
-
 	if (unlikely(!hse_mu_channel_available(mu_inst, channel))) {
 		spin_unlock(&priv->tx_lock);
 		dev_dbg(priv->dev, "service channel %d busy\n", channel);
 		return -EBUSY;
 	}
 
-	iowrite32(srv_desc, &priv->regs->tr[channel]);
-
-	spin_unlock(&priv->tx_lock);
-
 	priv->rx_cbk[channel].fn = rx_cbk;
 	priv->rx_cbk[channel].ctx = ctx;
 
 	hse_mu_irq_enable(mu_inst, HSE_MU_INT_RESPONSE, BIT(channel));
+
+	priv->channel_busy[channel] = true;
+
+	iowrite32(srv_desc, &priv->regs->tr[channel]);
+
+	spin_unlock(&priv->tx_lock);
 
 	return 0;
 }
@@ -444,7 +452,7 @@ int hse_mu_async_req_recv(void *mu_inst, u8 channel)
 	if (unlikely(!mu_inst))
 		return -EINVAL;
 
-	if (unlikely(channel > HSE_NUM_CHANNELS))
+	if (unlikely(channel >= HSE_NUM_CHANNELS))
 		return -ECHRNG;
 
 	if (unlikely(!hse_mu_response_ready(mu_inst, channel))) {
@@ -459,6 +467,8 @@ int hse_mu_async_req_recv(void *mu_inst, u8 channel)
 	if (priv->decode(srv_rsp))
 		dev_dbg(priv->dev, "service response 0x%08X on channel %d\n",
 			srv_rsp, channel);
+
+	priv->channel_busy[channel] = false;
 
 	return priv->decode(srv_rsp);
 }
@@ -485,12 +495,15 @@ int hse_mu_sync_req(void *mu_inst, u8 channel, u32 srv_desc)
 	if (unlikely(!mu_inst))
 		return -EINVAL;
 
-	if (unlikely(channel != HSE_ANY_CHANNEL && channel > HSE_NUM_CHANNELS))
+	if (unlikely(channel != HSE_ANY_CHANNEL && channel >= HSE_NUM_CHANNELS))
 		return -ECHRNG;
+
+	spin_lock(&priv->tx_lock);
 
 	if (channel == HSE_ANY_CHANNEL) {
 		channel = hse_mu_next_free_channel(mu_inst, false);
 		if (unlikely(channel == HSE_INVALID_CHANNEL)) {
+			spin_unlock(&priv->tx_lock);
 			dev_dbg(priv->dev, "no service channel available\n");
 			return -EBUSY;
 		}
@@ -499,28 +512,35 @@ int hse_mu_sync_req(void *mu_inst, u8 channel, u32 srv_desc)
 		return -ENOSTR;
 	}
 
-	spin_lock(&priv->tx_lock);
-
 	if (unlikely(!hse_mu_channel_available(mu_inst, channel))) {
 		spin_unlock(&priv->tx_lock);
 		dev_dbg(priv->dev, "service channel %d busy\n", channel);
 		return -EBUSY;
 	}
 
-	iowrite32(srv_desc, &priv->regs->tr[channel]);
-
-	spin_unlock(&priv->tx_lock);
-
 	reinit_completion(&priv->sync[channel]);
 
 	hse_mu_irq_enable(mu_inst, HSE_MU_INT_RESPONSE, BIT(channel));
 
-	wait_for_completion_interruptible(&priv->sync[channel]);
+	priv->channel_busy[channel] = true;
+
+	iowrite32(srv_desc, &priv->regs->tr[channel]);
+
+	spin_unlock(&priv->tx_lock);
+
+	wait_for_completion(&priv->sync[channel]);
+
+	if (unlikely(!hse_mu_response_ready(mu_inst, channel))) {
+		dev_dbg(priv->dev, "no response yet on channel %d\n", channel);
+		return -ENOMSG;
+	}
 
 	srv_rsp = ioread32(&priv->regs->rr[channel]);
 	if (priv->decode(srv_rsp))
 		dev_dbg(priv->dev, "service response 0x%08X on channel %d\n",
 			srv_rsp, channel);
+
+	priv->channel_busy[channel] = false;
 
 	return priv->decode(srv_rsp);
 }
@@ -562,7 +582,7 @@ static irqreturn_t hse_rx_soft_handler(int irq, void *mu_inst)
 			void *ctx = priv->rx_cbk[channel].ctx;
 
 			priv->rx_cbk[channel].fn(mu_inst, channel, ctx);
-		} else {
+		} else if (!completion_done(&priv->sync[channel])) {
 			complete(&priv->sync[channel]);
 		}
 		channel = hse_mu_next_pending(mu_inst);
@@ -634,7 +654,7 @@ void *hse_mu_init(struct device *dev, int (*decode)(u32 srv_rsp))
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	mu_inst->regs = devm_ioremap_resource(&pdev->dev, res);
 	if (IS_ERR_OR_NULL(mu_inst->regs)) {
-		dev_err(dev, "failed to map %s register space\n", HSE_MU_INST);
+		dev_err(dev, "failed to map %s regs @%pR\n", HSE_MU_INST, res);
 		return ERR_PTR(-ENOMEM);
 	}
 
