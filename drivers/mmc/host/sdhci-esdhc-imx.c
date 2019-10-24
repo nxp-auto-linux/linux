@@ -486,14 +486,16 @@ static u32 esdhc_readl_le(struct sdhci_host *host, int reg)
 			if (imx_data->socdata->flags & ESDHC_FLAG_HS400)
 				val |= SDHCI_SUPPORT_HS400;
 
-			/*
-			 * Do not advertise faster UHS modes if there are no
-			 * pinctrl states for 100MHz/200MHz.
-			 */
-			if (IS_ERR_OR_NULL(imx_data->pins_100mhz) ||
-			    IS_ERR_OR_NULL(imx_data->pins_200mhz))
-				val &= ~(SDHCI_SUPPORT_SDR50 | SDHCI_SUPPORT_DDR50
-					 | SDHCI_SUPPORT_SDR104 | SDHCI_SUPPORT_HS400);
+			if (!is_s32gen1_usdhc(imx_data)) {
+				/*
+				* Do not advertise faster UHS modes if there are no
+				* pinctrl states for 100MHz/200MHz.
+				*/
+				if (IS_ERR_OR_NULL(imx_data->pins_100mhz) ||
+					IS_ERR_OR_NULL(imx_data->pins_200mhz))
+					val &= ~(SDHCI_SUPPORT_SDR50 | SDHCI_SUPPORT_DDR50
+						| SDHCI_SUPPORT_SDR104 | SDHCI_SUPPORT_HS400);
+			}
 		}
 	}
 
@@ -1031,7 +1033,12 @@ static void esdhc_prepare_tuning(struct sdhci_host *host, u32 val)
 	int ret;
 
 	/* FIXME: delay a bit for card to be ready for next tuning due to errors */
+
+#if defined(CONFIG_S32GEN1_EMULATOR)
+	udelay(1);
+#else
 	mdelay(1);
+#endif
 
 	/* IC suggest to reset USDHC before every tuning command */
 	esdhc_clrset_le(host, 0xff, SDHCI_RESET_ALL, SDHCI_SOFTWARE_RESET);
@@ -1264,7 +1271,8 @@ static void esdhc_set_uhs_signaling(struct sdhci_host *host, unsigned timing)
 		break;
 	}
 
-	esdhc_change_pinstate(host, timing);
+	if (!is_s32gen1_usdhc(imx_data))
+		esdhc_change_pinstate(host, timing);
 }
 
 static void esdhc_reset(struct sdhci_host *host, u8 mask)
@@ -1365,7 +1373,7 @@ static void sdhci_esdhc_imx_hwinit(struct sdhci_host *host)
 			| ESDHC_BURST_LEN_EN_INCR,
 			host->ioaddr + SDHCI_HOST_CONTROL);
 
-		if (!is_s32v234_usdhc(imx_data)) {
+		if (!is_s32v234_usdhc(imx_data) && !is_s32gen1_usdhc(imx_data)) {
 			/*
 			 * erratum ESDHC_FLAG_ERR004536 fix for MX6Q TO1.2
 			 * and MX6DL TO1.1, it's harmless for MX6SL
@@ -1470,7 +1478,11 @@ static void esdhc_cqe_enable(struct mmc_host *mmc)
 				"CQE may get stuck because the Buffer Read Enable bit is set\n");
 			break;
 		}
+#if defined(CONFIG_S32GEN1_EMULATOR)
+		udelay(1);
+#else
 		mdelay(1);
+#endif
 	}
 
 	/*
@@ -1549,7 +1561,12 @@ sdhci_esdhc_imx_probe_dt(struct platform_device *pdev,
 
 	mmc_of_parse_voltage(np, &host->ocr_mask);
 
-	if (!is_s32v234_usdhc(imx_data)) {
+	/* UHS-I support: sac58r does not have pinctrl driver
+	 * however, there's 1.8V support.
+	 * So, ignore the pinctrl lookup.
+	 * FIXME: there must be a better way to handle this!
+	 */
+	if (!is_s32v234_usdhc(imx_data) && !is_s32gen1_usdhc(imx_data)) {
 		if (esdhc_is_usdhc(imx_data) && !IS_ERR(imx_data->pinctrl)) {
 			imx_data->pins_100mhz = pinctrl_lookup_state(imx_data->pinctrl,
 							ESDHC_PINCTRL_STATE_100MHZ);
@@ -1699,9 +1716,13 @@ static int sdhci_esdhc_imx_probe(struct platform_device *pdev)
 	if (err)
 		goto disable_ipg_clk;
 
-	imx_data->pinctrl = devm_pinctrl_get(&pdev->dev);
-	if (IS_ERR(imx_data->pinctrl))
-		dev_warn(mmc_dev(host->mmc), "could not get pinctrl\n");
+	if (!is_s32gen1_usdhc(imx_data)) {
+		imx_data->pinctrl = devm_pinctrl_get(&pdev->dev);
+		if (IS_ERR(imx_data->pinctrl)) {
+			err = PTR_ERR(imx_data->pinctrl);
+			goto disable_ahb_clk;
+		}
+	}
 
 	if (esdhc_is_usdhc(imx_data)) {
 		host->quirks2 |= SDHCI_QUIRK2_PRESET_VALUE_BROKEN;
