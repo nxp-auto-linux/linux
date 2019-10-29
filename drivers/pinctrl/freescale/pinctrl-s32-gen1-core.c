@@ -664,6 +664,7 @@ int s32_pinctrl_probe(struct platform_device *pdev,
 	struct s32_pinctrl *ipctl;
 	struct resource *res, *res1;
 	int ret;
+	struct pinctrl_desc *desc;
 
 	if (!info || !info->pins || !info->npins) {
 		dev_err(&pdev->dev, "wrong pinctrl info\n");
@@ -676,6 +677,12 @@ int s32_pinctrl_probe(struct platform_device *pdev,
 	if (!ipctl)
 		return -ENOMEM;
 
+	desc = devm_kmalloc(&pdev->dev, sizeof(*desc), GFP_KERNEL);
+	if (!desc)
+		return -ENOMEM;
+
+	memcpy(desc, &s32_pinctrl_desc, sizeof(*desc));
+
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	res1 = platform_get_resource(pdev, IORESOURCE_MEM, 1);
 	ipctl->mscr_base = devm_ioremap_resource(&pdev->dev, res);
@@ -686,9 +693,9 @@ int s32_pinctrl_probe(struct platform_device *pdev,
 	if (IS_ERR(ipctl->imcr_base))
 		return PTR_ERR(ipctl->imcr_base);
 
-	s32_pinctrl_desc.name = dev_name(&pdev->dev);
-	s32_pinctrl_desc.pins = info->pins;
-	s32_pinctrl_desc.npins = info->npins;
+	desc->name = dev_name(&pdev->dev);
+	desc->pins = info->pins;
+	desc->npins = info->npins;
 
 	ret = s32_pinctrl_probe_dt(pdev, info);
 	if (ret) {
@@ -699,7 +706,7 @@ int s32_pinctrl_probe(struct platform_device *pdev,
 	ipctl->info = info;
 	ipctl->dev = info->dev;
 	platform_set_drvdata(pdev, ipctl);
-	ipctl->pctl = pinctrl_register(&s32_pinctrl_desc, &pdev->dev, ipctl);
+	ipctl->pctl = pinctrl_register(desc, &pdev->dev, ipctl);
 	if (!ipctl->pctl) {
 		dev_err(&pdev->dev, "could not register s32 pinctrl driver\n");
 		return -EINVAL;
