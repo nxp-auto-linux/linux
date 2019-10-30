@@ -69,6 +69,27 @@ int dpmcp_reset(struct fsl_mc_io *mc_io,
 		u32 cmd_flags,
 		u16 token);
 
+/**
+ * struct dprc_endpoint - Endpoint description for link connect/disconnect
+ *			operations
+ * @type:	Endpoint object type: NULL terminated string
+ * @id:		Endpoint object ID
+ * @if_id:	Interface ID; should be set for endpoints with multiple
+ *		interfaces ("dpsw", "dpdmux"); for others, always set to 0
+ */
+struct dprc_endpoint {
+	char type[16];
+	int id;
+	u16 if_id;
+};
+
+int dprc_get_connection(struct fsl_mc_io *mc_io,
+			u32 cmd_flags,
+			u16 token,
+			const struct dprc_endpoint *endpoint1,
+			struct dprc_endpoint *endpoint2,
+			int *state);
+
 /*
  * Data Path Resource Container (DPRC) API
  */
@@ -573,5 +594,8 @@ int __must_check fsl_create_mc_io(struct device *dev,
 void fsl_destroy_mc_io(struct fsl_mc_io *mc_io);
 
 bool fsl_mc_is_root_dprc(struct device *dev);
+
+struct fsl_mc_device *fsl_mc_device_lookup(struct fsl_mc_obj_desc *obj_desc,
+					   struct fsl_mc_device *mc_bus_dev);
 
 #endif /* _FSL_MC_PRIVATE_H_ */

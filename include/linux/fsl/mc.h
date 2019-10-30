@@ -13,6 +13,7 @@
 #include <linux/mod_devicetable.h>
 #include <linux/interrupt.h>
 
+
 #define FSL_MC_VENDOR_FREESCALE	0x1957
 
 struct irq_domain;
@@ -47,6 +48,7 @@ struct fsl_mc_driver {
 
 #define to_fsl_mc_driver(_drv) \
 	container_of(_drv, struct fsl_mc_driver, driver)
+
 
 /**
  * enum fsl_mc_pool_type - Types of allocatable MC bus resources
@@ -161,6 +163,7 @@ struct fsl_mc_obj_desc {
  * @regions: pointer to array of MMIO region entries
  * @irqs: pointer to array of pointers to interrupts allocated to this device
  * @resource: generic resource associated with this MC object device, if any.
+
  *
  * Generic device object for MC object devices that are "attached" to a
  * MC bus.
@@ -194,6 +197,7 @@ struct fsl_mc_device {
 	struct fsl_mc_device_irq **irqs;
 	struct fsl_mc_resource *resource;
 	struct device_link *consumer_link;
+
 };
 
 #define to_fsl_mc_device(_dev) \
@@ -360,6 +364,7 @@ int mc_send_command(struct fsl_mc_io *mc_io, struct fsl_mc_command *cmd);
 #define fsl_mc_cont_dev(_dev) (fsl_mc_is_cont_dev(_dev) ? \
 	(_dev) : (_dev)->parent)
 
+
 /*
  * module_fsl_mc_driver() - Helper macro for drivers that don't do
  * anything special in module init/exit.  This eliminates a lot of
@@ -369,6 +374,7 @@ int mc_send_command(struct fsl_mc_io *mc_io, struct fsl_mc_command *cmd);
 #define module_fsl_mc_driver(__fsl_mc_driver) \
 	module_driver(__fsl_mc_driver, fsl_mc_driver_register, \
 		      fsl_mc_driver_unregister)
+
 
 /*
  * Macro to avoid include chaining to get THIS_MODULE
@@ -403,18 +409,22 @@ int __must_check fsl_mc_allocate_irqs(struct fsl_mc_device *mc_dev);
 
 void fsl_mc_free_irqs(struct fsl_mc_device *mc_dev);
 
+struct fsl_mc_device *fsl_mc_get_endpoint(struct fsl_mc_device *mc_dev);
+
 extern struct bus_type fsl_mc_bus_type;
 
 extern struct device_type fsl_mc_bus_dprc_type;
 extern struct device_type fsl_mc_bus_dpni_type;
 extern struct device_type fsl_mc_bus_dpio_type;
 extern struct device_type fsl_mc_bus_dpsw_type;
+
 extern struct device_type fsl_mc_bus_dpbp_type;
 extern struct device_type fsl_mc_bus_dpcon_type;
 extern struct device_type fsl_mc_bus_dpmcp_type;
 extern struct device_type fsl_mc_bus_dpmac_type;
 extern struct device_type fsl_mc_bus_dprtc_type;
 extern struct device_type fsl_mc_bus_dpseci_type;
+
 
 static inline bool is_fsl_mc_bus_dprc(const struct fsl_mc_device *mc_dev)
 {
@@ -435,6 +445,7 @@ static inline bool is_fsl_mc_bus_dpsw(const struct fsl_mc_device *mc_dev)
 {
 	return mc_dev->dev.type == &fsl_mc_bus_dpsw_type;
 }
+
 
 static inline bool is_fsl_mc_bus_dpbp(const struct fsl_mc_device *mc_dev)
 {
@@ -465,6 +476,28 @@ static inline bool is_fsl_mc_bus_dpseci(const struct fsl_mc_device *mc_dev)
 {
 	return mc_dev->dev.type == &fsl_mc_bus_dpseci_type;
 }
+
+
+#define DPRC_CMDID_GET_CONNECTION               DPRC_CMD(0x16C)
+
+
+
+struct dprc_cmd_get_connection {
+	__le32 ep1_id;
+	__le16 ep1_interface_id;
+	u8 pad[2];
+	u8 ep1_type[16];
+};
+
+struct dprc_rsp_get_connection {
+	__le64 pad[3];
+	__le32 ep2_id;
+	__le16 ep2_interface_id;
+	__le16 pad1;
+	u8 ep2_type[16];
+	__le32 state;
+};
+
 
 /*
  * Data Path Buffer Pool (DPBP) API
@@ -573,5 +606,6 @@ int dpcon_set_notification(struct fsl_mc_io *mc_io,
 			   u32 cmd_flags,
 			   u16 token,
 			   struct dpcon_notification_cfg *cfg);
+
 
 #endif /* _FSL_MC_H_ */
