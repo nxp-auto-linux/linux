@@ -143,18 +143,20 @@
 };
 
 &can0 {
-	status = "okay";
-};
-
-&can1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl0_can0>;
 	status = "okay";
 };
 
 &can2 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl0_can2>, <&pinctrl1_can2>;
 	status = "okay";
 };
 
 &can3 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl0_can3>, <&pinctrl1_can3>;
 	status = "okay";
 };
 
@@ -200,7 +202,29 @@
 
 &pinctrl0 {
 	status = "okay";
-	s32g275-simu {
+	s32g274a-evb {
+		pinctrl0_can0: can0grp {
+			fsl,pins = <
+				S32_GEN1_PAD_PC12__CAN0_TXD
+				S32_GEN1_PAD_PC11__CAN0_RXD_OUT
+				S32_GEN1_PAD_PC11__CAN0_RXD_IN
+			>;
+		};
+
+		pinctrl0_can2: can2grp {
+			fsl,pins = <
+				S32_GEN1_PAD_PB11__CAN2_TXD
+				S32_GEN1_PAD_PB12__CAN2_RXD_OUT
+			>;
+		};
+
+		pinctrl0_can3: can3grp {
+		       fsl,pins = <
+				S32_GEN1_PAD_PB9__CAN3_TXD
+				S32_GEN1_PAD_PB10__CAN3_RXD_OUT
+			   >;
+		};
+
 		pinctrl_gpio0: gpiogrp0 {
 			fsl,pins = <
 				S32_GEN1_PAD_PA0__SIUL_GPIO0
@@ -312,7 +336,19 @@
 
 &pinctrl1 {
 	status = "okay";
-	s32g275-simu {
+	s32g274a-evb {
+		pinctrl1_can2: can2grp {
+			fsl,pins = <
+				S32_GEN1_PAD_PB12__CAN2_RXD_IN
+			>;
+		};
+
+		pinctrl1_can3: can3grp {
+			fsl,pins = <
+				S32_GEN1_PAD_PB10__CAN3_RXD_IN
+			>;
+		};
+
 		pinctrl_gpio1: gpiogrp1 {
 			fsl,pins = <
 				S32_GEN1_PAD_PH0__SIUL_GPIO112
