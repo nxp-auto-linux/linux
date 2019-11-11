@@ -79,7 +79,7 @@
 			| DMA_AXI_BLEN_128 | DMA_AXI_BLEN_256)
 
 /* quirk bits definition for quirk_mask_id */
-#define QUIRK_MASK_ERRATA_E50082	(1 << 0)
+#define QUIRK_MASK_S32G274A	(1 << 0)
 
 /* Platfrom data for platform device structure's platform_data field */
 

@@ -85,8 +85,8 @@ static int stmmac_dwmac_510_quirks(struct stmmac_priv *priv)
 {
 	struct mac_device_info *mac = priv->hw;
 
-	if (priv->plat->quirk_mask_id & QUIRK_MASK_ERRATA_E50082) {
-		dev_info(priv->device, "Enabled workaround for s32cc ERRATA_E50082\n");
+	if (priv->plat->quirk_mask_id & QUIRK_MASK_S32G274A) {
+		dev_info(priv->device, "Enabled workarounds for s32g274a platform\n");
 		mac->dma = &dwmac410_s32cc_dma_ops;
 	}
 
