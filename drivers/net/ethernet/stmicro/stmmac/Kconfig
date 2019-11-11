@@ -69,6 +69,14 @@ config DWMAC_S32CC
 	  device driver. This driver is used on for the S32x series
 	  SOCs GMAC ethernet controller.
 
+config DWMAC_S32CC_S32G274A_QUIRKS
+	bool "Workarounds for S32G274A specific behaviour"
+	default DWMAC_S32CC
+	depends on DWMAC_S32CC
+
+	help
+	  Workarounds for S32G274A specific behaviour and errata
+
 config DWMAC_ANARION
 	tristate "Adaptrum Anarion GMAC support"
 	default ARC
