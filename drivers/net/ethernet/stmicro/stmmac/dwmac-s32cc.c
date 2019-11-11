@@ -127,7 +127,10 @@ static int s32cc_dwmac_probe(struct platform_device *pdev)
 	plat_dat->bsp_priv = gmac;
 
 	/* configure bitfield for quirks */
-	plat_dat->quirk_mask_id = QUIRK_MASK_ERRATA_E50082;
+	plat_dat->quirk_mask_id = 0;
+#if IS_ENABLED(CONFIG_DWMAC_S32CC_S32G274A_QUIRKS)
+	plat_dat->quirk_mask_id |= QUIRK_MASK_S32G274A;
+#endif
 
 	ret = s32cc_gmac_init(pdev, plat_dat->bsp_priv);
 	if (ret)
