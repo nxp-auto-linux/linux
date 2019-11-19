@@ -10,6 +10,7 @@
 #include <linux/ethtool.h>
 #include <linux/module.h>
 #include <linux/io.h>
+#include <linux/clk.h>
 #include <linux/phy.h>
 #include <linux/platform_device.h>
 #include <linux/of.h>
@@ -18,24 +19,29 @@
 
 #include "stmmac_platform.h"
 
+#define GMAC_TX_RATE_125M	125000000	/* 125MHz */
+#define GMAC_TX_RATE_25M	25000000	/* 25MHz */
+#define GMAC_TX_RATE_2M5	2500000		/* 2.5MHz */
+
 /* S32 SRC register for phyif selection */
 #define PHY_INTF_SEL_SGMII      0x01
 #define PHY_INTF_SEL_RGMII      0x02
 #define PHY_INTF_SEL_RMII       0x08
 #define PHY_INTF_SEL_MII        0x00
 #define S32CC_GMAC_0_CTRL_STS		0x4007C004
-#define EQOS_DMA_MODE_SWR		0x01
-#define GMAC_DMA_MODE_CONFIG		0x1000
 
 struct s32cc_priv_data {
 	void __iomem *syscon;
+	struct device *dev;
 	phy_interface_t intf_mode;
+	struct clk *tx_clk;
 };
 
 static int s32cc_gmac_init(struct platform_device *pdev, void *priv)
 {
 	struct s32cc_priv_data *gmac = priv;
 	u32 intf_sel;
+	int ret;
 
 	gmac->syscon = ioremap(S32CC_GMAC_0_CTRL_STS, 4);
 	if (!gmac->syscon) {
@@ -43,7 +49,17 @@ static int s32cc_gmac_init(struct platform_device *pdev, void *priv)
 		return -EIO;
 	}
 
+	ret = clk_prepare_enable(gmac->tx_clk);
+	if (ret) {
+		dev_err(&pdev->dev, "cannot set tx clock\n");
+		return ret;
+	}
+
 	switch (gmac->intf_mode) {
+	default:
+		dev_info(&pdev->dev, "unsupported mode %d, set the default phy mode.\n",
+			 gmac->intf_mode);
+		fallthrough;
 	case PHY_INTERFACE_MODE_SGMII:
 		dev_info(&pdev->dev, "phy mode set to SGMII\n");
 		intf_sel = PHY_INTF_SEL_SGMII;
@@ -60,12 +76,9 @@ static int s32cc_gmac_init(struct platform_device *pdev, void *priv)
 		dev_info(&pdev->dev, "phy mode set to MII\n");
 		intf_sel = PHY_INTF_SEL_MII;
 		break;
-	default:
-		dev_info(&pdev->dev, "unsupported mode %d, set phy mode to RGMII\n",
-			 gmac->intf_mode);
-		intf_sel = PHY_INTF_SEL_RGMII;
-		break;
 	}
+
+	gmac->dev = &pdev->dev;
 
 	/* set interface mode */
 	writel(intf_sel, gmac->syscon);
@@ -77,7 +90,39 @@ static void s32cc_gmac_exit(struct platform_device *pdev, void *priv)
 {
 	struct s32cc_priv_data *gmac = priv;
 
+	if (gmac->tx_clk) {
+		clk_disable_unprepare(gmac->tx_clk);
+		gmac->tx_clk = NULL;
+	}
+
 	iounmap(gmac->syscon);
+}
+
+static void s32cc_fix_speed(void *priv, unsigned int speed)
+{
+	struct s32cc_priv_data *gmac = priv;
+
+	/* only RGMII mode requires the clock reconfiguration */
+	if (gmac->intf_mode != PHY_INTERFACE_MODE_RGMII)
+		return;
+
+	switch (speed) {
+	case SPEED_1000:
+		dev_info(gmac->dev, "Set TX clock to 125M\n");
+		clk_set_rate(gmac->tx_clk, GMAC_TX_RATE_125M);
+		break;
+	case SPEED_100:
+		dev_info(gmac->dev, "Set TX clock to 25M\n");
+		clk_set_rate(gmac->tx_clk, GMAC_TX_RATE_25M);
+		break;
+	case SPEED_10:
+		dev_info(gmac->dev, "Set TX clock to 2.5M\n");
+		clk_set_rate(gmac->tx_clk, GMAC_TX_RATE_2M5);
+		break;
+	default:
+		dev_err(gmac->dev, "Unsupported/Invalid speed: %d\n", speed);
+		return;
+	}
 }
 
 static int s32cc_dwmac_probe(struct platform_device *pdev)
@@ -122,6 +167,19 @@ static int s32cc_dwmac_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
+	gmac->tx_clk = devm_clk_get(&pdev->dev, "tx");
+	if (IS_ERR(gmac->tx_clk)) {
+		dev_err(&pdev->dev, "could not get tx clock\n");
+		ret = PTR_ERR(gmac->tx_clk);
+		goto err_remove_config_dt;
+	}
+
+	ret = s32cc_gmac_init(pdev, gmac);
+	if (ret)
+		goto err_remove_config_dt;
+
+	plat_dat->bsp_priv = gmac;
+
 	/* core feature set */
 	plat_dat->has_gmac4 = true;
 	plat_dat->pmt = 1;
@@ -130,16 +188,13 @@ static int s32cc_dwmac_probe(struct platform_device *pdev)
 	plat_dat->init = s32cc_gmac_init;
 	plat_dat->exit = s32cc_gmac_exit;
 	plat_dat->bsp_priv = gmac;
+	plat_dat->fix_mac_speed = s32cc_fix_speed;
 
 	/* configure bitfield for quirks */
 	plat_dat->quirk_mask_id = 0;
 #if IS_ENABLED(CONFIG_DWMAC_S32CC_S32G274A_QUIRKS)
 	plat_dat->quirk_mask_id |= QUIRK_MASK_S32G274A;
 #endif
-
-	ret = s32cc_gmac_init(pdev, plat_dat->bsp_priv);
-	if (ret)
-		goto err_remove_config_dt;
 
 	ret = stmmac_dvr_probe(&pdev->dev, plat_dat, &stmmac_res);
 	if (ret)
