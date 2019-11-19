@@ -76,6 +76,9 @@
 #define	S32GEN1_CLK_CAN				53
 /* DDR Clock */
 #define	S32GEN1_CLK_DDR				54
+/* GMAC Clock */
+#define	S32GEN1_CLK_GMAC_TX_SEL		55
+#define	S32GEN1_CLK_GMAC_TX			56
 
-#define	S32GEN1_CLK_END				55
+#define	S32GEN1_CLK_END				57
 #endif /* __DT_BINDINGS_CLOCK_S32GEN1_H */
