@@ -225,6 +225,24 @@
 			   >;
 		};
 
+		pinctrl0_dspi1: dspi1grp {
+			fsl,pins = <
+				S32_GEN1_PAD_PA7__SPI1_CS0_OUT
+				S32_GEN1_PAD_PA6__SPI1_SOUT_OUT
+				S32_GEN1_PAD_PA8__SPI1_SCK_OUT
+				S32_GEN1_PAD_PF15__SPI1_SIN_OUT
+			>;
+		};
+
+		pinctrl0_dspi5: dspi5grp {
+			fsl,pins = <
+				S32_GEN1_PAD_PA12__SPI5_CS0_OUT
+				S32_GEN1_PAD_PA11__SPI5_SOUT_OUT
+				S32_GEN1_PAD_PA9__SPI5_SCK_OUT
+				S32_GEN1_PAD_PA10__SPI5_SIN_OUT
+			>;
+		};
+
 		pinctrl_gpio0: gpiogrp0 {
 			fsl,pins = <
 				S32_GEN1_PAD_PA0__SIUL_GPIO0
@@ -349,6 +367,18 @@
 			>;
 		};
 
+		pinctrl1_dspi1: dspi1grp {
+			fsl,pins = <
+				S32_GEN1_PAD_PF15__SPI1_SIN_IN
+			>;
+		};
+
+		pinctrl1_dspi5: dspi5grp {
+			fsl,pins = <
+				S32_GEN1_PAD_PA10__SPI5_SIN_IN
+			>;
+		};
+
 		pinctrl_gpio1: gpiogrp1 {
 			fsl,pins = <
 				S32_GEN1_PAD_PH0__SIUL_GPIO112
@@ -457,6 +487,8 @@
 };
 
 &spi1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl0_dspi1>, <&pinctrl1_dspi1>;
 	#address-cells = <1>;
 	#size-cells = <0>;
 	status = "okay";
@@ -469,6 +501,8 @@
 };
 
 &spi5 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl0_dspi5>, <&pinctrl1_dspi5>;
 	#address-cells = <1>;
 	#size-cells = <0>;
 	status = "okay";
