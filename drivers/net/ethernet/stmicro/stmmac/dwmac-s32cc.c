@@ -28,10 +28,9 @@
 #define PHY_INTF_SEL_RGMII      0x02
 #define PHY_INTF_SEL_RMII       0x08
 #define PHY_INTF_SEL_MII        0x00
-#define S32CC_GMAC_0_CTRL_STS		0x4007C004
 
 struct s32cc_priv_data {
-	void __iomem *syscon;
+	void __iomem *ctrl_sts;
 	struct device *dev;
 	phy_interface_t intf_mode;
 	struct clk *tx_clk;
@@ -43,45 +42,39 @@ static int s32cc_gmac_init(struct platform_device *pdev, void *priv)
 	u32 intf_sel;
 	int ret;
 
-	gmac->syscon = ioremap(S32CC_GMAC_0_CTRL_STS, 4);
-	if (!gmac->syscon) {
-		dev_err(&pdev->dev, "cannot map GMAC_0_CTRL_STS\n");
-		return -EIO;
-	}
-
 	ret = clk_prepare_enable(gmac->tx_clk);
 	if (ret) {
 		dev_err(&pdev->dev, "cannot set tx clock\n");
 		return ret;
 	}
 
-	switch (gmac->intf_mode) {
-	default:
-		dev_info(&pdev->dev, "unsupported mode %d, set the default phy mode.\n",
-			 gmac->intf_mode);
-		fallthrough;
-	case PHY_INTERFACE_MODE_SGMII:
-		dev_info(&pdev->dev, "phy mode set to SGMII\n");
-		intf_sel = PHY_INTF_SEL_SGMII;
-		break;
-	case PHY_INTERFACE_MODE_RGMII:
-		dev_info(&pdev->dev, "phy mode set to RGMII\n");
-		intf_sel = PHY_INTF_SEL_RGMII;
-		break;
-	case PHY_INTERFACE_MODE_RMII:
-		dev_info(&pdev->dev, "phy mode set to RMII\n");
-		intf_sel = PHY_INTF_SEL_RMII;
-		break;
-	case PHY_INTERFACE_MODE_MII:
-		dev_info(&pdev->dev, "phy mode set to MII\n");
-		intf_sel = PHY_INTF_SEL_MII;
-		break;
-	}
-
-	gmac->dev = &pdev->dev;
-
 	/* set interface mode */
-	writel(intf_sel, gmac->syscon);
+	if (gmac->ctrl_sts) {
+		switch (gmac->intf_mode) {
+		default:
+			dev_info(&pdev->dev, "unsupported mode %d, set the default phy mode.\n",
+				 gmac->intf_mode);
+			fallthrough;
+		case PHY_INTERFACE_MODE_SGMII:
+			dev_info(&pdev->dev, "phy mode set to SGMII\n");
+			intf_sel = PHY_INTF_SEL_SGMII;
+			break;
+		case PHY_INTERFACE_MODE_RGMII:
+			dev_info(&pdev->dev, "phy mode set to RGMII\n");
+			intf_sel = PHY_INTF_SEL_RGMII;
+			break;
+		case PHY_INTERFACE_MODE_RMII:
+			dev_info(&pdev->dev, "phy mode set to RMII\n");
+			intf_sel = PHY_INTF_SEL_RMII;
+			break;
+		case PHY_INTERFACE_MODE_MII:
+			dev_info(&pdev->dev, "phy mode set to MII\n");
+			intf_sel = PHY_INTF_SEL_MII;
+			break;
+		}
+
+		writel(intf_sel, gmac->ctrl_sts);
+	}
 
 	return 0;
 }
@@ -94,8 +87,6 @@ static void s32cc_gmac_exit(struct platform_device *pdev, void *priv)
 		clk_disable_unprepare(gmac->tx_clk);
 		gmac->tx_clk = NULL;
 	}
-
-	iounmap(gmac->syscon);
 }
 
 static void s32cc_fix_speed(void *priv, unsigned int speed)
@@ -130,6 +121,7 @@ static int s32cc_dwmac_probe(struct platform_device *pdev)
 	struct plat_stmmacenet_data *plat_dat;
 	struct stmmac_resources stmmac_res;
 	struct s32cc_priv_data *gmac;
+	struct resource *res;
 	int ret;
 
 	ret = stmmac_get_platform_resources(pdev, &stmmac_res);
@@ -138,8 +130,16 @@ static int s32cc_dwmac_probe(struct platform_device *pdev)
 
 	gmac = devm_kzalloc(&pdev->dev, sizeof(*gmac), GFP_KERNEL);
 	if (!gmac) {
-		ret = PTR_ERR(gmac);
-		goto err_exit;
+		return PTR_ERR(gmac);
+	}
+	gmac->dev = &pdev->dev;
+
+	/* S32G control reg */
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+	gmac->ctrl_sts = devm_ioremap_resource(&pdev->dev, res);
+	if (IS_ERR_OR_NULL(gmac->ctrl_sts)) {
+		dev_err(&pdev->dev, "S32CC config region is missing\n");
+		return PTR_ERR(gmac->ctrl_sts);
 	}
 
 	/* phy mode */
@@ -162,11 +162,13 @@ static int s32cc_dwmac_probe(struct platform_device *pdev)
 	if (IS_ERR(plat_dat))
 		return PTR_ERR(plat_dat);
 
-	if (dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(32)) != 0) {
+	ret = dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(32));
+	if (ret) {
 		dev_err(&pdev->dev, "System does not support DMA, aborting\n");
-		return -EINVAL;
+		goto err_remove_config_dt;
 	}
 
+	/* tx clock */
 	gmac->tx_clk = devm_clk_get(&pdev->dev, "tx");
 	if (IS_ERR(gmac->tx_clk)) {
 		dev_err(&pdev->dev, "could not get tx clock\n");
@@ -206,7 +208,6 @@ err_gmac_exit:
 	s32cc_gmac_exit(pdev, plat_dat->bsp_priv);
 err_remove_config_dt:
 	stmmac_remove_config_dt(pdev, plat_dat);
-err_exit:
 	return ret;
 }
 
