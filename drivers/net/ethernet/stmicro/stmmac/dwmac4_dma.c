@@ -300,15 +300,6 @@ static void dwmac4_dma_rx_chan_op_mode(void __iomem *ioaddr, int mode,
 	writel(mtl_rx_op, ioaddr + MTL_CHAN_RX_OP_MODE(channel));
 }
 
-static void dwmac4_dma_rx_chan_op_mode_mtl_ecc_err(void __iomem *ioaddr, int mode,
-				       u32 channel, int fifosz, u8 qmode)
-{
-	/* Limit the fifo size to ensure the rqs <= 0x4f */
-	if ((fifosz / 256 - 1) > 0x4f)
-		fifosz = (0x4f + 1) * 256;
-	dwmac4_dma_rx_chan_op_mode(ioaddr, mode, channel, fifosz, qmode);
-}
-
 static void dwmac4_dma_tx_chan_op_mode(void __iomem *ioaddr, int mode,
 				       u32 channel, int fifosz, u8 qmode)
 {
@@ -359,15 +350,6 @@ static void dwmac4_dma_tx_chan_op_mode(void __iomem *ioaddr, int mode,
 	mtl_tx_op |= tqs << MTL_OP_MODE_TQS_SHIFT;
 
 	writel(mtl_tx_op, ioaddr +  MTL_CHAN_TX_OP_MODE(channel));
-}
-
-static void dwmac4_dma_tx_chan_op_mode_mtl_ecc_err(void __iomem *ioaddr, int mode,
-				       u32 channel, int fifosz, u8 qmode)
-{
-	/* Limit the fifo size to ensure the tqs <= 0x4f */
-	if ((fifosz / 256 - 1) > 0x4f)
-		fifosz = (0x4f + 1) * 256;
-	dwmac4_dma_tx_chan_op_mode(ioaddr, mode, channel, fifosz, qmode);
 }
 
 static int dwmac4_get_hw_feature(void __iomem *ioaddr,
@@ -575,8 +557,8 @@ const struct stmmac_dma_ops dwmac410_dma_ops = {
 	.init_tx_chan = dwmac4_dma_init_tx_chan,
 	.axi = dwmac4_dma_axi,
 	.dump_regs = dwmac4_dump_dma_regs,
-	.dma_rx_mode = dwmac4_dma_rx_chan_op_mode_mtl_ecc_err,
-	.dma_tx_mode = dwmac4_dma_tx_chan_op_mode_mtl_ecc_err,
+	.dma_rx_mode = dwmac4_dma_rx_chan_op_mode,
+	.dma_tx_mode = dwmac4_dma_tx_chan_op_mode,
 	.enable_dma_irq = dwmac410_enable_dma_irq,
 	.disable_dma_irq = dwmac4_disable_dma_irq,
 	.start_tx = dwmac4_dma_start_tx,
