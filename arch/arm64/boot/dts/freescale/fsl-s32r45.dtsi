@@ -1,0 +1,374 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Copyright 2017-2020 NXP
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ */
+
+#include "fsl-s32-gen1.dtsi"
+#include <dt-bindings/pinctrl/s32r45-pinctrl.h>
+/ {
+	model = "Freescale S32R45";
+	compatible = "fsl,s32r45-simu", "fsl,s32r45",
+				 "arm,vexpress,v2p-aarch64", "arm,vexpress";
+
+	sysclk: clk10000000 {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <10000000>;
+		clock-output-names = "sysclk";
+	};
+
+	virtio_block@39501000 {
+		compatible = "virtio,mmio";
+		reg = <0x0 0x39501000 0x0 0x1000>;
+		interrupts = <0 68 4>;
+	};
+
+	clks: clks@40038000 {
+		compatible = "fsl,s32r45-clocking";
+		reg = <0x0 0x40038000 0x0 0x3000>, /*armpll*/
+		      <0x0 0x4003C000 0x0 0x3000>, /*periphpll*/
+		      <0x0 0x40040000 0x0 0x3000>, /*accelpll*/
+		      <0x0 0x40044000 0x0 0x3000>, /*ddrpll*/
+		      <0x0 0x40054000 0x0 0x3000>, /*armdfs*/
+		      <0x0 0x40058000 0x0 0x3000>; /*periphdfs*/
+		#clock-cells = <1>;
+	};
+
+	siul2_0 {
+		compatible = "simple-mfd";
+		#address-cells = <2>;
+		#size-cells = <2>;
+		status = "okay";
+			  /* PINCTRL */
+		ranges = <1 0 0x0 0x4009C240 0x0 0x198>,
+			 /* IMCR range */
+			 <2 0 0x0 0x4009CA40 0x0 0x150>;
+		pinctrl0: siul2-pinctrl0@4009C000 {
+			compatible = "fsl,s32r45-siul2_0-pinctrl";
+			#pinctrl-cells = <2>;
+			reg = <0x1 0x0 0x0 0x198>,
+			<0x2 0x0 0x0 0x150>;
+			/* MSCR range */
+			pins = <&pinctrl0 0 101>,
+			/* IMCR range */
+			<&pinctrl0 512 595>;
+			status = "okay";
+		};
+		/*
+		 * Note gpio controller nodes are split into sections
+		 * of contiguous GPIO numbering at this
+		 * point in time, functions working with gpio chips
+		 * assume this for many things.
+		 */
+		gpioeirq0: siul2-gpio0@4009C002 {
+			compatible = "fsl,s32gen1-siul2-gpio";
+			gpio-controller;
+			#gpio-cells = <2>;
+				/* GPIO 0 */
+			gpio-ranges = <&pinctrl0 0 0 1>,
+				/* EIRQ pins */
+				<&pinctrl1 696 696 1>;
+				/* Pad Data I/0 Registers */
+			regmap0 = <&opad0_regs>;
+			regmap1 = <&ipad0_regs>;
+			regmap2 = <&irq_regs>;
+			interrupt-controller;
+			interrupts = <0 0 4>;
+			pinctrl-names = "default";
+			pinctrl-0 = <&pinctrl_gpioeirq0>;
+			status = "okay";
+		};
+		gpioother0: siul2-gpio0@4009C004 {
+			compatible = "fsl,s32gen1-siul2-gpio";
+			gpio-controller;
+			#gpio-cells = <2>;
+			gpio-ranges = <&pinctrl0 0 1 2>;
+				/* Pad Data I/0 Registers */
+			regmap0 = <&opad0_regs>;
+			regmap1 = <&ipad0_regs>;
+			status = "okay";
+		};
+		gpioeirq1: siul2-gpio0@4009C006 {
+			compatible = "fsl,s32gen1-siul2-gpio";
+			gpio-controller;
+			#gpio-cells = <2>;
+				/* GPIO 3-11 */
+			gpio-ranges = <&pinctrl0 0 3 9>,
+				/* EIRQ pins */
+				<&pinctrl1 697 697 9>;
+				/* Pad Data I/0 Registers */
+			regmap0 = <&opad0_regs>;
+			regmap1 = <&ipad0_regs>;
+			regmap2 = <&irq_regs>;
+			interrupt-controller;
+			interrupts = <0 1 4>;
+			status = "okay";
+		};
+		gpioother1: siul2-gpio0@4009C008 {
+			compatible = "fsl,s32gen1-siul2-gpio";
+			gpio-controller;
+			#gpio-cells = <2>;
+			gpio-ranges = <&pinctrl0 0 12 1>;
+				/* Pad Data I/0 Registers */
+			regmap0 = <&opad0_regs>;
+			regmap1 = <&ipad0_regs>;
+			status = "okay";
+		};
+		gpioeirq2: siul2-gpio0@4009C00A {
+			compatible = "fsl,s32gen1-siul2-gpio";
+			gpio-controller;
+			#gpio-cells = <2>;
+				/* GPIO 13 */
+			gpio-ranges = <&pinctrl0 0 13 1>,
+				/* EIRQ pins */
+				<&pinctrl1 706 706 1>;
+				/* Pad Data I/0 Registers */
+			regmap0 = <&opad0_regs>;
+			regmap1 = <&ipad0_regs>;
+			regmap2 = <&irq_regs>;
+			interrupt-controller;
+			interrupts = <0 10 4>;
+			status = "okay";
+		};
+		gpioother2: siul2-gpio0@4009C00C {
+			compatible = "fsl,s32gen1-siul2-gpio";
+			gpio-controller;
+			#gpio-cells = <2>;
+			gpio-ranges = <&pinctrl0 0 14 2>;
+				/* Pad Data I/0 Registers */
+			regmap0 = <&opad0_regs>;
+			regmap1 = <&ipad0_regs>;
+			status = "okay";
+		};
+		gpioeirq3: siul2-gpio0@4009C00E {
+			compatible = "fsl,s32gen1-siul2-gpio";
+			gpio-controller;
+			#gpio-cells = <2>;
+				/* GPIO 16-18 */
+			gpio-ranges = <&pinctrl0 0 16 3>,
+				/* EIRQ pins */
+				<&pinctrl1 707 707 3>;
+				/* Pad Data I/0 Registers */
+			regmap0 = <&opad0_regs>;
+			regmap1 = <&ipad0_regs>;
+			regmap2 = <&irq_regs>;
+			interrupt-controller;
+			interrupts = <0 11 4>;
+			status = "okay";
+		};
+		gpioother3: siul2-gpio0@4009C010 {
+			compatible = "fsl,s32gen1-siul2-gpio";
+			gpio-controller;
+			#gpio-cells = <2>;
+			gpio-ranges = <&pinctrl0 0 19 1>;
+				/* Pad Data I/0 Registers */
+			regmap0 = <&opad0_regs>;
+			regmap1 = <&ipad0_regs>;
+			status = "okay";
+		};
+		gpioeirq4: siul2-gpio0@4009C012 {
+			compatible = "fsl,s32gen1-siul2-gpio";
+			gpio-controller;
+			#gpio-cells = <2>;
+				/* GPIO 20 */
+			gpio-ranges = <&pinctrl0 0 20 1>,
+				/* EIRQ pins */
+				<&pinctrl1 710 710 3>;
+				/* Pad Data I/0 Registers */
+			regmap0 = <&opad0_regs>;
+			regmap1 = <&ipad0_regs>;
+			regmap2 = <&irq_regs>;
+			interrupt-controller;
+			interrupts = <0 14 4>;
+			status = "okay";
+		};
+		gpioother4: siul2-gpio0@4009C014 {
+			compatible = "fsl,s32gen1-siul2-gpio";
+			gpio-controller;
+			#gpio-cells = <2>;
+			gpio-ranges = <&pinctrl0 0 21 1>;
+				/* Pad Data I/0 Registers */
+			regmap0 = <&opad0_regs>;
+			regmap1 = <&ipad0_regs>;
+			status = "okay";
+		};
+		gpioeirq5: siul2-gpio0@4009C016 {
+			compatible = "fsl,s32gen1-siul2-gpio";
+			gpio-controller;
+			#gpio-cells = <2>;
+				/* GPIO 22 */
+			gpio-ranges = <&pinctrl0 0 22 2>,
+				/* EIRQ pins */
+				<&pinctrl1 711 711 2>;
+				/* Pad Data I/0 Registers */
+			regmap0 = <&opad0_regs>;
+			regmap1 = <&ipad0_regs>;
+			regmap2 = <&irq_regs>;
+			interrupt-controller;
+			interrupts = <0 15 4>;
+			status = "okay";
+		};
+		gpioother5: siul2-gpio0@4009C018 {
+			compatible = "fsl,s32gen1-siul2-gpio";
+			gpio-controller;
+			#gpio-cells = <2>;
+			gpio-ranges = <&pinctrl0 0 24 1>;
+				/* Pad Data I/0 Registers */
+			regmap0 = <&opad0_regs>;
+			regmap1 = <&ipad0_regs>;
+			status = "okay";
+		};
+		gpioeirq6: siul2-gpio0@4009C01A {
+			compatible = "fsl,s32gen1-siul2-gpio";
+			gpio-controller;
+			#gpio-cells = <2>;
+				/* GPIO 25-33 */
+			gpio-ranges = <&pinctrl0 0 25 9>,
+				/* EIRQ pins */
+				<&pinctrl1 713 713 9>;
+				/* Pad Data I/0 Registers */
+			regmap0 = <&opad0_regs>;
+			regmap1 = <&ipad0_regs>;
+			regmap2 = <&irq_regs>;
+			interrupt-controller;
+			interrupts = <0 17 4>;
+			status = "okay";
+		};
+		gpioother6: siul2-gpio0@4009C01C {
+			compatible = "fsl,s32gen1-siul2-gpio";
+			gpio-controller;
+			#gpio-cells = <2>;
+			gpio-ranges = <&pinctrl0 0 34 2>;
+				/* Pad Data I/0 Registers */
+			regmap0 = <&opad0_regs>;
+			regmap1 = <&ipad0_regs>;
+			status = "okay";
+		};
+		gpioeirq7: siul2-gpio0@4009C01E {
+			compatible = "fsl,s32gen1-siul2-gpio";
+			gpio-controller;
+			#gpio-cells = <2>;
+				/* GPIO 36-40 */
+			gpio-ranges = <&pinctrl0 0 36 5>,
+				/* EIRQ pins */
+				<&pinctrl1 722 722 5>;
+				/* Pad Data I/0 Registers */
+			regmap0 = <&opad0_regs>;
+			regmap1 = <&ipad0_regs>;
+			regmap2 = <&irq_regs>;
+			interrupt-controller;
+			interrupts = <0 26 4>;
+			status = "okay";
+		};
+		gpioother7: siul2-gpio0@4009C020 {
+			compatible = "fsl,s32gen1-siul2-gpio";
+			gpio-controller;
+			#gpio-cells = <2>;
+			gpio-ranges = <&pinctrl0 0 41 3>;
+				/* Pad Data I/0 Registers */
+			regmap0 = <&opad0_regs>;
+			regmap1 = <&ipad0_regs>;
+			status = "okay";
+		};
+		gpioeirq8: siul2-gpio0@4009C022 {
+			compatible = "fsl,s32gen1-siul2-gpio";
+			gpio-controller;
+			#gpio-cells = <2>;
+				/* GPIO 44 */
+			gpio-ranges = <&pinctrl0 0 44 1>,
+				/* EIRQ pins */
+				<&pinctrl1 727 727 1>;
+				/* Pad Data I/0 Registers */
+			regmap0 = <&opad0_regs>;
+			regmap1 = <&ipad0_regs>;
+			regmap2 = <&irq_regs>;
+			interrupt-controller;
+			interrupts = <0 31 4>;
+			status = "okay";
+		};
+		gpioother8: siul2-gpio0@4009C024 {
+			compatible = "fsl,s32gen1-siul2-gpio";
+			gpio-controller;
+			#gpio-cells = <2>;
+			gpio-ranges = <&pinctrl0 0 45 57>;
+				/* Pad Data I/0 Registers */
+			regmap0 = <&opad0_regs>;
+			regmap1 = <&ipad0_regs>;
+			status = "okay";
+		};
+	};
+
+	siul2_1 {
+		compatible = "simple-mfd";
+		#address-cells = <2>;
+		#size-cells = <2>;
+		status = "okay";
+			  /* PINCTRL */
+		ranges = <1 0 0x0 0x4403C240 0x0 0x80>,
+			 /* IMCR range */
+			 <2 0 0x0 0x4403CBAC 0x0 0x2CC>;
+
+		pinctrl1: siul2-pinctrl1@4403C000 {
+			compatible =
+				"fsl,s32r45-siul2_1-pinctrl";
+			#pinctrl-cells = <2>;
+			reg = <0x1 0x0 0x0 0x80>,
+			<0x2 0x0 0x0 0x2CC>;
+			/* MSCR range */
+			pins = <&pinctrl1 102 133>,
+			/* IMCR range */
+			<&pinctrl1 603 781>;
+			status = "okay";
+		};
+		/*
+		 * Note gpio controller nodes are split into sections
+		 * of contiguous GPIO numbering at this
+		 * point in time, functions working with gpio chips
+		 * assume this for many things.
+		 */
+
+		gpioother9: siul2-gpio0@4403C002 {
+			compatible = "fsl,s32gen1-siul2-gpio";
+			gpio-controller;
+			#gpio-cells = <2>;
+			gpio-ranges = <&pinctrl1 0 102 32>;
+				/* Pad Data I/0 Registers */
+			regmap0 = <&opad1_regs>;
+			regmap1 = <&ipad1_regs>;
+			status = "okay";
+		};
+	};
+
+	irq_regs: siul2_reg@0x4403C000 {
+		compatible = "fsl,irq_reqs-s32gen1","syscon","simple-mfd";
+		reg = <0x0 0x4403C000 0x0 0x40>;
+		little-endian;
+	};
+	opad0_regs: siul2_reg@0x4009D700 {
+		compatible = "fsl,opad0_reqs-s32gen1","syscon","simple-mfd";
+		reg = <0x0 0x4009D700 0x0 0x10>;
+		big-endian;
+	};
+	ipad0_regs: siul2_reg@0x4009D740 {
+		compatible = "fsl,ipad0_reqs-s32gen1","syscon","simple-mfd";
+		reg = <0x0 0x4009D740 0x0 0x10>;
+		big-endian;
+	};
+	opad1_regs: siul2_reg@0x4403D70C {
+		compatible = "fsl,opad0_reqs-s32gen1","syscon","simple-mfd";
+		reg = <0x0 0x4403D70C 0x0 0x14>;
+		big-endian;
+	};
+	ipad1_regs: siul2_reg@0x4403D74C {
+		compatible = "fsl,ipad0_reqs-s32gen1","syscon","simple-mfd";
+		reg = <0x0 0x4403D74C 0x0 0x14>;
+		big-endian;
+	};
+};
+
+
