@@ -8,31 +8,11 @@
  */
 
 /dts-v1/;
-#include "s32-gen1.dtsi"
+#include "fsl-s32r45.dtsi"
 / {
-	model = "Freescale S32R45X";
-	compatible = "fsl,s32r45x-simu", "fsl,s32r45x",
-				 "arm,vexpress,v2p-aarch64", "arm,vexpress";
-
 	chosen {
-		bootargs = "console=ttyAMA0 earlyprintk=pl011,0x20020000";
 		linux,initrd-start = <0xa0000000>;
 		linux,initrd-end = <0xa2000000>;
 
-	};
-
-	sysclk: clk10000000 {
-		compatible = "fixed-clock";
-		#clock-cells = <0>;
-		clock-frequency = <10000000>;
-		clock-output-names = "sysclk";
-	};
-
-	uart@20020000 {
-		compatible = "arm,pl011", "arm,primecell";
-		reg = <0x0 0x20020000 0x0 0x1000>;
-		interrupts = <0 32 4>;
-		clock-names = "uartclk", "apb_pclk";
-		clocks = <&sysclk>, <&sysclk>;
 	};
 };
