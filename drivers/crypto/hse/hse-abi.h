@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: BSD-3-Clause */
 /*
- * NXP HSE Driver - HSE Binary Interface
+ * NXP HSE Driver - HSE Firmware Binary Interface
+ *
+ * This file defines the firmware binary interface of HSE cryptographic engine.
  *
  * Copyright 2019 NXP
  */
@@ -126,13 +128,13 @@ enum hse_srv_prio {
 };
 
 /**
- * enum hse_srv_access_modes - HSE access modes
+ * enum hse_srv_access_mode - HSE access modes
  * @HSE_ACCESS_MODE_ONE_PASS: ONE-PASS access mode
  * @HSE_ACCESS_MODE_START: START access mode
  * @HSE_ACCESS_MODE_UPDATE: UPDATE access mode
  * @HSE_ACCESS_MODE_FINISH: FINISH access mode
  */
-enum hse_srv_access_modes {
+enum hse_srv_access_mode {
 	HSE_ACCESS_MODE_ONE_PASS = 0u,
 	HSE_ACCESS_MODE_START = 1u,
 	HSE_ACCESS_MODE_UPDATE = 2u,
@@ -140,7 +142,7 @@ enum hse_srv_access_modes {
 };
 
 /**
- * enum hse_hash_algorithms - supported hash algorithm types
+ * enum hse_hash_algorithm - supported hash algorithm types
  * @HSE_HASH_ALGO_MD5: MD5 hash
  * @HSE_HASH_ALGO_SHA1: SHA1 hash
  * @HSE_HASH_ALGO_SHA2_224: SHA2-224 hash
@@ -148,7 +150,7 @@ enum hse_srv_access_modes {
  * @HSE_HASH_ALGO_SHA2_384: SHA2-384 hash
  * @HSE_HASH_ALGO_SHA2_512: SHA2-512 hash
  */
-enum hse_hash_algorithms {
+enum hse_hash_algorithm {
 	HSE_HASH_ALGO_MD5 = 1u,
 	HSE_HASH_ALGO_SHA1 = 2u,
 	HSE_HASH_ALGO_SHA2_224 = 3u,
@@ -158,30 +160,26 @@ enum hse_hash_algorithms {
 };
 
 /**
- * enum hse_mac_algorithms - supported MAC algorithm types
+ * enum hse_mac_algorithm - supported MAC algorithm types
  * @HSE_HASH_ALGO_HMAC: HMAC
  */
-enum hse_mac_algorithms {
+enum hse_mac_algorithm {
 	HSE_MAC_ALGO_HMAC = 0x20u,
 };
 
 /**
- * enum hse_cipher_algorithms - supported cipher algorithm types
- * @HSE_CIPHER_ALGO_NULL: none
+ * enum hse_cipher_algorithm - supported cipher algorithm types
  * @HSE_CIPHER_ALGO_AES: AES cipher
  */
-enum hse_cipher_algorithms {
-	HSE_CIPHER_ALGO_NULL = 0u,
+enum hse_cipher_algorithm {
 	HSE_CIPHER_ALGO_AES = 16u,
 };
 
 /**
- * enum hse_block_modes - supported symmetric cipher block modes
- * @HSE_CIPHER_BLOCK_MODE_NULL: none
+ * enum hse_block_mode - supported symmetric cipher block modes
  * @HSE_CIPHER_BLOCK_MODE_CBC: cipher block chaining mode
  */
-enum hse_block_modes {
-	HSE_CIPHER_BLOCK_MODE_NULL = 0u,
+enum hse_block_mode {
 	HSE_CIPHER_BLOCK_MODE_CBC = 2u,
 };
 
@@ -196,8 +194,8 @@ enum hse_cipher_dir {
 };
 
 /**
- * enum hse_auth_cipher_mode - HSE Authenticated cipher/encryption mode
- * @HSE_AUTH_CIPHER_MODE_GCM: GCM mode
+ * enum hse_auth_cipher_mode - authenticated encryption mode
+ * @HSE_AUTH_CIPHER_MODE_GCM: GCM
  */
 enum hse_auth_cipher_mode {
 	HSE_AUTH_CIPHER_MODE_GCM = 2u,
@@ -213,9 +211,9 @@ enum hse_auth_dir {
 
 /**
  * enum hse_key_flags - key properties
- * @HSE_KF_USAGE_ENCRYPT: key used for encryption
- * @HSE_KF_USAGE_DECRYPT: key used for decryption
- * @HSE_KF_USAGE_SIGN: key used for MAC generation
+ * @HSE_KF_USAGE_ENCRYPT: key used for encryption (and AEAD tag computation)
+ * @HSE_KF_USAGE_DECRYPT: key used for decryption (and AEAD tag verification)
+ * @HSE_KF_USAGE_SIGN: key used for message authentication code/tag generation
  */
 enum hse_key_flags {
 	HSE_KF_USAGE_ENCRYPT = BIT(0),
@@ -224,11 +222,11 @@ enum hse_key_flags {
 };
 
 /**
- * enum hse_key_types - key types used by HSE
+ * enum hse_key_type - key types used by HSE
  * @HSE_KEY_TYPE_AES: AES 128, 192 or 256-bit key
- * @HSE_KEY_TYPE_HMAC: HMAC key
+ * @HSE_KEY_TYPE_HMAC: HMAC key, 16-byte or more
  */
-enum hse_key_types {
+enum hse_key_type {
 	HSE_KEY_TYPE_AES = 0x12u,
 	HSE_KEY_TYPE_HMAC = 0x20u,
 };
@@ -291,7 +289,7 @@ struct hse_hash_srv {
 
 /**
  * struct hse_mac_srv - generate a message authentication code
- * @access_mode: ONE-PASS, START, UPDATE, FINISH
+ * @access_mode: ONE-PASS, START, UPDATE, FINISH; see &enum hse_srv_access_mode
  * @stream_id: ID for START, UPDATE, FINISH access modes - only a limited number
  *             of channels per MU instance are available for streaming use
  * @auth_dir: direction - generate MAC
@@ -353,20 +351,20 @@ struct hse_mac_srv {
 } __packed;
 
 /**
- * struct hse_skcipher_srv - symmetric cipher encryption/decryption
- * @access_mode: must be set to ONE-PASS
+ * struct hse_skcipher_srv - symmetric key cipher encryption/decryption
+ * @access_mode: only ONE-PASS mode supported
  * @cipher_algo: cipher algorithm
  * @block_mode: cipher block mode
- * @cipher_dir: direction - encrypt/decrypt
- * @key_handle: key handle from RAM catalog
- * @iv_len: initialization vector length. Ignored for NULL and ECB block
- *          modes. Must be the block length corresponding to the block mode
+ * @cipher_dir: direction - encrypt/decrypt from &enum hse_cipher_dir
+ * @key_handle: RAM catalog key handle
+ * @iv_len: initialization vector/nonce length. Ignored for NULL and ECB block
+ *          modes. Must be the appropriate block size for the block mode
  * @iv: address of the initialization vector/nonce. Ignored for NULL and ECB
  *      block modes
- * @input_len: the plaintext and ciphertext length. For ECB, CBC and CFB
- *             cipher block modes, it must be a multiple of block length
+ * @input_len: plaintext/ciphertext length, in bytes. For ECB, CBC and CFB
+ *             cipher block modes, must be a multiple of block length
  * @input: address of the plaintext for encryption, or ciphertext for decryption
- * @output: address of plaintext for decryption, or ciphertext for encryption
+ * @output: address of ciphertext for encryption or plaintext for decryption
  *
  * To perform encryption/decryption with a block cipher in ECB or CBC mode, the
  * length of the input must be an exact multiple of the block size. For all AES
@@ -391,40 +389,34 @@ struct hse_skcipher_srv {
 } __packed;
 
 /**
- * struct hse_aead_srv - HSE AEAD service.
- * @access_mode: Service access mode from &enum hse_srv_access_modes
- * @auth_cipher_mode: Authenticated cipher mode from &enum hse_auth_cipher_mode
- * @cipher_dir: Direction - encrypt/decrypt from &enum hse_cipher_dir
- * @key_handle: Handle of key from RAM Key catalog
- * @iv_len: Length of the Initialization Vector/Nonce (in bytes).
+ * struct hse_aead_srv - authenticated encryption with additional data
+ * @access_mode: only ONE-PASS mode supported
+ * @auth_cipher_mode: authenticated cipher mode from &enum hse_auth_cipher_mode
+ * @cipher_dir: direction - encrypt/decrypt from &enum hse_cipher_dir
+ * @key_handle: RAM catalog key handle
+ * @iv_len: initialization vector/nonce length
  *          CCM valid sizes: 7, 8, 9, 10, 11, 12, 13 bytes
- *          GCM recommended sizes: 12 bytes or less. Zero is not allowed
- * @iv: Address of the Initialization Vector/Nonce
- * @aad_len: Length of AAD Header data (in bytes). Can be zero.
- *           For CCM must be <= (2^16 - 2^8) bytes
- * @aad: Address of AAD header data. Ignored if aad_len is zero.
- * @input_len: Length of the plaintext and ciphertext (in bytes).
+ *          GCM recommended sizes: 12 bytes or less, zero not allowed
+ * @iv: address of the initialization vector/nonce
+ * @aad_len: length of AAD header data (in bytes). Can be zero.
+ * @aad: address of AAD header data. Ignored if aad_len is zero.
+ * @input_len: plaintext/ciphertext length, in bytes.
  *             Can be zero (compute/verify the tag without input message).
- * @input: Address of plaintext for encryption or ciphertext decryption
- * @tag_len: Length of tag (in bytes)
+ * @input: address of plaintext for encryption or ciphertext for decryption
+ * @tag_len: length of tag (in bytes)
  *           CCM valid Tag sizes: 4, 6, 8, 10, 12, 14, 16
  *           GCM valid Tag sizes 16, 15, 14, 13, 12, 8 or 4
- * @tag: Address of output/input tag for authenticated encryption/decryption
- * @output: Address of ciphertext for encryption or plaintext for decryption
+ * @tag: address of output/input tag for authenticated encryption/decryption
+ * @output: address of ciphertext for encryption or plaintext for decryption
  *
  * Authenticated Encryption with Associated Data (AEAD) is a block cipher mode
  * of operation which also allows integrity checks (e.g. AES-GCM). Additional
- * authenticated data (AAD) is optional additional input header which is
- * authenticated, but not encrypted. Both confidentiality and message
- * authentication is provided on the input plaintext.
- *
- * The key usage flags used with AEAD operations mean:
- *  - HSE_KF_USAGE_ENCRYPT: key used for encryption and tag computation
- *  - HSE_KF_USAGE_DECRYPT: key used for decryption and tag verification
+ * authenticated data (AAD) is an optional input header which is authenticated,
+ * but not encrypted. Both message integrity and confidentiality are assured.
  */
 struct hse_aead_srv {
 	u8 access_mode;
-	u8 reserved0;
+	u8 reserved;
 	u8 auth_cipher_mode;
 	u8 cipher_dir;
 	u32 key_handle;
@@ -443,20 +435,22 @@ struct hse_aead_srv {
  * struct hse_import_key_srv - import/update key into a key store
  * @key_handle: key slot to update
  * @key_info: address of associated hse_key_info struct (specifying usage
- *            flags, restriction access, key length in bits, etc.)
- * @key: address of the key value
- * @key_len: key length in bytes
+ *            flags, access restrictions, key length in bits, etc.)
+ * @sym.key: address of symmetric key
+ * @sym.keylen: symmetric key length in bytes
  * @cipher_key: unused, must be set to HSE_INVALID_KEY_HANDLE
  * @auth_key: unused, must be set to HSE_INVALID_KEY_HANDLE
  */
 struct hse_import_key_srv {
 	u32 key_handle;
 	u64 key_info;
-	u8 reserved0[16];
-	u64 key;
-	u8 reserved1[4];
-	u16 key_len;
-	u8 reserved2[2];
+	struct {
+		u8 reserved0[16];
+		u64 key;
+		u8 reserved1[4];
+		u16 keylen;
+		u8 reserved2[2];
+	} sym;
 	u32 cipher_key;
 	u8 reserved3[32];
 	u32 auth_key;
@@ -482,7 +476,7 @@ struct hse_rng_srv {
  * @priority: priority of the HSE request
  * @hash_req: hash service request
  * @mac_req: MAC service request
- * @skcipher_req: symmetric cipher service request
+ * @skcipher_req: symmetric key cipher service request
  * @aead_req: AEAD service request
  * @import_key_req: import key service request
  * @rng_req: RNG service request
@@ -499,13 +493,13 @@ struct hse_srv_desc {
 		struct hse_import_key_srv import_key_req;
 		struct hse_rng_srv rng_req;
 	};
-};
+} __packed;
 
 /**
  * struct hse_key_info - key properties
  * @key_flags: the targeted key flags; see &enum hse_key_flags
  * @key_bit_len: length of the key in bits
- * @key_type: targeted key type; see &enum hse_key_types
+ * @key_type: targeted key type; see &enum hse_key_type
  */
 struct hse_key_info {
 	u16 key_flags;
@@ -513,6 +507,6 @@ struct hse_key_info {
 	u8 reserved0[8];
 	u8 key_type;
 	u8 reserved1[3];
-};
+} __packed;
 
 #endif /* HSE_ABI_H */
