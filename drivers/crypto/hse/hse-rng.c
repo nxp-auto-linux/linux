@@ -9,11 +9,10 @@
 
 #include <linux/kernel.h>
 #include <linux/dma-mapping.h>
-#include <linux/crypto.h>
 #include <linux/hw_random.h>
 
-#include "hse.h"
 #include "hse-abi.h"
+#include "hse-core.h"
 #include "hse-mu.h"
 
 #define HSE_RNG_QUALITY    1024u /* number of entropy bits per 1024 bits */
@@ -58,7 +57,7 @@ static int hse_hwrng_read(struct hwrng *rng, void *data, size_t max, bool wait)
 		return 0;
 
 	ctx->srv_desc.srv_id = HSE_SRV_ID_GET_RANDOM_NUM;
-	ctx->srv_desc.priority = HSE_SRV_PRIO_MED;
+	ctx->srv_desc.priority = HSE_SRV_PRIO_LOW;
 	ctx->srv_desc.rng_req.rng_class = HSE_RNG_CLASS_PTG3;
 	ctx->srv_desc.rng_req.random_num_len = max;
 	ctx->srv_desc.rng_req.random_num = data_dma;
@@ -114,7 +113,6 @@ void hse_hwrng_register(struct device *dev)
 	err = devm_hwrng_register(dev, &hse_rng);
 	if (err) {
 		dev_err(dev, "failed to register %s: %d", hse_rng.name, err);
-		kfree(ctx);
 		return;
 	}
 
