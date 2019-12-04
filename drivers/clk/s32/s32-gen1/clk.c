@@ -15,6 +15,7 @@
 #include "mc_cgm.h"
 
 static void __iomem *mc_cgm0_base;
+static void __iomem *mc_cgm1_base;
 static void __iomem *mc_cgm5_base;
 static void *armpll;
 static void *periphpll;
@@ -53,6 +54,12 @@ static u32 sdhc_mux_idx[] = {
 PNAME(dspi_sels) = {"firc", "periphpll_phi7", };
 static u32 dspi_mux_idx[] = {
 	MC_CGM_MUXn_CSC_SEL_FIRC, MC_CGM_MUXn_CSC_SEL_PERIPH_PLL_PHI7,
+};
+
+PNAME(a53_core_sels) = {"firc", "armpll_dfs2", "armpll_phi0"};
+static u32 a53_core_mux_idx[] = {
+	MC_CGM_MUXn_CSC_SEL_FIRC, MC_CGM_MUXn_CSC_SEL_ARM_PLL_DFS2,
+	MC_CGM_MUXn_CSC_SEL_ARM_PLL_PHI0,
 };
 
 PNAME(xbar_sels) = {"firc", "armpll_dfs1", };
@@ -124,6 +131,11 @@ static void __init s32gen1_clocks_init(struct device_node *clocking_node)
 	np = of_find_compatible_node(NULL, NULL, "fsl,s32gen1-mc_cgm0");
 	mc_cgm0_base = of_iomap(np, 0);
 	if (WARN_ON(!mc_cgm0_base))
+		return;
+
+	np = of_find_compatible_node(NULL, NULL, "fsl,s32gen1-mc_cgm1");
+	mc_cgm1_base = of_iomap(np, 0);
+	if (WARN_ON(!mc_cgm1_base))
 		return;
 
 	np = of_find_compatible_node(NULL, NULL, "fsl,s32gen1-mc_cgm5");
@@ -306,6 +318,18 @@ static void __init s32gen1_clocks_init(struct device_node *clocking_node)
 		MC_CGM_MUXn_CSC_SELCTL_OFFSET,
 		MC_CGM_MUXn_CSC_SELCTL_SIZE,
 		dspi_sels, ARRAY_SIZE(dspi_sels), dspi_mux_idx, &s32gen1_lock);
+
+	/* A53 cores */
+	clk[S32GEN1_CLK_A53] = s32_clk_mux_table("a53_core",
+		CGM_MUXn_CSC(mc_cgm1_base, 0),
+		MC_CGM_MUXn_CSC_SELCTL_OFFSET,
+		MC_CGM_MUXn_CSC_SELCTL_SIZE,
+		a53_core_sels, ARRAY_SIZE(a53_core_sels), a53_core_mux_idx,
+		&s32gen1_lock);
+	clk[S32GEN1_CLK_A53_DIV2] = s32_clk_fixed_factor("a53_core_div2",
+		"a53_core", 1, 2);
+	clk[S32GEN1_CLK_A53_DIV10] = s32_clk_fixed_factor("a53_core_div10",
+		"a53_core", 1, 10);
 
 	/* SDHC Clock */
 	clk[S32GEN1_CLK_SDHC_SEL] = s32_clk_mux_table("sdhc_sel",
