@@ -79,6 +79,10 @@
 /* GMAC Clock */
 #define	S32GEN1_CLK_GMAC_TX_SEL		55
 #define	S32GEN1_CLK_GMAC_TX			56
+/* A53 Clock */
+#define	S32GEN1_CLK_A53				57
+#define	S32GEN1_CLK_A53_DIV2			58
+#define	S32GEN1_CLK_A53_DIV10			59
 
-#define	S32GEN1_CLK_END				57
+#define	S32GEN1_CLK_END				60
 #endif /* __DT_BINDINGS_CLOCK_S32GEN1_H */
