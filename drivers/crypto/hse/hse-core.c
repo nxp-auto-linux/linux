@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: BSD-3-Clause
 /*
- * NXP HSE Driver
+ * NXP HSE Driver - Core
+ *
+ * This file contains the device driver core for the HSE cryptographic engine.
  *
  * Copyright 2019 NXP
  */
@@ -11,9 +13,9 @@
 #include <linux/mod_devicetable.h>
 #include <linux/crypto.h>
 
-#include "hse.h"
-#include "hse-mu.h"
 #include "hse-abi.h"
+#include "hse-core.h"
+#include "hse-mu.h"
 
 /**
  * hse_err_decode - HSE Error Code Translation
@@ -66,7 +68,7 @@ static int hse_err_decode(u32 srv_rsp)
 }
 
 /**
- * hse_init_key_ring - initialize all keys in a specific key group
+ * hse_key_ring_init - initialize all keys in a specific key group
  * @dev: HSE device
  * @key_ring: output key ring
  * @group_id: key group ID
@@ -74,8 +76,8 @@ static int hse_err_decode(u32 srv_rsp)
  *
  * Return: 0 on success, -ENOMEM for failed key ring allocation
  */
-static int hse_init_key_ring(struct device *dev, struct list_head *key_ring,
-			     u8 group_id, u8 group_size)
+static int hse_key_ring_init(struct device *dev, struct list_head *key_ring,
+			     enum hse_key_type type, u8 group_id, u8 group_size)
 {
 	struct hse_key *ring;
 	unsigned int i;
@@ -88,6 +90,7 @@ static int hse_init_key_ring(struct device *dev, struct list_head *key_ring,
 
 	for (i = 0; i < group_size; i++) {
 		ring[i].handle = HSE_KEY_HANDLE(group_id, i);
+		ring[i].type = type;
 		list_add_tail(&ring[i].entry, key_ring);
 	}
 
@@ -95,10 +98,10 @@ static int hse_init_key_ring(struct device *dev, struct list_head *key_ring,
 }
 
 /**
- * hse_free_key_ring - remove all keys in a specific key group
+ * hse_key_ring_free - remove all keys in a specific key group
  * @key_ring: input key ring
  */
-static void hse_free_key_ring(struct list_head *key_ring)
+static void hse_key_ring_free(struct list_head *key_ring)
 {
 	struct hse_key *key, *tmp;
 
@@ -106,73 +109,142 @@ static void hse_free_key_ring(struct list_head *key_ring)
 		list_del(&key->entry);
 }
 
+/**
+ * hse_key_slot_acquire - acquire a HSE key slot
+ * @dev: HSE device
+ * @type: key type
+ *
+ * Return: key slot of specified type if available, error code otherwise
+ */
+struct hse_key *hse_key_slot_acquire(struct device *dev, enum hse_key_type type)
+{
+	struct hse_drvdata *drv = dev_get_drvdata(dev);
+	struct list_head *key_ring;
+	struct hse_key *slot;
+
+	if (unlikely(!dev))
+		return ERR_PTR(-EINVAL);
+
+	switch (type) {
+	case HSE_KEY_TYPE_AES:
+		key_ring = &drv->aes_key_ring;
+		break;
+	case HSE_KEY_TYPE_HMAC:
+		key_ring = &drv->hmac_key_ring;
+		break;
+	default:
+		return ERR_PTR(-EINVAL);
+	}
+
+	/* remove key slot from ring */
+	spin_lock(&drv->key_ring_lock);
+	slot = list_first_entry_or_null(key_ring, struct hse_key, entry);
+	if (IS_ERR_OR_NULL(slot)) {
+		spin_unlock(&drv->key_ring_lock);
+		return ERR_PTR(-ENOKEY);
+	}
+	list_del(&slot->entry);
+	spin_unlock(&drv->key_ring_lock);
+
+	return slot;
+}
+
+/**
+ * hse_key_slot_release - release a HSE key slot
+ * @dev: HSE device
+ * @slot: key slot
+ */
+void hse_key_slot_release(struct device *dev, struct hse_key *slot)
+{
+	struct hse_drvdata *drv = dev_get_drvdata(dev);
+	struct list_head *key_ring;
+
+	switch (slot->type) {
+	case HSE_KEY_TYPE_AES:
+		key_ring = &drv->aes_key_ring;
+		break;
+	case HSE_KEY_TYPE_HMAC:
+		key_ring = &drv->hmac_key_ring;
+		break;
+	default:
+		return;
+	}
+
+	/* add key slot back to ring */
+	spin_lock(&drv->key_ring_lock);
+	list_add_tail(&slot->entry, key_ring);
+	spin_unlock(&drv->key_ring_lock);
+}
+
 static int hse_probe(struct platform_device *pdev)
 {
-	struct hse_drvdata *pdata;
+	struct device *dev = &pdev->dev;
+	struct hse_drvdata *drv;
 	u16 status, init_ok_mask;
 	int err;
 
-	dev_info(&pdev->dev, "probing device\n");
+	dev_info(dev, "probing driver\n");
 
-	pdata = devm_kzalloc(&pdev->dev, sizeof(*pdata), GFP_KERNEL);
-	if (IS_ERR_OR_NULL(pdata))
+	drv = devm_kzalloc(dev, sizeof(*drv), GFP_KERNEL);
+	if (IS_ERR_OR_NULL(drv))
 		return -ENOMEM;
 
-	platform_set_drvdata(pdev, pdata);
+	platform_set_drvdata(pdev, drv);
 
-	pdata->mu_inst = hse_mu_init(&pdev->dev, hse_err_decode);
-	if (IS_ERR(pdata->mu_inst))
-		return PTR_ERR(pdata->mu_inst);
+	drv->mu_inst = hse_mu_init(dev, hse_err_decode);
+	if (IS_ERR(drv->mu_inst))
+		return PTR_ERR(drv->mu_inst);
 
 	init_ok_mask = HSE_STATUS_INIT_OK | HSE_STATUS_INSTALL_OK;
 	if (IS_ENABLED(CONFIG_CRYPTO_DEV_NXP_HSE_HWRNG))
 		init_ok_mask |= HSE_STATUS_RNG_INIT_OK;
-	status = hse_mu_status(pdata->mu_inst);
+	status = hse_mu_status(drv->mu_inst);
 	if (unlikely((status & init_ok_mask) != init_ok_mask)) {
-		dev_err(&pdev->dev, "init failed with status 0x%04X\n", status);
+		dev_err(dev, "init failed with status 0x%04X\n", status);
 		return -ENODEV;
 	}
 
-	err = hse_init_key_ring(&pdev->dev, &pdata->hmac_keys,
+	err = hse_key_ring_init(dev, &drv->hmac_key_ring, HSE_KEY_TYPE_HMAC,
 				CONFIG_CRYPTO_DEV_NXP_HSE_HMAC_KEY_GID,
 				CONFIG_CRYPTO_DEV_NXP_HSE_HMAC_KEY_GSIZE);
 	if (err)
 		return err;
 
-	err = hse_init_key_ring(&pdev->dev, &pdata->aes_keys,
+	err = hse_key_ring_init(dev, &drv->aes_key_ring, HSE_KEY_TYPE_AES,
 				CONFIG_CRYPTO_DEV_NXP_HSE_AES_KEY_GID,
 				CONFIG_CRYPTO_DEV_NXP_HSE_AES_KEY_GSIZE);
 	if (err)
 		return err;
 
-	hse_ahash_register(&pdev->dev);
+	hse_ahash_register(dev);
 
-	hse_skcipher_register(&pdev->dev);
+	hse_skcipher_register(dev);
 
-	hse_aead_register(&pdev->dev);
+	hse_aead_register(dev);
 
 	if (IS_ENABLED(CONFIG_CRYPTO_DEV_NXP_HSE_HWRNG))
-		hse_hwrng_register(&pdev->dev);
+		hse_hwrng_register(dev);
 
-	dev_info(&pdev->dev, "device ready, status 0x%04X\n", status);
+	dev_info(dev, "device ready, status 0x%04X\n", status);
 
 	return 0;
 }
 
 static int hse_remove(struct platform_device *pdev)
 {
-	struct hse_drvdata *pdata = platform_get_drvdata(pdev);
+	struct device *dev = &pdev->dev;
+	struct hse_drvdata *drv = dev_get_drvdata(dev);
 
 	hse_aead_unregister();
 	hse_skcipher_unregister();
-	hse_ahash_unregister(&pdev->dev);
+	hse_ahash_unregister(dev);
 
-	hse_free_key_ring(&pdata->aes_keys);
-	hse_free_key_ring(&pdata->hmac_keys);
+	hse_key_ring_free(&drv->aes_key_ring);
+	hse_key_ring_free(&drv->hmac_key_ring);
 
-	hse_mu_free(pdata->mu_inst);
+	hse_mu_free(drv->mu_inst);
 
-	dev_info(&pdev->dev, "device removed\n");
+	dev_info(dev, "device removed\n");
 
 	return 0;
 }
