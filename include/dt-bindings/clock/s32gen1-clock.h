@@ -87,6 +87,11 @@
 #define S32GEN1_CLK_QSPI_SEL			60
 #define S32GEN1_CLK_QSPI_2X			61
 #define S32GEN1_CLK_QSPI_1X			62
+/* ACCEL_3 (SPT) Clock */
+#define S32GEN1_CLK_ACCEL_3			63
+#define S32GEN1_CLK_ACCEL_3_DIV3		64
+/* ACCEL_4 (LAX) Clock */
+#define S32GEN1_CLK_ACCEL_4			65
 
-#define	S32GEN1_CLK_END				63
+#define	S32GEN1_CLK_END				66
 #endif /* __DT_BINDINGS_CLOCK_S32GEN1_H */
