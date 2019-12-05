@@ -51,6 +51,11 @@ static u32 sdhc_mux_idx[] = {
 	MC_CGM_MUXn_CSC_SEL_FIRC, MC_CGM_MUXn_CSC_SEL_PERIPH_PLL_DFS3,
 };
 
+PNAME(qspi_sels) = {"firc", "periphll_dfs1", };
+static u32 qspi_mux_idx[] = {
+	MC_CGM_MUXn_CSC_SEL_FIRC, MC_CGM_MUXn_CSC_SEL_PERIPH_PLL_DFS1,
+};
+
 PNAME(dspi_sels) = {"firc", "periphpll_phi7", };
 static u32 dspi_mux_idx[] = {
 	MC_CGM_MUXn_CSC_SEL_FIRC, MC_CGM_MUXn_CSC_SEL_PERIPH_PLL_PHI7,
@@ -318,6 +323,20 @@ static void __init s32gen1_clocks_init(struct device_node *clocking_node)
 		MC_CGM_MUXn_CSC_SELCTL_OFFSET,
 		MC_CGM_MUXn_CSC_SELCTL_SIZE,
 		dspi_sels, ARRAY_SIZE(dspi_sels), dspi_mux_idx, &s32gen1_lock);
+
+	/* QSPI Clock */
+	clk[S32GEN1_CLK_QSPI_SEL] = s32_clk_mux_table("qspi_sel",
+		CGM_MUXn_CSC(mc_cgm0_base, 12),
+		MC_CGM_MUXn_CSC_SELCTL_OFFSET,
+		MC_CGM_MUXn_CSC_SELCTL_SIZE,
+		qspi_sels, ARRAY_SIZE(qspi_sels), qspi_mux_idx, &s32gen1_lock);
+
+	clk[S32GEN1_CLK_QSPI_2X] = s32_clk_divider("qspi_2x", "qspi_sel",
+		CGM_MUXn_DC(mc_cgm0_base, 12), MC_CGM_MUX_DCn_DIV_OFFSET,
+		MC_CGM_MUX_DCn_DIV_SIZE, &s32gen1_lock);
+
+	clk[S32GEN1_CLK_QSPI_1X] = s32_clk_fixed_factor("qspi_1x",
+		"qspi_2x", 1, 2);
 
 	/* A53 cores */
 	clk[S32GEN1_CLK_A53] = s32_clk_mux_table("a53_core",
