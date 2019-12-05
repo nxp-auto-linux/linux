@@ -16,6 +16,7 @@
 
 static void __iomem *mc_cgm0_base;
 static void __iomem *mc_cgm1_base;
+static void __iomem *mc_cgm2_base;
 static void __iomem *mc_cgm5_base;
 static void *armpll;
 static void *periphpll;
@@ -84,6 +85,18 @@ static u32 gmac_tx_mux_idx[] = {
 	MC_CGM_MUXn_CSC_SEL_FIRC, MC_CGM_MUXn_CSC_SEL_PERIPH_PLL_PHI5,
 };
 
+#ifdef CONFIG_S32R45X_EVB
+PNAME(accel_3_sels) = {"firc", "accelpll_phi0",};
+static u32 accel_3_mux_idx[] = {
+	MC_CGM_MUXn_CSC_SEL_FIRC, MC_CGM_MUXn_CSC_SEL_ACCEL_PLL_PHI0_2,
+};
+
+PNAME(accel_4_sels) = {"firc", "armpll_dfs4",};
+static u32 accel_4_mux_idx[] = {
+	MC_CGM_MUXn_CSC_SEL_FIRC, MC_CGM_MUXn_CSC_SEL_ARM_PLL_DFS4_2,
+};
+#endif
+
 static struct clk *clk[S32GEN1_CLK_END];
 static struct clk_onecell_data clk_data;
 
@@ -141,6 +154,11 @@ static void __init s32gen1_clocks_init(struct device_node *clocking_node)
 	np = of_find_compatible_node(NULL, NULL, "fsl,s32gen1-mc_cgm1");
 	mc_cgm1_base = of_iomap(np, 0);
 	if (WARN_ON(!mc_cgm1_base))
+		return;
+
+	np = of_find_compatible_node(NULL, NULL, "fsl,s32gen1-mc_cgm2");
+	mc_cgm2_base = of_iomap(np, 0);
+	if (WARN_ON(!mc_cgm2_base))
 		return;
 
 	np = of_find_compatible_node(NULL, NULL, "fsl,s32gen1-mc_cgm5");
@@ -399,6 +417,27 @@ static void __init s32gen1_clocks_init(struct device_node *clocking_node)
 	clk[S32GEN1_CLK_GMAC_TX] = s32_clk_divider_flags("gmac_tx", "gmac_tx_sel",
 		CGM_MUXn_DC(mc_cgm0_base, 10), MC_CGM_MUX_DCn_DIV_OFFSET,
 		MC_CGM_MUX_DCn_DIV_SIZE, 0, &s32gen1_lock);
+
+#ifdef CONFIG_S32R45X_EVB
+	/* ACCEL_3_CLK (SPT) */
+	clk[S32GEN1_CLK_ACCEL_3] = s32_clk_mux_table("accel_3",
+		CGM_MUXn_CSC(mc_cgm2_base, 0),
+		MC_CGM_MUXn_CSC_SELCTL_OFFSET,
+		MC_CGM_MUXn_CSC_SELCTL_SIZE,
+		accel_3_sels, ARRAY_SIZE(accel_3_sels), accel_3_mux_idx,
+		&s32gen1_lock);
+	clk[S32GEN1_CLK_ACCEL_3_DIV3] = s32_clk_fixed_factor("accel_3",
+		"accel_3_div3", 1, 3);
+
+	/* ACCEL_4_CLK (LAX) */
+	clk[S32GEN1_CLK_ACCEL_4] = s32_clk_mux_table("accel_4",
+		CGM_MUXn_CSC(mc_cgm2_base, 1),
+		MC_CGM_MUXn_CSC_SELCTL_OFFSET,
+		MC_CGM_MUXn_CSC_SELCTL_SIZE,
+		accel_4_sels, ARRAY_SIZE(accel_4_sels), accel_4_mux_idx,
+		&s32gen1_lock);
+
+#endif
 
 	/* Add the clocks to provider list */
 	clk_data.clks = clk;
