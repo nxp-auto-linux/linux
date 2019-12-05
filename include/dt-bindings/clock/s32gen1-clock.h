@@ -83,6 +83,10 @@
 #define	S32GEN1_CLK_A53				57
 #define	S32GEN1_CLK_A53_DIV2			58
 #define	S32GEN1_CLK_A53_DIV10			59
+/* QSPI Clock*/
+#define S32GEN1_CLK_QSPI_SEL			60
+#define S32GEN1_CLK_QSPI_2X			61
+#define S32GEN1_CLK_QSPI_1X			62
 
-#define	S32GEN1_CLK_END				60
+#define	S32GEN1_CLK_END				63
 #endif /* __DT_BINDINGS_CLOCK_S32GEN1_H */
