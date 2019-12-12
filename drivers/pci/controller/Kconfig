@@ -37,6 +37,35 @@ config PCI_FTPCI100
 	depends on OF
 	default ARCH_GEMINI
 
+config PCI_S32V234
+	bool "Freescale S32V234 PCIe Host controller"
+	depends on SOC_S32V234
+	select PCIEPORTBUS
+	select PCIE_DW
+	help
+	If you're using a S32V234 based board, either in Root Complex
+	or EP mode, you should enable this.
+	Otherwise you should set it to 'no'
+
+config PCI_S32V234_IGNORE_ERR009852
+	bool "Ignore Freescale S32V234 erratum ERR009852"
+	depends on SOC_S32V234
+	help
+	Erratum ERR009852 limits inbound transactions over PCIe on certain,
+	older chipsets having maskset 0N71N, when configured as End Point.
+	Outbound transactions are not affected.
+	If you are using an affected variant of the SoC, you should leave
+	this option unchecked, unless for development purposes (and if you
+	know what you're doing).
+	Clearing this option will make EP's BAR registers inaccessible
+	from the RC on affected variants.
+
+	On newer chipsets, the erratum is by default ignored (e.g. maskset
+	1N71N or newer), so you would not have to worry about this option
+	anymore.
+
+	If unsure, select 'no'.
+
 config PCI_S32GEN1
 	bool "NXP S32GEN1 PCIe Host controller"
 	depends on OF && ARM64
