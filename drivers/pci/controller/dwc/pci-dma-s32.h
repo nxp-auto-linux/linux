@@ -14,7 +14,7 @@
 #include "pcie-designware.h"
 #endif
 
-#define PCIE_DMA_BASE	0x70000
+#define PCIE_DMA_BASE	0x970
 
 /* Synopsys-specific PCIe configuration registers */
 #define PCIE_DMA_CTRL				(PCIE_DMA_BASE + 0x008)
