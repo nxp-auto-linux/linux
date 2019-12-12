@@ -41,6 +41,11 @@
 		#clock-cells = <1>;
 	};
 
+	mc_cgm2: mc_cgm2@44018000 {
+		compatible = "fsl,s32gen1-mc_cgm2";
+		reg = <0x0 0x44018000 0x0 0x3000>;
+	};
+
 	siul2_0 {
 		compatible = "simple-mfd";
 		#address-cells = <2>;
