@@ -19,7 +19,6 @@
 
 #include "hse-abi.h"
 #include "hse-core.h"
-#include "hse-mu.h"
 
 #define HSE_AEAD_MAX_KEY_SIZE    AES_MAX_KEY_SIZE
 
@@ -29,7 +28,6 @@
  * @auth_mode: authenticated encryption mode
  * @key_type: type of key used
  * @dev: HSE device
- * @mu_inst: MU instance
  * @registered: algorithm registered flag
  */
 struct hse_aead_alg {
@@ -37,7 +35,6 @@ struct hse_aead_alg {
 	enum hse_auth_cipher_mode auth_mode;
 	enum hse_key_type key_type;
 	struct device *dev;
-	void *mu_inst;
 	bool registered;
 };
 
@@ -125,13 +122,10 @@ static int hse_gcm_setauthsize(struct crypto_aead *tfm, unsigned int authsize)
 
 /**
  * hse_aead_done - AEAD request done callback
- * @mu_inst: MU instance
- * @channel: service channel index
+ * @err: service response error code
  * @aeadreq: AEAD request
- *
- * Callback called when HSE completes an AEAD request.
  */
-static void hse_aead_done(void *mu_inst, u8 channel, void *aeadreq)
+static void hse_aead_done(int err, void *aeadreq)
 {
 	struct aead_request *req = (struct aead_request *)aeadreq;
 	struct hse_aead_req_ctx *rctx = aead_request_ctx(req);
@@ -139,9 +133,8 @@ static void hse_aead_done(void *mu_inst, u8 channel, void *aeadreq)
 	struct hse_aead_alg *alg = hse_aead_get_alg(tfm);
 	u32 maclen = crypto_aead_authsize(tfm);
 	u32 ivlen = crypto_aead_ivsize(tfm);
-	int err, nbytes, dstlen;
+	int nbytes, dstlen;
 
-	err = hse_mu_async_req_recv(mu_inst, channel);
 	if (unlikely(err)) {
 		dev_dbg(alg->dev, "%s: AEAD request failed: %d\n",
 			__func__, err);
@@ -260,9 +253,9 @@ static int hse_gcm_crypt(struct aead_request *req, bool encrypt)
 	}
 
 	rctx->encrypt = encrypt;
-	err = hse_mu_async_req_send(alg->mu_inst, tctx->channel,
-				    lower_32_bits(rctx->desc_dma),
-				    req, hse_aead_done);
+
+	err = hse_srv_req_async(alg->dev, tctx->channel, rctx->desc_dma,
+				req, hse_aead_done);
 	if (err)
 		goto err_unmap_desc;
 
@@ -296,6 +289,8 @@ static int hse_gcm_decrypt(struct aead_request *req)
  * @tfm: crypto aead transformation
  * @key: input key
  * @keylen: input key length, in bytes
+ *
+ * Note that key buffers and info must be located in the 32-bit address range.
  */
 static int hse_gcm_setkey(struct crypto_aead *tfm, const u8 *key,
 			  unsigned int keylen)
@@ -338,8 +333,7 @@ static int hse_gcm_setkey(struct crypto_aead *tfm, const u8 *key,
 	dma_sync_single_for_device(alg->dev, tctx->srv_desc_dma,
 				   sizeof(tctx->srv_desc), DMA_TO_DEVICE);
 
-	err = hse_mu_sync_req(alg->mu_inst, HSE_ANY_CHANNEL,
-			      lower_32_bits(tctx->srv_desc_dma));
+	err = hse_srv_req_sync(alg->dev, HSE_CHANNEL_ANY, tctx->srv_desc_dma);
 	if (unlikely(err))
 		dev_dbg(alg->dev, "%s: key import request failed: %d\n",
 			__func__, err);
@@ -365,56 +359,49 @@ static int hse_aead_init(struct crypto_aead *tfm)
 		return PTR_ERR(tctx->key_slot);
 	}
 
-	/* DMA map key buffer */
-	tctx->keybuf_dma = dma_map_single_attrs(alg->dev, tctx->keybuf,
-						HSE_AEAD_MAX_KEY_SIZE,
-						DMA_TO_DEVICE,
-						DMA_ATTR_SKIP_CPU_SYNC);
-	if (unlikely(dma_mapping_error(alg->dev, tctx->keybuf_dma))) {
-		dev_err(alg->dev, "unable to map key buffer\n");
-		err = -ENOMEM;
-		goto err_release_key_slot;
-	}
-
-	/* DMA map key info */
-	tctx->keyinf_dma = dma_map_single_attrs(alg->dev, &tctx->keyinf,
-						sizeof(tctx->keyinf),
-						DMA_TO_DEVICE,
-						DMA_ATTR_SKIP_CPU_SYNC);
-	if (unlikely(dma_mapping_error(alg->dev, tctx->keyinf_dma))) {
-		dev_err(alg->dev, "unable to map key info\n");
-		err = -ENOMEM;
-		goto err_unmap_keybuf;
-	}
-
-	/* DMA map key service descriptor */
 	tctx->srv_desc_dma = dma_map_single_attrs(alg->dev, &tctx->srv_desc,
 						  sizeof(tctx->srv_desc),
 						  DMA_TO_DEVICE,
 						  DMA_ATTR_SKIP_CPU_SYNC);
 	if (unlikely(dma_mapping_error(alg->dev, tctx->srv_desc_dma))) {
-		dev_err(alg->dev, "unable to map key service descriptor\n");
+		err = -ENOMEM;
+		goto err_release_key_slot;
+	}
+
+	tctx->keyinf_dma = dma_map_single_attrs(alg->dev, &tctx->keyinf,
+						sizeof(tctx->keyinf),
+						DMA_TO_DEVICE,
+						DMA_ATTR_SKIP_CPU_SYNC);
+	if (unlikely(dma_mapping_error(alg->dev, tctx->keyinf_dma))) {
+		err = -ENOMEM;
+		goto err_unmap_srv_desc;
+	}
+
+	tctx->keybuf_dma = dma_map_single_attrs(alg->dev, tctx->keybuf,
+						sizeof(tctx->keybuf),
+						DMA_TO_DEVICE,
+						DMA_ATTR_SKIP_CPU_SYNC);
+	if (unlikely(dma_mapping_error(alg->dev, tctx->keybuf_dma))) {
 		err = -ENOMEM;
 		goto err_unmap_keyinf;
 	}
 
-	/* acquire MU shared channel */
-	err = hse_mu_channel_acquire(alg->mu_inst, &tctx->channel, false);
+	tctx->keylen = 0;
+
+	err = hse_channel_acquire(alg->dev, HSE_CH_TYPE_SHARED, &tctx->channel);
 	if (unlikely(err))
-		goto err_unmap_srv_desc;
+		goto err_unmap_keybuf;
 
 	return 0;
-
-err_unmap_srv_desc:
-	dma_unmap_single_attrs(alg->dev, tctx->srv_desc_dma,
-			       sizeof(tctx->srv_desc), DMA_TO_DEVICE,
-			       DMA_ATTR_SKIP_CPU_SYNC);
+err_unmap_keybuf:
+	dma_unmap_single_attrs(alg->dev, tctx->keyinf_dma, sizeof(tctx->keyinf),
+			       DMA_TO_DEVICE, DMA_ATTR_SKIP_CPU_SYNC);
 err_unmap_keyinf:
 	dma_unmap_single_attrs(alg->dev, tctx->keyinf_dma, sizeof(tctx->keyinf),
 			       DMA_TO_DEVICE, DMA_ATTR_SKIP_CPU_SYNC);
-err_unmap_keybuf:
-	dma_unmap_single_attrs(alg->dev, tctx->keybuf_dma,
-			       HSE_AEAD_MAX_KEY_SIZE, DMA_TO_DEVICE,
+err_unmap_srv_desc:
+	dma_unmap_single_attrs(alg->dev, tctx->srv_desc_dma,
+			       sizeof(tctx->srv_desc), DMA_TO_DEVICE,
 			       DMA_ATTR_SKIP_CPU_SYNC);
 err_release_key_slot:
 	hse_key_slot_release(alg->dev, tctx->key_slot);
@@ -430,7 +417,7 @@ static void hse_aead_exit(struct crypto_aead *tfm)
 	struct hse_aead_tfm_ctx *tctx = crypto_aead_ctx(tfm);
 	struct hse_aead_alg *alg = hse_aead_get_alg(tfm);
 
-	hse_mu_channel_release(alg->mu_inst, tctx->channel);
+	hse_channel_release(alg->dev, tctx->channel);
 
 	hse_key_slot_release(alg->dev, tctx->key_slot);
 
@@ -478,7 +465,6 @@ static struct hse_aead_alg aead_algs[] = {
  */
 void hse_aead_register(struct device *dev)
 {
-	struct hse_drvdata *drvdata = dev_get_drvdata(dev);
 	int i, err = 0;
 
 	/* register crypto algorithms the device supports */
@@ -487,7 +473,6 @@ void hse_aead_register(struct device *dev)
 		const char *name = alg->aead.base.cra_name;
 
 		alg->dev = dev;
-		alg->mu_inst = drvdata->mu_inst;
 
 		err = crypto_register_aead(&alg->aead);
 		if (err) {
@@ -500,7 +485,7 @@ void hse_aead_register(struct device *dev)
 }
 
 /**
- * hse_skcipher_unregister - unregister AEAD algorithms
+ * hse_aead_unregister - unregister AEAD algorithms
  */
 void hse_aead_unregister(void)
 {
