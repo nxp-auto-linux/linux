@@ -12,7 +12,23 @@
 
 #include <crypto/aes.h>
 
+#define HSE_NUM_CHANNELS    16u /* number of available service channels */
+#define HSE_STREAM_COUNT    2u /* number of usable streams per MU instance */
+
 #define HSE_CRA_PRIORITY    2000u /* HSE crypto algorithm priority */
+
+#define HSE_CHANNEL_ANY    0xACu /* use any channel, no request ordering */
+#define HSE_CHANNEL_INV    0xFFu /* invalid acquired service channel index */
+
+/**
+ * enum hse_ch_type - channel type
+ * @HSE_CHANNEL_SHARED: shared channel
+ * @HSE_CHANNEL_STREAM: stream
+ */
+enum hse_ch_type {
+	HSE_CH_TYPE_SHARED = 0u,
+	HSE_CH_TYPE_STREAM = 1u,
+};
 
 /**
  * struct hse_key - HSE key slot
@@ -26,52 +42,16 @@ struct hse_key {
 	enum hse_key_type type;
 };
 
-/**
- * struct hse_drvdata - HSE driver private data
- * @mu_inst: MU instance
- * @ahash_algs: registered hash and hash-based MAC algorithms
- * @hmac_key_ring: HMAC key slots currently available
- * @aes_key_ring: AES key slots currently available
- * @key_ring_lock: lock for acquiring key slot
- */
-struct hse_drvdata {
-	void *mu_inst;
-	struct list_head ahash_algs;
-	struct list_head hmac_key_ring;
-	struct list_head aes_key_ring;
-	spinlock_t key_ring_lock; /* lock for acquiring key slot */
-};
-
-/**
- * Translate address with 512MB, as seen by HSE
- */
-static inline dma_addr_t _hse_addr(dma_addr_t addr)
-{
-	return addr - 0x20000000ull;
-}
-
-/**
- * hse_addr - HSE Address Translation
- * @virt_addr: virtual address to be translated
- *
- * This function only admits addresses from the kernel linear address space.
- *
- * Return: physical address as seen by HSE, zero for failed translation
- */
-static __always_inline phys_addr_t hse_addr(void *virt_addr)
-{
-	phys_addr_t addr = virt_to_phys(virt_addr);
-
-	/* translate DDR addresses */
-	if (addr >= 0x80000000ull && addr <= 0xFFFFFFFFull)
-		return _hse_addr(addr);
-
-	return 0ull;
-}
-
 struct hse_key *hse_key_slot_acquire(struct device *dev,
 				     enum hse_key_type type);
 void hse_key_slot_release(struct device *dev, struct hse_key *slot);
+
+int hse_channel_acquire(struct device *dev, enum hse_ch_type type, u8 *channel);
+int hse_channel_release(struct device *dev, u8 channel);
+
+int hse_srv_req_async(struct device *dev, u8 channel, dma_addr_t srv_desc,
+		      void *ctx, void (*rx_cbk)(int err, void *ctx));
+int hse_srv_req_sync(struct device *dev, u8 channel, dma_addr_t srv_desc);
 
 void hse_ahash_register(struct device *dev);
 void hse_ahash_unregister(struct device *dev);
