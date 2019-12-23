@@ -18,7 +18,6 @@
 
 #include "hse-abi.h"
 #include "hse-core.h"
-#include "hse-mu.h"
 
 #define HSE_SKCIPHER_MAX_BLOCK_SIZE    AES_BLOCK_SIZE
 #define HSE_SKCIPHER_MAX_KEY_SIZE      AES_MAX_KEY_SIZE
@@ -30,7 +29,6 @@
  * @block_mode: cipher block mode
  * @key_type: type of key used
  * @dev: HSE device
- * @mu_inst: MU instance
  * @registered: algorithm registered flag
  */
 struct hse_skcipher_alg {
@@ -39,7 +37,6 @@ struct hse_skcipher_alg {
 	enum hse_block_mode block_mode;
 	enum hse_key_type key_type;
 	struct device *dev;
-	void *mu_inst;
 	bool registered;
 };
 
@@ -98,20 +95,17 @@ static inline void *hse_skcipher_get_alg(struct crypto_skcipher *tfm)
 }
 
 /**
- * hse_skcipher_done - symmetric key cipher rx callback
- * @mu_inst: MU instance
- * @channel: service channel index
+ * hse_skcipher_done - symmetric key cipher request done callback
+ * @err: service response error code
  * @skreq: symmetric key cipher request
- *
- * Common rx callback for symmetric key cipher operations.
  */
-static void hse_skcipher_done(void *mu_inst, u8 channel, void *skreq)
+static void hse_skcipher_done(int err, void *skreq)
 {
 	struct skcipher_request *req = skreq;
 	struct hse_skcipher_req_ctx *rctx = skcipher_request_ctx(req);
 	struct crypto_skcipher *tfm = crypto_skcipher_reqtfm(req);
 	struct hse_skcipher_alg *alg = hse_skcipher_get_alg(tfm);
-	int err, nbytes, ivsize = crypto_skcipher_ivsize(tfm);
+	unsigned int nbytes, ivsize = crypto_skcipher_ivsize(tfm);
 
 	dma_unmap_single(alg->dev, rctx->srv_desc_dma, sizeof(rctx->srv_desc),
 			 DMA_TO_DEVICE);
@@ -120,7 +114,6 @@ static void hse_skcipher_done(void *mu_inst, u8 channel, void *skreq)
 	dma_unmap_single(alg->dev, rctx->buf_dma, rctx->buflen,
 			 DMA_BIDIRECTIONAL);
 
-	err = hse_mu_async_req_recv(mu_inst, channel);
 	if (unlikely(err)) {
 		dev_dbg(alg->dev, "%s: skcipher request failed: %d\n",
 			__func__, err);
@@ -224,9 +217,8 @@ static int hse_skcipher_crypt(struct skcipher_request *req, u8 direction)
 	rctx->direction = direction;
 	rctx->buflen = req->cryptlen;
 
-	err = hse_mu_async_req_send(alg->mu_inst, HSE_ANY_CHANNEL,
-				    lower_32_bits(rctx->srv_desc_dma), req,
-				    hse_skcipher_done);
+	err = hse_srv_req_async(alg->dev, HSE_CHANNEL_ANY, rctx->srv_desc_dma,
+				req, hse_skcipher_done);
 	if (err)
 		goto err_unmap_srv_desc;
 
@@ -260,6 +252,8 @@ static int hse_skcipher_decrypt(struct skcipher_request *req)
  * @tfm: crypto skcipher transformation
  * @key: input key
  * @keylen: input key size
+ *
+ * Note that key buffers and info must be located in the 32-bit address range.
  */
 static int hse_skcipher_setkey(struct crypto_skcipher *tfm, const u8 *key,
 			       unsigned int keylen)
@@ -304,8 +298,7 @@ static int hse_skcipher_setkey(struct crypto_skcipher *tfm, const u8 *key,
 	dma_sync_single_for_device(alg->dev, tctx->srv_desc_dma,
 				   sizeof(tctx->srv_desc), DMA_TO_DEVICE);
 
-	err = hse_mu_sync_req(alg->mu_inst, HSE_ANY_CHANNEL,
-			      lower_32_bits(tctx->srv_desc_dma));
+	err = hse_srv_req_sync(alg->dev, HSE_CHANNEL_ANY, tctx->srv_desc_dma);
 	if (unlikely(err))
 		dev_dbg(alg->dev, "%s: key import request failed: %d\n",
 			__func__, err);
@@ -429,7 +422,6 @@ static struct hse_skcipher_alg skcipher_algs[] = {
  */
 void hse_skcipher_register(struct device *dev)
 {
-	struct hse_drvdata *drvdata = dev_get_drvdata(dev);
 	int i, err;
 
 	/* register crypto algorithms the device supports */
@@ -438,7 +430,6 @@ void hse_skcipher_register(struct device *dev)
 		const char *name = alg->skcipher.base.cra_name;
 
 		alg->dev = dev;
-		alg->mu_inst = drvdata->mu_inst;
 
 		err = crypto_register_skcipher(&alg->skcipher);
 		if (err) {
