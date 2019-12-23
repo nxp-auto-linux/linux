@@ -26,8 +26,8 @@
  *                         key stores have been formatted and can be used
  * @HSE_STATUS_BOOT_OK: HSE secure booting phase successfully completed
  *
- * Note that if SMR is empty (no secure boot configured), HSE always
- * signals that the booting phase completed successfully.
+ * Note that if no secure boot is configured (i.e. SMR, SHE, BSB), HSE signals
+ * that the booting phase completed successfully.
  */
 enum hse_status {
 	HSE_STATUS_INIT_OK = BIT(0),
@@ -37,12 +37,12 @@ enum hse_status {
 };
 
 /**
- * enum hse_error - HSE system error
+ * enum hse_event - HSE system event
  * @HSE_ERR_NON_FATAL_INTRUSION: non-fatal intrusion detected by HSE
  * @HSE_ERR_FATAL_INTRUSION: fatal intrusion detected by HSE, can only be
  *                           recovered by resetting the entire system
  */
-enum hse_error {
+enum hse_event {
 	HSE_ERR_NON_FATAL_INTRUSION = BIT(0),
 	HSE_ERR_FATAL_INTRUSION = BIT(1),
 };
@@ -52,7 +52,7 @@ enum hse_error {
  * @HSE_SRV_ID_IMPORT_KEY: import/update key into a key store
  * @HSE_SRV_ID_HASH: perform a hash operation
  * @HSE_SRV_ID_MAC: generate a message authentication code
- * @HSE_SRV_ID_SYM_CIPHER: symmetric cipher encryption/decryption
+ * @HSE_SRV_ID_SYM_CIPHER: symmetric key encryption/decryption
  * @HSE_SRV_ID_AEAD: AEAD encryption/decryption
  * @HSE_SRV_ID_GET_RANDOM_NUM: hardware random number generator
  */
@@ -67,14 +67,13 @@ enum hse_srv_id {
 
 /**
  * enum hse_srv_response - HSE service response
- * @HSE_SRV_RSP_OK: HSE service successfully executed with no error
- * @HSE_SRV_RSP_VERIFY_FAILED: verification request fails (MAC or Signature)
- * @HSE_SRV_RSP_INVALID_ADDR: address parameters are invalid
- * @HSE_SRV_RSP_INVALID_PARAM: HSE request parameters are invalid
- * @HSE_SRV_RSP_NOT_SUPPORTED: operation or feature is not supported
- * @HSE_SRV_RSP_NOT_ALLOWED: operation not allowed because of some restrictions
- *                           (in attributes, life-cycle dependent operations,
- *                           key-management, etc.)
+ * @HSE_SRV_RSP_OK: service successfully executed with no error
+ * @HSE_SRV_RSP_VERIFY_FAILED: authentication tag/signature verification failed
+ * @HSE_SRV_RSP_INVALID_ADDR: invalid service descriptor address parameters
+ * @HSE_SRV_RSP_INVALID_PARAM: invalid service descriptor request parameters
+ * @HSE_SRV_RSP_NOT_SUPPORTED: operation or feature not supported
+ * @HSE_SRV_RSP_NOT_ALLOWED: operation subject to restrictions (in attributes,
+ *                           life-cycle dependent operations, key-management)
  * @HSE_SRV_RSP_NOT_ENOUGH_SPACE: not enough space to perform the service
  * @HSE_SRV_RSP_READ_FAILURE: service request failed, read access denied
  * @HSE_SRV_RSP_WRITE_FAILURE: service request failed, write access denied
@@ -82,7 +81,7 @@ enum hse_srv_id {
  * @HSE_SRV_RSP_KEY_NOT_AVAILABLE: key locked due to failed boot measurement or
  *                                 an active debugger
  * @HSE_SRV_RSP_KEY_INVALID: the key flags don't match the crypto operation
- * @HSE_SRV_RSP_KEY_EMPTY: specified key slot is empty
+ * @HSE_SRV_RSP_KEY_EMPTY: specified key slot empty
  * @HSE_SRV_RSP_KEY_WRITE_PROTECTED: key slot write protected
  * @HSE_SRV_RSP_KEY_UPDATE_ERROR: specified key slot cannot be updated due to
  *                                errors in verification of the parameters
@@ -90,8 +89,7 @@ enum hse_srv_id {
  *                              during memory read or write
  * @HSE_SRV_RSP_CANCEL_FAILURE: service cannot be canceled
  * @HSE_SRV_RSP_CANCELED: service has been canceled
- * @HSE_SRV_RSP_GENERAL_ERROR: returned if an error not covered by the error
- *                             codes above is detected inside HSE
+ * @HSE_SRV_RSP_GENERAL_ERROR: error not covered by the error codes above
  */
 enum hse_srv_response {
 	HSE_SRV_RSP_OK = 0x55A5AA33ul,
