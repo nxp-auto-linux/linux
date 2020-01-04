@@ -94,6 +94,7 @@ static int dsa_slave_open(struct net_device *dev)
 	if (err)
 		goto clear_promisc;
 
+
 	return 0;
 
 clear_promisc:
@@ -114,10 +115,9 @@ static int dsa_slave_close(struct net_device *dev)
 	struct net_device *master = dsa_slave_to_master(dev);
 	struct dsa_port *dp = dsa_slave_to_port(dev);
 
-	cancel_work_sync(&dp->xmit_work);
-	skb_queue_purge(&dp->xmit_queue);
 
 	dsa_port_disable_rt(dp);
+
 
 	dev_mc_unsync(master, dev);
 	dev_uc_unsync(master, dev);
@@ -514,7 +514,7 @@ static netdev_tx_t dsa_slave_xmit(struct sk_buff *skb, struct net_device *dev)
 	s->tx_bytes += skb->len;
 	u64_stats_update_end(&s->syncp);
 
-	DSA_SKB_CB(skb)->deferred_xmit = false;
+
 	DSA_SKB_CB(skb)->clone = NULL;
 
 	/* Identify PTP protocol packets, clone them, and pass them to the
@@ -527,38 +527,14 @@ static netdev_tx_t dsa_slave_xmit(struct sk_buff *skb, struct net_device *dev)
 	 */
 	nskb = p->xmit(skb, dev);
 	if (!nskb) {
-		if (!DSA_SKB_CB(skb)->deferred_xmit)
-			kfree_skb(skb);
+
+		kfree_skb(skb);
 		return NETDEV_TX_OK;
 	}
 
 	return dsa_enqueue_skb(nskb, dev);
 }
 
-void *dsa_defer_xmit(struct sk_buff *skb, struct net_device *dev)
-{
-	struct dsa_port *dp = dsa_slave_to_port(dev);
-
-	DSA_SKB_CB(skb)->deferred_xmit = true;
-
-	skb_queue_tail(&dp->xmit_queue, skb);
-	schedule_work(&dp->xmit_work);
-	return NULL;
-}
-EXPORT_SYMBOL_GPL(dsa_defer_xmit);
-
-static void dsa_port_xmit_work(struct work_struct *work)
-{
-	struct dsa_port *dp = container_of(work, struct dsa_port, xmit_work);
-	struct dsa_switch *ds = dp->ds;
-	struct sk_buff *skb;
-
-	if (unlikely(!ds->ops->port_deferred_xmit))
-		return;
-
-	while ((skb = skb_dequeue(&dp->xmit_queue)) != NULL)
-		ds->ops->port_deferred_xmit(ds, dp->index, skb);
-}
 
 /* ethtool operations *******************************************************/
 
@@ -1362,8 +1338,6 @@ int dsa_slave_suspend(struct net_device *slave_dev)
 	if (!netif_running(slave_dev))
 		return 0;
 
-	cancel_work_sync(&dp->xmit_work);
-	skb_queue_purge(&dp->xmit_queue);
 
 	netif_device_detach(slave_dev);
 
@@ -1451,8 +1425,7 @@ int dsa_slave_create(struct dsa_port *port)
 	}
 	p->dp = port;
 	INIT_LIST_HEAD(&p->mall_tc_list);
-	INIT_WORK(&port->xmit_work, dsa_port_xmit_work);
-	skb_queue_head_init(&port->xmit_queue);
+
 	p->xmit = cpu_dp->tag_ops->xmit;
 	port->slave = slave_dev;
 

@@ -88,7 +88,7 @@ struct dsa_device_ops {
 
 struct dsa_skb_cb {
 	struct sk_buff *clone;
-	bool deferred_xmit;
+
 };
 
 struct __dsa_skb_cb {
@@ -192,8 +192,6 @@ struct dsa_port {
 	struct phylink		*pl;
 	struct phylink_config	pl_config;
 
-	struct work_struct	xmit_work;
-	struct sk_buff_head	xmit_queue;
 
 	struct list_head list;
 
@@ -282,6 +280,7 @@ struct dsa_switch {
 	 * should be retrieved from here and not from the per-port settings.
 	 */
 	bool			vlan_filtering;
+
 
 
 	/* Dynamically allocated ports, keep last */
@@ -566,11 +565,7 @@ struct dsa_switch_ops {
 	bool	(*port_rxtstamp)(struct dsa_switch *ds, int port,
 				 struct sk_buff *skb, unsigned int type);
 
-	/*
-	 * Deferred frame Tx
-	 */
-	netdev_tx_t (*port_deferred_xmit)(struct dsa_switch *ds, int port,
-					  struct sk_buff *skb);
+
 
 	/* Devlink parameters */
 	int	(*devlink_param_get)(struct dsa_switch *ds, u32 id,
