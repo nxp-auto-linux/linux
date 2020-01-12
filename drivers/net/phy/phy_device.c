@@ -1110,9 +1110,8 @@ void phy_attached_info(struct phy_device *phydev)
 EXPORT_SYMBOL(phy_attached_info);
 
 #define ATTACHED_FMT "attached PHY driver [%s] (mii_bus:phy_addr=%s, irq=%s)"
-void phy_attached_print(struct phy_device *phydev, const char *fmt, ...)
+char *phy_attached_info_irq(struct phy_device *phydev)
 {
-	const char *drv_name = phydev->drv ? phydev->drv->name : "unbound";
 	char *irq_str;
 	char irq_num[8];
 
@@ -1129,6 +1128,14 @@ void phy_attached_print(struct phy_device *phydev, const char *fmt, ...)
 		break;
 	}
 
+	return kasprintf(GFP_KERNEL, "%s", irq_str);
+}
+EXPORT_SYMBOL(phy_attached_info_irq);
+
+void phy_attached_print(struct phy_device *phydev, const char *fmt, ...)
+{
+	const char *drv_name = phydev->drv ? phydev->drv->name : "unbound";
+	char *irq_str = phy_attached_info_irq(phydev);
 
 	if (!fmt) {
 		phydev_info(phydev, ATTACHED_FMT "\n",
@@ -1145,6 +1152,7 @@ void phy_attached_print(struct phy_device *phydev, const char *fmt, ...)
 		vprintk(fmt, ap);
 		va_end(ap);
 	}
+	kfree(irq_str);
 }
 EXPORT_SYMBOL(phy_attached_print);
 
