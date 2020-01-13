@@ -46,6 +46,32 @@ config PCI_IXP4XX
 	  Say Y here if you want support for the PCI host controller found
 	  in the Intel IXP4xx XScale-based network processor SoC.
 
+config PCI_S32CC
+	bool "NXP S32CC PCIe Host controller"
+	depends on OF && ARM64
+	depends on SOC_S32CC
+	select PCIEPORTBUS
+	select PCIE_DW
+	help
+	If you're using a S32CC based board, either in Root Complex
+	or EP mode, you should enable this.
+	Otherwise you should set it to 'no'
+
+config PCI_S32CC_INIT_EP_BARS
+	bool "Initialize BARs in EP mode for S32CC PCIe"
+	depends on PCI_S32CC
+	help
+	Initialize BARs and inbound windows in EP mode, using as base address
+	a reserved memory area defined in the device tree
+
+config PCI_DW_DMA
+	bool "Freescale S32CC PCIe DW DMA"
+	depends on OF && ARM64 && PCI_S32CC
+	help
+	If you're using a S32CC based board and want to use
+	Internal DMA engine in PCIe mode, you want this enabled.
+	Otherwise you should set it to 'no'
+
 config PCI_TEGRA
 	bool "NVIDIA Tegra PCIe controller"
 	depends on ARCH_TEGRA || COMPILE_TEST
