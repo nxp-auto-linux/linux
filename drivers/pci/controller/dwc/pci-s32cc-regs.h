@@ -1,0 +1,489 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright 2015-2016 Freescale Semiconductor, Inc.
+ * Copyright 2016-2019 NXP
+ */
+
+#ifndef PCI_S32CC_REGS_H
+#define PCI_S32CC_REGS_H
+
+/* Instance TYPE1 - DBI register offsets */
+
+/* Status and Command Register. */
+
+#define PCIE_CTRL_TYPE1_STATUS_COMMAND_REG (0x4)
+
+/* Class Code and Revision ID Register. */
+
+#define PCIE_CTRL_TYPE1_CLASS_CODE_REV_ID_REG (0x8)
+
+/* Field definitions for TYPE1_STATUS_COMMAND_REG */
+
+#define PCIE_IO_EN_VALUE(x)        (((x) & 0x00000001) << 0)
+#define PCIE_IO_EN                 BIT(0)
+
+#define PCIE_MSE_VALUE(x)          (((x) & 0x00000001) << 1)
+#define PCIE_MSE                   BIT(1)
+
+#define PCIE_BME_VALUE(x)          (((x) & 0x00000001) << 2)
+#define PCIE_BME                   BIT(2)
+
+/* Instance PCIE_SPCIE_CAP_HEADER */
+
+#define PCIE_SPCIE_CAP_HEADER_BASEADDRESS (0x148)
+
+/* Lane Equalization Control Register for lanes 1 and 0. */
+
+#define PCIE_SPCIE_CAP_SPCIE_CAP_OFF_0CH_REG \
+	(PCIE_SPCIE_CAP_HEADER_BASEADDRESS + 0xC)
+
+/* Instance PCIE_CAP */
+
+#define PCIE_CAP_BASEADDRESS (0x0070)
+
+/* Device Control and Status Register. */
+
+#define PCIE_CAP_DEVICE_CONTROL_DEVICE_STATUS (PCIE_CAP_BASEADDRESS + 0x8)
+
+/* Link Control 2 and Status 2 Register. */
+
+#define PCIE_CAP_LINK_CONTROL2_LINK_STATUS2_REG (PCIE_CAP_BASEADDRESS + 0x30)
+
+/* Field definitions for DEVICE_CONTROL_DEVICE_STATUS */
+
+#define PCIE_CAP_MAX_PAYLOAD_SIZE_CS_LSB	(5)
+#define PCIE_CAP_MAX_PAYLOAD_SIZE_CS_MASK	(0x00000007)
+#define PCIE_CAP_MAX_PAYLOAD_SIZE_CS_VALUE(x) \
+			(((x) & PCIE_CAP_MAX_PAYLOAD_SIZE_CS_MASK) \
+					<< PCIE_CAP_MAX_PAYLOAD_SIZE_CS_LSB)
+#define PCIE_CAP_MAX_PAYLOAD_SIZE_CS \
+			((PCIE_CAP_MAX_PAYLOAD_SIZE_CS_MASK) << \
+					(PCIE_CAP_MAX_PAYLOAD_SIZE_CS_LSB))
+
+#define PCIE_CAP_MAX_READ_REQ_SIZE_LSB	(12)
+#define PCIE_CAP_MAX_READ_REQ_SIZE_MASK	(0x00000007)
+#define PCIE_CAP_MAX_READ_REQ_SIZE_VALUE(x) \
+			(((x) & PCIE_CAP_MAX_READ_REQ_SIZE_MASK) << \
+					PCIE_CAP_MAX_READ_REQ_SIZE_LSB)
+#define PCIE_CAP_MAX_READ_REQ_SIZE ((PCIE_CAP_MAX_READ_REQ_SIZE_MASK) << \
+		(PCIE_CAP_MAX_READ_REQ_SIZE_LSB))
+
+/* Field definitions for LINK_CONTROL2_LINK_STATUS2_REG */
+
+#define PCIE_CAP_TARGET_LINK_SPEED_LSB	(0)
+#define PCIE_CAP_TARGET_LINK_SPEED_MASK	(0x0000000F)
+#define PCIE_CAP_TARGET_LINK_SPEED_VALUE(x) \
+			(((x) & PCIE_CAP_TARGET_LINK_SPEED_MASK) << \
+					PCIE_CAP_TARGET_LINK_SPEED_LSB)
+#define PCIE_CAP_TARGET_LINK_SPEED ((PCIE_CAP_TARGET_LINK_SPEED_MASK) << \
+		(PCIE_CAP_TARGET_LINK_SPEED_LSB))
+
+/* Instance PCIE_IATU - DBI register offsets */
+
+#ifndef PCIE_IATU_BASEADDRESS
+#define PCIE_IATU_BASEADDRESS (0x60000)
+#endif
+
+/* iATU Region Control 1 Register. */
+
+#define PCIE_IATU_REGION_CTRL_1_OFF_OUTBOUND_0 (PCIE_IATU_BASEADDRESS + 0x0)
+
+/* iATU Region Control 2 Register. */
+
+#define PCIE_IATU_REGION_CTRL_2_OFF_OUTBOUND_0 (PCIE_IATU_BASEADDRESS + 0x4)
+
+/* iATU Lower Base Address Register. */
+
+#define PCIE_IATU_LWR_BASE_ADDR_OFF_OUTBOUND_0 (PCIE_IATU_BASEADDRESS + 0x8)
+
+/* iATU Upper Base Address Register. */
+
+#define PCIE_IATU_UPPER_BASE_ADDR_OFF_OUTBOUND_0 (PCIE_IATU_BASEADDRESS + 0xC)
+
+/* iATU Limit Address Register. */
+
+#define PCIE_IATU_LIMIT_ADDR_OFF_OUTBOUND_0 (PCIE_IATU_BASEADDRESS + 0x10)
+
+/* iATU Lower Target Address Register. */
+
+#define PCIE_IATU_LWR_TARGET_ADDR_OFF_OUTBOUND_0 (PCIE_IATU_BASEADDRESS + 0x14)
+
+/* iATU Upper Target Address Register. */
+
+#define PCIE_IATU_UPPER_TARGET_ADDR_OFF_OUTBOUND_0 \
+		(PCIE_IATU_BASEADDRESS + 0x18)
+
+/* iATU Region Control 1 Register. */
+
+#define PCIE_IATU_REGION_CTRL_1_OFF_INBOUND_0 (PCIE_IATU_BASEADDRESS + 0x100)
+
+/* iATU Region Control 2 Register. */
+
+#define PCIE_IATU_REGION_CTRL_2_OFF_INBOUND_0 (PCIE_IATU_BASEADDRESS + 0x104)
+
+/* iATU Lower Base Address Register. */
+
+#define PCIE_IATU_LWR_BASE_ADDR_OFF_INBOUND_0 (PCIE_IATU_BASEADDRESS + 0x108)
+
+/* iATU Upper Base Address Register. */
+
+#define PCIE_IATU_UPPER_BASE_ADDR_OFF_INBOUND_0 (PCIE_IATU_BASEADDRESS + 0x10C)
+
+/* iATU Limit Address Register. */
+
+#define PCIE_IATU_LIMIT_ADDR_OFF_INBOUND_0 (PCIE_IATU_BASEADDRESS + 0x110)
+
+/* iATU Lower Target Address Register. */
+
+#define PCIE_IATU_LWR_TARGET_ADDR_OFF_INBOUND_0 (PCIE_IATU_BASEADDRESS + 0x114)
+
+/* iATU Upper Target Address Register. */
+
+#define PCIE_IATU_UPPER_TARGET_ADDR_OFF_INBOUND_0 \
+		(PCIE_IATU_BASEADDRESS + 0x118)
+
+/* Field definitions for IATU_REGION_CTRL_2_OFF_OUTBOUND_0 */
+
+#define PCIE_CFG_SHIFT_MODE_VALUE(x)    (((x) & 0x00000001) << 28)
+#define PCIE_CFG_SHIFT_MODE             BIT(28)
+
+#define PCIE_REGION_EN_VALUE(x)    (((x) & 0x00000001) << 31)
+#define PCIE_REGION_EN             BIT(31)
+
+/* Field definitions for IATU_REGION_CTRL_2_OFF_INBOUND_0 */
+
+#define PCIE_BAR_NUM_MASK     (0x00000007)
+#define PCIE_BAR_NUM_LSB      (8)
+#define PCIE_BAR_NUM_VALUE(x) (((x) & PCIE_BAR_NUM_MASK) << PCIE_BAR_NUM_LSB)
+#define PCIE_BAR_NUM          ((PCIE_BAR_NUM_MASK) << (PCIE_BAR_NUM_LSB))
+
+#define PCIE_MATCH_MODE_VALUE(x) (((x) & 0x00000001) << 30)
+#define PCIE_MATCH_MODE          BIT(30)
+
+/* Instance PCIE_PORT_LOGIC - DBI register offsets */
+
+#define PCIE_PORT_LOGIC_BASEADDRESS (0x0700)
+
+/* Port Force Link Register. */
+
+#define PCIE_PORT_LOGIC_PORT_FORCE_REG (PCIE_PORT_LOGIC_BASEADDRESS + 0x8)
+
+/* Port Link Control Register. */
+
+#define PCIE_PORT_LOGIC_PORT_LINK_CTRL_REG (PCIE_PORT_LOGIC_BASEADDRESS + 0x10)
+
+/* Timer Control and Max Function Number Register. */
+
+#define PCIE_PORT_LOGIC_TIMER_CTRL_MAX_FUNC_NUM_REG \
+		(PCIE_PORT_LOGIC_BASEADDRESS + 0x18)
+
+/* Link Width and Speed Change Control Register. */
+
+#define PCIE_PORT_LOGIC_GEN2_CTRL_REG \
+		(PCIE_PORT_LOGIC_BASEADDRESS + 0x10C)
+
+/* Gen3 Control Register. */
+
+#define PCIE_PORT_LOGIC_GEN3_RELATED_REG (PCIE_PORT_LOGIC_BASEADDRESS + 0x190)
+
+/* Gen3 EQ Control Register. */
+
+#define PCIE_PORT_LOGIC_GEN3_EQ_CONTROL_REG \
+		(PCIE_PORT_LOGIC_BASEADDRESS + 0x1A8)
+
+/* ACE Cache Coherency Control Register 3 */
+
+#define PCIE_PORT_LOGIC_COHERENCY_CONTROL_3_REG \
+		(PCIE_PORT_LOGIC_BASEADDRESS + 0x1E8)
+
+/* Field definitions for PORT_FORCE_REG */
+
+#define PCIE_LINK_NUM_LSB      (0)
+#define PCIE_LINK_NUM_MASK     (0x000000FF)
+#define PCIE_LINK_NUM_VALUE(x) (((x) & PCIE_LINK_NUM_MASK) << \
+					PCIE_LINK_NUM_LSB)
+#define PCIE_LINK_NUM          ((PCIE_LINK_NUM_MASK) << \
+					(PCIE_LINK_NUM_LSB))
+
+#define PCIE_FORCED_LTSSM_LSB      (8)
+#define PCIE_FORCED_LTSSM_MASK     (0x0000000F)
+#define PCIE_FORCED_LTSSM_VALUE(x) (((x) & PCIE_FORCED_LTSSM_MASK) << \
+					PCIE_FORCED_LTSSM_LSB)
+#define PCIE_FORCED_LTSSM          ((PCIE_FORCED_LTSSM_MASK) << \
+					(PCIE_FORCED_LTSSM_LSB))
+
+#define PCIE_FORCE_EN_VALUE(x)     (((x) & 0x00000001) << 15)
+#define PCIE_FORCE_EN              BIT(15)
+
+#define PCIE_LINK_STATE_LSB        (16)
+#define PCIE_LINK_STATE_MASK       (0x0000003F)
+#define PCIE_LINK_STATE_VALUE(x)   (((x) & PCIE_LINK_STATE_MASK) << \
+					PCIE_LINK_STATE_LSB)
+#define PCIE_LINK_STATE            ((PCIE_LINK_STATE_MASK) << \
+					(PCIE_LINK_STATE_LSB))
+
+/* Field definitions for PORT_LINK_CTRL_REG */
+
+#define PCIE_RESET_ASSERT_VALUE(x) (((x) & 0x00000001) << 3)
+#define PCIE_RESET_ASSERT          BIT(3)
+
+#define PCIE_DLL_LINK_EN_VALUE(x)  (((x) & 0x00000001) << 5)
+#define PCIE_DLL_LINK_EN           BIT(5)
+
+#define PCIE_LINK_DISABLE_VALUE(x) (((x) & 0x00000001) << 6)
+#define PCIE_LINK_DISABLE          BIT(6)
+
+#define PCIE_FAST_LINK_MODE_VALUE(x) (((x) & 0x00000001) << 7)
+#define PCIE_FAST_LINK_MODE          BIT(7)
+
+#define PCIE_LINK_RATE_LSB         (8)
+#define PCIE_LINK_RATE_MASK        (0x0000000F)
+#define PCIE_LINK_RATE_VALUE(x)    (((x) & PCIE_LINK_RATE_MASK) << \
+					PCIE_LINK_RATE_LSB)
+#define PCIE_LINK_RATE             ((PCIE_LINK_RATE_MASK) << \
+					(PCIE_LINK_RATE_LSB))
+
+#define PCIE_LINK_CAPABLE_LSB      (16)
+#define PCIE_LINK_CAPABLE_MASK     (0x0000003F)
+#define PCIE_LINK_CAPABLE_VALUE(x) (((x) & PCIE_LINK_CAPABLE_MASK) << \
+					PCIE_LINK_CAPABLE_LSB)
+#define PCIE_LINK_CAPABLE          ((PCIE_LINK_CAPABLE_MASK) << \
+					(PCIE_LINK_CAPABLE_LSB))
+
+/* Field definitions for TIMER_CTRL_MAX_FUNC_NUM_REG */
+
+#define PCIE_MAX_FUNC_NUM_LSB      (0)
+#define PCIE_MAX_FUNC_NUM_MASK     (0x000000FF)
+#define PCIE_MAX_FUNC_NUM_VALUE(x) (((x) & PCIE_MAX_FUNC_NUM_MASK) << \
+					PCIE_MAX_FUNC_NUM_LSB)
+#define PCIE_MAX_FUNC_NUM          ((PCIE_MAX_FUNC_NUM_MASK) << \
+					(PCIE_MAX_FUNC_NUM_LSB))
+
+#define PCIE_FAST_LINK_SCALING_FACTOR_LSB (29)
+#define PCIE_FAST_LINK_SCALING_FACTOR_MASK (0x00000003)
+#define PCIE_FAST_LINK_SCALING_FACTOR_VALUE(x) \
+			(((x) & PCIE_FAST_LINK_SCALING_FACTOR_MASK) << \
+					PCIE_FAST_LINK_SCALING_FACTOR_LSB)
+#define PCIE_FAST_LINK_SCALING_FACTOR (PCIE_FAST_LINK_SCALING_FACTOR_MASK << \
+					(PCIE_FAST_LINK_SCALING_FACTOR_LSB))
+
+/* Field definitions for GEN2_CTRL_REG */
+
+#define PCIE_NUM_OF_LANES_LSB      (8)
+#define PCIE_NUM_OF_LANES_MASK     (0x0000001F)
+#define PCIE_NUM_OF_LANES_VALUE(x) (((x) & PCIE_NUM_OF_LANES_MASK) << \
+					PCIE_NUM_OF_LANES_LSB)
+#define PCIE_NUM_OF_LANES          ((PCIE_NUM_OF_LANES_MASK) << \
+					(PCIE_NUM_OF_LANES_LSB))
+
+#define PCIE_EQ_PHASE_2_3_VALUE(x) (((x) & 0x00000001) << 9)
+#define PCIE_EQ_PHASE_2_3          BIT(9)
+
+/* Field definitions for GEN3_EQ_CONTROL_REG */
+
+#define PCIE_GEN3_EQ_FB_MODE_LSB      (0)
+#define PCIE_GEN3_EQ_FB_MODE_MASK     (0x0000000F)
+#define PCIE_GEN3_EQ_FB_MODE_VALUE(x) (((x) & PCIE_GEN3_EQ_FB_MODE_MASK) << \
+					PCIE_GEN3_EQ_FB_MODE_LSB)
+#define PCIE_GEN3_EQ_FB_MODE       ((PCIE_GEN3_EQ_FB_MODE_MASK) << \
+					(PCIE_GEN3_EQ_FB_MODE_LSB))
+
+#define PCIE_GEN3_EQ_PSET_REQ_VEC_LSB  (8)
+#define PCIE_GEN3_EQ_PSET_REQ_VEC_MASK (0x0000FFFF)
+#define PCIE_GEN3_EQ_PSET_REQ_VEC_VALUE(x) \
+			(((x) & PCIE_GEN3_EQ_PSET_REQ_VEC_MASK) << \
+					PCIE_GEN3_EQ_PSET_REQ_VEC_LSB)
+#define PCIE_GEN3_EQ_PSET_REQ_VEC  ((PCIE_GEN3_EQ_PSET_REQ_VEC_MASK) << \
+					(PCIE_GEN3_EQ_PSET_REQ_VEC_LSB))
+
+/* Field definitions for COHERENCY_CONTROL_3_REG */
+
+#define PCIE_CFG_MSTR_ARDOMAIN_MODE_LSB  (0)
+#define PCIE_CFG_MSTR_ARDOMAIN_MODE_MASK (0x00000003)
+#define PCIE_CFG_MSTR_ARDOMAIN_MODE_VALUE(x) \
+			(((x) & PCIE_CFG_MSTR_ARDOMAIN_MODE_MASK) << \
+					PCIE_CFG_MSTR_ARDOMAIN_MODE_LSB)
+#define PCIE_CFG_MSTR_ARDOMAIN_MODE ((PCIE_CFG_MSTR_ARDOMAIN_MODE_MASK) << \
+					(PCIE_CFG_MSTR_ARDOMAIN_MODE_LSB))
+
+#define PCIE_CFG_MSTR_ARCACHE_MODE_LSB  (3)
+#define PCIE_CFG_MSTR_ARCACHE_MODE_MASK (0x0000000F)
+#define PCIE_CFG_MSTR_ARCACHE_MODE_VALUE(x) \
+			(((x) & PCIE_CFG_MSTR_ARCACHE_MODE_MASK) << \
+					PCIE_CFG_MSTR_ARCACHE_MODE_LSB)
+#define PCIE_CFG_MSTR_ARCACHE_MODE ((PCIE_CFG_MSTR_ARCACHE_MODE_MASK) << \
+					(PCIE_CFG_MSTR_ARCACHE_MODE_LSB))
+
+#define PCIE_CFG_MSTR_AWDOMAIN_MODE_LSB  (8)
+#define PCIE_CFG_MSTR_AWDOMAIN_MODE_MASK (0x00000003)
+#define PCIE_CFG_MSTR_AWDOMAIN_MODE_VALUE(x) (((x) & 0x00000003) << 8)
+#define PCIE_CFG_MSTR_AWDOMAIN_MODE ((PCIE_CFG_MSTR_AWDOMAIN_MODE_MASK) << \
+					(PCIE_CFG_MSTR_AWDOMAIN_MODE_LSB))
+
+#define PCIE_CFG_MSTR_AWCACHE_MODE_LSB  (11)
+#define PCIE_CFG_MSTR_AWCACHE_MODE_MASK (0x0000000F)
+#define PCIE_CFG_MSTR_AWCACHE_MODE_VALUE(x) \
+			(((x) & PCIE_CFG_MSTR_AWCACHE_MODE_MASK) << \
+					PCIE_CFG_MSTR_AWCACHE_MODE_LSB)
+#define PCIE_CFG_MSTR_AWCACHE_MODE ((PCIE_CFG_MSTR_AWCACHE_MODE_MASK) << \
+					(PCIE_CFG_MSTR_AWCACHE_MODE_LSB))
+
+#define PCIE_CFG_MSTR_ARDOMAIN_VALUE_LSB  (16)
+#define PCIE_CFG_MSTR_ARDOMAIN_VALUE_MASK (0x00000003)
+#define PCIE_CFG_MSTR_ARDOMAIN_VALUE_VALUE(x) \
+			(((x) & PCIE_CFG_MSTR_ARDOMAIN_VALUE_MASK) << \
+					PCIE_CFG_MSTR_ARDOMAIN_VALUE_LSB)
+#define PCIE_CFG_MSTR_ARDOMAIN_VALUE ((PCIE_CFG_MSTR_ARDOMAIN_VALUE_MASK) << \
+					(PCIE_CFG_MSTR_ARDOMAIN_VALUE_LSB))
+
+#define PCIE_CFG_MSTR_ARCACHE_VALUE_LSB  (19)
+#define PCIE_CFG_MSTR_ARCACHE_VALUE_MASK (0x0000000F)
+#define PCIE_CFG_MSTR_ARCACHE_VALUE_VALUE(x) \
+			(((x) & PCIE_CFG_MSTR_ARCACHE_VALUE_MASK) << \
+					PCIE_CFG_MSTR_ARCACHE_VALUE_LSB)
+#define PCIE_CFG_MSTR_ARCACHE_VALUE ((PCIE_CFG_MSTR_ARCACHE_VALUE_MASK) << \
+					(PCIE_CFG_MSTR_ARCACHE_VALUE_LSB))
+
+#define PCIE_CFG_MSTR_AWDOMAIN_VALUE_LSB (24)
+#define PCIE_CFG_MSTR_AWDOMAIN_VALUE_MASK (0x00000003)
+#define PCIE_CFG_MSTR_AWDOMAIN_VALUE_VALUE(x) \
+			(((x) & PCIE_CFG_MSTR_AWDOMAIN_VALUE_MASK) << \
+					PCIE_CFG_MSTR_AWDOMAIN_VALUE_LSB)
+#define PCIE_CFG_MSTR_AWDOMAIN_VALUE ((PCIE_CFG_MSTR_AWDOMAIN_VALUE_MASK) << \
+					(PCIE_CFG_MSTR_AWDOMAIN_VALUE_LSB))
+
+#define PCIE_CFG_MSTR_AWCACHE_VALUE_LSB (27)
+#define PCIE_CFG_MSTR_AWCACHE_VALUE_MASK (0x0000000F)
+#define PCIE_CFG_MSTR_AWCACHE_VALUE_VALUE(x) \
+			(((x) & PCIE_CFG_MSTR_AWCACHE_VALUE_MASK) << \
+					PCIE_CFG_MSTR_AWCACHE_VALUE_LSB)
+#define PCIE_CFG_MSTR_AWCACHE_VALUE ((PCIE_CFG_MSTR_AWCACHE_VALUE_MASK) << \
+					(PCIE_CFG_MSTR_AWCACHE_VALUE_LSB))
+
+/* Instance PCIE_SS - CTRL register offsets */
+
+/* PCIe PHY General Control */
+
+#define PCIE_SS_PCIE_PHY_GEN_CTRL      (0x0000)
+
+/* PCIe PHY MPLLA Control */
+
+#define PCIE_SS_PCIE_PHY_MPLLA_CTRL    (0x0010)
+
+/* Subsystem Read Write Register 0 */
+
+#define PCIE_SS_SS_RW_REG_0            (0x00F0)
+
+/* Subsystem Read Write Register 1 */
+
+#define PCIE_SS_SS_RW_REG_1            (0x00F4)
+
+/* PCIe Controller 0 General Control 1 */
+
+#define PCIE_SS_PE0_GEN_CTRL_1         (0x1050)
+
+/* PCIe Controller 0 Link Debug 1 */
+
+#define PCIE_SS_PE0_LINK_DBG_1         (0x10B0)
+
+/* PCIe Controller 0 Link Debug 2 */
+
+#define PCIE_SS_PE0_LINK_DBG_2         (0xB4)
+
+/* PHY Register Address Register */
+
+#define PCIE_SS_PHY_REG_ADDR           (0x3008)
+
+/* PHY Register Data Register */
+
+#define PCIE_SS_PHY_REG_DATA           (0x300C)
+
+/* Field definitions for PCIE_PHY_GEN_CTRL */
+
+#define PCIE_SS_REF_REPEAT_CLK_EN_VALUE(x) (((x) & 0x00000001) << 16)
+#define PCIE_SS_REF_REPEAT_CLK_EN      BIT(16)
+
+#define PCIE_SS_REF_USE_PAD_VALUE(x)   (((x) & 0x00000001) << 17)
+#define PCIE_SS_REF_USE_PAD            BIT(17)
+
+/* Field definitions for PCIE_PHY_MPLLA_CTRL */
+
+#define PCIE_SS_MPLLA_FORCE_EN_VALUE(x) (((x) & 0x00000001) << 0)
+#define PCIE_SS_MPLLA_FORCE_EN          BIT(0)
+
+#define PCIE_SS_MPLLA_SSC_EN_VALUE(x)  (((x) & 0x00000001) << 1)
+#define PCIE_SS_MPLLA_SSC_EN           BIT(1)
+
+#define PCIE_SS_MPLL_STATE_VALUE(x)    (((x) & 0x00000001) << 30)
+#define PCIE_SS_MPLL_STATE             BIT(30)
+
+#define PCIE_SS_MPLLA_STATE_VALUE(x)   (((x) & 0x00000001) << 31)
+#define PCIE_SS_MPLLA_STATE            BIT(31)
+
+/* Field definitions for PCIE_PHY_MPLLB_CTRL */
+
+#define PCIE_SS_MPLLB_FORCE_EN_VALUE(x) (((x) & 0x00000001) << 0)
+#define PCIE_SS_MPLLB_FORCE_EN          BIT(0)
+
+#define PCIE_SS_MPLLB_SSC_EN_VALUE(x)  (((x) & 0x00000001) << 1)
+#define PCIE_SS_MPLLB_SSC_EN           BIT(1)
+
+#define PCIE_SS_MPLLB_STATE_VALUE(x)   (((x) & 0x00000001) << 31)
+#define PCIE_SS_MPLLB_STATE            BIT(31)
+
+/* Field definitions for SS_RW_REG_0 */
+
+#define PCIE_SS_SS_RW_REG_0_FIELD_LSB  (0)
+#define PCIE_SS_SS_RW_REG_0_FIELD_MASK (0xFFFFFFFF)
+#define PCIE_SS_SS_RW_REG_0_FIELD      ((PCIE_SS_SS_RW_REG_0_FIELD_MASK) << \
+		(PCIE_SS_SS_RW_REG_0_FIELD_LSB))
+
+/* Field definitions for PE0_GEN_CTRL_1 */
+
+#define PCIE_SS_DEVICE_TYPE_LSB        (0)
+#define PCIE_SS_DEVICE_TYPE_MASK       (0x0000000F)
+#define PCIE_SS_DEVICE_TYPE_VALUE(x)   (((x) & PCIE_SS_DEVICE_TYPE_MASK) << \
+					PCIE_SS_DEVICE_TYPE_LSB)
+#define PCIE_SS_DEVICE_TYPE            ((PCIE_SS_DEVICE_TYPE_MASK) << \
+					(PCIE_SS_DEVICE_TYPE_LSB))
+
+/* Field definitions for PE0_LINK_DBG_2 */
+
+#define PCIE_SS_SMLH_LTSSM_STATE_LSB   (0)
+#define PCIE_SS_SMLH_LTSSM_STATE_MASK  (0x0000003F)
+#define PCIE_SS_SMLH_LTSSM_STATE_VALUE(x) \
+			(((x) & PCIE_SS_SMLH_LTSSM_STATE_MASK) << \
+					PCIE_SS_SMLH_LTSSM_STATE_LSB)
+#define PCIE_SS_SMLH_LTSSM_STATE       ((PCIE_SS_SMLH_LTSSM_STATE_MASK) << \
+					(PCIE_SS_SMLH_LTSSM_STATE_LSB))
+
+#define PCIE_SS_SMLH_LINK_UP_VALUE(x)  (((x) & 0x00000001) << 6)
+#define PCIE_SS_SMLH_LINK_UP           BIT(6)
+
+#define PCIE_SS_RDLH_LINK_UP_VALUE(x)  (((x) & 0x00000001) << 7)
+#define PCIE_SS_RDLH_LINK_UP           BIT(7)
+
+/* Field definitions for PHY_REG_ADDR */
+
+#define PCIE_SS_PHY_REG_ADDR_FIELD_LSB  (0)
+#define PCIE_SS_PHY_REG_ADDR_FIELD_MASK (0x0000FFFF)
+#define PCIE_SS_PHY_REG_ADDR_FIELD_VALUE(x) \
+			(((x) & PCIE_SS_PHY_REG_ADDR_FIELD_MASK) << \
+					PCIE_SS_PHY_REG_ADDR_FIELD_LSB)
+#define PCIE_SS_PHY_REG_ADDR_FIELD     ((PCIE_SS_PHY_REG_ADDR_FIELD_MASK) << \
+					(PCIE_SS_PHY_REG_ADDR_FIELD_LSB))
+
+#define PCIE_SS_PHY_REG_EN_VALUE(x)    (((x) & 0x00000001) << 31)
+#define PCIE_SS_PHY_REG_EN             BIT(31)
+
+/* Field definitions for PHY_REG_DATA */
+
+#define PCIE_SS_PHY_REG_DATA_FIELD_LSB  (0)
+#define PCIE_SS_PHY_REG_DATA_FIELD_MASK (0x0000FFFF)
+#define PCIE_SS_PHY_REG_DATA_FIELD_VALUE(x) \
+			(((x) & PCIE_SS_PHY_REG_DATA_FIELD_MASK) << \
+					PCIE_SS_PHY_REG_DATA_FIELD_LSB)
+#define PCIE_SS_PHY_REG_DATA_FIELD     ((PCIE_SS_PHY_REG_DATA_FIELD_MASK) << \
+					(PCIE_SS_PHY_REG_DATA_FIELD_LSB))
+
+#endif  /* PCI_S32CC_REGS_H */
