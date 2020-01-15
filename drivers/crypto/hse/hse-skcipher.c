@@ -5,7 +5,7 @@
  * This file contains the implementation of the symmetric key block cipher
  * algorithms supported for hardware offloading via HSE.
  *
- * Copyright 2019 NXP
+ * Copyright 2019-2020 NXP
  */
 
 #include <linux/kernel.h>
@@ -23,21 +23,45 @@
 #define HSE_SKCIPHER_MAX_KEY_SIZE      AES_MAX_KEY_SIZE
 
 /**
+ * struct hse_skcipher_tpl - algorithm template
+ * @cipher_name: cipher algorithm name
+ * @cipher_drv: cipher driver name
+ * @blocksize: block size
+ * @min_keysize: minimum key size
+ * @max_keysize: maximum key size
+ * @ivsize: initialization vector size
+ * @cipher_type: cipher algorithm/type
+ * @block_mode: cipher block mode
+ * @key_type: type of key used
+ */
+struct hse_skcipher_tpl {
+	char cipher_name[CRYPTO_MAX_ALG_NAME];
+	char cipher_drv[CRYPTO_MAX_ALG_NAME];
+	unsigned int blocksize;
+	unsigned int min_keysize;
+	unsigned int max_keysize;
+	unsigned int ivsize;
+	enum hse_cipher_algorithm cipher_type;
+	enum hse_block_mode block_mode;
+	enum hse_key_type key_type;
+};
+
+/**
  * hse_skcipher_alg - algorithm private data
  * @skcipher: symmetric key cipher
+ * @entry: position in supported algorithms list
  * @cipher_type: cipher algorithm/type
  * @block_mode: cipher block mode
  * @key_type: type of key used
  * @dev: HSE device
- * @registered: algorithm registered flag
  */
 struct hse_skcipher_alg {
 	struct skcipher_alg skcipher;
+	struct list_head entry;
 	enum hse_cipher_algorithm cipher_type;
 	enum hse_block_mode block_mode;
 	enum hse_key_type key_type;
 	struct device *dev;
-	bool registered;
 };
 
 /**
@@ -251,9 +275,9 @@ static int hse_skcipher_decrypt(struct skcipher_request *req)
  * hse_skcipher_setkey - symmetric key cipher setkey operation
  * @tfm: crypto skcipher transformation
  * @key: input key
- * @keylen: input key size
+ * @keylen: input key length, in bytes
  *
- * Note that key buffers and info must be located in the 32-bit address range.
+ * Key buffers and information must be located in the 32-bit address range.
  */
 static int hse_skcipher_setkey(struct crypto_skcipher *tfm, const u8 *key,
 			       unsigned int keylen)
@@ -273,6 +297,7 @@ static int hse_skcipher_setkey(struct crypto_skcipher *tfm, const u8 *key,
 			return err;
 	}
 
+	/* make sure key is located in a DMAable area */
 	memcpy(tctx->keybuf, key, keylen);
 	dma_sync_single_for_device(alg->dev, tctx->keybuf_dma, keylen,
 				   DMA_TO_DEVICE);
@@ -386,69 +411,112 @@ static void hse_skcipher_exit(struct crypto_skcipher *tfm)
 			       DMA_TO_DEVICE, DMA_ATTR_SKIP_CPU_SYNC);
 }
 
-static struct hse_skcipher_alg skcipher_algs[] = {
+static const struct hse_skcipher_tpl hse_skcipher_algs_tpl[] = {
 	{
-		.skcipher = {
-			.base = {
-				.cra_name = "cbc(aes)",
-				.cra_driver_name = "cbc-aes-hse",
-				.cra_module = THIS_MODULE,
-				.cra_priority = HSE_CRA_PRIORITY,
-				.cra_flags = CRYPTO_ALG_ASYNC |
-					     CRYPTO_ALG_KERN_DRIVER_ONLY,
-				.cra_ctxsize =
-					sizeof(struct hse_skcipher_tfm_ctx),
-				.cra_blocksize = AES_BLOCK_SIZE,
-			},
-			.setkey = hse_skcipher_setkey,
-			.encrypt = hse_skcipher_encrypt,
-			.decrypt = hse_skcipher_decrypt,
-			.init = hse_skcipher_init,
-			.exit = hse_skcipher_exit,
-			.min_keysize = AES_MIN_KEY_SIZE,
-			.max_keysize = AES_MAX_KEY_SIZE,
-			.ivsize = AES_BLOCK_SIZE,
-		},
-		.registered = false,
+		.cipher_name = "cbc(aes)",
+		.cipher_drv = "cbc-aes-hse",
+		.blocksize = AES_BLOCK_SIZE,
+		.min_keysize = AES_MIN_KEY_SIZE,
+		.max_keysize = AES_MAX_KEY_SIZE,
+		.ivsize = AES_BLOCK_SIZE,
 		.cipher_type = HSE_CIPHER_ALGO_AES,
 		.block_mode = HSE_CIPHER_BLOCK_MODE_CBC,
 		.key_type = HSE_KEY_TYPE_AES,
-	}
+	},
 };
+
+/**
+ * hse_skcipher_alloc - allocate cipher algorithm
+ * @dev: HSE device
+ * @tpl: cipher algorithm template
+ */
+static struct hse_skcipher_alg *
+hse_skcipher_alloc(struct device *dev, const struct hse_skcipher_tpl *tpl)
+{
+	struct hse_skcipher_alg *alg;
+	struct crypto_alg *base;
+
+	alg = devm_kzalloc(dev, sizeof(*alg), GFP_KERNEL);
+	if (IS_ERR_OR_NULL(alg))
+		return ERR_PTR(-ENOMEM);
+
+	base = &alg->skcipher.base;
+
+	alg->cipher_type = tpl->cipher_type;
+	alg->block_mode = tpl->block_mode;
+	alg->key_type = tpl->key_type;
+	alg->dev = dev;
+
+	alg->skcipher.init = hse_skcipher_init;
+	alg->skcipher.exit = hse_skcipher_exit;
+	alg->skcipher.setkey = hse_skcipher_setkey;
+	alg->skcipher.encrypt = hse_skcipher_encrypt;
+	alg->skcipher.decrypt = hse_skcipher_decrypt;
+	alg->skcipher.min_keysize = tpl->min_keysize;
+	alg->skcipher.max_keysize = tpl->max_keysize;
+	alg->skcipher.ivsize = tpl->ivsize;
+
+	snprintf(base->cra_name, CRYPTO_MAX_ALG_NAME, "%s", tpl->cipher_name);
+	snprintf(base->cra_driver_name, CRYPTO_MAX_ALG_NAME, "%s",
+		 tpl->cipher_drv);
+
+	base->cra_module = THIS_MODULE;
+	base->cra_ctxsize = sizeof(struct hse_skcipher_tfm_ctx);
+	base->cra_priority = HSE_CRA_PRIORITY;
+	base->cra_blocksize = tpl->blocksize;
+	base->cra_alignmask = 0u;
+	base->cra_flags = CRYPTO_ALG_ASYNC | CRYPTO_ALG_KERN_DRIVER_ONLY;
+
+	return alg;
+}
 
 /**
  * hse_skcipher_register - register symmetric key algorithms
  * @dev: HSE device
+ * @alg_list: list of registered algorithms
  */
-void hse_skcipher_register(struct device *dev)
+void hse_skcipher_register(struct device *dev, struct list_head *alg_list)
 {
-	int i, err;
+	int i, err = 0;
 
-	/* register crypto algorithms the device supports */
-	for (i = 0; i < ARRAY_SIZE(skcipher_algs); i++) {
-		struct hse_skcipher_alg *alg = &skcipher_algs[i];
-		const char *name = alg->skcipher.base.cra_name;
+	INIT_LIST_HEAD(alg_list);
 
-		alg->dev = dev;
+	/* register crypto algorithms supported by device */
+	for (i = 0; i < ARRAY_SIZE(hse_skcipher_algs_tpl); i++) {
+		struct hse_skcipher_alg *alg;
+		const struct hse_skcipher_tpl *tpl = &hse_skcipher_algs_tpl[i];
+
+		alg = hse_skcipher_alloc(dev, tpl);
+		if (IS_ERR(alg)) {
+			dev_err(dev, "failed to allocate %s\n",
+				tpl->cipher_drv);
+			continue;
+		}
 
 		err = crypto_register_skcipher(&alg->skcipher);
-		if (err) {
-			dev_err(dev, "failed to register %s: %d", name, err);
+		if (unlikely(err)) {
+			dev_err(dev, "failed to register alg %s: %d\n",
+				tpl->cipher_name, err);
 		} else {
-			alg->registered = true;
-			dev_info(dev, "registered alg %s\n", name);
+			list_add_tail(&alg->entry, alg_list);
+			dev_info(dev, "registered alg %s\n", tpl->cipher_name);
 		}
 	}
 }
 
 /**
  * hse_skcipher_unregister - unregister symmetric key algorithms
+ * @alg_list: list of registered algorithms
  */
-void hse_skcipher_unregister(void)
+void hse_skcipher_unregister(struct list_head *alg_list)
 {
-	int i;
+	struct hse_skcipher_alg *alg, *tmp;
 
-	for (i = 0; i < ARRAY_SIZE(skcipher_algs); i++)
-		if (skcipher_algs[i].registered)
-			crypto_unregister_skcipher(&skcipher_algs[i].skcipher);
+	if (unlikely(!alg_list->next))
+		return;
+
+	list_for_each_entry_safe(alg, tmp, alg_list, entry) {
+		crypto_unregister_skcipher(&alg->skcipher);
+		list_del(&alg->entry);
+	}
 }

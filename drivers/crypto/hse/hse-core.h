@@ -4,7 +4,7 @@
  *
  * This file defines the driver core interface for the HSE cryptographic engine.
  *
- * Copyright 2019 NXP
+ * Copyright 2019-2020 NXP
  */
 
 #ifndef HSE_CORE_H
@@ -12,13 +12,9 @@
 
 #include <crypto/aes.h>
 
-#define HSE_NUM_CHANNELS    16u /* number of available service channels */
-#define HSE_STREAM_COUNT    2u /* number of usable streams per MU instance */
-
 #define HSE_CRA_PRIORITY    2000u /* HSE crypto algorithm priority */
 
 #define HSE_CHANNEL_ANY    0xACu /* use any channel, no request ordering */
-#define HSE_CHANNEL_INV    0xFFu /* invalid acquired service channel index */
 
 /**
  * enum hse_ch_type - channel type
@@ -53,14 +49,14 @@ int hse_srv_req_async(struct device *dev, u8 channel, dma_addr_t srv_desc,
 		      void *ctx, void (*rx_cbk)(int err, void *ctx));
 int hse_srv_req_sync(struct device *dev, u8 channel, dma_addr_t srv_desc);
 
-void hse_ahash_register(struct device *dev);
-void hse_ahash_unregister(struct device *dev);
+void hse_ahash_register(struct device *dev, struct list_head *alg_list);
+void hse_ahash_unregister(struct list_head *alg_list);
 
-void hse_skcipher_register(struct device *dev);
-void hse_skcipher_unregister(void);
+void hse_skcipher_register(struct device *dev, struct list_head *alg_list);
+void hse_skcipher_unregister(struct list_head *alg_list);
 
-void hse_aead_register(struct device *dev);
-void hse_aead_unregister(void);
+void hse_aead_register(struct device *dev, struct list_head *alg_list);
+void hse_aead_unregister(struct list_head *alg_list);
 
 void hse_hwrng_register(struct device *dev);
 
