@@ -5,7 +5,7 @@
  * This file contains the implementation of the authenticated encryption with
  * additional data algorithms supported for hardware offloading via HSE.
  *
- * Copyright 2019 NXP
+ * Copyright 2019-2020 NXP
  */
 
 #include <linux/kernel.h>
@@ -23,19 +23,39 @@
 #define HSE_AEAD_MAX_KEY_SIZE    AES_MAX_KEY_SIZE
 
 /**
- * hse_aead_alg - HSE AEAD algorithm data
+ * struct hse_aead_tpl - algorithm template
+ * @cipher_name: cipher algorithm name
+ * @cipher_drv: cipher driver name
+ * @blocksize: block size
+ * @ivsize: initialization vector size
+ * @maxauthsize: maximum authentication tag size
+ * @auth_mode: authenticated encryption mode
+ * @key_type: type of key used
+ */
+struct hse_aead_tpl {
+	char aead_name[CRYPTO_MAX_ALG_NAME];
+	char aead_drv[CRYPTO_MAX_ALG_NAME];
+	unsigned int blocksize;
+	unsigned int ivsize;
+	unsigned int maxauthsize;
+	enum hse_auth_cipher_mode auth_mode;
+	enum hse_key_type key_type;
+};
+
+/**
+ * hse_aead_alg - algorithm private data
  * @aead: generic AEAD cipher
+ * @entry: position in supported algorithms list
  * @auth_mode: authenticated encryption mode
  * @key_type: type of key used
  * @dev: HSE device
- * @registered: algorithm registered flag
  */
 struct hse_aead_alg {
 	struct aead_alg aead;
+	struct list_head entry;
 	enum hse_auth_cipher_mode auth_mode;
 	enum hse_key_type key_type;
 	struct device *dev;
-	bool registered;
 };
 
 /**
@@ -96,23 +116,19 @@ static inline struct hse_aead_alg *hse_aead_get_alg(struct crypto_aead *tfm)
 }
 
 /**
- * hse_gcm_setauthsize - set authentication tag (MAC) size for GCM tfm
+ * hse_aead_setauthsize - set authentication tag (MAC) size
  * @tfm: crypto aead transformation
  * @authsize: auth tag size
  *
- * Validate authentication tag size for GCM transformations.
+ * Validate authentication tag size for AEAD transformations.
  */
-static int hse_gcm_setauthsize(struct crypto_aead *tfm, unsigned int authsize)
+static int hse_aead_setauthsize(struct crypto_aead *tfm, unsigned int authsize)
 {
-	switch (authsize) {
-	case 4:
-	case 8:
-	case 12:
-	case 13:
-	case 14:
-	case 15:
-	case 16:
-		break;
+	struct hse_aead_alg *alg = hse_aead_get_alg(tfm);
+
+	switch (alg->auth_mode) {
+	case HSE_AUTH_CIPHER_MODE_GCM:
+		return crypto_gcm_check_authsize(authsize);
 	default:
 		return -EINVAL;
 	}
@@ -166,11 +182,11 @@ out:
 }
 
 /**
- * hse_gcm_crypt - encrypt/decrypt AEAD operation
+ * hse_aead_crypt - encrypt/decrypt AEAD operation
  * @req: AEAD encrypt/decrypt request
  * @encrypt: whether the request is encrypt or not
  */
-static int hse_gcm_crypt(struct aead_request *req, bool encrypt)
+static int hse_aead_crypt(struct aead_request *req, bool encrypt)
 {
 	struct crypto_aead *tfm = crypto_aead_reqtfm(req);
 	struct hse_aead_alg *alg = hse_aead_get_alg(tfm);
@@ -182,7 +198,7 @@ static int hse_gcm_crypt(struct aead_request *req, bool encrypt)
 	u32 cryptlen, srclen;
 	int err, nbytes;
 
-	/* Make sure IV is located in a DMAable area before DMA mapping it */
+	/* make sure IV is located in a DMAable area before DMA mapping it */
 	memcpy(&rctx->iv, req->iv, ivlen);
 
 	/* for decrypt req->cryptlen includes the MAC length */
@@ -274,26 +290,26 @@ err_free_buf:
 	return err;
 }
 
-static int hse_gcm_encrypt(struct aead_request *req)
+static int hse_aead_encrypt(struct aead_request *req)
 {
-	return hse_gcm_crypt(req, true);
+	return hse_aead_crypt(req, true);
 }
 
-static int hse_gcm_decrypt(struct aead_request *req)
+static int hse_aead_decrypt(struct aead_request *req)
 {
-	return hse_gcm_crypt(req, false);
+	return hse_aead_crypt(req, false);
 }
 
 /**
- * hse_gcm_setkey - set key for GCM transformations
+ * hse_aead_setkey - AEAD setkey operation
  * @tfm: crypto aead transformation
  * @key: input key
  * @keylen: input key length, in bytes
  *
- * Note that key buffers and info must be located in the 32-bit address range.
+ * Key buffers and information must be located in the 32-bit address range.
  */
-static int hse_gcm_setkey(struct crypto_aead *tfm, const u8 *key,
-			  unsigned int keylen)
+static int hse_aead_setkey(struct crypto_aead *tfm, const u8 *key,
+			   unsigned int keylen)
 {
 	struct hse_aead_tfm_ctx *tctx = crypto_aead_ctx(tfm);
 	struct hse_aead_alg *alg = hse_aead_get_alg(tfm);
@@ -308,6 +324,7 @@ static int hse_gcm_setkey(struct crypto_aead *tfm, const u8 *key,
 	if (err)
 		return err;
 
+	/* make sure key is located in a DMAable area */
 	memcpy(tctx->keybuf, key, keylen);
 	dma_sync_single_for_device(alg->dev, tctx->keybuf_dma, keylen,
 				   DMA_TO_DEVICE);
@@ -430,68 +447,108 @@ static void hse_aead_exit(struct crypto_aead *tfm)
 			       DMA_TO_DEVICE, DMA_ATTR_SKIP_CPU_SYNC);
 }
 
-/* AEAD algs to be registered */
-static struct hse_aead_alg aead_algs[] = {
+static const struct hse_aead_tpl hse_aead_algs_tpl[] = {
 	{
-		.aead = {
-			.base = {
-				.cra_name = "gcm(aes)",
-				.cra_driver_name = "gcm-aes-hse",
-				.cra_module = THIS_MODULE,
-				.cra_priority = HSE_CRA_PRIORITY,
-				.cra_flags = CRYPTO_ALG_ASYNC |
-					     CRYPTO_ALG_KERN_DRIVER_ONLY,
-				.cra_ctxsize = sizeof(struct hse_aead_tfm_ctx),
-				.cra_blocksize = 1,
-			},
-			.setkey = hse_gcm_setkey,
-			.setauthsize = hse_gcm_setauthsize,
-			.encrypt = hse_gcm_encrypt,
-			.decrypt = hse_gcm_decrypt,
-			.init = hse_aead_init,
-			.exit = hse_aead_exit,
-			.ivsize = GCM_AES_IV_SIZE,
-			.maxauthsize = AES_BLOCK_SIZE,
-		},
-		.registered = false,
+		.aead_name = "gcm(aes)",
+		.aead_drv = "gcm-aes-hse",
+		.blocksize = 1,
+		.ivsize = GCM_AES_IV_SIZE,
+		.maxauthsize = AES_BLOCK_SIZE,
 		.auth_mode = HSE_AUTH_CIPHER_MODE_GCM,
 		.key_type = HSE_KEY_TYPE_AES,
 	},
 };
 
 /**
+ * hse_aead_alloc - allocate AEAD algorithm
+ * @dev: HSE device
+ * @tpl: AEAD algorithm template
+ */
+static struct hse_aead_alg *hse_aead_alloc(struct device *dev,
+					   const struct hse_aead_tpl *tpl)
+{
+	struct hse_aead_alg *alg;
+	struct crypto_alg *base;
+
+	alg = devm_kzalloc(dev, sizeof(*alg), GFP_KERNEL);
+	if (IS_ERR_OR_NULL(alg))
+		return ERR_PTR(-ENOMEM);
+
+	base = &alg->aead.base;
+
+	alg->auth_mode = tpl->auth_mode;
+	alg->key_type = tpl->key_type;
+	alg->dev = dev;
+
+	alg->aead.init = hse_aead_init;
+	alg->aead.exit = hse_aead_exit;
+	alg->aead.setkey = hse_aead_setkey;
+	alg->aead.encrypt = hse_aead_encrypt;
+	alg->aead.decrypt = hse_aead_decrypt;
+	alg->aead.setauthsize = hse_aead_setauthsize;
+	alg->aead.maxauthsize = tpl->maxauthsize;
+	alg->aead.ivsize = tpl->ivsize;
+
+	snprintf(base->cra_name, CRYPTO_MAX_ALG_NAME, "%s", tpl->aead_name);
+	snprintf(base->cra_driver_name, CRYPTO_MAX_ALG_NAME, "%s",
+		 tpl->aead_drv);
+
+	base->cra_module = THIS_MODULE;
+	base->cra_ctxsize = sizeof(struct hse_aead_tfm_ctx);
+	base->cra_priority = HSE_CRA_PRIORITY;
+	base->cra_blocksize = tpl->blocksize;
+	base->cra_alignmask = 0u;
+	base->cra_flags = CRYPTO_ALG_ASYNC | CRYPTO_ALG_KERN_DRIVER_ONLY;
+
+	return alg;
+}
+
+/**
  * hse_aead_register - register AEAD algorithms
  * @dev: HSE device
+ * @alg_list: list of registered algorithms
  */
-void hse_aead_register(struct device *dev)
+void hse_aead_register(struct device *dev, struct list_head *alg_list)
 {
 	int i, err = 0;
 
-	/* register crypto algorithms the device supports */
-	for (i = 0; i < ARRAY_SIZE(aead_algs); i++) {
-		struct hse_aead_alg *alg = &aead_algs[i];
-		const char *name = alg->aead.base.cra_name;
+	INIT_LIST_HEAD(alg_list);
 
-		alg->dev = dev;
+	/* register crypto algorithms supported by device */
+	for (i = 0; i < ARRAY_SIZE(hse_aead_algs_tpl); i++) {
+		struct hse_aead_alg *alg;
+		const struct hse_aead_tpl *tpl = &hse_aead_algs_tpl[i];
+
+		alg = hse_aead_alloc(dev, tpl);
+		if (IS_ERR(alg)) {
+			dev_err(dev, "failed to allocate %s\n", tpl->aead_drv);
+			continue;
+		}
 
 		err = crypto_register_aead(&alg->aead);
-		if (err) {
-			dev_err(dev, "failed to register %s: %d", name, err);
+		if (unlikely(err)) {
+			dev_err(dev, "failed to register alg %s: %d\n",
+				tpl->aead_name, err);
 		} else {
-			alg->registered = true;
-			dev_info(dev, "registered alg %s\n", name);
+			list_add_tail(&alg->entry, alg_list);
+			dev_info(dev, "registered alg %s\n", tpl->aead_name);
 		}
 	}
 }
 
 /**
  * hse_aead_unregister - unregister AEAD algorithms
+ * @alg_list: list of registered algorithms
  */
-void hse_aead_unregister(void)
+void hse_aead_unregister(struct list_head *alg_list)
 {
-	int i;
+	struct hse_aead_alg *alg, *tmp;
 
-	for (i = 0; i < ARRAY_SIZE(aead_algs); i++)
-		if (aead_algs[i].registered)
-			crypto_unregister_aead(&aead_algs[i].aead);
+	if (unlikely(!alg_list->next))
+		return;
+
+	list_for_each_entry_safe(alg, tmp, alg_list, entry) {
+		crypto_unregister_aead(&alg->aead);
+		list_del(&alg->entry);
+	}
 }
