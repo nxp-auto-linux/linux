@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: BSD-3-Clause
 #
-# Copyright 2019 NXP
+# Copyright 2019-2020 NXP
 #
 
 obj-$(CONFIG_CRYPTO_DEV_NXP_HSE) += hse.o
