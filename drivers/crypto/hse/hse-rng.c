@@ -4,7 +4,7 @@
  *
  * This file contains hw_random framework support for HSE hardware true RNG.
  *
- * Copyright 2019 NXP
+ * Copyright 2019-2020 NXP
  */
 
 #include <linux/kernel.h>
