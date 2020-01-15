@@ -4,7 +4,7 @@
  *
  * This file contains the device driver core for the HSE cryptographic engine.
  *
- * Copyright 2019 NXP
+ * Copyright 2019-2020 NXP
  */
 
 #include <linux/kernel.h>
@@ -17,6 +17,46 @@
 #include "hse-abi.h"
 #include "hse-core.h"
 #include "hse-mu.h"
+
+/**
+ * struct hse_drvdata - HSE driver private data
+ * @ahash_algs: registered hash and hash-based MAC algorithms
+ * @skcipher_algs: registered symmetric key cipher algorithms
+ * @aead_algs: registered AEAD algorithms
+ * @mu: MU instance handle
+ * @channel_busy[n]: internally cached status of MU channel n
+ * @refcnt: acquired service channel reference count
+ * @rx_cbk[n].fn: upper layer RX callback for channel n
+ * @rx_cbk[n].ctx: context passed to the RX callback on channel n
+ * @sync[n].done: completion for synchronous requests on channel n
+ * @sync[n].reply: decoded service response location for channel n
+ * @stream_lock: lock used for stream channel reservation
+ * @tx_lock: lock used for service request transmission
+ * @hmac_key_ring: HMAC key slots currently available
+ * @aes_key_ring: AES key slots currently available
+ * @key_ring_lock: lock used for key slot acquisition
+ */
+struct hse_drvdata {
+	struct list_head ahash_algs;
+	struct list_head skcipher_algs;
+	struct list_head aead_algs;
+	void *mu;
+	bool channel_busy[HSE_NUM_CHANNELS];
+	atomic_t refcnt[HSE_NUM_CHANNELS];
+	struct {
+		void (*fn)(int err, void *ctx);
+		void *ctx;
+	} rx_cbk[HSE_NUM_CHANNELS];
+	struct {
+		struct completion *done;
+		int *reply;
+	} sync[HSE_NUM_CHANNELS];
+	spinlock_t stream_lock; /* covers stream reservation */
+	spinlock_t tx_lock; /* covers request transmission */
+	struct list_head hmac_key_ring;
+	struct list_head aes_key_ring;
+	spinlock_t key_ring_lock; /* covers key slot acquisition */
+};
 
 /**
  * hse_key_ring_init - initialize all keys in a specific key group
@@ -579,9 +619,9 @@ static int hse_probe(struct platform_device *pdev)
 	hse_mu_irq_enable(drv->mu, HSE_INT_SYS_EVENT, HSE_CH_MASK_ALL);
 
 	/* register algorithms */
-	hse_ahash_register(dev);
-	hse_skcipher_register(dev);
-	hse_aead_register(dev);
+	hse_ahash_register(dev, &drv->ahash_algs);
+	hse_skcipher_register(dev, &drv->skcipher_algs);
+	hse_aead_register(dev, &drv->aead_algs);
 
 	if (IS_ENABLED(CONFIG_CRYPTO_DEV_NXP_HSE_HWRNG))
 		hse_hwrng_register(dev);
@@ -601,9 +641,9 @@ static int hse_remove(struct platform_device *pdev)
 	hse_mu_irq_disable(drv->mu, HSE_INT_SYS_EVENT, HSE_CH_MASK_ALL);
 
 	/* unregister algorithms */
-	hse_ahash_unregister(dev);
-	hse_skcipher_unregister();
-	hse_aead_unregister();
+	hse_ahash_unregister(&drv->ahash_algs);
+	hse_skcipher_unregister(&drv->skcipher_algs);
+	hse_aead_unregister(&drv->aead_algs);
 
 	/* empty used key rings */
 	hse_key_ring_free(&drv->aes_key_ring);
