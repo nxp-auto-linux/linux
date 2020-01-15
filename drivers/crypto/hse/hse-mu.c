@@ -5,7 +5,7 @@
  * This file contains the interface implementation for the Messaging Unit
  * instance used by host application cores to request services from HSE.
  *
- * Copyright 2019 NXP
+ * Copyright 2019-2020 NXP
  */
 
 #include <linux/kernel.h>
@@ -13,8 +13,6 @@
 #include <linux/interrupt.h>
 #include <linux/io.h>
 
-#include "hse-abi.h"
-#include "hse-core.h"
 #include "hse-mu.h"
 
 #define HSE_STATUS_MASK     0xFFFF0000ul /* HSE global status FSR mask */
