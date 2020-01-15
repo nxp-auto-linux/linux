@@ -5,7 +5,7 @@
  * This file contains the implementation of the hash algorithms and hash-based
  * message authentication codes supported for hardware offloading via HSE.
  *
- * Copyright 2019 NXP
+ * Copyright 2019-2020 NXP
  */
 
 #include <linux/kernel.h>
@@ -681,13 +681,13 @@ static int hse_ahash_import(struct ahash_request *req, const void *in)
  * hse_ahash_setkey - asynchronous hash setkey operation
  * @tfm: crypto ahash transformation
  * @key: input key
- * @keylen: input key size
+ * @keylen: input key length, in bytes
  *
  * The maximum hmac key size supported by HSE is equal to the hash algorithm
  * block size. Any key exceeding this size is shortened by hashing it before
  * being imported into the key store, in accordance with hmac specification.
  * Zero padding shall be added to keys shorter than HSE_KEY_HMAC_MIN_SIZE.
- * Note that key buffers and info must be located in the 32-bit address range.
+ * Key buffers and information must be located in the 32-bit address range.
  */
 static int hse_ahash_setkey(struct crypto_ahash *tfm, const u8 *key,
 			    unsigned int keylen)
@@ -706,6 +706,7 @@ static int hse_ahash_setkey(struct crypto_ahash *tfm, const u8 *key,
 		void *tmp_keybuf;
 		dma_addr_t tmp_keybuf_dma;
 
+		/* make sure key is located in a DMAable area */
 		tmp_keybuf = kmemdup(key, keylen, GFP_KERNEL);
 		if (IS_ERR_OR_NULL(tmp_keybuf))
 			return -ENOMEM;
@@ -749,8 +750,9 @@ static int hse_ahash_setkey(struct crypto_ahash *tfm, const u8 *key,
 		dma_sync_single_for_cpu(alg->dev, tctx->keylen_dma,
 					sizeof(tctx->keylen), DMA_FROM_DEVICE);
 	} else {
-		tctx->keylen = max(HSE_KEY_HMAC_MIN_SIZE, keylen);
+		/* make sure key is located in a DMAable area */
 		memcpy(tctx->keybuf, key, keylen);
+		tctx->keylen = max(HSE_KEY_HMAC_MIN_SIZE, keylen);
 		memzero_explicit(tctx->keybuf + keylen, tctx->keylen - keylen);
 		dma_sync_single_for_device(alg->dev, tctx->keybuf_dma,
 					   tctx->keylen, DMA_TO_DEVICE);
@@ -1004,7 +1006,6 @@ static struct hse_ahash_alg *hse_ahash_alloc(struct device *dev, bool keyed,
 	base->cra_blocksize = tpl->blocksize;
 	base->cra_alignmask = 0u;
 	base->cra_flags = CRYPTO_ALG_ASYNC | CRYPTO_ALG_KERN_DRIVER_ONLY;
-	base->cra_type = &crypto_ahash_type;
 
 	return alg;
 }
@@ -1012,13 +1013,13 @@ static struct hse_ahash_alg *hse_ahash_alloc(struct device *dev, bool keyed,
 /**
  * hse_ahash_register - register hash and hmac algorithms
  * @dev: HSE device
+ * @alg_list: list of registered algorithms
  */
-void hse_ahash_register(struct device *dev)
+void hse_ahash_register(struct device *dev, struct list_head *alg_list)
 {
-	struct hse_drvdata *drv = dev_get_drvdata(dev);
 	int i, err = 0;
 
-	INIT_LIST_HEAD(&drv->ahash_algs);
+	INIT_LIST_HEAD(alg_list);
 
 	/* register crypto algorithms supported by device */
 	for (i = 0; i < ARRAY_SIZE(hse_ahash_algs_tpl); i++) {
@@ -1038,7 +1039,7 @@ void hse_ahash_register(struct device *dev)
 				tpl->hash_name, err);
 			continue;
 		} else {
-			list_add_tail(&alg->entry, &drv->ahash_algs);
+			list_add_tail(&alg->entry, alg_list);
 		}
 
 		/* register hmac version */
@@ -1055,7 +1056,7 @@ void hse_ahash_register(struct device *dev)
 				tpl->hmac_name, err);
 			continue;
 		} else {
-			list_add_tail(&alg->entry, &drv->ahash_algs);
+			list_add_tail(&alg->entry, alg_list);
 		}
 
 		dev_info(dev, "registered algs %s,%s\n", tpl->hash_name,
@@ -1065,23 +1066,17 @@ void hse_ahash_register(struct device *dev)
 
 /**
  * hse_ahash_unregister - unregister hash and hmac algorithms
- * @dev: HSE device
+ * @alg_list: list of registered algorithms
  */
-void hse_ahash_unregister(struct device *dev)
+void hse_ahash_unregister(struct list_head *alg_list)
 {
-	struct hse_drvdata *drv = dev_get_drvdata(dev);
 	struct hse_ahash_alg *alg, *tmp;
-	int err;
 
-	if (unlikely(!drv->ahash_algs.next))
+	if (unlikely(!alg_list->next))
 		return;
 
-	list_for_each_entry_safe(alg, tmp, &drv->ahash_algs, entry) {
-		err = crypto_unregister_ahash(&alg->ahash);
-		if (unlikely(err))
-			dev_warn(dev, "failed to unregister %s: %d\n",
-				 alg->ahash.halg.base.cra_name, err);
-		else
-			list_del(&alg->entry);
+	list_for_each_entry_safe(alg, tmp, alg_list, entry) {
+		crypto_unregister_ahash(&alg->ahash);
+		list_del(&alg->entry);
 	}
 }

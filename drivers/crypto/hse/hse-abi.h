@@ -4,7 +4,7 @@
  *
  * This file defines the firmware binary interface of HSE cryptographic engine.
  *
- * Copyright 2019 NXP
+ * Copyright 2019-2020 NXP
  */
 
 #ifndef HSE_ABI_H
