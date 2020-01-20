@@ -39,30 +39,35 @@
 #include "pci-dma-s32.h"
 #endif
 
-#define CONFIG_PCIE_RC_MSI
-
-#ifdef DEBUG
-#ifdef pr_debug
-#undef pr_debug
-#define pr_debug pr_info
+#ifdef CONFIG_PCI_S32GEN1_DEBUG
+#define DEBUG
+#ifdef CONFIG_PCI_S32GEN1_DEBUG_READS
+#define DEBUG_R
 #endif
-#ifdef dev_dbg
-#undef dev_dbg
-#define dev_dbg dev_info
+#ifdef CONFIG_PCI_S32GEN1_DEBUG_WRITES
+#define DEBUG_W
 #endif
+#ifndef DEBUG_FUNC
+#define DEBUG_FUNC pr_debug("%s\n", __func__)
 #endif
 #else
 #define DEBUG_FUNC
 #endif /* CONFIG_PCI_S32GEN1_DEBUG */
 
-#define DEBUG_FUNC pr_debug("%s\n", __func__)
-
-#ifdef DEBUG_WR
-#define pr_debug_rw pr_debug
-#define dev_dbg_rw dev_dbg
+#ifdef DEBUG_R
+#define pr_debug_r pr_debug
+#define dev_dbg_r dev_dbg
 #else
-#define pr_debug_rw(fmt, ...)
-#define dev_dbg_rw(fmt, ...)
+#define pr_debug_r(fmt, ...)
+#define dev_dbg_r(fmt, ...)
+#endif
+
+#ifdef DEBUG_W
+#define pr_debug_w pr_debug
+#define dev_dbg_w dev_dbg
+#else
+#define pr_debug_w(fmt, ...)
+#define dev_dbg_w(fmt, ...)
 #endif
 
 #define PCIE_LINKUP_MASK	(PCIE_SS_SMLH_LINK_UP | PCIE_SS_RDLH_LINK_UP | \
@@ -190,45 +195,43 @@ int s32gen1_ep_bars_en[] = {
 
 #define BCLR16(pci, base, reg, mask) \
 do { \
-	pr_debug_rw("%s: BCLR16(" str(base) "+0x%x, 0x%x)\n", __func__, \
+	pr_debug_w("%s: BCLR16(" str(base) "+0x%x, 0x%x);\n", __func__, \
 		(u32)(reg), (u16)(mask)); \
 	clrbits(w, (pci)->base ## _base + reg, (u16)mask); \
 } while (0)
 
 #define BSET16(pci, base, reg, mask) \
 do { \
-	pr_debug_rw("%s: BSET16(" str(base) "+0x%x, 0x%x)\n", __func__, \
+	pr_debug_w("%s: BSET16(" str(base) "+0x%x, 0x%x);\n", __func__, \
 		(u32)(reg), (u16)(mask)); \
 	setbits(w, (pci)->base ## _base + reg, (u16)mask); \
 } while (0)
 
 #define BCLRSET16(pci, base, reg, write_data, mask) \
 do { \
-	pr_debug_rw("%s: BCLRSET16(" str(base) "+0x%x, 0x%x, mask 0x%x)\n", __func__, \
-		(u32)(reg), (u16)(write_data), \
-		(u16)(mask)); \
+	pr_debug_w("%s: BCLRSET16(" str(base) "+0x%x, 0x%x, mask 0x%x);\n", \
+		__func__, (u32)(reg), (u16)(write_data), (u16)(mask)); \
 	clrsetbits(w, (pci)->base ## _base + reg, (u16)write_data, (u16)mask); \
 } while (0)
 
 #define BCLR32(pci, base, reg, mask) \
 do { \
-	pr_debug_rw("%s: BCLR32(" str(base) "+0x%x, 0x%x)\n", __func__, \
+	pr_debug_w("%s: BCLR32(" str(base) "+0x%x, 0x%x);\n", __func__, \
 		(u32)(reg), (u32)(mask)); \
 	clrbits(l, (pci)->base ## _base + reg, mask); \
 } while (0)
 
 #define BSET32(pci, base, reg, mask) \
 do { \
-	pr_debug_rw("%s: BSET32(" str(base) "+0x%x, 0x%x)\n", __func__, \
+	pr_debug_w("%s: BSET32(" str(base) "+0x%x, 0x%x);\n", __func__, \
 		(u32)(reg), (u32)(mask)); \
 	setbits(l, (pci)->base ## _base + reg, mask); \
 } while (0)
 
 #define BCLRSET32(pci, base, reg, write_data, mask) \
 do { \
-	pr_debug_rw("%s: BCLRSET32(" str(base) "+0x%llx, 0x%x, mask 0x%x)\n", __func__, \
-		(u32)(reg), (u32)(write_data), \
-		(u32)(mask)); \
+	pr_debug_w("%s: BCLRSET32(" str(base) "+0x%llx, 0x%x, mask 0x%x);\n", \
+			__func__, (u32)(reg), (u32)(write_data), (u32)(mask)); \
 	clrsetbits(l, (pci)->base ## _base + reg, write_data, mask); \
 } while (0)
 
@@ -332,27 +335,29 @@ static inline void s32gen1_pcie_write(struct dw_pcie *pci,
 		if (reg & PCIE_GET_ATU_OUTB_UNR_REG_OFFSET(0)) {
 			reg &= (~(u32)(PCIE_GET_ATU_OUTB_UNR_REG_OFFSET(0)));
 			base = s32_pci->atu_base;
-			dev_dbg_rw(pci->dev, "W%lu(atu+0x%x, 0x%x)\n", size * 8,
+			pr_debug_w("%s(pcie%d): W%lu(atu+0x%x, 0x%x);\n", __func__,
+					s32_pci->id, size * 8,
 					(u32)(reg), (u32)val);
 		} else {
-			dev_dbg_rw(pci->dev, "W%lu(dbi+0x%x, 0x%x)\n", size * 8,
+			pr_debug_w("%s(pcie%d): W%lu(dbi+0x%x, 0x%x);\n", __func__,
+					s32_pci->id, size * 8,
 					(u32)(reg), (u32)val);
 		}
 	}
-#ifdef DEBUG_RW
+#ifdef DEBUG_W
 	else if (base == pci->dbi_base2) {
-		dev_dbg_rw(pci->dev, "W%lu(dbi2+0x%x, 0x%x)\n", size * 8,
-							(u32)(reg), (u32)val);
+		pr_debug_w("%s(pcie%d): W%lu(dbi2+0x%x, 0x%x);\n", __func__, s32_pci->id,
+				size * 8, (u32)(reg), (u32)val);
 	} else if (base == s32_pci->ctrl_base) {
-		dev_dbg_rw(pci->dev, "W%lu(ctrl+0x%x, 0x%x)\n", size * 8,
-							(u32)(reg), (u32)val);
+		pr_debug_w("%s(pcie%d): W%lu(ctrl+0x%x, 0x%x);\n", __func__, s32_pci->id,
+				size * 8, (u32)(reg), (u32)val);
 	}
 #endif /* DEBUG */
 #endif
 
 	ret = dw_pcie_write(base + reg, size, val);
 	if (ret)
-		dev_err(pci->dev, "Write DBI address failed\n");
+		dev_err(pci->dev, "(pcie%d): Write DBI address failed\n", s32_pci->id);
 }
 
 #if KERNEL_VERSION(5, 0, 0) > LINUX_VERSION_CODE
@@ -369,20 +374,24 @@ static inline u32 s32gen1_pcie_read(struct dw_pcie *pci,
 		base = s32_pci->atu_base;
 	}
 
-#ifdef DEBUG_RW
+#ifdef DEBUG_R
 	if (base == pci->dbi_base)
-		dev_dbg_rw(pci->dev, "R%lu(dbi+0x%x) => ", size * 8, (reg));
+		pr_debug_r("%s(pcie%d): R%lu(dbi+0x%x) => ", __func__,
+				s32_pci->id, size * 8, (reg));
 	else if (base == s32_pci->atu_base)
-		dev_dbg_rw(pci->dev, "R%lu(atu+0x%x) => ", size * 8, (reg));
+		pr_debug_r("%s(pcie%d): R%lu(atu+0x%x) => ", __func__,
+				s32_pci->id, size * 8, (reg));
 	else if (base == pci->dbi_base2)
-		dev_dbg_rw(pci->dev, "R%lu(dbi2+0x%x) => ", size * 8, (reg));
+		pr_debug_r("%s(pcie%d): R%lu(dbi2+0x%x) => ", __func__,
+				s32_pci->id, size * 8, (reg));
 	else if (base == s32_pci->ctrl_base)
-		dev_dbg_rw(pci->dev, "R%lu(ctrl+0x%x) => ", size * 8, (reg));
+		pr_debug_r("%s(pcie%d): R%lu(ctrl+0x%x) => ", __func__,
+				s32_pci->id, size * 8, (reg));
 #endif
 
 	ret = dw_pcie_read(base + reg, size, &val);
 	if (!ret)
-		pr_debug_rw("0x%x\n", val);
+		pr_debug_r("0x%x\n", val);
 	else
 		dev_err(pci->dev, "Read DBI address failed\n");
 
@@ -974,6 +983,7 @@ static int __init s32gen1_add_pcie_ep(struct s32gen1_pcie *s32_pp,
 	ep->ops = &pcie_ep_ops;
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "addr_space");
+	dev_dbg(dev, "addr_space: %pR\n", res);
 	if (!res)
 		return -EINVAL;
 
