@@ -2,7 +2,7 @@
 /*
  * dwmac-s32cc.c - S32x GMAC glue layer
  *
- * Copyright 2019 NXP
+ * Copyright 2019-2020 NXP
  *
  */
 
@@ -42,10 +42,12 @@ static int s32cc_gmac_init(struct platform_device *pdev, void *priv)
 	u32 intf_sel;
 	int ret;
 
-	ret = clk_prepare_enable(gmac->tx_clk);
-	if (ret) {
-		dev_err(&pdev->dev, "cannot set tx clock\n");
-		return ret;
+	if (gmac->tx_clk) {
+		ret = clk_prepare_enable(gmac->tx_clk);
+		if (ret) {
+			dev_err(&pdev->dev, "cannot set tx clock\n");
+			return ret;
+		}
 	}
 
 	/* set interface mode */
@@ -93,8 +95,11 @@ static void s32cc_fix_speed(void *priv, unsigned int speed)
 {
 	struct s32cc_priv_data *gmac = priv;
 
-	/* only RGMII mode requires the clock reconfiguration */
-	if (gmac->intf_mode != PHY_INTERFACE_MODE_RGMII)
+	if (!gmac->tx_clk)
+		return;
+
+	/* SGMII mode doesn't support the clock reconfiguration */
+	if (gmac->intf_mode == PHY_INTERFACE_MODE_SGMII)
 		return;
 
 	switch (speed) {
@@ -166,9 +171,7 @@ static int s32cc_dwmac_probe(struct platform_device *pdev)
 	/* tx clock */
 	gmac->tx_clk = devm_clk_get(&pdev->dev, "tx");
 	if (IS_ERR(gmac->tx_clk)) {
-		dev_err(&pdev->dev, "could not get tx clock\n");
-		ret = PTR_ERR(gmac->tx_clk);
-		goto err_remove_config_dt;
+		dev_info(&pdev->dev, "tx clock not found\n");
 	}
 
 	ret = s32cc_gmac_init(pdev, gmac);
@@ -203,7 +206,6 @@ err_gmac_exit:
 	s32cc_gmac_exit(pdev, plat_dat->bsp_priv);
 err_remove_config_dt:
 	stmmac_remove_config_dt(pdev, plat_dat);
-err_exit:
 	return ret;
 }
 
