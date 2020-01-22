@@ -1,0 +1,167 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/pci/nxp,s32-pcie.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: NXP S32CC PCIe interface
+
+maintainers:
+  - Bogdan Hamciuc <bogdan.hamciuc@nxp.com>
+
+description: |
+  This PCIe host controller is based on the Synopsys DesignWare PCIe IP
+  and thus inherits all the common properties defined in designware-pcie.txt.
+
+properties:
+  compatible:
+    oneOf:
+      - enum:
+          - "nxp,s32cc-pcie"  # S32CC SoCs RC mode
+          - "nxp,s32cc-pcie-ep"  # S32CC SoCs EP mode
+
+  reg:
+    description: base address and length of the PCIe controller
+    minItems: 7
+    maxItems: 7
+
+  reg-names:
+    items:
+      - const: dbi
+      - const: dbi2
+      - const: atu
+      - const: dma
+      - const: ctrl
+      - const: config
+      - const: addr_space
+
+  interrupts:
+    description: A list of interrupt outputs of the controller. Must contain an
+      entry for each item in the interrupt-names property.
+
+  nxp,phy-mode:
+    $ref: /schemas/types.yaml#/definitions/string
+    description: Select PHY mode for PCIe controller
+    enum:
+      - crns  # Common Reference Clock, No Spread Spectrum
+      - crss  # Common Reference Clock, Spread Spectrum
+      - sris  # Separate Reference Clock, Spread Spectrum
+
+  interrupt-names:
+    items:
+      - const: "link_req_stat"
+      - const: "dma"
+      - const: "msi"
+      - const: "phy_link_down"
+      - const: "phy_link_up"
+      - const: "misc"
+      - const: "pcs"
+      - const: "tlp_req_no_comp"
+
+  msi-parent:
+    description: |
+      Use this option to reference the GIC controller node which will
+      handle the MSIs. This property can be used only in Root Complex mode.
+      The msi-parent node must be declared as "msi-controller" and the list of
+      available SPIs that can be used must be declared using "mbi-ranges".
+      If "msi-parent" is not present in the PCIe node, MSIs will be handled
+      by iMSI-RX -Integrated MSI Receiver [AXI Bridge]-, an integrated
+      MSI reception module in the PCIe controller's AXI Bridge which
+      detects and terminates inbound MSI requests (received on the RX wire).
+      These MSIs no longer appear on the AXI bus, instead a hard-wired
+      interrupt is raised, documented as "DSP AXI MSI Interrupt" in the SoC
+      Reference Manual.
+
+  nvmem-cell-names:
+    items:
+      - const: serdes_presence
+      - const: pcie_variant
+
+  nvmem-cells:
+    description: |
+      phandle to the SerDes presence field cells from MIDR2 register
+      from SIUL2_1 module
+
+  shared-mem:
+    description: |
+      reference to a reserved-memory node which has compatible property set
+      to "nxp,s32cc-shm"
+
+required:
+  - compatible
+  - reg
+  - reg-names
+  - interrupts
+  - interrupt-names
+  - ranges
+  - nxp,phy-mode
+
+additionalProperties: true
+
+examples:
+  - |
+    #include <dt-bindings/interrupt-controller/arm-gic.h>
+    #include <dt-bindings/interrupt-controller/irq.h>
+    bus {
+        #address-cells = <2>;
+        #size-cells = <2>;
+
+        pcie0: pcie@40400000 {
+          compatible = "nxp,s32cc-pcie";
+          dma-coherent;
+          reg = <0x00 0x40400000 0x0 0x00001000>,   /* dbi registers */
+                <0x00 0x40420000 0x0 0x00001000>,   /* dbi2 registers */
+                <0x00 0x40460000 0x0 0x00001000>,   /* atu registers */
+                <0x00 0x40470000 0x0 0x00001000>,   /* dma registers */
+                <0x00 0x40481000 0x0 0x000000F8>,   /* ctrl registers */
+                /* RC configuration space, 4KB each for cfg0 and cfg1
+                 * at the end of the outbound memory map
+                 */
+                <0x5f 0xffffe000 0x0 0x00002000>,
+                <0x58 0x00000000 0x0 0x40000000>; /* 1GB EP addr space */
+          reg-names = "dbi", "dbi2", "atu", "dma", "ctrl",
+                "config", "addr_space";
+          #address-cells = <3>;
+          #size-cells = <2>;
+          device_type = "pci";
+          device_id = <0>;
+          ranges =
+            /* downstream I/O, 64KB and aligned naturally just
+             * before the config space to minimize fragmentation
+             */
+            <0x81000000 0x0 0x00000000 0x5f 0xfffe0000 0x0 0x00010000>,
+            /* non-prefetchable memory, with best case size and
+             * alignment
+             */
+            <0x82000000 0x0 0x00000000 0x58 0x00000000 0x7 0xfffe0000>;
+
+          nxp,phy-mode = "crns";
+          num-lanes = <2>;
+          max-link-speed = <3>;
+          bus-range = <0x0 0xff>;
+          interrupts =  <GIC_SPI 124 IRQ_TYPE_LEVEL_HIGH>,
+                        <GIC_SPI 123 IRQ_TYPE_LEVEL_HIGH>,
+                        <GIC_SPI 125 IRQ_TYPE_LEVEL_HIGH>,
+                        <GIC_SPI 126 IRQ_TYPE_LEVEL_HIGH>,
+                        <GIC_SPI 127 IRQ_TYPE_LEVEL_HIGH>,
+                        <GIC_SPI 132 IRQ_TYPE_LEVEL_HIGH>,
+                        <GIC_SPI 133 IRQ_TYPE_LEVEL_HIGH>,
+                        <GIC_SPI 134 IRQ_TYPE_LEVEL_HIGH>;
+          interrupt-names = "link_req_stat", "dma", "msi",
+                            "phy_link_down", "phy_link_up", "misc",
+                            "pcs", "tlp_req_no_comp";
+          #interrupt-cells = <1>;
+          interrupt-map-mask = <0 0 0 0x7>;
+          interrupt-map = <0 0 0 1 &gic 0 0 0 128 4>,
+                <0 0 0 2 &gic 0 0 0 129 4>,
+                <0 0 0 3 &gic 0 0 0 130 4>,
+                <0 0 0 4 &gic 0 0 0 131 4>;
+          /* msi-parent = <&gic>; */
+
+          /* EP mode only */
+          num-ib-windows = <6>;
+          num-ob-windows = <6>;
+
+          status = "disabled";
+        };
+    };
