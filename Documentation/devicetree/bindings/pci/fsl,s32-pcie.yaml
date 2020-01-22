@@ -1,0 +1,75 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/pci/fsl,s32-pcie.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: NXP S32 PCIe interface
+
+maintainers:
+  - Bogdan Hamciuc <bogdan.hamciuc@nxp.com>
+
+description: |
+  This PCIe host controller is based on the Synopsys DesignWare PCIe IP
+  and thus inherits all the common properties defined in designware-pcie.txt.
+
+properties:
+  compatible:
+    oneOf:
+      - enum:
+          - "fsl,s32v234-pcie"  # S32V234 SoCs
+          - "fsl,s32gen1-pcie"  # S32Gen1 SoCs
+
+  reg:
+    description: base address and length of the PCIe controller
+
+  interrupts:
+    description: A list of interrupt outputs of the controller. Must contain an
+      entry for each item in the interrupt-names property.
+
+  interrupt-names:
+    items:
+      - const: "link_req_rst_not"
+      - const: "dma"
+      - const: "msi"
+
+required:
+  - compatible
+  - reg
+  - interrupts
+  - interrupt-names
+  - ranges
+
+additionalProperties: false
+
+examples:
+  - |
+
+    bus {
+        #address-cells = <2>;
+        #size-cells = <2>;
+
+        pcie: pcie@72000000 {
+          compatible = "fsl,s32v234-pcie";
+          reg = <0 0x72ffc000 0 0x4000>, <0 0x72f00000 0 0x80000>;
+          reg-names = "dbi", "config";
+          #address-cells = <3>;
+          #size-cells = <2>;
+          device_type = "pci";
+          ranges = <0x81000000 0x0 0x0 0x0 0x72f80000 0x0 0x00010000>,
+                    /* downstream I/O */
+                    <0x82000000 0x0 0x72000000 0x0 0x72000000 0x0 0x00f00000>;
+                    /* non-prefetchable memory */
+          num-lanes = <1>;
+          bus-range = <0x0 0xff>;
+          interrupts =  <0 103 4>, <0 104 4>, <0 105 4>;
+          interrupt-names = "link_req_rst_not", "dma","msi";
+          #interrupt-cells = <1>;
+          interrupt-map-mask = <0 0 0 0x7>;
+          interrupt-map = <0 0 0 1 &gic 0 108 4>,
+              <0 0 0 2 &gic 0 107 4>,
+              <0 0 0 3 &gic 0 106 4>,
+              <0 0 0 4 &gic 0 105 4>;
+          status = "disabled";
+        };
+      };
