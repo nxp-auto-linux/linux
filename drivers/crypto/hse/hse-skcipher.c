@@ -152,9 +152,8 @@ static void hse_skcipher_done(int err, void *skreq)
 	}
 
 	/* req->iv is expected to be set to the last ciphertext block */
-	if (rctx->direction == HSE_CIPHER_DIR_ENCRYPT &&
-	    alg->cipher_type == HSE_CIPHER_ALGO_AES &&
-	    alg->block_mode == HSE_CIPHER_BLOCK_MODE_CBC)
+	if (alg->block_mode == HSE_CIPHER_BLOCK_MODE_CBC &&
+	    rctx->direction == HSE_CIPHER_DIR_ENCRYPT)
 		scatterwalk_map_and_copy(req->iv, req->dst, req->cryptlen -
 					 ivsize, ivsize, 0);
 
@@ -168,24 +167,37 @@ out_free_buf:
  * @req: symmetric key cipher request
  * @direction: encrypt/decrypt
  */
-static int hse_skcipher_crypt(struct skcipher_request *req, u8 direction)
+static int hse_skcipher_crypt(struct skcipher_request *req,
+			      enum hse_cipher_dir direction)
 {
 	struct crypto_skcipher *tfm = crypto_skcipher_reqtfm(req);
 	struct hse_skcipher_tfm_ctx *tctx = crypto_skcipher_ctx(tfm);
 	struct hse_skcipher_req_ctx *rctx = skcipher_request_ctx(req);
 	struct hse_skcipher_alg *alg = hse_skcipher_get_alg(tfm);
+	unsigned int blocksize = crypto_skcipher_blocksize(tfm);
 	int err, nbytes, ivsize = crypto_skcipher_ivsize(tfm);
 
 	if (unlikely(!tctx->keylen))
 		return -ENOKEY;
 
-	/* handle zero-length input because it's a valid operation */
+	/* exit if no data */
 	if (!req->cryptlen)
 		return 0;
 
-	rctx->buf = kzalloc(req->cryptlen, GFP_KERNEL);
-	if (IS_ERR_OR_NULL(rctx->buf))
+	switch (alg->block_mode) {
+	case HSE_CIPHER_BLOCK_MODE_CBC:
+		rctx->buflen = roundup(req->cryptlen, blocksize);
+		break;
+	default:
+		rctx->buflen = req->cryptlen;
+		break;
+	}
+
+	rctx->buf = kzalloc(rctx->buflen, GFP_KERNEL);
+	if (IS_ERR_OR_NULL(rctx->buf)) {
+		rctx->buflen = 0;
 		return -ENOMEM;
+	}
 
 	nbytes = sg_copy_to_buffer(req->src, sg_nents(req->src),
 				   rctx->buf, req->cryptlen);
@@ -194,7 +206,7 @@ static int hse_skcipher_crypt(struct skcipher_request *req, u8 direction)
 		goto err_free_buf;
 	}
 
-	rctx->buf_dma = dma_map_single(alg->dev, rctx->buf, req->cryptlen,
+	rctx->buf_dma = dma_map_single(alg->dev, rctx->buf, rctx->buflen,
 				       DMA_BIDIRECTIONAL);
 	if (unlikely(dma_mapping_error(alg->dev, rctx->buf_dma))) {
 		err = -ENOMEM;
@@ -219,7 +231,7 @@ static int hse_skcipher_crypt(struct skcipher_request *req, u8 direction)
 	rctx->srv_desc.skcipher_req.key_handle = tctx->key_slot->handle;
 	rctx->srv_desc.skcipher_req.iv_len = ivsize;
 	rctx->srv_desc.skcipher_req.iv = rctx->iv_dma;
-	rctx->srv_desc.skcipher_req.input_len = req->cryptlen;
+	rctx->srv_desc.skcipher_req.input_len = rctx->buflen;
 	rctx->srv_desc.skcipher_req.input = rctx->buf_dma;
 	rctx->srv_desc.skcipher_req.output = rctx->buf_dma;
 
@@ -232,14 +244,12 @@ static int hse_skcipher_crypt(struct skcipher_request *req, u8 direction)
 	}
 
 	/* req->iv is expected to be set to the last ciphertext block */
-	if (direction == HSE_CIPHER_DIR_DECRYPT &&
-	    alg->cipher_type == HSE_CIPHER_ALGO_AES &&
-	    alg->block_mode == HSE_CIPHER_BLOCK_MODE_CBC)
+	if (alg->block_mode == HSE_CIPHER_BLOCK_MODE_CBC &&
+	    direction == HSE_CIPHER_DIR_DECRYPT)
 		scatterwalk_map_and_copy(req->iv, req->src, req->cryptlen -
 					 ivsize, ivsize, 0);
 
 	rctx->direction = direction;
-	rctx->buflen = req->cryptlen;
 
 	err = hse_srv_req_async(alg->dev, HSE_CHANNEL_ANY, rctx->srv_desc_dma,
 				req, hse_skcipher_done);
@@ -254,10 +264,11 @@ err_unmap_iv:
 	dma_unmap_single(alg->dev, rctx->iv_dma, sizeof(rctx->iv),
 			 DMA_TO_DEVICE);
 err_unmap_buf:
-	dma_unmap_single(alg->dev, rctx->buf_dma, req->cryptlen,
+	dma_unmap_single(alg->dev, rctx->buf_dma, rctx->buflen,
 			 DMA_BIDIRECTIONAL);
 err_free_buf:
 	kfree(rctx->buf);
+	rctx->buflen = 0;
 	return err;
 }
 
