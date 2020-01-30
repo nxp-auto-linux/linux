@@ -186,6 +186,8 @@ static int hse_skcipher_crypt(struct skcipher_request *req,
 
 	switch (alg->block_mode) {
 	case HSE_CIPHER_BLOCK_MODE_CBC:
+	case HSE_CIPHER_BLOCK_MODE_ECB:
+	case HSE_CIPHER_BLOCK_MODE_CFB:
 		rctx->buflen = roundup(req->cryptlen, blocksize);
 		break;
 	default:
@@ -432,6 +434,26 @@ static const struct hse_skcipher_tpl hse_skcipher_algs_tpl[] = {
 		.ivsize = AES_BLOCK_SIZE,
 		.cipher_type = HSE_CIPHER_ALGO_AES,
 		.block_mode = HSE_CIPHER_BLOCK_MODE_CBC,
+		.key_type = HSE_KEY_TYPE_AES,
+	}, {
+		.cipher_name = "ecb(aes)",
+		.cipher_drv = "ecb-aes-hse",
+		.blocksize = AES_BLOCK_SIZE,
+		.min_keysize = AES_MIN_KEY_SIZE,
+		.max_keysize = AES_MAX_KEY_SIZE,
+		.ivsize = 0u,
+		.cipher_type = HSE_CIPHER_ALGO_AES,
+		.block_mode = HSE_CIPHER_BLOCK_MODE_ECB,
+		.key_type = HSE_KEY_TYPE_AES,
+	}, {
+		.cipher_name = "cfb(aes)",
+		.cipher_drv = "cfb-aes-hse",
+		.blocksize = AES_BLOCK_SIZE,
+		.min_keysize = AES_MIN_KEY_SIZE,
+		.max_keysize = AES_MAX_KEY_SIZE,
+		.ivsize = AES_BLOCK_SIZE,
+		.cipher_type = HSE_CIPHER_ALGO_AES,
+		.block_mode = HSE_CIPHER_BLOCK_MODE_CFB,
 		.key_type = HSE_KEY_TYPE_AES,
 	},
 };
