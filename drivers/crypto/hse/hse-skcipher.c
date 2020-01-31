@@ -225,7 +225,6 @@ static int hse_skcipher_crypt(struct skcipher_request *req,
 	}
 
 	rctx->srv_desc.srv_id = HSE_SRV_ID_SYM_CIPHER;
-	rctx->srv_desc.priority = HSE_SRV_PRIO_LOW;
 	rctx->srv_desc.skcipher_req.access_mode = HSE_ACCESS_MODE_ONE_PASS;
 	rctx->srv_desc.skcipher_req.cipher_algo = alg->cipher_type;
 	rctx->srv_desc.skcipher_req.block_mode = alg->block_mode;
@@ -233,6 +232,7 @@ static int hse_skcipher_crypt(struct skcipher_request *req,
 	rctx->srv_desc.skcipher_req.key_handle = tctx->key_slot->handle;
 	rctx->srv_desc.skcipher_req.iv_len = ivsize;
 	rctx->srv_desc.skcipher_req.iv = rctx->iv_dma;
+	rctx->srv_desc.skcipher_req.sgt_opt = HSE_SGT_OPT_NONE;
 	rctx->srv_desc.skcipher_req.input_len = rctx->buflen;
 	rctx->srv_desc.skcipher_req.input = rctx->buf_dma;
 	rctx->srv_desc.skcipher_req.output = rctx->buf_dma;
@@ -324,8 +324,6 @@ static int hse_skcipher_setkey(struct crypto_skcipher *tfm, const u8 *key,
 				   sizeof(tctx->keyinf), DMA_TO_DEVICE);
 
 	tctx->srv_desc.srv_id = HSE_SRV_ID_IMPORT_KEY;
-	tctx->srv_desc.priority = HSE_SRV_PRIO_HIGH;
-
 	tctx->srv_desc.import_key_req.key_handle = tctx->key_slot->handle;
 	tctx->srv_desc.import_key_req.key_info = tctx->keyinf_dma;
 	tctx->srv_desc.import_key_req.sym.key = tctx->keybuf_dma;
