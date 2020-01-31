@@ -54,7 +54,6 @@ static int hse_hwrng_read(struct hwrng *rng, void *data, size_t max, bool wait)
 		return 0;
 
 	ctx->srv_desc.srv_id = HSE_SRV_ID_GET_RANDOM_NUM;
-	ctx->srv_desc.priority = HSE_SRV_PRIO_LOW;
 	ctx->srv_desc.rng_req.rng_class = HSE_RNG_CLASS_PTG3;
 	ctx->srv_desc.rng_req.random_num_len = max;
 	ctx->srv_desc.rng_req.random_num = data_dma;

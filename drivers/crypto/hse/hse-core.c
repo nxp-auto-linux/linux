@@ -420,6 +420,7 @@ int hse_srv_req_sync(struct device *dev, u8 channel, dma_addr_t srv_desc)
 	}
 
 	spin_lock(&drv->tx_lock);
+
 	if (channel == HSE_CHANNEL_ANY) {
 		channel = hse_next_free_channel(dev, HSE_CH_TYPE_SHARED);
 		if (channel == HSE_CHANNEL_INV) {
@@ -435,7 +436,6 @@ int hse_srv_req_sync(struct device *dev, u8 channel, dma_addr_t srv_desc)
 
 	drv->sync[channel].done = &done;
 	drv->sync[channel].reply = &reply;
-	wmb(); /* ensure pointers are updated before sending request */
 
 	err = hse_mu_msg_send(drv->mu, channel, lower_32_bits(srv_desc));
 	if (unlikely(err)) {
