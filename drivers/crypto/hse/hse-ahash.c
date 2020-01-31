@@ -221,17 +221,18 @@ static int hse_ahash_init(struct ahash_request *req)
 	int err;
 
 	rctx->srv_desc.srv_id = alg->srv_id;
-	rctx->srv_desc.priority = HSE_SRV_PRIO_MED;
 
 	switch (alg->srv_id) {
 	case HSE_SRV_ID_HASH:
 		rctx->srv_desc.hash_req.hash_algo = alg->alg_type;
+		rctx->srv_desc.hash_req.sgt_opt = HSE_SGT_OPT_NONE;
 		break;
 	case HSE_SRV_ID_MAC:
 		rctx->srv_desc.mac_req.auth_dir = HSE_AUTH_DIR_GENERATE;
 		rctx->srv_desc.mac_req.scheme.mac_algo = HSE_MAC_ALGO_HMAC;
 		rctx->srv_desc.mac_req.scheme.hmac.hash_algo = alg->alg_type;
 		rctx->srv_desc.mac_req.key_handle = tctx->key_slot->handle;
+		rctx->srv_desc.mac_req.sgt_opt = HSE_SGT_OPT_NONE;
 		break;
 	}
 
@@ -282,7 +283,6 @@ static int hse_ahash_update(struct ahash_request *req)
 		return 0;
 
 	bytes_left = rctx->cache_idx + req->nbytes;
-	full_blocks = (bytes_left / blocksize) * blocksize;
 	if (bytes_left <= blocksize) {
 		/* cache data for next update and exit */
 		scatterwalk_map_and_copy(rctx->cache + rctx->cache_idx,
@@ -290,6 +290,7 @@ static int hse_ahash_update(struct ahash_request *req)
 		rctx->cache_idx = bytes_left;
 		return 0;
 	}
+	full_blocks = rounddown(bytes_left, blocksize);
 
 	if (rctx->buflen < full_blocks) {
 		void *oldbuf = rctx->buf;
@@ -394,7 +395,6 @@ static int hse_ahash_final(struct ahash_request *req)
 	if (!rctx->streaming_mode) {
 		hse_channel_release(alg->dev, rctx->stream);
 		rctx->stream = HSE_CHANNEL_ANY;
-		rctx->srv_desc.priority = HSE_SRV_PRIO_LOW;
 	}
 
 	switch (alg->srv_id) {
@@ -403,6 +403,7 @@ static int hse_ahash_final(struct ahash_request *req)
 						      HSE_ACCESS_MODE_FINISH :
 						      HSE_ACCESS_MODE_ONE_PASS;
 		rctx->srv_desc.hash_req.stream_id = rctx->stream;
+		rctx->srv_desc.hash_req.sgt_opt = HSE_SGT_OPT_NONE;
 		rctx->srv_desc.hash_req.input_len = rctx->cache_idx;
 		rctx->srv_desc.hash_req.input = rctx->buf_dma;
 		rctx->srv_desc.hash_req.hash_len = rctx->outlen_dma;
@@ -413,6 +414,7 @@ static int hse_ahash_final(struct ahash_request *req)
 						     HSE_ACCESS_MODE_FINISH :
 						     HSE_ACCESS_MODE_ONE_PASS;
 		rctx->srv_desc.mac_req.stream_id = rctx->stream;
+		rctx->srv_desc.mac_req.sgt_opt = HSE_SGT_OPT_NONE;
 		rctx->srv_desc.mac_req.input_len = rctx->cache_idx;
 		rctx->srv_desc.mac_req.input = rctx->buf_dma;
 		rctx->srv_desc.mac_req.tag_len = rctx->outlen_dma;
@@ -500,7 +502,6 @@ static int hse_ahash_finup(struct ahash_request *req)
 	if (!rctx->streaming_mode) {
 		hse_channel_release(alg->dev, rctx->stream);
 		rctx->stream = HSE_CHANNEL_ANY;
-		rctx->srv_desc.priority = HSE_SRV_PRIO_LOW;
 	}
 
 	switch (alg->srv_id) {
@@ -509,6 +510,7 @@ static int hse_ahash_finup(struct ahash_request *req)
 						      HSE_ACCESS_MODE_FINISH :
 						      HSE_ACCESS_MODE_ONE_PASS;
 		rctx->srv_desc.hash_req.stream_id = rctx->stream;
+		rctx->srv_desc.hash_req.sgt_opt = HSE_SGT_OPT_NONE;
 		rctx->srv_desc.hash_req.input_len = bytes_left;
 		rctx->srv_desc.hash_req.input = rctx->buf_dma;
 		rctx->srv_desc.hash_req.hash_len = rctx->outlen_dma;
@@ -519,6 +521,7 @@ static int hse_ahash_finup(struct ahash_request *req)
 						     HSE_ACCESS_MODE_FINISH :
 						     HSE_ACCESS_MODE_ONE_PASS;
 		rctx->srv_desc.mac_req.stream_id = rctx->stream;
+		rctx->srv_desc.mac_req.sgt_opt = HSE_SGT_OPT_NONE;
 		rctx->srv_desc.mac_req.input_len = bytes_left;
 		rctx->srv_desc.mac_req.input = rctx->buf_dma;
 		rctx->srv_desc.mac_req.tag_len = rctx->outlen_dma;
@@ -591,12 +594,12 @@ static int hse_ahash_digest(struct ahash_request *req)
 				   DMA_TO_DEVICE);
 
 	rctx->srv_desc.srv_id = alg->srv_id;
-	rctx->srv_desc.priority = HSE_SRV_PRIO_LOW;
 
 	switch (alg->srv_id) {
 	case HSE_SRV_ID_HASH:
 		rctx->srv_desc.hash_req.access_mode = HSE_ACCESS_MODE_ONE_PASS;
 		rctx->srv_desc.hash_req.hash_algo = alg->alg_type;
+		rctx->srv_desc.hash_req.sgt_opt = HSE_SGT_OPT_NONE;
 		rctx->srv_desc.hash_req.input_len = req->nbytes;
 		rctx->srv_desc.hash_req.input = rctx->buf_dma;
 		rctx->srv_desc.hash_req.hash_len = rctx->outlen_dma;
@@ -608,6 +611,7 @@ static int hse_ahash_digest(struct ahash_request *req)
 		rctx->srv_desc.mac_req.scheme.mac_algo = HSE_MAC_ALGO_HMAC;
 		rctx->srv_desc.mac_req.scheme.hmac.hash_algo = alg->alg_type;
 		rctx->srv_desc.mac_req.key_handle = tctx->key_slot->handle;
+		rctx->srv_desc.mac_req.sgt_opt = HSE_SGT_OPT_NONE;
 		rctx->srv_desc.mac_req.input_len = req->nbytes;
 		rctx->srv_desc.mac_req.input = rctx->buf_dma;
 		rctx->srv_desc.mac_req.tag_len = rctx->outlen_dma;
@@ -723,10 +727,10 @@ static int hse_ahash_setkey(struct crypto_ahash *tfm, const u8 *key,
 					   sizeof(tctx->keylen), DMA_TO_DEVICE);
 
 		tctx->srv_desc.srv_id = HSE_SRV_ID_HASH;
-		tctx->srv_desc.priority = HSE_SRV_PRIO_HIGH;
 
 		tctx->srv_desc.hash_req.access_mode = HSE_ACCESS_MODE_ONE_PASS;
 		tctx->srv_desc.hash_req.hash_algo = alg->alg_type;
+		tctx->srv_desc.hash_req.sgt_opt = HSE_SGT_OPT_NONE;
 		tctx->srv_desc.hash_req.input_len = keylen;
 		tctx->srv_desc.hash_req.input = tmp_keybuf_dma;
 		tctx->srv_desc.hash_req.hash_len = tctx->keylen_dma;
@@ -766,7 +770,6 @@ static int hse_ahash_setkey(struct crypto_ahash *tfm, const u8 *key,
 				   sizeof(tctx->keyinf), DMA_TO_DEVICE);
 
 	tctx->srv_desc.srv_id = HSE_SRV_ID_IMPORT_KEY;
-	tctx->srv_desc.priority = HSE_SRV_PRIO_HIGH;
 	tctx->srv_desc.import_key_req.key_handle = tctx->key_slot->handle;
 	tctx->srv_desc.import_key_req.key_info = tctx->keyinf_dma;
 	tctx->srv_desc.import_key_req.sym.key = tctx->keybuf_dma;
