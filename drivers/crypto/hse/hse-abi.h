@@ -60,8 +60,8 @@ enum hse_srv_id {
 	HSE_SRV_ID_IMPORT_KEY = 0x00000104ul,
 	HSE_SRV_ID_HASH = 0x00A50200ul,
 	HSE_SRV_ID_MAC = 0x00A50201ul,
-	HSE_SRV_ID_SYM_CIPHER = 0x00A50202ul,
-	HSE_SRV_ID_AEAD = 0x00A50203ul,
+	HSE_SRV_ID_SYM_CIPHER = 0x00A50203ul,
+	HSE_SRV_ID_AEAD = 0x00A50204ul,
 	HSE_SRV_ID_GET_RANDOM_NUM = 0x00000300ul,
 };
 
@@ -114,18 +114,6 @@ enum hse_srv_response {
 };
 
 /**
- * enum hse_srv_prio - HSE service request priority
- * @HSE_SRV_PRIO_LOW: low priority
- * @HSE_SRV_PRIO_MED: medium priority
- * @HSE_SRV_PRIO_HIGH: high priority
- */
-enum hse_srv_prio {
-	HSE_SRV_PRIO_LOW = 0u,
-	HSE_SRV_PRIO_MED = 1u,
-	HSE_SRV_PRIO_HIGH = 2u,
-};
-
-/**
  * enum hse_srv_access_mode - HSE access modes
  * @HSE_ACCESS_MODE_ONE_PASS: ONE-PASS access mode
  * @HSE_ACCESS_MODE_START: START access mode
@@ -170,7 +158,7 @@ enum hse_mac_algorithm {
  * @HSE_CIPHER_ALGO_AES: AES cipher
  */
 enum hse_cipher_algorithm {
-	HSE_CIPHER_ALGO_AES = 16u,
+	HSE_CIPHER_ALGO_AES = 0x10u,
 };
 
 /**
@@ -189,20 +177,20 @@ enum hse_block_mode {
 
 /**
  * enum hse_cipher_dir - symmetric cipher direction
- * @HSE_CIPHER_DIR_ENCRYPT: encrypt
  * @HSE_CIPHER_DIR_DECRYPT: decrypt
+ * @HSE_CIPHER_DIR_ENCRYPT: encrypt
  */
 enum hse_cipher_dir {
-	HSE_CIPHER_DIR_ENCRYPT = 0u,
-	HSE_CIPHER_DIR_DECRYPT = 1u,
+	HSE_CIPHER_DIR_DECRYPT = 0u,
+	HSE_CIPHER_DIR_ENCRYPT = 1u,
 };
 
 /**
  * enum hse_auth_cipher_mode - authenticated encryption mode
- * @HSE_AUTH_CIPHER_MODE_GCM: GCM
+ * @HSE_AUTH_CIPHER_MODE_GCM: Galois/counter mode
  */
 enum hse_auth_cipher_mode {
-	HSE_AUTH_CIPHER_MODE_GCM = 2u,
+	HSE_AUTH_CIPHER_MODE_GCM = 0x12u,
 };
 
 /**
@@ -210,7 +198,7 @@ enum hse_auth_cipher_mode {
  * @HSE_AUTH_DIR_GENERATE: generate authentication tag
  */
 enum hse_auth_dir {
-	HSE_AUTH_DIR_GENERATE = 0u,
+	HSE_AUTH_DIR_GENERATE = 1u,
 };
 
 /**
@@ -244,11 +232,24 @@ enum hse_rng_class {
 };
 
 /**
+ * enum hse_sgt_opt - scatter-gather table option
+ * @HSE_SGT_OPT_NONE: scatter-gather tables are not used
+ * @HSE_SGT_OPT_INPUT: input provided as scatter-gather table
+ * @HSE_SGT_OPT_OUTPUT: output provided as scatter-gather table
+ */
+enum hse_sgt_opt {
+	HSE_SGT_OPT_NONE = 0u,
+	HSE_SGT_OPT_INPUT = BIT(0),
+	HSE_SGT_OPT_OUTPUT = BIT(1),
+};
+
+/**
  * struct hse_hash_srv - perform a hash operation
  * @access_mode: ONE-PASS, START, UPDATE, FINISH
  * @stream_id: ID for START, UPDATE, FINISH access modes - only a limited number
  *             of channels per MU instance are available for streaming use
  * @hash_algo: hash algorithm to be used
+ * @sgt_opt: specify whether input/output is provided as scatter-gather table
  * @input_len: length of the input message - must be an integer multiple of
  *             algorithm block size for START and UPDATE access modes, can be
  *             zero for START and FINISH, there are no restrictions for ONE-PASS
@@ -284,7 +285,9 @@ struct hse_hash_srv {
 	u8 access_mode;
 	u8 stream_id;
 	u8 hash_algo;
-	u8 reserved;
+	u8 reserved0;
+	u8 sgt_opt;
+	u8 reserved1[3];
 	u32 input_len;
 	u64 input;
 	u64 hash_len;
@@ -299,6 +302,7 @@ struct hse_hash_srv {
  * @auth_dir: direction - generate MAC
  * @scheme: MAC scheme to be used
  * @key_handle: key handle from RAM catalog
+ * @sgt_opt: specify whether input/output is provided as scatter-gather table
  * @input_len: length of the input message - must be an integer multiple of
  *             algorithm block size for START and UPDATE access modes, cannot
  *             be zero for any SUF access mode, no restrictions for ONE-PASS
@@ -348,6 +352,8 @@ struct hse_mac_srv {
 		};
 	} scheme;
 	u32 key_handle;
+	u8 sgt_opt;
+	u8 reserved3[3];
 	u32 input_len;
 	u64 input;
 	u64 tag_len;
@@ -365,6 +371,7 @@ struct hse_mac_srv {
  *          modes. Must be the appropriate block size for the block mode
  * @iv: address of the initialization vector/nonce. Ignored for NULL and ECB
  *      block modes
+ * @sgt_opt: specify whether input/output is provided as scatter-gather table
  * @input_len: plaintext/ciphertext length, in bytes. For ECB, CBC and CFB
  *             cipher block modes, must be a multiple of block length
  * @input: address of the plaintext for encryption, or ciphertext for decryption
@@ -387,6 +394,8 @@ struct hse_skcipher_srv {
 	u32 key_handle;
 	u32 iv_len;
 	u64 iv;
+	u8 sgt_opt;
+	u8 reserved2[3];
 	u32 input_len;
 	u64 input;
 	u64 output;
@@ -399,16 +408,15 @@ struct hse_skcipher_srv {
  * @cipher_dir: direction - encrypt/decrypt from &enum hse_cipher_dir
  * @key_handle: RAM catalog key handle
  * @iv_len: initialization vector/nonce length
- *          CCM valid sizes: 7, 8, 9, 10, 11, 12, 13 bytes
  *          GCM recommended sizes: 12 bytes or less, zero not allowed
  * @iv: address of the initialization vector/nonce
- * @aad_len: length of AAD header data (in bytes). Can be zero.
- * @aad: address of AAD header data. Ignored if aad_len is zero.
+ * @aad_len: length of AAD header data (in bytes), can be zero
+ * @aad: address of AAD header data, ignored if aad_len is zero
+ * @sgt_opt: specify whether input/output is provided as scatter-gather table
  * @input_len: plaintext/ciphertext length, in bytes.
  *             Can be zero (compute/verify the tag without input message).
  * @input: address of plaintext for encryption or ciphertext for decryption
  * @tag_len: length of tag (in bytes)
- *           CCM valid Tag sizes: 4, 6, 8, 10, 12, 14, 16
  *           GCM valid Tag sizes 16, 15, 14, 13, 12, 8 or 4
  * @tag: address of output/input tag for authenticated encryption/decryption
  * @output: address of ciphertext for encryption or plaintext for decryption
@@ -420,7 +428,7 @@ struct hse_skcipher_srv {
  */
 struct hse_aead_srv {
 	u8 access_mode;
-	u8 reserved;
+	u8 reserved0;
 	u8 auth_cipher_mode;
 	u8 cipher_dir;
 	u32 key_handle;
@@ -428,6 +436,8 @@ struct hse_aead_srv {
 	u64 iv;
 	u32 aad_len;
 	u64 aad;
+	u8 sgt_opt;
+	u8 reserved1[3];
 	u32 input_len;
 	u64 input;
 	u32 tag_len;
@@ -456,7 +466,7 @@ struct hse_import_key_srv {
 		u8 reserved2[2];
 	} sym;
 	u32 cipher_key;
-	u8 reserved3[32];
+	u8 reserved3[40];
 	u32 auth_key;
 	u8 reserved4[36];
 } __packed;
@@ -477,7 +487,6 @@ struct hse_rng_srv {
 /**
  * struct hse_srv_desc - HSE service descriptor
  * @srv_id: service ID of the HSE request
- * @priority: priority of the HSE request
  * @hash_req: hash service request
  * @mac_req: MAC service request
  * @skcipher_req: symmetric key cipher service request
@@ -487,8 +496,7 @@ struct hse_rng_srv {
  */
 struct hse_srv_desc {
 	u32 srv_id;
-	u8 priority;
-	u8 reserved[3];
+	u8 reserved[4];
 	union {
 		struct hse_hash_srv hash_req;
 		struct hse_mac_srv mac_req;

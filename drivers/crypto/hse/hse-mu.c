@@ -17,8 +17,8 @@
 
 #define HSE_STATUS_MASK     0xFFFF0000ul /* HSE global status FSR mask */
 
-#define HSE_RX_IRQ     "hse-" HSE_MU_INST "-rx"
-#define HSE_ERR_IRQ    "hse-" HSE_MU_INST "-err"
+#define HSE_RX_IRQ_NAME     "hse-" HSE_MU_INST "-rx"
+#define HSE_ERR_IRQ_NAME    "hse-" HSE_MU_INST "-err"
 
 /**
  * struct hse_mu_regs - HSE Messaging Unit Registers
@@ -369,21 +369,21 @@ void *hse_mu_init(struct device *dev, irqreturn_t (*rx_isr)(int irq, void *dev),
 			msg = ioread32(&mu->regs->rr[channel]);
 
 	/* register RX and event handlers */
-	irq = platform_get_irq_byname(pdev, HSE_RX_IRQ);
+	irq = platform_get_irq_byname(pdev, HSE_RX_IRQ_NAME);
 	err = devm_request_threaded_irq(dev, irq, NULL, rx_isr, IRQF_ONESHOT,
-					HSE_RX_IRQ, dev);
+					HSE_RX_IRQ_NAME, dev);
 	if (unlikely(err)) {
 		dev_err(dev, "failed to register %s irq, line %d\n",
-			HSE_RX_IRQ, irq);
+			HSE_RX_IRQ_NAME, irq);
 		return ERR_PTR(-ENXIO);
 	}
 
-	irq = platform_get_irq_byname(pdev, HSE_ERR_IRQ);
+	irq = platform_get_irq_byname(pdev, HSE_ERR_IRQ_NAME);
 	err = devm_request_threaded_irq(dev, irq, NULL, event_isr, IRQF_ONESHOT,
-					HSE_ERR_IRQ, dev);
+					HSE_ERR_IRQ_NAME, dev);
 	if (unlikely(err)) {
 		dev_err(dev, "failed to register %s irq, line %d\n",
-			HSE_ERR_IRQ, irq);
+			HSE_ERR_IRQ_NAME, irq);
 		return ERR_PTR(-ENXIO);
 	}
 
