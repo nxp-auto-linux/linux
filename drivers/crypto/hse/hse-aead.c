@@ -192,10 +192,8 @@ static int hse_aead_crypt(struct aead_request *req, bool encrypt)
 	struct hse_aead_alg *alg = hse_aead_get_alg(tfm);
 	struct hse_aead_tfm_ctx *tctx = crypto_aead_ctx(tfm);
 	struct hse_aead_req_ctx *rctx = aead_request_ctx(req);
-	u32 maclen = crypto_aead_authsize(tfm);
-	u32 ivlen = crypto_aead_ivsize(tfm);
-	struct hse_aead_srv *hse_req;
-	u32 cryptlen, srclen;
+	unsigned int cryptlen, srclen, ivlen = crypto_aead_ivsize(tfm);
+	unsigned int maclen = crypto_aead_authsize(tfm);
 	int err, nbytes;
 
 	/* make sure IV is located in a DMAable area before DMA mapping it */
@@ -241,23 +239,21 @@ static int hse_aead_crypt(struct aead_request *req, bool encrypt)
 
 	/* prepare HSE service descriptor */
 	rctx->desc.srv_id = HSE_SRV_ID_AEAD;
-	rctx->desc.priority = HSE_SRV_PRIO_MED;
-	hse_req = &rctx->desc.aead_req;
-
-	hse_req->access_mode = HSE_ACCESS_MODE_ONE_PASS;
-	hse_req->auth_cipher_mode = alg->auth_mode;
-	hse_req->cipher_dir =
+	rctx->desc.aead_req.access_mode = HSE_ACCESS_MODE_ONE_PASS;
+	rctx->desc.aead_req.auth_cipher_mode = alg->auth_mode;
+	rctx->desc.aead_req.cipher_dir =
 		encrypt ? HSE_CIPHER_DIR_ENCRYPT : HSE_CIPHER_DIR_DECRYPT;
-	hse_req->key_handle = tctx->key_slot->handle;
-	hse_req->iv_len = ivlen;
-	hse_req->iv = rctx->iv_dma;
-	hse_req->aad_len = req->assoclen;
-	hse_req->aad = rctx->buf_dma;
-	hse_req->input_len = cryptlen;
-	hse_req->input = hse_req->aad + req->assoclen;
-	hse_req->tag_len = maclen;
-	hse_req->tag = hse_req->input + cryptlen;
-	hse_req->output = hse_req->input;
+	rctx->desc.aead_req.key_handle = tctx->key_slot->handle;
+	rctx->desc.aead_req.iv_len = ivlen;
+	rctx->desc.aead_req.iv = rctx->iv_dma;
+	rctx->desc.aead_req.aad_len = req->assoclen;
+	rctx->desc.aead_req.aad = rctx->buf_dma;
+	rctx->desc.aead_req.sgt_opt = HSE_SGT_OPT_NONE;
+	rctx->desc.aead_req.input_len = cryptlen;
+	rctx->desc.aead_req.input = rctx->desc.aead_req.aad + req->assoclen;
+	rctx->desc.aead_req.tag_len = maclen;
+	rctx->desc.aead_req.tag = rctx->desc.aead_req.input + cryptlen;
+	rctx->desc.aead_req.output = rctx->desc.aead_req.input;
 
 	/* DMA map service descriptor */
 	rctx->desc_dma = dma_map_single(alg->dev, &rctx->desc,
@@ -338,8 +334,6 @@ static int hse_aead_setkey(struct crypto_aead *tfm, const u8 *key,
 				   sizeof(tctx->keyinf), DMA_TO_DEVICE);
 
 	tctx->srv_desc.srv_id = HSE_SRV_ID_IMPORT_KEY;
-	tctx->srv_desc.priority = HSE_SRV_PRIO_HIGH;
-
 	tctx->srv_desc.import_key_req.key_handle = tctx->key_slot->handle;
 	tctx->srv_desc.import_key_req.key_info = tctx->keyinf_dma;
 	tctx->srv_desc.import_key_req.sym.key = tctx->keybuf_dma;
@@ -451,7 +445,7 @@ static const struct hse_aead_tpl hse_aead_algs_tpl[] = {
 	{
 		.aead_name = "gcm(aes)",
 		.aead_drv = "gcm-aes-hse",
-		.blocksize = 1,
+		.blocksize = 1u,
 		.ivsize = GCM_AES_IV_SIZE,
 		.maxauthsize = AES_BLOCK_SIZE,
 		.auth_mode = HSE_AUTH_CIPHER_MODE_GCM,
