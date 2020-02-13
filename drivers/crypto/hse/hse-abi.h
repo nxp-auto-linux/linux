@@ -18,6 +18,8 @@
 
 #define HSE_KEY_HMAC_MIN_SIZE    16u /* minimum key size admitted for HMAC */
 
+#define HSE_MAX_CTX_SIZE    0x128ul /* maximum streaming context size */
+
 /**
  * enum hse_status - HSE status
  * @HSE_STATUS_INIT_OK: HSE initialization successfully completed
@@ -49,6 +51,7 @@ enum hse_event {
 
 /**
  * enum hse_srv_id - HSE service ID
+ * @HSE_SRV_ID_IMPORT_EXPORT_STREAM_CTX: import/export streaming context
  * @HSE_SRV_ID_IMPORT_KEY: import/update key into a key store
  * @HSE_SRV_ID_HASH: perform a hash operation
  * @HSE_SRV_ID_MAC: generate a message authentication code
@@ -57,6 +60,7 @@ enum hse_event {
  * @HSE_SRV_ID_GET_RANDOM_NUM: hardware random number generator
  */
 enum hse_srv_id {
+	HSE_SRV_ID_IMPORT_EXPORT_STREAM_CTX = 0x00000010ul,
 	HSE_SRV_ID_IMPORT_KEY = 0x00000104ul,
 	HSE_SRV_ID_HASH = 0x00A50200ul,
 	HSE_SRV_ID_MAC = 0x00A50201ul,
@@ -224,7 +228,7 @@ enum hse_key_type {
 };
 
 /**
- * enum hse_rng_class - rng generation method
+ * enum hse_rng_class - random number generation method
  * @HSE_RNG_CLASS_PTG3: prediction resistance, reseed every 16 bytes
  */
 enum hse_rng_class {
@@ -241,6 +245,16 @@ enum hse_sgt_opt {
 	HSE_SGT_OPT_NONE = 0u,
 	HSE_SGT_OPT_INPUT = BIT(0),
 	HSE_SGT_OPT_OUTPUT = BIT(1),
+};
+
+/**
+ * enum hse_ctx_impex - streaming context direction: import/export
+ * @HSE_IMPORT_STREAMING_CONTEXT: import streaming context
+ * @HSE_EXPORT_STREAMING_CONTEXT: export streaming context
+ */
+enum hse_ctx_impex {
+	HSE_IMPORT_STREAMING_CONTEXT = 1u,
+	HSE_EXPORT_STREAMING_CONTEXT = 2u,
 };
 
 /**
@@ -275,11 +289,11 @@ enum hse_sgt_opt {
  * | access_mode  |     *    |   *   |    *   |    *   |
  * | stream_id    |          |   *   |    *   |    *   |
  * | hash_algo    |     *    |   *   |    *   |    *   |
+ * | sgt_opt      |     *    |   *   |    *   |    *   |
  * | input_len    |     *    |   *   |    *   |    *   |
  * | input        |     *    |   *   |    *   |    *   |
  * | hash_len     |     *    |       |        |    *   |
  * | hash         |     *    |       |        |    *   |
- *
  */
 struct hse_hash_srv {
 	u8 access_mode;
@@ -330,11 +344,11 @@ struct hse_hash_srv {
  * | auth_dir     |     *    |   *   |    *   |    *   |
  * | scheme       |     *    |   *   |    *   |    *   |
  * | key_handle   |     *    |   *   |        |        |
+ * | sgt_opt      |     *    |   *   |    *   |    *   |
  * | input_len    |     *    |   *   |    *   |    *   |
  * | input        |     *    |   *   |    *   |    *   |
  * | tag_len      |     *    |       |        |    *   |
  * | tag          |     *    |       |        |    *   |
- *
  */
 struct hse_mac_srv {
 	u8 access_mode;
@@ -485,6 +499,19 @@ struct hse_rng_srv {
 } __packed;
 
 /**
+ * struct hse_ctx_impex_srv - import/export streaming context (encrypted)
+ * @operation: import/export
+ * @stream_id: ID of the stream to be exported or overwritten if imported
+ * @stream_ctx: address of input buffer for import or output buffer for export
+ */
+struct hse_ctx_impex_srv {
+	u8 operation;
+	u8 stream_id;
+	u8 reserved[2];
+	u64 stream_ctx;
+} __packed;
+
+/**
  * struct hse_srv_desc - HSE service descriptor
  * @srv_id: service ID of the HSE request
  * @hash_req: hash service request
@@ -504,6 +531,7 @@ struct hse_srv_desc {
 		struct hse_aead_srv aead_req;
 		struct hse_import_key_srv import_key_req;
 		struct hse_rng_srv rng_req;
+		struct hse_ctx_impex_srv ctx_impex_req;
 	};
 } __packed;
 
