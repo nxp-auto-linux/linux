@@ -84,10 +84,24 @@ struct hse_ahash_tfm_ctx {
 } ____cacheline_aligned;
 
 /**
+ * struct hse_ahash_state - crypto request state
+ * @sctx: streaming mode hardware state context
+ * @streaming_mode: request in HSE streaming mode
+ * @cache: block-sized cache for small input fragments
+ * @cache_idx: current written byte index in the cache
+ */
+struct hse_ahash_state {
+	u8 sctx[HSE_MAX_CTX_SIZE];
+	bool streaming_mode;
+	u8 cache[HSE_AHASH_MAX_BLOCK_SIZE];
+	u32 cache_idx;
+} ____cacheline_aligned;
+
+/**
  * struct hse_ahash_req_ctx - crypto request context
  * @srv_desc: service descriptor for hash/hmac ops
  * @srv_desc_dma: service descriptor DMA address
- * @streaming_mode: request in streaming mode
+ * @streaming_mode: request in HSE streaming mode
  * @access_mode: streaming mode stage of request
  * @stream: acquired MU stream type channel
  * @cache: block-sized cache for small input fragments
@@ -215,26 +229,9 @@ static int hse_ahash_init(struct ahash_request *req)
 {
 	struct hse_ahash_req_ctx *rctx = ahash_request_ctx(req);
 	struct crypto_ahash *tfm = crypto_ahash_reqtfm(req);
-	struct hse_ahash_tfm_ctx *tctx = crypto_ahash_ctx(tfm);
 	struct hse_ahash_alg *alg = hse_ahash_get_alg(tfm);
 	unsigned int blocksize = crypto_ahash_blocksize(tfm);
 	int err;
-
-	rctx->srv_desc.srv_id = alg->srv_id;
-
-	switch (alg->srv_id) {
-	case HSE_SRV_ID_HASH:
-		rctx->srv_desc.hash_req.hash_algo = alg->alg_type;
-		rctx->srv_desc.hash_req.sgt_opt = HSE_SGT_OPT_NONE;
-		break;
-	case HSE_SRV_ID_MAC:
-		rctx->srv_desc.mac_req.auth_dir = HSE_AUTH_DIR_GENERATE;
-		rctx->srv_desc.mac_req.scheme.mac_algo = HSE_MAC_ALGO_HMAC;
-		rctx->srv_desc.mac_req.scheme.hmac.hash_algo = alg->alg_type;
-		rctx->srv_desc.mac_req.key_handle = tctx->key_slot->handle;
-		rctx->srv_desc.mac_req.sgt_opt = HSE_SGT_OPT_NONE;
-		break;
-	}
 
 	rctx->srv_desc_dma = dma_map_single(alg->dev, &rctx->srv_desc,
 					    sizeof(rctx->srv_desc),
@@ -273,6 +270,7 @@ static int hse_ahash_update(struct ahash_request *req)
 {
 	struct hse_ahash_req_ctx *rctx = ahash_request_ctx(req);
 	struct crypto_ahash *tfm = crypto_ahash_reqtfm(req);
+	struct hse_ahash_tfm_ctx *tctx = crypto_ahash_ctx(tfm);
 	struct hse_ahash_alg *alg = hse_ahash_get_alg(tfm);
 	unsigned int blocksize = crypto_ahash_blocksize(tfm);
 	unsigned int full_blocks, bytes_left;
@@ -318,12 +316,16 @@ static int hse_ahash_update(struct ahash_request *req)
 	dma_sync_single_for_device(alg->dev, rctx->buf_dma, full_blocks,
 				   DMA_TO_DEVICE);
 
+	rctx->srv_desc.srv_id = alg->srv_id;
+
 	switch (alg->srv_id) {
 	case HSE_SRV_ID_HASH:
 		rctx->srv_desc.hash_req.access_mode = rctx->streaming_mode ?
 						      HSE_ACCESS_MODE_UPDATE :
 						      HSE_ACCESS_MODE_START;
 		rctx->srv_desc.hash_req.stream_id = rctx->stream;
+		rctx->srv_desc.hash_req.hash_algo = alg->alg_type;
+		rctx->srv_desc.hash_req.sgt_opt = HSE_SGT_OPT_NONE;
 		rctx->srv_desc.hash_req.input_len = full_blocks;
 		rctx->srv_desc.hash_req.input = rctx->buf_dma;
 		break;
@@ -332,6 +334,11 @@ static int hse_ahash_update(struct ahash_request *req)
 						     HSE_ACCESS_MODE_UPDATE :
 						     HSE_ACCESS_MODE_START;
 		rctx->srv_desc.mac_req.stream_id = rctx->stream;
+		rctx->srv_desc.mac_req.auth_dir = HSE_AUTH_DIR_GENERATE;
+		rctx->srv_desc.mac_req.scheme.mac_algo = HSE_MAC_ALGO_HMAC;
+		rctx->srv_desc.mac_req.scheme.hmac.hash_algo = alg->alg_type;
+		rctx->srv_desc.mac_req.key_handle = tctx->key_slot->handle;
+		rctx->srv_desc.mac_req.sgt_opt = HSE_SGT_OPT_NONE;
 		rctx->srv_desc.mac_req.input_len = full_blocks;
 		rctx->srv_desc.mac_req.input = rctx->buf_dma;
 		break;
@@ -368,6 +375,7 @@ static int hse_ahash_final(struct ahash_request *req)
 {
 	struct hse_ahash_req_ctx *rctx = ahash_request_ctx(req);
 	struct crypto_ahash *tfm = crypto_ahash_reqtfm(req);
+	struct hse_ahash_tfm_ctx *tctx = crypto_ahash_ctx(tfm);
 	struct hse_ahash_alg *alg = hse_ahash_get_alg(tfm);
 	int err;
 
@@ -397,12 +405,16 @@ static int hse_ahash_final(struct ahash_request *req)
 		rctx->stream = HSE_CHANNEL_ANY;
 	}
 
+	rctx->srv_desc.srv_id = alg->srv_id;
+
 	switch (alg->srv_id) {
 	case HSE_SRV_ID_HASH:
+		rctx->srv_desc.hash_req.hash_algo = alg->alg_type;
 		rctx->srv_desc.hash_req.access_mode = rctx->streaming_mode ?
 						      HSE_ACCESS_MODE_FINISH :
 						      HSE_ACCESS_MODE_ONE_PASS;
 		rctx->srv_desc.hash_req.stream_id = rctx->stream;
+		rctx->srv_desc.hash_req.hash_algo = alg->alg_type;
 		rctx->srv_desc.hash_req.sgt_opt = HSE_SGT_OPT_NONE;
 		rctx->srv_desc.hash_req.input_len = rctx->cache_idx;
 		rctx->srv_desc.hash_req.input = rctx->buf_dma;
@@ -414,6 +426,10 @@ static int hse_ahash_final(struct ahash_request *req)
 						     HSE_ACCESS_MODE_FINISH :
 						     HSE_ACCESS_MODE_ONE_PASS;
 		rctx->srv_desc.mac_req.stream_id = rctx->stream;
+		rctx->srv_desc.mac_req.auth_dir = HSE_AUTH_DIR_GENERATE;
+		rctx->srv_desc.mac_req.scheme.mac_algo = HSE_MAC_ALGO_HMAC;
+		rctx->srv_desc.mac_req.scheme.hmac.hash_algo = alg->alg_type;
+		rctx->srv_desc.mac_req.key_handle = tctx->key_slot->handle;
 		rctx->srv_desc.mac_req.sgt_opt = HSE_SGT_OPT_NONE;
 		rctx->srv_desc.mac_req.input_len = rctx->cache_idx;
 		rctx->srv_desc.mac_req.input = rctx->buf_dma;
@@ -454,6 +470,7 @@ static int hse_ahash_finup(struct ahash_request *req)
 {
 	struct hse_ahash_req_ctx *rctx = ahash_request_ctx(req);
 	struct crypto_ahash *tfm = crypto_ahash_reqtfm(req);
+	struct hse_ahash_tfm_ctx *tctx = crypto_ahash_ctx(tfm);
 	struct hse_ahash_alg *alg = hse_ahash_get_alg(tfm);
 	unsigned int bytes_left;
 	int err;
@@ -504,12 +521,15 @@ static int hse_ahash_finup(struct ahash_request *req)
 		rctx->stream = HSE_CHANNEL_ANY;
 	}
 
+	rctx->srv_desc.srv_id = alg->srv_id;
+
 	switch (alg->srv_id) {
 	case HSE_SRV_ID_HASH:
 		rctx->srv_desc.hash_req.access_mode = rctx->streaming_mode ?
 						      HSE_ACCESS_MODE_FINISH :
 						      HSE_ACCESS_MODE_ONE_PASS;
 		rctx->srv_desc.hash_req.stream_id = rctx->stream;
+		rctx->srv_desc.hash_req.hash_algo = alg->alg_type;
 		rctx->srv_desc.hash_req.sgt_opt = HSE_SGT_OPT_NONE;
 		rctx->srv_desc.hash_req.input_len = bytes_left;
 		rctx->srv_desc.hash_req.input = rctx->buf_dma;
@@ -521,6 +541,10 @@ static int hse_ahash_finup(struct ahash_request *req)
 						     HSE_ACCESS_MODE_FINISH :
 						     HSE_ACCESS_MODE_ONE_PASS;
 		rctx->srv_desc.mac_req.stream_id = rctx->stream;
+		rctx->srv_desc.mac_req.auth_dir = HSE_AUTH_DIR_GENERATE;
+		rctx->srv_desc.mac_req.scheme.mac_algo = HSE_MAC_ALGO_HMAC;
+		rctx->srv_desc.mac_req.scheme.hmac.hash_algo = alg->alg_type;
+		rctx->srv_desc.mac_req.key_handle = tctx->key_slot->handle;
 		rctx->srv_desc.mac_req.sgt_opt = HSE_SGT_OPT_NONE;
 		rctx->srv_desc.mac_req.input_len = bytes_left;
 		rctx->srv_desc.mac_req.input = rctx->buf_dma;
@@ -650,35 +674,147 @@ err_unmap_result:
 }
 
 /**
- * hse_ahash_export - HSE doesn't support import/export operations
+ * hse_ahash_export - asynchronous hash request export
+ * @req: asynchronous hash request
+ * @out: output state buffer
  */
 static int hse_ahash_export(struct ahash_request *req, void *out)
 {
 	struct hse_ahash_req_ctx *rctx = ahash_request_ctx(req);
 	struct crypto_ahash *tfm = crypto_ahash_reqtfm(req);
 	struct hse_ahash_alg *alg = hse_ahash_get_alg(tfm);
+	struct hse_ahash_state *state = out;
+	dma_addr_t sctx_dma;
+	int err = 0;
 
-	dev_err(alg->dev, "%s: partial hash ops not supported\n", __func__);
+	if (unlikely(!out))
+		return -EINVAL;
 
+	/* save block-sized cache */
+	memcpy(state->cache, rctx->cache, rctx->cache_idx);
+	state->cache_idx = rctx->cache_idx;
+	state->streaming_mode = rctx->streaming_mode;
+
+	if (!state->streaming_mode)
+		goto out_release_channel;
+
+	/* save hardware state */
+	sctx_dma = dma_map_single(alg->dev, state->sctx, HSE_MAX_CTX_SIZE,
+				  DMA_FROM_DEVICE);
+	if (unlikely(dma_mapping_error(alg->dev, sctx_dma))) {
+		err = -ENOMEM;
+		goto out_release_channel;
+	}
+
+	rctx->srv_desc.srv_id = HSE_SRV_ID_IMPORT_EXPORT_STREAM_CTX;
+	rctx->srv_desc.ctx_impex_req.operation = HSE_EXPORT_STREAMING_CONTEXT;
+	rctx->srv_desc.ctx_impex_req.stream_id = rctx->stream;
+	rctx->srv_desc.ctx_impex_req.stream_ctx = sctx_dma;
+
+	dma_sync_single_for_device(alg->dev, rctx->srv_desc_dma,
+				   sizeof(rctx->srv_desc), DMA_TO_DEVICE);
+
+	err = hse_srv_req_sync(alg->dev, HSE_CHANNEL_ANY, rctx->srv_desc_dma);
+	if (unlikely(err))
+		dev_dbg(alg->dev, "%s: export context failed for %s: %d\n",
+			__func__, crypto_ahash_alg_name(tfm), err);
+
+	dma_unmap_single(alg->dev, sctx_dma, HSE_MAX_CTX_SIZE, DMA_FROM_DEVICE);
+out_release_channel:
 	hse_channel_release(alg->dev, rctx->stream);
 	dma_free_coherent(alg->dev, rctx->buflen, rctx->buf, rctx->buf_dma);
+	rctx->buflen = 0;
 	dma_unmap_single(alg->dev, rctx->srv_desc_dma, sizeof(rctx->srv_desc),
 			 DMA_TO_DEVICE);
-
-	return -EOPNOTSUPP;
+	return err;
 }
 
 /**
- * hse_ahash_import - HSE doesn't support import/export operations
+ * hse_ahash_import - asynchronous hash request import
+ * @req: asynchronous hash request
+ * @in: input state buffer
  */
 static int hse_ahash_import(struct ahash_request *req, const void *in)
 {
+	struct hse_ahash_req_ctx *rctx = ahash_request_ctx(req);
 	struct crypto_ahash *tfm = crypto_ahash_reqtfm(req);
 	struct hse_ahash_alg *alg = hse_ahash_get_alg(tfm);
+	unsigned int blocksize = crypto_ahash_blocksize(tfm);
+	struct hse_ahash_state *state = (void *)in;
+	dma_addr_t sctx_dma;
+	int err;
 
-	dev_err(alg->dev, "%s: partial hash ops not supported\n", __func__);
+	if (unlikely(!in))
+		return -EINVAL;
 
-	return -EOPNOTSUPP;
+	rctx->srv_desc_dma = dma_map_single(alg->dev, &rctx->srv_desc,
+					    sizeof(rctx->srv_desc),
+					    DMA_TO_DEVICE);
+	if (unlikely(dma_mapping_error(alg->dev, rctx->srv_desc_dma)))
+		return -ENOMEM;
+
+	rctx->buf = dma_alloc_coherent(alg->dev, blocksize, &rctx->buf_dma,
+				       GFP_KERNEL);
+	if (IS_ERR_OR_NULL(rctx->buf)) {
+		err = -ENOMEM;
+		goto err_unmap_srv_desc;
+	}
+	rctx->buflen = blocksize;
+
+	/* restore block-sized cache */
+	memcpy(rctx->cache, state->cache, state->cache_idx);
+	rctx->cache_idx = state->cache_idx;
+	rctx->streaming_mode = state->streaming_mode;
+
+	err = hse_channel_acquire(alg->dev, HSE_CH_TYPE_STREAM, &rctx->stream);
+	if (err)
+		goto err_free_buf;
+
+	if (!state->streaming_mode)
+		return 0;
+
+	/* restore hardware state */
+	sctx_dma = dma_map_single(alg->dev, state->sctx, HSE_MAX_CTX_SIZE,
+				  DMA_TO_DEVICE);
+	if (unlikely(dma_mapping_error(alg->dev, sctx_dma))) {
+		err = -ENOMEM;
+		goto err_release_channel;
+	}
+
+	rctx->srv_desc.srv_id = HSE_SRV_ID_IMPORT_EXPORT_STREAM_CTX;
+	rctx->srv_desc.ctx_impex_req.operation = HSE_IMPORT_STREAMING_CONTEXT;
+	rctx->srv_desc.ctx_impex_req.stream_id = rctx->stream;
+	rctx->srv_desc.ctx_impex_req.stream_ctx = sctx_dma;
+
+	rctx->srv_desc_dma = dma_map_single(alg->dev, &rctx->srv_desc,
+					    sizeof(rctx->srv_desc),
+					    DMA_TO_DEVICE);
+	if (unlikely(dma_mapping_error(alg->dev, rctx->srv_desc_dma))) {
+		err = -ENOMEM;
+		goto err_free_buf;
+	}
+
+	err = hse_srv_req_sync(alg->dev, HSE_CHANNEL_ANY, rctx->srv_desc_dma);
+	if (unlikely(err)) {
+		dev_dbg(alg->dev, "%s: import context failed for %s: %d\n",
+			__func__, crypto_ahash_alg_name(tfm), err);
+		goto err_unmap_sctx;
+	}
+
+	dma_unmap_single(alg->dev, sctx_dma, HSE_MAX_CTX_SIZE, DMA_TO_DEVICE);
+
+	return 0;
+err_unmap_sctx:
+	dma_unmap_single(alg->dev, sctx_dma, HSE_MAX_CTX_SIZE, DMA_TO_DEVICE);
+err_release_channel:
+	hse_channel_release(alg->dev, rctx->stream);
+err_free_buf:
+	dma_free_coherent(alg->dev, rctx->buflen, rctx->buf, rctx->buf_dma);
+	rctx->buflen = 0;
+err_unmap_srv_desc:
+	dma_unmap_single(alg->dev, rctx->srv_desc_dma, sizeof(rctx->srv_desc),
+			 DMA_TO_DEVICE);
+	return err;
 }
 
 /**
@@ -984,7 +1120,7 @@ static struct hse_ahash_alg *hse_ahash_alloc(struct device *dev, bool keyed,
 	alg->ahash.digest = hse_ahash_digest;
 	alg->ahash.export = hse_ahash_export;
 	alg->ahash.import = hse_ahash_import;
-	alg->ahash.halg.statesize = sizeof(struct hse_ahash_tfm_ctx);
+	alg->ahash.halg.statesize = sizeof(struct hse_ahash_state);
 
 	if (keyed) {
 		alg->srv_id = HSE_SRV_ID_MAC;
