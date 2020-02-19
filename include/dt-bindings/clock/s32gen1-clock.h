@@ -1,5 +1,5 @@
 /*
- * Copyright 2018 NXP
+ * Copyright 2018,2020 NXP
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -77,7 +77,7 @@
 /* DDR Clock */
 #define	S32GEN1_CLK_DDR				54
 /* GMAC Clock */
-#define	S32GEN1_CLK_GMAC_TX_SEL		55
+#define	S32GEN1_CLK_GMAC_TX_SEL			55
 #define	S32GEN1_CLK_GMAC_TX			56
 /* A53 Clock */
 #define	S32GEN1_CLK_A53				57
@@ -92,6 +92,23 @@
 #define S32GEN1_CLK_ACCEL_3_DIV3		64
 /* ACCEL_4 (LAX) Clock */
 #define S32GEN1_CLK_ACCEL_4			65
+/* SerDes Clocks */
+#define	S32GEN1_CLK_SERDES_INT_REF		66
+#define	S32GEN1_CLK_SERDES_EXT_REF		67
+#define	S32GEN1_CLK_SERDES_0_LANE_0		68
+#define	S32GEN1_CLK_SERDES_0_LANE_1		69
+#define	S32GEN1_CLK_SERDES_1_LANE_0		70
+#define	S32GEN1_CLK_SERDES_1_LANE_1		71
+/* PFE Clocks */
+#define	S32GEN1_CLK_PFE_PE_SEL			72
+#define	S32GEN1_CLK_PFE_PE			73
+#define	S32GEN1_CLK_PFE_SYS			74
+#define	S32GEN1_CLK_PFE_EMAC_0_TX_SEL		75
+#define	S32GEN1_CLK_PFE_EMAC_0_TX		76
+#define	S32GEN1_CLK_PFE_EMAC_1_TX_SEL		77
+#define	S32GEN1_CLK_PFE_EMAC_1_TX		78
+#define	S32GEN1_CLK_PFE_EMAC_2_TX_SEL		79
+#define	S32GEN1_CLK_PFE_EMAC_2_TX		80
 
-#define	S32GEN1_CLK_END				66
+#define	S32GEN1_CLK_END				81
 #endif /* __DT_BINDINGS_CLOCK_S32GEN1_H */

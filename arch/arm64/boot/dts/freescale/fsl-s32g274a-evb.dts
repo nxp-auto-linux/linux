@@ -88,6 +88,10 @@
 	clock-frequency = <40000000>;
 };
 
+&serdes_ext {
+	clock-frequency = <125000000>;
+};
+
 &generic_timer {
 	clock-frequency = <5000000>;
 };
