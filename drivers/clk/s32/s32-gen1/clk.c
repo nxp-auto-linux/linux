@@ -1,5 +1,5 @@
 /*
- * Copyright 2018 NXP
+ * Copyright 2018,2020 NXP
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -80,12 +80,35 @@ static u32 ddr_mux_idx[] = {
 	MC_CGM_MUXn_CSC_SEL_DDR_PLL_PHI0,
 };
 
-PNAME(gmac_tx_sels) = {"firc", "periphpll_phi5", };
+PNAME(gmac_tx_sels) = {"firc", "periphpll_phi5", "serdes_0_lane_0", };
 static u32 gmac_tx_mux_idx[] = {
 	MC_CGM_MUXn_CSC_SEL_FIRC, MC_CGM_MUXn_CSC_SEL_PERIPH_PLL_PHI5,
+	MC_CGM_MUXn_CSC_SEL_SERDES_0_LANE_0_TX_CLK,
 };
 
-#ifdef CONFIG_S32R45X_EVB
+PNAME(pfe_pe_sels) = {"firc", "accelpll_phi1",};
+static u32 pfe_pe_mux_idx[] = {
+	MC_CGM_MUXn_CSC_SEL_FIRC, MC_CGM_MUXn_CSC_SEL_ACCEL_PLL_PHI1,
+};
+
+PNAME(pfe_emac_0_tx_sels) = {"firc", "periphpll_phi5", "serdes_1_lane_0", };
+static u32 pfe_emac_0_tx_mux_idx[] = {
+	MC_CGM_MUXn_CSC_SEL_FIRC, MC_CGM_MUXn_CSC_SEL_PERIPH_PLL_PHI5,
+	MC_CGM_MUXn_CSC_SEL_SERDES_1_LANE_0_TX_CLK,
+};
+
+PNAME(pfe_emac_1_tx_sels) = {"firc", "periphpll_phi5", "serdes_1_lane_1", };
+static u32 pfe_emac_1_tx_mux_idx[] = {
+	MC_CGM_MUXn_CSC_SEL_FIRC, MC_CGM_MUXn_CSC_SEL_PERIPH_PLL_PHI5,
+	MC_CGM_MUXn_CSC_SEL_SERDES_1_LANE_1_TX_CLK,
+};
+
+PNAME(pfe_emac_2_tx_sels) = {"firc", "periphpll_phi5", "serdes_0_lane_1", };
+static u32 pfe_emac_2_tx_mux_idx[] = {
+	MC_CGM_MUXn_CSC_SEL_FIRC, MC_CGM_MUXn_CSC_SEL_PERIPH_PLL_PHI5,
+	MC_CGM_MUXn_CSC_SEL_SERDES_0_LANE_1_TX_CLK,
+};
+
 PNAME(accel_3_sels) = {"firc", "accelpll_phi0",};
 static u32 accel_3_mux_idx[] = {
 	MC_CGM_MUXn_CSC_SEL_FIRC, MC_CGM_MUXn_CSC_SEL_ACCEL_PLL_PHI0_2,
@@ -95,10 +118,84 @@ PNAME(accel_4_sels) = {"firc", "armpll_dfs4",};
 static u32 accel_4_mux_idx[] = {
 	MC_CGM_MUXn_CSC_SEL_FIRC, MC_CGM_MUXn_CSC_SEL_ARM_PLL_DFS4_2,
 };
-#endif
 
 static struct clk *clk[S32GEN1_CLK_END];
 static struct clk_onecell_data clk_data;
+
+static void __init s32g274_extra_clocks_init(struct device_node *clocking_node)
+{
+	/* PFE */
+	clk[S32GEN1_CLK_PFE_PE_SEL] = s32_clk_mux_table("pfe_pe_sel",
+		CGM_MUXn_CSC(mc_cgm2_base, 0),
+		MC_CGM_MUXn_CSC_SELCTL_OFFSET,
+		MC_CGM_MUXn_CSC_SELCTL_SIZE,
+		pfe_pe_sels, ARRAY_SIZE(pfe_pe_sels), pfe_pe_mux_idx,
+		&s32gen1_lock);
+	clk[S32GEN1_CLK_PFE_PE] = s32_clk_divider_flags("pfe_pe",
+		"pfe_pe_sel",
+		CGM_MUXn_DC(mc_cgm2_base, 0), MC_CGM_MUX_DCn_DIV_OFFSET,
+		MC_CGM_MUX_DCn_DIV_SIZE, 0, &s32gen1_lock);
+	clk[S32GEN1_CLK_PFE_SYS] = s32_clk_fixed_factor("pfe_sys",
+		"pfe_pe", 1, 2);
+
+	/* PFE EMAC 0-2 clocks */
+	clk[S32GEN1_CLK_PFE_EMAC_0_TX_SEL] = s32_clk_mux_table(
+		"pfe_emac_0_tx_sel",
+		CGM_MUXn_CSC(mc_cgm2_base, 1),
+		MC_CGM_MUXn_CSC_SELCTL_OFFSET,
+		MC_CGM_MUXn_CSC_SELCTL_SIZE,
+		pfe_emac_0_tx_sels, ARRAY_SIZE(pfe_emac_0_tx_sels),
+		pfe_emac_0_tx_mux_idx, &s32gen1_lock);
+	clk[S32GEN1_CLK_PFE_EMAC_0_TX] = s32_clk_divider_flags("pfe_emac_0_tx",
+		"pfe_emac_0_tx_sel",
+		CGM_MUXn_DC(mc_cgm2_base, 1), MC_CGM_MUX_DCn_DIV_OFFSET,
+		MC_CGM_MUX_DCn_DIV_SIZE, 0, &s32gen1_lock);
+
+	clk[S32GEN1_CLK_PFE_EMAC_1_TX_SEL] = s32_clk_mux_table(
+		"pfe_emac_1_tx_sel",
+		CGM_MUXn_CSC(mc_cgm2_base, 2),
+		MC_CGM_MUXn_CSC_SELCTL_OFFSET,
+		MC_CGM_MUXn_CSC_SELCTL_SIZE,
+		pfe_emac_1_tx_sels, ARRAY_SIZE(pfe_emac_1_tx_sels),
+		pfe_emac_1_tx_mux_idx, &s32gen1_lock);
+	clk[S32GEN1_CLK_PFE_EMAC_1_TX] = s32_clk_divider_flags("pfe_emac_1_tx",
+		"pfe_emac_1_tx_sel",
+		CGM_MUXn_DC(mc_cgm2_base, 2), MC_CGM_MUX_DCn_DIV_OFFSET,
+		MC_CGM_MUX_DCn_DIV_SIZE, 0, &s32gen1_lock);
+
+	clk[S32GEN1_CLK_PFE_EMAC_2_TX_SEL] = s32_clk_mux_table(
+		"pfe_emac_2_tx_sel",
+		CGM_MUXn_CSC(mc_cgm2_base, 3),
+		MC_CGM_MUXn_CSC_SELCTL_OFFSET,
+		MC_CGM_MUXn_CSC_SELCTL_SIZE,
+		pfe_emac_2_tx_sels, ARRAY_SIZE(pfe_emac_2_tx_sels),
+		pfe_emac_2_tx_mux_idx, &s32gen1_lock);
+	clk[S32GEN1_CLK_PFE_EMAC_2_TX] = s32_clk_divider_flags("pfe_emac_2_tx",
+		"pfe_emac_2_tx_sel",
+		CGM_MUXn_DC(mc_cgm2_base, 3), MC_CGM_MUX_DCn_DIV_OFFSET,
+		MC_CGM_MUX_DCn_DIV_SIZE, 0, &s32gen1_lock);
+}
+
+static void __init s32r45_extra_clocks_init(struct device_node *clocking_node)
+{
+	/* ACCEL_3_CLK (SPT) */
+	clk[S32GEN1_CLK_ACCEL_3] = s32_clk_mux_table("accel_3",
+		CGM_MUXn_CSC(mc_cgm2_base, 0),
+		MC_CGM_MUXn_CSC_SELCTL_OFFSET,
+		MC_CGM_MUXn_CSC_SELCTL_SIZE,
+		accel_3_sels, ARRAY_SIZE(accel_3_sels), accel_3_mux_idx,
+		&s32gen1_lock);
+	clk[S32GEN1_CLK_ACCEL_3_DIV3] = s32_clk_fixed_factor("accel_3",
+		"accel_3_div3", 1, 3);
+
+	/* ACCEL_4_CLK (LAX) */
+	clk[S32GEN1_CLK_ACCEL_4] = s32_clk_mux_table("accel_4",
+		CGM_MUXn_CSC(mc_cgm2_base, 1),
+		MC_CGM_MUXn_CSC_SELCTL_OFFSET,
+		MC_CGM_MUXn_CSC_SELCTL_SIZE,
+		accel_4_sels, ARRAY_SIZE(accel_4_sels), accel_4_mux_idx,
+		&s32gen1_lock);
+}
 
 static void __init s32gen1_clocks_init(struct device_node *clocking_node)
 {
@@ -318,6 +415,10 @@ static void __init s32gen1_clocks_init(struct device_node *clocking_node)
 		 "periphll_dfs6", "periphpll_vco",
 		 periphdfs, 6);
 
+	clk[S32GEN1_CLK_SERDES_INT_REF] = s32_clk_fixed_factor("serdes_int",
+		"periphpll_phi0", 1, 1);
+	clk[S32GEN1_CLK_SERDES_EXT_REF] = s32_obtain_fixed_clock("serdes_ext", 0);
+
 	/* Can Clock */
 	clk[S32GEN1_CLK_CAN] = s32_clk_mux_table("can",
 		CGM_MUXn_CSC(mc_cgm0_base, 7),
@@ -418,42 +519,27 @@ static void __init s32gen1_clocks_init(struct device_node *clocking_node)
 		CGM_MUXn_DC(mc_cgm0_base, 10), MC_CGM_MUX_DCn_DIV_OFFSET,
 		MC_CGM_MUX_DCn_DIV_SIZE, 0, &s32gen1_lock);
 
-#ifdef CONFIG_S32R45X_EVB
-	/* ACCEL_3_CLK (SPT) */
-	clk[S32GEN1_CLK_ACCEL_3] = s32_clk_mux_table("accel_3",
-		CGM_MUXn_CSC(mc_cgm2_base, 0),
-		MC_CGM_MUXn_CSC_SELCTL_OFFSET,
-		MC_CGM_MUXn_CSC_SELCTL_SIZE,
-		accel_3_sels, ARRAY_SIZE(accel_3_sels), accel_3_mux_idx,
-		&s32gen1_lock);
-	clk[S32GEN1_CLK_ACCEL_3_DIV3] = s32_clk_fixed_factor("accel_3",
-		"accel_3_div3", 1, 3);
-
-	/* ACCEL_4_CLK (LAX) */
-	clk[S32GEN1_CLK_ACCEL_4] = s32_clk_mux_table("accel_4",
-		CGM_MUXn_CSC(mc_cgm2_base, 1),
-		MC_CGM_MUXn_CSC_SELCTL_OFFSET,
-		MC_CGM_MUXn_CSC_SELCTL_SIZE,
-		accel_4_sels, ARRAY_SIZE(accel_4_sels), accel_4_mux_idx,
-		&s32gen1_lock);
-
-#endif
-
 	/* Add the clocks to provider list */
 	clk_data.clks = clk;
 	clk_data.clk_num = ARRAY_SIZE(clk);
 	of_clk_add_provider(clocking_node, of_clk_src_onecell_get, &clk_data);
 }
 
+{
+	s32gen1_clocks_init(clks_node);
+}
+
 static void __init s32g274_clocks_init(struct device_node *clks_node)
 {
 	s32gen1_clocks_init(clks_node);
+	s32g274_extra_clocks_init(clks_node);
 }
 
 static void __init s32r45_clocks_init(struct device_node *clks_node)
 {
 	s32gen1_clocks_init(clks_node);
+	s32r45_extra_clocks_init(clks_node);
 }
 
-CLK_OF_DECLARE(S32G274, "fsl,s32g274-clocking", s32g275_clocks_init);
-CLK_OF_DECLARE(S32R45X, "fsl,s32r45x-clocking", s32r45x_clocks_init);
+CLK_OF_DECLARE(S32G274, "fsl,s32g274-clocking", s32g274_clocks_init);
+CLK_OF_DECLARE(S32R45, "fsl,s32r45-clocking", s32r45_clocks_init);
