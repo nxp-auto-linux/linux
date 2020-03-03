@@ -113,8 +113,9 @@ static int dsa_slave_close(struct net_device *dev)
 	struct net_device *master = dsa_slave_to_master(dev);
 	struct dsa_port *dp = dsa_slave_to_port(dev);
 
-
 	dsa_port_disable_rt(dp);
+
+
 
 
 	dev_mc_unsync(master, dev);
