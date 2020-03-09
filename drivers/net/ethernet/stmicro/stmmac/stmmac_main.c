@@ -868,12 +868,20 @@ static void stmmac_validate(struct phylink_config *config,
 
 	linkmode_and(state->advertising, state->advertising, mac_supported);
 	linkmode_andnot(state->advertising, state->advertising, mask);
+
+	/* If PCS is supported, check which modes it supports. */
+	stmmac_xpcs_validate(priv, &priv->hw->xpcs_args, supported, state);
 }
 
 static int stmmac_mac_link_state(struct phylink_config *config,
 				 struct phylink_link_state *state)
 {
-	return -EOPNOTSUPP;
+	struct stmmac_priv *priv = netdev_priv(to_net_dev(config->dev));
+
+	state->link = 0;
+	stmmac_xpcs_get_state(priv, &priv->hw->xpcs_args, state);
+
+	return 0;
 }
 
 static void stmmac_mac_config(struct phylink_config *config, unsigned int mode,
@@ -933,6 +941,8 @@ static void stmmac_mac_config(struct phylink_config *config, unsigned int mode,
 		stmmac_mac_flow_ctrl(priv, state->duplex);
 
 	writel(ctrl, priv->ioaddr + MAC_CTRL_REG);
+
+	stmmac_xpcs_config(priv, &priv->hw->xpcs_args, state);
 }
 
 static void stmmac_mac_an_restart(struct phylink_config *config)
@@ -2656,7 +2666,8 @@ static int stmmac_open(struct net_device *dev)
 
 	if (priv->hw->pcs != STMMAC_PCS_RGMII &&
 	    priv->hw->pcs != STMMAC_PCS_TBI &&
-	    priv->hw->pcs != STMMAC_PCS_RTBI) {
+	    priv->hw->pcs != STMMAC_PCS_RTBI &&
+	    priv->hw->xpcs == NULL) {
 		ret = stmmac_init_phy(dev);
 		if (ret) {
 			netdev_err(priv->dev,
