@@ -299,5 +299,4 @@ struct sk_buff *dsa_8021q_xmit(struct sk_buff *skb, struct net_device *netdev,
 EXPORT_SYMBOL_GPL(dsa_8021q_xmit);
 
 
-
 MODULE_LICENSE("GPL v2");
