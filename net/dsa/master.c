@@ -285,6 +285,7 @@ static const struct attribute_group dsa_group = {
 	.attrs	= dsa_slave_attrs,
 };
 
+
 static void dsa_master_reset_mtu(struct net_device *dev)
 {
 	int err;
