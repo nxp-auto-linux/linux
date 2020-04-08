@@ -16,6 +16,8 @@
 #include <uapi/linux/pci_regs.h>
 #include <linux/pcie/nxp-s32cc-pcie-phy-submode.h>
 #include "pcie-designware.h"
+#include "pci-ioctl-s32cc.h"
+#include "pci-dma-s32cc.h"
 
 /* PCIe MSI capabilities register */
 #define PCI_MSI_CAP		0x50U
@@ -64,6 +66,9 @@
 #define to_s32cc_from_dw_pcie(x) \
 	container_of(x, struct s32cc_pcie, pcie)
 
+#define to_s32cc_from_dma_info(x) \
+		container_of(x, struct s32cc_pcie, dma)
+
 enum pcie_link_speed {
 	GEN1 = 0x1,
 	GEN2 = 0x2,
@@ -92,28 +97,16 @@ struct s32cc_pcie {
 	enum pcie_phy_mode phy_mode;
 	enum pcie_link_speed linkspeed;
 
+	int dma_irq;
+	struct dma_info	dma;
+
+	/* For interaction with the user space */
+	struct s32cc_userspace_info uinfo;
+
 	struct phy *phy0, *phy1;
 
 	struct resource shared_mem;
 	bool auto_config_bars;
-};
-
-struct s32cc_inbound_region {
-	int pcie_id; /* must match the id of a device tree pcie node */
-	u32 bar_nr;
-	u32 target_addr;
-	u32 region; /* for backwards compatibility */
-};
-
-struct s32cc_outbound_region {
-	int pcie_id; /* must match the id of a device tree pcie node */
-	u64 target_addr;
-	u64 base_addr;
-	u32 size;
-	/* region_type - for backwards compatibility;
-	 * must be PCIE_ATU_TYPE_MEM
-	 */
-	u32 region_type;
 };
 
 void dw_pcie_writel_ctrl(struct s32cc_pcie *pci, u32 reg, u32 val);
