@@ -38,6 +38,7 @@
 
 #ifdef CONFIG_PCI_DW_DMA
 #include <linux/dma-mapping.h>
+#include "pci-dma-s32cc.h"
 #endif
 
 #ifdef DEBUG
