@@ -78,6 +78,10 @@ void s32cc_pcie_write(struct dw_pcie *pci,
 		else if ((uintptr_t)base == (uintptr_t)(pci->dbi_base2))
 			dev_dbg_w(pci->dev, "W%d(dbi2+0x%x, 0x%x)\n",
 				  (int)size * 8, (u32)(reg), (u32)(val));
+		else if (IS_ENABLED(CONFIG_PCI_DW_DMA) &&
+			 (uintptr_t)base == (uintptr_t)(s32cc_pci->dma.dma_base))
+			dev_dbg_w(pci->dev, "W%d(dma+0x%x, 0x%x)\n",
+				  (int)size * 8, (u32)(reg), (u32)(val));
 		else
 			dev_dbg_w(pci->dev, "W%d(%lx+0x%x, 0x%x)\n",
 				  (int)size * 8, (uintptr_t)(base), (u32)(reg), (u32)(val));
@@ -87,6 +91,15 @@ void s32cc_pcie_write(struct dw_pcie *pci,
 	if (ret)
 		dev_err(pci->dev, "(pcie%d): Write to address 0x%lx failed\n",
 			s32cc_pci->id, (uintptr_t)(base + reg));
+}
+
+/* Allow printing DMA writes */
+static inline void s32cc_pcie_write_dma(struct dma_info *di,
+					void __iomem *base, u32 reg, size_t size, u32 val)
+{
+	struct s32cc_pcie *s32cc_pci = to_s32cc_from_dma_info(di);
+
+	s32cc_pcie_write(&s32cc_pci->pcie, base, reg, size, val);
 }
 
 void dw_pcie_writel_ctrl(struct s32cc_pcie *pci, u32 reg, u32 val)
@@ -102,6 +115,20 @@ u32 dw_pcie_readl_ctrl(struct s32cc_pcie *pci, u32 reg)
 		dev_err(pci->pcie.dev, "Read ctrl address failed\n");
 
 	return val;
+}
+
+struct dma_info *dw_get_dma_info(struct dw_pcie *pcie)
+{
+	struct s32cc_pcie *s32cc_pp =
+		to_s32cc_from_dw_pcie(pcie);
+	return &s32cc_pp->dma;
+}
+
+struct s32cc_userspace_info *dw_get_userspace_info(struct dw_pcie *pcie)
+{
+	struct s32cc_pcie *s32cc_pci = to_s32cc_from_dw_pcie(pcie);
+
+	return &s32cc_pci->uinfo;
 }
 
 static bool s32cc_has_msi_parent(struct dw_pcie_rp *pp)
@@ -712,6 +739,22 @@ int s32cc_pcie_dt_init_common(struct platform_device *pdev,
 	if (IS_ERR(pcie->atu_base))
 		return PTR_ERR(pcie->atu_base);
 	dev_dbg(dev, "atu virt: 0x" PTR_FMT "\n", pcie->atu_base);
+
+	if (IS_ENABLED(CONFIG_PCI_DW_DMA)) {
+		s32cc_pp->dma.dma_base = devm_platform_ioremap_resource_byname(pdev, "dma");
+		if (IS_ERR(s32cc_pp->dma.dma_base))
+			return PTR_ERR(s32cc_pp->dma.dma_base);
+		/* Required in order for DW framework to not try to remap
+		 * the PCIe DMA memory area
+		 */
+		pcie->edma.reg_base = s32cc_pp->dma.dma_base;
+
+		dev_dbg(dev, "dma virt: 0x" PTR_FMT "\n", s32cc_pp->dma.dma_base);
+		if (IS_ENABLED(CONFIG_PCI_S32CC_DEBUG_WRITES))
+			s32cc_pp->dma.write_dma = s32cc_pcie_write_dma;
+	} else {
+		s32cc_pp->dma.dma_base = NULL;
+	}
 
 	s32cc_pp->ctrl_base = devm_platform_ioremap_resource_byname(pdev, "ctrl");
 	if (IS_ERR(s32cc_pp->ctrl_base))
