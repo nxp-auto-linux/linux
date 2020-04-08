@@ -91,6 +91,20 @@ config PCI_DW_DMA
 	Internal DMA engine in PCIe mode, you want this enabled.
 	Otherwise you should set it to 'no'
 
+config DMA_NR_CH
+	depends on PCI_DW_DMA
+	int
+	default 1
+	help
+	  Freescale S32 PCIe DW DMA number of channels.
+
+config PCIE_DMA_MAX_SIZE
+	depends on PCI_DW_DMA
+	hex
+	default 0x400000
+	help
+	  Freescale S32 PCIe DW DMA max size.
+
 config PCI_TEGRA
 	bool "NVIDIA Tegra PCIe controller"
 	depends on ARCH_TEGRA || COMPILE_TEST
