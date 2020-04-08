@@ -195,7 +195,6 @@ static void s32cc_pcie_ep_init(struct dw_pcie_ep *ep)
 	/*
 	 * Configure the class and revision for the EP device,
 	 * to enable human friendly enumeration by the RC (e.g. by lspci)
-	 * EPF will set its own IDs.
 	 */
 	dw_pcie_dbi_ro_wr_en(pcie);
 	tmp = dw_pcie_readl_dbi(pcie, PCI_CLASS_REVISION) |
@@ -382,6 +381,15 @@ static struct dw_pcie_ep_ops s32cc_pcie_ep_ops = {
 	.get_features = s32cc_pcie_ep_get_features,
 };
 
+int s32cc_send_msi(struct dw_pcie *pcie)
+{
+	/* Trigger the first MSI, since all MSIs are routed through the same
+	 * physical interrupt anyway
+	 */
+	return s32cc_pcie_ep_raise_irq(&pcie->ep, 1,
+		PCI_IRQ_MSI, 1);
+}
+
 static int __init s32cc_add_pcie_ep(struct s32cc_pcie *s32cc_pp)
 {
 	int ret;
@@ -491,9 +499,22 @@ static int s32cc_pcie_config_ep(struct s32cc_pcie *s32cc_pp,
 		dw_pcie_msi_init(&pcie->pp);
 	}
 
+	if (IS_ENABLED(CONFIG_PCI_DW_DMA)) {
+		s32cc_config_dma_data(&s32cc_pp->dma, pcie);
+		ret = s32cc_pcie_config_irq(&s32cc_pp->dma_irq,
+					    "dma", pdev,
+					    s32cc_pcie_dma_handler, pcie);
+		if (ret) {
+			dev_err(dev, "failed to request dma irq\n");
+			goto fail_ep_init;
+		}
+	}
+
 	ret = s32cc_add_pcie_ep(s32cc_pp);
 	if (ret)
 		goto fail_ep_init;
+
+	s32cc_config_user_space_data(&s32cc_pp->uinfo, pcie);
 
 	return ret;
 

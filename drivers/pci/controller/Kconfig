@@ -265,6 +265,21 @@ config PCI_S32CC_DEBUG_WRITES
 	Enable dumping register writes performed by the S32CC PCIe module.
 	Register writes done by the DW code is not dumped.
 
+config PCI_DW_DMA
+	bool "NXP S32CC PCIe DW DMA"
+	depends on OF && ARM64 && PCI_S32CC
+	help
+	If you're using a S32CC based board and want to use
+	Internal DMA engine in PCIe mode, you want this enabled.
+	Otherwise you should set it to 'no'
+
+config PCIE_DMA_MAX_SIZE
+	depends on PCI_DW_DMA
+	hex
+	default 0x400000
+	help
+	  NXP S32CC PCIe DW DMA max size.
+
 config PCIE_RCAR_HOST
 	bool "Renesas R-Car PCIe controller (host mode)"
 	depends on ARCH_RENESAS || COMPILE_TEST
