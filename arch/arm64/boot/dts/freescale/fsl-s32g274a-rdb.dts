@@ -57,6 +57,62 @@
 	memory-region = <&pfe_reserved>;
 };
 
+&pfe0_if {
+	fsl,pfeng-hif-channel = <0>;
+	phy-mode = "sgmii";
+	fixed-link {
+		speed = <2500>;
+		full-duplex;
+	};
+};
+
+&pfe1_if {
+	/* RGMII port occupied by GMAC0 */
+	status = "disabled";
+};
+
+&pfe2_if {
+	fsl,pfeng-hif-channel = <2>;
+	phy-mode = "rgmii";
+	phy-handle = <&mdio_b_phy4>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl0_pfe2_rgmii_b>, <&pinctrl1_pfe2_rgmii_b>;
+};
+
+&pfe0_mdio {
+	/* unused */
+	status = "disabled";
+};
+
+&pfe1_mdio {
+	/* occupied by GMAC0 */
+	status = "disabled";
+};
+&pfe2_mdio {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl0_pfe2_mdio_b>;
+	/* AR8035 */
+	mdio_b_phy1: ethernet-phy@1 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg = <1>;
+	};
+	/* AR8035 */
+	mdio_b_phy2: ethernet-phy@2 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg = <2>;
+	};
+	/* KSZ9031RNX */
+	mdio_b_phy4: ethernet-phy@4 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg = <4>;
+	};
+
+	/* SJA1110's phys: 0x09-0x0e */
+};
+
 &fxosc {
 	clock-frequency = <40000000>;
 };
@@ -194,37 +250,50 @@
 			   >;
 		};
 
-		pinctrl0_mdio_c: mdiocgrp {
+		pinctrl0_gmac0_mdio_a: gmac0mdioagrp {
 			fsl,pins = <
-				S32_GEN1_PAD_PD12__MDC
-				S32_GEN1_PAD_PD13__MDIO_OUT
-				S32_GEN1_PAD_PD13__MDIO_IN
+				S32_GEN1_PAD_PD12__GMAC0_MDC
+				S32_GEN1_PAD_PD13__GMAC0_MDIO_OUT
+				S32_GEN1_PAD_PD13__GMAC0_MDIO_IN
 			>;
 		};
 
-		pinctrl0_rgmii_c: rgmiicgrp {
+		pinctrl0_gmac0_rgmii_a: gmac0rgmiiagrp {
 			fsl,pins = <
-				S32_GEN1_PAD_PE2__TXCLK_OUT
-				S32_GEN1_PAD_PE2__TXCLK_IN
-				S32_GEN1_PAD_PE3__TX_EN_OUT
-				S32_GEN1_PAD_PE4__TX_D0_OUT
-				S32_GEN1_PAD_PE5__TX_D1_OUT
-				S32_GEN1_PAD_PE6__TX_D2_OUT
-				S32_GEN1_PAD_PE7__TX_D3_OUT
-				S32_GEN1_PAD_PE8__RXCLK_OUT
-				S32_GEN1_PAD_PE8__RXCLK_IN
-				S32_GEN1_PAD_PE9__RX_DV_OUT
-				S32_GEN1_PAD_PE9__RX_DV_IN
-				S32_GEN1_PAD_PE10__RX_D0_OUT
-				S32_GEN1_PAD_PE10__RX_D0_IN
-				S32_GEN1_PAD_PE11__RX_D1_OUT
-				S32_GEN1_PAD_PE11__RX_D1_IN
-				S32_GEN1_PAD_PE12__RX_D2_OUT
-				S32_GEN1_PAD_PE12__RX_D2_IN
-				S32_GEN1_PAD_PE13__RX_D3_OUT
-				S32_GEN1_PAD_PE13__RX_D3_IN
+				S32_GEN1_PAD_PE2__GMAC0_TXCLK_OUT
+				S32_GEN1_PAD_PE2__GMAC0_TXCLK_IN
+				S32_GEN1_PAD_PE3__GMAC0_TX_EN_OUT
+				S32_GEN1_PAD_PE4__GMAC0_TX_D0_OUT
+				S32_GEN1_PAD_PE5__GMAC0_TX_D1_OUT
+				S32_GEN1_PAD_PE6__GMAC0_TX_D2_OUT
+				S32_GEN1_PAD_PE7__GMAC0_TX_D3_OUT
+				S32_GEN1_PAD_PE8__GMAC0_RXCLK_OUT
+				S32_GEN1_PAD_PE8__GMAC0_RXCLK_IN
+				S32_GEN1_PAD_PE9__GMAC0_RX_DV_OUT
+				S32_GEN1_PAD_PE9__GMAC0_RX_DV_IN
+				S32_GEN1_PAD_PE10__GMAC0_RX_D0_OUT
+				S32_GEN1_PAD_PE10__GMAC0_RX_D0_IN
+				S32_GEN1_PAD_PE11__GMAC0_RX_D1_OUT
+				S32_GEN1_PAD_PE11__GMAC0_RX_D1_IN
+				S32_GEN1_PAD_PE12__GMAC0_RX_D2_OUT
+				S32_GEN1_PAD_PE12__GMAC0_RX_D2_IN
+				S32_GEN1_PAD_PE13__GMAC0_RX_D3_OUT
+				S32_GEN1_PAD_PE13__GMAC0_RX_D3_IN
 			>;
 
+		};
+
+		pinctrl0_pfe2_mdio_b: pfe2mdiobgrp {
+			fsl,pins = <
+				S32_GEN1_PAD_PE15__SIUL_GPIO79
+				S32_GEN1_PAD_PF2__SIUL_GPIO82
+			>;
+		};
+
+		pinctrl0_pfe2_rgmii_b: pfe2rgmiibgrp {
+			fsl,pins = <
+				S32_GEN1_PAD_PE14__SIUL_GPIO78
+			>;
 		};
 
 		pinctrl_gpio0: gpiogrp0 {
@@ -387,6 +456,22 @@
 			   >;
 		};
 
+		pinctrl1_pfe2_rgmii_b: pfe2rgmiibgrp {
+			fsl,pins = <
+				S32_GEN1_PAD_PH1__SIUL_GPIO113
+				S32_GEN1_PAD_PH2__SIUL_GPIO114
+				S32_GEN1_PAD_PH3__SIUL_GPIO115
+				S32_GEN1_PAD_PH4__SIUL_GPIO116
+				S32_GEN1_PAD_PH5__SIUL_GPIO117
+				S32_GEN1_PAD_PH6__SIUL_GPIO118
+				S32_GEN1_PAD_PH7__SIUL_GPIO119
+				S32_GEN1_PAD_PH8__SIUL_GPIO120
+				S32_GEN1_PAD_PH9__SIUL_GPIO121
+				S32_GEN1_PAD_PH10__SIUL_GPIO122
+				S32_GEN1_PAD_PJ0__SIUL_GPIO144
+			>;
+		};
+
 		pinctrl_gpio1: gpiogrp1 {
 			fsl,pins = <
 				S32_GEN1_PAD_PH0__SIUL_GPIO112
@@ -513,26 +598,28 @@
 			is-host = <0x1>;
 			null-phy = <0x1>;
 			phy-ref = < 0 >;
+			rx-delay = < 810 >;
+			tx-delay = < 810 >;
 		};
 		port-1 {
 			is-host = <0x0>;
-			null-phy = <0x1>;
-			phy-ref = < 0 >;
+			null-phy = <0x0>;
+			phy-ref = <&mdio_a_phy4>;
 		};
 		port-2 {
 			is-host = <0x0>;
-			null-phy = <0x1>;
-			phy-ref = < 0 >;
+			null-phy = <0x0>;
+			phy-ref = <&mdio_a_phy5>;
 		};
 		port-3 {
 			is-host = <0x0>;
-			null-phy = <0x1>;
-			phy-ref = < 0 >;
+			null-phy = <0x0>;
+			phy-ref = <&mdio_a_phy6>;
 		};
 		port-4 {
 			is-host = <0x0>;
-			null-phy = <0x1>;
-			phy-ref = < 0 >;
+			null-phy = <0x0>;
+			phy-ref = <&mdio_a_phy7>;
 		};
 	};
 };
@@ -553,7 +640,7 @@
 
 &gmac0 {
 	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl0_rgmii_c>, <&pinctrl0_mdio_c>;
+	pinctrl-0 = <&pinctrl0_gmac0_rgmii_a>;
 	phy-mode = "rgmii";
 	status = "okay";
 	/* direct connect to SJA1105Q P0 */
@@ -564,29 +651,31 @@
 };
 
 &gmac0_mdio {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl0_gmac0_mdio_a>;
 	/* TJA1102 over SJA1105Q P1 */
-	mdio_c_phy4: ethernet-phy@4 {
+	mdio_a_phy4: ethernet-phy@4 {
 		#address-cells = <1>;
 		#size-cells = <0>;
 		reg = <4>;
 		max-speed = <100>;
 	};
 	/* TJA1102 over SJA1105Q P2 */
-	mdio_c_phy5: ethernet-phy@5 {
+	mdio_a_phy5: ethernet-phy@5 {
 		#address-cells = <1>;
 		#size-cells = <0>;
 		reg = <5>;
 		max-speed = <100>;
 	};
 	/* TJA1102 over SJA1105Q P3 */
-	mdio_c_phy6: ethernet-phy@6 {
+	mdio_a_phy6: ethernet-phy@6 {
 		#address-cells = <1>;
 		#size-cells = <0>;
 		reg = <6>;
 		max-speed = <100>;
 	};
 	/* TJA1102 over SJA1105Q P4 */
-	mdio_c_phy7: ethernet-phy@7 {
+	mdio_a_phy7: ethernet-phy@7 {
 		#address-cells = <1>;
 		#size-cells = <0>;
 		reg = <7>;

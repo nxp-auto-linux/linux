@@ -1,0 +1,86 @@
+* NXP S32G274A PFE networking accelerator (pfeng)
+
+Required properties:
+- compatible : Should be "fsl,s32g274a-pfeng"
+- reg : Address and length of the register set for the device
+- interrupts : Should contain all pfeng interrupts: hif0..hif3,nocpy,bmu,upegpt,safety
+- clocks : Should contain at least: pfe_sys, pfe_pe, xbar
+- memory-region : Physical address space for PFE buffers, must be in the range 0x00020000 - 0xbfffffff
+- phy-mode : See ethernet.txt file in the same directory
+
+Optional properties:
+- firmware-name : The name of PFE firmware
+
+Required subnode:
+- ethernet : specifies the logical network interface
+
+Requires properties for 'ethernet' subnode:
+- compatible : Should be "fsl,pfeng-logif"
+- reg : Small number, indexing the network interfaces
+- fsl,pfeng-hif-channel : The number of HIF channel (0-3)
+- phy-mode : See ethernet.txt file in the same directory
+- fsl,pfeng-if-name : Logical interface name visible in the Linux
+- fsl,pfeng-emac-id : PFE EMAC id where the interface will be linked to
+
+Optional properties for 'ethernet' subnode:
+- local-mac-address : MAC address
+- phy-handle : phandle to the PHY device connected to this device.
+- fixed-link : Assume a fixed link. See fixed-link.txt in the same directory.
+  Use instead of phy-handle.
+
+Optional subnode for 'ethernet':
+- mdio : specifies the mdio bus, used as a container for phy nodes
+  according to phy.txt in the same directory
+
+Requires properties for 'mdio' subnode:
+- compatible = Should be "fsl,pfeng-mdio"
+
+Example:
+
+pfe@46080000 {
+	compatible = "fsl,s32g274a-pfeng",
+		     "fsl,s32g275-pfe";
+	reg = <0x0 0x46000000 0x0 0x1000000>,		/* PFE controller */
+		  <0x0 0x4007ca00 0x0 0x4>,		/* S32G274a syscon */
+		  <0x0 0x83400000 0x0 0xc00000>;	/* PFE DDR 12M */
+	#address-cells = <1>;
+	#size-cells = <0>;
+	memory-region = <&pfe_reserved>;
+	interrupt-parent = <&gic>;
+	interrupts =  <0 190 1>,			/* hif0 */
+		      <0 191 1>,			/* hif1 */
+		      <0 192 1>,			/* hif2 */
+		      <0 193 1>,			/* hif3 */
+		      <0 194 1>,			/* bmu */
+		      <0 195 1>,			/* nocpy */
+		      <0 196 1>,			/* upe/gpt */
+		      <0 197 1>;			/* safety */
+	interrupt-names = "hif0", "hif1", "hif2", "hif3",
+			  "bmu", "nocpy", "upegpt", "safety";
+	clocks = <&clks S32GEN1_CLK_PFE_SYS>, <&clks S32GEN1_CLK_PFE_PE>,
+		 <&clks S32GEN1_CLK_XBAR>;
+	clock-names = "pfe_sys", "pfe_pe", "xbar";
+	firmware-name = "s32g-pfeng-class.fw";
+	/* EMAC 0 */
+	pfe0_if: ethernet@0 {
+		compatible = "fsl,pfeng-logif";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg = <0>;				/* If id */
+		local-mac-address = [ 00 04 9F BE EF 00 ];
+		fsl,pfeng-if-name = "pfe0";
+		fsl,pfeng-hif-channel = <0>;		/* HIF channel 0 */
+		fsl,pfeng-emac-id = <0>;		/* Phy IF (EMAC) id */
+		phy-mode = "sgmii";
+		phy-handle = <&anyphy1>;
+		pfe0_mdio: mdio@0 {
+			compatible = "fsl,pfeng-mdio";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0x1>;
+			anyphy1: ethernet-phy@1 {
+				reg = <1>;
+			};
+		};
+	};
+};

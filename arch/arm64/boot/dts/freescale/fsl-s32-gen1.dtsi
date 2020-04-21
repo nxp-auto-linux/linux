@@ -658,7 +658,7 @@
 		tx-fifo-depth = <20480>;
 		rx-fifo-depth = <20480>;
 		clocks = <&clks S32GEN1_CLK_XBAR>, <&clks S32GEN1_CLK_XBAR>,
-			     <&clks S32GEN1_CLK_GMAC_TX>;
+			     <&clks S32GEN1_CLK_GMAC_0_TX>;
 		clock-names = "stmmaceth", "pclk", "tx";
 		gmac0_mdio: mdio0 {
 			compatible = "snps,dwmac-mdio";

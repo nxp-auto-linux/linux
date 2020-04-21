@@ -46,17 +46,85 @@
 		reg = <0x0 0x44018000 0x0 0x3000>;
 	};
 
-	pfe: ethernet@46080000 {
-		compatible = "fsl,s32g275-pfe";
-		reg = <0x0 0x46000000 0x0 0x1000000>;
+	pfe: pfe@46080000 {
+		compatible = "fsl,s32g274a-pfeng",
+			     "fsl,s32g275-pfe";
+		reg = <0x0 0x46000000 0x0 0x1000000>,	 /* PFE controller */
+			  <0x0 0x4007ca00 0x0 0x4>,	 /* S32G274a syscon */
+			  <0x0 0x83400000 0x0 0xc00000>; /* PFE DDR 12M */
+		#address-cells = <1>;
+		#size-cells = <0>;
 		interrupt-parent = <&gic>;
 		interrupts =  <0 190 1>, /* hif0 */
-		              <0 191 1>, /* hif1 */
-		              <0 192 1>, /* hif2 */
-		              <0 193 1>, /* hif3 */
-		              <0 194 1>; /* bmu */
+			      <0 191 1>, /* hif1 */
+			      <0 192 1>, /* hif2 */
+			      <0 193 1>, /* hif3 */
+			      <0 194 1>, /* bmu */
+			      <0 195 1>, /* nocpy */
+			      <0 196 1>, /* upe/gpt */
+			      <0 197 1>; /* safety */
 		interrupt-names = "hif0", "hif1", "hif2", "hif3",
-		                  "bmu";
+				  "bmu", "nocpy", "upegpt", "safety";
+		clocks = <&clks S32GEN1_CLK_PFE_SYS>,
+			 <&clks S32GEN1_CLK_PFE_PE>,
+			 <&clks S32GEN1_CLK_XBAR>;
+		clock-names = "pfe_sys", "pfe_pe", "xbar";
+		firmware-name = "s32g_pfe_class.fw";
+		/* EMAC 0 */
+		pfe0_if: ethernet@0 {
+			compatible = "fsl,pfeng-logif";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "okay";
+			reg = <0>;
+			local-mac-address = [ 00 04 9F BE EF 00 ];
+			fsl,pfeng-if-name = "pfe0";
+			fsl,pfeng-emac-id = <0>; /* Phy IF (EMAC) id */
+			pfe0_mdio: mdio@0 {
+				compatible = "fsl,pfeng-mdio";
+				#address-cells = <1>;
+				#size-cells = <0>;
+				reg = <0x1>;
+			};
+		};
+		/* EMAC 1 */
+		pfe1_if: ethernet@1 {
+			compatible = "fsl,pfeng-logif";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "okay";
+			reg = <1>;
+			clocks = <&clks S32GEN1_CLK_PFE_EMAC_1_TX>;
+			clock-names = "tx";
+			local-mac-address = [ 00 04 9F BE EF 01 ];
+			fsl,pfeng-if-name = "pfe1";
+			fsl,pfeng-emac-id = <1>; /* Phy IF (EMAC) id */
+			pfe1_mdio: mdio@0 {
+				compatible = "fsl,pfeng-mdio";
+				#address-cells = <1>;
+				#size-cells = <0>;
+				reg = <0x1>;
+			};
+		};
+		/* EMAC 2 */
+		pfe2_if: ethernet@2 {
+			compatible = "fsl,pfeng-logif";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "okay";
+			reg = <2>;
+			clocks = <&clks S32GEN1_CLK_PFE_EMAC_2_TX>;
+			clock-names = "tx";
+			local-mac-address = [ 00 04 9F BE EF 02 ];
+			fsl,pfeng-if-name = "pfe2";
+			fsl,pfeng-emac-id = <2>; /* Phy IF (EMAC) id */
+			pfe2_mdio: mdio@0 {
+				compatible = "fsl,pfeng-mdio";
+				#address-cells = <1>;
+				#size-cells = <0>;
+				reg = <0x1>;
+			};
+		};
 	};
 
 	siul2_0 {

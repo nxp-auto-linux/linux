@@ -80,8 +80,8 @@ static u32 ddr_mux_idx[] = {
 	MC_CGM_MUXn_CSC_SEL_DDR_PLL_PHI0,
 };
 
-PNAME(gmac_tx_sels) = {"firc", "periphpll_phi5", "serdes_0_lane_0", };
-static u32 gmac_tx_mux_idx[] = {
+PNAME(gmac_0_tx_sels) = {"firc", "periphpll_phi5", "serdes_0_lane_0", };
+static u32 gmac_0_tx_mux_idx[] = {
 	MC_CGM_MUXn_CSC_SEL_FIRC, MC_CGM_MUXn_CSC_SEL_PERIPH_PLL_PHI5,
 	MC_CGM_MUXn_CSC_SEL_SERDES_0_LANE_0_TX_CLK,
 };
@@ -91,19 +91,19 @@ static u32 pfe_pe_mux_idx[] = {
 	MC_CGM_MUXn_CSC_SEL_FIRC, MC_CGM_MUXn_CSC_SEL_ACCEL_PLL_PHI1,
 };
 
-PNAME(pfe_emac_0_tx_sels) = {"firc", "periphpll_phi5", "serdes_1_lane_0", };
+PNAME(pfe_emac_0_tx_sels) = {"firc", "periphpll_phi5", "serdes_1_lane_0_tx", };
 static u32 pfe_emac_0_tx_mux_idx[] = {
 	MC_CGM_MUXn_CSC_SEL_FIRC, MC_CGM_MUXn_CSC_SEL_PERIPH_PLL_PHI5,
 	MC_CGM_MUXn_CSC_SEL_SERDES_1_LANE_0_TX_CLK,
 };
 
-PNAME(pfe_emac_1_tx_sels) = {"firc", "periphpll_phi5", "serdes_1_lane_1", };
+PNAME(pfe_emac_1_tx_sels) = {"firc", "periphpll_phi5", "serdes_1_lane_1_tx", };
 static u32 pfe_emac_1_tx_mux_idx[] = {
 	MC_CGM_MUXn_CSC_SEL_FIRC, MC_CGM_MUXn_CSC_SEL_PERIPH_PLL_PHI5,
 	MC_CGM_MUXn_CSC_SEL_SERDES_1_LANE_1_TX_CLK,
 };
 
-PNAME(pfe_emac_2_tx_sels) = {"firc", "periphpll_phi5", "serdes_0_lane_1", };
+PNAME(pfe_emac_2_tx_sels) = {"firc", "periphpll_phi5", "serdes_0_lane_1_tx", };
 static u32 pfe_emac_2_tx_mux_idx[] = {
 	MC_CGM_MUXn_CSC_SEL_FIRC, MC_CGM_MUXn_CSC_SEL_PERIPH_PLL_PHI5,
 	MC_CGM_MUXn_CSC_SEL_SERDES_0_LANE_1_TX_CLK,
@@ -138,7 +138,7 @@ static void __init s32g275_extra_clocks_init(struct device_node *clocking_node)
 	clk[S32GEN1_CLK_PFE_SYS] = s32_clk_fixed_factor("pfe_sys",
 		"pfe_pe", 1, 2);
 
-	/* PFE EMAC 0-2 clocks */
+	/* PFE EMAC 0 clocks */
 	clk[S32GEN1_CLK_PFE_EMAC_0_TX_SEL] = s32_clk_mux_table(
 		"pfe_emac_0_tx_sel",
 		CGM_MUXn_CSC(mc_cgm2_base, 1),
@@ -151,6 +151,7 @@ static void __init s32g275_extra_clocks_init(struct device_node *clocking_node)
 		CGM_MUXn_DC(mc_cgm2_base, 1), MC_CGM_MUX_DCn_DIV_OFFSET,
 		MC_CGM_MUX_DCn_DIV_SIZE, 0, &s32gen1_lock);
 
+	/* PFE EMAC 1 clocks */
 	clk[S32GEN1_CLK_PFE_EMAC_1_TX_SEL] = s32_clk_mux_table(
 		"pfe_emac_1_tx_sel",
 		CGM_MUXn_CSC(mc_cgm2_base, 2),
@@ -163,6 +164,7 @@ static void __init s32g275_extra_clocks_init(struct device_node *clocking_node)
 		CGM_MUXn_DC(mc_cgm2_base, 2), MC_CGM_MUX_DCn_DIV_OFFSET,
 		MC_CGM_MUX_DCn_DIV_SIZE, 0, &s32gen1_lock);
 
+	/* PFE EMAC 2 clocks */
 	clk[S32GEN1_CLK_PFE_EMAC_2_TX_SEL] = s32_clk_mux_table(
 		"pfe_emac_2_tx_sel",
 		CGM_MUXn_CSC(mc_cgm2_base, 3),
@@ -510,12 +512,14 @@ static void __init s32gen1_clocks_init(struct device_node *clocking_node)
 		ddr_sels, ARRAY_SIZE(ddr_sels), ddr_mux_idx, &s32gen1_lock);
 
 	/* GMAC clock */
-	clk[S32GEN1_CLK_GMAC_TX_SEL] = s32_clk_mux_table("gmac_tx_sel",
+	clk[S32GEN1_CLK_GMAC_0_TX_SEL] = s32_clk_mux_table("gmac_0_tx_sel",
 		CGM_MUXn_CSC(mc_cgm0_base, 10),
 		MC_CGM_MUXn_CSC_SELCTL_OFFSET,
 		MC_CGM_MUXn_CSC_SELCTL_SIZE,
-		gmac_tx_sels, ARRAY_SIZE(gmac_tx_sels), gmac_tx_mux_idx, &s32gen1_lock);
-	clk[S32GEN1_CLK_GMAC_TX] = s32_clk_divider_flags("gmac_tx", "gmac_tx_sel",
+		gmac_0_tx_sels, ARRAY_SIZE(gmac_0_tx_sels), gmac_0_tx_mux_idx,
+		&s32gen1_lock);
+	clk[S32GEN1_CLK_GMAC_0_TX] = s32_clk_divider_flags("gmac_0_tx",
+		"gmac_0_tx_sel",
 		CGM_MUXn_DC(mc_cgm0_base, 10), MC_CGM_MUX_DCn_DIV_OFFSET,
 		MC_CGM_MUX_DCn_DIV_SIZE, 0, &s32gen1_lock);
 
