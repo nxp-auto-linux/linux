@@ -62,6 +62,7 @@ config DWMAC_S32CC
 	default ARCH_S32
 	depends on OF && (ARCH_S32 || COMPILE_TEST) && SOC_S32GEN1
 	select MFD_SYSCON
+	select PHYLINK
 	help
 	  Support for ethernet controller on NXP S32x SOCs.
 
