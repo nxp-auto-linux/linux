@@ -724,7 +724,7 @@
 	status = "okay";
 
 	spidev0: spidev@0 {
-		compatible = "spidev";
+		compatible = "rohm,dh2228fv";
 		spi-max-frequency = <4000000>;
 		reg = <0>;
 	};
