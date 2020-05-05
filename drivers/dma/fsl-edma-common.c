@@ -42,7 +42,7 @@
 
 #define EDMA_TCD		0x1000
 
-static void fsl_edma_enable_request(struct fsl_edma_chan *fsl_chan)
+void fsl_edma_enable_request(struct fsl_edma_chan *fsl_chan)
 {
 	struct edma_regs *regs = &fsl_chan->edma->regs;
 	u32 ch = fsl_chan->vchan.chan.chan_id;
