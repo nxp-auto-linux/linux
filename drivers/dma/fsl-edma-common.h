@@ -146,10 +146,17 @@ enum edma_version {
 struct fsl_edma_drvdata {
 	enum edma_version	version;
 	u32			dmamuxs;
+	int			n_irqs;
+	struct		fsl_edma_irq *irqs;
 	bool			has_dmaclk;
 	bool			mux_swap;
 	int			(*setup_irq)(struct platform_device *pdev,
 					     struct fsl_edma_engine *fsl_edma);
+};
+
+struct fsl_edma_irq {
+	char *name;
+	irqreturn_t (*irqhandler)(int irq, void *data);
 };
 
 struct fsl_edma_engine {
@@ -221,6 +228,7 @@ static inline struct fsl_edma_desc *to_fsl_edma_desc(struct virt_dma_desc *vd)
 	return container_of(vd, struct fsl_edma_desc, vdesc);
 }
 
+void fsl_edma_enable_request(struct fsl_edma_chan *fsl_chan);
 void fsl_edma_disable_request(struct fsl_edma_chan *fsl_chan);
 void fsl_edma_chan_mux(struct fsl_edma_chan *fsl_chan,
 			unsigned int slot, bool enable);
