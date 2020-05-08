@@ -79,10 +79,10 @@ static void print_rtc(struct platform_device *pdev)
  *          twice the rollover interval
  */
 static int s32gen1_sec_to_rtcval(const struct rtc_s32gen1_priv *priv,
-				 unsigned long seconds, unsigned long *rtcval)
+				 unsigned long seconds, u32 *rtcval)
 {
 	u32 rtccnt, delta_cnt;
-	unsigned long target_cnt = 0;
+	u32 target_cnt = 0;
 
 	/* For now, support at most one roll-over of the counter */
 	if (!seconds || seconds > ULONG_MAX / priv->rtc_hz)
@@ -168,7 +168,7 @@ static int s32gen1_rtc_set_alarm(struct device *dev, struct rtc_wkalrm *alrm)
 {
 	unsigned long t_crt, t_alrm;
 	struct rtc_time time_crt;
-	unsigned long rtcval;
+	u32 rtcval;
 	int err = 0, ret;
 	struct rtc_s32gen1_priv *priv = dev_get_drvdata(dev);
 
