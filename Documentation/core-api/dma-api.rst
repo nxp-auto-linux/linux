@@ -621,6 +621,17 @@ memory or doing partial flushes.
 	of two for easy alignment.
 
 
+::
+
+	void
+	dma_release_declared_memory(struct device *dev)
+
+Remove the memory region previously declared from the system.  This
+API performs *no* in-use checking for this region and will return
+unconditionally having removed all the required structures.  It is the
+driver's job to ensure that no parts of this memory region are
+currently in use.
+
 Part III - Debug drivers use of the DMA-API
 -------------------------------------------
 
