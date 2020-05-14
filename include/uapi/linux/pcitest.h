@@ -19,5 +19,7 @@
 #define PCITEST_MSIX		_IOW('P', 0x7, int)
 #define PCITEST_SET_IRQTYPE	_IOW('P', 0x8, int)
 #define PCITEST_GET_IRQTYPE	_IO('P', 0x9)
+#define PCITEST_DMA_WRITE	_IOW('P', 0xa, unsigned long)
+#define PCITEST_DMA_READ	_IOW('P', 0xb, unsigned long)
 
 #endif /* __UAPI_LINUX_PCITEST_H */

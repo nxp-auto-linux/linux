@@ -32,6 +32,8 @@ struct pci_test {
 	bool		get_irqtype;
 	bool		read;
 	bool		write;
+	bool		dma_read;
+	bool		dma_write;
 	bool		copy;
 	unsigned long	size;
 };
@@ -119,6 +121,26 @@ static int run_test(struct pci_test *test)
 			fprintf(stdout, "%s\n", result[ret]);
 	}
 
+	if (test->dma_write) {
+		fprintf(stdout, "DMA WRITE tests\n");
+		ret = ioctl(fd, PCITEST_DMA_WRITE, test->size);
+		fprintf(stdout, "DMA WRITE (%7ld bytes):\t\t", test->size);
+		if (ret < 0)
+			fprintf(stdout, "TEST FAILED\n");
+		else
+			fprintf(stdout, "%s\n", result[ret]);
+	}
+
+	if (test->dma_read) {
+		fprintf(stdout, "DMA READ tests\n");
+		ret = ioctl(fd, PCITEST_DMA_READ, test->size);
+		fprintf(stdout, "DMA READ (%7ld bytes):\t\t", test->size);
+		if (ret < 0)
+			fprintf(stdout, "TEST FAILED\n");
+		else
+			fprintf(stdout, "%s\n", result[ret]);
+	}
+
 	if (test->copy) {
 		ret = ioctl(fd, PCITEST_COPY, test->size);
 		fprintf(stdout, "COPY (%7ld bytes):\t\t", test->size);
@@ -153,7 +175,7 @@ int main(int argc, char **argv)
 	/* set default endpoint device */
 	test->device = "/dev/pci-endpoint-test.0";
 
-	while ((c = getopt(argc, argv, "D:b:m:x:i:Ilhrwcs:")) != EOF)
+	while ((c = getopt(argc, argv, "D:b:m:x:i:IlhrwRWcs:")) != EOF)
 	switch (c) {
 	case 'D':
 		test->device = optarg;
@@ -191,6 +213,12 @@ int main(int argc, char **argv)
 	case 'w':
 		test->write = true;
 		continue;
+	case 'R':
+		test->dma_read = true;
+		continue;
+	case 'W':
+		test->dma_write = true;
+		continue;
 	case 'c':
 		test->copy = true;
 		continue;
@@ -212,6 +240,8 @@ usage:
 			"\t-l			Legacy IRQ test\n"
 			"\t-r			Read buffer test\n"
 			"\t-w			Write buffer test\n"
+			"\t-R			DMA Read buffer test\n"
+			"\t-W			DMA Write buffer test\n"
 			"\t-c			Copy buffer test\n"
 			"\t-s <size>		Size of buffer {default: 100KB}\n"
 			"\t-h			Print this help message\n",
