@@ -598,6 +598,18 @@
 	status = "okay";
 };
 
+&qspi {
+	status = "okay";
+
+	mx25uw51245g@0 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "jedec,spi-nor";
+		spi-max-frequency = <200000000>;
+		reg = <0>;
+	};
+};
+
 &gmac0 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl0_rgmii2>, <&pinctrl0_mdio2>;
