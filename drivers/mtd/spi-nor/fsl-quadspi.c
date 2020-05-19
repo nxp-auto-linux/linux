@@ -2,7 +2,7 @@
  * Freescale QuadSPI driver.
  *
  * Copyright (C) 2013 Freescale Semiconductor, Inc.
- * Copyright (C) 2017 NXP
+ * Copyright (C) 2017,2020 NXP
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -30,6 +30,7 @@
 #include <linux/mutex.h>
 #include <linux/pm_qos.h>
 #include <linux/sizes.h>
+#include <linux/spi/spi-mem.h>
 
 /* Controller needs driver to swap endian */
 #define QUADSPI_QUIRK_SWAP_ENDIAN	(1 << 0)
@@ -42,6 +43,11 @@
 #define QUADSPI_QUIRK_TKT253890		(1 << 2)
 /* Controller cannot wake up from wait mode, TKT245618 */
 #define QUADSPI_QUIRK_TKT245618         (1 << 3)
+
+#ifdef CONFIG_SOC_S32GEN1
+#define RX_BUFFER_SIZE		0x80
+#define TX_BUFFER_SIZE		0x100
+#endif
 
 /* The registers */
 #define QUADSPI_MCR			0x00
@@ -217,6 +223,7 @@ enum fsl_qspi_devtype {
 	FSL_QUADSPI_IMX6UL,
 	FSL_QUADSPI_LS1021A,
 	FSL_QUADSPI_S32V234,
+	FSL_QUADSPI_S32GEN1,
 	FSL_QUADSPI_LS2080A,
 };
 
@@ -275,6 +282,14 @@ static struct fsl_qspi_devtype_data s32v234_data = {
 	.devtype = FSL_QUADSPI_S32V234,
 	.rxfifo = 128,
 	.txfifo = 128,
+	.driver_data = 0,
+};
+
+static struct fsl_qspi_devtype_data s32gen1_data = {
+	.devtype = FSL_QUADSPI_S32GEN1,
+	.rxfifo = 128,
+	.txfifo = 256,
+	.ahb_buf_size = 1024,
 	.driver_data = 0,
 };
 
@@ -851,6 +866,7 @@ static const struct of_device_id fsl_qspi_dt_ids[] = {
 	{ .compatible = "fsl,imx6ul-qspi", .data = &imx6ul_data, },
 	{ .compatible = "fsl,ls1021a-qspi", .data = (void *)&ls1021a_data, },
 	{ .compatible = "fsl,s32v234-qspi", .data = (void *)&s32v234_data, },
+	{ .compatible = "fsl,s32gen1-qspi", .data = (void *)&s32gen1_data, },
 	{ .compatible = "fsl,ls2080a-qspi", .data = &ls2080a_data, },
 	{ /* sentinel */ }
 };
