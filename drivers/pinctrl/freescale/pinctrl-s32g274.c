@@ -719,11 +719,17 @@ static int s32g274_pinctrl_probe(struct platform_device *pdev)
 			(pdev, (struct s32_pinctrl_soc_info *) of_id->data);
 }
 
+static const struct dev_pm_ops s32g274_pinctrl_pm_ops = {
+	SET_LATE_SYSTEM_SLEEP_PM_OPS(s32_pinctrl_suspend,
+				     s32_pinctrl_resume)
+};
+
 static struct platform_driver s32g274_pinctrl_driver = {
 	.driver = {
 		.name = "s32g274-siul2-pinctrl",
 		.owner = THIS_MODULE,
 		.of_match_table = s32_pinctrl_of_match,
+		.pm = &s32g274_pinctrl_pm_ops,
 	},
 	.probe = s32g274_pinctrl_probe,
 	.remove = s32_pinctrl_remove,
