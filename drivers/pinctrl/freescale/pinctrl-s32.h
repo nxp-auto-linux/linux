@@ -1,7 +1,7 @@
 /*
  * S32 pinmux core definitions
  *
- * Copyright 2016-2018 NXP
+ * Copyright 2016-2020 NXP
  * Copyright 2015-2016 Freescale Semiconductor, Inc.
  * Copyright (C) 2012 Linaro Ltd.
  *
@@ -88,5 +88,9 @@ struct s32_pinctrl_soc_info {
 int s32_pinctrl_probe(struct platform_device *pdev,
 			struct s32_pinctrl_soc_info *info);
 int s32_pinctrl_remove(struct platform_device *pdev);
+#ifdef CONFIG_PM_SLEEP
+int s32_pinctrl_resume(struct device *dev);
+int s32_pinctrl_suspend(struct device *dev);
+#endif
 #endif /* __DRIVERS_PINCTRL_S32_H */
 
