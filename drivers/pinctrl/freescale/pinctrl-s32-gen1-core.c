@@ -2,7 +2,7 @@
  * Core driver for the S32 pin controller
  *
  * Copyright 2015-2016 Freescale Semiconductor, Inc.
- * Copyright 2017-2018 NXP
+ * Copyright 2017-2020 NXP
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -20,6 +20,7 @@
 #include <linux/pinctrl/pinconf.h>
 #include <linux/pinctrl/pinctrl.h>
 #include <linux/pinctrl/pinmux.h>
+#include <linux/gpio/driver.h>
 #include <linux/slab.h>
 
 #include "../core.h"
@@ -36,10 +37,15 @@ struct gpio_pin_config {
 	struct list_head list;
 };
 
+struct s32_pinctrl_context {
+	unsigned long *pads;
+};
+
 /**
  * @dev: a pointer back to containing device
  * @base: the offset to the controller in virtual memory
  * @gpio_configs: Saved configurations for GPIO pins
+ * @s32_pinctrl_context: Configuration saved over system sleep
  */
 struct s32_pinctrl {
 	struct device *dev;
@@ -48,6 +54,9 @@ struct s32_pinctrl {
 	void __iomem *imcr_base;
 	const struct s32_pinctrl_soc_info *info;
 	struct list_head gpio_configs;
+#ifdef CONFIG_PM_SLEEP
+	struct s32_pinctrl_context saved_context;
+#endif
 };
 
 static const char *pin_get_name_from_info(struct s32_pinctrl_soc_info *info,
@@ -507,6 +516,70 @@ static struct pinctrl_desc s32_pinctrl_desc = {
 	.owner = THIS_MODULE,
 };
 
+#ifdef CONFIG_PM_SLEEP
+static bool s32_pinctrl_should_save(struct s32_pinctrl *ipctl,
+						   unsigned int pin)
+{
+	const struct pin_desc *pd = pin_desc_get(ipctl->pctl, pin);
+
+	if (!pd)
+		return false;
+
+	/*
+	 * Only restore the pin if it is actually in use by the kernel (or
+	 * by userspace).
+	 */
+	if (pd->mux_owner || pd->gpio_owner)
+		return true;
+
+	return false;
+}
+
+int s32_pinctrl_suspend(struct device *dev)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct s32_pinctrl *ipctl = platform_get_drvdata(pdev);
+	const struct pinctrl_pin_desc *pin;
+	const struct s32_pinctrl_soc_info *info = ipctl->info;
+	struct s32_pinctrl_context *saved_context = &ipctl->saved_context;
+	int i;
+
+	for (i = 0; i < info->npins; i++) {
+		pin = &info->pins[i];
+
+		if (!s32_pinctrl_should_save(ipctl, pin->number))
+			continue;
+
+		saved_context->pads[i] = s32_pinctrl_readl(ipctl->pctl,
+							    pin->number);
+	}
+
+	return 0;
+}
+
+int s32_pinctrl_resume(struct device *dev)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct s32_pinctrl *ipctl = platform_get_drvdata(pdev);
+	const struct s32_pinctrl_soc_info *info = ipctl->info;
+	const struct pinctrl_pin_desc *pin;
+	struct s32_pinctrl_context *saved_context = &ipctl->saved_context;
+	int i;
+
+	for (i = 0; i < info->npins; i++) {
+		pin = &info->pins[i];
+
+		if (!s32_pinctrl_should_save(ipctl, pin->number))
+			continue;
+
+		s32_pinctrl_writel(saved_context->pads[i],
+				   ipctl->pctl, pin->number);
+	}
+
+	return 0;
+}
+#endif
+
 static int s32_pinctrl_parse_groups(struct device_node *np,
 				    struct s32_pin_group *grp,
 				    struct s32_pinctrl_soc_info *info,
@@ -662,6 +735,9 @@ int s32_pinctrl_probe(struct platform_device *pdev,
 	struct resource *res, *res1;
 	int ret;
 	struct pinctrl_desc *desc;
+#ifdef CONFIG_PM_SLEEP
+	struct s32_pinctrl_context *saved_context;
+#endif
 
 	if (!info || !info->pins || !info->npins) {
 		dev_err(&pdev->dev, "wrong pinctrl info\n");
@@ -710,6 +786,16 @@ int s32_pinctrl_probe(struct platform_device *pdev,
 	}
 
 	INIT_LIST_HEAD(&ipctl->gpio_configs);
+
+#ifdef CONFIG_PM_SLEEP
+	saved_context = &ipctl->saved_context;
+	saved_context->pads =
+		devm_kcalloc(&pdev->dev, info->npins,
+			     sizeof(*saved_context->pads),
+			     GFP_KERNEL);
+	if (!saved_context->pads)
+		return -ENOMEM;
+#endif
 
 	dev_info(&pdev->dev, "initialized s32 pinctrl driver\n");
 

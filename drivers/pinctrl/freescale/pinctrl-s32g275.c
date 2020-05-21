@@ -2,7 +2,7 @@
  * s32g275 pinctrl driver based on imx pinmux and pinconf core
  *
  * Copyright 2015-2016 Freescale Semiconductor, Inc.
- * Copyright 2017-2018,2020 NXP
+ * Copyright 2017-2020 NXP
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -717,11 +717,17 @@ static int s32g275_pinctrl_probe(struct platform_device *pdev)
 			(pdev, (struct s32_pinctrl_soc_info *) of_id->data);
 }
 
+static const struct dev_pm_ops s32g275_pinctrl_pm_ops = {
+	SET_LATE_SYSTEM_SLEEP_PM_OPS(s32_pinctrl_suspend,
+				     s32_pinctrl_resume)
+};
+
 static struct platform_driver s32g275_pinctrl_driver = {
 	.driver = {
 		.name = "s32g275-siul2-pinctrl",
 		.owner = THIS_MODULE,
 		.of_match_table = s32_pinctrl_of_match,
+		.pm = &s32g275_pinctrl_pm_ops,
 	},
 	.probe = s32g275_pinctrl_probe,
 	.remove = s32_pinctrl_remove,
