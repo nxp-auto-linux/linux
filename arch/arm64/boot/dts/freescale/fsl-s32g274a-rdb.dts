@@ -201,6 +201,12 @@
 &pinctrl0 {
 	status = "okay";
 	s32g274a-evb {
+		pinctrl0_ftm1: ftm1grp {
+			fsl,pins = <
+				S32_GEN1_PAD_PF_00__FTM1_CH5_O
+			>;
+		};
+
 		pinctrl0_can0: can0grp {
 			fsl,pins = <
 				S32_GEN1_PAD_PC12__CAN0_TXD
@@ -408,6 +414,19 @@
 &pinctrl1 {
 	status = "okay";
 	s32g274a-evb {
+		pinctrl1_ftm0: ftm0grp {
+			fsl,pins = <
+				S32_GEN1_PAD_PK_07__FTM0_CH0_O
+				S32_GEN1_PAD_PK_07__FTM0_CH0_I
+			>;
+		};
+
+		pinctrl1_ftm1: ftm1grp {
+			fsl,pins = <
+				S32_GEN1_PAD_PF_00__FTM1_CH5_I
+			>;
+		};
+
 		pinctrl1_can2: can2grp {
 			fsl,pins = <
 				S32_GEN1_PAD_PB12__CAN2_RXD_IN
@@ -699,5 +718,17 @@
 };
 
 &pcie1 {
+	status = "okay";
+};
+
+&pwm0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl1_ftm0>;
+	status = "okay";
+};
+
+&pwm1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl0_ftm1>, <&pinctrl1_ftm1>;
 	status = "okay";
 };
