@@ -3,6 +3,7 @@
  *  Freescale FlexTimer Module (FTM) PWM Driver
  *
  *  Copyright 2012-2013 Freescale Semiconductor, Inc.
+ *  Copyright 2020 NXP
  */
 
 #include <linux/clk.h>
@@ -32,6 +33,7 @@ enum fsl_pwm_clk {
 
 struct fsl_ftm_soc {
 	bool has_enable_bits;
+	unsigned int npwm;
 };
 
 struct fsl_pwm_periodcfg {
@@ -456,7 +458,7 @@ static int fsl_pwm_probe(struct platform_device *pdev)
 	fpc->chip.of_xlate = of_pwm_xlate_with_flags;
 	fpc->chip.of_pwm_n_cells = 3;
 	fpc->chip.base = -1;
-	fpc->chip.npwm = 8;
+	fpc->chip.npwm = fpc->soc->npwm;
 
 	ret = pwmchip_add(&fpc->chip);
 	if (ret < 0) {
@@ -537,15 +539,23 @@ static const struct dev_pm_ops fsl_pwm_pm_ops = {
 
 static const struct fsl_ftm_soc vf610_ftm_pwm = {
 	.has_enable_bits = false,
+	.npwm = 8,
 };
 
 static const struct fsl_ftm_soc imx8qm_ftm_pwm = {
 	.has_enable_bits = true,
+	.npwm = 8,
+};
+
+static const struct fsl_ftm_soc s32gen1_ftm_pwm = {
+	.has_enable_bits = true,
+	.npwm = 6,
 };
 
 static const struct of_device_id fsl_pwm_dt_ids[] = {
 	{ .compatible = "fsl,vf610-ftm-pwm", .data = &vf610_ftm_pwm },
 	{ .compatible = "fsl,imx8qm-ftm-pwm", .data = &imx8qm_ftm_pwm },
+	{ .compatible = "fsl,s32gen1-ftm-pwm", .data = &s32gen1_ftm_pwm },
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, fsl_pwm_dt_ids);
