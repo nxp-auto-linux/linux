@@ -39,7 +39,7 @@ struct hse_key {
 };
 
 /**
- * check_aes_keylen - validate key length for AES algorithms
+ * hse_check_aes_keylen - validate key length for AES algorithms
  * @keylen: AES key length
  *
  * Return: 0 on success, -EINVAL otherwise

@@ -211,6 +211,7 @@ static inline int hse_err_decode(u32 srv_rsp)
  * If HSE_CH_TYPE_STREAM is requested, return a free channel from the first
  * HSE_STREAM_COUNT, the only ones usable for streaming mode. Otherwise,
  * if HSE_CH_TYPE_SHARED is requested, find any available service channel.
+ * Channel 0 is reserved for administrative services and cannot be used.
  *
  * Return: channel index, HSE_CHANNEL_INV if none available
  */
@@ -219,7 +220,7 @@ static u8 hse_next_free_channel(struct device *dev, enum hse_ch_type type)
 	struct hse_drvdata *drv = dev_get_drvdata(dev);
 	u8 channel;
 
-	for (channel = 0; channel < HSE_NUM_CHANNELS; channel++)
+	for (channel = 1; channel < HSE_NUM_CHANNELS; channel++)
 		switch (type) {
 		case HSE_CH_TYPE_STREAM:
 			if (channel >= HSE_STREAM_COUNT ||
