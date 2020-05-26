@@ -200,7 +200,7 @@
 
 &pinctrl0 {
 	status = "okay";
-	s32g274a-evb {
+	s32g274a-rdb {
 		pinctrl0_ftm1: ftm1grp {
 			fsl,pins = <
 				S32_GEN1_PAD_PF_00__FTM1_CH5_O
@@ -413,7 +413,7 @@
 
 &pinctrl1 {
 	status = "okay";
-	s32g274a-evb {
+	s32g274a-rdb {
 		pinctrl1_ftm0: ftm0grp {
 			fsl,pins = <
 				S32_GEN1_PAD_PK_07__FTM0_CH0_O
