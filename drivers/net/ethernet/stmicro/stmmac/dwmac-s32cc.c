@@ -162,6 +162,10 @@ static int s32cc_dwmac_probe(struct platform_device *pdev)
 	if (IS_ERR(plat_dat))
 		return PTR_ERR(plat_dat);
 
+	plat_dat->bus_id = of_alias_get_id(pdev->dev.of_node, "gmac");
+	if (plat_dat->bus_id < 0)
+		plat_dat->bus_id = 0;
+
 	ret = dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(32));
 	if (ret) {
 		dev_err(&pdev->dev, "System does not support DMA, aborting\n");
@@ -172,6 +176,7 @@ static int s32cc_dwmac_probe(struct platform_device *pdev)
 	gmac->tx_clk = devm_clk_get(&pdev->dev, "tx");
 	if (IS_ERR(gmac->tx_clk)) {
 		dev_info(&pdev->dev, "tx clock not found\n");
+		gmac->tx_clk = NULL;
 	}
 
 	ret = s32cc_gmac_init(pdev, gmac);
