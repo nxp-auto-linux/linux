@@ -2,7 +2,7 @@
  * s32r45x pinctrl driver based on imx pinmux and pinconf core
  *
  * Copyright 2015-2016 Freescale Semiconductor, Inc.
- * Copyright 2017-2018 NXP
+ * Copyright 2017-2018,2020 NXP
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -247,6 +247,8 @@ enum s32_pins {
 	S32R45X_IMCR_Ethernet_RX_DV = 530,
 	S32R45X_IMCR_Ethernet_TX_CLK = 538,
 	S32R45X_IMCR_Ethernet_REF_CLK = 535,
+	/* GMAC1 */
+	S32R45X_IMCR_Ethernet1_MDIO = 659,
 
 	S32R45X_IMCR_SIUL_EIRQ0 =  696,
 	S32R45X_IMCR_SIUL_EIRQ1 =  697,
@@ -547,6 +549,10 @@ static const struct pinctrl_pin_desc s32_pinctrl_pads_siul2_1[] = {
 	S32_PINCTRL_PIN(S32R45X_IMCR_SIUL_EIRQ29),
 	S32_PINCTRL_PIN(S32R45X_IMCR_SIUL_EIRQ30),
 	S32_PINCTRL_PIN(S32R45X_IMCR_SIUL_EIRQ31),
+
+	/* GMAC1 */
+	S32_PINCTRL_PIN(S32R45X_IMCR_Ethernet1_MDIO),
+
 };
 
 static struct s32_pinctrl_soc_info s32_pinctrl_info_0 = {

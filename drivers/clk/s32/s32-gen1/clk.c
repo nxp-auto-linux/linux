@@ -86,6 +86,12 @@ static u32 gmac_0_tx_mux_idx[] = {
 	MC_CGM_MUXn_CSC_SEL_SERDES_0_LANE_0_TX_CLK,
 };
 
+PNAME(gmac_1_tx_sels) = {"firc", "periphpll_phi5", "serdes_1_lane_0", };
+static u32 gmac_1_tx_mux_idx[] = {
+	MC_CGM_MUXn_CSC_SEL_FIRC, MC_CGM_MUXn_CSC_SEL_PERIPH_PLL_PHI5,
+	MC_CGM_MUXn_CSC_SEL_SERDES_1_LANE_0_TX_CLK_R45,
+};
+
 PNAME(pfe_pe_sels) = {"firc", "accelpll_phi1",};
 static u32 pfe_pe_mux_idx[] = {
 	MC_CGM_MUXn_CSC_SEL_FIRC, MC_CGM_MUXn_CSC_SEL_ACCEL_PLL_PHI1,
@@ -197,6 +203,18 @@ static void __init s32r45x_extra_clocks_init(struct device_node *clocking_node)
 		MC_CGM_MUXn_CSC_SELCTL_SIZE,
 		accel_4_sels, ARRAY_SIZE(accel_4_sels), accel_4_mux_idx,
 		&s32gen1_lock);
+
+	/* GMAC 1 clock */
+	clk[S32GEN1_CLK_GMAC_1_TX_SEL] = s32_clk_mux_table("gmac_1_tx_sel",
+		CGM_MUXn_CSC(mc_cgm2_base, 2),
+		MC_CGM_MUXn_CSC_SELCTL_OFFSET,
+		MC_CGM_MUXn_CSC_SELCTL_SIZE,
+		gmac_1_tx_sels, ARRAY_SIZE(gmac_1_tx_sels), gmac_1_tx_mux_idx,
+		&s32gen1_lock);
+	clk[S32GEN1_CLK_GMAC_1_TX] = s32_clk_divider_flags("gmac_1_tx",
+		"gmac_1_tx_sel",
+		CGM_MUXn_DC(mc_cgm2_base, 2), MC_CGM_MUX_DCn_DIV_OFFSET,
+		MC_CGM_MUX_DCn_DIV_SIZE, 0, &s32gen1_lock);
 }
 
 static void __init s32gen1_clocks_init(struct device_node *clocking_node)
@@ -208,6 +226,7 @@ static void __init s32gen1_clocks_init(struct device_node *clocking_node)
 	u32 periphpll_pllodiv[] = {
 		PERIPH_PLLDIG_PLLODIV0, PERIPH_PLLDIG_PLLODIV1,
 		PERIPH_PLLDIG_PLLODIV2, PERIPH_PLLDIG_PLLODIV3,
+
 		PERIPH_PLLDIG_PLLODIV4, PERIPH_PLLDIG_PLLODIV5,
 		PERIPH_PLLDIG_PLLODIV6
 	};
