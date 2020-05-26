@@ -714,7 +714,7 @@ static int hse_ahash_export(struct ahash_request *req, void *out)
 	dma_sync_single_for_device(alg->dev, rctx->srv_desc_dma,
 				   sizeof(rctx->srv_desc), DMA_TO_DEVICE);
 
-	err = hse_srv_req_sync(alg->dev, HSE_CHANNEL_ANY, rctx->srv_desc_dma);
+	err = hse_srv_req_sync(alg->dev, rctx->stream, rctx->srv_desc_dma);
 	if (unlikely(err))
 		dev_dbg(alg->dev, "%s: export context failed for %s: %d\n",
 			__func__, crypto_ahash_alg_name(tfm), err);
@@ -794,7 +794,7 @@ static int hse_ahash_import(struct ahash_request *req, const void *in)
 		goto err_free_buf;
 	}
 
-	err = hse_srv_req_sync(alg->dev, HSE_CHANNEL_ANY, rctx->srv_desc_dma);
+	err = hse_srv_req_sync(alg->dev, rctx->stream, rctx->srv_desc_dma);
 	if (unlikely(err)) {
 		dev_dbg(alg->dev, "%s: import context failed for %s: %d\n",
 			__func__, crypto_ahash_alg_name(tfm), err);
