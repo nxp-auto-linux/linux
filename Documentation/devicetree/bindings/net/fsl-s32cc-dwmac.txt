@@ -1,0 +1,48 @@
+* NXP S32G/R GMAC ethernet controller
+
+This device is a platform glue layer for stmmac.
+Please see stmmac.txt for the other unchanged properties.
+
+Required properties:
+- compatible: must be the following string:
+		"fsl,s32cc-dwmac"
+- reg: two tuples are required:
+  1) address and length of the register set for the device.
+  2) address and length of the MAC control register
+- interrupts: interrupt for the device
+- interrupt-names: must be "macirq"
+- clocks: A phandle to the reference clock for this device
+- clock-names: must be "stmmaceth" and "pclk"
+- phy-mode: See ethernet.txt
+- phy-handle: See ethernet.txt
+
+Optional child node of emac:
+- mdio bus node: should be named mdio with compatible "snps,dwmac-mdio"
+
+The device node referenced by "phy" or "phy-handle" must be a child node
+of the mdio node. See phy.txt for the generic PHY bindings.
+
+Example:
+gmac0: ethernet@4033c000 {
+	compatible = "fsl,s32cc-dwmac";
+	reg = <0x0 0x4033c000 0x0 0x2000>, /* gmac IP */
+	      <0x0 0x4007C004 0x0 0x4>;    /* S32 CTRL_STS reg */
+	interrupt-parent = <&gic>;
+	interrupts = <0 57 4>;
+	interrupt-names = "macirq";
+	tx-fifo-depth = <20480>;
+	rx-fifo-depth = <20480>;
+	clocks = <&clks S32GEN1_CLK_XBAR>, <&clks S32GEN1_CLK_XBAR>,
+		     <&clks S32GEN1_CLK_GMAC_0_TX>;
+	clock-names = "stmmaceth", "pclk", "tx";
+	phy-handle = <&rgmii_phy>;
+	phy-mode = "rgmii";
+	gmac0_mdio: mdio0 {
+		compatible = "snps,dwmac-mdio";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		rgmii_phy: ethernet-phy@1 {
+			reg = <1>;
+		};
+	};
+};

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright 2017-2019 NXP
+ * Copyright 2017-2020 NXP
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -435,6 +435,24 @@
 		reg = <0x0 0x4403D74C 0x0 0x14>;
 		big-endian;
 	};
+
+	gmac1: ethernet@44010000 {
+		compatible = "fsl,s32cc-dwmac";
+		reg = <0x0 0x44010000 0x0 0x2000>, /* gmac IP */
+		      <0x0 0x4007CA00 0x0 0x4>;    /* S32 CTRL_STS reg */
+		interrupt-parent = <&gic>;
+		interrupts = <0 220 4>;
+		interrupt-names = "macirq";
+		tx-fifo-depth = <20480>;
+		rx-fifo-depth = <20480>;
+		clocks = <&clks S32GEN1_CLK_XBAR>, <&clks S32GEN1_CLK_XBAR>,
+			     <&clks S32GEN1_CLK_GMAC_1_TX>;
+		clock-names = "stmmaceth", "pclk", "tx";
+		gmac1_mdio: mdio0 {
+			compatible = "snps,dwmac-mdio";
+			#address-cells = <1>;
+			#size-cells = <0>;
+		};
+	};
+
 };
-
-
