@@ -13,23 +13,45 @@ Required properties:
       1 = active low
 - interrupt-controller: Marks the device node as an interrupt controller.
 - gpio-ranges : Interaction with the PINCTRL subsystem.
+- eirq-ranges : GPIO ranges that can be used as EIRQs
 
 Example:
 
-gpioeirq0: siul2-gpio0@4009C004 {
+gpio1: siul2-gpio1 {
 	compatible = "fsl,s32gen1-siul2-gpio";
 	gpio-controller;
 	#gpio-cells = <2>;
-		/* GPIO 0-15,27-32 */
-	gpio-ranges = <&pinctrl0 0 19 11>,
-		/* EIRQ pins */
-		<&pinctrl1 910 910 11>;
+		/* GPIO 112-190 */
+	gpio-ranges = <&pinctrl1 0 112 79>;
+		/* GPIO 151-152 */
+	eirq-ranges = <&pinctrl1 0 151 2>,
+		/* GPIO 177-182 */
+		<&pinctrl1 0 177 6>;
 		/* Pad Data I/0 Registers */
-	regmap0 = <&opad0_regs>;
-	regmap1 = <&ipad0_regs>;
+	regmap0 = <&opad1_regs>;
+	regmap1 = <&ipad1_regs>;
 	regmap2 = <&irq_regs>;
-	interrupts = <0 0 4>;
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_gpioeirq0>;
+	interrupt-controller;
+	interrupts = <0 210 4>;
 	status = "okay";
 };
+
+In s32g274a case, the eirqs are split in two gpio ranges:
+- EIRQ pins 0-1 -> GPIO 151-152
+- EIRQ pins 2-7 -> GPIO 177-182
+
+To use a gpio in other device tree node, one should specify the gpio offset
+relative to the first gpio handled by the chip.
+Example: EIRQ1 corresponds to GPIO152 so the offset will be computed as
+152 - 112 = 40.
+	<&gpio1 40 4> => EIRQ1
+	<&gpio1 65 4> => EIRQ2
+
+In s32g274a case, two pins from different SIULs can export same eirq.
+Example: EIRQ1 can be accessed through GPIO20(SIUL2_0) and GPIO152(SIUL2_1).
+The dts node should refer the corresponding gpio node.
+Example:
+	<&gpio0 20 4> -> GPIO20(SIUL2_0)
+	<&gpio1 40 4> -> GPIO152(SIUL2_1)
+
+Also pinmuxing for the used EIRQ is necessary. The pad should be added in gpioeirqgrp1.
