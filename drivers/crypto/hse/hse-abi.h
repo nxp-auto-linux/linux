@@ -18,24 +18,25 @@
 
 #define HSE_KEY_HMAC_MIN_SIZE    16u /* minimum key size admitted for HMAC */
 
-#define HSE_MAX_CTX_SIZE    0x128ul /* maximum streaming context size */
+#define HSE_MAX_CTX_SIZE    0x128u /* maximum streaming context size */
 
 /**
  * enum hse_status - HSE status
- * @HSE_STATUS_INIT_OK: HSE initialization successfully completed
  * @HSE_STATUS_RNG_INIT_OK: RNG initialization successfully completed
+ * @HSE_STATUS_INIT_OK: HSE initialization successfully completed
  * @HSE_STATUS_INSTALL_OK: HSE installation phase successfully completed,
  *                         key stores have been formatted and can be used
- * @HSE_STATUS_BOOT_OK: HSE secure booting phase successfully completed
- *
- * Note that if no secure boot is configured (i.e. SMR, SHE, BSB), HSE signals
- * that the booting phase completed successfully.
+ * @HSE_STATUS_PUBLISH_SYS_IMAGE: volatile HSE configuration detected
+ * @HSE_STATUS_PRIMARY_SYS_IMAGE: configuration loaded from primary SYS-IMG
+ * @HSE_STATUS_BACKUP_SYS_IMAGE: configuration loaded from backup SYS-IMG
  */
 enum hse_status {
-	HSE_STATUS_INIT_OK = BIT(0),
-	HSE_STATUS_RNG_INIT_OK = BIT(1),
-	HSE_STATUS_INSTALL_OK = BIT(2),
-	HSE_STATUS_BOOT_OK = BIT(3),
+	HSE_STATUS_RNG_INIT_OK = BIT(5),
+	HSE_STATUS_INIT_OK = BIT(8),
+	HSE_STATUS_INSTALL_OK = BIT(9),
+	HSE_STATUS_PUBLISH_SYS_IMAGE = BIT(13),
+	HSE_STATUS_PRIMARY_SYS_IMAGE = BIT(14),
+	HSE_STATUS_BACKUP_SYS_IMAGE = BIT(15),
 };
 
 /**
@@ -263,7 +264,7 @@ enum hse_ctx_impex {
  * @stream_id: ID for START, UPDATE, FINISH access modes - only a limited number
  *             of channels per MU instance are available for streaming use
  * @hash_algo: hash algorithm to be used
- * @sgt_opt: specify whether input/output is provided as scatter-gather table
+ * @sgt_opt: specify whether input is provided as scatter-gather table
  * @input_len: length of the input message - must be an integer multiple of
  *             algorithm block size for START and UPDATE access modes, can be
  *             zero for START and FINISH, there are no restrictions for ONE-PASS
@@ -299,9 +300,7 @@ struct hse_hash_srv {
 	u8 access_mode;
 	u8 stream_id;
 	u8 hash_algo;
-	u8 reserved0;
 	u8 sgt_opt;
-	u8 reserved1[3];
 	u32 input_len;
 	u64 input;
 	u64 hash_len;
@@ -314,9 +313,9 @@ struct hse_hash_srv {
  * @stream_id: ID for START, UPDATE, FINISH access modes - only a limited number
  *             of channels per MU instance are available for streaming use
  * @auth_dir: direction - generate MAC
+ * @sgt_opt: specify whether input is provided as scatter-gather table
  * @scheme: MAC scheme to be used
  * @key_handle: key handle from RAM catalog
- * @sgt_opt: specify whether input/output is provided as scatter-gather table
  * @input_len: length of the input message - must be an integer multiple of
  *             algorithm block size for START and UPDATE access modes, cannot
  *             be zero for any SUF access mode, no restrictions for ONE-PASS
@@ -342,9 +341,9 @@ struct hse_hash_srv {
  * | access_mode  |     *    |   *   |    *   |    *   |
  * | stream_id    |          |   *   |    *   |    *   |
  * | auth_dir     |     *    |   *   |    *   |    *   |
+ * | sgt_opt      |     *    |   *   |    *   |    *   |
  * | scheme       |     *    |   *   |    *   |    *   |
  * | key_handle   |     *    |   *   |        |        |
- * | sgt_opt      |     *    |   *   |    *   |    *   |
  * | input_len    |     *    |   *   |    *   |    *   |
  * | input        |     *    |   *   |    *   |    *   |
  * | tag_len      |     *    |       |        |    *   |
@@ -354,7 +353,7 @@ struct hse_mac_srv {
 	u8 access_mode;
 	u8 stream_id;
 	u8 auth_dir;
-	u8 reserved0;
+	u8 sgt_opt;
 	struct hse_mac_scheme {
 		u8 mac_algo;
 		u8 reserved1[3];
@@ -366,8 +365,6 @@ struct hse_mac_srv {
 		};
 	} scheme;
 	u32 key_handle;
-	u8 sgt_opt;
-	u8 reserved3[3];
 	u32 input_len;
 	u64 input;
 	u64 tag_len;
@@ -380,12 +377,12 @@ struct hse_mac_srv {
  * @cipher_algo: cipher algorithm
  * @block_mode: cipher block mode
  * @cipher_dir: direction - encrypt/decrypt from &enum hse_cipher_dir
+ * @sgt_opt: specify whether input/output is provided as scatter-gather table
  * @key_handle: RAM catalog key handle
  * @iv_len: initialization vector/nonce length. Ignored for NULL and ECB block
  *          modes. Must be the appropriate block size for the block mode
  * @iv: address of the initialization vector/nonce. Ignored for NULL and ECB
  *      block modes
- * @sgt_opt: specify whether input/output is provided as scatter-gather table
  * @input_len: plaintext/ciphertext length, in bytes. For ECB, CBC and CFB
  *             cipher block modes, must be a multiple of block length
  * @input: address of the plaintext for encryption, or ciphertext for decryption
@@ -404,12 +401,11 @@ struct hse_skcipher_srv {
 	u8 cipher_algo;
 	u8 block_mode;
 	u8 cipher_dir;
-	u8 reserved1[3];
+	u8 sgt_opt;
+	u8 reserved1[2];
 	u32 key_handle;
 	u32 iv_len;
 	u64 iv;
-	u8 sgt_opt;
-	u8 reserved2[3];
 	u32 input_len;
 	u64 input;
 	u64 output;
