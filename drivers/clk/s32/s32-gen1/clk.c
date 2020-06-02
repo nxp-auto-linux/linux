@@ -41,6 +41,24 @@ static u32 can_mux_ids[] = {
 	MC_CGM_MUXn_CSC_SEL_PERIPH_PLL_PHI2,
 };
 
+PNAME(per_sels) = {"firc", "periphpll_phi1", };
+static u32 per_mux_ids[] = {
+	MC_CGM_MUXn_CSC_SEL_FIRC,
+	MC_CGM_MUXn_CSC_SEL_PERIPH_PLL_PHI1,
+};
+
+PNAME(ftm0_sels) = {"firc", "periphpll_phi1", };
+static u32 ftm0_mux_ids[] = {
+	MC_CGM_MUXn_CSC_SEL_FIRC,
+	MC_CGM_MUXn_CSC_SEL_PERIPH_PLL_PHI1,
+};
+
+PNAME(ftm1_sels) = {"firc", "periphpll_phi1", };
+static u32 ftm1_mux_ids[] = {
+	MC_CGM_MUXn_CSC_SEL_FIRC,
+	MC_CGM_MUXn_CSC_SEL_PERIPH_PLL_PHI1,
+};
+
 PNAME(lin_sels) = {"firc", "fxosc", "periphpll_phi3", };
 static u32 lin_mux_idx[] = {
 	MC_CGM_MUXn_CSC_SEL_FIRC, MC_CGM_MUXn_CSC_SEL_FXOSC,
@@ -439,6 +457,39 @@ static void __init s32gen1_clocks_init(struct device_node *clocking_node)
 	clk[S32GEN1_CLK_SERDES_INT_REF] = s32_clk_fixed_factor("serdes_int",
 		"periphpll_phi0", 1, 1);
 	clk[S32GEN1_CLK_SERDES_EXT_REF] = s32_obtain_fixed_clock("serdes_ext", 0);
+
+	/* PER Clock */
+	clk[S32GEN1_CLK_PER_SEL] = s32_clk_mux_table("per_sel",
+		CGM_MUXn_CSC(mc_cgm0_base, 3),
+		MC_CGM_MUXn_CSC_SELCTL_OFFSET,
+		MC_CGM_MUXn_CSC_SELCTL_SIZE,
+		per_sels, ARRAY_SIZE(per_sels), per_mux_ids, &s32gen1_lock);
+
+	clk[S32GEN1_CLK_PER] = s32_clk_divider("per", "per_sel",
+		CGM_MUXn_DC(mc_cgm0_base, 3), MC_CGM_MUX_DCn_DIV_OFFSET,
+		MC_CGM_MUX_DCn_DIV_SIZE, &s32gen1_lock);
+
+	/* FTM0 Clock */
+	clk[S32GEN1_CLK_FTM0_REF_SEL] = s32_clk_mux_table("ftm0_ref_sel",
+		CGM_MUXn_CSC(mc_cgm0_base, 4),
+		MC_CGM_MUXn_CSC_SELCTL_OFFSET,
+		MC_CGM_MUXn_CSC_SELCTL_SIZE,
+		ftm0_sels, ARRAY_SIZE(ftm0_sels), ftm0_mux_ids, &s32gen1_lock);
+
+	clk[S32GEN1_CLK_FTM0_REF] = s32_clk_divider("ftm0_ref", "ftm0_ref_sel",
+		CGM_MUXn_DC(mc_cgm0_base, 4), MC_CGM_MUX_DCn_DIV_OFFSET,
+		MC_CGM_MUX_DCn_DIV_SIZE, &s32gen1_lock);
+
+	/* FTM1 Clock */
+	clk[S32GEN1_CLK_FTM1_REF] = s32_clk_mux_table("ftm1_ref_sel",
+		CGM_MUXn_CSC(mc_cgm0_base, 5),
+		MC_CGM_MUXn_CSC_SELCTL_OFFSET,
+		MC_CGM_MUXn_CSC_SELCTL_SIZE,
+		ftm1_sels, ARRAY_SIZE(ftm1_sels), ftm1_mux_ids, &s32gen1_lock);
+
+	clk[S32GEN1_CLK_FTM1_REF] = s32_clk_divider("ftm1_ref", "ftm1_ref_sel",
+		CGM_MUXn_DC(mc_cgm0_base, 5), MC_CGM_MUX_DCn_DIV_OFFSET,
+		MC_CGM_MUX_DCn_DIV_SIZE, &s32gen1_lock);
 
 	/* Can Clock */
 	clk[S32GEN1_CLK_CAN] = s32_clk_mux_table("can",
