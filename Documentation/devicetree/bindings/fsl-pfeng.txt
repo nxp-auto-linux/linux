@@ -39,7 +39,7 @@ Example:
 
 pfe@46080000 {
 	compatible = "fsl,s32g274a-pfeng",
-		     "fsl,s32g275-pfe";
+		     "fsl,s32g274-pfe";
 	reg = <0x0 0x46000000 0x0 0x1000000>,		/* PFE controller */
 		  <0x0 0x4007ca00 0x0 0x4>,		/* S32G274a syscon */
 		  <0x0 0x83400000 0x0 0xc00000>;	/* PFE DDR 12M */

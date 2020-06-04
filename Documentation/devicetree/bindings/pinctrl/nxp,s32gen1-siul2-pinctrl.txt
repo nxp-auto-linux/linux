@@ -4,8 +4,8 @@ Based on S32Gen1 SIUL2 implementation.
 
 Required properties:
 - compatible:
-	* "fsl,s32g275-siul2_0-pinctrl"
-	* "fsl,s32g275-siul2_1-pinctrl"
+	* "fsl,s32g274-siul2_0-pinctrl"
+	* "fsl,s32g274-siul2_1-pinctrl"
 	* "fsl,s32r45x-siul2_0-pinctrl"
 	* "fsl,s32r45x-siul2_1-pinctrl"
 	* "fsl,s32v344-siul2_0-pinctrl"

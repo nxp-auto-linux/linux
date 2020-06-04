@@ -247,9 +247,9 @@ S32V344 base Simulator model
 Required root node properties:
     - compatible = "fsl,s32v344-simu", "fsl,s32v344";
 
-S32G275 base Simulator model
+S32G274 base Simulator model
 Required root node properties:
-    - compatible = "fsl,s32g275-simu", "fsl,s32g275";
+    - compatible = "fsl,s32g274-simu", "fsl,s32g274";
 
 S32R45X base Simulator model
 Required root node properties:

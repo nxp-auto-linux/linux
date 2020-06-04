@@ -20,7 +20,7 @@ The DFS digital block implements registers to control the analog DFS block.
 Required properties:
 - compatible:
 	Should be:
-	- "fsl,s32r45x-clocking", "fsl,s32g275-clocking", "fsl,s32v344-clocking"
+	- "fsl,s32r45x-clocking", "fsl,s32g274-clocking", "fsl,s32v344-clocking"
 - reg:
 	Location and length of the register set
 
