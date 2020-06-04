@@ -12,8 +12,8 @@
  *
  */
 
-#ifndef __DT_BINDINGS_S32G275_PINCTRL_H__
-#define __DT_BINDINGS_S32G275_PINCTRL_H__
+#ifndef __DT_BINDINGS_S32G274_PINCTRL_H__
+#define __DT_BINDINGS_S32G274_PINCTRL_H__
 /* Reference manuals used to build this pinctrl table */
 /* RM S32G2xx - Rev1 Draft F
 */
@@ -834,4 +834,4 @@
 #define S32_GEN1_PAD_PC7__SIUL_EIRQ30		940	PAD_CTL_EIRQ_2
 #define S32_GEN1_PAD_PC8__SIUL_EIRQ31		941	PAD_CTL_EIRQ_2
 
-#endif /* __DT_BINDINGS_S32G275_PINCTRL_H__ */
+#endif /* __DT_BINDINGS_S32G274_PINCTRL_H__ */

@@ -9,7 +9,7 @@
  */
 
 #include "fsl-s32-gen1.dtsi"
-#include <dt-bindings/pinctrl/s32g275-pinctrl.h>
+#include <dt-bindings/pinctrl/s32g274-pinctrl.h>
 
 / {
 	chosen {
