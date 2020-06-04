@@ -2,7 +2,8 @@ ARM Freescale DSPI controller
 
 Required properties:
 - compatible : "fsl,vf610-dspi", "fsl,ls1021a-v1.0-dspi",
-		"fsl,ls2085a-dspi", "fsl,s32v234-dspi", "fsl,s32gen1-dspi"
+		"fsl,ls2085a-dspi", "fsl,s32v234-dspi", "fsl,s32gen1-dspi",
+		"fsl,s32r45-dspi"
 		or
 		"fsl,ls2080a-dspi" followed by "fsl,ls2085a-dspi"
 		"fsl,ls1012a-dspi" followed by "fsl,ls1021a-v1.0-dspi"

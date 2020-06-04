@@ -6,8 +6,8 @@ Required properties:
 - compatible:
 	* "fsl,s32g274-siul2_0-pinctrl"
 	* "fsl,s32g274-siul2_1-pinctrl"
-	* "fsl,s32r45x-siul2_0-pinctrl"
-	* "fsl,s32r45x-siul2_1-pinctrl"
+	* "fsl,s32r45-siul2_0-pinctrl"
+	* "fsl,s32r45-siul2_1-pinctrl"
 	* "fsl,s32v344-siul2_0-pinctrl"
 	* "fsl,s32v344-siul2_1-pinctrl"
 	  Backward compatible string for the use cases

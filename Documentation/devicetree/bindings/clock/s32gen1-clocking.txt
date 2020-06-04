@@ -20,14 +20,14 @@ The DFS digital block implements registers to control the analog DFS block.
 Required properties:
 - compatible:
 	Should be:
-	- "fsl,s32r45x-clocking", "fsl,s32g274-clocking", "fsl,s32v344-clocking"
+	- "fsl,s32r45-clocking", "fsl,s32g274-clocking", "fsl,s32v344-clocking"
 - reg:
 	Location and length of the register set
 
 Example:
 
 clks: clocking@40038000 {
-	compatible = "fsl,s32r45x-clocking";
+	compatible = "fsl,s32r45-clocking";
 	reg = <0x0 0x40038000 0x0 0x3000>, /*armpll*/
 		<0x0 0x4003C000 0x0 0x3000>, /*periphpll*/
 		<0x0 0x40040000 0x0 0x3000>, /*accelpll*/
