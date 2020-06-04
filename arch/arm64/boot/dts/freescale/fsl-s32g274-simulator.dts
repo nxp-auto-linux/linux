@@ -1,5 +1,5 @@
 /*
- * Copyright 2017-2019 NXP
+ * Copyright 2017-2020 NXP
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -11,8 +11,8 @@
 #include "fsl-s32g274a.dtsi"
 #include <dt-bindings/pinctrl/s32g275-pinctrl.h>
 / {
-	model = "Freescale S32G275";
-	compatible = "fsl,s32g275-simu", "fsl,s32g275",
+	model = "Freescale S32G274";
+	compatible = "fsl,s32g274-simu", "fsl,s32g274",
 				 "arm,vexpress,v2p-aarch64", "arm,vexpress";
 
 	chosen {
@@ -45,7 +45,7 @@
 	};
 
 	clks: clks@40038000 {
-		compatible = "fsl,s32g275-clocking";
+		compatible = "fsl,s32g274-clocking";
 		reg = <0x0 0x40038000 0x0 0x3000>, /*armpll*/
 		      <0x0 0x4003C000 0x0 0x3000>, /*periphpll*/
 		      <0x0 0x40040000 0x0 0x3000>, /*accelpll*/
@@ -65,7 +65,7 @@
 			 /* IMCR range */
 			 <2 0 0x0 0x4009CA40 0x0 0x150>;
 		pinctrl0: siul2-pinctrl0@4009C000 {
-			compatible = "fsl,s32g275-siul2_0-pinctrl";
+			compatible = "fsl,s32g274-siul2_0-pinctrl";
 			#pinctrl-cells = <2>;
 			reg = <0x1 0x0 0x0 0x198>,
 			<0x2 0x0 0x0 0x150>;
@@ -204,7 +204,7 @@
 			 <2 0 0x0 0x44010C1C 0x0 0x5E4>;
 
 		pinctrl1: siul2-pinctrl1@44010000 {
-			compatible = "fsl,s32g275-siul2_1-pinctrl";
+			compatible = "fsl,s32g274-siul2_1-pinctrl";
 			#pinctrl-cells = <2>;
 			reg = <0x1 0x0 0x0 0x13C>,
 			<0x2 0x0 0x0 0x5E4>;
@@ -468,7 +468,7 @@
 
 &pinctrl0 {
 	status = "okay";
-	s32g275-simu {
+	s32g274-simu {
 		pinctrl_gpio0: gpiogrp0 {
 			fsl,pins = <
 				S32_GEN1_PAD_PA0__SIUL_GPIO0
@@ -580,7 +580,7 @@
 
 &pinctrl1 {
 	status = "okay";
-	s32g275-simu {
+	s32g274-simu {
 		pinctrl_gpio1: gpiogrp1 {
 			fsl,pins = <
 				S32_GEN1_PAD_PH0__SIUL_GPIO112

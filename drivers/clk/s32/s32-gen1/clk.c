@@ -146,7 +146,7 @@ static u32 accel_4_mux_idx[] = {
 static struct clk *clk[S32GEN1_CLK_END];
 static struct clk_onecell_data clk_data;
 
-static void __init s32g275_extra_clocks_init(struct device_node *clocking_node)
+static void __init s32g274_extra_clocks_init(struct device_node *clocking_node)
 {
 	/* PFE */
 	clk[S32GEN1_CLK_PFE_PE_SEL] = s32_clk_mux_table("pfe_pe_sel",
@@ -604,10 +604,10 @@ static void __init s32v344_clocks_init(struct device_node *clks_node)
 	s32gen1_clocks_init(clks_node);
 }
 
-static void __init s32g275_clocks_init(struct device_node *clks_node)
+static void __init s32g274_clocks_init(struct device_node *clks_node)
 {
 	s32gen1_clocks_init(clks_node);
-	s32g275_extra_clocks_init(clks_node);
+	s32g274_extra_clocks_init(clks_node);
 }
 
 static void __init s32r45x_clocks_init(struct device_node *clks_node)
@@ -617,5 +617,5 @@ static void __init s32r45x_clocks_init(struct device_node *clks_node)
 }
 
 CLK_OF_DECLARE(S32V344, "fsl,s32v344-clocking", s32v344_clocks_init);
-CLK_OF_DECLARE(S32G275, "fsl,s32g275-clocking", s32g275_clocks_init);
+CLK_OF_DECLARE(S32G274, "fsl,s32g274-clocking", s32g274_clocks_init);
 CLK_OF_DECLARE(S32R45X, "fsl,s32r45x-clocking", s32r45x_clocks_init);

@@ -1,5 +1,5 @@
 /*
- * Copyright 2017-2019 NXP
+ * Copyright 2017-2020 NXP
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -11,8 +11,8 @@
 #include "fsl-s32g274a.dtsi"
 #include <dt-bindings/pinctrl/s32g275-pinctrl.h>
 / {
-	model = "Freescale S32G275";
-	compatible = "fsl,s32g275-simu", "fsl,s32g275",
+	model = "Freescale S32G274";
+	compatible = "fsl,s32g274-simu", "fsl,s32g274",
 				 "arm,vexpress,v2p-aarch64", "arm,vexpress";
 
 	chosen {
@@ -115,7 +115,7 @@
 
 &pinctrl0 {
 	status = "okay";
-	s32g275-simu {
+	s32g274-simu {
 		pinctrl_gpio0: gpiogrp0 {
 			fsl,pins = <
 				S32_GEN1_PAD_PA0__SIUL_GPIO0
@@ -227,7 +227,7 @@
 
 &pinctrl1 {
 	status = "okay";
-	s32g275-simu {
+	s32g274-simu {
 		pinctrl_gpio1: gpiogrp1 {
 			fsl,pins = <
 				S32_GEN1_PAD_PH0__SIUL_GPIO112

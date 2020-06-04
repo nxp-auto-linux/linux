@@ -31,7 +31,7 @@
 	};
 
 	clks: clks@40038000 {
-		compatible = "fsl,s32g275-clocking";
+		compatible = "fsl,s32g274-clocking";
 		reg = <0x0 0x40038000 0x0 0x3000>, /*armpll*/
 		      <0x0 0x4003C000 0x0 0x3000>, /*periphpll*/
 		      <0x0 0x40040000 0x0 0x3000>, /*accelpll*/
@@ -48,7 +48,7 @@
 
 	pfe: pfe@46080000 {
 		compatible = "fsl,s32g274a-pfeng",
-			     "fsl,s32g275-pfe";
+			     "fsl,s32g274-pfe";
 		reg = <0x0 0x46000000 0x0 0x1000000>,	 /* PFE controller */
 			  <0x0 0x4007ca00 0x0 0x4>,	 /* S32G274a syscon */
 			  <0x0 0x83400000 0x0 0xc00000>; /* PFE DDR 12M */
@@ -137,7 +137,7 @@
 			 /* IMCR range 512–595 */
 			 <2 0 0x0 0x4009CA40 0x0 0x150>;
 		pinctrl0: siul2-pinctrl0@4009C000 {
-			compatible = "fsl,s32g275-siul2_0-pinctrl";
+			compatible = "fsl,s32g274-siul2_0-pinctrl";
 			#pinctrl-cells = <2>;
 			reg = <0x1 0x0 0x0 0x198>,
 			<0x2 0x0 0x0 0x150>;
@@ -189,7 +189,7 @@
 			 <2 0 0x0 0x44010C1C 0x0 0x5E4>;
 
 		pinctrl1: siul2-pinctrl1@44010000 {
-			compatible = "fsl,s32g275-siul2_1-pinctrl";
+			compatible = "fsl,s32g274-siul2_1-pinctrl";
 			#pinctrl-cells = <2>;
 			reg = <0x1 0x0 0x0 0x13C>,
 			<0x2 0x0 0x0 0x5E4>;

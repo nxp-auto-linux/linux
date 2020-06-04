@@ -10,8 +10,8 @@
 #include "fsl-s32g274a.dtsi"
 #include <dt-bindings/pinctrl/s32g275-pinctrl.h>
 / {
-	model = "Freescale S32G275";
-	compatible = "fsl,s32g275-simu", "fsl,s32g275",
+	model = "Freescale S32G274";
+	compatible = "fsl,s32g274-simu", "fsl,s32g274",
 				 "arm,vexpress,v2p-aarch64", "arm,vexpress";
 
 	chosen {
