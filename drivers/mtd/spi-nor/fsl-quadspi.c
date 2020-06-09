@@ -190,6 +190,10 @@
 
 #define QUADSPI_LUT_BASE		0x310
 
+#ifdef CONFIG_SOC_S32GEN1
+#define LUTS_PER_CONFIG			5
+#endif
+
 /*
  * The definition of the LUT register shows below:
  *
@@ -201,6 +205,17 @@
 #define PAD0_SHIFT		8
 #define INSTR0_SHIFT		10
 #define OPRND1_SHIFT		16
+#ifdef CONFIG_SOC_S32GEN1
+#define PAD1_SHIFT			24
+#define INSTR1_SHIFT		26
+#define OPRND0(x)           ((x) << OPRND0_SHIFT)
+#define PAD0(x)             ((x) << PAD0_SHIFT)
+#define INSTR0(x)           ((x) << INSTR0_SHIFT)
+#define OPRND1(x)           ((x) << OPRND1_SHIFT)
+#define PAD1(x)             ((x) << PAD1_SHIFT)
+#define INSTR1(x)           ((x) << INSTR1_SHIFT)
+#endif
+
 
 /* Instruction set for the LUT register. */
 #define LUT_STOP		0
@@ -263,6 +278,17 @@
 #define SEQID_FAST_READ		12
 
 #define QUADSPI_MIN_IOMAP SZ_4M
+
+#ifdef CONFIG_SOC_S32GEN1
+#define QUADSPI_CMD_RDSR       0x05    /* Read status register */
+#define QUADSPI_CMD_WREN       0x06    /* Write enable */
+#define QUADSPI_CMD_CHIP_ERASE 0xc7    /* Erase whole flash chip */
+#define QUADSPI_CMD_RDID       0x9f    /* Read JEDEC ID */
+#define QUADSPI_CMD_SE_4B      0xdc    /* Sector erase (usually 64KiB) */
+/* Read data bytes (high frequency) */
+#define QUADSPI_CMD_FAST_READ_4B	0x0c
+#define QUADSPI_CMD_PP_4B      0x12    /* Page program (up to 256 bytes) */
+#endif
 
 enum fsl_qspi_devtype {
 	FSL_QUADSPI_VYBRID,
@@ -454,16 +480,20 @@ static irqreturn_t fsl_qspi_irq_handler(int irq, void *dev_id)
 static void fsl_qspi_init_lut(struct fsl_qspi *q)
 {
 	void __iomem *base = q->iobase;
+#ifndef CONFIG_SOC_S32GEN1
 	int rxfifo = q->devtype_data->rxfifo;
+#endif
 	u32 lut_base;
 	int i;
 
+#ifndef CONFIG_SOC_S32GEN1
 	struct spi_nor *nor = &q->nor[0];
 	u8 addrlen = (nor->addr_width == 3) ? ADDR24BIT : ADDR32BIT;
 	u8 read_op = nor->read_opcode;
 	u8 read_dm = nor->read_dummy;
 	u8 fast_read_op = (nor->addr_width == 3) ? SPINOR_OP_READ_FAST
 						 : SPINOR_OP_READ_FAST_4B;
+#endif
 
 	fsl_qspi_unlock_lut(q);
 
@@ -472,6 +502,7 @@ static void fsl_qspi_init_lut(struct fsl_qspi *q)
 		qspi_writel(q, 0, base + QUADSPI_LUT_BASE + i * 4);
 
 	/* Read */
+#ifndef CONFIG_SOC_S32GEN1
 	lut_base = SEQID_READ * 4;
 
 	qspi_writel(q, LUT0(CMD, PAD1, read_op) | LUT1(ADDR, PAD1, addrlen),
@@ -479,8 +510,21 @@ static void fsl_qspi_init_lut(struct fsl_qspi *q)
 	qspi_writel(q, LUT0(DUMMY, PAD1, read_dm) |
 		    LUT1(FSL_READ, PAD4, rxfifo),
 			base + QUADSPI_LUT(lut_base + 1));
+#endif
 
 	/* Fast Read */
+#ifdef CONFIG_SOC_S32GEN1
+	lut_base = SEQID_FAST_READ * LUTS_PER_CONFIG;
+
+	qspi_writel(q, OPRND0(QUADSPI_CMD_FAST_READ_4B) |
+			PAD0(LUT_PAD1) | INSTR0(LUT_CMD) |
+			OPRND1(ADDR32BIT) | PAD1(LUT_PAD1) | INSTR1(LUT_ADDR),
+			base + QUADSPI_LUT(lut_base));
+	qspi_writel(q, OPRND0(8) | PAD0(LUT_PAD1) | INSTR0(LUT_DUMMY) |
+			OPRND1(RX_BUFFER_SIZE) | PAD1(LUT_PAD1) |
+			INSTR1(LUT_FSL_READ),
+			base + QUADSPI_LUT(lut_base + 1));
+#else
 	lut_base = SEQID_FAST_READ * 4;
 
 	qspi_writel(q, LUT0(CMD, PAD1, fast_read_op) |
@@ -489,13 +533,31 @@ static void fsl_qspi_init_lut(struct fsl_qspi *q)
 	qspi_writel(q, LUT0(DUMMY, PAD1, read_dm) |
 		    LUT1(FSL_READ, PAD1, rxfifo),
 			base + QUADSPI_LUT(lut_base + 1));
+#endif
 
 	/* Write enable */
+#ifdef CONFIG_SOC_S32GEN1
+	lut_base = SEQID_WREN * LUTS_PER_CONFIG;
+	qspi_writel(q, OPRND0(QUADSPI_CMD_WREN) |
+			PAD0(LUT_PAD1) | INSTR0(LUT_CMD),
+			base + QUADSPI_LUT(lut_base));
+#else
 	lut_base = SEQID_WREN * 4;
 	qspi_writel(q, LUT0(CMD, PAD1, SPINOR_OP_WREN),
 			base + QUADSPI_LUT(lut_base));
+#endif
 
 	/* Page Program */
+#ifdef CONFIG_SOC_S32GEN1
+	lut_base = SEQID_PP * LUTS_PER_CONFIG;
+
+	qspi_writel(q, OPRND0(QUADSPI_CMD_PP_4B) | PAD0(LUT_PAD1) |
+			INSTR0(LUT_CMD) | OPRND1(ADDR32BIT) |
+			PAD1(LUT_PAD1) | INSTR1(LUT_ADDR),
+			base + QUADSPI_LUT(lut_base));
+	qspi_writel(q, OPRND0(0) | PAD0(LUT_PAD1) | INSTR0(LUT_FSL_WRITE),
+			base + QUADSPI_LUT(lut_base + 1));
+#else
 	lut_base = SEQID_PP * 4;
 
 	qspi_writel(q, LUT0(CMD, PAD1, nor->program_opcode) |
@@ -503,31 +565,67 @@ static void fsl_qspi_init_lut(struct fsl_qspi *q)
 			base + QUADSPI_LUT(lut_base));
 	qspi_writel(q, LUT0(FSL_WRITE, PAD1, 0),
 			base + QUADSPI_LUT(lut_base + 1));
+#endif
 
 	/* Read Status */
+#ifdef CONFIG_SOC_S32GEN1
+	lut_base = SEQID_RDSR * LUTS_PER_CONFIG;
+	qspi_writel(q, OPRND0(QUADSPI_CMD_RDSR) | PAD0(LUT_PAD1) |
+			INSTR0(LUT_CMD) | OPRND1(1) |
+			PAD1(LUT_PAD1) | INSTR1(LUT_FSL_READ),
+			base + QUADSPI_LUT(lut_base));
+#else
 	lut_base = SEQID_RDSR * 4;
 	qspi_writel(q, LUT0(CMD, PAD1, SPINOR_OP_RDSR) |
 			LUT1(FSL_READ, PAD1, 0x1),
 			base + QUADSPI_LUT(lut_base));
+#endif
 
 	/* Erase a sector */
+#ifdef CONFIG_SOC_S32GEN1
+	lut_base = SEQID_SE * LUTS_PER_CONFIG;
+
+	qspi_writel(q, OPRND0(QUADSPI_CMD_SE_4B) |
+			PAD0(LUT_PAD1) | INSTR0(LUT_CMD) |
+			OPRND1(ADDR32BIT) | PAD1(LUT_PAD1) |
+			INSTR1(LUT_ADDR), base + QUADSPI_LUT(lut_base));
+#else
 	lut_base = SEQID_SE * 4;
 
 	qspi_writel(q, LUT0(CMD, PAD1, nor->erase_opcode) |
 		    LUT1(ADDR, PAD1, addrlen),
 			base + QUADSPI_LUT(lut_base));
+#endif
 
 	/* Erase the whole chip */
+#ifdef CONFIG_SOC_S32GEN1
+	lut_base = SEQID_CHIP_ERASE * LUTS_PER_CONFIG;
+	qspi_writel(q, OPRND0(QUADSPI_CMD_CHIP_ERASE) |
+			PAD0(LUT_PAD1) | INSTR0(LUT_CMD),
+			base + QUADSPI_LUT(lut_base));
+#else
 	lut_base = SEQID_CHIP_ERASE * 4;
 	qspi_writel(q, LUT0(CMD, PAD1, SPINOR_OP_CHIP_ERASE),
 			base + QUADSPI_LUT(lut_base));
+#endif
 
 	/* READ ID */
+#ifdef CONFIG_SOC_S32GEN1
+	lut_base = SEQID_RDID * LUTS_PER_CONFIG;
+	qspi_writel(q, OPRND0(QUADSPI_CMD_RDID) | PAD0(LUT_PAD1) |
+			INSTR0(LUT_CMD) | OPRND1(ADDR24BIT) |
+			PAD1(LUT_PAD1) | INSTR1(LUT_ADDR),
+			base + QUADSPI_LUT(lut_base));
+	qspi_writel(q, OPRND0(3) | PAD0(LUT_PAD1) | INSTR0(LUT_FSL_READ),
+			base + QUADSPI_LUT(lut_base + 1));
+#else
 	lut_base = SEQID_RDID * 4;
 	qspi_writel(q, LUT0(CMD, PAD1, SPINOR_OP_RDID) |
 			LUT1(FSL_READ, PAD1, 0x8),
 			base + QUADSPI_LUT(lut_base));
+#endif
 
+#ifndef CONFIG_SOC_S32GEN1
 	/* Write Register */
 	lut_base = SEQID_WRSR * 4;
 	qspi_writel(q, LUT0(CMD, PAD1, SPINOR_OP_WRSR) |
@@ -554,6 +652,7 @@ static void fsl_qspi_init_lut(struct fsl_qspi *q)
 	lut_base = SEQID_BRWR * 4;
 	qspi_writel(q, LUT0(CMD, PAD1, SPINOR_OP_BRWR),
 			base + QUADSPI_LUT(lut_base));
+#endif
 
 	fsl_qspi_lock_lut(q);
 }
