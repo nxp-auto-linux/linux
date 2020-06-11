@@ -607,7 +607,7 @@ fsl_qspi_runcmd(struct fsl_qspi *q, u8 cmd, unsigned int addr, int len)
 	void __iomem *base = q->iobase;
 	int seqid;
 	u32 reg, reg2;
-	int err;
+	int err = 0;
 
 	init_completion(&q->c);
 	dev_dbg(q->dev, "to 0x%.8x:0x%.8x, len:%d, cmd:%.2x\n",
@@ -641,6 +641,7 @@ fsl_qspi_runcmd(struct fsl_qspi *q, u8 cmd, unsigned int addr, int len)
 			base + QUADSPI_IPCR);
 
 	/* Wait for the interrupt. */
+#ifndef CONFIG_SOC_S32GEN1
 	if (!wait_for_completion_timeout(&q->c, msecs_to_jiffies(1000))) {
 		dev_err(q->dev,
 			"cmd 0x%.2x timeout, addr@%.8x, FR:0x%.8x, SR:0x%.8x\n",
@@ -650,6 +651,7 @@ fsl_qspi_runcmd(struct fsl_qspi *q, u8 cmd, unsigned int addr, int len)
 	} else {
 		err = 0;
 	}
+#endif
 
 	/* restore the MCR */
 	qspi_writel(q, reg, base + QUADSPI_MCR);
