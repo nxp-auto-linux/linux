@@ -147,6 +147,11 @@
 
 #define QUADSPI_TBSR			0x150
 #define QUADSPI_TBDR			0x154
+#ifdef CONFIG_SOC_S32GEN1
+#define QUADSPI_TBSR_TRCTR_SHIFT	16
+#define QUADSPI_TBSR_TRCTR(TBSR)	((TBSR) >> QUADSPI_TBSR_TRCTR_SHIFT)
+#define QUADSPI_TBSR_TRBFL(TBSR)	((TBSR) & 0xFF)
+#endif
 #define QUADSPI_SR			0x15c
 #define QUADSPI_SR_IP_ACC_SHIFT		1
 #define QUADSPI_SR_IP_ACC_MASK		(0x1 << QUADSPI_SR_IP_ACC_SHIFT)
@@ -724,15 +729,42 @@ static ssize_t fsl_qspi_nor_write(struct fsl_qspi *q, struct spi_nor *nor,
 				u8 opcode, unsigned int to, u32 *txbuf,
 				unsigned count)
 {
+#ifdef CONFIG_SOC_S32GEN1
+	int i, j;
+#else
 	int ret, i, j;
+#endif
 	u32 tmp;
+#ifdef CONFIG_SOC_S32GEN1
+	u32 seqid, mcr, direction = 0;
+	u32 tbsr, trctr, trbfl;
+	void __iomem *base = q->iobase;
+#endif
 
 	dev_dbg(q->dev, "to 0x%.8x:0x%.8x, len : %d\n",
 		q->chip_base_addr, to, count);
 
 	/* clear the TX FIFO. */
+#ifdef CONFIG_SOC_S32GEN1
+	mcr = qspi_readl(q, base + QUADSPI_MCR);
+	qspi_writel(q, mcr | QUADSPI_MCR_CLR_TXF_MASK |
+			QUADSPI_MCR_CLR_RXF_MASK | QUADSPI_MCR_RESERVED_MASK |
+			QUADSPI_MCR_END_CFD_LE, base + QUADSPI_MCR);
+
+	seqid = fsl_qspi_get_seqid(q, opcode);
+	direction = q->chip_base_addr + to;
+
+	while (qspi_readl(q, base + QUADSPI_SR) & QUADSPI_SR_BUSY_MASK)
+		;
+
+	while (qspi_readl(q, base + QUADSPI_TBSR) & 0xFFU)
+		;
+
+	qspi_writel(q, direction, base + QUADSPI_SFAR);
+#else
 	tmp = qspi_readl(q, q->iobase + QUADSPI_MCR);
 	qspi_writel(q, tmp | QUADSPI_MCR_CLR_TXF_MASK, q->iobase + QUADSPI_MCR);
+#endif
 
 	/* fill the TX data to the FIFO */
 	for (j = 0, i = ((count + 3) / 4); j < i; j++) {
@@ -740,7 +772,24 @@ static ssize_t fsl_qspi_nor_write(struct fsl_qspi *q, struct spi_nor *nor,
 		qspi_writel(q, tmp, q->iobase + QUADSPI_TBDR);
 		txbuf++;
 	}
+#ifdef CONFIG_SOC_S32GEN1
+	qspi_writel(q, (seqid << QUADSPI_IPCR_SEQID_SHIFT) | count,
+			base + QUADSPI_IPCR);
 
+	while (qspi_readl(q, base + QUADSPI_SR) & QUADSPI_SR_BUSY_MASK)
+		;
+
+	do {
+		tbsr = qspi_readl(q, base + QUADSPI_TBSR);
+		trctr = QUADSPI_TBSR_TRCTR(tbsr);
+		trbfl = QUADSPI_TBSR_TRBFL(tbsr);
+	} while ((trctr != count / 4) || trbfl);
+
+	/* Restore MCR Register */
+	qspi_writel(q, mcr, base + QUADSPI_MCR);
+
+	return count;
+#else
 	/* fill the TXFIFO upto 16 bytes for i.MX7d */
 	if (needs_fill_txfifo(q))
 		for (; i < 4; i++)
@@ -753,6 +802,7 @@ static ssize_t fsl_qspi_nor_write(struct fsl_qspi *q, struct spi_nor *nor,
 		return count;
 
 	return ret;
+#endif
 }
 
 static void fsl_qspi_set_map_addr(struct fsl_qspi *q)
