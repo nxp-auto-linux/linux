@@ -67,6 +67,32 @@
 #define QUADSPI_MCR_SWRSTHD_MASK	(1 << QUADSPI_MCR_SWRSTHD_SHIFT)
 #define QUADSPI_MCR_SWRSTSD_SHIFT	0
 #define QUADSPI_MCR_SWRSTSD_MASK	(1 << QUADSPI_MCR_SWRSTSD_SHIFT)
+#ifdef CONFIG_SOC_S32GEN1
+#define QUADSPI_MCR_DQS_EN_SHIFT	6
+#define QUADSPI_MCR_DQS_EN			(1 << QUADSPI_MCR_DQS_EN_SHIFT)
+#define QUADSPI_MCR_END_CFD_SHIFT	2
+#define QUADSPI_MCR_END_CFD_LE		(3 << QUADSPI_MCR_END_CFD_SHIFT)
+#define QUADSPI_MCR_DQS_FA_SEL_SHIFT	24
+#define QUADSPI_MCR_DQS_LOOPBACK	(0x1 << QUADSPI_MCR_DQS_FA_SEL_SHIFT)
+#endif
+
+#ifdef CONFIG_SOC_S32GEN1
+#define QUADSPI_DLLCR_SLV_UPD_SHIFT			0
+#define QUADSPI_DLLCR_SLV_UPD_EN	(1 << QUADSPI_DLLCR_SLV_UPD_SHIFT)
+#define QUADSPI_DLLCR_SLV_BYPASS_SHIFT		1
+#define QUADSPI_DLLCR_SLV_BYPASS_EN	(1 << QUADSPI_DLLCR_SLV_BYPASS_SHIFT)
+#define QUADSPI_DLLCR_SLV_EN_SHIFT			2
+#define QUADSPI_DLLCR_SLV_EN	(1 << QUADSPI_DLLCR_SLV_EN_SHIFT)
+#define QUADSPI_DLLCR_SLV_DLY_COARSE_SHIFT	8
+#define QUADSPI_DLLCR_SLV_DLY_COARSE_N(N)	((N) << \
+		QUADSPI_DLLCR_SLV_DLY_COARSE_SHIFT)
+#define QUADSPI_DLLCR_DLLRES_SHIFT			20
+#define QUADSPI_DLLCR_DLLRES_N(N)	((N) << QUADSPI_DLLCR_DLLRES_SHIFT)
+#define QUADSPI_DLLCR_DLL_REFCNTR_SHIFT		24
+#define QUADSPI_DLLCR_DLL_REFCNTR_N(N)	((N) << QUADSPI_DLLCR_DLL_REFCNTR_SHIFT)
+#define QUADSPI_DLLCR_FREQEN_SHIFT			30
+#define QUADSPI_DLLCR_FREQEN_EN	(1 << QUADSPI_DLLCR_FREQEN_SHIFT)
+#endif
 
 #define QUADSPI_IPCR			0x08
 #define QUADSPI_IPCR_SEQID_SHIFT	24
@@ -134,6 +160,10 @@
 #define QUADSPI_SFA2AD			0x184
 #define QUADSPI_SFB1AD			0x188
 #define QUADSPI_SFB2AD			0x18c
+#ifdef CONFIG_SOC_S32GEN1
+#define QUADSPI_SFA_ADDR		0x10000000
+#define QUADSPI_SFB_ADDR		0x20000000
+#endif
 #define QUADSPI_RBDR			0x200
 
 #define QUADSPI_LUTKEY			0x300
@@ -789,12 +819,31 @@ static void fsl_qspi_clk_disable_unprep(struct fsl_qspi *q)
 
 }
 
+#ifdef CONFIG_SOC_S32GEN1
+void qspi_module_disable(struct fsl_qspi *q, u8 disable)
+{
+	u32 mcr_val;
+
+	mcr_val = qspi_readl(q, q->iobase + QUADSPI_MCR);
+	if (disable)
+		mcr_val |= QUADSPI_MCR_MDIS_MASK;
+	else
+		mcr_val &= ~QUADSPI_MCR_MDIS_MASK;
+	qspi_writel(q, mcr_val, q->iobase + QUADSPI_MCR);
+}
+#endif
+
 /* We use this function to do some basic init for spi_nor_scan(). */
 static int fsl_qspi_nor_setup(struct fsl_qspi *q)
 {
 	void __iomem *base = q->iobase;
+#ifndef CONFIG_SOC_S32GEN1
 	u32 reg;
+#endif
 	int ret;
+#ifdef CONFIG_SOC_S32GEN1
+	u32 mcr;
+#endif
 
 	/* disable and unprepare clock to avoid glitch pass to controller */
 	fsl_qspi_clk_disable_unprep(q);
@@ -808,14 +857,35 @@ static int fsl_qspi_nor_setup(struct fsl_qspi *q)
 	if (ret)
 		return ret;
 
+#ifdef CONFIG_SOC_S32GEN1
+	mcr = qspi_readl(q, base + QUADSPI_MCR);
+	mcr |= (QUADSPI_MCR_END_CFD_LE | QUADSPI_MCR_DQS_EN |
+			QUADSPI_MCR_DQS_LOOPBACK);
+
+	qspi_writel(q, QUADSPI_MCR_RESERVED_MASK |
+			QUADSPI_MCR_MDIS_MASK | mcr, base + QUADSPI_MCR);
+#else
 	/* Reset the module */
 	qspi_writel(q, QUADSPI_MCR_SWRSTSD_MASK | QUADSPI_MCR_SWRSTHD_MASK,
 		base + QUADSPI_MCR);
 	udelay(1);
+#endif
 
 	/* Init the LUT table. */
 	fsl_qspi_init_lut(q);
 
+#ifdef CONFIG_SOC_S32GEN1
+	fsl_qspi_init_ahb_read(q);
+
+	qspi_writel(q, QUADSPI_DLLCR_SLV_UPD_EN |
+			QUADSPI_DLLCR_SLV_BYPASS_EN | QUADSPI_DLLCR_SLV_EN |
+			QUADSPI_DLLCR_SLV_DLY_COARSE_N(5) |
+			QUADSPI_DLLCR_DLLRES_N(2) |
+			QUADSPI_DLLCR_DLL_REFCNTR_N(1) |
+			QUADSPI_DLLCR_FREQEN_EN, base + QUADSPI_DLLCRA);
+	qspi_writel(q, 0x0, base + QUADSPI_SFACR);
+	qspi_module_disable(q, 0);
+#else
 	/* Disable the module */
 	qspi_writel(q, QUADSPI_MCR_MDIS_MASK | QUADSPI_MCR_RESERVED_MASK,
 			base + QUADSPI_MCR);
@@ -835,6 +905,7 @@ static int fsl_qspi_nor_setup(struct fsl_qspi *q)
 
 	/* enable the interrupt */
 	qspi_writel(q, QUADSPI_RSER_TFIE, q->iobase + QUADSPI_RSER);
+#endif
 
 	return 0;
 }
@@ -1154,7 +1225,12 @@ static int fsl_qspi_probe(struct platform_device *pdev)
 
 		/* set the chip address for READID */
 		fsl_qspi_set_base_addr(q, nor);
-
+#ifdef CONFIG_SOC_S32GEN1
+		qspi_writel(q, QUADSPI_SFA_ADDR, q->iobase + QUADSPI_SFA1AD);
+		qspi_writel(q, QUADSPI_SFA_ADDR, q->iobase + QUADSPI_SFA2AD);
+		qspi_writel(q, QUADSPI_SFB_ADDR, q->iobase + QUADSPI_SFB1AD);
+		qspi_writel(q, QUADSPI_SFB_ADDR, q->iobase + QUADSPI_SFB2AD);
+#endif
 		ret = spi_nor_scan(nor, NULL, &hwcaps);
 		if (ret)
 			goto mutex_failed;
