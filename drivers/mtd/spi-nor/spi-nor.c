@@ -4,6 +4,7 @@
  *
  * Copyright (C) 2005, Intec Automation Inc.
  * Copyright (C) 2014, Freescale Semiconductor, Inc.
+ * Copyright 2020 NXP
  *
  * This code is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -2676,6 +2677,9 @@ static int spi_nor_setup(struct spi_nor *nor, const struct flash_info *info,
 	u32 ignored_mask, shared_mask;
 	bool enable_quad_io;
 	int err;
+#ifdef CONFIG_SOC_S32GEN1
+	u32 shared_mask_read;
+#endif
 
 	/*
 	 * Keep only the hardware capabilities supported by both the SPI
@@ -2696,7 +2700,12 @@ static int spi_nor_setup(struct spi_nor *nor, const struct flash_info *info,
 	}
 
 	/* Select the (Fast) Read command. */
+#ifdef CONFIG_SOC_S32GEN1
+	shared_mask_read = (SNOR_HWCAPS_READ_FAST | SNOR_CMD_READ_FAST);
+	err = spi_nor_select_read(nor, params, shared_mask_read);
+#else
 	err = spi_nor_select_read(nor, params, shared_mask);
+#endif
 	if (err) {
 		dev_err(nor->dev,
 			"can't select read settings supported by both the SPI controller and memory.\n");

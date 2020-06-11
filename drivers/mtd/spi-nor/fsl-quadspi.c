@@ -152,9 +152,16 @@
 #define QUADSPI_SR_IP_ACC_MASK		(0x1 << QUADSPI_SR_IP_ACC_SHIFT)
 #define QUADSPI_SR_AHB_ACC_SHIFT	2
 #define QUADSPI_SR_AHB_ACC_MASK		(0x1 << QUADSPI_SR_AHB_ACC_SHIFT)
+#ifdef CONFIG_SOC_S32GEN1
+#define QUADSPI_SR_BUSY_SHIFT		0
+#define QUADSPI_SR_BUSY_MASK		(1 << QUADSPI_SR_BUSY_SHIFT)
+#endif
 
 #define QUADSPI_FR			0x160
 #define QUADSPI_FR_TFF_MASK		0x1
+#ifdef CONFIG_SOC_S32GEN1
+#define QUADSPI_FR_ALL_FLAGS_MASK	(0xFFFFFFFF)
+#endif
 
 #define QUADSPI_SFA1AD			0x180
 #define QUADSPI_SFA2AD			0x184
@@ -650,6 +657,22 @@ static void fsl_qspi_read_data(struct fsl_qspi *q, int len, u8 *rxbuf)
 {
 	u32 tmp;
 	int i = 0;
+#ifdef CONFIG_SOC_S32GEN1
+	u32 mcr;
+
+	mcr = qspi_readl(q, q->iobase + QUADSPI_MCR);
+
+	qspi_writel(q, mcr | QUADSPI_MCR_CLR_RXF_MASK |
+			QUADSPI_MCR_CLR_TXF_MASK | QUADSPI_MCR_RESERVED_MASK |
+			QUADSPI_MCR_END_CFD_LE, q->iobase + QUADSPI_MCR);
+	qspi_writel(q, QUADSPI_FR_ALL_FLAGS_MASK, q->iobase + QUADSPI_FR);
+	qspi_writel(q, QUADSPI_RBCT_RXBRD_USEIPS, q->iobase + QUADSPI_RBCT);
+	qspi_writel(q, (SEQID_RDID << QUADSPI_IPCR_SEQID_SHIFT) | 0,
+			q->iobase + QUADSPI_IPCR);
+
+	while (qspi_readl(q, q->iobase + QUADSPI_SR) & QUADSPI_SR_BUSY_MASK)
+		;
+#endif
 
 	while (len > 0) {
 		tmp = qspi_readl(q, q->iobase + QUADSPI_RBDR + i * 4);
@@ -668,6 +691,9 @@ static void fsl_qspi_read_data(struct fsl_qspi *q, int len, u8 *rxbuf)
 		len -= 4;
 		i++;
 	}
+#ifdef CONFIG_SOC_S32GEN1
+	qspi_writel(q, mcr, q->iobase + QUADSPI_MCR);
+#endif
 }
 
 /*
@@ -756,7 +782,9 @@ static void fsl_qspi_set_map_addr(struct fsl_qspi *q)
 static int fsl_qspi_init_ahb_read(struct fsl_qspi *q)
 {
 	void __iomem *base = q->iobase;
+#ifndef CONFIG_SOC_S32GEN1
 	int seqid;
+#endif
 
 	/* AHB configuration for access buffer 0/1/2 .*/
 	qspi_writel(q, QUADSPI_BUFXCR_INVALID_MSTRID, base + QUADSPI_BUF0CR);
@@ -767,14 +795,23 @@ static int fsl_qspi_init_ahb_read(struct fsl_qspi *q)
 	 * read performance.
 	 */
 	qspi_writel(q, QUADSPI_BUF3CR_ALLMST_MASK |
+#ifdef CONFIG_SOC_S32GEN1
+			(0x80 << QUADSPI_BUF3CR_ADATSZ_SHIFT),
+#else
 			((q->devtype_data->ahb_buf_size / 8)
 			<< QUADSPI_BUF3CR_ADATSZ_SHIFT),
+#endif
 			base + QUADSPI_BUF3CR);
 
 	/* We only use the buffer3 */
 	qspi_writel(q, 0, base + QUADSPI_BUF0IND);
 	qspi_writel(q, 0, base + QUADSPI_BUF1IND);
 	qspi_writel(q, 0, base + QUADSPI_BUF2IND);
+
+#ifdef CONFIG_SOC_S32GEN1
+	qspi_writel(q, SEQID_FAST_READ << QUADSPI_BFGENCR_SEQID_SHIFT,
+			base + QUADSPI_BFGENCR);
+#else
 
 	/* Set the default lut sequence for AHB Read. */
 	seqid = fsl_qspi_get_seqid(q, q->nor[0].read_opcode);
@@ -783,6 +820,7 @@ static int fsl_qspi_init_ahb_read(struct fsl_qspi *q)
 
 	qspi_writel(q, seqid << QUADSPI_BFGENCR_SEQID_SHIFT,
 		q->iobase + QUADSPI_BFGENCR);
+#endif
 
 	return 0;
 }
