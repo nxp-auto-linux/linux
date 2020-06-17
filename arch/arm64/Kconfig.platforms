@@ -82,12 +82,6 @@ menu "S32 GEN1 execution target"
 		   which broke the wake up mechanism
 		   for the cores in the second cluster.
 
-	config S32R45X_EVB
-		bool "S32R45X EVB"
-		help
-		   S32R45X evb is a customer evaluation board
-		   of S32R45X platform.
-
 endmenu
 endif
 
