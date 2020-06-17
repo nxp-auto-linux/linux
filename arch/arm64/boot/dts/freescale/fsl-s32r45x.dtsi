@@ -11,8 +11,8 @@
 #include "fsl-s32-gen1.dtsi"
 #include <dt-bindings/pinctrl/s32r45x-pinctrl.h>
 / {
-	model = "Freescale S32R45X";
-	compatible = "fsl,s32r45x-simu", "fsl,s32r45x",
+	model = "Freescale S32R45";
+	compatible = "fsl,s32r45-simu", "fsl,s32r45",
 				 "arm,vexpress,v2p-aarch64", "arm,vexpress";
 	aliases {
 		can4 = &can4;
@@ -32,7 +32,7 @@
 	};
 
 	clks: clks@40038000 {
-		compatible = "fsl,s32r45x-clocking";
+		compatible = "fsl,s32r45-clocking";
 		reg = <0x0 0x40038000 0x0 0x3000>, /*armpll*/
 		      <0x0 0x4003C000 0x0 0x3000>, /*periphpll*/
 		      <0x0 0x40040000 0x0 0x3000>, /*accelpll*/
@@ -115,7 +115,7 @@
 			 /* IMCR range */
 			 <2 0 0x0 0x4009CA40 0x0 0x150>;
 		pinctrl0: siul2-pinctrl0@4009C000 {
-			compatible = "fsl,s32r45x-siul2_0-pinctrl";
+			compatible = "fsl,s32r45-siul2_0-pinctrl";
 			#pinctrl-cells = <2>;
 			reg = <0x1 0x0 0x0 0x198>,
 			<0x2 0x0 0x0 0x150>;
@@ -381,7 +381,7 @@
 
 		pinctrl1: siul2-pinctrl1@4403C000 {
 			compatible =
-				"fsl,s32r45x-siul2_1-pinctrl";
+				"fsl,s32r45-siul2_1-pinctrl";
 			#pinctrl-cells = <2>;
 			reg = <0x1 0x0 0x0 0x80>,
 			<0x2 0x0 0x0 0x2CC>;

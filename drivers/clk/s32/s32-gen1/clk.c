@@ -202,7 +202,7 @@ static void __init s32g274_extra_clocks_init(struct device_node *clocking_node)
 		MC_CGM_MUX_DCn_DIV_SIZE, 0, &s32gen1_lock);
 }
 
-static void __init s32r45x_extra_clocks_init(struct device_node *clocking_node)
+static void __init s32r45_extra_clocks_init(struct device_node *clocking_node)
 {
 	/* ACCEL_3_CLK (SPT) */
 	clk[S32GEN1_CLK_ACCEL_3] = s32_clk_mux_table("accel_3",
@@ -610,12 +610,12 @@ static void __init s32g274_clocks_init(struct device_node *clks_node)
 	s32g274_extra_clocks_init(clks_node);
 }
 
-static void __init s32r45x_clocks_init(struct device_node *clks_node)
+static void __init s32r45_clocks_init(struct device_node *clks_node)
 {
 	s32gen1_clocks_init(clks_node);
-	s32r45x_extra_clocks_init(clks_node);
+	s32r45_extra_clocks_init(clks_node);
 }
 
 CLK_OF_DECLARE(S32V344, "fsl,s32v344-clocking", s32v344_clocks_init);
 CLK_OF_DECLARE(S32G274, "fsl,s32g274-clocking", s32g274_clocks_init);
-CLK_OF_DECLARE(S32R45X, "fsl,s32r45x-clocking", s32r45x_clocks_init);
+CLK_OF_DECLARE(S32R45, "fsl,s32r45-clocking", s32r45_clocks_init);
