@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright 2017-2020 NXP
+ * Copyright 2019-2020 NXP
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -9,12 +9,12 @@
  */
 
 /dts-v1/;
-#include "fsl-s32r45x.dtsi"
+#include "fsl-s32r45.dtsi"
+#include <dt-bindings/pinctrl/s32r45-pinctrl.h>
+
 / {
 	chosen {
-		linux,initrd-start = <0x84000000>;
-		linux,initrd-end = <0x8A000000>;
-		stdout-path = "serial0:115200n8";
+		stdout-path = "serial1:115200n8";
 	};
 
 	memory_DDR0@80000000 {
@@ -33,7 +33,7 @@
 };
 
 &generic_timer {
-	clock-frequency = <1200000>;
+	clock-frequency = <5000000>;
 };
 
 &i2c0 {
@@ -329,16 +329,4 @@
 
 &spi5 {
 	status = "okay";
-};
-
-&gmac0 {
-	phy-mode = "rgmii";
-	phy-handle = <&gmac0_phy1>;
-};
-
-&gmac0_mdio {
-	/* VDK S32R R9.0 ETH_PHY model has 0x01 addr by default  */
-	gmac0_phy1: ethernet-phy@1 {
-		reg = <1>;
-	};
 };

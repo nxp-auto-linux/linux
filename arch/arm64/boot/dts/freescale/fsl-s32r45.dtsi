@@ -9,7 +9,7 @@
  */
 
 #include "fsl-s32-gen1.dtsi"
-#include <dt-bindings/pinctrl/s32r45x-pinctrl.h>
+#include <dt-bindings/pinctrl/s32r45-pinctrl.h>
 / {
 	model = "Freescale S32R45";
 	compatible = "fsl,s32r45-simu", "fsl,s32r45",

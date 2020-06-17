@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: GPL-2.0
 /*
  * Copyright 2019-2020 NXP
  *
@@ -9,12 +8,19 @@
  */
 
 /dts-v1/;
-#include "fsl-s32r45x.dtsi"
-#include <dt-bindings/pinctrl/s32r45x-pinctrl.h>
+#include "fsl-s32r45.dtsi"
+#include <dt-bindings/pinctrl/s32r45-pinctrl.h>
 
 / {
+	aliases {
+		gmac0 = &gmac0;
+		gmac1 = &gmac1;
+	};
+
 	chosen {
-		stdout-path = "serial1:115200n8";
+		linux,initrd-start = <0x84000000>;
+		linux,initrd-end = <0x8A000000>;
+		stdout-path = "serial0:115200n8";
 	};
 
 	memory_DDR0@80000000 {
@@ -25,6 +31,11 @@
 	memory_DDR1@c0000000 {
 		device_type = "memory";
 		reg = <0 0xc0000000 0 0x40000000>;
+	};
+
+	memory_DDR2@880000000 {
+		device_type = "memory";
+		reg = <0x8 0x80000000 0 0x80000000>;
 	};
 };
 
@@ -57,18 +68,48 @@
 };
 
 &can0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl0_can0>;
 	status = "okay";
 };
 
 &can1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl0_can1>, <&pinctrl1_can1>;
 	status = "okay";
 };
 
 &can2 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl0_can2>, <&pinctrl1_can2>;
 	status = "okay";
 };
 
 &can3 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl0_can3>, <&pinctrl1_can3>;
+	status = "okay";
+};
+
+&can4 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl1_can4>;
+};
+
+&can5 {
+	pinctrl-names = "default";
+	pinctrl-0 =  <&pinctrl0_can5>, <&pinctrl1_can5>;
+	status = "okay";
+};
+
+&can6 {
+	pinctrl-names = "default";
+	pinctrl-0 =  <&pinctrl1_can6>;
+};
+
+&can7 {
+	pinctrl-names = "default";
+	pinctrl-0 =  <&pinctrl1_can7>;
 	status = "okay";
 };
 
@@ -110,7 +151,102 @@
 
 &pinctrl0 {
 	status = "okay";
-	s32r45-simu {
+	s32r45-evb {
+		pinctrl0_can0: can0grp {
+			fsl,pins = <
+				S32_GEN1_PAD_PC12__CAN0_TXD
+				S32_GEN1_PAD_PC11__CAN0_RXD_OUT
+				S32_GEN1_PAD_PC11__CAN0_RXD_IN
+			>;
+		};
+
+		pinctrl0_can1: can1grp {
+			fsl,pins = <
+				S32_GEN1_PAD_PD14__CAN1_TXD
+				S32_GEN1_PAD_PA7__CAN1_RXD_OUT
+			>;
+		};
+
+		pinctrl0_can2: can2grp {
+			fsl,pins = <
+				S32_GEN1_PAD_PB03__CAN2_TXD
+			>;
+		};
+
+		pinctrl0_can3: can3grp {
+			fsl,pins = <
+				S32_GEN1_PAD_PB2__CAN3_TXD
+			>;
+		};
+
+		pinctrl0_can5: can5rp {
+			fsl,pins = <
+				S32_GEN1_PAD_PC2__CAN5_TXD
+			>;
+		};
+
+		pinctrl0_dspi1: dspi1grp {
+			fsl,pins = <
+				S32_GEN1_PAD_PB6__SPI1_SOUT_OUT
+				S32_GEN1_PAD_PB5__SPI1_SIN_OUT
+				S32_GEN1_PAD_PB4__SPI1_SCK_OUT
+				S32_GEN1_PAD_PB7__SPI1_CS0_OUT
+				S32_GEN1_PAD_PB8__SPI1_CS1_OUT
+			>;
+		};
+
+		pinctrl0_dspi2: dspi2grp {
+			fsl,pins = <
+				S32_GEN1_PAD_PB13__SPI2_SOUT_OUT
+				S32_GEN1_PAD_PC01__SPI2_SIN_OUT
+				S32_GEN1_PAD_PB11__SPI2_SCK_OUT
+				S32_GEN1_PAD_PB14__SPI2_CS0_OUT
+				S32_GEN1_PAD_PB15__SPI2_CS1_OUT
+			>;
+		};
+
+		pinctrl0_dspi3: dspi3grp {
+			fsl,pins = <
+				S32_GEN1_PAD_PC13__SPI3_SOUT_OUT
+				S32_GEN1_PAD_PC6__SPI3_SIN_OUT
+				S32_GEN1_PAD_PC4__SPI3_SCK_OUT
+				S32_GEN1_PAD_PC7__SPI3_CS0_OUT
+				S32_GEN1_PAD_PC8__SPI3_CS1_OUT
+			>;
+		};
+
+		pinctrl0_mdio2: mdio2grp {
+			fsl,pins = <
+				S32_GEN1_PAD_PD12__MDC
+				S32_GEN1_PAD_PD13__MDIO_OUT
+				S32_GEN1_PAD_PD13__MDIO_IN
+			>;
+		};
+
+		pinctrl0_rgmii2: rgmii2grp {
+			fsl,pins = <
+				S32_GEN1_PAD_PE2__TXCLK_OUT
+				S32_GEN1_PAD_PE2__TXCLK_IN
+				S32_GEN1_PAD_PE3__TX_EN_OUT
+				S32_GEN1_PAD_PE4__TX_D0_OUT
+				S32_GEN1_PAD_PE5__TX_D1_OUT
+				S32_GEN1_PAD_PE6__TX_D2_OUT
+				S32_GEN1_PAD_PE7__TX_D3_OUT
+				S32_GEN1_PAD_PE8__RXCLK_OUT
+				S32_GEN1_PAD_PE8__RXCLK_IN
+				S32_GEN1_PAD_PE9__RX_DV_OUT
+				S32_GEN1_PAD_PE9__RX_DV_IN
+				S32_GEN1_PAD_PE10__RX_D0_OUT
+				S32_GEN1_PAD_PE10__RX_D0_IN
+				S32_GEN1_PAD_PE11__RX_D1_OUT
+				S32_GEN1_PAD_PE11__RX_D1_IN
+				S32_GEN1_PAD_PE12__RX_D2_OUT
+				S32_GEN1_PAD_PE12__RX_D2_IN
+				S32_GEN1_PAD_PE13__RX_D3_OUT
+				S32_GEN1_PAD_PE13__RX_D3_IN
+			>;
+		};
+
 		pinctrl_gpio0: gpiogrp0 {
 			fsl,pins = <
 				S32R45_PAD_PA_00_SIUL_GPIO0
@@ -222,7 +358,94 @@
 
 &pinctrl1 {
 	status = "okay";
-	s32r45-simu {
+	s32r45-evb {
+		pinctrl1_can1: can1grp {
+			fsl,pins = <
+				S32_GEN1_PAD_PA7__CAN1_RXD_IN
+			>;
+		};
+
+		pinctrl1_can2: can2grp {
+			fsl,pins = <
+				S32_GEN1_PAD_PJ12__CAN2_RXD_OUT
+				S32_GEN1_PAD_PJ12__CAN2_RXD_IN
+			>;
+		};
+
+		pinctrl1_can3: can3grp {
+			fsl,pins = <
+				S32_GEN1_PAD_PJ7__CAN3_RXD_OUT
+				S32_GEN1_PAD_PJ7__CAN3_RXD_IN
+			>;
+		};
+
+		pinctrl1_can4: can4grp {
+			fsl,pins = <
+				S32_GEN1_PAD_PJ9__CAN4_TXD
+				S32_GEN1_PAD_PH7__CAN4_RXD_OUT
+				S32_GEN1_PAD_PH7__CAN4_RXD_IN
+			>;
+		};
+
+		pinctrl1_can5: can5rp {
+			fsl,pins = <
+				S32_GEN1_PAD_PJ0__CAN5_RXD_OUT
+				S32_GEN1_PAD_PJ0__CAN5_RXD_IN
+			>;
+		};
+
+		pinctrl1_can6: can6grp {
+			fsl,pins = <
+				S32_GEN1_PAD_PH6__CAN6_TXD
+				S32_GEN1_PAD_PH8__CAN6_RXD_OUT
+				S32_GEN1_PAD_PH8__CAN6_RXD_IN
+			>;
+		};
+
+		pinctrl1_can7: can7grp {
+			fsl,pins = <
+				S32_GEN1_PAD_PJ8__CAN7_TXD
+				S32_GEN1_PAD_PJ11__CAN7_RXD_OUT
+				S32_GEN1_PAD_PJ11__CAN7_RXD_IN
+			>;
+		};
+
+		pinctrl1_mdio3: mdio3grp {
+			fsl,pins = <
+				S32_GEN1_PAD_PH6__MDC
+				S32_GEN1_PAD_PH7__MDIO_OUT
+				S32_GEN1_PAD_PH7__MDIO_IN
+			>;
+		};
+
+		pinctrl1_dspi1: dspi1grp {
+			fsl,pins = <
+				S32_GEN1_PAD_PB5__SPI1_SIN_IN
+			>;
+		};
+
+		pinctrl1_dspi2: dspi2grp {
+			fsl,pins = <
+				S32_GEN1_PAD_PC01__SPI2_SIN_IN
+			>;
+		};
+
+		pinctrl1_dspi3: dspi3grp {
+			fsl,pins = <
+				S32_GEN1_PAD_PC6__SPI3_SIN_IN
+			>;
+		};
+
+		pinctrl1_dspi5: dspi5grp {
+			fsl,pins = <
+				S32_GEN1_PAD_PK05__SPI5_SOUT_OUT
+				S32_GEN1_PAD_PK04__SPI5_SIN_OUT
+				S32_GEN1_PAD_PK04__SPI5_SIN_IN
+				S32_GEN1_PAD_PK00__SPI5_SCK_OUT
+				S32_GEN1_PAD_PK03__SPI5_CS0_OUT
+			>;
+		};
+
 		pinctrl_gpio1: gpiogrp1 {
 			fsl,pins = <
 				S32R45_PAD_PH_06_SIUL_GPIO102
@@ -312,21 +535,94 @@
 };
 
 &spi1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl0_dspi1>, <&pinctrl1_dspi1>;
+	#address-cells = <1>;
+	#size-cells = <0>;
 	status = "okay";
+
+	spidev10: spidev@10 {
+		compatible = "spidev";
+		spi-max-frequency = <10000000>;
+		reg = <0>;
+	};
+
+	spidev11: spidev@11 {
+		compatible = "spidev";
+		spi-max-frequency = <10000000>;
+		reg = <1>;
+	};
 };
 
 &spi2 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl0_dspi2>, <&pinctrl1_dspi2>;
+	#address-cells = <1>;
+	#size-cells = <0>;
 	status = "okay";
+
+	spidev20: spidev@20 {
+		compatible = "spidev";
+		spi-max-frequency = <10000000>;
+		reg = <0>;
+	};
+
+	spidev21: spidev@21 {
+		compatible = "spidev";
+		spi-max-frequency = <10000000>;
+		reg = <1>;
+	};
 };
 
 &spi3 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl0_dspi3>, <&pinctrl1_dspi3>;
+	#address-cells = <1>;
+	#size-cells = <0>;
 	status = "okay";
-};
 
-&spi4 {
-	status = "okay";
+	spidev3: spidev@30 {
+		compatible = "spidev";
+		spi-max-frequency = <4000000>;
+		reg = <0>;
+	};
 };
 
 &spi5 {
+	pinctrl-names = "default";
+	pinctrl-0 =  <&pinctrl1_dspi5>;
 	status = "okay";
+};
+
+&usdhc0 {
+	status = "okay";
+};
+
+&gmac0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl0_rgmii2>, <&pinctrl0_mdio2>;
+	phy-mode = "rgmii";
+	phy-handle = <&gmac0_phy1>;
+	status = "okay";
+};
+
+&gmac0_mdio {
+	/* KSZ9031RNXCA on S32R-VNP-PROC */
+	gmac0_phy1: ethernet-phy@1 {
+		reg = <1>;
+	};
+};
+
+&gmac1 {
+	phy-mode = "sgmii";
+	status = "disabled";
+
+	/* Current GMAC driver supports only CL22 but EVB phy
+	 * supports only CL45, so no MDIO communication is
+	 * possible.
+	 */
+	fixed-link {
+		speed = <1000>;
+		full-duplex;
+	};
 };
