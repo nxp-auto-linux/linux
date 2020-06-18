@@ -69,6 +69,21 @@ enum gpio_dir {
 };
 
 /**
+ * Pin used as eirq.
+ * On some platforms same eirq is exported by two pins from different gpio
+ * chips.
+ * Taking into account that same interrupt is raised no matter what
+ * pin was configured as eirq, both gpio chips will receive the interrupt.
+ * We will use "used" field to distinguish between them.
+ * The user should't use in the same time both pins as eirq (same IMCR will
+ * be configured when the pinmuxing is done).
+ */
+struct eirq_pin {
+	unsigned int pin;
+	bool used;
+};
+
+/**
  * struct siul2_gpio_dev - describes a group of GPIO pins
  * @pdev: the platform device
  * @ipads: input pads address
@@ -83,10 +98,9 @@ enum gpio_dir {
  */
 struct siul2_gpio_dev {
 	struct platform_device *pdev;
-	void __iomem *ipads;
-	void __iomem *opads;
 
 	void __iomem *irq_base;
+	struct eirq_pin *eirq_pins;
 	unsigned int eirq_npins;
 	int hwirq_base;
 
@@ -100,6 +114,26 @@ struct siul2_gpio_dev {
 	spinlock_t lock;
 };
 
+/* We will use the following variable names:
+ * - eirq - number between 0 and 32.
+ * - pin - real GPIO id
+ * - gpio - number relative to base (first GPIO handled by this chip).
+ */
+static inline int siul2_gpio_to_pin(struct gpio_chip *gc, int gpio)
+{
+	return gc->base + gpio;
+}
+
+static inline int siul2_pin_to_gpio(struct gpio_chip *gc, int pin)
+{
+	return pin - gc->base;
+}
+
+static inline int siul2_eirq_to_pin(struct siul2_gpio_dev *gpio_dev, int eirq)
+{
+	return gpio_dev->eirq_pins[eirq].pin;
+}
+
 static inline int siul2_get_gpio_pinspec(struct platform_device *pdev,
 					 struct of_phandle_args *pinspec,
 					 unsigned int range_index)
@@ -111,6 +145,46 @@ static inline int siul2_get_gpio_pinspec(struct platform_device *pdev,
 		return -EINVAL;
 
 	return ret;
+}
+
+/* Not all GPIOs from gpio-ranges can be used as EIRQs.
+ * Use eirq-ranges for those that can be used as EIRQs.
+ * Also we can have more eirq-ranges, each of them described
+ * by the first gpio and the number of consecutive gpios.
+ */
+static inline int siul2_get_eirq_pinspec(struct siul2_gpio_dev *gpio_dev,
+					 struct platform_device *pdev)
+{
+	int ret, err, i, index = 0;
+	struct of_phandle_iterator it;
+	struct device_node *np = pdev->dev.of_node;
+	u32 args[MAX_PHANDLE_ARGS];
+
+	gpio_dev->eirq_npins = 0;
+	of_for_each_phandle(&it, err, np, "eirq-ranges", NULL, 3) {
+		ret = of_phandle_iterator_args(&it, args, MAX_PHANDLE_ARGS);
+		gpio_dev->eirq_npins += args[2];
+	}
+	if (!gpio_dev->eirq_npins)
+		return -EINVAL;
+
+	gpio_dev->eirq_pins =
+		devm_kzalloc(&pdev->dev,
+			     gpio_dev->eirq_npins *
+			     sizeof(*gpio_dev->eirq_pins),
+			     GFP_KERNEL);
+	if (!gpio_dev->eirq_pins)
+		return -ENOMEM;
+
+	index = 0;
+	of_for_each_phandle(&it, err, np, "eirq-ranges", NULL, 3) {
+		ret = of_phandle_iterator_args(&it, args, MAX_PHANDLE_ARGS);
+		for (i = 0; i < args[2]; i++)
+			gpio_dev->eirq_pins[index + i].pin = args[1] + i;
+		index += args[2];
+	}
+
+	return 0;
 }
 
 static inline void gpio_set_direction(struct siul2_gpio_dev *dev, unsigned int gpio,
@@ -232,7 +306,7 @@ static irqreturn_t siul2_gpio_irq_handler(int irq, void *data)
 {
 	struct siul2_gpio_dev *gpio_dev = data;
 	struct gpio_chip *gc = &gpio_dev->gc;
-	unsigned int pin;
+	unsigned int eirq, pin, gpio, child_irq;
 	u32 disr0_val;
 	unsigned long disr0_val_long;
 	irqreturn_t ret = IRQ_NONE;
@@ -243,7 +317,12 @@ static irqreturn_t siul2_gpio_irq_handler(int irq, void *data)
 
 	for_each_set_bit(pin, &disr0_val_long,
 			 BITS_PER_BYTE * sizeof(disr0_val)) {
-		int child_irq = irq_find_mapping(gc->irq.domain, pin);
+		if (!gpio_dev->eirq_pins[eirq].used)
+			continue;
+
+		pin = siul2_eirq_to_pin(gpio_dev, eirq);
+		gpio = siul2_pin_to_gpio(gc, pin);
+		child_irq = irq_find_mapping(gc->irq.domain, gpio);
 
 		/*
 		 * Clear the interrupt before invoking the
@@ -285,8 +364,9 @@ static void siul2_gpio_irq_unmask(struct irq_data *data)
 
 	/* Enable Interrupt */
 	direr0_val |= BIT(eirq);
-
 	regmap_write(gpio_dev->irqmap, SIUL2_DIRER0, direr0_val);
+
+	gpio_dev->eirq_pins[eirq].used = 1;
 
 	spin_unlock_irqrestore(&gpio_dev->lock, flags);
 }
@@ -321,6 +401,7 @@ static void siul2_gpio_irq_mask(struct irq_data *data)
 	regmap_write(gpio_dev->irqmap, SIUL2_DIRER0, direr0_val);
 	regmap_write(gpio_dev->irqmap, SIUL2_DISR0, disr0_val);
 
+	gpio_dev->eirq_pins[eirq].used = 0;
 	spin_unlock_irqrestore(&gpio_dev->lock, flags);
 }
 
