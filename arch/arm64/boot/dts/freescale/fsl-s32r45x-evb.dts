@@ -535,7 +535,6 @@
 };
 
 &spi1 {
-	compatible = "fsl,s32r45x-dspi";
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl0_dspi1>, <&pinctrl1_dspi1>;
 	#address-cells = <1>;
@@ -556,7 +555,6 @@
 };
 
 &spi2 {
-	compatible = "fsl,s32r45x-dspi";
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl0_dspi2>, <&pinctrl1_dspi2>;
 	#address-cells = <1>;
