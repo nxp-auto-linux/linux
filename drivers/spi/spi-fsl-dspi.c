@@ -168,7 +168,7 @@ static const struct fsl_dspi_devtype_data coldfire_data = {
 };
 
 static const struct fsl_dspi_devtype_data s32_data = {
-	.trans_mode		= DSPI_EOQ_MODE,
+	.trans_mode		= DSPI_TCFQ_MODE,
 	.max_clock_factor	= 1,
 	.xspi_mode		= true,
 };
