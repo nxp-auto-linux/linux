@@ -70,6 +70,21 @@ enum gpio_dir {
 };
 
 /**
+ * Pin used as eirq.
+ * On some platforms same eirq is exported by two pins from different gpio
+ * chips.
+ * Taking into account that same interrupt is raised no matter what
+ * pin was configured as eirq, both gpio chips will receive the interrupt.
+ * We will use "used" field to distinguish between them.
+ * The user should't use in the same time both pins as eirq (same IMCR will
+ * be configured when the pinmuxing is done).
+ */
+struct eirq_pin {
+	unsigned int pin;
+	bool used;
+};
+
+/**
  * struct siul2_gpio_dev - describes a group of GPIO pins
  * @pdev: the platform device
  * @ipads: input pads address
@@ -85,11 +100,9 @@ enum gpio_dir {
  */
 struct siul2_gpio_dev {
 	struct platform_device *pdev;
-	void __iomem *ipads;
-	void __iomem *opads;
 
 	void __iomem *irq_base;
-	int *eirq_pins;
+	struct eirq_pin *eirq_pins;
 	unsigned int eirq_npins;
 
 	unsigned long *pin_dir_bitmap;
@@ -117,7 +130,7 @@ static inline int siul2_pin_to_gpio(struct gpio_chip *gc, int pin)
 
 static inline int siul2_eirq_to_pin(struct siul2_gpio_dev *gpio_dev, int eirq)
 {
-	return gpio_dev->eirq_pins[eirq];
+	return gpio_dev->eirq_pins[eirq].pin;
 }
 
 static int siul2_pin_to_eirq(struct siul2_gpio_dev *gpio_dev, int pin)
@@ -125,7 +138,7 @@ static int siul2_pin_to_eirq(struct siul2_gpio_dev *gpio_dev, int pin)
 	int i;
 
 	for (i = 0; i < gpio_dev->eirq_npins; i++)
-		if (gpio_dev->eirq_pins[i] == pin)
+		if (gpio_dev->eirq_pins[i].pin == pin)
 			return i;
 	return -1;
 }
@@ -178,7 +191,7 @@ static inline int siul2_get_eirq_pinspec(
 	of_for_each_phandle(&it, err, np, "eirq-ranges", NULL, 3) {
 		ret = of_phandle_iterator_args(&it, args, MAX_PHANDLE_ARGS);
 		for (i = 0; i < args[2]; i++)
-			gpio_dev->eirq_pins[index + i] = args[1] + i;
+			gpio_dev->eirq_pins[index + i].pin = args[1] + i;
 		index += args[2];
 	}
 
@@ -315,16 +328,14 @@ static int siul2_gpio_irq_set_type(struct irq_data *d, unsigned int type)
 	return 0;
 }
 
-static void siul2_gpio_irq_handler(struct irq_desc *desc)
+static irqreturn_t siul2_gpio_irq_handler(int irq, void *data)
 {
-	struct gpio_chip *gc = irq_desc_get_handler_data(desc);
-	struct siul2_gpio_dev *gpio_dev = to_siul2_gpio_dev(gc);
-	struct irq_chip *irq_chip = irq_desc_get_chip(desc);
+	struct siul2_gpio_dev *gpio_dev = data;
+	struct gpio_chip *gc = &gpio_dev->gc;
 	unsigned int eirq, pin, gpio, child_irq;
 	uint32_t disr0_val;
 	unsigned long disr0_val_long;
-
-	chained_irq_enter(irq_chip, desc);
+	irqreturn_t ret = IRQ_NONE;
 
 	/* Go through the entire GPIO bank and handle all interrupts */
 	regmap_read(gpio_dev->irqmap, SIUL2_DISR0, &disr0_val);
@@ -332,6 +343,9 @@ static void siul2_gpio_irq_handler(struct irq_desc *desc)
 
 	for_each_set_bit(eirq, &disr0_val_long,
 					 BITS_PER_BYTE * sizeof(disr0_val)) {
+		if (!gpio_dev->eirq_pins[eirq].used)
+			continue;
+
 		pin = siul2_eirq_to_pin(gpio_dev, eirq);
 		gpio = siul2_pin_to_gpio(gc, pin);
 		child_irq = irq_find_mapping(gc->irq.domain, gpio);
@@ -343,9 +357,11 @@ static void siul2_gpio_irq_handler(struct irq_desc *desc)
 		regmap_write(gpio_dev->irqmap, SIUL2_DISR0, BIT(eirq));
 
 		generic_handle_irq(child_irq);
+
+		ret |= IRQ_HANDLED;
 	}
 
-	chained_irq_exit(irq_chip, desc);
+	return ret;
 }
 
 static void siul2_gpio_irq_unmask(struct irq_data *data)
@@ -374,8 +390,9 @@ static void siul2_gpio_irq_unmask(struct irq_data *data)
 
 	/* Enable Interrupt */
 	direr0_val |= BIT(eirq);
-
 	regmap_write(gpio_dev->irqmap, SIUL2_DIRER0, direr0_val);
+
+	gpio_dev->eirq_pins[eirq].used = 1;
 
 	spin_unlock_irqrestore(&gpio_dev->lock, flags);
 }
@@ -409,6 +426,7 @@ static void siul2_gpio_irq_mask(struct irq_data *data)
 	regmap_write(gpio_dev->irqmap, SIUL2_DIRER0, direr0_val);
 	regmap_write(gpio_dev->irqmap, SIUL2_DISR0, disr0_val);
 
+	gpio_dev->eirq_pins[eirq].used = 0;
 	spin_unlock_irqrestore(&gpio_dev->lock, flags);
 }
 
@@ -483,6 +501,19 @@ static int siul2_irq_setup(struct platform_device *pdev,
 
 	spin_unlock_irqrestore(&gpio_dev->lock, flags);
 
+	/*
+	 * We need to request the interrupt here (instead of providing chip
+	 * to the irq directly) because both GPIO controllers share the same
+	 * interrupt line.
+	 */
+	ret = devm_request_irq(&pdev->dev, irq, siul2_gpio_irq_handler,
+			       IRQF_SHARED | IRQF_NO_THREAD,
+			       dev_name(&pdev->dev), gpio_dev);
+	if (ret) {
+		dev_err(&pdev->dev, "failed to request interrupt\n");
+		return ret;
+	}
+
 	/* Setup irq domain on top of the generic chip. */
 	err = gpiochip_irqchip_add(&gpio_dev->gc,
 				   &siul2_gpio_irq_chip,
@@ -498,7 +529,7 @@ static int siul2_irq_setup(struct platform_device *pdev,
 	gpiochip_set_chained_irqchip(&gpio_dev->gc,
 				     &siul2_gpio_irq_chip,
 				     irq,
-				     siul2_gpio_irq_handler);
+				     NULL);
 
 irq_setup_err:
 
