@@ -154,8 +154,13 @@
 				/* GPIO 0-101 */
 			gpio-ranges = <&pinctrl0 0 0 102>;
 				/* Pad Data I/0 Registers */
+			eirq-ranges = <&pinctrl0 0 19 8>;
+				/* Pad Data I/0 Registers */
 			regmap0 = <&opad0_regs>;
 			regmap1 = <&ipad0_regs>;
+			regmap2 = <&irq_regs>;
+			interrupt-controller;
+			interrupts = <0 210 4>;
 			status = "okay";
 		};
 	};
