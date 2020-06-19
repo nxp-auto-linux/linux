@@ -633,7 +633,7 @@
 				S32_GEN1_PAD_PL14__SIUL_GPIO190
 				>;
 		};
-		pinctrl_gpioeirq0: gpioeirqgrp0 {
+		pinctrl_gpioeirq: gpioeirqgrp {
 			fsl,pins = <
 				S32_GEN1_PAD_PB3__SIUL_EIRQ0
 				S32_GEN1_PAD_PB4__SIUL_EIRQ1
@@ -742,5 +742,11 @@
 };
 
 &pcie1 {
+	status = "okay";
+};
+
+&gpio1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_gpioeirq>;
 	status = "okay";
 };
