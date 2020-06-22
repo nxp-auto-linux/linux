@@ -154,7 +154,19 @@
 				/* GPIO 0-101 */
 			gpio-ranges = <&pinctrl0 0 0 102>;
 				/* Pad Data I/0 Registers */
-			eirq-ranges = <&pinctrl0 0 19 8>;
+			eirq-ranges =
+				/* EIRQ[0] - EIRQ[10] */
+				<&pinctrl0 0 19 11>,
+				/* EIRQ[11] */
+				<&pinctrl0 0 S32GEN1_INVALID_GPIO 1>,
+				/* EIRQ[12] */
+				<&pinctrl0 0 31 1>,
+				/* EIRQ[13] - EIRQ[15] */
+				<&pinctrl0 0 33 3>,
+				/* EIRQ[16] - EIRQ[26] */
+				<&pinctrl0 0 S32GEN1_INVALID_GPIO 11>,
+				/* EIRQ[27] - EIRQ[31] */
+				<&pinctrl0 0 36 5>;
 				/* Pad Data I/0 Registers */
 			regmap0 = <&opad0_regs>;
 			regmap1 = <&ipad0_regs>;
@@ -199,10 +211,27 @@
 			#gpio-cells = <2>;
 				/* GPIO 112-190 */
 			gpio-ranges = <&pinctrl1 0 112 79>;
-				/* GPIO 151-152 */
-			eirq-ranges = <&pinctrl1 0 151 2>,
-				/* GPIO 177-182 */
-				<&pinctrl1 0 177 6>;
+			eirq-ranges =
+				/* EIRQ[0] - EIRQ[1] */
+				<&pinctrl1 0 151 2>,
+				/* EIRQ[2] - EIRQ[7] */
+				<&pinctrl1 0 177 6>,
+				/* EIRQ[8] */
+				<&pinctrl1 0 154 1>,
+				/* EIRQ[9] */
+				<&pinctrl1 0 160 1>,
+				/* EIRQ[10] */
+				<&pinctrl1 0 165 1>,
+				/* EIRQ[11] */
+				<&pinctrl1 0 168 1>,
+				/* EIRQ[12] - EIRQ[15] */
+				<&pinctrl1 0 S32GEN1_INVALID_GPIO 4>,
+				/* EIRQ[16] - EIRQ[22] */
+				<&pinctrl1 0 184 7>,
+				/* EIRQ[23] - EIRQ[25] */
+				<&pinctrl1 0 113 3>,
+				/* EIRQ[26] */
+				<&pinctrl1 0 117 1>;
 				/* Pad Data I/0 Registers */
 			regmap0 = <&opad1_regs>;
 			regmap1 = <&ipad1_regs>;
