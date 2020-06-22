@@ -89,6 +89,7 @@ struct eirq_pin {
  * @ipads: input pads address
  * @opads: output pads address
  * @irq_base: the base address of EIRQ registers
+ * @eirq_pins: array of pins which can be used as eirq
  * @eirq_npins: number of EIRQ pins
  * @pin_dir_bitmap: bitmap with pin directions
  * @gc: the GPIO chip
@@ -102,7 +103,6 @@ struct siul2_gpio_dev {
 	void __iomem *irq_base;
 	struct eirq_pin *eirq_pins;
 	unsigned int eirq_npins;
-	int hwirq_base;
 
 	unsigned long *pin_dir_bitmap;
 	struct regmap *opadmap;
@@ -145,6 +145,16 @@ static inline bool siul2_is_valid_eirq(struct siul2_gpio_dev *gpio_dev,
 	if (eirq < 0 || eirq >= gpio_dev->eirq_npins)
 		return false;
 	return siul2_is_valid_pin(siul2_eirq_to_pin(gpio_dev, eirq));
+}
+
+static int siul2_pin_to_eirq(struct siul2_gpio_dev *gpio_dev, int pin)
+{
+	int i;
+
+	for (i = 0; i < gpio_dev->eirq_npins; i++)
+		if (gpio_dev->eirq_pins[i].pin == pin)
+			return i;
+	return -1;
 }
 
 static inline int siul2_get_gpio_pinspec(struct platform_device *pdev,
@@ -230,8 +240,9 @@ static int siul2_gpio_dir_in(struct gpio_chip *chip, unsigned int gpio)
 {
 	int ret = 0;
 	struct siul2_gpio_dev *gpio_dev;
+	int pin = siul2_gpio_to_pin(chip, gpio);
 
-	ret = pinctrl_gpio_direction_input(chip->base + gpio);
+	ret = pinctrl_gpio_direction_input(pin);
 	if (ret)
 		return ret;
 
@@ -246,8 +257,9 @@ static int siul2_gpio_dir_out(struct gpio_chip *chip, unsigned int gpio,
 {
 	int ret = 0;
 	struct siul2_gpio_dev *gpio_dev;
+	int pin = siul2_gpio_to_pin(chip, gpio);
 
-	ret = pinctrl_gpio_direction_output(chip->base + gpio);
+	ret = pinctrl_gpio_direction_output(pin);
 	if (ret)
 		return ret;
 
@@ -258,37 +270,50 @@ static int siul2_gpio_dir_out(struct gpio_chip *chip, unsigned int gpio,
 	return ret;
 }
 
-static int siul2_gpio_request(struct gpio_chip *chip, unsigned int gpio_pin)
+static int siul2_gpio_request(struct gpio_chip *chip, unsigned int gpio)
 {
-	return pinctrl_gpio_request(chip->base + gpio_pin);
+	int pin = siul2_gpio_to_pin(chip, gpio);
+
+	return pinctrl_gpio_request(pin);
 }
 
-static void siul2_gpio_free(struct gpio_chip *chip, unsigned int offset)
+static void siul2_gpio_free(struct gpio_chip *chip, unsigned int gpio)
 {
-	pinctrl_gpio_free(chip->base + offset);
+	int pin = siul2_gpio_to_pin(chip, gpio);
+
+	pinctrl_gpio_free(pin);
+}
+
+static int siul2_get_eirq_from_data(struct irq_data *d)
+{
+	struct gpio_chip *gc = irq_data_get_irq_chip_data(d);
+	struct siul2_gpio_dev *gpio_dev = to_siul2_gpio_dev(gc);
+	int pin = siul2_gpio_to_pin(gc, d->hwirq);
+
+	return siul2_pin_to_eirq(gpio_dev, pin);
 }
 
 static int siul2_gpio_irq_set_type(struct irq_data *d, unsigned int type)
 {
 	struct gpio_chip *gc = irq_data_get_irq_chip_data(d);
 	struct siul2_gpio_dev *gpio_dev = to_siul2_gpio_dev(gc);
-	int eirq = d->hwirq;
+	int eirq = siul2_get_eirq_from_data(d);
 	unsigned long flags;
 	unsigned int irq_type = type & IRQ_TYPE_SENSE_MASK;
 	int ret;
 	u32 ireer0_val;
 	u32 ifeer0_val;
+	int pin = siul2_eirq_to_pin(gpio_dev, eirq);
 
 	if (!siul2_is_valid_eirq(gpio_dev, eirq))
 		return -EINVAL;
 
-	ret = pinctrl_gpio_direction_input(gc->base + eirq);
+	ret = pinctrl_gpio_direction_input(pin);
 	if (ret) {
 		dev_err(gc->parent, "Failed to configure %d pin as input pin\n",
 			eirq);
 		return ret;
 	}
-	eirq += gpio_dev->hwirq_base;
 
 	/* SIUL2 GPIO doesn't support level triggering */
 	if ((irq_type & IRQ_TYPE_LEVEL_HIGH) ||
@@ -334,7 +359,7 @@ static irqreturn_t siul2_gpio_irq_handler(int irq, void *data)
 	regmap_read(gpio_dev->irqmap, SIUL2_DISR0, &disr0_val);
 	disr0_val_long = disr0_val;
 
-	for_each_set_bit(pin, &disr0_val_long,
+	for_each_set_bit(eirq, &disr0_val_long,
 			 BITS_PER_BYTE * sizeof(disr0_val)) {
 		if (!gpio_dev->eirq_pins[eirq].used)
 			continue;
@@ -347,7 +372,7 @@ static irqreturn_t siul2_gpio_irq_handler(int irq, void *data)
 		 * Clear the interrupt before invoking the
 		 * handler, so we do not leave any window
 		 */
-		regmap_write(gpio_dev->irqmap, SIUL2_DISR0, BIT(pin));
+		regmap_write(gpio_dev->irqmap, SIUL2_DISR0, BIT(eirq));
 
 		generic_handle_irq(child_irq);
 
@@ -361,7 +386,7 @@ static void siul2_gpio_irq_unmask(struct irq_data *data)
 {
 	struct gpio_chip *gc = irq_data_get_irq_chip_data(data);
 	struct siul2_gpio_dev *gpio_dev = to_siul2_gpio_dev(gc);
-	int eirq = data->hwirq;
+	int eirq = siul2_get_eirq_from_data(data);
 	unsigned long flags;
 	u32 direr0_val;
 	u32 disr0_val;
@@ -394,7 +419,7 @@ static void siul2_gpio_irq_mask(struct irq_data *data)
 {
 	struct gpio_chip *gc = irq_data_get_irq_chip_data(data);
 	struct siul2_gpio_dev *gpio_dev = to_siul2_gpio_dev(gc);
-	int eirq = data->hwirq;
+	int eirq = siul2_get_eirq_from_data(data);
 	unsigned long flags;
 	u32 direr0_val;
 	u32 disr0_val;
@@ -402,7 +427,6 @@ static void siul2_gpio_irq_mask(struct irq_data *data)
 
 	if (!siul2_is_valid_eirq(gpio_dev, eirq))
 		return;
-	eirq += gpio_dev->hwirq_base;
 
 	err = siul2_gpio_irq_set_type(data, IRQ_TYPE_NONE);
 	if (err)
@@ -438,7 +462,6 @@ static int siul2_irq_setup(struct platform_device *pdev,
 	int err, ret = 0;
 	const int *intspec;
 	int intlen;
-	struct of_phandle_args pinspec;
 	int irq;
 	unsigned long flags;
 	/*
@@ -452,15 +475,13 @@ static int siul2_irq_setup(struct platform_device *pdev,
 	if (!intspec)
 		return 0;
 
-	gpio_dev->hwirq_base = cpu_to_be32(intspec[1]);
-
 	gpio_dev->irqmap = syscon_regmap_lookup_by_phandle(pdev->dev.of_node,
 							   "regmap2");
 	if (IS_ERR(gpio_dev->irqmap))
 		return PTR_ERR(gpio_dev->irqmap);
 
 	/* EIRQ pins */
-	err = siul2_get_gpio_pinspec(pdev, &pinspec, 1);
+	err = siul2_get_eirq_pinspec(gpio_dev, pdev);
 	if (err) {
 		dev_err(&pdev->dev,
 			"unable to get pinspec from device tree\n");
@@ -474,8 +495,6 @@ static int siul2_irq_setup(struct platform_device *pdev,
 		return irq;
 	}
 
-	/* Number of pins */
-	gpio_dev->eirq_npins = pinspec.args[2];
 	spin_lock_irqsave(&gpio_dev->lock, flags);
 
 	if (!init_flag) {
@@ -579,7 +598,7 @@ static void siul2_gpio_set(struct gpio_chip *chip, unsigned int offset,
 	if (dir == IN)
 		return;
 
-	offset = offset + chip->base;
+	offset = siul2_gpio_to_pin(chip, offset);
 
 	mask = siul2_pin2mask(offset, gpio_dev);
 	pad = siul2_pin2pad(offset, gpio_dev);
@@ -614,7 +633,7 @@ static int siul2_gpio_get(struct gpio_chip *chip, unsigned int offset)
 
 	dir = gpio_get_direction(gpio_dev, offset);
 
-	offset = offset + chip->base;
+	offset = siul2_gpio_to_pin(chip, offset);
 
 	mask = siul2_pin2mask(offset, gpio_dev);
 	pad = siul2_pin2pad(offset, gpio_dev);
