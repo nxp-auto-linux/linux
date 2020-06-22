@@ -79,7 +79,7 @@ enum gpio_dir {
  * be configured when the pinmuxing is done).
  */
 struct eirq_pin {
-	unsigned int pin;
+	int pin;
 	bool used;
 };
 
@@ -119,6 +119,11 @@ struct siul2_gpio_dev {
  * - pin - real GPIO id
  * - gpio - number relative to base (first GPIO handled by this chip).
  */
+static inline bool siul2_is_valid_pin(int pin)
+{
+	return pin != -1;
+}
+
 static inline int siul2_gpio_to_pin(struct gpio_chip *gc, int gpio)
 {
 	return gc->base + gpio;
@@ -132,6 +137,14 @@ static inline int siul2_pin_to_gpio(struct gpio_chip *gc, int pin)
 static inline int siul2_eirq_to_pin(struct siul2_gpio_dev *gpio_dev, int eirq)
 {
 	return gpio_dev->eirq_pins[eirq].pin;
+}
+
+static inline bool siul2_is_valid_eirq(struct siul2_gpio_dev *gpio_dev,
+				       int eirq)
+{
+	if (eirq < 0 || eirq >= gpio_dev->eirq_npins)
+		return false;
+	return siul2_is_valid_pin(siul2_eirq_to_pin(gpio_dev, eirq));
 }
 
 static inline int siul2_get_gpio_pinspec(struct platform_device *pdev,
@@ -179,8 +192,14 @@ static inline int siul2_get_eirq_pinspec(struct siul2_gpio_dev *gpio_dev,
 	index = 0;
 	of_for_each_phandle(&it, err, np, "eirq-ranges", NULL, 3) {
 		ret = of_phandle_iterator_args(&it, args, MAX_PHANDLE_ARGS);
-		for (i = 0; i < args[2]; i++)
-			gpio_dev->eirq_pins[index + i].pin = args[1] + i;
+		if (!siul2_is_valid_pin(args[1])) {
+			for (i = 0; i < args[2]; i++)
+				gpio_dev->eirq_pins[index + i].pin = -1;
+		} else {
+			for (i = 0; i < args[2]; i++)
+				gpio_dev->eirq_pins[index + i].pin =
+							args[1] + i;
+		}
 		index += args[2];
 	}
 
@@ -260,7 +279,7 @@ static int siul2_gpio_irq_set_type(struct irq_data *d, unsigned int type)
 	u32 ireer0_val;
 	u32 ifeer0_val;
 
-	if (eirq < 0 || eirq >= gpio_dev->eirq_npins)
+	if (!siul2_is_valid_eirq(gpio_dev, eirq))
 		return -EINVAL;
 
 	ret = pinctrl_gpio_direction_input(gc->base + eirq);
@@ -347,7 +366,7 @@ static void siul2_gpio_irq_unmask(struct irq_data *data)
 	u32 direr0_val;
 	u32 disr0_val;
 
-	if (eirq < 0 || eirq >= gpio_dev->eirq_npins)
+	if (!siul2_is_valid_eirq(gpio_dev, eirq))
 		return;
 
 	spin_lock_irqsave(&gpio_dev->lock, flags);
@@ -381,7 +400,7 @@ static void siul2_gpio_irq_mask(struct irq_data *data)
 	u32 disr0_val;
 	int err;
 
-	if (eirq < 0 || eirq >= gpio_dev->eirq_npins)
+	if (!siul2_is_valid_eirq(gpio_dev, eirq))
 		return;
 	eirq += gpio_dev->hwirq_base;
 
