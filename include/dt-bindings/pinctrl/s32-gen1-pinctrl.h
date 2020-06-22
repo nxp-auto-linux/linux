@@ -1,5 +1,5 @@
 /*
- * Copyright 2018 NXP
+ * Copyright 2018,2020 NXP
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -45,5 +45,7 @@
 #define PAD_CTL_SRC_SIG_SEL6   (6)
 #define PAD_CTL_SRC_SIG_SEL7   (7)
 #define PAD_CTL_MUX_MODE_MASK   (0xF)
+
+#define S32GEN1_INVALID_GPIO	(-1)
 
 #endif /* __DT_BINDINGS_S32_GEN1_PINCTRL_H__ */
