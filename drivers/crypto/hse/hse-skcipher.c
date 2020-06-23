@@ -129,6 +129,7 @@ static void hse_skcipher_done(int err, void *skreq)
 	struct hse_skcipher_req_ctx *rctx = skcipher_request_ctx(req);
 	struct crypto_skcipher *tfm = crypto_skcipher_reqtfm(req);
 	struct hse_skcipher_alg *alg = hse_skcipher_get_alg(tfm);
+	unsigned int i, blocksize = crypto_skcipher_blocksize(tfm);
 	unsigned int nbytes, ivsize = crypto_skcipher_ivsize(tfm);
 
 	dma_unmap_single(alg->dev, rctx->srv_desc_dma, sizeof(rctx->srv_desc),
@@ -151,11 +152,22 @@ static void hse_skcipher_done(int err, void *skreq)
 		goto out_free_buf;
 	}
 
-	/* req->iv is expected to be set to the last ciphertext block */
-	if (alg->block_mode == HSE_CIPHER_BLOCK_MODE_CBC &&
-	    rctx->direction == HSE_CIPHER_DIR_ENCRYPT)
-		scatterwalk_map_and_copy(req->iv, req->dst, req->cryptlen -
-					 ivsize, ivsize, 0);
+	switch (alg->block_mode) {
+	case HSE_CIPHER_BLOCK_MODE_CTR:
+		/* increment req_iv counter by the number of encrypted blocks */
+		for (i = 0; i < rctx->buflen / blocksize; i++)
+			crypto_inc(req->iv, ivsize);
+		break;
+	case HSE_CIPHER_BLOCK_MODE_CBC:
+		/* req->iv is expected to be set to the last ciphertext block */
+		if (rctx->direction == HSE_CIPHER_DIR_ENCRYPT)
+			scatterwalk_map_and_copy(req->iv, req->dst,
+						 req->cryptlen - ivsize,
+						 ivsize, 0);
+		break;
+	default:
+		break;
+	}
 
 out_free_buf:
 	kfree(rctx->buf);
@@ -184,17 +196,7 @@ static int hse_skcipher_crypt(struct skcipher_request *req,
 	if (!req->cryptlen)
 		return 0;
 
-	switch (alg->block_mode) {
-	case HSE_CIPHER_BLOCK_MODE_CBC:
-	case HSE_CIPHER_BLOCK_MODE_ECB:
-	case HSE_CIPHER_BLOCK_MODE_CFB:
-		rctx->buflen = roundup(req->cryptlen, blocksize);
-		break;
-	default:
-		rctx->buflen = req->cryptlen;
-		break;
-	}
-
+	rctx->buflen = roundup(req->cryptlen, blocksize);
 	rctx->buf = kzalloc(rctx->buflen, GFP_KERNEL);
 	if (IS_ERR_OR_NULL(rctx->buf)) {
 		rctx->buflen = 0;
@@ -424,6 +426,16 @@ static void hse_skcipher_exit(struct crypto_skcipher *tfm)
 
 static const struct hse_skcipher_tpl hse_skcipher_algs_tpl[] = {
 	{
+		.cipher_name = "ctr(aes)",
+		.cipher_drv = "ctr-aes-hse",
+		.blocksize = AES_BLOCK_SIZE,
+		.min_keysize = AES_MIN_KEY_SIZE,
+		.max_keysize = AES_MAX_KEY_SIZE,
+		.ivsize = AES_BLOCK_SIZE,
+		.cipher_type = HSE_CIPHER_ALGO_AES,
+		.block_mode = HSE_CIPHER_BLOCK_MODE_CTR,
+		.key_type = HSE_KEY_TYPE_AES,
+	}, {
 		.cipher_name = "cbc(aes)",
 		.cipher_drv = "cbc-aes-hse",
 		.blocksize = AES_BLOCK_SIZE,
