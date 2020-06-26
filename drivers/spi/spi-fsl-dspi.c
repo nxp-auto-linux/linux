@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0+
 //
 // Copyright 2013-2016 Freescale Semiconductor, Inc.
-// Copyright 2018 NXP
+// Copyright 2018, 2020 NXP
 //
 // Freescale DSPI driver
 // This file contains a driver for the Freescale DSPI
@@ -167,6 +167,7 @@ static const struct fsl_dspi_devtype_data coldfire_data = {
 static const struct fsl_dspi_devtype_data s32_data = {
 	.trans_mode		= DSPI_EOQ_MODE,
 	.max_clock_factor	= 1,
+	.xspi_mode		= true,
 };
 
 struct fsl_dspi_dma {
