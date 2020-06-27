@@ -985,7 +985,11 @@ static irqreturn_t dspi_interrupt(int irq, void *dev_id)
 
 
 	if (spi_sr & (SPI_SR_EOQF | SPI_SR_TCFQF)) {
-		tx_word = is_double_byte_mode(dspi);
+		if (is_s32_dspi(dspi))
+			tx_word = bytes_per_frame(get_frame_mode(dspi));
+		else
+			tx_word = is_double_byte_mode(dspi);
+
 
 		/* Get transfer counter (in number of SPI transfers). It was
 		 * reset to 0 when transfer(s) were started.
@@ -994,6 +998,9 @@ static irqreturn_t dspi_interrupt(int irq, void *dev_id)
 		spi_tcnt = SPI_TCR_GET_TCNT(spi_tcr);
 
 		/* Update total number of bytes that were transferred */
+		if (is_s32_dspi(dspi))
+			tx_word--;
+
 		msg->actual_length += spi_tcnt * (tx_word + 1) -
 			(dspi->dataflags & TRAN_STATE_WORD_ODD_NUM ? 1 : 0);
 
