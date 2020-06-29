@@ -62,7 +62,7 @@ struct flash_info {
 	u16		page_size;
 	u16		addr_width;
 
-	u16		flags;
+	u32		flags;
 #define SECT_4K			BIT(0)	/* SPINOR_OP_BE_4K works uniformly */
 #define SPI_NOR_NO_ERASE	BIT(1)	/* No erase command needed */
 #define SST_WRITE		BIT(2)	/* use SST byte programming */
@@ -90,6 +90,9 @@ struct flash_info {
 #define NO_CHIP_ERASE		BIT(12) /* Chip does not support chip erase */
 #define SPI_NOR_SKIP_SFDP	BIT(13)	/* Skip parsing of SFDP tables */
 #define USE_CLSR		BIT(14)	/* use CLSR command */
+#define SPI_NOR_HAS_SST26LOCK	BIT(15) /* Flash supports lock/unlock via BPR */
+#define SPI_NOR_OCTAL_READ		BIT(16) /* Flash supports Octal Read */
+#define SPI_NOR_OCTAL_DTR_READ	BIT(17) /* Flash supports DTR Octal Read */
 
 	int	(*quad_enable)(struct spi_nor *nor);
 };
@@ -209,6 +212,8 @@ static inline u8 spi_nor_convert_3to4_read(u8 opcode)
 		{ SPINOR_OP_READ_1_2_2,	SPINOR_OP_READ_1_2_2_4B },
 		{ SPINOR_OP_READ_1_1_4,	SPINOR_OP_READ_1_1_4_4B },
 		{ SPINOR_OP_READ_1_4_4,	SPINOR_OP_READ_1_4_4_4B },
+		{ SPINOR_OP_READ_1_1_8, SPINOR_OP_READ_1_1_8_4B },
+		{ SPINOR_OP_READ_1_8_8, SPINOR_OP_READ_1_8_8_4B },
 
 		{ SPINOR_OP_READ_1_1_1_DTR,	SPINOR_OP_READ_1_1_1_DTR_4B },
 		{ SPINOR_OP_READ_1_2_2_DTR,	SPINOR_OP_READ_1_2_2_DTR_4B },
@@ -225,6 +230,8 @@ static inline u8 spi_nor_convert_3to4_program(u8 opcode)
 		{ SPINOR_OP_PP,		SPINOR_OP_PP_4B },
 		{ SPINOR_OP_PP_1_1_4,	SPINOR_OP_PP_1_1_4_4B },
 		{ SPINOR_OP_PP_1_4_4,	SPINOR_OP_PP_1_4_4_4B },
+		{ SPINOR_OP_PP_1_1_8,   SPINOR_OP_PP_1_1_8_4B },
+		{ SPINOR_OP_PP_1_8_8,   SPINOR_OP_PP_1_8_8_4B },
 	};
 
 	return spi_nor_convert_opcode(opcode, spi_nor_3to4_program,
@@ -483,8 +490,10 @@ static int spi_nor_erase_sector(struct spi_nor *nor, u32 addr)
 	if (nor->flags & SNOR_F_S3AN_ADDR_DEFAULT)
 		addr = spi_nor_s3an_addr_convert(nor, addr);
 
+#ifndef CONFIG_SOC_S32GEN1
 	if (nor->erase)
 		return nor->erase(nor, addr);
+#endif
 
 	/*
 	 * Default implementation, if driver doesn't have a specialized HW
@@ -1092,7 +1101,8 @@ static const struct flash_info spi_nor_ids[] = {
 	{ "mx25l25635e", INFO(0xc22019, 0, 64 * 1024, 512, SPI_NOR_DUAL_READ | SPI_NOR_QUAD_READ) },
 	{ "mx25u25635f", INFO(0xc22539, 0, 64 * 1024, 512, SECT_4K | SPI_NOR_4B_OPCODES) },
 	{ "mx25l25655e", INFO(0xc22619, 0, 64 * 1024, 512, 0) },
-	{ "mx25uw51245g", INFO(0xc2813a, 0, 64 * 1024, 1024, 0) },
+	{ "mx25uw51245g", INFO(0xc2813a, 0, 64 * 1024, 1024,
+			SPI_NOR_OCTAL_DTR_READ | SPI_NOR_4B_OPCODES) },
 	{ "mx66l51235l", INFO(0xc2201a, 0, 64 * 1024, 1024, SPI_NOR_DUAL_READ | SPI_NOR_QUAD_READ | SPI_NOR_4B_OPCODES) },
 	{ "mx66u51235f", INFO(0xc2253a, 0, 64 * 1024, 1024, SECT_4K | SPI_NOR_DUAL_READ | SPI_NOR_QUAD_READ | SPI_NOR_4B_OPCODES) },
 	{ "mx66l1g45g",  INFO(0xc2201b, 0, 64 * 1024, 2048, SECT_4K | SPI_NOR_DUAL_READ | SPI_NOR_QUAD_READ) },
@@ -1808,6 +1818,7 @@ enum spi_nor_read_command_index {
 	SNOR_CMD_READ_1_8_8,
 	SNOR_CMD_READ_8_8_8,
 	SNOR_CMD_READ_1_8_8_DTR,
+	SNOR_CMD_READ_8_8_8_DTR,
 
 	SNOR_CMD_READ_MAX
 };
@@ -2491,10 +2502,25 @@ static int spi_nor_init_params(struct spi_nor *nor,
 					  SNOR_PROTO_1_1_4);
 	}
 
+	if (info->flags & SPI_NOR_OCTAL_READ) {
+		params->hwcaps.mask |= SNOR_HWCAPS_READ_1_1_8;
+		spi_nor_set_read_settings(&params->reads[SNOR_CMD_READ_1_1_8],
+				0, 8, SPINOR_OP_READ_1_1_8,
+				SNOR_PROTO_1_1_8);
+	}
+
 	/* Page Program settings. */
 	params->hwcaps.mask |= SNOR_HWCAPS_PP;
 	spi_nor_set_pp_settings(&params->page_programs[SNOR_CMD_PP],
 				SPINOR_OP_PP, SNOR_PROTO_1_1_1);
+
+	if (info->flags & SPI_NOR_OCTAL_DTR_READ) {
+		params->hwcaps.mask |= SNOR_HWCAPS_READ_8_8_8_DTR;
+		spi_nor_set_read_settings(
+				&params->reads[SNOR_CMD_READ_8_8_8_DTR],
+				0, 20, SPINOR_OP_READ_8_8_8_DTR,
+				SNOR_PROTO_8_8_8_DTR);
+	}
 
 	/* Select the procedure to set the Quad Enable bit. */
 	if (params->hwcaps.mask & (SNOR_HWCAPS_READ_QUAD |
@@ -2571,6 +2597,7 @@ static int spi_nor_hwcaps_read2cmd(u32 hwcaps)
 		{ SNOR_HWCAPS_READ_1_8_8,	SNOR_CMD_READ_1_8_8 },
 		{ SNOR_HWCAPS_READ_8_8_8,	SNOR_CMD_READ_8_8_8 },
 		{ SNOR_HWCAPS_READ_1_8_8_DTR,	SNOR_CMD_READ_1_8_8_DTR },
+		{ SNOR_HWCAPS_READ_8_8_8_DTR,   SNOR_CMD_READ_8_8_8_DTR },
 	};
 
 	return spi_nor_hwcaps2cmd(hwcaps, hwcaps_read2cmd,
@@ -2678,9 +2705,6 @@ static int spi_nor_setup(struct spi_nor *nor, const struct flash_info *info,
 	u32 ignored_mask, shared_mask;
 	bool enable_quad_io;
 	int err;
-#ifdef CONFIG_SOC_S32GEN1
-	u32 shared_mask_read;
-#endif
 
 	/*
 	 * Keep only the hardware capabilities supported by both the SPI
@@ -2701,12 +2725,7 @@ static int spi_nor_setup(struct spi_nor *nor, const struct flash_info *info,
 	}
 
 	/* Select the (Fast) Read command. */
-#ifdef CONFIG_SOC_S32GEN1
-	shared_mask_read = (SNOR_HWCAPS_READ_FAST | SNOR_CMD_READ_FAST);
-	err = spi_nor_select_read(nor, params, shared_mask_read);
-#else
 	err = spi_nor_select_read(nor, params, shared_mask);
-#endif
 	if (err) {
 		dev_err(nor->dev,
 			"can't select read settings supported by both the SPI controller and memory.\n");
@@ -2815,6 +2834,11 @@ int spi_nor_scan(struct spi_nor *nor, const char *name,
 	struct device *dev = nor->dev;
 	struct mtd_info *mtd = &nor->mtd;
 	struct device_node *np = spi_nor_get_flash_node(nor);
+#ifdef CONFIG_SOC_S32GEN1
+	struct spi_nor_hwcaps hwcaps_s32gen1 = {
+		.mask = SNOR_HWCAPS_PP,
+	};
+#endif
 	int ret;
 	int i;
 
@@ -2826,6 +2850,15 @@ int spi_nor_scan(struct spi_nor *nor, const char *name,
 	nor->reg_proto = SNOR_PROTO_1_1_1;
 	nor->read_proto = SNOR_PROTO_1_1_1;
 	nor->write_proto = SNOR_PROTO_1_1_1;
+
+#ifdef CONFIG_SOC_S32GEN1
+	hwcaps_s32gen1.mask |= SNOR_HWCAPS_READ_1_1_8;
+	hwcaps_s32gen1.mask |= (SNOR_HWCAPS_READ_1_8_8 |
+			SNOR_HWCAPS_READ_1_8_8_DTR |
+			SNOR_HWCAPS_READ_8_8_8_DTR |
+			SNOR_HWCAPS_PP_1_1_8 |
+			SNOR_HWCAPS_PP_1_8_8);
+#endif
 
 	if (name)
 		info = spi_nor_match_id(name);
@@ -2839,6 +2872,7 @@ int spi_nor_scan(struct spi_nor *nor, const char *name,
 	 * If caller has specified name of flash model that can normally be
 	 * detected using JEDEC, let's verify it.
 	 */
+#ifndef CONFIG_SOC_S32GEN1
 	if (name && info->id_len) {
 		const struct flash_info *jinfo;
 
@@ -2858,6 +2892,7 @@ int spi_nor_scan(struct spi_nor *nor, const char *name,
 			info = jinfo;
 		}
 	}
+#endif
 
 	mutex_init(&nor->lock);
 
@@ -2946,7 +2981,11 @@ int spi_nor_scan(struct spi_nor *nor, const char *name,
 	 * - set the SPI protocols for register and memory accesses.
 	 * - set the Quad Enable bit if needed (required by SPI x-y-4 protos).
 	 */
+#ifdef CONFIG_SOC_S32GEN1
+	ret = spi_nor_setup(nor, info, &params, &hwcaps_s32gen1);
+#else
 	ret = spi_nor_setup(nor, info, &params, hwcaps);
+#endif
 	if (ret)
 		return ret;
 
