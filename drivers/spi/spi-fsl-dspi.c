@@ -238,6 +238,7 @@ struct fsl_dspi {
 };
 
 static u32 dspi_data_to_pushr(struct fsl_dspi *dspi, int tx_word);
+static int is_s32_dspi(struct fsl_dspi *data);
 
 static inline enum frame_mode get_frame_mode(struct fsl_dspi *dspi)
 {
@@ -1049,6 +1050,11 @@ static const struct of_device_id fsl_dspi_dt_ids[] = {
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, fsl_dspi_dt_ids);
+
+static int is_s32_dspi(struct fsl_dspi *data)
+{
+	return data->devtype_data == &s32_data;
+}
 
 #ifdef CONFIG_PM_SLEEP
 static int dspi_suspend(struct device *dev)
