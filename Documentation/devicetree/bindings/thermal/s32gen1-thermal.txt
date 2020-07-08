@@ -1,0 +1,11 @@
+Copyright (C) NXP Semiconductors 2020
+
+Required properties:
+- compatible : "fsl,s32gen1-tmu"
+- reg : Address range of the TMU registers
+
+Example:
+    tmu: tmu@400A8000 {
+        compatible = "fsl,s32gen1-tmu";
+        reg = <0x0 0x400A8000 0x0 0x3000>;
+    };
