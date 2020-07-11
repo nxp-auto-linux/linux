@@ -3720,6 +3720,8 @@ fec_probe(struct platform_device *pdev)
 	/* Select sleep pin state */
 	pinctrl_pm_select_sleep_state(&pdev->dev);
 
+	ndev->max_mtu = PKT_MAXBUF_SIZE - ETH_HLEN - ETH_FCS_LEN;
+
 	ret = register_netdev(ndev);
 	if (ret)
 		goto failed_register;
