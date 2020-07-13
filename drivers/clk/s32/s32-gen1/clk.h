@@ -35,4 +35,12 @@ struct clk *s32gen1_clk_pll_mux(const char *name, void __iomem *reg, u8 shift,
 				u8 width, const char **parents, int num_parents,
 				u32 *table, spinlock_t *lock);
 
+struct clk *s32gen1_clk_cgm_mux(const char *name, void __iomem *cgm_addr,
+				u32 index, const char **parents,
+				int num_parents, u32 *table, spinlock_t *lock);
+
+struct clk *s32gen1_clk_cgm_div(const char *name, const char *parent,
+				void __iomem *cgm_addr, u32 index,
+				spinlock_t *lock);
+
 #endif
