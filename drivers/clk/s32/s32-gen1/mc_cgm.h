@@ -34,10 +34,40 @@
 
 #define MC_CGM_MUXn_CSC_CLK_SW		(1 << 2)
 
+/* MC_CGM_MUX_n_CSS */
+#define CGM_MUXn_CSS(cgm_addr, mux)	((cgm_addr) + 0x304 + \
+					 (mux) * 0x40)
+#define MC_CGM_MUXn_CSS_SELSTAT(css)	((MC_CGM_MUXn_CSS_SELSTAT_MASK & (css))\
+					 >> MC_CGM_MUXn_CSS_SELSTAT_OFFSET)
+#define MC_CGM_MUXn_CSS_SELSTAT_MASK	(0x3F000000)
+#define MC_CGM_MUXn_CSS_SELSTAT_OFFSET	(24)
+
+#define MC_CGM_MUXn_CSS_SWIP		(1 << 16)
+#define MC_CGM_MUXn_CSS_SWTRG(css)	((MC_CGM_MUXn_CSS_SWTRG_MASK & (css)) \
+					 >> MC_CGM_MUXn_CSS_SWTRG_OFFSET)
+#define MC_CGM_MUXn_CSS_SWTRG_MASK	(0x000E0000)
+#define MC_CGM_MUXn_CSS_SWTRG_OFFSET	(17)
+#define MC_CGM_MUXn_CSS_SWTRG_SUCCESS	(0x1)
+
 /* MC_CGM_MUX_n_DC */
 #define CGM_MUXn_DC(cgm_addr, mux)	(((cgm_addr) + 0x308 + (mux) * 0x40))
 #define MC_CGM_MUX_DCn_DIV_OFFSET	(16)
 #define MC_CGM_MUX_DCn_DIV_SIZE		(8)
+#define MC_CGM_MUX_DCn_DIV(val)		(MC_CGM_MUX_DC_DIV_MASK & ((val) \
+					 << MC_CGM_MUX_DCn_DIV_OFFSET))
+#define MC_CGM_MUX_DCn_DIV_VAL(val)	((MC_CGM_MUX_DC_DIV_MASK & (val)) \
+					 >> MC_CGM_MUX_DCn_DIV_OFFSET)
+#define MC_CGM_MUX_DC_DIV_MASK		(0x00FF0000)
+#define MC_CGM_MUX_DCn_DE		(1 << 31)
+
+/* DIV_UPD_STAT */
+#define CGM_MUXn_DIV_UPD_STAT(cgm_addr, mux)	((cgm_addr) + 0x33C + \
+						 (mux) * 0x40)
+#define MC_CGM_MUXn_DIV_UPD_STAT_DIVSTAT(css)	((MC_CGM_MUXn_DIV_DIVSTAT_MASK \
+						  & (css)) \
+						  >> MC_CGM_MUXn_DIVSTAT_OFFSET)
+#define MC_CGM_MUXn_DIV_DIVSTAT_MASK		(0x00000001)
+#define MC_CGM_MUXn_DIVSTAT_OFFSET		(0)
 
 /* Clock source mapping on MC_CGM clock selectors. */
 /* Clock source / Clock selector index */

@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2016 Freescale Semiconductor, Inc.
- * Copyright 2018 NXP
+ * Copyright 2018,2020 NXP
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -18,6 +18,10 @@
 /* DFS Port Status (DFS_PORTSR) */
 #define DFS_PORTSR(dfs)			((dfs) + 0x0000000C)
 
+/* Port Loss of Lock Status (PORTLOLSR) */
+#define DFS_PORTOLSR(dfs)		((dfs) + 0x00000010)
+#define DFS_PORTOLSR_LOL(n)		(BIT(n) & 0x3FU)
+
 /* DFS Port Reset Register (DFS_PORTRESET) */
 #define DFS_PORTRESET(dfs)		((dfs) + 0x00000014)
 #define DFS_PORTRESET_PORTRESET_SET(val) \
@@ -31,9 +35,13 @@
 /* DFS Divide Register Portn (DFS_DVPORTn) */
 #define DFS_DVPORTn(dfs, n)		((dfs) + (0x0000001C + \
 					((n) * sizeof(u32))))
+#define DFS_DVPORTn_MFI(val)		(((val) & DFS_DVPORTn_MFI_MASK) >> \
+					 DFS_DVPORTn_MFI_OFFSET)
 #define DFS_DVPORTn_MFI_SET(val)	(DFS_DVPORTn_MFI_MASK & \
 					(((val) & DFS_DVPORTn_MFI_MAXVAL) \
 					<< DFS_DVPORTn_MFI_OFFSET))
+#define DFS_DVPORTn_MFN(val)		(((val) & DFS_DVPORTn_MFN_MASK) >> \
+					 DFS_DVPORTn_MFN_OFFSET)
 #define DFS_DVPORTn_MFN_SET(val)	(DFS_DVPORTn_MFN_MASK & \
 					(((val) & DFS_DVPORTn_MFN_MAXVAL) \
 					<< DFS_DVPORTn_MFN_OFFSET))
