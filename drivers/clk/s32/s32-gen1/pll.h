@@ -51,8 +51,10 @@
 
 
 /* PLL Output Divider (PLLODIV0 - PLLODIV7) */
-#define PLLDIG_PLLODIV(pll, n)          ((pll) + 0x00000080 + n * 0x4)
-#define PLLDIG_PLLODIV_DIV_SET(val)     (PLLDIG_PLLODIV_DIV_MASK & \
+#define PLLDIG_PLLODIV(pll, n)		((pll) + 0x00000080 + n * 0x4)
+#define PLLDIG_PLLODIV_DIV(val)		((PLLDIG_PLLODIV_DIV_MASK & (val)) >> \
+					 PLLDIG_PLLODIV_DIV_OFFSET)
+#define PLLDIG_PLLODIV_DIV_SET(val)	(PLLDIG_PLLODIV_DIV_MASK & \
 					 ((val) << PLLDIG_PLLODIV_DIV_OFFSET))
 #define PLLDIG_PLLODIV_DIV_MASK         (0x00FF0000)
 #define PLLDIG_PLLODIV_DIV_OFFSET       (16)

@@ -38,6 +38,13 @@ struct clk_plldig {
 	u32		phi_nr;
 };
 
+struct clk_plldig_phi {
+	struct clk_fixed_factor fix;
+	const struct clk_ops *ops;
+	void __iomem *pll_base;
+	u32 index;
+};
+
 static const unsigned long arm_phis_max_freq[] = {
 	ARMPLL_MAX_PHI0_MAX_RATE,
 	ARMPLL_MAX_PHI1_MAX_RATE
@@ -62,6 +69,20 @@ static const unsigned long accel_phis_max_freq[] = {
 	ACCELPLL_MAX_PHI0_MAX_RATE,
 	ACCELPLL_MAX_PHI1_MAX_RATE
 };
+
+static inline struct clk_plldig_phi *to_plldig_phi(struct clk_hw *hw)
+{
+	struct clk_fixed_factor *fix = to_clk_fixed_factor(hw);
+
+	return container_of(fix, struct clk_plldig_phi, fix);
+}
+
+static inline u32 get_phi_div_factor(void __iomem *base, u32 phinum)
+{
+	u32 pllodiv = readl_relaxed(PLLDIG_PLLODIV(base, phinum));
+
+	return PLLDIG_PLLODIV_DIV(pllodiv) + 1;
+}
 
 static inline bool is_pll_enabled(void __iomem *pll_base)
 {
@@ -318,6 +339,133 @@ static int clk_plldig_enable(struct clk_hw *hw)
 	return 0;
 }
 
+static long plldig_phi_round_rate(struct clk_hw *hw, unsigned long rate,
+				  unsigned long *prate)
+{
+	struct clk_plldig_phi *phi = to_plldig_phi(hw);
+
+	return phi->ops->round_rate(&phi->fix.hw, rate, prate);
+}
+
+static int plldig_phi_set_rate(struct clk_hw *hw, unsigned long rate,
+			       unsigned long parent_rate)
+{
+	struct clk_plldig_phi *phi = to_plldig_phi(hw);
+
+	return phi->ops->set_rate(&phi->fix.hw, rate, parent_rate);
+}
+
+static unsigned long plldig_phi_recalc_rate(struct clk_hw *hw,
+					    unsigned long parent_rate)
+{
+	struct clk_plldig_phi *phi = to_plldig_phi(hw);
+
+	return phi->ops->recalc_rate(&phi->fix.hw, parent_rate);
+}
+
+static int plldig_phi_is_enabled(struct clk_hw *hw)
+{
+	struct clk_plldig_phi *phi = to_plldig_phi(hw);
+	void __iomem *base = phi->pll_base;
+
+	if (get_phi_div_factor(base, phi->index) == phi->fix.div)
+		return 1;
+
+	return 0;
+}
+
+static void disable_odiv(void __iomem *pll_addr, u32 div_index)
+{
+	u32 pllodiv = readl_relaxed(PLLDIG_PLLODIV(pll_addr, div_index));
+
+	writel_relaxed(pllodiv & ~PLLDIG_PLLODIV_DE,
+	       PLLDIG_PLLODIV(pll_addr, div_index));
+}
+
+static void enable_odiv(void __iomem *pll_addr, u32 div_index)
+{
+	u32 pllodiv = readl_relaxed(PLLDIG_PLLODIV(pll_addr, div_index));
+
+	writel_relaxed(pllodiv | PLLDIG_PLLODIV_DE,
+	       PLLDIG_PLLODIV(pll_addr, div_index));
+}
+
+static int plldig_phi_enable(struct clk_hw *hw)
+{
+	struct clk_plldig_phi *phi = to_plldig_phi(hw);
+	void __iomem *base = phi->pll_base;
+	u32 index = phi->index;
+	u32 pllodiv;
+
+	if (plldig_phi_is_enabled(hw))
+		return 0;
+
+	pllodiv = readl_relaxed(PLLDIG_PLLODIV(base, index));
+	if (pllodiv & PLLDIG_PLLODIV_DE)
+		disable_odiv(base, index);
+
+	pllodiv = PLLDIG_PLLODIV_DIV_SET(phi->fix.div - 1);
+	writel_relaxed(pllodiv, PLLDIG_PLLODIV(base, index));
+
+	enable_odiv(base, index);
+
+	return 0;
+}
+
+const struct clk_ops plldig_phi_ops = {
+	.round_rate = plldig_phi_round_rate,
+	.set_rate = plldig_phi_set_rate,
+	.recalc_rate = plldig_phi_recalc_rate,
+	.enable = plldig_phi_enable,
+	.is_enabled = plldig_phi_is_enabled,
+};
+
+struct clk *s32gen1_clk_plldig_phi(enum s32gen1_plldig_type type,
+			       const char *name, const char *parent,
+			       void __iomem *base, u32 phinum)
+{
+	struct clk_plldig_phi *phi;
+	struct clk *clk;
+	struct clk_init_data init;
+	struct clk_fixed_factor *fix;
+	u32 factor;
+
+	if (!base)
+		return ERR_PTR(-ENOMEM);
+
+	if (phinum >= get_pllx_phi_nr(type))
+		return ERR_PTR(-EINVAL);
+
+	phi = kzalloc(sizeof(*phi), GFP_KERNEL);
+	if (!phi)
+		return ERR_PTR(-ENOMEM);
+
+	factor = get_phi_div_factor(base, phinum);
+
+	phi->ops = &clk_fixed_factor_ops;
+	phi->pll_base = base;
+	phi->index = phinum;
+
+	fix = &phi->fix;
+
+	init.name = name;
+	init.ops = &plldig_phi_ops;
+	init.flags = CLK_SET_RATE_PARENT | CLK_IS_BASIC;
+	init.parent_names = &parent;
+	init.num_parents = 1;
+
+	/* struct clk_fixed_factor assignments */
+	fix->mult = 1;
+	fix->div = factor;
+	fix->hw.init = &init;
+
+	clk = clk_register(NULL, &phi->fix.hw);
+	if (IS_ERR(clk))
+		kfree(phi);
+
+	return clk;
+}
+
 static const struct clk_ops clk_plldig_ops = {
 	.recalc_rate	= clk_plldig_recalc_rate,
 	.round_rate	= clk_plldig_round_rate,
@@ -325,26 +473,6 @@ static const struct clk_ops clk_plldig_ops = {
 	.enable		= clk_plldig_enable,
 	.is_enabled	= clk_plldig_is_enabled,
 };
-
-struct clk *s32gen1_clk_plldig_phi(enum s32gen1_plldig_type type,
-			       const char *name, const char *parent,
-			       void __iomem *base, u32 phi)
-{
-	u32 pllodiv, rfd_phi;
-
-	if (!base)
-		return ERR_PTR(-ENOMEM);
-
-	if (phi >= get_pllx_phi_nr(type))
-		return ERR_PTR(-EINVAL);
-
-	pllodiv = readl_relaxed(PLLDIG_PLLODIV(base, phi));
-	rfd_phi = ((pllodiv & PLLDIG_PLLODIV_DIV_MASK)
-		>> PLLDIG_PLLODIV_DIV_OFFSET) + 1;
-
-	return clk_register_fixed_factor(NULL, name, parent,
-			CLK_SET_RATE_PARENT, 1, rfd_phi);
-}
 
 struct clk *s32gen1_clk_plldig(enum s32gen1_plldig_type type, const char *name,
 			   const char *parent_name, struct clk *pll_mux,
