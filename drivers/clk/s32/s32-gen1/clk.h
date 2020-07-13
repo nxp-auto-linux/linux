@@ -25,8 +25,9 @@ struct clk *s32gen1_clk_plldig_phi(enum s32gen1_plldig_type type,
 			       const char *name, const char *parent,
 			       void __iomem *base, u32 phi);
 
-struct clk *s32gen1_clk_dfs(enum s32gen1_plldig_type type, const char *name,
-			const char *parent_name, void __iomem *reg, u8 idx);
+struct clk *s32gen1_clk_dfs_out(enum s32gen1_plldig_type type, const char *name,
+			const char *parent_name, void __iomem *dfs_base,
+			u8 idx);
 
 struct clk *s32gen1_fxosc(const char *compatible);
 
