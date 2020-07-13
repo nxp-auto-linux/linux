@@ -339,27 +339,27 @@ static void __init s32gen1_clocks_init(struct device_node *clocking_node)
 	clk[S32GEN1_CLK_ARMPLL_PHI1] = s32gen1_clk_plldig_phi(
 		S32GEN1_PLLDIG_ARM, "armpll_phi1", "armpll_vco", armpll, 1);
 
-	clk[S32GEN1_CLK_ARMPLL_DFS1] = s32gen1_clk_dfs(S32GEN1_PLLDIG_ARM,
+	clk[S32GEN1_CLK_ARMPLL_DFS1] = s32gen1_clk_dfs_out(S32GEN1_PLLDIG_ARM,
 		 "armpll_dfs1", "armpll_vco",
 		 armdfs, 1);
 
-	clk[S32GEN1_CLK_ARMPLL_DFS2] = s32gen1_clk_dfs(S32GEN1_PLLDIG_ARM,
+	clk[S32GEN1_CLK_ARMPLL_DFS2] = s32gen1_clk_dfs_out(S32GEN1_PLLDIG_ARM,
 		 "armpll_dfs2", "armpll_vco",
 		 armdfs, 2);
 
-	clk[S32GEN1_CLK_ARMPLL_DFS3] = s32gen1_clk_dfs(S32GEN1_PLLDIG_ARM,
+	clk[S32GEN1_CLK_ARMPLL_DFS3] = s32gen1_clk_dfs_out(S32GEN1_PLLDIG_ARM,
 		 "armpll_dfs3", "armpll_vco",
 		 armdfs, 3);
 
-	clk[S32GEN1_CLK_ARMPLL_DFS4] = s32gen1_clk_dfs(S32GEN1_PLLDIG_ARM,
+	clk[S32GEN1_CLK_ARMPLL_DFS4] = s32gen1_clk_dfs_out(S32GEN1_PLLDIG_ARM,
 		 "armpll_dfs4", "armpll_vco",
 		 armdfs, 4);
 
-	clk[S32GEN1_CLK_ARMPLL_DFS5] = s32gen1_clk_dfs(S32GEN1_PLLDIG_ARM,
+	clk[S32GEN1_CLK_ARMPLL_DFS5] = s32gen1_clk_dfs_out(S32GEN1_PLLDIG_ARM,
 		 "armpll_dfs5", "armpll_vco",
 		 armdfs, 5);
 
-	clk[S32GEN1_CLK_ARMPLL_DFS6] = s32gen1_clk_dfs(S32GEN1_PLLDIG_ARM,
+	clk[S32GEN1_CLK_ARMPLL_DFS6] = s32gen1_clk_dfs_out(S32GEN1_PLLDIG_ARM,
 		 "armpll_dfs6", "armpll_vco",
 		 armdfs, 6);
 
@@ -430,27 +430,33 @@ static void __init s32gen1_clocks_init(struct device_node *clocking_node)
 		"periphpll_phi7", "periphpll_vco",
 		periphpll, 7);
 
-	clk[S32GEN1_CLK_PERIPHPLL_DFS1] = s32gen1_clk_dfs(S32GEN1_PLLDIG_PERIPH,
+	clk[S32GEN1_CLK_PERIPHPLL_DFS1] = s32gen1_clk_dfs_out(
+		 S32GEN1_PLLDIG_PERIPH,
 		 "periphll_dfs1", "periphpll_vco",
 		 periphdfs, 1);
 
-	clk[S32GEN1_CLK_PERIPHPLL_DFS2] = s32gen1_clk_dfs(S32GEN1_PLLDIG_PERIPH,
+	clk[S32GEN1_CLK_PERIPHPLL_DFS2] = s32gen1_clk_dfs_out(
+		 S32GEN1_PLLDIG_PERIPH,
 		 "periphll_dfs2", "periphpll_vco",
 		 periphdfs, 2);
 
-	clk[S32GEN1_CLK_PERIPHPLL_DFS3] = s32gen1_clk_dfs(S32GEN1_PLLDIG_PERIPH,
+	clk[S32GEN1_CLK_PERIPHPLL_DFS3] = s32gen1_clk_dfs_out(
+		 S32GEN1_PLLDIG_PERIPH,
 		 "periphll_dfs3", "periphpll_vco",
 		 periphdfs, 3);
 
-	clk[S32GEN1_CLK_PERIPHPLL_DFS4] = s32gen1_clk_dfs(S32GEN1_PLLDIG_PERIPH,
+	clk[S32GEN1_CLK_PERIPHPLL_DFS4] = s32gen1_clk_dfs_out(
+		 S32GEN1_PLLDIG_PERIPH,
 		 "periphll_dfs4", "periphpll_vco",
 		 periphdfs, 4);
 
-	clk[S32GEN1_CLK_PERIPHPLL_DFS5] = s32gen1_clk_dfs(S32GEN1_PLLDIG_PERIPH,
+	clk[S32GEN1_CLK_PERIPHPLL_DFS5] = s32gen1_clk_dfs_out(
+		 S32GEN1_PLLDIG_PERIPH,
 		 "periphll_dfs5", "periphpll_vco",
 		 periphdfs, 5);
 
-	clk[S32GEN1_CLK_PERIPHPLL_DFS6] = s32gen1_clk_dfs(S32GEN1_PLLDIG_PERIPH,
+	clk[S32GEN1_CLK_PERIPHPLL_DFS6] = s32gen1_clk_dfs_out(
+		 S32GEN1_PLLDIG_PERIPH,
 		 "periphll_dfs6", "periphpll_vco",
 		 periphdfs, 6);
 
