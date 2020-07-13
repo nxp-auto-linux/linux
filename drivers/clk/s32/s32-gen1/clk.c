@@ -8,7 +8,9 @@
  */
 #include <linux/of_address.h>
 #include <linux/clk.h>
+#include <linux/clk-provider.h>
 #include <dt-bindings/clock/s32gen1-clock.h>
+#include <linux/syscore_ops.h>
 
 #include "clk.h"
 #include "mc_cgm.h"
@@ -218,7 +220,7 @@ static void __init s32r45_extra_clocks_init(struct device_node *clocking_node)
 		clk_modules.mc_cgm2_base, 2, &s32gen1_lock);
 }
 
-static void __init s32gen1_clocks_init(struct device_node *clocking_node)
+void s32gen1_clocks_init(struct device_node *clocking_node)
 {
 	struct device_node *np;
 
@@ -585,6 +587,39 @@ static void __init s32gen1_clocks_init(struct device_node *clocking_node)
 	of_clk_add_provider(clocking_node, of_clk_src_onecell_get, &clk_data);
 }
 
+#ifdef CONFIG_PM_DEBUG
+static int s32gen1_clk_suspend(void)
+{
+	size_t i;
+	unsigned int en_count;
+
+	for (i = 0; i < ARRAY_SIZE(clk); i++) {
+		en_count = __clk_get_enable_count(clk[i]);
+		if (!en_count)
+			continue;
+
+		pr_warn("The clock '%s' (refcount = %d) wasn't disabled before suspend.",
+			__clk_get_name(clk[i]), en_count);
+	}
+
+	return 0;
+}
+#else
+static int s32gen1_clk_suspend(void)
+{
+	return 0;
+}
+#endif
+
+static void s32gen1_clk_resume(void)
+{
+}
+
+static struct syscore_ops s32gen1_clk_syscore_ops = {
+	.suspend = s32gen1_clk_suspend,
+	.resume = s32gen1_clk_resume,
+};
+
 static void __init s32v344_clocks_init(struct device_node *clks_node)
 {
 	s32gen1_clocks_init(clks_node);
@@ -594,12 +629,14 @@ static void __init s32g274_clocks_init(struct device_node *clks_node)
 {
 	s32gen1_clocks_init(clks_node);
 	s32g274_extra_clocks_init(clks_node);
+	register_syscore_ops(&s32gen1_clk_syscore_ops);
 }
 
 static void __init s32r45_clocks_init(struct device_node *clks_node)
 {
 	s32gen1_clocks_init(clks_node);
 	s32r45_extra_clocks_init(clks_node);
+	register_syscore_ops(&s32gen1_clk_syscore_ops);
 }
 
 CLK_OF_DECLARE(S32V344, "fsl,s32v344-clocking", s32v344_clocks_init);
