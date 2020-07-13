@@ -16,20 +16,22 @@
 #include "clk.h"
 
 /**
- * struct clk_dfs_out - S32 DFS clock
+ * struct clk_dfs_out - S32-GEN1 DFS port clock
  * @clk_hw:	clock source
  * @dfs_base:	DFS register address
  * @idx:	the index of DFS encoded in the register
+ * @mfi:	integer part of division factor of the port
+ * @mfn:	fractional part of division factor of the port
  *
- * DFS clock found on S32 series. Each register for DFS has 4 clk_dfs_out
- * data encoded, and member idx is used to specify the one.
- * Only ARMPLL(3 DFS), ENETPLL(4 DFS) and DDRPLL(3 DFS) has DFS outputs.
+ * DFS port clock found on S32-GEN1 series.
  */
 struct clk_dfs_out {
 	struct clk_hw	hw;
 	void __iomem	*dfs_base;
 	enum s32gen1_plldig_type plltype;
 	u8		idx;
+	u32		mfi;
+	u32		mfn;
 };
 
 #define to_clk_dfs_out(_hw) container_of(_hw, struct clk_dfs_out, hw)
@@ -97,13 +99,85 @@ static unsigned long get_pllx_dfsy_max_rate(enum s32gen1_plldig_type plltype,
 
 	return -EINVAL;
 }
+
+static void read_mfi_mfn(void *dfs_addr, u32 port, u32 *mfi, u32 *mfn)
+{
+	u32 dvport = readl_relaxed(DFS_DVPORTn(dfs_addr, port));
+
+	*mfi = DFS_DVPORTn_MFI(dvport);
+	*mfn = DFS_DVPORTn_MFN(dvport);
+}
+
+static int clk_dfs_out_is_enabled(struct clk_hw *hw)
+{
+	struct clk_dfs_out *dfs = to_clk_dfs_out(hw);
+	void __iomem *base = dfs->dfs_base;
+	u32 portsr, portolsr, mfi, mfn;
+
+	portsr = readl_relaxed(DFS_PORTSR(base));
+	portolsr = readl_relaxed(DFS_PORTOLSR(base));
+
+	/* Check if current DFS output port is locked */
+	if (!(portsr & BIT(dfs->idx)))
+		return 0;
+
+	if (portolsr & BIT(dfs->idx))
+		return 0;
+
+	read_mfi_mfn(dfs->dfs_base, dfs->idx, &mfi, &mfn);
+	if (mfi != dfs->mfi || mfn != dfs->mfn)
+		return 0;
+
+	return 1;
+}
+
 static int clk_dfs_out_enable(struct clk_hw *hw)
 {
-	/*
-	 * TODO: When SOC is available, this function
-	 * should be tested and implemented for DFS
-	 * if it is possible
-	 */
+	struct clk_dfs_out *dfs = to_clk_dfs_out(hw);
+	void __iomem *base = dfs->dfs_base;
+	bool init_dfs;
+	u32 mask, portreset, portsr, portolsr;
+
+	if (clk_dfs_out_is_enabled(hw))
+		return 0;
+
+	portsr = readl(DFS_PORTSR(base));
+	init_dfs = (!portsr);
+
+	if (init_dfs)
+		mask = DFS_PORTRESET_PORTRESET_MAXVAL;
+	else
+		mask = DFS_PORTRESET_PORTRESET_SET(BIT(dfs->idx));
+
+	writel(mask, DFS_PORTOLSR(base));
+	writel(mask, DFS_PORTRESET(base));
+
+	while (readl(DFS_PORTSR(base)) & mask)
+		;
+
+	if (init_dfs)
+		writel(DFS_CTL_RESET, DFS_CTL(base));
+
+	writel(DFS_DVPORTn_MFI_SET(dfs->mfi) | DFS_DVPORTn_MFN_SET(dfs->mfn),
+	       DFS_DVPORTn(base, dfs->idx));
+
+	if (init_dfs)
+		/* DFS clk enable programming */
+		writel(~DFS_CTL_RESET, DFS_CTL(base));
+
+	portreset = readl(DFS_PORTRESET(base));
+	portreset &= ~BIT(dfs->idx);
+	writel(portreset, DFS_PORTRESET(base));
+
+	while ((readl(DFS_PORTSR(base)) & BIT(dfs->idx)) != BIT(dfs->idx))
+		;
+
+	portolsr = readl(DFS_PORTOLSR(base));
+	if (portolsr & DFS_PORTOLSR_LOL(dfs->idx)) {
+		pr_err("Failed to lock DFS divider\n");
+		return -EINVAL;
+	}
+
 	return 0;
 }
 
@@ -174,17 +248,6 @@ static int clk_dfs_out_set_rate(struct clk_hw *hw, unsigned long rate,
 	return 0;
 }
 
-static int clk_dfs_out_is_enabled(struct clk_hw *hw)
-{
-	struct clk_dfs_out *dfs = to_clk_dfs_out(hw);
-
-	/* Check if current DFS output port is locked */
-	if (readl_relaxed(DFS_PORTSR(dfs->dfs_base)) & (1 << (dfs->idx)))
-		return 0;
-
-	return 1;
-}
-
 static const struct clk_ops clk_dfs_out_ops = {
 	.enable		= clk_dfs_out_enable,
 	.disable	= clk_dfs_out_disable,
@@ -215,11 +278,14 @@ struct clk *s32gen1_clk_dfs_out(enum s32gen1_plldig_type type, const char *name,
 		return ERR_PTR(-ENOMEM);
 
 	dfs->dfs_base = dfs_base;
+
 	/* Even if DFS name starts with DFS1, the index used in registers starts
 	 * from 0.
 	 */
 	dfs->idx = idx - 1;
 	dfs->plltype = type;
+
+	read_mfi_mfn(dfs_base, dfs->idx, &dfs->mfi, &dfs->mfn);
 
 	init.name = name;
 	init.ops = &clk_dfs_out_ops;
