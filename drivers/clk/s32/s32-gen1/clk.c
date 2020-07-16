@@ -371,9 +371,8 @@ void s32gen1_clocks_init(struct device_node *clocking_node)
 		clk_modules.mc_cgm0_base,  0,
 		xbar_sels, ARRAY_SIZE(xbar_sels), xbar_mux_idx, &s32gen1_lock);
 
-	clk[S32GEN1_CLK_XBAR] = s32gen1_clk_cgm_div("xbar", "xbar_sel",
-		clk_modules.mc_cgm0_base, 0, &s32gen1_lock);
-
+	clk[S32GEN1_CLK_XBAR] = s32_clk_fixed_factor("xbar",
+		"xbar_sel", 1, 2);
 	clk[S32GEN1_CLK_XBAR_DIV2] = s32_clk_fixed_factor("xbar_div2",
 		"xbar", 1, 2);
 	clk[S32GEN1_CLK_XBAR_DIV3] = s32_clk_fixed_factor("xbar_div3",
