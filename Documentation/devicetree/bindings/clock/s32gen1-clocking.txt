@@ -54,6 +54,9 @@ Required properties:
 	- "fsl,s32gen1-mc_cgm1" for MC_CGM_1
 	- "fsl,s32gen1-mc_cgm5" for MC_CGM_5
 	- "fsl,s32gen1-fxosc" for FXOSC
+	- "fsl,s32gen1-rdc" for RDC
+	- "fsl,s32gen1-rgm" for RGM
+	- "fsl,s32gen1-mc_me" for MC_ME
 - reg:
 	Location and length of the register set
 - #clock-cells (only for MC_CGM_0):
