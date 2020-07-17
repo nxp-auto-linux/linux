@@ -1,5 +1,5 @@
 /*
- * Copyright 2018 NXP
+ * Copyright 2018,2020 NXP
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -15,6 +15,7 @@
 #include <linux/jiffies.h>
 #include <linux/err.h>
 #include "clk.h"
+#include "pll_mux.h"
 
 /*
  * struct clk_plldig - S32 gen1 PLLDIG clock
@@ -29,6 +30,7 @@
 struct clk_plldig {
 	struct clk_hw	hw;
 	void __iomem	*base;
+	struct clk_hw	*pll_mux;
 	enum s32gen1_plldig_type type;
 	u32		plldv_mfi;
 	u32		pllfd_mfn;
@@ -60,6 +62,32 @@ static const unsigned long accel_phis_max_freq[] = {
 	ACCELPLL_MAX_PHI0_MAX_RATE,
 	ACCELPLL_MAX_PHI1_MAX_RATE
 };
+
+static inline bool is_pll_enabled(void __iomem *pll_base)
+{
+	u32 pllcr, pllsr;
+
+	pllcr = readl_relaxed(PLLDIG_PLLCR(pll_base));
+	pllsr = readl_relaxed(PLLDIG_PLLSR(pll_base));
+
+	/* Enabled and locked PLL */
+	return !(pllcr & PLLDIG_PLLCR_PLLPD) && (pllsr & PLLDIG_PLLSR_LOCK);
+}
+
+static inline void disable_pll_hw(void __iomem *pll_addr)
+{
+	writel(PLLDIG_PLLCR_PLLPD, PLLDIG_PLLCR(pll_addr));
+}
+
+static inline void enable_pll_hw(void __iomem *pll_addr)
+{
+	/* Enable the PLL. */
+	writel(0x0, PLLDIG_PLLCR(pll_addr));
+
+	/* Poll until PLL acquires lock. */
+	while (!(readl(PLLDIG_PLLSR(pll_addr)) & PLLDIG_PLLSR_LOCK))
+		;
+}
 
 #define to_clk_plldig(_hw) container_of(_hw, struct clk_plldig, hw)
 static unsigned long get_pllx_max_vco_rate(enum s32gen1_plldig_type type)
@@ -218,10 +246,84 @@ static int clk_plldig_set_rate(struct clk_hw *hw, unsigned long rate,
 	return 0;
 }
 
+static inline u32 get_pll_mfi(void __iomem *base)
+{
+	u32 plldv = readl_relaxed(PLLDIG_PLLDV(base));
+
+	return PLLDIG_PLLDV_MFI(plldv);
+}
+
+static inline u32 get_pll_mfn(void __iomem *base)
+{
+	u32 pllfd = readl_relaxed(PLLDIG_PLLFD(base));
+
+	return PLLDIG_PLLFD_MFN_SET(pllfd);
+}
+
+static int clk_plldig_is_enabled(struct clk_hw *hw)
+{
+	struct clk_plldig *pll = to_clk_plldig(hw);
+	void __iomem *base = pll->base;
+	struct s32gen1_pll_mux *pll_mux;
+	u32 mfi, mfn;
+	u32 pll_source;
+
+	if (!pll->pll_mux)
+		return -EINVAL;
+
+	if (!is_pll_enabled(base))
+		return 0;
+
+	pll_mux = to_s32gen1_clk_pll_mux(pll->pll_mux);
+	pll_source = readl_relaxed(pll_mux->s32mux.mux.reg);
+
+	if (pll_source != pll_mux->source)
+		return 0;
+
+	mfi = get_pll_mfi(base);
+	mfn = get_pll_mfn(base);
+
+	if (mfn != pll->pllfd_mfn || mfi != pll->plldv_mfi)
+		return 0;
+
+	return 1;
+}
+
+static int clk_plldig_enable(struct clk_hw *hw)
+{
+	struct clk_plldig *pll = to_clk_plldig(hw);
+	void __iomem *base = pll->base;
+	struct s32gen1_pll_mux *pll_mux;
+	u32 rdiv = 1;
+
+	pll_mux = to_s32gen1_clk_pll_mux(pll->pll_mux);
+
+	if (clk_plldig_is_enabled(hw))
+		return 0;
+
+	/* Disable PLL */
+	disable_pll_hw(base);
+
+	/* Program PLLCLKMUX */
+	writel_relaxed(pll_mux->source, pll_mux->s32mux.mux.reg);
+
+	/* Program VCO */
+	writel(PLLDIG_PLLDV_RDIV_SET(rdiv) | PLLDIG_PLLDV_MFI(pll->plldv_mfi),
+	       PLLDIG_PLLDV(base));
+	writel(PLLDIG_PLLFD_MFN_SET(pll->pllfd_mfn) |
+	       PLLDIG_PLLFD_SMDEN, PLLDIG_PLLFD(base));
+
+	enable_pll_hw(base);
+
+	return 0;
+}
+
 static const struct clk_ops clk_plldig_ops = {
 	.recalc_rate	= clk_plldig_recalc_rate,
 	.round_rate	= clk_plldig_round_rate,
 	.set_rate	= clk_plldig_set_rate,
+	.enable		= clk_plldig_enable,
+	.is_enabled	= clk_plldig_is_enabled,
 };
 
 struct clk *s32gen1_clk_plldig_phi(enum s32gen1_plldig_type type,
@@ -242,13 +344,12 @@ struct clk *s32gen1_clk_plldig_phi(enum s32gen1_plldig_type type,
 
 	return clk_register_fixed_factor(NULL, name, parent,
 			CLK_SET_RATE_PARENT, 1, rfd_phi);
-
 }
 
 struct clk *s32gen1_clk_plldig(enum s32gen1_plldig_type type, const char *name,
-			       const char *parent_name, void __iomem *base,
-			       u32 plldv_mfi, u32 pllfd_mfn,
-			       u32 pllodiv[PHI_MAXNUMBER], u32 phi_nr)
+			   const char *parent_name, struct clk *pll_mux,
+			   void __iomem *base, u32 pllodiv[PHI_MAXNUMBER],
+			   u32 phi_nr)
 {
 	struct clk_plldig *pll;
 	const struct clk_ops *ops;
@@ -268,8 +369,8 @@ struct clk *s32gen1_clk_plldig(enum s32gen1_plldig_type type, const char *name,
 
 	pll->base = base;
 	pll->type = type;
-	pll->plldv_mfi = plldv_mfi;
-	pll->pllfd_mfn = pllfd_mfn;
+	pll->plldv_mfi = get_pll_mfi(base);
+	pll->pllfd_mfn = get_pll_mfn(base);
 	pll->phi_nr = phi_nr;
 
 	for (i = 0; i < phi_nr; i++)
