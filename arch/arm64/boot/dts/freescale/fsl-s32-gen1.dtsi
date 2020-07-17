@@ -125,6 +125,21 @@
 		#clock-cells = <1>;
 	};
 
+	rdc: rdc@440080000 {
+		compatible = "fsl,s32gen1-rdc";
+		reg = <0x0 0x40080000 0x0 0x3000>;
+	};
+
+	rgm: rgm@40078000 {
+		compatible = "fsl,s32gen1-rgm";
+		reg = <0x0 0x40078000 0x0 0x3000>;
+	};
+
+	mc_me: mc_me@40088000 {
+		compatible = "fsl,s32gen1-mc_me";
+		reg = <0x0 0x40088000 0x0 0x3000>;
+	};
+
 	mc_cgm0: mc_cgm0@40030000 {
 		compatible = "fsl,s32gen1-mc_cgm0";
 		reg = <0x0 0x40030000 0x0 0x3000>;
