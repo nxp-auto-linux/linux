@@ -86,10 +86,6 @@
 		#address-cells = <1>;
 		#size-cells = <0>;
 
-		fxosc: fxosc {
-			compatible = "fixed-clock";
-			#clock-cells = <0>;
-		};
 		firc {
 			compatible = "fixed-clock";
 			clock-frequency = <48000000>;
@@ -120,6 +116,13 @@
 			     <1 14 0xf08>,
 			     <1 11 0xf08>,
 			     <1 10 0xf08>;
+	};
+
+	fxosc: fxosc@40050000 {
+		compatible = "fsl,s32gen1-fxosc";
+		reg = <0x0 0x40050000 0x0 0x3000>;
+		clock-frequency = <40000000>;
+		#clock-cells = <1>;
 	};
 
 	mc_cgm0: mc_cgm0@40030000 {
