@@ -1,5 +1,5 @@
 /*
- * Copyright 2018 NXP
+ * Copyright 2018,2020 NXP
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -17,9 +17,9 @@
 #include "../clk.h"
 
 struct clk *s32gen1_clk_plldig(enum s32gen1_plldig_type type, const char *name,
-			   const char *parent_name, void __iomem *base,
-			   u32 plldv_mfd, u32 plldv_mfn,
-			   u32 pllodiv[PHI_MAXNUMBER], u32 phi_nr);
+			   const char *parent_name, struct clk *pll_mux,
+			   void __iomem *base, u32 pllodiv[PHI_MAXNUMBER],
+			   u32 phi_nr);
 
 struct clk *s32gen1_clk_plldig_phi(enum s32gen1_plldig_type type,
 			       const char *name, const char *parent,
@@ -27,5 +27,11 @@ struct clk *s32gen1_clk_plldig_phi(enum s32gen1_plldig_type type,
 
 struct clk *s32gen1_clk_dfs(enum s32gen1_plldig_type type, const char *name,
 			const char *parent_name, void __iomem *reg, u8 idx);
+
+struct clk *s32gen1_fxosc(const char *compatible);
+
+struct clk *s32gen1_clk_pll_mux(const char *name, void __iomem *reg, u8 shift,
+				u8 width, const char **parents, int num_parents,
+				u32 *table, spinlock_t *lock);
 
 #endif
