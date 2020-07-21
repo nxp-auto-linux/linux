@@ -238,6 +238,7 @@ struct fsl_dspi {
 };
 
 static u32 dspi_data_to_pushr(struct fsl_dspi *dspi, int tx_word);
+static int is_s32_dspi(struct fsl_dspi *data);
 
 static inline enum frame_mode get_frame_mode(struct fsl_dspi *dspi)
 {
@@ -596,17 +597,26 @@ static u32 dspi_data_to_pushr(struct fsl_dspi *dspi, int tx_word)
 {
 	u16 data, cmd;
 
+	if (is_s32_dspi(dspi))
+		cmd = dspi->tx_cmd;
+
 	if (!(dspi->dataflags & TRAN_STATE_TX_VOID))
 		data = tx_word ? *(u16 *)dspi->tx : *(u8 *)dspi->tx;
 	else
 		data = dspi->void_write_data;
 
+	if (is_s32_dspi(dspi))
+		if (dspi->len > bytes_per_frame(get_frame_mode(dspi)))
+			cmd |= SPI_PUSHR_CMD_CONT;
+
 	dspi->tx += tx_word + 1;
 	dspi->len -= tx_word + 1;
 
-	cmd = dspi->tx_cmd;
-	if (dspi->len > 0)
-		cmd |= SPI_PUSHR_CMD_CONT;
+	if (!is_s32_dspi(dspi)) {
+		cmd = dspi->tx_cmd;
+		if (dspi->len > 0)
+			cmd |= SPI_PUSHR_CMD_CONT;
+	}
 
 	return (cmd << 16) | SPI_PUSHR_TXDATA(data);
 }
@@ -634,6 +644,24 @@ static void dspi_data_from_popr(struct fsl_dspi *dspi,
 	}
 
 	dspi->rx += bytes_per_frame(rx_frame_mode);
+}
+
+static void dspi_fifo_write(struct fsl_dspi *dspi, u32 pushr)
+{
+	regmap_write(dspi->regmap, SPI_PUSHR, pushr);
+
+	if (get_frame_mode(dspi) == FM_BYTES_4) {
+
+		/* regmap does not seem to support 16-bit write access
+		 * to 32-bit registers.
+		 * This currently applies only to S32V234 SPI, which is
+		 * known to be little-endian.
+		 */
+
+		pushr = dspi_data_to_pushr(dspi, FM_BYTES_2);
+		/* Only write the TXDATA part of the register */
+		writew(SPI_PUSHR_TXDATA(pushr), dspi->base + SPI_PUSHR);
+	}
 }
 
 static int dspi_eoq_write(struct fsl_dspi *dspi)
@@ -691,21 +719,7 @@ static int dspi_eoq_write(struct fsl_dspi *dspi)
 			dspi_pushr |= SPI_PUSHR_CTCNT; /* clear counter */
 		}
 
-		regmap_write(dspi->regmap, SPI_PUSHR, dspi_pushr);
-
-		if (tx_frame_mode == FM_BYTES_4) {
-
-			/* regmap does not seem to support 16-bit write access
-			 * to 32-bit registers.
-			 * This currently applies only to S32V234 SPI, which is
-			 * known to be little-endian.
-			 */
-
-			dspi_pushr = dspi_data_to_pushr(dspi, 1);
-			/* Only write the TXDATA part of the register */
-			writew(SPI_PUSHR_TXDATA(dspi_pushr),
-			       dspi->base + SPI_PUSHR);
-		}
+		dspi_fifo_write(dspi, dspi_pushr);
 	}
 
 	return initial_len - dspi->len;
@@ -751,6 +765,38 @@ static int dspi_tcfq_write(struct fsl_dspi *dspi)
 	return tx_word + 1;
 }
 
+static int s32_dspi_tcfq_write(struct fsl_dspi *dspi)
+{
+	enum frame_mode tx_frame_mode = get_frame_mode(dspi);
+	u32 dspi_pushr = 0;
+	int new_frame_bytes;
+
+	if (dspi->len < bytes_per_frame(tx_frame_mode)) {
+		new_frame_bytes = dspi->len;
+		if (new_frame_bytes == 3)
+			new_frame_bytes = 2;
+		regmap_update_bits(dspi->regmap, SPI_CTAR(0),
+				SPI_FRAME_BITS_MASK,
+				SPI_FRAME_BITS(new_frame_bytes * 8));
+		if (tx_frame_mode == FM_BYTES_4)
+			regmap_update_bits(dspi->regmap, SPI_CTARE(0),
+					SPI_CTARE_FMSZE_MASK,
+					SPI_CTARE_FMSZE(0));
+		tx_frame_mode = new_frame_bytes == 1 ?
+			FM_BYTES_1 : FM_BYTES_2;
+	}
+
+	dspi_pushr = dspi_data_to_pushr(dspi, tx_frame_mode == FM_BYTES_4 ?
+					  FM_BYTES_2 : tx_frame_mode);
+
+	/* Clear transfer counter on each transfer */
+	dspi_pushr |= SPI_PUSHR_CTCNT;
+
+	dspi_fifo_write(dspi, dspi_pushr);
+
+	return bytes_per_frame(tx_frame_mode);
+}
+
 static void dspi_tcfq_read(struct fsl_dspi *dspi)
 {
 	int rx_word = is_double_byte_mode(dspi);
@@ -762,7 +808,6 @@ static void dspi_tcfq_read(struct fsl_dspi *dspi)
 		dspi_data_from_popr(dspi, FM_BYTES_1);
 	else
 		dspi_data_from_popr(dspi, FM_BYTES_2);
-
 }
 
 static int dspi_transfer_one_message(struct spi_master *master,
@@ -844,7 +889,10 @@ static int dspi_transfer_one_message(struct spi_master *master,
 			regmap_write(dspi->regmap, SPI_MCR,
 				     dspi->cur_chip->mcr_val |
 				     SPI_MCR_CLR_TXF | SPI_MCR_CLR_RXF);
-			dspi_tcfq_write(dspi);
+			if (is_s32_dspi(dspi))
+				s32_dspi_tcfq_write(dspi);
+			else
+				dspi_tcfq_write(dspi);
 			break;
 		case DSPI_DMA_MODE:
 			regmap_write(dspi->regmap, SPI_RSER,
@@ -984,7 +1032,11 @@ static irqreturn_t dspi_interrupt(int irq, void *dev_id)
 
 
 	if (spi_sr & (SPI_SR_EOQF | SPI_SR_TCFQF)) {
-		tx_word = is_double_byte_mode(dspi);
+		if (is_s32_dspi(dspi))
+			tx_word = bytes_per_frame(get_frame_mode(dspi));
+		else
+			tx_word = is_double_byte_mode(dspi);
+
 
 		/* Get transfer counter (in number of SPI transfers). It was
 		 * reset to 0 when transfer(s) were started.
@@ -993,6 +1045,9 @@ static irqreturn_t dspi_interrupt(int irq, void *dev_id)
 		spi_tcnt = SPI_TCR_GET_TCNT(spi_tcr);
 
 		/* Update total number of bytes that were transferred */
+		if (is_s32_dspi(dspi))
+			tx_word--;
+
 		msg->actual_length += spi_tcnt * (tx_word + 1) -
 			(dspi->dataflags & TRAN_STATE_WORD_ODD_NUM ? 1 : 0);
 
@@ -1002,7 +1057,10 @@ static irqreturn_t dspi_interrupt(int irq, void *dev_id)
 			dspi_eoq_read(dspi);
 			break;
 		case DSPI_TCFQ_MODE:
-			dspi_tcfq_read(dspi);
+			if (is_s32_dspi(dspi))
+				dspi_data_from_popr(dspi, get_frame_mode(dspi));
+			else
+				dspi_tcfq_read(dspi);
 			break;
 		default:
 			dev_err(&dspi->pdev->dev, "unsupported trans_mode %u\n",
@@ -1011,12 +1069,15 @@ static irqreturn_t dspi_interrupt(int irq, void *dev_id)
 		}
 
 		if (!dspi->len) {
-			if (dspi->dataflags & TRAN_STATE_WORD_ODD_NUM) {
-				regmap_update_bits(dspi->regmap,
-						   SPI_CTAR(0),
-						   SPI_FRAME_BITS_MASK,
-						   SPI_FRAME_BITS(16));
-				dspi->dataflags &= ~TRAN_STATE_WORD_ODD_NUM;
+			if (!is_s32_dspi(dspi)) {
+				if (dspi->dataflags & TRAN_STATE_WORD_ODD_NUM) {
+					regmap_update_bits(dspi->regmap,
+							SPI_CTAR(0),
+							SPI_FRAME_BITS_MASK,
+							SPI_FRAME_BITS(16));
+					dspi->dataflags &=
+						~TRAN_STATE_WORD_ODD_NUM;
+				}
 			}
 
 			dspi->waitflags = 1;
@@ -1027,7 +1088,10 @@ static irqreturn_t dspi_interrupt(int irq, void *dev_id)
 				dspi_eoq_write(dspi);
 				break;
 			case DSPI_TCFQ_MODE:
-				dspi_tcfq_write(dspi);
+				if (is_s32_dspi(dspi))
+					s32_dspi_tcfq_write(dspi);
+				else
+					dspi_tcfq_write(dspi);
 				break;
 			default:
 				dev_err(&dspi->pdev->dev,
@@ -1049,6 +1113,11 @@ static const struct of_device_id fsl_dspi_dt_ids[] = {
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, fsl_dspi_dt_ids);
+
+static int is_s32_dspi(struct fsl_dspi *data)
+{
+	return data->devtype_data == &s32_data;
+}
 
 #ifdef CONFIG_PM_SLEEP
 static int dspi_suspend(struct device *dev)
