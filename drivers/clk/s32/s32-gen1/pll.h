@@ -1,5 +1,5 @@
 /*
- * Copyright 2018 NXP
+ * Copyright 2018,2020 NXP
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -20,6 +20,7 @@
 
 /* PLLDIG PLL Divider Register (PLLDIG_PLLDV) */
 #define PLLDIG_PLLDV(base)		((base) + 0x00000008)
+#define PLLDIG_PLLDV_MFI(div)		(PLLDIG_PLLDV_MFI_MASK & (div))
 #define PLLDIG_PLLDV_MFI_SET(val)	(PLLDIG_PLLDV_MFI_MASK & (val))
 #define PLLDIG_PLLDV_MFI_MASK		(0x000000FF)
 
@@ -50,8 +51,10 @@
 
 
 /* PLL Output Divider (PLLODIV0 - PLLODIV7) */
-#define PLLDIG_PLLODIV(pll, n)          ((pll) + 0x00000080 + n * 0x4)
-#define PLLDIG_PLLODIV_DIV_SET(val)     (PLLDIG_PLLODIV_DIV_MASK & \
+#define PLLDIG_PLLODIV(pll, n)		((pll) + 0x00000080 + n * 0x4)
+#define PLLDIG_PLLODIV_DIV(val)		((PLLDIG_PLLODIV_DIV_MASK & (val)) >> \
+					 PLLDIG_PLLODIV_DIV_OFFSET)
+#define PLLDIG_PLLODIV_DIV_SET(val)	(PLLDIG_PLLODIV_DIV_MASK & \
 					 ((val) << PLLDIG_PLLODIV_DIV_OFFSET))
 #define PLLDIG_PLLODIV_DIV_MASK         (0x00FF0000)
 #define PLLDIG_PLLODIV_DIV_OFFSET       (16)
