@@ -150,6 +150,12 @@
 	status = "okay";
 };
 
+&can1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl0_can1>, <&pinctrl1_can1>;
+	status = "okay";
+};
+
 &can2 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl0_can2>, <&pinctrl1_can2>;
@@ -209,9 +215,16 @@
 
 		pinctrl0_can0: can0grp {
 			fsl,pins = <
-				S32_GEN1_PAD_PC12__CAN0_TXD
-				S32_GEN1_PAD_PC11__CAN0_RXD_OUT
-				S32_GEN1_PAD_PC11__CAN0_RXD_IN
+				S32_GEN1_PAD_PB01__CAN0_TXD
+				S32_GEN1_PAD_PB02__CAN0_RXD_OUT
+				S32_GEN1_PAD_PB02__CAN0_RXD_IN
+			>;
+		};
+
+		pinctrl0_can1: can1grp {
+			fsl,pins = <
+				S32_GEN1_PAD_PB03__CAN1_TXD
+				S32_GEN1_PAD_PB04__CAN1_RXD_OUT
 			>;
 		};
 
@@ -424,6 +437,12 @@
 		pinctrl1_ftm1: ftm1grp {
 			fsl,pins = <
 				S32_GEN1_PAD_PF_00__FTM1_CH5_I
+			>;
+		};
+
+		pinctrl1_can1: can1grp {
+			fsl,pins = <
+				S32_GEN1_PAD_PB04__CAN1_RXD_IN
 			>;
 		};
 
