@@ -56,7 +56,7 @@ static int s32cc_gmac_init(struct platform_device *pdev, void *priv)
 		default:
 			dev_info(&pdev->dev, "unsupported mode %d, set the default phy mode.\n",
 				 gmac->intf_mode);
-			/* pass through */
+			fallthrough;
 		case PHY_INTERFACE_MODE_SGMII:
 			dev_info(&pdev->dev, "phy mode set to SGMII\n");
 			intf_sel = PHY_INTF_SEL_SGMII;
