@@ -1346,8 +1346,15 @@ static void linflex_string_write(struct linflex_port *sport, const char *s,
 	if (!sport->dma_tx_use) {
 		writel(ier, sport->port.membase + LINIER);
 	} else {
+		struct circ_buf *xmit = &sport->port.state->xmit;
+
 		dmatxe = readl(sport->port.membase + DMATXE);
 		writel(dmatxe | 0x1, sport->port.membase + DMATXE);
+
+		if (uart_circ_chars_pending(xmit) < WAKEUP_CHARS)
+			uart_write_wakeup(&sport->port);
+
+		linflex_prepare_tx(sport);
 	}
 }
 
