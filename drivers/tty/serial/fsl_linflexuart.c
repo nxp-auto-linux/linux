@@ -1290,6 +1290,7 @@ static void linflex_string_write(struct uart_port *sport, const char *s,
 				 unsigned int count)
 {
 	struct linflex_port *lfport = to_linflex_port(sport);
+	struct circ_buf *xmit = &sport->state->xmit;
 	unsigned long cr, ier = 0, dmatxe;
 
 	if (!lfport->dma_tx_use)
@@ -1311,6 +1312,11 @@ static void linflex_string_write(struct uart_port *sport, const char *s,
 	} else {
 		dmatxe = readl(sport->membase + DMATXE);
 		writel(dmatxe | 0x1, sport->membase + DMATXE);
+
+		if (uart_circ_chars_pending(xmit) < WAKEUP_CHARS)
+			uart_write_wakeup(sport);
+
+		linflex_prepare_tx(lfport);
 	}
 }
 
