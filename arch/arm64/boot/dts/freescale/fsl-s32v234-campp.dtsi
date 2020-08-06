@@ -1,0 +1,263 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright 2020 NXP
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ */
+
+#include "fsl-s32v234.dtsi"
+/ {
+	model = "Freescale S32V234 CAMPPS32V2";
+	compatible = "fsl,s32v234-campps32v2", "fsl,s32v234";
+
+	chosen {
+		stdout-path = "serial0:115200n8";
+	};
+
+	memory_DDR0@80000000 {
+		device_type = "memory";
+		reg = <0 0x80000000 0 0x20000000>;
+	};
+
+	memory_DDR1@c0000000 {
+		device_type = "memory";
+		reg = <0 0xc0000000 0 0x20000000>;
+	};
+};
+
+&cse3 {
+	status = "okay";
+};
+
+&dec200_dec {
+	status = "okay";
+};
+
+&dec200_enc {
+	status = "okay";
+};
+
+&edma {
+	status = "okay";
+};
+
+&fdma {
+	status = "okay";
+};
+
+&fec {
+	status = "okay";
+};
+
+&gpioother {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_gpio>;
+	status = "okay";
+};
+
+&h264decoder {
+	status = "okay";
+};
+
+&h264_encoder {
+	status = "okay";
+};
+
+&i2c0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_i2c0>;
+	status = "okay";
+};
+
+&i2c1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_i2c1>;
+	status = "okay";
+};
+
+&i2c2 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_i2c2>;
+	status = "okay";
+};
+
+&jpegdecoder {
+	status = "okay";
+};
+
+&mipicsi0 {
+	status = "okay";
+};
+
+&pit0 {
+	status = "okay";
+};
+
+&pit1 {
+	status = "okay";
+};
+
+&pcie {
+	status = "okay";
+};
+
+&pinctrl {
+	status = "okay";
+
+	s32v234-evb {
+
+		pinctrl_dspi0: dspi0grp {
+			fsl,pins = <
+				S32V234_PAD_PB8__SPI0_CS0_OUT
+				S32V234_PAD_PB13__SPI0_CS1_OUT
+				S32V234_PAD_PB14__SPI0_CS2_OUT
+				S32V234_PAD_PB15__SPI0_CS3_OUT
+				S32V234_PAD_PB6__SPI0_SOUT_OUT
+				S32V234_PAD_PB5__SPI0_SCK_OUT
+				S32V234_PAD_PB7__SPI0_SIN_OUT
+				S32V234_PAD_PB7__SPI0_SIN_IN
+			>;
+		};
+
+		pinctrl_enet: enetgrp {
+			fsl,pins = <
+				S32V234_PAD_PC13__MDC
+				S32V234_PAD_PC14__MDIO_OUT
+				S32v234_PAD_PC14__MDIO_IN
+				S32V234_PAD_PC15__TXCLK_OUT
+				S32V234_PAD_PC15__TXCLK_IN
+				S32V234_PAD_PD0__RXCLK_OUT
+				S32V234_PAD_PD0__RXCLK_IN
+				S32V234_PAD_PD1__RX_D0_OUT
+				S32V234_PAD_PD1__RX_D0_IN
+				S32V234_PAD_PD2__RX_D1_OUT
+				S32V234_PAD_PD2__RX_D1_IN
+				S32V234_PAD_PD3__RX_D2_OUT
+				S32V234_PAD_PD3__RX_D2_IN
+				S32V234_PAD_PD4__RX_D3_OUT
+				S32V234_PAD_PD4__RX_D3_IN
+				S32V234_PAD_PD4__RX_DV_OUT
+				S32V234_PAD_PD4__RX_DV_IN
+				S32V234_PAD_PD7__TX_D0_OUT
+				S32V234_PAD_PD8__TX_D1_OUT
+				S32V234_PAD_PD9__TX_D2_OUT
+				S32V234_PAD_PD10__TX_D3_OUT
+				S32V234_PAD_PD11__TX_EN_OUT
+			>;
+		};
+
+		pinctrl_gpio: gpiogrp {
+			fsl,pins = <
+				S32V234_PAD_PF9__SIUL_GPIO89
+				S32V234_PAD_PF11__SIUL_GPIO91
+				S32V234_PAD_PF12__SIUL_GPIO92
+				S32V234_PAD_PF13__SIUL_GPIO93
+				>;
+		};
+
+		pinctrl_i2c0: i2c0grp {
+			fsl,pins = <
+				S32V234_PAD_PG3__I2C0_DATA_OUT
+				S32V234_PAD_PG3__I2C0_DATA_IN
+				S32V234_PAD_PG4__I2C0_SCLK_OUT
+				S32V234_PAD_PG4__I2C0_SCLK_IN
+			>;
+		};
+
+		pinctrl_i2c1: i2c1grp {
+			fsl,pins = <
+				S32V234_PAD_PG5__I2C1_DATA_OUT
+				S32V234_PAD_PG5__I2C1_DATA_IN
+				S32V234_PAD_PG6__I2C1_SCLK_OUT
+				S32V234_PAD_PG6__I2C1_SCLK_IN
+			>;
+		};
+
+		pinctrl_i2c2: i2c2grp {
+			fsl,pins = <
+				S32V234_PAD_PB3__I2C2_DATA_OUT
+				S32V234_PAD_PB3__I2C2_DATA_IN
+				S32V234_PAD_PB4__I2C2_SCLK_OUT
+				S32V234_PAD_PB4__I2C2_SCLK_IN
+			>;
+		};
+
+		pinctrl_uart0: uart0grp {
+			fsl,pins = <
+				S32V234_PAD_PA12__UART0_TXD
+				S32V234_PAD_PA11__UART0_RXD_OUT
+				S32V234_PAD_PA11__UART0_RXD_IN
+			>;
+		};
+
+		pinctrl_usdhc0: usdhc0grp {
+			fsl,pins = <
+				S32V234_PAD_PK6__USDHC_CLK_OUT
+				S32V234_PAD_PK6__USDHC_CLK_IN
+				S32V234_PAD_PK7__USDHC_CMD_OUT
+				S32V234_PAD_PK7__USDHC_CMD_IN
+				S32V234_PAD_PK8__USDHC_DAT0_OUT
+				S32V234_PAD_PK8__USDHC_DAT0_IN
+				S32V234_PAD_PK9__USDHC_DAT1_OUT
+				S32V234_PAD_PK9__USDHC_DAT1_IN
+				S32V234_PAD_PK10__USDHC_DAT2_OUT
+				S32V234_PAD_PK10__USDHC_DAT2_IN
+				S32V234_PAD_PK11__USDHC_DAT3_OUT
+				S32V234_PAD_PK11__USDHC_DAT3_IN
+			>;
+		};
+
+	};
+};
+
+&tmu {
+	status = "okay";
+};
+
+&stm0 {
+	status = "okay";
+};
+
+&stm1 {
+	status = "okay";
+};
+
+&swt0 {
+	status = "okay";
+};
+
+&swt1 {
+	status = "okay";
+};
+
+&swt2 {
+	status = "okay";
+};
+
+&swt3 {
+	status = "okay";
+};
+
+&fccu {
+	status = "okay";
+};
+
+&uart0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_uart0>;
+	status = "okay";
+};
+
+&usdhc0 {
+	no-1-8-v;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_usdhc0>;
+	status = "okay";
+};
+
+&vseq {
+	status = "okay";
+};
