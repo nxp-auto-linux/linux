@@ -52,6 +52,8 @@ dtb-$(CONFIG_ARCH_MXC) += imx8qxp-colibri-eval-v3.dtb
 dtb-$(CONFIG_ARCH_MXC) += imx8qxp-mek.dtb
 
 dtb-$(CONFIG_ARCH_S32) += fsl-s32v234-bbmini.dtb
+dtb-$(CONFIG_ARCH_S32) += fsl-s32v234-campp-primary.dtb
+dtb-$(CONFIG_ARCH_S32) += fsl-s32v234-campp-secondary.dtb
 dtb-$(CONFIG_ARCH_S32) += fsl-s32v234-evb28899.dtb
 dtb-$(CONFIG_ARCH_S32) += fsl-s32v234-evb.dtb
 dtb-$(CONFIG_ARCH_S32) += fsl-s32v234-evbbcm.dtb
