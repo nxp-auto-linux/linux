@@ -455,7 +455,7 @@ config VF_PIT_TIMER
 	  Support for Period Interrupt Timer on Freescale Vybrid Family SoCs.
 
 config FSL_STM_TIMER
-	bool
+	bool "Nxp System Timer Module driver"
 	help
 	  Support for Freescale System Timer Module.
 
