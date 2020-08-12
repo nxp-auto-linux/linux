@@ -473,6 +473,14 @@ config FSL_STM_TIMER
 	help
 	  Support for Freescale System Timer Module.
 
+config FSL_GLOBAL_TIME_STM
+	tristate "NXP S32GEN1 Global Time Source at SoC Level"
+	help
+	  Support for universal timestamps on NXP S32GEN1 SoCs. The driver
+	  allows the Linux core to initiate a global timer, which can be
+	  read from any other core on the SoC as well as to read the value
+	  of that timer. Other cores can initialize that timer as well.
+
 config OXNAS_RPS_TIMER
 	bool "Oxford Semiconductor OXNAS RPS Timers driver" if COMPILE_TEST
 	select TIMER_OF
