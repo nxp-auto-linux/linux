@@ -473,6 +473,14 @@ config VF_PIT_TIMER
 	help
 	  Support for Periodic Interrupt Timer on Freescale Vybrid Family SoCs.
 
+config NXP_GLOBAL_TIME_STM
+	tristate "NXP S32CC Global Time Source at SoC Level"
+	help
+	  Support for universal timestamps on NXP S32CC SoCs. The driver
+	  allows the Linux core to initiate a global timer, its value can
+	  be read by any other core of the SoC. Other cores can initialize
+	  that timer as well.
+
 config SYS_SUPPORTS_SH_CMT
 	bool
 
