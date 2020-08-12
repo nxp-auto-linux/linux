@@ -1,0 +1,67 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/serial/fsl-stm-global.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: NXP STM timer used as universal time source
+
+maintainers:
+  - Dorin Ionita <dorin.ionita@nxp.com>
+
+allOf:
+  - $ref: "rs485.yaml"
+
+properties:
+  compatible:
+    oneOf:
+      - enum:
+          - fsl,s32gen1-stm-global
+
+  reg:
+    maxItems: 1
+
+  interrupts:
+    maxItems: 1
+
+  clocks:
+    items:
+      - description: stm clock
+    maxItems: 1
+
+  clock-names:
+    items:
+      - const: stm
+    maxItems: 1
+
+  cpu:
+    maxItems: 1
+
+  rs485-rts-active-low: true
+  linux,rs485-enabled-at-boot-time: true
+
+required:
+  - compatible
+  - reg
+  - clock
+  - clock-names
+
+unevaluatedProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/clock/s32gen1-scmi-clock.h>
+
+    stm0: stm@4000D000{
+        compatible = "fsl,s32gen1-stm-global";
+        reg = <0x0 0x4000D000 0x0 0x1000>;
+        interrupts= <0 24 4>;
+        clocks = <&clks S32GEN1_SCMI_CLK_STM_MODULE>;
+        clock-names = "stm";
+        cpu = <2>;
+        status = "disabled";
+    };
+
+    &stm0 {
+        status = "okay";
+    };
