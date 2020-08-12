@@ -255,6 +255,10 @@
 	status = "okay";
 };
 
+&stm2 {
+	status = "okay";
+};
+
 &fccu {
 	status = "okay";
 };

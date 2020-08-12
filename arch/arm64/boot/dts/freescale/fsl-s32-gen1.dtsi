@@ -234,6 +234,14 @@
 		status = "disabled";
 	};
 
+	stm2: stm@40124000{
+		compatible = "fsl,s32gen1-stm-global";
+		reg = <0x0 0x40124000 0x0 0x3000>;
+		clocks = <&clks S32GEN1_CLK_XBAR_DIV3>;
+		clock-names = "stm";
+		status = "disabled";
+	};
+
 	edma0: dma-controller@40144000 {
 		#dma-cells = <2>;
 		compatible = "fsl,s32gen1-edma";
