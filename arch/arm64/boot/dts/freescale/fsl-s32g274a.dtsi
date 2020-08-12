@@ -282,7 +282,7 @@
 		clocks = <&clks S32GEN1_CLK_XBAR_DIV4>,
 		         <&clks S32GEN1_CLK_SIRC>;
 		fsl,usbmisc = <&usbmisc 0>;
-		ahb-burst-config = <0x0>;
+		ahb-burst-config = <0x3>;
 		tx-burst-size-dword = <0x10>;
 		rx-burst-size-dword = <0x10>;
 		phy_type = "ulpi";
