@@ -220,7 +220,7 @@ static void __init s32r45_extra_clocks_init(struct device_node *clocking_node)
 		clk_modules.mc_cgm2_base, 2, &s32gen1_lock);
 }
 
-void s32gen1_clocks_init(struct device_node *clocking_node)
+void __init s32gen1_clocks_init(struct device_node *clocking_node)
 {
 	struct device_node *np;
 
