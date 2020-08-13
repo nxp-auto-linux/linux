@@ -483,7 +483,7 @@
 				>;
 		};
 
-		pinctrl_gpioeirq0: gpioeirqgrp0 {
+		pinctrl_gpioeirq: gpioeirqgrp {
 			fsl,pins = <
 				S32R45_PAD_PA_00_SIUL_EIRQ0
 				S32R45_PAD_PA_03_SIUL_EIRQ1
@@ -639,4 +639,9 @@
 		speed = <1000>;
 		full-duplex;
 	};
+};
+&gpio1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_gpioeirq>;
+	status = "okay";
 };
