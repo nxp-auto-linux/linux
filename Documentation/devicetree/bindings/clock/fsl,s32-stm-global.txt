@@ -1,0 +1,23 @@
+NXP STM timer used as universal time source
+
+This STM timer driver is designed to be used as universal time source
+for S32 Gen1 SoCs.
+
+Required properties:
+- compatible : "fsl,s32gen1-stm-global"
+- reg : Should contain 1 register range(address and length)
+
+Example:
+
+stm0: stm@4000D000{
+	compatible = "fsl,s32gen1-stm-global";
+	reg = <0x0 0x4000D000 0x0 0x1000>;
+	clock-names = "stm";
+	status = "disabled";
+};
+
+&stm0 {
+	status = "okay";
+};
+
+
