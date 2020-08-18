@@ -215,7 +215,6 @@ struct fsl_edma_desc {
 struct fsl_edma_irq {
 	char *name;
 	irqreturn_t (*irqhandler)(int irq, void *data);
-	int irqno;
 };
 
 struct fsl_edma_ops {
@@ -241,6 +240,7 @@ struct fsl_edma_engine {
 	u32				n_chans;
 	bool				big_endian;
 	const struct fsl_edma_soc_data *socdata;
+	int				*irq_nos;
 	struct fsl_edma_chan		chans[];
 };
 
@@ -999,32 +999,37 @@ fsl_edma_irq_init(struct platform_device *pdev, struct fsl_edma_engine *fsl_edma
 	unsigned int i, j;
 	const struct fsl_edma_soc_data *socdata = fsl_edma->socdata;
 
+	fsl_edma->irq_nos = devm_kzalloc(&pdev->dev,
+		socdata->n_irqs * sizeof(*fsl_edma->irq_nos), GFP_KERNEL);
+	if (!fsl_edma->irq_nos)
+		return -ENOMEM;
+
 	for (i = 0; i < socdata->n_irqs; i++) {
-		socdata->irqs[i].irqno = platform_get_irq_byname(pdev,
+		fsl_edma->irq_nos[i] = platform_get_irq_byname(pdev,
 						socdata->irqs[i].name);
-		if (socdata->irqs[i].irqno < 0) {
+		if (fsl_edma->irq_nos[i] < 0) {
 			dev_err(&pdev->dev, "Can't get %s irq.\n",
 				socdata->irqs[i].name);
-			return socdata->irqs[i].irqno;
+			return fsl_edma->irq_nos[i];
 		}
 
 		for (j = 0; j < i; j++) {
-			if (socdata->irqs[i].irqno == socdata->irqs[j].irqno)
+			if (fsl_edma->irq_nos[i] == fsl_edma->irq_nos[j])
 				break;
 		}
 
 		/* Check there is a irq with multiple functionalities */
 		if (is_vf610_edma(fsl_edma))
 			if (j < i) {
-				socdata->irqs[i].irqno = -1;
+				fsl_edma->irq_nos[i] = -1;
 				socdata->irqs[j].name = "eDma";
 			}
 	}
 
 	for (i = 0; i < socdata->n_irqs; i++) {
-		if (socdata->irqs[i].irqno >= 0) {
+		if (fsl_edma->irq_nos[i] >= 0) {
 			ret = devm_request_irq(&pdev->dev,
-				       socdata->irqs[i].irqno,
+				       fsl_edma->irq_nos[i],
 				       socdata->irqs[i].irqhandler,
 				       0,
 				       socdata->irqs[i].name,
@@ -1058,9 +1063,9 @@ static void fsl_edma_irq_exit(
 	const struct fsl_edma_soc_data *socdata = fsl_edma->socdata;
 
 	for (i = 0; i < socdata->n_irqs; i++) {
-		if (socdata->irqs[i].irqno >= 0)
+		if (fsl_edma->irq_nos[i] >= 0)
 			devm_free_irq(&pdev->dev,
-				      socdata->irqs[i].irqno, fsl_edma);
+				      fsl_edma->irq_nos[i], fsl_edma);
 	}
 }
 
