@@ -112,13 +112,13 @@ struct clk *s32gen1_clk_cgm_div(const char *name, const char *parent,
 	if (!cgm_div)
 		return ERR_PTR(-ENOMEM);
 
-	cgm_div->ops = &clk_divider_ops;
+	cgm_div->ops = &clk_cgm_div_ops;
 	cgm_div->cgm_addr = cgm_addr;
 	cgm_div->index = index;
 	cgm_div->div_factor = get_cgm_div_factor(cgm_addr, index);
 
 	init.name = name;
-	init.ops = &clk_cgm_div_ops;
+	init.ops = &clk_divider_ops;
 	init.flags = CLK_SET_RATE_PARENT | CLK_IS_BASIC;
 	init.parent_names = &parent;
 	init.num_parents =  1;
