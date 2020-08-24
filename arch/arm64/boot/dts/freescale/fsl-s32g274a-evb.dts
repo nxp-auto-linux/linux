@@ -40,7 +40,7 @@
 		ranges;
 
 		pfe_reserved: pfebufs@83400000 {
-			compatible = "fsl,s32g-pfe-ddr";
+			compatible = "fsl,s32g-pfe-ddr", "shared-dma-pool";
 			reg = <0 0x83400000 0 0xc00000>;
 			no-map;
 			status = "okay";
