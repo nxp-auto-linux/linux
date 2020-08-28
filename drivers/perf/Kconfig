@@ -251,6 +251,14 @@ config ALIBABA_UNCORE_DRW_PMU
 	  Support for Driveway PMU events monitoring on Yitian 710 DDR
 	  Sub-system.
 
+config NXP_S32CC_DDR_PERF
+	tristate "NXP S32CC DDR Performance Monitor"
+	depends on SOC_S32CC
+	default y
+	help
+	  Provides support for the DDR Performance Monitor in S32CC devices, which
+	  can give information about memory throughput and other related events.
+
 source "drivers/perf/hisilicon/Kconfig"
 
 config MARVELL_CN10K_DDR_PMU
