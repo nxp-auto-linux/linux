@@ -130,6 +130,14 @@ config ARM_SPE_PMU
 	  Extension, which provides periodic sampling of operations in
 	  the CPU pipeline and reports this via the perf AUX interface.
 
+config NXP_S32_DDR_PERF
+	tristate "NXP S32 DDR Performance Monitor"
+	depends on SOC_S32GEN1
+	default y
+	help
+	  Provides support for the DDR performance monitor in S32 devices, which
+	  can give information about memory throughput and other related events.
+
 source "drivers/perf/hisilicon/Kconfig"
 
 endmenu
