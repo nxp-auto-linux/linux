@@ -137,6 +137,14 @@ config ARM_DMC620_PMU
 	  Support for PMU events monitoring on the ARM DMC-620 memory
 	  controller.
 
+config NXP_S32CC_DDR_PERF
+	tristate "NXP S32CC DDR Performance Monitor"
+	depends on SOC_S32CC
+	default y
+	help
+	  Provides support for the DDR Performance Monitor in S32CC devices, which
+	  can give information about memory throughput and other related events.
+
 source "drivers/perf/hisilicon/Kconfig"
 
 endmenu
