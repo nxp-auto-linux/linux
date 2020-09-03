@@ -188,4 +188,5 @@ obj-$(CONFIG_SIOX)		+= siox/
 obj-$(CONFIG_GNSS)		+= gnss/
 obj-$(CONFIG_INTERCONNECT)	+= interconnect/
 obj-$(CONFIG_COUNTER)		+= counter/
+obj-$(CONFIG_NXP_ERRATUM_ERR050543)	+= ddr/s32-gen1/
 obj-$(CONFIG_MOST)		+= most/
