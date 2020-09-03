@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: GPL-2.0-only
+
+config NXP_ERRATUM_ERR050543
+	tristate "Workaround for NXP Erratum ERR050543"
+	depends on SOC_S32GEN1
+	help
+	  This option enables a workaround for NXP Erratum ERR050543
+	  (This erratum applies for LPDDR4 memories only. The memories
+	  require a periodic refresh to maintain memory contents and the
+	  refresh rate has to vary over temperature and S32G contains an
+	  hardware-based automatism to carry this dynamic adjustment out.
+	  This automatism however does not work under all conditions.)
