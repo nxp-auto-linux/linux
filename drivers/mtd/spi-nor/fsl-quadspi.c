@@ -576,10 +576,12 @@ static int fsl_qspi_nor_setup(struct fsl_qspi *q)
 	/* disable and unprepare clock to avoid glitch pass to controller */
 	fsl_qspi_clk_disable_unprep(q);
 
+#ifndef CONFIG_SOC_S32GEN1
 	/* the default frequency, we will change it in the future. */
 	ret = clk_set_rate(q->clk, 66000000);
 	if (ret)
 		return ret;
+#endif
 
 	ret = fsl_qspi_clk_prep_enable(q);
 	if (ret)
