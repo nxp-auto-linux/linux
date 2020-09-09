@@ -767,6 +767,9 @@ static int enable_ddr(struct fsl_qspi *q)
 	mcr |= QUADSPI_MCR_MDIS_MASK | ddr_config.mcr;
 	qspi_writel(q, mcr, base + QUADSPI_MCR);
 
+	mcr |= QUADSPI_MCR_DQS_EXTERNAL;
+	qspi_writel(q, mcr, base + QUADSPI_MCR);
+
 	qspi_writel(q, ddr_config.flshcr, base + QUADSPI_FLSHCR);
 	qspi_writel(q, ddr_config.sfacr, base + QUADSPI_SFACR);
 	qspi_writel(q, ddr_config.smpr, base + QUADSPI_SMPR);
