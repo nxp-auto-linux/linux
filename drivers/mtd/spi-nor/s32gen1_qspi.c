@@ -768,7 +768,7 @@ static int enable_ddr(struct fsl_qspi *q)
 	qspi_writel(q, mcr, base + QUADSPI_MCR);
 
 	qspi_writel(q, ddr_config.flshcr, base + QUADSPI_FLSHCR);
-	qspi_writel(q, ddr_config.smpr, base + QUADSPI_SFACR);
+	qspi_writel(q, ddr_config.sfacr, base + QUADSPI_SFACR);
 	qspi_writel(q, ddr_config.smpr, base + QUADSPI_SMPR);
 	qspi_writel(q, ddr_config.dlcr, base + QUADSPI_DLCR);
 
@@ -939,8 +939,6 @@ int qspi_read_mem(struct fsl_qspi *q,
 	u32 mcr_reg;
 	void __iomem *base = q->iobase;
 	void *ahb_virt;
-	u16 *data;
-	size_t i;
 
 	while (qspi_readl(q, base + QUADSPI_SR) & QUADSPI_SR_BUSY_MASK)
 		;
@@ -957,10 +955,6 @@ int qspi_read_mem(struct fsl_qspi *q,
 	/* Read out the data directly from the AHB buffer. */
 	memcpy_fromio(op->data.buf.in, ahb_virt,
 		      op->data.nbytes);
-
-	data = (u16 *)op->data.buf.in;
-	for (i = 0; i < op->data.nbytes / 2; i++)
-		data[i] = swab16(data[i]);
 
 	qspi_writel(q, mcr_reg, base + QUADSPI_MCR);
 	iounmap(ahb_virt);
