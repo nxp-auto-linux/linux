@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0+
 /*
  * Copyright 2015-2016 Freescale Semiconductor, Inc.
- * Copyright 2016-2017,2019 NXP
+ * Copyright 2016-2017,2020 NXP
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -17,7 +17,7 @@
 };
 
 &fec {
-	phy-mode = "rgmii";
+	phy-mode = "rgmii-id";
 	status = "okay";
 	fixed-link {
 		speed=<1000>;
