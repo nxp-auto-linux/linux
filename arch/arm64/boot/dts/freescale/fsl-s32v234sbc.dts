@@ -13,7 +13,7 @@
 #include "fsl-s32v234sbc.dtsi"
 
 &fec {
-	phy-mode = "rgmii";
+	phy-mode = "rgmii-id";
 	phy-handle = <&phy0>;
 	status = "okay";
 	mdio {
