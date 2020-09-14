@@ -8,7 +8,7 @@
 #include "fsl-s32v234-evb28899.dtsi"
 
 &fec {
-	phy-mode = "rgmii";
+	phy-mode = "rgmii-id";
 	phy-handle = <&phy0>;
 	status = "okay";
 	mdio {
