@@ -17,7 +17,7 @@
 };
 
 &fec {
-	phy-mode = "rgmii";
+	phy-mode = "rgmii-id";
 	status = "okay";
 	fixed-link {
 		speed=<1000>;
