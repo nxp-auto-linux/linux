@@ -1,0 +1,769 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+/*
+ * Device Tree file for S32G274ARDB Board.
+ *
+ * Copyright 2019-2020 NXP
+ *
+ */
+
+/dts-v1/;
+#include "fsl-s32g274a.dtsi"
+#include <dt-bindings/pinctrl/s32g274-pinctrl.h>
+/ {
+	chosen {
+		stdout-path = "serial0:115200n8";
+	};
+
+	memory_DDR0@80000000 {
+		device_type = "memory";
+		reg = <0 0x80000000 0 0x40000000>;
+	};
+
+	memory_DDR1@c0000000 {
+		device_type = "memory";
+		reg = <0 0xc0000000 0 0x40000000>;
+	};
+
+	memory_DDR2@880000000 {
+		device_type = "memory";
+		reg = <0x8 0x80000000 0 0x80000000>;
+	};
+
+	reserved-memory {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		pfe_reserved: pfebufs@83400000 {
+			compatible = "fsl,s32g-pfe-ddr", "shared-dma-pool";
+			reg = <0 0x83400000 0 0xc00000>;
+			no-map;
+			status = "okay";
+		};
+	};
+
+	usbphynop: usbphynop {
+		compatible = "usb-nop-xceiv";
+		#phy-cells = <0>;
+	};
+};
+
+&pfe {
+	status = "okay";
+	memory-region = <&pfe_reserved>;
+};
+
+&pfe0_if {
+	fsl,pfeng-hif-channel = <0>;
+	phy-mode = "sgmii";
+	fixed-link {
+		speed = <2500>;
+		full-duplex;
+	};
+};
+
+&pfe1_if {
+	/* RGMII port occupied by GMAC0 */
+	status = "disabled";
+};
+
+&pfe2_if {
+	fsl,pfeng-hif-channel = <2>;
+	phy-mode = "rgmii";
+	phy-handle = <&mdio_b_phy4>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl0_pfe2_rgmii_b>, <&pinctrl1_pfe2_rgmii_b>;
+};
+
+&pfe0_mdio {
+	/* unused */
+	status = "disabled";
+};
+
+&pfe1_mdio {
+	/* occupied by GMAC0 */
+	status = "disabled";
+};
+&pfe2_mdio {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl0_pfe2_mdio_b>;
+	/* AR8035 */
+	mdio_b_phy1: ethernet-phy@1 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg = <1>;
+	};
+	/* AR8035 */
+	mdio_b_phy2: ethernet-phy@2 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg = <2>;
+	};
+	/* KSZ9031RNX */
+	mdio_b_phy4: ethernet-phy@4 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg = <4>;
+	};
+
+	/* SJA1110's phys: 0x09-0x0e */
+};
+
+&fxosc {
+	clock-frequency = <40000000>;
+};
+
+&generic_timer {
+	clock-frequency = <5000000>;
+};
+
+&i2c0 {
+	status = "okay";
+};
+
+&i2c1 {
+	status = "okay";
+};
+
+&i2c2 {
+	status = "okay";
+};
+
+&i2c3 {
+	status = "okay";
+};
+
+&i2c4 {
+	status = "okay";
+};
+&usdhc0 {
+	status = "okay";
+};
+
+&can0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl0_can0>;
+	status = "okay";
+};
+
+&can1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl0_can1>, <&pinctrl1_can1>;
+	status = "okay";
+};
+
+&can2 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl0_can2>, <&pinctrl1_can2>;
+	status = "okay";
+};
+
+&can3 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl0_can3>, <&pinctrl1_can3>;
+	status = "okay";
+};
+
+&stm0 {
+	status = "okay";
+};
+
+&stm1 {
+	status = "okay";
+};
+
+&fccu {
+	status = "okay";
+};
+
+&swt3 {
+	status = "okay";
+};
+
+&swt4 {
+	status = "okay";
+};
+
+&swt5 {
+	status = "okay";
+};
+
+&swt6 {
+	status = "okay";
+};
+
+&pit0 {
+	status = "okay";
+};
+
+&pit1 {
+	status = "okay";
+};
+
+&pinctrl0 {
+	status = "okay";
+	s32g274a-rdb {
+		pinctrl0_ftm1: ftm1grp {
+			fsl,pins = <
+				S32_GEN1_PAD_PF_00__FTM1_CH5_O
+			>;
+		};
+
+		pinctrl0_can0: can0grp {
+			fsl,pins = <
+				S32_GEN1_PAD_PB01__CAN0_TXD
+				S32_GEN1_PAD_PB02__CAN0_RXD_OUT
+				S32_GEN1_PAD_PB02__CAN0_RXD_IN
+			>;
+		};
+
+		pinctrl0_can1: can1grp {
+			fsl,pins = <
+				S32_GEN1_PAD_PB03__CAN1_TXD
+				S32_GEN1_PAD_PB04__CAN1_RXD_OUT
+			>;
+		};
+
+		pinctrl0_can2: can2grp {
+			fsl,pins = <
+				S32_GEN1_PAD_PB11__CAN2_TXD
+				S32_GEN1_PAD_PB12__CAN2_RXD_OUT
+			>;
+		};
+
+		pinctrl0_can3: can3grp {
+		       fsl,pins = <
+				S32_GEN1_PAD_PB9__CAN3_TXD
+				S32_GEN1_PAD_PB10__CAN3_RXD_OUT
+			   >;
+		};
+
+		pinctrl0_dspi1: dspi1grp {
+			fsl,pins = <
+				S32_GEN1_PAD_PA7__SPI1_CS0_OUT
+				S32_GEN1_PAD_PA6__SPI1_SOUT_OUT
+				S32_GEN1_PAD_PA8__SPI1_SCK_OUT
+				S32_GEN1_PAD_PF15__SPI1_SIN_OUT
+			>;
+		};
+
+		pinctrl0_dspi5: dspi5grp {
+			fsl,pins = <
+				S32_GEN1_PAD_PA12__SPI5_CS0_OUT
+				S32_GEN1_PAD_PA11__SPI5_SOUT_OUT
+				S32_GEN1_PAD_PA9__SPI5_SCK_OUT
+				S32_GEN1_PAD_PA10__SPI5_SIN_OUT
+			>;
+		};
+
+		pinctrl0_usbotg: usbotggrp {
+		       fsl,pins = <
+				S32_GEN1_PAD_PD14__USB_ULPI_DATA_O0
+				S32_GEN1_PAD_PD15__USB_ULPI_DATA_O1
+				S32_GEN1_PAD_PE0__USB_ULPI_DATA_O2
+				S32_GEN1_PAD_PE1__USB_ULPI_DATA_O3
+			   >;
+		};
+
+		pinctrl0_gmac0_mdio_a: gmac0mdioagrp {
+			fsl,pins = <
+				S32_GEN1_PAD_PD12__GMAC0_MDC
+				S32_GEN1_PAD_PD13__GMAC0_MDIO_OUT
+				S32_GEN1_PAD_PD13__GMAC0_MDIO_IN
+			>;
+		};
+
+		pinctrl0_gmac0_rgmii_a: gmac0rgmiiagrp {
+			fsl,pins = <
+				S32_GEN1_PAD_PE2__GMAC0_TXCLK_OUT
+				S32_GEN1_PAD_PE2__GMAC0_TXCLK_IN
+				S32_GEN1_PAD_PE3__GMAC0_TX_EN_OUT
+				S32_GEN1_PAD_PE4__GMAC0_TX_D0_OUT
+				S32_GEN1_PAD_PE5__GMAC0_TX_D1_OUT
+				S32_GEN1_PAD_PE6__GMAC0_TX_D2_OUT
+				S32_GEN1_PAD_PE7__GMAC0_TX_D3_OUT
+				S32_GEN1_PAD_PE8__GMAC0_RXCLK_OUT
+				S32_GEN1_PAD_PE8__GMAC0_RXCLK_IN
+				S32_GEN1_PAD_PE9__GMAC0_RX_DV_OUT
+				S32_GEN1_PAD_PE9__GMAC0_RX_DV_IN
+				S32_GEN1_PAD_PE10__GMAC0_RX_D0_OUT
+				S32_GEN1_PAD_PE10__GMAC0_RX_D0_IN
+				S32_GEN1_PAD_PE11__GMAC0_RX_D1_OUT
+				S32_GEN1_PAD_PE11__GMAC0_RX_D1_IN
+				S32_GEN1_PAD_PE12__GMAC0_RX_D2_OUT
+				S32_GEN1_PAD_PE12__GMAC0_RX_D2_IN
+				S32_GEN1_PAD_PE13__GMAC0_RX_D3_OUT
+				S32_GEN1_PAD_PE13__GMAC0_RX_D3_IN
+			>;
+
+		};
+
+		pinctrl0_pfe2_mdio_b: pfe2mdiobgrp {
+			fsl,pins = <
+				S32_GEN1_PAD_PE15__SIUL_GPIO79
+				S32_GEN1_PAD_PF2__SIUL_GPIO82
+			>;
+		};
+
+		pinctrl0_pfe2_rgmii_b: pfe2rgmiibgrp {
+			fsl,pins = <
+				S32_GEN1_PAD_PE14__SIUL_GPIO78
+			>;
+		};
+
+		pinctrl_gpio0: gpiogrp0 {
+			fsl,pins = <
+				S32_GEN1_PAD_PA0__SIUL_GPIO0
+				S32_GEN1_PAD_PA1__SIUL_GPIO1
+				S32_GEN1_PAD_PA2__SIUL_GPIO2
+				S32_GEN1_PAD_PA3__SIUL_GPIO3
+				S32_GEN1_PAD_PA4__SIUL_GPIO4
+				S32_GEN1_PAD_PA5__SIUL_GPIO5
+				S32_GEN1_PAD_PA6__SIUL_GPIO6
+				S32_GEN1_PAD_PA7__SIUL_GPIO7
+				S32_GEN1_PAD_PA8__SIUL_GPIO8
+				S32_GEN1_PAD_PA9__SIUL_GPIO9
+				S32_GEN1_PAD_PA10__SIUL_GPI10
+				S32_GEN1_PAD_PA11__SIUL_GPIO11
+				S32_GEN1_PAD_PA12__SIUL_GPIO12
+				S32_GEN1_PAD_PA13__SIUL_GPIO13
+				S32_GEN1_PAD_PA14__SIUL_GPIO14
+				S32_GEN1_PAD_PA15__SIUL_GPIO15
+				S32_GEN1_PAD_PB0__SIUL_GPIO16
+				S32_GEN1_PAD_PB1__SIUL_GPIO17
+				S32_GEN1_PAD_PB2__SIUL_GPIO18
+				S32_GEN1_PAD_PB3__SIUL_GPIO19
+				S32_GEN1_PAD_PB4__SIUL_GPIO20
+				S32_GEN1_PAD_PB5__SIUL_GPIO21
+				S32_GEN1_PAD_PB6__SIUL_GPIO22
+				S32_GEN1_PAD_PB7__SIUL_GPIO23
+				S32_GEN1_PAD_PB8__SIUL_GPIO24
+				S32_GEN1_PAD_PB9__SIUL_GPIO25
+				S32_GEN1_PAD_PB10__SIUL_GPIO26
+				S32_GEN1_PAD_PB11__SIUL_GPIO27
+				S32_GEN1_PAD_PB12__SIUL_GPIO28
+				S32_GEN1_PAD_PB13__SIUL_GPIO29
+				S32_GEN1_PAD_PB14__SIUL_GPIO30
+				S32_GEN1_PAD_PB15__SIUL_GPIO31
+				S32_GEN1_PAD_PC0__SIUL_GPIO32
+				S32_GEN1_PAD_PC1__SIUL_GPIO33
+				S32_GEN1_PAD_PC2__SIUL_GPIO34
+				S32_GEN1_PAD_PC3__SIUL_GPIO35
+				S32_GEN1_PAD_PC4__SIUL_GPI36
+				S32_GEN1_PAD_PC5__SIUL_GPIO37
+				S32_GEN1_PAD_PC6__SIUL_GPIO38
+				S32_GEN1_PAD_PC7__SIUL_GPIO39
+				S32_GEN1_PAD_PC8__SIUL_GPIO40
+				S32_GEN1_PAD_PC9__SIUL_GPIO41
+				S32_GEN1_PAD_PC10__SIUL_GPIO42
+				S32_GEN1_PAD_PC11__SIUL_GPI43
+				S32_GEN1_PAD_PC12__SIUL_GPIO44
+				S32_GEN1_PAD_PC13__SIUL_GPIO45
+				S32_GEN1_PAD_PC14__SIUL_GPIO46
+				S32_GEN1_PAD_PC15__SIUL_GPIO47
+				S32_GEN1_PAD_PD0__SIUL_GPIO48
+				S32_GEN1_PAD_PD1__SIUL_GPIO49
+				S32_GEN1_PAD_PD2__SIUL_GPIO50
+				S32_GEN1_PAD_PD3__SIUL_GPIO51
+				S32_GEN1_PAD_PD4__SIUL_GPIO52
+				S32_GEN1_PAD_PD5__SIUL_GPIO53
+				S32_GEN1_PAD_PD6__SIUL_GPIO54
+				S32_GEN1_PAD_PD7__SIUL_GPIO55
+				S32_GEN1_PAD_PD8__SIUL_GPIO56
+				S32_GEN1_PAD_PD9__SIUL_GPIO57
+				S32_GEN1_PAD_PD10__SIUL_GPIO58
+				S32_GEN1_PAD_PD11__SIUL_GPIO59
+				S32_GEN1_PAD_PD12__SIUL_GPIO60
+				S32_GEN1_PAD_PD13__SIUL_GPIO61
+				S32_GEN1_PAD_PD14__SIUL_GPIO62
+				S32_GEN1_PAD_PD15__SIUL_GPIO63
+				S32_GEN1_PAD_PE0__SIUL_GPIO64
+				S32_GEN1_PAD_PE1__SIUL_GPIO65
+				S32_GEN1_PAD_PE2__SIUL_GPIO66
+				S32_GEN1_PAD_PE3__SIUL_GPIO67
+				S32_GEN1_PAD_PE4__SIUL_GPIO68
+				S32_GEN1_PAD_PE5__SIUL_GPIO69
+				S32_GEN1_PAD_PE6__SIUL_GPIO70
+				S32_GEN1_PAD_PE7__SIUL_GPIO71
+				S32_GEN1_PAD_PE8__SIUL_GPIO72
+				S32_GEN1_PAD_PE9__SIUL_GPIO73
+				S32_GEN1_PAD_PE10__SIUL_GPIO74
+				S32_GEN1_PAD_PE11__SIUL_GPIO75
+				S32_GEN1_PAD_PE12__SIUL_GPIO76
+				S32_GEN1_PAD_PE13__SIUL_GPIO77
+				S32_GEN1_PAD_PE14__SIUL_GPIO78
+				S32_GEN1_PAD_PE15__SIUL_GPIO79
+				S32_GEN1_PAD_PF0__SIUL_GPIO80
+				S32_GEN1_PAD_PF1__SIUL_GPIO81
+				S32_GEN1_PAD_PF2__SIUL_GPIO82
+				S32_GEN1_PAD_PF3__SIUL_GPIO83
+				S32_GEN1_PAD_PF4__SIUL_GPIO84
+				S32_GEN1_PAD_PF5__SIUL_GPIO85
+				S32_GEN1_PAD_PF6__SIUL_GPIO86
+				S32_GEN1_PAD_PF7__SIUL_GPIO87
+				S32_GEN1_PAD_PF8__SIUL_GPIO88
+				S32_GEN1_PAD_PF9__SIUL_GPIO89
+				S32_GEN1_PAD_PF10__SIUL_GPIO90
+				S32_GEN1_PAD_PF11__SIUL_GPIO91
+				S32_GEN1_PAD_PF12__SIUL_GPIO92
+				S32_GEN1_PAD_PF13__SIUL_GPIO93
+				S32_GEN1_PAD_PF14__SIUL_GPIO94
+				S32_GEN1_PAD_PF15__SIUL_GPIO95
+				S32_GEN1_PAD_PG0__SIUL_GPIO96
+				S32_GEN1_PAD_PG1__SIUL_GPIO97
+				S32_GEN1_PAD_PG2__SIUL_GPIO98
+				S32_GEN1_PAD_PG3__SIUL_GPIO99
+				S32_GEN1_PAD_PG4__SIUL_GPIO100
+				S32_GEN1_PAD_PG5__SIUL_GPIO101
+				>;
+		};
+	};
+};
+
+&pinctrl1 {
+	status = "okay";
+	s32g274a-rdb {
+		pinctrl1_ftm0: ftm0grp {
+			fsl,pins = <
+				S32_GEN1_PAD_PK_07__FTM0_CH0_O
+				S32_GEN1_PAD_PK_07__FTM0_CH0_I
+			>;
+		};
+
+		pinctrl1_ftm1: ftm1grp {
+			fsl,pins = <
+				S32_GEN1_PAD_PF_00__FTM1_CH5_I
+			>;
+		};
+
+		pinctrl1_can1: can1grp {
+			fsl,pins = <
+				S32_GEN1_PAD_PB04__CAN1_RXD_IN
+			>;
+		};
+
+		pinctrl1_can2: can2grp {
+			fsl,pins = <
+				S32_GEN1_PAD_PB12__CAN2_RXD_IN
+			>;
+		};
+
+		pinctrl1_can3: can3grp {
+			fsl,pins = <
+				S32_GEN1_PAD_PB10__CAN3_RXD_IN
+			>;
+		};
+
+		pinctrl1_dspi1: dspi1grp {
+			fsl,pins = <
+				S32_GEN1_PAD_PF15__SPI1_SIN_IN
+			>;
+		};
+
+		pinctrl1_dspi5: dspi5grp {
+			fsl,pins = <
+				S32_GEN1_PAD_PA10__SPI5_SIN_IN
+			>;
+		};
+
+		pinctrl1_usbotg: usbotggrp {
+		       fsl,pins = <
+				S32_GEN1_PAD_PD14__USB_ULPI_DATA_I0_IN
+				S32_GEN1_PAD_PD15__USB_ULPI_DATA_I1_IN
+				S32_GEN1_PAD_PE0__USB_ULPI_DATA_I2_IN
+				S32_GEN1_PAD_PE1__USB_ULPI_DATA_I3_IN
+				S32_GEN1_PAD_PL12__USB_ULPI_DATA_O4
+				S32_GEN1_PAD_PL12__USB_ULPI_DATA_I4_IN
+				S32_GEN1_PAD_PL13__USB_ULPI_DATA_O5
+				S32_GEN1_PAD_PL13__USB_ULPI_DATA_I5_IN
+				S32_GEN1_PAD_PL14__USB_ULPI_DATA_O6
+				S32_GEN1_PAD_PL14__USB_ULPI_DATA_I6_IN
+				S32_GEN1_PAD_PH0__USB_ULPI_DATA_O7
+				S32_GEN1_PAD_PH0__USB_ULPI_DATA_I7_IN
+				S32_GEN1_PAD_PL8__USB_ULPI_CLK_OUT
+				S32_GEN1_PAD_PL8__USB_ULPI_CLK_IN
+				S32_GEN1_PAD_PL9__USB_ULPI_DIR_OUT
+				S32_GEN1_PAD_PL9__USB_ULPI_DIR_IN
+				S32_GEN1_PAD_PL10__USB_ULPI_STP
+				S32_GEN1_PAD_PL11__USB_ULPI_NXT_OUT
+				S32_GEN1_PAD_PL11__USB_ULPI_NXT_IN
+			   >;
+		};
+
+		pinctrl1_pfe2_rgmii_b: pfe2rgmiibgrp {
+			fsl,pins = <
+				S32_GEN1_PAD_PH1__SIUL_GPIO113
+				S32_GEN1_PAD_PH2__SIUL_GPIO114
+				S32_GEN1_PAD_PH3__SIUL_GPIO115
+				S32_GEN1_PAD_PH4__SIUL_GPIO116
+				S32_GEN1_PAD_PH5__SIUL_GPIO117
+				S32_GEN1_PAD_PH6__SIUL_GPIO118
+				S32_GEN1_PAD_PH7__SIUL_GPIO119
+				S32_GEN1_PAD_PH8__SIUL_GPIO120
+				S32_GEN1_PAD_PH9__SIUL_GPIO121
+				S32_GEN1_PAD_PH10__SIUL_GPIO122
+				S32_GEN1_PAD_PJ0__SIUL_GPIO144
+			>;
+		};
+
+		pinctrl_gpio1: gpiogrp1 {
+			fsl,pins = <
+				S32_GEN1_PAD_PH0__SIUL_GPIO112
+				S32_GEN1_PAD_PH1__SIUL_GPIO113
+				S32_GEN1_PAD_PH2__SIUL_GPIO114
+				S32_GEN1_PAD_PH3__SIUL_GPIO115
+				S32_GEN1_PAD_PH4__SIUL_GPIO116
+				S32_GEN1_PAD_PH5__SIUL_GPIO117
+				S32_GEN1_PAD_PH6__SIUL_GPIO118
+				S32_GEN1_PAD_PH7__SIUL_GPIO119
+				S32_GEN1_PAD_PH8__SIUL_GPIO120
+				S32_GEN1_PAD_PH9__SIUL_GPIO121
+				S32_GEN1_PAD_PH10__SIUL_GPIO122
+				S32_GEN1_PAD_PJ0__SIUL_GPIO144
+				S32_GEN1_PAD_PJ2__SIUL_GPI146
+				S32_GEN1_PAD_PJ3__SIUL_GPIO147
+				S32_GEN1_PAD_PJ4__SIUL_GPI148
+				S32_GEN1_PAD_PJ5__SIUL_GPIO149
+				S32_GEN1_PAD_PJ6__SIUL_GPI150
+				S32_GEN1_PAD_PJ7__SIUL_GPIO151
+				S32_GEN1_PAD_PJ8__SIUL_GPI152
+				S32_GEN1_PAD_PJ9__SIUL_GPIO153
+				S32_GEN1_PAD_PJ10__SIUL_GPI154
+				S32_GEN1_PAD_PJ11__SIUL_GPIO155
+				S32_GEN1_PAD_PJ12__SIUL_GPI156
+				S32_GEN1_PAD_PJ13__SIUL_GPIO157
+				S32_GEN1_PAD_PJ14__SIUL_GPI158
+				S32_GEN1_PAD_PJ15__SIUL_GPIO159
+				S32_GEN1_PAD_PK00__SIUL_GPI160
+				S32_GEN1_PAD_PK01__SIUL_GPIO161
+				S32_GEN1_PAD_PK02__SIUL_GPI162
+				S32_GEN1_PAD_PK03__SIUL_GPIO163
+				S32_GEN1_PAD_PK04__SIUL_GPI164
+				S32_GEN1_PAD_PK05__SIUL_GPIO165
+				S32_GEN1_PAD_PK06__SIUL_GPI166
+				S32_GEN1_PAD_PK07__SIUL_GPIO167
+				S32_GEN1_PAD_PK08__SIUL_GPI168
+				S32_GEN1_PAD_PK09__SIUL_GPIO169
+				S32_GEN1_PAD_PK10__SIUL_GPI170
+				S32_GEN1_PAD_PK11__SIUL_GPIO171
+				S32_GEN1_PAD_PK12__SIUL_GPI172
+				S32_GEN1_PAD_PK13__SIUL_GPIO173
+				S32_GEN1_PAD_PK14__SIUL_GPI174
+				S32_GEN1_PAD_PK15__SIUL_GPIO175
+				S32_GEN1_PAD_PL0__SIUL_GPIO176
+				S32_GEN1_PAD_PL1__SIUL_GPI177
+				S32_GEN1_PAD_PL3__SIUL_GPI179
+				S32_GEN1_PAD_PL4__SIUL_GPIO180
+				S32_GEN1_PAD_PL5__SIUL_GPIO181
+				S32_GEN1_PAD_PL6__SIUL_GPI182
+				S32_GEN1_PAD_PL7__SIUL_GPI183
+				S32_GEN1_PAD_PL8__SIUL_GPIO184
+				S32_GEN1_PAD_PL9__SIUL_GPIO185
+				S32_GEN1_PAD_PL10__SIUL_GPIO186
+				S32_GEN1_PAD_PL11__SIUL_GPIO187
+				S32_GEN1_PAD_PL12__SIUL_GPIO188
+				S32_GEN1_PAD_PL13__SIUL_GPIO189
+				S32_GEN1_PAD_PL14__SIUL_GPIO190
+				>;
+		};
+		pinctrl_gpioeirq: gpioeirqgrp {
+			fsl,pins = <
+				S32_GEN1_PAD_PB3__SIUL_EIRQ0
+				S32_GEN1_PAD_PB4__SIUL_EIRQ1
+				S32_GEN1_PAD_PB5__SIUL_EIRQ2
+				S32_GEN1_PAD_PB6__SIUL_EIRQ3
+				S32_GEN1_PAD_PB7__SIUL_EIRQ4
+				S32_GEN1_PAD_PB8__SIUL_EIRQ5
+				S32_GEN1_PAD_PB9__SIUL_EIRQ6
+				S32_GEN1_PAD_PB10__SIUL_EIRQ7
+				S32_GEN1_PAD_PB11__SIUL_EIRQ8
+				S32_GEN1_PAD_PB12__SIUL_EIRQ9
+				S32_GEN1_PAD_PB13__SIUL_EIRQ10
+				S32_GEN1_PAD_PK8__SIUL_EIRQ11
+				S32_GEN1_PAD_PB15__SIUL_EIRQ12
+				S32_GEN1_PAD_PC1__SIUL_EIRQ13
+				S32_GEN1_PAD_PC2__SIUL_EIRQ14
+				S32_GEN1_PAD_PC3__SIUL_EIRQ15
+				S32_GEN1_PAD_PL8__SIUL_EIRQ16
+				S32_GEN1_PAD_PL9__SIUL_EIRQ17
+				S32_GEN1_PAD_PL10__SIUL_EIRQ18
+				S32_GEN1_PAD_PL11__SIUL_EIRQ19
+				S32_GEN1_PAD_PL12__SIUL_EIRQ20
+				S32_GEN1_PAD_PL13__SIUL_EIRQ21
+				S32_GEN1_PAD_PL14__SIUL_EIRQ22
+				S32_GEN1_PAD_PH1__SIUL_EIRQ23
+				S32_GEN1_PAD_PH2__SIUL_EIRQ24
+				S32_GEN1_PAD_PH3__SIUL_EIRQ25
+				S32_GEN1_PAD_PH5__SIUL_EIRQ26
+				S32_GEN1_PAD_PC4__SIUL_EIRQ27
+				S32_GEN1_PAD_PC5__SIUL_EIRQ28
+				S32_GEN1_PAD_PC6__SIUL_EIRQ29
+				S32_GEN1_PAD_PC7__SIUL_EIRQ30
+				S32_GEN1_PAD_PC8__SIUL_EIRQ31
+				>;
+		};
+	};
+};
+
+&edma0 {
+	status = "okay";
+};
+
+&edma1 {
+	status = "okay";
+};
+
+&spi1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl0_dspi1>, <&pinctrl1_dspi1>;
+	#address-cells = <1>;
+	#size-cells = <0>;
+	status = "okay";
+
+	sja1105p@0 {
+		compatible = "nxp,sja1105p-switch";
+		spi-max-frequency = <0x3D0900>;
+		spi-cpha;
+		fsl,spi-cs-sck-delay = <100>;
+		fsl,spi-sck-cs-delay = <100>;
+
+		reg = <0>;
+		port-0 {
+			is-host = <0x1>;
+			null-phy = <0x1>;
+			phy-ref = < 0 >;
+			rx-delay = < 810 >;
+			tx-delay = < 810 >;
+		};
+		port-1 {
+			is-host = <0x0>;
+			null-phy = <0x0>;
+			phy-ref = <&mdio_a_phy4>;
+		};
+		port-2 {
+			is-host = <0x0>;
+			null-phy = <0x0>;
+			phy-ref = <&mdio_a_phy5>;
+		};
+		port-3 {
+			is-host = <0x0>;
+			null-phy = <0x0>;
+			phy-ref = <&mdio_a_phy6>;
+		};
+		port-4 {
+			is-host = <0x0>;
+			null-phy = <0x0>;
+			phy-ref = <&mdio_a_phy7>;
+		};
+	};
+};
+
+&spi5 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl0_dspi5>, <&pinctrl1_dspi5>;
+	#address-cells = <1>;
+	#size-cells = <0>;
+	status = "okay";
+
+	spidev0: sja1110@0 {
+		compatible = "rohm,dh2228fv";
+		spi-max-frequency = <4000000>;
+		reg = <0>;
+	};
+};
+
+&gmac0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl0_gmac0_rgmii_a>;
+	phy-mode = "rgmii";
+	status = "okay";
+	/* direct connect to SJA1105Q P0 */
+	fixed-link {
+		speed = <1000>;
+		full-duplex;
+	};
+};
+
+&gmac0_mdio {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl0_gmac0_mdio_a>;
+	/* TJA1102 over SJA1105Q P1 */
+	mdio_a_phy4: ethernet-phy@4 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg = <4>;
+		max-speed = <100>;
+	};
+	/* TJA1102 over SJA1105Q P2 */
+	mdio_a_phy5: ethernet-phy@5 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg = <5>;
+		max-speed = <100>;
+	};
+	/* TJA1102 over SJA1105Q P3 */
+	mdio_a_phy6: ethernet-phy@6 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg = <6>;
+		max-speed = <100>;
+	};
+	/* TJA1102 over SJA1105Q P4 */
+	mdio_a_phy7: ethernet-phy@7 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg = <7>;
+		max-speed = <100>;
+	};
+};
+
+&usbmisc {
+	status = "okay";
+};
+
+&usbotg {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl0_usbotg>, <&pinctrl1_usbotg>;
+	fsl,usbphy = <&usbphynop>;
+	status = "okay";
+};
+
+&qspi {
+	status = "okay";
+
+	mx25uw51245g@0 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "jedec,spi-nor";
+		spi-max-frequency = <200000000>;
+		spi-tx-bus-width = <8>;
+		spi-rx-bus-width = <8>;
+		reg = <0>;
+	};
+};
+
+&pcie0 {
+	status = "okay";
+};
+
+&pcie1 {
+	status = "okay";
+};
+
+&pwm0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl1_ftm0>;
+	status = "okay";
+};
+
+&pwm1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl0_ftm1>, <&pinctrl1_ftm1>;
+	status = "okay";
+};
+
+&gpio1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_gpioeirq>;
+	status = "okay";
+};
