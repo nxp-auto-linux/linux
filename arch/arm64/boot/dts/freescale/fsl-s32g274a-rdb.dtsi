@@ -613,51 +613,6 @@
 	status = "okay";
 };
 
-&spi1 {
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl0_dspi1>, <&pinctrl1_dspi1>;
-	#address-cells = <1>;
-	#size-cells = <0>;
-	status = "okay";
-
-	sja1105p@0 {
-		compatible = "nxp,sja1105p-switch";
-		spi-max-frequency = <0x3D0900>;
-		spi-cpha;
-		fsl,spi-cs-sck-delay = <100>;
-		fsl,spi-sck-cs-delay = <100>;
-
-		reg = <0>;
-		port-0 {
-			is-host = <0x1>;
-			null-phy = <0x1>;
-			phy-ref = < 0 >;
-			rx-delay = < 810 >;
-			tx-delay = < 810 >;
-		};
-		port-1 {
-			is-host = <0x0>;
-			null-phy = <0x0>;
-			phy-ref = <&mdio_a_phy4>;
-		};
-		port-2 {
-			is-host = <0x0>;
-			null-phy = <0x0>;
-			phy-ref = <&mdio_a_phy5>;
-		};
-		port-3 {
-			is-host = <0x0>;
-			null-phy = <0x0>;
-			phy-ref = <&mdio_a_phy6>;
-		};
-		port-4 {
-			is-host = <0x0>;
-			null-phy = <0x0>;
-			phy-ref = <&mdio_a_phy7>;
-		};
-	};
-};
-
 &spi5 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl0_dspi5>, <&pinctrl1_dspi5>;
@@ -669,51 +624,6 @@
 		compatible = "rohm,dh2228fv";
 		spi-max-frequency = <4000000>;
 		reg = <0>;
-	};
-};
-
-&gmac0 {
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl0_gmac0_rgmii_a>;
-	phy-mode = "rgmii";
-	status = "okay";
-	/* direct connect to SJA1105Q P0 */
-	fixed-link {
-		speed = <1000>;
-		full-duplex;
-	};
-};
-
-&gmac0_mdio {
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl0_gmac0_mdio_a>;
-	/* TJA1102 over SJA1105Q P1 */
-	mdio_a_phy4: ethernet-phy@4 {
-		#address-cells = <1>;
-		#size-cells = <0>;
-		reg = <4>;
-		max-speed = <100>;
-	};
-	/* TJA1102 over SJA1105Q P2 */
-	mdio_a_phy5: ethernet-phy@5 {
-		#address-cells = <1>;
-		#size-cells = <0>;
-		reg = <5>;
-		max-speed = <100>;
-	};
-	/* TJA1102 over SJA1105Q P3 */
-	mdio_a_phy6: ethernet-phy@6 {
-		#address-cells = <1>;
-		#size-cells = <0>;
-		reg = <6>;
-		max-speed = <100>;
-	};
-	/* TJA1102 over SJA1105Q P4 */
-	mdio_a_phy7: ethernet-phy@7 {
-		#address-cells = <1>;
-		#size-cells = <0>;
-		reg = <7>;
-		max-speed = <100>;
 	};
 };
 
