@@ -505,6 +505,8 @@ static int fsl_pwm_suspend(struct device *dev)
 		clk_disable_unprepare(fpc->clk[fpc->period.clk_select]);
 	}
 
+	clk_unprepare(fpc->ipg_clk);
+
 	return 0;
 }
 
@@ -529,6 +531,7 @@ static int fsl_pwm_resume(struct device *dev)
 	}
 
 	/* restore all registers from cache */
+	clk_prepare(fpc->ipg_clk);
 	regcache_cache_only(fpc->regmap, false);
 	regcache_sync(fpc->regmap);
 
