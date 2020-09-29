@@ -558,6 +558,19 @@ static void xen_swiotlb_unmap_resource(struct device *dev, dma_addr_t handle,
 {
 }
 
+static dma_addr_t xen_swiotlb_map_resource(struct device *dev, phys_addr_t phys,
+		size_t size, enum dma_data_direction dir, unsigned long attrs)
+{
+	dma_addr_t dma_addr = phys;
+
+	return dma_addr;
+}
+
+static void xen_swiotlb_unmap_resource(struct device *dev, dma_addr_t handle,
+		size_t size, enum dma_data_direction dir, unsigned long attrs)
+{
+}
+
 const struct dma_map_ops xen_swiotlb_dma_ops = {
 	.alloc = xen_swiotlb_alloc_coherent,
 	.free = xen_swiotlb_free_coherent,
