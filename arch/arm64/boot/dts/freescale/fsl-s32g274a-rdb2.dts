@@ -13,3 +13,32 @@
 	compatible = "fsl,s32g274-simu", "fsl,s32g274",
 				 "arm,vexpress,v2p-aarch64", "arm,vexpress";
 };
+
+&gmac0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl0_gmac0_rgmii_a>;
+	phy-mode = "rgmii";
+	status = "okay";
+	/* Connected to KSZ9031 MDIO_A */
+	phy-handle = <&mdio_a_phy1>;
+};
+
+&gmac0_mdio {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl0_gmac0_mdio_a>;
+	/* KSZ9031 GMAC */
+	mdio_a_phy1: ethernet-phy@1 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		max-speed = <1000>;
+		reg = <1>;
+	};
+	/* ARQ107 */
+	mdio_a_phy3: ethernet-phy@3 {
+		compatible = "ethernet-phy-ieee802.3-c45";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg = <3>;
+	};
+};
+
