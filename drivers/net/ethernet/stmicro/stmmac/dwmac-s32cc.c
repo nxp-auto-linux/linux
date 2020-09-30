@@ -127,6 +127,7 @@ static int s32cc_dwmac_probe(struct platform_device *pdev)
 	struct stmmac_resources stmmac_res;
 	struct s32cc_priv_data *gmac;
 	struct resource *res;
+	const char *tx_clk;
 	int ret;
 
 	ret = stmmac_get_platform_resources(pdev, &stmmac_res);
@@ -163,6 +164,22 @@ static int s32cc_dwmac_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
+	switch (gmac->intf_mode) {
+	case PHY_INTERFACE_MODE_SGMII:
+		tx_clk = "tx_sgmii";
+		break;
+	case PHY_INTERFACE_MODE_RGMII:
+		tx_clk = "tx_rgmii";
+		break;
+	case PHY_INTERFACE_MODE_RMII:
+		tx_clk = "tx_rmii";
+		break;
+	default:
+	case PHY_INTERFACE_MODE_MII:
+		tx_clk = "tx_mii";
+		break;
+	};
+
 	plat_dat = stmmac_probe_config_dt(pdev, stmmac_res.mac);
 	if (IS_ERR(plat_dat))
 		return PTR_ERR(plat_dat);
@@ -178,7 +195,7 @@ static int s32cc_dwmac_probe(struct platform_device *pdev)
 	}
 
 	/* tx clock */
-	gmac->tx_clk = devm_clk_get(&pdev->dev, "tx");
+	gmac->tx_clk = devm_clk_get(&pdev->dev, tx_clk);
 	if (IS_ERR(gmac->tx_clk)) {
 		dev_info(&pdev->dev, "tx clock not found\n");
 		gmac->tx_clk = NULL;
