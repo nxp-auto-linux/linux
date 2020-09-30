@@ -84,30 +84,6 @@
 	/* occupied by GMAC0 */
 	status = "disabled";
 };
-&pfe2_mdio {
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl0_pfe2_mdio_b>;
-	/* AR8035 */
-	mdio_b_phy1: ethernet-phy@1 {
-		#address-cells = <1>;
-		#size-cells = <0>;
-		reg = <1>;
-	};
-	/* AR8035 */
-	mdio_b_phy2: ethernet-phy@2 {
-		#address-cells = <1>;
-		#size-cells = <0>;
-		reg = <2>;
-	};
-	/* KSZ9031RNX */
-	mdio_b_phy4: ethernet-phy@4 {
-		#address-cells = <1>;
-		#size-cells = <0>;
-		reg = <4>;
-	};
-
-	/* SJA1110's phys: 0x09-0x0e */
-};
 
 &fxosc {
 	clock-frequency = <40000000>;
