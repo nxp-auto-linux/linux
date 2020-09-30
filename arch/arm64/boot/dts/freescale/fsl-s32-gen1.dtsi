@@ -732,8 +732,15 @@
 		interrupt-parent = <&gic>;
 		interrupts = <0 57 4>;
 		interrupt-names = "macirq";
-		clocks = <&sysclk>, <&sysclk>;
-		clock-names = "stmmaceth", "pclk";
+		clocks = <&clks S32GEN1_SCMI_CLK_GMAC0_AXI>,
+			 <&clks S32GEN1_SCMI_CLK_GMAC0_AXI>,
+			 <&clks S32GEN1_SCMI_CLK_GMAC0_TX_SGMII>,
+			 <&clks S32GEN1_SCMI_CLK_GMAC0_TX_RGMII>,
+			 <&clks S32GEN1_SCMI_CLK_GMAC0_TX_RMII>,
+			 <&clks S32GEN1_SCMI_CLK_GMAC0_TX_MII>;
+		clock-names = "stmmaceth", "pclk",
+			      "tx_sgmii", "tx_rgmii",
+			      "tx_rmii", "tx_mii";
 		gmac0_mdio: mdio0 {
 			compatible = "snps,dwmac-mdio";
 			#address-cells = <1>;
