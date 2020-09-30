@@ -38,6 +38,36 @@
 			reg = <0x0 0xc0000000 0x0 0x400000>;    /* 4 MB */
 			no-map;
 		};
+
+		scmi_shbuf: shm@0xd0000000 {
+			compatible = "arm,scmi-shmem";
+			reg = <0x0 0xd0000000 0x0 0x400000>;    /* 4 MB */
+			no-map;
+		};
+
+	};
+
+	firmware {
+		smc_tx_mbox: tx_mbox {
+			#mbox-cells = <0>;
+			compatible = "arm,smc-mbox";
+			arm,func-id = <0xc20000fe>;
+			status = "disabled";
+		};
+
+		scmi {
+			compatible = "arm,scmi";
+			mboxes = <&smc_tx_mbox>;
+			mbox-names = "tx";
+			shmem = <&scmi_shbuf>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			scmi_clks: protocol@14 {
+				reg = <0x14>;
+				#clock-cells = <1>;
+			};
+		};
 	};
 
 	cpus {
