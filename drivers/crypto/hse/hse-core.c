@@ -12,6 +12,7 @@
 #include <linux/platform_device.h>
 #include <linux/interrupt.h>
 #include <linux/mod_devicetable.h>
+#include <linux/dma-mapping.h>
 #include <linux/crypto.h>
 
 #include "hse-abi.h"
@@ -20,6 +21,8 @@
 
 /**
  * struct hse_drvdata - HSE driver private data
+ * @srv_desc: service descriptor used to get attributes
+ * @fw_ver: firmware version attribute structure
  * @ahash_algs: registered hash and hash-based MAC algorithms
  * @skcipher_algs: registered symmetric key cipher algorithms
  * @aead_algs: registered AEAD algorithms
@@ -37,6 +40,8 @@
  * @key_ring_lock: lock used for key slot acquisition
  */
 struct hse_drvdata {
+	struct hse_srv_desc srv_desc;
+	struct hse_attr_fw_version fw_ver;
 	struct list_head ahash_algs;
 	struct list_head skcipher_algs;
 	struct list_head aead_algs;
@@ -57,6 +62,54 @@ struct hse_drvdata {
 	struct list_head aes_key_ring;
 	spinlock_t key_ring_lock; /* covers key slot acquisition */
 };
+
+/**
+ * hse_print_fw_version - print firmware version
+ * @dev: HSE device
+ *
+ * Get firmware version attribute from HSE and print it.
+ */
+static void hse_print_fw_version(struct device *dev)
+{
+	struct hse_drvdata *drv = dev_get_drvdata(dev);
+	dma_addr_t srv_desc_dma, fw_ver_dma;
+	int err;
+
+	fw_ver_dma = dma_map_single(dev, &drv->fw_ver, sizeof(drv->fw_ver),
+				    DMA_FROM_DEVICE);
+	if (unlikely(dma_mapping_error(dev, fw_ver_dma)))
+		return;
+
+	drv->srv_desc.srv_id = HSE_SRV_ID_GET_ATTR;
+	drv->srv_desc.get_attr_req.attr_id = HSE_FW_VERSION_ATTR_ID;
+	drv->srv_desc.get_attr_req.attr_len = sizeof(drv->fw_ver);
+	drv->srv_desc.get_attr_req.attr = fw_ver_dma;
+
+	srv_desc_dma = dma_map_single(dev, &drv->srv_desc,
+				      sizeof(drv->srv_desc), DMA_TO_DEVICE);
+	if (unlikely(dma_mapping_error(dev, srv_desc_dma)))
+		goto err_unmap_fw_ver;
+
+	err = hse_srv_req_sync(dev, HSE_CHANNEL_ANY, srv_desc_dma);
+	if (unlikely(err)) {
+		dev_dbg(dev, "%s: request failed: %d\n", __func__, err);
+		goto err_unmap_srv_desc;
+	}
+
+	dma_unmap_single(dev, srv_desc_dma, sizeof(drv->srv_desc),
+			 DMA_TO_DEVICE);
+	dma_unmap_single(dev, fw_ver_dma, sizeof(drv->fw_ver), DMA_FROM_DEVICE);
+
+	dev_info(dev, "firmware version %d.%d.%d.%d\n", drv->fw_ver.fw_type,
+		 drv->fw_ver.major, drv->fw_ver.minor, drv->fw_ver.patch);
+
+	return;
+err_unmap_srv_desc:
+	dma_unmap_single(dev, srv_desc_dma, sizeof(drv->srv_desc),
+			 DMA_TO_DEVICE);
+err_unmap_fw_ver:
+	dma_unmap_single(dev, fw_ver_dma, sizeof(drv->fw_ver), DMA_FROM_DEVICE);
+}
 
 /**
  * hse_key_ring_init - initialize all keys in a specific key group
@@ -619,6 +672,9 @@ static int hse_probe(struct platform_device *pdev)
 	/* enable RX and error notifications */
 	hse_mu_irq_enable(drv->mu, HSE_INT_RESPONSE, HSE_CH_MASK_ALL);
 	hse_mu_irq_enable(drv->mu, HSE_INT_SYS_EVENT, HSE_CH_MASK_ALL);
+
+	/* check firmware version */
+	hse_print_fw_version(dev);
 
 	/* register algorithms */
 	hse_ahash_register(dev, &drv->ahash_algs);
