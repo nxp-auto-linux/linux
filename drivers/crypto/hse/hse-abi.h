@@ -19,6 +19,8 @@
 #define HSE_KEY_HMAC_MIN_SIZE    16u /* minimum key size admitted for HMAC */
 
 #define HSE_MAX_CTX_SIZE    0x128u /* maximum streaming context size */
+#define HSE_MIN_RNG_SIZE    32ul /* minimum random number length */
+#define HSE_MAX_RNG_SIZE    2048ul /* maximum random number length */
 
 /**
  * enum hse_status - HSE status
@@ -27,27 +29,30 @@
  * @HSE_STATUS_INSTALL_OK: HSE installation phase successfully completed,
  *                         key stores have been formatted and can be used
  * @HSE_STATUS_PUBLISH_SYS_IMAGE: volatile HSE configuration detected
- * @HSE_STATUS_PRIMARY_SYS_IMAGE: configuration loaded from primary SYS-IMG
- * @HSE_STATUS_BACKUP_SYS_IMAGE: configuration loaded from backup SYS-IMG
  */
 enum hse_status {
 	HSE_STATUS_RNG_INIT_OK = BIT(5),
 	HSE_STATUS_INIT_OK = BIT(8),
 	HSE_STATUS_INSTALL_OK = BIT(9),
 	HSE_STATUS_PUBLISH_SYS_IMAGE = BIT(13),
-	HSE_STATUS_PRIMARY_SYS_IMAGE = BIT(14),
-	HSE_STATUS_BACKUP_SYS_IMAGE = BIT(15),
 };
 
 /**
  * enum hse_event - HSE system event
- * @HSE_ERR_NON_FATAL_INTRUSION: non-fatal intrusion detected by HSE
- * @HSE_ERR_FATAL_INTRUSION: fatal intrusion detected by HSE, can only be
- *                           recovered by resetting the entire system
+ * @HSE_ERR_GENERAL: fatal error resulting in termination of MU communication
+ * @HSE_ERR_EXT_TAMPER_VIOL: external tamper violation detected
+ * @HSE_ERR_PLL_CLOCK_FAIL: clock monitoring violation on PLL clock
+ * @HSE_ERR_SIRC_CLOCK_FAIL: clock monitoring violation on SIRC clock
+ * @HSE_ERR_TEMP_VIOL: temperature sensor violation
+ * @HSE_ERR_FIRMWARE_UPDATE: HSE firmware update fatal error
  */
 enum hse_event {
-	HSE_ERR_NON_FATAL_INTRUSION = BIT(0),
-	HSE_ERR_FATAL_INTRUSION = BIT(1),
+	HSE_ERR_GENERAL = BIT(0),
+	HSE_ERR_EXT_TAMPER_VIOL = BIT(1),
+	HSE_ERR_PLL_CLOCK_FAIL = BIT(2),
+	HSE_ERR_SIRC_CLOCK_FAIL = BIT(3),
+	HSE_ERR_TEMP_VIOL = BIT(4),
+	HSE_ERR_FIRMWARE_UPDATE = BIT(8),
 };
 
 /**
@@ -61,13 +66,13 @@ enum hse_event {
  * @HSE_SRV_ID_GET_RANDOM_NUM: hardware random number generator
  */
 enum hse_srv_id {
-	HSE_SRV_ID_IMPORT_EXPORT_STREAM_CTX = 0x00000010ul,
+	HSE_SRV_ID_IMPORT_EXPORT_STREAM_CTX = 0x00A5000Aul,
 	HSE_SRV_ID_IMPORT_KEY = 0x00000104ul,
 	HSE_SRV_ID_HASH = 0x00A50200ul,
 	HSE_SRV_ID_MAC = 0x00A50201ul,
 	HSE_SRV_ID_SYM_CIPHER = 0x00A50203ul,
 	HSE_SRV_ID_AEAD = 0x00A50204ul,
-	HSE_SRV_ID_GET_RANDOM_NUM = 0x00000300ul,
+	HSE_SRV_ID_GET_RANDOM_NUM = 0x00A50300ul,
 };
 
 /**
@@ -476,7 +481,7 @@ struct hse_import_key_srv {
 		u8 reserved2[2];
 	} sym;
 	u32 cipher_key;
-	u8 reserved3[40];
+	u8 reserved3[48];
 	u32 auth_key;
 	u8 reserved4[36];
 } __packed;
