@@ -522,9 +522,9 @@ static irqreturn_t hse_rx_dispatcher(int irq, void *dev)
  * @irq: interrupt line
  * @dev: HSE device
  *
- * In case a fatal intrusion has been detected by HSE, all MU interfaces are
- * disabled. Therefore, all service requests currently in progress shall be
- * canceled and any further requests will be prevented.
+ * In case a fatal intrusion has been detected, all MU interfaces are disabled
+ * and communication with HSE terminated. Therefore, all service requests
+ * currently in progress are canceled and any further requests are prevented.
  */
 static irqreturn_t hse_event_dispatcher(int irq, void *dev)
 {
@@ -532,40 +532,33 @@ static irqreturn_t hse_event_dispatcher(int irq, void *dev)
 	u32 event = hse_mu_check_event(drv->mu);
 	u8 channel;
 
-	switch (event) {
-	case HSE_ERR_FATAL_INTRUSION:
-		dev_crit(dev, "fatal intrusion detected, MU disabled\n");
+	dev_crit(dev, "fatal intrusion detected, event mask 0x%08x\n", event);
 
-		/* disable RX and error notifications */
-		hse_mu_irq_disable(drv->mu, HSE_INT_RESPONSE, HSE_CH_MASK_ALL);
-		hse_mu_irq_disable(drv->mu, HSE_INT_SYS_EVENT, HSE_CH_MASK_ALL);
+	/* disable RX and error notifications */
+	hse_mu_irq_disable(drv->mu, HSE_INT_RESPONSE, HSE_CH_MASK_ALL);
+	hse_mu_irq_disable(drv->mu, HSE_INT_SYS_EVENT, HSE_CH_MASK_ALL);
 
-		/* notify upper layer that all requests are canceled */
-		for (channel = 0; channel < HSE_NUM_CHANNELS; channel++) {
-			drv->channel_busy[channel] = true;
+	/* notify upper layer that all requests are canceled */
+	for (channel = 0; channel < HSE_NUM_CHANNELS; channel++) {
+		drv->channel_busy[channel] = true;
 
-			if (drv->rx_cbk[channel].fn) {
-				void *ctx = drv->rx_cbk[channel].ctx;
+		if (drv->rx_cbk[channel].fn) {
+			void *ctx = drv->rx_cbk[channel].ctx;
 
-				drv->rx_cbk[channel].fn(-ECANCELED, ctx);
-				drv->rx_cbk[channel].fn = NULL;
-			} else if (drv->sync[channel].done) {
-				*drv->sync[channel].reply = -ECANCELED;
-				wmb(); /* write reply before complete */
+			drv->rx_cbk[channel].fn(-ECANCELED, ctx);
+			drv->rx_cbk[channel].fn = NULL;
+		} else if (drv->sync[channel].done) {
+			*drv->sync[channel].reply = -ECANCELED;
+			wmb(); /* write reply before complete */
 
-				complete(drv->sync[channel].done);
-				drv->sync[channel].done = NULL;
-			}
+			complete(drv->sync[channel].done);
+			drv->sync[channel].done = NULL;
 		}
-		break;
-	case HSE_ERR_NON_FATAL_INTRUSION:
-		dev_warn(dev, "potential intrusion reported by HSE\n");
-		break;
-	default:
-		return IRQ_HANDLED;
 	}
 
 	hse_mu_irq_clear(drv->mu, HSE_INT_SYS_EVENT, event);
+
+	dev_crit(dev, "communication terminated, reset system to recover\n");
 
 	return IRQ_HANDLED;
 }
@@ -589,10 +582,18 @@ static int hse_probe(struct platform_device *pdev)
 	if (IS_ERR(drv->mu))
 		return PTR_ERR(drv->mu);
 
+	/* check HSE global status */
+	status = hse_mu_check_status(drv->mu);
+	if (!likely(status & HSE_STATUS_INIT_OK))
+		dev_err(dev, "HSE firmware not loaded or not initialized\n");
+	if (!likely(status & HSE_STATUS_INSTALL_OK))
+		dev_err(dev, "config not found, key stores not formatted\n");
+	if (unlikely(status & HSE_STATUS_PUBLISH_SYS_IMAGE))
+		dev_warn(dev, "configuration is volatile, publish SYS_IMAGE\n");
+
 	init_ok_mask = HSE_STATUS_INIT_OK | HSE_STATUS_INSTALL_OK;
 	if (IS_ENABLED(CONFIG_CRYPTO_DEV_NXP_HSE_HWRNG))
 		init_ok_mask |= HSE_STATUS_RNG_INIT_OK;
-	status = hse_mu_check_status(drv->mu);
 	if (unlikely((status & init_ok_mask) != init_ok_mask)) {
 		dev_err(dev, "probe failed with status 0x%04X\n", status);
 		return -ENODEV;
