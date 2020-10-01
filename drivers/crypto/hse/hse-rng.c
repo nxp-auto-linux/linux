@@ -29,16 +29,16 @@ struct hse_rng_ctx {
 };
 
 /**
- * hse_hwrng_read - read max bytes of data into buffer
+ * hse_hwrng_read - generate random bytes of data into a supplied buffer
  * @rng: hwrng instance
- * @data: destination buffer
- * @max: max bytes to read, multiple of 4 and >= 32 bytes
+ * @buf: destination buffer
+ * @count: number of bytes, multiple of 4, more than 32 bytes, less than 2k
  * @wait: wait for data
  *
- * Though crypto API expects up to max bytes, HSE will always provide the
- * exact number of bytes requested or zero in case of any error.
+ * HSE will always provide the exact number of bytes requested up to 2k or
+ * will return zero in case of any error.
  */
-static int hse_hwrng_read(struct hwrng *rng, void *data, size_t max, bool wait)
+static int hse_hwrng_read(struct hwrng *rng, void *buf, size_t count, bool wait)
 {
 	struct hse_rng_ctx *ctx = (struct hse_rng_ctx *)rng->priv;
 	dma_addr_t srv_desc_dma, data_dma;
@@ -49,33 +49,38 @@ static int hse_hwrng_read(struct hwrng *rng, void *data, size_t max, bool wait)
 		return 0;
 	}
 
-	data_dma = dma_map_single(ctx->dev, data, max, DMA_FROM_DEVICE);
-	if (unlikely(dma_mapping_error(ctx->dev, data_dma)))
-		return 0;
+	data_dma = dma_map_single(ctx->dev, buf, count, DMA_FROM_DEVICE);
+	if (unlikely(dma_mapping_error(ctx->dev, data_dma))) {
+		err = -ENOMEM;
+		goto out_unlock;
+	}
 
 	ctx->srv_desc.srv_id = HSE_SRV_ID_GET_RANDOM_NUM;
 	ctx->srv_desc.rng_req.rng_class = HSE_RNG_CLASS_PTG3;
-	ctx->srv_desc.rng_req.random_num_len = max;
+	ctx->srv_desc.rng_req.random_num_len = count;
 	ctx->srv_desc.rng_req.random_num = data_dma;
 
 	srv_desc_dma = dma_map_single(ctx->dev, &ctx->srv_desc,
 				      sizeof(ctx->srv_desc), DMA_TO_DEVICE);
 	if (unlikely(dma_mapping_error(ctx->dev, srv_desc_dma))) {
-		dma_unmap_single(ctx->dev, data_dma, max, DMA_FROM_DEVICE);
-		return 0;
+		dma_unmap_single(ctx->dev, data_dma, count, DMA_FROM_DEVICE);
+		err = -ENOMEM;
+		goto out_unlock;
 	}
 
 	err = hse_srv_req_sync(ctx->dev, HSE_CHANNEL_ANY, srv_desc_dma);
-	if (unlikely(err))
-		dev_dbg(ctx->dev, "%s: request failed: %d\n", __func__, err);
 
 	dma_unmap_single(ctx->dev, srv_desc_dma, sizeof(ctx->srv_desc),
 			 DMA_TO_DEVICE);
-	dma_unmap_single(ctx->dev, data_dma, max, DMA_FROM_DEVICE);
+	dma_unmap_single(ctx->dev, data_dma, count, DMA_FROM_DEVICE);
 
+out_unlock:
 	mutex_unlock(&ctx->req_lock);
 
-	return !err ? max : 0;
+	if (unlikely(err))
+		dev_dbg(ctx->dev, "%s: request failed: %d\n", __func__, err);
+
+	return !err ? count : 0;
 }
 
 static struct hwrng hse_rng = {
