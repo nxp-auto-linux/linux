@@ -17,8 +17,7 @@
 #define HSE_STREAM_COUNT    2u /* number of usable streams per MU instance */
 
 #define HSE_CHANNEL_INV    0xFFu /* invalid acquired service channel index */
-
-#define HSE_CH_MASK_ALL     0x0000FFFFul /* all available channels irq mask */
+#define HSE_CH_MASK_ALL    0x0000FFFFul /* all available channels irq mask */
 
 /**
  * enum hse_irq_type - HSE interrupt type
