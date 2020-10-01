@@ -94,16 +94,13 @@ u16 hse_mu_check_status(void *mu)
  * hse_mu_check_event - check for HSE system events
  * @mu: MU instance handle
  *
- * Return: first bit set in the HSE system event mask
+ * Return: HSE system event mask
  */
 u32 hse_mu_check_event(void *mu)
 {
 	struct hse_mu_data *priv = mu;
-	u32 gsrval;
 
-	gsrval = ioread32(&priv->regs->gsr);
-
-	return gsrval & (1 << (ffs(gsrval) - 1));
+	return ioread32(&priv->regs->gsr);
 }
 
 /**
