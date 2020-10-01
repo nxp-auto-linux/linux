@@ -57,6 +57,7 @@ enum hse_event {
 
 /**
  * enum hse_srv_id - HSE service ID
+ * @HSE_SRV_ID_GET_ATTR: get attribute, such as firmware version
  * @HSE_SRV_ID_IMPORT_EXPORT_STREAM_CTX: import/export streaming context
  * @HSE_SRV_ID_IMPORT_KEY: import/update key into a key store
  * @HSE_SRV_ID_HASH: perform a hash operation
@@ -66,6 +67,7 @@ enum hse_event {
  * @HSE_SRV_ID_GET_RANDOM_NUM: hardware random number generator
  */
 enum hse_srv_id {
+	HSE_SRV_ID_GET_ATTR = 0x00A50002ul,
 	HSE_SRV_ID_IMPORT_EXPORT_STREAM_CTX = 0x00A5000Aul,
 	HSE_SRV_ID_IMPORT_KEY = 0x00000104ul,
 	HSE_SRV_ID_HASH = 0x00A50200ul,
@@ -121,6 +123,14 @@ enum hse_srv_response {
 	HSE_SRV_RSP_CANCEL_FAILURE = 0x55A5C461ul,
 	HSE_SRV_RSP_CANCELED = 0x55A5C596ul,
 	HSE_SRV_RSP_GENERAL_ERROR = 0x55A5C565ul,
+};
+
+/**
+ * enum hse_attr - HSE attribute
+ * @HSE_FW_VERSION_ATTR_ID: firmware version
+ */
+enum hse_attr {
+	HSE_FW_VERSION_ATTR_ID = 1u,
 };
 
 /**
@@ -262,6 +272,33 @@ enum hse_ctx_impex {
 	HSE_IMPORT_STREAMING_CONTEXT = 1u,
 	HSE_EXPORT_STREAMING_CONTEXT = 2u,
 };
+
+/**
+ * struct hse_attr_fw_version - firmware version
+ * @fw_type: attribute ID
+ * @attr_len: attribute length, in bytes
+ * @attr: DMA address of the attribute
+ */
+struct hse_attr_fw_version {
+	u8 reserved[2];
+	u16 fw_type;
+	u8 major;
+	u8 minor;
+	u16 patch;
+} __packed;
+
+/**
+ * struct hse_get_attr_srv - get attribute, such as firmware version
+ * @attr_id: attribute ID
+ * @attr_len: attribute length, in bytes
+ * @attr: DMA address of the attribute
+ */
+struct hse_get_attr_srv {
+	u16 attr_id;
+	u8 reserved[2];
+	u32 attr_len;
+	u64 attr;
+} __packed;
 
 /**
  * struct hse_hash_srv - perform a hash operation
@@ -515,6 +552,7 @@ struct hse_ctx_impex_srv {
 /**
  * struct hse_srv_desc - HSE service descriptor
  * @srv_id: service ID of the HSE request
+ * @get_attr_req: get attribute request
  * @hash_req: hash service request
  * @mac_req: MAC service request
  * @skcipher_req: symmetric key cipher service request
@@ -526,6 +564,7 @@ struct hse_srv_desc {
 	u32 srv_id;
 	u8 reserved[4];
 	union {
+		struct hse_get_attr_srv get_attr_req;
 		struct hse_hash_srv hash_req;
 		struct hse_mac_srv mac_req;
 		struct hse_skcipher_srv skcipher_req;
