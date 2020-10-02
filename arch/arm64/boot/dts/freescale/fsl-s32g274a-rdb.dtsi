@@ -619,12 +619,6 @@
 	#address-cells = <1>;
 	#size-cells = <0>;
 	status = "okay";
-
-	spidev0: sja1110@0 {
-		compatible = "rohm,dh2228fv";
-		spi-max-frequency = <4000000>;
-		reg = <0>;
-	};
 };
 
 &usbmisc {
