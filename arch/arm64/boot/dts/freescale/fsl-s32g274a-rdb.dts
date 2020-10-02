@@ -100,3 +100,11 @@
 		};
 	};
 };
+
+&spi5 {
+	spidev0: sja1110@0 {
+		compatible = "rohm,dh2228fv";
+		spi-max-frequency = <4000000>;
+		reg = <0>;
+	};
+};
