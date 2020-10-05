@@ -850,19 +850,18 @@ static int memory_reset(struct fsl_qspi *q)
 
 void reset_bootrom_settings(struct fsl_qspi *q)
 {
-	u32 bfgencr, lutid;
+	u32 bfgencr, lutid, lutaddr;
 	u32 lut;
 	u32 instr0;
 	void __iomem *base = q->iobase;
 
 	/* Read the configuration left by BootROM */
-
 	bfgencr = qspi_readl(q, base + QUADSPI_BFGENCR);
 	lutid = (bfgencr & QUADSPI_BFGENCR_SEQID_MASK) >>
 		QUADSPI_BFGENCR_SEQID_SHIFT;
+	lutaddr = lutid * LUTS_PER_CONFIG;
 
-	lut = qspi_readl(q, base + QUADSPI_LUT_BASE +
-			(lutid * LUTS_PER_CONFIG));
+	lut = qspi_readl(q, base + QUADSPI_LUT(lutaddr));
 
 	/* Not configured */
 	if (!lut)
