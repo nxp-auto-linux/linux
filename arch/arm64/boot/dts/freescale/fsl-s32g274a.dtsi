@@ -70,6 +70,8 @@
 			 <&clks S32GEN1_CLK_XBAR>;
 		clock-names = "pfe_sys", "pfe_pe", "xbar";
 		firmware-name = "s32g_pfe_class.fw";
+		fsl,fw-class-name = "s32g_pfe_class.fw";
+		fsl,fw-util-name = "s32g_pfe_util.fw";
 		/* EMAC 0 */
 		pfe0_if: ethernet@0 {
 			compatible = "fsl,pfeng-logif";
