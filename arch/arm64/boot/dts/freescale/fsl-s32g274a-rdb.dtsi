@@ -62,11 +62,6 @@
 	};
 };
 
-&pfe1_if {
-	/* RGMII port occupied by GMAC0 */
-	status = "disabled";
-};
-
 &pfe2_if {
 	fsl,pfeng-hif-channel = <2>;
 	phy-mode = "rgmii";
