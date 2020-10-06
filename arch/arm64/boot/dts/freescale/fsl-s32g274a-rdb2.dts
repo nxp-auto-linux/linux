@@ -23,6 +23,14 @@
 	phy-handle = <&mdio_a_phy1>;
 };
 
+&pfe1_if {
+	/* PFE0 can be used as SGMII(disabled by default) */
+	fsl,pfeng-hif-channel = <1>;
+	phy-mode = "sgmii";
+	status = "disabled";
+	phy-handle = <&mdio_a_phy3>;
+};
+
 &gmac0_mdio {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl0_gmac0_mdio_a>;

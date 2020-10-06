@@ -26,6 +26,11 @@
 	};
 };
 
+&pfe1_if {
+	/* RGMII port occupied by GMAC0 */
+	status = "disabled";
+};
+
 &gmac0_mdio {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl0_gmac0_mdio_a>;
