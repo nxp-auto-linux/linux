@@ -3,7 +3,7 @@
  * driver by Fugang Duan <B38611@freescale.com>)
  *
  * Copyright 2013 Freescale Semiconductor, Inc.
- * Copyright 2017 NXP
+ * Copyright 2017-2020 NXP
  */
 
 #include <linux/module.h>
@@ -63,6 +63,7 @@
 /* Main Status Register field define */
 #define ADC_CALBUSY		0x20000000
 #define ADC_CALFAIL		0x40000000
+#define ADC_CALBRTD		0x80000000
 
 /* Interrupt Status Register field define */
 #define ADC_ECH			0x01
@@ -229,6 +230,7 @@ static void s32_adc_cfg_post_set(struct s32_adc *info)
 static void s32_adc_calibration(struct s32_adc *info)
 {
 	struct s32_adc_feature *adc_feature = &info->adc_feature;
+	struct device_node *np = info->dev->of_node;
 	int mcr_data, msr_data, calstat_data;
 	int ms_passed, step;
 	struct timespec64 tv_start, tv_current;
@@ -281,23 +283,35 @@ static void s32_adc_calibration(struct s32_adc *info)
 	mcr_data &= ~ADC_PWDN;
 	writel(mcr_data, info->regs + REG_ADC_MCR);
 
-	/* remove for production silicon where these values will be auto-loaded
-	 * from fuses */
-	writel(0x371b4fee, info->regs + REG_ADC_CALCFG(0));
-	writel(0x00000000, info->regs + REG_ADC_CALCFG(1));
+	if (of_device_is_compatible(np, "fsl,s32v234-adc")) {
+		/* remove for production silicon where these values
+		 * will be auto-loaded from fuses
+		 */
+		writel(0x371b4fee, info->regs + REG_ADC_CALCFG(0));
+		writel(0x00000000, info->regs + REG_ADC_CALCFG(1));
+	}
 
 	mcr_data |= ADC_CALSTART;
 	writel(mcr_data, info->regs + REG_ADC_MCR);
 
-	do_gettimeofday(&tv_start);
-	do {
-		msleep(ADC_WAIT);
-		msr_data = readl(info->regs + REG_ADC_MSR);
-		do_gettimeofday(&tv_current);
-		ms_passed = (tv_current.tv_sec - tv_start.tv_sec) * 1000 +
-			(tv_current.tv_usec - tv_start.tv_usec) / 1000;
-	} while (msr_data & ADC_CALBUSY &&
-		ms_passed < ADC_CAL_TIMEOUT);
+	if (of_device_is_compatible(np, "fsl,s32gen1-adc")) {
+		do {
+			msleep(ADC_WAIT);
+			msr_data = readl(info->regs + REG_ADC_MSR);
+		} while (!(msr_data & ADC_CALBRTD) &&
+				!(msr_data & ADC_CALFAIL));
+	} else {
+		ktime_get_ts64(&tv_start);
+		do {
+			msleep(ADC_WAIT);
+			msr_data = readl(info->regs + REG_ADC_MSR);
+			ktime_get_ts64(&tv_current);
+			ms_passed = (tv_current.tv_sec -
+					tv_start.tv_sec) * 1000 +
+				(tv_current.tv_nsec - tv_start.tv_nsec) / 1000;
+		} while (msr_data & ADC_CALBUSY &&
+			ms_passed < ADC_CAL_TIMEOUT);
+	}
 
 	if (msr_data & ADC_CALBUSY) {
 		dev_err(info->dev, "Timeout for adc calibration\n");
