@@ -15,6 +15,10 @@ menu "S32 SOC selection"
 		bool "S32V234 SOC"
 	config SOC_S32GEN1
 		bool "S32 GEN1 SOC"
+		select MAILBOX
+		select ARM_SMC_MBOX
+		select ARM_SCMI_PROTOCOL
+		select COMMON_CLK_SCMI
 endmenu
 
 menu "STM timer used as system timer"
