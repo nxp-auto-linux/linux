@@ -223,10 +223,6 @@
 
 #define QUADSPI_LUT_BASE		0x310
 
-#ifdef CONFIG_SOC_S32GEN1
-#define LUTS_PER_CONFIG			5
-#endif
-
 /*
  * The definition of the LUT register shows below:
  *
