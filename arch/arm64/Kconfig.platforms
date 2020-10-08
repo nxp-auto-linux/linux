@@ -336,9 +336,13 @@ if ARCH_S32
 config SOC_S32CC
 	bool "S32CC SOC"
 	default y
-	select NXP_ERRATUM_ERR050543
+	select ARM_SCMI_PROTOCOL
+	select COMMON_CLK_SCMI
 	select GENERIC_PHY
+	select MAILBOX
+	select NXP_ERRATUM_ERR050543
 	select PHY_S32CC_SERDES
+	select RESET_SCMI_SCMI
 
 endif
 
