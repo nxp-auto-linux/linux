@@ -5,6 +5,7 @@ Required properties:
 	"nxp,pcf85063",
 	"nxp,pcf85063a",
 	"nxp,pcf85063tp",
+	"nxp,pca85073a",
 	"microcrystal,rv8263"
 - reg: I2C address for chip.
 
