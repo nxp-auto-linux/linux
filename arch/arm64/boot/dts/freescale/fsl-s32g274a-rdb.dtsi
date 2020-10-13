@@ -89,6 +89,8 @@
 };
 
 &i2c0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_i2c0>;
 	status = "okay";
 };
 
@@ -221,6 +223,15 @@
 				S32_GEN1_PAD_PA11__SPI5_SOUT_OUT
 				S32_GEN1_PAD_PA9__SPI5_SCK_OUT
 				S32_GEN1_PAD_PA10__SPI5_SIN_OUT
+			>;
+		};
+
+		pinctrl_i2c0: i2c0grp {
+			fsl,pins = <
+				S32_GEN1_PAD_PB15__I2C0_DATA_OUT
+				S32_GEN1_PAD_PB15__I2C0_DATA_IN
+				S32_GEN1_PAD_PC0__I2C0_SCLK_OUT
+				S32_GEN1_PAD_PC0__I2C0_SCLK_IN
 			>;
 		};
 
