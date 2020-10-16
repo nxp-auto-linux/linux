@@ -547,6 +547,18 @@ static int pcf85063_probe(struct i2c_client *client)
 		return err;
 	}
 
+	/* Not battery-backed, we need to start the oscillator. */
+	if (of_property_read_bool(client->dev.of_node, "nxp,no-battery")) {
+		err = regmap_update_bits(pcf85063->regmap, PCF85063_REG_SC,
+					 PCF85063_REG_SC_OS, 0);
+
+		if (err) {
+			dev_err(&pcf85063->rtc->dev,
+				"failed to start the oscillator\n");
+			return err;
+		}
+	}
+
 	pcf85063->rtc = devm_rtc_allocate_device(&client->dev);
 	if (IS_ERR(pcf85063->rtc))
 		return PTR_ERR(pcf85063->rtc);
