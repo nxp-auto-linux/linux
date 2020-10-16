@@ -8,6 +8,8 @@
  *
  * Copyright (C) 2019 Micro Crystal AG
  * Author: Alexandre Belloni <alexandre.belloni@bootlin.com>
+ *
+ * Copyright 2022 NXP
  */
 #include <linux/clk-provider.h>
 #include <linux/i2c.h>
@@ -594,6 +596,17 @@ static int pcf85063_probe(struct i2c_client *client)
 	if (err) {
 		dev_err(&client->dev, "RTC chip is not present\n");
 		return err;
+	}
+
+	/* Not battery-backed, we need to start the oscillator. */
+	if (of_property_read_bool(client->dev.of_node, "nxp,no-battery")) {
+		err = regmap_update_bits(pcf85063->regmap, PCF85063_REG_SC,
+					 PCF85063_REG_SC_OS, 0);
+		if (err) {
+			dev_err(&pcf85063->rtc->dev,
+				"Failed to start the oscillator\n");
+			return err;
+		}
 	}
 
 	pcf85063->rtc = devm_rtc_allocate_device(&client->dev);
