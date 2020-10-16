@@ -63,6 +63,13 @@
 };
 
 &i2c0 {
+	pcal6524: gpio-expander@22 {
+		compatible = "nxp,pcal6524";
+		reg = <0x22>;
+		gpio-controller;
+		#gpio-cells = <2>;
+	};
+
 	rtc@51 {
 		compatible = "nxp,pca85073a";
 		reg = <0x51>;
