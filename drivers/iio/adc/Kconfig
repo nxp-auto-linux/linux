@@ -1005,6 +1005,9 @@ config SUN4I_GPADC
 config S32_ADC
 	tristate "NXP S32 SAR-ADC driver"
 	depends on SOC_S32V234 || SOC_S32GEN1
+	select IIO_BUFFER
+	select IIO_TRIGGERED_BUFFER
+	select IIO_SYSFS_TRIGGER
 	help
 	  Say yes here to support for S32V234 board or S32GEN1 boards
 	  analog-to-digital converter.
