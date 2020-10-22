@@ -44,6 +44,7 @@
 /* Clock and Transfer Attribute Register (SPI_CTARn) - Master Mode */
 #define SPI_CTAR(x)			(0x0c + (((x) & GENMASK(1, 0)) * 4))
 #define SPI_CTAR_FMSZ(x)		(((x) << 27) & GENMASK(30, 27))
+#define SPI_CTAR_SLAVE_FMSZ(x)		(((x) << 27) & GENMASK(31, 27))
 #define SPI_CTAR_CPOL			BIT(26)
 #define SPI_CTAR_CPHA			BIT(25)
 #define SPI_CTAR_LSBFE			BIT(24)
@@ -121,6 +122,7 @@
 
 #define SPI_SREX			0x13c
 
+#define SPI_SLAVE_FRAME_BITS(bits)	SPI_CTAR_SLAVE_FMSZ((bits) - 1)
 #define SPI_FRAME_BITS(bits)		SPI_CTAR_FMSZ((bits) - 1)
 #define SPI_FRAME_EBITS(bits)		SPI_CTARE_FMSZE(((bits) - 1) >> 4)
 
@@ -793,13 +795,19 @@ static int dspi_transfer_one_message(struct spi_controller *ctlr,
 				val & SPI_SR_TXRXS)
 			;
 
-		regmap_write(dspi->regmap, SPI_CTAR(0),
-			     dspi->cur_chip->ctar_val |
-			     SPI_FRAME_BITS(transfer->bits_per_word));
-		if (dspi->devtype_data->xspi_mode)
-			regmap_write(dspi->regmap, SPI_CTARE(0),
-				     SPI_FRAME_EBITS(transfer->bits_per_word) |
-				     SPI_CTARE_DTCP(1));
+		if (!spi_controller_is_slave(dspi->ctlr)) {
+			regmap_write(dspi->regmap, SPI_CTAR(0),
+				     dspi->cur_chip->ctar_val |
+				     SPI_FRAME_BITS(transfer->bits_per_word));
+			if (dspi->devtype_data->xspi_mode)
+				regmap_write(dspi->regmap, SPI_CTARE(0),
+					     SPI_FRAME_EBITS(transfer->bits_per_word) |
+					     SPI_CTARE_DTCP(1));
+		} else {
+			regmap_write(dspi->regmap, SPI_CTAR(0),
+				     dspi->cur_chip->ctar_val |
+				     SPI_SLAVE_FRAME_BITS(transfer->bits_per_word));
+		}
 
 		trans_mode = dspi->devtype_data->trans_mode;
 		switch (trans_mode) {
