@@ -117,6 +117,9 @@
 
 #define S32_BUFFER_ECH_NUM_OK	2
 #define S32_ADC_NUM_CHANNELS	8
+#define S32_CHANNEL_UNASSIGNED	-2
+#define S32_ADC_DATA_READ_ERROR	-1
+#define S32_ADC_DATA_READ_SUCCESS	0
 
 enum freq_sel {
 	ADC_BUSCLK_EQUAL,
@@ -129,6 +132,11 @@ enum average_sel {
 	ADC_SAMPLE_32,
 	ADC_SAMPLE_128,
 	ADC_SAMPLE_512,
+};
+
+enum {
+	SAR_ADC_CONTINUOUS = 0,
+	SAR_ADC_ONESHOT
 };
 
 struct s32_adc_feature {
@@ -150,12 +158,14 @@ struct s32_adc {
 	u16 value;
 	u32 vref;
 	int current_channel;
+	int channels_used;
 	int buffer_ech_num;
 	struct s32_adc_feature adc_feature;
 
 	struct completion completion;
 
 	u16 buffer[S32_ADC_NUM_CHANNELS];
+	u16 buffered_chan[S32_ADC_NUM_CHANNELS];
 };
 
 #define ADC_CHAN(_idx, _chan_type) {			\
@@ -395,12 +405,33 @@ static void s32_adc_hw_init(struct s32_adc *info)
 	s32_adc_sample_set(info);
 }
 
+static int s32_adc_read_data(struct s32_adc *info,
+		unsigned int chan)
+{
+	int group, ceocfr_data, cdr_data;
+
+	group = group_idx(chan);
+	ceocfr_data = readl(info->regs + REG_ADC_CEOCFR(group));
+	if (!(ceocfr_data & ADC_EOC_CH(chan)))
+		return S32_ADC_DATA_READ_ERROR;
+
+	writel(ADC_EOC_CH(chan), info->regs + REG_ADC_CEOCFR(group));
+
+	cdr_data = readl(info->regs + REG_ADC_CDR(chan));
+	if (!(cdr_data & ADC_VALID)) {
+		dev_err(info->dev, "error invalid data\n");
+		return S32_ADC_DATA_READ_ERROR;
+	}
+
+	info->value = cdr_data & ADC_CDATA_MASK;
+	return S32_ADC_DATA_READ_SUCCESS;
+}
+
 static irqreturn_t s32_adc_isr(int irq, void *dev_id)
 {
 	struct iio_dev *indio_dev = (struct iio_dev *)dev_id;
 	struct s32_adc *info = iio_priv(indio_dev);
-	int isr_data, ceocfr_data, cdr_data;
-	int group;
+	int isr_data, i;
 
 	isr_data = readl(info->regs + REG_ADC_ISR);
 	if (isr_data & ADC_ECH) {
@@ -412,31 +443,23 @@ static irqreturn_t s32_adc_isr(int irq, void *dev_id)
 			if (info->buffer_ech_num < S32_BUFFER_ECH_NUM_OK)
 				return IRQ_HANDLED;
 			info->buffer_ech_num = 0;
-		}
-		group = group_idx(info->current_channel);
 
-		ceocfr_data = readl(info->regs + REG_ADC_CEOCFR(group));
-		if (!(ceocfr_data & ADC_EOC_CH(info->current_channel)))
-			return IRQ_HANDLED;
+			for (i = 0; i < info->channels_used; i++) {
+				if (s32_adc_read_data(
+						info, info->buffered_chan[i]) ==
+						S32_ADC_DATA_READ_ERROR)
+					return IRQ_HANDLED;
+				info->buffer[i] = info->value;
+			}
 
-		writel(ADC_EOC_CH(info->current_channel),
-		       info->regs + REG_ADC_CEOCFR(group));
-
-		cdr_data = readl(info->regs +
-			REG_ADC_CDR(info->current_channel));
-		if (!(cdr_data & ADC_VALID)) {
-			dev_err(info->dev, "error invalid data\n");
-			return IRQ_HANDLED;
-		}
-
-		info->value = cdr_data & ADC_CDATA_MASK;
-		if (iio_buffer_enabled(indio_dev)) {
-			info->buffer[0] = info->value;
 			iio_push_to_buffers_with_timestamp(indio_dev,
 					info->buffer,
 					iio_get_time_ns(indio_dev));
 			iio_trigger_notify_done(indio_dev->trig);
 		} else {
+			if (s32_adc_read_data(info, info->current_channel) ==
+					S32_ADC_DATA_READ_ERROR)
+				return IRQ_HANDLED;
 			complete(&info->completion);
 		}
 	}
@@ -444,19 +467,20 @@ static irqreturn_t s32_adc_isr(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
-static int s32_adc_configure_read(struct s32_adc *info,
+static void s32_adc_configure_read(struct s32_adc *info,
 		unsigned int chan, int group, bool mode,
 		int *ncmr_data, int *cimr_data)
 {
-	int mcr_data;
 	int i;
 
 	for (i = 0; i < ADC_NUM_GROUPS; i++) {
 		(*ncmr_data) = readl(info->regs + REG_ADC_NCMR(i));
 		(*cimr_data) = readl(info->regs + REG_ADC_CIMR(i));
 
-		(*ncmr_data) &= ~ADC_CH_MASK;
-		(*cimr_data) &= ~ADC_CIM_MASK;
+		if (mode == SAR_ADC_ONESHOT) {
+			(*ncmr_data) &= ~ADC_CH_MASK;
+			(*cimr_data) &= ~ADC_CIM_MASK;
+		}
 		if (i == group) {
 			(*ncmr_data) |= ADC_CH(chan);
 			(*cimr_data) |= ADC_CIM(chan);
@@ -465,16 +489,20 @@ static int s32_adc_configure_read(struct s32_adc *info,
 		writel((*ncmr_data), info->regs + REG_ADC_NCMR(i));
 		writel((*cimr_data), info->regs + REG_ADC_CIMR(i));
 	}
+}
+
+static void s32_adc_enable_conversion(struct s32_adc *info,
+		bool mode)
+{
+	int mcr_data;
 
 	mcr_data = readl(info->regs + REG_ADC_MCR);
-	if (mode)
+	if (mode == SAR_ADC_ONESHOT)
 		mcr_data &= ~ADC_MODE;
 	else
 		mcr_data |= ADC_MODE;
 	mcr_data &= ~ADC_PWDN;
 	writel(mcr_data, info->regs + REG_ADC_MCR);
-
-	info->current_channel = chan;
 
 	/* Ensure there are at least three cycles between the
 	 * configuration of NCMR and the setting of NSTART
@@ -484,7 +512,6 @@ static int s32_adc_configure_read(struct s32_adc *info,
 	mcr_data |= ADC_NSTART;
 	writel(mcr_data, info->regs + REG_ADC_MCR);
 
-	return 0;
 }
 
 static int s32_read_raw(struct iio_dev *indio_dev,
@@ -495,8 +522,6 @@ static int s32_read_raw(struct iio_dev *indio_dev,
 {
 	struct s32_adc *info = iio_priv(indio_dev);
 	int ncmr_data, cimr_data;
-	int *ncmr_data_p = &ncmr_data;
-	int *cimr_data_p = &cimr_data;
 	int mcr_data;
 	long group, ret;
 
@@ -516,17 +541,19 @@ static int s32_read_raw(struct iio_dev *indio_dev,
 			return group;
 		}
 
-		s32_adc_configure_read(info, chan->channel, group, 1,
-				ncmr_data_p, cimr_data_p);
+		s32_adc_configure_read(info, chan->channel, group,
+				SAR_ADC_ONESHOT, &ncmr_data, &cimr_data);
+		info->current_channel = chan->channel;
+		s32_adc_enable_conversion(info, SAR_ADC_ONESHOT);
 
 		ret = wait_for_completion_interruptible_timeout
 			(&info->completion,
 			msecs_to_jiffies(ADC_CONV_TIMEOUT));
 
-		(*ncmr_data_p) &= ~ADC_CH(info->current_channel);
-		(*cimr_data_p) &= ~ADC_CIM(info->current_channel);
-		writel((*ncmr_data_p), info->regs + REG_ADC_NCMR(group));
-		writel((*cimr_data_p), info->regs + REG_ADC_CIMR(group));
+		ncmr_data &= ~ADC_CH(info->current_channel);
+		cimr_data &= ~ADC_CIM(info->current_channel);
+		writel(ncmr_data, info->regs + REG_ADC_NCMR(group));
+		writel(cimr_data, info->regs + REG_ADC_CIMR(group));
 
 		mcr_data = readl(info->regs + REG_ADC_MCR);
 		mcr_data |= ADC_PWDN;
@@ -596,25 +623,31 @@ static int s32_write_raw(struct iio_dev *indio_dev,
 static int s32_adc_buffer_postenable(struct iio_dev *indio_dev)
 {
 	struct s32_adc *info = iio_priv(indio_dev);
-	unsigned int channel;
+	unsigned int channel, first_channel = S32_CHANNEL_UNASSIGNED;
 	int ncmr_data, cimr_data;
-	int *ncmr_data_p = &ncmr_data;
-	int *cimr_data_p = &cimr_data;
-	int group, ret;
+	int group, ret, pos = 0;
 
 	ret = iio_triggered_buffer_postenable(indio_dev);
 	if (ret)
 		return ret;
 
-	channel = find_first_bit(indio_dev->active_scan_mask,
-			indio_dev->masklength);
+	for_each_set_bit(channel, indio_dev->active_scan_mask,
+			S32_ADC_NUM_CHANNELS) {
 
-	group = group_idx(channel);
-	if (group < 0)
-		return group;
+		if (first_channel == S32_CHANNEL_UNASSIGNED)
+			first_channel = channel;
+		info->buffered_chan[pos++] = channel;
 
-	s32_adc_configure_read(info, channel, group, 0,
-			ncmr_data_p, cimr_data_p);
+		group = group_idx(channel);
+		if (group < 0)
+			return group;
+
+		s32_adc_configure_read(info, channel, group,
+				SAR_ADC_CONTINUOUS, &ncmr_data, &cimr_data);
+	}
+	info->channels_used = pos;
+	info->current_channel = first_channel;
+	s32_adc_enable_conversion(info, SAR_ADC_CONTINUOUS);
 
 	return 0;
 }
@@ -622,7 +655,19 @@ static int s32_adc_buffer_postenable(struct iio_dev *indio_dev)
 static int s32_adc_buffer_predisable(struct iio_dev *indio_dev)
 {
 	struct s32_adc *info = iio_priv(indio_dev);
-	int mcr_data;
+	int mcr_data, ncmr_data, cimr_data;
+	int i;
+
+	for (i = 0; i < ADC_NUM_GROUPS; i++) {
+		ncmr_data = readl(info->regs + REG_ADC_NCMR(i));
+		cimr_data = readl(info->regs + REG_ADC_CIMR(i));
+
+		ncmr_data &= ~ADC_CH_MASK;
+		cimr_data &= ~ADC_CIM_MASK;
+
+		writel(ncmr_data, info->regs + REG_ADC_NCMR(i));
+		writel(cimr_data, info->regs + REG_ADC_CIMR(i));
+	}
 
 	mcr_data = readl(info->regs + REG_ADC_MCR);
 	mcr_data &= ~ADC_NSTART;
@@ -632,10 +677,19 @@ static int s32_adc_buffer_predisable(struct iio_dev *indio_dev)
 	return iio_triggered_buffer_predisable(indio_dev);
 }
 
+static bool s32_adc_validate_scan_mask(struct iio_dev *indio_dev,
+		const unsigned long *mask)
+{
+	/* SAR_ADC permits any combination of the
+	 * available channels to be active
+	 */
+	return true;
+}
+
 static const struct iio_buffer_setup_ops iio_triggered_buffer_setup_ops = {
 	.postenable = &s32_adc_buffer_postenable,
 	.predisable = &s32_adc_buffer_predisable,
-	.validate_scan_mask = &iio_validate_scan_mask_onehot,
+	.validate_scan_mask = &s32_adc_validate_scan_mask,
 };
 
 static const struct iio_info s32_adc_iio_info = {
@@ -714,8 +768,10 @@ static int s32_adc_probe(struct platform_device *pdev)
 	indio_dev->channels = s32_adc_iio_channels;
 	indio_dev->num_channels = ARRAY_SIZE(s32_adc_iio_channels);
 	info->buffer_ech_num = 0;
+	info->channels_used = 0;
 
 	memset(info->buffer, 0, sizeof(info->buffer));
+	memset(info->buffered_chan, 0, sizeof(info->buffered_chan));
 
 	ret = clk_prepare_enable(info->clk);
 	if (ret) {
