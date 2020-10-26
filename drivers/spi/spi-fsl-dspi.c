@@ -138,6 +138,7 @@ enum {
 	VF610,
 	S32V234,
 	S32GEN1,
+	S32_SLAVE,
 };
 
 static const struct fsl_dspi_devtype_data devtype_data[] = {
@@ -202,6 +203,11 @@ static const struct fsl_dspi_devtype_data devtype_data[] = {
 	},
 	[S32GEN1] = {
 		.trans_mode		= DSPI_XSPI_MODE,
+		.max_clock_factor	= 1,
+		.fifo_size		= 5,
+	},
+	[S32_SLAVE] = {
+		.trans_mode		= DSPI_DMA_MODE,
 		.max_clock_factor	= 1,
 		.fifo_size		= 5,
 	},
@@ -1353,6 +1359,9 @@ static int dspi_probe(struct platform_device *pdev)
 			ret = -EFAULT;
 			goto out_ctlr_put;
 		}
+
+		if (ctlr->slave && dspi->devtype_data == &s32_data)
+			dspi->devtype_data = &devtype_data[S32_SLAVE];
 
 		big_endian = of_device_is_big_endian(np);
 	}
