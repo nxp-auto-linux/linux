@@ -173,6 +173,11 @@ static const struct fsl_dspi_devtype_data s32_data = {
 	.xspi_mode		= true,
 };
 
+static const struct fsl_dspi_devtype_data s32_slave_data = {
+	.trans_mode		= DSPI_DMA_MODE,
+	.max_clock_factor	= 1,
+};
+
 struct fsl_dspi_dma {
 	/* Length of transfer in words of fifo_size */
 	u32					curr_xfer_len;
@@ -1140,6 +1145,9 @@ static int dspi_probe(struct platform_device *pdev)
 			ret = -EFAULT;
 			goto out_ctlr_put;
 		}
+
+		if (ctlr->slave && dspi->devtype_data == &s32_data)
+			dspi->devtype_data = &s32_slave_data;
 
 		big_endian = of_device_is_big_endian(np);
 	}
