@@ -373,6 +373,8 @@
 				spi-fifo-size = <5>;
 				spi-cpol;
 				spi-cpha;
+				dmas = <&edma 0 1>, <&edma 0 2>;
+				dma-names = "tx", "rx";
 				status = "disabled";
 			};
 
@@ -387,6 +389,8 @@
 				spi-fifo-size = <5>;
 				spi-cpol;
 				spi-cpha;
+				dmas = <&edma 0 3>, <&edma 0 4>;
+				dma-names = "tx", "rx";
 				status = "disabled";
 			};
 
@@ -686,6 +690,8 @@
 				spi-fifo-size = <5>;
 				spi-cpol;
 				spi-cpha;
+				dmas = <&edma 1 1>, <&edma 1 2>;
+				dma-names = "tx", "rx";
 				status = "disabled";
 			};
 
@@ -700,6 +706,8 @@
 				spi-fifo-size = <5>;
 				spi-cpol;
 				spi-cpha;
+				dmas = <&edma 1 3>, <&edma 1 4>;
+				dma-names = "tx", "rx";
 				status = "disabled";
 			};
 
