@@ -72,6 +72,19 @@
 #define PAD_CTL_MUX_MODE_ALT7   (7)
 #define PAD_CTL_MUX_MODE_MASK   (0xF)
 
+/* Some pads are configured through SRC_GPR.
+ * Pins > 2000 will be considered fields in a SRC_GPR register as follows:
+ * pin 2000 is SRC_GPR1[0], pin 2001 is SRC_GPR1[1]...
+ * pin 2255 is SRC_GPR8[31]..
+ */
+#define S32V_PINCTRL_GPR_START		(2000)
+#define S32V_PINCTRL_PINS_PER_GPR	(32)
+#define S32V234_PAD_GPR(gpr, bit)	(S32V_PINCTRL_GPR_START + \
+					 ((gpr) - 1) * S32V_PINCTRL_PINS_PER_GPR + \
+					 (bit))
+
+#define S32V234_PAD_GPR_EN		(1)
+#define S32V234_PAD_GPR_DIS		(0)
 
 /* UART configuration */
 #define PAD_CTL_UART_TX         (PAD_CTL_OBE | PAD_CTL_PUS_100K_UP | PAD_CTL_DSE_60 |\

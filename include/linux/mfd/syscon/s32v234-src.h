@@ -14,6 +14,7 @@
 
 #include <linux/bitops.h>
 
+#define SRC_GPR1 0x100
 #define SRC_GPR3 0x108
 #define SRC_GPR4 0x10C
 #define SRC_GPR5 0x110
