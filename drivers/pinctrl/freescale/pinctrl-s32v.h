@@ -1,7 +1,7 @@
 /*
  * S32V pinmux core definitions
  *
- * Copyright 2016-2017 NXP
+ * Copyright 2016-2017,2020 NXP
  * Copyright 2015-2016 Freescale Semiconductor, Inc.
  * Copyright (C) 2012 Linaro Ltd.
  *
@@ -13,6 +13,8 @@
 
 #ifndef __DRIVERS_PINCTRL_S32V_H
 #define __DRIVERS_PINCTRL_S32V_H
+
+#include <linux/mfd/syscon/s32v234-src.h>
 
 /**
  * Pinctrl driver versions
@@ -75,11 +77,21 @@ struct s32v_pinctrl_soc_info {
 	unsigned int flags;
 };
 
-#define S32V_PINCTRL_PIN(pin)	PINCTRL_PIN(pin, #pin)
-#define S32V_MSCR_OFFSET	(0x240)
-#define S32V_PAD_CONFIG(idx)	((idx) * 4)
-#define S32V_PIN_SIZE		(8)
+#define S32V_PINCTRL_PIN(pin)		PINCTRL_PIN(pin, #pin)
+#define S32V_MSCR_OFFSET		(0x240)
+#define S32V_PAD_CONFIG(idx)		((idx) * 4)
+#define S32V_PIN_SIZE			(8)
 
+#define S32V_SRC_GPR_NR			(27)
+#define S32V_SRC_GPR_PINS		(S32V_SRC_GPR_NR * S32V_PINCTRL_PINS_PER_GPR)
+
+#define S32V_SRC_GPR_OFFSET(gpr)	(SRC_GPR1 + 4 * (gpr - 1))
+#define S32V_PIN_TO_GPR_INDEX(pin_id)	((pin_id - S32V_PINCTRL_GPR_START) / \
+					 S32V_PINCTRL_PINS_PER_GPR + 1)
+#define S32V_PIN_TO_GPR_OFFSET(gpr)	 S32V_SRC_GPR_OFFSET(S32V_PIN_TO_GPR_INDEX(pin_id))
+
+#define S32V_PIN_TO_GPR_FIELD(pin_id)	((pin_id - S32V_PINCTRL_GPR_START) % \
+						S32V_PINCTRL_PINS_PER_GPR)
 
 int s32v_pinctrl_probe(struct platform_device *pdev,
 			struct s32v_pinctrl_soc_info *info,

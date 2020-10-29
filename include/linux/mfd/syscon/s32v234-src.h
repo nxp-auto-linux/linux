@@ -5,7 +5,7 @@
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
  *
- * Copyright 2017 NXP
+ * Copyright 2017,2020 NXP
  *
  */
 #ifndef __LINUX_S32V234SRC_GPR_H
@@ -14,6 +14,7 @@
 #include <linux/bitops.h>
 
 
+#define SRC_GPR1 0x100
 #define SRC_GPR3 0x108
 #define SRC_GPR4 0x10C
 #define SRC_GPR5 0x110

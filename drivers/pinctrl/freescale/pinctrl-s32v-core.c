@@ -2,18 +2,19 @@
  * Core driver for the S32V pin controller
  *
  * Copyright 2015-2016 Freescale Semiconductor, Inc.
- * Copyright 2017 NXP
+ * Copyright 2017,2020 NXP
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
  * (at your option) any later version.
  */
-
 #include <linux/err.h>
 #include <linux/init.h>
 #include <linux/io.h>
+#include <linux/mfd/syscon.h>
 #include <linux/module.h>
+#include <linux/regmap.h>
 #include <linux/of.h>
 #include <linux/of_device.h>
 #include <linux/pinctrl/machine.h>
@@ -46,6 +47,7 @@ struct s32v_pinctrl {
 	void __iomem *base;
 	const struct s32v_pinctrl_soc_info *info;
 	struct list_head gpio_configs;
+	struct regmap *src_regmap;
 };
 
 static const char *pin_get_name_from_info(struct s32v_pinctrl_soc_info *info,
@@ -212,6 +214,46 @@ static const struct pinctrl_ops s32v_pctrl_ops = {
 
 };
 
+static inline unsigned long s32v_pinctrl_readl(struct pinctrl_dev *pctldev,
+					       unsigned int pin_id)
+{
+	struct s32v_pinctrl *ipctl = pinctrl_dev_get_drvdata(pctldev);
+	unsigned int val;
+	int field;
+
+	if (pin_id >= S32V_PINCTRL_GPR_START + S32V_SRC_GPR_PINS)
+		return -EINVAL;
+
+	/* Pinctrl is done using GPR */
+	if (pin_id >= S32V_PINCTRL_GPR_START) {
+		regmap_read(ipctl->src_regmap,
+			    S32V_PIN_TO_GPR_OFFSET(pin_id), &val);
+		field = S32V_PIN_TO_GPR_FIELD(pin_id);
+		return (val & BIT(field)) >> field;
+	}
+	else
+		return readl(ipctl->base + S32V_PAD_CONFIG(pin_id));
+}
+
+static inline void s32v_pinctrl_writel(unsigned long config,
+				       struct pinctrl_dev *pctldev,
+				       unsigned int pin_id)
+{
+	struct s32v_pinctrl *ipctl = pinctrl_dev_get_drvdata(pctldev);
+
+	if (pin_id >= S32V_PINCTRL_GPR_START + S32V_SRC_GPR_PINS)
+		return;
+
+	/* Pinctrl is done using GPR */
+	if (pin_id >= S32V_PINCTRL_GPR_START)
+		regmap_update_bits(ipctl->src_regmap, S32V_PIN_TO_GPR_OFFSET(pin_id),
+				   BIT(S32V_PIN_TO_GPR_FIELD(pin_id)),
+				   config << S32V_PIN_TO_GPR_FIELD(pin_id));
+
+	else
+		writel(config, ipctl->base + S32V_PAD_CONFIG(pin_id));
+}
+
 static int s32v_pmx_set(struct pinctrl_dev *pctldev, unsigned int selector,
 		       unsigned int group)
 {
@@ -236,7 +278,7 @@ static int s32v_pmx_set(struct pinctrl_dev *pctldev, unsigned int selector,
 
 		pin_id = pin->pin_id;
 
-		writel(pin->config, ipctl->base + S32V_PAD_CONFIG(pin_id));
+		s32v_pinctrl_writel(pin->config, pctldev, pin_id);
 		dev_dbg(ipctl->dev, "write: offset 0x%x val %lu\n",
 			S32V_PAD_CONFIG(pin_id), pin->config);
 	}
@@ -304,7 +346,7 @@ static int s32v_pmx_gpio_request_enable(struct pinctrl_dev *pctldev,
 		return -EINVAL;
 	}
 
-	config = readl(ipctl->base + S32V_PAD_CONFIG(pin->pin_id));
+	config = s32v_pinctrl_readl(pctldev, pin->pin_id);
 
 	/* Save current configuration */
 	gpio_pin = kmalloc(sizeof(*gpio_pin), GFP_KERNEL);
@@ -321,7 +363,7 @@ static int s32v_pmx_gpio_request_enable(struct pinctrl_dev *pctldev,
 	config &= ~PAD_CTL_MUX_MODE_MASK;
 	config |= PAD_CTL_MUX_MODE_ALT0;
 
-	writel(config, ipctl->base + S32V_PAD_CONFIG(pin->pin_id));
+	s32v_pinctrl_writel(config, pctldev, pin->pin_id);
 
 	return 0;
 }
@@ -342,8 +384,7 @@ static void s32v_pmx_gpio_disable_free(struct pinctrl_dev *pctldev,
 
 		if (pin.pin_id == offset) {
 			/* Restore pin configuration */
-			writel(pin.config,
-			       ipctl->base + S32V_PAD_CONFIG(pin.pin_id));
+			s32v_pinctrl_writel(pin.config, pctldev, pin.pin_id);
 			list_del(pos);
 			kfree(gpio_pin);
 			break;
@@ -373,7 +414,7 @@ static int s32v_pmx_gpio_set_direction(struct pinctrl_dev *pctldev,
 	if (!pin)
 		return -EINVAL;
 
-	config = readl(ipctl->base + S32V_PAD_CONFIG(pin->pin_id));
+	config = s32v_pinctrl_readl(pctldev, pin->pin_id);
 
 	if (input) {
 		/* Disable output buffer and enable input buffer */
@@ -394,7 +435,7 @@ static int s32v_pmx_gpio_set_direction(struct pinctrl_dev *pctldev,
 		config |= PAD_CTL_DSE_34;
 		config |= PAD_CTL_PUS_33K_UP;
 	}
-	writel(config, ipctl->base + S32V_PAD_CONFIG(pin->pin_id));
+	s32v_pinctrl_writel(config, pctldev, pin->pin_id);
 
 	return 0;
 }
@@ -412,9 +453,7 @@ static const struct pinmux_ops s32v_pmx_ops = {
 static int s32v_pinconf_get(struct pinctrl_dev *pctldev,
 			     unsigned int pin_id, unsigned long *config)
 {
-	struct s32v_pinctrl *ipctl = pinctrl_dev_get_drvdata(pctldev);
-
-	*config = readl(ipctl->base + S32V_PAD_CONFIG(pin_id));
+	*config = s32v_pinctrl_readl(pctldev, pin_id);
 
 	return 0;
 }
@@ -430,7 +469,7 @@ static int s32v_pinconf_set(struct pinctrl_dev *pctldev,
 			pin_get_name(pctldev, pin_id));
 
 	for (i = 0; i < num_configs; i++) {
-		writel(configs[i], ipctl->base + S32V_PAD_CONFIG(pin_id));
+		s32v_pinctrl_writel(configs[i], pctldev, pin_id);
 		dev_dbg(ipctl->dev, "write: offset 0x%x val 0x%lx\n",
 			S32V_PAD_CONFIG(pin_id), configs[i]);
 	} /* for each config */
@@ -441,10 +480,9 @@ static int s32v_pinconf_set(struct pinctrl_dev *pctldev,
 static void s32v_pinconf_dbg_show(struct pinctrl_dev *pctldev,
 				   struct seq_file *s, unsigned int pin_id)
 {
-	struct s32v_pinctrl *ipctl = pinctrl_dev_get_drvdata(pctldev);
 	unsigned long config;
 
-	config = readl(ipctl->base + S32V_PAD_CONFIG(pin_id));
+	config = s32v_pinctrl_readl(pctldev, pin_id);
 	seq_printf(s, "0x%lx", config);
 }
 
@@ -628,6 +666,7 @@ int s32v_pinctrl_probe(struct platform_device *pdev,
 {
 	struct s32v_pinctrl *ipctl;
 	struct resource *res;
+	struct regmap_config config = { .name = "gpr" };
 	int ret;
 
 	if (!info || !info->pins || !info->npins) {
@@ -654,6 +693,10 @@ int s32v_pinctrl_probe(struct platform_device *pdev,
 	s32v_pinctrl_desc.name = dev_name(&pdev->dev);
 	s32v_pinctrl_desc.pins = info->pins;
 	s32v_pinctrl_desc.npins = info->npins;
+
+	ipctl->src_regmap = syscon_regmap_lookup_by_compatible("fsl,s32v234-src");
+	if (!IS_ERR(ipctl->src_regmap))
+		regmap_attach_dev(&pdev->dev, ipctl->src_regmap, &config);
 
 	ret = s32v_pinctrl_probe_dt(pdev, info);
 	if (ret) {
