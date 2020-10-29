@@ -1,6 +1,6 @@
 /*
  * Copyright 2015-2016 Freescale Semiconductor, Inc.
- * Copyright 2016-2019 NXP
+ * Copyright 2016-2019,2020 NXP
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -263,6 +263,18 @@
 				S32V234_PAD_PB5__SPI0_SCK_OUT
 				S32V234_PAD_PB7__SPI0_SIN_OUT
 				S32V234_PAD_PB7__SPI0_SIN_IN
+			>;
+		};
+
+		pinctrl_dspi0_slave: dspi0slavegrp {
+			fsl,pins = <
+				S32V234_PAD_PE8__SPI0_SCK_OUT
+				S32V234_PAD_PE9__SPI0_SOUT_OUT
+				S32V234_PAD_PE10__SPI0_SIN_OUT
+				S32V234_PAD_PE10__SPI0_SIN_IN
+				S32V234_PAD_PE11__SPI0_CS0_OUT
+				S32V234_PAD_GPR8__SPI0_SCK_IN
+				S32V234_PAD_GPR8__SPI0_CS_IN
 			>;
 		};
 
@@ -570,8 +582,9 @@
 };
 
 &spi0 {
-	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_dspi0>;
+	pinctrl-1 = <&pinctrl_dspi0_slave>;
+	pinctrl-names = "default", "slave";
 	status = "okay";
 
 	tja1145_0: spidev@6 {

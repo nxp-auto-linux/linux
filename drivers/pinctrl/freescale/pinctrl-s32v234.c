@@ -2,7 +2,7 @@
  * s32v234 pinctrl driver based on imx pinmux and pinconf core
  *
  * Copyright 2015-2016 Freescale Semiconductor, Inc.
- * Copyright 2017 NXP
+ * Copyright 2017,2020 NXP
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -17,6 +17,7 @@
 #include <linux/of.h>
 #include <linux/of_device.h>
 #include <linux/pinctrl/pinctrl.h>
+#include <dt-bindings/pinctrl/s32v234-pinctrl.h>
 
 #include "pinctrl-s32v.h"
 
@@ -347,6 +348,9 @@ enum s32v234_pins {
 	S32V234_IMCR_VIU0_VSYNC = 623,
 	S32V234_IMCR_VIU1_VSYNC = 658,
 	S32V234_IMCR_USDHC_WP = 900,
+
+	S32V234_SRC_GPR8_SPI0_CS_IN = S32V234_PAD_GPR(8, 30),
+	S32V234_SRC_GPR8_SPI0_SCK_IN =  S32V234_PAD_GPR(8, 31)
 };
 
 /* Pad names for the pinmux subsystem */
@@ -677,6 +681,9 @@ static const struct pinctrl_pin_desc s32v234_pinctrl_pads[] = {
 	S32V_PINCTRL_PIN(S32V234_IMCR_VIU0_VSYNC),
 	S32V_PINCTRL_PIN(S32V234_IMCR_VIU1_VSYNC),
 	S32V_PINCTRL_PIN(S32V234_IMCR_USDHC_WP),
+
+	S32V_PINCTRL_PIN(S32V234_SRC_GPR8_SPI0_CS_IN),
+	S32V_PINCTRL_PIN(S32V234_SRC_GPR8_SPI0_SCK_IN),
 };
 
 static struct s32v_pinctrl_soc_info s32v234_pinctrl_info = {
