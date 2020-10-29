@@ -15,6 +15,23 @@
 #define __DRIVERS_PINCTRL_S32V_H
 
 #include <linux/platform_device.h>
+#include <linux/mfd/syscon/s32v234-src.h>
+
+#define S32V_PINCTRL_PIN(pin)		PINCTRL_PIN(pin, #pin)
+#define S32V_MSCR_OFFSET		(0x240)
+#define S32V_PAD_CONFIG(idx)		((idx) * 4)
+#define S32V_PIN_SIZE			(8)
+
+#define S32V_SRC_GPR_NR			(27)
+#define S32V_SRC_GPR_PINS		(S32V_SRC_GPR_NR * S32V_PINCTRL_PINS_PER_GPR)
+
+#define S32V_SRC_GPR_OFFSET(gpr)	(SRC_GPR1 + 4 * ((gpr) - 1))
+#define S32V_PIN_TO_GPR_INDEX(pin_id)	(((pin_id) - S32V_PINCTRL_GPR_START) / \
+					 S32V_PINCTRL_PINS_PER_GPR + 1)
+#define S32V_PIN_TO_GPR_OFFSET(gpr)	 S32V_SRC_GPR_OFFSET(S32V_PIN_TO_GPR_INDEX(pin_id))
+
+#define S32V_PIN_TO_GPR_FIELD(pin_id)	((pin_id - S32V_PINCTRL_GPR_START) % \
+						S32V_PINCTRL_PINS_PER_GPR)
 
 /**
  * Pinctrl driver versions
@@ -78,12 +95,6 @@ struct s32v_pinctrl_soc_info {
 	unsigned int nfunctions;
 	unsigned int flags;
 };
-
-#define S32V_PINCTRL_PIN(pin)	PINCTRL_PIN(pin, #pin)
-#define S32V_MSCR_OFFSET	(0x240)
-#define S32V_PAD_CONFIG(idx)	((idx) * 4)
-#define S32V_PIN_SIZE		(8)
-
 
 int s32v_pinctrl_probe(struct platform_device *pdev,
 			struct s32v_pinctrl_soc_info *info,
