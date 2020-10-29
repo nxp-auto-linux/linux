@@ -16,6 +16,7 @@
 #include <linux/module.h>
 #include <linux/of_device.h>
 #include <linux/pinctrl/pinctrl.h>
+#include <dt-bindings/pinctrl/s32v234-pinctrl.h>
 
 #include "pinctrl-s32v.h"
 
@@ -345,6 +346,9 @@ enum s32v234_pins {
 	S32V234_IMCR_SSE_IN1 = 1019,
 	S32V234_IMCR_SSE_IN2 = 1020,
 	S32V234_IMCR_SSE_IN3 = 1021,
+
+	S32V234_SRC_GPR8_SPI0_CS_IN = S32V234_PAD_GPR(8, 30),
+	S32V234_SRC_GPR8_SPI0_SCK_IN =  S32V234_PAD_GPR(8, 31)
 };
 
 /* Pad names for the pinmux subsystem */
@@ -675,6 +679,9 @@ static const struct pinctrl_pin_desc s32v234_pinctrl_pads[] = {
 	S32V_PINCTRL_PIN(S32V234_IMCR_VIU0_VSYNC),
 	S32V_PINCTRL_PIN(S32V234_IMCR_VIU1_VSYNC),
 	S32V_PINCTRL_PIN(S32V234_IMCR_USDHC_WP),
+
+	S32V_PINCTRL_PIN(S32V234_SRC_GPR8_SPI0_CS_IN),
+	S32V_PINCTRL_PIN(S32V234_SRC_GPR8_SPI0_SCK_IN),
 };
 
 static struct s32v_pinctrl_soc_info s32v234_pinctrl_info = {
