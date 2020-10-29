@@ -267,6 +267,18 @@
 			>;
 		};
 
+		pinctrl_dspi0_slave: dspi0slavegrp {
+			fsl,pins = <
+				S32V234_PAD_PE8__SPI0_SCK_OUT
+				S32V234_PAD_PE9__SPI0_SOUT_OUT
+				S32V234_PAD_PE10__SPI0_SIN_OUT
+				S32V234_PAD_PE10__SPI0_SIN_IN
+				S32V234_PAD_PE11__SPI0_CS0_OUT
+				S32V234_PAD_GPR8__SPI0_SCK_IN
+				S32V234_PAD_GPR8__SPI0_CS_IN
+			>;
+		};
+
 		pinctrl_enet: enetgrp {
 			fsl,pins = <
 				S32V234_PAD_PC13__MDC
@@ -571,8 +583,9 @@
 };
 
 &spi0 {
-	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_dspi0>;
+	pinctrl-1 = <&pinctrl_dspi0_slave>;
+	pinctrl-names = "default", "slave";
 	status = "okay";
 
 	tja1145_0: spidev@6 {
