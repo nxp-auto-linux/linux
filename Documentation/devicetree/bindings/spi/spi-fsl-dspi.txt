@@ -14,6 +14,8 @@ Required properties:
 - pinctrl-names: must contain a "default" entry.
 - spi-num-chipselects : the number of the chipselect signals.
 - bus-num : the slave chip chipselect signal number.
+- spi-slave : spi slave mode support. In slave mode, add this attribute without
+	      value. In master mode, remove it.
 
 Optional properties:
 - big-endian: If present the dspi device's registers are implemented
