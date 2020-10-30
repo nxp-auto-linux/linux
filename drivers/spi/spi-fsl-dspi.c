@@ -1204,6 +1204,28 @@ static const struct regmap_config dspi_xspi_regmap_config[] = {
 	},
 };
 
+static void dspi_set_pinctrl(struct platform_device *pdev,
+		struct pinctrl *pinctrl_dspi, struct pinctrl_state *pinctrl_slave)
+{
+	int ret;
+
+	pinctrl_dspi = devm_pinctrl_get(&pdev->dev);
+	if (IS_ERR(pinctrl_dspi)) {
+		dev_warn(&pdev->dev,
+			"no pinctrl info found: %ld\n",
+			PTR_ERR(pinctrl_dspi));
+		return;
+	}
+
+	pinctrl_slave = pinctrl_lookup_state(pinctrl_dspi, "slave");
+	if (!IS_ERR(pinctrl_slave)) {
+		ret = pinctrl_select_state(pinctrl_dspi, pinctrl_slave);
+		if (ret < 0)
+			dev_err(&pdev->dev,
+				"failed to switch to slave pinctrl: %d\n", ret);
+	}
+}
+
 static int dspi_init(struct fsl_dspi *dspi)
 {
 	unsigned int mcr;
@@ -1272,6 +1294,8 @@ static int dspi_probe(struct platform_device *pdev)
 	struct resource *res;
 	void __iomem *base;
 	bool big_endian;
+	struct pinctrl_state *pinctrl_slave;
+	struct pinctrl *pinctrl_dspi;
 
 	dspi = devm_kzalloc(&pdev->dev, sizeof(*dspi), GFP_KERNEL);
 	if (!dspi)
@@ -1376,6 +1400,9 @@ static int dspi_probe(struct platform_device *pdev)
 			goto out_ctlr_put;
 		}
 	}
+
+	if (ctlr->slave)
+		dspi_set_pinctrl(pdev, pinctrl_dspi, pinctrl_slave);
 
 	dspi->clk = devm_clk_get(&pdev->dev, "dspi");
 	if (IS_ERR(dspi->clk)) {
