@@ -90,11 +90,8 @@
 };
 
 &spi1 {
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl0_dspi1>, <&pinctrl1_dspi1>;
 	#address-cells = <1>;
 	#size-cells = <0>;
-	status = "okay";
 
 	sja1105p@0 {
 		compatible = "nxp,sja1105p-switch";
