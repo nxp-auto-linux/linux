@@ -1,0 +1,404 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+/*
+ * Copyright 2020 NXP
+ */
+
+/dts-v1/;
+#include "fsl-s32g274a.dtsi"
+#include <dt-bindings/pinctrl/s32g274-pinctrl.h>
+/ {
+	model = "Freescale S32G274 BlueBox3";
+	compatible = "fsl,s32g274-simu", "arm,vexpress";
+
+	chosen {
+		stdout-path = "serial0:115200n8";
+	};
+
+	memory_DDR0@80000000 {
+		device_type = "memory";
+		reg = <0 0x80000000 0 0x40000000>;
+	};
+
+	memory_DDR1@c0000000 {
+		device_type = "memory";
+		reg = <0 0xc0000000 0 0x40000000>;
+	};
+
+	memory_DDR2@880000000 {
+		device_type = "memory";
+		reg = <0x8 0x80000000 0 0x80000000>;
+	};
+
+	reserved-memory {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		pfe_reserved: pfebufs@83400000 {
+			compatible = "shared-dma-pool";
+			reg = <0 0x83400000 0 0xc00000>;
+			no-map;
+			status = "okay";
+		};
+	};
+};
+
+&edma0 {
+	status = "okay";
+};
+
+&edma1 {
+	status = "okay";
+};
+
+&fccu {
+	status = "okay";
+};
+
+&fxosc {
+	clock-frequency = <40000000>;
+};
+
+&generic_timer {
+	clock-frequency = <5000000>;
+};
+
+&gmac0 {
+	status = "disabled";
+};
+
+&gpio0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_gpio0>;
+	status = "okay";
+};
+
+&gpio1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_gpioeirq>;
+	status = "okay";
+};
+
+&i2c0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl0_i2c0>;
+	status = "okay";
+};
+
+&i2c1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl0_i2c1>, <&pinctrl1_i2c1>;
+	status = "okay";
+};
+
+&i2c2 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl0_i2c2>, <&pinctrl1_i2c2>;
+	status = "okay";
+};
+
+&i2c4 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl0_i2c4>, <&pinctrl1_i2c4>;
+	status = "okay";
+};
+
+&pcie0 {
+	status = "okay";
+};
+
+&pfe {
+	status = "okay";
+	memory-region = <&pfe_reserved>;
+};
+
+&pfe0_if {
+	fsl,pfeng-hif-channel = <0>;
+	phy-mode = "sgmii";
+	status = "okay";
+
+	fixed-link {
+		speed = <1000>;
+		full-duplex;
+	};
+};
+
+&pfe0_mdio {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl0_pfe0_mdio>, <&pinctrl1_pfe0_mdio>;
+	status = "okay";
+
+	phy1: phy@1 {
+		reg = <1>;
+	};
+
+	phy2: phy@2 {
+		reg = <2>;
+	};
+
+	phy25: phy@25 {
+		reg = <25>;
+	};
+
+	phy26: phy@26 {
+		reg = <26>;
+	};
+
+	phy27: phy@27 {
+		reg = <27>;
+	};
+
+	phy28: phy@28 {
+		reg = <28>;
+	};
+
+	phy29: phy@29 {
+		reg = <29>;
+	};
+
+	phy30: phy@30 {
+		reg = <30>;
+	};
+};
+
+&pinctrl0 {
+	status = "okay";
+	s32g274a-evb {
+		pinctrl0_dspi0: dsp0grp {
+			fsl,pins = <
+				S32_GEN1_PAD_PA13__SPI0_SCK_OUT
+				S32_GEN1_PAD_PA14__SPI0_SIN_OUT
+				S32_GEN1_PAD_PA15__SPI0_SOUT_OUT
+				S32_GEN1_PAD_PB9__SPI0_CS1_OUT
+				S32_GEN1_PAD_PB10__SPI0_CS2_OUT
+			>;
+		};
+
+		pinctrl0_dspi1: dspi1grp {
+			fsl,pins = <
+				S32_GEN1_PAD_PA6__SPI1_SOUT_OUT
+				S32_GEN1_PAD_PA8__SPI1_SCK_OUT
+				S32_GEN1_PAD_PA7__SPI1_CS0_OUT
+				S32_GEN1_PAD_PE5__SPI1_CS3_OUT
+				S32_GEN1_PAD_PF15__SPI1_SIN_OUT
+			>;
+		};
+
+		pinctrl0_i2c0: i2c0grp {
+			fsl,pins = <
+				S32_GEN1_PAD_PB0__I2C0_DATA_OUT
+				S32_GEN1_PAD_PB0__I2C0_DATA_IN
+				S32_GEN1_PAD_PB1__I2C0_SCLK_OUT
+				S32_GEN1_PAD_PB1__I2C0_SCLK_IN
+			>;
+		};
+
+		pinctrl0_i2c1: i2c1grp {
+			fsl,pins = <
+				S32_GEN1_PAD_PB3__I2C1_SCLK_OUT
+				S32_GEN1_PAD_PB4__I2C1_DATA_OUT
+			>;
+		};
+
+		pinctrl0_i2c2: i2c2grp {
+			fsl,pins = <
+				S32_GEN1_PAD_PB5__I2C2_SCLK_OUT
+				S32_GEN1_PAD_PB6__I2C2_DATA_OUT
+			>;
+		};
+
+		pinctrl0_i2c4: i2c4grp {
+			fsl,pins = <
+				S32_GEN1_PAD_PC1__I2C4_DATA_OUT
+				S32_GEN1_PAD_PC2__I2C4_SCLK_OUT
+			>;
+		};
+
+		pinctrl_gpio0: gpiogrp0 {
+			fsl,pins = <
+				S32_GEN1_PAD_PA9__SIUL_GPIO9
+				S32_GEN1_PAD_PA11__SIUL_GPIO11
+				S32_GEN1_PAD_PB7__SIUL_GPIO23
+				S32_GEN1_PAD_PB8__SIUL_GPIO24
+				S32_GEN1_PAD_PB11__SIUL_GPIO27
+				S32_GEN1_PAD_PB12__SIUL_GPIO28
+				S32_GEN1_PAD_PB13__SIUL_GPIO29
+				S32_GEN1_PAD_PB14__SIUL_GPIO30
+				S32_GEN1_PAD_PB15__SIUL_GPIO31
+				S32_GEN1_PAD_PC6__SIUL_GPIO38
+				S32_GEN1_PAD_PD12__SIUL_GPIO60
+				S32_GEN1_PAD_PD13__SIUL_GPIO61
+				S32_GEN1_PAD_PD14__SIUL_GPIO62
+				S32_GEN1_PAD_PD15__SIUL_GPIO63
+				S32_GEN1_PAD_PE2__SIUL_GPIO66
+				S32_GEN1_PAD_PE3__SIUL_GPIO67
+				S32_GEN1_PAD_PE14__SIUL_GPIO78
+				S32_GEN1_PAD_PF0__SIUL_GPIO80
+				S32_GEN1_PAD_PF15__SIUL_GPIO95
+				>;
+		};
+
+		pinctrl0_pfe0_mdio: pfe0mdiogrp {
+			fsl,pins = <
+				S32_G274_PAD_PF2__PFE0_MDC
+				S32_G274_PAD_PE15__PFE0_MDIO_OUT
+			>;
+		};
+	};
+};
+
+&pinctrl1 {
+	status = "okay";
+	s32g274a-evb {
+
+		pinctrl1_dspi0: dspi0grp {
+			fsl,pins = <
+				S32_GEN1_PAD_PA14__SPI0_SIN_IN
+			>;
+		};
+
+		pinctrl1_dspi1: dspi1grp {
+			fsl,pins = <
+				S32_GEN1_PAD_PF15__SPI1_SIN_IN
+			>;
+		};
+
+		pinctrl1_i2c1: i2c1grp {
+			fsl,pins = <
+				S32_GEN1_PAD_PB3__I2C1_SCLK_IN
+				S32_GEN1_PAD_PB4__I2C1_DATA_IN
+			>;
+		};
+
+		pinctrl1_i2c2: i2c2grp {
+			fsl,pins = <
+				S32_GEN1_PAD_PB5__I2C2_SCLK_IN
+				S32_GEN1_PAD_PB6__I2C2_DATA_IN
+			>;
+		};
+
+		pinctrl1_i2c4: i2c4grp {
+			fsl,pins = <
+				S32_GEN1_PAD_PC1__I2C4_DATA_IN
+				S32_GEN1_PAD_PC2__I2C4_SCLK_IN
+			>;
+		};
+
+		pinctrl_gpio1: gpiogrp1 {
+			fsl,pins = <
+				S32_GEN1_PAD_PH0__SIUL_GPIO112
+				S32_GEN1_PAD_PH1__SIUL_GPIO113
+				S32_GEN1_PAD_PH2__SIUL_GPIO114
+				S32_GEN1_PAD_PH3__SIUL_GPIO115
+				S32_GEN1_PAD_PH6__SIUL_GPIO118
+				S32_GEN1_PAD_PH10__SIUL_GPIO122
+				S32_GEN1_PAD_PJ0__SIUL_GPIO144
+				S32_GEN1_PAD_PL10__SIUL_GPIO186
+				S32_GEN1_PAD_PL11__SIUL_GPIO187
+				S32_GEN1_PAD_PL12__SIUL_GPIO188
+				S32_GEN1_PAD_PL13__SIUL_GPIO189
+				S32_GEN1_PAD_PL14__SIUL_GPIO190
+				>;
+		};
+
+		pinctrl_gpioeirq: gpioeirqgrp {
+			fsl,pins = <
+				S32_GEN1_PAD_PB7__SIUL_EIRQ4
+				S32_GEN1_PAD_PB8__SIUL_EIRQ5
+				S32_GEN1_PAD_PB11__SIUL_EIRQ8
+				S32_GEN1_PAD_PB12__SIUL_EIRQ9
+				S32_GEN1_PAD_PB15__SIUL_EIRQ12
+				>;
+		};
+
+		pinctrl1_pfe0_mdio: pfe0mdiogrp {
+			fsl,pins = <
+				S32_G274_PAD_PE15__PFE0_MDIO_IN
+			>;
+		};
+	};
+};
+
+&pit0 {
+	status = "okay";
+};
+
+&pit1 {
+	status = "okay";
+};
+
+&serdes_ext {
+	clock-frequency = <125000000>;
+};
+
+&spi0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl0_dspi0>, <&pinctrl1_dspi0>;
+	#address-cells = <1>;
+	#size-cells = <0>;
+	status = "okay";
+
+	spidev1: spidev@1 {
+		compatible = "rohm,dh2228fv";
+		spi-max-frequency = <4000000>;
+		reg = <1>;
+	};
+
+	spidev2: spidev@2 {
+		compatible = "rohm,dh2228fv";
+		spi-max-frequency = <4000000>;
+		reg = <2>;
+	};
+};
+
+&spi1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl0_dspi1>, <&pinctrl1_dspi1>;
+	#address-cells = <1>;
+	#size-cells = <0>;
+	status = "okay";
+
+	spidev0: spidev@0 {
+		compatible = "rohm,dh2228fv";
+		spi-max-frequency = <4000000>;
+		reg = <0>;
+	};
+
+	spidev3: spidev@3 {
+		compatible = "rohm,dh2228fv";
+		spi-max-frequency = <4000000>;
+		reg = <3>;
+	};
+};
+
+&stm0 {
+	status = "okay";
+};
+
+&stm1 {
+	status = "okay";
+};
+
+&stm2 {
+	status = "okay";
+};
+
+&swt3 {
+	status = "okay";
+};
+
+&swt4 {
+	status = "okay";
+};
+
+&swt5 {
+	status = "okay";
+};
+
+&swt6 {
+	status = "okay";
+};
+
+&usdhc0 {
+	status = "okay";
+};
