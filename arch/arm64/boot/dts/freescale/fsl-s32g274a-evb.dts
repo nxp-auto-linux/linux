@@ -321,6 +321,15 @@
 			>;
 		};
 
+		pinctrl0_dspi1_slave: dspi1slavegrp {
+			fsl,pins = <
+				S32_GEN1_PAD_PA7__SPI1_CS0_SLAVE_OUT
+				S32_GEN1_PAD_PA6__SPI1_SOUT_OUT
+				S32_GEN1_PAD_PA8__SPI1_SCK_SLAVE_OUT
+				S32_GEN1_PAD_PF15__SPI1_SIN_OUT
+			>;
+		};
+
 		pinctrl0_dspi5: dspi5grp {
 			fsl,pins = <
 				S32_GEN1_PAD_PA12__SPI5_CS0_OUT
@@ -538,6 +547,14 @@
 			>;
 		};
 
+		pinctrl1_dspi1_slave: dspi1slavegrp {
+			fsl,pins = <
+				S32_GEN1_PAD_PA7__SPI1_CS0_SLAVE_IN
+				S32_GEN1_PAD_PA8__SPI1_SCK_SLAVE_IN
+				S32_GEN1_PAD_PF15__SPI1_SIN_IN
+			>;
+		};
+
 		pinctrl1_dspi5: dspi5grp {
 			fsl,pins = <
 				S32_GEN1_PAD_PA10__SPI5_SIN_IN
@@ -699,8 +716,9 @@
 };
 
 &spi1 {
-	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl0_dspi1>, <&pinctrl1_dspi1>;
+	pinctrl-1 = <&pinctrl0_dspi1_slave>, <&pinctrl1_dspi1_slave>;
+	pinctrl-names = "default", "slave";
 	#address-cells = <1>;
 	#size-cells = <0>;
 	status = "okay";
