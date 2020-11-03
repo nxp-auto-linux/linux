@@ -22,4 +22,13 @@ Required properties:
   set and addressed in the same way as MSCR, only instead of passing the
   IMCR index, IMCR_IDX + 512 is passed[1].
 
+  Some pads can be configured only through SRC_GPR regitsters. If this is
+  the case, PIN_FUNC_ID will be obtained from SRC_GPR index and the offset
+  in the register using S32V234_PAD_GPR macro:
+	* S32V234_PAD_GPR(n, m) will address bit m from SRC_GPRn.
+  CONFIG can be 1 or 0 in SRC_GPR case.
+  Eg:
+	#define S32V234_PAD_GPR8__SPI0_SCK_IN	\
+			S32V234_PAD_GPR(8, 31) S32V234_PAD_GPR_EN
+
 [1] https://www.nxp.com/webapp/Download?colCode=S32V234RM
