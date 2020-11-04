@@ -465,8 +465,6 @@ static void s32gen1_pcie_ep_init(struct dw_pcie_ep *ep)
 	dev_dbg(pcie->dev, "iATU unroll: %s\n",
 			pcie->iatu_unroll_enabled ? "enabled" : "disabled");
 
-	dw_pcie_setup(pcie);
-
 	/*
 	 * Configure the class and revision for the EP device,
 	 * to enable human friendly enumeration by the RC (e.g. by lspci)
@@ -504,7 +502,7 @@ static void s32gen1_pcie_ep_init(struct dw_pcie_ep *ep)
 	dw_pcie_writel_dbi(pcie, PCI_INTERRUPT_LINE, val);
 
 	dw_pcie_msi_init(&pcie->pp);
-#else
+#endif /* CONFIG_PCI_S32GEN1_EP_MSI */
 	pr_debug("%s: Enable MSI/MSI-X capabilities\n", __func__);
 
 	/* Enable MSIs by setting the capability bit */
@@ -512,7 +510,6 @@ static void s32gen1_pcie_ep_init(struct dw_pcie_ep *ep)
 
 	/* Enable MSI-Xs by setting the capability bit */
 	BSET32(pcie, dbi, PCI_MSIX_CAP, MSIX_EN);
-#endif /* CONFIG_PCI_S32GEN1_EP_MSI */
 
 	dw_pcie_dbi_ro_wr_dis(pcie);
 
