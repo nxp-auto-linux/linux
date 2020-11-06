@@ -3,6 +3,8 @@
 #  Makefile for the Linux Controller Area Network drivers.
 #
 
+obj-$(CONFIG_LLCE_LOGGER)	+= llce_logger.o
+
 obj-$(CONFIG_CAN_VCAN)		+= vcan.o
 obj-$(CONFIG_CAN_VXCAN)		+= vxcan.o
 obj-$(CONFIG_CAN_SLCAN)		+= slcan.o
