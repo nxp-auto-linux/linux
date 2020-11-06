@@ -1,6 +1,17 @@
 # SPDX-License-Identifier: GPL-2.0-only
 menu "CAN Device Drivers"
 
+config LLCE_LOGGER
+    tristate "LLCE Logging Driver"
+    depends on SOC_S32GEN1 && m
+    help
+        This driver is used on S32G2xx to log CAN messages received from LLCE.
+        It provides a interface to userspace, as a char device, on which you
+        can cat or you can echo a value to set the log size to that dimension.
+        Separate LLCE configuration for CAN is expected.
+
+        It assumes that the LLCE Firmware is already loaded.
+
 config CAN_VCAN
 	tristate "Virtual Local CAN Interface (vcan)"
 	help
