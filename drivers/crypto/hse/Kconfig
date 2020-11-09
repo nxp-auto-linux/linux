@@ -26,6 +26,13 @@ config CRYPTO_DEV_NXP_HSE_HWRNG
 	help
 	  Enables hardware RNG support for NXP's HSE.
 
+config CRYPTO_DEV_NXP_HSE_KEY_WRAPPING
+	bool "NXP key wrapping/blobbing support"
+	depends on CRYPTO_DEV_NXP_HSE
+	default n
+	help
+	  Enables NXP key wrapping/blobbing support.
+
 config CRYPTO_DEV_NXP_HSE_AES_KEY_GID
 	depends on CRYPTO_DEV_NXP_HSE
 	int "AES Key Group ID within RAM Key Catalog: [0-256]"
