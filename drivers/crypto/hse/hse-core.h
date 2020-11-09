@@ -27,6 +27,18 @@ enum hse_ch_type {
 };
 
 /**
+ * enum hse_alg_type - algorithm type
+ * @HSE_ALG_TYPE_AEAD: AEAD
+ * @HSE_ALG_TYPE_AUTHENC: authenticated encryption
+ * @HSE_ALG_TYPE_KEYWRAP: key wrapping/blobbing
+ */
+enum hse_alg_type {
+	HSE_ALG_TYPE_AEAD = 0u,
+	HSE_ALG_TYPE_AUTHENC = 1u,
+	HSE_ALG_TYPE_KEYWRAP = 2u,
+};
+
+/**
  * struct hse_key - HSE key slot
  * @entry: list position
  * @handle: key handle
