@@ -15,6 +15,7 @@
 
 #define HSE_KEY_HANDLE(group, slot)    ((HSE_KEY_CATALOG_ID_RAM << 16u) |      \
 					((group) << 8u) | (slot))
+#define HSE_ROM_KEY_AES256_KEY0    0ul /* HSE ROM key 0, provisioned by NXP */
 
 #define HSE_KEY_HMAC_MIN_SIZE    16u /* minimum key size admitted for HMAC */
 
