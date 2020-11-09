@@ -322,8 +322,7 @@
 				S32_GEN1_PAD_PE3__SIUL_GPIO67
 				S32_GEN1_PAD_PE14__SIUL_GPIO78
 				S32_GEN1_PAD_PF0__SIUL_GPIO80
-				S32_GEN1_PAD_PF15__SIUL_GPIO95
-				>;
+			>;
 		};
 
 		pinctrl0_pfe0_mdio: pfe0mdiogrp {
