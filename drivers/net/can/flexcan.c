@@ -891,6 +891,12 @@ static irqreturn_t flexcan_irq_bus_err(int irq, void *dev_id)
 	spin_unlock_irqrestore(&priv->timer_access, flags);
 	timestamp <<= 16;
 
+	priv->can.can_stats.bus_error++;
+	if (reg_esr & FLEXCAN_ESR_TX_ERR)
+		dev->stats.tx_errors++;
+	if (reg_esr & FLEXCAN_ESR_RX_ERR)
+		dev->stats.rx_errors++;
+
 	skb = alloc_can_err_skb(dev, &cf);
 	if (unlikely(!skb)) {
 		netdev_warn_once(dev, "Unable to allocate socket buffer structure for bus error\n");
