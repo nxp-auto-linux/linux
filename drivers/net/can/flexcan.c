@@ -158,6 +158,11 @@
 #define FLEXCAN_CBT_EPSEG2(x)		((x) & FLEXCAN_CBT_EPSEG_MASK)
 
 /* FLEXCAN FD Bit Timing register (FDCBT) bits */
+#define FLEXCAN_FDCTRL_FDRATE       BIT(31)
+#define FLEXCAN_FDCTRL_MBDSR0(x)    (((x) & 0x3) << 16)
+#define FLEXCAN_FDCTRL_MBDSR1(x)    (((x) & 0x3) << 19)
+#define FLEXCAN_FDCTRL_MBDSR2(x)    (((x) & 0x3) << 22)
+#define FLEXCAN_FDCTRL_MBDSR3(x)    (((x) & 0x3) << 25)
 #define FLEXCAN_FDCBT_FPRESDIV_SHIFT	(20)
 #define FLEXCAN_FDCBT_FPRESDIV_MASK		(0x3ff)
 #define FLEXCAN_FDCBT_FPRESDIV(x)	(((x) & \
@@ -831,6 +836,13 @@ static netdev_tx_t flexcan_start_xmit(struct sk_buff *skb, struct net_device *de
 	if (cf->can_id & CAN_RTR_FLAG)
 		ctrl |= FLEXCAN_MB_CNT_RTR;
 
+	if (can_is_canfd_skb(skb)) {
+		ctrl |= FLEXCAN_MB_CNT_EDL;
+
+		if (cf->flags & CANFD_BRS)
+			ctrl |= FLEXCAN_MB_CNT_BRS;
+	}
+
 	for (i = 0, j = 0; i < cf->len; i += sizeof(u32), j++) {
 		data = be32_to_cpup((__be32 *)&cf->data[i]);
 		priv->write(data, &priv->tx_mb->data[j]);
@@ -978,6 +990,8 @@ static irqreturn_t flexcan_irq_state(int irq, void *dev_id)
 					can_bus_off(dev);
 				can_rx_offload_queue_sorted(&priv->offload,
 							    skb, timestamp);
+			} else {
+				netdev_warn_once(dev, "Unable to allocate socket buffer structure for state change\n");
 			}
 		}
 	}
@@ -1157,7 +1171,8 @@ static irqreturn_t flexcan_irq_mailbox(int irq, void *dev_id)
 	struct flexcan_priv *priv = netdev_priv(dev);
 	struct flexcan_regs __iomem *regs = priv->regs;
 	irqreturn_t handled = IRQ_NONE;
-	u32 reg_iflag2;
+	u32 reg_tx_iflag, tx_iflag_mask;
+	u32 __iomem *reg_iflag_ptr;
 
 	/* reception interrupt */
 	if (priv->devtype_data->quirks & FLEXCAN_QUIRK_USE_OFF_TIMESTAMP) {
@@ -1190,10 +1205,18 @@ static irqreturn_t flexcan_irq_mailbox(int irq, void *dev_id)
 		}
 	}
 
-	reg_iflag2 = priv->read(&regs->iflag2);
+	if (priv->tx_mb_idx >= FLEXCAN_IFLAG1_MB_NUM) {
+		reg_tx_iflag = priv->read(&regs->iflag2);
+		tx_iflag_mask = FLEXCAN_IFLAG2_MB(priv->tx_mb_idx);
+		reg_iflag_ptr = &regs->iflag2;
+	} else {
+		reg_tx_iflag = priv->read(&regs->iflag1);
+		tx_iflag_mask = FLEXCAN_IFLAG1_MB(priv->tx_mb_idx);
+		reg_iflag_ptr = &regs->iflag1;
+	}
 
 	/* transmission complete interrupt */
-	if (reg_iflag2 & FLEXCAN_IFLAG2_MB(priv->tx_mb_idx)) {
+	if (reg_tx_iflag & tx_iflag_mask) {
 		u32 reg_ctrl = priv->read(&priv->tx_mb->can_ctrl);
 
 		handled = IRQ_HANDLED;
@@ -1205,7 +1228,7 @@ static irqreturn_t flexcan_irq_mailbox(int irq, void *dev_id)
 		/* after sending a RTR frame MB is in RX mode */
 		priv->write(FLEXCAN_MB_CODE_TX_INACTIVE,
 			    &priv->tx_mb->can_ctrl);
-		priv->write(FLEXCAN_IFLAG2_MB(priv->tx_mb_idx), &regs->iflag2);
+		priv->write(tx_iflag_mask, reg_iflag_ptr);
 		netif_wake_queue(dev);
 	}
 
@@ -1338,7 +1361,7 @@ static int flexcan_chip_start(struct net_device *dev)
 {
 	struct flexcan_priv *priv = netdev_priv(dev);
 	struct flexcan_regs __iomem *regs = priv->regs;
-	u32 reg_mcr, reg_ctrl, reg_ctrl2, reg_mecr;
+	u32 reg_mcr, reg_ctrl, reg_ctrl2, reg_mecr, reg_fdctrl;
 	int err, i;
 	struct flexcan_mb __iomem *mb;
 
@@ -1422,6 +1445,31 @@ static int flexcan_chip_start(struct net_device *dev)
 	reg_ctrl &= ~FLEXCAN_CTRL_ERR_ALL;
 	netdev_dbg(dev, "%s: writing ctrl=0x%08x", __func__, reg_ctrl);
 	priv->write(reg_ctrl, &regs->ctrl);
+
+	/* FDCTRL
+	 *
+	 * support BRS when set CAN FD mode
+	 * 64 bytes payload per MB and 7 MBs per RAM block by default
+	 * enable CAN FD mode
+	 */
+	if (priv->can.ctrlmode & CAN_CTRLMODE_FD) {
+		reg_fdctrl = priv->read(&regs->fdctrl);
+		reg_fdctrl |= FLEXCAN_FDCTRL_FDRATE;
+		reg_fdctrl |= FLEXCAN_FDCTRL_MBDSR3(3) |
+			FLEXCAN_FDCTRL_MBDSR2(3) | FLEXCAN_FDCTRL_MBDSR1(3) |
+			FLEXCAN_FDCTRL_MBDSR0(3);
+		priv->write(reg_fdctrl, &regs->fdctrl);
+		reg_mcr = priv->read(&regs->mcr);
+		priv->write(reg_mcr | FLEXCAN_MCR_FDEN, &regs->mcr);
+
+		reg_ctrl2 = priv->read(&regs->ctrl2);
+		if (!(priv->can.ctrlmode & CAN_CTRLMODE_FD_NON_ISO))
+			priv->write(reg_ctrl2 | FLEXCAN_CTRL2_ISOCANFDEN,
+					&regs->ctrl2);
+		else
+			priv->write(reg_ctrl2 & ~FLEXCAN_CTRL2_ISOCANFDEN,
+					&regs->ctrl2);
+	}
 
 	if ((priv->devtype_data->quirks & FLEXCAN_QUIRK_ENABLE_EACEN_RRS)) {
 		reg_ctrl2 = priv->read(&regs->ctrl2);
