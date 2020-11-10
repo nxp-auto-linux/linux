@@ -181,7 +181,9 @@
 #define FLEXCAN_TX_MB_RESERVED_OFF_FIFO		8
 #define FLEXCAN_TX_MB_RESERVED_OFF_TIMESTAMP	0
 #define FLEXCAN_RX_MB_OFF_TIMESTAMP_FIRST	(FLEXCAN_TX_MB_RESERVED_OFF_TIMESTAMP + 1)
-#define FLEXCAN_IFLAG_MB(x)		BIT((x) & 0x1f)
+#define FLEXCAN_IFLAG1_MB_NUM		32
+#define FLEXCAN_IFLAG1_MB(x)		BIT(x)
+#define FLEXCAN_IFLAG2_MB(x)		BIT((x) & 0x1f)
 #define FLEXCAN_IFLAG_RX_FIFO_OVERFLOW	BIT(7)
 #define FLEXCAN_IFLAG_RX_FIFO_WARN	BIT(6)
 #define FLEXCAN_IFLAG_RX_FIFO_AVAILABLE	BIT(5)
@@ -1142,7 +1144,7 @@ static inline u64 flexcan_read_reg_iflag_rx(struct flexcan_priv *priv)
 	u32 iflag1, iflag2;
 
 	iflag2 = priv->read(&regs->iflag2) & priv->reg_imask2_default &
-		~FLEXCAN_IFLAG_MB(priv->tx_mb_idx);
+		~FLEXCAN_IFLAG2_MB(priv->tx_mb_idx);
 	iflag1 = priv->read(&regs->iflag1) & priv->reg_imask1_default;
 
 	return (u64)iflag2 << 32 | iflag1;
@@ -1191,7 +1193,7 @@ static irqreturn_t flexcan_irq_mailbox(int irq, void *dev_id)
 	reg_iflag2 = priv->read(&regs->iflag2);
 
 	/* transmission complete interrupt */
-	if (reg_iflag2 & FLEXCAN_IFLAG_MB(priv->tx_mb_idx)) {
+	if (reg_iflag2 & FLEXCAN_IFLAG2_MB(priv->tx_mb_idx)) {
 		u32 reg_ctrl = priv->read(&priv->tx_mb->can_ctrl);
 
 		handled = IRQ_HANDLED;
@@ -1203,7 +1205,7 @@ static irqreturn_t flexcan_irq_mailbox(int irq, void *dev_id)
 		/* after sending a RTR frame MB is in RX mode */
 		priv->write(FLEXCAN_MB_CODE_TX_INACTIVE,
 			    &priv->tx_mb->can_ctrl);
-		priv->write(FLEXCAN_IFLAG_MB(priv->tx_mb_idx), &regs->iflag2);
+		priv->write(FLEXCAN_IFLAG2_MB(priv->tx_mb_idx), &regs->iflag2);
 		netif_wake_queue(dev);
 	}
 
@@ -1586,47 +1588,13 @@ static int flexcan_open(struct net_device *dev)
 	priv->tx_mb_idx = priv->mb_count - 1;
 	priv->tx_mb = flexcan_get_mb(priv, priv->tx_mb_idx);
 
-	priv->reg_imask1_default = 0;
-	priv->reg_imask2_default = FLEXCAN_IFLAG_MB(priv->tx_mb_idx);
-
-	priv->offload.mailbox_read = flexcan_mailbox_read;
-
-	if (priv->devtype_data->quirks & FLEXCAN_QUIRK_USE_OFF_TIMESTAMP) {
-		u64 imask;
-
-		priv->offload.mb_first = FLEXCAN_RX_MB_OFF_TIMESTAMP_FIRST;
-		priv->offload.mb_last = priv->mb_count - 2;
-
-		imask = GENMASK_ULL(priv->offload.mb_last,
-				    priv->offload.mb_first);
-		priv->reg_imask1_default |= imask;
-		priv->reg_imask2_default |= imask >> 32;
-
-		err = can_rx_offload_add_timestamp(dev, &priv->offload);
+	if (priv->tx_mb_idx >= FLEXCAN_IFLAG1_MB_NUM) {
+		priv->reg_imask1_default = 0;
+		priv->reg_imask2_default = FLEXCAN_IFLAG2_MB(priv->tx_mb_idx);
 	} else {
-		priv->reg_imask1_default |= FLEXCAN_IFLAG_RX_FIFO_OVERFLOW |
-			FLEXCAN_IFLAG_RX_FIFO_AVAILABLE;
-		err = can_rx_offload_add_fifo(dev, &priv->offload,
-					      FLEXCAN_NAPI_WEIGHT);
+		priv->reg_imask1_default = FLEXCAN_IFLAG1_MB(priv->tx_mb_idx);
+		priv->reg_imask2_default = 0;
 	}
-	if (err)
-		goto out_free_irq;
-
-	priv->mb_size = sizeof(struct flexcan_mb) + CAN_MAX_DLEN;
-	priv->mb_count = (sizeof(priv->regs->mb[0]) / priv->mb_size) +
-			 (sizeof(priv->regs->mb[1]) / priv->mb_size);
-
-	if (priv->devtype_data->quirks & FLEXCAN_QUIRK_USE_OFF_TIMESTAMP)
-		priv->tx_mb_reserved =
-			flexcan_get_mb(priv, FLEXCAN_TX_MB_RESERVED_OFF_TIMESTAMP);
-	else
-		priv->tx_mb_reserved =
-			flexcan_get_mb(priv, FLEXCAN_TX_MB_RESERVED_OFF_FIFO);
-	priv->tx_mb_idx = priv->mb_count - 1;
-	priv->tx_mb = flexcan_get_mb(priv, priv->tx_mb_idx);
-
-	priv->reg_imask1_default = 0;
-	priv->reg_imask2_default = FLEXCAN_IFLAG_MB(priv->tx_mb_idx);
 
 	priv->offload.mailbox_read = flexcan_mailbox_read;
 
