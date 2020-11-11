@@ -125,18 +125,6 @@
 	status = "okay";
 };
 
-&can2 {
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl0_can2>, <&pinctrl1_can2>;
-	status = "okay";
-};
-
-&can3 {
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl0_can3>, <&pinctrl1_can3>;
-	status = "okay";
-};
-
 &stm0 {
 	status = "okay";
 };
