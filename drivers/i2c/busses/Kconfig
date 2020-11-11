@@ -675,6 +675,7 @@ config I2C_IMG
 config I2C_IMX
 	tristate "IMX/S32 I2C interface"
 	depends on ARCH_MXC || ARCH_LAYERSCAPE || COLDFIRE || ARCH_S32
+	select I2C_SLAVE
 	help
 	  Say Y here if you want to use the IIC bus controller on
 	  the Freescale i.MX/MXC/S32, Layerscape or ColdFire processors.
@@ -1421,3 +1422,4 @@ config I2C_FSI
 	  called as i2c-fsi.
 
 endmenu
+
