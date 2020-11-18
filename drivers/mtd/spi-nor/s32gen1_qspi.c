@@ -769,10 +769,10 @@ static int enable_ddr(struct fsl_qspi *q)
 
 	/* Disable the module */
 	mcr = qspi_readl(q, base + QUADSPI_MCR);
-	mcr |= QUADSPI_MCR_MDIS_MASK | ddr_config.mcr;
+	mcr |= QUADSPI_MCR_MDIS_MASK;
 	qspi_writel(q, mcr, base + QUADSPI_MCR);
 
-	mcr |= QUADSPI_MCR_DQS_EXTERNAL;
+	mcr |= ddr_config.mcr;
 	qspi_writel(q, mcr, base + QUADSPI_MCR);
 
 	qspi_writel(q, ddr_config.flshcr, base + QUADSPI_FLSHCR);
@@ -927,7 +927,7 @@ int enable_spi(struct fsl_qspi *q, bool force)
 	qspi_writel(q, 0x0, base + QUADSPI_SFACR);
 
 	mcr = qspi_readl(q, base + QUADSPI_MCR);
-	mcr &= ~(QUADSPI_MCR_DLPEN_MASK | QUADSPI_MCR_DQS_MASK);
+	mcr &= ~QUADSPI_MCR_DLPEN_MASK;
 
 	mcr &= ~QUADSPI_MCR_MDIS_MASK;
 	qspi_writel(q, mcr, base + QUADSPI_MCR);
