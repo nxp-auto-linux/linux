@@ -23,14 +23,53 @@
 #endif
 
 #define TMU_SITE(n)			(1 << n)
-#define CALIB_POINTS		12
+#define CALIB_POINTS_MAX	12
 #define NO_INTERF_FILES		4
+
+/* SOC revision */
+#define SIUL2_MIDR1_OFF				(0x00000004)
+#define SIUL2_MIDR2_OFF				(0x00000008)
+
+/* SIUL2_MIDR1 masks */
+#define SIUL2_MIDR1_MINOR_MASK		(0xF << 0)
+#define SIUL2_MIDR1_MAJOR_SHIFT		(4)
+#define SIUL2_MIDR1_MAJOR_MASK		(0xF << SIUL2_MIDR1_MAJOR_SHIFT)
+
+/* The hard-coded vectors are required to calibrate the thermal
+ * monitoring unit. They were determined by experiments in a
+ * thermally controlled environment and are specific to each
+ * revision of the SoC.
+ */
+static const uint32_t rev1_calib_scfgr[] = {
+	0x2C, 0x26, 0x3D, 0x6B, 0x9B, 0xC9, 0xF7, 0x112, 0x125,
+	0x155, 0x16C, 0x172
+};
+
+static const uint32_t rev2_calib_scfgr[] = {
+	0x2C, 0x59, 0xC6, 0x167
+};
+
+static const uint32_t rev1_calib_trcr[] = {
+	0xE9, 0xE6, 0xF2, 0x10A, 0x123, 0x13B, 0x153, 0x161, 0x16B,
+	0x184, 0x190, 0x193
+};
+
+static const uint32_t rev2_calib_trcr[] = {
+	0xE9, 0x101, 0x13A, 0x18E
+};
+
+enum s32_calib_fuse {
+	COLD_FUSE,
+	WARM_FUSE
+};
 
 union CAL_FUSE_u {
 	uint32_t R;
 	struct {
-		uint32_t CFG_DAC_TRIM_0:5;
-		uint32_t Reserved0:27;
+		uint32_t CFG_DAC_TRIM0:5;
+		uint32_t Reserved0:1;
+		uint32_t CFG_DAC_TRIM1:5;
+		uint32_t Reserved1:21;
 	} B;
 };
 
@@ -41,7 +80,7 @@ union CAL_FUSE_u {
  * calibration function for V and for Gen1 will never
  * be both called in the resulting binary (namely, this driver
  * will be compiled for either V234 or for Gen1, never for
- * both simultanously).
+ * both simultaneously).
  */
 union TMU_TCFGR_V234_u {
 	uint32_t R;
@@ -118,7 +157,73 @@ struct tmu_driver_data {
 	void __iomem *tmu_registers;
 	void __iomem *fuse_base;
 	struct device *hwmon_device;
+	uint8_t	revision;
+	uint8_t calib_points;
 };
+
+static inline int get_siul2_midr1_minor(const void __iomem *siul20_base)
+{
+	return (readl(siul20_base + SIUL2_MIDR1_OFF) & SIUL2_MIDR1_MINOR_MASK);
+}
+
+static inline int get_siul2_midr1_major(const void __iomem *siul20_base)
+{
+	return ((readl(siul20_base + SIUL2_MIDR1_OFF) & SIUL2_MIDR1_MAJOR_MASK)
+			>> SIUL2_MIDR1_MAJOR_SHIFT);
+}
+
+static u64 get_siul2_base_addr_from_fdt(char *node_name)
+{
+	struct device_node *node = NULL;
+	const __be32 *siul2_base = NULL;
+	u64 siul2_base_address = OF_BAD_ADDR;
+
+	pr_debug("Searching %s MIDR registers in device-tree\n", node_name);
+	node = of_find_node_by_name(NULL, node_name);
+	if (!node) {
+		pr_warn("Could not get %s node from device-tree\n", node_name);
+		return siul2_base_address;
+	}
+
+	siul2_base = of_get_property(node, "midr-reg", NULL);
+	if (siul2_base)
+		siul2_base_address =
+			of_translate_address(node, siul2_base);
+	of_node_put(node);
+	pr_debug("Resolved %s base address to 0x%llx\n", node_name,
+			siul2_base_address);
+
+	return siul2_base_address;
+}
+
+static int s32gen1_get_soc_revision(struct device *dev, uint8_t *rev)
+{
+	void __iomem *siul2_virt_addr;
+	u32 raw_rev = 0;
+	u64 siul2_base_address = OF_BAD_ADDR;
+
+	siul2_base_address = get_siul2_base_addr_from_fdt("siul2_0");
+	if (siul2_base_address == OF_BAD_ADDR) {
+		dev_err(dev, "Can not obtain the base SIUL2 register\n");
+		return -ENXIO;
+	}
+	siul2_virt_addr = ioremap_nocache(siul2_base_address, SZ_1K);
+	if (siul2_virt_addr == NULL) {
+		dev_err(dev, "Failed to map SIUL2 base address\n");
+		return -EIO;
+	}
+	raw_rev =
+		(get_siul2_midr1_major(siul2_virt_addr) << 8) |
+		(get_siul2_midr1_minor(siul2_virt_addr) << 4);
+	iounmap(siul2_virt_addr);
+
+	if (raw_rev == 0)
+		*rev = 1;
+	else
+		*rev = 2;
+
+	return 0;
+}
 
 static int get_site_idx_from_label(const char *label)
 {
@@ -159,7 +264,7 @@ static inline int is_out_of_range(int8_t temperature)
  * the `Valid` bit of the registers would be cleared by hardware.
  * No mention about this for Gen1 (Documentation is wrong for TMU),
  * but the TMUs are similar enough to think it is the same, not to
- * mention that it seems to work in pracrice.
+ * mention that it seems to work in practice.
  */
 static int tmu_immediate_temperature(struct device *dev,
 					int8_t *immediate_temperature, int site)
@@ -260,7 +365,7 @@ static struct device_attribute dev_attrs[] = {
 	__ATTR(temp3_input, 0444, tmu_show_immediate,		NULL),
 	__ATTR(temp4_label, 0444, tmu_show_average_label,	NULL),
 	__ATTR(temp4_input, 0444, tmu_show_average,			NULL),
-	/* Third site for temperature dection */
+	/* Third site for temperature detection */
 	__ATTR(temp5_label, 0444, tmu_show_immediate_label, NULL),
 	__ATTR(temp5_input, 0444, tmu_show_immediate,		NULL),
 	__ATTR(temp6_label, 0444, tmu_show_average_label,	NULL),
@@ -318,16 +423,68 @@ static void tmu_enable_sites(struct device *dev)
 	writel(tmu_msr.R, tmu_dd->tmu_registers + TMU_MSR);
 }
 
-static int get_calib_fuse_val(struct device *dev)
+static uint32_t get_calib_fuse_val(struct device *dev,
+		enum s32_calib_fuse fuse_type)
 {
 	struct tmu_driver_data *tmu_dd = dev_get_drvdata(dev);
 	union CAL_FUSE_u calib_fuse;
 
 	calib_fuse.R = readl(tmu_dd->fuse_base + CAL_FUSE);
-	return calib_fuse.B.CFG_DAC_TRIM_0;
+	if (fuse_type == COLD_FUSE)
+		return calib_fuse.B.CFG_DAC_TRIM1;
+	return calib_fuse.B.CFG_DAC_TRIM0;
 }
 
-static void tmu_calibrate_s32gen1(struct device *dev)
+static void get_calib_with_fuses(struct device *dev,
+		uint32_t *calib_scfgr, uint32_t *calib_trcr,
+		const uint32_t *calib_scfgr_base,
+		const uint32_t *calib_trcr_base,
+		const uint32_t *warm_idxes, const uint32_t *cold_idxes,
+		size_t warm_size, size_t cold_size, size_t table_size)
+{
+	size_t i;
+
+	uint32_t fuse_val_cold = get_calib_fuse_val(dev, COLD_FUSE);
+	uint32_t fuse_val_warm = get_calib_fuse_val(dev, WARM_FUSE);
+
+	memcpy(calib_scfgr, calib_scfgr_base, table_size);
+	for (i = 0; i < warm_size; i++)
+		calib_scfgr[warm_idxes[i]] += fuse_val_warm;
+	for (i = 0; i < cold_size; i++)
+		calib_scfgr[cold_idxes[i]] += fuse_val_cold;
+
+	memcpy(calib_trcr, calib_trcr_base, table_size);
+}
+
+static void get_calib_table(struct device *dev,
+		uint32_t *calib_scfgr, uint32_t *calib_trcr)
+{
+	struct tmu_driver_data *tmu_dd = dev_get_drvdata(dev);
+
+	if (tmu_dd->revision == 1) {
+		const static uint32_t warm_idxes[] = {7, 8, 9, 10, 11};
+		const static uint32_t cold_idxes[] = {};
+
+		get_calib_with_fuses(dev,
+				calib_scfgr, calib_trcr,
+				rev1_calib_scfgr, rev1_calib_trcr,
+				warm_idxes, cold_idxes,
+				ARRAY_SIZE(warm_idxes), ARRAY_SIZE(cold_idxes),
+				sizeof(rev1_calib_scfgr));
+	} else {
+		const static uint32_t warm_idxes[] = {3};
+		const static uint32_t cold_idxes[] = {0};
+
+		get_calib_with_fuses(dev,
+				calib_scfgr, calib_trcr,
+				rev2_calib_scfgr, rev2_calib_trcr,
+				warm_idxes, cold_idxes,
+				ARRAY_SIZE(warm_idxes), ARRAY_SIZE(cold_idxes),
+				sizeof(rev2_calib_scfgr));
+	}
+}
+
+static int tmu_calibrate_s32gen1(struct device *dev)
 {
 	struct tmu_driver_data *tmu_dd = dev_get_drvdata(dev);
 	union TMU_TCFGR_GEN1_u tmu_tcfgr;
@@ -335,19 +492,15 @@ static void tmu_calibrate_s32gen1(struct device *dev)
 	union TMU_TRCR_u tmu_trcr;
 	union TMU_CMCFG_u tmu_cmcfg;
 	int i;
-	int fuse_val = get_calib_fuse_val(dev);
-	int calibration_scfgr[CALIB_POINTS] = {
-		0x2C, 0x26, 0x3D, 0x6B, 0x9B, 0xC9, 0xF7,
-		0x112 + fuse_val,
-		0x125 + fuse_val,
-		0x155 + fuse_val,
-		0x16C + fuse_val,
-		0x172 + fuse_val
-		};
-	static int calibration_trcr[CALIB_POINTS] = {
-		0xE9, 0xE6, 0xF2, 0x10A, 0x123, 0x13B, 0x153,
-		0x161, 0x16B, 0x184, 0x190, 0x193
-		};
+	uint32_t calib_scfgr[CALIB_POINTS_MAX];
+	uint32_t calib_trcr[CALIB_POINTS_MAX];
+
+	if (tmu_dd->calib_points > CALIB_POINTS_MAX) {
+		dev_err(dev,
+				"The allocated calibration tables are not large enough\n");
+		return -ENOMEM;
+	}
+	get_calib_table(dev, calib_scfgr, calib_trcr);
 
 	/* These values do look like magic numbers because
 	 * they really are. They have been experimentally determined
@@ -366,16 +519,18 @@ static void tmu_calibrate_s32gen1(struct device *dev)
 	tmu_tcfgr.R = readl(tmu_dd->tmu_registers + TMU_TCFGR);
 	tmu_scfgr.R = readl(tmu_dd->tmu_registers + TMU_SCFGR);
 
-	for (i = 0; i < CALIB_POINTS && calibration_scfgr[i] != 0; i++) {
+	for (i = 0; i < tmu_dd->calib_points; i++) {
 		tmu_trcr.R	= readl(tmu_dd->tmu_registers + TMU_TRCR(i));
 		tmu_tcfgr.B.CAL_PT = i;
-		tmu_scfgr.B.SENSOR = calibration_scfgr[i];
-		tmu_trcr.B.TEMP = calibration_trcr[i];
+		tmu_scfgr.B.SENSOR = calib_scfgr[i];
+		tmu_trcr.B.TEMP = calib_trcr[i];
 		tmu_trcr.B.V = 1;
 		writel(tmu_tcfgr.R, tmu_dd->tmu_registers + TMU_TCFGR);
 		writel(tmu_scfgr.R, tmu_dd->tmu_registers + TMU_SCFGR);
 		writel(tmu_trcr.R, tmu_dd->tmu_registers + TMU_TRCR(i));
 	}
+
+	return 0;
 }
 
 
@@ -472,7 +627,7 @@ static int tmu_probe(struct platform_device *pd)
 	if (tmu_chip->has_fuse) {
 		fuse_resource = platform_get_resource(pd, IORESOURCE_MEM, 1);
 		if (!fuse_resource) {
-			dev_err(&pd->dev, "Cannot obtian TMU fuse resource.\n");
+			dev_err(&pd->dev, "Cannot obtain TMU fuse resource.\n");
 			return -ENODEV;
 		}
 
@@ -499,6 +654,13 @@ static int tmu_probe(struct platform_device *pd)
 			return return_code;
 		}
 	}
+
+	if (s32gen1_get_soc_revision(&pd->dev, &tmu_dd->revision))
+		goto revision_get_failed;
+	if (tmu_dd->revision == 1)
+		tmu_dd->calib_points = 12;
+	else
+		tmu_dd->calib_points = 4;
 
 	tmu_dd->hwmon_device =
 		hwmon_device_register_with_info(
@@ -528,7 +690,8 @@ static int tmu_probe(struct platform_device *pd)
 	tmu_monitor_enable(&pd->dev, tmu_chip->enable_mask, false);
 	if (tmu_chip->has_sites) {
 		tmu_enable_sites(&pd->dev);
-		tmu_calibrate_s32gen1(&pd->dev);
+		if (tmu_calibrate_s32gen1(&pd->dev))
+			goto calibration_failed;
 	} else {
 		tmu_calibrate_s32v234(&pd->dev);
 	}
@@ -538,11 +701,13 @@ static int tmu_probe(struct platform_device *pd)
 
 	return 0;
 
+calibration_failed:
 regmap_update_bits_failed:
 device_create_file_failed:
 	for (i = 0; i < device_files_created; i++)
 		device_remove_file(tmu_dd->hwmon_device, &dev_attrs[i]);
 	hwmon_device_unregister(tmu_dd->hwmon_device);
+revision_get_failed:
 hwmon_register_failed:
 	if (tmu_chip->has_clk)
 		clk_disable_unprepare(tmu_dd->clk);
