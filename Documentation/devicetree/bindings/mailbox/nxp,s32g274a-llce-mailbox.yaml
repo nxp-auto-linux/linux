@@ -1,0 +1,135 @@
+# SPDX-License-Identifier: (GPL-2.0-only or BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/mailbox/nxp,s32g274a-llce-mailbox.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: NXP LLCE Mailbox
+
+maintainers:
+  - Ghennadi Procopciuc <ghennadi.procopciuc@nxp.com>
+
+description: |
+  This mailbox is present on NXP SoC's where LLCE accelerator is present.
+  It facilitates the communication between Linux and LLCE cores.
+
+properties:
+  compatible:
+    const: nxp,s32g274a-llce-mailbox
+
+  '#mbox-cells':
+    description:
+      First number represents the channel type and the second
+      represents the ID of the channel.
+      Channel types
+        * S32G274_LLCE_CAN_CONF_MB
+        * S32G274_LLCE_CAN_RX_MB
+        * S32G274_LLCE_CAN_TX_MB
+    const: 2
+
+  memory-region:
+    description:
+      phandle to a node describing the shared memory (System RAM memory)
+      used by LLCE accelelerator.
+    maxItems: 1
+    minItems: 1
+
+  reg-names:
+    items:
+      - const: rxin_fifo
+      - const: rxout_fifo
+      - const: icsr
+      - const: blrin_fifo
+      - const: blrout_fifo
+      - const: txack_fifo
+
+  reg:
+    minItems: 6
+    maxItems: 6
+    items:
+      - description: Address and Size of the RXIN fifo memory region
+      - description: Address and Size of the RXOUT fifo memory region
+      - description: Address and Size of the Interrupt concentrator memory region
+      - description: Address and Size of the BLRIN fifo memory region
+      - description: Address and Size of the BLROUT fifo memory region
+      - description: Address and Size of the TXACK fifo memory region
+
+  interrupt-names:
+    items:
+      - const: rxin_fifo_0_7
+      - const: rxin_fifo_8_15
+      - const: rxout_fifo_0_7
+      - const: rxout_fifo_8_15
+      - const: txack_fifo_0_7
+      - const: txack_fifo_8_15
+
+  interrupts:
+    maxItems: 6
+    minItems: 6
+    items:
+      - description: Shared interrupt line for RXIN 0-7 fifos
+      - description: Shared interrupt line for RXIN 8-15 fifos
+      - description: Shared interrupt line for RXOUT 0-7 fifos
+      - description: Shared interrupt line for RXOUT 8-15 fifos
+      - description: Shared interrupt line for TXACK 0-7 fifos
+      - description: Shared interrupt line for TXACK 8-15 fifos
+
+  clock-names:
+    const: llce_sys
+
+  clocks:
+    description: LLCE system clock
+
+required:
+  - compatible
+  - '#mbox-cells'
+  - memory-region
+  - reg-names
+  - reg
+  - interrupt-names
+  - interrupts
+  - clock-names
+  - clocks
+
+unevaluatedProperties: false
+additionalProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/interrupt-controller/irq.h>
+    #include <dt-bindings/clock/s32g274a-scmi-clock.h>
+    llce_mb: llce_mailbox@43800000 {
+        compatible = "nxp,s32g274a-llce-mailbox";
+        #mbox-cells = <2>;
+
+        reg = <0x0 0x0 0x0 0x6000>,
+            <0x1 0x0 0x0 0x8000>,
+            <0x2 0x0 0x0 0x1000>,
+            <0x3 0x0 0x0 0x6000>,
+            <0x4 0x0 0x0 0x6000>,
+            <0x5 0x0 0x0 0x8000>;
+        reg-names = "rxin_fifo",
+            "rxout_fifo",
+            "icsr",
+            "blrin_fifo",
+            "blrout_fifo",
+            "txack_fifo";
+        clocks = <&clks S32G274A_SCMI_CLK_LLCE_SYS>;
+        clock-names = "llce_sys";
+
+        memory-region = <&llce_shmem>;
+        interrupts = <0 174 IRQ_TYPE_LEVEL_HIGH>,
+            <0 175 IRQ_TYPE_LEVEL_HIGH>,
+            <0 176 IRQ_TYPE_LEVEL_HIGH>,
+            <0 177 IRQ_TYPE_LEVEL_HIGH>,
+            <0 182 IRQ_TYPE_LEVEL_HIGH>,
+            <0 183 IRQ_TYPE_LEVEL_HIGH>;
+        interrupt-names = "rxin_fifo_0_7",
+            "rxin_fifo_8_15",
+            "rxout_fifo_0_7",
+            "rxout_fifo_8_15",
+            "txack_fifo_0_7",
+            "txack_fifo_8_15";
+        status = "okay";
+    };
+
