@@ -98,3 +98,15 @@
 		reg = <1>;
 	};
 };
+
+&llce_can10 {
+	status = "okay";
+};
+
+&llce_can11 {
+	status = "okay";
+};
+
+&llce_can13 {
+	status = "okay";
+};
