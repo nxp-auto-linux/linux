@@ -112,6 +112,18 @@ config CAN_FLEXCAN
 	help
 	  Say Y here if you want to support for Freescale FlexCAN.
 
+config CAN_LLCE
+	tristate "NXP LLCE CAN"
+	select NXP_LLCE_MBOX
+	select LLCE_CORE
+	depends on CAN_DEV && m
+	help
+	  Driver for CAN interface of the NXP LLCE accelerator. The CAN
+	  interface is one of the offloaded communication channels of the
+	  Low Latency Communication Engine. The hardware channels abstract
+	  the communication that is fully supported through a
+	  firmware-defined host interface.
+
 config CAN_GRCAN
 	tristate "Aeroflex Gaisler GRCAN and GRHCAN CAN devices"
 	depends on OF && HAS_DMA
