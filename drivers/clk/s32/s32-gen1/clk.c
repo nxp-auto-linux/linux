@@ -804,6 +804,12 @@ void s32gen1_scmi_clocks_init(void)
 
 static void s32g274a_scmi_clocks_init(void)
 {
+	/* LLCE */
+	scmi_clk[S32G274A_SCMI_CLK_LLCE_SYS] =
+		get_plat_clk(S32GEN1_CLK_XBAR_DIV2);
+	scmi_clk[S32G274A_SCMI_CLK_LLCE_CAN_PE] =
+		get_plat_clk(S32GEN1_CLK_CAN);
+
 	scmi_clk[S32G274A_SCMI_CLK_USB_MEM] =
 		get_plat_clk(S32GEN1_CLK_XBAR_DIV4);
 	scmi_clk[S32G274A_SCMI_CLK_USB_LOW] =
