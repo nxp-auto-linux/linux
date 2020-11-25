@@ -1,0 +1,92 @@
+# SPDX-License-Identifier: (GPL-2.0-only or BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/net/can/nxp,s32g274a-llce-can.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: LLCE CAN controller on NXP's SoC
+
+maintainers:
+  - Ghennadi Procopciuc <ghennadi.procopciuc@nxp.com>
+
+description: |
+  The Low Latency Communications Engine (LLCE) controls the traditional automotive
+  communication interfaces such as CAN, LIN, FlexRay, and SPI.
+
+  There are multiple components involved in LLCE CAN:
+    * LLCE firmware
+    * LLCE firmware loader
+    * LLCE CAN driver which implements SocketCAN interface
+
+  This file will only cover the CAN interface.
+
+  The name of the node must be suffixed with a number which will be used as
+  interface id.
+
+  E.g. 'llce_can13' will generate 'llcecan13'. This is used to have an 1:1
+       mapping between HW IDs and the interfaces exposed by the driver.
+
+properties:
+  compatible:
+    const: nxp,s32g274a-llce-can
+
+  mbox-names:
+    items:
+      - const: config
+      - const: rx
+      - const: tx
+
+  mboxes:
+    description: |
+      List of <&phandle type channel>.
+      Where 'type' is:
+        * S32G274_LLCE_CAN_CONF_MB - Configuration channel
+        * S32G274_LLCE_CAN_RX_MB   - RX channel
+        * S32G274_LLCE_CAN_TX_MB   - TX channel
+      'channel' is a part of the range: [0-15] (max 16 CAN controllers)
+      (see mailbox/nxp,s32g274a-llce-mailbox.yaml)
+
+  clock-names:
+    const: can_pe
+
+  clocks:
+    description: LLCE CAN clock
+
+
+  pinctrl-0:
+    description:
+      A phandle to the default pinctrl state.
+
+  pinctrl-names:
+    const: default
+    description:
+      A pinctrl state named "default" must be defined.
+
+required:
+  - compatible
+  - mboxes
+  - mbox-names
+  - clock-names
+  - clocks
+  - pinctrl-names
+  - pinctrl-0
+
+unevaluatedProperties: false
+additionalProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/clock/s32g274a-scmi-clock.h>
+    #include <dt-bindings/mailbox/nxp-llce-mb.h>
+    llce_can0: llce_can0 {
+        compatible = "nxp,s32g274a-llce-can";
+        mboxes = <&llce_mb S32G274_LLCE_CAN_CONF_MB 0>,
+             <&llce_mb S32G274_LLCE_CAN_RX_MB 0>,
+             <&llce_mb S32G274_LLCE_CAN_TX_MB 0>;
+        mbox-names = "config", "rx", "tx";
+        clocks = <&clks S32G274A_SCMI_CLK_LLCE_CAN_PE>;
+        clock-names = "can_pe";
+        pinctrl-names = "default";
+        pinctrl-0 = <&pinctrl0_llce_can0>, <&pinctrl1_llce_can0>;
+        status = "disabled";
+    };
