@@ -161,17 +161,17 @@ static int s32cc_dwmac_probe(struct platform_device *pdev)
 
 	switch (gmac->intf_mode) {
 	case PHY_INTERFACE_MODE_SGMII:
-		tx_clk = "sgmii_tx";
+		tx_clk = "tx_sgmii";
 		break;
 	case PHY_INTERFACE_MODE_RGMII:
-		tx_clk = "rgmii_tx";
+		tx_clk = "tx_rgmii";
 		break;
 	case PHY_INTERFACE_MODE_RMII:
-		tx_clk = "rmii_tx";
+		tx_clk = "tx_rmii";
 		break;
 	default:
 	case PHY_INTERFACE_MODE_MII:
-		tx_clk = "mii_tx";
+		tx_clk = "tx_mii";
 		break;
 	};
 
