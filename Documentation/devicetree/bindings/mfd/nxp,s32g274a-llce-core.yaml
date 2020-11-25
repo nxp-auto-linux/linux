@@ -1,0 +1,128 @@
+# SPDX-License-Identifier: (GPL-2.0-only or BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/mfd/nxp,s32g274a-llce-core.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: NXP LLCE Firmware Loader
+
+maintainers:
+  - Ghennadi Procopciuc <ghennadi.procopciuc@nxp.com>
+
+description: |
+  The Low Latency Communications Engine (LLCE) controls the traditional automotive
+  communication interfaces such as CAN, LIN, FlexRay, and SPI.
+
+  The loader is usually a dependency for the drivers associated with the LLCE accelerator:
+    * LLCE mailbox
+    * LLCE CAN
+
+properties:
+  compatible:
+    const: nxp,s32g274a-llce-core
+
+  firmware-name:
+    items:
+      - const: dte.bin
+      - const: ppe_rx.bin
+      - const: ppe_tx.bin
+      - const: frpe.bin
+
+  memory-region:
+    maxItems: 5
+    minItems: 5
+    description: |
+      A set of phandles to memory regions corresponding to the firmware
+      components and a link to the region where the firmware load status
+      can be read.
+
+  reg-names:
+      const: sysctrl
+
+  reg:
+    description:
+      Offset and length of the LLCE system control registers
+
+  clock-names:
+    const: llce_sys
+
+  clocks:
+    description: LLCE system clock
+
+  ranges:
+    minItems: 6
+    maxItems: 6
+    description:
+       LLCE FIFOs registers ranges
+
+  '#address-cells':
+    const: 2
+
+  '#size-cells':
+    const: 2
+
+  '#interrupt-cells':
+    const: 3
+
+  interrupt-controller: true
+
+patternProperties:
+  '^llce_mb.*':
+    type: object
+
+  '^llce_can[0-9]+.*':
+    type: object
+
+required:
+  - compatible
+  - firmware-name
+  - memory-region
+  - reg-names
+  - reg
+  - clock-names
+  - clocks
+  - ranges
+  - '#address-cells'
+  - '#size-cells'
+  - '#interrupt-cells'
+
+unevaluatedProperties: false
+additionalProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/clock/s32g274a-scmi-clock.h>
+
+    bus {
+        #address-cells = <2>;
+        #size-cells = <2>;
+
+        llce_core: llce_core@43000000 {
+            compatible = "nxp,s32g274a-llce-core";
+            clocks = <&clks S32G274A_SCMI_CLK_LLCE_SYS>;
+            clock-names = "llce_sys";
+            firmware-name = "dte.bin", "ppe_rx.bin",
+                "ppe_tx.bin", "frpe.bin";
+            memory-region = <&llce0_sram>, <&llce1_sram>,
+                <&llce2_sram>, <&llce3_sram>,
+                <&llce_boot_status>;
+            reg = <0x6 0 0x0 0xc>;
+            reg-names = "sysctrl";
+            /* RX-IN_FIFO */
+            ranges = <0x0 0 0x0 0x43A00000 0x0 0x6000>,
+                /* RX-OUT_FIFO */
+                <0x1 0 0x0 0x43A08000 0x0 0x8000>,
+                /* LLCE interrupt Concentrator */
+                <0x2 0 0x0 0x43A14000 0x0 0x1000>,
+                /* BLR-IN_FIFO */
+                <0x3 0 0x0 0x43B00000 0x0 0x6000>,
+                /* BLR-OUT_FIFO */
+                <0x4 0 0x0 0x43B08000 0x0 0x6000>,
+                /* Tx_Ack_FIFO */
+                <0x5 0 0x0 0x43B10000 0x0 0x8000>;
+            #address-cells = <2>;
+            #size-cells = <2>;
+            #interrupt-cells = <3>;
+            status = "okay";
+        };
+    };
