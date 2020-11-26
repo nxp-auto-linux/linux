@@ -59,6 +59,8 @@ struct llce_core {
 	/* SRAM pools */
 	struct sram_pool **pools;
 	size_t npools;
+
+	size_t nfrws;
 };
 
 static void devm_sram_pool_release(struct device *dev, void *res)
@@ -154,9 +156,6 @@ static int llce_fw_load(struct platform_device *pdev, int index,
 		return ret;
 	}
 
-	memcpy_toio((void __iomem *)spool->vaddr, spool->fw_entry->data,
-		    spool->fw_entry->size);
-
 	return ret;
 }
 
@@ -168,19 +167,19 @@ static void llce_release_fw(struct sram_pool *spool)
 static int llce_alloc_sram(struct platform_device *pdev,
 			   struct llce_core *core)
 {
-	int i, nregs;
+	int i;
 	struct sram_pool *spool;
 
-	nregs = of_count_phandle_with_args(pdev->dev.of_node, "memory-region",
-					   NULL);
-	core->npools = nregs;
+	core->npools = of_count_phandle_with_args(pdev->dev.of_node,
+						  "memory-region",
+						  NULL);
 	core->pools = devm_kmalloc(&pdev->dev,
 				   core->npools * sizeof(*core->pools),
 				   GFP_KERNEL);
 	if (!core->pools)
 		return -ENOMEM;
 
-	for (i = 0; i < nregs; i++) {
+	for (i = 0; i < core->npools; i++) {
 		spool = alloc_sram_node_index(pdev, i);
 		if (IS_ERR(spool)) {
 			dev_err(&pdev->dev, "Failed to initialize SRAM buffer %d\n",
@@ -196,10 +195,11 @@ static int llce_alloc_sram(struct platform_device *pdev,
 static int llce_load_fw_images(struct platform_device *pdev,
 			       struct llce_core *core)
 {
-	int i, nfrw, ret;
+	int i, ret;
 
-	nfrw = of_property_count_strings(pdev->dev.of_node, "firmware-name");
-	for (i = 0; i < nfrw && i < core->npools; i++) {
+	core->nfrws = of_property_count_strings(pdev->dev.of_node,
+						"firmware-name");
+	for (i = 0; i < core->nfrws; i++) {
 		ret = llce_fw_load(pdev, i, core->pools[i]);
 		if (ret)
 			return ret;
@@ -208,11 +208,24 @@ static int llce_load_fw_images(struct platform_device *pdev,
 	return 0;
 }
 
+static void llce_flush_fw(struct llce_core *core)
+{
+	struct sram_pool *pool;
+	size_t i;
+
+	for (i = 0; i < core->nfrws; i++) {
+		pool = core->pools[i];
+
+		memcpy_toio((void __iomem *)pool->vaddr, pool->fw_entry->data,
+			    pool->fw_entry->size);
+	}
+}
+
 static void llce_release_fw_images(struct llce_core *core)
 {
 	size_t i;
 
-	for (i = 0; i < core->npools; i++)
+	for (i = 0; i < core->nfrws; i++)
 		llce_release_fw(core->pools[i]);
 }
 
@@ -241,7 +254,7 @@ static bool llce_boot_end_or_timeout(void *status_reg, ktime_t timeout)
 	return llce_boot_end(status_reg) || ktime_after(cur, timeout);
 }
 
-static int start_llce_cores(struct device *dev, void __iomem *sysctrl_base,
+static int llce_cores_kickoff(struct device *dev, void __iomem *sysctrl_base,
 			    void *status_reg)
 {
 	ktime_t timeout = ktime_add_ns(ktime_get(), LLCE_BOOT_POLL_NS);
@@ -274,17 +287,17 @@ static struct sram_pool *get_status_pool(struct llce_core *core)
 	return NULL;
 }
 
-static int init_core_clock(struct device *dev, struct clk **clk)
+static int init_core_clock(struct device *dev, struct llce_core *core)
 {
 	int ret;
 
-	*clk = devm_clk_get(dev, "llce_sys");
-	if (IS_ERR(*clk)) {
+	core->clk = devm_clk_get(dev, "llce_sys");
+	if (IS_ERR(core->clk)) {
 		dev_err(dev, "No clock available\n");
-		return PTR_ERR(*clk);
+		return PTR_ERR(core->clk);
 	}
 
-	ret = clk_prepare_enable(*clk);
+	ret = clk_prepare_enable(core->clk);
 	if (ret) {
 		dev_err(dev, "Failed to enable clock\n");
 		return ret;
@@ -293,16 +306,41 @@ static int init_core_clock(struct device *dev, struct clk **clk)
 	return 0;
 }
 
-static void deinit_core_clock(struct clk *clk)
+static void deinit_core_clock(struct llce_core *core)
 {
-	clk_disable_unprepare(clk);
+	clk_disable_unprepare(core->clk);
+}
+
+static int start_llce_cores(struct device *dev, struct llce_core *core)
+{
+	struct sram_pool *status_pool;
+	int ret;
+
+	reset_llce_cores(core->sysctrl_base);
+
+	llce_flush_fw(core);
+
+	status_pool = get_status_pool(core);
+	if (!status_pool) {
+		dev_err(dev, "'%s' pool is not attached to LLCE core\n",
+			LLCE_STATUS_POOL);
+		return -EIO;
+	}
+
+	ret = llce_cores_kickoff(dev, core->sysctrl_base,
+				 (void *)status_pool->vaddr);
+	if (ret) {
+		dev_err(dev, "Failed to start LLCE cores\n");
+		return ret;
+	}
+
+	return 0;
 }
 
 static int llce_core_probe(struct platform_device *pdev)
 {
 	struct resource *sysctrl_res;
 	struct device *dev = &pdev->dev;
-	struct sram_pool *status_pool;
 	struct llce_core *core;
 	int ret;
 
@@ -326,11 +364,9 @@ static int llce_core_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 
-	ret = init_core_clock(dev, &core->clk);
+	ret = init_core_clock(dev, core);
 	if (ret)
 		return ret;
-
-	reset_llce_cores(core->sysctrl_base);
 
 	ret = llce_alloc_sram(pdev, core);
 	if (ret)
@@ -340,20 +376,9 @@ static int llce_core_probe(struct platform_device *pdev)
 	if (ret)
 		goto disable_clk;
 
-	status_pool = get_status_pool(core);
-	if (!status_pool) {
-		dev_err(dev, "'%s' pool is not attached to LLCE core\n",
-			LLCE_STATUS_POOL);
-		ret = -EIO;
+	ret = start_llce_cores(dev, core);
+	if (ret)
 		goto release_fw;
-	}
-
-	ret = start_llce_cores(dev, core->sysctrl_base,
-			       (void *)status_pool->vaddr);
-	if (ret) {
-		dev_err(dev, "Failed to start LLCE cores\n");
-		goto release_fw;
-	}
 
 	dev_info(dev, "Successfully loaded LLCE firmware\n");
 
@@ -366,7 +391,7 @@ release_fw:
 		llce_release_fw_images(core);
 disable_clk:
 	if (ret)
-		deinit_core_clock(core->clk);
+		deinit_core_clock(core);
 
 	return ret;
 }
@@ -376,8 +401,29 @@ static int llce_core_remove(struct platform_device *pdev)
 	struct llce_core *core = platform_get_drvdata(pdev);
 
 	llce_release_fw_images(core);
-	deinit_core_clock(core->clk);
+	deinit_core_clock(core);
 	return 0;
+}
+
+static int __maybe_unused llce_core_suspend(struct device *dev)
+{
+	struct llce_core *core = dev_get_drvdata(dev);
+
+	deinit_core_clock(core);
+
+	return 0;
+}
+
+static int __maybe_unused llce_core_resume(struct device *dev)
+{
+	struct llce_core *core = dev_get_drvdata(dev);
+	int ret;
+
+	ret = init_core_clock(dev, core);
+	if (ret)
+		return ret;
+
+	return start_llce_cores(dev, core);
 }
 
 static const struct of_device_id llce_core_match[] = {
@@ -388,12 +434,15 @@ static const struct of_device_id llce_core_match[] = {
 };
 MODULE_DEVICE_TABLE(of, llce_core_match);
 
+static SIMPLE_DEV_PM_OPS(llce_core_pm_ops, llce_core_suspend, llce_core_resume);
+
 static struct platform_driver llce_core_driver = {
 	.probe = llce_core_probe,
 	.remove = llce_core_remove,
 	.driver = {
 		.name = "llce_core",
 		.of_match_table = llce_core_match,
+		.pm = &llce_core_pm_ops,
 	},
 };
 module_platform_driver(llce_core_driver)
