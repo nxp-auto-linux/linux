@@ -762,6 +762,38 @@ static int llce_can_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static int __maybe_unused llce_can_suspend(struct device *device)
+{
+	struct net_device *dev = dev_get_drvdata(device);
+	struct llce_can *llce = netdev_priv(dev);
+	int ret = 0;
+
+	if (netif_running(dev)) {
+		ret = llce_can_close(dev);
+		netif_device_detach(dev);
+	}
+
+	llce->can.state = CAN_STATE_SLEEPING;
+
+	return ret;
+}
+
+static int __maybe_unused llce_can_resume(struct device *device)
+{
+	struct net_device *dev = dev_get_drvdata(device);
+	struct llce_can *llce = netdev_priv(dev);
+	int ret = 0;
+
+	llce->can.state = CAN_STATE_ERROR_ACTIVE;
+
+	if (netif_running(dev)) {
+		netif_device_attach(dev);
+		ret = llce_can_open(dev);
+	}
+
+	return ret;
+}
+
 static const struct of_device_id llce_can_match[] = {
 	{
 		.compatible = "nxp,s32g274a-llce-can",
@@ -770,12 +802,15 @@ static const struct of_device_id llce_can_match[] = {
 };
 MODULE_DEVICE_TABLE(of, llce_can_match);
 
+static SIMPLE_DEV_PM_OPS(llce_can_pm_ops, llce_can_suspend, llce_can_resume);
+
 static struct platform_driver llce_can_driver = {
 	.probe = llce_can_probe,
 	.remove = llce_can_remove,
 	.driver = {
 		.name = "llce_can",
 		.of_match_table = llce_can_match,
+		.pm = &llce_can_pm_ops,
 	},
 };
 module_platform_driver(llce_can_driver)
