@@ -78,6 +78,8 @@ struct llce_mb {
 	void __iomem *blrin_fifo;
 	void __iomem *icsr;
 	struct clk *clk;
+	DECLARE_BITMAP(chans_map, LLCE_NFIFO_WITH_IRQ);
+	bool suspended;
 };
 
 struct sram_pool {
@@ -556,7 +558,11 @@ static int send_can_msg(struct mbox_chan *chan, struct llce_tx_msg *msg)
 static int llce_mb_send_data(struct mbox_chan *chan, void *data)
 {
 	struct llce_chan_priv *priv = chan->con_priv;
+	struct llce_mb *mb = priv->mb;
 	int ret = -EINVAL;
+
+	/* Client should not flush new tasks if suspended. */
+	WARN_ON(mb->suspended);
 
 	if (is_config_chan(priv->type))
 		ret = execute_config_cmd(chan, data);
@@ -1212,13 +1218,39 @@ static int execute_hif_cmd(struct llce_mb *mb,
 	return 0;
 }
 
-static int llce_platform_init(struct device *dev, struct llce_mb *mb)
+static int llce_init_chan_map(struct device *dev, struct llce_mb *mb)
 {
-	struct device_node *child, *parent;
-	struct llce_can_init_platform_cmd *pcmd;
 	const char *node_name;
+	struct device_node *child;
 	unsigned long id;
 	int ret;
+
+	for_each_child_of_node(dev->of_node->parent, child) {
+		if (!(of_device_is_compatible(child, LLCE_CAN_COMPATIBLE) &&
+		      of_device_is_available(child)))
+			continue;
+
+		node_name = child->name;
+		ret = get_llce_can_id(node_name, &id);
+		if (ret) {
+			dev_err(dev, "Failed to get ID of the node: %s\n",
+				node_name);
+			return ret;
+		}
+
+		if (id >= LLCE_NFIFO_WITH_IRQ)
+			continue;
+
+		set_bit(id, mb->chans_map);
+	}
+
+	return 0;
+}
+
+static int llce_platform_init(struct device *dev, struct llce_mb *mb)
+{
+	struct llce_can_init_platform_cmd *pcmd;
+	unsigned long id;
 
 	struct llce_can_command cmd = {
 		.cmd_id = LLCE_CAN_CMD_INIT_PLATFORM,
@@ -1245,24 +1277,7 @@ static int llce_platform_init(struct device *dev, struct llce_mb *mb)
 	memset(&pcmd->max_int_mb_count, 0, sizeof(pcmd->max_int_mb_count));
 	memset(&pcmd->max_poll_mb_count, 0, sizeof(pcmd->max_poll_mb_count));
 
-	parent = dev->of_node->parent;
-
-	for_each_child_of_node(dev->of_node->parent, child) {
-		if (!(of_device_is_compatible(child, LLCE_CAN_COMPATIBLE) &&
-		      of_device_is_available(child)))
-			continue;
-
-		node_name = child->name;
-		ret = get_llce_can_id(node_name, &id);
-		if (ret) {
-			dev_err(dev, "Failed to get ID of the node: %s\n",
-				node_name);
-			return ret;
-		}
-
-		if (id >= LLCE_NFIFO_WITH_IRQ)
-			continue;
-
+	for_each_set_bit(id, mb->chans_map, LLCE_NFIFO_WITH_IRQ) {
 		pcmd->ctrl_init_status[id] = INITIALIZED;
 		pcmd->max_filter_count[id] = 16;
 		pcmd->max_int_mb_count[id] = 100;
@@ -1367,6 +1382,10 @@ static int llce_mb_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, mb);
 
+	ret = llce_init_chan_map(dev, mb);
+	if (ret)
+		return ret;
+
 	ret = init_llce_mem_resources(pdev, mb);
 	if (ret)
 		return ret;
@@ -1441,6 +1460,42 @@ static int llce_mb_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static int __maybe_unused llce_mb_suspend(struct device *dev)
+{
+	struct llce_mb *mb = dev_get_drvdata(dev);
+	int ret;
+
+	mb->suspended = true;
+
+	ret = llce_platform_deinit(mb);
+	if (ret)
+		dev_err(dev, "Failed to deinitialize LLCE platform");
+
+	clk_disable_unprepare(mb->clk);
+
+	return 0;
+}
+
+static int __maybe_unused llce_mb_resume(struct device *dev)
+{
+	int ret;
+	struct llce_mb *mb = dev_get_drvdata(dev);
+
+	ret = clk_prepare_enable(mb->clk);
+	if (ret) {
+		dev_err(dev, "Failed to enable clock\n");
+		return ret;
+	}
+
+	ret = llce_platform_init(dev, mb);
+	if (ret)
+		dev_err(dev, "Failed to initialize platform\n");
+
+	mb->suspended = false;
+
+	return ret;
+}
+
 static const struct of_device_id llce_mb_match[] = {
 	{
 		.compatible = "nxp,s32g274a-llce-mailbox",
@@ -1449,12 +1504,15 @@ static const struct of_device_id llce_mb_match[] = {
 };
 MODULE_DEVICE_TABLE(of, llce_mb_match);
 
+static SIMPLE_DEV_PM_OPS(llce_mb_pm_ops, llce_mb_suspend, llce_mb_resume);
+
 static struct platform_driver llce_mb_driver = {
 	.probe = llce_mb_probe,
 	.remove = llce_mb_remove,
 	.driver = {
 		.name = "llce_mb",
 		.of_match_table = llce_mb_match,
+		.pm = &llce_mb_pm_ops,
 	},
 };
 module_platform_driver(llce_mb_driver)
