@@ -207,9 +207,9 @@
 			status = "okay";
 		};
 	};
-	irq_regs: siul2_reg@0x44010000 {
+	irq_regs: siul2_reg@0x44010010 {
 		compatible = "fsl,irq_reqs-s32gen1","syscon","simple-mfd";
-		reg = <0x0 0x44010000 0x0 0x44>;
+		reg = <0x0 0x44010010 0x0 0x34>;
 		little-endian;
 	};
 	opad0_regs: siul2_reg@0x4009D700 {
@@ -224,7 +224,7 @@
 	};
 	opad1_regs: siul2_reg@0x4401170C {
 		compatible = "fsl,opad0_reqs-s32gen1","syscon","simple-mfd";
-		reg = <0x0 0x4401170C 0x0 0x14>;
+		reg = <0x0 0x4401170C 0x0 0xC>;
 		big-endian;
 	};
 	ipad1_regs: siul2_reg@0x4401174C {
