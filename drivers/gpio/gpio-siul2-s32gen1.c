@@ -38,15 +38,15 @@
 #include <dt-bindings/pinctrl/s32-gen1-pinctrl.h>
 
 /* DMA/Interrupt Status Flag Register */
-#define SIUL2_DISR0			0x10
+#define SIUL2_DISR0			0x0
 /* DMA/Interrupt Request Enable Register */
-#define SIUL2_DIRER0			0x18
+#define SIUL2_DIRER0			0x8
 /* DMA/Interrupt Request Select Register */
-#define SIUL2_DIRSR0			0x20
+#define SIUL2_DIRSR0			0x10
 /* Interrupt Rising-Edge Event Enable Register */
-#define SIUL2_IREER0			0x28
+#define SIUL2_IREER0			0x18
 /* Interrupt Falling-Edge Event Enable Register */
-#define SIUL2_IFEER0			0x30
+#define SIUL2_IFEER0			0x20
 
 /* Device tree ranges */
 #define SIUL2_GPIO_OUTPUT_RANGE		0
@@ -461,6 +461,49 @@ static struct irq_chip siul2_gpio_irq_chip = {
 	.irq_set_type		= siul2_gpio_irq_set_type,
 };
 
+static const struct regmap_config siul2_regmap_conf = {
+	.val_bits = 32,
+	.reg_bits = 32,
+	.cache_type = REGCACHE_FLAT,
+};
+
+static int common_regmap_conf(struct regmap *map, struct regmap_config *conf)
+{
+	conf->max_register = regmap_get_max_register(map);
+	conf->reg_stride = regmap_get_reg_stride(map);
+
+	return regmap_reinit_cache(map, conf);
+}
+
+static bool irqregmap_writeable(struct device *dev, unsigned int reg)
+{
+	switch (reg) {
+	case SIUL2_DISR0:
+	case SIUL2_DIRER0:
+	case SIUL2_DIRSR0:
+	case SIUL2_IREER0:
+	case SIUL2_IFEER0:
+		return true;
+	default:
+		return false;
+	};
+}
+
+static int reinit_irqregmap_conf(struct regmap *map)
+{
+	struct regmap_config regmap_conf = siul2_regmap_conf;
+
+	regmap_conf.writeable_reg = irqregmap_writeable;
+	return common_regmap_conf(map, &regmap_conf);
+}
+
+static int reinit_regmap_conf(struct regmap *map)
+{
+	struct regmap_config regmap_conf = siul2_regmap_conf;
+
+	return common_regmap_conf(map, &regmap_conf);
+}
+
 static int siul2_irq_setup(struct platform_device *pdev,
 			  struct siul2_gpio_dev *gpio_dev)
 {
@@ -484,6 +527,13 @@ static int siul2_irq_setup(struct platform_device *pdev,
 						pdev->dev.of_node, "regmap2");
 	if (IS_ERR(gpio_dev->irqmap))
 		return PTR_ERR(gpio_dev->irqmap);
+
+	ret = reinit_irqregmap_conf(gpio_dev->irqmap);
+	if (ret) {
+		dev_err(&pdev->dev,
+			"Failed to reinitialize regmap configuration\n");
+		return ret;
+	}
 
 	/* EIRQ pins */
 	err = siul2_get_eirq_pinspec(gpio_dev, pdev);
@@ -689,6 +739,7 @@ static int siul2_gpio_get(struct gpio_chip *chip, unsigned int offset)
 static int siul2_gpio_pads_init(struct platform_device *pdev,
 				     struct siul2_gpio_dev *gpio_dev)
 {
+	int ret;
 
 	gpio_dev->opadmap =
 		syscon_regmap_lookup_by_phandle(
@@ -699,7 +750,12 @@ static int siul2_gpio_pads_init(struct platform_device *pdev,
 		return PTR_ERR(gpio_dev->opadmap);
 	}
 
-	regcache_cache_bypass(gpio_dev->opadmap, true);
+	ret = reinit_regmap_conf(gpio_dev->opadmap);
+	if (ret) {
+		dev_err(&pdev->dev,
+			"Failed to reinitialize regmap configuration\n");
+		return ret;
+	}
 
 	gpio_dev->ipadmap =
 		syscon_regmap_lookup_by_phandle(
@@ -776,11 +832,49 @@ int siul2_gpio_probe(struct platform_device *pdev)
 	return err;
 }
 
+static int __maybe_unused siul2_suspend(struct device *dev)
+{
+	struct siul2_gpio_dev *gpio_dev = dev_get_drvdata(dev);
+
+	regcache_cache_only(gpio_dev->opadmap, true);
+	regcache_mark_dirty(gpio_dev->opadmap);
+
+	if (gpio_dev->irqmap) {
+		regcache_cache_only(gpio_dev->irqmap, true);
+		regcache_mark_dirty(gpio_dev->irqmap);
+	}
+
+	return 0;
+}
+
+static int __maybe_unused siul2_resume(struct device *dev)
+{
+	struct siul2_gpio_dev *gpio_dev = dev_get_drvdata(dev);
+	int ret = 0;
+
+	regcache_cache_only(gpio_dev->opadmap, false);
+	ret = regcache_sync(gpio_dev->opadmap);
+	if (ret)
+		dev_err(dev, "Failed to restore opadmap: %d\n", ret);
+
+	if (gpio_dev->irqmap) {
+		regcache_cache_only(gpio_dev->irqmap, false);
+		ret = regcache_sync(gpio_dev->irqmap);
+		if (ret)
+			dev_err(dev, "Failed to restore irqmap: %d\n", ret);
+	}
+
+	return ret;
+}
+
+static SIMPLE_DEV_PM_OPS(siul2_pm_ops, siul2_suspend, siul2_resume);
+
 static struct platform_driver siul2_gpio_driver = {
 	.driver		= {
 		.name	= "s32-gen1-siul2-gpio",
 		.owner = THIS_MODULE,
 		.of_match_table = siul2_gpio_dt_ids,
+		.pm = &siul2_pm_ops,
 	},
 	.probe		= siul2_gpio_probe,
 	.remove		= siul2_gpio_remove,
