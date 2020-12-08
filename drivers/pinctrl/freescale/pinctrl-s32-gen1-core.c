@@ -27,9 +27,13 @@
 
 #include <dt-bindings/pinctrl/s32-gen1-pinctrl.h>
 
+#define GPIO_GROUP_NAME0 "gpiogrp0"
+#define GPIO_GROUP_NAME1 "gpiogrp1"
+
 /**
  * Holds pin configuration for GPIO's.
  * @pin: Pin settings
+ * @list: Linked list entry for each gpio pin
  */
 struct gpio_pin_config {
 	struct s32_pin pin;
@@ -38,13 +42,17 @@ struct gpio_pin_config {
 
 /**
  * @dev: a pointer back to containing device
- * @base: the offset to the controller in virtual memory
+ * @pctl: a pointer to the pinctrl device structure
+ * @mscr_base: the offset to the mscr register in virtual memory
+ * @imcr_base: the offset to the imcr register in virtual memory
+ * @info: structure containing informations about the pin
  * @gpio_configs: Saved configurations for GPIO pins
  */
 struct s32_pinctrl {
 	struct device *dev;
 	struct pinctrl_dev *pctl;
-	void __iomem *base;
+	void __iomem *mscr_base;
+	void __iomem *imcr_base;
 	const struct s32_pinctrl_soc_info *info;
 	struct list_head gpio_configs;
 };
@@ -60,6 +68,38 @@ static const char *pin_get_name_from_info(struct s32_pinctrl_soc_info *info,
 	}
 
 	return NULL;
+}
+
+static inline unsigned long s32_pinctrl_readl(struct pinctrl_dev *pctldev,
+					      unsigned int pin_id)
+{
+	struct s32_pinctrl *ipctl = pinctrl_dev_get_drvdata(pctldev);
+	const struct s32_pinctrl_soc_info *info = ipctl->info;
+	unsigned long config;
+
+	if (pin_id >= info->mscr_base_pin && pin_id <= info->mscr_end_pin)
+		config = readl(ipctl->mscr_base + S32_PAD_CONFIG
+						(pin_id - info->mscr_base_pin));
+	else
+		config = readl(ipctl->imcr_base + S32_PAD_CONFIG
+						(pin_id - info->imcr_base_pin));
+
+	return config;
+}
+
+static inline void s32_pinctrl_writel(unsigned long config,
+				      struct pinctrl_dev *pctldev,
+				      unsigned int pin_id)
+{
+	struct s32_pinctrl *ipctl = pinctrl_dev_get_drvdata(pctldev);
+	const struct s32_pinctrl_soc_info *info = ipctl->info;
+
+	if (pin_id >= info->mscr_base_pin && pin_id <= info->mscr_end_pin)
+		writel(config, ipctl->mscr_base + S32_PAD_CONFIG
+				(pin_id - info->mscr_base_pin));
+	else
+		writel(config, ipctl->imcr_base + S32_PAD_CONFIG
+				(pin_id - info->imcr_base_pin));
 }
 
 static inline const struct s32_pin *s32_pinctrl_find_pin(
@@ -88,6 +128,8 @@ static inline const struct s32_pin_group *s32_pinctrl_find_group_by_name(
 	unsigned int i;
 
 	for (i = 0; i < info->ngroups; i++) {
+		if (!info->groups[i].name)
+			continue;
 		if (!strcmp(info->groups[i].name, name)) {
 			grp = &info->groups[i];
 			break;
@@ -216,7 +258,7 @@ static int s32_pmx_set(struct pinctrl_dev *pctldev, unsigned int selector,
 {
 	struct s32_pinctrl *ipctl = pinctrl_dev_get_drvdata(pctldev);
 	const struct s32_pinctrl_soc_info *info = ipctl->info;
-	unsigned int npins, pin_id;
+	unsigned int npins;
 	int i;
 	struct s32_pin_group *grp;
 
@@ -232,12 +274,7 @@ static int s32_pmx_set(struct pinctrl_dev *pctldev, unsigned int selector,
 
 	for (i = 0; i < npins; i++) {
 		struct s32_pin *pin = &grp->pins[i];
-
-		pin_id = pin->pin_id;
-
-		writel(pin->config, ipctl->base + S32_PAD_CONFIG(pin_id));
-		dev_dbg(ipctl->dev, "write: offset 0x%x val %lu\n",
-			S32_PAD_CONFIG(pin_id), pin->config);
+		s32_pinctrl_writel(pin->config, pctldev, pin->pin_id);
 	}
 
 	return 0;
@@ -274,9 +311,6 @@ static int s32_pmx_get_groups(struct pinctrl_dev *pctldev,
 	return 0;
 }
 
-#define GPIO_GROUP_NAME "gpiogrp"
-
-
 static int s32_pmx_gpio_request_enable(struct pinctrl_dev *pctldev,
 			struct pinctrl_gpio_range *range, unsigned offset)
 {
@@ -289,21 +323,23 @@ static int s32_pmx_gpio_request_enable(struct pinctrl_dev *pctldev,
 	const struct s32_pinctrl_soc_info *info = ipctl->info;
 
 	/* Find the pinctrl config for the requested pin */
-	grp = s32_pinctrl_find_group_by_name(info, GPIO_GROUP_NAME);
+	grp = s32_pinctrl_find_group_by_name(info, GPIO_GROUP_NAME0);
 	if (!grp) {
-		dev_err(info->dev, "unable to find group for node %s\n",
-			GPIO_GROUP_NAME);
-		return -EINVAL;
+		grp = s32_pinctrl_find_group_by_name(info, GPIO_GROUP_NAME1);
+		if (!grp) {
+			dev_err(info->dev, "unable to find group for gpiogrp node\n");
+			return -EINVAL;
+		}
 	}
 
 	pin = s32_pinctrl_find_pin(grp, offset);
 	if (!pin) {
-		dev_err(info->dev, "The pin %d is not member of the group %s\n",
-			offset, GPIO_GROUP_NAME);
+		dev_err(info->dev, "The pin %d is not member of a gpio group\n",
+					offset);
 		return -EINVAL;
 	}
 
-	config = readl(ipctl->base + S32_PAD_CONFIG(pin->pin_id));
+	config = s32_pinctrl_readl(pctldev, pin->pin_id);
 
 	/* Save current configuration */
 	gpio_pin = kmalloc(sizeof(*gpio_pin), GFP_KERNEL);
@@ -317,7 +353,7 @@ static int s32_pmx_gpio_request_enable(struct pinctrl_dev *pctldev,
 	config &= ~PAD_CTL_MUX_MODE_MASK;
 	config |= PAD_CTL_SRC_SIG_SEL0;
 
-	writel(config, ipctl->base + S32_PAD_CONFIG(pin->pin_id));
+	s32_pinctrl_writel(config, pctldev, pin->pin_id);
 
 	return 0;
 }
@@ -331,15 +367,12 @@ static void s32_pmx_gpio_disable_free(struct pinctrl_dev *pctldev,
 	struct gpio_pin_config *gpio_pin;
 	struct s32_pin pin;
 
-
 	list_for_each_safe(pos, tmp, &ipctl->gpio_configs) {
 		gpio_pin = list_entry(pos, struct gpio_pin_config, list);
 		pin = gpio_pin->pin;
 
 		if (pin.pin_id == offset) {
-			/* Restore pin configuration */
-			writel(pin.config,
-			       ipctl->base + S32_PAD_CONFIG(pin.pin_id));
+			s32_pinctrl_writel(pin.config, pctldev, pin.pin_id);
 			list_del(pos);
 			kfree(gpio_pin);
 			break;
@@ -357,11 +390,13 @@ static int s32_pmx_gpio_set_direction(struct pinctrl_dev *pctldev,
 	const struct s32_pin *pin;
 
 	/* Find the pinctrl config for the requested pin */
-	grp = s32_pinctrl_find_group_by_name(info, GPIO_GROUP_NAME);
+	grp = s32_pinctrl_find_group_by_name(info, GPIO_GROUP_NAME0);
 	if (!grp) {
-		dev_err(info->dev, "unable to find group for node %s\n",
-			GPIO_GROUP_NAME);
-		return -EINVAL;
+		grp = s32_pinctrl_find_group_by_name(info, GPIO_GROUP_NAME1);
+		if (!grp) {
+			dev_err(info->dev, "unable to find group for gpiogrp node\n");
+			return -EINVAL;
+		}
 	}
 
 	pin = s32_pinctrl_find_pin(grp, offset);
@@ -369,7 +404,7 @@ static int s32_pmx_gpio_set_direction(struct pinctrl_dev *pctldev,
 	if (!pin)
 		return -EINVAL;
 
-	config = readl(ipctl->base + S32_PAD_CONFIG(pin->pin_id));
+	config = s32_pinctrl_readl(pctldev, pin->pin_id);
 
 	if (input) {
 		/* Disable output buffer and enable input buffer */
@@ -380,7 +415,8 @@ static int s32_pmx_gpio_set_direction(struct pinctrl_dev *pctldev,
 		config &= ~(PAD_CTL_IBE | PAD_CTL_PUE | PAD_CTL_PUS);
 		config |= (PAD_CTL_OBE | PAD_CTL_PUE | PAD_CTL_PUS);
 	}
-	writel(config, ipctl->base + S32_PAD_CONFIG(pin->pin_id));
+
+	s32_pinctrl_writel(config, pctldev, pin->pin_id);
 
 	return 0;
 }
@@ -398,9 +434,7 @@ static const struct pinmux_ops s32_pmx_ops = {
 static int s32_pinconf_get(struct pinctrl_dev *pctldev,
 			     unsigned int pin_id, unsigned long *config)
 {
-	struct s32_pinctrl *ipctl = pinctrl_dev_get_drvdata(pctldev);
-
-	*config = readl(ipctl->base + S32_PAD_CONFIG(pin_id));
+	*config = s32_pinctrl_readl(pctldev, pin_id);
 
 	return 0;
 }
@@ -416,7 +450,7 @@ static int s32_pinconf_set(struct pinctrl_dev *pctldev,
 			pin_get_name(pctldev, pin_id), num_configs);
 
 	for (i = 0; i < num_configs; i++) {
-		writel(configs[i], ipctl->base + S32_PAD_CONFIG(pin_id));
+		s32_pinctrl_writel(configs[i], pctldev, pin_id);
 		dev_dbg(ipctl->dev, "write: offset 0x%x val 0x%lx\n",
 			S32_PAD_CONFIG(pin_id), configs[i]);
 	} /* for each config */
@@ -427,10 +461,9 @@ static int s32_pinconf_set(struct pinctrl_dev *pctldev,
 static void s32_pinconf_dbg_show(struct pinctrl_dev *pctldev,
 				   struct seq_file *s, unsigned int pin_id)
 {
-	struct s32_pinctrl *ipctl = pinctrl_dev_get_drvdata(pctldev);
 	unsigned long config;
 
-	config = readl(ipctl->base + S32_PAD_CONFIG(pin_id));
+	config = s32_pinctrl_readl(pctldev, pin_id);
 	seq_printf(s, "0x%lx", config);
 }
 
@@ -539,7 +572,6 @@ static int s32_pinctrl_parse_functions(struct device_node *np,
 	struct device_node *child;
 	struct s32_pmx_func *func;
 	struct s32_pin_group *grp;
-	static u32 grp_index;
 	u32 i = 0;
 
 	dev_dbg(info->dev, "parse function(%d): %s\n", index, np->name);
@@ -558,7 +590,7 @@ static int s32_pinctrl_parse_functions(struct device_node *np,
 
 	for_each_child_of_node(np, child) {
 		func->groups[i] = child->name;
-		grp = &info->groups[grp_index++];
+		grp = &info->groups[info->grp_index++];
 		s32_pinctrl_parse_groups(child, grp, info, i++);
 	}
 
@@ -569,12 +601,34 @@ static int s32_pinctrl_probe_dt(struct platform_device *pdev,
 				struct s32_pinctrl_soc_info *info)
 {
 	struct device_node *np = pdev->dev.of_node;
+	struct of_phandle_args pinspec;
 	struct device_node *child;
 	u32 nfuncs = 0;
 	u32 i = 0;
+	int ret;
 
 	if (!np)
 		return -ENODEV;
+
+	ret = of_parse_phandle_with_fixed_args(np, "pins", 2,
+						   0, &pinspec);
+	if (ret) {
+		dev_err(&pdev->dev, "pins0 error\n");
+		return -EINVAL;
+	}
+
+	info->mscr_base_pin = pinspec.args[0];
+	info->mscr_end_pin = pinspec.args[1];
+
+	ret = of_parse_phandle_with_fixed_args(np, "pins", 2,
+						   1, &pinspec);
+	if (ret) {
+		dev_err(&pdev->dev, "pins1 error\n");
+		return -EINVAL;
+	}
+
+	info->imcr_base_pin = pinspec.args[0];
+	info->imcr_end_pin = pinspec.args[1];
 
 	nfuncs = of_get_child_count(np);
 	if (nfuncs <= 0) {
@@ -605,11 +659,10 @@ static int s32_pinctrl_probe_dt(struct platform_device *pdev,
 }
 
 int s32_pinctrl_probe(struct platform_device *pdev,
-		      struct s32_pinctrl_soc_info *info,
-		      enum s32_pinctrl_version vers)
+		      struct s32_pinctrl_soc_info *info)
 {
 	struct s32_pinctrl *ipctl;
-	struct resource *res;
+	struct resource *res, *res1;
 	int ret;
 
 	if (!info || !info->pins || !info->npins) {
@@ -624,14 +677,14 @@ int s32_pinctrl_probe(struct platform_device *pdev,
 		return -ENOMEM;
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	ipctl->base = devm_ioremap_resource(&pdev->dev, res);
+	res1 = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+	ipctl->mscr_base = devm_ioremap_resource(&pdev->dev, res);
+	ipctl->imcr_base = devm_ioremap_resource(&pdev->dev, res1);
 
-	/* Backward compatibility with old device trees */
-	if (vers == PINCTRL_V1)
-		ipctl->base += S32_MSCR_OFFSET;
-
-	if (IS_ERR(ipctl->base))
-		return PTR_ERR(ipctl->base);
+	if (IS_ERR(ipctl->mscr_base))
+		return PTR_ERR(ipctl->mscr_base);
+	if (IS_ERR(ipctl->imcr_base))
+		return PTR_ERR(ipctl->imcr_base);
 
 	s32_pinctrl_desc.name = dev_name(&pdev->dev);
 	s32_pinctrl_desc.pins = info->pins;
