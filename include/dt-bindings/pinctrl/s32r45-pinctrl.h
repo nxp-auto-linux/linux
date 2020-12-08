@@ -1,5 +1,5 @@
 /*
- * Copyright 2018-2019 NXP
+ * Copyright 2018-2020 NXP
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -361,6 +361,12 @@
 #define S32_GEN1_PAD_PE6__TX_D2_OUT	    70	PAD_CTL_ENET_CFG2
 #define S32_GEN1_PAD_PE7__TX_D3_OUT	    71	PAD_CTL_ENET_CFG2
 #define S32_GEN1_PAD_PE3__TX_EN_OUT	    67	PAD_CTL_ENET_CFG2
+
+/* GMAC 1 MDIO */
+#define S32_GEN1_PAD_PH6__MDC               102 PAD_CTL_ENET_CFG2
+
+#define S32_GEN1_PAD_PH7__MDIO_OUT          103 PAD_CTL_ENET_CFG3
+#define S32_GEN1_PAD_PH7__MDIO_IN           659 PAD_CTL_SRC_SIG_SEL2
 
 /* SPI 1 */
 #define S32_GEN1_PAD_PB6__SPI1_SOUT_OUT		22	PAD_CTL_SPI1_MSCR_SOUT
