@@ -643,6 +643,7 @@ static int s32gen1_rtc_resume(struct device *dev)
 
 static const struct of_device_id s32gen1_rtc_of_match[] = {
 	{.compatible = "fsl,s32gen1-rtc" },
+	{ /* sentinel */ },
 };
 
 static SIMPLE_DEV_PM_OPS(s32gen1_rtc_pm_ops,
