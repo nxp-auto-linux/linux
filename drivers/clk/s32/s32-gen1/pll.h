@@ -73,12 +73,6 @@
 #define DDRPLL_MAX_VCO_RATE		(1600000000)
 #define ACCELPLL_MAX_VCO_RATE		(2400000000)
 
-/* Number of PHIs */
-#define ARMPLL_PHI_Nr			(2)
-#define PERIPHPLL_PHI_Nr		(8)
-#define DDRPLL_PHI_Nr			(1)
-#define ACCELPLL_PHI_Nr			(2)
-
 /* The min,max values for PLL PHIn outputs (Hz) */
 #define ARMPLL_MAX_PHI0_MAX_RATE	(1000000000)
 #define ARMPLL_MAX_PHI1_MAX_RATE	(500000000)
@@ -111,6 +105,7 @@
 #define PERIPH_PLLDIG_PLLODIV4		(0xa)
 #define PERIPH_PLLDIG_PLLODIV5		(0x10)
 #define PERIPH_PLLDIG_PLLODIV6		(0x14)
+#define PERIPH_PLLDIG_PLLODIV7		(0x1)
 #define DDR_PLLDIG_PLLODIV0		(0x2)
 #define ACCEL_PLLDIG_PLLODIV0		(0x3)
 #define ACCEL_PLLDIG_PLLODIV1		(0x3)
