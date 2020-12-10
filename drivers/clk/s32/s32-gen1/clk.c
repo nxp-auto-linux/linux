@@ -285,7 +285,7 @@ void __init s32gen1_clocks_init(struct device_node *clocking_node)
 		PERIPH_PLLDIG_PLLODIV2, PERIPH_PLLDIG_PLLODIV3,
 
 		PERIPH_PLLDIG_PLLODIV4, PERIPH_PLLDIG_PLLODIV5,
-		PERIPH_PLLDIG_PLLODIV6
+		PERIPH_PLLDIG_PLLODIV6, PERIPH_PLLDIG_PLLODIV7,
 	};
 	u32 ddrpll_pllodiv[] = { DDR_PLLDIG_PLLODIV0 };
 	u32 accelpll_pllodiv[] = {
@@ -396,7 +396,7 @@ void __init s32gen1_clocks_init(struct device_node *clocking_node)
 	c = s32gen1_clk_plldig(S32GEN1_PLLDIG_ARM, "armpll_vco", "armpll_sel",
 			       get_plat_clk(S32GEN1_CLK_ACCELPLL_SRC_SEL),
 			       clk_modules.armpll, armpll_pllodiv,
-			       ARMPLL_PHI_Nr);
+			       ARRAY_SIZE(armpll_pllodiv));
 	set_plat_clk(S32GEN1_CLK_ARMPLL_VCO, c);
 
 	c = s32gen1_clk_plldig_phi(S32GEN1_PLLDIG_ARM, "armpll_phi0",
@@ -457,7 +457,7 @@ void __init s32gen1_clocks_init(struct device_node *clocking_node)
 			       "periphpll_sel",
 			       get_plat_clk(S32GEN1_CLK_PERIPHPLL_SRC_SEL),
 			       clk_modules.periphpll, periphpll_pllodiv,
-			       PERIPHPLL_PHI_Nr);
+			       ARRAY_SIZE(periphpll_pllodiv));
 	set_plat_clk(S32GEN1_CLK_PERIPHPLL_VCO, c);
 
 	c = s32gen1_clk_plldig_phi(S32GEN1_PLLDIG_PERIPH, "periphpll_phi0",
@@ -622,7 +622,7 @@ void __init s32gen1_clocks_init(struct device_node *clocking_node)
 			       "ddr_part_block",
 			       get_plat_clk(S32GEN1_CLK_DDRPLL_SRC_SEL),
 			       clk_modules.ddrpll, ddrpll_pllodiv,
-			       DDRPLL_PHI_Nr);
+			       ARRAY_SIZE(ddrpll_pllodiv));
 	set_plat_clk(S32GEN1_CLK_DDRPLL_VCO, c);
 
 	c = s32gen1_clk_plldig_phi(S32GEN1_PLLDIG_DDR, "ddrpll_phi0",
@@ -634,7 +634,7 @@ void __init s32gen1_clocks_init(struct device_node *clocking_node)
 			       "accelpll_sel",
 			       get_plat_clk(S32GEN1_CLK_ACCELPLL_SRC_SEL),
 			       clk_modules.accelpll, accelpll_pllodiv,
-			       ACCELPLL_PHI_Nr);
+			       ARRAY_SIZE(accelpll_pllodiv));
 	set_plat_clk(S32GEN1_CLK_ACCELPLL_VCO, c);
 
 	c = s32gen1_clk_plldig_phi(S32GEN1_PLLDIG_ACCEL, "accelpll_phi0",
