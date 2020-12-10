@@ -467,10 +467,17 @@ static const struct regmap_config siul2_regmap_conf = {
 	.cache_type = REGCACHE_FLAT,
 };
 
-static int common_regmap_conf(struct regmap *map, struct regmap_config *conf)
+static int common_regmap_conf(struct device *dev, struct regmap *map,
+			      struct regmap_config *conf, const char *name)
 {
 	conf->max_register = regmap_get_max_register(map);
 	conf->reg_stride = regmap_get_reg_stride(map);
+	conf->name = devm_kasprintf(dev, GFP_KERNEL, "%s-%s",
+					   dev_name(dev), name);
+	if (!conf->name) {
+		dev_err(dev, "Failed to allocated regmap name\n");
+		return -ENOMEM;
+	}
 
 	return regmap_reinit_cache(map, conf);
 }
@@ -489,19 +496,19 @@ static bool irqregmap_writeable(struct device *dev, unsigned int reg)
 	};
 }
 
-static int reinit_irqregmap_conf(struct regmap *map)
+static int reinit_irqregmap_conf(struct device *dev, struct regmap *map)
 {
 	struct regmap_config regmap_conf = siul2_regmap_conf;
 
 	regmap_conf.writeable_reg = irqregmap_writeable;
-	return common_regmap_conf(map, &regmap_conf);
+	return common_regmap_conf(dev, map, &regmap_conf, "irq");
 }
 
-static int reinit_regmap_conf(struct regmap *map)
+static int reinit_opadregmap_conf(struct device *dev, struct regmap *map)
 {
 	struct regmap_config regmap_conf = siul2_regmap_conf;
 
-	return common_regmap_conf(map, &regmap_conf);
+	return common_regmap_conf(dev, map, &regmap_conf, "opad");
 }
 
 static int siul2_irq_setup(struct platform_device *pdev,
@@ -528,7 +535,7 @@ static int siul2_irq_setup(struct platform_device *pdev,
 	if (IS_ERR(gpio_dev->irqmap))
 		return PTR_ERR(gpio_dev->irqmap);
 
-	ret = reinit_irqregmap_conf(gpio_dev->irqmap);
+	ret = reinit_irqregmap_conf(&pdev->dev, gpio_dev->irqmap);
 	if (ret) {
 		dev_err(&pdev->dev,
 			"Failed to reinitialize regmap configuration\n");
@@ -750,7 +757,7 @@ static int siul2_gpio_pads_init(struct platform_device *pdev,
 		return PTR_ERR(gpio_dev->opadmap);
 	}
 
-	ret = reinit_regmap_conf(gpio_dev->opadmap);
+	ret = reinit_opadregmap_conf(&pdev->dev, gpio_dev->opadmap);
 	if (ret) {
 		dev_err(&pdev->dev,
 			"Failed to reinitialize regmap configuration\n");
