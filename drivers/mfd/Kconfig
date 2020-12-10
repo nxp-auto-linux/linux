@@ -1332,6 +1332,16 @@ config MFD_STMPE
 		Touchscreen: stmpe-ts
 		ADC: stmpe-adc
 
+config LLCE_CORE
+	tristate "NXP LLCE Core"
+	select SRAM
+	select FW_LOADER
+	select MFD_CORE
+	depends on m
+	help
+	  Driver for NXP LLCE accelerator. It will load
+	  the firmware and start the accelerator's cores.
+
 menu "STMicroelectronics STMPE Interface Drivers"
 depends on MFD_STMPE
 
