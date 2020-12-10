@@ -134,13 +134,13 @@ static int get_pllx_phi_nr(enum s32gen1_plldig_type type)
 {
 	switch (type) {
 	case S32GEN1_PLLDIG_ARM:
-		return ARMPLL_PHI_Nr;
+		return ARRAY_SIZE(arm_phis_max_freq);
 	case S32GEN1_PLLDIG_PERIPH:
-		return PERIPHPLL_PHI_Nr;
+		return ARRAY_SIZE(periph_phis_max_freq);
 	case S32GEN1_PLLDIG_ACCEL:
-		return ACCELPLL_PHI_Nr;
+		return ARRAY_SIZE(accel_phis_max_freq);
 	case S32GEN1_PLLDIG_DDR:
-		return DDRPLL_PHI_Nr;
+		return ARRAY_SIZE(ddr_phis_max_freq);
 	default:
 		return -EINVAL;
 	}
