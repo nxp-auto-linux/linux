@@ -228,6 +228,16 @@ fsl_edma2_irq_init(struct platform_device *pdev,
 	return 0;
 }
 
+static unsigned int s32v234_mux_channel_mapping(u32 channel_id)
+{
+	return 4 * (channel_id/4) + ((4 - channel_id % 4) - 1);
+}
+
+static unsigned int vf610_mux_channel_mapping(u32 channel_id)
+{
+	return channel_id;
+}
+
 static void fsl_edma_irq_exit(
 		struct platform_device *pdev, struct fsl_edma_engine *fsl_edma)
 {

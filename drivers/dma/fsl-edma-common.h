@@ -149,6 +149,7 @@ struct fsl_edma_drvdata {
 	int			n_irqs;
 	struct		fsl_edma_irq *irqs;
 	bool			has_dmaclk;
+	unsigned int    (*mux_channel_mapping)(u32 channel_id);
 	bool			mux_swap;
 	int			(*setup_irq)(struct platform_device *pdev,
 					     struct fsl_edma_engine *fsl_edma);
