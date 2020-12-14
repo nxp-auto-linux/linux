@@ -241,32 +241,37 @@ fsl_edma_irq_init(struct platform_device *pdev, struct fsl_edma_engine *fsl_edma
 	unsigned int i, j;
 	const struct fsl_edma_drvdata *drvdata = fsl_edma->drvdata;
 
+	fsl_edma->irq_nos = devm_kzalloc(&pdev->dev,
+			drvdata->n_irqs * sizeof(*fsl_edma->irq_nos), GFP_KERNEL);
+	if (!fsl_edma->irq_nos)
+		return -ENOMEM;
+
 	for (i = 0; i < drvdata->n_irqs; i++) {
-		drvdata->irqs[i].irqno = platform_get_irq_byname(pdev,
+		fsl_edma->irq_nos[i] = platform_get_irq_byname(pdev,
 				drvdata->irqs[i].name);
-		if (drvdata->irqs[i].irqno < 0) {
+		if (fsl_edma->irq_nos[i] < 0) {
 			dev_err(&pdev->dev, "Can't get %s irq.\n",
 					drvdata->irqs[i].name);
-			return drvdata->irqs[i].irqno;
+			return fsl_edma->irq_nos[i];
 		}
 
 		for (j = 0; j < i; j++) {
-			if (drvdata->irqs[i].irqno == drvdata->irqs[j].irqno)
+			if (fsl_edma->irq_nos[i] == fsl_edma->irq_nos[j])
 				break;
 		}
 
 		/* Check there is a irq with multiple functionalities */
 		if (is_vf610_edma(fsl_edma))
 			if (j < i) {
-				drvdata->irqs[i].irqno = -1;
+				fsl_edma->irq_nos[i] = -1;
 				drvdata->irqs[j].name = "eDma";
 			}
 	}
 
 	for (i = 0; i < drvdata->n_irqs; i++) {
-		if (drvdata->irqs[i].irqno >= 0) {
+		if (fsl_edma->irq_nos[i] >= 0) {
 			ret = devm_request_irq(&pdev->dev,
-					drvdata->irqs[i].irqno,
+					fsl_edma->irq_nos[i],
 					drvdata->irqs[i].irqhandler,
 					0,
 					drvdata->irqs[i].name,
@@ -343,9 +348,9 @@ static void fsl_edma_irq_exit(
 	const struct fsl_edma_drvdata *drvdata = fsl_edma->drvdata;
 
 	for (i = 0; i < drvdata->n_irqs; i++) {
-		if (drvdata->irqs[i].irqno >= 0)
+		if (fsl_edma->irq_nos[i] >= 0)
 			devm_free_irq(&pdev->dev,
-					drvdata->irqs[i].irqno, fsl_edma);
+					fsl_edma->irq_nos[i], fsl_edma);
 	}
 }
 
