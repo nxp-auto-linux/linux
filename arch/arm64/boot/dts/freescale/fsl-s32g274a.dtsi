@@ -266,22 +266,22 @@
 	opad0_regs: siul2_reg@0x4009D700 {
 		compatible = "fsl,opad0_reqs-s32gen1","syscon","simple-mfd";
 		reg = <0x0 0x4009D700 0x0 0x10>;
-		big-endian;
+		reg-io-width = <2>;
 	};
 	ipad0_regs: siul2_reg@0x4009D740 {
 		compatible = "fsl,ipad0_reqs-s32gen1","syscon","simple-mfd";
 		reg = <0x0 0x4009D740 0x0 0x10>;
-		big-endian;
+		reg-io-width = <2>;
 	};
-	opad1_regs: siul2_reg@0x4401170C {
+	opad1_regs: siul2_reg@0x44011700 {
 		compatible = "fsl,opad0_reqs-s32gen1","syscon","simple-mfd";
-		reg = <0x0 0x4401170C 0x0 0xC>;
-		big-endian;
+		reg = <0x0 0x44011700 0x0 0x18>;
+		reg-io-width = <2>;
 	};
-	ipad1_regs: siul2_reg@0x4401174C {
+	ipad1_regs: siul2_reg@0x44011740 {
 		compatible = "fsl,ipad0_reqs-s32gen1","syscon","simple-mfd";
-		reg = <0x0 0x4401174C 0x0 0x14>;
-		big-endian;
+		reg = <0x0 0x44011740 0x0 0x18>;
+		reg-io-width = <2>;
 	};
 
 	usbmisc: usbmisc@44064200 {
