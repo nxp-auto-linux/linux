@@ -110,10 +110,11 @@ void fsl_edma_chan_mux(struct fsl_edma_chan *fsl_chan,
 	void __iomem *muxaddr;
 	unsigned int chans_per_mux, ch_off;
 	int endian_diff[4] = {3, 1, -1, -3};
+	const struct fsl_edma_drvdata *drvdata = fsl_chan->edma->drvdata;
 	u32 dmamux_nr = fsl_chan->edma->drvdata->dmamuxs;
 
 	chans_per_mux = fsl_chan->edma->n_chans / dmamux_nr;
-	ch_off = fsl_chan->vchan.chan.chan_id % chans_per_mux;
+	ch_off = drvdata->mux_channel_mapping(ch % chans_per_mux);
 
 	if (fsl_chan->edma->drvdata->mux_swap)
 		ch_off += endian_diff[ch_off % 4];
