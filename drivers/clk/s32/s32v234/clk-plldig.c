@@ -1,6 +1,6 @@
 /*
  * Copyright 2015-2016 Freescale Semiconductor, Inc.
- * Copyright 2017-2018 NXP
+ * Copyright 2017-2018,2020 NXP
  *
  * The code contained herein is licensed under the GNU General Public
  * License. You may obtain a copy of the GNU General Public License
@@ -39,6 +39,29 @@ struct clk_plldig {
 	u32		plldv_rfdphi1;
 };
 
+static const unsigned long arm_phis_max_freq[] = {
+	ARMPLL_MAX_PHI0_MAX_RATE,
+	ARMPLL_MAX_PHI1_MAX_RATE
+};
+
+static const unsigned long periph_phis_max_freq[] = {
+	PERIPHPLL_MAX_PHI0_MAX_RATE,
+	PERIPHPLL_MAX_PHI1_MAX_RATE,
+};
+
+static const unsigned long enet_phis_max_freq[] = {
+	ENETPLL_MAX_PHI0_MAX_RATE,
+	ENETPLL_MAX_PHI1_MAX_RATE,
+};
+
+static const unsigned long ddr_phis_max_freq[] = {
+	DDRPLL_MAX_PHI0_MAX_RATE,
+	DDRPLL_MAX_PHI1_MAX_RATE
+};
+
+static const unsigned long video_phis_max_freq[] = {
+	VIDEOPLL_MAX_PHI0_MAX_RATE
+};
 #define to_clk_plldig(_hw) container_of(_hw, struct clk_plldig, hw)
 
 static unsigned long get_pllx_max_vco_rate(enum s32v234_plldig_type plltype)
@@ -62,56 +85,48 @@ static unsigned long get_pllx_max_vco_rate(enum s32v234_plldig_type plltype)
 	}
 }
 
+static int get_pllx_phi_nr(enum s32v234_plldig_type type)
+{
+	switch (type) {
+	case S32_PLLDIG_ARM:
+		return ARMPLL_PHI_Nr;
+	case S32_PLLDIG_PERIPH:
+		return PERIPHPLL_PHI_Nr;
+	case S32_PLLDIG_ENET:
+		return ENETPLL_PHI_Nr;
+	case S32_PLLDIG_DDR:
+		return DDRPLL_PHI_Nr;
+	case S32_PLLDIG_VIDEO:
+		return VIDEOPLL_PHI_Nr;
+	default:
+		return -EINVAL;
+	}
+}
+
 static unsigned long get_pllx_phiy_max_rate(enum s32v234_plldig_type plltype,
 					    unsigned int phino)
 {
+	if (phino >= get_pllx_phi_nr(plltype))
+		return 0;
+
 	switch (plltype) {
 	case S32_PLLDIG_ARM:
-		switch (phino) {
-		case 0:
-			return ARMPLL_MAX_PHI0_MAX_RATE;
-		case 1:
-			return ARMPLL_MAX_PHI1_MAX_RATE;
-		}
-		break;
+		return arm_phis_max_freq[phino];
 	case S32_PLLDIG_PERIPH:
-		switch (phino) {
-		case 0:
-			return PERIPHPLL_MAX_PHI0_MAX_RATE;
-		case 1:
-			return PERIPHPLL_MAX_PHI1_MAX_RATE;
-		}
-		break;
+		return periph_phis_max_freq[phino];
 	case S32_PLLDIG_ENET:
-		switch (phino) {
-		case 0:
-			return ENETPLL_MAX_PHI0_MAX_RATE;
-		case 1:
-			return ENETPLL_MAX_PHI1_MAX_RATE;
-		}
-		break;
+		return enet_phis_max_freq[phino];
 	case S32_PLLDIG_DDR:
-		switch (phino) {
-		case 0:
-			return DDRPLL_MAX_PHI0_MAX_RATE;
-		case 1:
-			return DDRPLL_MAX_PHI1_MAX_RATE;
-		}
-		break;
+		return ddr_phis_max_freq[phino];
 	case S32_PLLDIG_VIDEO:
-		switch (phino) {
-		case 0:
-			return VIDEOPLL_MAX_PHI0_MAX_RATE;
-		case 1:
-			return -EINVAL;
-		}
+		return video_phis_max_freq[phino];
 	default:
 		pr_warn("Unsupported PLL. Use: %d or %d\n",
 			S32_PLLDIG_ARM,
 			S32_PLLDIG_VIDEO);
 		break;
 	}
-	return -EINVAL;
+	return 0;
 }
 
 #if 0 /* Disable until an pll wait locking method will be implemented */
