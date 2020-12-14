@@ -2,6 +2,7 @@
 /*
  * Copyright 2013-2014 Freescale Semiconductor, Inc.
  * Copyright 2018 Angelo Dureghello <angelo@sysam.it>
+ * Copyright 2017-2018, 2020 NXP
  */
 #ifndef _FSL_EDMA_COMMON_H_
 #define _FSL_EDMA_COMMON_H_
@@ -9,6 +10,31 @@
 #include <linux/dma-direction.h>
 #include <linux/platform_device.h>
 #include "virt-dma.h"
+
+/* edma2 fields. */
+#define EDMA_CR			0x00
+#define EDMA_ES			0x04
+#define EDMA_ERQ		0x0C
+#define EDMA_EEI		0x14
+#define EDMA_SERQ		0x1B
+#define EDMA_CERQ		0x1A
+#define EDMA_SEEI		0x19
+#define EDMA_CEEI		0x18
+#define EDMA_CINT		0x1F
+#define EDMA_CERR		0x1E
+#define EDMA_SSRT		0x1D
+#define EDMA_CDNE		0x1C
+#define EDMA_INTR		0x24
+#define EDMA_ERR		0x2C
+
+/* edma3 regs. */
+#define EDMA3_MP_CSR		0x00
+#define EDMA3_MP_ES			0x04
+
+#define EDMA3_CHn_CSR(ch)	(0x4000 + (ch) * 0x1000)
+#define EDMA3_CHn_ES(ch)	(0x4004 + (ch) * 0x1000)
+#define EDMA3_CHn_INT(ch)	(0x4008 + (ch) * 0x1000)
+#define EDMA3_TCD(ch)		(0x4020 + 0x1000 * (ch))
 
 #define EDMA_CR_EDBG		BIT(1)
 #define EDMA_CR_ERCA		BIT(2)
@@ -25,6 +51,31 @@
 #define EDMA_CINT_CINT(x)	((x) & GENMASK(4, 0))
 #define EDMA_CERR_CERR(x)	((x) & GENMASK(4, 0))
 
+/* edma3 fields. */
+#define EDMA3_MP_CSR_ERCA	BIT(2)
+#define EDMA3_MP_ES_VLD(x)	((x) & 0x80000000)
+
+#define EDMA3_CHn_CSR_ERQ	BIT(0)
+#define EDMA3_CHn_CSR_EEI	BIT(2)
+#define EDMA3_CHn_ES_ERR	BIT(31)
+#define EDMA3_CHn_INT_INT	BIT(0)
+
+/* edma2 & edma3 TCD fields. */
+#define EDMA_TCD_SADDR(tcd)		(0x00 + (tcd))
+#define EDMA_TCD_SOFF(tcd)		(0x04 + (tcd))
+#define EDMA_TCD_ATTR(tcd)		(0x06 + (tcd))
+#define EDMA_TCD_NBYTES(tcd)		(0x08 + (tcd))
+#define EDMA_TCD_SLAST(tcd)		(0x0C + (tcd))
+#define EDMA_TCD_DADDR(tcd)		(0x10 + (tcd))
+#define EDMA_TCD_DOFF(tcd)		(0x14 + (tcd))
+#define EDMA_TCD_CITER_ELINK(tcd)	(0x16 + (tcd))
+#define EDMA_TCD_CITER(tcd)		(0x16 + (tcd))
+#define EDMA_TCD_DLAST_SGA(tcd)		(0x18 + (tcd))
+#define EDMA_TCD_CSR(tcd)		(0x1C + (tcd))
+#define EDMA_TCD_BITER_ELINK(tcd)	(0x1E + (tcd))
+#define EDMA_TCD_BITER(tcd)		(0x1E + (tcd))
+
+/* edma2 & edma3 defines. */
 #define EDMA_TCD_ATTR_DSIZE(x)		(((x) & GENMASK(2, 0)))
 #define EDMA_TCD_ATTR_DMOD(x)		(((x) & GENMASK(4, 0)) << 3)
 #define EDMA_TCD_ATTR_SSIZE(x)		(((x) & GENMASK(2, 0)) << 8)
@@ -68,6 +119,20 @@ enum fsl_edma_pm_state {
 };
 
 struct fsl_edma_hw_tcd {
+	u32 saddr;
+	u16 soff;
+	u16 attr;
+	u32 nbytes;
+	u32 slast;
+	u32 daddr;
+	u16 doff;
+	u16 citer;
+	u32 dlast_sga;
+	u16 csr;
+	u16 biter;
+};
+
+struct fsl_edma_tcd {
 	__le32	saddr;
 	__le16	soff;
 	__le16	attr;
@@ -108,7 +173,7 @@ struct edma_regs {
 
 struct fsl_edma_sw_tcd {
 	dma_addr_t			ptcd;
-	struct fsl_edma_hw_tcd		*vtcd;
+	struct fsl_edma_tcd		*vtcd;
 };
 
 struct fsl_edma_chan {
@@ -153,6 +218,14 @@ struct fsl_edma_drvdata {
 	bool			mux_swap;
 	int			(*setup_irq)(struct platform_device *pdev,
 					     struct fsl_edma_engine *fsl_edma);
+	struct		fsl_edma_ops	*ops;
+};
+
+struct fsl_edma_ops {
+	void    (*edma_enable_request)(struct fsl_edma_chan *fsl_chan);
+	void    (*edma_disable_request)(struct fsl_edma_chan *fsl_chan);
+	void    (*edma_enable_arbitration)(struct fsl_edma_engine *edma);
+	void __iomem*    (*edma_get_tcd_addr)(struct fsl_edma_chan *fsl_chan);
 };
 
 struct fsl_edma_irq {
