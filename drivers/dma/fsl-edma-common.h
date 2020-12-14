@@ -246,6 +246,7 @@ struct fsl_edma_engine {
 	int			errirq;
 	bool			big_endian;
 	struct edma_regs	regs;
+	int			*irq_nos;
 	struct fsl_edma_chan	chans[];
 };
 
