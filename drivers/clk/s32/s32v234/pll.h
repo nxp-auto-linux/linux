@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2016 Freescale Semiconductor, Inc.
- * Copyright 2017-2018 NXP
+ * Copyright 2017-2018,2020 NXP
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -60,6 +60,13 @@
  * DDRPLL - PLL3
  * VIDEOPLL - PLL4
  */
+/* Number of PHIs */
+#define ARMPLL_PHI_Nr			(2)
+#define PERIPHPLL_PHI_Nr		(2)
+#define ENETPLL_PHI_Nr			(2)
+#define DDRPLL_PHI_Nr			(2)
+#define VIDEOPLL_PHI_Nr			(1)
+
 /* The min,max values for PLL VCO (Hz) */
 #define ARMPLL_MAX_VCO_RATE             (1000000000)
 #define PERIPHPLL_MAX_VCO_RATE          (1200000000)
