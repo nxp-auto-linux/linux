@@ -9,6 +9,7 @@ group, DMAMUX0 or DMAMUX1, but not both.
 Required properties:
 - compatible :
 	- "fsl,s32v234-edma" for eDMA used similar to that on S32V234 SoC
+	- "fsl,s32gen1-edma" for eDMA used similar to that on S32GEN1 SoC
 	- "fsl,vf610-edma" for eDMA used similar to that on Vybrid vf610 SoC
 	- "fsl,imx7ulp-edma" for eDMA2 used similar to that on i.mx7ulp
 	- "fsl,ls1028a-edma" followed by "fsl,vf610-edma" for eDMA used on the
@@ -109,6 +110,25 @@ edma: dma-controller@40002000 {
         clocks = <&clks S32V234_CLK_SYS6>,
                  <&clks S32V234_CLK_SYS6>;
         status = "disabled";
+};
+
+edma0: dma-controller@40110000 {
+	#dma-cells = <2>;
+	compatible = "fsl,s32gen1-edma";
+	reg = <0x0 0x40110000 0x0 0x21000>,
+	      <0x0 0x40108000 0x0 0x1000>,
+	      <0x0 0x40109000 0x0 0x1000>;
+	dma-channels = <32>;
+	interrupts = <0 8 4>,
+		     <0 9 4>,
+		     <0 10 4>;
+	interrupt-names = "edma-tx_0-15",
+			  "edma-tx_16-31",
+			  "edma-err";
+	clock-names = "dmamux0", "dmamux1";
+	clocks = <&sysclk>,
+		 <&sysclk>;
+	status = "disabled";
 };
 
 * DMA clients
