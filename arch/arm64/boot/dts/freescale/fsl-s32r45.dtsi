@@ -214,22 +214,22 @@
 	opad0_regs: siul2_reg@0x4009D700 {
 		compatible = "fsl,opad0_reqs-s32gen1","syscon","simple-mfd";
 		reg = <0x0 0x4009D700 0x0 0x10>;
-		big-endian;
+		reg-io-width = <2>;
 	};
 	ipad0_regs: siul2_reg@0x4009D740 {
 		compatible = "fsl,ipad0_reqs-s32gen1","syscon","simple-mfd";
 		reg = <0x0 0x4009D740 0x0 0x10>;
-		big-endian;
+		reg-io-width = <2>;
 	};
-	opad1_regs: siul2_reg@0x4403D70C {
+	opad1_regs: siul2_reg@0x4403D700 {
 		compatible = "fsl,opad0_reqs-s32gen1","syscon","simple-mfd";
-		reg = <0x0 0x4403D70C 0x0 0x8>;
-		big-endian;
+		reg = <0x0 0x4403D700 0x0 0x14>;
+		reg-io-width = <2>;
 	};
-	ipad1_regs: siul2_reg@0x4403D74C {
+	ipad1_regs: siul2_reg@0x4403D740 {
 		compatible = "fsl,ipad0_reqs-s32gen1","syscon","simple-mfd";
-		reg = <0x0 0x4403D74C 0x0 0x14>;
-		big-endian;
+		reg = <0x0 0x4403D740 0x0 0x14>;
+		reg-io-width = <2>;
 	};
 
 	gmac1: ethernet@44010000 {
