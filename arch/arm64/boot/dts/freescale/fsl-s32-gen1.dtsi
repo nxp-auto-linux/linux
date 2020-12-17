@@ -14,6 +14,12 @@
 	#address-cells = <2>;
 	#size-cells = <2>;
 
+	aliases {
+		serial0 = &uart0;
+		serial1 = &uart1;
+		serial2 = &uart2;
+	};
+
 	cpus {
 		#address-cells = <2>;
 		#size-cells = <0>;
@@ -63,6 +69,30 @@
 			     <1 14 0xf08>,
 			     <1 11 0xf08>,
 			     <1 10 0xf08>;
+	};
+
+	uart0:serial@401C8000 {
+		compatible = "fsl,s32-linflexuart";
+		reg = <0x0 0x401C8000 0x0 0x3000>;
+		interrupts = <0 82 1>;
+		clocks = <&sysclk>, <&sysclk>;
+		clock-names = "lin", "ipg";
+	};
+
+	uart1:serial@401CC000 {
+		compatible = "fsl,s32-linflexuart";
+		reg = <0x0 0x401CC000 0x0 0x3000>;
+		interrupts = <0 83 1>;
+		clocks = <&sysclk>, <&sysclk>;
+		clock-names = "lin", "ipg";
+	};
+
+	uart2:serial@402BC000 {
+		compatible = "fsl,s32-linflexuart";
+		reg = <0x0 0x402BC000 0x0 0x3000>;
+		interrupts = <0 84 1>;
+		clocks = <&sysclk>, <&sysclk>;
+		clock-names = "lin", "ipg";
 	};
 
 	gic: interrupt-controller@50800000 {
