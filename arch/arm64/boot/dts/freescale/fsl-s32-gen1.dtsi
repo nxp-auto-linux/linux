@@ -95,6 +95,18 @@
 		clock-names = "lin", "ipg";
 	};
 
+	usdhc0: usdhc@402F0000{
+		compatible = "fsl,s32gen1-usdhc";
+		reg = <0x0 0x402F0000 0x0 0x1000>;
+		interrupts = <0 36 4>;
+		clocks = <&clks S32GEN1_CLK_XBAR_DIV3>,
+			 <&clks S32GEN1_CLK_XBAR>,
+			 <&clks S32GEN1_CLK_SDHC>;
+		clock-names = "ipg", "ahb", "per";
+		bus-width = <8>;
+		status = "disabled";
+	};
+
 	gic: interrupt-controller@50800000 {
 		compatible = "arm,gic-v3";
 		#interrupt-cells = <3>;
