@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0+ OR BSD-3-Clause
 /*
- * Copyright 2020 NXP
+ * Copyright 2020-2021 NXP
  */
 #include <dt-bindings/mailbox/nxp-llce-mb.h>
 #include <linux/can/dev.h>
@@ -100,6 +100,7 @@ static int llce_rx_startup(struct mbox_chan *chan);
 static int llce_tx_startup(struct mbox_chan *chan);
 static void llce_rx_shutdown(struct mbox_chan *chan);
 static void llce_tx_shutdown(struct mbox_chan *chan);
+static int process_rx_cmd(struct mbox_chan *chan, struct llce_rx_msg *msg);
 
 const char *llce_errors[] = {
 	LLCE_ERROR_ENTRY(LLCE_ERROR_TXACK_FIFO_FULL),
@@ -355,6 +356,16 @@ static bool is_config_chan(unsigned int chan_type)
 		chan_type == S32G_LLCE_HIF_CONF_MB;
 }
 
+static bool is_rx_chan(unsigned int chan_type)
+{
+	return chan_type == S32G_LLCE_CAN_RX_MB;
+}
+
+static bool is_tx_chan(unsigned int chan_type)
+{
+	return chan_type == S32G_LLCE_CAN_TX_MB;
+}
+
 static int init_chan_priv(struct mbox_chan *chan, struct llce_mb *mb,
 			  unsigned int type, unsigned int index)
 {
@@ -375,7 +386,11 @@ static int init_chan_priv(struct mbox_chan *chan, struct llce_mb *mb,
 		chan->txdone_method = TXDONE_BY_POLL;
 		priv->state = LLCE_REGISTERED_CHAN;
 	} else {
-		chan->txdone_method = TXDONE_BY_IRQ;
+		if (is_rx_chan(type))
+			chan->txdone_method = TXDONE_BY_ACK;
+		else
+			chan->txdone_method = TXDONE_BY_IRQ;
+
 		priv->state = LLCE_UNREGISTERED_CHAN;
 	}
 
@@ -560,25 +575,44 @@ static int llce_mb_send_data(struct mbox_chan *chan, void *data)
 {
 	struct llce_chan_priv *priv = chan->con_priv;
 	struct llce_mb *mb = priv->mb;
-	int ret = -EINVAL;
 
 	/* Client should not flush new tasks if suspended. */
 	WARN_ON(mb->suspended);
 
 	if (is_config_chan(priv->type))
-		ret = execute_config_cmd(chan, data);
+		return execute_config_cmd(chan, data);
 
-	if (priv->type == S32G_LLCE_CAN_TX_MB)
-		ret = send_can_msg(chan, data);
+	if (is_tx_chan(priv->type))
+		return send_can_msg(chan, data);
 
-	return ret;
+	if (is_rx_chan(priv->type))
+		return process_rx_cmd(chan, data);
+
+	return -EINVAL;
 }
 
-static int llce_rx_startup(struct mbox_chan *chan)
+static void disable_rx_irq(struct mbox_chan *chan)
+{
+	void __iomem *rxout = get_rxout_fifo(chan);
+	void __iomem *ier = LLCE_FIFO_IER(rxout);
+
+	writel(0, ier);
+}
+
+static void enable_rx_irq(struct mbox_chan *chan)
 {
 	void __iomem *rxout = get_rxout_fifo(chan);
 	void __iomem *status0 = LLCE_FIFO_STATUS0(rxout);
 	void __iomem *ier = LLCE_FIFO_IER(rxout);
+
+	/* Clear interrupt status flags. */
+	writel(readl(status0), status0);
+	/* Enable interrupt */
+	writel(LLCE_FIFO_FNEMTY, ier);
+}
+
+static int llce_rx_startup(struct mbox_chan *chan)
+{
 	struct llce_chan_priv *priv = chan->con_priv;
 	unsigned long flags;
 
@@ -586,11 +620,7 @@ static int llce_rx_startup(struct mbox_chan *chan)
 	spin_lock_irqsave(&priv->lock, flags);
 
 	priv->state = LLCE_REGISTERED_CHAN;
-
-	/* Clear interrupt status flags. */
-	writel(readl(status0), status0);
-	/* Enable interrupt */
-	writel(LLCE_FIFO_FNEMTY, ier);
+	enable_rx_irq(chan);
 
 	spin_unlock_irqrestore(&priv->lock, flags);
 	return 0;
@@ -598,16 +628,14 @@ static int llce_rx_startup(struct mbox_chan *chan)
 
 static void llce_rx_shutdown(struct mbox_chan *chan)
 {
-	void __iomem *rxout = get_rxout_fifo(chan);
-	void __iomem *ier = LLCE_FIFO_IER(rxout);
 	struct llce_chan_priv *priv = chan->con_priv;
 	unsigned long flags;
 
 	spin_lock_irqsave(&priv->lock, flags);
-	priv->state = LLCE_UNREGISTERED_CHAN;
 
-	/* Disable interrupts */
-	writel(0, ier);
+	priv->state = LLCE_UNREGISTERED_CHAN;
+	disable_rx_irq(chan);
+
 	spin_unlock_irqrestore(&priv->lock, flags);
 }
 
@@ -849,7 +877,7 @@ static void llce_process_tx_ack(struct llce_mb *mb, u8 index)
 	struct mbox_controller *ctrl = &mb->controller;
 	struct llce_can_shared_memory *sh_mem = mb->sh_mem;
 	struct llce_can_tx2host_ack_info *info;
-	struct llce_notif notif;
+	struct llce_tx_notif notif;
 	u32 ack_id;
 	unsigned int chan_index;
 
@@ -877,7 +905,8 @@ static void process_chan_err(struct llce_mb *mb, u32 chan_type,
 {
 	unsigned int chan_index;
 	struct mbox_controller *ctrl = &mb->controller;
-	struct llce_notif notif = {
+	struct llce_rx_msg notif = {
+		.cmd = LLCE_ERROR,
 		.error = error->error_info.error_code,
 	};
 
@@ -885,7 +914,7 @@ static void process_chan_err(struct llce_mb *mb, u32 chan_type,
 	notif.error = error->error_info.error_code;
 
 	/* Release the channel if an error occurred */
-	if (chan_type == S32G_LLCE_CAN_TX_MB)
+	if (is_tx_chan(chan_type))
 		mbox_chan_txdone(&ctrl->chans[chan_index], 0);
 
 	llce_mbox_chan_received_data(&ctrl->chans[chan_index], &notif);
@@ -959,43 +988,95 @@ static void llce_process_rxin(struct llce_mb *mb, u8 index)
 	writel(LLCE_FIFO_FNEMTY, status1);
 }
 
-static void read_rxout_message(struct llce_mb *mb, u32 rx_mb,
-			       u8 rx_index)
+static int process_is_rx_empty(struct mbox_chan *chan, struct llce_rx_msg *msg)
 {
-	struct mbox_controller *ctrl = &mb->controller;
+	void __iomem *rxout = get_rxout_fifo(chan);
+	void __iomem *status1 = LLCE_FIFO_STATUS1(rxout);
+
+	msg->is_rx_empty = !!(readl(status1) & LLCE_FIFO_FEMTYD);
+	return 0;
+}
+
+static int process_pop_rxout(struct mbox_chan *chan, struct llce_rx_msg *msg)
+{
+	struct llce_chan_priv *priv = chan->con_priv;
+	struct llce_mb *mb = priv->mb;
+	void __iomem *rxout = get_rxout_fifo(chan);
+	void __iomem *pop0 = LLCE_FIFO_POP0(rxout);
+	u32 rx_mb;
+
 	struct llce_can_shared_memory *sh_mem = mb->sh_mem;
-	struct llce_notif notif = {
-		.error = 0,
-	};
 	u32 frame_id;
 	unsigned int chan_index;
 
+	/* Get RX mailbox */
+	rx_mb = readl(pop0) & LLCE_CAN_CONFIG_FIFO_FIXED_MASK;
+
 	frame_id = sh_mem->can_rx_mb_desc[rx_mb].mb_frame_idx;
-	chan_index = get_channel_offset(S32G_LLCE_CAN_RX_MB, rx_index);
-	notif.can_mb = &sh_mem->can_mb[frame_id];
-	llce_mbox_chan_received_data(&ctrl->chans[chan_index], &notif);
+	chan_index = get_channel_offset(S32G_LLCE_CAN_RX_MB, priv->index);
+	msg->rx_pop.can_mb = &sh_mem->can_mb[frame_id];
+	msg->rx_pop.index = rx_mb;
+
+	return 0;
+}
+
+static int process_release_index(struct mbox_chan *chan,
+				 struct llce_rx_msg *msg)
+{
+	struct llce_chan_priv *priv = chan->con_priv;
+	struct llce_mb *mb = priv->mb;
+	void __iomem *host_rxin = get_host_rxin(mb, LLCE_CAN_HIF0);
+	void __iomem *host_push0 = LLCE_FIFO_PUSH0(host_rxin);
+
+	writel(msg->rx_release.index, host_push0);
+	return 0;
+}
+
+static int process_disable_rx_notif(struct mbox_chan *chan,
+				    struct llce_rx_msg __always_unused *msg)
+{
+	disable_rx_irq(chan);
+
+	return 0;
+}
+
+static int process_enable_rx_notif(struct mbox_chan *chan,
+				   struct llce_rx_msg __always_unused *msg)
+{
+	enable_rx_irq(chan);
+
+	return 0;
+}
+
+static int process_rx_cmd(struct mbox_chan *chan, struct llce_rx_msg *msg)
+{
+	if (msg->cmd == LLCE_DISABLE_RX_NOTIF)
+		return process_disable_rx_notif(chan, msg);
+	if (msg->cmd == LLCE_ENABLE_RX_NOTIF)
+		return process_enable_rx_notif(chan, msg);
+	if (msg->cmd == LLCE_IS_RX_EMPTY)
+		return process_is_rx_empty(chan, msg);
+	if (msg->cmd == LLCE_POP_RX)
+		return process_pop_rxout(chan, msg);
+	if (msg->cmd == LLCE_RELESE_RX_INDEX)
+		return process_release_index(chan, msg);
+
+	return 0;
 }
 
 static void llce_process_rxout(struct llce_mb *mb, u8 index)
 {
-	void __iomem *host_rxin = get_host_rxin(mb, LLCE_CAN_HIF0);
-	void __iomem *rxout = get_rxout_by_index(mb, index);
-	void __iomem *status1 = LLCE_FIFO_STATUS1(rxout);
-	void __iomem *pop0 = LLCE_FIFO_POP0(rxout);
-	void __iomem *host_push0 = LLCE_FIFO_PUSH0(host_rxin);
-	u32 rx_mb;
+	struct mbox_controller *ctrl = &mb->controller;
+	unsigned int chan_index;
+	struct llce_rx_msg msg = {
+		.error = 0,
+		.cmd = LLCE_RX_NOTIF,
+	};
 
-	while (!(readl(status1) & LLCE_FIFO_FEMTYD)) {
-		/* Get RX mailbox */
-		rx_mb = readl(pop0) & LLCE_CAN_CONFIG_FIFO_FIXED_MASK;
-		/* Process RX message */
-		read_rxout_message(mb, rx_mb, index);
-		/* Make the index available for another reception flow */
-		writel(rx_mb, host_push0);
-	}
+	chan_index = get_channel_offset(S32G_LLCE_CAN_RX_MB, index);
+	disable_rx_irq(&ctrl->chans[chan_index]);
 
-	/* Clear the interrupt status flag. */
-	writel(LLCE_FIFO_FNEMTY, status1);
+	llce_mbox_chan_received_data(&ctrl->chans[chan_index], &msg);
 }
 
 typedef void (*icsr_consumer_t)(struct llce_mb *, u8);

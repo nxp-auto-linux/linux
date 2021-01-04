@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0+ */
-/* Copyright 2020 NXP */
+/* Copyright 2020-2021 NXP */
 #ifndef LLCE_MAILBOX_H
 #define LLCE_MAILBOX_H
 
@@ -30,13 +30,33 @@ struct llce_tx_msg {
 	struct canfd_frame *cf;
 };
 
-struct llce_notif {
+struct llce_tx_notif {
+	enum llce_can_error error;
+	u32 tx_timestamp;
+};
+
+enum llce_rx_cmd {
+	LLCE_RX_NOTIF,
+	LLCE_DISABLE_RX_NOTIF,
+	LLCE_ENABLE_RX_NOTIF,
+	LLCE_IS_RX_EMPTY,
+	LLCE_POP_RX,
+	LLCE_RELESE_RX_INDEX,
+	LLCE_ERROR,
+};
+
+struct llce_rx_msg {
+	enum llce_rx_cmd cmd;
 	enum llce_can_error error;
 	union {
-		/* TX notification */
-		u32 tx_timestamp;
-		/* RX notiication */
-		struct llce_can_mb *can_mb;
+		bool is_rx_empty;
+		struct {
+			u32 index;
+			struct llce_can_mb *can_mb;
+		} rx_pop;
+		struct {
+			u32 index;
+		} rx_release;
 	};
 };
 
