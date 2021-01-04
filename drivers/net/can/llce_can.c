@@ -31,8 +31,9 @@ struct llce_xceiver {
 };
 
 struct llce_can {
-	struct can_priv can;
+	struct can_priv can; /* Must be the first member */
 	struct llce_xceiver xceiver;
+	struct napi_struct napi;
 
 	struct completion config_done;
 
@@ -338,6 +339,8 @@ static int llce_can_open(struct net_device *dev)
 		goto release_rx_chan;
 	}
 
+	napi_enable(&llce->napi);
+
 	ret = start_llce_can(llce);
 	if (ret)
 		goto release_tx_chan;
@@ -347,8 +350,10 @@ static int llce_can_open(struct net_device *dev)
 	return 0;
 
 release_tx_chan:
-	if (ret)
+	if (ret) {
+		napi_disable(&llce->napi);
 		mbox_free_channel(llce->tx);
+	}
 release_rx_chan:
 	if (ret)
 		mbox_free_channel(llce->rx);
@@ -378,6 +383,7 @@ static int llce_can_close(struct net_device *dev)
 	if (ret)
 		netdev_err(dev, "Failed to stop\n");
 
+	napi_disable(&llce->napi);
 	mbox_free_channel(llce->tx);
 	mbox_free_channel(llce->rx);
 
@@ -441,7 +447,7 @@ static void llce_process_error(struct llce_can *llce, enum llce_can_error error,
 
 static void llce_tx_notif_callback(struct mbox_client *cl, void *msg)
 {
-	struct llce_notif *notif = msg;
+	struct llce_tx_notif *notif = msg;
 	struct llce_can *llce = container_of(cl, struct llce_can,
 					     tx_client);
 	struct net_device_stats *net_stats = &llce->can.dev->stats;
@@ -482,25 +488,75 @@ static void unpack_word1(u32 word1, bool *fdf, u8 *len, bool *brs,
 	*fdf = !!(word1 & LLCE_CAN_MB_FDF);
 }
 
-static void llce_rx_notif_callback(struct mbox_client *cl, void *msg)
+static int send_rx_msg(struct llce_can *llce, struct llce_rx_msg *msg)
 {
-	struct llce_notif *notif = msg;
-	struct llce_can *llce = container_of(cl, struct llce_can,
-					     rx_client);
+	int ret = mbox_send_message(llce->rx, msg);
+
+	if (ret < 0)
+		return ret;
+
+	mbox_client_txdone(llce->rx, 0);
+
+	return 0;
+}
+
+static int enable_rx_notif(struct llce_can *llce)
+{
+	struct llce_rx_msg msg = {
+		.cmd = LLCE_ENABLE_RX_NOTIF,
+	};
+
+	return send_rx_msg(llce, &msg);
+}
+
+static bool is_rx_empty(struct llce_can *llce)
+{
+	struct llce_rx_msg msg = {
+		.cmd = LLCE_IS_RX_EMPTY,
+	};
+
+	if (send_rx_msg(llce, &msg))
+		return false;
+
+	return msg.is_rx_empty;
+}
+
+static int pop_rx_fifo(struct llce_can *llce, uint32_t *index,
+		       struct llce_can_mb **can_mb)
+{
+	int ret;
+	struct llce_rx_msg msg = {
+		.cmd = LLCE_POP_RX,
+	};
+
+	ret = send_rx_msg(llce, &msg);
+
+	*can_mb = msg.rx_pop.can_mb;
+	*index = msg.rx_pop.index;
+	return ret;
+}
+
+static int release_rx_index(struct llce_can *llce, uint32_t index)
+{
+	struct llce_rx_msg msg = {
+		.cmd = LLCE_RELESE_RX_INDEX,
+		.rx_release = {
+			.index = index,
+		},
+	};
+
+	return send_rx_msg(llce, &msg);
+}
+
+static void process_rx_msg(struct llce_can *llce, struct llce_can_mb *can_mb)
+{
 	struct net_device *dev = llce->can.dev;
 	struct net_device_stats *net_stats = &llce->can.dev->stats;
-	struct llce_can_mb *can_mb = notif->can_mb;
 	struct sk_buff *skb;
 	struct canfd_frame *cf;
 	u32 std_id, ext_id;
 	bool rtr, ide, brs, esi, fdf;
 	u8 len;
-
-	/* This is executed in IRQ context */
-	if (notif->error) {
-		llce_process_error(llce, notif->error, LLCE_RX);
-		return;
-	}
 
 	unpack_word0(can_mb->word0, &rtr, &ide, &std_id, &ext_id);
 	unpack_word1(can_mb->word1, &fdf, &len, &brs, &esi);
@@ -545,6 +601,60 @@ static void llce_rx_notif_callback(struct mbox_client *cl, void *msg)
 
 notif_exit:
 	return;
+}
+
+static int llce_rx_poll(struct napi_struct *napi, int quota)
+{
+	struct llce_can *llce = container_of(napi, struct llce_can, napi);
+	struct net_device *dev = llce->can.dev;
+	int num_pkts = 0;
+	struct llce_can_mb *can_mb;
+	u32 index;
+	int ret;
+
+	while (!is_rx_empty(llce) && num_pkts < quota) {
+		ret = pop_rx_fifo(llce, &index, &can_mb);
+		if (ret) {
+			netdev_err(dev, "Failed to peak RX FIFO\n");
+			return num_pkts;
+		}
+
+		process_rx_msg(llce, can_mb);
+
+		num_pkts++;
+
+		ret = release_rx_index(llce, index);
+		if (ret)
+			netdev_err(dev, "Failed to release RX FIFO index\n");
+	}
+
+	/* All packets processed */
+	if (num_pkts < quota) {
+		napi_complete_done(napi, num_pkts);
+
+		/* Enable RX notification / IRQ */
+		if (enable_rx_notif(llce))
+			netdev_err(dev, "Failed to enable RX notifications\n");
+	}
+
+	return num_pkts;
+}
+
+static void llce_rx_notif_callback(struct mbox_client *cl, void *msg)
+{
+	struct llce_rx_msg *rx_msg = msg;
+	struct llce_can *llce = container_of(cl, struct llce_can, rx_client);
+
+	/* This is executed in IRQ context */
+	if (rx_msg->error)
+		llce_process_error(llce, rx_msg->error, LLCE_RX);
+
+	if (rx_msg->cmd == LLCE_RX_NOTIF) {
+		if (!napi_schedule_prep(&llce->napi))
+			return;
+
+		__napi_schedule(&llce->napi);
+	}
 }
 
 static netdev_tx_t llce_can_start_xmit(struct sk_buff *skb,
@@ -652,7 +762,7 @@ static int init_llce_chans(struct llce_can *llce, struct device *dev)
 	llce->tx_client.tx_block = false;
 	llce->tx_client.rx_callback = llce_tx_notif_callback;
 	llce->rx_client.dev = dev;
-	llce->rx_client.tx_block = true;
+	llce->rx_client.tx_block = false;
 	llce->rx_client.rx_callback = llce_rx_notif_callback;
 
 	llce->config = mbox_request_channel_byname(&llce->config_client,
@@ -739,6 +849,7 @@ static int llce_can_probe(struct platform_device *pdev)
 	if (ret)
 		goto free_mem;
 
+	netif_napi_add(netdev, &llce->napi, llce_rx_poll, LLCE_CAN_MAX_RX_MB);
 	ret = register_candev(netdev);
 	if (ret) {
 		dev_err(dev, "Failed to register %s\n", dev_name);
@@ -758,6 +869,7 @@ static int llce_can_remove(struct platform_device *pdev)
 	struct llce_can *llce = netdev_priv(netdev);
 
 	unregister_candev(netdev);
+	netif_napi_del(&llce->napi);
 
 	clk_disable_unprepare(llce->clk);
 	mbox_free_channel(llce->config);
