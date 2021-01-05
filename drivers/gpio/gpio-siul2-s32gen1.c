@@ -3,7 +3,7 @@
  * SIUL2 GPIO support.
  *
  * Copyright (c) 2016 Freescale Semiconductor, Inc.
- * Copyright 2019-2020 NXP
+ * Copyright 2019-2021 NXP
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 or
@@ -639,6 +639,7 @@ static int reinit_ipadregmap_conf(struct device *dev, struct regmap *map)
 {
 	struct regmap_config regmap_conf = siul2_regmap_conf;
 
+	regmap_conf.cache_type = REGCACHE_NONE;
 	regmap_conf.writeable_reg = not_writable;
 	regmap_conf.readable_reg = regmap_accessible;
 	return common_regmap_conf(dev, map, &regmap_conf, "ipad");
@@ -827,7 +828,7 @@ static int siul2_gpio_get(struct gpio_chip *chip, unsigned int offset)
 
 	spin_unlock_irqrestore(&(gpio_dev->lock), flags);
 
-	return !!data;
+	return !!(data & mask);
 }
 
 static int siul2_gpio_pads_init(struct platform_device *pdev,
