@@ -625,11 +625,7 @@ static int s32_adc_buffer_postenable(struct iio_dev *indio_dev)
 	struct s32_adc *info = iio_priv(indio_dev);
 	unsigned int channel, first_channel = S32_CHANNEL_UNASSIGNED;
 	int ncmr_data, cimr_data;
-	int group, ret, pos = 0;
-
-	ret = iio_triggered_buffer_postenable(indio_dev);
-	if (ret)
-		return ret;
+	int group, pos = 0;
 
 	for_each_set_bit(channel, indio_dev->active_scan_mask,
 			S32_ADC_NUM_CHANNELS) {
@@ -674,7 +670,7 @@ static int s32_adc_buffer_predisable(struct iio_dev *indio_dev)
 	mcr_data |= ADC_PWDN;
 	writel(mcr_data, info->regs + REG_ADC_MCR);
 
-	return iio_triggered_buffer_predisable(indio_dev);
+	return 0;
 }
 
 static bool s32_adc_validate_scan_mask(struct iio_dev *indio_dev,
