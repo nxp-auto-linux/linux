@@ -1,0 +1,68 @@
+# SPDX-License-Identifier: GPL-2.0
+%YAML 1.2
+---
+
+title: NXP S32 Analog-to-Digital Converter (SAR-ADC)
+
+maintainers:
+  - Stefan-Gabriel Mirea <stefan-gabriel.mirea@nxp.com>
+  - Ciprian Marian Costea <ciprianmarian.costea@nxp.com>
+
+description: |
+  SAR-ADC analog-to-digital converter for
+  NXP S32V234 or S32GEN1 boards
+
+properties:
+  compatible:
+    const:
+      - fsl,s32v234-adc
+      - fsl,s32gen1-adc
+
+    reg:
+      maxItems: 1
+
+    interrupts:
+      maxItems: 1
+
+    clocks:
+      description: SAR-ADC source clock (S32GEN1_CLK_PER)
+      maxitems: 1
+
+    clock-names:
+      const: adc
+
+    vref-supply:
+      description: SAR-ADC reference voltage supply
+
+required:
+  - compatible
+  - reg
+  - interrupts
+  - clocks
+  - clock-names
+  - vref-supply
+
+additionalProperties: false
+
+examples:
+  - |
+    saradc0: adc@4004d000 {
+        compatible = "fsl,s32v234-adc";
+        reg = <0x0 0x4004d000 0x0 0x1000>;
+        interrupts = <0 39 4>;
+        clocks = <&clks S32V234_CLK_SARADC0>;
+        clock-names = "adc";
+        vref = <1800>;
+        status = "okay";
+    };
+  - |
+    saradc0: adc@401f8000 {
+        compatible = "fsl,s32gen1-adc";
+        reg = <0x0 0x401f8000 0x0 0x1000>;
+        interrupts = <0 70 4>;
+        clocks = <&clks S32GEN1_CLK_PER>;
+        clock-names = "adc";
+        vref = <1800>;
+        status = "okay";
+    };
+...
