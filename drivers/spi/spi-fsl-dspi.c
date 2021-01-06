@@ -91,10 +91,12 @@
 #define SPI_TXFR1			0x40
 #define SPI_TXFR2			0x44
 #define SPI_TXFR3			0x48
+#define SPI_TXFR4           0x4C
 #define SPI_RXFR0			0x7c
 #define SPI_RXFR1			0x80
 #define SPI_RXFR2			0x84
 #define SPI_RXFR3			0x88
+#define SPI_RXFR4			0x8C
 
 #define SPI_CTARE(x)			(0x11c + (((x) & GENMASK(1, 0)) * 4))
 #define SPI_CTARE_FMSZE(x)		(((x) & 0x1) << 16)
@@ -133,6 +135,8 @@ enum {
 	LX2160A,
 	MCF5441X,
 	VF610,
+	S32V234,
+	S32GEN1,
 };
 
 static const struct fsl_dspi_devtype_data devtype_data[] = {
@@ -190,6 +194,16 @@ static const struct fsl_dspi_devtype_data devtype_data[] = {
 		.max_clock_factor	= 8,
 		.fifo_size		= 16,
 	},
+	[S32V234] = {
+		.trans_mode		= DSPI_XSPI_MODE,
+		.max_clock_factor	= 1,
+		.fifo_size		= 5,
+	},
+	[S32GEN1] = {
+		.trans_mode		= DSPI_XSPI_MODE,
+		.max_clock_factor	= 1,
+		.fifo_size		= 5,
+	},
 };
 
 struct fsl_dspi_dma {
@@ -244,6 +258,17 @@ struct fsl_dspi {
 	void (*host_to_dev)(struct fsl_dspi *dspi, u32 *txdata);
 	void (*dev_to_host)(struct fsl_dspi *dspi, u32 rxdata);
 };
+
+static int is_s32v234_dspi(struct fsl_dspi *data);
+static int is_s32gen1_dspi(struct fsl_dspi *data);
+
+static u8 get_dspi_pushr_cmd_pcs(struct fsl_dspi *dspi, unsigned int pos)
+{
+	if (is_s32v234_dspi(dspi))
+		return (BIT(pos) & GENMASK(7, 0));
+	else
+		return (BIT(pos) & GENMASK(5, 0));
+}
 
 static void dspi_native_host_to_dev(struct fsl_dspi *dspi, u32 *txdata)
 {
@@ -907,16 +932,17 @@ static int dspi_transfer_one_message(struct spi_controller *ctlr,
 	struct spi_device *spi = message->spi;
 	struct spi_transfer *transfer;
 	int status = 0;
+	u8 pushr_cmd_pcs;
 
 	message->actual_length = 0;
+	pushr_cmd_pcs = get_dspi_pushr_cmd_pcs(dspi, spi->chip_select);
 
 	list_for_each_entry(transfer, &message->transfers, transfer_list) {
 		dspi->cur_transfer = transfer;
 		dspi->cur_msg = message;
 		dspi->cur_chip = spi_get_ctldata(spi);
 		/* Prepare command word for CMD FIFO */
-		dspi->tx_cmd = SPI_PUSHR_CMD_CTAS(0) |
-			       SPI_PUSHR_CMD_PCS(spi->chip_select);
+		dspi->tx_cmd = SPI_PUSHR_CMD_CTAS(0) | pushr_cmd_pcs;
 		if (list_is_last(&dspi->cur_transfer->transfer_list,
 				 &dspi->cur_msg->transfers)) {
 			/* Leave PCS activated after last transfer when
@@ -1073,10 +1099,26 @@ static const struct of_device_id fsl_dspi_dt_ids[] = {
 	}, {
 		.compatible = "fsl,lx2160a-dspi",
 		.data = &devtype_data[LX2160A],
+	}, {
+		.compatible = "fsl,s32v234-dspi",
+		.data = &devtype_data[S32V234],
+	}, {
+		.compatible = "fsl,s32gen1-dspi",
+		.data = &devtype_data[S32GEN1],
 	},
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, fsl_dspi_dt_ids);
+
+static inline int is_s32v234_dspi(struct fsl_dspi *data)
+{
+	return data->devtype_data == &devtype_data[S32V234];
+}
+
+static inline int is_s32gen1_dspi(struct fsl_dspi *data)
+{
+	return data->devtype_data == &devtype_data[S32GEN1];
+}
 
 #ifdef CONFIG_PM_SLEEP
 static int dspi_suspend(struct device *dev)
@@ -1166,7 +1208,10 @@ static int dspi_init(struct fsl_dspi *dspi)
 	unsigned int mcr;
 
 	/* Set idle states for all chip select signals to high */
-	mcr = SPI_MCR_PCSIS(GENMASK(dspi->ctlr->max_native_cs - 1, 0));
+	if (is_s32v234_dspi(dspi))
+		mcr = SPI_MCR_PCSIS(0xFF);
+	else
+		mcr = SPI_MCR_PCSIS(GENMASK(dspi->ctlr->max_native_cs - 1, 0));
 
 	if (dspi->devtype_data->trans_mode == DSPI_XSPI_MODE)
 		mcr |= SPI_MCR_XSPI;
