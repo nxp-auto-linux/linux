@@ -503,13 +503,41 @@
 &spi1 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl0_dspi1>, <&pinctrl1_dspi1>;
+	#address-cells = <1>;
+	#size-cells = <0>;
 	status = "okay";
+
+	spidev10: spidev@10 {
+		compatible = "spidev";
+		spi-max-frequency = <10000000>;
+		reg = <0>;
+	};
+
+	spidev11: spidev@11 {
+		compatible = "spidev";
+		spi-max-frequency = <10000000>;
+		reg = <1>;
+	};
 };
 
 &spi2 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl0_dspi2>, <&pinctrl1_dspi2>;
+	#address-cells = <1>;
+	#size-cells = <0>;
 	status = "okay";
+
+	spidev20: spidev@20 {
+		compatible = "spidev";
+		spi-max-frequency = <10000000>;
+		reg = <0>;
+	};
+
+	spidev21: spidev@21 {
+		compatible = "spidev";
+		spi-max-frequency = <10000000>;
+		reg = <1>;
+	};
 };
 
 &spi3 {
@@ -519,7 +547,7 @@
 	#size-cells = <0>;
 	status = "okay";
 
-	spidev0: spidev@0 {
+	spidev3: spidev@30 {
 		compatible = "spidev";
 		spi-max-frequency = <4000000>;
 		reg = <0>;
