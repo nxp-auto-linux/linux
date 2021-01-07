@@ -76,6 +76,18 @@
 		reg = <0x0 0x4007C400 0x0 0x100>;
 	};
 
+	fccu: fccu@4030C000 {
+		compatible = "fsl,s32gen1-fccu";
+		reg = <0x0 0x4030C000 0x0 0x3000>;
+		clocks = <&clks S32GEN1_CLK_XBAR_DIV3>;
+		clock-names = "fccu";
+		/* Address offset and configuration value for */
+		/* NCF_E1 and NCFS_CFG2*/
+		cfg_reg_off = <0x98 0x54>;
+		cfg_reg_val = <0x78 0x1540>;
+		status = "disabled";
+	};
+
 	uart0:serial@401C8000 {
 		compatible = "fsl,s32-linflexuart";
 		reg = <0x0 0x401C8000 0x0 0x3000>;
