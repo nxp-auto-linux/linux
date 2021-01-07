@@ -76,3 +76,11 @@
 &swt6 {
 	status = "okay";
 };
+
+&pit0 {
+	status = "okay";
+};
+
+&pit1 {
+	status = "okay";
+};
