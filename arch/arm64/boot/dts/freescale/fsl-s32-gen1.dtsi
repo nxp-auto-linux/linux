@@ -154,6 +154,26 @@
 		status = "disabled";
 	};
 
+	stm0: stm@40104000{
+		compatible = "fsl,s32gen1-stm";
+		reg = <0x0 0x40104000 0x0 0x1000>;
+		interrupts= <0 24 4>;
+		clocks = <&sysclk>;
+		clock-names = "stm";
+		cpu = <2>;
+		status = "disabled";
+	};
+
+	stm1: stm@40105000{
+		compatible = "fsl,s32gen1-stm";
+		reg = <0x0 0x40105000 0x0 0x1000>;
+		interrupts= <0 25 4>;
+		clocks = <&sysclk>;
+		clock-names = "stm";
+		cpu = <3>;
+		status = "disabled";
+	};
+
 	uart0:serial@401C8000 {
 		compatible = "fsl,s32-linflexuart";
 		reg = <0x0 0x401C8000 0x0 0x3000>;
