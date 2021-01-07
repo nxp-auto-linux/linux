@@ -44,6 +44,20 @@
 	next-level-cache = <&cluster1_l2_cache>;
 };
 
+&qspi {
+	status = "okay";
+
+	mx25uw51245g@0 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "jedec,spi-nor";
+		spi-max-frequency = <200000000>;
+		spi-tx-bus-width = <8>;
+		spi-rx-bus-width = <8>;
+		reg = <0>;
+	};
+};
+
 &fxosc {
 	clock-frequency = <40000000>;
 };
