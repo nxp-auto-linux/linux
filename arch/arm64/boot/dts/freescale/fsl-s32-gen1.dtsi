@@ -86,7 +86,10 @@
 			clock-frequency = <32000>;
 			#clock-cells = <0>;
 		};
-
+		serdes_ext: serdes_ext {
+			compatible = "fixed-clock";
+			#clock-cells = <0>;
+		};
 	};
 
 	pmu {
