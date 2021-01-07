@@ -27,6 +27,19 @@
 		serial2 = &uart2;
 	};
 
+	reserved-memory {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		/* 4Mb shared memory for PCIe shared mem transfers, EP mode */
+		pci_shared_memory: shm@0xc0000000 {
+			compatible = "fsl,s32gen1-shm";
+			reg = <0x0 0xc0000000 0x0 0x400000>;    /* 4 MB */
+			no-map;
+		};
+	};
+
 	cpus {
 		#address-cells = <2>;
 		#size-cells = <0>;
@@ -167,6 +180,19 @@
 		/* NCF_E1 and NCFS_CFG2*/
 		cfg_reg_off = <0x98 0x54>;
 		cfg_reg_val = <0x78 0x1540>;
+		status = "disabled";
+	};
+
+	siul2_1 {
+		compatible = "simple-mfd";
+		#address-cells = <2>;
+		#size-cells = <2>;
+		/* MIDR registers
+		 * They physically exist in EIRQ
+		 * addr space but they don't belong
+		 * to GPIO
+		 */
+		midr-reg = <0x0 0x44010000 0x0 0x10>;
 		status = "disabled";
 	};
 
@@ -646,6 +672,94 @@
 				reg = <1>;
 			};
 		};
+	};
+
+	pcie0: pcie@40400000 {
+		compatible = "fsl,s32gen1-pcie";
+		reg = <0x00 0x40400000 0x0 0x00001000   /* dbi registers */
+		       0x00 0x40420000 0x0 0x00001000   /* dbi2 registers */
+		       0x00 0x40460000 0x0 0x00001000   /* atu registers */
+		       0x00 0x40470000 0x0 0x00001000   /* dma registers */
+		       0x00 0x40480000 0x0 0x00004000   /* ctrl registers */
+		       0x58 0x00000000 0x0 0x00002000   /* RC config space */
+		       0x58 0x40000000 0x0 0x40000000>; /* EP addr space, 1GB */
+		reg-names = "dbi", "dbi2", "atu", "dma", "ctrl",
+				"config", "addr_space";
+		#address-cells = <3>;
+		#size-cells = <2>;
+		device_type = "pci";
+		device_id = <0>;
+		ranges =
+		      /* downstream I/O */
+		      <0x81000000 0x0 0x00000000 0x58 0x00003000 0x0 0x00010000
+		      /* non-prefetchable memory */
+		      0x82000000 0x0 0x00013000 0x58 0x00013000 0x0 0x40000000>;
+
+		num-lanes = <2>;
+		max-link-speed = <3>;
+		bus-range = <0x0 0xff>;
+		interrupts =  <0 124 4>, <0 123 4>, <0 125 4>,
+					<0 126 4>, <0 127 4>, <0 132 4>,
+					<0 133 4>, <0 134 4>;
+		interrupt-names = "link_req_stat", "dma","msi",
+					"phy_link_down", "phy_link_up", "misc",
+					"pcs", "tlp_req_no_comp";
+		#interrupt-cells = <1>;
+		interrupt-map-mask = <0 0 0 0x7>;
+		interrupt-map = <0 0 0 1 &gic 0 128 4>,
+		                        <0 0 0 2 &gic 0 129 4>,
+		                        <0 0 0 3 &gic 0 130 4>,
+		                        <0 0 0 4 &gic 0 131 4>;
+
+		/* EP mode only */
+		num-ib-windows = <6>;
+		num-ob-windows = <6>;
+
+		status = "disabled";
+	};
+
+	pcie1: pcie@44100000 {
+		compatible = "fsl,s32gen1-pcie";
+		reg = <0x00 0x44100000 0x0 0x00001000   /* dbi registers */
+		       0x00 0x44120000 0x0 0x00001000   /* dbi2 registers */
+		       0x00 0x44160000 0x0 0x00001000   /* atu registers */
+		       0x00 0x44170000 0x0 0x00001000   /* dma registers */
+		       0x00 0x44180000 0x0 0x00004000   /* ctrl registers */
+		       0x48 0x00000000 0x0 0x00002000   /* RC config space */
+		       0x48 0x40000000 0x0 0x40000000>; /* EP addr space, 1GB */
+		reg-names = "dbi", "dbi2", "atu", "dma", "ctrl",
+				"config", "addr_space";
+		#address-cells = <3>;
+		#size-cells = <2>;
+		device_type = "pci";
+		device_id = <1>;
+		ranges =
+		      /* downstream I/O */
+		      <0x81000000 0x0 0x00000000 0x48 0x00003000 0x0 0x00010000
+		      /* non-prefetchable memory */
+		      0x82000000 0x0 0x00013000 0x48 0x00013000 0x0 0x40000000>;
+
+		num-lanes = <1>;
+		max-link-speed = <3>;
+		bus-range = <0x0 0xff>;
+		interrupts =  <0 215 4>, <0 214 4>, <0 216 4>,
+					<0 217 4>, <0 218 4>, <0 223 4>,
+					<0 224 4>, <0 225 4>;
+		interrupt-names = "link_req_stat", "dma","msi",
+					"phy_link_down", "phy_link_up", "misc",
+					"pcs", "tlp_req_no_comp";
+		#interrupt-cells = <1>;
+		interrupt-map-mask = <0 0 0 0x7>;
+		interrupt-map = <0 0 0 1 &gic 0 219 4>,
+		                        <0 0 0 2 &gic 0 220 4>,
+		                        <0 0 0 3 &gic 0 221 4>,
+		                        <0 0 0 4 &gic 0 222 4>;
+
+		/* EP mode only */
+		num-ib-windows = <6>;
+		num-ob-windows = <6>;
+
+		status = "disabled";
 	};
 
 	pwm0: pwm@401F4000 {
