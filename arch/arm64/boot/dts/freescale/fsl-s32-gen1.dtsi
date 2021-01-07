@@ -193,6 +193,16 @@
 		status = "disabled";
 	};
 
+	saradc0: adc@401f8000 {
+		compatible = "fsl,s32gen1-adc";
+		reg = <0x0 0x401f8000 0x0 0x1000>;
+		interrupts = <0 70 4>;
+		clocks = <&clks S32GEN1_CLK_PER>;
+		clock-names = "adc";
+		vref = <1800>;
+		status = "okay";
+	};
+
 	pit0: pit@40151000{
 		compatible = "fsl,s32gen1-pit";
 		reg = <0x0 0x40151000 0x0 0x1000>;
