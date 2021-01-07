@@ -223,6 +223,17 @@
 		status = "disabled";
 	};
 
+	mscm0: mscm@40198000  {
+		compatible = "fsl,s32gen1-mscm";
+
+		reg = <0x0 0x40198000 0x0 0x1000>;
+
+		/* CPU2CPU interrupts */
+		interrupts = <0 1 4>, // CPU to M7/A53/R52 interrupt#0 (GIC 33)
+			     <0 2 4>, // CPU to M7/A53/R52 interrupt#1 (GIC 34)
+			     <0 3 4>; // CPU to M7/A53/R52 interrupt#2 (GIC 35)
+	};
+
 	uart0:serial@401C8000 {
 		compatible = "fsl,s32-linflexuart";
 		reg = <0x0 0x401C8000 0x0 0x3000>;
