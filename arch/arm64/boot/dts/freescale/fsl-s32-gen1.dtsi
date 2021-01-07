@@ -17,6 +17,11 @@
 	#size-cells = <2>;
 
 	aliases {
+		can0 = &can0;
+		can1 = &can1;
+		can2 = &can2;
+		can3 = &can3;
+
 		serial0 = &uart0;
 		serial1 = &uart1;
 		serial2 = &uart2;
@@ -234,6 +239,26 @@
 			     <0 3 4>; // CPU to M7/A53/R52 interrupt#2 (GIC 35)
 	};
 
+	can0: flexcan@401B4000{
+		compatible = "fsl,s32gen1-flexcan";
+		reg = <0x0 0x401B4000 0x0 0xA000>;
+		interrupts = <0 40 4>;
+		clocks = <&clks S32GEN1_CLK_CAN>,
+			 <&clks S32GEN1_CLK_XBAR_DIV3>;
+		clock-names = "ipg", "per";
+		status = "disabled";
+	};
+
+	can1: flexcan@401BE000{
+		compatible = "fsl,s32gen1-flexcan";
+		reg = <0x0 0x401BE000 0x0 0xA000>;
+		interrupts = <0 44 4>;
+		clocks = <&clks S32GEN1_CLK_CAN>,
+			 <&clks S32GEN1_CLK_XBAR_DIV3>;
+		clock-names = "ipg", "per";
+		status = "disabled";
+	};
+
 	uart0:serial@401C8000 {
 		compatible = "fsl,s32-linflexuart";
 		reg = <0x0 0x401C8000 0x0 0x3000>;
@@ -300,6 +325,26 @@
 		cpu = <1>;
 		clocks = <&sysclk>;
 		clock-names = "pit";
+		status = "disabled";
+	};
+
+	can2: flexcan@402A8000{
+		compatible = "fsl,s32gen1-flexcan";
+		reg = <0x0 0x402A8000 0x0 0xA000>;
+		interrupts = <0 48 4>;
+		clocks = <&clks S32GEN1_CLK_CAN>,
+			 <&clks S32GEN1_CLK_XBAR_DIV3>;
+		clock-names = "ipg", "per";
+		status = "disabled";
+	};
+
+	can3: flexcan@402B2000{
+		compatible = "fsl,s32gen1-flexcan";
+		reg = <0x0 0x402B2000 0x0 0xA000>;
+		interrupts = <0 52 4>;
+		clocks = <&clks S32GEN1_CLK_CAN>,
+			 <&clks S32GEN1_CLK_XBAR_DIV3>;
+		clock-names = "ipg", "per";
 		status = "disabled";
 	};
 
