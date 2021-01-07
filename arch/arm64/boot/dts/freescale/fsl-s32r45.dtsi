@@ -15,6 +15,10 @@
 	compatible = "fsl,s32r45-simu", "fsl,s32r45",
 				 "arm,vexpress,v2p-aarch64", "arm,vexpress";
 
+	aliases {
+		can4 = &can4;
+	};
+
 	sysclk: clk10000000 {
 		compatible = "fixed-clock";
 		#clock-cells = <0>;
@@ -37,6 +41,62 @@
 		      <0x0 0x40054000 0x0 0x3000>, /*armdfs*/
 		      <0x0 0x40058000 0x0 0x3000>; /*periphdfs*/
 		#clock-cells = <1>;
+	};
+
+	can4: flexcan@44000000 {
+		compatible = "fsl,s32gen1-flexcan";
+		reg = <0x0 0x44000000 0x0 0x4000>;
+		interrupts = <0 192 4>,
+			     <0 193 4>,
+			     <0 194 4>,
+			     <0 195 4>;
+		interrupt-names = "state", "berr", "mb_0-7", "mb_8-127";
+		clocks = <&clks S32GEN1_CLK_CAN>,
+			 <&clks S32GEN1_CLK_XBAR_DIV3>;
+		clock-names = "per", "ipg";
+		status = "disabled";
+	};
+
+	can5: flexcan@44004000 {
+		compatible = "fsl,s32gen1-flexcan";
+		reg = <0x0 0x44004000 0x0 0x4000>;
+		interrupts = <0 196 4>,
+			     <0 197 4>,
+			     <0 198 4>,
+			     <0 199 4>;
+		interrupt-names = "state", "berr", "mb_0-7", "mb_8-127";
+		clocks = <&clks S32GEN1_CLK_CAN>,
+			 <&clks S32GEN1_CLK_XBAR_DIV3>;
+		clock-names = "per", "ipg";
+		status = "disabled";
+	};
+
+	can6: flexcan@44008000 {
+		compatible = "fsl,s32gen1-flexcan";
+		reg = <0x0 0x44008000 0x0 0x4000>;
+		interrupts = <0 200 4>,
+			     <0 201 4>,
+			     <0 202 4>,
+			     <0 203 4>;
+		interrupt-names = "state", "berr", "mb_0-7", "mb_8-127";
+		clocks = <&clks S32GEN1_CLK_CAN>,
+			 <&clks S32GEN1_CLK_XBAR_DIV3>;
+		clock-names = "per", "ipg";
+		status = "disabled";
+	};
+
+	can7: flexcan@4400C000 {
+		compatible = "fsl,s32gen1-flexcan";
+		reg = <0x0 0x4400C000 0x0 0x4000>;
+		interrupts = <0 204 4>,
+			     <0 205 4>,
+			     <0 206 4>,
+			     <0 207 4>;
+		interrupt-names = "state", "berr", "mb_0-7", "mb_8-127";
+		clocks = <&clks S32GEN1_CLK_CAN>,
+			 <&clks S32GEN1_CLK_XBAR_DIV3>;
+		clock-names = "per", "ipg";
+		status = "disabled";
 	};
 
 	siul2_0 {
