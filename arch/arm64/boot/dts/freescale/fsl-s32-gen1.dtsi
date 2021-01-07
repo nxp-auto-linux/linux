@@ -174,6 +174,16 @@
 		status = "disabled";
 	};
 
+	pit0: pit@40151000{
+		compatible = "fsl,s32gen1-pit";
+		reg = <0x0 0x40151000 0x0 0x1000>;
+		interrupts= <0 53 4>;
+		clocks = <&sysclk>;
+		clock-names = "pit";
+		cpu = <0>;
+		status = "disabled";
+	};
+
 	uart0:serial@401C8000 {
 		compatible = "fsl,s32-linflexuart";
 		reg = <0x0 0x401C8000 0x0 0x3000>;
@@ -211,6 +221,16 @@
 		reg = <0x0 0x40208000 0x0 0x1000>;
 		clocks = <&clks S32GEN1_CLK_FIRC>;
 		clock-names = "swt";
+		status = "disabled";
+	};
+
+	pit1: pit@40251000{
+		compatible = "fsl,s32gen1-pit";
+		reg = <0x0 0x40251000 0x0 0x1000>;
+		interrupts= <0 54 4>;
+		cpu = <1>;
+		clocks = <&sysclk>;
+		clock-names = "pit";
 		status = "disabled";
 	};
 
