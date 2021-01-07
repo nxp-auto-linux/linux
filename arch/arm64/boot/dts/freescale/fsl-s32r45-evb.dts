@@ -11,6 +11,11 @@
 #include "fsl-s32r45.dtsi"
 
 / {
+	aliases {
+		gmac0 = &gmac0;
+		gmac1 = &gmac1;
+	};
+
 	chosen {
 		linux,initrd-start = <0x84000000>;
 		linux,initrd-end = <0x8A000000>;
@@ -372,6 +377,14 @@
 			>;
 		};
 
+		pinctrl1_mdio3: mdio3grp {
+			fsl,pins = <
+				S32_GEN1_PAD_PH6__MDC
+				S32_GEN1_PAD_PH7__MDIO_OUT
+				S32_GEN1_PAD_PH7__MDIO_IN
+			>;
+		};
+
 		pinctrl1_dspi1: dspi1grp {
 			fsl,pins = <
 				S32_GEN1_PAD_PB5__SPI1_SIN_IN
@@ -530,5 +543,19 @@
 		spi-tx-bus-width = <8>;
 		spi-rx-bus-width = <8>;
 		reg = <0>;
+	};
+};
+
+&gmac1 {
+	phy-mode = "sgmii";
+	status = "disabled";
+
+	/* Current GMAC driver supports only CL22 but EVB phy
+	 * supports only CL45, so no MDIO communication is
+	 * possible.
+	 */
+	fixed-link {
+		speed = <1000>;
+		full-duplex;
 	};
 };
