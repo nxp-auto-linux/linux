@@ -302,6 +302,45 @@
 		clock-names = "lin", "ipg";
 	};
 
+	spi0: spi@401D4000 {
+		compatible = "fsl,s32v234-dspi";
+		reg = <0x0 0x401D4000 0x0 0x3000>;
+		interrupts = <0 85 4>;
+		clocks = <&sysclk>;
+		clock-names = "dspi";
+		spi-num-chipselects = <8>;
+		bus-num = <0>;
+		spi-cpol;
+		spi-cpha;
+		status = "disabled";
+	};
+
+	spi1: spi@401D8000 {
+		compatible = "fsl,s32v234-dspi";
+		reg = <0x0 0x401D8000 0x0 0x3000>;
+		interrupts = <0 86 4>;
+		clocks = <&sysclk>;
+		clock-names = "dspi";
+		spi-num-chipselects = <5>;
+		bus-num = <1>;
+		spi-cpol;
+		spi-cpha;
+		status = "disabled";
+	};
+
+	spi2: spi@401DC000 {
+		compatible = "fsl,s32v234-dspi";
+		reg = <0x0 0x401DC000 0x0 0x3000>;
+		interrupts = <0 87 4>;
+		clocks = <&sysclk>;
+		clock-names = "dspi";
+		spi-num-chipselects = <5>;
+		bus-num = <2>;
+		spi-cpol;
+		spi-cpha;
+		status = "disabled";
+	};
+
 	qspi: spi@40134000 {
 		compatible = "fsl,s32gen1-qspi";
 		#address-cells = <1>;
@@ -487,6 +526,45 @@
 		interrupts = <0 84 1>;
 		clocks = <&sysclk>, <&sysclk>;
 		clock-names = "lin", "ipg";
+	};
+
+	spi3: spi@402C8000 {
+		compatible = "fsl,s32v234-dspi";
+		reg = <0x0 0x402C8000 0x0 0x3000>;
+		interrupts = <0 88 4>;
+		clocks = <&sysclk>;
+		clock-names = "dspi";
+		spi-num-chipselects = <5>;
+		bus-num = <3>;
+		spi-cpol;
+		spi-cpha;
+		status = "disabled";
+	};
+
+	spi4: spi@402CC000 {
+		compatible = "fsl,s32v234-dspi";
+		reg = <0x0 0x402CC000 0x0 0x3000>;
+		interrupts = <0 89 4>;
+		clocks = <&sysclk>;
+		clock-names = "dspi";
+		spi-num-chipselects = <5>;
+		bus-num = <4>;
+		spi-cpol;
+		spi-cpha;
+		status = "disabled";
+	};
+
+	spi5: spi@402D0000 {
+		compatible = "fsl,s32v234-dspi";
+		reg = <0x0 0x402D0000 0x0 0x3000>;
+		interrupts = <0 90 4>;
+		clocks = <&sysclk>;
+		clock-names = "dspi";
+		spi-num-chipselects = <5>;
+		bus-num = <5>;
+		spi-cpol;
+		spi-cpha;
+		status = "disabled";
 	};
 
 	i2c3: i2c@402D8000 {
