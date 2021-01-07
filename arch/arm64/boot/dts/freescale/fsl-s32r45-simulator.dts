@@ -18,6 +18,10 @@
 	};
 };
 
+&fccu {
+	status = "okay";
+};
+
 &pinctrl0 {
 	status = "okay";
 	s32r45-simu {
