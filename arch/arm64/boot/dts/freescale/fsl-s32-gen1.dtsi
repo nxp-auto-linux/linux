@@ -302,6 +302,21 @@
 		clock-names = "lin", "ipg";
 	};
 
+	qspi: spi@40134000 {
+		compatible = "fsl,s32gen1-qspi";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg = <0x0 0x00000000 0x0 0x20000000>,
+		      <0x0 0x40134000 0x0 0x1000>;
+		reg-names = "QuadSPI-memory", "QuadSPI";
+		interrupts = <0 32 4>;
+		clocks = <&clks S32GEN1_CLK_QSPI_SEL>,
+			 <&clks S32GEN1_CLK_QSPI_2X>,
+			 <&clks S32GEN1_CLK_QSPI_1X>;
+		clock-names = "qspi_en", "qspi";
+		status = "disabled";
+	};
+
 	i2c0: i2c@401E4000 {
 		#address-cells = <1>;
 		#size-cells = <0>;
