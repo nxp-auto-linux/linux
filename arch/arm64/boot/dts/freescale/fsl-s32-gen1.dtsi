@@ -7,6 +7,8 @@
  * (at your option) any later version.
  */
 
+#include <dt-bindings/clock/s32gen1-clock.h>
+
 /memreserve/ 0x8000fff8 0x00010000;
 
 / {
@@ -55,6 +57,22 @@
 
 	};
 
+	clocks {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		fxosc: fxosc {
+			compatible = "fixed-clock";
+			clock-frequency = <40000000>;
+			#clock-cells = <0>;
+		};
+		firc {
+			compatible = "fixed-clock";
+			clock-frequency = <48000000>;
+			#clock-cells = <0>;
+		};
+	};
+
 	pmu {
 		compatible = "arm,armv8-pmuv3";
 		interrupts = <0 0x3c 0x4>,
@@ -69,6 +87,21 @@
 			     <1 14 0xf08>,
 			     <1 11 0xf08>,
 			     <1 10 0xf08>;
+	};
+
+	mc_cgm0: mc_cgm0@40030000 {
+		compatible = "fsl,s32gen1-mc_cgm0";
+		reg = <0x0 0x40030000 0x0 0x3000>;
+	};
+
+	mc_cgm1: mc_cgm1@40034000 {
+		compatible = "fsl,s32gen1-mc_cgm1";
+		reg = <0x0 0x40034000 0x0 0x3000>;
+	};
+
+	mc_cgm5: mc_cgm5@40068000 {
+		compatible = "fsl,s32gen1-mc_cgm5";
+		reg = <0x0 0x40068000 0x0 0x3000>;
 	};
 
 	a53_gpr: a53_gpr@4007C400 {
