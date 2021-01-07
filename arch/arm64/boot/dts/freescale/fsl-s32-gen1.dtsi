@@ -831,16 +831,6 @@
 		interrupt-parent = <&gic>;
 		interrupts = <GIC_SPI 115 IRQ_TYPE_LEVEL_HIGH>; /* GIC 147 */
 	};
-
-	memory_DDR0@80000000 {
-		device_type = "memory";
-		reg = <0 0x80000000 0 0x40000000>;
-	};
-
-	memory_DDR1@c0000000 {
-		device_type = "memory";
-		reg = <0 0xc0000000 0 0x40000000>;
-	};
 };
 
 &cluster0_l2_cache {
