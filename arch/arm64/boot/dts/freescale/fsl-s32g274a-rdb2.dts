@@ -62,6 +62,13 @@
 	/* SJA1110's phys: 0x09-0x0e */
 };
 
+&i2c0 {
+	rtc@51 {
+		compatible = "nxp,pca85073a";
+		reg = <0x51>;
+	};
+};
+
 &spi5 {
 	/* 1 hardware cs and 1 gpio cs*/
 	spi-num-chipselects = <1>;
