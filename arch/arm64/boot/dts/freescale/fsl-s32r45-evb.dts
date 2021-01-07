@@ -560,6 +560,10 @@
 	status = "okay";
 };
 
+&usdhc0 {
+	status = "okay";
+};
+
 &qspi {
 	status = "okay";
 
