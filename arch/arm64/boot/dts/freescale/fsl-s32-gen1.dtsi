@@ -674,6 +674,13 @@
 		status = "disabled";
 	};
 
+	tmu: tmu@400A8000 {
+		compatible = "fsl,s32gen1-tmu";
+		reg = <0x0 0x400A8000 0x0 0x3000>,
+			<0x0 0x400A4200 0x0 0x1FC>;
+		status = "okay";
+	};
+
 	memory_DDR0@80000000 {
 		device_type = "memory";
 		reg = <0 0x80000000 0 0x40000000>;
