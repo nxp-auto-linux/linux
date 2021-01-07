@@ -178,9 +178,9 @@
 		status = "disabled";
 	};
 
-	stm0: stm@40104000{
+	stm0: stm@4011C000{
 		compatible = "fsl,s32gen1-stm";
-		reg = <0x0 0x40104000 0x0 0x1000>;
+		reg = <0x0 0x4011C000 0x0 0x3000>;
 		interrupts= <0 24 4>;
 		clocks = <&sysclk>;
 		clock-names = "stm";
@@ -188,9 +188,9 @@
 		status = "disabled";
 	};
 
-	stm1: stm@40105000{
+	stm1: stm@40120000{
 		compatible = "fsl,s32gen1-stm";
-		reg = <0x0 0x40105000 0x0 0x1000>;
+		reg = <0x0 0x40120000 0x0 0x3000>;
 		interrupts= <0 25 4>;
 		clocks = <&sysclk>;
 		clock-names = "stm";
@@ -198,12 +198,12 @@
 		status = "disabled";
 	};
 
-	edma0: dma-controller@40110000 {
+	edma0: dma-controller@40144000 {
 		#dma-cells = <2>;
 		compatible = "fsl,s32gen1-edma";
-		reg = <0x0 0x40110000 0x0 0x21000>,
-		      <0x0 0x40108000 0x0 0x1000>,
-		      <0x0 0x40109000 0x0 0x1000>;
+		reg = <0x0 0x40144000 0x0 0x24000>,
+		      <0x0 0x4012C000 0x0 0x3000>,
+		      <0x0 0x40130000 0x0 0x3000>;
 		dma-channels = <32>;
 		interrupts = <0 8 4>,
 			     <0 9 4>,
@@ -237,9 +237,9 @@
 		status = "okay";
 	};
 
-	pit0: pit@40151000{
+	pit0: pit@40188000{
 		compatible = "fsl,s32gen1-pit";
-		reg = <0x0 0x40151000 0x0 0x1000>;
+		reg = <0x0 0x40188000 0x0 0x3000>;
 		interrupts= <0 53 4>;
 		clocks = <&sysclk>;
 		clock-names = "pit";
@@ -318,12 +318,12 @@
 		status = "disabled";
 	};
 
-	edma1: dma-controller@40210000 {
+	edma1: dma-controller@40244000 {
 		#dma-cells = <2>;
 		compatible = "fsl,s32gen1-edma";
-		reg = <0x0 0x40210000 0x0 0x21000>,
-		      <0x0 0x40208000 0x0 0x1000>,
-		      <0x0 0x40209000 0x0 0x1000>;
+		reg = <0x0 0x40244000 0x0 0x24000>,
+		      <0x0 0x4022C000 0x0 0x3000>,
+		      <0x0 0x40230000 0x0 0x3000>;
 		dma-channels = <32>;
 		interrupts = <0 11 4>,
 			     <0 12 4>,
@@ -337,9 +337,9 @@
 		status = "disabled";
 	};
 
-	pit1: pit@40251000{
+	pit1: pit@40288000{
 		compatible = "fsl,s32gen1-pit";
-		reg = <0x0 0x40251000 0x0 0x1000>;
+		reg = <0x0 0x40288000 0x0 0x3000>;
 		interrupts= <0 54 4>;
 		cpu = <1>;
 		clocks = <&sysclk>;
