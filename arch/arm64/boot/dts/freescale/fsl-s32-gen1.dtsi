@@ -628,6 +628,26 @@
 		interrupts = <0 121 4>; // RTC irq - GIC 153
 	};
 
+	gmac0: ethernet@4033c000 {
+		compatible = "fsl,s32cc-dwmac";
+		reg = <0x0 0x4033c000 0x0 0x2000>;
+		interrupt-parent = <&gic>;
+		interrupts = <0 57 4>;
+		interrupt-names = "macirq";
+		clocks = <&sysclk>, <&sysclk>;
+		clock-names = "stmmaceth", "pclk";
+		phy-mode = "gmii";
+		phy-handle = <&phy1>;
+		mdio0 {
+			compatible = "snps,dwmac-mdio";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			phy1: ethernet-phy@1 {
+				reg = <1>;
+			};
+		};
+	};
+
 	memory_DDR0@80000000 {
 		device_type = "memory";
 		reg = <0 0x80000000 0 0x40000000>;
