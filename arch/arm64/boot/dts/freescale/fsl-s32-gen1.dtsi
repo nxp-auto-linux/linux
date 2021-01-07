@@ -648,6 +648,32 @@
 		};
 	};
 
+	pwm0: pwm@401F4000 {
+		compatible = "fsl,s32gen1-ftm-pwm";
+		#pwm-cells = <3>;
+		reg = <0x0 0x401F4000 0x0 0x1000>;
+		clock-names = "ftm_sys", "ftm_ext",
+			      "ftm_fix", "ftm_cnt_clk_en";
+		clocks = <&clks S32GEN1_CLK_PER>,
+			 <&clks S32GEN1_CLK_FTM0_REF>,
+			 <&clks S32GEN1_CLK_PER>,
+			 <&clks S32GEN1_CLK_PER>;
+		status = "disabled";
+	};
+
+	pwm1: pwm@402E4000 {
+		compatible = "fsl,s32gen1-ftm-pwm";
+		#pwm-cells = <3>;
+		reg = <0x0 0x402E4000 0x0 0x1000>;
+		clock-names = "ftm_sys", "ftm_ext",
+			      "ftm_fix", "ftm_cnt_clk_en";
+		clocks = <&clks S32GEN1_CLK_PER>,
+			 <&clks S32GEN1_CLK_FTM1_REF>,
+			 <&clks S32GEN1_CLK_PER>,
+			 <&clks S32GEN1_CLK_PER>;
+		status = "disabled";
+	};
+
 	memory_DDR0@80000000 {
 		device_type = "memory";
 		reg = <0 0x80000000 0 0x40000000>;
