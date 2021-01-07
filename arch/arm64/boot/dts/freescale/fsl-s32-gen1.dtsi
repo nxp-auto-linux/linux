@@ -698,3 +698,27 @@
 		reg = <0 0xc0000000 0 0x40000000>;
 	};
 };
+
+&cluster0_l2_cache {
+	status = "okay";
+};
+
+&cluster1_l2_cache {
+	status = "okay";
+};
+
+&cpu0 {
+	next-level-cache = <&cluster0_l2_cache>;
+};
+
+&cpu1 {
+	next-level-cache = <&cluster0_l2_cache>;
+};
+
+&cpu2 {
+	next-level-cache = <&cluster1_l2_cache>;
+};
+
+&cpu3 {
+	next-level-cache = <&cluster1_l2_cache>;
+};
