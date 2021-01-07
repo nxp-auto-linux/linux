@@ -121,9 +121,12 @@
 		reg = <0x0 0x40068000 0x0 0x3000>;
 	};
 
-	mc_me: mc_me@40088000 {
+	reset_0: reset@40078000 {
 		compatible = "fsl,s32gen1-reset";
-		reg = <0x0 0x40088000 0x0 0x1000>;
+		      /* MC RGM */
+		reg = <0x0 0x40078000 0x0 0x3000>,
+		      /* MC ME */
+		      <0x0 0x40088000 0x0 0x1000>;
 	};
 
 	a53_gpr: a53_gpr@4007C400 {
