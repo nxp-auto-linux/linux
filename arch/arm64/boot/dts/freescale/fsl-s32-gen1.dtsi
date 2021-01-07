@@ -383,6 +383,55 @@
 		status = "disabled";
 	};
 
+	hse: crypto {
+		compatible = "simple-bus";
+		#address-cells = <2>;
+		#size-cells = <2>;
+		#interrupt-cells = <3>;
+		ranges = <0x0 0x0 0x0 0x40210000 0x0 0x4000>;
+
+		mu0b@40210000 {
+			compatible = "fsl,s32gen1-hse";
+			reg = <0x0 0x0 0x0 0x1000>;
+			interrupts = <0 103 4>, /* GIC 135 */
+				     <0 104 4>, /* GIC 136 */
+				     <0 105 4>; /* GIC 137 */
+			interrupt-names = "hse-mu0b-ack",
+					  "hse-mu0b-rx",
+					  "hse-mu0b-err";
+		};
+		mu1b@40211000 {
+			compatible = "fsl,s32gen1-hse";
+			reg = <0x0 0x1000 0x0 0x1000>;
+			interrupts = <0 106 4>, /* GIC 138 */
+				     <0 107 4>, /* GIC 139 */
+				     <0 108 4>; /* GIC 140 */
+			interrupt-names = "hse-mu1b-ack",
+					  "hse-mu1b-rx",
+					  "hse-mu1b-err";
+		};
+		mu2b@40212000 {
+			compatible = "fsl,s32gen1-hse";
+			reg = <0x0 0x2000 0x0 0x1000>;
+			interrupts = <0 109 4>, /* GIC 141 */
+				     <0 110 4>, /* GIC 142 */
+				     <0 111 4>; /* GIC 143 */
+			interrupt-names = "hse-mu2b-ack",
+					  "hse-mu2b-rx",
+					  "hse-mu2b-err";
+		};
+		mu3b@40213000 {
+			compatible = "fsl,s32gen1-hse";
+			reg = <0x0 0x3000 0x0 0x1000>;
+			interrupts = <0 112 4>, /* GIC 144 */
+				     <0 113 4>, /* GIC 145 */
+				     <0 114 4>; /* GIC 146 */
+			interrupt-names = "hse-mu3b-ack",
+					  "hse-mu3b-rx",
+					  "hse-mu3b-err";
+		};
+	};
+
 	edma1: dma-controller@40244000 {
 		#dma-cells = <2>;
 		compatible = "fsl,s32gen1-edma";
