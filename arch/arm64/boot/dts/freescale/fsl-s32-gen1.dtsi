@@ -302,6 +302,48 @@
 		clock-names = "lin", "ipg";
 	};
 
+	i2c0: i2c@401E4000 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "fsl,s32gen1-i2c";
+		reg = <0x0 0x401E4000 0x0 0x1000>;
+		interrupts =<0 92 4>;
+		clocks = <&clks S32GEN1_CLK_XBAR_DIV3>;
+		clock-names = "ipg";
+		dmas = <&edma0 0 15>,
+		       <&edma0 0 16>;
+		dma-names = "rx","tx";
+		status = "disabled";
+	};
+
+	i2c1: i2c@401E8000 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "fsl,s32gen1-i2c";
+		reg = <0x0 0x401E8000 0x0 0x1000>;
+		interrupts =<0 93 4>;
+		clocks = <&clks S32GEN1_CLK_XBAR_DIV3>;
+		clock-names = "ipg";
+		dmas = <&edma0 0 17>,
+		       <&edma0 0 18>;
+		dma-names = "rx","tx";
+		status = "disabled";
+	};
+
+	i2c2: i2c@401EC000 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "fsl,s32gen1-i2c";
+		reg = <0x0 0x401EC000 0x0 0x1000>;
+		interrupts =<0 94 4>;
+		clocks = <&clks S32GEN1_CLK_XBAR_DIV3>;
+		clock-names = "ipg";
+		dmas = <&edma1 1 15>,
+		       <&edma1 1 16>;
+		dma-names = "rx","tx";
+		status = "disabled";
+	};
+
 	swt4: swt@40200000 {
 		compatible = "fsl,s32gen1-wdt";
 		reg = <0x0 0x40200000 0x0 0x1000>;
@@ -381,6 +423,34 @@
 		interrupts = <0 84 1>;
 		clocks = <&sysclk>, <&sysclk>;
 		clock-names = "lin", "ipg";
+	};
+
+	i2c3: i2c@402D8000 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "fsl,s32gen1-i2c";
+		reg = <0x0 0x402D8000 0x0 0x1000>;
+		interrupts =<0 95 4>;
+		clocks = <&clks S32GEN1_CLK_XBAR_DIV3>;
+		clock-names = "ipg";
+		dmas = <&edma1 1 17>,
+		       <&edma1 1 18>;
+		dma-names = "rx","tx";
+		status = "disabled";
+	};
+
+	i2c4: i2c@402DC000 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "fsl,s32gen1-i2c";
+		reg = <0x0 0x402DC000 0x0 0x1000>;
+		interrupts =<0 96 4>;
+		clocks = <&clks S32GEN1_CLK_XBAR_DIV3>;
+		clock-names = "ipg";
+		dmas = <&edma1 1 19>,
+		       <&edma1 1 20>;
+		dma-names = "rx","tx";
+		status = "disabled";
 	};
 
 	usdhc0: usdhc@402F0000{
