@@ -1255,7 +1255,12 @@ static int dspi_probe(struct platform_device *pdev)
 	if (!dspi)
 		return -ENOMEM;
 
-	ctlr = spi_alloc_master(&pdev->dev, 0);
+	if (of_property_read_bool(np, "spi-slave"))
+		ctlr = spi_alloc_slave(&pdev->dev,
+				       sizeof(struct fsl_dspi));
+	else
+		ctlr = spi_alloc_master(&pdev->dev,
+					sizeof(struct fsl_dspi));
 	if (!ctlr)
 		return -ENOMEM;
 
