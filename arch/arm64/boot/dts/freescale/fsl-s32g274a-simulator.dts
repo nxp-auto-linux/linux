@@ -37,3 +37,7 @@
 		clocks = <&sysclk>, <&sysclk>;
 	};
 };
+
+&fccu {
+	status = "okay";
+};
