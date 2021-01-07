@@ -62,18 +62,48 @@
 };
 
 &can0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl0_can0>;
 	status = "okay";
 };
 
 &can1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl0_can1>, <&pinctrl1_can1>;
 	status = "okay";
 };
 
 &can2 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl0_can2>, <&pinctrl1_can2>;
 	status = "okay";
 };
 
 &can3 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl0_can3>, <&pinctrl1_can3>;
+	status = "okay";
+};
+
+&can4 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl1_can4>;
+};
+
+&can5 {
+	pinctrl-names = "default";
+	pinctrl-0 =  <&pinctrl0_can5>, <&pinctrl1_can5>;
+	status = "okay";
+};
+
+&can6 {
+	pinctrl-names = "default";
+	pinctrl-0 =  <&pinctrl1_can6>;
+};
+
+&can7 {
+	pinctrl-names = "default";
+	pinctrl-0 =  <&pinctrl1_can7>;
 	status = "okay";
 };
 
@@ -116,6 +146,39 @@
 &pinctrl0 {
 	status = "okay";
 	s32r45-evb {
+		pinctrl0_can0: can0grp {
+			fsl,pins = <
+				S32_GEN1_PAD_PC12__CAN0_TXD
+				S32_GEN1_PAD_PC11__CAN0_RXD_OUT
+				S32_GEN1_PAD_PC11__CAN0_RXD_IN
+			>;
+		};
+
+		pinctrl0_can1: can1grp {
+			fsl,pins = <
+				S32_GEN1_PAD_PD14__CAN1_TXD
+				S32_GEN1_PAD_PA7__CAN1_RXD_OUT
+			>;
+		};
+
+		pinctrl0_can2: can2grp {
+			fsl,pins = <
+				S32_GEN1_PAD_PB03__CAN2_TXD
+			>;
+		};
+
+		pinctrl0_can3: can3grp {
+			fsl,pins = <
+				S32_GEN1_PAD_PB2__CAN3_TXD
+			>;
+		};
+
+		pinctrl0_can5: can5rp {
+			fsl,pins = <
+				S32_GEN1_PAD_PC2__CAN5_TXD
+			>;
+		};
+
 		pinctrl0_dspi1: dspi1grp {
 			fsl,pins = <
 				S32_GEN1_PAD_PB6__SPI1_SOUT_OUT
@@ -258,6 +321,57 @@
 &pinctrl1 {
 	status = "okay";
 	s32r45-evb {
+		pinctrl1_can1: can1grp {
+			fsl,pins = <
+				S32_GEN1_PAD_PA7__CAN1_RXD_IN
+			>;
+		};
+
+		pinctrl1_can2: can2grp {
+			fsl,pins = <
+				S32_GEN1_PAD_PJ12__CAN2_RXD_OUT
+				S32_GEN1_PAD_PJ12__CAN2_RXD_IN
+			>;
+		};
+
+		pinctrl1_can3: can3grp {
+			fsl,pins = <
+				S32_GEN1_PAD_PJ7__CAN3_RXD_OUT
+				S32_GEN1_PAD_PJ7__CAN3_RXD_IN
+			>;
+		};
+
+		pinctrl1_can4: can4grp {
+			fsl,pins = <
+				S32_GEN1_PAD_PJ9__CAN4_TXD
+				S32_GEN1_PAD_PH7__CAN4_RXD_OUT
+				S32_GEN1_PAD_PH7__CAN4_RXD_IN
+			>;
+		};
+
+		pinctrl1_can5: can5rp {
+			fsl,pins = <
+				S32_GEN1_PAD_PJ0__CAN5_RXD_OUT
+				S32_GEN1_PAD_PJ0__CAN5_RXD_IN
+			>;
+		};
+
+		pinctrl1_can6: can6grp {
+			fsl,pins = <
+				S32_GEN1_PAD_PH6__CAN6_TXD
+				S32_GEN1_PAD_PH8__CAN6_RXD_OUT
+				S32_GEN1_PAD_PH8__CAN6_RXD_IN
+			>;
+		};
+
+		pinctrl1_can7: can7grp {
+			fsl,pins = <
+				S32_GEN1_PAD_PJ8__CAN7_TXD
+				S32_GEN1_PAD_PJ11__CAN7_RXD_OUT
+				S32_GEN1_PAD_PJ11__CAN7_RXD_IN
+			>;
+		};
+
 		pinctrl1_dspi1: dspi1grp {
 			fsl,pins = <
 				S32_GEN1_PAD_PB5__SPI1_SIN_IN
