@@ -70,6 +70,30 @@
 	};
 };
 
+&pfe {
+	status = "okay";
+
+	mdio {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		phy2: ethernet-phy@2 {
+			reg = <2>;
+		};
+		phy3: ethernet-phy@3 {
+			reg = <3>;
+		};
+		phy6: ethernet-phy@6 {
+			reg = <6>;
+			max-speed = <100>;
+		};
+		phy7: ethernet-phy@7 {
+			reg = <7>;
+			max-speed = <100>;
+		};
+	};
+};
+
 &fxosc {
 	clock-frequency = <40000000>;
 };
@@ -388,7 +412,44 @@
 };
 
 &spi5 {
+	#address-cells = <1>;
+	#size-cells = <0>;
 	status = "okay";
+
+	sja1105p@0 {
+		compatible = "nxp,sja1105p-switch";
+		spi-max-frequency = <0x3D0900>;
+		spi-cpha;
+		fsl,spi-cs-sck-delay = <100>;
+		fsl,spi-sck-cs-delay = <100>;
+
+		reg = <0>;
+		port-0 {
+			is-host = <0x1>;
+			null-phy = <0x1>;
+			phy-ref = < 0 >;
+		};
+		port-1 {
+			is-host = <0x0>;
+			null-phy = <0x1>;
+			phy-ref = < 0 >;
+		};
+		port-2 {
+			is-host = <0x0>;
+			null-phy = <0x1>;
+			phy-ref = < 0 >;
+		};
+		port-3 {
+			is-host = <0x0>;
+			null-phy = <0x0>;
+			phy-ref = < &phy2 >;
+		};
+		port-4 {
+			is-host = <0x0>;
+			null-phy = <0x0>;
+			phy-ref = < &phy3 >;
+		};
+	};
 };
 
 &pcie0 {
