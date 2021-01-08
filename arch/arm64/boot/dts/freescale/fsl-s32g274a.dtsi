@@ -352,5 +352,28 @@
 		big-endian;
 	};
 
+	usbmisc: usbmisc@44064200 {
+		#index-cells = <1>;
+		compatible = "fsl,s32g274a-usbmisc";
+		reg = <0x0 0x44064200 0x0 0x200>;
+	};
+
+	usbotg: usb@44064000 {
+		compatible = "fsl,s32g274a-usb";
+		reg = <0x0 0x44064000 0x0 0x200>;
+		interrupt-parent = <&gic>;
+		interrupts = <0 211 4>, /* OTG Core */
+			     <0 212 4>; /* OTG Wakeup */
+		clocks = <&clks S32GEN1_CLK_XBAR_DIV4>,
+			 <&clks S32GEN1_CLK_SIRC>;
+		fsl,usbmisc = <&usbmisc 0>;
+		ahb-burst-config = <0x0>;
+		tx-burst-size-dword = <0x10>;
+		rx-burst-size-dword = <0x10>;
+		phy_type = "ulpi";
+		dr_mode = "host";
+		maximum-speed = "high-speed";
+		status = "disabled";
+	};
 };
 
