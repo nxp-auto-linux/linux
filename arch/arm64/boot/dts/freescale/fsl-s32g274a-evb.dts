@@ -49,6 +49,27 @@
 	};
 };
 
+&gmac0 {
+	phy-mode = "rgmii";
+	phy-handle = <&gmac0_phy4>;
+};
+
+&gmac0_mdio {
+	/* ARQ107 on S32RGV-VNP-PLAT */
+	gmac0_phy1: ethernet-phy@1 {
+		reg = <1>;
+	};
+	/* KSZ9031RNX on S32G-VNP-PROC */
+	gmac0_phy4: ethernet-phy@4 {
+		reg = <4>;
+	};
+	/* KSZ9031RNX on S32RGV-VNP-PLAT */
+	gmac0_phy5: ethernet-phy@5 {
+		status = "disabled"; /* blocked by USB by default */
+		reg = <5>;
+	};
+};
+
 &fxosc {
 	clock-frequency = <40000000>;
 };

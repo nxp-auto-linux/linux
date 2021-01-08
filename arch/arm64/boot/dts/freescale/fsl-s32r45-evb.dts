@@ -579,6 +579,18 @@
 	};
 };
 
+&gmac0 {
+	phy-mode = "rgmii";
+	phy-handle = <&gmac0_phy1>;
+};
+
+&gmac0_mdio {
+	/* KSZ9031RNXCA on S32R-VNP-PROC */
+	gmac0_phy1: ethernet-phy@1 {
+		reg = <1>;
+	};
+};
+
 &gmac1 {
 	phy-mode = "sgmii";
 	status = "disabled";
