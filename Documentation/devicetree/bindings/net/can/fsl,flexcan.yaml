@@ -137,6 +137,12 @@ properties:
     description:
       Enable CAN remote wakeup.
 
+  s32v234-ocotp:
+    description: |
+      On S32V234 SoCs, phandle pointer to the On-Chip One Time
+      Programmable (OCOTP) node, if CAN FD support is desired on
+      compatible parts
+
 required:
   - compatible
   - reg
