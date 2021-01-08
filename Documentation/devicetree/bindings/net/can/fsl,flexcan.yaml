@@ -49,6 +49,32 @@ properties:
 
   interrupts:
     maxItems: 1
+    description: |
+      Interrupt tuple(s) for this device. If interrupt-names are
+      missing, these should specify, in order
+      for S32V234
+      1. ERRINT | BOFFINT | BOFFDONEINT | TWRNINT | RWRNINT;
+      2. MB0-63 interrupts;
+      for S32GEN1
+      1. BOFFINT | BOFFDONEINT | TWRNINT | RWRNINT;
+      2. ERRINT;
+      3. MB0-7 interrupts;
+      4. MB8-127 interrupts;
+      for all the other SoCs
+      1. all interrupts combined.
+
+  interrupt-names:
+    description: |
+      Allows the interrupt specifiers in "interrupts" to be stated
+      in any order, one for each name in here. Can contain
+      "state" - BOFFINT | BOFFDONEINT | TWRNINT | RWRNINT;
+      "berr" - ERRINT;
+      "mb_0-7" - MB0-7 interrupts;
+      "mb_8-127" - MB8-127 interrupts;
+      "state-berr" - ERRINT | BOFFINT | BOFFDONEINT | TWRNINT |
+                     RWRNINT;
+      "mb" - all MB interrupts;
+      "all" - all interrupts combined.
 
   clocks:
     maxItems: 2
@@ -138,4 +164,16 @@ examples:
         clocks = <&clks 1>, <&clks 2>;
         clock-names = "ipg", "per";
         fsl,stop-mode = <&gpr 0x34 28>;
+    };
+  - |
+    flexcan@40055000 {
+        compatible = "fsl,s32v234-flexcan";
+        reg = <0x0 0x40055000 0x0 0x1000>;
+        interrupts = <0 41 4>,
+                     <0 42 4>;
+        interrupt-names = "state-berr", "mb";
+        clocks = <&clks S32V234_CLK_CAN0>,
+                 <&clks S32V234_CLK_CAN>;
+        clock-names = "ipg", "per";
+        s32v234-ocotp = <&ocotp>;
     };
