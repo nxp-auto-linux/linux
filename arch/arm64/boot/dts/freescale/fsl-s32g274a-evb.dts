@@ -33,6 +33,19 @@
 		device_type = "memory";
 		reg = <0x8 0x80000000 0 0x80000000>;
 	};
+
+	reserved-memory {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		pfe_reserved: pfebufs@83400000 {
+			compatible = "fsl,s32g-pfe-ddr";
+			reg = <0 0x83400000 0 0xc00000>;
+			no-map;
+			status = "okay";
+		};
+	};
 };
 
 &qspi {
@@ -72,7 +85,7 @@
 
 &pfe {
 	status = "okay";
-
+	memory-region = <&pfe_reserved>;
 	mdio {
 		#address-cells = <1>;
 		#size-cells = <0>;
