@@ -47,6 +47,22 @@
 			status = "okay";
 		};
 	};
+
+	usbphynop: usbphynop {
+		compatible = "usb-nop-xceiv";
+		#phy-cells = <0>;
+	};
+};
+
+&usbmisc {
+	status = "okay";
+};
+
+&usbotg {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl0_usbotg>, <&pinctrl1_usbotg>;
+	fsl,usbphy = <&usbphynop>;
+	status = "okay";
 };
 
 &qspi {
@@ -314,6 +330,15 @@
 			>;
 		};
 
+		pinctrl0_usbotg: usbotggrp {
+		       fsl,pins = <
+				S32_GEN1_PAD_PD14__USB_ULPI_DATA_O0
+				S32_GEN1_PAD_PD15__USB_ULPI_DATA_O1
+				S32_GEN1_PAD_PE0__USB_ULPI_DATA_O2
+				S32_GEN1_PAD_PE1__USB_ULPI_DATA_O3
+			   >;
+		};
+
 		pinctrl0_pfe2_mdio_a: pfe2mdioagrp {
 			fsl,pins = <
 				S32_GEN1_PAD_PE15__SIUL_GPIO79
@@ -517,6 +542,30 @@
 			fsl,pins = <
 				S32_GEN1_PAD_PA10__SPI5_SIN_IN
 			>;
+		};
+
+		pinctrl1_usbotg: usbotggrp {
+		       fsl,pins = <
+				S32_GEN1_PAD_PD14__USB_ULPI_DATA_I0_IN
+				S32_GEN1_PAD_PD15__USB_ULPI_DATA_I1_IN
+				S32_GEN1_PAD_PE0__USB_ULPI_DATA_I2_IN
+				S32_GEN1_PAD_PE1__USB_ULPI_DATA_I3_IN
+				S32_GEN1_PAD_PL12__USB_ULPI_DATA_O4
+				S32_GEN1_PAD_PL12__USB_ULPI_DATA_I4_IN
+				S32_GEN1_PAD_PL13__USB_ULPI_DATA_O5
+				S32_GEN1_PAD_PL13__USB_ULPI_DATA_I5_IN
+				S32_GEN1_PAD_PL14__USB_ULPI_DATA_O6
+				S32_GEN1_PAD_PL14__USB_ULPI_DATA_I6_IN
+				S32_GEN1_PAD_PH0__USB_ULPI_DATA_O7
+				S32_GEN1_PAD_PH0__USB_ULPI_DATA_I7_IN
+				S32_GEN1_PAD_PL8__USB_ULPI_CLK_OUT
+				S32_GEN1_PAD_PL8__USB_ULPI_CLK_IN
+				S32_GEN1_PAD_PL9__USB_ULPI_DIR_OUT
+				S32_GEN1_PAD_PL9__USB_ULPI_DIR_IN
+				S32_GEN1_PAD_PL10__USB_ULPI_STP
+				S32_GEN1_PAD_PL11__USB_ULPI_NXT_OUT
+				S32_GEN1_PAD_PL11__USB_ULPI_NXT_IN
+			   >;
 		};
 
 		pinctrl1_rgmii_a: gmacrgmiiagrp {
