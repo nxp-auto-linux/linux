@@ -440,13 +440,8 @@ static void siul2_gpio_irq_mask(struct irq_data *data)
 	unsigned long flags;
 	u32 direr0_val;
 	u32 disr0_val;
-	int err;
 
 	if (!siul2_is_valid_eirq(gpio_dev, eirq))
-		return;
-
-	err = siul2_gpio_irq_set_type(data, IRQ_TYPE_NONE);
-	if (err)
 		return;
 
 	spin_lock_irqsave(&gpio_dev->lock, flags);
