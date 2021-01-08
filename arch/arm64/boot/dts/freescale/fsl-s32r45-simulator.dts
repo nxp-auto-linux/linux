@@ -36,6 +36,26 @@
 	clock-frequency = <1200000>;
 };
 
+&i2c0 {
+	status = "okay";
+};
+
+&i2c1 {
+	status = "okay";
+};
+
+&i2c2 {
+	status = "okay";
+};
+
+&i2c3 {
+	status = "okay";
+};
+
+&i2c4 {
+	status = "okay";
+};
+
 &stm0 {
 	status = "okay";
 };
