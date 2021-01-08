@@ -28,6 +28,14 @@
 	};
 };
 
+&fxosc {
+	clock-frequency = <40000000>;
+};
+
+&generic_timer {
+	clock-frequency = <1200000>;
+};
+
 &stm0 {
 	status = "okay";
 };
