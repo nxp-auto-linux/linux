@@ -3,7 +3,7 @@
  * Watchdog driver for SAC58R SoC
  *
  *  Copyright (C) 2014 Freescale Semiconductor, Inc.
- *  Copyright 2017-2019 NXP.
+ *  Copyright 2017-2019,2021 NXP.
  *
  * Based on imx2_wdt.c
  * Drives the Software Watchdog Timer module
@@ -17,7 +17,6 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/moduleparam.h>
-#include <linux/of.h>
 #include <linux/platform_device.h>
 #include <linux/watchdog.h>
 #include <linux/clk.h>
@@ -26,6 +25,7 @@
 #include <linux/uaccess.h>
 #include <linux/timer.h>
 #include <linux/jiffies.h>
+#include <linux/of_device.h>
 
 #define DRIVER_NAME "sac58r-wdt"
 
@@ -45,9 +45,18 @@
 #define SAC58R_WDT_DEFAULT_TIME	30		/* in seconds */
 #define SAC58R_WDT_TO_MIN_COUNT	0x100
 
+enum wdt_flags {
+	SAC58R_CONTINUE_IN_STBY = BIT(0),
+};
+
+struct sac58r_data {
+	enum wdt_flags flags;
+};
+
 struct sac58r_wdt_device {
 	struct clk *clk;
 	void __iomem *base;
+	enum wdt_flags flags;
 	unsigned long status;
 	struct timer_list timer;	/* Pings the watchdog when closed */
 	struct watchdog_device wdog;
@@ -125,7 +134,10 @@ static void sac58r_wdt_setup(struct watchdog_device *wdog)
 	/* Allows watchdog timer to be stopped when device enters debug mode
 	 * or when device is in stopped mode
 	 */
-	val |= SAC58R_SWT_CR_STP | SAC58R_SWT_CR_FRZ;
+	if (!(wdev->flags & SAC58R_CONTINUE_IN_STBY))
+		val |= SAC58R_SWT_CR_STP;
+
+	val |= SAC58R_SWT_CR_FRZ;
 	/* Use Fixed Service Sequence to ping the watchdog */
 	val |= SAC58R_SWT_CR_FIXED_SS;
 	/* Enable the watchdog */
@@ -184,11 +196,19 @@ static int __init sac58r_wdt_probe(struct platform_device *pdev)
 	unsigned long clk_rate = 0;
 	struct sac58r_wdt_device *wdev = NULL;
 	struct watchdog_device *wdog = NULL;
+	const struct sac58r_data *data;
+
+	data = of_device_get_match_data(&pdev->dev);
 
 	wdev = devm_kzalloc(&pdev->dev, sizeof(struct sac58r_wdt_device),
 		GFP_KERNEL);
 	if (!wdev)
 		return -ENOMEM;
+
+	if (data)
+		wdev->flags = data->flags;
+	else
+		wdev->flags = 0;
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	wdev->base = devm_ioremap_resource(&pdev->dev, res);
@@ -271,10 +291,14 @@ static void sac58r_wdt_shutdown(struct platform_device *pdev)
 	}
 }
 
+static const struct sac58r_data s32gen1_data = {
+	.flags = SAC58R_CONTINUE_IN_STBY,
+};
+
 static const struct of_device_id sac58r_wdt_dt_ids[] = {
 	{.compatible = "fsl,sac58r-wdt",},
 	{.compatible = "fsl,s32v234-wdt",},
-	{.compatible = "fsl,s32gen1-wdt",},
+	{.compatible = "fsl,s32gen1-wdt", .data = &s32gen1_data},
 	{ /* sentinel */ }
 };
 
