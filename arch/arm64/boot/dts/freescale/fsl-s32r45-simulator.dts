@@ -262,3 +262,15 @@
 &edma1 {
 	status = "okay";
 };
+
+&gmac0 {
+	phy-mode = "rgmii";
+	phy-handle = <&gmac0_phy1>;
+};
+
+&gmac0_mdio {
+	/* VDK S32R R9.0 ETH_PHY model has 0x01 addr by default  */
+	gmac0_phy1: ethernet-phy@1 {
+		reg = <1>;
+	};
+};
