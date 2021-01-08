@@ -56,6 +56,22 @@
 	status = "okay";
 };
 
+&can0 {
+	status = "okay";
+};
+
+&can1 {
+	status = "okay";
+};
+
+&can2 {
+	status = "okay";
+};
+
+&can3 {
+	status = "okay";
+};
+
 &stm0 {
 	status = "okay";
 };
