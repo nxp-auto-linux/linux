@@ -338,7 +338,11 @@
 	can0: flexcan@401B4000{
 		compatible = "fsl,s32gen1-flexcan";
 		reg = <0x0 0x401B4000 0x0 0xA000>;
-		interrupts = <0 40 4>;
+		interrupts = <0 37 4>,
+			     <0 38 4>,
+			     <0 39 4>,
+			     <0 40 4>;
+		interrupt-names = "state", "berr", "mb_0-7", "mb_8-127";
 		clocks = <&clks S32GEN1_CLK_CAN>,
 			 <&clks S32GEN1_CLK_XBAR_DIV3>;
 		clock-names = "ipg", "per";
@@ -348,7 +352,11 @@
 	can1: flexcan@401BE000{
 		compatible = "fsl,s32gen1-flexcan";
 		reg = <0x0 0x401BE000 0x0 0xA000>;
-		interrupts = <0 44 4>;
+		interrupts = <0 41 4>,
+			     <0 42 4>,
+			     <0 43 4>,
+			     <0 44 4>;
+		interrupt-names = "state", "berr", "mb_0-7", "mb_8-127";
 		clocks = <&clks S32GEN1_CLK_CAN>,
 			 <&clks S32GEN1_CLK_XBAR_DIV3>;
 		clock-names = "ipg", "per";
@@ -572,7 +580,11 @@
 	can2: flexcan@402A8000{
 		compatible = "fsl,s32gen1-flexcan";
 		reg = <0x0 0x402A8000 0x0 0xA000>;
-		interrupts = <0 48 4>;
+		interrupts = <0 45 4>,
+			     <0 46 4>,
+			     <0 47 4>,
+			     <0 48 4>;
+		interrupt-names = "state", "berr", "mb_0-7", "mb_8-127";
 		clocks = <&clks S32GEN1_CLK_CAN>,
 			 <&clks S32GEN1_CLK_XBAR_DIV3>;
 		clock-names = "ipg", "per";
@@ -582,7 +594,12 @@
 	can3: flexcan@402B2000{
 		compatible = "fsl,s32gen1-flexcan";
 		reg = <0x0 0x402B2000 0x0 0xA000>;
-		interrupts = <0 52 4>;
+		interrupts = <0 49 4>,
+			     <0 50 4>,
+			     <0 51 4>,
+			     <0 52 4>;
+		interrupt-names = "state", "berr", "mb_0-7", "mb_8-127";
+
 		clocks = <&clks S32GEN1_CLK_CAN>,
 			 <&clks S32GEN1_CLK_XBAR_DIV3>;
 		clock-names = "ipg", "per";
