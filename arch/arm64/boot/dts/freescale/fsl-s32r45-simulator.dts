@@ -307,6 +307,30 @@
 	status = "okay";
 };
 
+&spi0 {
+	status = "okay";
+};
+
+&spi1 {
+	status = "okay";
+};
+
+&spi2 {
+	status = "okay";
+};
+
+&spi3 {
+	status = "okay";
+};
+
+&spi4 {
+	status = "okay";
+};
+
+&spi5 {
+	status = "okay";
+};
+
 &gmac0 {
 	phy-mode = "rgmii";
 	phy-handle = <&gmac0_phy1>;
