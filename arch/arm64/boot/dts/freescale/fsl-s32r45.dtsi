@@ -10,11 +10,12 @@
 
 #include "fsl-s32-gen1.dtsi"
 #include <dt-bindings/pinctrl/s32r45-pinctrl.h>
+#include <dt-bindings/clock/s32r45-scmi-clock.h>
+
 / {
 	model = "Freescale S32R45";
 	compatible = "fsl,s32r45-simu", "fsl,s32r45",
 				 "arm,vexpress,v2p-aarch64", "arm,vexpress";
-
 	aliases {
 		can4 = &can4;
 	};
@@ -56,8 +57,8 @@
 			     <0 194 4>,
 			     <0 195 4>;
 		interrupt-names = "state", "berr", "mb_0-7", "mb_8-127";
-		clocks = <&clks S32GEN1_CLK_CAN>,
-			 <&clks S32GEN1_CLK_XBAR_DIV3>;
+		clocks = <&clks S32GEN1_SCMI_CLK_FLEXCAN_CAN>,
+			 <&clks S32GEN1_SCMI_CLK_FLEXCAN_REG>;
 		clock-names = "per", "ipg";
 		status = "disabled";
 	};
@@ -70,8 +71,8 @@
 			     <0 198 4>,
 			     <0 199 4>;
 		interrupt-names = "state", "berr", "mb_0-7", "mb_8-127";
-		clocks = <&clks S32GEN1_CLK_CAN>,
-			 <&clks S32GEN1_CLK_XBAR_DIV3>;
+		clocks = <&clks S32GEN1_SCMI_CLK_FLEXCAN_CAN>,
+			 <&clks S32GEN1_SCMI_CLK_FLEXCAN_REG>;
 		clock-names = "per", "ipg";
 		status = "disabled";
 	};
@@ -84,8 +85,8 @@
 			     <0 202 4>,
 			     <0 203 4>;
 		interrupt-names = "state", "berr", "mb_0-7", "mb_8-127";
-		clocks = <&clks S32GEN1_CLK_CAN>,
-			 <&clks S32GEN1_CLK_XBAR_DIV3>;
+		clocks = <&clks S32GEN1_SCMI_CLK_FLEXCAN_CAN>,
+			 <&clks S32GEN1_SCMI_CLK_FLEXCAN_REG>;
 		clock-names = "per", "ipg";
 		status = "disabled";
 	};
@@ -98,8 +99,8 @@
 			     <0 206 4>,
 			     <0 207 4>;
 		interrupt-names = "state", "berr", "mb_0-7", "mb_8-127";
-		clocks = <&clks S32GEN1_CLK_CAN>,
-			 <&clks S32GEN1_CLK_XBAR_DIV3>;
+		clocks = <&clks S32GEN1_SCMI_CLK_FLEXCAN_CAN>,
+			 <&clks S32GEN1_SCMI_CLK_FLEXCAN_REG>;
 		clock-names = "per", "ipg";
 		status = "disabled";
 	};
@@ -240,9 +241,15 @@
 		interrupt-names = "macirq";
 		tx-fifo-depth = <20480>;
 		rx-fifo-depth = <20480>;
-		clocks = <&clks S32GEN1_CLK_XBAR>, <&clks S32GEN1_CLK_XBAR>,
-		             <&clks S32GEN1_CLK_GMAC_1_TX>;
-		clock-names = "stmmaceth", "pclk", "tx";
+		clocks = <&clks S32R45_SCMI_CLK_GMAC1_AXI>,
+			 <&clks S32R45_SCMI_CLK_GMAC1_AXI>,
+			 <&clks S32R45_SCMI_CLK_GMAC1_TX_SGMII>,
+			 <&clks S32R45_SCMI_CLK_GMAC1_TX_RGMII>,
+			 <&clks S32R45_SCMI_CLK_GMAC1_TX_RMII>,
+			 <&clks S32R45_SCMI_CLK_GMAC1_TX_MII>;
+		clock-names = "stmmaceth", "pclk",
+			      "tx_sgmii", "tx_rgmii",
+			      "tx_rmii", "tx_mii";
 		gmac1_mdio: mdio0 {
 			compatible = "snps,dwmac-mdio";
 			#address-cells = <1>;
@@ -250,5 +257,3 @@
 		};
 	};
 };
-
-
