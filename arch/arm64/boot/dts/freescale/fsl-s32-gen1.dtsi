@@ -427,8 +427,7 @@
 		      <0x0 0x40134000 0x0 0x1000>;
 		reg-names = "QuadSPI-memory", "QuadSPI";
 		interrupts = <0 32 4>;
-		clocks = <&clks S32GEN1_CLK_QSPI_SEL>,
-			 <&clks S32GEN1_CLK_QSPI_2X>,
+		clocks = <&clks S32GEN1_CLK_QSPI_1X>,
 			 <&clks S32GEN1_CLK_QSPI_1X>;
 		clock-names = "qspi_en", "qspi";
 		status = "disabled";
