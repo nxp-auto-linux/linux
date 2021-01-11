@@ -214,6 +214,38 @@
 			>;
 		};
 
+		pinctrl0_mdio2: mdio2grp {
+			fsl,pins = <
+				S32_GEN1_PAD_PD12__MDC
+				S32_GEN1_PAD_PD13__MDIO_OUT
+				S32_GEN1_PAD_PD13__MDIO_IN
+			>;
+		};
+
+		pinctrl0_rgmii2: rgmii2grp {
+			fsl,pins = <
+				S32_GEN1_PAD_PE2__TXCLK_OUT
+				S32_GEN1_PAD_PE2__TXCLK_IN
+				S32_GEN1_PAD_PE3__TX_EN_OUT
+				S32_GEN1_PAD_PE4__TX_D0_OUT
+				S32_GEN1_PAD_PE5__TX_D1_OUT
+				S32_GEN1_PAD_PE6__TX_D2_OUT
+				S32_GEN1_PAD_PE7__TX_D3_OUT
+				S32_GEN1_PAD_PE8__RXCLK_OUT
+				S32_GEN1_PAD_PE8__RXCLK_IN
+				S32_GEN1_PAD_PE9__RX_DV_OUT
+				S32_GEN1_PAD_PE9__RX_DV_IN
+				S32_GEN1_PAD_PE10__RX_D0_OUT
+				S32_GEN1_PAD_PE10__RX_D0_IN
+				S32_GEN1_PAD_PE11__RX_D1_OUT
+				S32_GEN1_PAD_PE11__RX_D1_IN
+				S32_GEN1_PAD_PE12__RX_D2_OUT
+				S32_GEN1_PAD_PE12__RX_D2_IN
+				S32_GEN1_PAD_PE13__RX_D3_OUT
+				S32_GEN1_PAD_PE13__RX_D3_IN
+			>;
+		};
+
 		pinctrl_gpio0: gpiogrp0 {
 			fsl,pins = <
 				S32R45_PAD_PA_00_SIUL_GPIO0
@@ -580,8 +612,11 @@
 };
 
 &gmac0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl0_rgmii2>, <&pinctrl0_mdio2>;
 	phy-mode = "rgmii";
 	phy-handle = <&gmac0_phy1>;
+	status = "okay";
 };
 
 &gmac0_mdio {
