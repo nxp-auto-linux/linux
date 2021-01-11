@@ -349,7 +349,7 @@
 		interrupt-names = "state", "berr", "mb_0-7", "mb_8-127";
 		clocks = <&clks S32GEN1_SCMI_CLK_FLEXCAN_CAN>,
 			 <&clks S32GEN1_SCMI_CLK_FLEXCAN_REG>;
-		clock-names = "ipg", "per";
+		clock-names = "per", "ipg";
 		status = "disabled";
 	};
 
@@ -363,7 +363,7 @@
 		interrupt-names = "state", "berr", "mb_0-7", "mb_8-127";
 		clocks = <&clks S32GEN1_SCMI_CLK_FLEXCAN_CAN>,
 			 <&clks S32GEN1_SCMI_CLK_FLEXCAN_REG>;
-		clock-names = "ipg", "per";
+		clock-names = "per", "ipg";
 		status = "disabled";
 	};
 
@@ -592,7 +592,7 @@
 		interrupt-names = "state", "berr", "mb_0-7", "mb_8-127";
 		clocks = <&clks S32GEN1_SCMI_CLK_FLEXCAN_CAN>,
 			 <&clks S32GEN1_SCMI_CLK_FLEXCAN_REG>;
-		clock-names = "ipg", "per";
+		clock-names = "per", "ipg";
 		status = "disabled";
 	};
 
@@ -606,7 +606,7 @@
 		interrupt-names = "state", "berr", "mb_0-7", "mb_8-127";
 		clocks = <&clks S32GEN1_SCMI_CLK_FLEXCAN_CAN>,
 			 <&clks S32GEN1_SCMI_CLK_FLEXCAN_REG>;
-		clock-names = "ipg", "per";
+		clock-names = "per", "ipg";
 		status = "disabled";
 	};
 
