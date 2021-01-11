@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0+ OR BSD-3-Clause
-/* Copyright 2020 NXP */
+/* Copyright 2020-2021 NXP */
 #include <linux/can/dev.h>
 #include <linux/clk.h>
 #include <linux/ctype.h>
@@ -642,6 +642,8 @@ static void *get_netdev_name(struct device *dev)
 
 static int init_llce_chans(struct llce_can *llce, struct device *dev)
 {
+	long ret = 0;
+
 	llce->config_client.dev = dev;
 	llce->config_client.tx_block = true;
 	llce->config_client.rx_callback = config_rx_callback;
@@ -656,11 +658,13 @@ static int init_llce_chans(struct llce_can *llce, struct device *dev)
 	llce->config = mbox_request_channel_byname(&llce->config_client,
 						   "config");
 	if (IS_ERR(llce->config)) {
-		dev_err(dev, "Failed to get config mailbox\n");
-		return PTR_ERR(llce->config);
+		ret = PTR_ERR(llce->config);
+		if (ret != -EPROBE_DEFER)
+			dev_err(dev, "Failed to get config mailbox\n");
+		return ret;
 	}
 
-	return 0;
+	return ret;
 }
 
 static int llce_init_can_priv(struct llce_can *llce, struct device *dev)
