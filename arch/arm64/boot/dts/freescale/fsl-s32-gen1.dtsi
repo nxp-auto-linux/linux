@@ -722,7 +722,12 @@
 		compatible = "fsl,s32gen1-rtc";
 		#interrupt-cells = <3>;
 		reg = <0x0 0x40060000 0x0 0x1000>;
-		interrupts = <0 121 4>; // RTC irq - GIC 153
+		interrupts = <0 121 4>;	// RTC irq - GIC 153
+		/* Input clock selection: use the 48MHz FIRC with DIV512,
+		 * for a roll-over time of just under 13 hours.
+		 */
+		clksel = <2>;		// 2: FIRC; 0: SIRC
+		dividers = <1 0>;	// div512 enabled; div32 disabled
 	};
 
 	gmac0: ethernet@4033c000 {
