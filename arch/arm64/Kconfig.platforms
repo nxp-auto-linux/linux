@@ -71,6 +71,16 @@ menu "S32 GEN1 execution target"
 		   for the cores in the second cluster.
 
 endmenu
+	config NXP_S32GEN1_ERRATUM_ERR050481
+		bool "Enable workaround for the NXP ERR050481 erratum"
+		default y
+		help
+		   Force broader TLB invalidate instructions to avoid an
+		   inter-cluster TLB coherency issue described in the
+		   NXP errata docs.
+		   This may come at a performance penalty, although the
+		   affected VA addresses are only from the kernel ranges.
+
 endif
 
 if SOC_S32V234
