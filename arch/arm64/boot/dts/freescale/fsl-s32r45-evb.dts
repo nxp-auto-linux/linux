@@ -540,13 +540,13 @@
 	#size-cells = <0>;
 	status = "okay";
 
-	spidev10: spidev@10 {
+	spidev10: spidev@0 {
 		compatible = "rohm,dh2228fv";
 		spi-max-frequency = <10000000>;
 		reg = <0>;
 	};
 
-	spidev11: spidev@11 {
+	spidev11: spidev@1 {
 		compatible = "rohm,dh2228fv";
 		spi-max-frequency = <10000000>;
 		reg = <1>;
@@ -560,13 +560,13 @@
 	#size-cells = <0>;
 	status = "okay";
 
-	spidev20: spidev@20 {
+	spidev20: spidev@0 {
 		compatible = "rohm,dh2228fv";
 		spi-max-frequency = <10000000>;
 		reg = <0>;
 	};
 
-	spidev21: spidev@21 {
+	spidev21: spidev@1 {
 		compatible = "rohm,dh2228fv";
 		spi-max-frequency = <10000000>;
 		reg = <1>;
@@ -580,7 +580,7 @@
 	#size-cells = <0>;
 	status = "okay";
 
-	spidev3: spidev@30 {
+	spidev3: spidev@0 {
 		compatible = "rohm,dh2228fv";
 		spi-max-frequency = <4000000>;
 		reg = <0>;
