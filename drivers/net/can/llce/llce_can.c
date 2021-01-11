@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0+ OR BSD-3-Clause
-/* Copyright 2020 NXP */
+/* Copyright 2020-2021 NXP */
 
 #include <linux/can/dev.h>
 #include <linux/clk.h>
@@ -653,10 +653,9 @@ static int init_llce_chans(struct llce_can *llce, struct device *dev)
 
 	llce->config = mbox_request_channel_byname(&llce->config_client,
 						   "config");
-	if (IS_ERR(llce->config)) {
-		dev_err(dev, "Failed to get config mailbox\n");
-		return PTR_ERR(llce->config);
-	}
+	if (IS_ERR(llce->config))
+		return dev_err_probe(dev, PTR_ERR(llce->config),
+				     "Failed to get config mailbox\n");
 
 	return 0;
 }
