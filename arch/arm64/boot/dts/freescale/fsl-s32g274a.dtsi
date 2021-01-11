@@ -10,6 +10,7 @@
 
 #include "fsl-s32-gen1.dtsi"
 #include <dt-bindings/pinctrl/s32g274-pinctrl.h>
+#include <dt-bindings/clock/s32g274a-scmi-clock.h>
 
 / {
 	chosen {
@@ -65,10 +66,9 @@
 			      <0 197 1>; /* safety */
 		interrupt-names = "hif0", "hif1", "hif2", "hif3",
 				  "bmu", "nocpy", "upegpt", "safety";
-		clocks = <&clks S32GEN1_CLK_PFE_SYS>,
-			 <&clks S32GEN1_CLK_PFE_PE>,
-			 <&clks S32GEN1_CLK_XBAR>;
-		clock-names = "pfe_sys", "pfe_pe", "xbar";
+		clocks = <&clks S32G274A_SCMI_CLK_PFE_AXI>,
+			 <&clks S32G274A_SCMI_CLK_PFE_PE>;
+		clock-names = "pfe_sys", "pfe_pe";
 		firmware-name = "s32g_pfe_class.fw";
 		fsl,fw-class-name = "s32g_pfe_class.fw";
 		fsl,fw-util-name = "s32g_pfe_util.fw";
@@ -79,6 +79,12 @@
 			#size-cells = <0>;
 			status = "okay";
 			reg = <0>;
+			clocks = <&clks S32G274A_SCMI_CLK_PFE0_TX_SGMII>,
+				 <&clks S32G274A_SCMI_CLK_PFE0_TX_RGMII>,
+				 <&clks S32G274A_SCMI_CLK_PFE0_TX_RMII>,
+				 <&clks S32G274A_SCMI_CLK_PFE0_TX_MII>;
+			clock-names = "tx_sgmii", "tx_rgmii",
+				      "tx_rmii", "tx_mii";
 			local-mac-address = [ 00 04 9F BE EF 00 ];
 			fsl,pfeng-if-name = "pfe0";
 			fsl,pfeng-emac-id = <0>; /* Phy IF (EMAC) id */
@@ -96,8 +102,12 @@
 			#size-cells = <0>;
 			status = "okay";
 			reg = <1>;
-			clocks = <&clks S32GEN1_CLK_PFE_EMAC_1_TX>;
-			clock-names = "tx";
+			clocks = <&clks S32G274A_SCMI_CLK_PFE1_TX_SGMII>,
+				 <&clks S32G274A_SCMI_CLK_PFE1_TX_RGMII>,
+				 <&clks S32G274A_SCMI_CLK_PFE1_TX_RMII>,
+				 <&clks S32G274A_SCMI_CLK_PFE1_TX_MII>;
+			clock-names = "tx_sgmii", "tx_rgmii",
+				      "tx_rmii", "tx_mii";
 			local-mac-address = [ 00 04 9F BE EF 01 ];
 			fsl,pfeng-if-name = "pfe1";
 			fsl,pfeng-emac-id = <1>; /* Phy IF (EMAC) id */
@@ -115,8 +125,12 @@
 			#size-cells = <0>;
 			status = "okay";
 			reg = <2>;
-			clocks = <&clks S32GEN1_CLK_PFE_EMAC_2_TX>;
-			clock-names = "tx";
+			clocks = <&clks S32G274A_SCMI_CLK_PFE2_TX_SGMII>,
+				 <&clks S32G274A_SCMI_CLK_PFE2_TX_RGMII>,
+				 <&clks S32G274A_SCMI_CLK_PFE2_TX_RMII>,
+				 <&clks S32G274A_SCMI_CLK_PFE2_TX_MII>;
+			clock-names = "tx_sgmii", "tx_rgmii",
+				      "tx_rmii", "tx_mii";
 			local-mac-address = [ 00 04 9F BE EF 02 ];
 			fsl,pfeng-if-name = "pfe2";
 			fsl,pfeng-emac-id = <2>; /* Phy IF (EMAC) id */
@@ -280,9 +294,9 @@
 		reg = <0x0 0x44064000 0x0 0x200>;
 		interrupt-parent = <&gic>;
 		interrupts = <0 211 4>, /* OTG Core */
-			     <0 212 4>; /* OTG Wakeup */
-		clocks = <&clks S32GEN1_CLK_XBAR_DIV4>,
-			 <&clks S32GEN1_CLK_SIRC>;
+		             <0 212 4>; /* OTG Wakeup */
+		clocks = <&clks S32G274A_SCMI_CLK_USB_MEM>,
+			 <&clks S32G274A_SCMI_CLK_USB_LOW>;
 		fsl,usbmisc = <&usbmisc 0>;
 		ahb-burst-config = <0x3>;
 		tx-burst-size-dword = <0x10>;
