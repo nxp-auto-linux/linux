@@ -21,7 +21,6 @@
 #include <linux/io.h>
 #include <linux/irq.h>
 #include <linux/irqdomain.h>
-#include <linux/irqchip/chained_irq.h>
 #include <linux/gpio.h>
 #include <linux/platform_device.h>
 #include <linux/slab.h>
@@ -734,11 +733,6 @@ static int siul2_irq_setup(struct platform_device *pdev,
 		ret = err;
 		goto irq_setup_err;
 	}
-
-	gpiochip_set_chained_irqchip(&gpio_dev->gc,
-				     &siul2_gpio_irq_chip,
-				     irq,
-				     NULL);
 
 irq_setup_err:
 
