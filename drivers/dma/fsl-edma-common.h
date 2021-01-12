@@ -2,7 +2,7 @@
 /*
  * Copyright 2013-2014 Freescale Semiconductor, Inc.
  * Copyright 2018 Angelo Dureghello <angelo@sysam.it>
- * Copyright 2017-2018, 2020 NXP
+ * Copyright 2017-2018, 2020-2021 NXP
  */
 #ifndef _FSL_EDMA_COMMON_H_
 #define _FSL_EDMA_COMMON_H_
@@ -30,6 +30,9 @@
 /* edma3 regs. */
 #define EDMA3_MP_CSR		0x00
 #define EDMA3_MP_ES			0x04
+#define EDMA3_MP_HRS		0x0C
+
+#define EDMA3_MP_HRS_CH(ch)	BIT(ch)
 
 #define EDMA3_CHn_CSR(ch)	(0x4000 + (ch) * 0x1000)
 #define EDMA3_CHn_ES(ch)	(0x4004 + (ch) * 0x1000)
