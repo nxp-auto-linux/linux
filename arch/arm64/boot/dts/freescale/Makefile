@@ -57,3 +57,4 @@ dtb-$(CONFIG_ARCH_S32) += fsl-s32g274a-evb.dtb
 dtb-$(CONFIG_ARCH_S32) += fsl-s32g274a-rdb.dtb
 dtb-$(CONFIG_ARCH_S32) += fsl-s32g274a-rdb2.dtb
 dtb-$(CONFIG_ARCH_S32) += fsl-s32g274a-simulator.dtb
+dtb-$(CONFIG_ARCH_S32) += fsl-s32r45-simulator.dtb
