@@ -1,0 +1,42 @@
+# SPDX-License-Identifier: GPL-2.0
+%YAML 1.2
+---
+
+title: Reset Generation Module (MC_RGM)
+
+maintainers:
+  - Ciprian Marian Costea <ciprianmarian.costea@nxp.com>
+
+description: |
+  - The reset generation module (MC_RGM) centralizes the different
+  reset sources and manages the reset sequence of the chip. It
+  provides a register interface and the reset sequencer. Various
+  registers are available to monitor and control the chip reset
+  sequence. The reset sequencer is a state machine which controls
+  the different phases (PHASE0, PHASE1, PHASE2, PHASE3, and IDLE)
+  of the reset sequence and controls the reset signals generated
+  in the system.
+
+properties:
+  compatible:
+    const:
+      - fsl,s32v234-mc_rgm
+
+  reg:
+    description: |
+      Should be register base and length as documented in the
+      datasheet.
+
+required:
+  - compatible
+  - reg
+
+additionalProperties: false
+
+examples:
+  - |
+    mc_rgm: mc_rgm@40048000 {
+      compatible = "fsl,s32v234-mc_rgm";
+      reg = <0x0 0x40048000 0x0 0x1000>;
+    };
+...
