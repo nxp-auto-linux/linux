@@ -207,7 +207,7 @@ static int s32gen1_get_soc_revision(struct device *dev, uint8_t *rev)
 		dev_err(dev, "Can not obtain the base SIUL2 register\n");
 		return -ENXIO;
 	}
-	siul2_virt_addr = ioremap_nocache(siul2_base_address, SZ_1K);
+	siul2_virt_addr = ioremap(siul2_base_address, SZ_1K);
 	if (siul2_virt_addr == NULL) {
 		dev_err(dev, "Failed to map SIUL2 base address\n");
 		return -EIO;
