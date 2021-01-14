@@ -2,20 +2,21 @@
 %YAML 1.2
 ---
 
-title: Temperature sensor driver for NXP s32v234 SoCs
+title: Temperature sensor driver for NXP S32 SoCs
 
 maintainers:
   - Dorin Ionita <dorin.ionita@nxp.com>
 
 description: |
-  Support for Temperature Monitoring Unit (TMU) found on NXP s32v234
-  SoCs. It supports reporting the immediate and average temperature
+  Support for Temperature Monitoring Unit (TMU) found on NXP S32 SoCs.
+  It supports reporting the immediate and average temperature
   in a manner compatible with lm-sensors
 
 properties:
   compatible:
     const:
       - fsl,s32v234-tmu
+      - fsl,s32gen1-tmu
 
   reg:
     description:
