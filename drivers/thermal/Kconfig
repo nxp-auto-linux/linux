@@ -239,13 +239,22 @@ config HISI_THERMAL
 	  thermal framework. cpufreq is used as the cooling device to throttle
 	  CPUs when the passive trip is crossed.
 
-config S32_THERMAL
+config S32V234_THERMAL
 	bool "Temperature sensor driver for NXP s32v234 SoCs"
 	depends on SYSFS
 	help
 	  Support for Temperature Monitoring Unit (TMU) found on NXP s32v234
 	  SoCs. It supports reporting the immediate and average temperature
 	  in a manner compatible with lm-sensors
+
+config S32GEN1_THERMAL
+	bool "Temperature sensor driver for NXP s32G SoCs"
+	depends on SYSFS && THERMAL_HWMON
+	help
+      Support for Temperature Monitoring Unit (TMU) found on NXP s32gen1
+	  SoCs. It supports reporting the immediate and average temperature
+	  in a manner compatible with lm-sensors. Calibration takes into
+	  consideration the trim from the fuses, which are chip specific.
 
 config IMX_THERMAL
 	tristate "Temperature sensor driver for Freescale i.MX SoCs"
