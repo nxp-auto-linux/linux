@@ -1,0 +1,79 @@
+# SPDX-License-Identifier: GPL-2.0
+%YAML 1.2
+---
+
+title: Freescale S32V SIUL2 GPIO controller
+
+maintainers:
+  - Ghennadi Procopciuc <Ghennadi.Procopciuc@nxp.com>
+
+description: |
+  It includes an IRQ controller for all EIRQ pins.
+
+properties:
+  compatible:
+    const:
+      - fsl,s32v234-siul2-gpio
+
+  reg:
+    description: |
+      4 or 5 ranges. 4 for nodes without EIRQ management and 5 for others.
+      Ranges index meaning
+        0 Address and length of the Parallel GPIO Pad Data Out Register
+        1 Address and length of the Parallel GPIO Pad Data Input Register
+        2 and 3 are unused, reserved for Pad Data Output/Input Registers.
+        4 Address and length of the EIRQ controller.
+
+  interrupts:
+    - Should be the port interrupt shared by all 32 EIRQs
+
+  gpio-controller:
+    - Marks the device node as a gpio controller
+
+  gpio-cells:
+    description: |
+      Should be two. The first cell is the pin number and
+      the second cell is used to specify the gpio polarity
+        0 = active high
+        1 = active low
+
+  interrupt-controller:
+    - Marks the device node as an interrupt controller
+
+  gpio-ranges:
+    - Interaction with the PINCTRL subsystem
+
+required:
+  - compatible
+  - gpio-controller
+  - gpio-ranges
+  - reg
+  - interrupt-controller
+  - interrupts
+
+additionalProperties: false
+
+examples:
+  - |
+    gpioeirq: siul2-gpio@4006C000 {
+      compatible = "fsl,s32v234-siul2-gpio";
+      gpio-controller;
+      #gpio-cells = <2>;
+        /* GPIO 0-31 */
+      gpio-ranges = <&pinctrl 0 0 32>,
+        /* EIRQ pins */
+        <&pinctrl 590 590 32>;
+        /* Output pad */
+      reg = <0x4 0x0 0x0 0x4>,
+        /* Input Pad */
+        <0x4 0x40 0x0 0x4>,
+        /* Reserved */
+        <0x2 0x0 0x0 0x1C>,
+        <0x3 0x0 0x0 0x1C>,
+        /* EIRQ */
+        <0x0 0x0 0x0 0xC4>;
+      interrupt-controller;
+      interrupts = <0 70 4>;
+      status = "disabled";
+    };
+...
