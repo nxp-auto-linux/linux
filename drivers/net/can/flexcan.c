@@ -490,6 +490,12 @@ static struct flexcan_devtype_data fsl_s32gen1_devtype_data = {
 	.irqs = s32gen1_flexcan_irqs,
 };
 
+static int is_s32_flexcan(struct flexcan_priv *data)
+{
+	return ((data->devtype_data == &fsl_s32v234_devtype_data) ||
+			(data->devtype_data == &fsl_s32gen1_devtype_data));
+}
+
 static inline int flexcan_request_fd(struct device *dev, bool *allowed)
 {
 	struct device_node *otp_node;
