@@ -1,0 +1,52 @@
+# SPDX-License-Identifier: (GPL-2.0 OR BSD-2-Clause)
+%YAML 1.2
+---
+
+title: NXP S32GEN1 Real Time Clock (RTC)
+
+maintainers:
+  - Bogdan Hamciuc <bogdan.hamciuc@nxp.com>
+
+properties:
+  compatible:
+    const:
+      - fsl,s32gen1-rtc
+
+  reg:
+    description:
+      The size of the memory address space of the device.
+
+  interrupts:
+    description:
+      Specifies the Real Time Clock interrupts id.
+
+  clksel:
+    description:
+      Input clock selector; choose between 0-SIRC and 2-FIRC
+
+  dividers:
+    description:
+      An array of two u32 elements, the former encoding DIV512,
+      the latter encoding DIV32. These are dividers that can be enabled
+      individually, or cascaded. Use 0 to disable the respective divider,
+      and 1 to enable it.
+
+required:
+  - compatible
+  - reg
+  - interrupts
+  - clksel
+  - dividers
+
+additionalProperties: false
+
+examples:
+  - |
+    rtc0: rtc@40060000 {
+        compatible = "fsl,s32gen1-rtc";
+        #interrupt-cells = <3>;
+        reg = <0x0 0x40060000 0x0 0x1000>;
+        interrupts = <0 121 4>;
+        clksel = <2>;
+        dividers = <1 0>
+    };
