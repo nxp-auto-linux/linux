@@ -1,5 +1,5 @@
 /*
- * Copyright 2017-2020 NXP
+ * Copyright 2017-2021 NXP
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -141,10 +141,7 @@
 
 	pmu {
 		compatible = "arm,armv8-pmuv3";
-		interrupts = <0 0x3c 0x4>,
-			     <0 0x3d 0x4>,
-			     <0 0x3e 0x4>,
-			     <0 0x3f 0x4>;
+		interrupts = <GIC_PPI 7 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
 	generic_timer: timer {
