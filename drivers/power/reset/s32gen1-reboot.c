@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * NXP S32GEN1 reboot driver
- * Copyright 2018 NXP
+ * Copyright 2018, 2021 NXP
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -42,6 +42,8 @@
 #define OF_MATCH_MC_RGM		0
 #define OF_MATCH_MC_ME		1
 
+#define S32GEN1_NOTIFIER_BLOCK_PRIORITY	192
+
 static const struct of_device_id s32gen1_reboot_of_match[] = {
 	{ .compatible = "fsl,s32gen1-reset" },
 	{}
@@ -50,31 +52,33 @@ static const struct of_device_id s32gen1_reboot_of_match[] = {
 struct	s32gen1_reboot_priv {
 	void __iomem *mc_me;
 	void __iomem *mc_rgm;
+	struct notifier_block s32gen1_reboot_nb;
 };
-
-static struct s32gen1_reboot_priv s32gen1_reboot_priv;
 
 static int s32gen1_reboot(struct notifier_block *this, unsigned long mode,
 			  void *cmd)
 {
 	unsigned long timeout;
+	struct s32gen1_reboot_priv *priv =
+		container_of(this, struct s32gen1_reboot_priv,
+				s32gen1_reboot_nb);
 
-	if (s32gen1_reboot_priv.mc_rgm) {
+	if (priv->mc_rgm) {
 		writeb(MC_RGM_FRET_VALUE,
-			MC_RGM_FRET(s32gen1_reboot_priv.mc_rgm));
+			MC_RGM_FRET(priv->mc_rgm));
 	}
 
-	if (s32gen1_reboot_priv.mc_me) {
+	if (priv->mc_me) {
 		writel_relaxed(MC_ME_MODE_CONF_FUNC_RST,
-				MC_ME_MODE_CONF(s32gen1_reboot_priv.mc_me));
+				MC_ME_MODE_CONF(priv->mc_me));
 
 		writel_relaxed(MC_ME_MODE_UPD_UPD,
-				MC_ME_MODE_UPD(s32gen1_reboot_priv.mc_me));
+				MC_ME_MODE_UPD(priv->mc_me));
 
 		writel_relaxed(MC_ME_CTL_KEY_KEY,
-				MC_ME_CTL_KEY(s32gen1_reboot_priv.mc_me));
+				MC_ME_CTL_KEY(priv->mc_me));
 		writel_relaxed(MC_ME_CTL_KEY_INVERTEDKEY,
-				MC_ME_CTL_KEY(s32gen1_reboot_priv.mc_me));
+				MC_ME_CTL_KEY(priv->mc_me));
 	}
 
 	timeout = jiffies + HZ;
@@ -84,38 +88,34 @@ static int s32gen1_reboot(struct notifier_block *this, unsigned long mode,
 	return 0;
 }
 
-static struct notifier_block s32gen1_reboot_nb = {
-	.notifier_call = s32gen1_reboot,
-	.priority = 192,
-};
-
 static int s32gen1_reboot_probe(struct platform_device *pdev)
 {
+	struct s32gen1_reboot_priv *priv;
 	const struct of_device_id *of;
 	int err;
+
+	priv = devm_kzalloc(&pdev->dev, sizeof(*priv), GFP_KERNEL);
+	if (!priv)
+		return -ENOMEM;
 
 	of = of_match_device(s32gen1_reboot_of_match, &pdev->dev);
 	if (of == NULL)
 		return -ENODEV;
 
-	s32gen1_reboot_priv.mc_me = of_iomap(pdev->dev.of_node, OF_MATCH_MC_ME);
-	if (!s32gen1_reboot_priv.mc_me) {
-		dev_err(&pdev->dev, "Can not map resource\n");
-		return -ENODEV;
-	}
+	priv->mc_me = devm_platform_ioremap_resource(pdev, OF_MATCH_MC_ME);
+	if (IS_ERR(priv->mc_me))
+		return PTR_ERR(priv->mc_me);
 
-	s32gen1_reboot_priv.mc_rgm = of_iomap(pdev->dev.of_node,
-					      OF_MATCH_MC_RGM);
-	if (!s32gen1_reboot_priv.mc_rgm) {
-		iounmap(s32gen1_reboot_priv.mc_me);
-		dev_err(&pdev->dev, "Can not map resource\n");
-		return -ENODEV;
-	}
+	priv->mc_rgm = devm_platform_ioremap_resource(pdev, OF_MATCH_MC_RGM);
+	if (IS_ERR(priv->mc_rgm))
+		return PTR_ERR(priv->mc_rgm);
 
-	err = register_restart_handler(&s32gen1_reboot_nb);
+	priv->s32gen1_reboot_nb.notifier_call = s32gen1_reboot;
+	priv->s32gen1_reboot_nb.priority = S32GEN1_NOTIFIER_BLOCK_PRIORITY;
+	err = register_restart_handler(&priv->s32gen1_reboot_nb);
 	if (err) {
-		iounmap(s32gen1_reboot_priv.mc_rgm);
-		iounmap(s32gen1_reboot_priv.mc_me);
+		iounmap(priv->mc_rgm);
+		iounmap(priv->mc_me);
 		dev_err(&pdev->dev, "Failed to register handler\n");
 		return err;
 	}
