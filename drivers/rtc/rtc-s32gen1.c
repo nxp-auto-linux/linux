@@ -243,8 +243,24 @@ err_sec_to_rtcval:
 	return err;
 }
 
+static int s32gen1_rtc_set_time(struct device *dev, struct rtc_time *time)
+{
+	struct rtc_s32gen1_priv *priv = dev_get_drvdata(dev);
+	u32 rtccnt = ioread32(priv->rtc_base + RTCCNT_OFFSET);
+
+	if (!time)
+		return -EINVAL;
+
+	priv->base.rollovers = priv->rollovers;
+	priv->base.cycles = rtccnt;
+	priv->base.sec = rtc_tm_to_time64(time);
+
+	return 0;
+}
+
 static const struct rtc_class_ops s32gen1_rtc_ops = {
 	.read_time = s32gen1_rtc_read_time,
+	.set_time = s32gen1_rtc_set_time,
 	.read_alarm = s32gen1_rtc_read_alarm,
 	.set_alarm = s32gen1_rtc_set_alarm,
 	.alarm_irq_enable = s32gen1_alarm_irq_enable,
