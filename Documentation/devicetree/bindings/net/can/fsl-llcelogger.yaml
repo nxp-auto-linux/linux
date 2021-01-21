@@ -1,0 +1,60 @@
+# SPDX-License-Identifier: GPL-2.0
+%YAML 1.2
+---
+
+title: LLCE engine on NXP's ARM based SOCs.
+
+maintainers: Dorin Ionita <dorin.ionita@nxp.com>
+
+description: |
+  This driver is used on S32G2xx to log CAN messages received from LLCE.
+  It provides a interface to userspace, as a char device, on which you
+  can cat or you can echo a value to set the log size to that dimension.
+  Separate LLCE configuration for CAN is expected.
+  It assumes that the LLCE Firmware is already loaded.
+
+properties:
+  compatible:
+    const:
+      - fsl,s32g-llcelogger
+
+  reg:
+    description: |
+      Offset and length of the register set or shared memory regions
+      for this device (LLCE HW IP)
+
+  reg-names:
+    description: |
+      Name for the mapped registers or shared memory regions
+
+  interrupts:
+    description: |
+      Interrupt tuple for this device - CAN frame processed.
+
+required:
+  - compatible
+  - reg
+  - reg-names
+  - interrupts
+
+additionalProperties: false
+
+examples:
+  - |
+    llce: llcelogger@43000000 {
+      compatible = "fsl,s32g-llcelogger";
+      reg = <0x0 0x43000000 0x0 0x1000000>,
+        <0x0 0x43800000 0x0 0x3D000>,
+        <0x0 0x43A0C40C 0x0 0x4>,
+        <0x0 0x43A0C424 0x0 0x4>,
+        <0x0 0x43A0C014 0x0 0x4>,
+        <0x0 0x43A0C408	0x0 0x4>;
+      reg-names = "llce-range",
+        "llce-shared-mem",
+        "fifo-ier",
+        "fifo-pop0",
+        "fifo-push0",
+        "fifo-status1";
+        interrupts = <0x0 184 0x4>;
+    };
+...
