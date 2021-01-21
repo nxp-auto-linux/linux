@@ -28,6 +28,14 @@
 #define DRIVER_VERSION		"0.1"
 #define ENABLE_WAKEUP		1
 
+#define ROLLOVER_VAL	0xFFFFFFFFULL
+
+struct rtc_time_base {
+	unsigned long sec;
+	u64 cycles;
+	u64 rollovers;
+};
+
 /**
  * struct rtc_s32gen1_priv - RTC driver private data
  * @rtc_base: rtc base address
@@ -39,6 +47,8 @@
  * @div32: enable DIV32 frequency divider
  * @clk_source: one of S32GEN1_RTC_SOURCE_* input clocks
  * @rtc_hz: current frequency of the timer
+ * @rollovers: number of counter rollovers
+ * @base: time baseline in cycles + seconds
  */
 struct rtc_s32gen1_priv {
 	u8 __iomem *rtc_base;
@@ -51,6 +61,8 @@ struct rtc_s32gen1_priv {
 	bool div32;
 	u8 clk_source;
 	u32 rtc_hz;
+	u64 rollovers;
+	struct rtc_time_base base;
 };
 
 static void print_rtc(struct platform_device *pdev)
@@ -71,6 +83,11 @@ static void print_rtc(struct platform_device *pdev)
 		ioread32(priv->rtc_base + RTCVAL_OFFSET));
 }
 
+static u64 cycles_to_sec(const struct rtc_s32gen1_priv *priv, u64 cycles)
+{
+	return cycles / priv->rtc_hz;
+}
+
 /* Convert a number of seconds to a value suitable for RTCVAL in our clock's
  * current configuration.
  * @rtcval: The value to go into RTCVAL[RTCVAL]
@@ -84,7 +101,7 @@ static int s32gen1_sec_to_rtcval(const struct rtc_s32gen1_priv *priv,
 	u32 target_cnt = 0;
 
 	/* For now, support at most one roll-over of the counter */
-	if (!seconds || seconds > ULONG_MAX / priv->rtc_hz)
+	if (!seconds || seconds > cycles_to_sec(priv, ULONG_MAX))
 		return -EINVAL;
 
 	/* RTCCNT is read-only; we must return a value relative to the
@@ -110,29 +127,47 @@ static int s32gen1_sec_to_rtcval(const struct rtc_s32gen1_priv *priv,
 static irqreturn_t s32gen1_rtc_handler(int irq, void *dev)
 {
 	struct rtc_s32gen1_priv *priv = platform_get_drvdata(dev);
+	u32 status;
+
+	status = ioread32(priv->rtc_base + RTCS_OFFSET);
+
+	if (status & RTCS_ROVRF)
+		priv->rollovers++;
+
+	if (status & RTCS_RTCF) {
+		/* Disable the trigger */
+		iowrite32(0x0, priv->rtc_base + RTCVAL_OFFSET);
+		rtc_update_irq(priv->rdev, 1, RTC_AF);
+	}
+
+	if (status & RTCS_APIF)
+		rtc_update_irq(priv->rdev, 1, RTC_PF);
 
 	/* Clear the IRQ */
-	iowrite32(RTCS_RTCF, priv->rtc_base + RTCS_OFFSET);
+	iowrite32(status, priv->rtc_base + RTCS_OFFSET);
 
 	return IRQ_HANDLED;
 }
 
 static int s32gen1_rtc_read_time(struct device *dev, struct rtc_time *tm)
 {
-	/* Dummy reading so we appease rtc_valid_tm(); note that this means
-	 * we won't have a monotonic timestamp, in case someone wants to use
-	 * this RTC as the system timer.
-	 */
-	static struct rtc_time stm = {
-		.tm_year = 118,	/* 2018 */
-		.tm_mon = 7,	/* August */
-		.tm_mday = 10,
-		.tm_hour = 18,
-	};
+	struct rtc_s32gen1_priv *priv = dev_get_drvdata(dev);
+	u32 rtccnt = ioread32(priv->rtc_base + RTCCNT_OFFSET);
+	u64 cycles, sec, base_cycles;
 
 	if (!tm)
 		return -EINVAL;
-	*tm = stm;
+
+	cycles = priv->rollovers * ROLLOVER_VAL + rtccnt;
+	base_cycles = priv->base.cycles + priv->base.rollovers * ROLLOVER_VAL;
+
+	if (cycles < base_cycles)
+		return -EINVAL;
+
+	/* Subtract time base */
+	cycles -= base_cycles;
+	sec = priv->base.sec + cycles_to_sec(priv, cycles);
+	rtc_time64_to_tm(sec, tm);
 
 	return 0;
 }
@@ -153,11 +188,14 @@ static int s32gen1_alarm_irq_enable(struct device *dev, unsigned int enabled)
 	if (!priv->dt_irq_id)
 		return -EIO;
 
+	/**
+	 * RTCIE cannot be deasserted because it will also disable the
+	 * rollover interrupt.
+	 */
 	rtcc_val = ioread32(priv->rtc_base + RTCC_OFFSET);
 	if (enabled)
 		rtcc_val |= RTCC_RTCIE;
-	else
-		rtcc_val &= ~RTCC_RTCIE;
+
 	iowrite32(rtcc_val, priv->rtc_base + RTCC_OFFSET);
 
 	return 0;
@@ -168,8 +206,13 @@ static int s32gen1_rtc_set_alarm(struct device *dev, struct rtc_wkalrm *alrm)
 	unsigned long t_crt, t_alrm;
 	struct rtc_time time_crt;
 	u32 rtcval;
-	int err = 0, ret;
+	int err = 0;
 	struct rtc_s32gen1_priv *priv = dev_get_drvdata(dev);
+
+	/* Disable the trigger */
+	iowrite32(0x0, priv->rtc_base + RTCVAL_OFFSET);
+
+	t_alrm = rtc_tm_to_time64(&alrm->time);
 
 	/* Assuming the alarm is being set relative to the same time
 	 * returned by our .rtc_read_time callback
@@ -177,31 +220,27 @@ static int s32gen1_rtc_set_alarm(struct device *dev, struct rtc_wkalrm *alrm)
 	err = s32gen1_rtc_read_time(dev, &time_crt);
 	if (err)
 		return err;
+
 	t_crt = rtc_tm_to_time64(&time_crt);
-	t_alrm = rtc_tm_to_time64(&alrm->time);
 	if (t_alrm <= t_crt) {
 		dev_warn(dev, "Alarm is set in the past\n");
 		return -EINVAL;
 	}
 
-	/* RTCVAL can only be written either: a) after reset, or
-	 * b) when CNTEN is set. If the latter, we'd want to know interrupts
-	 * are disabled first.
-	 */
-	if (s32gen1_alarm_irq_enable(dev, 0)) {
-		dev_warn(dev, "Error disabling IRQ\n");
-		return -EIO;
-	}
 	err = s32gen1_sec_to_rtcval(priv, t_alrm - t_crt, &rtcval);
 	if (err) {
 		dev_warn(dev, "Alarm too far in the future\n");
 		goto err_sec_to_rtcval;
 	}
+
+	/* Synchronization period */
+	while (ioread32(priv->rtc_base + RTCS_OFFSET) & RTCS_INV_RTC)
+		;
+
 	iowrite32(rtcval, priv->rtc_base + RTCVAL_OFFSET);
 
 err_sec_to_rtcval:
-	ret = s32gen1_alarm_irq_enable(dev, !!alrm->enabled);
-	return err ? err : ret;
+	return err;
 }
 
 static const struct rtc_class_ops s32gen1_rtc_ops = {
@@ -319,7 +358,7 @@ static int s32gen1_rtc_init(struct rtc_s32gen1_priv *priv)
 		priv->rtc_hz /= 32;
 	}
 
-	rtcc |= RTCC_RTCIE;
+	rtcc |= RTCC_RTCIE | RTCC_ROVREN;
 	iowrite32(rtcc, priv->rtc_base + RTCC_OFFSET);
 
 	return 0;
@@ -470,7 +509,7 @@ static int get_time_left(struct device *dev, struct rtc_s32gen1_priv *priv,
 		return -EIO;
 	}
 
-	*sec = (rtcval - rtccnt) / priv->rtc_hz;
+	*sec = cycles_to_sec(priv, rtcval - rtccnt);
 	return 0;
 }
 
