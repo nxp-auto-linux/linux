@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright 2019 NXP
+ * Copyright 2019,2021 NXP
  *
  * RTC register definition for the S32GEN1
  *
@@ -36,6 +36,7 @@
 #define RTCC_DIV32EN		BIT(10)
 /* RTCS fields */
 #define RTCS_RTCF		BIT(29)
+#define RTCS_INV_RTC		BIT(18)
 #define RTCS_APIF		BIT(13)
 #define RTCS_ROVRF		BIT(10)
 
