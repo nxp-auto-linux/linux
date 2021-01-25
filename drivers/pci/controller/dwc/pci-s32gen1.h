@@ -2,7 +2,7 @@
 /*
  * PCIe host controller driver for Freescale S32Gen1 SoCs
  *
- * Copyright 2019 NXP
+ * Copyright 2020 NXP
  */
 
 #ifndef PCIE_S32GEN1_H
@@ -13,6 +13,19 @@
 #include <linux/types.h>
 #include <linux/version.h>
 #include "pcie-designware.h"
+
+/* PCIe MSI capabilities register */
+#define PCI_MSI_CAP		0x50
+/* MSI Enable bit */
+#define MSI_EN			0x10000
+
+/* PCIe MSI-X capabilities register */
+#define PCI_MSIX_CAP	0xB0
+/* MSI-X Enable bit */
+#define MSIX_EN			BIT(31)
+
+/* PCIe Capabilities ID and next pointer register */
+#define PCI_EXP_CAP_ID	0x70
 
 /* PCIe controller general control 1 (PE0_GEN_CTRL_1 / PE1_GEN_CTRL_1) */
 #define PE_GEN_CTRL_1		0x1050
