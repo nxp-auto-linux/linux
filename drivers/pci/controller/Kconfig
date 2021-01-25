@@ -55,6 +55,14 @@ config PCI_S32GEN1_INIT_EP_BARS
 	Initialize BARs and inbound windows in EP mode, using as base address
 	a reserved memory area defined in the device tree
 
+config PCI_S32GEN1_EP_MSI
+	bool "Enable MSI support in EP mode for S32GEN1 PCIe"
+	depends on PCI_S32GEN1 && PCI_MSI
+	help
+	  Experimental: Enable MSI support in EP mode for S32GEN1 PCIe.
+	  This is not enforced by PCIe standard, but all the required registers
+	  are there for the EP mode too.
+
 config PCI_DW_DMA
 	bool "Freescale S32 PCIe DW DMA"
 	depends on OF && ARM64 && (PCI_S32V234 || PCI_S32GEN1)
