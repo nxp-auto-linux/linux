@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright 2019-2020 NXP
+ * Copyright 2019-2021 NXP
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -706,6 +706,35 @@
 				S32_GEN1_PAD_PC_12_LLCE_CAN0_TX
 			>;
 		};
+
+		pinctrl0_qspi: qspigrp {
+				fsl,pins = <
+					S32_GEN1_PAD_PF13__QSPI_A_DQS_OUT
+					S32_GEN1_PAD_PF13__QSPI_A_DQS_IN
+					S32_GEN1_PAD_PG4__QSPI_A_CS0
+					S32_GEN1_PAD_PG5__QSPI_A_CS1
+					S32_GEN1_PAD_PF5__QSPI_A_DATA0_IN
+					S32_GEN1_PAD_PF5__QSPI_A_DATA0_OUT
+					S32_GEN1_PAD_PF6__QSPI_A_DATA1_IN
+					S32_GEN1_PAD_PF6__QSPI_A_DATA1_OUT
+					S32_GEN1_PAD_PF7__QSPI_A_DATA2_IN
+					S32_GEN1_PAD_PF7__QSPI_A_DATA2_OUT
+					S32_GEN1_PAD_PF8__QSPI_A_DATA3_IN
+					S32_GEN1_PAD_PF8__QSPI_A_DATA3_OUT
+					S32_GEN1_PAD_PF9__QSPI_A_DATA4_IN
+					S32_GEN1_PAD_PF9__QSPI_A_DATA4_OUT
+					S32_GEN1_PAD_PF10__QSPI_A_DATA5_IN
+					S32_GEN1_PAD_PF10__QSPI_A_DATA5_OUT
+					S32_GEN1_PAD_PF11__QSPI_A_DATA6_IN
+					S32_GEN1_PAD_PF11__QSPI_A_DATA6_OUT
+					S32_GEN1_PAD_PF12__QSPI_A_DATA7_IN
+					S32_GEN1_PAD_PF12__QSPI_A_DATA7_OUT
+					S32_GEN1_PAD_PG0__QSPI_A_SCK
+					S32_GEN1_PAD_PG1__QSPI_A_B_SCK
+					S32_GEN1_PAD_PG2__QSPI_A_SCK2
+					S32_GEN1_PAD_PG3__QSPI_A_B_SCK2
+				>;
+		};
 	};
 };
 
@@ -837,4 +866,9 @@
 			>;
 		};
 	};
+};
+
+&qspi {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl0_qspi>;
 };
