@@ -124,13 +124,19 @@
 
 #define LINFLEXD_UARTCR_FIFO_SIZE	(4)
 
+#define LINFLEX_LDIV_MULTIPLIER		(16)
+
 #define DRIVER_NAME	"fsl-linflexuart"
 #define DEV_NAME	"ttyLF"
 #define UART_NR		4
 
 #define EARLYCON_BUFFER_INITIAL_CAP	8
 
+#ifdef CONFIG_S32CC_EMULATOR
+#define PREINIT_DELAY			20 /* us */
+#else
 #define PREINIT_DELAY			2000 /* us */
+#endif
 
 #ifdef CONFIG_CONSOLE_POLL
 struct linflex_poll_ctx {
@@ -847,6 +853,21 @@ static void linflex_shutdown(struct uart_port *port)
 	}
 }
 
+#if !defined(CONFIG_S32CC_EMULATOR)
+static int
+linflex_ldiv_multiplier(struct uart_port *port)
+{
+	unsigned int mul = LINFLEX_LDIV_MULTIPLIER;
+	unsigned long cr;
+
+	cr = readl(port->membase + UARTCR);
+	if (cr & LINFLEXD_UARTCR_ROSE)
+		mul = LINFLEXD_UARTCR_OSR(cr);
+
+	return mul;
+}
+#endif
+
 static void
 linflex_set_termios(struct uart_port *port, struct ktermios *termios,
 		    struct ktermios *old)
@@ -855,7 +876,9 @@ linflex_set_termios(struct uart_port *port, struct ktermios *termios,
 	unsigned long flags;
 	unsigned long cr, old_cr, cr1;
 	unsigned int old_csize = old ? old->c_cflag & CSIZE : CS8;
+#if !defined(CONFIG_S32CC_EMULATOR)
 	unsigned long baud, ibr, fbr, divisr, dividr;
+#endif
 
 	spin_lock_irqsave(&port->lock, flags);
 
@@ -927,8 +950,10 @@ linflex_set_termios(struct uart_port *port, struct ktermios *termios,
 		cr &= ~LINFLEXD_UARTCR_PCE;
 	}
 
+#if !defined(CONFIG_S32CC_EMULATOR)
 	/* ask the core to calculate the divisor */
 	baud = uart_get_baud_rate(port, termios, old, 50, port->uartclk / 16);
+#endif
 
 	port->read_status_mask = 0;
 
@@ -955,22 +980,27 @@ linflex_set_termios(struct uart_port *port, struct ktermios *termios,
 			port->ignore_status_mask |= LINFLEXD_UARTSR_BOF;
 	}
 
+#if !defined(CONFIG_S32CC_EMULATOR)
 	/* update the per-port timeout */
 	uart_update_timeout(port, termios->c_cflag, baud);
 	lfport->dma_rx_timeout = msecs_to_jiffies(DIV_ROUND_UP(10000000, baud));
+#endif
 
 	/* disable transmit and receive */
 	writel(old_cr & ~(LINFLEXD_UARTCR_RXEN | LINFLEXD_UARTCR_TXEN),
 	       port->membase + UARTCR);
 
+#if !defined(CONFIG_S32CC_EMULATOR)
+	/* skip setting baudrate; use u-boot settings */
 	divisr = port->uartclk;	//freq in Hz
-	dividr = (baud * 16);
+	dividr = (baud * linflex_ldiv_multiplier(port));
 
 	ibr = divisr / dividr;
-	fbr = (divisr % dividr) * 16;
+	fbr = ((divisr % dividr) * 16 / dividr) & 0xF;
 
 	writel(ibr, port->membase + LINIBRR);
 	writel(fbr, port->membase + LINFBRR);
+#endif
 
 	writel(cr, port->membase + UARTCR);
 
@@ -1474,6 +1504,7 @@ static int linflex_probe(struct platform_device *pdev)
 	sport->flags = UPF_BOOT_AUTOCONF;
 	sport->has_sysrq = IS_ENABLED(CONFIG_SERIAL_FSL_LINFLEXUART_CONSOLE);
 
+#if !defined(CONFIG_S32CC_EMULATOR)
 	lfport->clk = devm_clk_get(&pdev->dev, "lin");
 	if (IS_ERR(lfport->clk)) {
 		ret = PTR_ERR(lfport->clk);
@@ -1503,6 +1534,7 @@ static int linflex_probe(struct platform_device *pdev)
 	}
 
 	sport->uartclk = clk_get_rate(lfport->clk);
+#endif
 
 	linflex_ports[sport->line] = sport;
 
