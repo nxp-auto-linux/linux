@@ -1327,10 +1327,15 @@ init_release:
 static void linflex_string_write(struct linflex_port *sport, const char *s,
 				 unsigned int count)
 {
-	unsigned long cr, ier = 0;
+	unsigned long cr, ier = 0, dmatxe;
 
-	ier = readl(sport->port.membase + LINIER);
-	linflex_stop_tx(sport);
+	if (!sport->dma_tx_use)
+		ier = readl(sport->port.membase + LINIER);
+	linflex_stop_tx(&sport->port);
+	if (sport->dma_tx_use) {
+		dmatxe = readl(sport->port.membase + DMATXE);
+		writel(dmatxe & 0xFFFF0000, sport->port.membase + DMATXE);
+	}
 
 	cr = readl(sport->port.membase + UARTCR);
 	cr |= (LINFLEXD_UARTCR_TXEN);
@@ -1338,7 +1343,12 @@ static void linflex_string_write(struct linflex_port *sport, const char *s,
 
 	uart_console_write(&sport->port, s, count, linflex_console_putchar);
 
-	writel(ier, sport->port.membase + LINIER);
+	if (!sport->dma_tx_use) {
+		writel(ier, sport->port.membase + LINIER);
+	} else {
+		dmatxe = readl(sport->port.membase + DMATXE);
+		writel(dmatxe | 0x1, sport->port.membase + DMATXE);
+	}
 }
 
 static void
