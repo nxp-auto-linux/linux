@@ -866,6 +866,19 @@ static void linflex_shutdown(struct uart_port *port)
 	}
 }
 
+static int
+linflex_ldiv_multiplier(struct linflex_port *sport)
+{
+	unsigned int mul = LINFLEX_LDIV_MULTIPLIER;
+	unsigned long cr;
+
+	cr = readl(sport->port.membase + UARTCR);
+	if (cr & LINFLEXD_UARTCR_ROSE)
+		mul = LINFLEXD_UARTCR_OSR(cr);
+
+	return mul;
+}
+
 static void
 linflex_set_termios(struct uart_port *port, struct ktermios *termios,
 		    struct ktermios *old)
@@ -984,10 +997,10 @@ linflex_set_termios(struct uart_port *port, struct ktermios *termios,
 	       sport->port.membase + UARTCR);
 
 	divisr = sport->port.uartclk;	//freq in Hz
-	dividr = (baud * 16);
+	dividr = (baud * linflex_ldiv_multiplier(sport));
 
-	ibr = divisr/dividr;
-	fbr = (divisr%dividr)*16;
+	ibr = divisr / dividr;
+	fbr = ((divisr % dividr) * 16 / dividr) & 0xF;
 
 	writel(ibr, sport->port.membase + LINIBRR);
 	writel(fbr, sport->port.membase + LINFBRR);
@@ -1335,7 +1348,7 @@ linflex_console_get_options(struct linflex_port *sport, int *baud, int *parity,
 
 	uartclk = clk_get_rate(sport->clk);
 
-	baud_raw = uartclk / (16 * (sbr + brfa / 32));
+	baud_raw = uartclk / (linflex_ldiv_multiplier(sport) * ibr);
 
 	if (*baud != baud_raw)
 		pr_info("Serial: Console linflex rounded baud rate from %d to %d\n",
