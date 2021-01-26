@@ -914,7 +914,7 @@ linflex_set_termios(struct uart_port *port, struct ktermios *termios,
 	struct linflex_port *sport = container_of(port, struct linflex_port,
 						  port);
 	unsigned long flags;
-	unsigned long cr, old_cr, cr1;
+	unsigned long cr, old_cr, cr1, gcr;
 	unsigned int old_csize = old ? old->c_cflag & CSIZE : CS8;
 #if !defined(CONFIG_S32GEN1_EMULATOR)
 	unsigned int baud;
@@ -970,8 +970,25 @@ linflex_set_termios(struct uart_port *port, struct ktermios *termios,
 		cr |= LINFLEXD_UARTCR_WL0;
 	}
 
-	if (termios->c_cflag & CSTOPB)
-		termios->c_cflag &= ~CSTOPB;
+	gcr = readl(port->membase + GCR);
+
+	if (termios->c_cflag & CSTOPB) {
+		/* Use 2 stop bits. */
+		cr = (cr & ~LINFLEXD_UARTCR_SBUR_MASK) |
+			LINFLEXD_UARTCR_SBUR_2SBITS;
+		/* Set STOP in GCR field for 2 stop bits. */
+		gcr = (gcr & ~LINFLEXD_GCR_STOP_MASK) |
+			LINFLEXD_GCR_STOP_2SBITS;
+	} else {
+		/* Use 1 stop bit. */
+		cr = (cr & ~LINFLEXD_UARTCR_SBUR_MASK) |
+			LINFLEXD_UARTCR_SBUR_1SBITS;
+		/* Set STOP in GCR field for 1 stop bit. */
+		gcr = (gcr & ~LINFLEXD_GCR_STOP_MASK) |
+			LINFLEXD_GCR_STOP_1SBITS;
+	}
+	/* Update GCR register. */
+	writel(gcr, port->membase + GCR);
 
 	/* parity must be enabled when CS7 to match 8-bits format */
 	if ((termios->c_cflag & CSIZE) == CS7)
