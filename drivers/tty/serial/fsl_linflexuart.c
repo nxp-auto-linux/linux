@@ -460,9 +460,9 @@ static void linflex_dma_rx_complete(void *arg)
 	mod_timer(&sport->timer, jiffies + sport->dma_rx_timeout);
 }
 
-static void linflex_timer_func(unsigned long data)
+static void linflex_timer_func(struct timer_list *t)
 {
-	struct linflex_port *sport = (struct linflex_port *)data;
+	struct linflex_port *sport = from_timer(sport, t, timer);
 	struct tty_port *port = &sport->port.state->port;
 	struct dma_tx_state state;
 	unsigned long flags;
@@ -839,8 +839,7 @@ static int linflex_startup(struct uart_port *port)
 				       DRIVER_NAME, sport);
 	}
 	if (sport->dma_rx_use) {
-		setup_timer(&sport->timer, linflex_timer_func,
-			    (unsigned long)sport);
+		timer_setup(&sport->timer, linflex_timer_func, 0);
 
 		linflex_dma_rx(sport);
 		sport->timer.expires = jiffies + sport->dma_rx_timeout;
