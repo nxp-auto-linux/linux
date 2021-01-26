@@ -20,6 +20,7 @@
 #include <linux/serial_core.h>
 #include <linux/slab.h>
 #include <linux/tty_flip.h>
+#include <linux/jiffies.h>
 #include <linux/delay.h>
 
 /* All registers are 32-bit width */
@@ -194,6 +195,8 @@ static struct {
 static void linflex_dma_tx_complete(void *arg);
 static void linflex_dma_rx_complete(void *arg);
 static void linflex_console_putchar(struct uart_port *port, int ch);
+static void linflex_string_write(struct linflex_port *sport, const char *s,
+				 unsigned int count);
 
 static void linflex_copy_rx_to_tty(struct linflex_port *sport,
 				   struct tty_port *tty, int count)
@@ -961,6 +964,16 @@ linflex_set_termios(struct uart_port *port, struct ktermios *termios,
 	cr1 &= ~(LINFLEXD_LINCR1_INIT);
 
 	writel(cr1, sport->port.membase + LINCR1);
+
+	/*
+	 * Workaround for driver hanging when running the 'reboot'
+	 * command because of the DTFTFF bit in UARTSR not being cleared.
+	 * The issue is assumed to be caused by a hardware bug.
+	 * Only apply the workaround after the boot sequence is
+	 * assumed to be complete.
+	 */
+	if ((jiffies - INITIAL_JIFFIES) / HZ > 10)
+		linflex_string_write(sport, "", 1);
 
 	spin_unlock_irqrestore(&sport->port.lock, flags);
 #endif /* CONFIG_S32V234_PALLADIUM */
