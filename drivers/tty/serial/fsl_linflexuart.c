@@ -457,9 +457,9 @@ static void linflex_dma_rx_complete(void *arg)
 	mod_timer(&lfport->timer, jiffies + lfport->dma_rx_timeout);
 }
 
-static void linflex_timer_func(unsigned long data)
+static void linflex_timer_func(struct timer_list *t)
 {
-	struct linflex_port *lfport = (struct linflex_port *)data;
+	struct linflex_port *lfport = from_timer(lfport, t, timer);
 	struct tty_port *port = &lfport->port.state->port;
 	struct dma_tx_state state;
 	unsigned long flags;
@@ -629,7 +629,7 @@ static void linflex_break_ctl(struct uart_port *port, int break_state)
 static void linflex_setup_watermark(struct uart_port *sport)
 {
 	struct linflex_port *lfport = to_linflex_port(sport);
-	unsigned long cr, ier, cr1;
+	unsigned long cr, ier, cr1, dmarxe, dmatxe;
 
 	/* Disable transmission/reception */
 	ier = readl(sport->membase + LINIER);
@@ -682,11 +682,19 @@ static void linflex_setup_watermark(struct uart_port *sport)
 	writel(cr1, sport->membase + LINCR1);
 
 	ier = readl(sport->membase + LINIER);
-	if (!lfport->dma_rx_use)
+	if (!lfport->dma_rx_use) {
 		ier |= LINFLEXD_LINIER_DRIE;
+	} else {
+		dmarxe = readl(sport->membase + DMARXE);
+		writel(dmarxe | 0x1, sport->membase + DMARXE);
+	}
 
-	if (!lfport->dma_tx_use)
+	if (!lfport->dma_tx_use) {
 		ier |= LINFLEXD_LINIER_DTIE;
+	} else {
+		dmatxe = readl(sport->membase + DMATXE);
+		writel(dmatxe | 0x1, sport->membase + DMATXE);
+	}
 
 	writel(ier, sport->membase + LINIER);
 }
@@ -799,6 +807,9 @@ static int linflex_startup(struct uart_port *port)
 	int ret = 0;
 	unsigned long flags;
 
+	lfport->dma_rx_use = lfport->dma_rx_chan && !linflex_dma_rx_request(port);
+	lfport->dma_tx_use = lfport->dma_tx_chan && !linflex_dma_tx_request(port);
+
 	spin_lock_irqsave(&port->lock, flags);
 
 	lfport->port.fifosize = LINFLEXD_UARTCR_FIFO_SIZE;
@@ -810,6 +821,11 @@ static int linflex_startup(struct uart_port *port)
 	if (!lfport->dma_rx_use || !lfport->dma_tx_use) {
 		ret = devm_request_irq(port->dev, port->irq, linflex_int, 0,
 				       DRIVER_NAME, lfport);
+	}
+	if (lfport->dma_rx_use) {
+		timer_setup(&lfport->timer, linflex_timer_func, 0);
+		lfport->timer.expires = jiffies + lfport->dma_rx_timeout;
+		add_timer(&lfport->timer);
 	}
 
 	return ret;
