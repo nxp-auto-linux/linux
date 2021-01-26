@@ -1672,13 +1672,29 @@ static int linflex_suspend(struct device *dev)
 	struct linflex_port *sport = dev_get_drvdata(dev);
 
 	uart_suspend_port(&linflex_reg, &sport->port);
+	clk_disable_unprepare(sport->clk);
+	clk_disable_unprepare(sport->clk_ipg);
 
 	return 0;
 }
 
 static int linflex_resume(struct device *dev)
 {
+	int ret;
 	struct linflex_port *sport = dev_get_drvdata(dev);
+
+	ret = clk_prepare_enable(sport->clk);
+	if (ret) {
+		dev_err(dev, "failed to enable uart clk: %d\n", ret);
+		return ret;
+	}
+
+	ret = clk_prepare_enable(sport->clk_ipg);
+	if (ret) {
+		clk_disable_unprepare(sport->clk);
+		dev_err(dev, "failed to enable ipg uart clk: %d\n", ret);
+		return ret;
+	}
 
 	uart_resume_port(&linflex_reg, &sport->port);
 
