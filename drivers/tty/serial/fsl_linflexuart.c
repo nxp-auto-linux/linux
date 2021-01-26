@@ -639,7 +639,7 @@ static void linflex_break_ctl(struct uart_port *port, int break_state)
 
 static void linflex_setup_watermark(struct linflex_port *sport)
 {
-	unsigned long cr, ier, cr1;
+	unsigned long cr, ier, cr1, dmarxe, dmatxe;
 
 	/* Disable transmission/reception */
 	ier = readl(sport->port.membase + LINIER);
@@ -692,11 +692,19 @@ static void linflex_setup_watermark(struct linflex_port *sport)
 	writel(cr1, sport->port.membase + LINCR1);
 
 	ier = readl(sport->port.membase + LINIER);
-	if (!sport->dma_rx_use)
+	if (!sport->dma_rx_use) {
 		ier |= LINFLEXD_LINIER_DRIE;
+	} else {
+		dmarxe = readl(sport->port.membase + DMARXE);
+		writel(dmarxe | 0x1, sport->port.membase + DMARXE);
+	}
 
-	if (!sport->dma_tx_use)
+	if (!sport->dma_tx_use) {
 		ier |= LINFLEXD_LINIER_DTIE;
+	} else {
+		dmatxe = readl(sport->port.membase + DMATXE);
+		writel(dmatxe | 0x1, sport->port.membase + DMATXE);
+	}
 
 	writel(ier, sport->port.membase + LINIER);
 }
@@ -818,6 +826,9 @@ static int linflex_startup(struct uart_port *port)
 	sport->rxfifo_size = LINFLEXD_UARTCR_RXFIFO_SIZE;
 	sport->port.fifosize = sport->txfifo_size;
 
+	sport->dma_rx_use = sport->dma_rx_chan && !linflex_dma_rx_request(port);
+	sport->dma_tx_use = sport->dma_tx_chan && !linflex_dma_tx_request(port);
+
 	spin_lock_irqsave(&sport->port.lock, flags);
 	linflex_setup_watermark(sport);
 
@@ -826,6 +837,14 @@ static int linflex_startup(struct uart_port *port)
 	if (!sport->dma_rx_use || !sport->dma_tx_use) {
 		ret = devm_request_irq(port->dev, port->irq, linflex_int, 0,
 				       DRIVER_NAME, sport);
+	}
+	if (sport->dma_rx_use) {
+		setup_timer(&sport->timer, linflex_timer_func,
+			    (unsigned long)sport);
+
+		linflex_dma_rx(sport);
+		sport->timer.expires = jiffies + sport->dma_rx_timeout;
+		add_timer(&sport->timer);
 	}
 
 	return ret;
