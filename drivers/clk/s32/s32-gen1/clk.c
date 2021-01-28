@@ -1,5 +1,5 @@
 /*
- * Copyright 2018,2020 NXP
+ * Copyright 2018,2020-2021 NXP
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -796,7 +796,8 @@ void s32gen1_scmi_clocks_init(void)
 		get_plat_clk(S32GEN1_CLK_XBAR);
 	scmi_clk[S32GEN1_SCMI_CLK_EDMA_AHB] =
 		get_plat_clk(S32GEN1_CLK_XBAR);
-
+	scmi_clk[S32GEN1_SCMI_CLK_SAR_ADC_BUS] =
+		get_plat_clk(S32GEN1_CLK_PER);
 
 	plat_clks.scmi_clks.clks = scmi_clk;
 	plat_clks.scmi_clks.clk_num = ARRAY_SIZE(scmi_clk);
