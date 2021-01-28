@@ -299,7 +299,7 @@
 		compatible = "fsl,s32gen1-adc";
 		reg = <0x0 0x401f8000 0x0 0x1000>;
 		interrupts = <0 70 4>;
-		clocks = <&clks S32GEN1_CLK_PER>;
+		clocks = <&clks S32GEN1_SCMI_CLK_SAR_ADC_BUS>;
 		clock-names = "adc";
 		vref = <1800>;
 		status = "okay";
@@ -309,7 +309,7 @@
 		compatible = "fsl,s32gen1-adc";
 		reg = <0x0 0x402e8000 0x0 0x1000>;
 		interrupts = <0 71 4>;
-		clocks = <&clks S32GEN1_CLK_PER>;
+		clocks = <&clks S32GEN1_SCMI_CLK_SAR_ADC_BUS>;
 		clock-names = "adc";
 		vref = <1800>;
 		status = "okay";
