@@ -5,7 +5,7 @@
  * derived from the OF-version.
  *
  * Copyright (c) 2010 Pengutronix e.K.
- * Copyright 2020 NXP
+ * Copyright 2020-2021 NXP
  *   Author: Wolfram Sang <kernel@pengutronix.de>
  */
 
@@ -283,7 +283,8 @@ static struct esdhc_soc_data usdhc_s32v234_data = {
 
 static struct esdhc_soc_data usdhc_s32gen1_data = {
 	.flags = ESDHC_FLAG_USDHC | ESDHC_FLAG_HS400_ES
-			| ESDHC_FLAG_HS200,
+			| ESDHC_FLAG_HS200 | ESDHC_FLAG_HS400
+			| ESDHC_FLAG_HAVE_CAP1 | ESDHC_FLAG_MAN_TUNING,
 };
 
 struct pltfm_imx_data {
@@ -1730,7 +1731,7 @@ static int sdhci_esdhc_imx_probe(struct platform_device *pdev)
 
 	sdhci_esdhc_imx_hwinit(host);
 
-	if (is_s32v234_usdhc(imx_data) || is_s32gen1_usdhc(imx_data))
+	if (is_s32v234_usdhc(imx_data))
 		host->quirks2 |= SDHCI_QUIRK2_NO_1_8_V;
 
 	err = sdhci_add_host(host);
