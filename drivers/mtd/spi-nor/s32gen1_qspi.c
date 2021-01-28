@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0+
 /*
- * Copyright 2020 NXP
+ * Copyright 2020-2021 NXP
  */
 #include <linux/io.h>
 #include <linux/mtd/spi-nor.h>
@@ -8,6 +8,9 @@
 #include <linux/mm.h>
 #include <linux/cache.h>
 #include <asm/cacheflush.h>
+#include <linux/ktime.h>
+#include <linux/math64.h>
+#include <asm/div64.h>
 #include "fsl-quadspi.h"
 
 #define LUT_INVALID_INDEX -1
@@ -946,6 +949,9 @@ int qspi_read_mem(struct fsl_qspi *q,
 	u32 mcr_reg;
 	void __iomem *base = q->iobase;
 	void *ahb_virt;
+	struct timespec64 start, end, duration;
+	u64 mb_int, mb_frac;
+	u32 us_passed, rem;
 
 	while (qspi_readl(q, base + QUADSPI_SR) & QUADSPI_SR_BUSY_MASK)
 		;
@@ -960,8 +966,21 @@ int qspi_read_mem(struct fsl_qspi *q,
 	__inval_dcache_area(ahb_virt, op->data.nbytes);
 
 	/* Read out the data directly from the AHB buffer. */
-	memcpy_fromio(op->data.buf.in, ahb_virt,
+	ktime_get_ts64(&start);
+	memcpy(op->data.buf.in, ahb_virt,
 		      op->data.nbytes);
+	ktime_get_ts64(&end);
+
+	duration = timespec64_sub(end, start);
+	us_passed = duration.tv_sec * 1000000 +
+		(duration.tv_nsec / NSEC_PER_USEC);
+
+	if (us_passed > 0) {
+		mb_int = div_u64_rem(op->data.nbytes, us_passed, &rem);
+		mb_frac = div64_u64(rem * 1000, us_passed);
+		dev_info(q->dev, "%u bytes read in %u us (%llu.%llu MB/s)\n",
+				op->data.nbytes, us_passed, mb_int, mb_frac);
+	}
 
 	qspi_writel(q, mcr_reg, base + QUADSPI_MCR);
 	iounmap(ahb_virt);
