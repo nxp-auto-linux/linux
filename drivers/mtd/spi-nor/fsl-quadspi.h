@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0+
  *
  * Copyright (C) 2013 Freescale Semiconductor, Inc.
- * Copyright (C) 2017-2020 NXP
+ * Copyright (C) 2017-2021 NXP
  *
  */
 
@@ -222,6 +222,9 @@
 #define QUADSPI_RSER_TFIE		(0x1 << 0)
 
 #define QUADSPI_LUT_BASE		0x310
+
+#define QUADSPI_AHB_BASE		0x0
+#define QUADSPI_AHB_SIZE		SZ_64M
 
 /*
  * The definition of the LUT register shows below:

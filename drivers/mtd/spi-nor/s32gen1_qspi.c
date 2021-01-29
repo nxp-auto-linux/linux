@@ -948,7 +948,6 @@ int qspi_read_mem(struct fsl_qspi *q,
 {
 	u32 mcr_reg;
 	void __iomem *base = q->iobase;
-	void *ahb_virt;
 	struct timespec64 start, end, duration;
 	u64 mb_int, mb_frac;
 	u32 us_passed, rem;
@@ -959,15 +958,11 @@ int qspi_read_mem(struct fsl_qspi *q,
 	qspi_writel(q, lut_cfg << QUADSPI_BFGENCR_SEQID_SHIFT,
 			base + QUADSPI_BFGENCR);
 
-	ahb_virt = ioremap(op->addr.val, op->data.nbytes);
-	if (!ahb_virt)
-		return -ENOMEM;
-
-	__inval_dcache_area(ahb_virt, op->data.nbytes);
+	__inval_dcache_area(q->ahb_addr + op->addr.val, op->data.nbytes);
 
 	/* Read out the data directly from the AHB buffer. */
 	ktime_get_ts64(&start);
-	memcpy(op->data.buf.in, ahb_virt,
+	memcpy(op->data.buf.in, q->ahb_addr + op->addr.val,
 		      op->data.nbytes);
 	ktime_get_ts64(&end);
 
@@ -983,7 +978,6 @@ int qspi_read_mem(struct fsl_qspi *q,
 	}
 
 	qspi_writel(q, mcr_reg, base + QUADSPI_MCR);
-	iounmap(ahb_virt);
 
 	return 0;
 }

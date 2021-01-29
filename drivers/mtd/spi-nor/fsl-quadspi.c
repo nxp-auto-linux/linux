@@ -3,7 +3,7 @@
  * Freescale QuadSPI driver.
  *
  * Copyright (C) 2013 Freescale Semiconductor, Inc.
- * Copyright 2017, 2020 NXP
+ * Copyright 2017, 2020-2021 NXP
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -919,6 +919,13 @@ static int fsl_qspi_probe(struct platform_device *pdev)
 	ret = fsl_qspi_nor_setup(q);
 	if (ret)
 		goto irq_failed;
+
+#ifdef CONFIG_SOC_S32GEN1
+	/* Map AHB Buffer */
+	q->ahb_addr = ioremap(QUADSPI_AHB_BASE, QUADSPI_AHB_SIZE);
+	if (!q->ahb_addr)
+		return -ENOMEM;
+#endif
 
 	if (of_get_property(np, "fsl,qspi-has-second-chip", NULL))
 		q->has_second_chip = true;
