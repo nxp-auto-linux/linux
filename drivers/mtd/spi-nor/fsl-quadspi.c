@@ -922,7 +922,7 @@ static int fsl_qspi_probe(struct platform_device *pdev)
 
 #ifdef CONFIG_SOC_S32GEN1
 	/* Map AHB Buffer */
-	q->ahb_addr = ioremap(QUADSPI_AHB_BASE, QUADSPI_AHB_SIZE);
+	q->ahb_addr = ioremap_cache(QUADSPI_AHB_BASE, QUADSPI_AHB_SIZE);
 	if (!q->ahb_addr)
 		return -ENOMEM;
 #endif
