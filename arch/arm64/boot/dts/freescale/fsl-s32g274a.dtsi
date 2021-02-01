@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright 2019-2020 NXP
+ * Copyright 2019-2021 NXP
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -67,8 +67,9 @@
 				  "bmu", "nocpy", "upegpt", "safety";
 		clocks = <&clks S32GEN1_CLK_PFE_SYS>,
 			 <&clks S32GEN1_CLK_PFE_PE>,
-			 <&clks S32GEN1_CLK_XBAR>;
-		clock-names = "pfe_sys", "pfe_pe", "xbar";
+			 <&clks S32GEN1_CLK_XBAR>,
+			 <&clks S32GEN1_CLK_GMAC_0_TS>;
+		clock-names = "pfe_sys", "pfe_pe", "xbar", "pfe_ts";
 		firmware-name = "s32g_pfe_class.fw";
 		/* EMAC 0 */
 		pfe0_if: ethernet@0 {
