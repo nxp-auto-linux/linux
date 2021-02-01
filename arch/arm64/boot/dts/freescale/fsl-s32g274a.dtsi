@@ -68,8 +68,9 @@
 		interrupt-names = "hif0", "hif1", "hif2", "hif3",
 				  "bmu", "nocpy", "upegpt", "safety";
 		clocks = <&clks S32G274A_SCMI_CLK_PFE_AXI>,
-			 <&clks S32G274A_SCMI_CLK_PFE_PE>;
-		clock-names = "pfe_sys", "pfe_pe";
+			 <&clks S32G274A_SCMI_CLK_PFE_PE>,
+			 <&clks S32G274A_SCMI_CLK_PFE_TS>;
+		clock-names = "pfe_sys", "pfe_pe", "pfe_ts";
 		firmware-name = "s32g_pfe_class.fw";
 		fsl,fw-class-name = "s32g_pfe_class.fw";
 		fsl,fw-util-name = "s32g_pfe_util.fw";
