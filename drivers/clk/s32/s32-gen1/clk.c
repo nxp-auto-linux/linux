@@ -100,6 +100,12 @@ static u32 gmac_0_tx_mux_idx[] = {
 	MC_CGM_MUXn_CSC_SEL_SERDES_0_LANE_0_TX_CLK,
 };
 
+PNAME(gmac_0_ts_sels) = {"firc", "periphpll_phi4", "periphpll_phi5", };
+static u32 gmac_0_ts_mux_idx[] = {
+	MC_CGM_MUXn_CSC_SEL_FIRC, MC_CGM_MUXn_CSC_SEL_PERIPH_PLL_PHI4,
+	MC_CGM_MUXn_CSC_SEL_PERIPH_PLL_PHI5,
+};
+
 PNAME(gmac_1_tx_sels) = {"firc", "periphpll_phi5", "serdes_1_lane_0", };
 static u32 gmac_1_tx_mux_idx[] = {
 	MC_CGM_MUXn_CSC_SEL_FIRC, MC_CGM_MUXn_CSC_SEL_PERIPH_PLL_PHI5,
@@ -660,6 +666,15 @@ void __init s32gen1_clocks_init(struct device_node *clocking_node)
 				clk_modules.mc_cgm0_base, 10, &s32gen1_lock);
 	set_plat_clk(S32GEN1_CLK_GMAC_0_TX, c);
 
+	c = s32gen1_clk_cgm_mux("gmac_0_ts_sel", clk_modules.mc_cgm0_base,  9,
+				gmac_0_ts_sels, ARRAY_SIZE(gmac_0_ts_sels),
+				gmac_0_ts_mux_idx, &s32gen1_lock);
+	set_plat_clk(S32GEN1_CLK_GMAC_0_TS_SEL, c);
+
+	c = s32gen1_clk_cgm_div("gmac_0_ts", "gmac_0_ts_sel",
+				clk_modules.mc_cgm0_base, 9, &s32gen1_lock);
+	set_plat_clk(S32GEN1_CLK_GMAC_0_TS, c);
+
 	/* Add the clocks to provider list */
 	plat_clks.plat_clks.clks = clk;
 	plat_clks.plat_clks.clk_num = ARRAY_SIZE(clk);
@@ -701,10 +716,14 @@ void s32gen1_scmi_clocks_init(void)
 		get_plat_clk(S32GEN1_CLK_GMAC_0_RX);
 	scmi_clk[S32GEN1_SCMI_CLK_GMAC0_TX_SGMII] =
 		get_plat_clk(S32GEN1_CLK_GMAC_0_TX);
+	scmi_clk[S32GEN1_SCMI_CLK_GMAC0_TS_SGMII] =
+		get_plat_clk(S32GEN1_CLK_GMAC_0_TS);
 	scmi_clk[S32GEN1_SCMI_CLK_GMAC0_RX_RGMII] =
 		get_plat_clk(S32GEN1_CLK_GMAC_0_RX);
 	scmi_clk[S32GEN1_SCMI_CLK_GMAC0_TX_RGMII] =
 		get_plat_clk(S32GEN1_CLK_GMAC_0_TX);
+	scmi_clk[S32GEN1_SCMI_CLK_GMAC0_TS_RGMII] =
+		get_plat_clk(S32GEN1_CLK_GMAC_0_TS);
 	scmi_clk[S32GEN1_SCMI_CLK_GMAC0_RX_RMII] =
 		get_plat_clk(S32GEN1_CLK_GMAC_0_RX);
 	scmi_clk[S32GEN1_SCMI_CLK_GMAC0_TX_RMII] =
@@ -713,6 +732,8 @@ void s32gen1_scmi_clocks_init(void)
 		get_plat_clk(S32GEN1_CLK_GMAC_0_RX);
 	scmi_clk[S32GEN1_SCMI_CLK_GMAC0_TX_MII] =
 		get_plat_clk(S32GEN1_CLK_GMAC_0_TX);
+	scmi_clk[S32GEN1_SCMI_CLK_GMAC0_TS_MII] =
+		get_plat_clk(S32GEN1_CLK_GMAC_0_TS);
 	scmi_clk[S32GEN1_SCMI_CLK_GMAC0_AXI] =
 		get_plat_clk(S32GEN1_CLK_XBAR);
 
@@ -821,6 +842,10 @@ static void s32g274a_scmi_clocks_init(void)
 		get_plat_clk(S32GEN1_CLK_PFE_SYS);
 	scmi_clk[S32G274A_SCMI_CLK_PFE_PE] =
 		get_plat_clk(S32GEN1_CLK_PFE_PE);
+
+	/* PFE timestamp clock */
+	scmi_clk[S32G274A_SCMI_CLK_PFE_TS] =
+		get_plat_clk(S32GEN1_CLK_GMAC_0_TS);
 
 	/* PFE 0 */
 	scmi_clk[S32G274A_SCMI_CLK_PFE0_RX_SGMII] =
