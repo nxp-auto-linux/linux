@@ -922,6 +922,8 @@ linflex_set_termios(struct uart_port *port, struct ktermios *termios,
 	unsigned long ibr, fbr, divisr, dividr;
 #endif
 
+	spin_lock_irqsave(&sport->port.lock, flags);
+
 	cr = readl(sport->port.membase + UARTCR);
 	old_cr = cr;
 
@@ -1009,8 +1011,6 @@ linflex_set_termios(struct uart_port *port, struct ktermios *termios,
 	/* ask the core to calculate the divisor */
 	baud = uart_get_baud_rate(port, termios, old, 50, port->uartclk / 16);
 #endif
-
-	spin_lock_irqsave(&sport->port.lock, flags);
 
 	sport->port.read_status_mask = 0;
 
