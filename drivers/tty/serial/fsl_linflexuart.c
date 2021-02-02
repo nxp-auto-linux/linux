@@ -246,7 +246,8 @@ static void linflex_copy_rx_to_tty(struct linflex_port *sport,
 	}
 
 	dma_sync_single_for_device(sport->port.dev, sport->dma_rx_buf_bus,
-				   FSL_UART_RX_DMA_BUFFER_SIZE, DMA_TO_DEVICE);
+				   FSL_UART_RX_DMA_BUFFER_SIZE,
+				   DMA_FROM_DEVICE);
 }
 
 static void linflex_enable_dma_rx(struct uart_port *port)
@@ -745,12 +746,11 @@ static int linflex_dma_tx_request(struct uart_port *port)
 	unsigned char *dma_buf;
 	int ret;
 
-	dma_bus = dma_map_single(sport->dma_tx_chan->device->dev,
-				 sport->port.state->xmit.buf,
+	dma_bus = dma_map_single(port->dev, sport->port.state->xmit.buf,
 				 UART_XMIT_SIZE, DMA_TO_DEVICE);
 
-	if (dma_mapping_error(sport->dma_tx_chan->device->dev, dma_bus)) {
-		dev_err(sport->port.dev, "dma_map_single tx failed\n");
+	if (dma_mapping_error(port->dev, dma_bus)) {
+		dev_err(port->dev, "dma_map_single tx failed\n");
 		return -ENOMEM;
 	}
 
@@ -791,11 +791,11 @@ static int linflex_dma_rx_request(struct uart_port *port)
 		return -ENOMEM;
 	}
 
-	dma_bus = dma_map_single(sport->dma_rx_chan->device->dev, dma_buf,
+	dma_bus = dma_map_single(port->dev, dma_buf,
 				 FSL_UART_RX_DMA_BUFFER_SIZE, DMA_FROM_DEVICE);
 
-	if (dma_mapping_error(sport->dma_rx_chan->device->dev, dma_bus)) {
-		dev_err(sport->port.dev, "dma_map_single rx failed\n");
+	if (dma_mapping_error(port->dev, dma_bus)) {
+		dev_err(port->dev, "dma_map_single rx failed\n");
 		return -ENOMEM;
 	}
 
