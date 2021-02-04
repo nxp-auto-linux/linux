@@ -91,7 +91,7 @@ additionalProperties: false
 
 examples:
   - |
-    #include <dt-bindings/clock/s32g274a-scmi-clock.h>
+    #include <dt-bindings/clock/s32g-scmi-clock.h>
 
     bus {
         #address-cells = <2>;
@@ -99,7 +99,7 @@ examples:
 
         llce_core: llce_core@43000000 {
             compatible = "nxp,s32g274a-llce-core";
-            clocks = <&clks S32G274A_SCMI_CLK_LLCE_SYS>;
+            clocks = <&clks S32G_SCMI_CLK_LLCE_SYS>;
             clock-names = "llce_sys";
             firmware-name = "dte.bin", "ppe_rx.bin",
                 "ppe_tx.bin", "frpe.bin";
