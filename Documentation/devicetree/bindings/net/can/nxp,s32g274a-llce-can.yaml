@@ -76,7 +76,7 @@ additionalProperties: false
 
 examples:
   - |
-    #include <dt-bindings/clock/s32g274a-scmi-clock.h>
+    #include <dt-bindings/clock/s32g-scmi-clock.h>
     #include <dt-bindings/mailbox/nxp-llce-mb.h>
     llce_can0: llce_can0 {
         compatible = "nxp,s32g274a-llce-can";
@@ -84,7 +84,7 @@ examples:
              <&llce_mb S32G274_LLCE_CAN_RX_MB 0>,
              <&llce_mb S32G274_LLCE_CAN_TX_MB 0>;
         mbox-names = "config", "rx", "tx";
-        clocks = <&clks S32G274A_SCMI_CLK_LLCE_CAN_PE>;
+        clocks = <&clks S32G_SCMI_CLK_LLCE_CAN_PE>;
         clock-names = "can_pe";
         pinctrl-names = "default";
         pinctrl-0 = <&pinctrl0_llce_can0>, <&pinctrl1_llce_can0>;
