@@ -11,7 +11,7 @@
 #include "fsl-s32-gen1.dtsi"
 #include <dt-bindings/mailbox/nxp-llce-mb.h>
 #include <dt-bindings/pinctrl/s32g274-pinctrl.h>
-#include <dt-bindings/clock/s32g274a-scmi-clock.h>
+#include <dt-bindings/clock/s32g-scmi-clock.h>
 
 / {
 	chosen {
@@ -67,9 +67,9 @@
 			      <0 197 1>; /* safety */
 		interrupt-names = "hif0", "hif1", "hif2", "hif3",
 				  "bmu", "nocpy", "upegpt", "safety";
-		clocks = <&clks S32G274A_SCMI_CLK_PFE_AXI>,
-			 <&clks S32G274A_SCMI_CLK_PFE_PE>,
-			 <&clks S32G274A_SCMI_CLK_PFE_TS>;
+		clocks = <&clks S32G_SCMI_CLK_PFE_AXI>,
+			 <&clks S32G_SCMI_CLK_PFE_PE>,
+			 <&clks S32G_SCMI_CLK_PFE_TS>;
 		clock-names = "pfe_sys", "pfe_pe", "pfe_ts";
 		firmware-name = "s32g_pfe_class.fw";
 		fsl,fw-class-name = "s32g_pfe_class.fw";
@@ -81,10 +81,10 @@
 			#size-cells = <0>;
 			status = "okay";
 			reg = <0>;
-			clocks = <&clks S32G274A_SCMI_CLK_PFE0_TX_SGMII>,
-				 <&clks S32G274A_SCMI_CLK_PFE0_TX_RGMII>,
-				 <&clks S32G274A_SCMI_CLK_PFE0_TX_RMII>,
-				 <&clks S32G274A_SCMI_CLK_PFE0_TX_MII>;
+			clocks = <&clks S32G_SCMI_CLK_PFE0_TX_SGMII>,
+				 <&clks S32G_SCMI_CLK_PFE0_TX_RGMII>,
+				 <&clks S32G_SCMI_CLK_PFE0_TX_RMII>,
+				 <&clks S32G_SCMI_CLK_PFE0_TX_MII>;
 			clock-names = "tx_sgmii", "tx_rgmii",
 				      "tx_rmii", "tx_mii";
 			local-mac-address = [ 00 04 9F BE EF 00 ];
@@ -104,10 +104,10 @@
 			#size-cells = <0>;
 			status = "okay";
 			reg = <1>;
-			clocks = <&clks S32G274A_SCMI_CLK_PFE1_TX_SGMII>,
-				 <&clks S32G274A_SCMI_CLK_PFE1_TX_RGMII>,
-				 <&clks S32G274A_SCMI_CLK_PFE1_TX_RMII>,
-				 <&clks S32G274A_SCMI_CLK_PFE1_TX_MII>;
+			clocks = <&clks S32G_SCMI_CLK_PFE1_TX_SGMII>,
+				 <&clks S32G_SCMI_CLK_PFE1_TX_RGMII>,
+				 <&clks S32G_SCMI_CLK_PFE1_TX_RMII>,
+				 <&clks S32G_SCMI_CLK_PFE1_TX_MII>;
 			clock-names = "tx_sgmii", "tx_rgmii",
 				      "tx_rmii", "tx_mii";
 			local-mac-address = [ 00 04 9F BE EF 01 ];
@@ -127,10 +127,10 @@
 			#size-cells = <0>;
 			status = "okay";
 			reg = <2>;
-			clocks = <&clks S32G274A_SCMI_CLK_PFE2_TX_SGMII>,
-				 <&clks S32G274A_SCMI_CLK_PFE2_TX_RGMII>,
-				 <&clks S32G274A_SCMI_CLK_PFE2_TX_RMII>,
-				 <&clks S32G274A_SCMI_CLK_PFE2_TX_MII>;
+			clocks = <&clks S32G_SCMI_CLK_PFE2_TX_SGMII>,
+				 <&clks S32G_SCMI_CLK_PFE2_TX_RGMII>,
+				 <&clks S32G_SCMI_CLK_PFE2_TX_RMII>,
+				 <&clks S32G_SCMI_CLK_PFE2_TX_MII>;
 			clock-names = "tx_sgmii", "tx_rgmii",
 				      "tx_rmii", "tx_mii";
 			local-mac-address = [ 00 04 9F BE EF 02 ];
@@ -297,8 +297,8 @@
 		interrupt-parent = <&gic>;
 		interrupts = <0 211 4>, /* OTG Core */
 		             <0 212 4>; /* OTG Wakeup */
-		clocks = <&clks S32G274A_SCMI_CLK_USB_MEM>,
-			 <&clks S32G274A_SCMI_CLK_USB_LOW>;
+		clocks = <&clks S32G_SCMI_CLK_USB_MEM>,
+			 <&clks S32G_SCMI_CLK_USB_LOW>;
 		fsl,usbmisc = <&usbmisc 0>;
 		ahb-burst-config = <0x3>;
 		tx-burst-size-dword = <0x10>;
@@ -380,7 +380,7 @@
 			/* Tx_Ack_FIFO */
 			<0x5 0 0x0 0x43B10000 0x0 0x8000>;
 
-		clocks = <&clks S32G274A_SCMI_CLK_LLCE_SYS>;
+		clocks = <&clks S32G_SCMI_CLK_LLCE_SYS>;
 		clock-names = "llce_sys";
 		firmware-name = "dte.bin", "ppe_rx.bin",
 			"ppe_tx.bin", "frpe.bin";
@@ -412,7 +412,7 @@
 				"blrin_fifo",
 				"blrout_fifo",
 				"txack_fifo";
-			clocks = <&clks S32G274A_SCMI_CLK_LLCE_SYS>;
+			clocks = <&clks S32G_SCMI_CLK_LLCE_SYS>;
 			clock-names = "llce_sys";
 			memory-region = <&llce_shmem>;
 			interrupts = <0 174 IRQ_TYPE_LEVEL_HIGH>,
@@ -436,7 +436,7 @@
 				 <&llce_mb S32G274_LLCE_CAN_RX_MB 0>,
 				 <&llce_mb S32G274_LLCE_CAN_TX_MB 0>;
 			mbox-names = "config", "rx", "tx";
-			clocks = <&clks S32G274A_SCMI_CLK_LLCE_CAN_PE>;
+			clocks = <&clks S32G_SCMI_CLK_LLCE_CAN_PE>;
 			clock-names = "can_pe";
 			pinctrl-names = "default";
 			pinctrl-0 = <&pinctrl0_llce_can0>,
@@ -450,7 +450,7 @@
 				 <&llce_mb S32G274_LLCE_CAN_RX_MB 1>,
 				 <&llce_mb S32G274_LLCE_CAN_TX_MB 1>;
 			mbox-names = "config", "rx", "tx";
-			clocks = <&clks S32G274A_SCMI_CLK_LLCE_CAN_PE>;
+			clocks = <&clks S32G_SCMI_CLK_LLCE_CAN_PE>;
 			clock-names = "can_pe";
 			pinctrl-names = "default";
 			pinctrl-0 = <&pinctrl1_llce_can1>;
@@ -463,7 +463,7 @@
 				 <&llce_mb S32G274_LLCE_CAN_RX_MB 2>,
 				 <&llce_mb S32G274_LLCE_CAN_TX_MB 2>;
 			mbox-names = "config", "rx", "tx";
-			clocks = <&clks S32G274A_SCMI_CLK_LLCE_CAN_PE>;
+			clocks = <&clks S32G_SCMI_CLK_LLCE_CAN_PE>;
 			clock-names = "can_pe";
 			pinctrl-names = "default";
 			pinctrl-0 = <&pinctrl1_llce_can2>;
@@ -476,7 +476,7 @@
 				 <&llce_mb S32G274_LLCE_CAN_RX_MB 3>,
 				 <&llce_mb S32G274_LLCE_CAN_TX_MB 3>;
 			mbox-names = "config", "rx", "tx";
-			clocks = <&clks S32G274A_SCMI_CLK_LLCE_CAN_PE>;
+			clocks = <&clks S32G_SCMI_CLK_LLCE_CAN_PE>;
 			clock-names = "can_pe";
 			pinctrl-names = "default";
 			pinctrl-0 = <&pinctrl1_llce_can3>;
@@ -489,7 +489,7 @@
 				 <&llce_mb S32G274_LLCE_CAN_RX_MB 4>,
 				 <&llce_mb S32G274_LLCE_CAN_TX_MB 4>;
 			mbox-names = "config", "rx", "tx";
-			clocks = <&clks S32G274A_SCMI_CLK_LLCE_CAN_PE>;
+			clocks = <&clks S32G_SCMI_CLK_LLCE_CAN_PE>;
 			clock-names = "can_pe";
 			pinctrl-names = "default";
 			pinctrl-0 = <&pinctrl1_llce_can4>;
@@ -502,7 +502,7 @@
 				 <&llce_mb S32G274_LLCE_CAN_RX_MB 5>,
 				 <&llce_mb S32G274_LLCE_CAN_TX_MB 5>;
 			mbox-names = "config", "rx", "tx";
-			clocks = <&clks S32G274A_SCMI_CLK_LLCE_CAN_PE>;
+			clocks = <&clks S32G_SCMI_CLK_LLCE_CAN_PE>;
 			clock-names = "can_pe";
 			pinctrl-names = "default";
 			pinctrl-0 = <&pinctrl1_llce_can5>;
@@ -515,7 +515,7 @@
 				 <&llce_mb S32G274_LLCE_CAN_RX_MB 6>,
 				 <&llce_mb S32G274_LLCE_CAN_TX_MB 6>;
 			mbox-names = "config", "rx", "tx";
-			clocks = <&clks S32G274A_SCMI_CLK_LLCE_CAN_PE>;
+			clocks = <&clks S32G_SCMI_CLK_LLCE_CAN_PE>;
 			clock-names = "can_pe";
 			pinctrl-names = "default";
 			pinctrl-0 = <&pinctrl1_llce_can6>;
@@ -528,7 +528,7 @@
 				 <&llce_mb S32G274_LLCE_CAN_RX_MB 7>,
 				 <&llce_mb S32G274_LLCE_CAN_TX_MB 7>;
 			mbox-names = "config", "rx", "tx";
-			clocks = <&clks S32G274A_SCMI_CLK_LLCE_CAN_PE>;
+			clocks = <&clks S32G_SCMI_CLK_LLCE_CAN_PE>;
 			clock-names = "can_pe";
 			pinctrl-names = "default";
 			pinctrl-0 = <&pinctrl1_llce_can7>;
@@ -541,7 +541,7 @@
 				 <&llce_mb S32G274_LLCE_CAN_RX_MB 8>,
 				 <&llce_mb S32G274_LLCE_CAN_TX_MB 8>;
 			mbox-names = "config", "rx", "tx";
-			clocks = <&clks S32G274A_SCMI_CLK_LLCE_CAN_PE>;
+			clocks = <&clks S32G_SCMI_CLK_LLCE_CAN_PE>;
 			clock-names = "can_pe";
 			pinctrl-names = "default";
 			pinctrl-0 = <&pinctrl1_llce_can8>;
@@ -554,7 +554,7 @@
 				 <&llce_mb S32G274_LLCE_CAN_RX_MB 9>,
 				 <&llce_mb S32G274_LLCE_CAN_TX_MB 9>;
 			mbox-names = "config", "rx", "tx";
-			clocks = <&clks S32G274A_SCMI_CLK_LLCE_CAN_PE>;
+			clocks = <&clks S32G_SCMI_CLK_LLCE_CAN_PE>;
 			clock-names = "can_pe";
 			pinctrl-names = "default";
 			pinctrl-0 = <&pinctrl1_llce_can9>;
@@ -567,7 +567,7 @@
 				 <&llce_mb S32G274_LLCE_CAN_RX_MB 10>,
 				 <&llce_mb S32G274_LLCE_CAN_TX_MB 10>;
 			mbox-names = "config", "rx", "tx";
-			clocks = <&clks S32G274A_SCMI_CLK_LLCE_CAN_PE>;
+			clocks = <&clks S32G_SCMI_CLK_LLCE_CAN_PE>;
 			clock-names = "can_pe";
 			pinctrl-names = "default";
 			pinctrl-0 = <&pinctrl1_llce_can10>;
@@ -580,7 +580,7 @@
 				 <&llce_mb S32G274_LLCE_CAN_RX_MB 11>,
 				 <&llce_mb S32G274_LLCE_CAN_TX_MB 11>;
 			mbox-names = "config", "rx", "tx";
-			clocks = <&clks S32G274A_SCMI_CLK_LLCE_CAN_PE>;
+			clocks = <&clks S32G_SCMI_CLK_LLCE_CAN_PE>;
 			clock-names = "can_pe";
 			pinctrl-names = "default";
 			pinctrl-0 = <&pinctrl1_llce_can11>;
@@ -593,7 +593,7 @@
 				 <&llce_mb S32G274_LLCE_CAN_RX_MB 12>,
 				 <&llce_mb S32G274_LLCE_CAN_TX_MB 12>;
 			mbox-names = "config", "rx", "tx";
-			clocks = <&clks S32G274A_SCMI_CLK_LLCE_CAN_PE>;
+			clocks = <&clks S32G_SCMI_CLK_LLCE_CAN_PE>;
 			clock-names = "can_pe";
 			pinctrl-names = "default";
 			pinctrl-0 = <&pinctrl1_llce_can12>;
@@ -606,7 +606,7 @@
 				 <&llce_mb S32G274_LLCE_CAN_RX_MB 13>,
 				 <&llce_mb S32G274_LLCE_CAN_TX_MB 13>;
 			mbox-names = "config", "rx", "tx";
-			clocks = <&clks S32G274A_SCMI_CLK_LLCE_CAN_PE>;
+			clocks = <&clks S32G_SCMI_CLK_LLCE_CAN_PE>;
 			clock-names = "can_pe";
 			pinctrl-names = "default";
 			pinctrl-0 = <&pinctrl1_llce_can13>;
@@ -619,7 +619,7 @@
 				 <&llce_mb S32G274_LLCE_CAN_RX_MB 14>,
 				 <&llce_mb S32G274_LLCE_CAN_TX_MB 14>;
 			mbox-names = "config", "rx", "tx";
-			clocks = <&clks S32G274A_SCMI_CLK_LLCE_CAN_PE>;
+			clocks = <&clks S32G_SCMI_CLK_LLCE_CAN_PE>;
 			clock-names = "can_pe";
 			pinctrl-names = "default";
 			pinctrl-0 = <&pinctrl1_llce_can14>;
@@ -632,7 +632,7 @@
 				 <&llce_mb S32G274_LLCE_CAN_RX_MB 15>,
 				 <&llce_mb S32G274_LLCE_CAN_TX_MB 15>;
 			mbox-names = "config", "rx", "tx";
-			clocks = <&clks S32G274A_SCMI_CLK_LLCE_CAN_PE>;
+			clocks = <&clks S32G_SCMI_CLK_LLCE_CAN_PE>;
 			clock-names = "can_pe";
 			pinctrl-names = "default";
 			pinctrl-0 = <&pinctrl1_llce_can15>;
