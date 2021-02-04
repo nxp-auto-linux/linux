@@ -97,7 +97,7 @@ additionalProperties: false
 examples:
   - |
     #include <dt-bindings/interrupt-controller/irq.h>
-    #include <dt-bindings/clock/s32g274a-scmi-clock.h>
+    #include <dt-bindings/clock/s32g-scmi-clock.h>
     llce_mb: llce_mailbox@43800000 {
         compatible = "nxp,s32g274a-llce-mailbox";
         #mbox-cells = <2>;
@@ -114,7 +114,7 @@ examples:
             "blrin_fifo",
             "blrout_fifo",
             "txack_fifo";
-        clocks = <&clks S32G274A_SCMI_CLK_LLCE_SYS>;
+        clocks = <&clks S32G_SCMI_CLK_LLCE_SYS>;
         clock-names = "llce_sys";
 
         memory-region = <&llce_shmem>;
