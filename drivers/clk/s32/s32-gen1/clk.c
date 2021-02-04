@@ -10,7 +10,7 @@
 #include <linux/clk.h>
 #include <linux/clk-provider.h>
 #include <dt-bindings/clock/s32gen1-clock.h>
-#include <dt-bindings/clock/s32g274a-scmi-clock.h>
+#include <dt-bindings/clock/s32g-scmi-clock.h>
 #include <dt-bindings/clock/s32r45-scmi-clock.h>
 #include <linux/syscore_ops.h>
 
@@ -827,76 +827,76 @@ void s32gen1_scmi_clocks_init(void)
 static void s32g274a_scmi_clocks_init(void)
 {
 	/* LLCE */
-	scmi_clk[S32G274A_SCMI_CLK_LLCE_SYS] =
+	scmi_clk[S32G_SCMI_CLK_LLCE_SYS] =
 		get_plat_clk(S32GEN1_CLK_XBAR_DIV2);
-	scmi_clk[S32G274A_SCMI_CLK_LLCE_CAN_PE] =
+	scmi_clk[S32G_SCMI_CLK_LLCE_CAN_PE] =
 		get_plat_clk(S32GEN1_CLK_CAN);
 
-	scmi_clk[S32G274A_SCMI_CLK_USB_MEM] =
+	scmi_clk[S32G_SCMI_CLK_USB_MEM] =
 		get_plat_clk(S32GEN1_CLK_XBAR_DIV4);
-	scmi_clk[S32G274A_SCMI_CLK_USB_LOW] =
+	scmi_clk[S32G_SCMI_CLK_USB_LOW] =
 		get_plat_clk(S32GEN1_CLK_SIRC);
-	scmi_clk[S32G274A_SCMI_CLK_PFE_AXI] =
+	scmi_clk[S32G_SCMI_CLK_PFE_AXI] =
 		get_plat_clk(S32GEN1_CLK_PFE_SYS);
-	scmi_clk[S32G274A_SCMI_CLK_PFE_APB] =
+	scmi_clk[S32G_SCMI_CLK_PFE_APB] =
 		get_plat_clk(S32GEN1_CLK_PFE_SYS);
-	scmi_clk[S32G274A_SCMI_CLK_PFE_PE] =
+	scmi_clk[S32G_SCMI_CLK_PFE_PE] =
 		get_plat_clk(S32GEN1_CLK_PFE_PE);
 
 	/* PFE timestamp clock */
-	scmi_clk[S32G274A_SCMI_CLK_PFE_TS] =
+	scmi_clk[S32G_SCMI_CLK_PFE_TS] =
 		get_plat_clk(S32GEN1_CLK_GMAC_0_TS);
 
 	/* PFE 0 */
-	scmi_clk[S32G274A_SCMI_CLK_PFE0_RX_SGMII] =
+	scmi_clk[S32G_SCMI_CLK_PFE0_RX_SGMII] =
 		get_plat_clk(S32GEN1_CLK_PFE_EMAC_0_RX);
-	scmi_clk[S32G274A_SCMI_CLK_PFE0_TX_SGMII] =
+	scmi_clk[S32G_SCMI_CLK_PFE0_TX_SGMII] =
 		get_plat_clk(S32GEN1_CLK_PFE_EMAC_0_TX);
-	scmi_clk[S32G274A_SCMI_CLK_PFE0_RX_RGMII] =
+	scmi_clk[S32G_SCMI_CLK_PFE0_RX_RGMII] =
 		get_plat_clk(S32GEN1_CLK_PFE_EMAC_0_RX);
-	scmi_clk[S32G274A_SCMI_CLK_PFE0_TX_RGMII] =
+	scmi_clk[S32G_SCMI_CLK_PFE0_TX_RGMII] =
 		get_plat_clk(S32GEN1_CLK_PFE_EMAC_0_TX);
-	scmi_clk[S32G274A_SCMI_CLK_PFE0_RX_RMII] =
+	scmi_clk[S32G_SCMI_CLK_PFE0_RX_RMII] =
 		get_plat_clk(S32GEN1_CLK_PFE_EMAC_0_RX);
-	scmi_clk[S32G274A_SCMI_CLK_PFE0_TX_RMII] =
+	scmi_clk[S32G_SCMI_CLK_PFE0_TX_RMII] =
 		get_plat_clk(S32GEN1_CLK_PFE_EMAC_0_TX);
-	scmi_clk[S32G274A_SCMI_CLK_PFE0_RX_MII] =
+	scmi_clk[S32G_SCMI_CLK_PFE0_RX_MII] =
 		get_plat_clk(S32GEN1_CLK_PFE_EMAC_0_RX);
-	scmi_clk[S32G274A_SCMI_CLK_PFE0_TX_MII] =
+	scmi_clk[S32G_SCMI_CLK_PFE0_TX_MII] =
 		get_plat_clk(S32GEN1_CLK_PFE_EMAC_0_TX);
 	/* PFE 1 */
-	scmi_clk[S32G274A_SCMI_CLK_PFE1_RX_SGMII] =
+	scmi_clk[S32G_SCMI_CLK_PFE1_RX_SGMII] =
 		get_plat_clk(S32GEN1_CLK_PFE_EMAC_1_RX);
-	scmi_clk[S32G274A_SCMI_CLK_PFE1_TX_SGMII] =
+	scmi_clk[S32G_SCMI_CLK_PFE1_TX_SGMII] =
 		get_plat_clk(S32GEN1_CLK_PFE_EMAC_1_TX);
-	scmi_clk[S32G274A_SCMI_CLK_PFE1_RX_RGMII] =
+	scmi_clk[S32G_SCMI_CLK_PFE1_RX_RGMII] =
 		get_plat_clk(S32GEN1_CLK_PFE_EMAC_1_RX);
-	scmi_clk[S32G274A_SCMI_CLK_PFE1_TX_RGMII] =
+	scmi_clk[S32G_SCMI_CLK_PFE1_TX_RGMII] =
 		get_plat_clk(S32GEN1_CLK_PFE_EMAC_1_TX);
-	scmi_clk[S32G274A_SCMI_CLK_PFE1_RX_RMII] =
+	scmi_clk[S32G_SCMI_CLK_PFE1_RX_RMII] =
 		get_plat_clk(S32GEN1_CLK_PFE_EMAC_1_RX);
-	scmi_clk[S32G274A_SCMI_CLK_PFE1_TX_RMII] =
+	scmi_clk[S32G_SCMI_CLK_PFE1_TX_RMII] =
 		get_plat_clk(S32GEN1_CLK_PFE_EMAC_1_TX);
-	scmi_clk[S32G274A_SCMI_CLK_PFE1_RX_MII] =
+	scmi_clk[S32G_SCMI_CLK_PFE1_RX_MII] =
 		get_plat_clk(S32GEN1_CLK_PFE_EMAC_1_RX);
-	scmi_clk[S32G274A_SCMI_CLK_PFE1_TX_MII] =
+	scmi_clk[S32G_SCMI_CLK_PFE1_TX_MII] =
 		get_plat_clk(S32GEN1_CLK_PFE_EMAC_1_TX);
 	/* PFE 2 */
-	scmi_clk[S32G274A_SCMI_CLK_PFE2_RX_SGMII] =
+	scmi_clk[S32G_SCMI_CLK_PFE2_RX_SGMII] =
 		get_plat_clk(S32GEN1_CLK_PFE_EMAC_2_RX);
-	scmi_clk[S32G274A_SCMI_CLK_PFE2_TX_SGMII] =
+	scmi_clk[S32G_SCMI_CLK_PFE2_TX_SGMII] =
 		get_plat_clk(S32GEN1_CLK_PFE_EMAC_2_TX);
-	scmi_clk[S32G274A_SCMI_CLK_PFE2_RX_RGMII] =
+	scmi_clk[S32G_SCMI_CLK_PFE2_RX_RGMII] =
 		get_plat_clk(S32GEN1_CLK_PFE_EMAC_2_RX);
-	scmi_clk[S32G274A_SCMI_CLK_PFE2_TX_RGMII] =
+	scmi_clk[S32G_SCMI_CLK_PFE2_TX_RGMII] =
 		get_plat_clk(S32GEN1_CLK_PFE_EMAC_2_TX);
-	scmi_clk[S32G274A_SCMI_CLK_PFE2_RX_RMII] =
+	scmi_clk[S32G_SCMI_CLK_PFE2_RX_RMII] =
 		get_plat_clk(S32GEN1_CLK_PFE_EMAC_2_RX);
-	scmi_clk[S32G274A_SCMI_CLK_PFE2_TX_RMII] =
+	scmi_clk[S32G_SCMI_CLK_PFE2_TX_RMII] =
 		get_plat_clk(S32GEN1_CLK_PFE_EMAC_2_TX);
-	scmi_clk[S32G274A_SCMI_CLK_PFE2_RX_MII] =
+	scmi_clk[S32G_SCMI_CLK_PFE2_RX_MII] =
 		get_plat_clk(S32GEN1_CLK_PFE_EMAC_2_RX);
-	scmi_clk[S32G274A_SCMI_CLK_PFE2_TX_MII] =
+	scmi_clk[S32G_SCMI_CLK_PFE2_TX_MII] =
 		get_plat_clk(S32GEN1_CLK_PFE_EMAC_2_TX);
 }
 
