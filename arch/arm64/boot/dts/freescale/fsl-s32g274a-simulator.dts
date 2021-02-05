@@ -8,7 +8,7 @@
  */
 
 /dts-v1/;
-#include "fsl-s32g274a.dtsi"
+#include "fsl-s32g.dtsi"
 #include <dt-bindings/pinctrl/s32g274-pinctrl.h>
 / {
 	model = "Freescale S32G274";
