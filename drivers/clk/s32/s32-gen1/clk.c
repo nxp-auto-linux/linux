@@ -17,7 +17,7 @@
 #include "clk.h"
 #include "mc_cgm.h"
 
-#define MAX_SCMI_CLKS	100
+#define MAX_SCMI_CLKS	102
 
 static struct s32gen1_clk_modules clk_modules;
 
@@ -681,144 +681,155 @@ void __init s32gen1_clocks_init(struct device_node *clocking_node)
 	of_clk_add_provider(clocking_node, s32gen1_clk_src_get, &plat_clks);
 }
 
+static void init_scmi_clk(uint32_t scmi_id, uint32_t plat_clk)
+{
+	if (scmi_id >= ARRAY_SIZE(scmi_clk)) {
+		pr_err("s32gen1-clk: %u id exceeds scmi_clk array size\n",
+		       scmi_id);
+		return;
+	}
+
+	scmi_clk[scmi_id] = get_plat_clk(plat_clk);
+}
+
 void s32gen1_scmi_clocks_init(void)
 {
-	scmi_clk[S32GEN1_SCMI_CLK_A53] =
-		get_plat_clk(S32GEN1_CLK_A53);
-	scmi_clk[S32GEN1_SCMI_CLK_SERDES_AXI] =
-		get_plat_clk(S32GEN1_CLK_XBAR);
-	scmi_clk[S32GEN1_SCMI_CLK_SERDES_AUX] =
-		get_plat_clk(S32GEN1_CLK_FIRC);
-	scmi_clk[S32GEN1_SCMI_CLK_SERDES_APB] =
-		get_plat_clk(S32GEN1_CLK_XBAR_DIV3);
-	scmi_clk[S32GEN1_SCMI_CLK_FTM0_SYS] =
-		get_plat_clk(S32GEN1_CLK_PER);
-	scmi_clk[S32GEN1_SCMI_CLK_FTM0_EXT] =
-		get_plat_clk(S32GEN1_CLK_FTM0_REF);
-	scmi_clk[S32GEN1_SCMI_CLK_FTM1_SYS] =
-		get_plat_clk(S32GEN1_CLK_PER);
-	scmi_clk[S32GEN1_SCMI_CLK_FTM1_EXT] =
-		get_plat_clk(S32GEN1_CLK_FTM1_REF);
-	scmi_clk[S32GEN1_SCMI_CLK_FLEXCAN_REG] =
-		get_plat_clk(S32GEN1_CLK_XBAR_DIV3);
-	scmi_clk[S32GEN1_SCMI_CLK_FLEXCAN_SYS] =
-		get_plat_clk(S32GEN1_CLK_XBAR_DIV3);
-	scmi_clk[S32GEN1_SCMI_CLK_FLEXCAN_CAN] =
-		get_plat_clk(S32GEN1_CLK_CAN);
-	scmi_clk[S32GEN1_SCMI_CLK_FLEXCAN_TS] =
-		get_plat_clk(S32GEN1_CLK_XBAR_DIV2);
-	scmi_clk[S32GEN1_SCMI_CLK_LINFLEX_XBAR] =
-		get_plat_clk(S32GEN1_CLK_LIN);
-	scmi_clk[S32GEN1_SCMI_CLK_LINFLEX_LIN] =
-		get_plat_clk(S32GEN1_CLK_LIN_BAUD);
+	init_scmi_clk(S32GEN1_SCMI_CLK_A53,
+		      S32GEN1_CLK_A53);
+	init_scmi_clk(S32GEN1_SCMI_CLK_SERDES_AXI,
+		      S32GEN1_CLK_XBAR);
+	init_scmi_clk(S32GEN1_SCMI_CLK_SERDES_AUX,
+		      S32GEN1_CLK_FIRC);
+	init_scmi_clk(S32GEN1_SCMI_CLK_SERDES_APB,
+		      S32GEN1_CLK_XBAR_DIV3);
+	init_scmi_clk(S32GEN1_SCMI_CLK_FTM0_SYS,
+		      S32GEN1_CLK_PER);
+	init_scmi_clk(S32GEN1_SCMI_CLK_FTM0_EXT,
+		      S32GEN1_CLK_FTM0_REF);
+	init_scmi_clk(S32GEN1_SCMI_CLK_FTM1_SYS,
+		      S32GEN1_CLK_PER);
+	init_scmi_clk(S32GEN1_SCMI_CLK_FTM1_EXT,
+		      S32GEN1_CLK_FTM1_REF);
+	init_scmi_clk(S32GEN1_SCMI_CLK_FLEXCAN_REG,
+		      S32GEN1_CLK_XBAR_DIV3);
+	init_scmi_clk(S32GEN1_SCMI_CLK_FLEXCAN_SYS,
+		      S32GEN1_CLK_XBAR_DIV3);
+	init_scmi_clk(S32GEN1_SCMI_CLK_FLEXCAN_CAN,
+		      S32GEN1_CLK_CAN);
+	init_scmi_clk(S32GEN1_SCMI_CLK_FLEXCAN_TS,
+		      S32GEN1_CLK_XBAR_DIV2);
+	init_scmi_clk(S32GEN1_SCMI_CLK_LINFLEX_XBAR,
+		      S32GEN1_CLK_LIN);
+	init_scmi_clk(S32GEN1_SCMI_CLK_LINFLEX_LIN,
+		      S32GEN1_CLK_LIN_BAUD);
 
-	scmi_clk[S32GEN1_SCMI_CLK_GMAC0_RX_SGMII] =
-		get_plat_clk(S32GEN1_CLK_GMAC_0_RX);
-	scmi_clk[S32GEN1_SCMI_CLK_GMAC0_TX_SGMII] =
-		get_plat_clk(S32GEN1_CLK_GMAC_0_TX);
-	scmi_clk[S32GEN1_SCMI_CLK_GMAC0_TS_SGMII] =
-		get_plat_clk(S32GEN1_CLK_GMAC_0_TS);
-	scmi_clk[S32GEN1_SCMI_CLK_GMAC0_RX_RGMII] =
-		get_plat_clk(S32GEN1_CLK_GMAC_0_RX);
-	scmi_clk[S32GEN1_SCMI_CLK_GMAC0_TX_RGMII] =
-		get_plat_clk(S32GEN1_CLK_GMAC_0_TX);
-	scmi_clk[S32GEN1_SCMI_CLK_GMAC0_TS_RGMII] =
-		get_plat_clk(S32GEN1_CLK_GMAC_0_TS);
-	scmi_clk[S32GEN1_SCMI_CLK_GMAC0_RX_RMII] =
-		get_plat_clk(S32GEN1_CLK_GMAC_0_RX);
-	scmi_clk[S32GEN1_SCMI_CLK_GMAC0_TX_RMII] =
-		get_plat_clk(S32GEN1_CLK_GMAC_0_TX);
-	scmi_clk[S32GEN1_SCMI_CLK_GMAC0_RX_MII] =
-		get_plat_clk(S32GEN1_CLK_GMAC_0_RX);
-	scmi_clk[S32GEN1_SCMI_CLK_GMAC0_TX_MII] =
-		get_plat_clk(S32GEN1_CLK_GMAC_0_TX);
-	scmi_clk[S32GEN1_SCMI_CLK_GMAC0_TS_MII] =
-		get_plat_clk(S32GEN1_CLK_GMAC_0_TS);
-	scmi_clk[S32GEN1_SCMI_CLK_GMAC0_AXI] =
-		get_plat_clk(S32GEN1_CLK_XBAR);
+	init_scmi_clk(S32GEN1_SCMI_CLK_GMAC0_RX_SGMII,
+		      S32GEN1_CLK_GMAC_0_RX);
+	init_scmi_clk(S32GEN1_SCMI_CLK_GMAC0_TX_SGMII,
+		      S32GEN1_CLK_GMAC_0_TX);
+	init_scmi_clk(S32GEN1_SCMI_CLK_GMAC0_TS_SGMII,
+		      S32GEN1_CLK_GMAC_0_TS);
+	init_scmi_clk(S32GEN1_SCMI_CLK_GMAC0_RX_RGMII,
+		      S32GEN1_CLK_GMAC_0_RX);
+	init_scmi_clk(S32GEN1_SCMI_CLK_GMAC0_TX_RGMII,
+		      S32GEN1_CLK_GMAC_0_TX);
+	init_scmi_clk(S32GEN1_SCMI_CLK_GMAC0_TS_RGMII,
+		      S32GEN1_CLK_GMAC_0_TS);
+	init_scmi_clk(S32GEN1_SCMI_CLK_GMAC0_RX_RMII,
+		      S32GEN1_CLK_GMAC_0_RX);
+	init_scmi_clk(S32GEN1_SCMI_CLK_GMAC0_TX_RMII,
+		      S32GEN1_CLK_GMAC_0_TX);
+	init_scmi_clk(S32GEN1_SCMI_CLK_GMAC0_RX_MII,
+		      S32GEN1_CLK_GMAC_0_RX);
+	init_scmi_clk(S32GEN1_SCMI_CLK_GMAC0_TX_MII,
+		      S32GEN1_CLK_GMAC_0_TX);
+	init_scmi_clk(S32GEN1_SCMI_CLK_GMAC0_TS_MII,
+		      S32GEN1_CLK_GMAC_0_TS);
+	init_scmi_clk(S32GEN1_SCMI_CLK_GMAC0_AXI,
+		      S32GEN1_CLK_XBAR);
 
-	scmi_clk[S32GEN1_SCMI_CLK_SPI_REG] =
-		get_plat_clk(S32GEN1_CLK_DSPI);
-	scmi_clk[S32GEN1_SCMI_CLK_SPI_MODULE] =
-		get_plat_clk(S32GEN1_CLK_DSPI);
-	scmi_clk[S32GEN1_SCMI_CLK_QSPI_REG] =
-		get_plat_clk(S32GEN1_CLK_XBAR_DIV3);
-	scmi_clk[S32GEN1_SCMI_CLK_QSPI_AHB] =
-		get_plat_clk(S32GEN1_CLK_XBAR_DIV3);
-	scmi_clk[S32GEN1_SCMI_CLK_QSPI_FLASH2X] =
-		get_plat_clk(S32GEN1_CLK_QSPI_2X);
-	scmi_clk[S32GEN1_SCMI_CLK_QSPI_FLASH1X] =
-		get_plat_clk(S32GEN1_CLK_QSPI_1X);
-	scmi_clk[S32GEN1_SCMI_CLK_USDHC_AHB] =
-		get_plat_clk(S32GEN1_CLK_XBAR);
-	scmi_clk[S32GEN1_SCMI_CLK_USDHC_MODULE] =
-		get_plat_clk(S32GEN1_CLK_XBAR_DIV3);
-	scmi_clk[S32GEN1_SCMI_CLK_USDHC_CORE] =
-		get_plat_clk(S32GEN1_CLK_SDHC);
-	scmi_clk[S32GEN1_SCMI_CLK_USDHC_MOD32K] =
-		get_plat_clk(S32GEN1_CLK_SIRC);
-	scmi_clk[S32GEN1_SCMI_CLK_DDR_REG] =
-		get_plat_clk(S32GEN1_CLK_XBAR_DIV3);
-	scmi_clk[S32GEN1_SCMI_CLK_DDR_PLL_REF] =
-		get_plat_clk(S32GEN1_CLK_DDR);
-	scmi_clk[S32GEN1_SCMI_CLK_DDR_AXI] =
-		get_plat_clk(S32GEN1_CLK_DDR);
-	scmi_clk[S32GEN1_SCMI_CLK_SRAM_AXI] =
-		get_plat_clk(S32GEN1_CLK_XBAR);
-	scmi_clk[S32GEN1_SCMI_CLK_SRAM_REG] =
-		get_plat_clk(S32GEN1_CLK_XBAR_DIV3);
-	scmi_clk[S32GEN1_SCMI_CLK_I2C_REG] =
-		get_plat_clk(S32GEN1_CLK_XBAR_DIV3);
-	scmi_clk[S32GEN1_SCMI_CLK_I2C_MODULE] =
-		get_plat_clk(S32GEN1_CLK_XBAR_DIV3);
-	scmi_clk[S32GEN1_SCMI_CLK_RTC_REG] =
-		get_plat_clk(S32GEN1_CLK_XBAR_DIV6);
-	scmi_clk[S32GEN1_SCMI_CLK_RTC_SIRC] =
-		get_plat_clk(S32GEN1_CLK_SIRC);
-	scmi_clk[S32GEN1_SCMI_CLK_RTC_FIRC] =
-		get_plat_clk(S32GEN1_CLK_FIRC);
-	scmi_clk[S32GEN1_SCMI_CLK_SIUL2_REG] =
-		get_plat_clk(S32GEN1_CLK_XBAR_DIV6);
-	scmi_clk[S32GEN1_SCMI_CLK_SIUL2_FILTER] =
-		get_plat_clk(S32GEN1_CLK_FIRC);
-	scmi_clk[S32GEN1_SCMI_CLK_CRC_REG] =
-		get_plat_clk(S32GEN1_CLK_XBAR_DIV3);
-	scmi_clk[S32GEN1_SCMI_CLK_CRC_MODULE] =
-		get_plat_clk(S32GEN1_CLK_XBAR_DIV3);
-	scmi_clk[S32GEN1_SCMI_CLK_EIM0_REG] =
-		get_plat_clk(S32GEN1_CLK_A53_DIV10);
-	scmi_clk[S32GEN1_SCMI_CLK_EIM0_MODULE] =
-		get_plat_clk(S32GEN1_CLK_A53_DIV10);
-	scmi_clk[S32GEN1_SCMI_CLK_EIM123_REG] =
-		get_plat_clk(S32GEN1_CLK_XBAR_DIV6);
-	scmi_clk[S32GEN1_SCMI_CLK_EIM123_MODULE] =
-		get_plat_clk(S32GEN1_CLK_XBAR_DIV6);
-	scmi_clk[S32GEN1_SCMI_CLK_EIM_REG] =
-		get_plat_clk(S32GEN1_CLK_XBAR_DIV6);
-	scmi_clk[S32GEN1_SCMI_CLK_EIM_MODULE] =
-		get_plat_clk(S32GEN1_CLK_XBAR_DIV6);
-	scmi_clk[S32GEN1_SCMI_CLK_FCCU_MODULE] =
-		get_plat_clk(S32GEN1_CLK_XBAR_DIV6);
-	scmi_clk[S32GEN1_SCMI_CLK_FCCU_SAFE] =
-		get_plat_clk(S32GEN1_CLK_FIRC);
-	scmi_clk[S32GEN1_SCMI_CLK_SWT_MODULE] =
-		get_plat_clk(S32GEN1_CLK_XBAR_DIV3);
-	scmi_clk[S32GEN1_SCMI_CLK_SWT_COUNTER] =
-		get_plat_clk(S32GEN1_CLK_FIRC);
-	scmi_clk[S32GEN1_SCMI_CLK_STM_MODULE] =
-		get_plat_clk(S32GEN1_CLK_XBAR_DIV3);
-	scmi_clk[S32GEN1_SCMI_CLK_STM_REG] =
-		get_plat_clk(S32GEN1_CLK_XBAR_DIV3);
-	scmi_clk[S32GEN1_SCMI_CLK_PIT_MODULE] =
-		get_plat_clk(S32GEN1_CLK_XBAR_DIV3);
-	scmi_clk[S32GEN1_SCMI_CLK_PIT_REG] =
-		get_plat_clk(S32GEN1_CLK_XBAR_DIV3);
-	scmi_clk[S32GEN1_SCMI_CLK_EDMA_MODULE] =
-		get_plat_clk(S32GEN1_CLK_XBAR);
-	scmi_clk[S32GEN1_SCMI_CLK_EDMA_AHB] =
-		get_plat_clk(S32GEN1_CLK_XBAR);
-	scmi_clk[S32GEN1_SCMI_CLK_SAR_ADC_BUS] =
-		get_plat_clk(S32GEN1_CLK_PER);
+	init_scmi_clk(S32GEN1_SCMI_CLK_SPI_REG,
+		      S32GEN1_CLK_DSPI);
+	init_scmi_clk(S32GEN1_SCMI_CLK_SPI_MODULE,
+		      S32GEN1_CLK_DSPI);
+	init_scmi_clk(S32GEN1_SCMI_CLK_QSPI_REG,
+		      S32GEN1_CLK_XBAR_DIV3);
+	init_scmi_clk(S32GEN1_SCMI_CLK_QSPI_AHB,
+		      S32GEN1_CLK_XBAR_DIV3);
+	init_scmi_clk(S32GEN1_SCMI_CLK_QSPI_FLASH2X,
+		      S32GEN1_CLK_QSPI_2X);
+	init_scmi_clk(S32GEN1_SCMI_CLK_QSPI_FLASH1X,
+		      S32GEN1_CLK_QSPI_1X);
+	init_scmi_clk(S32GEN1_SCMI_CLK_USDHC_AHB,
+		      S32GEN1_CLK_XBAR);
+	init_scmi_clk(S32GEN1_SCMI_CLK_USDHC_MODULE,
+		      S32GEN1_CLK_XBAR_DIV3);
+	init_scmi_clk(S32GEN1_SCMI_CLK_USDHC_CORE,
+		      S32GEN1_CLK_SDHC);
+	init_scmi_clk(S32GEN1_SCMI_CLK_USDHC_MOD32K,
+		      S32GEN1_CLK_SIRC);
+	init_scmi_clk(S32GEN1_SCMI_CLK_DDR_REG,
+		      S32GEN1_CLK_XBAR_DIV3);
+	init_scmi_clk(S32GEN1_SCMI_CLK_DDR_PLL_REF,
+		      S32GEN1_CLK_DDR);
+	init_scmi_clk(S32GEN1_SCMI_CLK_DDR_AXI,
+		      S32GEN1_CLK_DDR);
+	init_scmi_clk(S32GEN1_SCMI_CLK_SRAM_AXI,
+		      S32GEN1_CLK_XBAR);
+	init_scmi_clk(S32GEN1_SCMI_CLK_SRAM_REG,
+		      S32GEN1_CLK_XBAR_DIV3);
+	init_scmi_clk(S32GEN1_SCMI_CLK_I2C_REG,
+		      S32GEN1_CLK_XBAR_DIV3);
+	init_scmi_clk(S32GEN1_SCMI_CLK_I2C_MODULE,
+		      S32GEN1_CLK_XBAR_DIV3);
+	init_scmi_clk(S32GEN1_SCMI_CLK_RTC_REG,
+		      S32GEN1_CLK_XBAR_DIV6);
+	init_scmi_clk(S32GEN1_SCMI_CLK_RTC_SIRC,
+		      S32GEN1_CLK_SIRC);
+	init_scmi_clk(S32GEN1_SCMI_CLK_RTC_FIRC,
+		      S32GEN1_CLK_FIRC);
+	init_scmi_clk(S32GEN1_SCMI_CLK_SIUL2_REG,
+		      S32GEN1_CLK_XBAR_DIV6);
+	init_scmi_clk(S32GEN1_SCMI_CLK_SIUL2_FILTER,
+		      S32GEN1_CLK_FIRC);
+	init_scmi_clk(S32GEN1_SCMI_CLK_CRC_REG,
+		      S32GEN1_CLK_XBAR_DIV3);
+	init_scmi_clk(S32GEN1_SCMI_CLK_CRC_MODULE,
+		      S32GEN1_CLK_XBAR_DIV3);
+	init_scmi_clk(S32GEN1_SCMI_CLK_EIM0_REG,
+		      S32GEN1_CLK_A53_DIV10);
+	init_scmi_clk(S32GEN1_SCMI_CLK_EIM0_MODULE,
+		      S32GEN1_CLK_A53_DIV10);
+	init_scmi_clk(S32GEN1_SCMI_CLK_EIM123_REG,
+		      S32GEN1_CLK_XBAR_DIV6);
+	init_scmi_clk(S32GEN1_SCMI_CLK_EIM123_MODULE,
+		      S32GEN1_CLK_XBAR_DIV6);
+	init_scmi_clk(S32GEN1_SCMI_CLK_EIM_REG,
+		      S32GEN1_CLK_XBAR_DIV6);
+	init_scmi_clk(S32GEN1_SCMI_CLK_EIM_MODULE,
+		      S32GEN1_CLK_XBAR_DIV6);
+	init_scmi_clk(S32GEN1_SCMI_CLK_FCCU_MODULE,
+		      S32GEN1_CLK_XBAR_DIV6);
+	init_scmi_clk(S32GEN1_SCMI_CLK_FCCU_SAFE,
+		      S32GEN1_CLK_FIRC);
+	init_scmi_clk(S32GEN1_SCMI_CLK_SWT_MODULE,
+		      S32GEN1_CLK_XBAR_DIV3);
+	init_scmi_clk(S32GEN1_SCMI_CLK_SWT_COUNTER,
+		      S32GEN1_CLK_FIRC);
+	init_scmi_clk(S32GEN1_SCMI_CLK_STM_MODULE,
+		      S32GEN1_CLK_XBAR_DIV3);
+	init_scmi_clk(S32GEN1_SCMI_CLK_STM_REG,
+		      S32GEN1_CLK_XBAR_DIV3);
+	init_scmi_clk(S32GEN1_SCMI_CLK_PIT_MODULE,
+		      S32GEN1_CLK_XBAR_DIV3);
+	init_scmi_clk(S32GEN1_SCMI_CLK_PIT_REG,
+		      S32GEN1_CLK_XBAR_DIV3);
+	init_scmi_clk(S32GEN1_SCMI_CLK_EDMA_MODULE,
+		      S32GEN1_CLK_XBAR);
+	init_scmi_clk(S32GEN1_SCMI_CLK_EDMA_AHB,
+		      S32GEN1_CLK_XBAR);
+	init_scmi_clk(S32GEN1_SCMI_CLK_SAR_ADC_BUS,
+		      S32GEN1_CLK_PER);
 
 	plat_clks.scmi_clks.clks = scmi_clk;
 	plat_clks.scmi_clks.clk_num = ARRAY_SIZE(scmi_clk);
@@ -827,104 +838,104 @@ void s32gen1_scmi_clocks_init(void)
 static void s32g274a_scmi_clocks_init(void)
 {
 	/* LLCE */
-	scmi_clk[S32G_SCMI_CLK_LLCE_SYS] =
-		get_plat_clk(S32GEN1_CLK_XBAR_DIV2);
-	scmi_clk[S32G_SCMI_CLK_LLCE_CAN_PE] =
-		get_plat_clk(S32GEN1_CLK_CAN);
+	init_scmi_clk(S32G_SCMI_CLK_LLCE_SYS,
+		      S32GEN1_CLK_XBAR_DIV2);
+	init_scmi_clk(S32G_SCMI_CLK_LLCE_CAN_PE,
+		      S32GEN1_CLK_CAN);
 
-	scmi_clk[S32G_SCMI_CLK_USB_MEM] =
-		get_plat_clk(S32GEN1_CLK_XBAR_DIV4);
-	scmi_clk[S32G_SCMI_CLK_USB_LOW] =
-		get_plat_clk(S32GEN1_CLK_SIRC);
-	scmi_clk[S32G_SCMI_CLK_PFE_AXI] =
-		get_plat_clk(S32GEN1_CLK_PFE_SYS);
-	scmi_clk[S32G_SCMI_CLK_PFE_APB] =
-		get_plat_clk(S32GEN1_CLK_PFE_SYS);
-	scmi_clk[S32G_SCMI_CLK_PFE_PE] =
-		get_plat_clk(S32GEN1_CLK_PFE_PE);
+	init_scmi_clk(S32G_SCMI_CLK_USB_MEM,
+		      S32GEN1_CLK_XBAR_DIV4);
+	init_scmi_clk(S32G_SCMI_CLK_USB_LOW,
+		      S32GEN1_CLK_SIRC);
+	init_scmi_clk(S32G_SCMI_CLK_PFE_AXI,
+		      S32GEN1_CLK_PFE_SYS);
+	init_scmi_clk(S32G_SCMI_CLK_PFE_APB,
+		      S32GEN1_CLK_PFE_SYS);
+	init_scmi_clk(S32G_SCMI_CLK_PFE_PE,
+		      S32GEN1_CLK_PFE_PE);
 
 	/* PFE timestamp clock */
-	scmi_clk[S32G_SCMI_CLK_PFE_TS] =
-		get_plat_clk(S32GEN1_CLK_GMAC_0_TS);
+	init_scmi_clk(S32G_SCMI_CLK_PFE_TS,
+		      S32GEN1_CLK_GMAC_0_TS);
 
 	/* PFE 0 */
-	scmi_clk[S32G_SCMI_CLK_PFE0_RX_SGMII] =
-		get_plat_clk(S32GEN1_CLK_PFE_EMAC_0_RX);
-	scmi_clk[S32G_SCMI_CLK_PFE0_TX_SGMII] =
-		get_plat_clk(S32GEN1_CLK_PFE_EMAC_0_TX);
-	scmi_clk[S32G_SCMI_CLK_PFE0_RX_RGMII] =
-		get_plat_clk(S32GEN1_CLK_PFE_EMAC_0_RX);
-	scmi_clk[S32G_SCMI_CLK_PFE0_TX_RGMII] =
-		get_plat_clk(S32GEN1_CLK_PFE_EMAC_0_TX);
-	scmi_clk[S32G_SCMI_CLK_PFE0_RX_RMII] =
-		get_plat_clk(S32GEN1_CLK_PFE_EMAC_0_RX);
-	scmi_clk[S32G_SCMI_CLK_PFE0_TX_RMII] =
-		get_plat_clk(S32GEN1_CLK_PFE_EMAC_0_TX);
-	scmi_clk[S32G_SCMI_CLK_PFE0_RX_MII] =
-		get_plat_clk(S32GEN1_CLK_PFE_EMAC_0_RX);
-	scmi_clk[S32G_SCMI_CLK_PFE0_TX_MII] =
-		get_plat_clk(S32GEN1_CLK_PFE_EMAC_0_TX);
+	init_scmi_clk(S32G_SCMI_CLK_PFE0_RX_SGMII,
+		      S32GEN1_CLK_PFE_EMAC_0_RX);
+	init_scmi_clk(S32G_SCMI_CLK_PFE0_TX_SGMII,
+		      S32GEN1_CLK_PFE_EMAC_0_TX);
+	init_scmi_clk(S32G_SCMI_CLK_PFE0_RX_RGMII,
+		      S32GEN1_CLK_PFE_EMAC_0_RX);
+	init_scmi_clk(S32G_SCMI_CLK_PFE0_TX_RGMII,
+		      S32GEN1_CLK_PFE_EMAC_0_TX);
+	init_scmi_clk(S32G_SCMI_CLK_PFE0_RX_RMII,
+		      S32GEN1_CLK_PFE_EMAC_0_RX);
+	init_scmi_clk(S32G_SCMI_CLK_PFE0_TX_RMII,
+		      S32GEN1_CLK_PFE_EMAC_0_TX);
+	init_scmi_clk(S32G_SCMI_CLK_PFE0_RX_MII,
+		      S32GEN1_CLK_PFE_EMAC_0_RX);
+	init_scmi_clk(S32G_SCMI_CLK_PFE0_TX_MII,
+		      S32GEN1_CLK_PFE_EMAC_0_TX);
 	/* PFE 1 */
-	scmi_clk[S32G_SCMI_CLK_PFE1_RX_SGMII] =
-		get_plat_clk(S32GEN1_CLK_PFE_EMAC_1_RX);
-	scmi_clk[S32G_SCMI_CLK_PFE1_TX_SGMII] =
-		get_plat_clk(S32GEN1_CLK_PFE_EMAC_1_TX);
-	scmi_clk[S32G_SCMI_CLK_PFE1_RX_RGMII] =
-		get_plat_clk(S32GEN1_CLK_PFE_EMAC_1_RX);
-	scmi_clk[S32G_SCMI_CLK_PFE1_TX_RGMII] =
-		get_plat_clk(S32GEN1_CLK_PFE_EMAC_1_TX);
-	scmi_clk[S32G_SCMI_CLK_PFE1_RX_RMII] =
-		get_plat_clk(S32GEN1_CLK_PFE_EMAC_1_RX);
-	scmi_clk[S32G_SCMI_CLK_PFE1_TX_RMII] =
-		get_plat_clk(S32GEN1_CLK_PFE_EMAC_1_TX);
-	scmi_clk[S32G_SCMI_CLK_PFE1_RX_MII] =
-		get_plat_clk(S32GEN1_CLK_PFE_EMAC_1_RX);
-	scmi_clk[S32G_SCMI_CLK_PFE1_TX_MII] =
-		get_plat_clk(S32GEN1_CLK_PFE_EMAC_1_TX);
+	init_scmi_clk(S32G_SCMI_CLK_PFE1_RX_SGMII,
+		      S32GEN1_CLK_PFE_EMAC_1_RX);
+	init_scmi_clk(S32G_SCMI_CLK_PFE1_TX_SGMII,
+		      S32GEN1_CLK_PFE_EMAC_1_TX);
+	init_scmi_clk(S32G_SCMI_CLK_PFE1_RX_RGMII,
+		      S32GEN1_CLK_PFE_EMAC_1_RX);
+	init_scmi_clk(S32G_SCMI_CLK_PFE1_TX_RGMII,
+		      S32GEN1_CLK_PFE_EMAC_1_TX);
+	init_scmi_clk(S32G_SCMI_CLK_PFE1_RX_RMII,
+		      S32GEN1_CLK_PFE_EMAC_1_RX);
+	init_scmi_clk(S32G_SCMI_CLK_PFE1_TX_RMII,
+		      S32GEN1_CLK_PFE_EMAC_1_TX);
+	init_scmi_clk(S32G_SCMI_CLK_PFE1_RX_MII,
+		      S32GEN1_CLK_PFE_EMAC_1_RX);
+	init_scmi_clk(S32G_SCMI_CLK_PFE1_TX_MII,
+		      S32GEN1_CLK_PFE_EMAC_1_TX);
 	/* PFE 2 */
-	scmi_clk[S32G_SCMI_CLK_PFE2_RX_SGMII] =
-		get_plat_clk(S32GEN1_CLK_PFE_EMAC_2_RX);
-	scmi_clk[S32G_SCMI_CLK_PFE2_TX_SGMII] =
-		get_plat_clk(S32GEN1_CLK_PFE_EMAC_2_TX);
-	scmi_clk[S32G_SCMI_CLK_PFE2_RX_RGMII] =
-		get_plat_clk(S32GEN1_CLK_PFE_EMAC_2_RX);
-	scmi_clk[S32G_SCMI_CLK_PFE2_TX_RGMII] =
-		get_plat_clk(S32GEN1_CLK_PFE_EMAC_2_TX);
-	scmi_clk[S32G_SCMI_CLK_PFE2_RX_RMII] =
-		get_plat_clk(S32GEN1_CLK_PFE_EMAC_2_RX);
-	scmi_clk[S32G_SCMI_CLK_PFE2_TX_RMII] =
-		get_plat_clk(S32GEN1_CLK_PFE_EMAC_2_TX);
-	scmi_clk[S32G_SCMI_CLK_PFE2_RX_MII] =
-		get_plat_clk(S32GEN1_CLK_PFE_EMAC_2_RX);
-	scmi_clk[S32G_SCMI_CLK_PFE2_TX_MII] =
-		get_plat_clk(S32GEN1_CLK_PFE_EMAC_2_TX);
+	init_scmi_clk(S32G_SCMI_CLK_PFE2_RX_SGMII,
+		      S32GEN1_CLK_PFE_EMAC_2_RX);
+	init_scmi_clk(S32G_SCMI_CLK_PFE2_TX_SGMII,
+		      S32GEN1_CLK_PFE_EMAC_2_TX);
+	init_scmi_clk(S32G_SCMI_CLK_PFE2_RX_RGMII,
+		      S32GEN1_CLK_PFE_EMAC_2_RX);
+	init_scmi_clk(S32G_SCMI_CLK_PFE2_TX_RGMII,
+		      S32GEN1_CLK_PFE_EMAC_2_TX);
+	init_scmi_clk(S32G_SCMI_CLK_PFE2_RX_RMII,
+		      S32GEN1_CLK_PFE_EMAC_2_RX);
+	init_scmi_clk(S32G_SCMI_CLK_PFE2_TX_RMII,
+		      S32GEN1_CLK_PFE_EMAC_2_TX);
+	init_scmi_clk(S32G_SCMI_CLK_PFE2_RX_MII,
+		      S32GEN1_CLK_PFE_EMAC_2_RX);
+	init_scmi_clk(S32G_SCMI_CLK_PFE2_TX_MII,
+		      S32GEN1_CLK_PFE_EMAC_2_TX);
 }
 
 static void s32r45_scmi_clocks_init(void)
 {
 	/* LAX */
-	scmi_clk[S32R45_SCMI_CLK_LAX_MODULE] =
-		get_plat_clk(S32GEN1_CLK_ACCEL_4);
+	init_scmi_clk(S32R45_SCMI_CLK_LAX_MODULE,
+		      S32GEN1_CLK_ACCEL_4);
 
 	/* SPT */
-	scmi_clk[S32R45_SCMI_CLK_SPT_SPT] =
-		get_plat_clk(S32GEN1_CLK_ACCEL_3);
-	scmi_clk[S32R45_SCMI_CLK_SPT_AXI] =
-		get_plat_clk(S32GEN1_CLK_ACCEL_3);
-	scmi_clk[S32R45_SCMI_CLK_SPT_MODULE] =
-		get_plat_clk(S32GEN1_CLK_ACCEL_3_DIV3);
+	init_scmi_clk(S32R45_SCMI_CLK_SPT_SPT,
+		      S32GEN1_CLK_ACCEL_3);
+	init_scmi_clk(S32R45_SCMI_CLK_SPT_AXI,
+		      S32GEN1_CLK_ACCEL_3);
+	init_scmi_clk(S32R45_SCMI_CLK_SPT_MODULE,
+		      S32GEN1_CLK_ACCEL_3_DIV3);
 
 	/* GMAC1 */
-	scmi_clk[S32R45_SCMI_CLK_GMAC1_TX_SGMII] =
-		get_plat_clk(S32GEN1_CLK_GMAC_1_TX);
-	scmi_clk[S32R45_SCMI_CLK_GMAC1_TX_RGMII] =
-		get_plat_clk(S32GEN1_CLK_GMAC_1_TX);
-	scmi_clk[S32R45_SCMI_CLK_GMAC1_TX_RMII] =
-		get_plat_clk(S32GEN1_CLK_GMAC_1_TX);
-	scmi_clk[S32R45_SCMI_CLK_GMAC1_TX_MII] =
-		get_plat_clk(S32GEN1_CLK_GMAC_1_TX);
-	scmi_clk[S32R45_SCMI_CLK_GMAC1_AXI] =
-		get_plat_clk(S32GEN1_CLK_XBAR);
+	init_scmi_clk(S32R45_SCMI_CLK_GMAC1_TX_SGMII,
+		      S32GEN1_CLK_GMAC_1_TX);
+	init_scmi_clk(S32R45_SCMI_CLK_GMAC1_TX_RGMII,
+		      S32GEN1_CLK_GMAC_1_TX);
+	init_scmi_clk(S32R45_SCMI_CLK_GMAC1_TX_RMII,
+		      S32GEN1_CLK_GMAC_1_TX);
+	init_scmi_clk(S32R45_SCMI_CLK_GMAC1_TX_MII,
+		      S32GEN1_CLK_GMAC_1_TX);
+	init_scmi_clk(S32R45_SCMI_CLK_GMAC1_AXI,
+		      S32GEN1_CLK_XBAR);
 }
 
 #ifdef CONFIG_PM_DEBUG
