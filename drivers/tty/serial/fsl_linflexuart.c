@@ -852,31 +852,31 @@ static int linflex_startup(struct uart_port *port)
 						  port);
 	int ret = 0;
 	unsigned long flags;
+	bool dma_rx_use, dma_tx_use;
 
 	sport->txfifo_size = LINFLEXD_UARTCR_TXFIFO_SIZE;
 	sport->rxfifo_size = LINFLEXD_UARTCR_RXFIFO_SIZE;
 	sport->port.fifosize = sport->txfifo_size;
 
-	sport->dma_rx_use = sport->dma_rx_chan && !linflex_dma_rx_request(port);
-	sport->dma_tx_use = sport->dma_tx_chan && !linflex_dma_tx_request(port);
+	dma_rx_use = sport->dma_rx_chan && !linflex_dma_rx_request(port);
+	dma_tx_use = sport->dma_tx_chan && !linflex_dma_tx_request(port);
 
 	spin_lock_irqsave(&sport->port.lock, flags);
+	sport->dma_rx_use = dma_rx_use;
+	sport->dma_tx_use = dma_tx_use;
 	linflex_setup_watermark(sport);
 
+	if (sport->dma_rx_use && !linflex_dma_rx(sport)) {
+		timer_setup(&sport->timer, linflex_timer_func, 0);
+		sport->timer.expires = jiffies + sport->dma_rx_timeout;
+		add_timer(&sport->timer);
+	}
 	spin_unlock_irqrestore(&sport->port.lock, flags);
 
 	if (!sport->dma_rx_use || !sport->dma_tx_use) {
 		ret = devm_request_irq(port->dev, port->irq, linflex_int, 0,
-				       DRIVER_NAME, sport);
+						DRIVER_NAME, sport);
 	}
-	if (sport->dma_rx_use) {
-		timer_setup(&sport->timer, linflex_timer_func, 0);
-
-		linflex_dma_rx(sport);
-		sport->timer.expires = jiffies + sport->dma_rx_timeout;
-		add_timer(&sport->timer);
-	}
-
 	return ret;
 }
 
