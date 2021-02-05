@@ -454,6 +454,7 @@ static void linflex_flush_buffer(struct uart_port *port)
 						  port);
 
 	if (sport->dma_tx_use) {
+		linflex_disable_dma_tx(port);
 		dmaengine_terminate_all(sport->dma_tx_chan);
 		sport->dma_tx_in_progress = 0;
 	}
