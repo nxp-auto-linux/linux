@@ -92,6 +92,17 @@
 #define LINFLEXD_UARTCR_SBUR_2SBITS	(0x1 << 17)
 #define LINFLEXD_UARTCR_SBUR_3SBITS	(0x2 << 17)
 
+#define LINFLEXD_UARTCR_RDFLRFC_OFFSET	10
+#define LINFLEXD_UARTCR_RDFLRFC_MASK	(0x7 << LINFLEXD_UARTCR_RDFLRFC_OFFSET)
+#define LINFLEXD_UARTCR_RDFLRFC(uartcr)	(((uartcr) \
+					& LINFLEXD_UARTCR_RDFLRFC_MASK) >> \
+					LINFLEXD_UARTCR_RDFLRFC_OFFSET)
+#define LINFLEXD_UARTCR_TDFLTFC_OFFSET	13
+#define LINFLEXD_UARTCR_TDFLTFC_MASK	(0x7 << LINFLEXD_UARTCR_TDFLTFC_OFFSET)
+#define LINFLEXD_UARTCR_TDFLTFC(uartcr)	(((uartcr) \
+					& LINFLEXD_UARTCR_TDFLTFC_MASK) >> \
+					LINFLEXD_UARTCR_TDFLTFC_OFFSET)
+
 #define LINFLEXD_UARTCR_RFBM		BIT(9)
 #define LINFLEXD_UARTCR_TFBM		BIT(8)
 #define LINFLEXD_UARTCR_WL1		BIT(7)
@@ -286,6 +297,20 @@ static void linflex_disable_dma_tx(struct uart_port *port)
 
 	writel(dmatxe & 0xFFFF0000, port->membase + DMATXE);
 	while (readl(port->membase + DMATXE) & DMATXE_DRE0)
+		;
+}
+
+static inline void linflex_wait_tx_fifo_empty(struct uart_port *port)
+{
+	unsigned long cr = readl(port->membase + UARTCR);
+
+	/* Check the register because dma_tx_use can be true
+	 * and the bit not set yet.
+	 */
+	if (!(cr & LINFLEXD_UARTCR_TFBM))
+		return;
+
+	while (LINFLEXD_UARTCR_TDFLTFC(readl(port->membase + UARTCR)))
 		;
 }
 
@@ -687,9 +712,16 @@ static void linflex_setup_watermark(struct uart_port *sport)
 	cr &= ~(LINFLEXD_UARTCR_RXEN | LINFLEXD_UARTCR_TXEN);
 	writel(cr, sport->membase + UARTCR);
 
+	/* In FIFO mode, we should make sure the fifo is empty
+	 * before entering INIT otherwise the remaining characters
+	 * will be corrupted.
+	 */
+	linflex_wait_tx_fifo_empty(sport);
+
 	/* Enter initialization mode by setting INIT bit */
 
 	/* set the Linflex in master mode and activate by-pass filter */
+
 	cr1 = LINFLEXD_LINCR1_BF | LINFLEXD_LINCR1_MME
 	      | LINFLEXD_LINCR1_INIT;
 	writel(cr1, sport->membase + LINCR1);
@@ -931,6 +963,12 @@ linflex_set_termios(struct uart_port *port, struct ktermios *termios,
 	old_cr = readl(port->membase + UARTCR) &
 		~(LINFLEXD_UARTCR_RXEN | LINFLEXD_UARTCR_TXEN);
 	cr = old_cr;
+
+	/* In FIFO mode, we should make sure the fifo is empty
+	 * before entering INIT otherwise the remaining characters
+	 * will be corrupted.
+	 */
+	linflex_wait_tx_fifo_empty(port);
 
 	/* disable transmit and receive */
 	writel(old_cr, port->membase + UARTCR);
