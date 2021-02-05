@@ -402,47 +402,73 @@ static int llce_can_close(struct net_device *dev)
 static void llce_process_error(struct llce_can *llce, enum llce_can_error error,
 			       enum llce_can_module module)
 {
+	struct can_frame *cf;
 	struct can_device_stats *can_stats = &llce->can.can_stats;
 	struct net_device_stats *net_stats = &llce->can.dev->stats;
+	struct sk_buff *skb = alloc_can_err_skb(llce->can.dev, &cf);
 	struct net_device *dev = llce->can.dev;
+
+	if (!skb) {
+		netdev_dbg(llce->can.dev, "Could not allocate error frame\n");
+		return;
+	}
 
 	if (module == LLCE_TX)
 		net_stats->tx_errors++;
 	else
 		net_stats->rx_errors++;
 
+	/* Propagate the error condition to the CAN stack */
+	cf->can_id |= CAN_ERR_PROT | CAN_ERR_BUSERROR;
+
 	switch (error) {
 	case LLCE_ERROR_BCAN_ACKERR:
+		cf->can_id |= CAN_ERR_ACK;
+		cf->data[3] = CAN_ERR_PROT_LOC_ACK;
 	case LLCE_ERROR_BCAN_BIT0ERR:
+		if (error == LLCE_ERROR_BCAN_BIT0ERR)
+			cf->data[2] |= CAN_ERR_PROT_BIT0;
 	case LLCE_ERROR_BCAN_BIT1ERR:
+		if (error == LLCE_ERROR_BCAN_BIT1ERR)
+			cf->data[2] |= CAN_ERR_PROT_BIT1;
 	case LLCE_ERROR_BCAN_CRCERR:
+		if (error == LLCE_ERROR_BCAN_CRCERR) {
+			cf->data[2] |= CAN_ERR_PROT_BIT;
+			cf->data[3] = CAN_ERR_PROT_LOC_CRC_SEQ;
+		}
 	case LLCE_ERROR_BCAN_FRMERR:
+		if (error == LLCE_ERROR_BCAN_FRMERR)
+			cf->data[2] |= CAN_ERR_PROT_FORM;
 	case LLCE_ERROR_BCAN_FRZ_ENTER:
 	case LLCE_ERROR_BCAN_FRZ_EXIT:
 	case LLCE_ERROR_BCAN_LPM_EXIT:
 	case LLCE_ERROR_BCAN_SRT_ENTER:
 	case LLCE_ERROR_BCAN_STFERR:
+		if (error == LLCE_ERROR_BCAN_STFERR)
+			cf->data[2] |= CAN_ERR_PROT_STUFF;
 	case LLCE_ERROR_BCAN_SYNC:
 	case LLCE_ERROR_BCAN_UNKNOWN_ERROR:
 		can_stats->bus_error++;
-		return;
+		break;
 	case LLCE_ERROR_BUSOFF:
 	case LLCE_ERROR_HARDWARE_BUSOFF:
 		/* A restart is needed after a bus off error */
 		can_bus_off(dev);
 		can_stats->bus_off++;
-		can_free_echo_skb(dev, 0);
-		return;
+		break;
 	case LLCE_ERROR_DATA_LOST:
 	case LLCE_ERROR_MB_NOTAVAILABLE:
 	case LLCE_ERROR_RXOUT_FIFO_FULL:
 		net_stats->rx_dropped++;
-		return;
+		break;
 	default:
+		netdev_err(llce->can.dev, "Unhandled %d error %d\n",
+			   module, error);
 		break;
 	}
 
-	netdev_err(llce->can.dev, "Unhandled %d error %d\n", module, error);
+	can_free_echo_skb(dev, 0);
+	netif_rx(skb);
 }
 
 static void llce_tx_notif_callback(struct mbox_client *cl, void *msg)
