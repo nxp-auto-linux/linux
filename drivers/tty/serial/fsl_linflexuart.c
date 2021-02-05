@@ -927,14 +927,18 @@ linflex_set_termios(struct uart_port *port, struct ktermios *termios,
 	struct linflex_port *sport = container_of(port, struct linflex_port,
 						  port);
 	unsigned long flags;
-	unsigned long cr, old_cr, cr1, gcr;
+	unsigned long cr, old_cr, cr1, gcr, ier;
 	unsigned int old_csize = old ? old->c_cflag & CSIZE : CS8;
 #if !defined(CONFIG_S32GEN1_EMULATOR)
 	unsigned int baud;
 	unsigned long ibr, fbr, divisr, dividr;
 #endif
+	struct circ_buf *xmit;
 
 	spin_lock_irqsave(&sport->port.lock, flags);
+
+	linflex_stop_rx(port);
+	linflex_stop_tx(port);
 
 	cr = old_cr = readl(sport->port.membase + UARTCR) &
 		~(LINFLEXD_UARTCR_RXEN | LINFLEXD_UARTCR_TXEN);
@@ -1088,7 +1092,32 @@ linflex_set_termios(struct uart_port *port, struct ktermios *termios,
 	if ((jiffies - INITIAL_JIFFIES) / HZ > 10)
 		linflex_string_write(sport, "", 1);
 
+	/* Re-enable the interrupts if case. */
+	ier = readl(sport->port.membase + LINIER);
+	if (!sport->dma_rx_use)
+		ier |= LINFLEXD_LINIER_DRIE;
+
+	if (!sport->dma_tx_use)
+		ier |= LINFLEXD_LINIER_DTIE;
+
+	if (!sport->dma_rx_use || !sport->dma_tx_use)
+		writel(ier, sport->port.membase + LINIER);
+
+	/* Re-enable the dma transactions if case. */
+	if (sport->dma_rx_use && !linflex_dma_rx(sport)) {
+		timer_setup(&sport->timer, linflex_timer_func, 0);
+		sport->timer.expires = jiffies + sport->dma_rx_timeout;
+		add_timer(&sport->timer);
+	}
+	if (sport->dma_tx_use) {
+		xmit = &sport->port.state->xmit;
+		if (uart_circ_chars_pending(xmit) < WAKEUP_CHARS)
+			uart_write_wakeup(&sport->port);
+
+		linflex_prepare_tx(sport);
+	}
 	spin_unlock_irqrestore(&sport->port.lock, flags);
+
 #endif /* CONFIG_S32V234_PALLADIUM */
 }
 
