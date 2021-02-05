@@ -461,6 +461,7 @@ static void linflex_flush_buffer(struct uart_port *port)
 	struct linflex_port *lfport = to_linflex_port(port);
 
 	if (lfport->dma_tx_use) {
+		linflex_disable_dma_tx(port);
 		dmaengine_terminate_all(lfport->dma_tx_chan);
 		lfport->dma_tx_in_progress = 0;
 	}
