@@ -214,14 +214,6 @@ MODULE_DEVICE_TABLE(of, linflex_dt_ids);
 
 #ifdef CONFIG_SERIAL_FSL_LINFLEXUART_CONSOLE
 static struct uart_port *earlycon_port;
-static bool linflex_earlycon_same_instance;
-static DEFINE_SPINLOCK(init_lock);
-static bool during_init;
-
-static struct {
-	char *content;
-	unsigned int len, cap;
-} earlycon_buf;
 #endif
 
 /* Forward declare this for the dma callbacks. */
@@ -1378,48 +1370,6 @@ static void linflex_console_putchar(struct uart_port *port, int ch)
 	}
 }
 
-static void linflex_earlycon_putchar(struct uart_port *port, int ch)
-{
-	unsigned long flags;
-	char *ret;
-
-	if (!linflex_earlycon_same_instance) {
-		linflex_console_putchar(port, ch);
-		return;
-	}
-
-	spin_lock_irqsave(&init_lock, flags);
-	if (!during_init)
-		goto outside_init;
-
-	if (earlycon_buf.len >= 1 << CONFIG_LOG_BUF_SHIFT)
-		goto init_release;
-
-	if (!earlycon_buf.cap) {
-		earlycon_buf.content = kmalloc(EARLYCON_BUFFER_INITIAL_CAP,
-					       GFP_ATOMIC);
-		earlycon_buf.cap = earlycon_buf.content ?
-				   EARLYCON_BUFFER_INITIAL_CAP : 0;
-	} else if (earlycon_buf.len == earlycon_buf.cap) {
-		ret = krealloc(earlycon_buf.content, earlycon_buf.cap << 1,
-			       GFP_ATOMIC);
-		if (ret) {
-			earlycon_buf.content = ret;
-			earlycon_buf.cap <<= 1;
-		}
-	}
-
-	if (earlycon_buf.len < earlycon_buf.cap)
-		earlycon_buf.content[earlycon_buf.len++] = ch;
-
-	goto init_release;
-
-outside_init:
-	linflex_console_putchar(port, ch);
-init_release:
-	spin_unlock_irqrestore(&init_lock, flags);
-}
-
 static void linflex_string_write(struct linflex_port *sport, const char *s,
 				 unsigned int count)
 {
@@ -1529,8 +1479,6 @@ static int __init linflex_console_setup(struct console *co, char *options)
 	int parity = 'n';
 	int flow = 'n';
 	int ret;
-	int i;
-	unsigned long flags;
 	/*
 	 * check whether an invalid uart number has been specified, and
 	 * if so, search for the first available port that does have
@@ -1548,43 +1496,10 @@ static int __init linflex_console_setup(struct console *co, char *options)
 	else
 		linflex_console_get_options(sport, &baud, &parity, &bits);
 
-	if (earlycon_port && sport->port.mapbase == earlycon_port->mapbase) {
-		linflex_earlycon_same_instance = true;
-
-		spin_lock_irqsave(&init_lock, flags);
-		during_init = true;
-		spin_unlock_irqrestore(&init_lock, flags);
-
-		/* Workaround for character loss or output of many invalid
-		 * characters, when INIT mode is entered shortly after a
-		 * character has just been printed.
-		 */
-		udelay(PREINIT_DELAY);
-	}
-
 	linflex_setup_watermark(sport);
 
 	ret = uart_set_options(&sport->port, co, baud, parity, bits, flow);
 
-	if (!linflex_earlycon_same_instance)
-		goto done;
-
-	spin_lock_irqsave(&init_lock, flags);
-
-	/* Emptying buffer */
-	if (earlycon_buf.len) {
-		for (i = 0; i < earlycon_buf.len; i++)
-			linflex_console_putchar(earlycon_port,
-						earlycon_buf.content[i]);
-
-		kfree(earlycon_buf.content);
-		earlycon_buf.len = 0;
-	}
-
-	during_init = false;
-	spin_unlock_irqrestore(&init_lock, flags);
-
-done:
 	return ret;
 }
 
@@ -1604,7 +1519,7 @@ static void linflex_earlycon_write(struct console *con, const char *s,
 {
 	struct earlycon_device *dev = con->data;
 
-	uart_console_write(&dev->port, s, n, linflex_earlycon_putchar);
+	uart_console_write(&dev->port, s, n, linflex_console_putchar);
 }
 
 static int __init linflex_early_console_setup(struct earlycon_device *device,
@@ -1812,6 +1727,7 @@ static int __init linflex_serial_init(void)
 	int ret;
 
 	prd_info("serial: Freescale linflex driver\n");
+
 	ret = uart_register_driver(&linflex_reg);
 	if (ret)
 		return ret;
