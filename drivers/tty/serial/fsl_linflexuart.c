@@ -1129,15 +1129,6 @@ linflex_set_termios(struct uart_port *port, struct ktermios *termios,
 	cr |= (LINFLEXD_UARTCR_TXEN) | (LINFLEXD_UARTCR_RXEN);
 	writel(cr, sport->port.membase + UARTCR);
 
-	/* Workaround for driver hanging when running the 'reboot'
-	 * command because of the DTFTFF bit in UARTSR not being cleared.
-	 * The issue is assumed to be caused by a hardware bug.
-	 * Only apply the workaround after the boot sequence is
-	 * assumed to be complete.
-	 */
-	if ((jiffies - INITIAL_JIFFIES) / HZ > 10)
-		linflex_string_write(sport, "", 1);
-
 	/* Re-enable the interrupts if case. */
 	ier = readl(sport->port.membase + LINIER);
 	if (!sport->dma_rx_use)
