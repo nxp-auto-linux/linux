@@ -711,8 +711,7 @@ static void linflex_setup_watermark(struct uart_port *sport)
 	/* set UART bit to allow writing other bits */
 	writel(LINFLEXD_UARTCR_UART, sport->membase + UARTCR);
 
-	cr = (LINFLEXD_UARTCR_RXEN | LINFLEXD_UARTCR_TXEN |
-	      LINFLEXD_UARTCR_WL0 | LINFLEXD_UARTCR_UART);
+	cr = (LINFLEXD_UARTCR_WL0 | LINFLEXD_UARTCR_UART);
 
 	/* FIFO mode enabled for DMA Rx mode. */
 	if (lfport->dma_rx_use)
@@ -727,6 +726,9 @@ static void linflex_setup_watermark(struct uart_port *sport)
 	cr1 &= ~(LINFLEXD_LINCR1_INIT);
 
 	writel(cr1, sport->membase + LINCR1);
+
+	cr |= (LINFLEXD_UARTCR_RXEN | LINFLEXD_UARTCR_TXEN);
+	writel(cr, sport->membase + UARTCR);
 
 	ier = readl(sport->membase + LINIER);
 	if (!lfport->dma_rx_use)
@@ -921,8 +923,12 @@ linflex_set_termios(struct uart_port *port, struct ktermios *termios,
 
 	spin_lock_irqsave(&port->lock, flags);
 
-	cr = readl(port->membase + UARTCR);
-	old_cr = cr;
+	old_cr = readl(port->membase + UARTCR) &
+		~(LINFLEXD_UARTCR_RXEN | LINFLEXD_UARTCR_TXEN);
+	cr = old_cr;
+
+	/* disable transmit and receive */
+	writel(old_cr, port->membase + UARTCR);
 
 	/* Enter initialization mode by setting INIT bit */
 	cr1 = readl(port->membase + LINCR1);
@@ -1042,10 +1048,6 @@ linflex_set_termios(struct uart_port *port, struct ktermios *termios,
 	lfport->dma_rx_timeout = msecs_to_jiffies(DIV_ROUND_UP(10000000, baud));
 #endif
 
-	/* disable transmit and receive */
-	writel(old_cr & ~(LINFLEXD_UARTCR_RXEN | LINFLEXD_UARTCR_TXEN),
-	       port->membase + UARTCR);
-
 #if !defined(CONFIG_S32CC_EMULATOR)
 	/* skip setting baudrate; use u-boot settings */
 	divisr = port->uartclk;	//freq in Hz
@@ -1063,6 +1065,9 @@ linflex_set_termios(struct uart_port *port, struct ktermios *termios,
 	cr1 &= ~(LINFLEXD_LINCR1_INIT);
 
 	writel(cr1, port->membase + LINCR1);
+
+	cr |= (LINFLEXD_UARTCR_TXEN) | (LINFLEXD_UARTCR_RXEN);
+	writel(cr, port->membase + UARTCR);
 
 	spin_unlock_irqrestore(&port->lock, flags);
 }
