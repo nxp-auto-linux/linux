@@ -730,8 +730,7 @@ static void linflex_setup_watermark(struct linflex_port *sport)
 	/* set UART bit to allow writing other bits */
 	writel(LINFLEXD_UARTCR_UART, sport->port.membase + UARTCR);
 
-	cr = (LINFLEXD_UARTCR_RXEN | LINFLEXD_UARTCR_TXEN |
-	      LINFLEXD_UARTCR_WL0 | LINFLEXD_UARTCR_UART);
+	cr = (LINFLEXD_UARTCR_WL0 | LINFLEXD_UARTCR_UART);
 
 	/* FIFO mode enabled for DMA Rx mode. */
 	if (sport->dma_rx_use)
@@ -746,6 +745,9 @@ static void linflex_setup_watermark(struct linflex_port *sport)
 	cr1 &= ~(LINFLEXD_LINCR1_INIT);
 
 	writel(cr1, sport->port.membase + LINCR1);
+
+	cr |= (LINFLEXD_UARTCR_RXEN | LINFLEXD_UARTCR_TXEN);
+	writel(cr, sport->port.membase + UARTCR);
 
 	ier = readl(sport->port.membase + LINIER);
 	if (!sport->dma_rx_use)
@@ -954,7 +956,11 @@ linflex_set_termios(struct uart_port *port, struct ktermios *termios,
 
 	spin_lock_irqsave(&sport->port.lock, flags);
 
-	cr = old_cr = readl(sport->port.membase + UARTCR);
+	cr = old_cr = readl(sport->port.membase + UARTCR) &
+		~(LINFLEXD_UARTCR_RXEN | LINFLEXD_UARTCR_TXEN);
+
+	/* disable transmit and receive */
+	writel(old_cr, sport->port.membase + UARTCR);
 
 	/* Enter initialization mode by setting INIT bit */
 	cr1 = readl(sport->port.membase + LINCR1);
@@ -1075,10 +1081,6 @@ linflex_set_termios(struct uart_port *port, struct ktermios *termios,
 	sport->dma_rx_timeout = msecs_to_jiffies(DIV_ROUND_UP(10000000, baud));
 #endif
 
-	/* disable transmit and receive */
-	writel(old_cr & ~(LINFLEXD_UARTCR_RXEN | LINFLEXD_UARTCR_TXEN),
-		sport->port.membase + UARTCR);
-
 #if !defined(CONFIG_S32GEN1_EMULATOR)
 	/* skip setting baudrate; use u-boot settings */
 	divisr = sport->port.uartclk;	//freq in Hz
@@ -1096,6 +1098,9 @@ linflex_set_termios(struct uart_port *port, struct ktermios *termios,
 	cr1 &= ~(LINFLEXD_LINCR1_INIT);
 
 	writel(cr1, sport->port.membase + LINCR1);
+
+	cr |= (LINFLEXD_UARTCR_TXEN) | (LINFLEXD_UARTCR_RXEN);
+	writel(cr, sport->port.membase + UARTCR);
 
 	/* Workaround for driver hanging when running the 'reboot'
 	 * command because of the DTFTFF bit in UARTSR not being cleared.
