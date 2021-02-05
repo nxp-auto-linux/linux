@@ -1298,22 +1298,24 @@ static struct uart_port *linflex_ports[UART_NR];
 static void linflex_console_putchar(struct uart_port *port, int ch)
 {
 	unsigned long cr;
+	bool fifo_mode;
 
 	cr = readl(port->membase + UARTCR);
+	fifo_mode = cr & LINFLEXD_UARTCR_TFBM;
 
-	writeb(ch, port->membase + BDRL);
-
-	if (!(cr & LINFLEXD_UARTCR_TFBM))
-		while ((readl(port->membase + UARTSR) &
-					LINFLEXD_UARTSR_DTFTFF)
-				!= LINFLEXD_UARTSR_DTFTFF)
-			;
-	else
+	if (fifo_mode)
 		while (readl(port->membase + UARTSR) &
 					LINFLEXD_UARTSR_DTFTFF)
 			;
 
-	if (!(cr & LINFLEXD_UARTCR_TFBM)) {
+	writeb(ch, port->membase + BDRL);
+
+	if (!fifo_mode) {
+		while ((readl(port->membase + UARTSR) &
+					LINFLEXD_UARTSR_DTFTFF)
+				!= LINFLEXD_UARTSR_DTFTFF)
+			;
+
 		writel((readl(port->membase + UARTSR) |
 					LINFLEXD_UARTSR_DTFTFF),
 					port->membase + UARTSR);
