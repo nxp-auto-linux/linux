@@ -847,28 +847,29 @@ static int linflex_startup(struct uart_port *port)
 	struct linflex_port *lfport = to_linflex_port(port);
 	int ret = 0;
 	unsigned long flags;
+	bool dma_rx_use, dma_tx_use;
 
-	lfport->dma_rx_use = lfport->dma_rx_chan && !linflex_dma_rx_request(port);
-	lfport->dma_tx_use = lfport->dma_tx_chan && !linflex_dma_tx_request(port);
+	dma_rx_use = lfport->dma_rx_chan && !linflex_dma_rx_request(port);
+	dma_tx_use = lfport->dma_tx_chan && !linflex_dma_tx_request(port);
 
 	spin_lock_irqsave(&port->lock, flags);
-
+	lfport->dma_rx_use = dma_rx_use;
+	lfport->dma_tx_use = dma_tx_use;
 	lfport->port.fifosize = LINFLEXD_UARTCR_FIFO_SIZE;
 
 	linflex_setup_watermark(port);
 
+	if (lfport->dma_rx_use && !linflex_dma_rx(lfport)) {
+		timer_setup(&lfport->timer, linflex_timer_func, 0);
+		lfport->timer.expires = jiffies + lfport->dma_rx_timeout;
+		add_timer(&lfport->timer);
+	}
 	spin_unlock_irqrestore(&port->lock, flags);
 
 	if (!lfport->dma_rx_use || !lfport->dma_tx_use) {
 		ret = devm_request_irq(port->dev, port->irq, linflex_int, 0,
 				       DRIVER_NAME, lfport);
 	}
-	if (lfport->dma_rx_use) {
-		timer_setup(&lfport->timer, linflex_timer_func, 0);
-		lfport->timer.expires = jiffies + lfport->dma_rx_timeout;
-		add_timer(&lfport->timer);
-	}
-
 	return ret;
 }
 
@@ -915,13 +916,17 @@ linflex_set_termios(struct uart_port *port, struct ktermios *termios,
 {
 	struct linflex_port *lfport = to_linflex_port(port);
 	unsigned long flags;
-	unsigned long cr, old_cr, cr1, gcr;
+	unsigned long cr, old_cr, cr1, gcr, ier;
 	unsigned int old_csize = old ? old->c_cflag & CSIZE : CS8;
 #if !defined(CONFIG_S32CC_EMULATOR)
 	unsigned long baud, ibr, fbr, divisr, dividr;
 #endif
+	struct circ_buf *xmit;
 
 	spin_lock_irqsave(&port->lock, flags);
+
+	linflex_stop_rx(port);
+	linflex_stop_tx(port);
 
 	old_cr = readl(port->membase + UARTCR) &
 		~(LINFLEXD_UARTCR_RXEN | LINFLEXD_UARTCR_TXEN);
@@ -1069,6 +1074,30 @@ linflex_set_termios(struct uart_port *port, struct ktermios *termios,
 	cr |= (LINFLEXD_UARTCR_TXEN) | (LINFLEXD_UARTCR_RXEN);
 	writel(cr, port->membase + UARTCR);
 
+	/* Re-enable the interrupts if case. */
+	ier = readl(port->membase + LINIER);
+	if (!lfport->dma_rx_use)
+		ier |= LINFLEXD_LINIER_DRIE;
+
+	if (!lfport->dma_tx_use)
+		ier |= LINFLEXD_LINIER_DTIE;
+
+	if (!lfport->dma_rx_use || !lfport->dma_tx_use)
+		writel(ier, port->membase + LINIER);
+
+	/* Re-enable the dma transactions if case. */
+	if (lfport->dma_rx_use && !linflex_dma_rx(lfport)) {
+		timer_setup(&lfport->timer, linflex_timer_func, 0);
+		lfport->timer.expires = jiffies + lfport->dma_rx_timeout;
+		add_timer(&lfport->timer);
+	}
+	if (lfport->dma_tx_use) {
+		xmit = &port->state->xmit;
+		if (uart_circ_chars_pending(xmit) < WAKEUP_CHARS)
+			uart_write_wakeup(port);
+
+		linflex_prepare_tx(lfport);
+	}
 	spin_unlock_irqrestore(&port->lock, flags);
 }
 
