@@ -8,7 +8,7 @@
 
 /dts-v1/;
 #include "fsl-s32g.dtsi"
-#include <dt-bindings/pinctrl/s32g274-pinctrl.h>
+#include <dt-bindings/pinctrl/s32g-pinctrl.h>
 / {
 	chosen {
 		stdout-path = "serial0:115200n8";
