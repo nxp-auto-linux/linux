@@ -525,37 +525,37 @@
 	};
 
 	llce0_sram: llce0_sram@43000000 {
-		compatible = "nxp,s32g274a-llce-sram";
+		compatible = "nxp,s32g-llce-sram";
 		reg = <0x0 0x43000000 0x0 0x2000>;
 	};
 
 	llce1_sram: llce1_sram@43100000 {
-		compatible = "nxp,s32g274a-llce-sram";
+		compatible = "nxp,s32g-llce-sram";
 		reg = <0x0 0x43100000 0x0 0x8000>;
 	};
 
 	llce2_sram: llce2_sram@43200000 {
-		compatible = "nxp,s32g274a-llce-sram";
+		compatible = "nxp,s32g-llce-sram";
 		reg = <0x0 0x43200000 0x0 0x8000>;
 	};
 
 	llce3_sram: llce3_sram@43300000 {
-		compatible = "nxp,s32g274a-llce-sram";
+		compatible = "nxp,s32g-llce-sram";
 		reg = <0x0 0x43300000 0x0 0x10000>;
 	};
 
 	llce_shmem: llce_shmem@43800000 {
-		compatible = "nxp,s32g274a-llce-sram";
+		compatible = "nxp,s32g-llce-sram";
 		reg = <0x0 0x43800000 0x0 0x40000>;
 	};
 
 	llce_boot_status: llce_boot_status@43840000 {
-		compatible = "nxp,s32g274a-llce-sram";
+		compatible = "nxp,s32g-llce-sram";
 		reg = <0x0 0x43840000 0x0 0x10000>;
 	};
 
 	llce {
-		compatible = "nxp,s32g274a-llce-core";
+		compatible = "nxp,s32g-llce-core";
 
 		/* RX-IN_FIFO */
 		ranges = <0x0 0 0x0 0x43A00000 0x0 0x6000>,
@@ -587,7 +587,7 @@
 		#interrupt-cells = <3>;
 
 		llce_mb: llce_mb {
-			compatible = "nxp,s32g274a-llce-mailbox";
+			compatible = "nxp,s32g-llce-mailbox";
 			#mbox-cells = <2>;
 
 			reg = <0x0 0x0 0x0 0x6000>,
@@ -621,10 +621,10 @@
 		};
 
 		llce_can0: llce_can0 {
-			compatible = "nxp,s32g274a-llce-can";
-			mboxes = <&llce_mb S32G274_LLCE_CAN_CONF_MB 0>,
-				 <&llce_mb S32G274_LLCE_CAN_RX_MB 0>,
-				 <&llce_mb S32G274_LLCE_CAN_TX_MB 0>;
+			compatible = "nxp,s32g-llce-can";
+			mboxes = <&llce_mb S32G_LLCE_CAN_CONF_MB 0>,
+				 <&llce_mb S32G_LLCE_CAN_RX_MB 0>,
+				 <&llce_mb S32G_LLCE_CAN_TX_MB 0>;
 			mbox-names = "config", "rx", "tx";
 			clocks = <&clks S32G_SCMI_CLK_LLCE_CAN_PE>;
 			clock-names = "can_pe";
@@ -635,10 +635,10 @@
 		};
 
 		llce_can1: llce_can1 {
-			compatible = "nxp,s32g274a-llce-can";
-			mboxes = <&llce_mb S32G274_LLCE_CAN_CONF_MB 1>,
-				 <&llce_mb S32G274_LLCE_CAN_RX_MB 1>,
-				 <&llce_mb S32G274_LLCE_CAN_TX_MB 1>;
+			compatible = "nxp,s32g-llce-can";
+			mboxes = <&llce_mb S32G_LLCE_CAN_CONF_MB 1>,
+				 <&llce_mb S32G_LLCE_CAN_RX_MB 1>,
+				 <&llce_mb S32G_LLCE_CAN_TX_MB 1>;
 			mbox-names = "config", "rx", "tx";
 			clocks = <&clks S32G_SCMI_CLK_LLCE_CAN_PE>;
 			clock-names = "can_pe";
@@ -648,10 +648,10 @@
 		};
 
 		llce_can2: llce_can2 {
-			compatible = "nxp,s32g274a-llce-can";
-			mboxes = <&llce_mb S32G274_LLCE_CAN_CONF_MB 2>,
-				 <&llce_mb S32G274_LLCE_CAN_RX_MB 2>,
-				 <&llce_mb S32G274_LLCE_CAN_TX_MB 2>;
+			compatible = "nxp,s32g-llce-can";
+			mboxes = <&llce_mb S32G_LLCE_CAN_CONF_MB 2>,
+				 <&llce_mb S32G_LLCE_CAN_RX_MB 2>,
+				 <&llce_mb S32G_LLCE_CAN_TX_MB 2>;
 			mbox-names = "config", "rx", "tx";
 			clocks = <&clks S32G_SCMI_CLK_LLCE_CAN_PE>;
 			clock-names = "can_pe";
@@ -661,10 +661,10 @@
 		};
 
 		llce_can3: llce_can3 {
-			compatible = "nxp,s32g274a-llce-can";
-			mboxes = <&llce_mb S32G274_LLCE_CAN_CONF_MB 3>,
-				 <&llce_mb S32G274_LLCE_CAN_RX_MB 3>,
-				 <&llce_mb S32G274_LLCE_CAN_TX_MB 3>;
+			compatible = "nxp,s32g-llce-can";
+			mboxes = <&llce_mb S32G_LLCE_CAN_CONF_MB 3>,
+				 <&llce_mb S32G_LLCE_CAN_RX_MB 3>,
+				 <&llce_mb S32G_LLCE_CAN_TX_MB 3>;
 			mbox-names = "config", "rx", "tx";
 			clocks = <&clks S32G_SCMI_CLK_LLCE_CAN_PE>;
 			clock-names = "can_pe";
@@ -674,10 +674,10 @@
 		};
 
 		llce_can4: llce_can4 {
-			compatible = "nxp,s32g274a-llce-can";
-			mboxes = <&llce_mb S32G274_LLCE_CAN_CONF_MB 4>,
-				 <&llce_mb S32G274_LLCE_CAN_RX_MB 4>,
-				 <&llce_mb S32G274_LLCE_CAN_TX_MB 4>;
+			compatible = "nxp,s32g-llce-can";
+			mboxes = <&llce_mb S32G_LLCE_CAN_CONF_MB 4>,
+				 <&llce_mb S32G_LLCE_CAN_RX_MB 4>,
+				 <&llce_mb S32G_LLCE_CAN_TX_MB 4>;
 			mbox-names = "config", "rx", "tx";
 			clocks = <&clks S32G_SCMI_CLK_LLCE_CAN_PE>;
 			clock-names = "can_pe";
@@ -687,10 +687,10 @@
 		};
 
 		llce_can5: llce_can5 {
-			compatible = "nxp,s32g274a-llce-can";
-			mboxes = <&llce_mb S32G274_LLCE_CAN_CONF_MB 5>,
-				 <&llce_mb S32G274_LLCE_CAN_RX_MB 5>,
-				 <&llce_mb S32G274_LLCE_CAN_TX_MB 5>;
+			compatible = "nxp,s32g-llce-can";
+			mboxes = <&llce_mb S32G_LLCE_CAN_CONF_MB 5>,
+				 <&llce_mb S32G_LLCE_CAN_RX_MB 5>,
+				 <&llce_mb S32G_LLCE_CAN_TX_MB 5>;
 			mbox-names = "config", "rx", "tx";
 			clocks = <&clks S32G_SCMI_CLK_LLCE_CAN_PE>;
 			clock-names = "can_pe";
@@ -700,10 +700,10 @@
 		};
 
 		llce_can6: llce_can6 {
-			compatible = "nxp,s32g274a-llce-can";
-			mboxes = <&llce_mb S32G274_LLCE_CAN_CONF_MB 6>,
-				 <&llce_mb S32G274_LLCE_CAN_RX_MB 6>,
-				 <&llce_mb S32G274_LLCE_CAN_TX_MB 6>;
+			compatible = "nxp,s32g-llce-can";
+			mboxes = <&llce_mb S32G_LLCE_CAN_CONF_MB 6>,
+				 <&llce_mb S32G_LLCE_CAN_RX_MB 6>,
+				 <&llce_mb S32G_LLCE_CAN_TX_MB 6>;
 			mbox-names = "config", "rx", "tx";
 			clocks = <&clks S32G_SCMI_CLK_LLCE_CAN_PE>;
 			clock-names = "can_pe";
@@ -713,10 +713,10 @@
 		};
 
 		llce_can7: llce_can7 {
-			compatible = "nxp,s32g274a-llce-can";
-			mboxes = <&llce_mb S32G274_LLCE_CAN_CONF_MB 7>,
-				 <&llce_mb S32G274_LLCE_CAN_RX_MB 7>,
-				 <&llce_mb S32G274_LLCE_CAN_TX_MB 7>;
+			compatible = "nxp,s32g-llce-can";
+			mboxes = <&llce_mb S32G_LLCE_CAN_CONF_MB 7>,
+				 <&llce_mb S32G_LLCE_CAN_RX_MB 7>,
+				 <&llce_mb S32G_LLCE_CAN_TX_MB 7>;
 			mbox-names = "config", "rx", "tx";
 			clocks = <&clks S32G_SCMI_CLK_LLCE_CAN_PE>;
 			clock-names = "can_pe";
@@ -726,10 +726,10 @@
 		};
 
 		llce_can8: llce_can8 {
-			compatible = "nxp,s32g274a-llce-can";
-			mboxes = <&llce_mb S32G274_LLCE_CAN_CONF_MB 8>,
-				 <&llce_mb S32G274_LLCE_CAN_RX_MB 8>,
-				 <&llce_mb S32G274_LLCE_CAN_TX_MB 8>;
+			compatible = "nxp,s32g-llce-can";
+			mboxes = <&llce_mb S32G_LLCE_CAN_CONF_MB 8>,
+				 <&llce_mb S32G_LLCE_CAN_RX_MB 8>,
+				 <&llce_mb S32G_LLCE_CAN_TX_MB 8>;
 			mbox-names = "config", "rx", "tx";
 			clocks = <&clks S32G_SCMI_CLK_LLCE_CAN_PE>;
 			clock-names = "can_pe";
@@ -739,10 +739,10 @@
 		};
 
 		llce_can9: llce_can9 {
-			compatible = "nxp,s32g274a-llce-can";
-			mboxes = <&llce_mb S32G274_LLCE_CAN_CONF_MB 9>,
-				 <&llce_mb S32G274_LLCE_CAN_RX_MB 9>,
-				 <&llce_mb S32G274_LLCE_CAN_TX_MB 9>;
+			compatible = "nxp,s32g-llce-can";
+			mboxes = <&llce_mb S32G_LLCE_CAN_CONF_MB 9>,
+				 <&llce_mb S32G_LLCE_CAN_RX_MB 9>,
+				 <&llce_mb S32G_LLCE_CAN_TX_MB 9>;
 			mbox-names = "config", "rx", "tx";
 			clocks = <&clks S32G_SCMI_CLK_LLCE_CAN_PE>;
 			clock-names = "can_pe";
@@ -752,10 +752,10 @@
 		};
 
 		llce_can10: llce_can10 {
-			compatible = "nxp,s32g274a-llce-can";
-			mboxes = <&llce_mb S32G274_LLCE_CAN_CONF_MB 10>,
-				 <&llce_mb S32G274_LLCE_CAN_RX_MB 10>,
-				 <&llce_mb S32G274_LLCE_CAN_TX_MB 10>;
+			compatible = "nxp,s32g-llce-can";
+			mboxes = <&llce_mb S32G_LLCE_CAN_CONF_MB 10>,
+				 <&llce_mb S32G_LLCE_CAN_RX_MB 10>,
+				 <&llce_mb S32G_LLCE_CAN_TX_MB 10>;
 			mbox-names = "config", "rx", "tx";
 			clocks = <&clks S32G_SCMI_CLK_LLCE_CAN_PE>;
 			clock-names = "can_pe";
@@ -765,10 +765,10 @@
 		};
 
 		llce_can11: llce_can11 {
-			compatible = "nxp,s32g274a-llce-can";
-			mboxes = <&llce_mb S32G274_LLCE_CAN_CONF_MB 11>,
-				 <&llce_mb S32G274_LLCE_CAN_RX_MB 11>,
-				 <&llce_mb S32G274_LLCE_CAN_TX_MB 11>;
+			compatible = "nxp,s32g-llce-can";
+			mboxes = <&llce_mb S32G_LLCE_CAN_CONF_MB 11>,
+				 <&llce_mb S32G_LLCE_CAN_RX_MB 11>,
+				 <&llce_mb S32G_LLCE_CAN_TX_MB 11>;
 			mbox-names = "config", "rx", "tx";
 			clocks = <&clks S32G_SCMI_CLK_LLCE_CAN_PE>;
 			clock-names = "can_pe";
@@ -778,10 +778,10 @@
 		};
 
 		llce_can12: llce_can12 {
-			compatible = "nxp,s32g274a-llce-can";
-			mboxes = <&llce_mb S32G274_LLCE_CAN_CONF_MB 12>,
-				 <&llce_mb S32G274_LLCE_CAN_RX_MB 12>,
-				 <&llce_mb S32G274_LLCE_CAN_TX_MB 12>;
+			compatible = "nxp,s32g-llce-can";
+			mboxes = <&llce_mb S32G_LLCE_CAN_CONF_MB 12>,
+				 <&llce_mb S32G_LLCE_CAN_RX_MB 12>,
+				 <&llce_mb S32G_LLCE_CAN_TX_MB 12>;
 			mbox-names = "config", "rx", "tx";
 			clocks = <&clks S32G_SCMI_CLK_LLCE_CAN_PE>;
 			clock-names = "can_pe";
@@ -791,10 +791,10 @@
 		};
 
 		llce_can13: llce_can13 {
-			compatible = "nxp,s32g274a-llce-can";
-			mboxes = <&llce_mb S32G274_LLCE_CAN_CONF_MB 13>,
-				 <&llce_mb S32G274_LLCE_CAN_RX_MB 13>,
-				 <&llce_mb S32G274_LLCE_CAN_TX_MB 13>;
+			compatible = "nxp,s32g-llce-can";
+			mboxes = <&llce_mb S32G_LLCE_CAN_CONF_MB 13>,
+				 <&llce_mb S32G_LLCE_CAN_RX_MB 13>,
+				 <&llce_mb S32G_LLCE_CAN_TX_MB 13>;
 			mbox-names = "config", "rx", "tx";
 			clocks = <&clks S32G_SCMI_CLK_LLCE_CAN_PE>;
 			clock-names = "can_pe";
@@ -804,10 +804,10 @@
 		};
 
 		llce_can14: llce_can14 {
-			compatible = "nxp,s32g274a-llce-can";
-			mboxes = <&llce_mb S32G274_LLCE_CAN_CONF_MB 14>,
-				 <&llce_mb S32G274_LLCE_CAN_RX_MB 14>,
-				 <&llce_mb S32G274_LLCE_CAN_TX_MB 14>;
+			compatible = "nxp,s32g-llce-can";
+			mboxes = <&llce_mb S32G_LLCE_CAN_CONF_MB 14>,
+				 <&llce_mb S32G_LLCE_CAN_RX_MB 14>,
+				 <&llce_mb S32G_LLCE_CAN_TX_MB 14>;
 			mbox-names = "config", "rx", "tx";
 			clocks = <&clks S32G_SCMI_CLK_LLCE_CAN_PE>;
 			clock-names = "can_pe";
@@ -817,10 +817,10 @@
 		};
 
 		llce_can15: llce_can15 {
-			compatible = "nxp,s32g274a-llce-can";
-			mboxes = <&llce_mb S32G274_LLCE_CAN_CONF_MB 15>,
-				 <&llce_mb S32G274_LLCE_CAN_RX_MB 15>,
-				 <&llce_mb S32G274_LLCE_CAN_TX_MB 15>;
+			compatible = "nxp,s32g-llce-can";
+			mboxes = <&llce_mb S32G_LLCE_CAN_CONF_MB 15>,
+				 <&llce_mb S32G_LLCE_CAN_RX_MB 15>,
+				 <&llce_mb S32G_LLCE_CAN_TX_MB 15>;
 			mbox-names = "config", "rx", "tx";
 			clocks = <&clks S32G_SCMI_CLK_LLCE_CAN_PE>;
 			clock-names = "can_pe";
