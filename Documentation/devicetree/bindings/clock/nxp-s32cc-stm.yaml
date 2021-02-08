@@ -1,0 +1,56 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/clock/nxp-s32cc-stm.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: NXP STM timer used as clockevents
+
+maintainers:
+  - Larisa Grigore <larisa.grigore@nxp.com>
+
+properties:
+  compatible:
+    oneOf:
+      - enum:
+          - nxp,s32cc-stm
+
+  reg:
+    maxItems: 1
+
+  interrupts:
+    maxItems: 1
+
+  clocks:
+    items:
+      - description: stm clock
+
+  clock-names:
+    items:
+      - const: stm
+
+  cpu:
+    maxItems: 1
+
+required:
+  - clocks
+  - clock-names
+  - compatible
+  - cpu
+  - interrupts
+  - reg
+
+unevaluatedProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/clock/s32cc-scmi-clock.h>
+
+    stm0: stm@4011C000{
+        compatible = "nxp,s32cc-stm";
+        reg = <0x4011C000 0x3000>;
+        interrupts= <0 24 4>;
+        clocks = <&clks S32CC_SCMI_CLK_STM_MODULE>;
+        clock-names = "stm";
+        cpu = <2>;
+    };
