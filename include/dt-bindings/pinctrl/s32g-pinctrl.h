@@ -12,8 +12,8 @@
  *
  */
 
-#ifndef __DT_BINDINGS_S32G274_PINCTRL_H__
-#define __DT_BINDINGS_S32G274_PINCTRL_H__
+#ifndef __DT_BINDINGS_S32G_PINCTRL_H__
+#define __DT_BINDINGS_S32G_PINCTRL_H__
 /* Reference manuals used to build this pinctrl table */
 /* RM S32G2xx - Rev1 Draft F
 */
@@ -1029,4 +1029,4 @@
 #define S32_GEN1_PAD_PK_13_LLCE_CAN15_TX	173	(PAD_CTL_OBE | \
 							 PAD_CTL_SRC_SIG_SEL1)
 
-#endif /* __DT_BINDINGS_S32G274_PINCTRL_H__ */
+#endif /* __DT_BINDINGS_S32G_PINCTRL_H__ */
