@@ -14,7 +14,6 @@ properties:
   compatible:
     const:
       - fsl,s32v234-siul2-gpio
-      - fsl,s32g274a-siul2-gpio
 
   reg:
     description: |
