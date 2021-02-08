@@ -950,7 +950,7 @@ static int __maybe_unused llce_can_resume(struct device *device)
 
 static const struct of_device_id llce_can_match[] = {
 	{
-		.compatible = "nxp,s32g274a-llce-can",
+		.compatible = "nxp,s32g-llce-can",
 	},
 	{ /* sentinel */ }
 };

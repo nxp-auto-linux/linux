@@ -43,7 +43,7 @@
 #define LLCE_CAN_ICSR_RXOUT_INDEX	1
 #define LLCE_CAN_ICSR_TXACK_INDEX	2
 
-#define LLCE_CAN_COMPATIBLE "nxp,s32g274a-llce-can"
+#define LLCE_CAN_COMPATIBLE "nxp,s32g-llce-can"
 
 #define LLCE_ARR_ENTRY(BASE_INDEX, ENTRY) \
 	[ENTRY - BASE_INDEX] = __stringify_1(ENTRY)
@@ -207,18 +207,18 @@ const char *llce_modules[] = {
 };
 
 static const struct llce_mb_desc mb_map[] = {
-	[S32G274_LLCE_HIF_CONF_MB] = {
+	[S32G_LLCE_HIF_CONF_MB] = {
 		.nchan = 2,
 	},
-	[S32G274_LLCE_CAN_CONF_MB] = {
+	[S32G_LLCE_CAN_CONF_MB] = {
 		.nchan = 16,
 	},
-	[S32G274_LLCE_CAN_RX_MB] = {
+	[S32G_LLCE_CAN_RX_MB] = {
 		.nchan = 16,
 		.startup = llce_rx_startup,
 		.shutdown = llce_rx_shutdown,
 	},
-	[S32G274_LLCE_CAN_TX_MB] = {
+	[S32G_LLCE_CAN_TX_MB] = {
 		.nchan = 16,
 		.startup = llce_tx_startup,
 		.shutdown = llce_tx_shutdown,
@@ -352,7 +352,7 @@ static void __iomem *get_txack_fifo(struct mbox_chan *chan)
 	struct llce_chan_priv *priv = chan->con_priv;
 	struct llce_mb *mb = priv->mb;
 
-	if (priv->type == S32G274_LLCE_HIF_CONF_MB)
+	if (priv->type == S32G_LLCE_HIF_CONF_MB)
 		return get_host_txack(mb, LLCE_CAN_HIF0);
 
 	return get_txack_by_index(mb, priv->index);
@@ -386,18 +386,18 @@ static void __iomem *get_blrin_fifo(struct mbox_chan *chan)
 
 static bool is_config_chan(unsigned int chan_type)
 {
-	return chan_type == S32G274_LLCE_CAN_CONF_MB ||
-		chan_type == S32G274_LLCE_HIF_CONF_MB;
+	return chan_type == S32G_LLCE_CAN_CONF_MB ||
+		chan_type == S32G_LLCE_HIF_CONF_MB;
 }
 
 static bool is_rx_chan(unsigned int chan_type)
 {
-	return chan_type == S32G274_LLCE_CAN_RX_MB;
+	return chan_type == S32G_LLCE_CAN_RX_MB;
 }
 
 static bool is_tx_chan(unsigned int chan_type)
 {
-	return chan_type == S32G274_LLCE_CAN_TX_MB;
+	return chan_type == S32G_LLCE_CAN_TX_MB;
 }
 
 static int init_chan_priv(struct mbox_chan *chan, struct llce_mb *mb,
@@ -772,7 +772,7 @@ static bool llce_mb_last_tx_done(struct mbox_chan *chan)
 
 	mutex_unlock(&mb->txack_lock);
 
-	if (priv->type != S32G274_LLCE_HIF_CONF_MB)
+	if (priv->type != S32G_LLCE_HIF_CONF_MB)
 		llce_mbox_chan_received_data(chan, cmd);
 
 	return true;
@@ -920,7 +920,7 @@ static void llce_process_tx_ack(struct llce_mb *mb, uint8_t index)
 		ack_id = readl(pop0) & LLCE_CAN_CONFIG_FIFO_FIXED_MASK;
 
 		info = &sh_mem->can_tx_ack_info[ack_id];
-		chan_index = get_channel_offset(S32G274_LLCE_CAN_TX_MB,
+		chan_index = get_channel_offset(S32G_LLCE_CAN_TX_MB,
 						info->frame_tag1);
 		notif.error = 0;
 		notif.tx_timestamp = info->tx_timestamp;
@@ -977,9 +977,9 @@ static void process_channel_err(struct llce_mb *mb,
 
 	switch (module_id) {
 	case LLCE_TX:
-		return process_chan_err(mb, S32G274_LLCE_CAN_TX_MB, error);
+		return process_chan_err(mb, S32G_LLCE_CAN_TX_MB, error);
 	case LLCE_RX:
-		return process_chan_err(mb, S32G274_LLCE_CAN_RX_MB, error);
+		return process_chan_err(mb, S32G_LLCE_CAN_RX_MB, error);
 	default:
 		break;
 	}
@@ -1059,7 +1059,7 @@ static int process_pop_rxout(struct mbox_chan *chan, struct llce_rx_msg *msg)
 	rx_mb = readl(pop0) & LLCE_CAN_CONFIG_FIFO_FIXED_MASK;
 
 	frame_id = sh_mem->can_rx_mb_desc[rx_mb].mb_frame_idx;
-	chan_index = get_channel_offset(S32G274_LLCE_CAN_RX_MB, priv->index);
+	chan_index = get_channel_offset(S32G_LLCE_CAN_RX_MB, priv->index);
 	msg->rx_pop.can_mb = &sh_mem->can_mb[frame_id];
 	msg->rx_pop.index = rx_mb;
 
@@ -1119,7 +1119,7 @@ static void llce_process_rxout(struct llce_mb *mb, uint8_t index)
 		.cmd = LLCE_RX_NOTIF,
 	};
 
-	chan_index = get_channel_offset(S32G274_LLCE_CAN_RX_MB, index);
+	chan_index = get_channel_offset(S32G_LLCE_CAN_RX_MB, index);
 	disable_rx_irq(&ctrl->chans[chan_index]);
 
 	llce_mbox_chan_received_data(&ctrl->chans[chan_index], &msg);
@@ -1298,7 +1298,7 @@ static struct mbox_chan *get_hif_cfg_chan(struct llce_mb *mb)
 	struct mbox_controller *ctrl = &mb->controller;
 	unsigned int chan_index;
 
-	chan_index = get_channel_offset(S32G274_LLCE_HIF_CONF_MB,
+	chan_index = get_channel_offset(S32G_LLCE_HIF_CONF_MB,
 					LLCE_CAN_HIF0);
 	return &ctrl->chans[chan_index];
 }
@@ -1307,7 +1307,7 @@ static int init_hif_config_chan(struct llce_mb *mb)
 {
 	struct mbox_chan *chan = get_hif_cfg_chan(mb);
 
-	return init_chan_priv(chan, mb, S32G274_LLCE_HIF_CONF_MB,
+	return init_chan_priv(chan, mb, S32G_LLCE_HIF_CONF_MB,
 			      LLCE_CAN_HIF0);
 }
 
@@ -1619,7 +1619,7 @@ static int __maybe_unused llce_mb_resume(struct device *dev)
 
 static const struct of_device_id llce_mb_match[] = {
 	{
-		.compatible = "nxp,s32g274a-llce-mailbox",
+		.compatible = "nxp,s32g-llce-mailbox",
 	},
 	{ /* sentinel */ }
 };
