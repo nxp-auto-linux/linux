@@ -445,7 +445,7 @@ static int __maybe_unused llce_core_resume(struct device *dev)
 
 static const struct of_device_id llce_core_match[] = {
 	{
-		.compatible = "nxp,s32g274a-llce-core",
+		.compatible = "nxp,s32g-llce-core",
 	},
 	{ /* sentinel */ }
 };
