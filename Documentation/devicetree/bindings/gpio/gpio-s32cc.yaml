@@ -32,9 +32,8 @@ description: |
 properties:
   compatible:
     const:
-      - fsl,irq_reqs-s32gen1
-      - fsl,opad0_reqs-s32gen1
-      - fsl,ipad0_reqs-s32gen1
+      - fsl,s32gen1-siul2-gpio
+      - fsl,s32g274a-siul2-gpio
 
   interrupts:
     description:
