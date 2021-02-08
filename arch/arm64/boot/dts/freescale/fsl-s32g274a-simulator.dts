@@ -9,7 +9,7 @@
 
 /dts-v1/;
 #include "fsl-s32g.dtsi"
-#include <dt-bindings/pinctrl/s32g274-pinctrl.h>
+#include <dt-bindings/pinctrl/s32g-pinctrl.h>
 / {
 	model = "Freescale S32G274";
 	compatible = "fsl,s32g274-simu", "fsl,s32g274",
@@ -63,7 +63,7 @@
 			 /* IMCR range */
 			 <2 0 0x0 0x4009CA40 0x0 0x150>;
 		pinctrl0: siul2-pinctrl0@4009C000 {
-			compatible = "fsl,s32g274-siul2_0-pinctrl";
+			compatible = "fsl,s32g-siul2_0-pinctrl";
 			#pinctrl-cells = <2>;
 			reg = <0x1 0x0 0x0 0x198>,
 			<0x2 0x0 0x0 0x150>;
@@ -202,7 +202,7 @@
 			 <2 0 0x0 0x44010C1C 0x0 0x5E4>;
 
 		pinctrl1: siul2-pinctrl1@44010000 {
-			compatible = "fsl,s32g274-siul2_1-pinctrl";
+			compatible = "fsl,s32g-siul2_1-pinctrl";
 			#pinctrl-cells = <2>;
 			reg = <0x1 0x0 0x0 0x13C>,
 			<0x2 0x0 0x0 0x5E4>;
