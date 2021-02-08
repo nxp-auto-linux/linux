@@ -93,7 +93,7 @@
 		};
 	};
 
-	cpus {
+	cpus: cpus {
 		#address-cells = <2>;
 		#size-cells = <0>;
 
