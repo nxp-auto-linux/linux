@@ -67,10 +67,11 @@
 				  "bmu", "nocpy", "upegpt", "safety";
 		clocks = <&clks S32GEN1_CLK_PFE_SYS>,
 			 <&clks S32GEN1_CLK_PFE_PE>,
-			 <&clks S32GEN1_CLK_XBAR>,
 			 <&clks S32GEN1_CLK_GMAC_0_TS>;
-		clock-names = "pfe_sys", "pfe_pe", "xbar", "pfe_ts";
-		firmware-name = "s32g_pfe_class.fw";
+		clock-names = "pfe_sys", "pfe_pe", "pfe_ts";
+		fsl,fw-class-name = "s32g_pfe_class.fw";
+		fsl,fw-util-name = "s32g_pfe_util.fw";
+
 		/* EMAC 0 */
 		pfe0_if: ethernet@0 {
 			compatible = "fsl,pfeng-logif";
