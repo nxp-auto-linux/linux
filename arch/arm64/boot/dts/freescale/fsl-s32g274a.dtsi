@@ -71,7 +71,7 @@
 			 <&clks S32G_SCMI_CLK_PFE_PE>,
 			 <&clks S32G_SCMI_CLK_PFE_TS>;
 		clock-names = "pfe_sys", "pfe_pe", "pfe_ts";
-		firmware-name = "s32g_pfe_class.fw";
+		dma-coherent;
 		fsl,fw-class-name = "s32g_pfe_class.fw";
 		fsl,fw-util-name = "s32g_pfe_util.fw";
 		/* EMAC 0 */
