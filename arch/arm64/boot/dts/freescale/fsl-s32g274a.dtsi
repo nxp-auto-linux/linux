@@ -69,6 +69,7 @@
 			 <&clks S32GEN1_CLK_PFE_PE>,
 			 <&clks S32GEN1_CLK_GMAC_0_TS>;
 		clock-names = "pfe_sys", "pfe_pe", "pfe_ts";
+		dma-coherent;
 		fsl,fw-class-name = "s32g_pfe_class.fw";
 		fsl,fw-util-name = "s32g_pfe_util.fw";
 
@@ -97,7 +98,7 @@
 			status = "okay";
 			reg = <1>;
 			clocks = <&clks S32GEN1_CLK_PFE_EMAC_1_TX>;
-			clock-names = "tx";
+			clock-names = "tx_rgmii";
 			local-mac-address = [ 00 04 9F BE EF 01 ];
 			fsl,pfeng-if-name = "pfe1";
 			fsl,pfeng-emac-id = <1>; /* Phy IF (EMAC) id */
@@ -116,7 +117,7 @@
 			status = "okay";
 			reg = <2>;
 			clocks = <&clks S32GEN1_CLK_PFE_EMAC_2_TX>;
-			clock-names = "tx";
+			clock-names = "tx_rgmii";
 			local-mac-address = [ 00 04 9F BE EF 02 ];
 			fsl,pfeng-if-name = "pfe2";
 			fsl,pfeng-emac-id = <2>; /* Phy IF (EMAC) id */
