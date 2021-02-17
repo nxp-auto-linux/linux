@@ -666,30 +666,30 @@ Dcu_Err_t DCU_RegisterCallbackCRCOverflow(Dcu_Unit_t dcu_id, Dcu_Callback_t aCal
 #endif /* DCU_SAFETY_FUNCTIONALITY */
 
 #if (1 == DCU_HUD_FUNCTIONALITY)
-Dcu_Err_t DCU_EnableHUDIrq(Dcu_HUDUnit_t dcu_id, uint32_t int_mask);
-Dcu_Err_t DCU_DisableHUDIrq(Dcu_HUDUnit_t dcu_id, uint32_t int_mask);
-Dcu_Err_t DCU_RegisterCallbackLDDONE(Dcu_HUDUnit_t dcu_id, Dcu_Callback_t aCallback);
-Dcu_Err_t DCU_RegisterCallbackXOVFLW(Dcu_HUDUnit_t dcu_id, Dcu_Callback_t aCallback);
-Dcu_Err_t DCU_RegisterCallbackYOVFLW (Dcu_HUDUnit_t dcu_id, Dcu_Callback_t aCallback);
+Dcu_Err_t DCU_EnableHUDIrq(enum Dcu_HUDUnit_t dcu_id, uint32_t int_mask);
+Dcu_Err_t DCU_DisableHUDIrq(enum Dcu_HUDUnit_t dcu_id, uint32_t int_mask);
+Dcu_Err_t DCU_RegisterCallbackLDDONE(enum Dcu_HUDUnit_t dcu_id, Dcu_Callback_t aCallback);
+Dcu_Err_t DCU_RegisterCallbackXOVFLW(enum Dcu_HUDUnit_t dcu_id, Dcu_Callback_t aCallback);
+Dcu_Err_t DCU_RegisterCallbackYOVFLW (enum Dcu_HUDUnit_t dcu_id, Dcu_Callback_t aCallback);
 #endif /* DCU_HUD_FUNCTIONALITY */
 #endif /* DCU_IRQ_SUPPORT */
 
 /***************	HUD SUPPORT	***************/
 #if (1 == DCU_HUD_FUNCTIONALITY)
-Dcu_Err_t DCU_SetHUDConfig(Dcu_HUDUnit_t dcu_id, Dcu_Warp_t* pHUDConfig);
-void DCU_HUDEnable(Dcu_HUDUnit_t dcu_id); 
-void DCU_HUDDisable(Dcu_HUDUnit_t dcu_id);
-Dcu_Err_t DCU_SetHUDSize(Dcu_HUDUnit_t dcu_id, Dcu_Size_t* pSize);
-void DCU_SetHUDLineDescrAddress(Dcu_HUDUnit_t dcu_id, uint32_t addr);
-void DCU_SetHUDLineDescrSize(Dcu_HUDUnit_t dcu_id, uint32_t TableSize);
-void DCU_SetHUDLBLinesNum(Dcu_HUDUnit_t dcu_id, uint8_t NumLines);
-void DCU_SetHUDTransferSize(Dcu_HUDUnit_t dcu_id, uint8_t NumBytes);
-Dcu_Err_t DCU_GetHUDLineDescrAddress(Dcu_HUDUnit_t dcu_id, uint32_t* pValue);
-Dcu_Err_t DCU_GetHUDLineDescrSize(Dcu_HUDUnit_t dcu_id, uint32_t* pValue);
-Dcu_Err_t DCU_GetHUDLBLinesNum(Dcu_HUDUnit_t dcu_id, uint8_t* pNumLines);
-Dcu_Err_t DCU_GetHUDTransferSize(Dcu_HUDUnit_t dcu_id, uint8_t* pNumBytes);
-Dcu_Err_t DCU_GetHUDXoverflowPos(Dcu_HUDUnit_t dcu_id, Dcu_HUDErrPos_t* pXErrPixel);
-Dcu_Err_t DCU_GetHUDYoverflowPos (Dcu_HUDUnit_t dcu_id, Dcu_HUDErrPos_t* pYErrPixel);
+Dcu_Err_t DCU_SetHUDConfig(enum Dcu_HUDUnit_t dcu_id, Dcu_Warp_t* pHUDConfig);
+void DCU_HUDEnable(enum Dcu_HUDUnit_t dcu_id); 
+void DCU_HUDDisable(enum Dcu_HUDUnit_t dcu_id);
+Dcu_Err_t DCU_SetHUDSize(enum Dcu_HUDUnit_t dcu_id, Dcu_Size_t* pSize);
+void DCU_SetHUDLineDescrAddress(enum Dcu_HUDUnit_t dcu_id, uint32_t addr);
+void DCU_SetHUDLineDescrSize(enum Dcu_HUDUnit_t dcu_id, uint32_t TableSize);
+void DCU_SetHUDLBLinesNum(enum Dcu_HUDUnit_t dcu_id, uint8_t NumLines);
+void DCU_SetHUDTransferSize(enum Dcu_HUDUnit_t dcu_id, uint8_t NumBytes);
+Dcu_Err_t DCU_GetHUDLineDescrAddress(enum Dcu_HUDUnit_t dcu_id, uint32_t* pValue);
+Dcu_Err_t DCU_GetHUDLineDescrSize(enum Dcu_HUDUnit_t dcu_id, uint32_t* pValue);
+Dcu_Err_t DCU_GetHUDLBLinesNum(enum Dcu_HUDUnit_t dcu_id, uint8_t* pNumLines);
+Dcu_Err_t DCU_GetHUDTransferSize(enum Dcu_HUDUnit_t dcu_id, uint8_t* pNumBytes);
+Dcu_Err_t DCU_GetHUDXoverflowPos(enum Dcu_HUDUnit_t dcu_id, Dcu_HUDErrPos_t* pXErrPixel);
+Dcu_Err_t DCU_GetHUDYoverflowPos (enum Dcu_HUDUnit_t dcu_id, Dcu_HUDErrPos_t* pYErrPixel);
 #endif /* DCU_HUD_FUNCTIONALITY */
 #if (1 == DCU_WRITEBACK_FUNCTIONALITY)
 Dcu_Err_t DCU_SetWriteBackConfig(Dcu_Unit_t dcu_id, Dcu_WriteBack_t* pWBConfigData);
