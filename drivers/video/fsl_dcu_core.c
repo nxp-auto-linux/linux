@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0
 /**
 *	 @file		dcu.c
 *
@@ -2547,7 +2548,7 @@ Dcu_Err_t DCU_DisableSafetyIrq(Dcu_Unit_t dcu_id, uint32_t int_mask)
 
 #if (1 == DCU_HUD_FUNCTIONALITY)
 /***************		HUD SUPPORT		***************/
-Dcu_Err_t DCU_SetHUDConfig(Dcu_HUDUnit_t dcu_id, Dcu_Warp_t* pHUDConfig)
+Dcu_Err_t DCU_SetHUDConfig(enum Dcu_HUDUnit_t dcu_id, Dcu_Warp_t* pHUDConfig)
 {
 	Dcu_Err_t err = DCU_ERR_OK;
 
@@ -2591,17 +2592,17 @@ Dcu_Err_t DCU_SetHUDConfig(Dcu_HUDUnit_t dcu_id, Dcu_Warp_t* pHUDConfig)
 
 }
 
-void DCU_HUDEnable(Dcu_HUDUnit_t dcu_id) 
+void DCU_HUDEnable(enum Dcu_HUDUnit_t dcu_id) 
 {
 	REG_BIT_SET32(DCU_WARP_CTRL_ADDR32(dcu_id), DCU_WARP_CTRL_HUDEN_MASK);
 }
 
-void DCU_HUDDisable(Dcu_HUDUnit_t dcu_id)
+void DCU_HUDDisable(enum Dcu_HUDUnit_t dcu_id)
 {
 	REG_BIT_CLEAR32(DCU_WARP_CTRL_ADDR32(dcu_id), DCU_WARP_CTRL_HUDEN_MASK);
 }
 
-Dcu_Err_t DCU_SetHUDSize(Dcu_HUDUnit_t dcu_id, Dcu_Size_t* pSize)
+Dcu_Err_t DCU_SetHUDSize(enum Dcu_HUDUnit_t dcu_id, Dcu_Size_t* pSize)
 {
 	Dcu_Err_t err = DCU_ERR_OK;
 
@@ -2617,12 +2618,12 @@ Dcu_Err_t DCU_SetHUDSize(Dcu_HUDUnit_t dcu_id, Dcu_Size_t* pSize)
 	return(err);
 }
 
-void DCU_SetHUDLineDescrAddress(Dcu_HUDUnit_t dcu_id, uint32_t addr)
+void DCU_SetHUDLineDescrAddress(enum Dcu_HUDUnit_t dcu_id, uint32_t addr)
 {
 	REG_WRITE32(DCU_WARP_DESC_ADDR_ADDR32(dcu_id), addr);
 }
 
-Dcu_Err_t DCU_GetHUDLineDescrAddress(Dcu_HUDUnit_t dcu_id, uint32_t* pValue)
+Dcu_Err_t DCU_GetHUDLineDescrAddress(enum Dcu_HUDUnit_t dcu_id, uint32_t* pValue)
 {
 	Dcu_Err_t err = DCU_ERR_OK;
 
@@ -2637,12 +2638,12 @@ Dcu_Err_t DCU_GetHUDLineDescrAddress(Dcu_HUDUnit_t dcu_id, uint32_t* pValue)
 	return(err);
 }
 
-void DCU_SetHUDLineDescrSize(Dcu_HUDUnit_t dcu_id, uint32_t TableSize)
+void DCU_SetHUDLineDescrSize(enum Dcu_HUDUnit_t dcu_id, uint32_t TableSize)
 {
 	REG_WRITE32(DCU_WARP_DESC_TBSZ_ADDR32(dcu_id), TableSize);
 }
 
-Dcu_Err_t DCU_GetHUDLineDescrSize(Dcu_HUDUnit_t dcu_id, uint32_t* pValue)
+Dcu_Err_t DCU_GetHUDLineDescrSize(enum Dcu_HUDUnit_t dcu_id, uint32_t* pValue)
 {
 	Dcu_Err_t err = DCU_ERR_OK;
 
@@ -2657,12 +2658,12 @@ Dcu_Err_t DCU_GetHUDLineDescrSize(Dcu_HUDUnit_t dcu_id, uint32_t* pValue)
 	return(err);
 }
 
-void DCU_SetHUDLBLinesNum(Dcu_HUDUnit_t dcu_id, uint8_t NumLines)
+void DCU_SetHUDLBLinesNum(enum Dcu_HUDUnit_t dcu_id, uint8_t NumLines)
 {
   REG_RMW32(DCU_WARP_CTRL_ADDR32(dcu_id), DCU_WARP_CTRL_LINESLB_MASK, (NumLines << DCU_WARP_CTRL_LINESLB_SHIFT));
 }
 
-Dcu_Err_t DCU_GetHUDLBLinesNum(Dcu_HUDUnit_t dcu_id, uint8_t* pNumLines)
+Dcu_Err_t DCU_GetHUDLBLinesNum(enum Dcu_HUDUnit_t dcu_id, uint8_t* pNumLines)
 {
 	Dcu_Err_t err = DCU_ERR_OK;
 
@@ -2677,12 +2678,12 @@ Dcu_Err_t DCU_GetHUDLBLinesNum(Dcu_HUDUnit_t dcu_id, uint8_t* pNumLines)
 	return(err);
 }
 
-void DCU_SetHUDTransferSize(Dcu_HUDUnit_t dcu_id, uint8_t NumBytes)
+void DCU_SetHUDTransferSize(enum Dcu_HUDUnit_t dcu_id, uint8_t NumBytes)
 {
   REG_RMW32(DCU_WARP_CTRL_ADDR32(dcu_id), DCU_WARP_CTRL_AXIXFRS_MASK, (NumBytes << DCU_WARP_CTRL_AXIXFRS_SHIFT));
 }
 
-Dcu_Err_t DCU_GetHUDTransferSize(Dcu_HUDUnit_t dcu_id, uint8_t* pNumBytes)
+Dcu_Err_t DCU_GetHUDTransferSize(enum Dcu_HUDUnit_t dcu_id, uint8_t* pNumBytes)
 {
 	Dcu_Err_t err = DCU_ERR_OK;
 
@@ -2697,7 +2698,7 @@ Dcu_Err_t DCU_GetHUDTransferSize(Dcu_HUDUnit_t dcu_id, uint8_t* pNumBytes)
 	return(err);
 }
 
-Dcu_Err_t DCU_GetHUDXoverflowPos(Dcu_HUDUnit_t dcu_id, Dcu_HUDErrPos_t* pXErrPixel)
+Dcu_Err_t DCU_GetHUDXoverflowPos(enum Dcu_HUDUnit_t dcu_id, Dcu_HUDErrPos_t* pXErrPixel)
 {
 	Dcu_Err_t err = DCU_ERR_OK;
 
@@ -2713,7 +2714,7 @@ Dcu_Err_t DCU_GetHUDXoverflowPos(Dcu_HUDUnit_t dcu_id, Dcu_HUDErrPos_t* pXErrPix
 	return(err);
 }
 
-Dcu_Err_t DCU_GetHUDYoverflowPos(Dcu_HUDUnit_t dcu_id, Dcu_HUDErrPos_t* pYErrPixel)
+Dcu_Err_t DCU_GetHUDYoverflowPos(enum Dcu_HUDUnit_t dcu_id, Dcu_HUDErrPos_t* pYErrPixel)
 {
 	Dcu_Err_t err = DCU_ERR_OK;
 
@@ -2730,7 +2731,7 @@ Dcu_Err_t DCU_GetHUDYoverflowPos(Dcu_HUDUnit_t dcu_id, Dcu_HUDErrPos_t* pYErrPix
 }
 
 #if (1 == DCU_IRQ_SUPPORT)
-Dcu_Err_t DCU_EnableHUDIrq(Dcu_HUDUnit_t dcu_id, uint32_t int_mask)
+Dcu_Err_t DCU_EnableHUDIrq(enum Dcu_HUDUnit_t dcu_id, uint32_t int_mask)
 {
 	Dcu_Err_t err = DCU_ERR_OK;
 
@@ -2774,7 +2775,7 @@ Dcu_Err_t DCU_EnableHUDIrq(Dcu_HUDUnit_t dcu_id, uint32_t int_mask)
 	return(err);
 }
 
-Dcu_Err_t DCU_DisableHUDIrq(Dcu_HUDUnit_t dcu_id, uint32_t int_mask)
+Dcu_Err_t DCU_DisableHUDIrq(enum Dcu_HUDUnit_t dcu_id, uint32_t int_mask)
 {
 	Dcu_Err_t err = DCU_ERR_OK;
 	uint32_t mask;
@@ -2801,7 +2802,7 @@ Dcu_Err_t DCU_DisableHUDIrq(Dcu_HUDUnit_t dcu_id, uint32_t int_mask)
 *
 * @return   error code  - DCU_ERR_NOCALLBACK for NULL pointer to the callback.  
 */
-Dcu_Err_t DCU_RegisterCallbackLDDONE(Dcu_HUDUnit_t dcu_id, Dcu_Callback_t aCallback)
+Dcu_Err_t DCU_RegisterCallbackLDDONE(enum Dcu_HUDUnit_t dcu_id, Dcu_Callback_t aCallback)
 {
 	Dcu_Err_t err = DCU_ERR_OK;
 
@@ -2826,7 +2827,7 @@ Dcu_Err_t DCU_RegisterCallbackLDDONE(Dcu_HUDUnit_t dcu_id, Dcu_Callback_t aCallb
 *
 * @return   error code  - DCU_ERR_NOCALLBACK for NULL pointer to the callback.  
 */
-Dcu_Err_t DCU_RegisterCallbackXOVFLW(Dcu_HUDUnit_t dcu_id, Dcu_Callback_t aCallback)
+Dcu_Err_t DCU_RegisterCallbackXOVFLW(enum Dcu_HUDUnit_t dcu_id, Dcu_Callback_t aCallback)
 {
 	Dcu_Err_t err = DCU_ERR_OK;
 
@@ -2851,7 +2852,7 @@ Dcu_Err_t DCU_RegisterCallbackXOVFLW(Dcu_HUDUnit_t dcu_id, Dcu_Callback_t aCallb
 *
 * @return   error code  - DCU_ERR_NOCALLBACK for NULL pointer to the callback.  
 */
-Dcu_Err_t DCU_RegisterCallbackYOVFLW (Dcu_HUDUnit_t dcu_id, Dcu_Callback_t aCallback)
+Dcu_Err_t DCU_RegisterCallbackYOVFLW (enum Dcu_HUDUnit_t dcu_id, Dcu_Callback_t aCallback)
 {
 	Dcu_Err_t err = DCU_ERR_OK;
 
