@@ -97,7 +97,7 @@
 			status = "okay";
 			reg = <1>;
 			clocks = <&clks S32GEN1_CLK_PFE_EMAC_1_TX>;
-			clock-names = "tx";
+			clock-names = "tx_rgmii";
 			local-mac-address = [ 00 04 9F BE EF 01 ];
 			fsl,pfeng-if-name = "pfe1";
 			fsl,pfeng-emac-id = <1>; /* Phy IF (EMAC) id */
@@ -116,7 +116,7 @@
 			status = "okay";
 			reg = <2>;
 			clocks = <&clks S32GEN1_CLK_PFE_EMAC_2_TX>;
-			clock-names = "tx";
+			clock-names = "tx_rgmii";
 			local-mac-address = [ 00 04 9F BE EF 02 ];
 			fsl,pfeng-if-name = "pfe2";
 			fsl,pfeng-emac-id = <2>; /* Phy IF (EMAC) id */
