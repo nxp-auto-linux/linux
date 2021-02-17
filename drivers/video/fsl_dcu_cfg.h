@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-2.0 */
 /*
  *   @file    dcu_cfg.h
  *
@@ -48,13 +49,14 @@ extern "C" {
 #endif
 
 /*****************************************************************************
-* platform config defines
-*****************************************************************************/
+ * platform config defines
+ ****************************************************************************
+ */
 
 /**
-* @brief DCU IP Version: DCU v00.00.02.01
-* @details M4_SRC_USED_PERIPHERAL IP Versions
-*/
+ * @brief DCU IP Version: DCU v00.00.02.01
+ * @details M4_SRC_USED_PERIPHERAL IP Versions
+ */
 #define IPV_DCU                     (IPV_DCU_TREERUNNER)
 #define DCU_DRV_VARIANT             (DRV_LINUX_OS)
 
@@ -94,9 +96,9 @@ extern "C" {
   #define DCU_TILE_FUNCTIONALITY          (1)
   #define DCU_TILE_MODE                   (TILE_FIX_SIZE)
 
-typedef enum {
+enum Dcu_HUDUnit_t {
 	HUD_DCU = 1                    /**< second 2D_ACE unit */
-} Dcu_HUDUnit_t;
+};
 
 #endif
 
@@ -139,9 +141,9 @@ typedef enum {
   #define DCU_TILE_FUNCTIONALITY          (1)
   #define DCU_TILE_MODE                   (TILE_VAR_SIZE)
 
-typedef enum {
+enum Dcu_HUDUnit_t {
 	HUD_DCU = 1                    /**< second 2D_ACE unit */
-} Dcu_HUDUnit_t;
+};
 
 #endif
 

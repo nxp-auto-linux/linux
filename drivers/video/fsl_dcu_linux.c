@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0
 /*
  * Copyright 2012-2016 Freescale Semiconductor, Inc.
  * Copyright 2017 NXP
@@ -394,6 +395,7 @@ static void fsl_dcu_upload_clut(unsigned long not_used)
 
 	for (layer = 0; layer < DCU_LAYER_NUM_MAX; layer++) {
 		struct dcu_clut_update_req *req = &clut_update_reqs[layer];
+
 		if (atomic_read(&req->enabled)) {
 			if (atomic_read(&dcu_vblank_state) == DCU_VBLANK_OFF) {
 				dev_warn(&dcu_pdev->dev,
