@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0
 /*
  * Copyright 2012-2016 Freescale Semiconductor, Inc.
  * Copyright 2017 NXP
@@ -249,8 +250,8 @@ static inline __u32 CNVT_TOHW(__u32 val, __u32 width)
 /**********************************************************
  * FUNCTION: fsl_fb_setcolreg
  **********************************************************/
-static int fsl_fb_setcolreg(unsigned regno, unsigned red, unsigned green,
-			unsigned blue, unsigned transp, struct fb_info *info)
+static int fsl_fb_setcolreg(unsigned int regno, unsigned int red, unsigned int green,
+			unsigned int blue, unsigned int transp, struct fb_info *info)
 {
 	unsigned int val;
 	int ret = -EINVAL;
