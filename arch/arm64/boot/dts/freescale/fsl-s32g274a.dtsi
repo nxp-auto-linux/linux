@@ -43,6 +43,12 @@
 			no-map;
 			status = "okay";
 		};
+		pfe_reserved_slave: pfebufs@83c00000 {
+			compatible = "shared-dma-pool";
+			reg = <0 0x83c00000 0 0x400000>;
+			no-map;
+			status = "disabled";
+		};
 	};
 
 	clks: clks@40038000 {
@@ -104,6 +110,7 @@
 			fsl,pfeng-if-name = "pfe0";
 			fsl,pfeng-emac-id = <0>; /* PFE_EMAC_0 */
 			fsl,pfeng-hif-channel = <0>; /* PFE_HIF_0 */
+			fsl,pfeng-ihc; /* IHC over PFE_HIF_0 */
 			pfe0_mdio: mdio@0 {
 				compatible = "fsl,pfeng-mdio";
 				#address-cells = <1>;
@@ -158,6 +165,40 @@
 				#size-cells = <0>;
 				reg = <0x1>;
 			};
+		};
+	};
+
+	/* Example of PFE slave driver entry. Disabled by default */
+	pfe_slave: pfe_slave@46000000 {
+		compatible = "fsl,s32g274a-pfeng-slave";
+		reg = <0x0 0x46000000 0x0 0x1000000>;	 /* PFE controller */
+		#address-cells = <0x01>;
+		#size-cells = <0x00>;
+		interrupt-parent = <&gic>;
+		interrupts =  <0 190 1>, /* hif0 */
+			      <0 191 1>, /* hif1 */
+			      <0 192 1>, /* hif2 */
+			      <0 193 1>, /* hif3 */
+			      <0 194 1>, /* bmu */
+			      <0 195 1>; /* nocpy */
+		interrupt-names = "hif0", "hif1", "hif2", "hif3",
+				  "bmu", "nocpy", "upegpt", "safety";
+		memory-region = <&pfe_reserved_slave>;
+		fsl,pfeng-master-hif-channel = <0>;
+		status = "disabled";
+
+		/* EMAC 0 */
+		pfe0sl_if: ethernet@0 {
+			compatible = "fsl,pfeng-logif";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "okay";
+			reg = <0>;
+			local-mac-address = [ 00 04 9F BE EF 11 ];
+			fsl,pfeng-if-name = "pfe0sl";
+			fsl,pfeng-hif-channel = <3>; /* PFE_HIF_3 */
+			fsl,pfeng-emac-id = <0>; /* PFE_EMAC_0 */
+			fsl,pfeng-ihc;
 		};
 	};
 
