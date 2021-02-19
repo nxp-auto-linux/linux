@@ -614,72 +614,63 @@ static int s32gen1_pcie_start_link(struct dw_pcie *pcie)
 	struct s32gen1_pcie *s32_pp = to_s32gen1_from_dw_pcie(pcie);
 	u32 tmp;
 	int ret = 0, count;
-	int link_speed = -1;
 
 	DEBUG_FUNC;
 
-	dw_pcie_dbi_ro_wr_en(pcie);
-
-	if (!dw_pcie_link_up(pcie)) {
+	/* Don't do anything for End Point */
+	if (s32_pp->is_endpoint) {
 		ret = dw_pcie_wait_for_link(pcie);
 		goto out;
 	}
 
-	link_speed = s32gen1_pcie_get_link_speed(s32_pp);
+	dw_pcie_dbi_ro_wr_en(pcie);
 
-	/* Gen 1 devices work with u-boot link;
-	 * Gen2 or higher (e.g. NVMe) need re-ajustments
+	/* Try to (re)establish the link, starting with Gen1 */
+	s32gen1_pcie_disable_ltssm(s32_pp);
+
+	BCLRSET16(pcie, dbi, PCI_EXP_CAP_ID + PCI_EXP_LNKCAP,
+			PCI_EXP_LNKCAP_SLS_2_5GB, PCI_EXP_LNKCAP_SLS);
+
+	/* Start LTSSM. */
+	s32gen1_pcie_enable_ltssm(s32_pp);
+	ret = dw_pcie_wait_for_link(pcie);
+
+	if (ret)
+		goto out;
+
+	/* Allow Gen2 or Gen3 mode after the link is up. */
+	BCLRSET16(pcie, dbi, PCI_EXP_CAP_ID + PCI_EXP_LNKCAP,
+			s32_pp->linkspeed, PCI_EXP_LNKCAP_SLS);
+
+	/*
+	 * Start Directed Speed Change so the best possible speed both link
+	 * partners support can be negotiated.
+	 * The manual says:
+	 * When you set the default of the Directed Speed Change field of the
+	 * Link Width and Speed Change Control register
+	 * (GEN2_CTRL_OFF.DIRECT_SPEED_CHANGE) using the
+	 * DEFAULT_GEN2_SPEED_CHANGE configuration parameter to 1, then
+	 * the speed change is initiated automatically after link up, and the
+	 * controller clears the contents of GEN2_CTRL_OFF.DIRECT_SPEED_CHANGE.
 	 */
-	if (link_speed > GEN1) {
-		/* Try to (re)establish the link, starting with Gen1 */
-		s32gen1_pcie_disable_ltssm(s32_pp);
+	BSET32(pcie, dbi, PCIE_LINK_WIDTH_SPEED_CONTROL,
+			PORT_LOGIC_SPEED_CHANGE);
 
-		BCLRSET16(pcie, dbi, PCI_EXP_CAP_ID + PCI_EXP_LNKCAP,
-				PCI_EXP_LNKCAP_SLS_2_5GB, PCI_EXP_LNKCAP_SLS);
+	count = 1000;
+	while (count--) {
+		tmp = dw_pcie_readl_dbi(pcie, PCIE_LINK_WIDTH_SPEED_CONTROL);
+		/* Test if the speed change finished. */
+		if (!(tmp & PORT_LOGIC_SPEED_CHANGE))
+			break;
+		usleep_range(100, 1000);
+	}
 
-		/* Start LTSSM. */
-		s32gen1_pcie_enable_ltssm(s32_pp);
+	/* Make sure link training is finished as well! */
+	if (count)
 		ret = dw_pcie_wait_for_link(pcie);
-
-		if (ret)
-			goto out;
-
-		/* Allow Gen2 or Gen3 mode after the link is up. */
-		BCLRSET16(pcie, dbi, PCI_EXP_CAP_ID + PCI_EXP_LNKCAP,
-				s32_pp->linkspeed, PCI_EXP_LNKCAP_SLS);
-
-		/*
-		 * Start Directed Speed Change so the best possible speed both
-		 * link partners support can be negotiated.
-		 * The manual says:
-		 * When you set the default of the Directed Speed Change field
-		 * of the Link Width and Speed Change Control register
-		 * (GEN2_CTRL_OFF.DIRECT_SPEED_CHANGE) using the
-		 * DEFAULT_GEN2_SPEED_CHANGE configuration parameter to 1, then
-		 * the speed change is initiated automatically after link up,
-		 * and the controller clears the contents of
-		 * GEN2_CTRL_OFF.DIRECT_SPEED_CHANGE.
-		 */
-		BSET32(pcie, dbi, PCIE_LINK_WIDTH_SPEED_CONTROL,
-				PORT_LOGIC_SPEED_CHANGE);
-
-		count = 1000;
-		while (count--) {
-			tmp = dw_pcie_readl_dbi(pcie,
-				PCIE_LINK_WIDTH_SPEED_CONTROL);
-			/* Test if the speed change finished. */
-			if (!(tmp & PORT_LOGIC_SPEED_CHANGE))
-				break;
-			usleep_range(100, 1000);
-		}
-
-		/* Make sure link training is finished as well! */
-		if (count) {
-			ret = dw_pcie_wait_for_link(pcie);
-		} else {
-			dev_err(pcie->dev, "Speed change timeout\n");
-			ret = -EINVAL;
-		}
+	else {
+		dev_err(pcie->dev, "Speed change timeout\n");
+		ret = -EINVAL;
 	}
 
 out:
