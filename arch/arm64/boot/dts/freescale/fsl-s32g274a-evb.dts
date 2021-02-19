@@ -70,6 +70,14 @@
 	};
 };
 
+&pfe_reserved_slave {
+	status = "disabled";
+};
+
+&pfe_slave {
+	status = "disabled";
+};
+
 &pfe {
 	status = "okay";
 	memory-region = <&pfe_reserved>;
