@@ -1,5 +1,5 @@
 /*
- * Copyright 2017-2020 NXP
+ * Copyright 2017-2021 NXP
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -28,6 +28,14 @@
 		device_type = "memory";
 		reg = <0 0xc0000000 0 0x40000000>;
 	};
+};
+
+&pfe_reserved  {
+	status = "disabled";
+};
+
+&pfe_reserved_slave  {
+	status = "disabled";
 };
 
 &fxosc {
