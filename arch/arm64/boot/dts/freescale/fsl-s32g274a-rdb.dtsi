@@ -26,7 +26,6 @@
 };
 
 &pfe0_if {
-	fsl,pfeng-hif-channel = <0>;
 	phy-mode = "sgmii";
 	fixed-link {
 		speed = <2500>;
@@ -35,7 +34,6 @@
 };
 
 &pfe2_if {
-	fsl,pfeng-hif-channel = <2>;
 	phy-mode = "rgmii";
 	phy-handle = <&mdio_b_phy4>;
 	pinctrl-names = "default";

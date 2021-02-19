@@ -102,7 +102,8 @@
 				      "tx_rmii", "tx_mii";
 			local-mac-address = [ 00 04 9F BE EF 00 ];
 			fsl,pfeng-if-name = "pfe0";
-			fsl,pfeng-emac-id = <0>; /* Phy IF (EMAC) id */
+			fsl,pfeng-emac-id = <0>; /* PFE_EMAC_0 */
+			fsl,pfeng-hif-channel = <0>; /* PFE_HIF_0 */
 			pfe0_mdio: mdio@0 {
 				compatible = "fsl,pfeng-mdio";
 				#address-cells = <1>;
@@ -125,7 +126,8 @@
 				      "tx_rmii", "tx_mii";
 			local-mac-address = [ 00 04 9F BE EF 01 ];
 			fsl,pfeng-if-name = "pfe1";
-			fsl,pfeng-emac-id = <1>; /* Phy IF (EMAC) id */
+			fsl,pfeng-emac-id = <1>; /* PFE_EMAC_1 */
+			fsl,pfeng-hif-channel = <1>; /* PFE_HIF_1 */
 			pfe1_mdio: mdio@0 {
 				compatible = "fsl,pfeng-mdio";
 				#address-cells = <1>;
@@ -148,7 +150,8 @@
 				      "tx_rmii", "tx_mii";
 			local-mac-address = [ 00 04 9F BE EF 02 ];
 			fsl,pfeng-if-name = "pfe2";
-			fsl,pfeng-emac-id = <2>; /* Phy IF (EMAC) id */
+			fsl,pfeng-emac-id = <2>; /* PFE_EMAC_2 */
+			fsl,pfeng-hif-channel = <2>; /* PFE_HIF_2 */
 			pfe2_mdio: mdio@0 {
 				compatible = "fsl,pfeng-mdio";
 				#address-cells = <1>;
