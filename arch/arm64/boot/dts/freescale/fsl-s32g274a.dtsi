@@ -32,6 +32,19 @@
 		interrupts = <0 68 4>;
 	};
 
+	reserved-memory {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		pfe_reserved: pfebufs@83000000 {
+			compatible = "shared-dma-pool";
+			reg = <0 0x83000000 0 0xc00000>;
+			no-map;
+			status = "okay";
+		};
+	};
+
 	clks: clks@40038000 {
 		compatible = "fsl,s32g274-clocking";
 		reg = <0x0 0x40038000 0x0 0x3000>, /*armpll*/
