@@ -2,7 +2,7 @@
 /*
  * Device Tree file for S32G274ARDB Board Rev C.
  *
- * Copyright 2020 NXP
+ * Copyright 2020-2021 NXP
  *
  */
 
@@ -12,6 +12,14 @@
 	model = "Freescale S32G274";
 	compatible = "fsl,s32g274-simu", "fsl,s32g274",
 				 "arm,vexpress,v2p-aarch64", "arm,vexpress";
+};
+
+&pfe_reserved_slave {
+	status = "disabled";
+};
+
+&pfe_slave {
+	status = "disabled";
 };
 
 &gmac0 {
@@ -24,7 +32,7 @@
 };
 
 &pfe1_if {
-	/* PFE0 can be used as SGMII(disabled by default) */
+	/* PFE1 can be used as SGMII(disabled by default) */
 	fsl,pfeng-hif-channel = <1>;
 	phy-mode = "sgmii";
 	status = "disabled";
