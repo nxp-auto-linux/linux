@@ -76,7 +76,6 @@
 };
 
 &pfe0_if {
-	fsl,pfeng-hif-channel = <0>;
 	phy-mode = "sgmii";
 	phy-handle = <&mdio_a_phy4>;
 };
@@ -84,7 +83,6 @@
 &pfe1_if {
 	/* RGMII port occupied by GMAC0 */
 	status = "disabled";
-	fsl,pfeng-hif-channel = <1>;
 	phy-mode = "rgmii";
 	phy-handle = <&mdio_c_phy4>;
 	pinctrl-names = "default";
@@ -92,7 +90,6 @@
 };
 
 &pfe2_if {
-	fsl,pfeng-hif-channel = <2>;
 	phy-mode = "rgmii";
 	fixed-link {
 		speed = <1000>;
