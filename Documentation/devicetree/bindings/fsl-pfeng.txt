@@ -1,15 +1,20 @@
+*
+* Copyright 2020-2021 NXP
+*
 * NXP S32G274A PFE networking accelerator (pfeng)
+*
 
 Required properties:
-- compatible : Should be "fsl,s32g274a-pfeng"
+- compatible : Should be "fsl,s32g274a-pfeng" or "fsl,s32g274a-pfeng-slave"
 - reg : Address and length of the register set for the device
 - interrupts : Should contain all pfeng interrupts: hif0..hif3,nocpy,bmu,upegpt,safety
-- clocks : Should contain at least: pfe_sys, pfe_pe, xbar
+- clocks : Should contain at least: pfe_sys & pfe_pe, optionally pfe_ts
 - memory-region : Physical address space for PFE buffers, must be in the range 0x00020000 - 0xbfffffff
-- phy-mode : See ethernet.txt file in the same directory
 
 Optional properties:
-- firmware-name : The name of PFE firmware
+- fsl,fw-class-name : PFE CLASS firmware filename
+- fsl,fw-util-name : PFE UTIL firmware filename
+- fsl,pfeng-master-hif-channel : [slave only] The number of master's HIF channel (0-3)
 
 Required subnode:
 - ethernet : specifies the logical network interface
@@ -17,20 +22,27 @@ Required subnode:
 Requires properties for 'ethernet' subnode:
 - compatible : Should be "fsl,pfeng-logif"
 - reg : Small number, indexing the network interfaces
-- fsl,pfeng-hif-channel : The number of HIF channel (0-3)
 - phy-mode : See ethernet.txt file in the same directory
 - fsl,pfeng-if-name : Logical interface name visible in the Linux
+- fsl,pfeng-hif-channel : The number of used HIF channel (0-3)
 - fsl,pfeng-emac-id : PFE EMAC id where the interface will be linked to
 
 Optional properties for 'ethernet' subnode:
+- clocks : List of clocks and associated names, each pointing at particular
+	   clock per interface typ. Clock must be named after interface type,
+	   with "tx_" as prefix, ie. "tx_rgmii". Note: RGMII delay suffixes must be omitted.
+- pinctrl : List of phandles and associated names, each pointing at a pin configuration
+	    node within a pin controller.
+- fsl,pfeng-ihc : [master/slave only] Declares the interface for IHC traffic
+		  Can be used only once within all ethernet subnodes
 - local-mac-address : MAC address
 - phy-handle : phandle to the PHY device connected to this device.
 - fixed-link : Assume a fixed link. See fixed-link.txt in the same directory.
-  Use instead of phy-handle.
+	       Use instead of phy-handle.
 
 Optional subnode for 'ethernet':
 - mdio : specifies the mdio bus, used as a container for phy nodes
-  according to phy.txt in the same directory
+	 according to phy.txt in the same directory
 
 Requires properties for 'mdio' subnode:
 - compatible = Should be "fsl,pfeng-mdio"
@@ -38,48 +50,92 @@ Requires properties for 'mdio' subnode:
 Example:
 
 pfe@46080000 {
-	compatible = "fsl,s32g274a-pfeng",
-		     "fsl,s32g274-pfe";
-	reg = <0x0 0x46000000 0x0 0x1000000>,		/* PFE controller */
-		  <0x0 0x4007ca00 0x0 0x4>,		/* S32G274a syscon */
-		  <0x0 0x83400000 0x0 0xc00000>;	/* PFE DDR 12M */
+	compatible = "fsl,s32g274a-pfeng";
+	reg = <0x0 0x46000000 0x0 0x1000000>,	 /* PFE controller */
+		  <0x0 0x4007ca00 0x0 0x4>,	 /* S32G274a syscon */
+		  <0x0 0x83400000 0x0 0xc00000>; /* PFE DDR 12M */
 	#address-cells = <1>;
 	#size-cells = <0>;
 	memory-region = <&pfe_reserved>;
 	interrupt-parent = <&gic>;
-	interrupts =  <0 190 1>,			/* hif0 */
-		      <0 191 1>,			/* hif1 */
-		      <0 192 1>,			/* hif2 */
-		      <0 193 1>,			/* hif3 */
-		      <0 194 1>,			/* bmu */
-		      <0 195 1>,			/* nocpy */
-		      <0 196 1>,			/* upe/gpt */
-		      <0 197 1>;			/* safety */
+	interrupts =  <0 190 1>,		 /* hif0 */
+		      <0 191 1>,		 /* hif1 */
+		      <0 192 1>,		 /* hif2 */
+		      <0 193 1>,		 /* hif3 */
+		      <0 194 1>,		 /* bmu */
+		      <0 195 1>,		 /* nocpy */
+		      <0 196 1>,		 /* upe/gpt */
+		      <0 197 1>;		 /* safety */
 	interrupt-names = "hif0", "hif1", "hif2", "hif3",
 			  "bmu", "nocpy", "upegpt", "safety";
-	clocks = <&clks S32GEN1_CLK_PFE_SYS>, <&clks S32GEN1_CLK_PFE_PE>,
-		 <&clks S32GEN1_CLK_XBAR>;
-	clock-names = "pfe_sys", "pfe_pe", "xbar";
-	firmware-name = "s32g-pfeng-class.fw";
+	clocks = <&clks S32G_SCMI_CLK_PFE_AXI>,
+		 <&clks S32G_SCMI_CLK_PFE_PE>,
+		 <&clks S32G_SCMI_CLK_PFE_TS>;
+	clock-names = "pfe_sys", "pfe_pe", "pfe_ts";
+	fsl,fw-class-name = "s32g_pfe_class.fw";
+	fsl,fw-util-name = "s32g_pfe_util.fw";
+
 	/* EMAC 0 */
 	pfe0_if: ethernet@0 {
 		compatible = "fsl,pfeng-logif";
 		#address-cells = <1>;
 		#size-cells = <0>;
-		reg = <0>;				/* If id */
+		reg = <0>;			 /* If id */
 		local-mac-address = [ 00 04 9F BE EF 00 ];
 		fsl,pfeng-if-name = "pfe0";
-		fsl,pfeng-hif-channel = <0>;		/* HIF channel 0 */
-		fsl,pfeng-emac-id = <0>;		/* Phy IF (EMAC) id */
+		fsl,pfeng-hif-channel = <0>;	 /* HIF channel 0 */
+		fsl,pfeng-emac-id = <0>;	 /* EMAC 0 */
 		phy-mode = "sgmii";
 		phy-handle = <&anyphy1>;
+
+		/* MDIO on EMAC 0 */
 		pfe0_mdio: mdio@0 {
+			/* on EVB occupied by USB ULPI */
+			status = "disabled";
+			compatible = "fsl,pfeng-mdio";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0x0>;
+		};
+	};
+
+	/* EMAC 1 */
+	pfe1_if: ethernet@1 {
+		compatible = "fsl,pfeng-logif";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg = <1>;			 /* If id */
+		local-mac-address = [ 00 04 9F BE EF 01 ];
+		fsl,pfeng-if-name = "pfe1";
+		fsl,pfeng-hif-channel = <1>;	 /* HIF channel 1 */
+		fsl,pfeng-emac-id = <1>;	 /* EMAC 1 */
+		phy-mode = "rgmii";
+		phy-handle = <&anyphy2>;
+		clocks = <&clks S32G_SCMI_CLK_PFE1_TX_SGMII>,
+			 <&clks S32G_SCMI_CLK_PFE1_TX_RGMII>,
+			 <&clks S32G_SCMI_CLK_PFE1_TX_RMII>,
+			 <&clks S32G_SCMI_CLK_PFE1_TX_MII>;
+		clock-names = "tx_sgmii", "tx_rgmii",
+			      "tx_rmii", "tx_mii";
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl0_pfe1_rgmii_c>,
+			    <&pinctrl1_pfe1_rgmii_c>;
+
+		/* MDIO on EMAC 1 */
+		pfe1_mdio: mdio@0 {
 			compatible = "fsl,pfeng-mdio";
 			#address-cells = <1>;
 			#size-cells = <0>;
 			reg = <0x1>;
+			pinctrl-names = "default";
+			pinctrl-0 = <&pinctrl0_pfe1_mdio_c>,
+				    <&pinctrl1_pfe1_mdio_c>;
 			anyphy1: ethernet-phy@1 {
 				reg = <1>;
+			};
+			anyphy2: ethernet-phy@2 {
+				reg = <2>;
 			};
 		};
 	};
