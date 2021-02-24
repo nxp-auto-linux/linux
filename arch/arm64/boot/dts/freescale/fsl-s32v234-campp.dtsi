@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0+
 /*
- * Copyright 2020 NXP
+ * Copyright 2020-2021 NXP
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -151,6 +151,8 @@
 
 		pinctrl_gpio: gpiogrp {
 			fsl,pins = <
+				S32V234_PAD_PC6__SIUL_GPIO38
+				S32V234_PAD_PC7__SIUL_GPIO39
 				S32V234_PAD_PF9__SIUL_GPIO89
 				S32V234_PAD_PF11__SIUL_GPIO91
 				S32V234_PAD_PF12__SIUL_GPIO92
