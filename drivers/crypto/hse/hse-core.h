@@ -4,17 +4,16 @@
  *
  * This file defines the driver core interface for the HSE cryptographic engine.
  *
- * Copyright 2019-2020 NXP
+ * Copyright 2019-2021 NXP
  */
 
 #ifndef HSE_CORE_H
 #define HSE_CORE_H
 
-#include <crypto/aes.h>
-
 #define HSE_CRA_PRIORITY    2000u /* HSE crypto algorithm priority */
 
 #define HSE_CHANNEL_ANY    0xACu /* use any channel, no request ordering */
+#define HSE_CHANNEL_ADM    0u /* channel reserved for administrative services */
 
 /**
  * enum hse_ch_type - channel type
@@ -71,5 +70,8 @@ void hse_aead_register(struct device *dev, struct list_head *alg_list);
 void hse_aead_unregister(struct list_head *alg_list);
 
 void hse_hwrng_register(struct device *dev);
+
+void *hse_uio_register(struct device *dev, void *mu);
+void hse_uio_notify(void *uio, u8 channel, u32 srv_rsp);
 
 #endif /* HSE_CORE_H */
