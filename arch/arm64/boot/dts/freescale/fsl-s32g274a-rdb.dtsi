@@ -2,7 +2,7 @@
 /*
  * Device Tree file for S32G274ARDB Board.
  *
- * Copyright 2019-2020 NXP
+ * Copyright 2019-2021 NXP
  *
  */
 
@@ -20,32 +20,45 @@
 	};
 };
 
-&pfe {
+&pfe_reserved_slave {
 	status = "okay";
-	memory-region = <&pfe_reserved>;
 };
 
-&pfe0_if {
-	phy-mode = "sgmii";
+&pfe_reserved_bdr_slave {
+	status = "okay";
+};
+
+&pfe_slave {
+	status = "okay";
+};
+
+&pfe {
+	status = "okay";
+};
+
+&pfe_logif0 {
 	fixed-link {
 		speed = <2500>;
 		full-duplex;
 	};
 };
 
-&pfe2_if {
-	phy-mode = "rgmii";
+&pfe_logif1 {
+	status = "disabled";
+};
+
+&pfe_logif2 {
 	phy-handle = <&mdio_b_phy4>;
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl0_pfe2_rgmii_b>, <&pinctrl1_pfe2_rgmii_b>;
 };
 
-&pfe0_mdio {
+&pfe_mdio0 {
 	/* unused */
 	status = "disabled";
 };
 
-&pfe1_mdio {
+&pfe_mdio1 {
 	/* occupied by GMAC0 */
 	status = "disabled";
 };
