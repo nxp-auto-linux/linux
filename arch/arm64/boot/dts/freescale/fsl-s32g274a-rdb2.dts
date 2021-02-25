@@ -14,14 +14,6 @@
 				 "arm,vexpress,v2p-aarch64", "arm,vexpress";
 };
 
-&pfe_reserved_slave {
-	status = "disabled";
-};
-
-&pfe_slave {
-	status = "disabled";
-};
-
 &gmac0 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl0_gmac0_rgmii_a>;
@@ -31,10 +23,8 @@
 	phy-handle = <&mdio_a_phy1>;
 };
 
-&pfe1_if {
+&pfe_logif1 {
 	/* PFE1 can be used as SGMII(disabled by default) */
-	fsl,pfeng-hif-channel = <1>;
-	phy-mode = "sgmii";
 	status = "disabled";
 	phy-handle = <&mdio_a_phy3>;
 };
@@ -58,7 +48,7 @@
 	};
 };
 
-&pfe2_mdio {
+&pfe_mdio2 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl0_pfe2_mdio_b>;
 	/* AR8035 */

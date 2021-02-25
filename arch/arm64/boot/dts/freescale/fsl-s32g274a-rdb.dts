@@ -2,7 +2,7 @@
 /*
  * Device Tree file for S32G274ARDB Board Rev B.
  *
- * Copyright 2020 NXP
+ * Copyright 2020-2021 NXP
  *
  */
 
@@ -24,11 +24,6 @@
 		speed = <1000>;
 		full-duplex;
 	};
-};
-
-&pfe1_if {
-	/* RGMII port occupied by GMAC0 */
-	status = "disabled";
 };
 
 &gmac0_mdio {
@@ -64,7 +59,7 @@
 	};
 };
 
-&pfe2_mdio {
+&pfe_mdio2 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl0_pfe2_mdio_b>;
 	/* AR8035 */
