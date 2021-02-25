@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /*
- * Copyright 2019-2020 NXP
+ * Copyright 2019-2021 NXP
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -84,46 +84,46 @@
 };
 
 &pfe_reserved_slave {
-	status = "disabled";
+	status = "okay";
+};
+
+&pfe_reserved_bdr_slave {
+	status = "okay";
 };
 
 &pfe_slave {
-	status = "disabled";
+	status = "okay";
 };
 
 &pfe {
 	status = "okay";
-	memory-region = <&pfe_reserved>;
 };
 
-&pfe0_if {
-	phy-mode = "sgmii";
+&pfe_logif0 {
 	phy-handle = <&mdio_a_phy4>;
 };
 
-&pfe1_if {
+&pfe_logif1 {
 	/* RGMII port occupied by GMAC0 */
 	status = "disabled";
-	phy-mode = "rgmii";
 	phy-handle = <&mdio_c_phy4>;
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl0_pfe1_rgmii_c>, <&pinctrl1_pfe1_rgmii_c>;
 };
 
-&pfe2_if {
-	phy-mode = "rgmii";
+&pfe_logif2 {
 	fixed-link {
 		speed = <1000>;
 		full-duplex;
 	};
 };
 
-&pfe0_mdio {
+&pfe_mdio0 {
 	/* used by USB ULPI */
 	status = "disabled";
 };
 
-&pfe1_mdio {
+&pfe_mdio1 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl0_pfe1_mdio_c>, <&pinctrl1_pfe1_mdio_c>;
 	/* ARQ107 on S32RGV-VNP-PLAT */
@@ -148,7 +148,7 @@
 	};
 };
 
-&pfe2_mdio {
+&pfe_mdio2 {
 	/* KSZ9031RNX over SJA1105Q P1 */
 	mdio_a_phy2: ethernet-phy@2 {
 		#address-cells = <1>;

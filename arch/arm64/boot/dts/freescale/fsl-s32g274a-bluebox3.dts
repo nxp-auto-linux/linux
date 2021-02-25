@@ -172,9 +172,7 @@
 	memory-region = <&pfe_reserved>;
 };
 
-&pfe0_if {
-	fsl,pfeng-hif-channel = <0>;
-	phy-mode = "sgmii";
+&pfe_logif0 {
 	status = "okay";
 
 	fixed-link {
@@ -183,7 +181,7 @@
 	};
 };
 
-&pfe0_mdio {
+&pfe_mdio0 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl0_pfe0_mdio>, <&pinctrl1_pfe0_mdio>;
 	status = "okay";
