@@ -18,9 +18,18 @@ config CRYPTO_DEV_NXP_HSE_MU_ID
 	help
 	  The Messaging Unit (MU) Instance index used by HSE crypto driver.
 
+config CRYPTO_DEV_NXP_HSE_UIO
+	depends on CRYPTO_DEV_NXP_HSE
+	bool "NXP HSE user-space driver support"
+	default n
+	select UIO
+	help
+	  Enables NXP HSE user-space driver support. The driver shall not
+	  register any algorithms with crypto API when this is enabled.
+
 config CRYPTO_DEV_NXP_HSE_HWRNG
 	bool "NXP HSE hardware RNG support"
-	depends on CRYPTO_DEV_NXP_HSE
+	depends on CRYPTO_DEV_NXP_HSE && !CRYPTO_DEV_NXP_HSE_UIO
 	default y
 	select HW_RANDOM
 	help
@@ -28,13 +37,13 @@ config CRYPTO_DEV_NXP_HSE_HWRNG
 
 config CRYPTO_DEV_NXP_HSE_KEY_WRAPPING
 	bool "NXP key wrapping/blobbing support"
-	depends on CRYPTO_DEV_NXP_HSE
+	depends on CRYPTO_DEV_NXP_HSE && !CRYPTO_DEV_NXP_HSE_UIO
 	default n
 	help
 	  Enables NXP key wrapping/blobbing support.
 
 config CRYPTO_DEV_NXP_HSE_AES_KEY_GID
-	depends on CRYPTO_DEV_NXP_HSE
+	depends on CRYPTO_DEV_NXP_HSE && !CRYPTO_DEV_NXP_HSE_UIO
 	int "AES Key Group ID within RAM Key Catalog: [0-256]"
 	range 0 256
 	default "1"
@@ -42,7 +51,7 @@ config CRYPTO_DEV_NXP_HSE_AES_KEY_GID
 	  The AES 256-bit Key Group ID within RAM Key Catalog.
 
 config CRYPTO_DEV_NXP_HSE_AES_KEY_GSIZE
-	depends on CRYPTO_DEV_NXP_HSE
+	depends on CRYPTO_DEV_NXP_HSE && !CRYPTO_DEV_NXP_HSE_UIO
 	int "Number of AES Key Slots in AES Key Group: [0-256]"
 	range 0 256
 	default "20"
@@ -50,7 +59,7 @@ config CRYPTO_DEV_NXP_HSE_AES_KEY_GSIZE
 	  Number of Key Slots available in the 256-bit AES Key Group.
 
 config CRYPTO_DEV_NXP_HSE_HMAC_KEY_GID
-	depends on CRYPTO_DEV_NXP_HSE
+	depends on CRYPTO_DEV_NXP_HSE && !CRYPTO_DEV_NXP_HSE_UIO
 	int "HMAC Key Group ID within RAM Key Catalog: [0-256]"
 	range 0 256
 	default "2"
@@ -58,7 +67,7 @@ config CRYPTO_DEV_NXP_HSE_HMAC_KEY_GID
 	  The HMAC Key Group ID within RAM Key Catalog.
 
 config CRYPTO_DEV_NXP_HSE_HMAC_KEY_GSIZE
-	depends on CRYPTO_DEV_NXP_HSE
+	depends on CRYPTO_DEV_NXP_HSE && !CRYPTO_DEV_NXP_HSE_UIO
 	int "Number of HMAC Key Slots in HMAC Key Group: [0-256]"
 	range 0 256
 	default "10"
