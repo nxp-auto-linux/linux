@@ -7,6 +7,7 @@
  * Copyright (C) 2018 Bootlin
  * Copyright (C) 2018 exceet electronics GmbH
  * Copyright (C) 2018 Kontron Electronics GmbH
+ * Copyright 2021 NXP
  *
  * Transition to SPI MEM interface:
  * Authors:
@@ -262,6 +263,14 @@ static const struct fsl_qspi_devtype_data ls2080a_data = {
 	.little_endian = true,
 };
 
+static const struct fsl_qspi_devtype_data s32gen1_data = {
+	.rxfifo = SZ_128,
+	.txfifo = SZ_256,
+	.ahb_buf_size = SZ_64M,
+	.quirks = 0,
+	.little_endian = true,
+};
+
 struct fsl_qspi {
 	void __iomem *iobase;
 	void __iomem *ahb_addr;
@@ -335,6 +344,11 @@ static u32 qspi_readl(struct fsl_qspi *q, void __iomem *addr)
 		return ioread32(addr);
 
 	return ioread32be(addr);
+}
+
+static inline int is_s32gen1_qspi(struct fsl_qspi *q)
+{
+	return q->devtype_data == &s32gen1_data;
 }
 
 static irqreturn_t fsl_qspi_irq_handler(int irq, void *dev_id)
@@ -985,6 +999,7 @@ static const struct of_device_id fsl_qspi_dt_ids[] = {
 	{ .compatible = "fsl,imx6ul-qspi", .data = &imx6ul_data, },
 	{ .compatible = "fsl,ls1021a-qspi", .data = &ls1021a_data, },
 	{ .compatible = "fsl,ls2080a-qspi", .data = &ls2080a_data, },
+	{ .compatible = "fsl,s32gen1-qspi", .data = &s32gen1_data, },
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, fsl_qspi_dt_ids);
