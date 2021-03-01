@@ -12,7 +12,112 @@
 	compatible = "fsl,s32v234-evb", "fsl,s32v234";
 
 	chosen {
+		bootargs = "console=ttyAMA0";
+		/* bootargs = "root=/dev/ram rdinit=/bin/bash rw
+		 * console=ttyAMA0 earlycon=pl011,0x40053000";
+		 */
+		linux,initrd-start = <0x90000000>;
+		linux,initrd-end   = <0x900E3C95>;
 		stdout-path = "serial0:115200n8";
+	};
+
+	aliases {
+		serial0 = &imx_serial0;
+	};
+
+	cpus {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		cpu@0 {
+			device_type = "cpu";
+			compatible = "arm,arm-v8";
+			reg = <0x0 0x0>;
+			enable-method = "spin-table";
+			cpu-release-addr = <0x0 0x8000fff8>;
+		};
+	};
+
+	memory_DDR0@80000000 {
+		device_type = "memory";
+		reg = <0 0x80000000 0 0x30000000>;
+	};
+/*
+	memory_DDR1@c0000000 {
+		device_type = "memory";
+		reg = <0 0xc0000000 0 0x40000000>;
+	};
+*/
+
+	gic: interrupt-controller@7d001000 {
+		compatible = "arm,cortex-a15-gic", "arm,cortex-a9-gic";
+		#interrupt-cells = <3>;
+		#address-cells = <0>;
+		interrupt-controller;
+		reg = <0 0x7d001000 0 0x1000>,
+		      <0 0x7d002000 0 0x1000>,
+		      <0 0x7d004000 0 0x2000>,
+		      <0 0x7d006000 0 0x2000>;
+		interrupts = <1 9 0xf04>;
+	};
+
+	cci@7d090000 {
+		compatible = "arm,cci";
+		reg = <0 0x7d090000 0 0x10000>;
+		interrupts = <0 101 4>,
+			     <0 102 4>,
+			     <0 103 4>,
+			     <0 104 4>,
+			     <0 105 4>;
+	};
+
+	p9_smbclk: smbclk {
+		/* Static memory controller clock */
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <24000000>;
+		clock-output-names = "p9:smbclk";
+	};
+
+	v2m_oscclk2: oscclk2 {
+		/* IO FPGA peripheral clock */
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <24000000>;
+		clock-output-names = "v2m:oscclk2";
+	};
+
+	timer {
+		compatible = "arm,armv8-timer";
+		interrupts = <1 13 0xf08>,
+			     <1 14 0xf08>,
+			     <1 11 0xf08>,
+			     <1 10 0xf08>;
+	};
+
+	soc {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "simple-bus";
+		interrupt-parent = <&gic>;
+		ranges;
+
+		aips0: aips-bus@40000000 {
+			compatible = "fsl,aips-bus", "simple-bus";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			interrupt-parent = <&gic>;
+			reg = <0x40000000 0x7D000>;
+			ranges;
+
+			imx_serial0:serial@40053000 {
+				compatible = "fsl,s32v234-linflexuart";
+				reg = <0x40053000 0x1000>;
+				interrupts = <0 59 4>;
+				clocks = <&v2m_oscclk2>, <&p9_smbclk>;
+				clock-names = "uartclk", "apb_pclk";
+			};
+		};
 	};
 };
 
