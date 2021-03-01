@@ -1114,8 +1114,12 @@ linflex_set_termios(struct uart_port *port, struct ktermios *termios,
 	if (!sport->dma_rx_use || !sport->dma_tx_use)
 		writel(ier, sport->port.membase + LINIER);
 
-	/* Re-enable the dma transactions if case. */
-	if (sport->dma_rx_use && !linflex_dma_rx(sport)) {
+	/* Re-enable the dma transactions, but not if we're resuming
+	 * from suspend, in which case this code will execute from
+	 * linflex_startup(), which is called a bit later.
+	 */
+	if (sport->dma_rx_buf_bus && sport->dma_rx_use &&
+	    !linflex_dma_rx(sport)) {
 		timer_setup(&sport->timer, linflex_timer_func, 0);
 		sport->timer.expires = jiffies + sport->dma_rx_timeout;
 		add_timer(&sport->timer);
