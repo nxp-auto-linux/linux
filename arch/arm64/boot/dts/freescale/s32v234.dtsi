@@ -68,21 +68,16 @@
 		};
 	};
 
-	timer {
-		compatible = "arm,armv8-timer";
-		interrupts = <GIC_PPI 13 (GIC_CPU_MASK_SIMPLE(4) |
-					  IRQ_TYPE_LEVEL_LOW)>,
-			     <GIC_PPI 14 (GIC_CPU_MASK_SIMPLE(4) |
-					  IRQ_TYPE_LEVEL_LOW)>,
-			     <GIC_PPI 11 (GIC_CPU_MASK_SIMPLE(4) |
-					  IRQ_TYPE_LEVEL_LOW)>,
-			     <GIC_PPI 10 (GIC_CPU_MASK_SIMPLE(4) |
-					  IRQ_TYPE_LEVEL_LOW)>;
-		/* clock-frequency might be modified by u-boot, depending on the
-		 * chip version.
-		 */
-		clock-frequency = <10000000>;
+	memory_DDR0@80000000 {
+		device_type = "memory";
+		reg = <0 0x80000000 0 0x30000000>;
 	};
+/*
+	memory_DDR1@c0000000 {
+		device_type = "memory";
+		reg = <0 0xc0000000 0 0x40000000>;
+	};
+*/
 
 	gic: interrupt-controller@7d001000 {
 		compatible = "arm,cortex-a15-gic", "arm,cortex-a9-gic";
@@ -95,6 +90,44 @@
 		      <0 0x7d006000 0 0x2000>;
 		interrupts = <GIC_PPI 9 (GIC_CPU_MASK_SIMPLE(4) |
 					 IRQ_TYPE_LEVEL_HIGH)>;
+	};
+
+	cci@7d090000 {
+		compatible = "arm,cci";
+		reg = <0 0x7d090000 0 0x10000>;
+		interrupts = <0 101 4>,
+			     <0 102 4>,
+			     <0 103 4>,
+			     <0 104 4>,
+			     <0 105 4>;
+	};
+
+	p9_smbclk: smbclk {
+		/* Static memory controller clock */
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <24000000>;
+		clock-output-names = "p9:smbclk";
+	};
+
+	v2m_oscclk2: oscclk2 {
+		/* IO FPGA peripheral clock */
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <24000000>;
+		clock-output-names = "v2m:oscclk2";
+	};
+
+	timer {
+		compatible = "arm,armv8-timer";
+		interrupts = <1 13 0xf08>,
+			     <1 14 0xf08>,
+			     <1 11 0xf08>,
+			     <1 10 0xf08>;
+		/* clock-frequency might be modified by u-boot, depending on the
+		 * chip version.
+		 */
+		clock-frequency = <10000000>;
 	};
 
 	soc {
