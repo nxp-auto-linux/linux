@@ -5,6 +5,7 @@
  *
  * Copyright (C) 2005, Intec Automation Inc.
  * Copyright (C) 2014, Freescale Semiconductor, Inc.
+ * Copyright 2021 NXP
  */
 
 #include <linux/err.h>
@@ -105,6 +106,7 @@ static ssize_t spi_nor_spimem_read_data(struct spi_nor *nor, loff_t from,
 	int error;
 
 	/* get transfer protocols. */
+	op.memop = true;
 	op.cmd.buswidth = spi_nor_get_protocol_inst_nbits(nor->read_proto);
 	op.addr.buswidth = spi_nor_get_protocol_addr_nbits(nor->read_proto);
 	op.dummy.buswidth = op.addr.buswidth;
@@ -169,6 +171,7 @@ static ssize_t spi_nor_spimem_write_data(struct spi_nor *nor, loff_t to,
 	ssize_t nbytes;
 	int error;
 
+	op.memop = true;
 	op.cmd.buswidth = spi_nor_get_protocol_inst_nbits(nor->write_proto);
 	op.addr.buswidth = spi_nor_get_protocol_addr_nbits(nor->write_proto);
 	op.data.buswidth = spi_nor_get_protocol_data_nbits(nor->write_proto);
@@ -226,6 +229,7 @@ int spi_nor_write_enable(struct spi_nor *nor)
 				   SPI_MEM_OP_NO_ADDR,
 				   SPI_MEM_OP_NO_DUMMY,
 				   SPI_MEM_OP_NO_DATA);
+		op.memop = false;
 
 		ret = spi_mem_exec_op(nor->spimem, &op);
 	} else {
@@ -255,6 +259,7 @@ int spi_nor_write_disable(struct spi_nor *nor)
 				   SPI_MEM_OP_NO_ADDR,
 				   SPI_MEM_OP_NO_DUMMY,
 				   SPI_MEM_OP_NO_DATA);
+		op.memop = false;
 
 		ret = spi_mem_exec_op(nor->spimem, &op);
 	} else {
@@ -3303,6 +3308,8 @@ static int spi_nor_create_read_dirmap(struct spi_nor *nor)
 	};
 	struct spi_mem_op *op = &info.op_tmpl;
 
+	op->memop = true;
+
 	/* get transfer protocols. */
 	op->cmd.buswidth = spi_nor_get_protocol_inst_nbits(nor->read_proto);
 	op->addr.buswidth = spi_nor_get_protocol_addr_nbits(nor->read_proto);
@@ -3328,6 +3335,8 @@ static int spi_nor_create_write_dirmap(struct spi_nor *nor)
 		.length = nor->mtd.size,
 	};
 	struct spi_mem_op *op = &info.op_tmpl;
+
+	op->memop = true;
 
 	/* get transfer protocols. */
 	op->cmd.buswidth = spi_nor_get_protocol_inst_nbits(nor->write_proto);
