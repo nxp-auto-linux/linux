@@ -2,6 +2,7 @@
 /*
  * Copyright (C) 2018 Exceet Electronics GmbH
  * Copyright (C) 2018 Bootlin
+ * Copyright 2021 NXP
  *
  * Author:
  *	Peter Pan <peterpandong@micron.com>
@@ -70,6 +71,7 @@ enum spi_mem_data_dir {
 
 /**
  * struct spi_mem_op - describes a SPI memory operation
+ * @memop: true for memory reads/writes and false for registers accesses
  * @cmd.nbytes: number of opcode bytes (only 1 or 2 are valid). The opcode is
  *		sent MSB-first.
  * @cmd.buswidth: number of IO lines used to transmit the command
@@ -96,6 +98,8 @@ enum spi_mem_data_dir {
  * @data.buf.out: output buffer (must be DMA-able)
  */
 struct spi_mem_op {
+	bool memop;
+
 	struct {
 		u8 nbytes;
 		u8 buswidth;
