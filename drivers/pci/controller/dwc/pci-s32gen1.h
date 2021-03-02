@@ -2,7 +2,7 @@
 /*
  * PCIe host controller driver for Freescale S32Gen1 SoCs
  *
- * Copyright 2020 NXP
+ * Copyright 2020-2021 NXP
  */
 
 #ifndef PCIE_S32GEN1_H
@@ -73,7 +73,6 @@ struct callback {
 
 struct s32gen1_pcie {
 	bool is_endpoint;
-	int soc_revision;
 	struct dw_pcie	pcie;
 
 	/* we have cfg in struct pcie_port and
