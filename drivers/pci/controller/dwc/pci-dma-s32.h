@@ -167,7 +167,7 @@ irqreturn_t dw_handle_dma_irq_write(struct dw_pcie *pci, struct dma_info *di,
 					u32 val_write);
 irqreturn_t dw_handle_dma_irq_read(struct dw_pcie *pci, struct dma_info *di,
 					u32 val_read);
-
+irqreturn_t s32gen1_pcie_dma_handler(int irq, void *arg);
 
 #endif /* CONFIG_PCI_DW_DMA */
 
