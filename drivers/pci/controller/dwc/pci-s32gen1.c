@@ -2,7 +2,7 @@
 /*
  * PCIe host controller driver for NXP S32Gen1 SoCs
  *
- * Copyright 2020 NXP
+ * Copyright 2020-2021 NXP
  */
 
 #ifdef CONFIG_PCI_S32GEN1_DEBUG
@@ -89,11 +89,6 @@
 
 #define SIUL2_MIDR2_SUBMINOR_SHIFT	(26)
 #define SIUL2_MIDR2_SUBMINOR_MASK	(0xF << SIUL2_MIDR2_SUBMINOR_SHIFT)
-
-/* First SOC revision with functional PCIe: rev 1.0.1, which means
- * major 0, minor 0, subminor 1
- */
-#define PCIE_MIN_SOC_REV_SUPPORTED 0x1
 
 #define PCIE_EP_RC_MODE(ep_mode) ((ep_mode) ? "EndPoint" : "RootComplex")
 
@@ -249,68 +244,6 @@ static inline int get_siul2_midr2_subminor(const void __iomem *siul21_base)
 {
 	return ((readl(siul21_base + SIUL2_MIDR2_OFF) &
 				SIUL2_MIDR2_SUBMINOR_MASK) >> SIUL2_MIDR2_SUBMINOR_SHIFT);
-}
-
-static u64 get_siul2_base_addr_from_fdt(char *node_name)
-{
-	struct device_node *node = NULL;
-	const __be32 *siul2_base = NULL;
-	u64 siul2_base_address = OF_BAD_ADDR;
-
-	pr_debug("Searching %s MIDR registers in device-tree\n", node_name);
-	node = of_find_node_by_name(NULL, node_name);
-	if (node) {
-		siul2_base = of_get_property(node, "midr-reg", NULL);
-
-		if (siul2_base)
-			siul2_base_address =
-				of_translate_address(node, siul2_base);
-
-		of_node_put(node);
-
-		pr_debug("Resolved %s base address to 0x%llx\n", node_name,
-				siul2_base_address);
-	} else {
-		pr_warn("Could not get %s node from device-tree\n", node_name);
-	}
-
-	return siul2_base_address;
-}
-
-static u32 s32gen1_pcie_get_soc_revision(void)
-{
-	/* raw_rev is a revision number based on major, minor and subminor,
-	 * each part using one hex digit
-	 */
-	u32 raw_rev = 0;
-	u64 siul2_base_address = OF_BAD_ADDR;
-
-	DEBUG_FUNC;
-
-	siul2_base_address = get_siul2_base_addr_from_fdt("siul2_0");
-	if (siul2_base_address != OF_BAD_ADDR) {
-		void __iomem *siul2_virt_addr = ioremap(
-				siul2_base_address, SZ_1K);
-
-		if (siul2_virt_addr) {
-			raw_rev =
-				(get_siul2_midr1_major(siul2_virt_addr) << 8) |
-				(get_siul2_midr1_minor(siul2_virt_addr) << 4);
-			iounmap(siul2_virt_addr);
-		}
-	}
-	siul2_base_address = get_siul2_base_addr_from_fdt("siul2_1");
-	if (siul2_base_address != OF_BAD_ADDR) {
-		void __iomem *siul2_virt_addr = ioremap(
-				siul2_base_address, SZ_1K);
-
-		if (siul2_virt_addr) {
-			raw_rev |= get_siul2_midr2_subminor(siul2_virt_addr);
-			iounmap(siul2_virt_addr);
-		}
-	}
-
-	return raw_rev;
 }
 
 /* For kernel version less than 5.0.0, unrolled access to iATU
@@ -1026,12 +959,6 @@ static int s32gen1_pcie_probe(struct platform_device *pdev)
 	s32_pp->is_endpoint = s32gen1_pcie_is_hw_mode_ep(pcie);
 	dev_dbg(dev, "Configured as %s\n",
 			PCIE_EP_RC_MODE(s32_pp->is_endpoint));
-	s32_pp->soc_revision = s32gen1_pcie_get_soc_revision();
-
-	if (s32_pp->soc_revision < PCIE_MIN_SOC_REV_SUPPORTED) {
-		pr_info("PCIe not supported\n");
-		return -ENXIO;
-	}
 
 	/* Attempt to figure out whether u-boot has preconfigured PCIE; if it
 	 * did not, we will not be able to tell whether we should run as EP
