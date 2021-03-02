@@ -628,3 +628,42 @@ irqreturn_t dw_handle_dma_irq_read(struct dw_pcie *pci, struct dma_info *di,
 
 	return IRQ_HANDLED;
 }
+
+static irqreturn_t s32gen1_pcie_dma_handler(int irq, void *arg)
+{
+	struct s32gen1_pcie *s32_pp = arg;
+	struct dw_pcie *pcie = &(s32_pp->pcie);
+	struct dma_info *di = &(s32_pp->dma);
+
+	u32 val_write = 0;
+	u32 val_read = 0;
+
+	val_write = dw_pcie_readl_dbi(pcie, PCIE_DMA_WRITE_INT_STATUS);
+	val_read = dw_pcie_readl_dbi(pcie, PCIE_DMA_READ_INT_STATUS);
+
+	if (val_write) {
+#ifdef CONFIG_PCI_S32GEN1_ACCESS_FROM_USER
+		bool signal = (di->wr_ch.status == DMA_CH_RUNNING);
+#endif
+		dw_handle_dma_irq_write(pcie, di, val_write);
+#ifdef CONFIG_PCI_S32GEN1_ACCESS_FROM_USER
+		if (signal && s32_pp->uspace.send_signal_to_user)
+			s32_pp->uspace.send_signal_to_user(s32_pp);
+#endif
+
+		if (s32_pp->call_back)
+			s32_pp->call_back(val_write);
+	}
+	if (val_read) {
+#ifdef CONFIG_PCI_S32GEN1_ACCESS_FROM_USER
+		bool signal = (di->rd_ch.status == DMA_CH_RUNNING);
+#endif
+		dw_handle_dma_irq_read(pcie, di, val_read);
+#ifdef CONFIG_PCI_S32GEN1_ACCESS_FROM_USER
+		if (signal && s32_pp->uspace.send_signal_to_user)
+			s32_pp->uspace.send_signal_to_user(s32_pp);
+#endif
+	}
+
+	return IRQ_HANDLED;
+}
