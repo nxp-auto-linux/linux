@@ -418,6 +418,7 @@
 			dcu0: dcu@40028000 {
 				compatible = "fsl,s32v234-dcu";
 				reg = <0x0 0x40028000 0x0 0x0200>;
+				interrupts = <0 95 1>;
 				clocks = <&clks S32V234_CLK_SYS6>;
 				clock-names = "dcu";
 				status = "disabled";
