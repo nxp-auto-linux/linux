@@ -20,111 +20,171 @@
 		linux,initrd-end   = <0x900E3C95>;
 		stdout-path = "serial0:115200n8";
 	};
+};
 
-	aliases {
-		serial0 = &imx_serial0;
-	};
+&dcu0 {
+	display = <&display>;
+	status = "okay";
+	display: display@0 {
+		bits-per-pixel = <32>;
+		display-timings {
+			native-mode = <&timing0>;
 
-	cpus {
-		#address-cells = <1>;
-		#size-cells = <0>;
-
-		cpu@0 {
-			device_type = "cpu";
-			compatible = "arm,arm-v8";
-			reg = <0x0 0x0>;
-			enable-method = "spin-table";
-			cpu-release-addr = <0x0 0x8000fff8>;
-		};
-	};
-
-	memory_DDR0@80000000 {
-		device_type = "memory";
-		reg = <0 0x80000000 0 0x30000000>;
-	};
-/*
-	memory_DDR1@c0000000 {
-		device_type = "memory";
-		reg = <0 0xc0000000 0 0x40000000>;
-	};
-*/
-
-	gic: interrupt-controller@7d001000 {
-		compatible = "arm,cortex-a15-gic", "arm,cortex-a9-gic";
-		#interrupt-cells = <3>;
-		#address-cells = <0>;
-		interrupt-controller;
-		reg = <0 0x7d001000 0 0x1000>,
-		      <0 0x7d002000 0 0x1000>,
-		      <0 0x7d004000 0 0x2000>,
-		      <0 0x7d006000 0 0x2000>;
-		interrupts = <1 9 0xf04>;
-	};
-
-	cci@7d090000 {
-		compatible = "arm,cci";
-		reg = <0 0x7d090000 0 0x10000>;
-		interrupts = <0 101 4>,
-			     <0 102 4>,
-			     <0 103 4>,
-			     <0 104 4>,
-			     <0 105 4>;
-	};
-
-	p9_smbclk: smbclk {
-		/* Static memory controller clock */
-		compatible = "fixed-clock";
-		#clock-cells = <0>;
-		clock-frequency = <24000000>;
-		clock-output-names = "p9:smbclk";
-	};
-
-	v2m_oscclk2: oscclk2 {
-		/* IO FPGA peripheral clock */
-		compatible = "fixed-clock";
-		#clock-cells = <0>;
-		clock-frequency = <24000000>;
-		clock-output-names = "v2m:oscclk2";
-	};
-
-	timer {
-		compatible = "arm,armv8-timer";
-		interrupts = <1 13 0xf08>,
-			     <1 14 0xf08>,
-			     <1 11 0xf08>,
-			     <1 10 0xf08>;
-	};
-
-	soc {
-		#address-cells = <1>;
-		#size-cells = <1>;
-		compatible = "simple-bus";
-		interrupt-parent = <&gic>;
-		ranges;
-
-		aips0: aips-bus@40000000 {
-			compatible = "fsl,aips-bus", "simple-bus";
-			#address-cells = <1>;
-			#size-cells = <1>;
-			interrupt-parent = <&gic>;
-			reg = <0x40000000 0x7D000>;
-			ranges;
-
-			imx_serial0:serial@40053000 {
-				compatible = "fsl,s32v234-linflexuart";
-				reg = <0x40053000 0x1000>;
-				interrupts = <0 59 4>;
-				clocks = <&v2m_oscclk2>, <&p9_smbclk>;
-				clock-names = "uartclk", "apb_pclk";
+			timing0: nl4827hc19 {
+				clock-frequency = <56000000>;
+				hactive = <1920>;
+				vactive = <1080>;
+				hback-porch = <30>;
+				hfront-porch = <60>;
+				vback-porch = <30>;
+				vfront-porch = <3>;
+				hsync-len = <60>;
+				vsync-len = <3>;
 			};
 		};
 	};
 };
 
+&fec {
+	phy-mode = "rgmii";
+	phydev = <&phy1>;
+	status = "okay";
+	mdio {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		/*
+		phy0: ethernet-phy@1 {
+			reg = <1>;
+		};
+		*/
+		phy1: ethernet-phy@7 {
+			reg = <7>;
+		};
+	};
+};
+
+&i2c0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_i2c0>;
+	status = "okay";
+};
+
+&i2c1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_i2c1>;
+	status = "okay";
+};
+
+&i2c2 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_i2c2>;
+	status = "okay";
+};
+
+&siul2 {
+	status = "okay";
+	s32v234-evb {
+		pinctrl_usdhc0: usdhc0grp {
+			fsl,pins = <
+				S32V234_PAD_PK6__USDHC_CLK_OUT
+				S32V234_PAD_PK6__USDHC_CLK_IN
+				S32V234_PAD_PK7__USDHC_CMD_OUT
+				S32V234_PAD_PK7__USDHC_CMD_IN
+				S32V234_PAD_PK8__USDHC_DAT0_OUT
+				S32V234_PAD_PK8__USDHC_DAT0_IN
+				S32V234_PAD_PK9__USDHC_DAT1_OUT
+				S32V234_PAD_PK9__USDHC_DAT1_IN
+				S32V234_PAD_PK10__USDHC_DAT2_OUT
+				S32V234_PAD_PK10__USDHC_DAT2_IN
+				S32V234_PAD_PK11__USDHC_DAT3_OUT
+				S32V234_PAD_PK11__USDHC_DAT3_IN
+				S32V234_PAD_PK15__USDHC_DAT4_OUT
+				S32V234_PAD_PK15__USDHC_DAT4_IN
+				S32V234_PAD_PL0__USDHC_DAT5_OUT
+				S32V234_PAD_PL0__USDHC_DAT5_IN
+				S32V234_PAD_PL1__USDHC_DAT6_OUT
+				S32V234_PAD_PL1__USDHC_DAT6_IN
+				S32V234_PAD_PL2__USDHC_DAT7_OUT
+				S32V234_PAD_PL2__USDHC_DAT7_IN
+			>;
+		};
+		pinctrl_uart0: uart0grp {
+			fsl,pins = <
+				S32V234_PAD_PA12__UART0_TXD
+				S32V234_PAD_PA11__UART0_RXD_OUT
+				S32V234_PAD_PA11__UART0_RXD_IN
+			>;
+		};
+		pinctrl_i2c0: i2c0grp {
+			fsl,pins = <
+				S32V234_PAD_PG3__I2C0_DATA_OUT
+				S32V234_PAD_PG3__I2C0_DATA_IN
+				S32V234_PAD_PG4__I2C0_SCLK_OUT
+				S32V234_PAD_PG4__I2C0_SCLK_IN
+			>;
+		};
+		pinctrl_i2c1: i2c1grp {
+			fsl,pins = <
+				S32V234_PAD_PG5__I2C1_DATA_OUT
+				S32V234_PAD_PG5__I2C1_DATA_IN
+				S32V234_PAD_PG6__I2C1_SCLK_OUT
+				S32V234_PAD_PG6__I2C1_SCLK_IN
+			>;
+		};
+		pinctrl_i2c2: i2c2grp {
+			fsl,pins = <
+				S32V234_PAD_PB3__I2C2_DATA_OUT
+				S32V234_PAD_PB3__I2C2_DATA_IN
+				S32V234_PAD_PB4__I2C2_SCLK_OUT
+				S32V234_PAD_PB5__I2C2_SCLK_IN
+			>;
+		};
+		pinctrl_enet: enetgrp {
+			fsl,pins = <
+				S32V234_PAD_PC13__MDC
+				S32V234_PAD_PC14__MDIO_OUT
+				S32v234_PAD_PC14__MDIO_IN
+				S32V234_PAD_PC15__TXCLK_OUT
+				S32V234_PAD_PC15__TXCLK_IN
+				S32V234_PAD_PD0__RXCLK_OUT
+				S32V234_PAD_PD0__RXCLK_IN
+				S32V234_PAD_PD1__RX_D0_OUT
+				S32V234_PAD_PD1__RX_D0_IN
+				S32V234_PAD_PD2__RX_D1_OUT
+				S32V234_PAD_PD2__RX_D1_IN
+				S32V234_PAD_PD3__RX_D2_OUT
+				S32V234_PAD_PD3__RX_D2_IN
+				S32V234_PAD_PD4__RX_D3_OUT
+				S32V234_PAD_PD4__RX_D3_IN
+				S32V234_PAD_PD4__RX_DV_OUT
+				S32V234_PAD_PD4__RX_DV_IN
+				S32V234_PAD_PD7__TX_D0_OUT
+				S32V234_PAD_PD8__TX_D1_OUT
+				S32V234_PAD_PD9__TX_D2_OUT
+				S32V234_PAD_PD10__TX_D3_OUT
+				S32V234_PAD_PD11__TX_EN_OUT
+			>;
+		};
+	};
+};
+
+&swt0 {
+	status = "okay";
+};
+
 &uart0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_uart0>;
 	status = "okay";
 };
 
 &uart1 {
+	status = "okay";
+};
+
+&usdhc0 {
+	no-1-8-V;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_usdhc0>;
 	status = "okay";
 };
