@@ -1336,8 +1336,6 @@ linflex_console_write(struct console *co, const char *s, unsigned int count)
 
 	if (sport->port.sysrq)
 		locked = 0;
-	else if (oops_in_progress)
-		locked = spin_trylock_irqsave(&sport->port.lock, flags);
 	else
 		spin_lock_irqsave(&sport->port.lock, flags);
 
@@ -1435,6 +1433,7 @@ static struct uart_driver linflex_reg;
 static struct console linflex_console = {
 	.name		= DEV_NAME,
 	.write		= linflex_console_write,
+	.write_atomic	= linflex_console_write,
 	.device		= uart_console_device,
 	.setup		= linflex_console_setup,
 	.flags		= CON_PRINTBUFFER,
