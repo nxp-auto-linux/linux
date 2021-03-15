@@ -394,7 +394,7 @@
 
 /* PCIe Controller 0 Link Debug 2 */
 
-#define PCIE_SS_PE0_LINK_DBG_2         (0x10B4)
+#define PCIE_SS_PE0_LINK_DBG_2         (0xB4)
 
 /* PHY Register Address Register */
 
