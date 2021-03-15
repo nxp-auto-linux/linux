@@ -10,6 +10,7 @@
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/clock/s32gen1-clock.h>
 #include <dt-bindings/clock/s32gen1-scmi-clock.h>
+#include <dt-bindings/reset/s32gen1-scmi-reset.h>
 
 /memreserve/ 0x8000fff8 0x00010000;
 
@@ -29,6 +30,7 @@
 		serial2 = &uart2;
 
 		clks = &clks;
+		reset = &reset;
 	};
 
 	reserved-memory {
