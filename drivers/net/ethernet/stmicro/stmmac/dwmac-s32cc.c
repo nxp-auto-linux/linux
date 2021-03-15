@@ -2,7 +2,7 @@
 /*
  * dwmac-s32cc.c - S32x GMAC glue layer
  *
- * Copyright 2019-2020 NXP
+ * Copyright 2019-2021 NXP
  *
  */
 
@@ -32,7 +32,7 @@
 struct s32cc_priv_data {
 	void __iomem *ctrl_sts;
 	struct device *dev;
-	int intf_mode;
+	phy_interface_t intf_mode;
 	struct clk *tx_clk;
 };
 
@@ -149,7 +149,12 @@ static int s32cc_dwmac_probe(struct platform_device *pdev)
 	}
 
 	/* phy mode */
-	gmac->intf_mode = of_get_phy_mode(pdev->dev.of_node);
+	ret = of_get_phy_mode(pdev->dev.of_node, &gmac->intf_mode);
+	if (ret) {
+		dev_err(&pdev->dev, "phy-mode property is missing\n");
+		return ret;
+	}
+
 	if (gmac->intf_mode != PHY_INTERFACE_MODE_SGMII &&
 	    gmac->intf_mode != PHY_INTERFACE_MODE_RGMII &&
 	    gmac->intf_mode != PHY_INTERFACE_MODE_RMII &&
