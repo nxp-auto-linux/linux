@@ -42,11 +42,18 @@
 		      <0x0 0x40054000 0x0 0x3000>, /*armdfs*/
 		      <0x0 0x40058000 0x0 0x3000>; /*periphdfs*/
 		#clock-cells = <1>;
+		#reset-cells = <1>;
 	};
 
 	mc_cgm2: mc_cgm2@440C0000 {
 		compatible = "fsl,s32gen1-mc_cgm2";
 		reg = <0x0 0x440C0000 0x0 0x3000>;
+	};
+
+	reset: rgm@40078000 {
+		compatible = "fsl,s32gen1-rgm", "fsl,s32r45-reset", "syscon";
+		reg = <0x0 0x40078000 0x0 0x3000>;
+		#reset-cells = <1>;
 	};
 
 	can4: flexcan@44000000 {
