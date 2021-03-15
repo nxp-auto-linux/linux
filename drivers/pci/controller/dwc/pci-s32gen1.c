@@ -172,6 +172,10 @@ int s32gen1_ep_bars_en[] = {
 		PCIE_EP_BAR5_EN_DIS
 };
 
+struct s32gen1_pcie_data {
+	enum dw_pcie_device_mode mode;
+};
+
 #endif /* CONFIG_PCI_S32GEN1_INIT_EP_BARS */
 /* End EP BARs defines */
 
@@ -1031,8 +1035,17 @@ err_cfg:
 	return ret;
 }
 
+static const struct s32gen1_pcie_data rc_of_data = {
+	.mode = DW_PCIE_RC_TYPE,
+};
+
+static const struct s32gen1_pcie_data ep_of_data = {
+	.mode = DW_PCIE_EP_TYPE,
+};
+
 static const struct of_device_id s32gen1_pcie_of_match[] = {
-	{ .compatible = "fsl,s32gen1-pcie", },
+	{ .compatible = "fsl,s32gen1-pcie", .data = &rc_of_data },
+	{ .compatible = "fsl,s32gen1-pcie-ep", .data = &ep_of_data },
 	{},
 };
 MODULE_DEVICE_TABLE(of, s32gen1_pcie_of_match);
