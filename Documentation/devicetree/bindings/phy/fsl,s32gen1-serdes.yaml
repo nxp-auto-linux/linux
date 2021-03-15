@@ -1,0 +1,142 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+# Copyright 2021 NXP
+%YAML 1.2
+---
+$id: "http://devicetree.org/schemas/phy/fsl,s32gen1-serdes.yaml#"
+$schema: "http://devicetree.org/meta-schemas/core.yaml#"
+
+title: S32GEN1 SerDes PHY Tree Bindings
+
+maintainers:
+  - Ghennadi Procopciuc <ghennadi.procopciuc@nxp.com>
+
+description: |
+  The SerDes subsystem on S32GEN1 chips includes two types of PHYs:
+    * One PCIe PHY
+	Supports various PCIe operation modes
+    * Two Ethernet Physical Coding Sublayer (XPCS) controllers
+	Supports various PCIe and Ethernet operation modes
+
+  SerDes operation mode selects the enabled PHYs and speeds. Clock frequency
+  must be adapted accordingly. Below table describes all possible operation
+  modes.
+
+  Mode  PCIe	XPCS0		XPCS1		PHY clock	Description
+		SGMII		SGMII		  (MHz)
+  -------------------------------------------------------------------------
+
+  0	Gen3	N/A		N/A		100		Single PCIe
+
+  1	Gen2	1.25Gbps	N/A		100		PCIe/SGMII
+								bifurcation
+  2	Gen2	N/A		1.25Gbps	100		PCIe/SGMII
+								bifurcation
+  3	N/A	1.25Gbps	1.25Gbps	100,125		SGMII
+								bifurcation
+	N/A	3.125Gbps	N/A     	125
+
+properties:
+  '#phy-cells':
+    const: 3
+    description: |
+        - PHY Type. Can be PHY_TYPE_PCIE or PHY_TYPE_XPCS.
+        - Instance number
+        - SerDes Line (0 or 1)
+
+  compatible:
+    enum:
+      - fsl,s32gen1-serdes
+
+  clocks:
+    description:
+      A list of phandle and clock-specifier pairs for the clocks
+      listed in clock-names.
+    items:
+      - description: AXI AMBA clock
+      - description: Auxiliary clock for low power
+      - description: APB interface clock
+      - description: Reference clock
+      - description: External reference clock. Optional clock. Its presence
+                     informs the driver to use external reference clock
+                     instead of the internal one, which is used by default.
+
+  clock-names:
+    items:
+      - const: axi
+      - const: aux
+      - const: apb
+      - const: ref
+      - const: ext
+
+  resets:
+    description:
+      A list of phandle and reset-specifier pairs for the resets
+      listed in reset-names.
+    items:
+        - description: SerDes reset
+        - description: PCIe reset
+
+  reset-names:
+    items:
+      - const: serdes
+      - const: pcie
+
+  fsl,sys-mode:
+    $ref: /schemas/types.yaml#/definitions/uint32
+    description: |
+      SerDes operational mode. See above table for possible values.
+
+  reg:
+    items:
+      - description: Address and size of PCIE subsystem registers
+      - description: Address and size of PCIE PHY subsystem registers
+      - description: Address and size of XPCS0 access registers
+      - description: Address and size of XPCS1 access registers
+
+  reg-names:
+    items:
+      - const: ss_pcie
+      - const: pcie_phy
+      - const: xpcs0
+      - const: xpcs1
+
+required:
+  - '#phy-cells'
+  - compatible
+  - clocks
+  - clock-names
+  - resets
+  - reset-names
+  - 'fsl,sys-mode'
+  - reg
+  - reg-names
+
+additionalProperties: false
+
+examples:
+  - |
+      #include <dt-bindings/clock/s32gen1-scmi-clock.h>
+      #include <dt-bindings/clock/s32gen1-scmi-reset.h>
+      #include <dt-bindings/phy/phy.h>
+
+      serdes1: serdes@44180000 {
+        #phy-cells = <3>;
+        compatible = "fsl,s32gen1-serdes";
+        clocks = <&clks S32GEN1_SCMI_CLK_SERDES_AXI>,
+           <&clks S32GEN1_SCMI_CLK_SERDES_AUX>,
+           <&clks S32GEN1_SCMI_CLK_SERDES_APB>,
+           <&clks S32GEN1_SCMI_CLK_SERDES_REF>,
+           <&serdes_125_ext>;
+        clock-names = "axi", "aux", "apb", "ref", "ext";
+        resets = <&clks S32GEN1_RST_SERDES1>, <&clks S32GEN1_RST_PCIE1>;
+        reset-names = "serdes", "pcie";
+        fsl,sys-mode = <3>;
+        reg = <0x0 0x44180000 0x0 0x108>,
+              <0x0 0x44183008 0x0 0x10>,
+              <0x0 0x44182000 0x0 0x800>,
+              <0x0 0x44182800 0x0 0x800>;
+        reg-names = "ss_pcie", "pcie_phy", "xpcs0", "xpcs1";
+        status = "okay";
+      };
+
+
