@@ -18,7 +18,8 @@ properties:
     oneOf:
       - enum:
           - "fsl,s32v234-pcie"  # S32V234 SoCs
-          - "fsl,s32gen1-pcie"  # S32Gen1 SoCs
+          - "fsl,s32gen1-pcie"  # S32Gen1 SoCs RC mode
+          - "fsl,s32gen1-pcie-ep"  # S32Gen1 SoCs EP mode
 
   reg:
     description: base address and length of the PCIe controller
