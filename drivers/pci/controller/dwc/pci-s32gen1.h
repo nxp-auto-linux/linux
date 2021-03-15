@@ -28,12 +28,12 @@
 #define PCI_EXP_CAP_ID	0x70
 
 /* PCIe controller general control 1 (PE0_GEN_CTRL_1 / PE1_GEN_CTRL_1) */
-#define PE_GEN_CTRL_1		0x1050
+#define PE_GEN_CTRL_1		0x50
 
 #define PCI_EXP_CAP_ID_OFFSET	0x70
 
 /* PCIe controller 0 general control 3 (PE0_GEN_CTRL_3) */
-#define PE0_GEN_CTRL_3		0x1058
+#define PE0_GEN_CTRL_3		0x58
 /* Configuration Request Retry Status (CRS) Enable. Active high. */
 /* Defer incoming configuration requests. */
 #define CRS_EN					0x2
