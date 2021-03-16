@@ -327,77 +327,13 @@ static inline void s32gen1_pcie_write(struct dw_pcie *pci,
 		void __iomem *base, u32 reg, size_t size, u32 val)
 {
 	int ret;
-
-#if KERNEL_VERSION(5, 0, 0) > LINUX_VERSION_CODE
 	struct s32gen1_pcie *s32_pci = to_s32gen1_from_dw_pcie(pci);
-
-	if (base == pci->dbi_base) {
-		if (reg & PCIE_GET_ATU_OUTB_UNR_REG_OFFSET(0)) {
-			reg &= (~(u32)(PCIE_GET_ATU_OUTB_UNR_REG_OFFSET(0)));
-			base = s32_pci->atu_base;
-			pr_debug_w("%s(pcie%d): W%lu(atu+0x%x, 0x%x);\n", __func__,
-					s32_pci->id, size * 8,
-					(u32)(reg), (u32)val);
-		} else {
-			pr_debug_w("%s(pcie%d): W%lu(dbi+0x%x, 0x%x);\n", __func__,
-					s32_pci->id, size * 8,
-					(u32)(reg), (u32)val);
-		}
-	}
-#ifdef DEBUG_W
-	else if (base == pci->dbi_base2) {
-		pr_debug_w("%s(pcie%d): W%lu(dbi2+0x%x, 0x%x);\n", __func__, s32_pci->id,
-				size * 8, (u32)(reg), (u32)val);
-	} else if (base == s32_pci->ctrl_base) {
-		pr_debug_w("%s(pcie%d): W%lu(ctrl+0x%x, 0x%x);\n", __func__, s32_pci->id,
-				size * 8, (u32)(reg), (u32)val);
-	}
-#endif /* DEBUG */
-#endif
 
 	ret = dw_pcie_write(base + reg, size, val);
 	if (ret)
-		dev_err(pci->dev, "(pcie%d): Write DBI address failed\n", s32_pci->id);
+		dev_err(pci->dev, "(pcie%d): Write DBI address failed\n",
+				s32_pci->id);
 }
-
-#if KERNEL_VERSION(5, 0, 0) > LINUX_VERSION_CODE
-static inline u32 s32gen1_pcie_read(struct dw_pcie *pci,
-		void __iomem *base, u32 reg, size_t size)
-{
-	struct s32gen1_pcie *s32_pci = to_s32gen1_from_dw_pcie(pci);
-	u32 val = 0;
-	int ret;
-
-	if ((base == pci->dbi_base) &&
-			(reg & PCIE_GET_ATU_OUTB_UNR_REG_OFFSET(0))) {
-		reg &= (~(u32)(PCIE_GET_ATU_OUTB_UNR_REG_OFFSET(0)));
-		base = s32_pci->atu_base;
-	}
-
-#ifdef DEBUG_R
-	if (base == pci->dbi_base)
-		pr_debug_r("%s(pcie%d): R%lu(dbi+0x%x) => ", __func__,
-				s32_pci->id, size * 8, (reg));
-	else if (base == s32_pci->atu_base)
-		pr_debug_r("%s(pcie%d): R%lu(atu+0x%x) => ", __func__,
-				s32_pci->id, size * 8, (reg));
-	else if (base == pci->dbi_base2)
-		pr_debug_r("%s(pcie%d): R%lu(dbi2+0x%x) => ", __func__,
-				s32_pci->id, size * 8, (reg));
-	else if (base == s32_pci->ctrl_base)
-		pr_debug_r("%s(pcie%d): R%lu(ctrl+0x%x) => ", __func__,
-				s32_pci->id, size * 8, (reg));
-#endif
-
-	ret = dw_pcie_read(base + reg, size, &val);
-	if (!ret)
-		pr_debug_r("0x%x\n", val);
-	else
-		dev_err(pci->dev, "Read DBI address failed\n");
-
-	return val;
-}
-#endif
 
 void dw_pcie_writel_ctrl(struct s32gen1_pcie *pci, u32 reg, u32 val)
 {
@@ -408,12 +344,8 @@ u32 dw_pcie_readl_ctrl(struct s32gen1_pcie *pci, u32 reg)
 {
 	u32 val = 0;
 
-#if KERNEL_VERSION(5, 0, 0) > LINUX_VERSION_CODE
-	val = s32gen1_pcie_read(&(pci->pcie), pci->ctrl_base, reg, 0x4);
-#else
 	if (dw_pcie_read(pci->ctrl_base + reg, 0x4, &val))
 		dev_err(pci->pcie.dev, "Read ctrl address failed\n");
-#endif
 
 	return val;
 }
@@ -459,7 +391,6 @@ static irqreturn_t s32gen1_pcie_dma_handler(int irq, void *arg)
 
 	return IRQ_HANDLED;
 }
-
 #endif /* CONFIG_PCI_DW_DMA */
 
 #ifdef CONFIG_PCI_S32GEN1_ACCESS_FROM_USER
@@ -586,7 +517,9 @@ static void s32gen1_pcie_ep_init(struct dw_pcie_ep *ep)
 
 	dw_pcie_dbi_ro_wr_dis(pcie);
 
-	epc->features |= EPC_FEATURE_MSIX_AVAILABLE;
+	/* TODO: Enable MSI capability, e.g.
+	 * epc->features |= EPC_FEATURE_MSIX_AVAILABLE;
+	 */
 
 #ifdef CONFIG_PCI_S32GEN1_INIT_EP_BARS
 	/* Setup BARs and inbound regions */
@@ -869,9 +802,6 @@ static struct dw_pcie_ops s32_pcie_ops = {
 	.start_link = s32gen1_pcie_start_link,
 	.stop_link = s32gen1_pcie_stop_link,
 	.write_dbi = s32gen1_pcie_write,
-#if KERNEL_VERSION(5, 0, 0) > LINUX_VERSION_CODE
-	.read_dbi = s32gen1_pcie_read,
-#endif
 };
 
 static struct dw_pcie_host_ops s32gen1_pcie_host_ops = {
@@ -1065,17 +995,11 @@ static int s32gen1_pcie_probe(struct platform_device *pdev)
 	dev_dbg(dev, "dbi2 virt: 0x%llx\n", (u64)pcie->dbi_base2);
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "atu");
-#if KERNEL_VERSION(5, 0, 0) <= LINUX_VERSION_CODE
+	dev_dbg(dev, "atu: %pR\n", res);
 	pcie->atu_base = devm_ioremap_resource(dev, res);
 	if (IS_ERR(pcie->atu_base))
 		return PTR_ERR(pcie->atu_base);
-#else
-	s32_pp->atu_base = devm_ioremap_resource(dev, res);
-	if (IS_ERR(s32_pp->atu_base))
-		return PTR_ERR(s32_pp->atu_base);
-#endif
-	dev_dbg(dev, "atu: %pR\n", res);
-	dev_dbg(dev, "atu virt: 0x%llx\n", (u64)s32_pp->atu_base);
+	dev_dbg(dev, "atu virt: 0x%llx\n", (u64)pcie->atu_base);
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "ctrl");
 	s32_pp->ctrl_base = devm_ioremap_resource(dev, res);
