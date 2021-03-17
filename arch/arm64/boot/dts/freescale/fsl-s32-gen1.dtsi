@@ -745,6 +745,10 @@
 		      <0 0x50410000 0 0x2000>,
 		      <0 0x50420000 0 0x2000>;
 		interrupts = <1 9 0xf04>;
+
+		msi-controller;
+		/* GIC interrupts between 167 and 182 can be used as MBIs. */
+		mbi-ranges = <167 16>;
 	};
 
 	rtc0: rtc@40060000 {
@@ -828,6 +832,7 @@
 					<0 0 0 2 &gic 0 0 0 129 4>,
 					<0 0 0 3 &gic 0 0 0 130 4>,
 					<0 0 0 4 &gic 0 0 0 131 4>;
+		/* msi-parent = <&gic>; */
 
 		/* EP mode only */
 		num-ib-windows = <6>;
@@ -880,6 +885,7 @@
 					<0 0 0 2 &gic 0 0 0 220 4>,
 					<0 0 0 3 &gic 0 0 0 221 4>,
 					<0 0 0 4 &gic 0 0 0 222 4>;
+		/* msi-parent = <&gic>; */
 
 		/* EP mode only */
 		num-ib-windows = <6>;
