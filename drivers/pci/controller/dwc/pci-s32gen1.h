@@ -73,6 +73,7 @@ struct callback {
 
 struct s32gen1_pcie {
 	bool is_endpoint;
+	bool has_msi_parent;
 	struct dw_pcie	pcie;
 
 	/* we have cfg in struct pcie_port and
