@@ -735,6 +735,8 @@ void s32gen1_scmi_clocks_init(void)
 		      S32GEN1_CLK_FIRC);
 	init_scmi_clk(S32GEN1_SCMI_CLK_SERDES_APB,
 		      S32GEN1_CLK_XBAR_DIV3);
+	init_scmi_clk(S32GEN1_SCMI_CLK_SERDES_REF,
+		      S32GEN1_CLK_SERDES_INT_REF);
 	init_scmi_clk(S32GEN1_SCMI_CLK_FTM0_SYS,
 		      S32GEN1_CLK_PER);
 	init_scmi_clk(S32GEN1_SCMI_CLK_FTM0_EXT,
