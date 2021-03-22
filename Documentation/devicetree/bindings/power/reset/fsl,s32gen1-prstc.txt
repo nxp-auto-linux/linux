@@ -1,0 +1,11 @@
+* NXP S32GEN1 Power Reset Controller
+
+Required properties:
+- compatible :
+  - "fsl,s32gen1-prstc" for device that has an S32GEN1 compatible reboot
+  mechanism
+
+Example:
+reset_0: reset@40078000 {
+	compatible = "fsl,s32gen1-prstc";
+};
