@@ -20,6 +20,7 @@ menu "S32 SOC selection"
 		select ARM_SMC_MBOX
 		select ARM_SCMI_PROTOCOL
 		select COMMON_CLK_SCMI
+		select RESET_SCMI_SCMI
 endmenu
 
 menu "STM timer used as system timer"
