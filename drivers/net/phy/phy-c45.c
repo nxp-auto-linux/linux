@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Clause 45 PHY support
+ * Copyright (C) 2021 NXP
  */
 #include <linux/ethtool.h>
 #include <linux/export.h>
@@ -559,6 +560,14 @@ int gen10g_config_aneg(struct phy_device *phydev)
 	return 0;
 }
 EXPORT_SYMBOL_GPL(gen10g_config_aneg);
+
+int genphy_c45_loopback(struct phy_device *phydev, bool enable)
+{
+	return phy_modify_mmd(phydev, MDIO_MMD_PCS, MDIO_CTRL1,
+			      MDIO_PCS_CTRL1_LOOPBACK,
+			      enable ? MDIO_PCS_CTRL1_LOOPBACK : 0);
+}
+EXPORT_SYMBOL_GPL(genphy_c45_loopback);
 
 struct phy_driver genphy_c45_driver = {
 	.phy_id         = 0xffffffff,
