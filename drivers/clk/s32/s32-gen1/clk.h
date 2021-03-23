@@ -1,5 +1,5 @@
 /*
- * Copyright 2018,2020 NXP
+ * Copyright 2018,2020-2021 NXP
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -15,6 +15,14 @@
 #include "dfs.h"
 #include "pll.h"
 #include "../clk.h"
+
+/* RGM */
+#define RGM_PRST(MC_RGM, per)		((MC_RGM) + 0x40 + \
+					 ((per) * 0x8))
+#define RGM_PSTAT(rgm, per)		((rgm) + 0x140 + \
+					 ((per) * 0x8))
+#define PSTAT_PERIPH_n_STAT(n)		BIT(n)
+#define PRST_PERIPH_n_RST(n)		BIT(n)
 
 struct s32gen1_clk_modules {
 	void __iomem *mc_me;

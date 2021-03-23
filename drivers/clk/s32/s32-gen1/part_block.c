@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0+
 /*
- * Copyright 2020 NXP
+ * Copyright 2020-2021 NXP
  */
 #include <linux/clk-provider.h>
 #include <linux/err.h>
@@ -37,14 +37,6 @@
 #define RD_CTRL_UNLOCK_MASK		(0x80000000)
 #define RDC_RD_INTERCONNECT_DISABLE	BIT(3)
 #define RDC_RD_INTERCONNECT_DISABLE_STAT BIT(4)
-
-/* RGM */
-#define RGM_PRST(MC_RGM, per)		((MC_RGM) + 0x40 + \
-					 ((per) * 0x8))
-#define RGM_PSTAT(rgm, per)		((rgm) + 0x140 + \
-					 ((per) * 0x8))
-#define PSTAT_PERIPH_n_STAT(n)		BIT(n)
-#define PRST_PERIPH_n_RST(n)		BIT(n)
 
 struct clk_part_block {
 	struct clk_hw hw;
