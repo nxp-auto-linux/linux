@@ -276,20 +276,6 @@ static void linflex_disable_dma_tx(struct uart_port *port)
 		;
 }
 
-static void inline linflex_wait_rx_fifo_empty(struct uart_port *port)
-{
-	unsigned long cr = readl(port->membase + UARTCR);
-
-	/* Check the register because dma_rx_use can be true
-	 * and the bit not set yet.
-	 */
-	if (!(cr & LINFLEXD_UARTCR_RFBM))
-		return;
-
-	while (LINFLEXD_UARTCR_RDFLRFC(readl(port->membase + UARTCR)))
-		;
-}
-
 static void inline linflex_wait_tx_fifo_empty(struct uart_port *port)
 {
 	unsigned long cr = readl(port->membase + UARTCR);
@@ -696,7 +682,6 @@ static void linflex_setup_watermark(struct linflex_port *sport)
 	 * before entering INIT otherwise the remaining characters
 	 * will be corrupted.
 	 */
-	linflex_wait_rx_fifo_empty(&sport->port);
 	linflex_wait_tx_fifo_empty(&sport->port);
 
 	/* Enter initialization mode by setting INIT bit */
@@ -958,7 +943,6 @@ linflex_set_termios(struct uart_port *port, struct ktermios *termios,
 	 * before entering INIT otherwise the remaining characters
 	 * will be corrupted.
 	 */
-	linflex_wait_rx_fifo_empty(&sport->port);
 	linflex_wait_tx_fifo_empty(&sport->port);
 
 	/* disable transmit and receive */
