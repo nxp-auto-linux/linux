@@ -21,6 +21,8 @@ menu "S32 SOC selection"
 		select ARM_SCMI_PROTOCOL
 		select COMMON_CLK_SCMI
 		select RESET_SCMI_SCMI
+		select GENERIC_PHY
+		select PHY_S32GEN1_SERDES
 endmenu
 
 menu "STM timer used as system timer"
