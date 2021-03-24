@@ -106,10 +106,6 @@ menu "S32V234 execution target"
 		help
 		   S32V234 Software Simulator from Synopsis is a presilicon
 		   development solution.
-	config S32V234_TMDP
-		bool "S32V234 tmdp"
-		help
-		   S32V234 tmdp is a variation of S32V234 evb.
 endmenu
 endif
 
