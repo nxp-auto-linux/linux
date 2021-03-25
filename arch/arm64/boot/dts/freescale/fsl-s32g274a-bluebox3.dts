@@ -386,10 +386,6 @@
 	status = "okay";
 };
 
-&serdes_ext {
-	clock-frequency = <125000000>;
-};
-
 &spi0 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl0_dspi0>, <&pinctrl1_dspi0>;
