@@ -63,6 +63,7 @@ struct serdes_conf {
 struct pcie_ctrl {
 	struct reset_control *rst;
 	void __iomem *phy_base;
+	bool powered_on[2];
 	bool initialized_phy;
 };
 
@@ -180,10 +181,9 @@ static int check_pcie_clk(struct serdes *serdes)
 	return 0;
 }
 
-static int pci_phy_power_on_common(struct phy *p)
+static int pci_phy_power_on_common(struct serdes *serdes)
 {
 	ktime_t timeout = ktime_add_ms(ktime_get(), SERDES_LOCK_TIMEOUT_MS);
-	struct serdes *serdes = phy_get_drvdata(p);
 	struct serdes_ctrl *sctrl = &serdes->ctrl;
 	struct pcie_ctrl *pcie = &serdes->pcie;
 	u32 ctrl, reg0;
@@ -221,24 +221,25 @@ static int pci_phy_power_on_common(struct phy *p)
 	return 0;
 }
 
-static int pcie_phy_power_on(struct phy *p)
+static int pcie_phy_power_on(struct serdes *serdes, int id)
 {
-	struct serdes *serdes = phy_get_drvdata(p);
+	struct pcie_ctrl *pcie = &serdes->pcie;
 	u32 iq_ovrd_in;
 	int ret;
 
-	ret = pci_phy_power_on_common(p);
+	ret = pci_phy_power_on_common(serdes);
 	if (ret)
 		return ret;
 
 	/* RX_EQ_DELTA_IQ_OVRD enable and override value for PCIe lanes */
-	if (p->id == 0)
+	if (!id)
 		iq_ovrd_in = RAWLANE0_DIG_PCS_XF_RX_EQ_DELTA_IQ_OVRD_IN;
 	else
 		iq_ovrd_in = RAWLANE1_DIG_PCS_XF_RX_EQ_DELTA_IQ_OVRD_IN;
 
 	pcie_phy_write(serdes, iq_ovrd_in, 0x3);
 	pcie_phy_write(serdes, iq_ovrd_in, 0x13);
+	pcie->powered_on[id] = true;
 
 	return 0;
 }
@@ -389,7 +390,7 @@ static int serdes_phy_power_on(struct phy *p)
 	struct serdes *serdes = phy_get_drvdata(p);
 
 	if (p->attrs.mode == PHY_MODE_PCIE)
-		return pcie_phy_power_on(p);
+		return pcie_phy_power_on(serdes, p->id);
 
 	if (p->attrs.mode == PHY_MODE_ETHERNET)
 		return xpcs_phy_power_on(serdes, p->id);
@@ -803,6 +804,91 @@ static int serdes_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static int __maybe_unused serdes_suspend(struct device *device)
+{
+	struct serdes *serdes = dev_get_drvdata(device);
+	struct xpcs_ctrl *xpcs = &serdes->xpcs;
+	struct pcie_ctrl *pcie = &serdes->pcie;
+
+	xpcs->initialized_clks = false;
+	pcie->initialized_phy = false;
+
+	clk_bulk_disable_unprepare(serdes->ctrl.nclks, serdes->ctrl.clks);
+
+	return 0;
+}
+
+static int restore_pcie_power(struct serdes *serdes)
+{
+	struct pcie_ctrl *pcie = &serdes->pcie;
+	int ret;
+	size_t i;
+
+	for (i = 0; i < ARRAY_SIZE(pcie->powered_on); i++) {
+		if (!pcie->powered_on[i])
+			continue;
+
+		pcie->powered_on[i] = false;
+		ret = pcie_phy_power_on(serdes, i);
+		if (ret)
+			return ret;
+	}
+
+	return 0;
+}
+
+static int restore_xpcs_power(struct serdes *serdes)
+{
+	struct xpcs_ctrl *xpcs = &serdes->xpcs;
+	int ret;
+	size_t i;
+
+	for (i = 0; i < ARRAY_SIZE(xpcs->powered_on); i++) {
+		if (!xpcs->powered_on[i])
+			continue;
+
+		xpcs->powered_on[i] = false;
+		ret = xpcs_phy_power_on(serdes, i);
+		if (ret)
+			return ret;
+	}
+
+	return 0;
+}
+
+static int __maybe_unused serdes_resume(struct device *device)
+{
+	int ret;
+	struct serdes *serdes = dev_get_drvdata(device);
+	struct serdes_ctrl *ctrl = &serdes->ctrl;
+
+	ret = clk_bulk_prepare_enable(ctrl->nclks, ctrl->clks);
+	if (ret) {
+		dev_err(device, "Failed to enable SerDes clocks\n");
+		return ctrl->nclks;
+	}
+
+	ret = init_serdes(serdes);
+	if (ret) {
+		dev_err(device, "Failed to initialize\n");
+		return ret;
+	}
+
+	ret = restore_pcie_power(serdes);
+	if (ret) {
+		dev_err(device, "Failed to power-on XPCS\n");
+		return ret;
+	}
+
+	ret = restore_xpcs_power(serdes);
+	if (ret) {
+		dev_err(device, "Failed to power-on XPCS\n");
+		return ret;
+	}
+
+	return 0;
+}
+
 static const struct of_device_id serdes_match[] = {
 	{
 		.compatible = "fsl,s32gen1-serdes",
@@ -811,12 +897,15 @@ static const struct of_device_id serdes_match[] = {
 };
 MODULE_DEVICE_TABLE(of, serdes_match);
 
+static SIMPLE_DEV_PM_OPS(serdes_pm_ops, serdes_suspend, serdes_resume);
+
 static struct platform_driver serdes_driver = {
 	.probe		= serdes_probe,
 	.remove		= serdes_remove,
 	.driver		= {
 		.name	= "phy-s32gen1-serdes",
 		.of_match_table = serdes_match,
+		.pm = &serdes_pm_ops,
 	},
 };
 module_platform_driver(serdes_driver);
