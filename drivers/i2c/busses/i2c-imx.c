@@ -17,7 +17,7 @@
  *	Copyright (C) 2008 Darius Augulis <darius.augulis at teltonika.lt>
  *
  *	Copyright 2013 Freescale Semiconductor, Inc.
- *	Copyright 2017 NXP
+ *	Copyright 2017, 2021 NXP
  */
 
 #include <linux/acpi.h>
@@ -256,7 +256,7 @@ static struct imx_i2c_hwdata vf610_i2c_hwdata = {
 
 };
 
-static struct imx_i2c_hwdata s32v234_i2c_hwdata = {
+static struct imx_i2c_hwdata s32_i2c_hwdata = {
 	.devtype		= S32V234_I2C,
 	.regshift		= S32V234_I2C_REGSHIFT,
 	.clk_div		= s32v234_i2c_clk_div,
@@ -283,7 +283,8 @@ static const struct of_device_id i2c_imx_dt_ids[] = {
 	{ .compatible = "fsl,imx1-i2c", .data = &imx1_i2c_hwdata, },
 	{ .compatible = "fsl,imx21-i2c", .data = &imx21_i2c_hwdata, },
 	{ .compatible = "fsl,vf610-i2c", .data = &vf610_i2c_hwdata, },
-	{ .compatible = "fsl,s32v234-i2c", .data = &s32v234_i2c_hwdata, },
+	{ .compatible = "fsl,s32v234-i2c", .data = &s32_i2c_hwdata, },
+	{ .compatible = "fsl,s32gen1-i2c", .data = &s32_i2c_hwdata, },
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, i2c_imx_dt_ids);
