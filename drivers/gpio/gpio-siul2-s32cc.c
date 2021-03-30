@@ -606,11 +606,17 @@ static bool regmap_accessible(struct device *dev, unsigned int reg)
 	return false;
 }
 
+static bool irqmap_volatile_reg(struct device *dev, unsigned int reg)
+{
+	return reg == SIUL2_DISR0;
+}
+
 static int reinit_irqregmap_conf(struct device *dev, struct regmap *map)
 {
 	struct regmap_config regmap_conf = siul2_regmap_conf;
 
 	regmap_conf.writeable_reg = irqregmap_writeable;
+	regmap_conf.volatile_reg = irqmap_volatile_reg;
 	return common_regmap_conf(dev, map, &regmap_conf, "irq");
 }
 
