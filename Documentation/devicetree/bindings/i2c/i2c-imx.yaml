@@ -18,6 +18,8 @@ properties:
       - const: fsl,imx1-i2c
       - const: fsl,imx21-i2c
       - const: fsl,vf610-i2c
+      - const: fsl,s32v234-i2c
+      - const: fsl,s32gen1-i2c
       - items:
           - const: fsl,imx35-i2c
           - const: fsl,imx1-i2c
