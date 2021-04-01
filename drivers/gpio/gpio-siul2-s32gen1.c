@@ -280,8 +280,8 @@ static int siul2_gpio_dir_out(struct gpio_chip *chip, unsigned int gpio,
 		return ret;
 
 	gpio_dev = to_siul2_gpio_dev(chip);
-	chip->set(chip, gpio, val);
 	gpio_set_direction(gpio_dev, gpio, OUT);
+	chip->set(chip, gpio, val);
 
 	return ret;
 }
