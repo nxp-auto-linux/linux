@@ -34,6 +34,7 @@ struct s32cc_priv_data {
 	struct device *dev;
 	phy_interface_t intf_mode;
 	struct clk *tx_clk;
+	struct clk *rx_clk;
 };
 
 static int s32cc_gmac_init(struct platform_device *pdev, void *priv)
@@ -46,6 +47,14 @@ static int s32cc_gmac_init(struct platform_device *pdev, void *priv)
 		ret = clk_prepare_enable(gmac->tx_clk);
 		if (ret) {
 			dev_err(&pdev->dev, "cannot set tx clock\n");
+			return ret;
+		}
+	}
+
+	if (gmac->rx_clk) {
+		ret = clk_prepare_enable(gmac->rx_clk);
+		if (ret) {
+			dev_err(&pdev->dev, "cannot set rx clock\n");
 			return ret;
 		}
 	}
@@ -85,17 +94,18 @@ static void s32cc_gmac_exit(struct platform_device *pdev, void *priv)
 {
 	struct s32cc_priv_data *gmac = priv;
 
-	if (gmac->tx_clk) {
+	if (gmac->tx_clk)
 		clk_disable_unprepare(gmac->tx_clk);
-		gmac->tx_clk = NULL;
-	}
+
+	if (gmac->rx_clk)
+		clk_disable_unprepare(gmac->rx_clk);
 }
 
 static void s32cc_fix_speed(void *priv, unsigned int speed)
 {
 	struct s32cc_priv_data *gmac = priv;
 
-	if (!gmac->tx_clk)
+	if (!gmac->tx_clk || !gmac->rx_clk)
 		return;
 
 	/* SGMII mode doesn't support the clock reconfiguration */
@@ -103,21 +113,24 @@ static void s32cc_fix_speed(void *priv, unsigned int speed)
 		return;
 
 	switch (speed) {
-	case SPEED_1000:
-		dev_info(gmac->dev, "Set TX clock to 125M\n");
-		clk_set_rate(gmac->tx_clk, GMAC_TX_RATE_125M);
-		break;
-	case SPEED_100:
-		dev_info(gmac->dev, "Set TX clock to 25M\n");
-		clk_set_rate(gmac->tx_clk, GMAC_TX_RATE_25M);
-		break;
-	case SPEED_10:
-		dev_info(gmac->dev, "Set TX clock to 2.5M\n");
-		clk_set_rate(gmac->tx_clk, GMAC_TX_RATE_2M5);
-		break;
-	default:
-		dev_err(gmac->dev, "Unsupported/Invalid speed: %d\n", speed);
-		return;
+			case SPEED_1000:
+				dev_info(gmac->dev, "Set RX/TX clock to 125M\n");
+				clk_set_rate(gmac->tx_clk, GMAC_TX_RATE_125M);
+				clk_set_rate(gmac->rx_clk, GMAC_TX_RATE_125M);
+				break;
+			case SPEED_100:
+				dev_info(gmac->dev, "Set RX/TX clock to 25M\n");
+				clk_set_rate(gmac->tx_clk, GMAC_TX_RATE_25M);
+				clk_set_rate(gmac->rx_clk, GMAC_TX_RATE_25M);
+				break;
+			case SPEED_10:
+				dev_info(gmac->dev, "Set RX/TX clock to 2.5M\n");
+				clk_set_rate(gmac->tx_clk, GMAC_TX_RATE_2M5);
+				clk_set_rate(gmac->rx_clk, GMAC_TX_RATE_2M5);
+				break;
+			default:
+				dev_err(gmac->dev, "Unsupported/Invalid speed: %d\n", speed);
+				return;
 	}
 }
 
@@ -127,7 +140,7 @@ static int s32cc_dwmac_probe(struct platform_device *pdev)
 	struct stmmac_resources stmmac_res;
 	struct s32cc_priv_data *gmac;
 	struct resource *res;
-	const char *tx_clk;
+	const char *tx_clk, *rx_clk;
 	int ret;
 
 	ret = stmmac_get_platform_resources(pdev, &stmmac_res);
@@ -167,16 +180,20 @@ static int s32cc_dwmac_probe(struct platform_device *pdev)
 	switch (gmac->intf_mode) {
 	case PHY_INTERFACE_MODE_SGMII:
 		tx_clk = "tx_sgmii";
+		rx_clk = "rx_sgmii";
 		break;
 	case PHY_INTERFACE_MODE_RGMII:
 		tx_clk = "tx_rgmii";
+		rx_clk = "rx_rgmii";
 		break;
 	case PHY_INTERFACE_MODE_RMII:
 		tx_clk = "tx_rmii";
+		rx_clk = "rx_rmii";
 		break;
 	default:
 	case PHY_INTERFACE_MODE_MII:
 		tx_clk = "tx_mii";
+		rx_clk = "rx_mii";
 		break;
 	};
 
@@ -199,6 +216,13 @@ static int s32cc_dwmac_probe(struct platform_device *pdev)
 	if (IS_ERR(gmac->tx_clk)) {
 		dev_info(&pdev->dev, "tx clock not found\n");
 		gmac->tx_clk = NULL;
+	}
+
+	/* rx clock */
+	gmac->rx_clk = devm_clk_get(&pdev->dev, rx_clk);
+	if (IS_ERR(gmac->rx_clk)) {
+		dev_info(&pdev->dev, "tx clock not found\n");
+		gmac->rx_clk = NULL;
 	}
 
 	ret = s32cc_gmac_init(pdev, gmac);
