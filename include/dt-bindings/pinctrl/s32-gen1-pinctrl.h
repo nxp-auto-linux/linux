@@ -1,5 +1,5 @@
 /*
- * Copyright 2018,2020 NXP
+ * Copyright 2018,2020-2021 NXP
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -35,6 +35,11 @@
 #define PAD_CTL_PUS		(1 << 12)
 #define PAD_CTL_RCVR		(1 << 10)
 #define PAD_CTL_SMC             (1 << 5)
+
+#define PAD_GPIO_PULL_NONE	(PAD_CTL_SRC_SIG_SEL0)
+#define PAD_GPIO_PULL_DOWN	(PAD_CTL_SRC_SIG_SEL0 | PAD_CTL_PUE)
+#define PAD_GPIO_PULL_UP	(PAD_CTL_SRC_SIG_SEL0 | PAD_CTL_PUE | \
+				 PAD_CTL_PUS)
 
 #define PAD_CTL_SRC_SIG_SEL0   (0)
 #define PAD_CTL_SRC_SIG_SEL1   (1)
