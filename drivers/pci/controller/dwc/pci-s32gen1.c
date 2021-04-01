@@ -543,7 +543,7 @@ static void s32gen1_pcie_disable_ltssm(struct s32gen1_pcie *pci)
 	DEBUG_FUNC;
 
 	dw_pcie_dbi_ro_wr_en(&pci->pcie);
-	BCLR32(pci, ctrl, PE0_GEN_CTRL_3, LTSSM_EN);
+	BCLR32(pci, ctrl, PE0_GEN_CTRL_3, LTSSM_EN_MASK);
 	dw_pcie_dbi_ro_wr_dis(&pci->pcie);
 }
 
@@ -552,13 +552,13 @@ static void s32gen1_pcie_enable_ltssm(struct s32gen1_pcie *pci)
 	DEBUG_FUNC;
 
 	dw_pcie_dbi_ro_wr_en(&pci->pcie);
-	BSET32(pci, ctrl, PE0_GEN_CTRL_3, LTSSM_EN);
+	BSET32(pci, ctrl, PE0_GEN_CTRL_3, LTSSM_EN_MASK);
 	dw_pcie_dbi_ro_wr_dis(&pci->pcie);
 }
 
 static bool is_s32gen1_pcie_ltssm_enabled(struct s32gen1_pcie *pci)
 {
-	return (dw_pcie_readl_ctrl(pci, PE0_GEN_CTRL_3) & LTSSM_EN);
+	return (dw_pcie_readl_ctrl(pci, PE0_GEN_CTRL_3) & LTSSM_EN_MASK);
 }
 
 static bool has_data_phy_link(struct s32gen1_pcie *s32_pp)

@@ -42,18 +42,13 @@
 
 /* PCIe controller 0 general control 3 (PE0_GEN_CTRL_3) */
 #define PE0_GEN_CTRL_3			0x58
-/* Configuration Request Retry Status (CRS) Enable. Active high. */
-/* Defer incoming configuration requests. */
-#define CRS_EN				0x2
 /* LTSSM Enable. Active high. Set it low to hold the LTSSM in Detect state. */
-#define LTSSM_EN			0x1
+#define LTSSM_EN_MASK			0x1
 
 #define LTSSM_STATE_L0			0x11 /* L0 state */
 
 #define to_s32gen1_from_dw_pcie(x) \
 	container_of(x, struct s32gen1_pcie, pcie)
-
-#define PCIE_NR_REGIONS			6
 
 enum pcie_dev_type {
 	PCIE_EP = 0x0,
@@ -88,9 +83,8 @@ struct s32gen1_pcie {
 	 * dbi in struct dw_pcie, so define only ctrl here
 	 */
 	void __iomem *ctrl_base;
-#if KERNEL_VERSION(5, 0, 0) > LINUX_VERSION_CODE
+	void __iomem *phy_base;
 	void __iomem *atu_base;
-#endif
 
 	int id;
 	enum pcie_link_speed linkspeed;
