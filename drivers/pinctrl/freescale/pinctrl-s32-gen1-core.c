@@ -2,7 +2,7 @@
  * Core driver for the S32 pin controller
  *
  * Copyright 2015-2016 Freescale Semiconductor, Inc.
- * Copyright 2017-2020 NXP
+ * Copyright 2017-2021 NXP
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -417,12 +417,12 @@ static int s32_pmx_gpio_set_direction(struct pinctrl_dev *pctldev,
 
 	if (input) {
 		/* Disable output buffer and enable input buffer */
-		config &= ~(PAD_CTL_OBE | PAD_CTL_PUE | PAD_CTL_PUS);
-		config |= (PAD_CTL_IBE | PAD_CTL_PUE);
+		config &= ~PAD_CTL_OBE;
+		config |= PAD_CTL_IBE;
 	} else {
 		/* Disable input buffer and enable output buffer */
-		config &= ~(PAD_CTL_IBE | PAD_CTL_PUE | PAD_CTL_PUS);
-		config |= (PAD_CTL_OBE | PAD_CTL_PUE | PAD_CTL_PUS);
+		config &= ~PAD_CTL_IBE;
+		config |= PAD_CTL_OBE;
 	}
 
 	s32_pinctrl_writel(config, pctldev, pin->pin_id);
