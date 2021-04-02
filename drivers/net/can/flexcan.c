@@ -25,8 +25,8 @@
 #include <linux/netdevice.h>
 #include <linux/of.h>
 #include <linux/of_device.h>
-#include <linux/of_address.h>
 #include <linux/pinctrl/consumer.h>
+#include <linux/of_address.h>
 #include <linux/platform_device.h>
 #include <linux/pm_runtime.h>
 #include <linux/regmap.h>
@@ -2358,7 +2358,9 @@ static int __maybe_unused flexcan_suspend(struct device *device)
 			if (err)
 				return err;
 		} else {
-			err = flexcan_chip_stop(dev);
+			flexcan_chip_stop(dev);
+
+			err = pinctrl_pm_select_sleep_state(device);
 			if (err)
 				return err;
 
