@@ -244,7 +244,7 @@ static int capi_cmac_setkey(struct crypto_ahash *tfm, const u8 *key,
 /**
  * Called at socket bind
  */
-static int capi_cra_init(struct crypto_skcipher *tfm)
+static int capi_aes_init(struct crypto_skcipher *tfm)
 {
 	cse_ctx_t *ctx;
 
@@ -257,11 +257,20 @@ static int capi_cra_init(struct crypto_skcipher *tfm)
 	return 0;
 }
 
-static void capi_cra_exit(struct crypto_skcipher *tfm)
+static void capi_aes_exit(struct crypto_skcipher *tfm)
 {
 	cse_ctx_t *ctx = crypto_skcipher_ctx(tfm);
 
 	up(&ctx->dev->access);
+}
+
+static int capi_ahash_cra_init(struct crypto_tfm *tfm)
+{
+	return 0;
+}
+
+static void capi_ahash_cra_exit(struct crypto_tfm *tfm)
+{
 }
 
 static struct cse_cipher_alg cipher_algs[] = {
@@ -282,8 +291,8 @@ static struct cse_cipher_alg cipher_algs[] = {
 		.setkey         = capi_aes_setkey,
 		.encrypt        = capi_aes_ecb_encrypt,
 		.decrypt        = capi_aes_ecb_decrypt,
-		.init		= capi_cra_init,
-		.exit		= capi_cra_exit,
+		.init		= capi_aes_init,
+		.exit		= capi_aes_exit,
 	},
 	.registered = 0
 	},
@@ -306,8 +315,8 @@ static struct cse_cipher_alg cipher_algs[] = {
 		.setkey         = capi_aes_setkey,
 		.encrypt        = capi_aes_cbc_encrypt,
 		.decrypt        = capi_aes_cbc_decrypt,
-		.init		= capi_cra_init,
-		.exit		= capi_cra_exit,
+		.init		= capi_aes_init,
+		.exit		= capi_aes_exit,
 	},
 	.registered = 0
 	},
@@ -331,6 +340,8 @@ static struct cse_ahash_alg hash_algs[] = {
 			.cra_flags = (CRYPTO_ALG_TYPE_AHASH | CRYPTO_ALG_ASYNC),
 			.cra_blocksize = AES_BLOCK_SIZE,
 			.cra_ctxsize = sizeof(cse_ctx_t),
+			.cra_init = capi_ahash_cra_init,
+			.cra_exit = capi_ahash_cra_exit,
 			.cra_module = THIS_MODULE,
 		} },
 	.registered = 0
