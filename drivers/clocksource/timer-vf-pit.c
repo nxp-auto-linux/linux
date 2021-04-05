@@ -1,14 +1,17 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright 2012-2013 Freescale Semiconductor, Inc.
+ * Copyright 2021 NXP
  */
 
-#include <linux/interrupt.h>
-#include <linux/clockchips.h>
 #include <linux/clk.h>
+#include <linux/clockchips.h>
 #include <linux/cpuhotplug.h>
+#include <linux/interrupt.h>
+#include <linux/module.h>
 #include <linux/of_address.h>
 #include <linux/of_irq.h>
+#include <linux/platform_device.h>
 #include <linux/sched_clock.h>
 
 /*
@@ -99,7 +102,9 @@ static int __init pit_clocksource_init(struct pit_timer *pit, unsigned long rate
 	__raw_writel(0xFFFFFFFF,  clocksource->clksrc_base + PITLDVAL);
 	__raw_writel(PITTCTRL_TEN, clocksource->clksrc_base + PITTCTRL);
 
+	local_irq_disable();
 	sched_clock_register(pit_read_sched_clock, 32, rate);
+	local_irq_enable();
 	clocksource_mmio_init(clocksource->clksrc_base + PITCVAL,
 			      "vf-pit", rate,
 			      CONFIG_PIT_CLKSRC_RATE, 32,
@@ -224,8 +229,10 @@ static int pit_timer_dying_cpu(unsigned int cpu)
 	return 0;
 }
 
-static int __init pit_timer_init(struct device_node *np)
+static int __init pit_timer_probe(struct platform_device *pdev)
 {
+	struct device *dev = &pdev->dev;
+	struct device_node *np = dev->of_node;
 	void __iomem *timer_base;
 	unsigned long clk_rate;
 	unsigned int cpu;
@@ -234,12 +241,12 @@ static int __init pit_timer_init(struct device_node *np)
 
 	of_property_read_u32(np, "cpu", &cpu);
 	if (cpu >= num_possible_cpus()) {
-		pr_err("%s: please specify a cpu number between 0 and %d.\n",
-		       TIMER_NAME, num_possible_cpus() - 1);
+		dev_err(dev, "Please specify a cpu number between 0 and %d.\n",
+			num_possible_cpus() - 1);
 		return -EINVAL;
 	}
 
-	pit = kzalloc(sizeof(*pit), GFP_KERNEL);
+	pit = devm_kzalloc(dev, sizeof(*pit), GFP_KERNEL);
 	if (!pit)
 		return -ENOMEM;
 
@@ -247,10 +254,10 @@ static int __init pit_timer_init(struct device_node *np)
 
 	pit->cpu = cpu;
 
-	timer_base = of_iomap(np, 0);
-	if (!timer_base) {
-		pr_err("Failed to iomap\n");
-		return -ENXIO;
+	timer_base = devm_of_iomap(dev, np, 0, NULL);
+	if (IS_ERR(timer_base)) {
+		dev_err(dev, "Failed to iomap\n");
+		return PTR_ERR(timer_base);
 	}
 
 	/*
@@ -262,12 +269,16 @@ static int __init pit_timer_init(struct device_node *np)
 	pit->clkevt_base = timer_base + PIT_CH(3);
 
 	pit->irq = irq_of_parse_and_map(np, 0);
-	if (pit->irq <= 0)
+	if (pit->irq <= 0) {
+		dev_err(dev, "Failed to get IRQ\n");
 		return -EINVAL;
+	}
 
-	pit->pit_clk = of_clk_get(np, 0);
-	if (IS_ERR(pit->pit_clk))
+	pit->pit_clk = devm_clk_get(dev, NULL);
+	if (IS_ERR(pit->pit_clk)) {
+		dev_err(dev, "Clock not found\n");
 		return PTR_ERR(pit->pit_clk);
+	}
 
 	ret = clk_prepare_enable(pit->pit_clk);
 	if (ret)
@@ -301,5 +312,27 @@ static int __init pit_timer_init(struct device_node *np)
 	return 0;
 }
 
-TIMER_OF_DECLARE(vf610, "fsl,vf610-pit", pit_timer_init);
-TIMER_OF_DECLARE(s32cc, "nxp,s32cc-pit", pit_timer_init);
+static int pit_timer_remove(struct platform_device *pdev)
+{
+	return -EBUSY;
+}
+
+static const struct of_device_id pit_of_match[] = {
+	{ .compatible = "fsl,vf610-pit", },
+	{ .compatible = "nxp,s32cc-pit", },
+	{},
+};
+MODULE_DEVICE_TABLE(of, pit_of_match);
+
+static struct platform_driver pit_driver_timer = {
+	.probe	= pit_timer_probe,
+	.remove = pit_timer_remove,
+	.driver	= {
+		.name = "nxp-pit",
+		.of_match_table = of_match_ptr(pit_of_match),
+	},
+};
+module_platform_driver(pit_driver_timer);
+
+MODULE_DESCRIPTION("NXP Periodic Interrupt Timer driver");
+MODULE_LICENSE("GPL v2");
