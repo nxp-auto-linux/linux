@@ -857,14 +857,46 @@ static int fsl_qspi_remove(struct platform_device *pdev)
 
 static int fsl_qspi_suspend(struct device *dev)
 {
+	struct fsl_qspi *q = dev_get_drvdata(dev);
+
+	if (is_s32gen1_qspi(q)) {
+		/* We switch QSPI to SPI mode before suspend to RAM,
+		 * in order to correctly reinitialize QSPI for DTR-OPI
+		 * mode, after resume, in case of read operation.
+		 */
+		enable_spi(q, true);
+
+		q->luts_next_config = 0;
+		memset(q->lut_configs, 0, sizeof(q->lut_configs));
+
+		fsl_qspi_clk_disable_unprep(q);
+	}
+
 	return 0;
 }
 
 static int fsl_qspi_resume(struct device *dev)
 {
 	struct fsl_qspi *q = dev_get_drvdata(dev);
+	int ret;
 
-	fsl_qspi_default_setup(q);
+	if (is_s32gen1_qspi(q)) {
+		ret = fsl_qspi_clk_prep_enable(q);
+		if (ret) {
+			dev_err(dev, "Failed to enable clock\n");
+			return ret;
+		}
+
+		ret = fsl_qspi_clk_setup(q, q->clk_rate);
+		if (ret) {
+			dev_err(dev, "Failed to set clock rate\n");
+			return ret;
+		}
+
+		fsl_qspi_default_setup(q);
+	} else {
+		fsl_qspi_default_setup(q);
+	}
 
 	return 0;
 }
