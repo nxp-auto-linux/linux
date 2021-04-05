@@ -206,6 +206,19 @@
  */
 #define QUADSPI_QUIRK_USE_TDH_SETTING	BIT(5)
 
+#define S32GEN1_MAX_OPCODE 0xff
+#define S32GEN1_MAX_LUTS 80
+#define S32GEN1_LUTS_PER_CONFIG 5
+#define S32GEN1_MAX_LUTS_CONFIGS \
+	(S32GEN1_MAX_LUTS / S32GEN1_LUTS_PER_CONFIG)
+
+struct lut_config {
+	bool enabled;
+	u32 conf[S32GEN1_MAX_LUTS_CONFIGS];
+	u8 fill;
+	u8 index;
+};
+
 struct fsl_qspi_devtype_data {
 	unsigned int rxfifo;
 	unsigned int txfifo;
@@ -225,11 +238,13 @@ struct fsl_qspi {
 	const struct fsl_qspi_devtype_data *devtype_data;
 	struct mutex lock;
 	struct pm_qos_request pm_qos_req;
+	struct lut_config lut_configs[S32GEN1_MAX_OPCODE];
 	int selected;
 	bool ddr_mode;
 	u32 clk_rate;
 	u32 num_pads;
 	u32 flags;
+	u8 luts_next_config;
 };
 
 void qspi_writel(struct fsl_qspi *q, u32 val, void __iomem *addr);
