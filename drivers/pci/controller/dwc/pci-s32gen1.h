@@ -19,6 +19,11 @@
 #define BUILD_BIT_VALUE(field, x) (((x) & (1)) << field##_BIT)
 #define BUILD_MASK_VALUE(field, x) (((x) & (field##_MASK)) << field##_LSB)
 
+#ifdef CONFIG_PCI_DW_DMA
+#include <linux/dma-mapping.h>
+#include "pci-dma-s32.h"
+#endif
+
 /* PCIe MSI capabilities register */
 #define PCI_MSI_CAP		0x50
 /* MSI Enable bit */
