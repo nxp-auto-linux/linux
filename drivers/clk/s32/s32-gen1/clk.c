@@ -94,16 +94,39 @@ static u32 ddr_mux_idx[] = {
 	MC_CGM_MUXn_CSC_SEL_DDR_PLL_PHI0,
 };
 
-PNAME(gmac_0_tx_sels) = {"firc", "periphpll_phi5", "serdes_0_lane_0", };
+PNAME(gmac_0_tx_sels) = {"firc", "periphpll_phi5", "serdes_0_lane_0_tx", };
 static u32 gmac_0_tx_mux_idx[] = {
 	MC_CGM_MUXn_CSC_SEL_FIRC, MC_CGM_MUXn_CSC_SEL_PERIPH_PLL_PHI5,
 	MC_CGM_MUXn_CSC_SEL_SERDES_0_LANE_0_TX_CLK,
+};
+
+PNAME(gmac_0_rx_sels) = {
+	"firc", "gmac0_rx_ext",
+	"serdes_0_lane_0_cdr",
+	"gmac0_ref_div"
+};
+static u32 gmac_0_rx_mux_idx[] = {
+	MC_CGM_MUXn_CSC_SEL_FIRC,
+	MC_CGM_MUXn_CSC_SEL_GMAC_0_RX_CLK,
+	MC_CGM_MUXn_CSC_SEL_SERDES_0_LANE_0_CDR_CLK,
+	MC_CGM_MUXn_CSC_SEL_GMAC_0_REF_DIV_CLK
 };
 
 PNAME(gmac_0_ts_sels) = {"firc", "periphpll_phi4", "periphpll_phi5", };
 static u32 gmac_0_ts_mux_idx[] = {
 	MC_CGM_MUXn_CSC_SEL_FIRC, MC_CGM_MUXn_CSC_SEL_PERIPH_PLL_PHI4,
 	MC_CGM_MUXn_CSC_SEL_PERIPH_PLL_PHI5,
+};
+
+PNAME(gmac_1_rx_sels) = {
+	"firc", "gmac_1_ref_div",
+	"gmac_1_ext_rx", "serdes_1_lane_1_cdr"
+};
+static u32 gmac_1_rx_mux_idx[] = {
+	MC_CGM_MUXn_CSC_SEL_FIRC,
+	MC_CGM_MUXn_CSC_SEL_GMAC_1_REF_DIV_CLK,
+	MC_CGM_MUXn_CSC_SEL_GMAC_1_EXT_RX_CLK,
+	MC_CGM_MUXn_CSC_SEL_SERDES_1_LANE_1_CDR_CLK_R45
 };
 
 PNAME(gmac_1_tx_sels) = {"firc", "periphpll_phi5", "serdes_1_lane_0", };
@@ -276,6 +299,11 @@ static void __init s32r45_extra_clocks_init(struct device_node *clocking_node)
 	c = s32gen1_clk_cgm_div("gmac_1_tx", "gmac_1_tx_sel",
 				clk_modules.mc_cgm2_base, 2, &s32gen1_lock);
 	set_plat_clk(S32GEN1_CLK_GMAC_1_TX, c);
+
+	c = s32gen1_clk_cgm_mux("gmac_1_rx", clk_modules.mc_cgm2_base,  4,
+				gmac_1_rx_sels, ARRAY_SIZE(gmac_1_rx_sels),
+				gmac_1_rx_mux_idx, &s32gen1_lock);
+	set_plat_clk(S32GEN1_CLK_GMAC_1_RX, c);
 }
 
 void __init s32gen1_clocks_init(struct device_node *clocking_node)
@@ -665,6 +693,11 @@ void __init s32gen1_clocks_init(struct device_node *clocking_node)
 	c = s32gen1_clk_cgm_div("gmac_0_tx", "gmac_0_tx_sel",
 				clk_modules.mc_cgm0_base, 10, &s32gen1_lock);
 	set_plat_clk(S32GEN1_CLK_GMAC_0_TX, c);
+
+	c = s32gen1_clk_cgm_mux("gmac_0_rx", clk_modules.mc_cgm0_base,  11,
+				gmac_0_rx_sels, ARRAY_SIZE(gmac_0_rx_sels),
+				gmac_0_rx_mux_idx, &s32gen1_lock);
+	set_plat_clk(S32GEN1_CLK_GMAC_0_RX, c);
 
 	c = s32gen1_clk_cgm_mux("gmac_0_ts_sel", clk_modules.mc_cgm0_base,  9,
 				gmac_0_ts_sels, ARRAY_SIZE(gmac_0_ts_sels),
