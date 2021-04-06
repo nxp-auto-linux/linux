@@ -21,7 +21,7 @@
 #include <linux/sizes.h>
 #include <linux/of_platform.h>
 #include <linux/sched/signal.h>
-#include "pci-dma-s32v234.h"
+#include "pci-dma-s32.h"
 
 
 /* TODO: dw_pcie_*_rc functions should be removed,

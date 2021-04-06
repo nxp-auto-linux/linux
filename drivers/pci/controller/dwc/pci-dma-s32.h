@@ -4,15 +4,14 @@
  * PCIe host controller driver, customized
  * for the NXP S32V PCIE driver
  *
- * Copyright 2017-2020 NXP
+ * Copyright 2017-2021 NXP
  */
 
 #ifndef PCIE_DMA_S32_H
 #define PCIE_DMA_S32_H
 
-#ifdef CONFIG_PCI_DW_DMA
-
 #include "pcie-designware.h"
+
 #if defined(CONFIG_PCI_S32V234)
 #include "pci-dma-s32v234.h"
 #elif defined(CONFIG_PCI_S32GEN1)
@@ -78,15 +77,19 @@
 #ifndef PCIE_DMA_MAX_SIZE
 #define PCIE_DMA_MAX_SIZE	(4 * 1024 * 1024)  /* 4G bytes */
 #endif
-#define DMA_FLAG_LIE         (1 << 0)
-#define DMA_FLAG_RIE         (1 << 1)
-#define DMA_FLAG_LLP         (1 << 2)
-#define DMA_FLAG_WRITE_ELEM			(1 << 3)
-#define DMA_FLAG_READ_ELEM			(1 << 4)
-#define DMA_FLAG_EN_DONE_INT		(1 << 5)
-#define DMA_FLAG_EN_ABORT_INT		(1 << 6)
-#define DMA_FLAG_EN_REMOTE_DONE_INT			(1 << 7)
-#define DMA_FLAG_EN_REMOTE_ABORT_INT		(1 << 8)
+#define DMA_FLAG_LIE         BIT(0)
+#define DMA_FLAG_RIE         BIT(1)
+#define DMA_FLAG_LLP         BIT(2)
+#define DMA_FLAG_WRITE_ELEM			BIT(3)
+#define DMA_FLAG_READ_ELEM			BIT(4)
+#define DMA_FLAG_EN_DONE_INT		BIT(5)
+#define DMA_FLAG_EN_ABORT_INT		BIT(6)
+#define DMA_FLAG_EN_REMOTE_DONE_INT			BIT(7)
+#define DMA_FLAG_EN_REMOTE_ABORT_INT		BIT(8)
+
+#define NUM_DMA_RD_CHAN_MASK	0xF0000
+#define NUM_DMA_RD_CHAN_SHIFT	16
+#define NUM_DMA_WR_CHAN_MASK	0xF
 
 enum DMA_CH_FLAGS {
 	DMA_CH_STOPPED = 0,
@@ -184,7 +187,5 @@ irqreturn_t dw_handle_dma_irq_write(struct dw_pcie *pci, struct dma_info *di,
 irqreturn_t dw_handle_dma_irq_read(struct dw_pcie *pci, struct dma_info *di,
 					u32 val_read);
 
-
-#endif /* CONFIG_PCI_DW_DMA */
 
 #endif  /* PCIE_DMA_S32_H */

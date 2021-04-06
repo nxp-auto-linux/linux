@@ -18,7 +18,9 @@
 #define _PCIE_S32V234_H
 
 #include "pcie-designware.h"
-#include "pci-dma-s32v234.h"
+#ifdef CONFIG_PCI_DW_DMA
+#include "pci-dma-s32.h"
+#endif
 
 #define to_s32v234_from_dw_pcie(x) \
 	container_of(x, struct s32v234_pcie, pcie)
