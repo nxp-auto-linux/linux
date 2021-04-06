@@ -36,11 +36,6 @@
 #include "pci-s32gen1.h"
 #include "../../pci.h"
 
-#ifdef CONFIG_PCI_DW_DMA
-#include <linux/dma-mapping.h>
-#include "pci-dma-s32.h"
-#endif
-
 #ifdef DEBUG
 #ifdef CONFIG_PCI_S32GEN1_DEBUG_READS
 #define DEBUG_R
