@@ -39,23 +39,28 @@
 #define MASTER_CPU	0
 #define STM_TIMER_NAME	"FSL stm timer"
 
+struct stm_work {
+	struct work_struct work;
+	int status;
+};
+
 struct stm_timer {
 	void __iomem *timer_base;
 	void __iomem *clkevt_base;
 	int irq;
 	unsigned int cpu;
 	struct clk *stm_clk;
+	struct device *dev;
 	unsigned long cycle_per_jiffy;
 	struct clock_event_device clockevent_stm;
 	unsigned long delta;
 	struct list_head list;
 	struct clocksource clksrc;
+	struct stm_work work;
 	u32 saved_cnt;
 };
 
-static LIST_HEAD(stms_list);
 static struct stm_timer *clocksource;
-static bool registered;
 
 static inline struct stm_timer *stm_timer_from_evt(struct clock_event_device *evt)
 {
@@ -67,15 +72,11 @@ static struct stm_timer *cs_to_stm(struct clocksource *cs)
 	return container_of(cs, struct stm_timer, clksrc);
 }
 
-static struct stm_timer *stm_timer_from_cpu(unsigned int cpu)
+static struct stm_timer *work_to_stm(struct work_struct *work)
 {
-	struct stm_timer *stm;
+	struct stm_work *swork = container_of(work, struct stm_work, work);
 
-	list_for_each_entry(stm, &stms_list, list)
-		if (stm->cpu == cpu)
-			return stm;
-
-	return NULL;
+	return container_of(swork, struct stm_timer, work);
 }
 
 static void enable_stm(struct stm_timer *stm)
@@ -270,25 +271,17 @@ static int stm_clockevent_init(struct stm_timer *stm, unsigned long rate,
 	return 0;
 }
 
-static int stm_timer_starting_cpu(unsigned int cpu)
+static void register_clkevent_work(struct work_struct *work)
 {
-	struct stm_timer *stm = stm_timer_from_cpu(cpu);
+	struct stm_timer *stm = work_to_stm(work);
+	unsigned long clk_rate = clk_get_rate(stm->stm_clk);
+	int ret;
 
-	if (stm)
-		return stm_clockevent_init(stm, stm->cycle_per_jiffy * (HZ),
-					   stm->irq);
+	ret = stm_clockevent_init(stm, clk_rate, stm->irq);
+	if (ret)
+		dev_err(stm->dev, "Failed to register STM clockevent\n");
 
-	return 0;
-}
-
-static int stm_timer_dying_cpu(unsigned int cpu)
-{
-	struct stm_timer *stm = stm_timer_from_cpu(cpu);
-
-	if (stm)
-		stm_timer_disable(stm);
-
-	return 0;
+	stm->work.status = ret;
 }
 
 static int __init fsl_stm_timer_probe(struct platform_device *pdev)
@@ -312,9 +305,10 @@ static int __init fsl_stm_timer_probe(struct platform_device *pdev)
 	if (stm == NULL)
 		return -ENOMEM;
 
-	platform_set_drvdata(pdev, stm);
+	INIT_WORK(&stm->work.work, register_clkevent_work);
+	stm->dev = dev;
 
-	list_add_tail(&stm->list, &stms_list);
+	platform_set_drvdata(pdev, stm);
 
 	stm->cpu = cpu;
 
@@ -346,24 +340,15 @@ static int __init fsl_stm_timer_probe(struct platform_device *pdev)
 	clk_rate = clk_get_rate(stm->stm_clk);
 	stm->cycle_per_jiffy = clk_rate / (HZ);
 
-	if (!registered) {
-		ret = cpuhp_setup_state_nocalls(CPUHP_AP_FSL_STM_TIMER_STARTING,
-						"AP_FSL_STM_TIMER_STARTING",
-						stm_timer_starting_cpu,
-						stm_timer_dying_cpu);
-		if (ret)
-			return ret;
-		registered = true;
-	}
-
 	if (cpu == MASTER_CPU) {
 		ret = stm_clocksource_init(stm, clk_rate);
 		if (ret)
 			return ret;
-		ret = stm_clockevent_init(stm, clk_rate, stm->irq);
-		if (ret)
-			return ret;
 	}
+
+	/* Register event on requested CPU */
+	schedule_work_on(cpu, &stm->work.work);
+	flush_work(&stm->work.work);
 
 	/* reset counter value */
 	stm_clksrc_setcnt(stm, 0);
