@@ -43,6 +43,11 @@
 #define CONFIG_PIT_CLKEVT_RATE	460
 #endif
 
+struct pit_work {
+	struct work_struct work;
+	int status;
+};
+
 struct pit_timer {
 	void __iomem *module_base;
 	void __iomem *clksrc_base;
@@ -50,31 +55,20 @@ struct pit_timer {
 	int irq;
 	unsigned int cpu;
 	struct clk *pit_clk;
+	struct device *dev;
 	unsigned long cycle_per_jiffy;
 	struct clock_event_device clockevent_pit;
 	struct list_head list;
 	struct clocksource clksrc;
+	struct pit_work work;
 	u32 saved_cnt;
 };
 
-static LIST_HEAD(pits_list);
 static struct pit_timer *clocksource;
-static bool registered;
 
 static inline struct pit_timer *evt_pit_timer(struct clock_event_device *evt)
 {
 	return container_of(evt, struct pit_timer, clockevent_pit);
-}
-
-static struct pit_timer *cpu_pit_timer(unsigned int cpu)
-{
-	struct pit_timer *pit;
-
-	list_for_each_entry(pit, &pits_list, list)
-		if (pit->cpu == cpu)
-			return pit;
-
-	return NULL;
 }
 
 static inline void pit_timer_enable(struct pit_timer *pit)
@@ -96,6 +90,13 @@ static inline void pit_irq_acknowledge(struct pit_timer *pit)
 static struct pit_timer *cs_to_pit(struct clocksource *cs)
 {
 	return container_of(cs, struct pit_timer, clksrc);
+}
+
+static struct pit_timer *work_to_pit(struct work_struct *work)
+{
+	struct pit_work *pwork = container_of(work, struct pit_work, work);
+
+	return container_of(pwork, struct pit_timer, work);
 }
 
 static u64 pit_read_down_val(struct pit_timer *pit)
@@ -287,30 +288,22 @@ static int pit_clockevent_init(struct pit_timer *pit, unsigned long rate,
 	return 0;
 }
 
-static int pit_timer_starting_cpu(unsigned int cpu)
-{
-	struct pit_timer *pit = cpu_pit_timer(cpu);
-
-	if (pit)
-		return pit_clockevent_init(pit, pit->cycle_per_jiffy * (HZ),
-					   pit->irq);
-
-	return 0;
-}
-
-static int pit_timer_dying_cpu(unsigned int cpu)
-{
-	struct pit_timer *pit = cpu_pit_timer(cpu);
-
-	if (pit)
-		pit_timer_disable(pit);
-
-	return 0;
-}
-
 static void enable_pit(struct pit_timer *pit)
 {
 	__raw_writel(~PITMCR_MDIS, pit->module_base + PITMCR);
+}
+
+static void register_clkevent_work(struct work_struct *work)
+{
+	struct pit_timer *pit = work_to_pit(work);
+	unsigned long clk_rate = clk_get_rate(pit->pit_clk);
+	int ret;
+
+	ret = pit_clockevent_init(pit, clk_rate, pit->irq);
+	if (ret)
+		dev_err(pit->dev, "Failed to register PIT clockevent\n");
+
+	pit->work.status = ret;
 }
 
 static int __init pit_timer_probe(struct platform_device *pdev)
@@ -334,8 +327,10 @@ static int __init pit_timer_probe(struct platform_device *pdev)
 	if (!pit)
 		return -ENOMEM;
 
+	INIT_WORK(&pit->work.work, register_clkevent_work);
+	pit->dev = dev;
+
 	platform_set_drvdata(pdev, pit);
-	list_add_tail(&pit->list, &pits_list);
 
 	pit->cpu = cpu;
 
@@ -376,26 +371,19 @@ static int __init pit_timer_probe(struct platform_device *pdev)
 	/* enable the pit module */
 	enable_pit(pit);
 
-	if (!registered) {
-		ret = cpuhp_setup_state_nocalls(CPUHP_AP_VF_PIT_TIMER_STARTING,
-						"AP_VF_PIT_TIMER_STARTING",
-						pit_timer_starting_cpu,
-						pit_timer_dying_cpu);
-		if (ret)
-			return ret;
-		registered = true;
-	}
-
 	if (cpu == MASTER_CPU) {
 		ret = pit_clocksource_init(pit, clk_rate);
-		if (ret)
+		if (ret) {
+			dev_err(dev, "Failed to register PIT as clocksource\n");
 			return ret;
-		ret = pit_clockevent_init(pit, clk_rate, pit->irq);
-		if (ret)
-			return ret;
+		}
 	}
 
-	return 0;
+	/* Register event on requested CPU */
+	schedule_work_on(cpu, &pit->work.work);
+	flush_work(&pit->work.work);
+
+	return pit->work.status;
 }
 
 static int __maybe_unused pit_resume(struct device *dev)
