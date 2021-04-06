@@ -1,20 +1,21 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright 2016 Freescale Semiconductor, Inc.
- * Copyright 2018 NXP
+ * Copyright 2018,2021 NXP
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
  * of the License, or (at your option) any later version.
  */
-
-#include <linux/interrupt.h>
-#include <linux/clockchips.h>
 #include <linux/clk.h>
+#include <linux/clockchips.h>
 #include <linux/cpuhotplug.h>
+#include <linux/interrupt.h>
+#include <linux/module.h>
 #include <linux/of_address.h>
 #include <linux/of_irq.h>
+#include <linux/platform_device.h>
 #include <linux/sched_clock.h>
 
 /*
@@ -118,7 +119,10 @@ static int __init stm_clocksource_init(struct stm_timer *stm,
 				       unsigned long rate)
 {
 	clocksource = stm;
+	local_irq_disable();
 	sched_clock_register(stm_read_sched_clock, 32, rate);
+	local_irq_enable();
+
 	clocksource_mmio_init(clocksource->timer_base + STM_CNT,
 			      "fsl-stm", rate,
 			      CONFIG_STM_CLKSRC_RATE, 32,
@@ -234,8 +238,10 @@ static int stm_timer_dying_cpu(unsigned int cpu)
 	return 0;
 }
 
-static int __init stm_timer_init(struct device_node *np)
+static int __init fsl_stm_timer_probe(struct platform_device *pdev)
 {
+	struct device *dev = &pdev->dev;
+	struct device_node *np = dev->of_node;
 	void __iomem *timer_base;
 	unsigned long clk_rate;
 	unsigned int cpu;
@@ -249,18 +255,18 @@ static int __init stm_timer_init(struct device_node *np)
 		return -EINVAL;
 	}
 
-	stm = kzalloc(sizeof(struct stm_timer), GFP_KERNEL);
-	if (!stm)
+	stm = devm_kzalloc(dev, sizeof(*stm), GFP_KERNEL);
+	if (stm == NULL)
 		return -ENOMEM;
 
 	list_add_tail(&stm->list, &stms_list);
 
 	stm->cpu = cpu;
 
-	timer_base = of_iomap(np, 0);
-	if (!timer_base) {
-		pr_err("Failed to iomap\n");
-		return -ENXIO;
+	timer_base = devm_of_iomap(dev, np, 0, NULL);
+	if (IS_ERR(timer_base)) {
+		dev_err(dev, "Failed to iomap\n");
+		return PTR_ERR(timer_base);
 	}
 
 	stm->timer_base = timer_base;
@@ -272,9 +278,11 @@ static int __init stm_timer_init(struct device_node *np)
 	if (stm->irq <= 0)
 		return -EINVAL;
 
-	stm->stm_clk = of_clk_get(np, 0);
-	if (IS_ERR(stm->stm_clk))
+	stm->stm_clk = devm_clk_get(dev, NULL);
+	if (IS_ERR(stm->stm_clk)) {
+		dev_err(dev, "Clock not found\n");
 		return PTR_ERR(stm->stm_clk);
+	}
 
 	ret = clk_prepare_enable(stm->stm_clk);
 	if (ret)
@@ -310,5 +318,27 @@ static int __init stm_timer_init(struct device_node *np)
 	return 0;
 }
 
-TIMER_OF_DECLARE(s32v234, "fsl,s32v234-stm", stm_timer_init);
-TIMER_OF_DECLARE(s32gen1, "fsl,s32gen1-stm", stm_timer_init);
+static int fsl_stm_timer_remove(struct platform_device *pdev)
+{
+	return -EBUSY;
+}
+
+static const struct of_device_id fsl_stm_of_match[] = {
+	{ .compatible = "fsl,s32v234-stm", },
+	{ .compatible = "fsl,s32gen1-stm", },
+	{},
+};
+MODULE_DEVICE_TABLE(of, fsl_stm_of_match);
+
+static struct platform_driver fsl_stm_probe = {
+	.probe	= fsl_stm_timer_probe,
+	.remove = fsl_stm_timer_remove,
+	.driver	= {
+		.name = "fsl-stm",
+		.of_match_table = of_match_ptr(fsl_stm_of_match),
+	},
+};
+module_platform_driver(fsl_stm_probe);
+
+MODULE_DESCRIPTION("NXP System Timer Module driver");
+MODULE_LICENSE("GPL v2");
