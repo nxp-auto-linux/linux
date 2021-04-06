@@ -1625,8 +1625,6 @@ static int linflex_suspend(struct device *dev)
 	struct linflex_port *sport = dev_get_drvdata(dev);
 
 	uart_suspend_port(&linflex_reg, &sport->port);
-	clk_disable_unprepare(sport->clk);
-	clk_disable_unprepare(sport->clk_ipg);
 
 	clk_disable_unprepare(sport->clk);
 	clk_disable_unprepare(sport->clk_ipg);
