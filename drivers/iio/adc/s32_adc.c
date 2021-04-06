@@ -3,7 +3,7 @@
  * driver by Fugang Duan <B38611@freescale.com>)
  *
  * Copyright 2013 Freescale Semiconductor, Inc.
- * Copyright 2017-2020 NXP
+ * Copyright 2017-2021 NXP
  */
 
 #include <linux/module.h>
@@ -839,6 +839,8 @@ static int s32_adc_resume(struct device *dev)
 	ret = clk_prepare_enable(info->clk);
 	if (ret)
 		return ret;
+
+	s32_adc_hw_init(info);
 
 	return 0;
 }
