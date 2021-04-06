@@ -49,6 +49,8 @@ struct stm_timer {
 	struct clock_event_device clockevent_stm;
 	unsigned long delta;
 	struct list_head list;
+	struct clocksource clksrc;
+	u32 saved_cnt;
 };
 
 static LIST_HEAD(stms_list);
@@ -58,6 +60,11 @@ static bool registered;
 static inline struct stm_timer *stm_timer_from_evt(struct clock_event_device *evt)
 {
 	return container_of(evt, struct stm_timer, clockevent_stm);
+}
+
+static struct stm_timer *cs_to_stm(struct clocksource *cs)
+{
+	return container_of(cs, struct stm_timer, clksrc);
 }
 
 static struct stm_timer *stm_timer_from_cpu(unsigned int cpu)
@@ -71,11 +78,21 @@ static struct stm_timer *stm_timer_from_cpu(unsigned int cpu)
 	return NULL;
 }
 
-static inline void stm_timer_enable(struct stm_timer *stm)
+static void enable_stm(struct stm_timer *stm)
 {
 	/* enable the stm module */
 	__raw_writel(STM_CR_CPS | STM_CR_FRZ | STM_CR_TEN,
 		     stm->timer_base + STM_CR);
+}
+
+static void disable_stm(struct stm_timer *stm)
+{
+	__raw_writel(0,  stm->timer_base + STM_CR);
+}
+
+static inline void stm_timer_enable(struct stm_timer *stm)
+{
+	enable_stm(stm);
 
 	/* enable clockevent channel */
 	__raw_writel(STM_CCR_CEN, stm->clkevt_base + STM_CCR);
@@ -115,6 +132,39 @@ static u64 stm_read_sched_clock(void)
 	return __raw_readl(clocksource->timer_base + STM_CNT);
 }
 
+static void stm_clksrc_save_cnt(struct stm_timer *stm)
+{
+	stm->saved_cnt = __raw_readl(stm->timer_base + STM_CNT);
+}
+
+static void stm_clksrc_suspend(struct clocksource *cs)
+{
+	struct stm_timer *stm = cs_to_stm(cs);
+
+	disable_stm(stm);
+	stm_clksrc_save_cnt(stm);
+}
+
+static void stm_clksrc_setcnt(struct stm_timer *stm, u32 cnt)
+{
+	__raw_writel(cnt, stm->timer_base + STM_CNT);
+}
+
+static void stm_clksrc_resume(struct clocksource *cs)
+{
+	struct stm_timer *stm = cs_to_stm(cs);
+
+	stm_clksrc_setcnt(stm,  stm->saved_cnt);
+	enable_stm(stm);
+}
+
+static u64 stm_clksrc_read(struct clocksource *cs)
+{
+	struct stm_timer *stm = cs_to_stm(cs);
+
+	return (u64)get_counter(stm);
+}
+
 static int __init stm_clocksource_init(struct stm_timer *stm,
 				       unsigned long rate)
 {
@@ -123,12 +173,15 @@ static int __init stm_clocksource_init(struct stm_timer *stm,
 	sched_clock_register(stm_read_sched_clock, 32, rate);
 	local_irq_enable();
 
-	clocksource_mmio_init(clocksource->timer_base + STM_CNT,
-			      "fsl-stm", rate,
-			      CONFIG_STM_CLKSRC_RATE, 32,
-			      clocksource_mmio_readl_up);
+	stm->clksrc.name = "fsl-stm";
+	stm->clksrc.rating = CONFIG_STM_CLKSRC_RATE;
+	stm->clksrc.read = stm_clksrc_read;
+	stm->clksrc.mask = CLOCKSOURCE_MASK(32);
+	stm->clksrc.flags = CLOCK_SOURCE_IS_CONTINUOUS;
+	stm->clksrc.suspend = stm_clksrc_suspend;
+	stm->clksrc.resume = stm_clksrc_resume;
 
-	return 0;
+	return clocksource_register_hz(&stm->clksrc, rate);
 }
 
 static int stm_set_next_event(unsigned long delta,
@@ -259,6 +312,8 @@ static int __init fsl_stm_timer_probe(struct platform_device *pdev)
 	if (stm == NULL)
 		return -ENOMEM;
 
+	platform_set_drvdata(pdev, stm);
+
 	list_add_tail(&stm->list, &stms_list);
 
 	stm->cpu = cpu;
@@ -311,10 +366,23 @@ static int __init fsl_stm_timer_probe(struct platform_device *pdev)
 	}
 
 	/* reset counter value */
-	__raw_writel(0, timer_base + STM_CNT);
-	/* enable the stm module */
-	__raw_writel(STM_CR_CPS | STM_CR_FRZ | STM_CR_TEN,
-		     timer_base + STM_CR);
+	stm_clksrc_setcnt(stm, 0);
+	enable_stm(stm);
+
+	return 0;
+}
+
+static int __maybe_unused fsl_stm_resume(struct device *dev)
+{
+	struct stm_timer *stm = dev_get_drvdata(dev);
+	int ret;
+
+	ret = clk_prepare_enable(stm->stm_clk);
+	if (ret)
+		return ret;
+
+	enable_stm(stm);
+
 	return 0;
 }
 
@@ -330,12 +398,15 @@ static const struct of_device_id fsl_stm_of_match[] = {
 };
 MODULE_DEVICE_TABLE(of, fsl_stm_of_match);
 
+static SIMPLE_DEV_PM_OPS(stm_timer_pm_ops, NULL, fsl_stm_resume);
+
 static struct platform_driver fsl_stm_probe = {
 	.probe	= fsl_stm_timer_probe,
 	.remove = fsl_stm_timer_remove,
 	.driver	= {
 		.name = "fsl-stm",
 		.of_match_table = of_match_ptr(fsl_stm_of_match),
+		.pm = &stm_timer_pm_ops,
 	},
 };
 module_platform_driver(fsl_stm_probe);
