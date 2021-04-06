@@ -4,7 +4,7 @@
  * PCIe host controller driver, customized
  * for the NXP S32V PCIE driver
  *
- * Copyright 2017-2020 NXP
+ * Copyright 2017-2021 NXP
  */
 
 #include <linux/clk.h>
@@ -434,15 +434,11 @@ int dw_pcie_dma_load_linked_list(struct dw_pcie *pci, struct dma_info *di,
 int dw_pcie_dma_single_rw(struct dw_pcie *pci, struct dma_info *di,
 	struct dma_data_elem *dma_single_rw)
 {
-	u32 flags;
+	u32 flags, dma_nr_ch;
 	struct dma_ch_info *ptr_ch;
 
-	/* Invalid channel number */
-	if (dma_single_rw->ch_num > PCIE_DMA_NR_CH - 1)
-		return -EINVAL;
-
 	/* Invalid transfer size */
-	if (dma_single_rw->size > PCIE_DMA_MAX_SIZE)
+	if (dma_single_rw->size > CONFIG_PCIE_DMA_MAX_SIZE)
 		return -EINVAL;
 
 	flags = dma_single_rw->flags;
@@ -450,6 +446,15 @@ int dw_pcie_dma_single_rw(struct dw_pcie *pci, struct dma_info *di,
 		&di->wr_ch : &di->rd_ch;
 
 	if (flags & DMA_FLAG_WRITE_ELEM) {
+
+		dma_nr_ch = dw_pcie_readl_dbi(pci, PCIE_DMA_CTRL);
+		dma_nr_ch = (dma_nr_ch & NUM_DMA_RD_CHAN_MASK)
+					>> NUM_DMA_RD_CHAN_SHIFT;
+
+		/* Invalid channel number */
+		if (dma_single_rw->ch_num > dma_nr_ch - 1)
+			return -EINVAL;
+
 		if (di->wr_ch.status == DMA_CH_RUNNING)
 			return -EBUSY;
 
@@ -459,6 +464,14 @@ int dw_pcie_dma_single_rw(struct dw_pcie *pci, struct dma_info *di,
 		dw_pcie_dma_set_viewport(pci, dma_single_rw->ch_num,
 			DMA_CH_WRITE);
 	} else {
+
+		dma_nr_ch = dw_pcie_readl_dbi(pci, PCIE_DMA_CTRL);
+		dma_nr_ch = (dma_nr_ch & NUM_DMA_WR_CHAN_MASK);
+
+		/* Invalid channel number */
+		if (dma_single_rw->ch_num > dma_nr_ch - 1)
+			return -EINVAL;
+
 		if (di->rd_ch.status == DMA_CH_RUNNING)
 			return -EBUSY;
 
