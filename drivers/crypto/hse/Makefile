@@ -5,5 +5,5 @@
 
 obj-$(CONFIG_CRYPTO_DEV_NXP_HSE) += hse.o
 
-hse-y := hse-core.o hse-mu.o hse-ahash.o hse-skcipher.o hse-aead.o hse-rng.o
-hse-$(CONFIG_CRYPTO_DEV_NXP_HSE_UIO) += hse-uio.o
+hse-y := hse-core.o hse-mu.o hse-uio.o
+hse-y += hse-ahash.o hse-skcipher.o hse-aead.o hse-rng.o
