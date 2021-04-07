@@ -42,7 +42,7 @@ config CRYPTO_DEV_NXP_HSE_KEY_WRAPPING
 	help
 	  Enables NXP key wrapping/blobbing support.
 
-config CRYPTO_DEV_NXP_HSE_AES_KEY_GID
+config CRYPTO_DEV_NXP_HSE_AES_KEY_GROUP_ID
 	depends on CRYPTO_DEV_NXP_HSE && !CRYPTO_DEV_NXP_HSE_UIO
 	int "AES Key Group ID within RAM Key Catalog: [0-256]"
 	range 0 256
@@ -50,7 +50,7 @@ config CRYPTO_DEV_NXP_HSE_AES_KEY_GID
 	help
 	  The AES 256-bit Key Group ID within RAM Key Catalog.
 
-config CRYPTO_DEV_NXP_HSE_AES_KEY_GSIZE
+config CRYPTO_DEV_NXP_HSE_AES_KEY_GROUP_SIZE
 	depends on CRYPTO_DEV_NXP_HSE && !CRYPTO_DEV_NXP_HSE_UIO
 	int "Number of AES Key Slots in AES Key Group: [0-256]"
 	range 0 256
@@ -58,7 +58,7 @@ config CRYPTO_DEV_NXP_HSE_AES_KEY_GSIZE
 	help
 	  Number of Key Slots available in the 256-bit AES Key Group.
 
-config CRYPTO_DEV_NXP_HSE_HMAC_KEY_GID
+config CRYPTO_DEV_NXP_HSE_HMAC_KEY_GROUP_ID
 	depends on CRYPTO_DEV_NXP_HSE && !CRYPTO_DEV_NXP_HSE_UIO
 	int "HMAC Key Group ID within RAM Key Catalog: [0-256]"
 	range 0 256
@@ -66,7 +66,7 @@ config CRYPTO_DEV_NXP_HSE_HMAC_KEY_GID
 	help
 	  The HMAC Key Group ID within RAM Key Catalog.
 
-config CRYPTO_DEV_NXP_HSE_HMAC_KEY_GSIZE
+config CRYPTO_DEV_NXP_HSE_HMAC_KEY_GROUP_SIZE
 	depends on CRYPTO_DEV_NXP_HSE && !CRYPTO_DEV_NXP_HSE_UIO
 	int "Number of HMAC Key Slots in HMAC Key Group: [0-256]"
 	range 0 256
