@@ -19,6 +19,18 @@
 #include "hse-core.h"
 #include "hse-mu.h"
 
+#if !defined(CONFIG_CRYPTO_DEV_NXP_HSE_UIO)
+#define HSE_KS_RAM_AES_GID       CONFIG_CRYPTO_DEV_NXP_HSE_AES_KEY_GROUP_ID
+#define HSE_KS_RAM_AES_GSIZE     CONFIG_CRYPTO_DEV_NXP_HSE_AES_KEY_GROUP_SIZE
+#define HSE_KS_RAM_HMAC_GID      CONFIG_CRYPTO_DEV_NXP_HSE_HMAC_KEY_GROUP_ID
+#define HSE_KS_RAM_HMAC_GSIZE    CONFIG_CRYPTO_DEV_NXP_HSE_HMAC_KEY_GROUP_SIZE
+#else
+#define HSE_KS_RAM_AES_GID       0u
+#define HSE_KS_RAM_AES_GSIZE     0u
+#define HSE_KS_RAM_HMAC_GID      0u
+#define HSE_KS_RAM_HMAC_GSIZE    0u
+#endif /* CONFIG_CRYPTO_DEV_NXP_HSE_UIO */
+
 /**
  * struct hse_drvdata - HSE driver private data
  * @srv_desc: service descriptor used to get attributes
@@ -113,7 +125,6 @@ err_unmap_fw_ver:
 	dma_unmap_single(dev, fw_ver_dma, sizeof(drv->fw_ver), DMA_FROM_DEVICE);
 }
 
-#ifndef CONFIG_CRYPTO_DEV_NXP_HSE_UIO
 /**
  * hse_key_ring_init - initialize all keys in a specific key group
  * @dev: HSE device
@@ -128,6 +139,10 @@ static int hse_key_ring_init(struct device *dev, struct list_head *key_ring,
 {
 	struct hse_key *ring;
 	unsigned int i;
+
+	/* skip init for zero size */
+	if (unlikely(!group_size))
+		return 0;
 
 	ring = devm_kmalloc_array(dev, group_size, sizeof(*ring), GFP_KERNEL);
 	if (IS_ERR_OR_NULL(ring))
@@ -152,10 +167,12 @@ static void hse_key_ring_free(struct list_head *key_ring)
 {
 	struct hse_key *key, *tmp;
 
+	if (unlikely(!key_ring))
+		return;
+
 	list_for_each_entry_safe(key, tmp, key_ring, entry)
 		list_del(&key->entry);
 }
-#endif /* CONFIG_CRYPTO_DEV_NXP_HSE_UIO */
 
 /**
  * hse_key_slot_acquire - acquire a HSE key slot
@@ -541,13 +558,11 @@ static void hse_srv_rsp_dispatch(struct device *dev, u8 channel)
 		dev_dbg(dev, "%s: service response 0x%08X on channel %d\n",
 			__func__, srv_rsp, channel);
 
-#ifdef CONFIG_CRYPTO_DEV_NXP_HSE_UIO
 	/* when UIO support is enabled, let upper layer handle the reply */
-	if (likely(drv->uio)) {
+	if (IS_ENABLED(CONFIG_CRYPTO_DEV_NXP_HSE_UIO) && likely(drv->uio)) {
 		hse_uio_notify(drv->uio, channel, srv_rsp);
 		return;
 	}
-#endif /* CONFIG_CRYPTO_DEV_NXP_HSE_UIO */
 
 	if (drv->rx_cbk[channel].fn) {
 		drv->rx_cbk[channel].fn(err, drv->rx_cbk[channel].ctx);
@@ -672,20 +687,7 @@ static int hse_probe(struct platform_device *pdev)
 	spin_lock_init(&drv->tx_lock);
 	spin_lock_init(&drv->key_ring_lock);
 
-#ifndef CONFIG_CRYPTO_DEV_NXP_HSE_UIO
-	/* initialize key rings */
-	err = hse_key_ring_init(dev, &drv->hmac_key_ring, HSE_KEY_TYPE_HMAC,
-				CONFIG_CRYPTO_DEV_NXP_HSE_HMAC_KEY_GID,
-				CONFIG_CRYPTO_DEV_NXP_HSE_HMAC_KEY_GSIZE);
-	if (unlikely(err))
-		return err;
 
-	err = hse_key_ring_init(dev, &drv->aes_key_ring, HSE_KEY_TYPE_AES,
-				CONFIG_CRYPTO_DEV_NXP_HSE_AES_KEY_GID,
-				CONFIG_CRYPTO_DEV_NXP_HSE_AES_KEY_GSIZE);
-	if (unlikely(err))
-		return err;
-#endif /* CONFIG_CRYPTO_DEV_NXP_HSE_UIO */
 
 	/* enable RX and error notifications */
 	hse_mu_irq_enable(drv->mu, HSE_INT_RESPONSE, HSE_CH_MASK_ALL);
@@ -694,22 +696,33 @@ static int hse_probe(struct platform_device *pdev)
 	/* check firmware version */
 	hse_print_fw_version(dev);
 
-#ifndef CONFIG_CRYPTO_DEV_NXP_HSE_UIO
-	/* register algorithms */
+	if (IS_ENABLED(CONFIG_CRYPTO_DEV_NXP_HSE_UIO)) {
+		drv->uio = hse_uio_register(dev, drv->mu);
+		if (IS_ERR_OR_NULL(drv->uio)) {
+			dev_err(dev, "failed to register UIO device\n");
+			return PTR_ERR(drv->uio);
+		}
+		return 0;
+	}
+
+	/* initialize key rings */
+	err = hse_key_ring_init(dev, &drv->hmac_key_ring, HSE_KEY_TYPE_HMAC,
+				HSE_KS_RAM_HMAC_GID, HSE_KS_RAM_HMAC_GSIZE);
+	if (unlikely(err))
+		return err;
+
+	err = hse_key_ring_init(dev, &drv->aes_key_ring, HSE_KEY_TYPE_AES,
+				HSE_KS_RAM_AES_GID, HSE_KS_RAM_AES_GSIZE);
+	if (unlikely(err))
+		return err;
+
+	/* register crypto algorithms */
 	hse_ahash_register(dev, &drv->ahash_algs);
 	hse_skcipher_register(dev, &drv->skcipher_algs);
 	hse_aead_register(dev, &drv->aead_algs);
 
 	if (IS_ENABLED(CONFIG_CRYPTO_DEV_NXP_HSE_HWRNG))
 		hse_hwrng_register(dev);
-#else
-
-	drv->uio = hse_uio_register(dev, drv->mu);
-	if (IS_ERR_OR_NULL(drv->uio)) {
-		dev_err(dev, "failed to register UIO device\n");
-		return PTR_ERR(drv->uio);
-	}
-#endif /* CONFIG_CRYPTO_DEV_NXP_HSE_UIO */
 
 	dev_info(dev, "device ready, status 0x%04X\n", status);
 
@@ -725,7 +738,9 @@ static int hse_remove(struct platform_device *pdev)
 	hse_mu_irq_disable(drv->mu, HSE_INT_RESPONSE, HSE_CH_MASK_ALL);
 	hse_mu_irq_disable(drv->mu, HSE_INT_SYS_EVENT, HSE_CH_MASK_ALL);
 
-#ifndef CONFIG_CRYPTO_DEV_NXP_HSE_UIO
+	if (IS_ENABLED(CONFIG_CRYPTO_DEV_NXP_HSE_UIO))
+		return 0;
+
 	/* unregister algorithms */
 	hse_ahash_unregister(&drv->ahash_algs);
 	hse_skcipher_unregister(&drv->skcipher_algs);
@@ -734,9 +749,8 @@ static int hse_remove(struct platform_device *pdev)
 	/* empty used key rings */
 	hse_key_ring_free(&drv->aes_key_ring);
 	hse_key_ring_free(&drv->hmac_key_ring);
-#endif /* CONFIG_CRYPTO_DEV_NXP_HSE_UIO */
 
-	dev_info(dev, "device removed\n");
+	dev_dbg(dev, "device removed\n");
 
 	return 0;
 }
