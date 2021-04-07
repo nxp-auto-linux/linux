@@ -202,8 +202,8 @@ void *hse_uio_register(struct device *dev, void *mu)
 	priv->info.priv = priv;
 
 	/* map HSE shared RAM area */
-	priv->shm = devm_ioremap_nocache(dev, HSE_SHARED_RAM_ADDR,
-					 HSE_SHARED_RAM_SIZE);
+	priv->shm = devm_ioremap(dev, HSE_SHARED_RAM_ADDR,
+				 HSE_SHARED_RAM_SIZE);
 	if (IS_ERR_OR_NULL(priv->shm))
 		return ERR_PTR(-ENOMEM);
 
