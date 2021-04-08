@@ -219,6 +219,10 @@
 		 */
 		midr-reg = <0x0 0x4009C000 0x0 0x10>;
 		status = "disabled";
+			  /* MSCR 0-101 */
+		ranges = <1 0 0x0 0x4009C240 0x0 0x198>,
+			 /* IMCR range 512–595 */
+			 <2 0 0x0 0x4009CA40 0x0 0x150>;
 	};
 
 	siul2_1 {
