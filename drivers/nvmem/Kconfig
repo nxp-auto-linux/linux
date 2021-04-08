@@ -395,6 +395,16 @@ config NVMEM_VF610_OCOTP
 	  This driver can also be build as a module. If so, the module will
 	  be called nvmem-vf610-ocotp.
 
+config NVMEM_S32CC_SIUL2
+	tristate "S32CC SIUL2 nvmem support: SoC revision"
+	depends on SOC_S32CC
+	default y
+	help
+	  This is a driver to access hardware related data like SoC revision
+	  for S32CC SoC.
+
+	  The revision information is retrieved from SIUL2 module.
+
 config NVMEM_ZYNQMP
 	tristate "Xilinx ZYNQMP SoC nvmem firmware support"
 	depends on ARCH_ZYNQMP
