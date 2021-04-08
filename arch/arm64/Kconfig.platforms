@@ -90,22 +90,12 @@ menu "S32V234 execution target"
 		help
 		   S32V234 evb is a customer evaluation board
 		   of S32V234 platform.
-	config S32V234_PALLADIUM
-		bool "S32V234 Palladium"
-		help
-		   S32V234 Palladium is a presilicon development
-		   platform for S32V234.
 	config S32V234_PCIE
 		bool "S32V234 pcie"
 		help
 		   S32V234 pcie is a derivate of S32V234 platform which
 		   is designed to be connected to master board via PCI
 		   Express.
-	config S32V234_SIMULATOR
-		bool "S32V234 Synopsis Simulator"
-		help
-		   S32V234 Software Simulator from Synopsis is a presilicon
-		   development solution.
 endmenu
 endif
 
