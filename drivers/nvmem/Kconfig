@@ -249,6 +249,17 @@ config SC27XX_EFUSE
 	  This driver can also be built as a module. If so, the module
 	  will be called nvmem-sc27xx-efuse.
 
+config NVMEM_S32_SIUL2
+	bool "S32 SIUL2 nvmem support: SoC revision"
+	depends on ARCH_S32
+	default SOC_S32GEN1
+	help
+	  This is a driver to access hardware related data like SoC revision
+	  for S32 SoC.
+	  The revision information is retrieved from SIUL2 module
+
+	  If sure, say yes. If unsure, say no.
+
 config NVMEM_ZYNQMP
 	bool "Xilinx ZYNQMP SoC nvmem firmware support"
 	depends on ARCH_ZYNQMP
