@@ -207,10 +207,6 @@
 		#address-cells = <2>;
 		#size-cells = <2>;
 		status = "okay";
-			  /* MSCR 0-101 */
-		ranges = <1 0 0x0 0x4009C240 0x0 0x198>,
-			 /* IMCR range 512–595 */
-			 <2 0 0x0 0x4009CA40 0x0 0x150>;
 		pinctrl0: siul2-pinctrl0@4009C000 {
 			compatible = "fsl,s32g274-siul2_0-pinctrl";
 			#pinctrl-cells = <2>;
