@@ -935,8 +935,6 @@ static void
 linflex_set_termios(struct uart_port *port, struct ktermios *termios,
 		    struct ktermios *old)
 {
-#ifndef CONFIG_S32V234_PALLADIUM
-	/*on Palladium we trust the configuration provided by u-boot*/
 	struct linflex_port *sport = container_of(port, struct linflex_port,
 						  port);
 	unsigned long flags;
@@ -1133,7 +1131,6 @@ linflex_set_termios(struct uart_port *port, struct ktermios *termios,
 	}
 	spin_unlock_irqrestore(&sport->port.lock, flags);
 
-#endif /* CONFIG_S32V234_PALLADIUM */
 }
 
 static const char *linflex_type(struct uart_port *port)
@@ -1374,7 +1371,6 @@ static void __init
 linflex_console_get_options(struct linflex_port *sport, int *baud, int *parity,
 			    int *bits)
 {
-#ifndef CONFIG_S32V234_PALLADIUM
 	/*unsigned char cr, bdh, bdl, brfa;*/
 	unsigned long cr;
 #if !defined(CONFIG_S32GEN1_EMULATOR)
@@ -1416,7 +1412,6 @@ linflex_console_get_options(struct linflex_port *sport, int *baud, int *parity,
 	if (*baud != baud_raw)
 		pr_info("Serial: Console linflex rounded baud rate from %d to %d\n",
 			baud_raw, *baud);
-#endif
 #endif
 }
 
@@ -1540,7 +1535,7 @@ static int linflex_probe(struct platform_device *pdev)
 	sport->port.irq = platform_get_irq(pdev, 0);
 	sport->port.ops = &linflex_pops;
 	sport->port.flags = UPF_BOOT_AUTOCONF;
-#if !defined(CONFIG_S32V234_PALLADIUM) && !defined(CONFIG_S32GEN1_EMULATOR)
+#if !defined(CONFIG_S32GEN1_EMULATOR)
 	sport->clk = devm_clk_get(&pdev->dev, "lin");
 	if (IS_ERR(sport->clk)) {
 		ret = PTR_ERR(sport->clk);
