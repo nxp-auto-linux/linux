@@ -219,10 +219,22 @@
 		 */
 		midr-reg = <0x0 0x4009C000 0x0 0x10>;
 		status = "disabled";
+			  /* MIDR */
+		ranges = <0 0 0x0 0x4009C000 0x0 0x10>,
 			  /* MSCR 0-101 */
-		ranges = <1 0 0x0 0x4009C240 0x0 0x198>,
+			 <1 0 0x0 0x4009C240 0x0 0x198>,
 			 /* IMCR range 512–595 */
 			 <2 0 0x0 0x4009CA40 0x0 0x150>;
+		nvram: nvram@4009C000 {
+			compatible = "fsl,s32gen1-siul2-nvmem";
+			reg = <0x0 0x0 0x0 0x10>;
+			#address-cells = <1>;
+			#size-cells = <1>;
+			status = "okay";
+			soc_revision: soc_revision@0 {
+				reg = <0x0 0x4>;
+			};
+		};
 	};
 
 	siul2_1 {
