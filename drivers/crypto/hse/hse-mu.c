@@ -5,7 +5,7 @@
  * This file contains the interface implementation for the Messaging Unit
  * instance used by host application cores to request services from HSE.
  *
- * Copyright 2019-2020 NXP
+ * Copyright 2019-2021 NXP
  */
 
 #include <linux/kernel.h>
@@ -348,7 +348,7 @@ void *hse_mu_init(struct device *dev, irqreturn_t (*rx_isr)(int irq, void *dev),
 
 	/* map hardware register space */
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	mu->regs = devm_ioremap_resource(&pdev->dev, res);
+	mu->regs = devm_ioremap_resource(dev, res);
 	if (IS_ERR_OR_NULL(mu->regs)) {
 		dev_err(dev, "failed to map %s regs @%pR\n", HSE_MU_INST, res);
 		return ERR_PTR(-ENOMEM);
