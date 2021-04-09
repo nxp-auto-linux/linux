@@ -4,7 +4,7 @@
  *
  * This file defines the firmware binary interface of HSE cryptographic engine.
  *
- * Copyright 2019-2020 NXP
+ * Copyright 2019-2021 NXP
  */
 
 #ifndef HSE_ABI_H
@@ -40,20 +40,20 @@ enum hse_status {
 
 /**
  * enum hse_event - HSE system event
- * @HSE_ERR_GENERAL: fatal error resulting in termination of MU communication
- * @HSE_ERR_EXT_TAMPER_VIOL: external tamper violation detected
- * @HSE_ERR_PLL_CLOCK_FAIL: clock monitoring violation on PLL clock
- * @HSE_ERR_SIRC_CLOCK_FAIL: clock monitoring violation on SIRC clock
- * @HSE_ERR_TEMP_VIOL: temperature sensor violation
- * @HSE_ERR_FIRMWARE_UPDATE: HSE firmware update fatal error
+ * @HSE_ERR_GENERAL: internal fatal error resulting in HSE shutdown
+ * @HSE_ERR_PHYSICAL_TAMPER_VIOL: physical tamper violation detected
+ * @HSE_ERR_HSE_CLOCK_FAIL: clock monitoring violation detected
+ * @HSE_ERR_TEMP_VIOL: temperature sensor violation detected
+ * @HSE_ERR_FIRMWARE_UPDATE: firmware update fatal error causing HSE shutdown
+ * @HSE_WA_SMR_PERIODIC_CHECK_FAILED: warning of SMR periodic check failure
  */
 enum hse_event {
 	HSE_ERR_GENERAL = BIT(0),
-	HSE_ERR_EXT_TAMPER_VIOL = BIT(1),
-	HSE_ERR_PLL_CLOCK_FAIL = BIT(2),
-	HSE_ERR_SIRC_CLOCK_FAIL = BIT(3),
-	HSE_ERR_TEMP_VIOL = BIT(4),
-	HSE_ERR_FIRMWARE_UPDATE = BIT(8),
+	HSE_ERR_PHYSICAL_TAMPER_VIOL = BIT(1),
+	HSE_ERR_HSE_CLOCK_FAIL = BIT(2),
+	HSE_ERR_TEMP_VIOL = BIT(3),
+	HSE_ERR_FIRMWARE_UPDATE = BIT(7),
+	HSE_WA_SMR_PERIODIC_CHECK_FAILED = BIT(8),
 };
 
 /**
@@ -106,24 +106,24 @@ enum hse_srv_id {
  */
 enum hse_srv_response {
 	HSE_SRV_RSP_OK = 0x55A5AA33ul,
-	HSE_SRV_RSP_VERIFY_FAILED = 0x55A5AA35ul,
-	HSE_SRV_RSP_INVALID_ADDR = 0x55A5AA55ul,
-	HSE_SRV_RSP_INVALID_PARAM = 0x55A5AA56ul,
-	HSE_SRV_RSP_NOT_SUPPORTED = 0xAA55A569ul,
-	HSE_SRV_RSP_NOT_ALLOWED = 0xAA55A536ul,
-	HSE_SRV_RSP_NOT_ENOUGH_SPACE = 0xAA55A563ul,
-	HSE_SRV_RSP_READ_FAILURE = 0xAA55A599ul,
-	HSE_SRV_RSP_WRITE_FAILURE = 0xAA55A5B1ul,
-	HSE_SRV_RSP_STREAMING_MODE_FAILURE = 0xAA55A5C1ul,
-	HSE_SRV_RSP_KEY_NOT_AVAILABLE = 0xA5AA5571ul,
-	HSE_SRV_RSP_KEY_INVALID = 0xA5AA5527ul,
-	HSE_SRV_RSP_KEY_EMPTY = 0xA5AA5517ul,
-	HSE_SRV_RSP_KEY_WRITE_PROTECTED = 0xA5AA5537ul,
-	HSE_SRV_RSP_KEY_UPDATE_ERROR = 0xA5AA5573ul,
-	HSE_SRV_RSP_MEMORY_FAILURE = 0x55A5AA36ul,
-	HSE_SRV_RSP_CANCEL_FAILURE = 0x55A5C461ul,
-	HSE_SRV_RSP_CANCELED = 0x55A5C596ul,
-	HSE_SRV_RSP_GENERAL_ERROR = 0x55A5C565ul,
+	HSE_SRV_RSP_VERIFY_FAILED = 0x55A5A164ul,
+	HSE_SRV_RSP_INVALID_ADDR = 0x55A5A26Aul,
+	HSE_SRV_RSP_INVALID_PARAM = 0x55A5A399ul,
+	HSE_SRV_RSP_NOT_SUPPORTED = 0xAA55A11Eul,
+	HSE_SRV_RSP_NOT_ALLOWED = 0xAA55A21Cul,
+	HSE_SRV_RSP_NOT_ENOUGH_SPACE = 0xAA55A371ul,
+	HSE_SRV_RSP_READ_FAILURE = 0xAA55A427ul,
+	HSE_SRV_RSP_WRITE_FAILURE = 0xAA55A517ul,
+	HSE_SRV_RSP_STREAMING_MODE_FAILURE = 0xAA55A6B1ul,
+	HSE_SRV_RSP_KEY_NOT_AVAILABLE = 0xA5AA51B2ul,
+	HSE_SRV_RSP_KEY_INVALID = 0xA5AA52B4ul,
+	HSE_SRV_RSP_KEY_EMPTY = 0xA5AA5317ul,
+	HSE_SRV_RSP_KEY_WRITE_PROTECTED = 0xA5AA5436ul,
+	HSE_SRV_RSP_KEY_UPDATE_ERROR = 0xA5AA5563ul,
+	HSE_SRV_RSP_MEMORY_FAILURE = 0x33D6D136ul,
+	HSE_SRV_RSP_CANCEL_FAILURE = 0x33D6D261ul,
+	HSE_SRV_RSP_CANCELED = 0x33D6D396ul,
+	HSE_SRV_RSP_GENERAL_ERROR = 0x33D6D4F1ul,
 };
 
 /**
@@ -422,8 +422,6 @@ struct hse_mac_srv {
  * @cipher_dir: direction - encrypt/decrypt from &enum hse_cipher_dir
  * @sgt_opt: specify whether input/output is provided as scatter-gather table
  * @key_handle: RAM catalog key handle
- * @iv_len: initialization vector/nonce length. Ignored for NULL and ECB block
- *          modes. Must be the appropriate block size for the block mode
  * @iv: address of the initialization vector/nonce. Ignored for NULL and ECB
  *      block modes
  * @input_len: plaintext/ciphertext length, in bytes. For ECB, CBC and CFB
@@ -447,7 +445,6 @@ struct hse_skcipher_srv {
 	u8 sgt_opt;
 	u8 reserved1[2];
 	u32 key_handle;
-	u32 iv_len;
 	u64 iv;
 	u32 input_len;
 	u64 input;
