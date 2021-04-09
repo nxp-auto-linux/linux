@@ -5,7 +5,7 @@
  * This file contains the implementation of the symmetric key block cipher
  * algorithms supported for hardware offloading via HSE.
  *
- * Copyright 2019-2020 NXP
+ * Copyright 2019-2021 NXP
  */
 
 #include <linux/kernel.h>
@@ -232,7 +232,6 @@ static int hse_skcipher_crypt(struct skcipher_request *req,
 	rctx->srv_desc.skcipher_req.block_mode = alg->block_mode;
 	rctx->srv_desc.skcipher_req.cipher_dir = direction;
 	rctx->srv_desc.skcipher_req.key_handle = tctx->key_slot->handle;
-	rctx->srv_desc.skcipher_req.iv_len = ivsize;
 	rctx->srv_desc.skcipher_req.iv = rctx->iv_dma;
 	rctx->srv_desc.skcipher_req.sgt_opt = HSE_SGT_OPT_NONE;
 	rctx->srv_desc.skcipher_req.input_len = rctx->buflen;
