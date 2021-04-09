@@ -1,0 +1,277 @@
+*
+* Copyright 2020-2021 NXP
+*
+* NXP S32G274A PFE networking accelerator (pfeng)
+*
+
+Required properties:
+- compatible : Should be "fsl,s32g274a-pfeng"
+- reg : Address and length of the register set for the device
+- interrupts : Should contain all pfeng interrupts but hifs: bmu,upegpt,safety
+- clocks : Should contain at least: pfe_sys, pfe_pe
+- memory-region : Physical address space for PFE buffers
+		  The following memory regions are required in this exact order:
+		  1) reserved region for the BMU2 buffer pool, must be in the range 0x00020000 - 0xbfffffff;
+		  "fsl,pfe-bmu2-pool" compatible;
+		  2) reserved region for non-cacheable DMA buffers,
+		  "shared-dma-pool" compatible;
+		  3) reserved region for buffer descriptor rings,
+		  "fsl,pfe-bdr-pool" compatible;
+
+Optional properties:
+- dma-coherent : Declare driver DMA cohereenty (S32G2xx cut 2.0+ only)
+- fsl,fw-class-name : PFE CLASS firmware filename
+- fsl,fw-util-name : PFE UTIL firmware filename
+- fsl,pfeng-master-hif-channel : [slave only] The number of master's HIF channel (0-3)
+
+Required subnode:
+- hif : specifies the PFE HIF channel
+- emac : [master only] specifies the PFE EMAC interface
+- ethernet : specifies the logical network interface
+
+Required properties for 'hif' subnode:
+- compatible : Should be "fsl,pfeng-hif"
+- reg : Small number, indexing the HIF channel
+- interrupts : Should contain HIF channel interrupt
+- fsl,pfeng-hif-mode : Should contain channel mode
+- fsl,pfeng-ihc : [master/slave only] Annotate for IHC traffic
+
+Required properties for 'emac' subnode:
+- compatible : Should be "fsl,pfeng-emac"
+- reg : Small number, indexing the EMAC
+- phy-mode : See ethernet.txt file in the same directory
+
+Optional properties for 'emac' subnode:
+- clocks : array of TX clocks
+
+Optional subnode for 'emac':
+- mdio : specifies the mdio bus, used as a container for phy nodes
+  according to phy.txt in the same directory
+
+Requires properties for 'mdio' subnode:
+- compatible = Should be "fsl,pfeng-mdio"
+
+Requires properties for 'ethernet' subnode:
+- compatible : Should be "fsl,pfeng-logif"
+- reg : Small number, indexing the network interfaces
+- fsl,pfeng-if-name : Logical interface name visible in the Linux
+- fsl,pfeng-logif-mode : 0 for now
+- fsl,pfeng-hif-channels : array of phandles of 'hif' nodes
+- fsl,pfeng-emac-link : [master/standalone only] phandle to coresponding 'emac' node
+- fsl,pfeng-emac-id : [slave only] PFE EMAC id (0..2)
+
+Optional properties for 'ethernet' subnode:
+- fsl,pfeng-ihc : [master/slave only] Declares the interface for IHC traffic
+- local-mac-address : MAC address
+- phy-handle : phandle to the PHY device connected to this device.
+- fixed-link : Assume a fixed link. See fixed-link.txt in the same directory.
+  Use instead of phy-handle.
+
+Example:
+
+reserved-memory {
+	#address-cells = <2>;
+	#size-cells = <2>;
+	ranges;
+
+	pfe_reserved_bmu2: pfebufs@83000000 {
+		compatible = "fsl,pfe-bmu2-pool";
+		reg = <0 0x83000000 0 0x200000>;
+		no-map;
+		status = "okay";
+	};
+
+	pfe_reserved: pfebufs@83200000 {
+		compatible = "shared-dma-pool";
+		reg = <0 0x83200000 0 0x9e0000>;
+		no-map;
+		status = "okay";
+	};
+
+	pfe_reserved_bdr: pfebufs@83bf0000 {
+		compatible = "fsl,pfe-bdr-pool";
+		reg = <0 0x83be0000 0 0x20000>;
+		status = "okay";
+	};
+};
+
+pfe@46080000 {
+	compatible = "fsl,s32g274a-pfeng";
+	pfe: pfe@46080000 {
+		compatible = "fsl,s32g274a-pfeng";
+		reg = <0x0 0x46000000 0x0 0x1000000>,	 /* PFE controller */
+			  <0x0 0x4007ca00 0x0 0x4>;	 /* S32G274a syscon */
+		reg-names = "cbus", "gpr";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		interrupt-parent = <&gic>;
+		interrupts = <GIC_SPI 194 IRQ_TYPE_EDGE_RISING>,
+			      <GIC_SPI 195 IRQ_TYPE_EDGE_RISING>,
+			      <GIC_SPI 196 IRQ_TYPE_EDGE_RISING>,
+			      <GIC_SPI 197 IRQ_TYPE_EDGE_RISING>;
+		interrupt-names = "bmu", "nocpy", "upegpt", "safety";
+		dma-coherent;
+		clocks = <&clks S32G_SCMI_CLK_PFE_AXI>,
+			 <&clks S32G_SCMI_CLK_PFE_PE>,
+			 <&clks S32G_SCMI_CLK_PFE_TS>;
+		clock-names = "pfe_sys", "pfe_pe", "pfe_ts";
+		memory-region = <&pfe_reserved_bmu2>, <&pfe_reserved>, <&pfe_reserved_bdr>;
+		fsl,fw-class-name = "s32g_pfe_class.fw";
+		fsl,fw-util-name = "s32g_pfe_util.fw";
+
+		/* PFE_HIF_0 */
+		pfe_hif0: hif@0 {
+			compatible = "fsl,pfeng-hif";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+			interrupts =  <GIC_SPI 190 IRQ_TYPE_EDGE_RISING>;
+			reg = <0>;
+			fsl,pfeng-hif-mode = <PFENG_HIF_MODE_EXCLUSIVE>;
+		};
+
+		/* PFE_HIF_1 */
+		pfe_hif1: hif@1 {
+			compatible = "fsl,pfeng-hif";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+			interrupts =  <GIC_SPI 191 IRQ_TYPE_EDGE_RISING>;
+			reg = <1>;
+			fsl,pfeng-hif-mode = <PFENG_HIF_MODE_EXCLUSIVE>;
+		};
+
+		/* PFE_HIF_2 */
+		pfe_hif2: hif@2 {
+			compatible = "fsl,pfeng-hif";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+			interrupts =  <GIC_SPI 192 IRQ_TYPE_EDGE_RISING>;
+			reg = <2>;
+			fsl,pfeng-hif-mode = <PFENG_HIF_MODE_EXCLUSIVE>;
+		};
+
+		/* PFE_HIF_3 */
+		pfe_hif3: hif@3 {
+			compatible = "fsl,pfeng-hif";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+			interrupts =  <GIC_SPI 193 IRQ_TYPE_EDGE_RISING>;
+			reg = <3>;
+			fsl,pfeng-hif-mode = <PFENG_HIF_MODE_EXCLUSIVE>;
+		};
+
+		/* PFE_EMAC_0 */
+		pfe_emac0: emac@0 {
+			compatible = "fsl,pfeng-emac";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "okay";
+			reg = <0>;
+			clocks = <&clks S32G_SCMI_CLK_PFE0_TX_SGMII>,
+				 <&clks S32G_SCMI_CLK_PFE0_TX_RGMII>,
+				 <&clks S32G_SCMI_CLK_PFE0_TX_RMII>,
+				 <&clks S32G_SCMI_CLK_PFE0_TX_MII>;
+			clock-names = "tx_sgmii", "tx_rgmii",
+				      "tx_rmii", "tx_mii";
+			phy-mode = "sgmii";
+
+			/* mdio */
+			pfe_mdio0: mdio@0 {
+				compatible = "fsl,pfeng-mdio";
+				#address-cells = <1>;
+				#size-cells = <0>;
+				reg = <0x0>;
+			};
+		};
+
+		/* PFE_EMAC_1 */
+		pfe_emac1: emac@1 {
+			compatible = "fsl,pfeng-emac";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "okay";
+			reg = <1>;
+			clocks = <&clks S32G_SCMI_CLK_PFE1_TX_SGMII>,
+				 <&clks S32G_SCMI_CLK_PFE1_TX_RGMII>,
+				 <&clks S32G_SCMI_CLK_PFE1_TX_RMII>,
+				 <&clks S32G_SCMI_CLK_PFE1_TX_MII>;
+			clock-names = "tx_sgmii", "tx_rgmii",
+				      "tx_rmii", "tx_mii";
+			phy-mode = "rgmii";
+
+			/* mdio */
+			pfe_mdio1: mdio@1 {
+				compatible = "fsl,pfeng-mdio";
+				#address-cells = <1>;
+				#size-cells = <0>;
+				reg = <0x1>;
+			};
+		};
+
+		/* PFE_EMAC_2 */
+		pfe_emac2: emac@2 {
+			compatible = "fsl,pfeng-emac";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "okay";
+			reg = <2>;
+			clocks = <&clks S32G_SCMI_CLK_PFE2_TX_SGMII>,
+				 <&clks S32G_SCMI_CLK_PFE2_TX_RGMII>,
+				 <&clks S32G_SCMI_CLK_PFE2_TX_RMII>,
+				 <&clks S32G_SCMI_CLK_PFE2_TX_MII>;
+			clock-names = "tx_sgmii", "tx_rgmii",
+				      "tx_rmii", "tx_mii";
+			phy-mode = "rgmii";
+
+			/* mdio */
+			pfe_mdio2: mdio@2 {
+				compatible = "fsl,pfeng-mdio";
+				#address-cells = <1>;
+				#size-cells = <0>;
+				reg = <0x2>;
+			};
+		};
+
+		/* Logical network interface 'pfe0' */
+		pfe_logif0: ethernet@0 {
+			compatible = "fsl,pfeng-logif";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+			local-mac-address = [ 00 04 9F BE EF 00 ];
+			fsl,pfeng-if-name = "pfe0";
+			fsl,pfeng-logif-mode = <0>;
+			fsl,pfeng-emac-link = <&pfe_emac0>;
+			fsl,pfeng-hif-channels = <&pfe_hif0>;
+		};
+
+		/* Logical network interface 'pfe1' */
+		pfe_logif1: ethernet@1 {
+			compatible = "fsl,pfeng-logif";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+			local-mac-address = [ 00 04 9F BE EF 01 ];
+			fsl,pfeng-if-name = "pfe1";
+			fsl,pfeng-logif-mode = <0>;
+			fsl,pfeng-emac-link = <&pfe_emac1>;
+			fsl,pfeng-hif-channels = <&pfe_hif1>;
+		};
+
+		/* Logical network interface 'pfe2' */
+		pfe_logif2: ethernet@2 {
+			compatible = "fsl,pfeng-logif";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+			local-mac-address = [ 00 04 9F BE EF 02 ];
+			fsl,pfeng-if-name = "pfe2";
+			fsl,pfeng-logif-mode = <0>;
+			fsl,pfeng-emac-link = <&pfe_emac2>;
+			fsl,pfeng-hif-channels = <&pfe_hif2>;
+		};
+	};
+};
