@@ -687,8 +687,6 @@ static int hse_probe(struct platform_device *pdev)
 	spin_lock_init(&drv->tx_lock);
 	spin_lock_init(&drv->key_ring_lock);
 
-
-
 	/* enable RX and error notifications */
 	hse_mu_irq_enable(drv->mu, HSE_INT_RESPONSE, HSE_CH_MASK_ALL);
 	hse_mu_irq_enable(drv->mu, HSE_INT_SYS_EVENT, HSE_CH_MASK_ALL);
