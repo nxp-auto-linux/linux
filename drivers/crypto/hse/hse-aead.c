@@ -5,7 +5,7 @@
  * This file contains the implementation of the authenticated encryption with
  * additional data algorithms supported for hardware offloading via HSE.
  *
- * Copyright 2019-2020 NXP
+ * Copyright 2019-2021 NXP
  */
 
 #include <linux/kernel.h>
@@ -21,6 +21,7 @@
 #include "hse-core.h"
 
 #define HSE_AEAD_MAX_KEY_SIZE    AES_MAX_KEY_SIZE
+#define HSE_AEAD_MAX_IV_SIZE     GCM_AES_IV_SIZE
 
 /**
  * struct hse_aead_tpl - algorithm template
@@ -100,7 +101,7 @@ struct hse_aead_tfm_ctx {
 struct hse_aead_req_ctx {
 	struct hse_srv_desc desc;
 	dma_addr_t desc_dma;
-	u8 iv[GCM_AES_IV_SIZE];
+	u8 iv[HSE_AEAD_MAX_IV_SIZE];
 	dma_addr_t iv_dma;
 	void *buf;
 	dma_addr_t buf_dma;
@@ -606,7 +607,7 @@ static const struct hse_aead_tpl hse_aead_algs_tpl[] = {
 		.key_type = HSE_KEY_TYPE_AES,
 		.alg_type = HSE_ALG_TYPE_AEAD,
 	},
-#if defined(CRYPTO_DEV_NXP_HSE_KEY_WRAPPING)
+#if defined(CONFIG_CRYPTO_DEV_NXP_HSE_KEY_WRAPPING)
 	{
 		.aead_name = "wrap(key)",
 		.aead_drv = "wrap-key-hse",
@@ -617,7 +618,7 @@ static const struct hse_aead_tpl hse_aead_algs_tpl[] = {
 		.key_type = HSE_KEY_TYPE_AES,
 		.alg_type = HSE_ALG_TYPE_KEYWRAP,
 	},
-#endif
+#endif /* CONFIG_CRYPTO_DEV_NXP_HSE_KEY_WRAPPING */
 };
 
 /**
