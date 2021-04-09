@@ -1,0 +1,54 @@
+# SPDX-License-Identifier: (GPL-2.0 or BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/nvmem/fsl,s32-siul2-nvmem.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: NXP S32 SIUL2 NVMEM driver
+
+maintainers:
+  - Catalin Udma <catalin-dan.udma@nxp.com>
+
+description: |
+  The drivers provides a unique interface to access non volatile SoC
+  information from SIUL2 module, for example SoC Revision
+
+allOf:
+  - $ref: "nvmem.yaml#"
+
+properties:
+  compatible:
+    const: fsl,s32gen1-siul2-nvmem
+
+  reg:
+    description:
+      Address and Size of the SIUL2 MCU ID Registers (MIDR1 & MIDR2).
+    maxItems: 1
+
+  '#address-cells':
+    const: 1
+
+  '#size-cells':
+    const: 1
+
+required:
+  - compatible
+  - reg
+  - '#address-cells'
+  - '#size-cells'
+
+unevaluatedProperties: false
+
+examples:
+  - |
+
+        nvram: nvram@4009C000 {
+                compatible = "fsl,s32gen1-siul2-nvmem";
+                reg = <0x0 0x0 0x0 10>;
+                #address-cells = <1>;
+                #size-cells = <1>;
+                status = "okay";
+                soc_revision: soc_revision@0 {
+                        reg = <0x0 0x4>;
+                };
+        };
