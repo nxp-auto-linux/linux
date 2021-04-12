@@ -17,7 +17,7 @@
 &gmac0 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl0_gmac0_rgmii_a>;
-	phy-mode = "rgmii";
+	phy-mode = "rgmii-id";
 	status = "okay";
 	/* direct connect to SJA1105Q P0 */
 	fixed-link {
