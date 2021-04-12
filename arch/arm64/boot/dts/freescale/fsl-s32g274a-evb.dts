@@ -54,7 +54,7 @@
 
 &gmac0 {
 	status = "okay";
-	phy-mode = "rgmii";
+	phy-mode = "rgmii-id";
 	phy-handle = <&gmac0_mdio_c_phy4>;
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl0_gmac0_rgmii_c>;
