@@ -676,7 +676,7 @@
 &gmac0 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl0_rgmii2>, <&pinctrl0_mdio2>;
-	phy-mode = "rgmii";
+	phy-mode = "rgmii-id";
 	phy-handle = <&gmac0_phy1>;
 	status = "okay";
 };
