@@ -71,6 +71,9 @@ static int s32cc_gmac_init(struct platform_device *pdev, void *priv)
 			intf_sel = PHY_INTF_SEL_SGMII;
 			break;
 		case PHY_INTERFACE_MODE_RGMII:
+		case PHY_INTERFACE_MODE_RGMII_ID:
+		case PHY_INTERFACE_MODE_RGMII_TXID:
+		case PHY_INTERFACE_MODE_RGMII_RXID:
 			dev_info(&pdev->dev, "phy mode set to RGMII\n");
 			intf_sel = PHY_INTF_SEL_RGMII;
 			break;
@@ -169,9 +172,7 @@ static int s32cc_dwmac_probe(struct platform_device *pdev)
 	}
 
 	if (gmac->intf_mode != PHY_INTERFACE_MODE_SGMII &&
-	    gmac->intf_mode != PHY_INTERFACE_MODE_RGMII &&
-	    gmac->intf_mode != PHY_INTERFACE_MODE_RMII &&
-	    gmac->intf_mode != PHY_INTERFACE_MODE_MII) {
+	    !phy_interface_mode_is_rgmii(gmac->intf_mode)) {
 		dev_err(&pdev->dev, "Not supported phy interface mode: [%s]\n",
 			phy_modes(gmac->intf_mode));
 		return -EINVAL;
@@ -183,6 +184,9 @@ static int s32cc_dwmac_probe(struct platform_device *pdev)
 		rx_clk = "rx_sgmii";
 		break;
 	case PHY_INTERFACE_MODE_RGMII:
+	case PHY_INTERFACE_MODE_RGMII_ID:
+	case PHY_INTERFACE_MODE_RGMII_TXID:
+	case PHY_INTERFACE_MODE_RGMII_RXID:
 		tx_clk = "tx_rgmii";
 		rx_clk = "rx_rgmii";
 		break;
