@@ -17,20 +17,11 @@
 &gmac0 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl0_gmac0_rgmii_a &pinctrl0_gmac0_mdio_a>;
-	phy-mode = "rgmii";
+	phy-mode = "rgmii-id";
 	status = "okay";
 	/* Connected to KSZ9031 MDIO_A */
 	phy-handle = <&mdio_a_phy1>;
 };
-
-&pfe_logif1 {
-	phy-handle = <&mdio_a_phy3>;
-};
-
-&pfe_emac1 {
-	phy-mode = "sgmii";
-};
-
 
 &gmac0_mdio {
 	/* KSZ9031 GMAC */
@@ -47,6 +38,14 @@
 		#size-cells = <0>;
 		reg = <3>;
 	};
+};
+
+&pfe_logif1 {
+	phy-handle = <&mdio_a_phy3>;
+};
+
+&pfe_emac1 {
+	phy-mode = "sgmii";
 };
 
 &pfe_mdio2 {
