@@ -526,14 +526,6 @@ int s32_pcie_setup_inbound(struct s32_inbound_region *inbStr)
 }
 EXPORT_SYMBOL(s32_pcie_setup_inbound);
 
-static bool s32gen1_pcie_is_hw_mode_ep(struct dw_pcie *pci)
-{
-	u8 header_type;
-
-	header_type = dw_pcie_readb_dbi(pci, PCI_HEADER_TYPE);
-	return ((header_type & 0x7f) == PCI_HEADER_TYPE_NORMAL);
-}
-
 static void s32gen1_pcie_disable_ltssm(struct s32gen1_pcie *pci)
 {
 	DEBUG_FUNC;
@@ -877,31 +869,36 @@ struct s32gen1_pcie *s32_get_dw_pcie(void)
 }
 EXPORT_SYMBOL(s32_get_dw_pcie);
 
-static int s32gen1_pcie_probe(struct platform_device *pdev)
+static const struct of_device_id s32gen1_pcie_of_match[];
+
+static int s32gen1_pcie_dt_init(struct platform_device *pdev,
+				struct s32gen1_pcie *s32_pp)
 {
 	struct device *dev = &pdev->dev;
 	struct device_node *np = dev->of_node;
-	struct s32gen1_pcie *s32_pp;
+	struct dw_pcie *pcie = &s32_pp->pcie;
 	struct resource *res;
-	struct dw_pcie *pcie;
-	struct pcie_port *pp;
+	const struct of_device_id *match;
+	const struct s32gen1_pcie_data *data;
+	enum dw_pcie_device_mode mode;
+	int ret;
 
-	int ret = 0;
-	unsigned int ltssm_en;
+	match = of_match_device(s32gen1_pcie_of_match, dev);
+	if (!match)
+		return -EINVAL;
 
-	DEBUG_FUNC;
+	data = match->data;
+	mode = data->mode;
 
-	s32_pp = devm_kzalloc(dev, sizeof(*s32_pp), GFP_KERNEL);
-	if (!s32_pp)
-		return -ENOMEM;
+	s32_pp->is_endpoint = (mode == DW_PCIE_EP_TYPE);
+	dev_info(dev, "Configured as %s\n",
+		 PCIE_EP_RC_MODE(s32_pp->is_endpoint));
 
-	pcie = &(s32_pp->pcie);
-	pp = &(pcie->pp);
-
-	pcie->dev = dev;
-	pcie->ops = &s32_pcie_ops;
-
-	of_property_read_u32(np, "id", &s32_pp->id);
+	ret = of_property_read_u32(np, "device_id", &s32_pp->id);
+	if (ret) {
+		dev_err(dev, "Missing 'device_id' property\n");
+		return ret;
+	}
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "dbi");
 	pcie->dbi_base = devm_ioremap_resource(dev, res);
@@ -931,10 +928,6 @@ static int s32gen1_pcie_probe(struct platform_device *pdev)
 	dev_dbg(dev, "ctrl: %pR\n", res);
 	dev_dbg(dev, "ctrl virt: 0x%llx\n", (u64)s32_pp->ctrl_base);
 
-	s32_pp->is_endpoint = s32gen1_pcie_is_hw_mode_ep(pcie);
-	dev_dbg(dev, "Configured as %s\n",
-			PCIE_EP_RC_MODE(s32_pp->is_endpoint));
-
 	/* If "msi-parent" property is present in device tree and the PCIe
 	 * is RC, MSIs will not be handled by iMSI-RX (default mechanism
 	 * implemented in DesignWare core).
@@ -943,6 +936,36 @@ static int s32gen1_pcie_probe(struct platform_device *pdev)
 	 */
 	if (!s32_pp->is_endpoint && of_parse_phandle(np, "msi-parent", 0))
 		s32_pp->has_msi_parent = true;
+
+	return 0;
+}
+
+static int s32gen1_pcie_probe(struct platform_device *pdev)
+{
+	struct device *dev = &pdev->dev;
+	struct device_node *np = dev->of_node;
+	struct s32gen1_pcie *s32_pp;
+	struct dw_pcie *pcie;
+	struct pcie_port *pp;
+
+	int ret = 0;
+	unsigned int ltssm_en;
+
+	DEBUG_FUNC;
+
+	s32_pp = devm_kzalloc(dev, sizeof(*s32_pp), GFP_KERNEL);
+	if (!s32_pp)
+		return -ENOMEM;
+
+	pcie = &(s32_pp->pcie);
+	pp = &(pcie->pp);
+
+	pcie->dev = dev;
+	pcie->ops = &s32_pcie_ops;
+
+	ret = s32gen1_pcie_dt_init(pdev, s32_pp);
+	if (ret)
+		return ret;
 
 	/* Attempt to figure out whether u-boot has preconfigured PCIE; if it
 	 * did not, we will not be able to tell whether we should run as EP
