@@ -558,12 +558,16 @@
 		compatible = "rohm,dh2228fv";
 		spi-max-frequency = <10000000>;
 		reg = <0>;
+		fsl,spi-cs-sck-delay = <100>;
+		fsl,spi-sck-cs-delay = <100>;
 	};
 
 	spidev11: spidev@1 {
 		compatible = "rohm,dh2228fv";
 		spi-max-frequency = <10000000>;
 		reg = <1>;
+		fsl,spi-cs-sck-delay = <100>;
+		fsl,spi-sck-cs-delay = <100>;
 	};
 };
 
@@ -578,12 +582,16 @@
 		compatible = "rohm,dh2228fv";
 		spi-max-frequency = <10000000>;
 		reg = <0>;
+		fsl,spi-cs-sck-delay = <100>;
+		fsl,spi-sck-cs-delay = <100>;
 	};
 
 	spidev21: spidev@1 {
 		compatible = "rohm,dh2228fv";
 		spi-max-frequency = <10000000>;
 		reg = <1>;
+		fsl,spi-cs-sck-delay = <100>;
+		fsl,spi-sck-cs-delay = <100>;
 	};
 };
 
@@ -598,6 +606,8 @@
 		compatible = "rohm,dh2228fv";
 		spi-max-frequency = <4000000>;
 		reg = <0>;
+		fsl,spi-cs-sck-delay = <100>;
+		fsl,spi-sck-cs-delay = <100>;
 	};
 };
 
