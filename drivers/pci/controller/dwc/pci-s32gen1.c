@@ -1083,13 +1083,7 @@ static struct platform_driver s32gen1_pcie_driver = {
 	.shutdown = s32gen1_pcie_shutdown,
 };
 
-/* S32Gen1 PCIe driver does not allow module unload */
-
-static int __init s32gen1_pcie_init(void)
-{
-	return platform_driver_probe(&s32gen1_pcie_driver, s32gen1_pcie_probe);
-}
-module_init(s32gen1_pcie_init);
+module_platform_driver(s32gen1_pcie_driver);
 
 MODULE_AUTHOR("Ionut Vicovan <Ionut.Vicovan@nxp.com>");
 MODULE_DESCRIPTION("NXP S32Gen1 PCIe host controller driver");
