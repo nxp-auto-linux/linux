@@ -11,7 +11,10 @@ config ARCH_S32
 
 if ARCH_S32
 
-menu "S32 SOC selection"
+choice
+	prompt "S32 SOC selection"
+	default SOC_S32GEN1
+
 	config SOC_S32V234
 		bool "S32V234 SOC"
 	config SOC_S32GEN1
@@ -24,7 +27,7 @@ menu "S32 SOC selection"
 		select RESET_SCMI_SCMI
 		select GENERIC_PHY
 		select PHY_S32GEN1_SERDES
-endmenu
+endchoice
 
 menu "STM timer used as system timer"
 	config S32_STM_SYSTIMER
