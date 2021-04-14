@@ -12,7 +12,11 @@
 #include <linux/errno.h>
 #include <linux/types.h>
 #include <linux/version.h>
+#include <linux/phy/phy.h>
 #include "pcie-designware.h"
+
+#define BUILD_BIT_VALUE(field, x) (((x) & (1)) << field##_BIT)
+#define BUILD_MASK_VALUE(field, x) (((x) & (field##_MASK)) << field##_LSB)
 
 /* PCIe MSI capabilities register */
 #define PCI_MSI_CAP		0x50
@@ -25,27 +29,31 @@
 #define MSIX_EN			BIT(31)
 
 /* PCIe Capabilities ID and next pointer register */
-#define PCI_EXP_CAP_ID	0x70
+#define PCI_EXP_CAP_ID			0x70
 
-/* PCIe controller general control 1 (PE0_GEN_CTRL_1 / PE1_GEN_CTRL_1) */
-#define PE_GEN_CTRL_1		0x50
+/* PCIe controller 0 general control 1 (PE0_GEN_CTRL_1) */
+#define PE0_GEN_CTRL_1			0x50
+#define   DEVICE_TYPE_LSB		(0)
+#define   DEVICE_TYPE_MASK		(0x0000000F)
+#define   DEVICE_TYPE			((DEVICE_TYPE_MASK) << \
+					(DEVICE_TYPE_LSB))
 
 #define PCI_EXP_CAP_ID_OFFSET	0x70
 
 /* PCIe controller 0 general control 3 (PE0_GEN_CTRL_3) */
-#define PE0_GEN_CTRL_3		0x58
+#define PE0_GEN_CTRL_3			0x58
 /* Configuration Request Retry Status (CRS) Enable. Active high. */
 /* Defer incoming configuration requests. */
-#define CRS_EN					0x2
+#define CRS_EN				0x2
 /* LTSSM Enable. Active high. Set it low to hold the LTSSM in Detect state. */
-#define LTSSM_EN				0x1
+#define LTSSM_EN			0x1
 
-#define LTSSM_STATE_L0		0x11 /* L0 state */
+#define LTSSM_STATE_L0			0x11 /* L0 state */
 
 #define to_s32gen1_from_dw_pcie(x) \
 	container_of(x, struct s32gen1_pcie, pcie)
 
-#define PCIE_NR_REGIONS		6
+#define PCIE_NR_REGIONS			6
 
 enum pcie_dev_type {
 	PCIE_EP = 0x0,
@@ -99,6 +107,7 @@ struct s32gen1_pcie {
 
 	/* TODO: change this to a list */
 	void (*call_back)(u32 arg);
+	struct phy *phy0, *phy1;
 };
 
 struct s32_inbound_region {
