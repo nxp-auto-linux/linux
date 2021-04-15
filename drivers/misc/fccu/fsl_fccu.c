@@ -254,7 +254,7 @@ static int __init s32_fccu_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
-	platform_set_drvdata(pdev, &priv_data);
+	platform_set_drvdata(pdev, priv_data);
 
 	if (clear_fault_status(priv_data->base) != 0) {
 		dev_err(fccu_miscdev.parent, "%s, %d, configuration meet timeout\n",
