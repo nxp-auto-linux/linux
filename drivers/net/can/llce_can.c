@@ -95,7 +95,7 @@ static int send_cmd_msg(struct mbox_chan *conf_chan,
 		return ret;
 
 	wait_for_completion(&can->config_done);
-	if (cmd->return_value != LLCE_CAN_SUCCESS) {
+	if (cmd->return_value != LLCE_FW_SUCCESS) {
 		dev_err(dev, "LLCE FW error %d\n", cmd->return_value);
 		return -EIO;
 	}
@@ -112,9 +112,7 @@ static int llce_can_init(struct llce_can *llce)
 	struct llce_can_command cmd = {
 		.cmd_id = LLCE_CAN_CMD_INIT,
 		.cmd_list.init = {
-			.ctrl_config = LLCE_CAN_CONTROLLERCONFIG_RXINT_EN |
-				LLCE_CAN_CONTROLLERCONFIG_TXINT_EN |
-				LLCE_CAN_CONTROLLERCONFIG_CTRL_EN,
+			.ctrl_config = LLCE_CAN_CONTROLLERCONFIG_CTRL_EN,
 			.tx_mb_count = LLCE_CAN_MAX_TX_MB,
 		},
 	};
@@ -274,12 +272,12 @@ static int llce_set_data_bittiming(struct net_device *dev)
 		.cmd_list.set_baudrate = {
 			.nominal_baudrate_config = get_cbt(bt),
 			.controller_fd = {
-				.can_fd_enable = is_canfd_dev(can),
-				.can_data_baudrate_config = get_cbt(dbt),
-				.can_controller_tx_bit_rate_switch = true,
-				.can_trcv_delay_comp_enable = true,
-				.can_trcv_delay_meas_enable = true,
-				.can_trcv_delay_comp_offset = get_tdc_off(dbt),
+				.fd_enable = is_canfd_dev(can),
+				.data_baudrate_config = get_cbt(dbt),
+				.controller_tx_bit_rate_switch = true,
+				.trcv_delay_comp_enable = true,
+				.trcv_delay_meas_enable = true,
+				.trcv_delay_comp_offset = get_tdc_off(dbt),
 			},
 		},
 	};
@@ -293,7 +291,7 @@ static int llce_set_data_bittiming(struct net_device *dev)
 
 	/* Disable delay compensation in loopback mode */
 	if (can->ctrlmode & CAN_CTRLMODE_LOOPBACK)
-		controller_fd->can_trcv_delay_comp_enable = false;
+		controller_fd->trcv_delay_comp_enable = false;
 
 	ret = send_cmd_msg(llce->config, &cmd);
 	if (ret) {
@@ -399,7 +397,7 @@ static int llce_can_close(struct net_device *dev)
 	return ret;
 }
 
-static void llce_process_error(struct llce_can *llce, enum llce_can_error error,
+static void llce_process_error(struct llce_can *llce, enum llce_fw_return error,
 			       enum llce_can_module module)
 {
 	struct can_frame *cf;
@@ -425,20 +423,25 @@ static void llce_process_error(struct llce_can *llce, enum llce_can_error error,
 	case LLCE_ERROR_BCAN_ACKERR:
 		cf->can_id |= CAN_ERR_ACK;
 		cf->data[3] = CAN_ERR_PROT_LOC_ACK;
+		fallthrough;
 	case LLCE_ERROR_BCAN_BIT0ERR:
 		if (error == LLCE_ERROR_BCAN_BIT0ERR)
 			cf->data[2] |= CAN_ERR_PROT_BIT0;
+		fallthrough;
 	case LLCE_ERROR_BCAN_BIT1ERR:
 		if (error == LLCE_ERROR_BCAN_BIT1ERR)
 			cf->data[2] |= CAN_ERR_PROT_BIT1;
+		fallthrough;
 	case LLCE_ERROR_BCAN_CRCERR:
 		if (error == LLCE_ERROR_BCAN_CRCERR) {
 			cf->data[2] |= CAN_ERR_PROT_BIT;
 			cf->data[3] = CAN_ERR_PROT_LOC_CRC_SEQ;
 		}
+		fallthrough;
 	case LLCE_ERROR_BCAN_FRMERR:
 		if (error == LLCE_ERROR_BCAN_FRMERR)
 			cf->data[2] |= CAN_ERR_PROT_FORM;
+		fallthrough;
 	case LLCE_ERROR_BCAN_FRZ_ENTER:
 	case LLCE_ERROR_BCAN_FRZ_EXIT:
 	case LLCE_ERROR_BCAN_LPM_EXIT:
@@ -446,6 +449,7 @@ static void llce_process_error(struct llce_can *llce, enum llce_can_error error,
 	case LLCE_ERROR_BCAN_STFERR:
 		if (error == LLCE_ERROR_BCAN_STFERR)
 			cf->data[2] |= CAN_ERR_PROT_STUFF;
+		fallthrough;
 	case LLCE_ERROR_BCAN_SYNC:
 	case LLCE_ERROR_BCAN_UNKNOWN_ERROR:
 		can_stats->bus_error++;
@@ -459,7 +463,12 @@ static void llce_process_error(struct llce_can *llce, enum llce_can_error error,
 	case LLCE_ERROR_DATA_LOST:
 	case LLCE_ERROR_MB_NOTAVAILABLE:
 	case LLCE_ERROR_RXOUT_FIFO_FULL:
+	case LLCE_ERROR_SW_FIFO_FULL:
 		net_stats->rx_dropped++;
+		break;
+	case LLCE_ERROR_BCAN_RXFIFO_OVERRUN:
+		net_stats->rx_over_errors++;
+		net_stats->rx_errors++;
 		break;
 	default:
 		netdev_err(llce->can.dev, "Unhandled %d error %d\n",
