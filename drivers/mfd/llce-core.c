@@ -4,6 +4,7 @@
 #include <linux/firmware.h>
 #include <linux/genalloc.h>
 #include <linux/kernel.h>
+#include <linux/mailbox/nxp-llce/llce_fw_interface.h>
 #include <linux/module.h>
 #include <linux/of_address.h>
 #include <linux/of_platform.h>
@@ -28,14 +29,6 @@
 #define LLCE_MGR_FRPE_BOOT_END			(0x0000F000U)
 #define LLCE_MGR_BOOT_END_ALL_CORES_MASK	(0x0000FFFFU)
 
-struct llce_mrg_status {
-	u32 tx;
-	u32 rx;
-	u32 dte;
-	u32 frpe;
-	u32 error_cnt;
-	u32 stm_init_cnt;
-};
 
 struct llce_fw_cont {
 	struct platform_device *pdev;
@@ -234,24 +227,48 @@ static void reset_llce_cores(void __iomem *sysctrl_base)
 	writel(0x0, sysctrl_base + LLCE_SYSRSTR);
 }
 
-static bool llce_boot_end(void *status_reg)
+static bool llce_boot_end(struct device *dev, void *status_reg, bool verbose)
 {
-	struct llce_mrg_status *mgr_status = status_reg;
-	u32 status;
+	struct llce_mgr_status *mgr_status = status_reg;
 
-	status = mgr_status->tx;
-	status |= mgr_status->rx;
-	status |= mgr_status->dte;
-	status |= mgr_status->frpe;
+	if (mgr_status->tx_boot_status != LLCE_FW_SUCCESS) {
+		if (verbose)
+			dev_err(dev, "TX boot failed with status: %d\n",
+				mgr_status->tx_boot_status);
+		return false;
+	}
 
-	return status == LLCE_MGR_BOOT_END_ALL_CORES_MASK;
+	if (mgr_status->rx_boot_status != LLCE_FW_SUCCESS) {
+		if (verbose)
+			dev_err(dev, "RX boot failed with status: %d\n",
+				mgr_status->rx_boot_status);
+		return false;
+	}
+
+	if (mgr_status->dte_boot_status != LLCE_FW_SUCCESS) {
+		if (verbose)
+			dev_err(dev, "DTE boot failed with status: %d\n",
+				mgr_status->dte_boot_status);
+		return false;
+	}
+
+	if (mgr_status->frpe_boot_status != LLCE_FW_SUCCESS) {
+		if (verbose)
+			dev_err(dev, "FRPE boot failed with status: %d\n",
+				mgr_status->frpe_boot_status);
+		return false;
+	}
+
+	return true;
 }
 
-static bool llce_boot_end_or_timeout(void *status_reg, ktime_t timeout)
+static bool llce_boot_end_or_timeout(struct device *dev, void *status_reg,
+				     ktime_t timeout)
 {
 	ktime_t cur = ktime_get();
 
-	return llce_boot_end(status_reg) || ktime_after(cur, timeout);
+	return llce_boot_end(dev, status_reg, false)
+	    || ktime_after(cur, timeout);
 }
 
 static int llce_cores_kickoff(struct device *dev, void __iomem *sysctrl_base,
@@ -264,8 +281,8 @@ static int llce_cores_kickoff(struct device *dev, void __iomem *sysctrl_base,
 	/* LLCE cores kickoff */
 	writel(mask, sysctrl_base + LLCE_SYSRSTR);
 
-	spin_until_cond(llce_boot_end_or_timeout(status_reg, timeout));
-	if (!llce_boot_end(status_reg)) {
+	spin_until_cond(llce_boot_end_or_timeout(dev, status_reg, timeout));
+	if (!llce_boot_end(dev, status_reg, true)) {
 		dev_err(dev, "Firmware loading failed\n");
 		return -EIO;
 	}
