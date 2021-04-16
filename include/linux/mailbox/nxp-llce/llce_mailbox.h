@@ -31,7 +31,7 @@ struct llce_tx_msg {
 };
 
 struct llce_tx_notif {
-	enum llce_can_error error;
+	enum llce_fw_return error;
 	u32 tx_timestamp;
 };
 
@@ -47,7 +47,7 @@ enum llce_rx_cmd {
 
 struct llce_rx_msg {
 	enum llce_rx_cmd cmd;
-	enum llce_can_error error;
+	enum llce_fw_return error;
 	union {
 		bool is_rx_empty;
 		struct {
