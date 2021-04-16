@@ -105,18 +105,24 @@ static int process_rx_cmd(struct mbox_chan *chan, struct llce_rx_msg *msg);
 const char *llce_errors[] = {
 	LLCE_ERROR_ENTRY(LLCE_ERROR_TXACK_FIFO_FULL),
 	LLCE_ERROR_ENTRY(LLCE_ERROR_RXOUT_FIFO_FULL),
+	LLCE_ERROR_ENTRY(LLCE_ERROR_HW_FIFO_EMPTY),
+	LLCE_ERROR_ENTRY(LLCE_ERROR_HW_FIFO_FULL),
+	LLCE_ERROR_ENTRY(LLCE_ERROR_SW_FIFO_EMPTY),
+	LLCE_ERROR_ENTRY(LLCE_ERROR_SW_FIFO_FULL),
 	LLCE_ERROR_ENTRY(LLCE_ERROR_MB_NOTAVAILABLE),
 	LLCE_ERROR_ENTRY(LLCE_ERROR_BCAN_FRZ_EXIT),
 	LLCE_ERROR_ENTRY(LLCE_ERROR_BCAN_SYNC),
 	LLCE_ERROR_ENTRY(LLCE_ERROR_BCAN_FRZ_ENTER),
 	LLCE_ERROR_ENTRY(LLCE_ERROR_BCAN_LPM_EXIT),
 	LLCE_ERROR_ENTRY(LLCE_ERROR_BCAN_SRT_ENTER),
+	LLCE_ERROR_ENTRY(LLCE_ERROR_BCAN_UNKNOWN_ERROR),
 	LLCE_ERROR_ENTRY(LLCE_ERROR_BCAN_ACKERR),
 	LLCE_ERROR_ENTRY(LLCE_ERROR_BCAN_CRCERR),
 	LLCE_ERROR_ENTRY(LLCE_ERROR_BCAN_BIT0ERR),
 	LLCE_ERROR_ENTRY(LLCE_ERROR_BCAN_BIT1ERR),
 	LLCE_ERROR_ENTRY(LLCE_ERROR_BCAN_FRMERR),
 	LLCE_ERROR_ENTRY(LLCE_ERROR_BCAN_STFERR),
+	LLCE_ERROR_ENTRY(LLCE_ERROR_BCAN_RXFIFO_OVERRUN),
 	LLCE_ERROR_ENTRY(LLCE_ERROR_DATA_LOST),
 	LLCE_ERROR_ENTRY(LLCE_ERROR_TXLUT_FULL),
 	LLCE_ERROR_ENTRY(LLCE_ERROR_CMD_PROCESSING),
@@ -137,6 +143,8 @@ const char *llce_errors[] = {
 	LLCE_ERROR_ENTRY(LLCE_ERROR_FIFO_LOG_FULL),
 	LLCE_ERROR_ENTRY(LLCE_ERROR_CAN2CAN),
 	LLCE_ERROR_ENTRY(LLCE_ERROR_COMMAND_PARAM),
+	LLCE_ERROR_ENTRY(LLCE_ERROR_COMMAND_RXPPE_NORESPONSE),
+	LLCE_ERROR_ENTRY(LLCE_ERROR_COMMAND_AF_NORESPONSE),
 	LLCE_ERROR_ENTRY(LLCE_ERROR_COMMAND_DEINIT_NOTSTOP),
 	LLCE_ERROR_ENTRY(LLCE_ERROR_RXTOKENS_UNRETURNED),
 	LLCE_ERROR_ENTRY(LLCE_ERROR_TXACK_NOT_READ),
@@ -163,6 +171,25 @@ const char *llce_errors[] = {
 	LLCE_ERROR_ENTRY(LLCE_ERROR_INVALID_REQUEST_FROM_TX),
 	LLCE_ERROR_ENTRY(LLCE_ERROR_INVALID_REQUEST_FROM_RX),
 	LLCE_ERROR_ENTRY(LLCE_ERROR_RX_SW_FIFO_EMPTY),
+	LLCE_ERROR_ENTRY(LLCE_ERROR_PFEIF),
+	LLCE_ERROR_ENTRY(LLCE_ERROR_HSEIF),
+	LLCE_ERROR_ENTRY(LLCE_FW_SUCCESS),
+	LLCE_ERROR_ENTRY(LLCE_FW_ERROR),
+	LLCE_ERROR_ENTRY(LLCE_FW_NOTRUN),
+	LLCE_ERROR_ENTRY(LLCE_ERROR_INTERNALDESC_NOT_RETURNED),
+	LLCE_ERROR_ENTRY(LLCE_ERROR_INTERNALDESC_NOT_DELIVERED),
+	LLCE_ERROR_ENTRY(LLCE_ERROR_INTERNALDESC_NOTAVAIL),
+	LLCE_ERROR_ENTRY(LLCE_ERROR_INTERNALDESC_FIFO_FULL),
+	LLCE_ERROR_ENTRY(LLCE_ERROR_MB_NOTAVAIL),
+	LLCE_ERROR_ENTRY(LLCE_ERROR_MB_FIFO_FULL),
+	LLCE_ERROR_ENTRY(LLCE_ERROR_NO_MB_AVAILABLE),
+	LLCE_ERROR_ENTRY(LLCE_ERROR_UNKNOWN_SRC),
+	LLCE_ERROR_ENTRY(LLCE_ERROR_UNKNOWN_DEST),
+	LLCE_ERROR_ENTRY(LLCE_ERROR_UNKNOWN_REQUEST),
+	LLCE_ERROR_ENTRY(LLCE_ERROR_CONVERSION),
+	LLCE_ERROR_ENTRY(LLCE_ERROR_NO_MB_TO_ABORT),
+	LLCE_ERROR_ENTRY(LLCE_ERROR_INDEX_NOT_RECOVERED),
+	LLCE_ERROR_ENTRY(LLCE_ERROR_RESET_PENDING),
 };
 
 const char *llce_modules[] = {
@@ -206,7 +233,7 @@ static const struct llce_icsr icsrs[] = {
 	},
 };
 
-static const char *get_error_name(enum llce_can_error err)
+static const char *get_error_name(enum llce_fw_return err)
 {
 	u32 index = err - LLCE_ERROR_TXACK_FIFO_FULL;
 
@@ -464,7 +491,7 @@ static int execute_config_cmd(struct mbox_chan *chan,
 
 	priv->last_msg = cmd;
 	memcpy(sh_cmd, cmd, sizeof(*cmd));
-	sh_cmd->return_value = LLCE_CAN_NOTRUN;
+	sh_cmd->return_value = LLCE_FW_NOTRUN;
 
 	/* Trigger an interrupt to the LLCE */
 	writel(idx, push0);
@@ -967,7 +994,7 @@ static void llce_process_rxin(struct llce_mb *mb, u8 index)
 		/* Get notification mailbox */
 		rxin_id = readl(pop0) & LLCE_CAN_CONFIG_FIFO_FIXED_MASK;
 		table = &sh_mem->can_notification_table;
-		notif = &table->can_notif_intr_table[LLCE_CAN_HIF0][rxin_id];
+		notif = &table->can_notif0_table[LLCE_CAN_HIF0][rxin_id];
 		list = &notif->notif_list;
 
 		switch (notif->notif_id) {
@@ -1293,7 +1320,7 @@ static int execute_hif_cmd(struct llce_mb *mb,
 	if (!llce_mb_last_tx_done(chan))
 		return -EIO;
 
-	if (cmd->return_value != LLCE_CAN_SUCCESS) {
+	if (cmd->return_value != LLCE_FW_SUCCESS) {
 		dev_err(dev, "LLCE FW error %d\n", cmd->return_value);
 		return -EIO;
 	}
@@ -1339,10 +1366,10 @@ static int llce_platform_init(struct device *dev, struct llce_mb *mb)
 		.cmd_id = LLCE_CAN_CMD_INIT_PLATFORM,
 		.cmd_list.init_platform = {
 			.can_error_reporting = {
-				.can_protocol_err = INTERRUPT,
-				.data_lost_err = INTERRUPT,
-				.init_err = INTERRUPT,
-				.internal_err = INTERRUPT,
+				.can_protocol_err = NOTIF_FIFO0,
+				.data_lost_err = NOTIF_FIFO0,
+				.init_err = NOTIF_FIFO0,
+				.internal_err = NOTIF_FIFO0,
 			},
 		},
 	};
@@ -1356,16 +1383,20 @@ static int llce_platform_init(struct device *dev, struct llce_mb *mb)
 	       sizeof(pcmd->max_poll_tx_ack_count));
 	memset(&pcmd->can_error_reporting.bus_off_err, IGNORE,
 	       sizeof(pcmd->can_error_reporting.bus_off_err));
-	memset(&pcmd->max_filter_count, 0, sizeof(pcmd->max_filter_count));
+	memset(&pcmd->max_regular_filter_count, 0,
+	       sizeof(pcmd->max_regular_filter_count));
+	memset(&pcmd->max_advanced_filter_count, 0,
+	       sizeof(pcmd->max_advanced_filter_count));
 	memset(&pcmd->max_int_mb_count, 0, sizeof(pcmd->max_int_mb_count));
 	memset(&pcmd->max_poll_mb_count, 0, sizeof(pcmd->max_poll_mb_count));
 
 	for_each_set_bit(id, mb->chans_map, LLCE_NFIFO_WITH_IRQ) {
 		pcmd->ctrl_init_status[id] = INITIALIZED;
-		pcmd->max_filter_count[id] = 16;
+		pcmd->max_regular_filter_count[id] = 16;
+		pcmd->max_advanced_filter_count[id] = 16;
 		pcmd->max_int_mb_count[id] = 100;
 		pcmd->max_int_tx_ack_count[id] = 16;
-		pcmd->can_error_reporting.bus_off_err[id] = INTERRUPT;
+		pcmd->can_error_reporting.bus_off_err[id] = NOTIF_FIFO0;
 	}
 
 	return execute_hif_cmd(mb, &cmd);
@@ -1385,7 +1416,6 @@ static int print_fw_version(struct llce_mb *mb)
 	struct mbox_controller *ctrl = &mb->controller;
 	struct device *dev = ctrl->dev;
 	struct llce_can_get_fw_version *ver;
-	char *ver_str;
 	struct llce_can_command cmd = {
 		.cmd_id = LLCE_CAN_CMD_GETFWVERSION,
 	};
@@ -1396,18 +1426,8 @@ static int print_fw_version(struct llce_mb *mb)
 		return ret;
 
 	ver = &cmd.cmd_list.get_fw_version;
-	ver_str = ver->version_string;
 
-	dev_info(dev, "LLCE interface version: %c\n",
-		 ver_str[LLCE_VERSION_INTERFACE]);
-	dev_info(dev, "LLCE basic version: %c\n",
-		 ver_str[LLCE_VERSION_BASIC_FUNC]);
-	dev_info(dev, "LLCE CAN2CAN version: %c\n",
-		 ver_str[LLCE_VERSION_ROUTING_CAN2CAN]);
-	dev_info(dev, "LLCE CAN2ETH version: %c\n",
-		 ver_str[LLCE_VERSION_ROUTING_CAN2ETH]);
-	dev_info(dev, "LLCE CAN logging version: %c\n",
-		 ver_str[LLCE_VERSION_LOGGING]);
+	dev_info(dev, "LLCE firmware version: %s\n", ver->version_string);
 
 	return 0;
 }
