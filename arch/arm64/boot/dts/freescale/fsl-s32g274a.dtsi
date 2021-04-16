@@ -544,7 +544,7 @@
 
 	llce3_sram: llce3_sram@43300000 {
 		compatible = "nxp,s32g274a-llce-sram";
-		reg = <0x0 0x43300000 0x0 0x8000>;
+		reg = <0x0 0x43300000 0x0 0x10000>;
 	};
 
 	llce_shmem: llce_shmem@43800000 {
