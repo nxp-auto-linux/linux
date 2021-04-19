@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0+ OR BSD-3-Clause
-/* Copyright 2020 NXP */
+/* Copyright 2020-2021 NXP */
 #include <linux/clk.h>
 #include <linux/firmware.h>
 #include <linux/genalloc.h>

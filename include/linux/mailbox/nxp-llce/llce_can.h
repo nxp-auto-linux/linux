@@ -1,13 +1,28 @@
 /* SPDX-License-Identifier: GPL-2.0+ */
 /* Copyright 2020-2021 NXP */
-#ifndef LLCE_INTERFACECANTYPES_H
-#define LLCE_INTERFACECANTYPES_H
+#ifndef LLCE_CAN_H
+#define LLCE_CAN_H
 
 #include <linux/types.h>
 #include "llce_fw_version.h"
 #include "llce_fw_interface.h"
 #include "llce_interface_config.h"
 
+/**
+ * Offset bits for NCBT register
+ */
+#define LLCE_NCBT_NPRESDIV_SHIFT_U8 (23U)
+#define LLCE_NCBT_NRJW_SHIFT_U8 (16U)
+#define LLCE_NCBT_NTSEG2_SHIFT_U8 (9U)
+
+/**
+ * Offset bits for DCBT register
+ */
+#define LLCE_DCBT_DPRESDIV_SHIFT_U8 (23U)
+#define LLCE_DCBT_DRJW_SHIFT_U8 (16U)
+#define LLCE_DCBT_DTSEG2_SHIFT_U8 (9U)
+
+#define LLCE_DEFAULTCONFIG_MAGICVALUE 0x12C0FFEE
 /**
  * Controller option used by the initialization command in order to
  * inform LLCE firmware that a specific controller shall be initialized.
@@ -38,7 +53,8 @@
 #define LLCE_CAN_CONTROLLERCONFIG_LPB_EN (0x00200000U)
 /** CAN controller option used to enable self-reception mode. */
 #define LLCE_CAN_CONTROLLERCONFIG_SRX_EN (0x00400000U)
-
+/** CAN controller option used to enable automatic bus-off recovery. */
+#define LLCE_CAN_CONTROLLERCONFIG_ABR_EN (0x00000001U)
 /**
  * Number of interfaces used for interrupt reporting
  * (one per channel) + number of polling classes.
@@ -117,7 +133,7 @@ enum llce_can_notification_id {
 
 /**
  * Command IDs used to interface with LLCE.
- * Some of those commands are send by the host to LLCE module and others are
+ * Some of those commands are sent by the host to LLCE module and others are
  * sent by LLCE module to the host.
  **/
 enum llce_can_command_id {
@@ -180,7 +196,9 @@ enum llce_can_command_id {
 	 * Host requests the abortion of the lowest priority pending
 	 * transmission of a specific CAN controller.
 	 */
-	LLCE_CAN_CMD_ABORT_MB
+	LLCE_CAN_CMD_ABORT_MB,
+	/** Custom command to be implemented by user in FDK */
+	LLCE_CAN_CMD_CUSTOM
 } __packed;
 
 /**
@@ -317,6 +335,13 @@ enum llce_af_authentication_options {
 	/** Authentication of CAN frame is enabled.*/
 	LLCE_AF_AUTHENTICATION_ENABLED,
 	LLCE_AF_AUTHENTICATION_NOT_SUPPORTED
+} __packed;
+
+enum llce_af_custom_processing_options {
+	/** Custom processing of CAN frame is disabled.*/
+	LLCE_AF_CUSTOMPROCESSING_DISABLED = 1U,
+	/** Custom processing of CAN frame is enabled.*/
+	LLCE_AF_CUSTOMPROCESSING_ENABLED,
 } __packed;
 
 /**
@@ -736,8 +761,8 @@ struct llce_can_can2eth_routing_table {
 	/** INPUT: Size of each buffer for this destination */
 	u16 can2eth_buff_size;
 	/**
-	 * INPUT: Number of buffers of size can2eth_buff_size for this
-	 * destination
+	 * INPUT: Number of buffers of size can2eth_buff_size for
+	 * this destination
 	 */
 	u8 can2eth_buff_count;
 	/**
@@ -745,6 +770,8 @@ struct llce_can_can2eth_routing_table {
 	 * IEEE 802.3 standard.
 	 */
 	u8 can2eth_dest_mac[6];
+	/** INPUT: Ethernet physical interface */
+	u8 can2eth_phy_if;
 } __aligned(4) __packed;
 
 /**
@@ -780,6 +807,8 @@ struct llce_can_advanced_feature {
 	enum llce_can_host_receive_options host_receive;
 	/** INPUT: Option for logging feature. */
 	enum llce_af_logging_options can_logging_feature;
+	/** INPUT: Option for custom processing. */
+	enum llce_af_custom_processing_options can_custom_processing;
 	/**
 	 * INPUT: CAN2CAN routing table index.
 	 * Reference to the routing table rule.
@@ -1080,6 +1109,8 @@ union llce_can_command_list {
 	 * or all the message buffers with a specific tag.
 	 */
 	struct llce_can_abort_mb_cmd abort_mb;
+	/** Pointer to argument for custom command */
+	u32 p_custom_cmd_arg;
 };
 
 /**
@@ -1199,7 +1230,7 @@ struct llce_can_notification_table {
 	 * See also struct llce_can_notification
 	 */
 	struct llce_can_notification
-	    can_notif1_table[LLCE_CAN_CONFIG_HIF_COUNT]
+	    can_notif1_Table[LLCE_CAN_CONFIG_HIF_COUNT]
 	    [LLCE_CAN_CONFIG_NOTIF_TABLE_SIZE];
 } __aligned(4) __packed;
 
