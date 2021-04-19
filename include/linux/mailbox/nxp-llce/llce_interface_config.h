@@ -1,29 +1,10 @@
 /* SPDX-License-Identifier: GPL-2.0+ */
 /* Copyright 2020-2021 NXP */
-#ifndef LLCE_INTERFACECONFIG_H
-#define LLCE_INTERFACECONFIG_H
+#ifndef LLCE_INTERFACE_CONFIG_H
+#define LLCE_INTERFACE_CONFIG_H
 
-/* LLCE base addresses
- */
-/** Base address for the RXIN FIFO used by the channel 0. */
-#define LLCE_RXIN0_BASEADDR (0x43A00000UL)
-/** Base address for the RXOUT FIFO used by the channel 0. */
-#define LLCE_RXOUT0_BASEADDR (0x43A08000UL)
-/** Base address for the BLRIN FIFO used by the channel 0. */
-#define LLCE_BLRIN0_BASEADDR (0x43B00000UL)
-/** Base address for the BLROUT FIFO used by the channel 0. */
-#define LLCE_BLROUT0_BASEADDR (0x43B08000UL)
-/** Base address for the TXACK FIFO used by the channel 0. */
-#define LLCE_TXACK0_BASEADDR (0x43B10000UL)
-/** Base address for Generic FIFO 0. */
-#define LLCE_GENERIC_FIFO_BASEADDR (0x43A12000UL)
-/** Base address for the CORE2CORE module. */
-#define LLCE_CORE2CORE_BASEADDR (0x43C26000UL)
-/** Base address for the interrupt concentrator registers. */
-#define LLCE_ICSR_BASEADDR (0x43A14000UL)
 
-/* LLCE configuration parameters.
- */
+/* LLCE configuration parameters. */
 /**
  * Default controller ID needed by the host 0 interface in order to
  * transmit INIT_PLATFORM and DEINIT_PLATFORM commands from host to LLCE.
@@ -118,8 +99,7 @@
  */
 #define LLCE_CAN_CONFIG_MAX_OCCURENCES 255U
 
-/* LIN defines
- */
+/* LIN defines */
 /** Maximum buffer size used to store the LIN frame payload */
 #define LLCE_LIN_CONFIG_PAYLOAD_MAX_SIZE 8U
 /** Maximum number of LIN transmission buffers */
