@@ -950,12 +950,20 @@ static void process_channel_err(struct llce_mb *mb,
 				struct llce_can_channel_error_notif *error)
 {
 	enum llce_can_module module_id = error->error_info.module_id;
+	enum llce_fw_return err = error->error_info.error_code;
 
-	net_warn_ratelimited("%s: Error module:%s Error:%s HW module:%d\n",
-		 dev_name(mb->controller.dev),
-		 get_module_name(module_id),
-		 get_error_name(error->error_info.error_code),
-		 error->hw_ctrl);
+	/**
+	 * Limit ACK and bit error flooding
+	 */
+	if (err == LLCE_ERROR_BCAN_ACKERR || err == LLCE_ERROR_BCAN_BIT0ERR)
+		net_warn_ratelimited("%s: Error module:%s Error:%s HW module:%d\n",
+			 dev_name(mb->controller.dev),
+			 get_module_name(module_id), get_error_name(err),
+			 error->hw_ctrl);
+	else
+		dev_warn(mb->controller.dev, "Error module:%s Error:%s HW module:%d\n",
+			 get_module_name(module_id), get_error_name(err),
+			 error->hw_ctrl);
 
 	switch (module_id) {
 	case LLCE_TX:
