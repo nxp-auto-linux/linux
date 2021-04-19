@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0+ */
 /* Copyright 2020-2021 NXP */
-#ifndef LLCE_INTERFACEFWMGR_H
-#define LLCE_INTERFACEFWMGR_H
+#ifndef LLCE_FW_INTERFACE_H
+#define LLCE_FW_INTERFACE_H
 
 /**
  * CAN firmware error values.
@@ -21,7 +21,7 @@ enum llce_fw_return {
 	LLCE_ERROR_SW_FIFO_EMPTY,
 	/** CAN firmware error: SW FIFO inside LLCE is full. */
 	LLCE_ERROR_SW_FIFO_FULL,
-	/** CAN firmware error: Message buffer is not available. */
+	/** CAN firmware error: Message buffer is not avaialable. */
 	LLCE_ERROR_MB_NOTAVAILABLE,
 	/**
 	 * CAN firmware error: CAN protocol error due to inability to get
@@ -49,8 +49,7 @@ enum llce_fw_return {
 	 */
 	LLCE_ERROR_BCAN_SRT_ENTER,
 	/**
-	 * CAN firmware error: CAN protocol error due to inability to
-	 * enter in soft reset.
+	 * CAN firmware error: unknown CAN protocol error
 	 */
 	LLCE_ERROR_BCAN_UNKNOWN_ERROR,
 	/**
@@ -74,6 +73,35 @@ enum llce_fw_return {
 	 */
 	LLCE_ERROR_BCAN_BIT1ERR,
 	/**
+	 * CAN firmware error: DPBIT1ERR indicates when an inconsistency
+	 * occurs between the transmitted and the received bit in the data phase
+	 * of a CAN-FD frame.
+	 */
+	LLCE_ERROR_BCAN_DPBIT1ERR,
+	/**
+	 * CAN firmware error: DPBIT0ERR indicates when an inconsistency
+	 * occurs between the transmitted and the received bit in the data phase
+	 * of a CAN-FD frame.
+	 */
+	LLCE_ERROR_BCAN_DPBIT0ERR,
+	/**
+	 * CAN firmware error: DPSTFERR indicates that a stuffing error has
+	 * been detected by the receiver node in the data phase of a CAN-FD
+	 * frame.
+	 */
+	LLCE_ERROR_BCAN_DPSTFERR,
+	/**
+	 * CAN firmware error: DPFRMERR indicates that a form error has
+	 * been detected by the receiver node in the data phase of a CAN-FD
+	 * frame - a fixed-form bit field contains at least one illegal bit.
+	 */
+	LLCE_ERROR_BCAN_DPFRMERR,
+	/**
+	 * CAN firmware error: DPCRCERR indicates that a CRC error has been
+	 * detected by the receiver node in the data phase of a CAN-FD frame
+	 */
+	LLCE_ERROR_BCAN_DPCRCERR,
+	/**
 	 * CAN firmware error: FRMERR indicates that a form error has
 	 * been detected by the receiver node in a CAN frame - a fixed-form bit
 	 * field contains at least one illegal bit.
@@ -84,6 +112,11 @@ enum llce_fw_return {
 	 * been detected by the receiver node in a CAN frame.
 	 */
 	LLCE_ERROR_BCAN_STFERR,
+	/**
+	 * CAN firmware error: TDC mechanism is out of range,
+	 * unable to compensate the transceiver's loop delay.
+	 */
+	LLCE_ERROR_BCAN_TDCFAIL,
 	/**
 	 * CAN firmware error: Data_lost event caused by BCAN RX Fifo
 	 * Overrun.
@@ -124,7 +157,10 @@ enum llce_fw_return {
 	LLCE_ERROR_HARDWARE_BUSOFF,
 	/** CAN firmware error: Controller is not ready. */
 	LLCE_ERROR_CTRL_NOT_READY,
-	/** CAN firmware error: Error regarding bus off. */
+	/**
+	 * CAN firmware error: Error regarding bus off.
+	 * This notification is skipped in case of auto-recovery.
+	 */
 	LLCE_ERROR_BUSOFF,
 	/** CAN firmware error: Logging fifo is full. */
 	LLCE_ERROR_FIFO_LOG_FULL,
@@ -330,7 +366,18 @@ enum llce_fw_return {
 	 */
 	LLCE_ERROR_INDEX_NOT_RECOVERED,
 	/** CAN firmware error: Controller is in reset pending state. */
-	LLCE_ERROR_RESET_PENDING
+	LLCE_ERROR_RESET_PENDING,
+	/**
+	 * CAN firmware notification: BCAN is in automatic buss off
+	 * recovery from busoff state.
+	 */
+	LLCE_NOTIF_BUSOFF_AUTO_RECOVERY_PENDING,
+	/**
+	 * CAN firmware notification: BCAN is ready to leave bus-off
+	 * state after the automatic recovery procedure
+	 */
+	LLCE_NOTIF_BUSOFF_DONE
+
 } __packed;
 
 /**
