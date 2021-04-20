@@ -259,6 +259,8 @@ struct fsl_dspi {
 	void (*dev_to_host)(struct fsl_dspi *dspi, u32 rxdata);
 };
 
+static int dspi_init(struct fsl_dspi *dspi);
+
 static inline bool is_s32cc_dspi(struct fsl_dspi *data)
 {
 	return data->devtype_data == &devtype_data[S32CC];
@@ -1141,6 +1143,13 @@ static int dspi_resume(struct device *dev)
 	if (ret)
 		return ret;
 	spi_controller_resume(dspi->ctlr);
+
+	ret = dspi_init(dspi);
+	if (ret) {
+		dev_err(dev, "failed to initialize dspi during resume\n");
+		return ret;
+	}
+
 	if (dspi->irq)
 		enable_irq(dspi->irq);
 
