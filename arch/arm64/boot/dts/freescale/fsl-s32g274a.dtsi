@@ -207,7 +207,7 @@
 				 <&clks S32G_SCMI_CLK_PFE1_TX_MII>;
 			clock-names = "tx_sgmii", "tx_rgmii",
 				      "tx_rmii", "tx_mii";
-			phy-mode = "rgmii";
+			phy-mode = "rgmii-id";
 
 			/* MDIO */
 			pfe_mdio1: mdio@1 {
@@ -231,7 +231,7 @@
 				 <&clks S32G_SCMI_CLK_PFE2_TX_MII>;
 			clock-names = "tx_sgmii", "tx_rgmii",
 				      "tx_rmii", "tx_mii";
-			phy-mode = "rgmii";
+			phy-mode = "rgmii-id";
 
 			/* MDIO */
 			pfe_mdio2: mdio@2 {
