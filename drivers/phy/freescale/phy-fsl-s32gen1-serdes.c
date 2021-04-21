@@ -16,7 +16,12 @@
 #include <linux/reset.h>
 #include <linux/stringify.h>
 
-#define SERDES_MAX_LANES 2
+#define SERDES_MAX_LANES 2U
+#define SERDES_MAX_INSTANCES 2U
+
+#define XPCS_LANE0		0
+#define XPCS_LANE1		1
+#define XPCS_DISABLED	-1
 
 #define SERDES_LINE(TYPE, INSTANCE)\
 	{ \
@@ -249,6 +254,8 @@ static int xpcs_phy_init(struct serdes *serdes, int id)
 	struct serdes_ctrl *ctrl = &serdes->ctrl;
 	struct xpcs_ctrl *xpcs = &serdes->xpcs;
 	struct device *dev = serdes->dev;
+	bool shared = false;
+
 	void __iomem *base;
 	unsigned long rate;
 	int ret;
@@ -261,12 +268,16 @@ static int xpcs_phy_init(struct serdes *serdes, int id)
 	else
 		base = xpcs->base1;
 
+
 	ret = get_clk_rate(serdes, &rate);
 	if (ret)
 		return ret;
 
+	if (ctrl->ss_mode == 1 || ctrl->ss_mode == 2)
+		shared = true;
+
 	return xpcs->ops->init(&xpcs->phys[id], dev, id, base,
-			       ctrl->ext_clk, rate);
+			       ctrl->ext_clk, rate, shared);
 }
 
 static int xpcs_phy_power_on(struct serdes *serdes, int id)
@@ -303,9 +314,16 @@ static int xpcs_init_clks(struct serdes *serdes)
 		return 0;
 
 	switch (ctrl->ss_mode) {
-	case 1:
-	case 2:
+	case 0:
 		return 0;
+	case 1:
+		order[0] = 0;
+		order[1] = XPCS_DISABLED;
+		break;
+	case 2:
+		order[0] = 1;
+		order[1] = XPCS_DISABLED;
+		break;
 	case 3:
 		order[0] = 1;
 		order[1] = 0;
@@ -321,6 +339,9 @@ static int xpcs_init_clks(struct serdes *serdes)
 	for (i = 0; i < ARRAY_SIZE(order); i++) {
 		xpcs_id = order[i];
 
+		if (xpcs_id == XPCS_DISABLED)
+			continue;
+
 		ret = xpcs_phy_init(serdes, xpcs_id);
 		if (ret)
 			return ret;
@@ -329,27 +350,37 @@ static int xpcs_init_clks(struct serdes *serdes)
 		if (ret)
 			return ret;
 
-		if (!is_xpcs_rx_stable(serdes, xpcs_id)) {
-			dev_info(serdes->dev, "Unstable RX detected on XPCS%d\n",
-				 xpcs_id);
-			return 0;
-		}
-
-		ret = xpcs->ops->init_mplla(xpcs->phys[xpcs_id]);
+		ret = xpcs->ops->init_plls(xpcs->phys[xpcs_id]);
 		if (ret)
 			return ret;
 	}
 
 	for (i = 0; i < ARRAY_SIZE(order); i++) {
-		ret = xpcs->ops->vreset(xpcs->phys[i]);
+		xpcs_id = order[i];
+
+		if (xpcs_id == XPCS_DISABLED)
+			continue;
+
+		ret = xpcs->ops->vreset(xpcs->phys[xpcs_id]);
 		if (ret)
 			return ret;
 	}
 
 	for (i = 0; i < ARRAY_SIZE(order); i++) {
-		ret = xpcs->ops->wait_vreset(xpcs->phys[i]);
+		xpcs_id = order[i];
+
+		if (xpcs_id == XPCS_DISABLED)
+			continue;
+
+		ret = xpcs->ops->wait_vreset(xpcs->phys[xpcs_id]);
 		if (ret)
 			return ret;
+
+		xpcs->ops->reset_rx(xpcs->phys[xpcs_id]);
+
+		if (!is_xpcs_rx_stable(serdes, xpcs_id))
+			dev_info(serdes->dev,
+				 "Unstable RX detected on XPCS%d\n", xpcs_id);
 	}
 
 	xpcs->initialized_clks = true;
@@ -415,25 +446,17 @@ EXPORT_SYMBOL_GPL(s32gen1_phy2xpcs);
 static int xpcs_phy_configure(struct phy *phy, struct phylink_link_state *state)
 {
 	struct serdes *serdes = phy_get_drvdata(phy);
-	struct device *dev = serdes->dev;
 	struct xpcs_ctrl *xpcs = &serdes->xpcs;
-	int id = phy->id;
+	struct device *dev = serdes->dev;
 	int ret;
 
-	if (state->interface != PHY_INTERFACE_MODE_2500BASEX) {
-		ret = xpcs_init_clks(serdes);
-		if (ret) {
-			dev_err(dev, "Failed to initialize XPCS clocks\n");
-			return ret;
-		}
+	ret = xpcs->ops->config(xpcs->phys[phy->id], NULL);
+	if (ret) {
+		dev_err(dev, "Failed to configure XPCS\n");
+		return ret;
 	}
 
-	ret = xpcs->ops->config(xpcs->phys[id], state);
-	if (!ret)
-		xpcs->ops->reset_rx(xpcs->phys[id]);
-
 	return ret;
-
 }
 
 static int serdes_phy_configure(struct phy *phy, union phy_configure_opts *opts)
@@ -471,19 +494,48 @@ static const struct serdes_conf serdes_mux_table[] = {
 	{ .lanes = { [0] = XPCS_LANE(0), [1] = XPCS_LANE(1), }, },
 };
 
+static int mode_to_pcs_lane(int mode, int pcs_instance)
+{
+	const struct serdes_lane_conf *l0 = &serdes_mux_table[mode].lanes[0];
+	const struct serdes_lane_conf *l1 = &serdes_mux_table[mode].lanes[1];
+
+	if (l0->mode == PHY_MODE_ETHERNET && l0->instance == pcs_instance)
+		return XPCS_LANE0;
+
+	if (l1->mode == PHY_MODE_ETHERNET && l1->instance == pcs_instance)
+		return XPCS_LANE1;
+
+	return XPCS_DISABLED;
+}
 
 static int check_lane_selection(struct serdes *serdes,
 				u32 phy_type, u32 instance,
-				u32 lane_id, enum phy_mode *mode)
+				u32 *lane_id, enum phy_mode *mode)
 {
 	struct serdes_ctrl *ctrl = &serdes->ctrl;
 	const struct serdes_conf *conf = &serdes_mux_table[ctrl->ss_mode];
 	const struct serdes_lane_conf *lane_conf;
 	struct device *dev = serdes->dev;
 	const char *phy_name;
+	int pcs_lane_id;
 
-	if (lane_id >= SERDES_MAX_LANES) {
-		dev_err(dev, "Invalid lane : %u\n", lane_id);
+	if (instance >= SERDES_MAX_INSTANCES) {
+		dev_err(dev, "Invalid instance : %u\n", instance);
+		return -EINVAL;
+	}
+
+	if (phy_type == PHY_TYPE_XPCS) {
+		pcs_lane_id = mode_to_pcs_lane(ctrl->ss_mode, instance);
+		if (pcs_lane_id >= 0) {
+			*lane_id = pcs_lane_id;
+		} else {
+			dev_err(dev, "Couldn't translate XPCS to lane\n");
+			return -EINVAL;
+		}
+	}
+
+	if (*lane_id >= SERDES_MAX_LANES) {
+		dev_err(dev, "Invalid lane : %u\n", *lane_id);
 		return -EINVAL;
 	}
 
@@ -501,27 +553,27 @@ static int check_lane_selection(struct serdes *serdes,
 		return -EINVAL;
 	}
 
-	if (is_lane_configured(serdes, lane_id)) {
-		dev_err(dev, "Lane %u is already configured\n", lane_id);
+	if (is_lane_configured(serdes, *lane_id) && phy_type != PHY_TYPE_XPCS) {
+		dev_err(dev, "Lane %u is already configured\n", *lane_id);
 		return -EINVAL;
 	}
 
-	lane_conf = &conf->lanes[lane_id];
+	lane_conf = &conf->lanes[*lane_id];
 
 	if (lane_conf->mode != *mode) {
 		dev_err(dev, "Invalid %u mode applied on SerDes lane %d. Expected mode %u\n",
-			*mode, lane_id, lane_conf->mode);
+			*mode, *lane_id, lane_conf->mode);
 		return -EINVAL;
 	}
 
 	if (lane_conf->mode != PHY_MODE_PCIE &&
 	    lane_conf->instance != instance) {
 		dev_err(dev, "PHY %s instance %u cannot be applied on lane %u using SerDes mode %u)\n",
-			phy_name, instance, lane_id, serdes->ctrl.ss_mode);
+			phy_name, instance, *lane_id, serdes->ctrl.ss_mode);
 		return -EINVAL;
 	}
 
-	mark_configured_lane(serdes, lane_id);
+	mark_configured_lane(serdes, *lane_id);
 	return 0;
 }
 
@@ -533,14 +585,14 @@ static struct phy *serdes_xlate(struct device *dev,
 	struct serdes *serdes;
 	u32 phy_type = args->args[0];
 	u32 instance = args->args[1];
-	uint32_t lane_id = args->args[2];
+	u32 lane_id = args->args[2];
 	enum phy_mode mode;
 
 	serdes = dev_get_drvdata(dev);
 	if (!serdes)
 		return ERR_PTR(-EINVAL);
 
-	ret = check_lane_selection(serdes, phy_type, instance, lane_id, &mode);
+	ret = check_lane_selection(serdes, phy_type, instance, &lane_id, &mode);
 	if (ret)
 		return ERR_PTR(ret);
 
@@ -622,6 +674,10 @@ static int init_serdes(struct serdes *serdes)
 
 	dev_info(serdes->dev, "Using mode %d for SerDes subsystem\n",
 		 ctrl->ss_mode);
+
+	ret = xpcs_init_clks(serdes);
+	if (ret)
+		dev_err(serdes->dev, "XPCS init failed\n");
 
 	return 0;
 }
