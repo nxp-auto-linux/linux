@@ -15,6 +15,7 @@
 #define   AN_ENABLE				BIT(12)
 #define   SR_RST				BIT(15)
 #define   SS13					BIT(13)
+#define   RESTART_AN				BIT(9)
 #define   DUPLEX_MODE				BIT(8)
 #define   SS6					BIT(6)
 #define SR_MII_STS				0x1F0001U
@@ -29,6 +30,8 @@
 #define VR_MII_DIG_CTRL1			0x1F8000U
 #define   BYP_PWRUP				BIT(1)
 #define   EN_2_5G_MODE				BIT(2)
+#define   CL37_TMR_OVRRIDE		BIT(3)
+#define   INIT					BIT(8)
 #define   MAC_AUTO_SW				BIT(9)
 #define   CS_EN					BIT(10)
 #define   PWRSV					BIT(11)
@@ -36,7 +39,18 @@
 #define   R2TLBE				BIT(14)
 #define   VR_RST				BIT(15)
 #define VR_MII_AN_CTRL				0x1F8001U
+#define   MII_AN_INTR_EN		BIT(0)
+#define   PCS_MODE_OFF			(1)
+#define   PCS_MODE_MASK			(0x3 << PCS_MODE_OFF)
+#define   PCS_MODE_SET(x)		(((x) << PCS_MODE_OFF) & PCS_MODE_MASK)
+#define    PCS_MODE_SGMII		(2)
+#define   MII_CTRL				BIT(8)
 #define VR_MII_AN_INTR_STS			0x1F8002U
+#define  CL37_ANCMPLT_INTR		BIT(0)
+#define  CL37_ANSGM_STS_DUPLEX		BIT(1)
+#define  CL37_ANSGM_STS_SPEED_OFF	(2)
+#define  CL37_ANSGM_STS_SPEED_MASK	(0x3 << CL37_ANSGM_STS_SPEED_OFF)
+#define  CL37_ANSGM_STS_LINK		BIT(4)
 #define VR_MII_DBG_CTRL				0x1F8005U
 #define   SUPPRESS_LOS_DET			BIT(4)
 #define   RX_DT_EN_CTL				BIT(6)
@@ -47,6 +61,10 @@
 #define   PSEQ_STATE(val)			(((val) & PSEQ_STATE_MASK) >> \
 						 PSEQ_STATE_OFF)
 #define     POWER_GOOD_STATE			0x4
+#define	VR_MII_GEN5_12G_16G_TX_GENCTRL1 0x1F8031U
+#define   TX_CLK_RDY_0				BIT(12)
+#define	VR_MII_GEN5_12G_16G_TX_GENCTRL2 0x1F8032U
+#define	  TX_REQ_0					BIT(0)
 #define VR_MII_GEN5_12G_16G_TX_RATE_CTRL	0x1F8034U
 #define   TX0_RATE_OFF				0
 #define   TX0_RATE_MASK				0x7
@@ -60,6 +78,8 @@
 #define   TX0_TERM_MASK				0x7
 #define VR_MII_GEN5_12G_16G_RX_GENCTRL1		0x1F8051U
 #define   RX_RST_0				BIT(4)
+#define VR_MII_GEN5_12G_16G_RX_GENCTRL2 0x1F8052U
+#define   RX_REQ_0				BIT(0)
 #define VR_MII_GEN5_12G_16G_RX_RATE_CTRL	0x1F8054U
 #define   RX0_RATE_OFF				0
 #define   RX0_RATE_MASK				0x3
@@ -112,7 +132,6 @@
 #define   REF_MPLLA_DIV2			BIT(6)
 #define   REF_MPLLB_DIV2			BIT(7)
 #define   REF_RPT_CLK_EN			BIT(8)
-
 #define VR_MII_GEN5_12G_16G_VCO_CAL_LD0		0x1F8092U
 #define   VCO_LD_VAL_0_OFF			0
 #define   VCO_LD_VAL_0_MASK			0x1FFF
@@ -137,14 +156,21 @@ struct s32cc_xpcs_params {
 	u32 addr2;
 };
 
+enum s32cc_xpc_pll {
+	XPCS_PLLA,	/* Slow PLL */
+	XPCS_PLLB,	/* Fast PLL */
+};
+
 struct s32cc_xpcs {
 	struct s32cc_xpcs_params params;
+	enum s32cc_xpc_pll ref;
 	void __iomem *base;
 	struct device *dev;
 	unsigned char id;
 	struct regmap *regmap;
 	bool ext_clk;
 	bool mhz125;
+	bool pcie_shared;
 };
 
 typedef bool (*xpcs_poll_func_t)(struct s32cc_xpcs *);
@@ -183,8 +209,8 @@ static int xpcs_regmap_reg_read(void *context, unsigned int reg,
 
 	init_params(reg, xpcs, &params, &data);
 
-	writel(data, xpcs->base + params.addr1);
-	*result = readl(xpcs->base + params.addr2);
+	writew(data, xpcs->base + params.addr1);
+	*result = readw(xpcs->base + params.addr2);
 
 	return 0;
 }
@@ -198,8 +224,8 @@ static int xpcs_regmap_reg_write(void *context, unsigned int reg,
 
 	init_params(reg, xpcs, &params, &data);
 
-	writel(data, xpcs->base + params.addr1);
-	writel(val, xpcs->base + params.addr2);
+	writew(data, xpcs->base + params.addr1);
+	writew(val, xpcs->base + params.addr2);
 
 	return 0;
 }
@@ -300,7 +326,7 @@ static const struct regmap_config xpcs_regmap_config = {
 
 static int xpcs_init(struct s32cc_xpcs **xpcs, struct device *dev,
 		     unsigned char id, void __iomem *base, bool ext_clk,
-		     unsigned long rate)
+		     unsigned long rate, bool pcie_shared)
 {
 	struct s32cc_xpcs *xpcsp;
 	struct regmap_config conf;
@@ -323,6 +349,7 @@ static int xpcs_init(struct s32cc_xpcs **xpcs, struct device *dev,
 	xpcsp->ext_clk = ext_clk;
 	xpcsp->id = id;
 	xpcsp->dev = dev;
+	xpcsp->pcie_shared = pcie_shared;
 
 	if (rate == MHZ(125))
 		xpcsp->mhz125 = true;
@@ -340,13 +367,13 @@ static int xpcs_init(struct s32cc_xpcs **xpcs, struct device *dev,
 			.addr1 = 0x823FCU,
 			.addr2 = 0x82000U,
 		};
-		conf.name = "xpcs1";
+		conf.name = "xpcs0";
 	} else {
 		xpcsp->params = (struct s32cc_xpcs_params) {
 			.addr1 = 0X82BFCU,
 			.addr2 = 0x82800U,
 		};
-		conf.name = "xpcs0";
+		conf.name = "xpcs1";
 	}
 
 	xpcsp->regmap = devm_regmap_init(dev, NULL, xpcsp, &conf);
@@ -401,6 +428,21 @@ static int xpcs_wait(struct s32cc_xpcs *xpcs, xpcs_poll_func_t func)
 	return 0;
 }
 
+static int xpcs_wait_bits(struct s32cc_xpcs *xpcs, unsigned int reg,
+			  unsigned int mask, unsigned int bits)
+{
+	ktime_t cur;
+	ktime_t timeout = ktime_add_ms(ktime_get(), XPCS_TIMEOUT_MS);
+
+	spin_until_cond((cur = ktime_get(),
+			 (XPCS_READ(xpcs, reg) & mask) == bits ||
+			 ktime_after(cur, timeout)));
+	if ((XPCS_READ(xpcs, reg) & mask) != bits)
+		return -ETIMEDOUT;
+
+	return 0;
+}
+
 static int wait_power_good_state(struct s32cc_xpcs *xpcs)
 {
 	int ret;
@@ -427,12 +469,8 @@ static int wait_reset(struct s32cc_xpcs *xpcs)
 
 static int xpcs_power_on(struct s32cc_xpcs *xpcs)
 {
-	if (!xpcs->ext_clk)
-		XPCS_WRITE_BITS(xpcs, VR_MII_DIG_CTRL1,
-				BYP_PWRUP, BYP_PWRUP);
-
-	/* Power stabilization */
-	return wait_power_good_state(xpcs);
+	/*Nothing for now*/
+	return 0;
 }
 
 static bool xpcs_has_valid_rx(struct s32cc_xpcs *xpcs)
@@ -485,6 +523,94 @@ static int xpcs_reset_rx(struct s32cc_xpcs *xpcs)
 	return 0;
 }
 
+static int xpcs_ref_clk_sel(struct s32cc_xpcs *xpcs,
+			    enum s32cc_xpc_pll ref_pll)
+{
+	switch (ref_pll) {
+	case XPCS_PLLA:
+		XPCS_WRITE_BITS(xpcs, VR_MII_GEN5_12G_16G_MPLL_CMN_CTRL,
+				MPLLB_SEL_0, 0);
+		xpcs->ref = XPCS_PLLA;
+		break;
+	case XPCS_PLLB:
+		XPCS_WRITE_BITS(xpcs, VR_MII_GEN5_12G_16G_MPLL_CMN_CTRL,
+				MPLLB_SEL_0, MPLLB_SEL_0);
+		xpcs->ref = XPCS_PLLB;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+static void xpcs_electrical_configure(struct s32cc_xpcs *xpcs)
+{
+	XPCS_WRITE_BITS(xpcs, VR_MII_GEN5_12G_16G_TX_EQ_CTRL0,
+			TX_EQ_MAIN_MASK, 0xC << TX_EQ_MAIN_OFF);
+
+	XPCS_WRITE_BITS(xpcs, VR_MII_CONSUMER_10G_TX_TERM_CTRL,
+			TX0_TERM_MASK, 0x4 << TX0_TERM_OFF);
+}
+
+static int xpcs_vco_cfg(struct s32cc_xpcs *xpcs, enum s32cc_xpc_pll vco_pll)
+{
+	unsigned int vco_ld = 0;
+	unsigned int vco_ref = 0;
+	unsigned int rx_baud = 0;
+	unsigned int tx_baud = 0;
+
+	switch (vco_pll) {
+	case XPCS_PLLA:
+		if (xpcs->mhz125) {
+			vco_ld = 1360 << VCO_LD_VAL_0_OFF;
+			vco_ref = 17 << VCO_REF_LD_0_OFF;
+		} else {
+			vco_ld = 1350 << VCO_LD_VAL_0_OFF;
+			vco_ref = 27 << VCO_REF_LD_0_OFF;
+		}
+
+		rx_baud = RX0_BAUD_DIV_8 << RX0_RATE_OFF;
+		tx_baud = TX0_BAUD_DIV_4 << TX0_RATE_OFF;
+		break;
+	case XPCS_PLLB:
+		if (xpcs->mhz125) {
+			vco_ld = 1350 << VCO_LD_VAL_0_OFF;
+			vco_ref = 27 << VCO_REF_LD_0_OFF;
+		} else {
+			vco_ld = 1344 << VCO_LD_VAL_0_OFF;
+			vco_ref = 43 << VCO_REF_LD_0_OFF;
+		}
+
+		rx_baud = RX0_BAUD_DIV_2 << RX0_RATE_OFF;
+		tx_baud = TX0_BAUD_DIV_1 << TX0_RATE_OFF;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	XPCS_WRITE_BITS(xpcs, VR_MII_GEN5_12G_16G_VCO_CAL_LD0,
+			VCO_LD_VAL_0_MASK, vco_ld);
+
+	XPCS_WRITE_BITS(xpcs, VR_MII_GEN5_12G_VCO_CAL_REF0,
+			VCO_REF_LD_0_MASK, vco_ref);
+
+	XPCS_WRITE_BITS(xpcs, VR_MII_GEN5_12G_16G_TX_RATE_CTRL,
+			TX0_RATE_MASK, tx_baud);
+	XPCS_WRITE_BITS(xpcs, VR_MII_GEN5_12G_16G_RX_RATE_CTRL,
+			RX0_RATE_MASK, rx_baud);
+
+	if (vco_pll == XPCS_PLLB) {
+		XPCS_WRITE_BITS(xpcs, VR_MII_GEN5_12G_16G_CDR_CTRL,
+				VCO_LOW_FREQ_0, VCO_LOW_FREQ_0);
+	} else {
+		XPCS_WRITE_BITS(xpcs, VR_MII_GEN5_12G_16G_CDR_CTRL,
+				VCO_LOW_FREQ_0, 0);
+	}
+
+	return 0;
+}
+
 static int xpcs_init_mplla(struct s32cc_xpcs *xpcs)
 {
 	struct device *dev;
@@ -505,7 +631,7 @@ static int xpcs_init_mplla(struct s32cc_xpcs *xpcs)
 		val |= REF_CLK_DIV2;
 		val |= (RANGE_52_78_MHZ << REF_RANGE_OFF);
 	} else {
-		val |= (RANGE_78_104_MHZ << REF_RANGE_OFF);
+		val |= (RANGE_26_53_MHZ << REF_RANGE_OFF);
 	}
 
 	XPCS_WRITE_BITS(xpcs, VR_MII_GEN5_12G_16G_REF_CLK_CTRL,
@@ -540,150 +666,44 @@ static int xpcs_init_mplla(struct s32cc_xpcs *xpcs)
 	XPCS_WRITE_BITS(xpcs, VR_MII_GEN5_12G_MPLLA_CTRL3,
 			MPLLA_BANDWIDTH_MASK, val);
 
-	/* Step 18 */
-	if (!xpcs->ext_clk)
-		XPCS_WRITE_BITS(xpcs, VR_MII_DIG_CTRL1, BYP_PWRUP, 0);
-
 	return 0;
 }
 
-static void xpcs_prepare_link_state(struct s32cc_xpcs *xpcs,
-				    const struct phylink_link_state *state)
+static int xpcs_init_mpllb(struct s32cc_xpcs *xpcs)
 {
-	if (state->an_enabled)
-		XPCS_WRITE_BITS(xpcs, SR_MII_CTRL, AN_ENABLE, AN_ENABLE);
-	else
-		XPCS_WRITE_BITS(xpcs, SR_MII_CTRL, AN_ENABLE, 0);
-
-	if (state->duplex == DUPLEX_FULL)
-		XPCS_WRITE_BITS(xpcs, SR_MII_CTRL, DUPLEX_MODE, DUPLEX_MODE);
-
-	if (state->duplex == DUPLEX_HALF)
-		XPCS_WRITE_BITS(xpcs, SR_MII_CTRL, DUPLEX_MODE, 0);
-}
-
-static int xpcs_set_1g_mode(struct s32cc_xpcs *xpcs,
-			    const struct phylink_link_state *state)
-{
+	struct device *dev;
 	unsigned int val;
-	int ret;
 
-	xpcs_prepare_link_state(xpcs, state);
+	if (!xpcs)
+		return -EINVAL;
 
-	/* Step 2 */
-	XPCS_WRITE_BITS(xpcs, VR_MII_GEN5_12G_16G_TX_EQ_CTRL0,
-			TX_EQ_MAIN_MASK, 0xC << TX_EQ_MAIN_OFF);
-
-	/* Step 3 */
-	XPCS_WRITE_BITS(xpcs, VR_MII_CONSUMER_10G_TX_TERM_CTRL,
-			TX0_TERM_MASK, 0x4 << TX0_TERM_OFF);
-
-	/* Step 4 */
-	XPCS_WRITE_BITS(xpcs, VR_MII_DIG_CTRL1, EN_2_5G_MODE, 0);
-
-	/* Step 5 */
-	XPCS_WRITE_BITS(xpcs, VR_MII_DBG_CTRL,
-			SUPPRESS_LOS_DET | RX_DT_EN_CTL, 0);
-
-	/* Step 6 */
-	XPCS_WRITE_BITS(xpcs, VR_MII_GEN5_12G_16G_MPLL_CMN_CTRL,
-			MPLLB_SEL_0, 0);
-
-	ret = xpcs_init_mplla(xpcs);
-	if (ret)
-		return ret;
-
-	/* Step 12 */
-	if (xpcs->mhz125)
-		val = 1360 << VCO_LD_VAL_0_OFF;
-	else
-		val = 1350 << VCO_LD_VAL_0_OFF;
-
-	XPCS_WRITE_BITS(xpcs, VR_MII_GEN5_12G_16G_VCO_CAL_LD0,
-			VCO_LD_VAL_0_MASK, val);
-
-	/* Step 13 */
-	if (xpcs->mhz125)
-		val = 17 << VCO_REF_LD_0_OFF;
-	else
-		val = 27 << VCO_REF_LD_0_OFF;
-
-	XPCS_WRITE_BITS(xpcs, VR_MII_GEN5_12G_VCO_CAL_REF0,
-			VCO_REF_LD_0_MASK, val);
-
-	/* Step 14 */
-	XPCS_WRITE_BITS(xpcs, VR_MII_GEN5_12G_16G_TX_RATE_CTRL,
-			TX0_RATE_MASK, TX0_BAUD_DIV_4 << TX0_RATE_OFF);
-
-	/* Step 15 */
-	XPCS_WRITE_BITS(xpcs, VR_MII_GEN5_12G_16G_RX_RATE_CTRL,
-			RX0_RATE_MASK, RX0_BAUD_DIV_8 << RX0_RATE_OFF);
-
-	/* Step 16 */
-	XPCS_WRITE_BITS(xpcs, VR_MII_GEN5_12G_16G_CDR_CTRL,
-			VCO_LOW_FREQ_0, 0);
-
-	/* Step 17 */
-	XPCS_WRITE_BITS(xpcs, VR_MII_GEN5_12G_16G_MPLLB_CTRL0,
-			MPLLB_CAL_DISABLE, MPLLB_CAL_DISABLE);
-
-	/* Step 18 */
-	if (!xpcs->ext_clk)
-		XPCS_WRITE_BITS(xpcs, VR_MII_DIG_CTRL1, BYP_PWRUP, 0);
-
-	return 0;
-}
-
-static int xpcs_set_2g5_mode(struct s32cc_xpcs *xpcs,
-			     const struct phylink_link_state *state)
-{
-	unsigned int val;
-	int ret;
-
-	xpcs_prepare_link_state(xpcs, state);
-
-	/* Step 2 */
-	XPCS_WRITE_BITS(xpcs, VR_MII_GEN5_12G_16G_TX_EQ_CTRL0,
-			TX_EQ_MAIN_MASK, 0xC << TX_EQ_MAIN_OFF);
-
-	/* Step 3 */
-	XPCS_WRITE_BITS(xpcs, VR_MII_CONSUMER_10G_TX_TERM_CTRL,
-			TX0_TERM_MASK, 0x4 << TX0_TERM_OFF);
-
-	/* Step 4 */
-	XPCS_WRITE_BITS(xpcs, VR_MII_DIG_CTRL1, EN_2_5G_MODE, EN_2_5G_MODE);
-
-	/* Step 5 */
-	XPCS_WRITE_BITS(xpcs, VR_MII_DBG_CTRL, SUPPRESS_LOS_DET | RX_DT_EN_CTL,
-			SUPPRESS_LOS_DET | RX_DT_EN_CTL);
-
-	/* Step 6 */
-	XPCS_WRITE_BITS(xpcs, VR_MII_GEN5_12G_16G_MPLL_CMN_CTRL,
-			MPLLB_SEL_0, MPLLB_SEL_0);
+	dev = get_xpcs_device(xpcs);
 
 	/* Step 7 */
 	val = 0;
 	if (xpcs->ext_clk)
 		val |= REF_USE_PAD;
 
-	val |= REF_MPLLB_DIV2;
-	val |= REF_CLK_DIV2;
-
-	if (xpcs->mhz125)
+	if (xpcs->mhz125) {
+		val |= REF_MPLLB_DIV2;
+		val |= REF_CLK_DIV2;
 		val |= (RANGE_52_78_MHZ << REF_RANGE_OFF);
-	else
+	} else {
 		val |= (RANGE_26_53_MHZ << REF_RANGE_OFF);
+	}
 
-	XPCS_WRITE(xpcs, VR_MII_GEN5_12G_16G_REF_CLK_CTRL, val);
+	XPCS_WRITE_BITS(xpcs, VR_MII_GEN5_12G_16G_REF_CLK_CTRL,
+			REF_MPLLB_DIV2 | REF_USE_PAD | REF_RANGE_MASK |
+			REF_CLK_DIV2, val);
 
 	/* Step 8 */
 	if (xpcs->mhz125)
 		val = 125 << MLLB_MULTIPLIER_OFF;
 	else
-		val = 156 << MLLB_MULTIPLIER_OFF;
+		val = 39 << MLLB_MULTIPLIER_OFF;
 
 	XPCS_WRITE_BITS(xpcs, VR_MII_GEN5_12G_16G_MPLLB_CTRL0,
-			MPLLB_CAL_DISABLE | MLLA_MULTIPLIER_MASK,
+			MPLLB_CAL_DISABLE | MLLB_MULTIPLIER_MASK,
 			val);
 
 	/* Step 9 */
@@ -698,102 +718,204 @@ static int xpcs_set_2g5_mode(struct s32cc_xpcs *xpcs,
 	/* Step 10 */
 	XPCS_WRITE_BITS(xpcs, VR_MII_GEN5_12G_16G_MPLLB_CTRL2,
 			MPLLB_TX_CLK_DIV_MASK | MPLLB_DIV10_CLK_EN,
-			(5 << MPLLA_TX_CLK_DIV_OFF) | MPLLA_DIV10_CLK_EN);
+			(5 << MPLLA_TX_CLK_DIV_OFF) | MPLLB_DIV10_CLK_EN);
 
 	/* Step 11 */
+	if (xpcs->mhz125)
+		val = (68 << MPLLB_BANDWIDTH_OFF);
+	else
+		val = (102 << MPLLB_BANDWIDTH_OFF);
+
 	XPCS_WRITE_BITS(xpcs, VR_MII_GEN5_12G_MPLLB_CTRL3,
-			MPLLB_BANDWIDTH_MASK, 68 << MPLLB_BANDWIDTH_OFF);
-
-	/* Step 12 */
-	if (xpcs->mhz125)
-		val = 1350 << VCO_LD_VAL_0_OFF;
-	else
-		val = 1375 << VCO_LD_VAL_0_OFF;
-
-	XPCS_WRITE_BITS(xpcs, VR_MII_GEN5_12G_16G_VCO_CAL_LD0,
-			VCO_LD_VAL_0_MASK, val);
-
-	/* Step 13 */
-	if (xpcs->mhz125)
-		val = 27 << VCO_REF_LD_0_OFF;
-	else
-		val = 22 << VCO_REF_LD_0_OFF;
-
-	XPCS_WRITE_BITS(xpcs, VR_MII_GEN5_12G_VCO_CAL_REF0,
-			VCO_REF_LD_0_MASK, val);
-
-	/* Step 14 */
-	XPCS_WRITE_BITS(xpcs, VR_MII_GEN5_12G_16G_TX_RATE_CTRL,
-			TX0_RATE_MASK, TX0_BAUD_DIV_1 << TX0_RATE_OFF);
-
-	/* Step 15 */
-	XPCS_WRITE_BITS(xpcs, VR_MII_GEN5_12G_16G_RX_RATE_CTRL,
-			RX0_RATE_MASK, RX0_BAUD_DIV_2 << RX0_RATE_OFF);
-
-	/* Step 16 */
-	XPCS_WRITE_BITS(xpcs, VR_MII_GEN5_12G_16G_CDR_CTRL,
-			VCO_LOW_FREQ_0, VCO_LOW_FREQ_0);
-
-	/* Step 17 */
-	XPCS_WRITE_BITS(xpcs, VR_MII_GEN5_12G_16G_MPLLA_CTRL0,
-			MPLLB_CAL_DISABLE, MPLLB_CAL_DISABLE);
-
-	/* Step 18 */
-	if (!xpcs->ext_clk)
-		XPCS_WRITE_BITS(xpcs, VR_MII_DIG_CTRL1, BYP_PWRUP, 0);
-
-	ret = xpcs_vreset(xpcs);
-	if (ret)
-		return ret;
-
-	ret = xpcs_wait_vreset(xpcs);
-	if (ret)
-		return ret;
+			MPLLB_BANDWIDTH_MASK, val);
 
 	return 0;
 }
 
-static int xpcs_config(struct s32cc_xpcs *xpcs,
-		       const struct phylink_link_state *state)
+static int xpcs_init_plls(struct s32cc_xpcs *xpcs)
 {
-	int ret = -EINVAL;
+	int ret;
+	struct device *dev = get_xpcs_device(xpcs);
 
-	if (state->interface == PHY_INTERFACE_MODE_1000BASEX)
-		ret = xpcs_set_1g_mode(xpcs, state);
+	XPCS_WRITE_BITS(xpcs, SR_MII_CTRL, AN_ENABLE, 0);
+	XPCS_WRITE_BITS(xpcs, SR_MII_CTRL, DUPLEX_MODE, DUPLEX_MODE);
 
-	if (state->interface == PHY_INTERFACE_MODE_2500BASEX)
-		ret = xpcs_set_2g5_mode(xpcs, state);
+	if (!xpcs->ext_clk)
+		XPCS_WRITE_BITS(xpcs, VR_MII_DIG_CTRL1, BYP_PWRUP, BYP_PWRUP);
+	else if (!xpcs->pcie_shared)
+		wait_power_good_state(xpcs);
 
-	if (ret)
+	xpcs_electrical_configure(xpcs);
+
+	xpcs_ref_clk_sel(xpcs, XPCS_PLLA);
+	ret = xpcs_init_mplla(xpcs);
+	if (ret) {
+		dev_err(dev, "Failed to initialize PLLA\n");
 		return ret;
+	}
+	ret = xpcs_init_mpllb(xpcs);
+	if (ret) {
+		dev_err(dev, "Failed to initialize PLLB\n");
+		return ret;
+	}
+	xpcs_vco_cfg(xpcs, XPCS_PLLA);
+
+	if (!xpcs->ext_clk)
+		XPCS_WRITE_BITS(xpcs, VR_MII_DIG_CTRL1, BYP_PWRUP, 0);
+
+	return 0;
+}
+
+int serdes_bifurcation_pll_transit(struct s32cc_xpcs *xpcs,
+				   enum s32cc_xpc_pll target_pll)
+{
+	int ret = 0;
+	struct device *dev = get_xpcs_device(xpcs);
+
+	/* Configure XPCS speed and VCO */
+	if (target_pll == XPCS_PLLA) {
+		XPCS_WRITE_BITS(xpcs, VR_MII_DIG_CTRL1, EN_2_5G_MODE, 0);
+		xpcs_vco_cfg(xpcs, XPCS_PLLA);
+	} else {
+		XPCS_WRITE_BITS(xpcs, VR_MII_DIG_CTRL1,
+				EN_2_5G_MODE, EN_2_5G_MODE);
+		xpcs_vco_cfg(xpcs, XPCS_PLLB);
+	}
+
+	/* Signal that clock are not available */
+	XPCS_WRITE_BITS(xpcs, VR_MII_GEN5_12G_16G_TX_GENCTRL1,
+			TX_CLK_RDY_0, 0);
+
+	/* Select PLL reference */
+	if (target_pll == XPCS_PLLA)
+		xpcs_ref_clk_sel(xpcs, XPCS_PLLA);
+	else
+		xpcs_ref_clk_sel(xpcs, XPCS_PLLB);
+
+	/* Initiate transmitter TX reconfiguration request */
+	XPCS_WRITE_BITS(xpcs, VR_MII_GEN5_12G_16G_TX_GENCTRL2,
+			TX_REQ_0, TX_REQ_0);
+
+	/* Wait for transmitter to reconfigure */
+	ret = xpcs_wait_bits(xpcs, VR_MII_GEN5_12G_16G_TX_GENCTRL2,
+			     TX_REQ_0, 0);
+	if (ret) {
+		dev_err(dev, "Switch to TX_REQ_0 failed\n");
+		return ret;
+	}
+
+	/* Initiate transmitter RX reconfiguration request */
+	XPCS_WRITE_BITS(xpcs, VR_MII_GEN5_12G_16G_RX_GENCTRL2,
+			RX_REQ_0, RX_REQ_0);
+
+	/* Wait for receiver to reconfigure */
+	ret = xpcs_wait_bits(xpcs, VR_MII_GEN5_12G_16G_RX_GENCTRL2,
+			     RX_REQ_0, 0);
+	if (ret) {
+		dev_err(dev, "Switch to RX_REQ_0 failed\n");
+		return ret;
+	}
+
+	/* Signal that clock are available */
+	XPCS_WRITE_BITS(xpcs, VR_MII_GEN5_12G_16G_TX_GENCTRL1,
+			TX_CLK_RDY_0, TX_CLK_RDY_0);
+
+	/* Flush internal logic */
+	XPCS_WRITE_BITS(xpcs, VR_MII_DIG_CTRL1, INIT, INIT);
+
+	/* Wait for init */
+	ret = xpcs_wait_bits(xpcs, VR_MII_DIG_CTRL1, INIT, 0);
+	if (ret) {
+		dev_err(dev, "XPCS INIT failed\n");
+		return ret;
+	}
 
 	return ret;
 }
 
+static int xpcs_configure(struct s32cc_xpcs *xpcs,
+			  const struct phylink_link_state *state)
+{
+	XPCS_WRITE_BITS(xpcs, SR_MII_CTRL, AN_ENABLE, 0);
+	XPCS_WRITE_BITS(xpcs, SR_MII_CTRL, DUPLEX_MODE, DUPLEX_MODE);
+
+	return 0;
+}
+
+/* Note: This function should be compatible with phylink.
+ * That means it should only modify link, duplex, speed
+ * an_complete, pause.
+ */
 static int xpcs_get_state(struct s32cc_xpcs *xpcs,
 			  struct phylink_link_state *state)
 {
 	struct device *dev = get_xpcs_device(xpcs);
-	unsigned int val;
-	bool ss6, ss13;
+	unsigned int mii_ctrl, val, ss;
+	bool ss6, ss13, an_enabled, intr_en;
 
-	linkmode_zero(state->lp_advertising);
 
-	val = XPCS_READ(xpcs, SR_MII_STS);
-	if (val & AN_ABL)
-		linkmode_set_bit(ETHTOOL_LINK_MODE_Autoneg_BIT,
-				 state->advertising);
+	mii_ctrl = XPCS_READ(xpcs, SR_MII_CTRL);
+	an_enabled = !!(mii_ctrl & AN_ENABLE);
+	intr_en = !!(XPCS_READ(xpcs, VR_MII_AN_CTRL) & MII_AN_INTR_EN);
 
-	state->link = !!(val & LINK_STS);
-	state->an_complete = !!(val & AN_CMPL);
+	/* Check this important condition */
+	if (an_enabled && !intr_en) {
+		dev_err(dev, "Invalid SGMII AN config interrupt is disabled\n");
+		return -EINVAL;
+	}
 
-	val = XPCS_READ(xpcs, SR_MII_CTRL);
+	if (an_enabled) {
+		/* MLO_AN_INBAND */
+		state->speed = SPEED_UNKNOWN;
+		state->link = 0;
+		state->duplex =  DUPLEX_UNKNOWN;
+		state->an_complete = 0;
+		state->pause = MLO_PAUSE_NONE;
+		val = XPCS_READ(xpcs, VR_MII_AN_INTR_STS);
 
-	state->an_enabled = !!(val & AN_ENABLE);
-	ss6 = !!(val & SS6);
-	ss13 = !!(val & SS13);
+		/* Interrupt is raised with each SGMII AN that is in cases
+		 * Link down - Every SGMII link timer expire
+		 * Link up - Once before link goes up
+		 * So either linkup or raised interrupt mean AN was completed
+		 */
+		if ((val & CL37_ANCMPLT_INTR) || (val & CL37_ANSGM_STS_LINK)) {
+			state->an_complete = 1;
+			if (val & CL37_ANSGM_STS_LINK)
+				state->link = 1;
+			else
+				return 0;
+			if (val & CL37_ANSGM_STS_DUPLEX)
+				state->duplex = DUPLEX_FULL;
+			else
+				state->duplex = DUPLEX_HALF;
+			ss = ((val & CL37_ANSGM_STS_SPEED_MASK) >>
+			      CL37_ANSGM_STS_SPEED_OFF);
+		} else {
+			return 0;
+		}
 
-	switch (ss6 << 1 | ss13) {
+		/* Clear the interrupt */
+		if (val & CL37_ANCMPLT_INTR)
+			XPCS_WRITE_BITS(xpcs, VR_MII_AN_INTR_STS,
+					CL37_ANCMPLT_INTR, 0);
+	} else {
+		/* MLO_AN_FIXED, MLO_AN_PHY */
+		val = XPCS_READ(xpcs, SR_MII_STS);
+		state->link = !!(val & LINK_STS);
+		state->an_complete = 0;
+		state->pause = MLO_PAUSE_NONE;
+
+		if (mii_ctrl & DUPLEX_MODE)
+			state->duplex = DUPLEX_FULL;
+		else
+			state->duplex = DUPLEX_HALF;
+
+		ss6 = !!(mii_ctrl & SS6);
+		ss13 = !!(mii_ctrl & SS13);
+		ss = ss6 << 1 | ss13;
+	}
+
+	switch (ss) {
 	case 0:
 		state->speed = SPEED_10;
 		break;
@@ -809,38 +931,140 @@ static int xpcs_get_state(struct s32cc_xpcs *xpcs,
 	}
 
 	val = XPCS_READ(xpcs, VR_MII_DIG_CTRL1);
-	if ((val & EN_2_5G_MODE) && state->speed == SPEED_1000)
+	if ((mii_ctrl & EN_2_5G_MODE) && state->speed == SPEED_1000)
 		state->speed = SPEED_2500;
 
-	val = XPCS_READ(xpcs, SR_MII_EXT_STS);
+	/* Cover SGMII AN inability to distigunish between 1G and 2.5G */
+	if ((mii_ctrl & EN_2_5G_MODE) &&
+	    state->speed != SPEED_2500 && an_enabled) {
+		dev_err(dev, "Speed not supported in SGMII AN mode\n");
+		return -EINVAL;
+	}
 
-	if (val & CAP_1G_T_FD)
-		linkmode_set_bit(ETHTOOL_LINK_MODE_1000baseT_Full_BIT,
-				 state->advertising);
-	if (val & CAP_1G_T_HD)
-		linkmode_set_bit(ETHTOOL_LINK_MODE_1000baseT_Half_BIT,
-				 state->advertising);
+	return 0;
+}
+
+static int xpcs_config(struct s32cc_xpcs *xpcs,
+		       const struct phylink_link_state *state)
+{
+	struct device *dev = get_xpcs_device(xpcs);
+	unsigned int val = 0, duplex = 0;
+	int ret = 0;
+	int speed = state->speed;
+	bool sgmi_osc = false;
+
+	/* Configure adaptive MII width */
+	XPCS_WRITE_BITS(xpcs, VR_MII_AN_CTRL, MII_CTRL, 0);
+
+	if (phylink_test(state->advertising, 2500baseT_Full))
+		sgmi_osc = true;
+
+	if (phylink_test(state->advertising, 10baseT_Half) ||
+	    phylink_test(state->advertising, 10baseT_Full) ||
+	    phylink_test(state->advertising, 100baseT_Half) ||
+	    phylink_test(state->advertising, 100baseT_Full) ||
+	    phylink_test(state->advertising, 100baseT1_Full) ||
+	    phylink_test(state->advertising, 1000baseT_Half) ||
+	    phylink_test(state->advertising, 1000baseT_Full) ||
+	    phylink_test(state->advertising, 1000baseX_Full))
+		if (state->an_enabled && sgmi_osc)
+			dev_err(dev, "Invalid advertising configuration for SGMII AN\n");
+
+	if (state->an_enabled && !state->an_complete) {
+		if (sgmi_osc) {
+			XPCS_WRITE(xpcs, VR_MII_LINK_TIMER_CTRL, 0x30e);
+			speed = SPEED_2500;
+		} else {
+			XPCS_WRITE(xpcs, VR_MII_LINK_TIMER_CTRL, 0x7a1);
+			speed = SPEED_1000;
+		}
+		XPCS_WRITE_BITS(xpcs, VR_MII_DIG_CTRL1, CL37_TMR_OVRRIDE, 0);
+		XPCS_WRITE_BITS(xpcs, VR_MII_DIG_CTRL1,
+				CL37_TMR_OVRRIDE, CL37_TMR_OVRRIDE);
+	} else if (!state->an_enabled) {
+		XPCS_WRITE_BITS(xpcs, SR_MII_CTRL, AN_ENABLE, 0);
+		XPCS_WRITE_BITS(xpcs, VR_MII_AN_CTRL, MII_AN_INTR_EN, 0);
+	}
+
+	if (!state->an_enabled || !state->an_complete) {
+		switch (speed) {
+		case SPEED_10:
+			break;
+		case SPEED_100:
+			val = SS13;
+			break;
+		case SPEED_1000:
+			val = SS6;
+			break;
+		case SPEED_2500:
+			val = SS6;
+			break;
+		default:
+			dev_err(dev, "Speed not supported\n");
+			break;
+		}
+
+		if (state->duplex == DUPLEX_FULL)
+			duplex = DUPLEX_MODE;
+		else
+			duplex = 0;
+
+		XPCS_WRITE_BITS(xpcs, SR_MII_CTRL, DUPLEX_MODE, duplex);
+
+		if (speed == SPEED_2500) {
+			ret = serdes_bifurcation_pll_transit(xpcs, XPCS_PLLB);
+			if (ret)
+				dev_err(dev, "Switch to PLLB failed\n");
+		} else {
+			ret = serdes_bifurcation_pll_transit(xpcs, XPCS_PLLA);
+			if (ret)
+				dev_err(dev, "Switch to PLLA failed\n");
+		}
+
+		XPCS_WRITE_BITS(xpcs, SR_MII_CTRL, SS6 | SS13, val);
+	}
+
+	if (state->an_enabled && !state->an_complete) {
+		/* Select SGMII type AN, enable interrupt */
+		XPCS_WRITE_BITS(xpcs, VR_MII_AN_CTRL,
+				PCS_MODE_MASK | MII_AN_INTR_EN,
+				PCS_MODE_SET(PCS_MODE_SGMII) | MII_AN_INTR_EN);
+		/* Enable SGMII AN */
+		XPCS_WRITE_BITS(xpcs, SR_MII_CTRL, AN_ENABLE, AN_ENABLE);
+		/* Enable SGMII AUTO SW */
+		if (sgmi_osc)
+			XPCS_WRITE_BITS(xpcs, VR_MII_DIG_CTRL1, MAC_AUTO_SW, 0);
+		else
+			XPCS_WRITE_BITS(xpcs, VR_MII_DIG_CTRL1,
+					MAC_AUTO_SW, MAC_AUTO_SW);
+
+		XPCS_WRITE_BITS(xpcs, SR_MII_CTRL, RESTART_AN, RESTART_AN);
+	}
 
 	return 0;
 }
 
 static void xpcs_release(struct s32cc_xpcs *xpcs)
 {
-	regmap_exit(xpcs->regmap);
-	devm_kfree(get_xpcs_device(xpcs), xpcs);
+	if (xpcs) {
+		regmap_exit(xpcs->regmap);
+		devm_kfree(get_xpcs_device(xpcs), xpcs);
+	}
 }
 
 static const struct s32cc_xpcs_ops s32cc_xpcs_ops = {
-	.get_state = xpcs_get_state,
 	.init = xpcs_init,
 	.power_on = xpcs_power_on,
-	.config = xpcs_config,
+	.config = xpcs_configure,
 	.vreset = xpcs_vreset,
 	.wait_vreset = xpcs_wait_vreset,
-	.init_mplla = xpcs_init_mplla,
+	.init_plls = xpcs_init_plls,
 	.reset_rx = xpcs_reset_rx,
 	.release = xpcs_release,
 	.has_valid_rx = xpcs_has_valid_rx,
+
+	.xpcs_get_state = xpcs_get_state,
+	.xpcs_config = xpcs_config,
 };
 
 const struct s32cc_xpcs_ops *s32cc_xpcs_get_ops(void)
