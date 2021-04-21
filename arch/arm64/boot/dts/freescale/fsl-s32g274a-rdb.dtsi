@@ -81,10 +81,14 @@
 };
 
 &i2c1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl1_i2c1>;
 	status = "okay";
 };
 
 &i2c2 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl0_i2c2 &pinctrl1_i2c2>;
 	status = "okay";
 };
 
@@ -93,8 +97,11 @@
 };
 
 &i2c4 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl0_i2c4 &pinctrl1_i2c4>;
 	status = "okay";
 };
+
 &usdhc0 {
 	status = "okay";
 };
@@ -218,6 +225,20 @@
 				S32_GEN1_PAD_PB15__I2C0_DATA_IN
 				S32_GEN1_PAD_PC0__I2C0_SCLK_OUT
 				S32_GEN1_PAD_PC0__I2C0_SCLK_IN
+			>;
+		};
+
+		pinctrl0_i2c2: i2c2grp {
+			fsl,pins = <
+				S32_GEN1_PAD_PB5__I2C2_SCLK_OUT
+				S32_GEN1_PAD_PB6__I2C2_DATA_OUT
+			>;
+		};
+
+		pinctrl0_i2c4: i2c4grp {
+			fsl,pins = <
+				S32_GEN1_PAD_PC1__I2C4_DATA_OUT
+				S32_GEN1_PAD_PC2__I2C4_SCLK_OUT
 			>;
 		};
 
@@ -436,6 +457,29 @@
 		pinctrl1_dspi5: dspi5grp {
 			fsl,pins = <
 				S32_GEN1_PAD_PA10__SPI5_SIN_IN
+			>;
+		};
+
+		pinctrl1_i2c1: i2c1grp {
+			fsl,pins = <
+				S32_GEN1_PAD_PK3__I2C1_SCLK_OUT
+				S32_GEN1_PAD_PK5__I2C1_DATA_OUT
+				S32_GEN1_PAD_PK3__I2C1_SCLK_IN
+				S32_GEN1_PAD_PK5__I2C1_DATA_IN
+			>;
+		};
+
+		pinctrl1_i2c2: i2c2grp {
+			fsl,pins = <
+				S32_GEN1_PAD_PB5__I2C2_SCLK_IN
+				S32_GEN1_PAD_PB6__I2C2_DATA_IN
+			>;
+		};
+
+		pinctrl1_i2c4: i2c4grp {
+			fsl,pins = <
+				S32_GEN1_PAD_PC1__I2C4_DATA_IN
+				S32_GEN1_PAD_PC2__I2C4_SCLK_IN
 			>;
 		};
 
