@@ -13,20 +13,26 @@
 struct s32cc_xpcs;
 
 struct s32cc_xpcs_ops {
-	int (*get_state)(struct s32cc_xpcs *xpcs,
-			 struct phylink_link_state *state);
 	int (*init)(struct s32cc_xpcs **xpcs, struct device *dev,
 		    unsigned char id, void __iomem *base, bool ext_clk,
-		    unsigned long rate);
+		    unsigned long rate, bool pcie_shared);
 	int (*power_on)(struct s32cc_xpcs *xpcs);
 	int (*config)(struct s32cc_xpcs *xpcs,
 		      const struct phylink_link_state *state);
 	int (*vreset)(struct s32cc_xpcs *xpcs);
 	int (*wait_vreset)(struct s32cc_xpcs *xpcs);
-	int (*init_mplla)(struct s32cc_xpcs *xpcs);
+	int (*init_plls)(struct s32cc_xpcs *xpcs);
 	int (*reset_rx)(struct s32cc_xpcs *xpcs);
 	void (*release)(struct s32cc_xpcs *xpcs);
 	bool (*has_valid_rx)(struct s32cc_xpcs *xpcs);
+
+	/* These function are planned to be used directly
+	 * by phylink in newer kernels (starting from 5.10).
+	 */
+	int (*xpcs_config)(struct s32cc_xpcs *xpcs,
+			   const struct phylink_link_state *state);
+	int (*xpcs_get_state)(struct s32cc_xpcs *xpcs,
+			      struct phylink_link_state *state);
 };
 
 const struct s32cc_xpcs_ops *s32cc_xpcs_get_ops(void);
