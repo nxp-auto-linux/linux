@@ -16,7 +16,7 @@
 
 &gmac0 {
 	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl0_gmac0_rgmii_a>;
+	pinctrl-0 = <&pinctrl0_gmac0_rgmii_a &pinctrl0_gmac0_mdio_a>;
 	phy-mode = "rgmii";
 	status = "okay";
 	/* Connected to KSZ9031 MDIO_A */
@@ -24,14 +24,15 @@
 };
 
 &pfe_logif1 {
-	/* PFE1 can be used as SGMII(disabled by default) */
-	status = "disabled";
 	phy-handle = <&mdio_a_phy3>;
 };
 
+&pfe_emac1 {
+	phy-mode = "sgmii";
+};
+
+
 &gmac0_mdio {
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl0_gmac0_mdio_a>;
 	/* KSZ9031 GMAC */
 	mdio_a_phy1: ethernet-phy@1 {
 		#address-cells = <1>;
