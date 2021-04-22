@@ -1,0 +1,25 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+/*
+ * Device Tree file for S32G274ARDB Board.
+ *
+ * Copyright 2021 NXP
+ *
+ */
+
+/dts-v1/;
+#include "fsl-s32g.dtsi"
+/ {
+	clks: clks@40038000 {
+		compatible = "fsl,s32g274a-clocking";
+		reg = <0x0 0x40038000 0x0 0x3000>,
+		      <0x0 0x4003C000 0x0 0x3000>,
+		      <0x0 0x40040000 0x0 0x3000>,
+		      <0x0 0x40044000 0x0 0x3000>,
+		      <0x0 0x40054000 0x0 0x3000>,
+		      <0x0 0x40058000 0x0 0x3000>;
+		reg-name = "armpll", "periphpll", "accelpll",
+			   "ddrpll", "armdfs", "periphdfs";
+		#clock-cells = <1>;
+	};
+
+};
