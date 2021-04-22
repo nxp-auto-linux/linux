@@ -11,6 +11,27 @@
 /dts-v1/;
 #include "fsl-s32g.dtsi"
 
+/ {
+	mc_cgm6: mc_cgm6@4053C000 {
+		compatible = "fsl,s32gen1-mc_cgm6";
+		reg = <0x0 0x4053C000 0x0 0x3000>;
+	};
+
+	clks: clks@40038000 {
+		compatible = "fsl,s32g398a-clocking";
+		reg = <0x0 0x40038000 0x0 0x3000>,
+		      <0x0 0x4003C000 0x0 0x3000>,
+		      <0x0 0x40040000 0x0 0x3000>,
+		      <0x0 0x40044000 0x0 0x3000>,
+		      <0x0 0x40054000 0x0 0x3000>,
+		      <0x0 0x40058000 0x0 0x3000>;
+		reg-name = "armpll", "periphpll", "accelpll",
+			   "ddrpll", "armdfs", "periphdfs";
+		#clock-cells = <1>;
+	};
+
+};
+
 &cpus {
 	cpu4: cpu@2 {
 		device_type = "cpu";
