@@ -23,6 +23,7 @@ struct s32gen1_clk_modules {
 	void __iomem *mc_cgm1_base;
 	void __iomem *mc_cgm2_base;
 	void __iomem *mc_cgm5_base;
+	void __iomem *mc_cgm6_base;
 	void __iomem *armpll;
 	void __iomem *periphpll;
 	void __iomem *ddrpll;
