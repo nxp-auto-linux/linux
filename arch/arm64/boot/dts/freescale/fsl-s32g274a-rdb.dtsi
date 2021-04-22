@@ -7,7 +7,7 @@
  */
 
 /dts-v1/;
-#include "fsl-s32g.dtsi"
+#include "fsl-s32g274a.dtsi"
 #include <dt-bindings/pinctrl/s32g-pinctrl.h>
 / {
 	chosen {
