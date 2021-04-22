@@ -677,6 +677,16 @@ void __init s32gen1_clocks_init(struct device_node *clocking_node)
 				&s32gen1_lock);
 	set_plat_clk(S32GEN1_CLK_DDR, c);
 
+	/* Add the clocks to provider list */
+	plat_clks.plat_clks.clks = clk;
+	plat_clks.plat_clks.clk_num = ARRAY_SIZE(clk);
+	of_clk_add_provider(clocking_node, s32gen1_clk_src_get, &plat_clks);
+}
+
+void __init s32gen1_mux0_gmac0_clock_init(struct device_node *clocking_node)
+{
+	struct clk *c;
+
 	/* GMAC clock */
 	c = s32gen1_clk_cgm_mux("gmac_0_tx_sel", clk_modules.mc_cgm0_base,  10,
 				gmac_0_tx_sels, ARRAY_SIZE(gmac_0_tx_sels),
@@ -700,11 +710,41 @@ void __init s32gen1_clocks_init(struct device_node *clocking_node)
 	c = s32gen1_clk_cgm_div("gmac_0_ts", "gmac_0_ts_sel",
 				clk_modules.mc_cgm0_base, 9, &s32gen1_lock);
 	set_plat_clk(S32GEN1_CLK_GMAC_0_TS, c);
+}
 
-	/* Add the clocks to provider list */
-	plat_clks.plat_clks.clks = clk;
-	plat_clks.plat_clks.clk_num = ARRAY_SIZE(clk);
-	of_clk_add_provider(clocking_node, s32gen1_clk_src_get, &plat_clks);
+void __init s32gen1_mux6_gmac0_clock_init(struct device_node *clocking_node)
+{
+	struct device_node *np;
+	struct clk *c;
+
+	np = of_find_compatible_node(NULL, NULL, "fsl,s32gen1-mc_cgm6");
+	clk_modules.mc_cgm6_base = of_iomap(np, 0);
+	if (WARN_ON(!clk_modules.mc_cgm6_base))
+		return;
+
+	/* GMAC clock */
+	c = s32gen1_clk_cgm_mux("gmac_0_tx_sel", clk_modules.mc_cgm6_base,  1,
+				gmac_0_tx_sels, ARRAY_SIZE(gmac_0_tx_sels),
+				gmac_0_tx_mux_idx, &s32gen1_lock);
+	set_plat_clk(S32GEN1_CLK_GMAC_0_TX_SEL, c);
+
+	c = s32gen1_clk_cgm_div("gmac_0_tx", "gmac_0_tx_sel",
+				clk_modules.mc_cgm0_base, 1, &s32gen1_lock);
+	set_plat_clk(S32GEN1_CLK_GMAC_0_TX, c);
+
+	c = s32gen1_clk_cgm_mux("gmac_0_rx", clk_modules.mc_cgm0_base,  2,
+				gmac_0_rx_sels, ARRAY_SIZE(gmac_0_rx_sels),
+				gmac_0_rx_mux_idx, &s32gen1_lock);
+	set_plat_clk(S32GEN1_CLK_GMAC_0_RX, c);
+
+	c = s32gen1_clk_cgm_mux("gmac_0_ts_sel", clk_modules.mc_cgm0_base,  0,
+				gmac_0_ts_sels, ARRAY_SIZE(gmac_0_ts_sels),
+				gmac_0_ts_mux_idx, &s32gen1_lock);
+	set_plat_clk(S32GEN1_CLK_GMAC_0_TS_SEL, c);
+
+	c = s32gen1_clk_cgm_div("gmac_0_ts", "gmac_0_ts_sel",
+				clk_modules.mc_cgm0_base, 0, &s32gen1_lock);
+	set_plat_clk(S32GEN1_CLK_GMAC_0_TS, c);
 }
 
 static void init_scmi_clk(uint32_t scmi_id, uint32_t plat_clk)
@@ -1002,6 +1042,17 @@ static struct syscore_ops s32gen1_clk_syscore_ops = {
 static void __init s32g274_clocks_init(struct device_node *clks_node)
 {
 	s32gen1_clocks_init(clks_node);
+	s32gen1_mux0_gmac0_clock_init(clks_node);
+	s32g274_extra_clocks_init(clks_node);
+	s32gen1_scmi_clocks_init();
+	s32g274a_scmi_clocks_init();
+	register_syscore_ops(&s32gen1_clk_syscore_ops);
+}
+
+static void __init s32g398_clocks_init(struct device_node *clks_node)
+{
+	s32gen1_clocks_init(clks_node);
+	s32gen1_mux6_gmac0_clock_init(clks_node);
 	s32g274_extra_clocks_init(clks_node);
 	s32gen1_scmi_clocks_init();
 	s32g274a_scmi_clocks_init();
@@ -1011,11 +1062,13 @@ static void __init s32g274_clocks_init(struct device_node *clks_node)
 static void __init s32r45_clocks_init(struct device_node *clks_node)
 {
 	s32gen1_clocks_init(clks_node);
+	s32gen1_mux0_gmac0_clock_init(clks_node);
 	s32r45_extra_clocks_init(clks_node);
 	s32gen1_scmi_clocks_init();
 	s32r45_scmi_clocks_init();
 	register_syscore_ops(&s32gen1_clk_syscore_ops);
 }
 
-CLK_OF_DECLARE(S32G274, "fsl,s32g274-clocking", s32g274_clocks_init);
+CLK_OF_DECLARE(S32G274, "fsl,s32g274a-clocking", s32g274_clocks_init);
+CLK_OF_DECLARE(S32G398, "fsl,s32g398a-clocking", s32g398_clocks_init);
 CLK_OF_DECLARE(S32R45, "fsl,s32r45-clocking", s32r45_clocks_init);
