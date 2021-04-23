@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: (GPL-2.0-only or BSD-2-Clause)
 %YAML 1.2
 ---
-$id: http://devicetree.org/schemas/mfd/nxp,s32g274a-llce-core.yaml#
+$id: http://devicetree.org/schemas/mfd/nxp,s32g-llce-core.yaml#
 $schema: http://devicetree.org/meta-schemas/core.yaml#
 
 title: NXP LLCE Firmware Loader
@@ -19,7 +19,7 @@ description: |
 
 properties:
   compatible:
-    const: nxp,s32g274a-llce-core
+    const: nxp,s32g-llce-core
 
   firmware-name:
     items:
@@ -98,7 +98,7 @@ examples:
         #size-cells = <2>;
 
         llce_core: llce_core@43000000 {
-            compatible = "nxp,s32g274a-llce-core";
+            compatible = "nxp,s32g-llce-core";
             clocks = <&clks S32G_SCMI_CLK_LLCE_SYS>;
             clock-names = "llce_sys";
             firmware-name = "dte.bin", "ppe_rx.bin",
