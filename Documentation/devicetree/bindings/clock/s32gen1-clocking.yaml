@@ -32,6 +32,7 @@ properties:
     const:
       - fsl,s32r45-clocking
       - fsl,s32g274-clocking
+      - fsl,s32g398a-clocking
 
   reg:
     Location and length of the register set
