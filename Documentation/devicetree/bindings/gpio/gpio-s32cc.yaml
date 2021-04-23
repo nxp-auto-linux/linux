@@ -12,6 +12,10 @@ description: |
   Support for the SIUL2 GPIOs found on the S32-GEN1 chips.
   It includes an IRQ controller for all EIRQ pins.
 
+  In S32G case, the eirqs are split in two ranges
+    EIRQ pins 0-1 -> GPIO 151-152
+    EIRQ pins 2-7 -> GPIO 177-182
+
   To use a gpio in other device tree node, one should specify the gpio offset
   relative to the first gpio handled by the chip.
   Example EIRQ1 corresponds to GPIO152 so the offset will be computed as
@@ -19,7 +23,7 @@ description: |
     <&gpio1 40 4> => EIRQ1
     <&gpio1 65 4> => EIRQ2
 
-  In s32g274a case, two pins from different SIULs can export same eirq.
+  In S32G case, two pins from different SIULs can export same eirq.
   Example EIRQ1 can be accessed through GPIO20(SIUL2_0) and GPIO152(SIUL2_1).
   The dts node should refer the corresponding gpio node.
   Example
@@ -33,7 +37,7 @@ properties:
   compatible:
     const:
       - fsl,s32gen1-siul2-gpio
-      - fsl,s32g274a-siul2-gpio
+      - fsl,s32g-siul2-gpio
 
   interrupts:
     description:
