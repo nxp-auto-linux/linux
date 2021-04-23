@@ -123,6 +123,8 @@
 				<&pfe_reserved_bdr>;
 		fsl,fw-class-name = "s32g_pfe_class.fw";
 		fsl,fw-util-name = "s32g_pfe_util.fw";
+		nvmem-cells = <&soc_revision>;
+		nvmem-cell-names = "soc_revision";
 		status = "disabled";
 
 		/* PFE_HIF_0 */
