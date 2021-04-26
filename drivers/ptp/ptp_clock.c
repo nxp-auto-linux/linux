@@ -3,6 +3,7 @@
  * PTP 1588 clock support
  *
  * Copyright (C) 2010 OMICRON electronics GmbH
+ * Copyright (C) 2021 NXP
  */
 #include <linux/idr.h>
 #include <linux/device.h>
@@ -62,27 +63,6 @@ static void enqueue_external_timestamp(struct timestamp_event_queue *queue,
 
 	spin_unlock_irqrestore(&queue->lock, flags);
 }
-
-long scaled_ppm_to_ppb(long ppm)
-{
-	/*
-	 * The 'freq' field in the 'struct timex' is in parts per
-	 * million, but with a 16 bit binary fractional field.
-	 *
-	 * We want to calculate
-	 *
-	 *    ppb = scaled_ppm * 1000 / 2^16
-	 *
-	 * which simplifies to
-	 *
-	 *    ppb = scaled_ppm * 125 / 2^13
-	 */
-	s64 ppb = 1 + ppm;
-	ppb *= 125;
-	ppb >>= 13;
-	return (long) ppb;
-}
-EXPORT_SYMBOL(scaled_ppm_to_ppb);
 
 /* posix clock implementation */
 
