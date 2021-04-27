@@ -12,6 +12,7 @@
 #include <linux/of_device.h>
 #include <linux/processor.h>
 #include <s32/s32-gen1/clk.h>
+#include <s32/s32-gen1/rgm.h>
 
 #define S32GEN1_RESET_TIMEOUT_MS	1
 
@@ -76,9 +77,8 @@ to_s32gen1_reset(struct reset_controller_dev *rcdev)
 }
 
 static int get_reset_regs(unsigned long id, struct s32gen1_reset *rst,
-		      void __iomem **prst, void __iomem **pstat)
+		      unsigned int *prst, unsigned int *pstat)
 {
-	void __iomem *rgm = rst->rgm;
 	struct device *dev = rst->rcdev.dev;
 	u32 rgm_set;
 
@@ -101,8 +101,8 @@ static int get_reset_regs(unsigned long id, struct s32gen1_reset *rst,
 		return -EINVAL;
 	};
 
-	*prst = RGM_PRST(rgm, rgm_set);
-	*pstat = RGM_PSTAT(rgm, rgm_set);
+	*prst = RGM_PRST(rgm_set);
+	*pstat = RGM_PSTAT(rgm_set);
 
 	return 0;
 }
@@ -159,7 +159,7 @@ static int s32gen1_assert_rgm(struct reset_controller_dev *rcdev,
 	ktime_t timeout = ktime_add_ms(ktime_get(), S32GEN1_RESET_TIMEOUT_MS);
 	struct s32gen1_reset *rst = to_s32gen1_reset(rcdev);
 	struct device *dev = rst->rcdev.dev;
-	void __iomem *prst, *pstat;
+	unsigned int prst, pstat;
 	u32 id_offset, prst_val, stat_mask;
 	unsigned long id;
 	const char *msg;
@@ -175,7 +175,7 @@ static int s32gen1_assert_rgm(struct reset_controller_dev *rcdev,
 	if (ret)
 		return ret;
 
-	prst_val = readl(prst);
+	prst_val = readl(rst->rgm + prst);
 	if (asserted) {
 		msg = "assert";
 		prst_val |= PRST_PERIPH_n_RST(id_offset);
@@ -184,14 +184,14 @@ static int s32gen1_assert_rgm(struct reset_controller_dev *rcdev,
 		prst_val &= ~PRST_PERIPH_n_RST(id_offset);
 	}
 
-	writel(prst_val, prst);
-	spin_until_cond(s32gen1_reset_or_timeout(pstat, stat_mask,
+	writel(prst_val, rst->rgm + prst);
+	spin_until_cond(s32gen1_reset_or_timeout(rst->rgm + pstat, stat_mask,
 						 asserted, timeout));
 	if (asserted) {
-		if (readl(pstat) & stat_mask)
+		if (readl(rst->rgm + pstat) & stat_mask)
 			return 0;
 	} else {
-		if (!(readl(pstat) & stat_mask))
+		if (!(readl(rst->rgm + pstat) & stat_mask))
 			return 0;
 	}
 
