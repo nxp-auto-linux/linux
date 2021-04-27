@@ -182,9 +182,15 @@
 			clocks = <&clks S32G_SCMI_CLK_PFE0_TX_SGMII>,
 				 <&clks S32G_SCMI_CLK_PFE0_TX_RGMII>,
 				 <&clks S32G_SCMI_CLK_PFE0_TX_RMII>,
-				 <&clks S32G_SCMI_CLK_PFE0_TX_MII>;
+				 <&clks S32G_SCMI_CLK_PFE0_TX_MII>,
+				 <&clks S32G_SCMI_CLK_PFE0_RX_SGMII>,
+				 <&clks S32G_SCMI_CLK_PFE0_RX_RGMII>,
+				 <&clks S32G_SCMI_CLK_PFE0_RX_RMII>,
+				 <&clks S32G_SCMI_CLK_PFE0_RX_MII>;
 			clock-names = "tx_sgmii", "tx_rgmii",
-				      "tx_rmii", "tx_mii";
+				      "tx_rmii", "tx_mii",
+				      "rx_sgmii", "rx_rgmii",
+				      "rx_rmii", "rx_mii";
 			phy-mode = "sgmii";
 
 			/* MDIO */
@@ -206,9 +212,15 @@
 			clocks = <&clks S32G_SCMI_CLK_PFE1_TX_SGMII>,
 				 <&clks S32G_SCMI_CLK_PFE1_TX_RGMII>,
 				 <&clks S32G_SCMI_CLK_PFE1_TX_RMII>,
-				 <&clks S32G_SCMI_CLK_PFE1_TX_MII>;
+				 <&clks S32G_SCMI_CLK_PFE1_TX_MII>,
+				 <&clks S32G_SCMI_CLK_PFE1_RX_SGMII>,
+				 <&clks S32G_SCMI_CLK_PFE1_RX_RGMII>,
+				 <&clks S32G_SCMI_CLK_PFE1_RX_RMII>,
+				 <&clks S32G_SCMI_CLK_PFE1_RX_MII>;
 			clock-names = "tx_sgmii", "tx_rgmii",
-				      "tx_rmii", "tx_mii";
+				      "tx_rmii", "tx_mii",
+				      "rx_sgmii", "rx_rgmii",
+				      "rx_rmii", "rx_mii";
 			phy-mode = "rgmii-id";
 
 			/* MDIO */
@@ -230,9 +242,15 @@
 			clocks = <&clks S32G_SCMI_CLK_PFE2_TX_SGMII>,
 				 <&clks S32G_SCMI_CLK_PFE2_TX_RGMII>,
 				 <&clks S32G_SCMI_CLK_PFE2_TX_RMII>,
-				 <&clks S32G_SCMI_CLK_PFE2_TX_MII>;
+				 <&clks S32G_SCMI_CLK_PFE2_TX_MII>,
+				 <&clks S32G_SCMI_CLK_PFE2_RX_SGMII>,
+				 <&clks S32G_SCMI_CLK_PFE2_RX_RGMII>,
+				 <&clks S32G_SCMI_CLK_PFE2_RX_RMII>,
+				 <&clks S32G_SCMI_CLK_PFE2_RX_MII>;
 			clock-names = "tx_sgmii", "tx_rgmii",
-				      "tx_rmii", "tx_mii";
+				      "tx_rmii", "tx_mii",
+				      "rx_sgmii", "rx_rgmii",
+				      "rx_rmii", "rx_mii";
 			phy-mode = "rgmii-id";
 
 			/* MDIO */
