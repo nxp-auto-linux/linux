@@ -34,6 +34,11 @@
 
 &pfe {
 	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl0_pfe2_mdio_b>,
+		    <&pinctrl1_pfe2_mdio_b>,
+		    <&pinctrl0_pfe2_rgmii_b>,
+		    <&pinctrl1_pfe2_rgmii_b>;
 };
 
 &pfe_logif0 {
@@ -49,8 +54,6 @@
 
 &pfe_logif2 {
 	phy-handle = <&mdio_b_phy4>;
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl0_pfe2_rgmii_b>, <&pinctrl1_pfe2_rgmii_b>;
 };
 
 &pfe_mdio0 {
@@ -262,14 +265,14 @@
 
 		pinctrl0_pfe2_mdio_b: pfe2mdiobgrp {
 			fsl,pins = <
-				S32_GEN1_PAD_PE15__SIUL_GPIO79
-				S32_GEN1_PAD_PF2__SIUL_GPIO82
+				S32_G274_PAD_PF2__PFE2_MDC
+				S32_G274_PAD_PE15__PFE2_MDIO_OUT
 			>;
 		};
 
 		pinctrl0_pfe2_rgmii_b: pfe2rgmiibgrp {
 			fsl,pins = <
-				S32_GEN1_PAD_PE14__SIUL_GPIO78
+				S32_G274_PAD_PE14__PFE2_TX_EN_OUT
 			>;
 		};
 
@@ -460,19 +463,32 @@
 			   >;
 		};
 
+		pinctrl1_pfe2_mdio_b: pfe2mdiobgrp {
+			fsl,pins = <
+				S32_G274_PAD_PE15__PFE2_MDIO_IN
+			>;
+		};
+
 		pinctrl1_pfe2_rgmii_b: pfe2rgmiibgrp {
 			fsl,pins = <
-				S32_GEN1_PAD_PH1__SIUL_GPIO113
-				S32_GEN1_PAD_PH2__SIUL_GPIO114
-				S32_GEN1_PAD_PH3__SIUL_GPIO115
-				S32_GEN1_PAD_PH4__SIUL_GPIO116
-				S32_GEN1_PAD_PH5__SIUL_GPIO117
-				S32_GEN1_PAD_PH6__SIUL_GPIO118
-				S32_GEN1_PAD_PH7__SIUL_GPIO119
-				S32_GEN1_PAD_PH8__SIUL_GPIO120
-				S32_GEN1_PAD_PH9__SIUL_GPIO121
-				S32_GEN1_PAD_PH10__SIUL_GPIO122
-				S32_GEN1_PAD_PJ0__SIUL_GPIO144
+				S32_G274_PAD_PJ0__PFE2_TX_D0_OUT
+				S32_G274_PAD_PH1__PFE2_TX_D1_OUT
+				S32_G274_PAD_PH2__PFE2_TX_D2_OUT
+				S32_G274_PAD_PH3__PFE2_TX_D3_OUT
+				S32_G274_PAD_PH4__PFE2_RXCLK_OUT
+				S32_G274_PAD_PH4__PFE2_RXCLK_IN
+				S32_G274_PAD_PH5__PFE2_RX_DV_OUT
+				S32_G274_PAD_PH5__PFE2_RX_DV_IN
+				S32_G274_PAD_PH6__PFE2_RX_D0_OUT
+				S32_G274_PAD_PH6__PFE2_RX_D0_IN
+				S32_G274_PAD_PH7__PFE2_RX_D1_OUT
+				S32_G274_PAD_PH7__PFE2_RX_D1_IN
+				S32_G274_PAD_PH8__PFE2_RX_D2_OUT
+				S32_G274_PAD_PH8__PFE2_RX_D2_IN
+				S32_G274_PAD_PH9__PFE2_RX_D3_OUT
+				S32_G274_PAD_PH9__PFE2_RX_D3_IN
+				S32_G274_PAD_PH10__PFE2_TXCLK_OUT
+				S32_G274_PAD_PH10__PFE2_TXCLK_IN
 			>;
 		};
 

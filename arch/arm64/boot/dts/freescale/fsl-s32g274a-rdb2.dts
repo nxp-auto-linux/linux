@@ -50,8 +50,6 @@
 };
 
 &pfe_mdio2 {
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl0_pfe2_mdio_b>;
 	/* AR8035 */
 	mdio_b_phy4: ethernet-phy@4 {
 		#address-cells = <1>;
