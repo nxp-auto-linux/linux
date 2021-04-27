@@ -6,14 +6,14 @@
  * the Free Software Foundation; either version 2 of the License, or
  * (at your option) any later version.
  */
-#include <linux/of_address.h>
-#include <linux/clk.h>
-#include <linux/clk-provider.h>
-#include <dt-bindings/clock/s32gen1-clock.h>
 #include <dt-bindings/clock/s32g-scmi-clock.h>
+#include <dt-bindings/clock/s32gen1-clock.h>
 #include <dt-bindings/clock/s32r45-scmi-clock.h>
-#include <linux/syscore_ops.h>
+#include <linux/clk-provider.h>
+#include <linux/clk.h>
 #include <linux/mfd/syscon.h>
+#include <linux/of_address.h>
+#include <linux/syscore_ops.h>
 
 #include "clk.h"
 #include "mc_cgm.h"
@@ -377,19 +377,12 @@ void __init s32gen1_clocks_init(struct device_node *clocking_node)
 	if (WARN_ON(!clk_modules.mc_cgm5_base))
 		return;
 
-	np = of_find_compatible_node(NULL, NULL, "fsl,s32gen1-mc_me");
-	clk_modules.mc_me = of_iomap(np, 0);
-	if (WARN_ON(!clk_modules.mc_me))
+	clk_modules.mc_me =
+		syscon_regmap_lookup_by_compatible("fsl,s32gen1-mc_me");
+	if (IS_ERR(clk_modules.mc_me)) {
+		pr_err("s32gen1_clk: Cannot map 'MC_ME' resource\n");
 		return;
-
-	np = of_find_compatible_node(NULL, NULL, "fsl,s32gen1-rdc");
-	clk_modules.rdc = of_iomap(np, 0);
-	if (WARN_ON(!clk_modules.rdc))
-		return;
-
-	clk_modules.rgm = syscon_regmap_lookup_by_compatible("fsl,s32gen1-rgm");
-	if (WARN_ON(IS_ERR(clk_modules.rgm)))
-		return;
+	}
 
 	c = s32gen1_fxosc("fsl,s32gen1-fxosc");
 	set_plat_clk(S32GEN1_CLK_FXOSC, c);
