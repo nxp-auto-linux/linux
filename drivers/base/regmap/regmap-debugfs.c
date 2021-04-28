@@ -3,6 +3,7 @@
 // Register map access API - debugfs
 //
 // Copyright 2011 Wolfson Microelectronics plc
+// Copyright 2021 NXP
 //
 // Author: Mark Brown <broonie@opensource.wolfsonmicro.com>
 
