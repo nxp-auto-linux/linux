@@ -3,6 +3,7 @@
 // Register map access API - debugfs
 //
 // Copyright 2011 Wolfson Microelectronics plc
+// Copyright 2021 NXP
 //
 // Author: Mark Brown <broonie@opensource.wolfsonmicro.com>
 
@@ -660,6 +661,7 @@ void regmap_debugfs_exit(struct regmap *map)
 		regmap_debugfs_free_dump_cache(map);
 		mutex_unlock(&map->cache_lock);
 		kfree(map->debugfs_name);
+		map->debugfs_name = NULL;
 	} else {
 		struct regmap_debugfs_node *node, *tmp;
 
