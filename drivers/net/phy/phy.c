@@ -6,7 +6,7 @@
  *
  * Copyright (c) 2004 Freescale Semiconductor, Inc.
  * Copyright (c) 2006, 2007  Maciej W. Rozycki
- * Copyright 2020 NXP
+ * Copyright 2021 NXP
  */
 
 #include <linux/kernel.h>
@@ -500,10 +500,16 @@ void phy_queue_state_machine(struct phy_device *phydev, unsigned long jiffies)
 }
 EXPORT_SYMBOL(phy_queue_state_machine);
 
-static void phy_trigger_machine(struct phy_device *phydev)
+/**
+ * phy_queue_state_machine - Trigger the state machine to run now
+ *
+ * @phydev: the phy_device struct
+ */
+void phy_trigger_machine(struct phy_device *phydev)
 {
 	phy_queue_state_machine(phydev, 0);
 }
+EXPORT_SYMBOL(phy_trigger_machine);
 
 static int phy_config_aneg(struct phy_device *phydev)
 {
