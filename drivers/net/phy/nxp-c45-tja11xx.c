@@ -641,6 +641,12 @@ static int nxp_c45_start_op(struct phy_device *phydev)
 				PHY_START_OP);
 }
 
+static int nxp_c45_ack_interrupt(struct phy_device *phydev)
+{
+	return phy_set_bits_mmd(phydev, MDIO_MMD_VEND1, VEND1_PHY_IRQ_ACK,
+				PHY_IRQ_LINK_EVENT);
+}
+
 static int nxp_c45_config_intr(struct phy_device *phydev)
 {
 	if (phydev->interrupts == PHY_INTERRUPT_ENABLED)
@@ -1094,6 +1100,7 @@ static struct phy_driver nxp_c45_driver[] = {
 		.soft_reset		= nxp_c45_soft_reset,
 		.config_aneg		= nxp_c45_config_aneg,
 		.config_init		= nxp_c45_config_init,
+		.ack_interrupt		= nxp_c45_ack_interrupt,
 		.config_intr		= nxp_c45_config_intr,
 		.handle_interrupt	= nxp_c45_handle_interrupt,
 		.read_status		= nxp_c45_read_status,
