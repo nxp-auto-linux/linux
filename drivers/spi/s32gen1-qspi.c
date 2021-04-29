@@ -1018,6 +1018,13 @@ int qspi_read_mem(struct fsl_qspi *q,
 	u64 mb_int, mb_frac;
 	u32 us_passed, rem;
 
+	if (!q->ahb_addr) {
+		q->ahb_addr = ioremap_cache(QUADSPI_AHB_BASE,
+				q->devtype_data->ahb_buf_size);
+		if (!q->ahb_addr)
+			return -ENOMEM;
+	}
+
 	while (qspi_readl(q, base + QUADSPI_SR) & QUADSPI_SR_BUSY_MASK)
 		;
 	mcr_reg = clear_fifos(q);
