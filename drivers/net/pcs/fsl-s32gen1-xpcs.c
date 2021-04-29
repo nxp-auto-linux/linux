@@ -737,9 +737,6 @@ static int xpcs_init_plls(struct s32gen1_xpcs *xpcs)
 	int ret;
 	struct device *dev = get_xpcs_device(xpcs);
 
-	XPCS_WRITE_BITS(xpcs, SR_MII_CTRL, AN_ENABLE, 0);
-	XPCS_WRITE_BITS(xpcs, SR_MII_CTRL, DUPLEX_MODE, DUPLEX_MODE);
-
 	if (!xpcs->ext_clk)
 		XPCS_WRITE_BITS(xpcs, VR_MII_DIG_CTRL1, BYP_PWRUP, BYP_PWRUP);
 	else if (!xpcs->pcie_shared)
@@ -762,6 +759,9 @@ static int xpcs_init_plls(struct s32gen1_xpcs *xpcs)
 
 	if (!xpcs->ext_clk)
 		XPCS_WRITE_BITS(xpcs, VR_MII_DIG_CTRL1, BYP_PWRUP, 0);
+
+	XPCS_WRITE_BITS(xpcs, SR_MII_CTRL, AN_ENABLE, 0);
+	XPCS_WRITE_BITS(xpcs, SR_MII_CTRL, DUPLEX_MODE, DUPLEX_MODE);
 
 	return 0;
 }
