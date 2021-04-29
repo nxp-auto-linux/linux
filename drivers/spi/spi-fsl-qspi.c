@@ -743,16 +743,13 @@ static int fsl_qspi_probe(struct platform_device *pdev)
 					"QuadSPI-memory");
 	q->memmap_phy = res->start;
 	/* Since there are 4 cs, map size required is 4 times ahb_buf_size */
-	if (is_s32gen1_qspi(q))
-		q->ahb_addr = ioremap_cache(QUADSPI_AHB_BASE,
-				q->devtype_data->ahb_buf_size);
-	else
+	if (!is_s32gen1_qspi(q)) {
 		q->ahb_addr = devm_ioremap(dev, q->memmap_phy,
 				(q->devtype_data->ahb_buf_size * 4));
-
-	if (!q->ahb_addr) {
-		ret = -ENOMEM;
-		goto err_put_ctrl;
+		if (!q->ahb_addr) {
+			ret = -ENOMEM;
+			goto err_put_ctrl;
+		}
 	}
 
 	/* find the clocks */
@@ -839,6 +836,9 @@ err_put_ctrl:
 static int fsl_qspi_remove(struct platform_device *pdev)
 {
 	struct fsl_qspi *q = platform_get_drvdata(pdev);
+
+	if (q->ahb_addr)
+		iounmap(q->ahb_addr);
 
 	/* disable the hardware */
 	qspi_writel(q, QUADSPI_MCR_MDIS_MASK, q->iobase + QUADSPI_MCR);
