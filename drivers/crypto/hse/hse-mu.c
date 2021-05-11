@@ -17,6 +17,8 @@
 
 #define HSE_STATUS_MASK     0xFFFF0000ul /* HSE global status FSR mask */
 
+#define HSE_REGS_NAME       "hse-" HSE_MU_INST "-regs"
+#define HSE_DESC_NAME       "hse-" HSE_MU_INST "-desc"
 #define HSE_RX_IRQ_NAME     "hse-" HSE_MU_INST "-rx"
 #define HSE_ERR_IRQ_NAME    "hse-" HSE_MU_INST "-err"
 
@@ -323,12 +325,15 @@ int hse_mu_msg_recv(void *mu, u8 channel, u32 *msg)
 /**
  * hse_mu_init - initial setup of MU interface
  * @dev: parent device
+ * @desc_base_ptr: descriptor base virtual address
+ * @desc_base_dma: descriptor base DMA address
  * @rx_isr: RX soft handler
- * @err_isr: sys event handler
+ * @err_isr: SYS_EVENT handler
  *
  * Return: MU instance handle on success, error code otherwise
  */
-void *hse_mu_init(struct device *dev, irqreturn_t (*rx_isr)(int irq, void *dev),
+void *hse_mu_init(struct device *dev, void **desc_base_ptr, u64 *desc_base_dma,
+		  irqreturn_t (*rx_isr)(int irq, void *dev),
 		  irqreturn_t (*event_isr)(int irq, void *dev))
 {
 	struct platform_device *pdev = to_platform_device(dev);
@@ -338,7 +343,7 @@ void *hse_mu_init(struct device *dev, irqreturn_t (*rx_isr)(int irq, void *dev),
 	u8 channel;
 	u32 msg;
 
-	if (unlikely(!dev))
+	if (unlikely(!dev || !desc_base_ptr || !desc_base_dma))
 		return ERR_PTR(-EINVAL);
 
 	mu = devm_kzalloc(dev, sizeof(*mu), GFP_KERNEL);
@@ -347,13 +352,23 @@ void *hse_mu_init(struct device *dev, irqreturn_t (*rx_isr)(int irq, void *dev),
 	mu->dev = dev;
 
 	/* map hardware register space */
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, HSE_REGS_NAME);
 	mu->regs = devm_ioremap_resource(dev, res);
 	if (IS_ERR_OR_NULL(mu->regs)) {
-		dev_err(dev, "failed to map %s regs @%pR\n", HSE_MU_INST, res);
+		dev_err(dev, "failed to map %s @%pR\n", HSE_REGS_NAME, res);
 		return ERR_PTR(-ENOMEM);
 	}
 	spin_lock_init(&mu->reg_lock);
+
+	/* map service descriptor space */
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, HSE_DESC_NAME);
+	*desc_base_ptr = devm_ioremap_resource(dev, res);
+	if (IS_ERR_OR_NULL(*desc_base_ptr)) {
+		dev_err(dev, "failed to map %s @%pR\n", HSE_DESC_NAME, res);
+		return ERR_PTR(-ENOMEM);
+	}
+	*desc_base_dma = res->start;
+	dev_dbg(dev, "descriptors @%pR\n", res);
 
 	/* disable all interrupt sources */
 	hse_mu_irq_disable(mu, HSE_INT_ACK_REQUEST, HSE_CH_MASK_ALL);
@@ -365,7 +380,7 @@ void *hse_mu_init(struct device *dev, irqreturn_t (*rx_isr)(int irq, void *dev),
 		if (hse_mu_msg_pending(mu, channel))
 			msg = ioread32(&mu->regs->rr[channel]);
 
-	/* register RX and event handlers */
+	/* register RX interrupt handler */
 	irq = platform_get_irq_byname(pdev, HSE_RX_IRQ_NAME);
 	err = devm_request_threaded_irq(dev, irq, NULL, rx_isr, IRQF_ONESHOT,
 					HSE_RX_IRQ_NAME, dev);
@@ -375,6 +390,7 @@ void *hse_mu_init(struct device *dev, irqreturn_t (*rx_isr)(int irq, void *dev),
 		return ERR_PTR(-ENXIO);
 	}
 
+	/* register SYS_EVENT interrupt handler */
 	irq = platform_get_irq_byname(pdev, HSE_ERR_IRQ_NAME);
 	err = devm_request_threaded_irq(dev, irq, NULL, event_isr, IRQF_ONESHOT,
 					HSE_ERR_IRQ_NAME, dev);
