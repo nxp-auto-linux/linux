@@ -10,6 +10,8 @@
 #ifndef HSE_ABI_H
 #define HSE_ABI_H
 
+#define HSE_SRV_DESC_MAX_SIZE    256u /* maximum service descriptor size */
+
 #define HSE_KEY_CATALOG_ID_RAM    2u /* RAM key catalog ID */
 #define HSE_INVALID_KEY_HANDLE    0xFFFFFFFFul /* invalid key handle */
 
@@ -277,8 +279,9 @@ enum hse_ctx_impex {
 /**
  * struct hse_attr_fw_version - firmware version
  * @fw_type: attribute ID
- * @attr_len: attribute length, in bytes
- * @attr: DMA address of the attribute
+ * @major: major revision
+ * @minor: minor revision
+ * @patch: patch version
  */
 struct hse_attr_fw_version {
 	u8 reserved[2];
@@ -504,6 +507,8 @@ struct hse_aead_srv {
  * @sym.keylen: symmetric key length in bytes
  * @cipher_key: unused, must be set to HSE_INVALID_KEY_HANDLE
  * @auth_key: unused, must be set to HSE_INVALID_KEY_HANDLE
+ *
+ * Key buffers and information must be located in the 32-bit address range.
  */
 struct hse_import_key_srv {
 	u32 key_handle;

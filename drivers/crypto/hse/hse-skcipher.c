@@ -67,7 +67,6 @@ struct hse_skcipher_alg {
 /**
  * struct hse_skcipher_tfm_ctx - crypto transformation context
  * @srv_desc: service descriptor for setkey ops
- * @srv_desc_dma: service descriptor DMA address
  * @key_slot: current key entry in cipher key ring
  * @keyinf: key information/flags, used for import
  * @keyinf_dma: key information/flags DMA address
@@ -77,35 +76,33 @@ struct hse_skcipher_alg {
  */
 struct hse_skcipher_tfm_ctx {
 	struct hse_srv_desc srv_desc;
-	dma_addr_t srv_desc_dma;
 	struct hse_key *key_slot;
 	struct hse_key_info keyinf;
 	dma_addr_t keyinf_dma;
 	u8 keybuf[HSE_SKCIPHER_MAX_KEY_SIZE];
 	dma_addr_t keybuf_dma;
 	unsigned int keylen;
-} ____cacheline_aligned;
+};
 
 /**
  * struct hse_skcipher_req_ctx - crypto request context
  * @srv_desc: service descriptor for skcipher ops
- * @srv_desc_dma: service descriptor DMA address
  * @iv: current initialization vector
  * @iv_dma: current initialization vector DMA address
  * @buf: linearized input/output buffer
  * @buf_dma: linearized input/output buffer DMA address
+ * @buflen: size of current linearized input buffer
  * @direction: encrypt/decrypt selector
  */
 struct hse_skcipher_req_ctx {
 	struct hse_srv_desc srv_desc;
-	dma_addr_t srv_desc_dma;
 	u8 iv[HSE_SKCIPHER_MAX_BLOCK_SIZE];
 	dma_addr_t iv_dma;
 	void *buf;
 	dma_addr_t buf_dma;
-	u32 buflen;
-	u8 direction;
-} ____cacheline_aligned;
+	size_t buflen;
+	enum hse_cipher_dir direction;
+};
 
 /**
  * hse_skcipher_get_alg - get cipher algorithm data from crypto transformation
@@ -121,33 +118,32 @@ static inline void *hse_skcipher_get_alg(struct crypto_skcipher *tfm)
 /**
  * hse_skcipher_done - symmetric key cipher request done callback
  * @err: service response error code
- * @skreq: symmetric key cipher request
+ * @sreq: symmetric key cipher request
  */
-static void hse_skcipher_done(int err, void *skreq)
+static void hse_skcipher_done(int err, void *sreq)
 {
-	struct skcipher_request *req = skreq;
+	struct skcipher_request *req = (struct skcipher_request *)sreq;
 	struct hse_skcipher_req_ctx *rctx = skcipher_request_ctx(req);
 	struct crypto_skcipher *tfm = crypto_skcipher_reqtfm(req);
 	struct hse_skcipher_alg *alg = hse_skcipher_get_alg(tfm);
 	unsigned int i, blocksize = crypto_skcipher_blocksize(tfm);
 	unsigned int nbytes, ivsize = crypto_skcipher_ivsize(tfm);
 
-	dma_unmap_single(alg->dev, rctx->srv_desc_dma, sizeof(rctx->srv_desc),
-			 DMA_TO_DEVICE);
 	dma_unmap_single(alg->dev, rctx->iv_dma, sizeof(rctx->iv),
 			 DMA_TO_DEVICE);
 	dma_unmap_single(alg->dev, rctx->buf_dma, rctx->buflen,
 			 DMA_BIDIRECTIONAL);
 
 	if (unlikely(err)) {
-		dev_dbg(alg->dev, "%s: skcipher request failed: %d\n",
-			__func__, err);
+		dev_dbg(alg->dev, "%s: %s request failed: %d\n", __func__,
+			crypto_tfm_alg_name(crypto_skcipher_tfm(tfm)), err);
 		goto out_free_buf;
 	}
 
-	nbytes = sg_copy_from_buffer(req->dst, sg_nents(req->dst),
-				     rctx->buf, req->cryptlen);
-	if (nbytes != req->cryptlen) {
+	/* copy result from linear buffer */
+	nbytes = sg_copy_from_buffer(req->dst, sg_nents(req->dst), rctx->buf,
+				     req->cryptlen);
+	if (unlikely(nbytes != req->cryptlen)) {
 		err = -ENODATA;
 		goto out_free_buf;
 	}
@@ -171,13 +167,14 @@ static void hse_skcipher_done(int err, void *skreq)
 
 out_free_buf:
 	kfree(rctx->buf);
+
 	skcipher_request_complete(req, err);
 }
 
 /**
  * hse_skcipher_crypt - symmetric key cipher operation
  * @req: symmetric key cipher request
- * @direction: encrypt/decrypt
+ * @direction: encrypt/decrypt selector
  */
 static int hse_skcipher_crypt(struct skcipher_request *req,
 			      enum hse_cipher_dir direction)
@@ -203,6 +200,7 @@ static int hse_skcipher_crypt(struct skcipher_request *req,
 		return -ENOMEM;
 	}
 
+	/* copy source to linear buffer */
 	nbytes = sg_copy_to_buffer(req->src, sg_nents(req->src),
 				   rctx->buf, req->cryptlen);
 	if (nbytes != req->cryptlen) {
@@ -238,14 +236,6 @@ static int hse_skcipher_crypt(struct skcipher_request *req,
 	rctx->srv_desc.skcipher_req.input = rctx->buf_dma;
 	rctx->srv_desc.skcipher_req.output = rctx->buf_dma;
 
-	rctx->srv_desc_dma = dma_map_single(alg->dev, &rctx->srv_desc,
-					    sizeof(rctx->srv_desc),
-					    DMA_TO_DEVICE);
-	if (unlikely(dma_mapping_error(alg->dev, rctx->srv_desc_dma))) {
-		err = -ENOMEM;
-		goto err_unmap_iv;
-	}
-
 	/* req->iv is expected to be set to the last ciphertext block */
 	if (alg->block_mode == HSE_CIPHER_BLOCK_MODE_CBC &&
 	    direction == HSE_CIPHER_DIR_DECRYPT)
@@ -254,15 +244,12 @@ static int hse_skcipher_crypt(struct skcipher_request *req,
 
 	rctx->direction = direction;
 
-	err = hse_srv_req_async(alg->dev, HSE_CHANNEL_ANY, rctx->srv_desc_dma,
-				req, hse_skcipher_done);
+	err = hse_srv_req_async(alg->dev, HSE_CHANNEL_ANY, &rctx->srv_desc, req,
+				hse_skcipher_done);
 	if (err)
-		goto err_unmap_srv_desc;
+		goto err_unmap_iv;
 
 	return -EINPROGRESS;
-err_unmap_srv_desc:
-	dma_unmap_single(alg->dev, rctx->srv_desc_dma, sizeof(rctx->srv_desc),
-			 DMA_TO_DEVICE);
 err_unmap_iv:
 	dma_unmap_single(alg->dev, rctx->iv_dma, sizeof(rctx->iv),
 			 DMA_TO_DEVICE);
@@ -290,8 +277,6 @@ static int hse_skcipher_decrypt(struct skcipher_request *req)
  * @tfm: crypto skcipher transformation
  * @key: input key
  * @keylen: input key length, in bytes
- *
- * Key buffers and information must be located in the 32-bit address range.
  */
 static int hse_skcipher_setkey(struct crypto_skcipher *tfm, const u8 *key,
 			       unsigned int keylen)
@@ -332,13 +317,10 @@ static int hse_skcipher_setkey(struct crypto_skcipher *tfm, const u8 *key,
 	tctx->srv_desc.import_key_req.cipher_key = HSE_INVALID_KEY_HANDLE;
 	tctx->srv_desc.import_key_req.auth_key = HSE_INVALID_KEY_HANDLE;
 
-	dma_sync_single_for_device(alg->dev, tctx->srv_desc_dma,
-				   sizeof(tctx->srv_desc), DMA_TO_DEVICE);
-
-	err = hse_srv_req_sync(alg->dev, HSE_CHANNEL_ANY, tctx->srv_desc_dma);
+	err = hse_srv_req_sync(alg->dev, HSE_CHANNEL_ANY, &tctx->srv_desc);
 	if (unlikely(err))
-		dev_dbg(alg->dev, "%s: key import request failed: %d\n",
-			__func__, err);
+		dev_dbg(alg->dev, "%s: setkey failed for %s: %d\n", __func__,
+			crypto_tfm_alg_name(crypto_skcipher_tfm(tfm)), err);
 
 	return err;
 }
@@ -355,29 +337,12 @@ static int hse_skcipher_init(struct crypto_skcipher *tfm)
 
 	crypto_skcipher_set_reqsize(tfm, sizeof(struct hse_skcipher_req_ctx));
 
-	tctx->key_slot = hse_key_slot_acquire(alg->dev, alg->key_type);
-	if (IS_ERR_OR_NULL(tctx->key_slot)) {
-		dev_dbg(alg->dev, "%s: cannot acquire key slot\n", __func__);
-		return PTR_ERR(tctx->key_slot);
-	}
-
-	tctx->srv_desc_dma = dma_map_single_attrs(alg->dev, &tctx->srv_desc,
-						  sizeof(tctx->srv_desc),
-						  DMA_TO_DEVICE,
-						  DMA_ATTR_SKIP_CPU_SYNC);
-	if (unlikely(dma_mapping_error(alg->dev, tctx->srv_desc_dma))) {
-		err = -ENOMEM;
-		goto err_release_key_slot;
-	}
-
 	tctx->keyinf_dma = dma_map_single_attrs(alg->dev, &tctx->keyinf,
 						sizeof(tctx->keyinf),
 						DMA_TO_DEVICE,
 						DMA_ATTR_SKIP_CPU_SYNC);
-	if (unlikely(dma_mapping_error(alg->dev, tctx->keyinf_dma))) {
-		err = -ENOMEM;
-		goto err_unmap_srv_desc;
-	}
+	if (unlikely(dma_mapping_error(alg->dev, tctx->keyinf_dma)))
+		return -ENOMEM;
 
 	tctx->keybuf_dma = dma_map_single_attrs(alg->dev, tctx->keybuf,
 						sizeof(tctx->keybuf),
@@ -390,16 +355,20 @@ static int hse_skcipher_init(struct crypto_skcipher *tfm)
 
 	tctx->keylen = 0;
 
+	tctx->key_slot = hse_key_slot_acquire(alg->dev, alg->key_type);
+	if (IS_ERR_OR_NULL(tctx->key_slot)) {
+		dev_dbg(alg->dev, "%s: cannot acquire key slot\n", __func__);
+		err = PTR_ERR(tctx->key_slot);
+		goto err_unmap_keybuf;
+	}
+
 	return 0;
+err_unmap_keybuf:
+	dma_unmap_single_attrs(alg->dev, tctx->keybuf_dma, sizeof(tctx->keybuf),
+			       DMA_TO_DEVICE, DMA_ATTR_SKIP_CPU_SYNC);
 err_unmap_keyinf:
 	dma_unmap_single_attrs(alg->dev, tctx->keyinf_dma, sizeof(tctx->keyinf),
 			       DMA_TO_DEVICE, DMA_ATTR_SKIP_CPU_SYNC);
-err_unmap_srv_desc:
-	dma_unmap_single_attrs(alg->dev, tctx->srv_desc_dma,
-			       sizeof(tctx->srv_desc), DMA_TO_DEVICE,
-			       DMA_ATTR_SKIP_CPU_SYNC);
-err_release_key_slot:
-	hse_key_slot_release(alg->dev, tctx->key_slot);
 	return err;
 }
 
@@ -414,9 +383,6 @@ static void hse_skcipher_exit(struct crypto_skcipher *tfm)
 
 	hse_key_slot_release(alg->dev, tctx->key_slot);
 
-	dma_unmap_single_attrs(alg->dev, tctx->srv_desc_dma,
-			       sizeof(tctx->srv_desc), DMA_TO_DEVICE,
-			       DMA_ATTR_SKIP_CPU_SYNC);
 	dma_unmap_single_attrs(alg->dev, tctx->keyinf_dma, sizeof(tctx->keyinf),
 			       DMA_TO_DEVICE, DMA_ATTR_SKIP_CPU_SYNC);
 	dma_unmap_single_attrs(alg->dev, tctx->keybuf_dma, sizeof(tctx->keybuf),

@@ -5,7 +5,7 @@
  * This file contains the implementation of the hash algorithms and hash-based
  * message authentication codes supported for hardware offloading via HSE.
  *
- * Copyright 2019-2020 NXP
+ * Copyright 2019-2021 NXP
  */
 
 #include <linux/kernel.h>
@@ -62,7 +62,6 @@ struct hse_ahash_alg {
 /**
  * struct hse_ahash_tfm_ctx - crypto transformation context
  * @srv_desc: service descriptor for setkey ops
- * @srv_desc_dma: service descriptor DMA address
  * @key_slot: current key entry in hmac keyring
  * @keyinf: key information/flags, used for import
  * @keyinf_dma: key information/flags DMA address
@@ -73,15 +72,14 @@ struct hse_ahash_alg {
  */
 struct hse_ahash_tfm_ctx {
 	struct hse_srv_desc srv_desc;
-	dma_addr_t srv_desc_dma;
 	struct hse_key *key_slot;
 	struct hse_key_info keyinf;
 	dma_addr_t keyinf_dma;
-	u32 keylen;
+	size_t keylen;
 	dma_addr_t keylen_dma;
 	u8 keybuf[HSE_AHASH_MAX_BLOCK_SIZE] ____cacheline_aligned;
 	dma_addr_t keybuf_dma;
-} ____cacheline_aligned;
+};
 
 /**
  * struct hse_ahash_state - crypto request state
@@ -94,13 +92,12 @@ struct hse_ahash_state {
 	u8 sctx[HSE_MAX_CTX_SIZE];
 	bool streaming_mode;
 	u8 cache[HSE_AHASH_MAX_BLOCK_SIZE];
-	u32 cache_idx;
-} ____cacheline_aligned;
+	u8 cache_idx;
+};
 
 /**
  * struct hse_ahash_req_ctx - crypto request context
  * @srv_desc: service descriptor for hash/hmac ops
- * @srv_desc_dma: service descriptor DMA address
  * @streaming_mode: request in HSE streaming mode
  * @access_mode: streaming mode stage of request
  * @stream: acquired MU stream type channel
@@ -116,20 +113,19 @@ struct hse_ahash_state {
  */
 struct hse_ahash_req_ctx {
 	struct hse_srv_desc srv_desc;
-	dma_addr_t srv_desc_dma;
 	bool streaming_mode;
 	enum hse_srv_access_mode access_mode;
 	u8 stream;
 	u8 cache[HSE_AHASH_MAX_BLOCK_SIZE];
-	u32 cache_idx;
+	u8 cache_idx;
 	void *buf;
 	dma_addr_t buf_dma;
-	u32 buflen;
-	u32 outlen;
+	size_t buflen;
+	size_t outlen;
 	dma_addr_t outlen_dma;
 	u8 result[HSE_AHASH_MAX_DIGEST_SIZE] ____cacheline_aligned;
 	dma_addr_t result_dma;
-} ____cacheline_aligned;
+};
 
 /**
  * hse_ahash_get_alg - get hash algorithm data from crypto ahash transformation
@@ -179,8 +175,6 @@ static void hse_ahash_done(int err, void *req)
 					 rctx->outlen, DMA_FROM_DEVICE);
 			fallthrough;
 		default:
-			dma_unmap_single(alg->dev, rctx->srv_desc_dma,
-					 sizeof(rctx->srv_desc), DMA_TO_DEVICE);
 			dma_free_coherent(alg->dev, rctx->buflen, rctx->buf,
 					  rctx->buf_dma);
 			rctx->buflen = 0;
@@ -199,8 +193,6 @@ static void hse_ahash_done(int err, void *req)
 		hse_channel_release(alg->dev, rctx->stream);
 		fallthrough;
 	case HSE_ACCESS_MODE_ONE_PASS:
-		dma_unmap_single(alg->dev, rctx->srv_desc_dma,
-				 sizeof(rctx->srv_desc), DMA_TO_DEVICE);
 		dma_free_coherent(alg->dev, rctx->buflen, rctx->buf,
 				  rctx->buf_dma);
 		rctx->buflen = 0;
@@ -233,18 +225,10 @@ static int hse_ahash_init(struct ahash_request *req)
 	unsigned int blocksize = crypto_ahash_blocksize(tfm);
 	int err;
 
-	rctx->srv_desc_dma = dma_map_single(alg->dev, &rctx->srv_desc,
-					    sizeof(rctx->srv_desc),
-					    DMA_TO_DEVICE);
-	if (unlikely(dma_mapping_error(alg->dev, rctx->srv_desc_dma)))
-		return -ENOMEM;
-
 	rctx->buf = dma_alloc_coherent(alg->dev, blocksize, &rctx->buf_dma,
 				       GFP_KERNEL);
-	if (IS_ERR_OR_NULL(rctx->buf)) {
-		err = -ENOMEM;
-		goto err_unmap_srv_desc;
-	}
+	if (IS_ERR_OR_NULL(rctx->buf))
+		return -ENOMEM;
 	rctx->buflen = blocksize;
 	rctx->cache_idx = 0;
 	rctx->streaming_mode = false;
@@ -256,9 +240,6 @@ static int hse_ahash_init(struct ahash_request *req)
 	return 0;
 err_free_buf:
 	dma_free_coherent(alg->dev, rctx->buflen, rctx->buf, rctx->buf_dma);
-err_unmap_srv_desc:
-	dma_unmap_single(alg->dev, rctx->srv_desc_dma, sizeof(rctx->srv_desc),
-			 DMA_TO_DEVICE);
 	return err;
 }
 
@@ -344,11 +325,7 @@ static int hse_ahash_update(struct ahash_request *req)
 		break;
 	}
 
-	/* sync and issue request */
-	dma_sync_single_for_device(alg->dev, rctx->srv_desc_dma,
-				   sizeof(rctx->srv_desc), DMA_TO_DEVICE);
-
-	err = hse_srv_req_async(alg->dev, rctx->stream, rctx->srv_desc_dma,
+	err = hse_srv_req_async(alg->dev, rctx->stream, &rctx->srv_desc,
 				req, hse_ahash_done);
 	if (unlikely(err))
 		goto err_release_channel;
@@ -362,8 +339,6 @@ static int hse_ahash_update(struct ahash_request *req)
 err_release_channel:
 	hse_channel_release(alg->dev, rctx->stream);
 	dma_free_coherent(alg->dev, rctx->buflen, rctx->buf, rctx->buf_dma);
-	dma_unmap_single(alg->dev, rctx->srv_desc_dma, sizeof(rctx->srv_desc),
-			 DMA_TO_DEVICE);
 	return err;
 }
 
@@ -438,11 +413,7 @@ static int hse_ahash_final(struct ahash_request *req)
 		break;
 	}
 
-	/* sync and issue request */
-	dma_sync_single_for_device(alg->dev, rctx->srv_desc_dma,
-				   sizeof(rctx->srv_desc), DMA_TO_DEVICE);
-
-	err = hse_srv_req_async(alg->dev, rctx->stream, rctx->srv_desc_dma,
+	err = hse_srv_req_async(alg->dev, rctx->stream, &rctx->srv_desc,
 				req, hse_ahash_done);
 	if (unlikely(err))
 		goto err_unmap_outlen;
@@ -457,8 +428,6 @@ err_unmap_result:
 err_release_channel:
 	hse_channel_release(alg->dev, rctx->stream);
 	dma_free_coherent(alg->dev, rctx->buflen, rctx->buf, rctx->buf_dma);
-	dma_unmap_single(alg->dev, rctx->srv_desc_dma, sizeof(rctx->srv_desc),
-			 DMA_TO_DEVICE);
 	return err;
 }
 
@@ -553,11 +522,7 @@ static int hse_ahash_finup(struct ahash_request *req)
 		break;
 	}
 
-	/* sync and issue request */
-	dma_sync_single_for_device(alg->dev, rctx->srv_desc_dma,
-				   sizeof(rctx->srv_desc), DMA_TO_DEVICE);
-
-	err = hse_srv_req_async(alg->dev, rctx->stream, rctx->srv_desc_dma,
+	err = hse_srv_req_async(alg->dev, rctx->stream, &rctx->srv_desc,
 				req, hse_ahash_done);
 	if (unlikely(err))
 		goto err_unmap_outlen;
@@ -572,8 +537,6 @@ err_unmap_result:
 err_release_channel:
 	hse_channel_release(alg->dev, rctx->stream);
 	dma_free_coherent(alg->dev, rctx->buflen, rctx->buf, rctx->buf_dma);
-	dma_unmap_single(alg->dev, rctx->srv_desc_dma, sizeof(rctx->srv_desc),
-			 DMA_TO_DEVICE);
 	return err;
 }
 
@@ -643,24 +606,12 @@ static int hse_ahash_digest(struct ahash_request *req)
 		break;
 	}
 
-	/* sync and issue request */
-	rctx->srv_desc_dma = dma_map_single(alg->dev, &rctx->srv_desc,
-					    sizeof(rctx->srv_desc),
-					    DMA_TO_DEVICE);
-	if (unlikely(dma_mapping_error(alg->dev, rctx->srv_desc_dma))) {
-		err = -ENOMEM;
-		goto err_free_buf;
-	}
-
-	err = hse_srv_req_async(alg->dev, HSE_CHANNEL_ANY, rctx->srv_desc_dma,
+	err = hse_srv_req_async(alg->dev, HSE_CHANNEL_ANY, &rctx->srv_desc,
 				req, hse_ahash_done);
 	if (unlikely(err))
-		goto err_unmap_srv_desc;
+		goto err_free_buf;
 
 	return -EINPROGRESS;
-err_unmap_srv_desc:
-	dma_unmap_single(alg->dev, rctx->srv_desc_dma, sizeof(rctx->srv_desc),
-			 DMA_TO_DEVICE);
 err_free_buf:
 	dma_free_coherent(alg->dev, rctx->buflen, rctx->buf, rctx->buf_dma);
 	rctx->buflen = 0;
@@ -711,10 +662,7 @@ static int hse_ahash_export(struct ahash_request *req, void *out)
 	rctx->srv_desc.ctx_impex_req.stream_id = rctx->stream;
 	rctx->srv_desc.ctx_impex_req.stream_ctx = sctx_dma;
 
-	dma_sync_single_for_device(alg->dev, rctx->srv_desc_dma,
-				   sizeof(rctx->srv_desc), DMA_TO_DEVICE);
-
-	err = hse_srv_req_sync(alg->dev, rctx->stream, rctx->srv_desc_dma);
+	err = hse_srv_req_sync(alg->dev, rctx->stream, &rctx->srv_desc);
 	if (unlikely(err))
 		dev_dbg(alg->dev, "%s: export context failed for %s: %d\n",
 			__func__, crypto_ahash_alg_name(tfm), err);
@@ -724,8 +672,6 @@ out_release_channel:
 	hse_channel_release(alg->dev, rctx->stream);
 	dma_free_coherent(alg->dev, rctx->buflen, rctx->buf, rctx->buf_dma);
 	rctx->buflen = 0;
-	dma_unmap_single(alg->dev, rctx->srv_desc_dma, sizeof(rctx->srv_desc),
-			 DMA_TO_DEVICE);
 	return err;
 }
 
@@ -747,18 +693,10 @@ static int hse_ahash_import(struct ahash_request *req, const void *in)
 	if (unlikely(!in))
 		return -EINVAL;
 
-	rctx->srv_desc_dma = dma_map_single(alg->dev, &rctx->srv_desc,
-					    sizeof(rctx->srv_desc),
-					    DMA_TO_DEVICE);
-	if (unlikely(dma_mapping_error(alg->dev, rctx->srv_desc_dma)))
-		return -ENOMEM;
-
 	rctx->buf = dma_alloc_coherent(alg->dev, blocksize, &rctx->buf_dma,
 				       GFP_KERNEL);
-	if (IS_ERR_OR_NULL(rctx->buf)) {
-		err = -ENOMEM;
-		goto err_unmap_srv_desc;
-	}
+	if (IS_ERR_OR_NULL(rctx->buf))
+		return -ENOMEM;
 	rctx->buflen = blocksize;
 
 	/* restore block-sized cache */
@@ -786,15 +724,7 @@ static int hse_ahash_import(struct ahash_request *req, const void *in)
 	rctx->srv_desc.ctx_impex_req.stream_id = rctx->stream;
 	rctx->srv_desc.ctx_impex_req.stream_ctx = sctx_dma;
 
-	rctx->srv_desc_dma = dma_map_single(alg->dev, &rctx->srv_desc,
-					    sizeof(rctx->srv_desc),
-					    DMA_TO_DEVICE);
-	if (unlikely(dma_mapping_error(alg->dev, rctx->srv_desc_dma))) {
-		err = -ENOMEM;
-		goto err_free_buf;
-	}
-
-	err = hse_srv_req_sync(alg->dev, rctx->stream, rctx->srv_desc_dma);
+	err = hse_srv_req_sync(alg->dev, rctx->stream, &rctx->srv_desc);
 	if (unlikely(err)) {
 		dev_dbg(alg->dev, "%s: import context failed for %s: %d\n",
 			__func__, crypto_ahash_alg_name(tfm), err);
@@ -811,9 +741,6 @@ err_release_channel:
 err_free_buf:
 	dma_free_coherent(alg->dev, rctx->buflen, rctx->buf, rctx->buf_dma);
 	rctx->buflen = 0;
-err_unmap_srv_desc:
-	dma_unmap_single(alg->dev, rctx->srv_desc_dma, sizeof(rctx->srv_desc),
-			 DMA_TO_DEVICE);
 	return err;
 }
 
@@ -827,7 +754,6 @@ err_unmap_srv_desc:
  * block size. Any key exceeding this size is shortened by hashing it before
  * being imported into the key store, in accordance with hmac specification.
  * Zero padding shall be added to keys shorter than HSE_KEY_HMAC_MIN_SIZE.
- * Key buffers and information must be located in the 32-bit address range.
  */
 static int hse_ahash_setkey(struct crypto_ahash *tfm, const u8 *key,
 			    unsigned int keylen)
@@ -872,12 +798,8 @@ static int hse_ahash_setkey(struct crypto_ahash *tfm, const u8 *key,
 		tctx->srv_desc.hash_req.hash_len = tctx->keylen_dma;
 		tctx->srv_desc.hash_req.hash = tctx->keybuf_dma;
 
-		dma_sync_single_for_device(alg->dev, tctx->srv_desc_dma,
-					   sizeof(tctx->srv_desc),
-					   DMA_TO_DEVICE);
-
 		err = hse_srv_req_sync(alg->dev, HSE_CHANNEL_ANY,
-				       tctx->srv_desc_dma);
+				       &tctx->srv_desc);
 		memzero_explicit(&tctx->srv_desc, sizeof(tctx->srv_desc));
 		dma_unmap_single(alg->dev, tmp_keybuf_dma, keylen,
 				 DMA_TO_DEVICE);
@@ -913,10 +835,7 @@ static int hse_ahash_setkey(struct crypto_ahash *tfm, const u8 *key,
 	tctx->srv_desc.import_key_req.cipher_key = HSE_INVALID_KEY_HANDLE;
 	tctx->srv_desc.import_key_req.auth_key = HSE_INVALID_KEY_HANDLE;
 
-	dma_sync_single_for_device(alg->dev, tctx->srv_desc_dma,
-				   sizeof(tctx->srv_desc), DMA_TO_DEVICE);
-
-	err = hse_srv_req_sync(alg->dev, HSE_CHANNEL_ANY, tctx->srv_desc_dma);
+	err = hse_srv_req_sync(alg->dev, HSE_CHANNEL_ANY, &tctx->srv_desc);
 	if (unlikely(err))
 		dev_dbg(alg->dev, "%s: key import request failed for %s: %d\n",
 			__func__, crypto_ahash_alg_name(tfm), err);
@@ -947,22 +866,13 @@ static int hse_ahash_cra_init(struct crypto_tfm *gtfm)
 		return PTR_ERR(tctx->key_slot);
 	}
 
-	tctx->srv_desc_dma = dma_map_single_attrs(alg->dev, &tctx->srv_desc,
-						  sizeof(tctx->srv_desc),
-						  DMA_TO_DEVICE,
-						  DMA_ATTR_SKIP_CPU_SYNC);
-	if (unlikely(dma_mapping_error(alg->dev, tctx->srv_desc_dma))) {
-		err = -ENOMEM;
-		goto err_release_key_slot;
-	}
-
 	tctx->keyinf_dma = dma_map_single_attrs(alg->dev, &tctx->keyinf,
 						sizeof(tctx->keyinf),
 						DMA_TO_DEVICE,
 						DMA_ATTR_SKIP_CPU_SYNC);
 	if (unlikely(dma_mapping_error(alg->dev, tctx->keyinf_dma))) {
 		err = -ENOMEM;
-		goto err_unmap_srv_desc;
+		goto err_release_key_slot;
 	}
 
 	tctx->keybuf_dma = dma_map_single_attrs(alg->dev, tctx->keybuf,
@@ -991,10 +901,6 @@ err_unmap_keybuf:
 err_unmap_keyinf:
 	dma_unmap_single_attrs(alg->dev, tctx->keyinf_dma, sizeof(tctx->keyinf),
 			       DMA_TO_DEVICE, DMA_ATTR_SKIP_CPU_SYNC);
-err_unmap_srv_desc:
-	dma_unmap_single_attrs(alg->dev, tctx->srv_desc_dma,
-			       sizeof(tctx->srv_desc), DMA_TO_DEVICE,
-			       DMA_ATTR_SKIP_CPU_SYNC);
 err_release_key_slot:
 	hse_key_slot_release(alg->dev, tctx->key_slot);
 	return err;
@@ -1015,9 +921,6 @@ static void hse_ahash_cra_exit(struct crypto_tfm *gtfm)
 
 	hse_key_slot_release(alg->dev, tctx->key_slot);
 
-	dma_unmap_single_attrs(alg->dev, tctx->srv_desc_dma,
-			       sizeof(tctx->srv_desc), DMA_TO_DEVICE,
-			       DMA_ATTR_SKIP_CPU_SYNC);
 	dma_unmap_single_attrs(alg->dev, tctx->keyinf_dma, sizeof(tctx->keyinf),
 			       DMA_TO_DEVICE, DMA_ATTR_SKIP_CPU_SYNC);
 	dma_unmap_single_attrs(alg->dev, tctx->keybuf_dma, sizeof(tctx->keybuf),
