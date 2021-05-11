@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: BSD-3-Clause
 /*
- * NXP HSE Driver - AEAD Support
+ * NXP HSE Driver - Authenticated Encryption and AEAD Support
  *
  * This file contains the implementation of the authenticated encryption with
  * additional data algorithms supported for hardware offloading via HSE.
@@ -66,7 +66,6 @@ struct hse_aead_alg {
 /**
  * struct hse_aead_tfm_ctx - crypto transformation context
  * @srv_desc: service descriptor for setkey ops
- * @srv_desc_dma: service descriptor DMA address
  * @key_slot: current key entry in cipher key ring
  * @keyinf: key information/flags, used for import
  * @keyinf_dma: key information/flags DMA address
@@ -77,7 +76,6 @@ struct hse_aead_alg {
  */
 struct hse_aead_tfm_ctx {
 	struct hse_srv_desc srv_desc;
-	dma_addr_t srv_desc_dma;
 	struct hse_key *key_slot;
 	struct hse_key_info keyinf;
 	dma_addr_t keyinf_dma;
@@ -85,29 +83,27 @@ struct hse_aead_tfm_ctx {
 	dma_addr_t keybuf_dma;
 	unsigned int keylen;
 	u8 channel;
-} ____cacheline_aligned;
+};
 
 /**
- * struct hse_aead_req_ctx - AEAD request context
- * @desc: HSE service descriptor used for encrypt/decrypt operations
- * @desc_dma: HSE service descriptor DMA address
- * @iv: initialization vector
- * @iv_dma: iv DMA address
- * @buf: linearized buffer for send/recv plaintext/ciphertext to HSE
- * @buf_dma: linear buffer DMA address
- * @buflen: length of dma mapped HSE request buffer
- * @encrypt: whether this is an encrypt or decrypt request
+ * struct hse_aead_req_ctx - crypto request context
+ * @srv_desc: service descriptor for AEAD ops
+ * @iv: current initialization vector
+ * @iv_dma: current initialization vector DMA address
+ * @buf: linearized input/output buffer
+ * @buf_dma: linearized input/output buffer DMA address
+ * @buflen: size of current linearized input buffer
+ * @direction: encrypt/decrypt selector
  */
 struct hse_aead_req_ctx {
-	struct hse_srv_desc desc;
-	dma_addr_t desc_dma;
+	struct hse_srv_desc srv_desc;
 	u8 iv[HSE_AEAD_MAX_IV_SIZE];
 	dma_addr_t iv_dma;
 	void *buf;
 	dma_addr_t buf_dma;
-	u32 buflen;
-	bool encrypt;
-} ____cacheline_aligned;
+	size_t buflen;
+	enum hse_cipher_dir direction;
+};
 
 /**
  * hse_aead_get_alg - get AEAD algorithm data from crypto transformation
@@ -121,11 +117,9 @@ static inline struct hse_aead_alg *hse_aead_get_alg(struct crypto_aead *tfm)
 }
 
 /**
- * hse_aead_setauthsize - set authentication tag (MAC) size
+ * hse_aead_setauthsize - check authentication tag (MAC) size
  * @tfm: crypto aead transformation
- * @authsize: auth tag size
- *
- * Validate authentication tag size for AEAD transformations.
+ * @authsize: authentication tag size
  */
 static int hse_aead_setauthsize(struct crypto_aead *tfm, unsigned int authsize)
 {
@@ -144,161 +138,139 @@ static int hse_aead_setauthsize(struct crypto_aead *tfm, unsigned int authsize)
 /**
  * hse_aead_done - AEAD request done callback
  * @err: service response error code
- * @aeadreq: AEAD request
+ * @areq: AEAD request
  */
-static void hse_aead_done(int err, void *aeadreq)
+static void hse_aead_done(int err, void *areq)
 {
-	struct aead_request *req = (struct aead_request *)aeadreq;
+	struct aead_request *req = (struct aead_request *)areq;
 	struct hse_aead_req_ctx *rctx = aead_request_ctx(req);
 	struct crypto_aead *tfm = crypto_aead_reqtfm(req);
 	struct hse_aead_alg *alg = hse_aead_get_alg(tfm);
-	u32 maclen = crypto_aead_authsize(tfm);
-	u32 ivlen = crypto_aead_ivsize(tfm);
-	int nbytes, dstlen;
+	unsigned int nbytes, dstlen, maclen = crypto_aead_authsize(tfm);
 
-	if (unlikely(err)) {
-		dev_dbg(alg->dev, "%s: AEAD request failed: %d\n",
-			__func__, err);
-		goto out;
-	}
-
+	dma_unmap_single(alg->dev, rctx->iv_dma, sizeof(rctx->iv),
+			 DMA_TO_DEVICE);
 	dma_unmap_single(alg->dev, rctx->buf_dma, rctx->buflen,
 			 DMA_BIDIRECTIONAL);
 
-	if (IS_ENABLED(CONFIG_VERBOSE_DEBUG))
-		print_hex_dump_debug("gcm(aes) req out: ", DUMP_PREFIX_OFFSET,
-				     16, 4, rctx->buf, rctx->buflen, true);
+	if (unlikely(err)) {
+		dev_dbg(alg->dev, "%s: %s request failed: %d\n", __func__,
+			crypto_tfm_alg_name(crypto_aead_tfm(tfm)), err);
+		goto out_free_buf;
+	}
 
-	/* copy result from linear buffer into destination SG */
+	/* copy result from linear buffer */
 	dstlen = req->assoclen + req->cryptlen +
-		 (rctx->encrypt ? maclen : -maclen);
-	nbytes = sg_copy_from_buffer(req->dst, sg_nents(req->dst),
-				     rctx->buf, dstlen);
+		 (rctx->direction == HSE_CIPHER_DIR_ENCRYPT ? maclen : -maclen);
+	nbytes = sg_copy_from_buffer(req->dst, sg_nents(req->dst), rctx->buf,
+				     dstlen);
 	if (unlikely(nbytes != dstlen))
 		err = -ENODATA;
 
-out:
+out_free_buf:
 	kfree(rctx->buf);
-	dma_unmap_single(alg->dev, rctx->iv_dma, ivlen, DMA_TO_DEVICE);
-	dma_unmap_single(alg->dev, rctx->desc_dma, sizeof(rctx->desc),
-			 DMA_TO_DEVICE);
 
 	aead_request_complete(req, err);
 }
 
 /**
- * hse_aead_crypt - encrypt/decrypt AEAD operation
- * @req: AEAD encrypt/decrypt request
- * @encrypt: whether the request is encrypt or not
+ * hse_aead_crypt - AEAD operation
+ * @req: AEAD request
+ * @direction: encrypt/decrypt selector
  */
-static int hse_aead_crypt(struct aead_request *req, bool encrypt)
+static int hse_aead_crypt(struct aead_request *req,
+			  enum hse_cipher_dir direction)
 {
 	struct crypto_aead *tfm = crypto_aead_reqtfm(req);
-	struct hse_aead_alg *alg = hse_aead_get_alg(tfm);
 	struct hse_aead_tfm_ctx *tctx = crypto_aead_ctx(tfm);
 	struct hse_aead_req_ctx *rctx = aead_request_ctx(req);
-	unsigned int cryptlen, srclen, ivlen = crypto_aead_ivsize(tfm);
+	struct hse_aead_alg *alg = hse_aead_get_alg(tfm);
 	unsigned int maclen = crypto_aead_authsize(tfm);
-	int err, nbytes;
+	unsigned int ivsize = crypto_aead_ivsize(tfm);
+	int err, nbytes, cryptlen = req->cryptlen;
 
-	/* make sure IV is located in a DMAable area before DMA mapping it */
-	memcpy(&rctx->iv, req->iv, ivlen);
+	if (unlikely(!tctx->keylen))
+		return -ENOKEY;
 
 	/* for decrypt req->cryptlen includes the MAC length */
-	cryptlen = req->cryptlen - (!encrypt ? maclen : 0);
-
-	/* alloc linearized buffer for HSE request */
+	cryptlen -= (direction == HSE_CIPHER_DIR_DECRYPT ? maclen : 0);
 	rctx->buflen = req->assoclen + cryptlen + maclen;
 	rctx->buf = kzalloc(rctx->buflen, GFP_KERNEL);
-	if (IS_ERR_OR_NULL(rctx->buf))
+	if (IS_ERR_OR_NULL(rctx->buf)) {
+		rctx->buflen = 0;
 		return -ENOMEM;
-
-	/* copy source SG into linear buffer */
-	srclen = req->assoclen + req->cryptlen;
-	nbytes = sg_copy_to_buffer(req->src, sg_nents(req->src),
-				   rctx->buf, srclen);
-	if (nbytes != srclen) {
-		err = -ENODATA;
-		goto err_free_buf;
 	}
 
-	if (IS_ENABLED(CONFIG_VERBOSE_DEBUG))
-		print_hex_dump_debug("gcm(aes) req in: ", DUMP_PREFIX_OFFSET,
-				     16, 4, rctx->buf, rctx->buflen, true);
-
-	/* DMA map IV and req buffer */
-	rctx->iv_dma = dma_map_single(alg->dev, rctx->iv, ivlen, DMA_TO_DEVICE);
-	if (unlikely(dma_mapping_error(alg->dev, rctx->iv_dma))) {
-		dev_err(alg->dev, "unable to map IV buffer\n");
-		err = -ENOMEM;
+	/* copy source to linear buffer */
+	nbytes = sg_copy_to_buffer(req->src, sg_nents(req->src),
+				   rctx->buf, req->assoclen + req->cryptlen);
+	if (nbytes != req->assoclen + req->cryptlen) {
+		err = -ENODATA;
 		goto err_free_buf;
 	}
 
 	rctx->buf_dma = dma_map_single(alg->dev, rctx->buf, rctx->buflen,
 				       DMA_BIDIRECTIONAL);
 	if (unlikely(dma_mapping_error(alg->dev, rctx->buf_dma))) {
-		dev_err(alg->dev, "unable to map HSE request buffer\n");
 		err = -ENOMEM;
-		goto err_unmap_iv;
+		goto err_free_buf;
 	}
 
-	/* prepare HSE service descriptor */
-	rctx->desc.srv_id = HSE_SRV_ID_AEAD;
-	rctx->desc.aead_req.access_mode = HSE_ACCESS_MODE_ONE_PASS;
-	rctx->desc.aead_req.auth_cipher_mode = alg->auth_mode;
-	rctx->desc.aead_req.cipher_dir =
-		encrypt ? HSE_CIPHER_DIR_ENCRYPT : HSE_CIPHER_DIR_DECRYPT;
-	rctx->desc.aead_req.key_handle = tctx->key_slot->handle;
-	rctx->desc.aead_req.iv_len = ivlen;
-	rctx->desc.aead_req.iv = rctx->iv_dma;
-	rctx->desc.aead_req.aad_len = req->assoclen;
-	rctx->desc.aead_req.aad = rctx->buf_dma;
-	rctx->desc.aead_req.sgt_opt = HSE_SGT_OPT_NONE;
-	rctx->desc.aead_req.input_len = cryptlen;
-	rctx->desc.aead_req.input = rctx->desc.aead_req.aad + req->assoclen;
-	rctx->desc.aead_req.tag_len = maclen;
-	rctx->desc.aead_req.tag = rctx->desc.aead_req.input + cryptlen;
-	rctx->desc.aead_req.output = rctx->desc.aead_req.input;
-
-	/* DMA map service descriptor */
-	rctx->desc_dma = dma_map_single(alg->dev, &rctx->desc,
-					sizeof(rctx->desc), DMA_TO_DEVICE);
-	if (unlikely(dma_mapping_error(alg->dev, rctx->desc_dma))) {
-		dev_err(alg->dev, "unable to map HSE service descriptor\n");
+	/* copy IV to DMAable area */
+	memcpy(rctx->iv, req->iv, ivsize);
+	rctx->iv_dma = dma_map_single(alg->dev, rctx->iv, sizeof(rctx->iv),
+				      DMA_TO_DEVICE);
+	if (unlikely(dma_mapping_error(alg->dev, rctx->iv_dma))) {
 		err = -ENOMEM;
 		goto err_unmap_buf;
 	}
 
-	rctx->encrypt = encrypt;
+	/* prepare HSE service descriptor */
+	rctx->srv_desc.srv_id = HSE_SRV_ID_AEAD;
+	rctx->srv_desc.aead_req.access_mode = HSE_ACCESS_MODE_ONE_PASS;
+	rctx->srv_desc.aead_req.auth_cipher_mode = alg->auth_mode;
+	rctx->srv_desc.aead_req.cipher_dir = direction;
+	rctx->srv_desc.aead_req.key_handle = tctx->key_slot->handle;
+	rctx->srv_desc.aead_req.iv_len = ivsize;
+	rctx->srv_desc.aead_req.iv = rctx->iv_dma;
+	rctx->srv_desc.aead_req.aad_len = req->assoclen;
+	rctx->srv_desc.aead_req.aad = rctx->buf_dma;
+	rctx->srv_desc.aead_req.sgt_opt = HSE_SGT_OPT_NONE;
+	rctx->srv_desc.aead_req.input_len = cryptlen;
+	rctx->srv_desc.aead_req.input = rctx->srv_desc.aead_req.aad +
+					req->assoclen;
+	rctx->srv_desc.aead_req.tag_len = maclen;
+	rctx->srv_desc.aead_req.tag = rctx->srv_desc.aead_req.input + cryptlen;
+	rctx->srv_desc.aead_req.output = rctx->srv_desc.aead_req.input;
 
-	err = hse_srv_req_async(alg->dev, tctx->channel, rctx->desc_dma,
-				req, hse_aead_done);
+	rctx->direction = direction;
+
+	err = hse_srv_req_async(alg->dev, tctx->channel, &rctx->srv_desc, req,
+				hse_aead_done);
 	if (err)
-		goto err_unmap_desc;
+		goto err_unmap_iv;
 
 	return -EINPROGRESS;
-
-err_unmap_desc:
-	dma_unmap_single(alg->dev, rctx->desc_dma, sizeof(rctx->desc),
+err_unmap_iv:
+	dma_unmap_single(alg->dev, rctx->iv_dma, sizeof(rctx->iv),
 			 DMA_TO_DEVICE);
 err_unmap_buf:
 	dma_unmap_single(alg->dev, rctx->buf_dma, rctx->buflen,
 			 DMA_BIDIRECTIONAL);
-err_unmap_iv:
-	dma_unmap_single(alg->dev, rctx->iv_dma, ivlen, DMA_TO_DEVICE);
 err_free_buf:
 	kfree(rctx->buf);
+	rctx->buflen = 0;
 	return err;
 }
 
 static int hse_aead_encrypt(struct aead_request *req)
 {
-	return hse_aead_crypt(req, true);
+	return hse_aead_crypt(req, HSE_CIPHER_DIR_ENCRYPT);
 }
 
 static int hse_aead_decrypt(struct aead_request *req)
 {
-	return hse_aead_crypt(req, false);
+	return hse_aead_crypt(req, HSE_CIPHER_DIR_DECRYPT);
 }
 
 /**
@@ -306,8 +278,6 @@ static int hse_aead_decrypt(struct aead_request *req)
  * @tfm: crypto aead transformation
  * @key: input key
  * @keylen: input key length, in bytes
- *
- * Key buffers and information must be located in the 32-bit address range.
  */
 static int hse_aead_setkey(struct crypto_aead *tfm, const u8 *key,
 			   unsigned int keylen)
@@ -344,13 +314,10 @@ static int hse_aead_setkey(struct crypto_aead *tfm, const u8 *key,
 	tctx->srv_desc.import_key_req.cipher_key = HSE_INVALID_KEY_HANDLE;
 	tctx->srv_desc.import_key_req.auth_key = HSE_INVALID_KEY_HANDLE;
 
-	dma_sync_single_for_device(alg->dev, tctx->srv_desc_dma,
-				   sizeof(tctx->srv_desc), DMA_TO_DEVICE);
-
-	err = hse_srv_req_sync(alg->dev, HSE_CHANNEL_ANY, tctx->srv_desc_dma);
+	err = hse_srv_req_sync(alg->dev, HSE_CHANNEL_ANY, &tctx->srv_desc);
 	if (unlikely(err))
-		dev_dbg(alg->dev, "%s: cipher key import request failed: %d\n",
-			__func__, err);
+		dev_dbg(alg->dev, "%s: setkey failed for %s: %d\n", __func__,
+			crypto_tfm_alg_name(crypto_aead_tfm(tfm)), err);
 
 	return err;
 }
@@ -367,21 +334,12 @@ static int hse_aead_init(struct crypto_aead *tfm)
 
 	crypto_aead_set_reqsize(tfm, sizeof(struct hse_aead_req_ctx));
 
-	tctx->srv_desc_dma = dma_map_single_attrs(alg->dev, &tctx->srv_desc,
-						  sizeof(tctx->srv_desc),
-						  DMA_TO_DEVICE,
-						  DMA_ATTR_SKIP_CPU_SYNC);
-	if (unlikely(dma_mapping_error(alg->dev, tctx->srv_desc_dma)))
-		return -ENOMEM;
-
 	tctx->keyinf_dma = dma_map_single_attrs(alg->dev, &tctx->keyinf,
 						sizeof(tctx->keyinf),
 						DMA_TO_DEVICE,
 						DMA_ATTR_SKIP_CPU_SYNC);
-	if (unlikely(dma_mapping_error(alg->dev, tctx->keyinf_dma))) {
-		err = -ENOMEM;
-		goto err_unmap_srv_desc;
-	}
+	if (unlikely(dma_mapping_error(alg->dev, tctx->keyinf_dma)))
+		return -ENOMEM;
 
 	tctx->keybuf_dma = dma_map_single_attrs(alg->dev, tctx->keybuf,
 						sizeof(tctx->keybuf),
@@ -412,15 +370,11 @@ static int hse_aead_init(struct crypto_aead *tfm)
 err_release_key_slot:
 	hse_key_slot_release(alg->dev, tctx->key_slot);
 err_unmap_keybuf:
-	dma_unmap_single_attrs(alg->dev, tctx->keyinf_dma, sizeof(tctx->keyinf),
+	dma_unmap_single_attrs(alg->dev, tctx->keybuf_dma, sizeof(tctx->keybuf),
 			       DMA_TO_DEVICE, DMA_ATTR_SKIP_CPU_SYNC);
 err_unmap_keyinf:
 	dma_unmap_single_attrs(alg->dev, tctx->keyinf_dma, sizeof(tctx->keyinf),
 			       DMA_TO_DEVICE, DMA_ATTR_SKIP_CPU_SYNC);
-err_unmap_srv_desc:
-	dma_unmap_single_attrs(alg->dev, tctx->srv_desc_dma,
-			       sizeof(tctx->srv_desc), DMA_TO_DEVICE,
-			       DMA_ATTR_SKIP_CPU_SYNC);
 	return err;
 }
 
@@ -439,9 +393,6 @@ static void hse_aead_exit(struct crypto_aead *tfm)
 		hse_key_slot_release(alg->dev, tctx->key_slot);
 	}
 
-	dma_unmap_single_attrs(alg->dev, tctx->srv_desc_dma,
-			       sizeof(tctx->srv_desc), DMA_TO_DEVICE,
-			       DMA_ATTR_SKIP_CPU_SYNC);
 	dma_unmap_single_attrs(alg->dev, tctx->keyinf_dma, sizeof(tctx->keyinf),
 			       DMA_TO_DEVICE, DMA_ATTR_SKIP_CPU_SYNC);
 	dma_unmap_single_attrs(alg->dev, tctx->keybuf_dma, sizeof(tctx->keybuf),
@@ -449,151 +400,141 @@ static void hse_aead_exit(struct crypto_aead *tfm)
 }
 
 /**
- * hse_key_wrap_done - AEAD request done callback
+ * hse_key_wrap_done - key wrap request done callback
  * @err: service response error code
- * @aeadreq: AEAD request
+ * @wreq: key wrap (AEAD) request
  */
-static void hse_key_wrap_done(int err, void *aeadreq)
+static void hse_key_wrap_done(int err, void *wreq)
 {
-	struct aead_request *req = (struct aead_request *)aeadreq;
+	struct aead_request *req = (struct aead_request *)wreq;
 	struct hse_aead_req_ctx *rctx = aead_request_ctx(req);
 	struct crypto_aead *tfm = crypto_aead_reqtfm(req);
 	struct hse_aead_alg *alg = hse_aead_get_alg(tfm);
-	u32 maclen = crypto_aead_authsize(tfm);
-	u32 ivlen = crypto_aead_ivsize(tfm);
-	int nbytes, dstlen;
+	unsigned int nbytes, dstlen, maclen = crypto_aead_authsize(tfm);
 
-	if (unlikely(err)) {
-		dev_dbg(alg->dev, "%s: key wrap/unwrap request failed: %d\n",
-			__func__, err);
-		goto out;
-	}
-
+	dma_unmap_single(alg->dev, rctx->iv_dma, sizeof(rctx->iv),
+			 DMA_TO_DEVICE);
 	dma_unmap_single(alg->dev, rctx->buf_dma, rctx->buflen,
 			 DMA_BIDIRECTIONAL);
 
-	/* copy result from linear buffer into destination SG */
+	if (unlikely(err)) {
+		dev_dbg(alg->dev, "%s: %s request failed: %d\n", __func__,
+			crypto_tfm_alg_name(crypto_aead_tfm(tfm)), err);
+		goto out_free_buf;
+	}
+
+	/* copy result from linear buffer */
 	dstlen = req->assoclen + req->cryptlen +
-		 (rctx->encrypt ? maclen : -maclen);
-	nbytes = sg_copy_from_buffer(req->dst, sg_nents(req->dst),
-				     rctx->buf, dstlen);
+		 (rctx->direction == HSE_CIPHER_DIR_ENCRYPT ? maclen : -maclen);
+	nbytes = sg_copy_from_buffer(req->dst, sg_nents(req->dst), rctx->buf,
+				     dstlen);
 	if (unlikely(nbytes != dstlen))
 		err = -ENODATA;
 
-out:
+out_free_buf:
 	kfree(rctx->buf);
-	dma_unmap_single(alg->dev, rctx->iv_dma, ivlen, DMA_TO_DEVICE);
-	dma_unmap_single(alg->dev, rctx->desc_dma, sizeof(rctx->desc),
-			 DMA_TO_DEVICE);
 
 	aead_request_complete(req, err);
 }
 
 /**
  * hse_key_wrap_unwrap - key wrapping/unwrapping operation
- * @req: AEAD encrypt/decrypt request
- * @encrypt: whether the request is wrapping or unwrapping
+ * @req: key wrap (AEAD) request
+ * @direction: wrap/unwrap selector
  */
-static int hse_key_wrap_unwrap(struct aead_request *req, bool wrap)
+static int hse_key_wrap_unwrap(struct aead_request *req,
+			       enum hse_cipher_dir direction)
 {
 	struct crypto_aead *tfm = crypto_aead_reqtfm(req);
-	struct hse_aead_alg *alg = hse_aead_get_alg(tfm);
+	struct hse_aead_tfm_ctx *tctx = crypto_aead_ctx(tfm);
 	struct hse_aead_req_ctx *rctx = aead_request_ctx(req);
-	unsigned int cryptlen, srclen, ivlen = crypto_aead_ivsize(tfm);
+	struct hse_aead_alg *alg = hse_aead_get_alg(tfm);
 	unsigned int maclen = crypto_aead_authsize(tfm);
-	int err, nbytes;
+	unsigned int cryptlen = req->cryptlen;
+	int err, nbytes, ivsize = crypto_aead_ivsize(tfm);
 
-	/* make sure IV is located in a DMAable area before DMA mapping it */
-	memcpy(&rctx->iv, req->iv, ivlen);
+	if (unlikely(!tctx->keylen))
+		return -ENOKEY;
 
 	/* for decrypt req->cryptlen includes the MAC length */
-	cryptlen = req->cryptlen - (!wrap ? maclen : 0);
-
-	/* alloc linearized buffer for HSE request */
+	cryptlen += (direction == HSE_CIPHER_DIR_DECRYPT ? maclen : 0);
 	rctx->buflen = req->assoclen + cryptlen + maclen;
 	rctx->buf = kzalloc(rctx->buflen, GFP_KERNEL);
-	if (IS_ERR_OR_NULL(rctx->buf))
+	if (IS_ERR_OR_NULL(rctx->buf)) {
+		rctx->buflen = 0;
 		return -ENOMEM;
-
-	/* copy source SG into linear buffer */
-	srclen = req->assoclen + req->cryptlen;
-	nbytes = sg_copy_to_buffer(req->src, sg_nents(req->src),
-				   rctx->buf, srclen);
-	if (nbytes != srclen) {
-		err = -ENODATA;
-		goto err_free_buf;
 	}
 
-	rctx->iv_dma = dma_map_single(alg->dev, rctx->iv, ivlen, DMA_TO_DEVICE);
-	if (unlikely(dma_mapping_error(alg->dev, rctx->iv_dma))) {
-		dev_err(alg->dev, "unable to map IV buffer\n");
-		err = -ENOMEM;
+	/* copy source to linear buffer */
+	nbytes = sg_copy_to_buffer(req->src, sg_nents(req->src),
+				   rctx->buf, req->assoclen + req->cryptlen);
+	if (nbytes != req->assoclen + req->cryptlen) {
+		err = -ENODATA;
 		goto err_free_buf;
 	}
 
 	rctx->buf_dma = dma_map_single(alg->dev, rctx->buf, rctx->buflen,
 				       DMA_BIDIRECTIONAL);
 	if (unlikely(dma_mapping_error(alg->dev, rctx->buf_dma))) {
-		dev_err(alg->dev, "unable to map HSE request buffer\n");
 		err = -ENOMEM;
-		goto err_unmap_iv;
+		goto err_free_buf;
 	}
 
-	rctx->desc.srv_id = HSE_SRV_ID_AEAD;
-	rctx->desc.aead_req.access_mode = HSE_ACCESS_MODE_ONE_PASS;
-	rctx->desc.aead_req.auth_cipher_mode = alg->auth_mode;
-	rctx->desc.aead_req.cipher_dir =
-		wrap ? HSE_CIPHER_DIR_ENCRYPT : HSE_CIPHER_DIR_DECRYPT;
-	rctx->desc.aead_req.key_handle = HSE_ROM_KEY_AES256_KEY0;
-	rctx->desc.aead_req.iv_len = ivlen;
-	rctx->desc.aead_req.iv = rctx->iv_dma;
-	rctx->desc.aead_req.aad_len = req->assoclen;
-	rctx->desc.aead_req.aad = rctx->buf_dma;
-	rctx->desc.aead_req.sgt_opt = HSE_SGT_OPT_NONE;
-	rctx->desc.aead_req.input_len = cryptlen;
-	rctx->desc.aead_req.input = rctx->desc.aead_req.aad + req->assoclen;
-	rctx->desc.aead_req.tag_len = maclen;
-	rctx->desc.aead_req.tag = rctx->desc.aead_req.input + cryptlen;
-	rctx->desc.aead_req.output = rctx->desc.aead_req.input;
-
-	rctx->desc_dma = dma_map_single(alg->dev, &rctx->desc,
-					sizeof(rctx->desc), DMA_TO_DEVICE);
-	if (unlikely(dma_mapping_error(alg->dev, rctx->desc_dma))) {
-		dev_err(alg->dev, "unable to map HSE service descriptor\n");
+	/* copy IV to DMAable area */
+	memcpy(rctx->iv, req->iv, ivsize);
+	rctx->iv_dma = dma_map_single(alg->dev, rctx->iv, sizeof(rctx->iv),
+				      DMA_TO_DEVICE);
+	if (unlikely(dma_mapping_error(alg->dev, rctx->iv_dma))) {
 		err = -ENOMEM;
 		goto err_unmap_buf;
 	}
 
-	rctx->encrypt = wrap;
+	/* prepare HSE service descriptor */
+	rctx->srv_desc.srv_id = HSE_SRV_ID_AEAD;
+	rctx->srv_desc.aead_req.access_mode = HSE_ACCESS_MODE_ONE_PASS;
+	rctx->srv_desc.aead_req.auth_cipher_mode = alg->auth_mode;
+	rctx->srv_desc.aead_req.cipher_dir = direction;
+	rctx->srv_desc.aead_req.key_handle = HSE_ROM_KEY_AES256_KEY0;
+	rctx->srv_desc.aead_req.iv_len = ivsize;
+	rctx->srv_desc.aead_req.iv = rctx->iv_dma;
+	rctx->srv_desc.aead_req.aad_len = req->assoclen;
+	rctx->srv_desc.aead_req.aad = rctx->buf_dma;
+	rctx->srv_desc.aead_req.sgt_opt = HSE_SGT_OPT_NONE;
+	rctx->srv_desc.aead_req.input_len = cryptlen;
+	rctx->srv_desc.aead_req.input = rctx->srv_desc.aead_req.aad +
+					req->assoclen;
+	rctx->srv_desc.aead_req.tag_len = maclen;
+	rctx->srv_desc.aead_req.tag = rctx->srv_desc.aead_req.input + cryptlen;
+	rctx->srv_desc.aead_req.output = rctx->srv_desc.aead_req.input;
 
-	err = hse_srv_req_async(alg->dev, HSE_CHANNEL_ANY, rctx->desc_dma,
-				req, hse_key_wrap_done);
+	rctx->direction = direction;
+
+	err = hse_srv_req_async(alg->dev, HSE_CHANNEL_ANY, &rctx->srv_desc, req,
+				hse_key_wrap_done);
 	if (err)
-		goto err_unmap_desc;
+		goto err_unmap_iv;
 
 	return -EINPROGRESS;
-
-err_unmap_desc:
-	dma_unmap_single(alg->dev, rctx->desc_dma, sizeof(rctx->desc),
+err_unmap_iv:
+	dma_unmap_single(alg->dev, rctx->iv_dma, sizeof(rctx->iv),
 			 DMA_TO_DEVICE);
 err_unmap_buf:
 	dma_unmap_single(alg->dev, rctx->buf_dma, rctx->buflen,
 			 DMA_BIDIRECTIONAL);
-err_unmap_iv:
-	dma_unmap_single(alg->dev, rctx->iv_dma, ivlen, DMA_TO_DEVICE);
 err_free_buf:
 	kfree(rctx->buf);
+	rctx->buflen = 0;
 	return err;
 }
 
 static int hse_key_wrap(struct aead_request *req)
 {
-	return hse_key_wrap_unwrap(req, true);
+	return hse_key_wrap_unwrap(req, HSE_CIPHER_DIR_ENCRYPT);
 }
 
 static int hse_key_unwrap(struct aead_request *req)
 {
-	return hse_key_wrap_unwrap(req, false);
+	return hse_key_wrap_unwrap(req, HSE_CIPHER_DIR_DECRYPT);
 }
 
 static const struct hse_aead_tpl hse_aead_algs_tpl[] = {
