@@ -56,9 +56,9 @@ void hse_key_slot_release(struct device *dev, struct hse_key *slot);
 int hse_channel_acquire(struct device *dev, enum hse_ch_type type, u8 *channel);
 int hse_channel_release(struct device *dev, u8 channel);
 
-int hse_srv_req_async(struct device *dev, u8 channel, dma_addr_t srv_desc,
+int hse_srv_req_async(struct device *dev, u8 channel, void *srv_desc,
 		      void *ctx, void (*rx_cbk)(int err, void *ctx));
-int hse_srv_req_sync(struct device *dev, u8 channel, dma_addr_t srv_desc);
+int hse_srv_req_sync(struct device *dev, u8 channel, void *srv_desc);
 
 void hse_ahash_register(struct device *dev, struct list_head *alg_list);
 void hse_ahash_unregister(struct list_head *alg_list);
