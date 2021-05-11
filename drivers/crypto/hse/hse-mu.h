@@ -5,7 +5,7 @@
  * This file defines the interface specification for the Messaging Unit
  * instance used by host application cores to request services from HSE.
  *
- * Copyright 2019-2020 NXP
+ * Copyright 2019-2021 NXP
  */
 
 #ifndef HSE_MU_H
@@ -33,7 +33,8 @@ enum hse_irq_type {
 	HSE_INT_SYS_EVENT = 2u,
 };
 
-void *hse_mu_init(struct device *dev, irqreturn_t (*rx_isr)(int irq, void *dev),
+void *hse_mu_init(struct device *dev, void **desc_base_ptr, u64 *desc_base_dma,
+		  irqreturn_t (*rx_isr)(int irq, void *dev),
 		  irqreturn_t (*event_isr)(int irq, void *dev));
 
 u16 hse_mu_check_status(void *mu);
