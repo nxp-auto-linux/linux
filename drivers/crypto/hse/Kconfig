@@ -54,7 +54,7 @@ config CRYPTO_DEV_NXP_HSE_AES_KEY_GROUP_SIZE
 	depends on CRYPTO_DEV_NXP_HSE && !CRYPTO_DEV_NXP_HSE_UIO
 	int "Number of AES Key Slots in AES Key Group: [0-256]"
 	range 0 256
-	default "20"
+	default "12"
 	help
 	  Number of Key Slots available in the 256-bit AES Key Group.
 
@@ -70,6 +70,13 @@ config CRYPTO_DEV_NXP_HSE_HMAC_KEY_GROUP_SIZE
 	depends on CRYPTO_DEV_NXP_HSE && !CRYPTO_DEV_NXP_HSE_UIO
 	int "Number of HMAC Key Slots in HMAC Key Group: [0-256]"
 	range 0 256
-	default "10"
+	default "6"
 	help
 	  Number of Key Slots available in the HMAC Key Group.
+
+config CRYPTO_DEV_NXP_HSE_DEBUG
+        bool "Debug information for HSE crypto driver"
+	depends on CRYPTO_DEV_NXP_HSE
+        default n
+	help
+	  Enables printing driver debug messages to the kernel log.
