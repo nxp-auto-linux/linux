@@ -11,13 +11,12 @@
 #include <linux/io.h>
 #include <linux/platform_device.h>
 #include <linux/uio_driver.h>
+#include <linux/of.h>
+#include <linux/of_reserved_mem.h>
 
 #include "hse-abi.h"
 #include "hse-core.h"
 #include "hse-mu.h"
-
-#define HSE_SHARED_RAM_ADDR    0x22C00000ul /* HSE shared RAM */
-#define HSE_SHARED_RAM_SIZE    0x4000u /* 16k */
 
 /**
  * enum hse_uio_irqctl - HSE UIO interrupt control commands
@@ -55,7 +54,7 @@ struct hse_uio_shm {
  * @mu: MU instance handle
  * @info: UIO device info
  * @refcnt: reference counter
- * @shm: pointer to HSE shared RAM
+ * @shm: pointer to HSE reserved memory
  */
 struct hse_uio_priv {
 	struct device *dev;
@@ -170,6 +169,8 @@ void *hse_uio_register(struct device *dev, void *mu)
 {
 	struct hse_uio_priv *priv;
 	struct resource *reg;
+	struct device_node *rmem_node;
+	struct reserved_mem *rmem;
 	int err;
 
 	priv = devm_kzalloc(dev, sizeof(*priv), GFP_KERNEL);
@@ -183,7 +184,7 @@ void *hse_uio_register(struct device *dev, void *mu)
 	/* get HSE MU register space info from device tree */
 	reg = platform_get_resource(to_platform_device(dev), IORESOURCE_MEM, 0);
 	if (IS_ERR_OR_NULL(reg))
-		return ERR_PTR(-ENODEV);
+		return ERR_PTR(-ENXIO);
 
 	/* expose HSE MU register space to upper layer */
 	priv->info.mem[0].name = "HSE MU registers";
@@ -191,7 +192,7 @@ void *hse_uio_register(struct device *dev, void *mu)
 	priv->info.mem[0].size = resource_size(reg);
 	priv->info.mem[0].memtype = UIO_MEM_PHYS;
 
-	priv->info.version = "0.8.5";
+	priv->info.version = "0.9.0";
 	priv->info.name = "HSE UIO driver";
 
 	priv->info.open = hse_uio_open;
@@ -201,17 +202,31 @@ void *hse_uio_register(struct device *dev, void *mu)
 	priv->info.irqcontrol = hse_uio_irqcontrol;
 	priv->info.priv = priv;
 
-	/* map HSE shared RAM area */
-	priv->shm = devm_ioremap(dev, HSE_SHARED_RAM_ADDR,
-					 HSE_SHARED_RAM_SIZE);
-	if (IS_ERR_OR_NULL(priv->shm))
-		return ERR_PTR(-ENOMEM);
+	/* map HSE reserved memory */
+	rmem_node = of_parse_phandle(dev->of_node->parent, "memory-region", 0);
+	if (!rmem_node) {
+		dev_err(dev, "reserved memory-region node not found\n");
+		return ERR_PTR(-ENXIO);
+	}
 
-	/* expose HSE shared RAM to upper layer */
-	priv->info.mem[1].name = "HSE shared RAM";
-	priv->info.mem[1].addr = HSE_SHARED_RAM_ADDR;
+	rmem = of_reserved_mem_lookup(rmem_node);
+	if (!rmem) {
+		dev_err(dev, "reserved memory-region lookup failed\n");
+		return ERR_PTR(-ENXIO);
+	}
+	of_node_put(rmem_node);
+
+	priv->shm = devm_ioremap(dev, rmem->base, rmem->size);
+	if (!priv->shm) {
+		dev_err(dev, "reserved memory-region remap failed\n");
+		return ERR_PTR(-EINVAL);
+	}
+
+	/* expose HSE reserved memory to upper layer */
+	priv->info.mem[1].name = "HSE reserved memory";
+	priv->info.mem[1].addr = rmem->base;
 	priv->info.mem[1].internal_addr = priv->shm;
-	priv->info.mem[1].size = HSE_SHARED_RAM_SIZE;
+	priv->info.mem[1].size = rmem->size;
 	priv->info.mem[1].memtype = UIO_MEM_PHYS;
 
 	err = uio_register_device(dev, &priv->info);

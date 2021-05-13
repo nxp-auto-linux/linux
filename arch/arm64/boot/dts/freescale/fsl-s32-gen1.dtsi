@@ -65,6 +65,9 @@
 			no-map;
 		};
 
+		hse_reserved: shm@0x34000000 {
+			reg = <0x0 0x34000000 0x0 0x40000>;	/* 256k */
+		};
 	};
 
 	firmware {
@@ -555,6 +558,7 @@
 		#address-cells = <2>;
 		#size-cells = <2>;
 		#interrupt-cells = <3>;
+		memory-region = <&hse_reserved>;
 		ranges;
 
 		mu0b@40210000 {
