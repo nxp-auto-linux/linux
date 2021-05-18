@@ -193,10 +193,8 @@ struct nxp_c45_phy {
 	struct ptp_clock_info caps;
 	struct sk_buff_head tx_queue;
 	struct sk_buff_head rx_queue;
-	/* used to read the LTC counter atomic */
-	struct mutex ltc_read_lock;
-	/* used to write the LTC counter atomic */
-	struct mutex ltc_write_lock;
+	/* used to access the PTP registers atomic */
+	struct mutex ptp_lock;
 	int hwts_tx;
 	int hwts_rx;
 	u32 tx_delay;
@@ -216,13 +214,12 @@ static bool nxp_c45_poll_txts(struct phy_device *phydev)
 	return phydev->irq <= 0;
 }
 
-static int nxp_c45_ptp_gettimex64(struct ptp_clock_info *ptp,
-				  struct timespec64 *ts,
-				  struct ptp_system_timestamp *sts)
+static int _nxp_c45_ptp_gettimex64(struct ptp_clock_info *ptp,
+				   struct timespec64 *ts,
+				   struct ptp_system_timestamp *sts)
 {
 	struct nxp_c45_phy *priv = container_of(ptp, struct nxp_c45_phy, caps);
 
-	mutex_lock(&priv->ltc_read_lock);
 	phy_write_mmd(priv->phydev, MDIO_MMD_VEND1, VEND1_LTC_LOAD_CTRL,
 		      READ_LTC);
 	ts->tv_nsec = phy_read_mmd(priv->phydev, MDIO_MMD_VEND1,
@@ -233,17 +230,28 @@ static int nxp_c45_ptp_gettimex64(struct ptp_clock_info *ptp,
 				  VEND1_LTC_RD_SEC_0);
 	ts->tv_sec |= phy_read_mmd(priv->phydev, MDIO_MMD_VEND1,
 				   VEND1_LTC_RD_SEC_1) << 16;
-	mutex_unlock(&priv->ltc_read_lock);
 
 	return 0;
 }
 
-static int nxp_c45_ptp_settime64(struct ptp_clock_info *ptp,
-				 const struct timespec64 *ts)
+static int nxp_c45_ptp_gettimex64(struct ptp_clock_info *ptp,
+				  struct timespec64 *ts,
+				  struct ptp_system_timestamp *sts)
 {
 	struct nxp_c45_phy *priv = container_of(ptp, struct nxp_c45_phy, caps);
 
-	mutex_lock(&priv->ltc_write_lock);
+	mutex_lock(&priv->ptp_lock);
+	_nxp_c45_ptp_gettimex64(ptp, ts, sts);
+	mutex_unlock(&priv->ptp_lock);
+
+	return 0;
+}
+
+static int _nxp_c45_ptp_settime64(struct ptp_clock_info *ptp,
+				  const struct timespec64 *ts)
+{
+	struct nxp_c45_phy *priv = container_of(ptp, struct nxp_c45_phy, caps);
+
 	phy_write_mmd(priv->phydev, MDIO_MMD_VEND1, VEND1_LTC_WR_NSEC_0,
 		      ts->tv_nsec);
 	phy_write_mmd(priv->phydev, MDIO_MMD_VEND1, VEND1_LTC_WR_NSEC_1,
@@ -254,7 +262,18 @@ static int nxp_c45_ptp_settime64(struct ptp_clock_info *ptp,
 		      ts->tv_sec >> 16);
 	phy_write_mmd(priv->phydev, MDIO_MMD_VEND1, VEND1_LTC_LOAD_CTRL,
 		      LOAD_LTC);
-	mutex_unlock(&priv->ltc_write_lock);
+
+	return 0;
+}
+
+static int nxp_c45_ptp_settime64(struct ptp_clock_info *ptp,
+				 const struct timespec64 *ts)
+{
+	struct nxp_c45_phy *priv = container_of(ptp, struct nxp_c45_phy, caps);
+
+	mutex_lock(&priv->ptp_lock);
+	_nxp_c45_ptp_settime64(ptp, ts);
+	mutex_unlock(&priv->ptp_lock);
 
 	return 0;
 }
@@ -266,7 +285,8 @@ static int nxp_c45_ptp_adjfine(struct ptp_clock_info *ptp, long scaled_ppm)
 	u64 subns_inc_val;
 	bool inc;
 
-	inc = ppb >= 0 ? true : false;
+	mutex_lock(&priv->ptp_lock);
+	inc = ppb >= 0;
 	ppb = abs(ppb);
 
 	subns_inc_val = PPM_TO_SUBNS_INC(ppb);
@@ -280,18 +300,22 @@ static int nxp_c45_ptp_adjfine(struct ptp_clock_info *ptp, long scaled_ppm)
 
 	phy_write_mmd(priv->phydev, MDIO_MMD_VEND1, VEND1_RATE_ADJ_SUBNS_1,
 		      subns_inc_val);
+	mutex_unlock(&priv->ptp_lock);
 
 	return 0;
 }
 
 static int nxp_c45_ptp_adjtime(struct ptp_clock_info *ptp, s64 delta)
 {
+	struct nxp_c45_phy *priv = container_of(ptp, struct nxp_c45_phy, caps);
 	struct timespec64 now, then;
 
+	mutex_lock(&priv->ptp_lock);
 	then = ns_to_timespec64(delta);
-	nxp_c45_ptp_gettimex64(ptp, &now, NULL);
+	_nxp_c45_ptp_gettimex64(ptp, &now, NULL);
 	now = timespec64_add(now, then);
-	nxp_c45_ptp_settime64(ptp, &now);
+	_nxp_c45_ptp_settime64(ptp, &now);
+	mutex_unlock(&priv->ptp_lock);
 
 	return 0;
 }
@@ -321,12 +345,13 @@ static bool nxp_c45_get_hwtxts(struct nxp_c45_phy *priv,
 	bool valid;
 	u16 reg;
 
+	mutex_lock(&priv->ptp_lock);
 	phy_write_mmd(priv->phydev, MDIO_MMD_VEND1, VEND1_EGR_RING_CTRL,
 		      RING_DONE);
 	reg = phy_read_mmd(priv->phydev, MDIO_MMD_VEND1, VEND1_EGR_RING_DATA_0);
 	valid = !!(reg & RING_DATA_0_TS_VALID);
 	if (!valid)
-		return valid;
+		goto nxp_c45_get_hwtxts_out;
 
 	hwts->domain_number = reg;
 	hwts->msg_type = (reg & RING_DATA_0_MSG_TYPE) >> 8;
@@ -339,6 +364,8 @@ static bool nxp_c45_get_hwtxts(struct nxp_c45_phy *priv,
 	hwts->nsec |= (reg & RING_DATA_3_NSEC_29_16) << 16;
 	hwts->sec |= (reg & RING_DATA_3_SEC_1_0) >> 14;
 
+nxp_c45_get_hwtxts_out:
+	mutex_unlock(&priv->ptp_lock);
 	return valid;
 }
 
@@ -400,8 +427,8 @@ static long nxp_c45_do_aux_work(struct ptp_clock_info *ptp)
 		nxp_c45_process_txts(priv, &hwts);
 	}
 
+	nxp_c45_ptp_gettimex64(&priv->caps, &ts, NULL);
 	while ((skb = skb_dequeue(&priv->rx_queue)) != NULL) {
-		nxp_c45_ptp_gettimex64(&priv->caps, &ts, NULL);
 		ts_raw = __be32_to_cpu(NXP_C45_SKB_CB(skb)->header->reserved2);
 		hwts.sec = ts_raw >> 30;
 		hwts.nsec = ts_raw & GENMASK(29, 0);
@@ -1063,8 +1090,7 @@ static int nxp_c45_probe(struct phy_device *phydev)
 
 	phydev->priv = priv;
 
-	mutex_init(&priv->ltc_read_lock);
-	mutex_init(&priv->ltc_write_lock);
+	mutex_init(&priv->ptp_lock);
 
 	ptp_ability = phy_read_mmd(phydev, MDIO_MMD_VEND1,
 				   VEND1_PORT_ABILITIES);
