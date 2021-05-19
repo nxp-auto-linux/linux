@@ -810,6 +810,9 @@ static int fsl_qspi_probe(struct platform_device *pdev)
 		ret = of_property_read_u32(np, "spi-max-frequency", &q->clk_rate);
 		if (ret)
 			goto err_destroy_mutex;
+
+		q->no_functional_reset = of_property_read_bool(np,
+				"spi-no-functional-reset");
 	}
 
 	ret = devm_spi_register_controller(dev, ctlr);
