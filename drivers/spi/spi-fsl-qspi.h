@@ -241,6 +241,7 @@ struct fsl_qspi {
 	struct lut_config lut_configs[S32GEN1_MAX_OPCODE];
 	int selected;
 	bool ddr_mode;
+	bool no_functional_reset;
 	u32 clk_rate;
 	u32 num_pads;
 	u32 flags;
