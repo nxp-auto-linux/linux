@@ -71,6 +71,11 @@
 		vcc-supply = <&v3_3>;
 		#thermal-sensor-cells = <1>;
 	};
+
+	pcf85263: rtc@51 {
+		compatible = "nxp,pcf85263";
+		reg = <0x51>;
+	};
 };
 
 &i2c1 {
