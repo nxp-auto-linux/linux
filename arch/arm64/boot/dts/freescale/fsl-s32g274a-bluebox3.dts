@@ -13,6 +13,15 @@
 	chosen {
 		stdout-path = "serial0:115200n8";
 	};
+
+	v3_3: fixed-regulator-3_3v {
+		compatible = "regulator-fixed";
+		regulator-name = "3_3v";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		regulator-always-on;
+		regulator-boot-on;
+	};
 };
 
 &edma0 {
@@ -55,6 +64,13 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl0_i2c0>;
 	status = "okay";
+
+	temp-sensor@4c {
+		compatible = "ti,tmp451";
+		reg = <0x4c>;
+		vcc-supply = <&v3_3>;
+		#thermal-sensor-cells = <1>;
+	};
 };
 
 &i2c1 {
