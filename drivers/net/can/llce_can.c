@@ -112,8 +112,7 @@ static int llce_can_init(struct llce_can *llce)
 	struct llce_can_command cmd = {
 		.cmd_id = LLCE_CAN_CMD_INIT,
 		.cmd_list.init = {
-			.ctrl_config = LLCE_CAN_CONTROLLERCONFIG_CTRL_EN
-			    | LLCE_CAN_CONTROLLERCONFIG_ABR_EN,
+			.ctrl_config = LLCE_CAN_CONTROLLERCONFIG_CTRL_EN,
 			.tx_mb_count = LLCE_CAN_MAX_TX_MB,
 		},
 	};
@@ -457,10 +456,8 @@ static void llce_process_error(struct llce_can *llce, enum llce_fw_return error,
 		break;
 	case LLCE_ERROR_BUSOFF:
 	case LLCE_ERROR_HARDWARE_BUSOFF:
-		/**
-		 * A restart is not needed as we have automatic
-		 * bus-off recovery
-		 */
+		/* A restart is needed after a bus off error */
+		can_bus_off(dev);
 		can_stats->bus_off++;
 		break;
 	case LLCE_ERROR_DATA_LOST:
