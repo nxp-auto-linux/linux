@@ -950,7 +950,7 @@ static int __init scmi_driver_init(void)
 
 	return platform_driver_register(&scmi_driver);
 }
-subsys_initcall(scmi_driver_init);
+arch_initcall_sync(scmi_driver_init);
 
 static void __exit scmi_driver_exit(void)
 {
