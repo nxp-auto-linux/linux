@@ -728,18 +728,6 @@ static int siul2_irq_setup(struct platform_device *pdev,
 		return ret;
 	}
 
-	/* Setup irq domain on top of the generic chip. */
-	err = gpiochip_irqchip_add(&gpio_dev->gc,
-				   &siul2_gpio_irq_chip,
-				   0,
-				   handle_simple_irq,
-				   IRQ_TYPE_NONE);
-	if (err) {
-		dev_err(&pdev->dev, "could not connect irqchip to gpiochip\n");
-		ret = err;
-		goto irq_setup_err;
-	}
-
 irq_setup_err:
 
 	return ret;
@@ -871,6 +859,7 @@ int siul2_gpio_probe(struct platform_device *pdev)
 	struct of_phandle_args pinspec;
 	struct gpio_chip *gc;
 	size_t bitmap_size;
+	struct gpio_irq_chip *girq;
 
 	gpio_dev = devm_kzalloc(&pdev->dev, sizeof(*gpio_dev), GFP_KERNEL);
 	if (!gpio_dev)
@@ -918,7 +907,15 @@ int siul2_gpio_probe(struct platform_device *pdev)
 	gc->direction_input = siul2_gpio_dir_in;
 	gc->owner = THIS_MODULE;
 
-	err = gpiochip_add(gc);
+	girq = &gc->irq;
+	girq->chip = &siul2_gpio_irq_chip;
+	girq->parent_handler = NULL;
+	girq->num_parents = 0;
+	girq->parents = NULL;
+	girq->default_type = IRQ_TYPE_NONE;
+	girq->handler = handle_simple_irq;
+
+	err = gpiochip_add_data(gc, gpio_dev);
 	if (err) {
 		dev_err(&pdev->dev, "unable to add gpiochip: %d\n", err);
 		return -EINVAL;
