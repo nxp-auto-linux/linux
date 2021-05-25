@@ -570,8 +570,7 @@ static int s32gen1_pcie_start_link(struct dw_pcie *pcie)
 
 	/* Don't do anything for End Point */
 	if (s32_pp->is_endpoint) {
-		ret = dw_pcie_wait_for_link(pcie);
-		goto out;
+		return 0;
 	}
 
 	dw_pcie_dbi_ro_wr_en(pcie);
