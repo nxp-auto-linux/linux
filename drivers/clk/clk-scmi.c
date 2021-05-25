@@ -202,7 +202,18 @@ static struct scmi_driver scmi_clocks_driver = {
 	.probe = scmi_clocks_probe,
 	.id_table = scmi_id_table,
 };
-module_scmi_driver(scmi_clocks_driver);
+
+static int __init scmi_clk_drv_init(void)
+{
+	return scmi_register(&scmi_clocks_driver);
+}
+subsys_initcall(scmi_clk_drv_init);
+
+static void __exit scmi_clk_drv_exit(void)
+{
+	scmi_unregister(&scmi_clocks_driver);
+}
+module_exit(scmi_clk_drv_exit);
 
 MODULE_AUTHOR("Sudeep Holla <sudeep.holla@arm.com>");
 MODULE_DESCRIPTION("ARM SCMI clock driver");
