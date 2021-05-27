@@ -782,7 +782,8 @@
 					     <0 154 1>,
 					     <0 155 1>,
 					     <0 156 1>,
-					     <0 157 1>;
+					     <0 157 1>,
+					     <0 158 1>;
 				clocks = <&clks S32V234_CLK_H264ENC>,
 					 <&clks S32V234_CLK_H264ENC_IPS>,
 					 <&clks S32V234_CLK_H264ENC_SRAM_IPS>;
