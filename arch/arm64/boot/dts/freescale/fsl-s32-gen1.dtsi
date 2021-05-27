@@ -71,7 +71,7 @@
 	};
 
 	firmware {
-		scmi {
+		scmi: scmi {
 			compatible = "arm,scmi-smc";
 			mbox-names = "tx";
 			shmem = <&scmi_shbuf>;
