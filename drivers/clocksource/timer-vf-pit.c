@@ -263,7 +263,7 @@ static int pit_clockevent_init(struct pit_timer *pit, unsigned long rate,
 	pit->clockevent_pit.cpumask = cpumask_of(pit->cpu);
 	pit->clockevent_pit.irq = irq;
 
-	ret = request_irq(irq, pit_timer_interrupt, IRQF_TIMER | IRQF_IRQPOLL,
+	ret = request_irq(irq, pit_timer_interrupt, IRQF_TIMER | IRQF_PERCPU,
 			  TIMER_NAME, &pit->clockevent_pit);
 	if (ret)
 		return ret;
