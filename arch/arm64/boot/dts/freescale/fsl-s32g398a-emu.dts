@@ -12,6 +12,9 @@
 #include "fsl-s32g398a.dtsi"
 
 /delete-node/ &gic;
+/delete-node/ &pci_shared_memory;
+/delete-node/ &scmi_shbuf;
+/delete-node/ &scmi;
 / {
 	model = "Freescale S32G398A";
 	compatible = "fsl,s32g398a-emu", "fsl,s32g398a",
