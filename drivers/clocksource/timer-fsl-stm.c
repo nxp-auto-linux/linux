@@ -254,7 +254,7 @@ static int stm_clockevent_init(struct stm_timer *stm, unsigned long rate,
 	stm->clockevent_stm.cpumask = cpumask_of(stm->cpu);
 	stm->clockevent_stm.irq = irq;
 
-	ret = request_irq(irq, stm_timer_interrupt, IRQF_TIMER | IRQF_IRQPOLL,
+	ret = request_irq(irq, stm_timer_interrupt, IRQF_TIMER | IRQF_PERCPU,
 			  STM_TIMER_NAME, &stm->clockevent_stm);
 	if (ret)
 		return ret;
