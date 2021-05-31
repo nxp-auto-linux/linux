@@ -980,6 +980,8 @@ struct llce_can_init_pfe_cmd {
 	u32 p_tx_ring;
 	/** OUTPUT: Address of the PFE TX Writeback Ring in LLCE memory */
 	u32 p_tx_wb_ring;
+	/** INPUT: Index of the PFE HIF to use in LLCE */
+	u8 hif;
 } __aligned(4) __packed;
 
 /**
