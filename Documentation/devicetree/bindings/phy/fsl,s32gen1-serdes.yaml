@@ -13,27 +13,27 @@ maintainers:
 description: |
   The SerDes subsystem on S32GEN1 chips includes two types of PHYs:
     * One PCIe PHY
-	Supports various PCIe operation modes
+    Supports various PCIe operation modes
     * Two Ethernet Physical Coding Sublayer (XPCS) controllers
-	Supports various PCIe and Ethernet operation modes
+    Supports various PCIe and Ethernet operation modes
 
   SerDes operation mode selects the enabled PHYs and speeds. Clock frequency
   must be adapted accordingly. Below table describes all possible operation
   modes.
 
   Mode  PCIe	XPCS0		XPCS1		PHY clock	Description
-		SGMII		SGMII		  (MHz)
+        SGMII		SGMII		  (MHz)
   -------------------------------------------------------------------------
 
   0	Gen3	N/A		N/A		100		Single PCIe
 
   1	Gen2	1.25Gbps	N/A		100		PCIe/SGMII
-								bifurcation
+                                bifurcation
   2	Gen2	N/A		1.25Gbps	100		PCIe/SGMII
-								bifurcation
-  3	N/A	1.25Gbps	1.25Gbps	100,125		SGMII
-								bifurcation
-	N/A	3.125Gbps	N/A     	125
+                                bifurcation
+  3	N/A	1.25Gbps	1.25Gbps	100,125		SGMI
+                                bifurcation
+    N/A	3.125Gbps	N/A     	125
 
 properties:
   '#phy-cells':
@@ -73,8 +73,8 @@ properties:
       A list of phandle and reset-specifier pairs for the resets
       listed in reset-names.
     items:
-        - description: SerDes reset
-        - description: PCIe reset
+      - description: SerDes reset
+      - description: PCIe reset
 
   reset-names:
     items:
@@ -138,5 +138,4 @@ examples:
         reg-names = "ss_pcie", "pcie_phy", "xpcs0", "xpcs1";
         status = "okay";
       };
-
 
