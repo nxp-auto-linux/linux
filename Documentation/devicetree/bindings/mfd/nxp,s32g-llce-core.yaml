@@ -46,7 +46,7 @@ properties:
       - const: status
 
   reg-names:
-      const: sysctrl
+    const: sysctrl
 
   reg:
     description:
@@ -62,7 +62,7 @@ properties:
     minItems: 6
     maxItems: 6
     description:
-       LLCE FIFOs registers ranges
+      LLCE FIFOs registers ranges
 
   '#address-cells':
     const: 2

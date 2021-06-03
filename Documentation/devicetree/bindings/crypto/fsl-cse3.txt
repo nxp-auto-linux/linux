@@ -6,6 +6,10 @@ Required properties:
 - reg : Should contain CSE3 registers location and length
 - interrupts : Should contain CSE3 interrupt number
 
+Optional properties:
+- rs485-rts-active-low: true
+- linux,rs485-enabled-at-boot-time: true
+
 Example:
 
 cse3: crypto@40001000 {

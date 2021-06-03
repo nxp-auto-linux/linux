@@ -13,6 +13,10 @@ Required properties:
 - interrupts : the interrupts managed by registers in this module
 	(e.g. the CPU 2 CPU directed interrupts)
 
+Optional properties:
+- rs485-rts-active-low : true
+- linux,rs485-enabled-at-boot-time : true
+
 address (@<address>) should be
 appended to the name.
 

@@ -9,6 +9,8 @@ Required properties:
 - interrupts : One interrupt for PIT timer
 - cpu: The virtual cpu id which will use the timer as
 	clockevents generator.
+- clocks : pit clock
+- clock-names : pit
 
 Example:
 
