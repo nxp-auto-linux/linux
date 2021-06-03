@@ -29,8 +29,9 @@ properties:
   interrupts:
     maxItems: 4
 
-rs485-rts-active-low: true
-linux,rs485-enabled-at-boot-time: true
+  rs485-rts-active-low: true
+
+  linux,rs485-enabled-at-boot-time: true
 
 required:
   - compatible
