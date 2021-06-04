@@ -228,10 +228,8 @@
 		reg = <0x0 0x4030C000 0x0 0x3000>;
 		clocks = <&clks S32GEN1_SCMI_CLK_FCCU_MODULE>;
 		clock-names = "fccu";
-		/* Address offset and configuration value for */
-		/* NCF_E1 and NCFS_CFG2*/
-		cfg_reg_off = <0x98 0x54>;
-		cfg_reg_val = <0x78 0x1540>;
+		/* A53 software SWTn fault list */
+		nxp,ncf_fault_list = <35 36 37 38>;
 		status = "disabled";
 	};
 
