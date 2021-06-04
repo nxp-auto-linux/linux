@@ -87,6 +87,7 @@ typedef enum {
 	PHY_INTERFACE_MODE_TBI,
 	PHY_INTERFACE_MODE_REVMII,
 	PHY_INTERFACE_MODE_RMII,
+	PHY_INTERFACE_MODE_REVRMII,
 	PHY_INTERFACE_MODE_RGMII,
 	PHY_INTERFACE_MODE_RGMII_ID,
 	PHY_INTERFACE_MODE_RGMII_RXID,
@@ -152,6 +153,8 @@ static inline const char *phy_modes(phy_interface_t interface)
 		return "rev-mii";
 	case PHY_INTERFACE_MODE_RMII:
 		return "rmii";
+	case PHY_INTERFACE_MODE_REVRMII:
+		return "rev-rmii";
 	case PHY_INTERFACE_MODE_RGMII:
 		return "rgmii";
 	case PHY_INTERFACE_MODE_RGMII_ID:
