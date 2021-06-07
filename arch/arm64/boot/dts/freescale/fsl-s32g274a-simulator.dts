@@ -16,8 +16,6 @@
 				 "arm,vexpress,v2p-aarch64", "arm,vexpress";
 
 	chosen {
-		linux,initrd-start = <0x84000000>;
-		linux,initrd-end = <0x8A000000>;
 		stdout-path = "serial0:115200n8";
 	};
 
