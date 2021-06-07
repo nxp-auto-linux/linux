@@ -15,11 +15,6 @@
 #include <dt-bindings/net/fsl-s32g-pfeng.h>
 
 / {
-	chosen {
-		linux,initrd-start = <0x84000000>;
-		linux,initrd-end = <0x8A000000>;
-	};
-
 	sysclk: clk10000000 {
 		compatible = "fixed-clock";
 		#clock-cells = <0>;
