@@ -306,7 +306,11 @@ static int llce_set_data_bittiming(struct net_device *dev)
 static int llce_can_open(struct net_device *dev)
 {
 	struct llce_can *llce = netdev_priv(dev);
+	struct can_priv *can = &llce->can;
 	int ret, ret1;
+
+	if (!can->bittiming.bitrate)
+		return -EINVAL;
 
 	ret = open_candev(dev);
 	if (ret)
