@@ -24,11 +24,8 @@ properties:
       - fsl,s32v234-fccu
       - fsl,s32gen1-fccu
 
-  cfg_reg_off:
-    description: The offsets of NCF_CFGn and NCF_Sn register
-
-  cfg_reg_val:
-    description: The values of NCF_CFGn and NCF_Sn register
+  nxp,ncf_fault_off:
+    description: Array of faults  for NCF_Sn registers
 
   reg:
     description: The address range
@@ -46,8 +43,7 @@ properties:
 
 required:
   - compatible
-  - cfg_reg_off
-  - cfg_reg_val
+  - nxp,ncf_fault_off
   - reg
 
 additionalProperties: false
@@ -61,8 +57,7 @@ examples:
       reg = <0x0 0x400B0000 0x0 0x1000>;
       clocks = <&clks S32V234_CLK_SYS6>;
       clock-names = "fccu";
-      cfg_reg_off = <0x9C 0x5C 0x60>;
-      cfg_reg_val = <0x3C000 0xA0000000 0xA>;
+      nxp,ncf_fault_off = <35 36 37 38>;
       status = "disabled";
     };
 ...
