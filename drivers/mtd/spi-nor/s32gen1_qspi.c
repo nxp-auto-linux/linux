@@ -406,7 +406,8 @@ static bool add_op_to_lutdb(struct fsl_qspi *q,
 		return false;
 
 	if (op->dummy.nbytes) {
-		lut = OPRND0(op->dummy.nbytes) |
+		lut = OPRND0(op->dummy.nbytes * 8 /
+			     op->dummy.buswidth) |
 		    INSTR0(LUT_DUMMY) |
 		    PAD0(busw_to_pads(op->dummy.buswidth, &status));
 		if (status)
