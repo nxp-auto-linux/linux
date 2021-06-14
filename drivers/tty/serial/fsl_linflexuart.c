@@ -61,7 +61,6 @@
 
 #define LINFLEXD_LINCR1_INIT		BIT(0)
 #define LINFLEXD_LINCR1_MME		BIT(4)
-#define LINFLEXD_LINCR1_BF		BIT(7)
 
 #define LINFLEXD_LINSR_LINS_INITMODE	BIT(12)
 #define LINFLEXD_LINSR_LINS_MASK	(0xF << 12)
@@ -686,10 +685,9 @@ static void linflex_setup_watermark(struct linflex_port *sport)
 
 	/* Enter initialization mode by setting INIT bit */
 
-	/* set the Linflex in master mode and activate by-pass filter */
+	/* set the Linflex in master mode */
 
-	cr1 = LINFLEXD_LINCR1_BF | LINFLEXD_LINCR1_MME
-	      | LINFLEXD_LINCR1_INIT;
+	cr1 = LINFLEXD_LINCR1_MME | LINFLEXD_LINCR1_INIT;
 	writel(cr1, sport->port.membase + LINCR1);
 
 	/* wait for init mode entry */
