@@ -14,9 +14,9 @@
 #include <linux/regmap.h>
 #include <linux/reset-controller.h>
 #include <linux/mfd/s32gen1-mc_me.h>
+#include <linux/mfd/s32gen1-mc_rgm.h>
 #include <s32/s32-gen1/clk.h>
 #include <s32/s32-gen1/rdc.h>
-#include <s32/s32-gen1/rgm.h>
 
 #define S32GEN1_RESET_TIMEOUT_MS	1
 
