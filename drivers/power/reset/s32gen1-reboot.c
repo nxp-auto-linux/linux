@@ -23,7 +23,7 @@
 #include <linux/of_device.h>
 #include <linux/regmap.h>
 #include <linux/mfd/s32gen1-mc_me.h>
-#include <s32/s32-gen1/rgm.h>
+#include <linux/mfd/s32gen1-mc_rgm.h>
 
 #define S32GEN1_NOTIFIER_BLOCK_PRIORITY	192
 
