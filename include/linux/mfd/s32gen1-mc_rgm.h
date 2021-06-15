@@ -11,10 +11,15 @@
 #define PSTAT_PERIPH_n_STAT(n)		BIT(n)
 #define PRST_PERIPH_n_RST(n)		BIT(n)
 
+#define RGM_DES             (0x00)
+#define RGM_FES             (0x08)
+#define RGM_FERD            (0x0C)
+#define RGM_FREC            (0x14)
+#define RGM_RDSS            (0x24)
+
 /* MC_RGM_FRET */
 #define MC_RGM_FRET			(0x18U)
 
 #define MC_RGM_FRET_VALUE		(0xF)
 
-#endif
-
+#endif /* S32GEN1_MC_RGM_H */
