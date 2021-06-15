@@ -2178,5 +2178,13 @@ config MFD_INTEL_M10_BMC
 	  additional drivers must be enabled in order to use the functionality
 	  of the device.
 
+config S32GEN1_MC_ME
+	bool "MC_ME regmap driver"
+	depends on ARCH_S32
+	default SOC_S32GEN1
+	help
+	  Device driver that handles configuration of MC_ME
+	  regmap ranges.
+
 endmenu
 endif
