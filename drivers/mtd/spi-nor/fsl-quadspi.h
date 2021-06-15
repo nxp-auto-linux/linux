@@ -12,6 +12,7 @@
 #include <linux/types.h>
 #include <linux/pm_qos.h>
 #include <linux/spi/spi-mem.h>
+#include <linux/mtd/spi-nor.h>
 
 /* Controller needs driver to swap endian */
 #define QUADSPI_QUIRK_SWAP_ENDIAN	(1 << 0)
@@ -393,17 +394,49 @@ struct fsl_qspi {
 #endif
 };
 
-void qspi_writel(struct fsl_qspi *q, u32 val, void __iomem *addr);
-u32 qspi_readl(struct fsl_qspi *q, void __iomem *addr);
-void reset_bootrom_settings(struct fsl_qspi *q);
-int enable_spi(struct fsl_qspi *q, bool force);
+struct qspi_op {
+	const struct spi_mem_op *op;
+	u8 *cfg;
+};
+
+struct qspi_config {
+	u32 mcr;
+	u32 flshcr;
+	u32 dllcr;
+	u32 sfacr;
+	u32 smpr;
+	u32 dlcr;
+	u32 flash1_size;
+	u32 flash2_size;
+	u32 dlpr;
+};
+
+bool s32gen1_enable_op(struct fsl_qspi *q, const struct spi_mem_op *op);
+bool s32gen1_enable_operators(struct fsl_qspi *q, struct qspi_op *ops,
+			      size_t n_ops);
+bool s32gen1_supports_op(struct spi_nor *nor, const struct spi_mem_op *op);
+int macronix_mem_enable_ddr(struct fsl_qspi *q);
+int micron_mem_enable_ddr(struct fsl_qspi *q);
+int s32gen1_enable_spi(struct fsl_qspi *q, bool force);
+int s32gen1_exec_op(struct spi_nor *nor, const struct spi_mem_op *op);
+int s32gen1_mem_enable_ddr(struct fsl_qspi *q, struct qspi_config *config);
+int s32gen1_mem_exec_read_op(struct fsl_qspi *q, const struct spi_mem_op *op,
+			     u8 lut_cfg);
+int s32gen1_mem_exec_write_op(struct fsl_qspi *q, const struct spi_mem_op *op,
+			      u8 lut_cfg);
+int s32gen1_mem_reset(struct fsl_qspi *q);
 int s32gen1_qspi_read_reg(struct spi_nor *nor, u8 opcode, u8 *buf, int len);
 int s32gen1_qspi_write_reg(struct spi_nor *nor, u8 opcode, u8 *buf, int len);
-ssize_t s32gen1_qspi_read(struct spi_nor *nor, loff_t from,
-		size_t len, u_char *buf);
-ssize_t s32gen1_qspi_write(struct spi_nor *nor, loff_t to,
-		size_t len, const u_char *buf);
-int s32gen1_exec_op(struct spi_nor *nor, const struct spi_mem_op *op);
-bool s32gen1_supports_op(struct spi_nor *nor, const struct spi_mem_op *op);
+ssize_t s32gen1_qspi_read(struct spi_nor *nor, loff_t from, size_t len,
+			  u_char *buf);
+ssize_t s32gen1_qspi_write(struct spi_nor *nor, loff_t to, size_t len,
+			   const u_char *buf);
+u32 qspi_readl(struct fsl_qspi *q, void __iomem *addr);
+void qspi_writel(struct fsl_qspi *q, u32 val, void __iomem *addr);
+void macronix_get_ddr_config(struct qspi_config *ddr_config);
+void micron_get_ddr_config(struct qspi_config *ddr_config);
+void s32gen1_disable_operators(struct fsl_qspi *q, struct qspi_op *ops,
+			       size_t n_ops);
+void s32gen1_reset_bootrom_settings(struct fsl_qspi *q);
 
 #endif /* _FSL_QUADSPI_H */

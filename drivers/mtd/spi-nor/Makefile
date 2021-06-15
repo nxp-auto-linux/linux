@@ -5,6 +5,9 @@ obj-$(CONFIG_SPI_CADENCE_QUADSPI)	+= cadence-quadspi.o
 obj-$(CONFIG_SPI_FSL_QUADSPI) += fsl-quadspi.o
 ifdef CONFIG_SPI_FSL_QUADSPI
 obj-$(CONFIG_SOC_S32GEN1) += s32gen1_qspi.o
+obj-$(CONFIG_SOC_S32GEN1) += s32gen1_qspi_macronix.o
+obj-$(CONFIG_SOC_S32GEN1) += s32gen1_qspi_micron.o
+obj-$(CONFIG_SOC_S32GEN1) += s32gen1_qspi_mem_common.o
 endif
 obj-$(CONFIG_SPI_HISI_SFC)	+= hisi-sfc.o
 obj-$(CONFIG_SPI_MTK_QUADSPI)    += mtk-quadspi.o

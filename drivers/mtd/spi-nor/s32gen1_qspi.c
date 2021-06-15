@@ -14,76 +14,11 @@
 #include "fsl-quadspi.h"
 
 #define LUT_INVALID_INDEX -1
-#define LUT_STOP_CMD 0x0
-
-/* JESD216D.01 */
-#define SPINOR_OP_RDCR2		0x71
-#define SPINOR_OP_WRCR2		0x72
-
-#define QUADSPI_CFG2_OPI_MASK		(0x3)
-#define QUADSPI_CFG2_STR_OPI_ENABLED	BIT(0)
-#define QUADSPI_CFG2_DTR_OPI_ENABLED	BIT(1)
+#define LUT_STOP_CMD 0x00
 
 #define QUADSPI_LUT(x)	(QUADSPI_LUT_BASE + (x) * 4)
 
 #define QUADSPI_S32GEN1_HIGH_FREQUENCY_VALUE	200000000
-
-struct qspi_op {
-	const struct spi_mem_op *op;
-	u8 *cfg;
-};
-
-struct qspi_config {
-	u32 mcr;
-	u32 flshcr;
-	u32 dllcr;
-	u32 sfacr;
-	u32 smpr;
-	u32 dlcr;
-	u32 flash1_size;
-	u32 flash2_size;
-	u32 dlpr;
-};
-
-#ifdef CONFIG_SPI_FLASH_MACRONIX
-/* JESD216D.01 operations used for DTR OPI switch */
-static struct spi_mem_op rdcr2_sdr_op =
-SPI_MEM_OP(SPI_MEM_OP_CMD(SPINOR_OP_RDCR2, 1),
-	   SPI_MEM_OP_ADDR(0x4, 0x0, 1),
-	   SPI_MEM_OP_NO_DUMMY,
-	   SPI_MEM_OP_DATA_IN(1, NULL, 1));
-
-static struct spi_mem_op wren_sdr_op =
-SPI_MEM_OP(SPI_MEM_OP_CMD(SPINOR_OP_WREN, 1),
-	   SPI_MEM_OP_NO_ADDR,
-	   SPI_MEM_OP_NO_DUMMY,
-	   SPI_MEM_OP_DATA_IN(0, NULL, 1));
-
-static struct spi_mem_op rdsr_sdr_op =
-SPI_MEM_OP(SPI_MEM_OP_CMD(SPINOR_OP_RDSR, 1),
-	   SPI_MEM_OP_NO_ADDR,
-	   SPI_MEM_OP_NO_DUMMY,
-	   SPI_MEM_OP_DATA_IN(1, NULL, 1));
-
-static struct spi_mem_op wrcr2_sdr_op =
-SPI_MEM_OP(SPI_MEM_OP_CMD(SPINOR_OP_WRCR2, 1),
-	   SPI_MEM_OP_ADDR(0x4, 0x0, 1),
-	   SPI_MEM_OP_NO_DUMMY,
-	   SPI_MEM_OP_DATA_OUT(1, NULL, 1));
-
-/* JESD216D.01 operations used for soft reset */
-static struct spi_mem_op rsten_ddr_op =
-SPI_MEM_OP(SPI_MEM_OP_CMD(0x66, 8),
-	   SPI_MEM_OP_NO_ADDR,
-	   SPI_MEM_OP_NO_DUMMY,
-	   SPI_MEM_OP_NO_DATA);
-
-static struct spi_mem_op rst_ddr_op =
-SPI_MEM_OP(SPI_MEM_OP_CMD(0x99, 8),
-	   SPI_MEM_OP_NO_ADDR,
-	   SPI_MEM_OP_NO_DUMMY,
-	   SPI_MEM_OP_NO_DATA);
-#endif /* CONFIG_SPI_FLASH_MACRONIX */
 
 static u32 clear_fifos(struct fsl_qspi *q)
 {
@@ -99,8 +34,8 @@ static u32 clear_fifos(struct fsl_qspi *q)
 	return mcr_reg;
 }
 
-static int qspi_write_reg(struct fsl_qspi *q,
-			  const struct spi_mem_op *op, u8 lut_cfg)
+int s32gen1_mem_exec_write_op(struct fsl_qspi *q,
+			      const struct spi_mem_op *op, u8 lut_cfg)
 {
 	u32 mcr_reg, i, words = 0;
 	u32 tbsr, trctr, trbfl;
@@ -159,8 +94,8 @@ static int qspi_write_reg(struct fsl_qspi *q,
 	return 0;
 }
 
-static int qspi_read_reg(struct fsl_qspi *q,
-			 const struct spi_mem_op *op, u8 lut_cfg)
+int s32gen1_mem_exec_read_op(struct fsl_qspi *q,
+			     const struct spi_mem_op *op, u8 lut_cfg)
 {
 	u32 mcr_reg, data;
 	int i;
@@ -459,7 +394,7 @@ static void set_lut(struct fsl_qspi *q, u8 index, u8 opcode)
 	qspi_writel(q, QUADSPI_LCKER_LOCK, base + QUADSPI_LCKCR);
 }
 
-static bool enable_op(struct fsl_qspi *q, const struct spi_mem_op *op)
+bool s32gen1_enable_op(struct fsl_qspi *q, const struct spi_mem_op *op)
 {
 	u8 lut_index;
 	u8 opcode = op->cmd.opcode;
@@ -477,114 +412,6 @@ static bool enable_op(struct fsl_qspi *q, const struct spi_mem_op *op)
 
 	return true;
 }
-
-#ifdef CONFIG_SPI_FLASH_MACRONIX
-static bool enable_operators(struct fsl_qspi *q,
-			     struct qspi_op *ops, size_t n_ops)
-{
-	bool res;
-	size_t i;
-	const struct spi_mem_op *op;
-	u8 *cfg;
-
-	for (i = 0; i < n_ops; i++) {
-		op = ops[i].op;
-		cfg = ops[i].cfg;
-
-		/* In case it's already enabled */
-		q->lut_configs[op->cmd.opcode].enabled = false;
-		res = enable_op(q, op);
-		*cfg = q->lut_configs[op->cmd.opcode].index;
-
-		if (!res || !q->lut_configs[op->cmd.opcode].enabled)
-			return false;
-	}
-
-	return true;
-}
-
-static void disable_operators(struct fsl_qspi *q,
-		struct qspi_op *ops, size_t n_ops)
-{
-	size_t i;
-	const struct spi_mem_op *op;
-
-	for (i = 0; i < n_ops; i++) {
-		op = ops[i].op;
-
-		q->lut_configs[op->cmd.opcode].enabled = false;
-	}
-}
-
-static int memory_enable_ddr(struct fsl_qspi *q)
-{
-	u8 wren_cfg, rdcr2_cfg, rdsr_cfg, wrcr2_cfg;
-	u8 cfg2_reg = 0x0;
-	u8 status = 0;
-	u32 mcr2;
-	void __iomem *base = q->iobase;
-	struct qspi_op ops[] = {
-		{
-		 .op = &rdcr2_sdr_op,
-		 .cfg = &rdcr2_cfg,
-		 },
-		{
-		 .op = &wren_sdr_op,
-		 .cfg = &wren_cfg,
-		 },
-		{
-		 .op = &rdsr_sdr_op,
-		 .cfg = &rdsr_cfg,
-		 },
-		{
-		 .op = &wrcr2_sdr_op,
-		 .cfg = &wrcr2_cfg,
-		 },
-	};
-
-	rdcr2_sdr_op.data.buf.out = &cfg2_reg;
-	rdsr_sdr_op.data.buf.out = &status;
-	wrcr2_sdr_op.data.buf.in = &cfg2_reg;
-
-
-	while (qspi_readl(q, base + QUADSPI_SR) & QUADSPI_SR_BUSY_MASK)
-		;
-
-	if (!enable_operators(q, ops, ARRAY_SIZE(ops)))
-		return -1;
-
-	mcr2 = qspi_readl(q, base + QUADSPI_MCR);
-
-	/* Enable the module */
-	qspi_writel(q, mcr2 & ~QUADSPI_MCR_MDIS_MASK, base + QUADSPI_MCR);
-
-	if (qspi_read_reg(q, &rdcr2_sdr_op, rdcr2_cfg))
-		return -1;
-
-	cfg2_reg &= ~QUADSPI_CFG2_OPI_MASK;
-	cfg2_reg |= QUADSPI_CFG2_DTR_OPI_ENABLED;
-
-	/* Enable write */
-	if (qspi_write_reg(q, &wren_sdr_op, wren_cfg))
-		return -1;
-
-	/* Wait write enabled */
-	while (!(status & FLASH_STATUS_WEL)) {
-		if (qspi_read_reg(q, &rdsr_sdr_op, rdsr_cfg))
-			return -1;
-	}
-
-	if (qspi_write_reg(q, &wrcr2_sdr_op, wrcr2_cfg))
-		return -1;
-
-	qspi_writel(q, mcr2, base + QUADSPI_MCR);
-
-	disable_operators(q, ops, ARRAY_SIZE(ops));
-	udelay(400);
-
-	return 0;
-}
-#endif
 
 static void dllcra_bypass(struct fsl_qspi *q, u32 dllmask)
 {
@@ -709,33 +536,7 @@ static int program_dllcra(struct fsl_qspi *q, u32 dllcra)
 	return -1;
 }
 
-static struct qspi_config ddr_config = {
-	.mcr = QUADSPI_MCR_END_CFD_LE |
-	    QUADSPI_MCR_DQS_EN |
-	    QUADSPI_MCR_DDR_EN_MASK |
-	    QUADSPI_MCR_ISD2FA_EN |
-	    QUADSPI_MCR_ISD3FA_EN |
-	    QUADSPI_MCR_ISD2FB_EN |
-	    QUADSPI_MCR_ISD3FB_EN |
-	    QUADSPI_MCR_DQS_EXTERNAL,
-	.flshcr = QUADSPI_FLSHCR_TCSS(3) |
-	    QUADSPI_FLSHCR_TCHS(3) |
-	    QUADSPI_FLSHCR_TDH(1),
-	.dllcr = QUADSPI_DLLCR_SLV_EN |
-	    QUADSPI_DLLCR_SLV_AUTO_UPDT_EN |
-	    QUADSPI_DLLCR_DLLRES_N(8) |
-	    QUADSPI_DLLCR_DLL_REFCNTR_N(2) |
-	    QUADSPI_DLLCR_DLLEN_EN,
-	.sfacr = QUADSPI_SFACR_BSWAP_EN,
-	.smpr = QUADSPI_SMPR_DLLFSMPFA_NTH(4) |
-		QUADSPI_SMPR_DLLFSMPFB_NTH(4),
-	.dlcr = QUADSPI_DLCR_RESERVED_MASK |
-	    QUADSPI_DLCR_DLP_SEL_FA(1) |
-	    QUADSPI_DLCR_DLP_SEL_FB(1),
-	.flash1_size = 0x20000000,
-	.flash2_size = 0x20000000,
-	.dlpr = QUADSPI_DLPR_RESET_VALUE,
-};
+static struct qspi_config ddr_config;
 
 static int enable_ddr(struct fsl_qspi *q)
 {
@@ -747,7 +548,7 @@ static int enable_ddr(struct fsl_qspi *q)
 		return 0;
 
 #ifdef CONFIG_SPI_FLASH_MACRONIX
-	if (memory_enable_ddr(q))
+	if (s32gen1_mem_enable_ddr(q, &ddr_config))
 		return -1;
 #endif
 
@@ -803,78 +604,7 @@ static int enable_ddr(struct fsl_qspi *q)
 	return 0;
 }
 
-#ifdef CONFIG_SPI_FLASH_MACRONIX
-static int memory_reset(struct fsl_qspi *q)
-{
-	u8 rsten_cfg, rst_cfg;
-	u32 mcr2;
-	void __iomem *base = q->iobase;
-
-	struct qspi_op ops[] = {
-		{
-		 .op = &rsten_ddr_op,
-		 .cfg = &rsten_cfg,
-		 },
-		{
-		 .op = &rst_ddr_op,
-		 .cfg = &rst_cfg,
-		 },
-	};
-
-	rsten_ddr_op.cmd.buswidth = q->num_pads;
-	rst_ddr_op.cmd.buswidth = q->num_pads;
-
-	mcr2 = qspi_readl(q, base + QUADSPI_MCR);
-	qspi_writel(q, mcr2 & ~QUADSPI_MCR_MDIS_MASK, base + QUADSPI_MCR);
-
-	if (!enable_operators(q, ops, ARRAY_SIZE(ops)))
-		return -1;
-
-	if (qspi_write_reg(q, &rsten_ddr_op, rsten_cfg))
-		return -1;
-
-	if (qspi_write_reg(q, &rst_ddr_op, rst_cfg))
-		return -1;
-
-	/* Reset recovery time after a read operation */
-	udelay(40);
-	disable_operators(q, ops, ARRAY_SIZE(ops));
-
-	return 0;
-}
-
-void reset_bootrom_settings(struct fsl_qspi *q)
-{
-	u32 bfgencr, lutid, lutaddr;
-	u32 lut;
-	u32 instr0;
-	void __iomem *base = q->iobase;
-
-	/* Read the configuration left by BootROM */
-	bfgencr = qspi_readl(q, base + QUADSPI_BFGENCR);
-	lutid = (bfgencr & QUADSPI_BFGENCR_SEQID_MASK) >>
-		QUADSPI_BFGENCR_SEQID_SHIFT;
-	lutaddr = lutid * LUTS_PER_CONFIG;
-
-	lut = qspi_readl(q, base + QUADSPI_LUT(lutaddr));
-
-	/* Not configured */
-	if (!lut)
-		return;
-
-	q->num_pads = (1 << LUT2PAD0(lut));
-	instr0 = LUT2INSTR0(lut);
-
-	if (instr0 == LUT_CMD_DDR)
-		q->ddr_mode = true;
-	else
-		q->ddr_mode = false;
-
-	memory_reset(q);
-}
-#endif
-
-int enable_spi(struct fsl_qspi *q, bool force)
+int s32gen1_enable_spi(struct fsl_qspi *q, bool force)
 {
 	u32 mcr;
 	void __iomem *base = q->iobase;
@@ -884,7 +614,7 @@ int enable_spi(struct fsl_qspi *q, bool force)
 
 #ifdef CONFIG_SPI_FLASH_MACRONIX
 	if (q->ddr_mode) {
-		if (memory_reset(q))
+		if (s32gen1_mem_reset(q))
 			return -1;
 	}
 #endif
@@ -1141,7 +871,7 @@ int s32gen1_exec_op(struct spi_nor *nor, const struct spi_mem_op *op)
 	/* Register and memory write */
 	if (op->data.dir == SPI_MEM_DATA_OUT) {
 		q->flags &= ~QUADSPI_FLAG_PREV_READ_MEM;
-		return qspi_write_reg(q, op, lut_cfg);
+		return s32gen1_mem_exec_write_op(q, op, lut_cfg);
 	}
 
 	/* Memory operation */
@@ -1160,7 +890,7 @@ int s32gen1_exec_op(struct spi_nor *nor, const struct spi_mem_op *op)
 		 * after any DTR-OPI read operation.
 		 */
 		if (q->no_functional_reset)
-			enable_spi(q, true);
+			s32gen1_enable_spi(q, true);
 
 		return ret;
 	}
@@ -1168,7 +898,7 @@ int s32gen1_exec_op(struct spi_nor *nor, const struct spi_mem_op *op)
 	q->flags &= ~QUADSPI_FLAG_PREV_READ_MEM;
 
 	/* Read Register */
-	return qspi_read_reg(q, op, lut_cfg);
+	return s32gen1_mem_exec_read_op(q, op, lut_cfg);
 }
 
 bool s32gen1_supports_op(struct spi_nor *nor,
@@ -1182,9 +912,9 @@ bool s32gen1_supports_op(struct spi_nor *nor,
 		if (enable_ddr(q))
 			return -1;
 	} else {
-		if (enable_spi(q, false))
+		if (s32gen1_enable_spi(q, false))
 			return -1;
 	}
 
-	return enable_op(q, op);
+	return s32gen1_enable_op(q, op);
 }

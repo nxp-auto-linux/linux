@@ -603,7 +603,7 @@ static int fsl_qspi_nor_setup(struct fsl_qspi *q)
 #endif
 
 #ifdef CONFIG_SOC_S32GEN1
-	enable_spi(q, true);
+	s32gen1_enable_spi(q, true);
 
 	qspi_writel(q, QUADSPI_SFA_ADDR, q->iobase + QUADSPI_SFA1AD);
 	qspi_writel(q, QUADSPI_SFA_ADDR, q->iobase + QUADSPI_SFA2AD);
@@ -919,7 +919,7 @@ static int fsl_qspi_probe(struct platform_device *pdev)
 	}
 
 #ifdef CONFIG_SOC_S32GEN1
-	reset_bootrom_settings(q);
+	s32gen1_reset_bootrom_settings(q);
 #endif
 
 	ret = fsl_qspi_nor_setup(q);
@@ -1100,7 +1100,7 @@ static int __maybe_unused quadspi_suspend(struct device *dev)
 	 * in order to correctly reinitialize QSPI for DTR-OPI
 	 * mode, after resume, in case of read operation.
 	 */
-	enable_spi(q, true);
+	s32gen1_enable_spi(q, true);
 
 	q->luts_next_config = 0;
 	memset(q->lut_configs, 0, sizeof(q->lut_configs));
