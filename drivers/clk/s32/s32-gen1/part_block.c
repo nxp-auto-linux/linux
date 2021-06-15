@@ -3,8 +3,8 @@
  * Copyright 2020-2021 NXP
  */
 #include "clk.h"
-#include "mc_me.h"
 #include "rdc.h"
+#include <linux/mfd/s32gen1-mc_me.h>
 #include <linux/clk-provider.h>
 #include <linux/err.h>
 #include <linux/of_address.h>
