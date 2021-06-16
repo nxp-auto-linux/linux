@@ -138,11 +138,11 @@ static int hse_aead_setauthsize(struct crypto_aead *tfm, unsigned int authsize)
 /**
  * hse_aead_done - AEAD request done callback
  * @err: service response error code
- * @areq: AEAD request
+ * @_req: AEAD request
  */
-static void hse_aead_done(int err, void *areq)
+static void hse_aead_done(int err, void *_req)
 {
-	struct aead_request *req = (struct aead_request *)areq;
+	struct aead_request *req = (struct aead_request *)_req;
 	struct hse_aead_req_ctx *rctx = aead_request_ctx(req);
 	struct crypto_aead *tfm = crypto_aead_reqtfm(req);
 	struct hse_aead_alg *alg = hse_aead_get_alg(tfm);
@@ -362,7 +362,8 @@ static int hse_aead_init(struct crypto_aead *tfm)
 		goto err_unmap_keybuf;
 	}
 
-	err = hse_channel_acquire(alg->dev, HSE_CH_TYPE_SHARED, &tctx->channel);
+	err = hse_channel_acquire(alg->dev, HSE_CH_TYPE_SHARED, &tctx->channel,
+				  NULL);
 	if (unlikely(err))
 		goto err_release_key_slot;
 
