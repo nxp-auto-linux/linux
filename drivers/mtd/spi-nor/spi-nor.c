@@ -5,7 +5,7 @@
  *
  * Copyright (C) 2005, Intec Automation Inc.
  * Copyright (C) 2014, Freescale Semiconductor, Inc.
- * Copyright 2020 NXP
+ * Copyright 2020-2021 NXP
  */
 
 #include <linux/err.h>
@@ -2333,7 +2333,7 @@ static const struct flash_info spi_nor_ids[] = {
 	{
 		"mt35xu512aba", INFO(0x2c5b1a, 0, 128 * 1024, 512,
 			SECT_4K | USE_FSR | SPI_NOR_OCTAL_READ |
-			SPI_NOR_4B_OPCODES)
+			SPI_NOR_4B_OPCODES | SPI_NOR_OCTAL_DTR_READ)
 	},
 	{ "mt35xu02g",  INFO(0x2c5b1c, 0, 128 * 1024, 2048,
 			     SECT_4K | USE_FSR | SPI_NOR_OCTAL_READ |
