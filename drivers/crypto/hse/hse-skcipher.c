@@ -118,11 +118,11 @@ static inline void *hse_skcipher_get_alg(struct crypto_skcipher *tfm)
 /**
  * hse_skcipher_done - symmetric key cipher request done callback
  * @err: service response error code
- * @sreq: symmetric key cipher request
+ * @_req: symmetric key cipher request
  */
-static void hse_skcipher_done(int err, void *sreq)
+static void hse_skcipher_done(int err, void *_req)
 {
-	struct skcipher_request *req = (struct skcipher_request *)sreq;
+	struct skcipher_request *req = (struct skcipher_request *)_req;
 	struct hse_skcipher_req_ctx *rctx = skcipher_request_ctx(req);
 	struct crypto_skcipher *tfm = crypto_skcipher_reqtfm(req);
 	struct hse_skcipher_alg *alg = hse_skcipher_get_alg(tfm);
