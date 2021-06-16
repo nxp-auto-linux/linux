@@ -35,13 +35,15 @@
  * struct hse_drvdata - HSE driver private data
  * @srv_desc[n].ptr: service descriptor virtual address for channel n
  * @srv_desc[n].dma: service descriptor DMA address for channel n
+ * @srv_desc[n].id: current service request ID for channel n
  * @ahash_algs: registered hash and hash-based MAC algorithms
  * @skcipher_algs: registered symmetric key cipher algorithms
  * @aead_algs: registered authenticated encryption and AEAD algorithms
  * @mu: MU instance handle returned by lower abstraction layer
  * @uio: user-space I/O device handle
  * @channel_busy[n]: internally cached status of MU channel n
- * @refcnt: acquired service channel reference counter
+ * @refcnt[n]: service channel n acquired reference counter
+ * @type[n]: designated type of service channel n
  * @rx_cbk[n].fn: upper layer RX callback for channel n
  * @rx_cbk[n].ctx: context passed to the RX callback on channel n
  * @sync[n].done: completion for synchronous requests on channel n
@@ -54,8 +56,9 @@
  */
 struct hse_drvdata {
 	struct {
-		void *ptr;
+		struct hse_srv_desc *ptr;
 		dma_addr_t dma;
+		u32 id;
 	} srv_desc[HSE_NUM_CHANNELS];
 	struct list_head ahash_algs;
 	struct list_head skcipher_algs;
@@ -64,6 +67,7 @@ struct hse_drvdata {
 	void *uio;
 	bool channel_busy[HSE_NUM_CHANNELS];
 	atomic_t refcnt[HSE_NUM_CHANNELS];
+	enum hse_ch_type type[HSE_NUM_CHANNELS];
 	struct {
 		void (*fn)(int err, void *ctx);
 		void *ctx;
@@ -91,19 +95,19 @@ static void hse_print_fw_version(struct device *dev)
 	struct hse_drvdata *drv = dev_get_drvdata(dev);
 	struct hse_srv_desc srv_desc;
 	struct hse_attr_fw_version *fw_ver;
-	unsigned int fw_ver_attr_offset;
+	unsigned int fw_ver_offset;
 	int err;
 
 	/* place attribute right after descriptor */
-	fw_ver_attr_offset = offsetof(struct hse_srv_desc, get_attr_req) +
-			     sizeof(struct hse_get_attr_srv);
-	fw_ver = drv->srv_desc[HSE_CHANNEL_ADM].ptr + fw_ver_attr_offset;
+	fw_ver_offset = offsetof(struct hse_srv_desc, get_attr_req) +
+			sizeof(struct hse_get_attr_srv);
+	fw_ver = (void *)drv->srv_desc[HSE_CHANNEL_ADM].ptr + fw_ver_offset;
 
 	srv_desc.srv_id = HSE_SRV_ID_GET_ATTR;
 	srv_desc.get_attr_req.attr_id = HSE_FW_VERSION_ATTR_ID;
 	srv_desc.get_attr_req.attr_len = sizeof(*fw_ver);
 	srv_desc.get_attr_req.attr = drv->srv_desc[HSE_CHANNEL_ADM].dma +
-				     fw_ver_attr_offset;
+				     fw_ver_offset;
 
 	err = hse_srv_req_sync(dev, HSE_CHANNEL_ADM, &srv_desc);
 	if (unlikely(err)) {
@@ -233,7 +237,63 @@ void hse_key_slot_release(struct device *dev, struct hse_key *slot)
 }
 
 /**
- * hse_err_decode - HSE Error Code Translation
+ * hse_manage_channels - manage channels and descriptor space
+ * @dev: HSE device
+ * @desc_base_ptr: descriptor base virtual address
+ * @desc_base_dma: descriptor base DMA address
+ *
+ * HSE firmware restricts channel zero to administrative services, all the rest
+ * are usable for crypto operations. Driver reserves the last HSE_STREAM_COUNT
+ * channels for streaming mode use and marks the remaining as shared channels.
+ */
+static inline void hse_manage_channels(struct device *dev, void *desc_base_ptr,
+				       u64 desc_base_dma)
+{
+	struct hse_drvdata *drv = dev_get_drvdata(dev);
+	u8 channel;
+
+	if (unlikely(!dev || !desc_base_ptr || !desc_base_dma))
+		return;
+
+	/* set channel type */
+	drv->type[0] = HSE_CH_TYPE_ADMIN;
+	for (channel = 1; channel < HSE_NUM_CHANNELS; channel++)
+		if (channel >= HSE_NUM_CHANNELS - HSE_STREAM_COUNT)
+			drv->type[channel] = HSE_CH_TYPE_STREAM;
+		else
+			drv->type[channel] = HSE_CH_TYPE_SHARED;
+
+	/* manage descriptor space */
+	for (channel = 0; channel < HSE_NUM_CHANNELS; channel++) {
+		drv->srv_desc[channel].ptr = desc_base_ptr +
+					     channel * HSE_SRV_DESC_MAX_SIZE;
+		drv->srv_desc[channel].dma = desc_base_dma +
+					     channel * HSE_SRV_DESC_MAX_SIZE;
+	}
+}
+
+/**
+ * hse_sync_srv_desc - sync service descriptor
+ * @dev: HSE device
+ * @channel: service channel
+ * @desc: service descriptor address
+ *
+ * Copy descriptor to the dedicated space and cache service ID internally.
+ */
+static inline void hse_sync_srv_desc(struct device *dev, u8 channel,
+				     struct hse_srv_desc *srv_desc)
+{
+	struct hse_drvdata *drv = dev_get_drvdata(dev);
+
+	if (unlikely(!dev || channel >= HSE_NUM_CHANNELS || !srv_desc))
+		return;
+
+	memcpy(drv->srv_desc[channel].ptr, srv_desc, sizeof(*srv_desc));
+	drv->srv_desc[channel].id = srv_desc->srv_id;
+}
+
+/**
+ * hse_err_decode - HSE error code translation
  * @srv_rsp: HSE service response
  *
  * Return: 0 on service request success, error code otherwise
@@ -269,27 +329,21 @@ static inline int hse_err_decode(u32 srv_rsp)
 }
 
 /**
- * hse_next_free_channel - find the next free service channel
+ * hse_next_free_channel - find the next available shared channel
  * @dev: HSE device
  * @type: channel type
  *
- * If HSE_CH_TYPE_STREAM is requested, return a free channel from the first
- * HSE_STREAM_COUNT, the only ones usable for streaming mode. Otherwise,
- * if HSE_CH_TYPE_SHARED is requested, find any available service channel.
- * Channel 0 is reserved for administrative services and cannot be used.
- *
  * Return: channel index, HSE_CHANNEL_INV if none available
  */
-static u8 hse_next_free_channel(struct device *dev, enum hse_ch_type type)
+static u8 hse_next_free_channel(struct device *dev)
 {
 	struct hse_drvdata *drv = dev_get_drvdata(dev);
 	u8 channel;
 
-	for (channel = 1; channel < HSE_NUM_CHANNELS; channel++)
-		switch (type) {
+	for (channel = 0; channel < HSE_NUM_CHANNELS; channel++)
+		switch (drv->type[channel]) {
 		case HSE_CH_TYPE_STREAM:
-			if (channel >= HSE_STREAM_COUNT ||
-			    atomic_read(&drv->refcnt[channel]))
+			if (atomic_read(&drv->refcnt[channel]))
 				continue;
 			fallthrough;
 		case HSE_CH_TYPE_SHARED:
@@ -297,7 +351,7 @@ static u8 hse_next_free_channel(struct device *dev, enum hse_ch_type type)
 				return channel;
 			continue;
 		default:
-			return HSE_CHANNEL_INV;
+			continue;
 		}
 
 	return HSE_CHANNEL_INV;
@@ -308,57 +362,75 @@ static u8 hse_next_free_channel(struct device *dev, enum hse_ch_type type)
  * @dev: HSE device
  * @type: channel type
  * @channel: service channel index
+ * @stream_id: stream ID (ignored for HSE_CH_TYPE_SHARED)
  *
- * If HSE_CH_TYPE_STREAM is requested, reserve the first available stream and
- * return its channel index, which, for convenience, matches the HSE stream ID.
- * The stream will be reserved over the entire duration until it is released.
- * If HSE_CH_TYPE_SHARED is requested, find the shared channel with the lowest
- * reference count, excluding any restricted to streaming mode use. Shared
- * channels can be acquired simultaneously and should be used if the request
- * order preservation is a concern, as it is not guaranteed by HSE_CHANNEL_ANY.
- *
+ * Acquire an appropriate type channel and return its index, and also the
+ * corresponding stream ID, if applicable. For HSE_CH_TYPE_STREAM, the channel
+ * will be reserved entirely until release. The last HSE_STREAM_COUNT channels
+ * are allocated for streaming mode use by the driver and will only accept
+ * single one-shot requests when not acquired. For HSE_CH_TYPE_SHARED, return
+ * the shared channel with the lowest reference count.Shared channels can be
+ * acquired simultaneously and should be used if the request order preservation
+ * is a concern, as this is not guaranteed by simply using HSE_CHANNEL_ANY.
+
  * Return: 0 on success, -EINVAL for invalid parameter, -EBUSY for no stream
- *         type channel currently available
+ *         type channel/resource currently available
  */
-int hse_channel_acquire(struct device *dev, enum hse_ch_type type, u8 *channel)
+int hse_channel_acquire(struct device *dev, enum hse_ch_type type, u8 *channel,
+			u8 *stream_id)
 {
 	struct hse_drvdata *drv = dev_get_drvdata(dev);
-	unsigned int min, i;
+	unsigned int crt = 0, min = UINT_MAX;
 
 	if (unlikely(!dev || !channel))
 		return -EINVAL;
 
+	*channel = HSE_CHANNEL_INV;
+
 	switch (type) {
 	case HSE_CH_TYPE_STREAM:
+		if (unlikely(!stream_id))
+			return -EINVAL;
+
+		*stream_id = HSE_STREAM_COUNT;
 		spin_lock(&drv->stream_lock);
 
-		/* find the first available stream */
-		*channel = hse_next_free_channel(dev, HSE_CH_TYPE_STREAM);
+		/* find an available stream type channel */
+		for (crt = 0; crt < HSE_NUM_CHANNELS; crt++)
+			if (drv->type[crt] == HSE_CH_TYPE_STREAM &&
+			    atomic_read(&drv->refcnt[crt]) == 0 &&
+			    !drv->channel_busy[crt]) {
+				*channel = crt;
+				break;
+			}
 		if (*channel == HSE_CHANNEL_INV) {
 			spin_unlock(&drv->stream_lock);
-			dev_dbg(dev, "failed to acquire stream resource\n");
+			dev_dbg(dev, "%s: no type %d channel available\n",
+				__func__, type);
 			return -EBUSY;
 		}
 
-		/* mark stream as reserved */
+		/* mark channel reserved */
 		atomic_set(&drv->refcnt[*channel], 1);
-
 		spin_unlock(&drv->stream_lock);
+
+		/* allocate a stream ID */
+		*stream_id = *channel + HSE_STREAM_COUNT - HSE_NUM_CHANNELS;
 		break;
 	case HSE_CH_TYPE_SHARED:
-		*channel = HSE_STREAM_COUNT;
-		min = atomic_read(&drv->refcnt[*channel]);
-
 		/* find the shared channel with lowest refcount */
-		for (i = HSE_STREAM_COUNT; min > 0 && i < HSE_NUM_CHANNELS; i++)
-			if (atomic_read(&drv->refcnt[i]) < min) {
-				*channel = i;
-				min = atomic_read(&drv->refcnt[i]);
+		for (crt = 0; min > 0 && crt < HSE_NUM_CHANNELS; crt++)
+			if (drv->type[crt] == HSE_CH_TYPE_SHARED &&
+			    atomic_read(&drv->refcnt[crt]) < min) {
+				*channel = crt;
+				min = atomic_read(&drv->refcnt[crt]);
 			}
 
 		/* increment channel refcount */
 		atomic_inc(&drv->refcnt[*channel]);
 		break;
+	default:
+		return -EINVAL;
 	}
 
 	return 0;
@@ -384,7 +456,16 @@ int hse_channel_release(struct device *dev, u8 channel)
 	if (channel >= HSE_NUM_CHANNELS)
 		return -ECHRNG;
 
-	atomic_dec_if_positive(&drv->refcnt[channel]);
+	switch (drv->type[channel]) {
+	case HSE_CH_TYPE_STREAM:
+		atomic_set(&drv->refcnt[channel], 0);
+		break;
+	case HSE_CH_TYPE_SHARED:
+		atomic_dec_if_positive(&drv->refcnt[channel]);
+		break;
+	default:
+		return -EINVAL;
+	}
 
 	return 0;
 }
@@ -400,7 +481,6 @@ int hse_channel_release(struct device *dev, u8 channel)
  * Send a HSE service request on the selected channel and register a callback
  * function to be executed asynchronously upon completion. The channel index
  * must be set to HSE_CHANNEL_ANY unless obtained via hse_channel_acquire().
- * Service descriptors must be located in the 32-bit address range.
  *
  * Return: 0 on success, -EINVAL for invalid parameter, -ECHRNG for channel
  *         index out of range, -EBUSY for channel busy or none available
@@ -420,10 +500,10 @@ int hse_srv_req_async(struct device *dev, u8 channel, void *srv_desc,
 	spin_lock(&drv->tx_lock);
 
 	if (channel == HSE_CHANNEL_ANY) {
-		channel = hse_next_free_channel(dev, HSE_CH_TYPE_SHARED);
+		channel = hse_next_free_channel(dev);
 		if (unlikely(channel == HSE_CHANNEL_INV)) {
 			spin_unlock(&drv->tx_lock);
-			dev_dbg(dev, "no service channel available\n");
+			dev_dbg(dev, "%s: no channel available\n", __func__);
 			return -EBUSY;
 		}
 	} else if (drv->channel_busy[channel]) {
@@ -435,8 +515,7 @@ int hse_srv_req_async(struct device *dev, u8 channel, void *srv_desc,
 	drv->rx_cbk[channel].fn = rx_cbk;
 	drv->rx_cbk[channel].ctx = ctx;
 
-	memcpy(drv->srv_desc[channel].ptr, srv_desc,
-	       sizeof(struct hse_srv_desc));
+	hse_sync_srv_desc(dev, channel, srv_desc);
 
 	err = hse_mu_msg_send(drv->mu, channel, drv->srv_desc[channel].dma);
 	if (unlikely(err)) {
@@ -460,7 +539,6 @@ int hse_srv_req_async(struct device *dev, u8 channel, void *srv_desc,
  * Send a HSE service descriptor on the selected channel and block until the
  * HSE response becomes available, then read the reply. The channel index
  * shall be set to HSE_CHANNEL_ANY unless obtained via hse_channel_acquire().
- * Service descriptors must be located in the 32-bit address range.
  *
  * Return: 0 on success, -EINVAL for invalid parameter, -ECHRNG for channel
  *         index out of range, -EBUSY for channel busy or none available
@@ -480,7 +558,7 @@ int hse_srv_req_sync(struct device *dev, u8 channel, void *srv_desc)
 	spin_lock(&drv->tx_lock);
 
 	if (channel == HSE_CHANNEL_ANY) {
-		channel = hse_next_free_channel(dev, HSE_CH_TYPE_SHARED);
+		channel = hse_next_free_channel(dev);
 		if (channel == HSE_CHANNEL_INV) {
 			spin_unlock(&drv->tx_lock);
 			dev_dbg(dev, "%s: no channel available\n", __func__);
@@ -495,8 +573,7 @@ int hse_srv_req_sync(struct device *dev, u8 channel, void *srv_desc)
 	drv->sync[channel].done = &done;
 	drv->sync[channel].reply = &reply;
 
-	memcpy(drv->srv_desc[channel].ptr, srv_desc,
-	       sizeof(struct hse_srv_desc));
+	hse_sync_srv_desc(dev, channel, srv_desc);
 
 	err = hse_mu_msg_send(drv->mu, channel, drv->srv_desc[channel].dma);
 	if (unlikely(err)) {
@@ -633,8 +710,9 @@ static int hse_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct hse_drvdata *drv;
+	void *desc_base_ptr;
+	u64 desc_base_dma;
 	u16 status;
-	u8 channel;
 	int err;
 
 	dev_dbg(dev, "probing driver\n");
@@ -645,7 +723,7 @@ static int hse_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, drv);
 
 	/* MU interface setup */
-	drv->mu = hse_mu_init(dev, &drv->srv_desc[0].ptr, &drv->srv_desc[0].dma,
+	drv->mu = hse_mu_init(dev, &desc_base_ptr, &desc_base_dma,
 			      hse_rx_dispatcher, hse_event_dispatcher);
 	if (IS_ERR(drv->mu)) {
 		dev_dbg(dev, "failed to initialize MU communication\n");
@@ -659,13 +737,8 @@ static int hse_probe(struct platform_device *pdev)
 		return -ENODEV;
 	}
 
-	/* manage descriptor space */
-	for (channel = 0; channel < HSE_NUM_CHANNELS; channel++) {
-		drv->srv_desc[channel].ptr = drv->srv_desc[0].ptr +
-					     channel * HSE_SRV_DESC_MAX_SIZE;
-		drv->srv_desc[channel].dma = drv->srv_desc[0].dma +
-					     channel * HSE_SRV_DESC_MAX_SIZE;
-	}
+	/* manage channels and descriptor space */
+	hse_manage_channels(dev, desc_base_ptr, desc_base_dma);
 
 	/* initialize locks */
 	spin_lock_init(&drv->stream_lock);
