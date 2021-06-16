@@ -17,12 +17,14 @@
 
 /**
  * enum hse_ch_type - channel type
- * @HSE_CHANNEL_SHARED: shared channel
- * @HSE_CHANNEL_STREAM: stream
+ * @HSE_CHANNEL_ADMIN: restricted to administrative services
+ * @HSE_CHANNEL_SHARED: shared channel, available for crypto
+ * @HSE_CHANNEL_STREAM: reserved for streaming mode use
  */
 enum hse_ch_type {
-	HSE_CH_TYPE_SHARED = 0u,
-	HSE_CH_TYPE_STREAM = 1u,
+	HSE_CH_TYPE_ADMIN = 0u,
+	HSE_CH_TYPE_SHARED = 1u,
+	HSE_CH_TYPE_STREAM = 2u,
 };
 
 /**
@@ -53,7 +55,8 @@ struct hse_key *hse_key_slot_acquire(struct device *dev,
 				     enum hse_key_type type);
 void hse_key_slot_release(struct device *dev, struct hse_key *slot);
 
-int hse_channel_acquire(struct device *dev, enum hse_ch_type type, u8 *channel);
+int hse_channel_acquire(struct device *dev, enum hse_ch_type type, u8 *channel,
+			u8 *stream_id);
 int hse_channel_release(struct device *dev, u8 channel);
 
 int hse_srv_req_async(struct device *dev, u8 channel, void *srv_desc,
