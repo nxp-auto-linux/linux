@@ -4530,10 +4530,21 @@ static void spi_nor_info_init_params(struct spi_nor *nor)
 
 	if (info->flags & SPI_NOR_OCTAL_DTR_READ) {
 		params->hwcaps.mask |= SNOR_HWCAPS_READ_8_8_8_DTR;
-		spi_nor_set_read_settings(
-				&params->reads[SNOR_CMD_READ_8_8_8_DTR],
+		switch (JEDEC_MFR(info)) {
+		case SNOR_MFR_MICRON:
+		case SNOR_MFR_ST:
+			spi_nor_set_read_settings
+				(&params->reads[SNOR_CMD_READ_8_8_8_DTR],
+				 0, 20, SPINOR_OP_READ_8_8_8_DTR_STMICRO,
+				 SNOR_PROTO_8_8_8_DTR);
+			break;
+		default:
+			spi_nor_set_read_settings
+				(&params->reads[SNOR_CMD_READ_8_8_8_DTR],
 				0, 20, SPINOR_OP_READ_8_8_8_DTR,
 				SNOR_PROTO_8_8_8_DTR);
+		}
+
 	}
 
 	/*
