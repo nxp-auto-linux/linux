@@ -1,0 +1,39 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+
+title: Freescale S32GEN1 SIUL2 iomux controller
+
+maintainers:
+  - Ghennadi Procopciuc <Ghennadi.Procopciuc@nxp.com>
+
+description: |
+  Core driver for the S32GEN1 pin controller.
+  Based on fsl,s32v234-siul2-pinctrl implementation.
+
+properties:
+  compatible:
+    const:
+      - fsl,s32g-siul2_0-pinctrl
+      - fsl,s32g-siul2_1-pinctrl
+      - fsl,s32r45-siul2_0-pinctrl
+      - fsl,s32r45-siul2_1-pinctrl
+
+  fsl,pins:
+    description: |
+      Two integers array, represents a group of pins mux and config
+      setting. The format is fsl,pins = <PIN_FUNC_ID CONFIG>
+      PIN_FUNC_ID - id of MSCR to be modified
+      CONFIG - configuration to be written in the MSCR/IMCR register
+
+      Even though IMCR register should be used as input register, it can be
+      set and addressed in the same way as MSCR, only instead of passing the
+      IMCR index, IMCR_IDX + 512 is passed.
+
+required:
+  - compatible
+  - fsl,pins
+
+additionalProperties: false
+
+...
