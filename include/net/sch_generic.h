@@ -202,6 +202,7 @@ static inline bool qdisc_run_begin(struct Qdisc *qdisc)
 
 nolock_empty:
 		WRITE_ONCE(qdisc->empty, false);
+		return true;
 	} else if (qdisc_is_running(qdisc)) {
 		return false;
 	}
@@ -221,11 +222,6 @@ nolock_empty:
 
 static inline void qdisc_run_end(struct Qdisc *qdisc)
 {
-#ifdef CONFIG_PREEMPT_RT
-	write_sequnlock(&qdisc->running);
-#else
-	write_seqcount_end(&qdisc->running);
-#endif
 	if (qdisc->flags & TCQ_F_NOLOCK) {
 		spin_unlock(&qdisc->seqlock);
 
@@ -234,6 +230,12 @@ static inline void qdisc_run_end(struct Qdisc *qdisc)
 			clear_bit(__QDISC_STATE_MISSED, &qdisc->state);
 			__netif_schedule(qdisc);
 		}
+	} else {
+#ifdef CONFIG_PREEMPT_RT
+		write_sequnlock(&qdisc->running);
+#else
+		write_seqcount_end(&qdisc->running);
+#endif
 	}
 }
 
