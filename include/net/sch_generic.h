@@ -38,7 +38,14 @@ enum qdisc_state_t {
 	__QDISC_STATE_SCHED,
 	__QDISC_STATE_DEACTIVATED,
 	__QDISC_STATE_MISSED,
+	__QDISC_STATE_DRAINING,
 };
+
+#define QDISC_STATE_MISSED	BIT(__QDISC_STATE_MISSED)
+#define QDISC_STATE_DRAINING	BIT(__QDISC_STATE_DRAINING)
+
+#define QDISC_STATE_NON_EMPTY	(QDISC_STATE_MISSED | \
+					QDISC_STATE_DRAINING)
 
 struct qdisc_size_table {
 	struct rcu_head		rcu;
@@ -150,6 +157,11 @@ static inline bool qdisc_is_running(struct Qdisc *qdisc)
 #endif
 }
 
+static inline bool nolock_qdisc_is_empty(const struct Qdisc *qdisc)
+{
+	return !(READ_ONCE(qdisc->state) & QDISC_STATE_NON_EMPTY);
+}
+
 static inline bool qdisc_is_percpu_stats(const struct Qdisc *q)
 {
 	return q->flags & TCQ_F_CPUSTATS;
@@ -223,10 +235,8 @@ static inline void qdisc_run_end(struct Qdisc *qdisc)
 		smp_mb();
 
 		if (unlikely(test_bit(__QDISC_STATE_MISSED,
-				      &qdisc->state))) {
-			clear_bit(__QDISC_STATE_MISSED, &qdisc->state);
+				      &qdisc->state)))
 			__netif_schedule(qdisc);
-		}
 	} else {
 #ifdef CONFIG_PREEMPT_RT
 		write_sequnlock(&qdisc->running);
