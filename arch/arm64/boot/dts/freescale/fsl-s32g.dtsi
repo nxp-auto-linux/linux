@@ -466,12 +466,12 @@
 
 	usbmisc: usbmisc@44064200 {
 		#index-cells = <1>;
-		compatible = "fsl,s32g274a-usbmisc";
+		compatible = "fsl,s32g-usbmisc";
 		reg = <0x0 0x44064200 0x0 0x200>;
 	};
 
 	usbotg: usb@44064000 {
-		compatible = "fsl,s32g274a-usb";
+		compatible = "fsl,s32g-usb";
 		reg = <0x0 0x44064000 0x0 0x200>;
 		interrupt-parent = <&gic>;
 		interrupts = <0 211 4>, /* OTG Core */
