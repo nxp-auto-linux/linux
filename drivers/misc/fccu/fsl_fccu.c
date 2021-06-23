@@ -299,7 +299,7 @@ static int __init s32_fccu_probe(struct platform_device *pdev)
 	}
 
 	size = prop->length / sizeof(*ncf_fault_arr);
-	ncf_fault_arr = kzalloc(sizeof(*ncf_fault_arr), GFP_KERNEL);
+	ncf_fault_arr = kcalloc(size, sizeof(*ncf_fault_arr), GFP_KERNEL);
 	if (ncf_fault_arr == NULL)
 		return -ENOMEM;
 
