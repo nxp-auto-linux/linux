@@ -13,6 +13,7 @@
 #include <linux/mfd/syscon.h>
 #include <linux/platform_device.h>
 #include <linux/mfd/syscon/s32v234-src.h>
+#include <soc/s32/revision.h>
 
 #define DRIVER_NAME "s32tmu"
 
@@ -25,15 +26,6 @@
 #define TMU_SITE(n)			(1 << n)
 #define CALIB_POINTS_MAX	12
 #define NO_INTERF_FILES		4
-
-/* SOC revision */
-#define SIUL2_MIDR1_OFF				(0x00000004)
-#define SIUL2_MIDR2_OFF				(0x00000008)
-
-/* SIUL2_MIDR1 masks */
-#define SIUL2_MIDR1_MINOR_MASK		(0xF << 0)
-#define SIUL2_MIDR1_MAJOR_SHIFT		(4)
-#define SIUL2_MIDR1_MAJOR_MASK		(0xF << SIUL2_MIDR1_MAJOR_SHIFT)
 
 /* The hard-coded vectors are required to calibrate the thermal
  * monitoring unit. They were determined by experiments in a
@@ -161,62 +153,17 @@ struct tmu_driver_data {
 	uint8_t calib_points;
 };
 
-static inline int get_siul2_midr1_minor(const void __iomem *siul20_base)
-{
-	return (readl(siul20_base + SIUL2_MIDR1_OFF) & SIUL2_MIDR1_MINOR_MASK);
-}
-
-static inline int get_siul2_midr1_major(const void __iomem *siul20_base)
-{
-	return ((readl(siul20_base + SIUL2_MIDR1_OFF) & SIUL2_MIDR1_MAJOR_MASK)
-			>> SIUL2_MIDR1_MAJOR_SHIFT);
-}
-
-static u64 get_siul2_base_addr_from_fdt(char *node_name)
-{
-	struct device_node *node = NULL;
-	const __be32 *siul2_base = NULL;
-	u64 siul2_base_address = OF_BAD_ADDR;
-
-	pr_debug("Searching %s MIDR registers in device-tree\n", node_name);
-	node = of_find_node_by_name(NULL, node_name);
-	if (!node) {
-		pr_warn("Could not get %s node from device-tree\n", node_name);
-		return siul2_base_address;
-	}
-
-	siul2_base = of_get_property(node, "midr-reg", NULL);
-	if (siul2_base)
-		siul2_base_address =
-			of_translate_address(node, siul2_base);
-	of_node_put(node);
-	pr_debug("Resolved %s base address to 0x%llx\n", node_name,
-			siul2_base_address);
-
-	return siul2_base_address;
-}
-
 static int s32gen1_get_soc_revision(struct device *dev, uint8_t *rev)
 {
-	void __iomem *siul2_virt_addr;
+	struct s32_soc_rev soc_rev = {0};
 	u32 raw_rev = 0;
-	u64 siul2_base_address = OF_BAD_ADDR;
+	int ret;
 
-	siul2_base_address = get_siul2_base_addr_from_fdt("siul2_0");
-	if (siul2_base_address == OF_BAD_ADDR) {
-		dev_err(dev, "Can not obtain the base SIUL2 register\n");
-		return -ENXIO;
-	}
-	siul2_virt_addr = ioremap(siul2_base_address, SZ_1K);
-	if (siul2_virt_addr == NULL) {
-		dev_err(dev, "Failed to map SIUL2 base address\n");
-		return -EIO;
-	}
-	raw_rev =
-		(get_siul2_midr1_major(siul2_virt_addr) << 8) |
-		(get_siul2_midr1_minor(siul2_virt_addr) << 4);
-	iounmap(siul2_virt_addr);
+	ret = s32_siul2_nvmem_get_soc_revision(dev, "soc_revision", &soc_rev);
+	if (ret)
+		return ret;
 
+	raw_rev = (soc_rev.major << 8) | (soc_rev.minor << 4);
 	if (raw_rev == 0)
 		*rev = 1;
 	else
@@ -681,12 +628,17 @@ static int tmu_probe(struct platform_device *pd)
 		}
 	}
 
-	if (s32gen1_get_soc_revision(&pd->dev, &tmu_dd->revision))
-		goto revision_get_failed;
-	if (tmu_dd->revision == 1)
-		tmu_dd->calib_points = 12;
-	else
-		tmu_dd->calib_points = 4;
+	if (tmu_chip->has_sites) {
+		return_code = s32gen1_get_soc_revision(&pd->dev,
+						       &tmu_dd->revision);
+		if (return_code)
+			goto revision_get_failed;
+
+		if (tmu_dd->revision == 1)
+			tmu_dd->calib_points = 12;
+		else
+			tmu_dd->calib_points = 4;
+	}
 
 	tmu_dd->hwmon_device =
 		hwmon_device_register_with_info(
