@@ -82,19 +82,6 @@
 /* PHY link timeout */
 #define PCIE_LINK_TIMEOUT_MS	1000
 
-/* SOC revision */
-
-#define SIUL2_MIDR1_OFF				(0x00000004)
-#define SIUL2_MIDR2_OFF				(0x00000008)
-
-/* SIUL2_MIDR1 masks */
-#define SIUL2_MIDR1_MINOR_MASK		(0xF << 0)
-#define SIUL2_MIDR1_MAJOR_SHIFT		(4)
-#define SIUL2_MIDR1_MAJOR_MASK		(0xF << SIUL2_MIDR1_MAJOR_SHIFT)
-
-#define SIUL2_MIDR2_SUBMINOR_SHIFT	(26)
-#define SIUL2_MIDR2_SUBMINOR_MASK	(0xF << SIUL2_MIDR2_SUBMINOR_SHIFT)
-
 #define PCIE_EP_RC_MODE(ep_mode) ((ep_mode) ? "EndPoint" : "RootComplex")
 
 #define PCI_BASE_CLASS_OFF	24
@@ -244,23 +231,6 @@ do { \
 			__func__, (u32)(reg), (u32)(write_data), (u32)(mask)); \
 	clrsetbits(l, (pci)->base ## _base + reg, write_data, mask); \
 } while (0)
-
-static inline int get_siul2_midr1_minor(const void __iomem *siul20_base)
-{
-	return (readl(siul20_base + SIUL2_MIDR1_OFF) & SIUL2_MIDR1_MINOR_MASK);
-}
-
-static inline int get_siul2_midr1_major(const void __iomem *siul20_base)
-{
-	return ((readl(siul20_base + SIUL2_MIDR1_OFF) & SIUL2_MIDR1_MAJOR_MASK)
-			>> SIUL2_MIDR1_MAJOR_SHIFT);
-}
-
-static inline int get_siul2_midr2_subminor(const void __iomem *siul21_base)
-{
-	return ((readl(siul21_base + SIUL2_MIDR2_OFF) &
-				SIUL2_MIDR2_SUBMINOR_MASK) >> SIUL2_MIDR2_SUBMINOR_SHIFT);
-}
 
 /* For kernel version less than 5.0.0, unrolled access to iATU
  * is done using a hardcoded iATU offset (0x3 << 20), which is
