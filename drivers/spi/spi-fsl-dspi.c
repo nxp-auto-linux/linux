@@ -1335,25 +1335,26 @@ static const struct regmap_config dspi_regmap_config[] = {
 	},
 };
 
-static void dspi_set_pinctrl(struct platform_device *pdev,
-		struct pinctrl *pinctrl_dspi, struct pinctrl_state *pinctrl_slave)
+static void dspi_set_pinctrl(struct device *dev)
 {
+	struct fsl_dspi *dspi = dev_get_drvdata(dev);
 	int ret;
 
-	pinctrl_dspi = devm_pinctrl_get(&pdev->dev);
-	if (IS_ERR(pinctrl_dspi)) {
-		dev_warn(&pdev->dev,
-			"no pinctrl info found: %ld\n",
-			PTR_ERR(pinctrl_dspi));
+	dspi->pinctrl_dspi = devm_pinctrl_get(dev);
+	if (IS_ERR(dspi->pinctrl_dspi)) {
+		dev_warn(dev, "no pinctrl info found: %ld\n",
+			PTR_ERR(dspi->pinctrl_dspi));
 		return;
 	}
 
-	pinctrl_slave = pinctrl_lookup_state(pinctrl_dspi, "slave");
-	if (!IS_ERR(pinctrl_slave)) {
-		ret = pinctrl_select_state(pinctrl_dspi, pinctrl_slave);
+	dspi->pinctrl_slave = pinctrl_lookup_state(dspi->pinctrl_dspi,
+						   "slave");
+	if (!IS_ERR(dspi->pinctrl_slave)) {
+		ret = pinctrl_select_state(dspi->pinctrl_dspi,
+					   dspi->pinctrl_slave);
 		if (ret < 0)
-			dev_err(&pdev->dev,
-				"failed to switch to slave pinctrl: %d\n", ret);
+			dev_err(dev, "failed to switch to slave pinctrl: %d\n",
+				ret);
 	}
 }
 
@@ -1514,7 +1515,7 @@ static int dspi_probe(struct platform_device *pdev)
 	}
 
 	if (ctlr->slave)
-		dspi_set_pinctrl(pdev, dspi->pinctrl_dspi, dspi->pinctrl_slave);
+		dspi_set_pinctrl(&pdev->dev);
 
 	dspi->clk = devm_clk_get(&pdev->dev, "dspi");
 	if (IS_ERR(dspi->clk)) {
