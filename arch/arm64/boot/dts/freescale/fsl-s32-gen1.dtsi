@@ -1005,6 +1005,8 @@
 		compatible = "fsl,s32gen1-tmu";
 		reg = <0x0 0x400A8000 0x0 0x3000>,
 			<0x0 0x400A4200 0x0 0x1FC>;
+		nvmem-cell-names = "soc_revision";
+		nvmem-cells = <&soc_revision>;
 		status = "okay";
 	};
 
