@@ -151,6 +151,9 @@
 #define S32G_WAKEUPEN	BIT(11)
 #define S32G_UCMALLBE	BIT(15)
 
+/* Flags for 'struct imx_usbmisc' */
+#define REINIT_DURING_RESUME	BIT(1)
+
 struct usbmisc_ops {
 	/* It's called once when probe a usb device */
 	int (*init)(struct imx_usbmisc_data *data);
@@ -167,6 +170,7 @@ struct usbmisc_ops {
 	/* It's called when system resume from usb power lost */
 	int (*power_lost_check)(struct imx_usbmisc_data *data);
 	void (*vbus_comparator_on)(struct imx_usbmisc_data *data, bool on);
+	u32 flags;
 };
 
 struct imx_usbmisc {
@@ -1259,6 +1263,9 @@ int imx_usbmisc_resume(struct imx_usbmisc_data *data, bool wakeup)
 		return 0;
 
 	usbmisc = dev_get_drvdata(data->dev);
+
+	if (usbmisc->ops->flags & REINIT_DURING_RESUME && usbmisc->ops->init)
+		usbmisc->ops->init(data);
 
 	if (usbmisc->ops->power_lost_check)
 		ret = usbmisc->ops->power_lost_check(data);
