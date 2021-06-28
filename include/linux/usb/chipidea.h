@@ -98,5 +98,6 @@ struct platform_device *ci_hdrc_add_device(struct device *dev,
 			struct ci_hdrc_platform_data *platdata);
 /* Remove ci hdrc device */
 void ci_hdrc_remove_device(struct platform_device *pdev);
+int hw_controller_reset(struct ci_hdrc *ci);
 
 #endif
