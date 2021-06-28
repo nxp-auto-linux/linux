@@ -23,17 +23,28 @@ properties:
       Address range of the TMU registers
 
   clocks:
-    description: |
+    description:
       One entry, the clock for the TMU device
+      Required only if fsl,s32v234-tmu.
 
   clock-names:
-    description: tsens
+    description: |
+      tsens
+      Required only if fsl,s32v234-tmu.
+
+  nvmem-cell-names:
+    description: |
+      soc_revision
+      Required only if fsl,s32gen1-tmu.
+
+  nvmem-cells:
+    description:
+      The address of soc_revision node.
+      Required only if fsl,s32gen1-tmu.
 
 required:
   - compatible
   - reg
-  - clocks
-  - clock-names
 
 additionalProperties: false
 
