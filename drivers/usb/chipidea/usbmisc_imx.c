@@ -149,6 +149,9 @@
 #define S32G_WAKEUPEN	BIT(11)
 #define S32G_UCMALLBE	BIT(15)
 
+/* Flags for 'struct imx_usbmisc' */
+#define REINIT_DURING_RESUME	BIT(1)
+
 struct usbmisc_ops {
 	/* It's called once when probe a usb device */
 	int (*init)(struct imx_usbmisc_data *data);
@@ -162,6 +165,7 @@ struct usbmisc_ops {
 	int (*hsic_set_clk)(struct imx_usbmisc_data *data, bool enabled);
 	/* usb charger detection */
 	int (*charger_detection)(struct imx_usbmisc_data *data);
+	u32 flags;
 };
 
 struct imx_usbmisc {
@@ -1173,6 +1177,9 @@ int imx_usbmisc_resume(struct imx_usbmisc_data *data, bool wakeup)
 		return 0;
 
 	usbmisc = dev_get_drvdata(data->dev);
+
+	if (usbmisc->ops->flags & REINIT_DURING_RESUME && usbmisc->ops->init)
+		usbmisc->ops->init(data);
 
 	if (wakeup && usbmisc->ops->set_wakeup)
 		ret = usbmisc->ops->set_wakeup(data, false);
