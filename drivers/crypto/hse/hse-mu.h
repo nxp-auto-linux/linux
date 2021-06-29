@@ -19,6 +19,13 @@
 #define HSE_CHANNEL_INV    0xFFu /* invalid acquired service channel index */
 #define HSE_CH_MASK_ALL    0x0000FFFFul /* all available channels irq mask */
 
+#define HSE_STATUS_MASK     0xFFFF0000ul /* HSE global status FSR mask */
+
+#define HSE_EVT_MASK_ERR     0x000000FFul /* fatal error GSR mask */
+#define HSE_EVT_MASK_WARN    0x0000FF00ul /* warning GSR mask */
+#define HSE_EVT_MASK_INTL    0xFFFF0000ul /* NXP internal flags GSR mask */
+#define HSE_EVT_MASK_ALL     0xFFFFFFFFul /* all events GSR mask */
+
 /**
  * enum hse_irq_type - HSE interrupt type
  * @HSE_INT_ACK_REQUEST: TX Interrupt, triggered when HSE acknowledged the
