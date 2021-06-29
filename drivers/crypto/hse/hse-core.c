@@ -115,7 +115,7 @@ static void hse_print_fw_version(struct device *dev)
 		return;
 	}
 
-	dev_info(dev, "firmware version %d.%d.%d.%d\n", fw_ver->fw_type,
+	dev_info(dev, "firmware type %d, version %d.%d.%d\n", fw_ver->fw_type,
 		 fw_ver->major, fw_ver->minor, fw_ver->patch);
 }
 
@@ -149,6 +149,9 @@ static int hse_key_ring_init(struct device *dev, struct list_head *key_ring,
 		ring[i].type = type;
 		list_add_tail(&ring[i].entry, key_ring);
 	}
+
+	dev_dbg(dev, "key ring type 0x%02x: group id %d, size %d\n", type,
+		group_id, group_size);
 
 	return 0;
 }
@@ -200,7 +203,7 @@ struct hse_key *hse_key_slot_acquire(struct device *dev, enum hse_key_type type)
 	slot = list_first_entry_or_null(key_ring, struct hse_key, entry);
 	if (IS_ERR_OR_NULL(slot)) {
 		spin_unlock(&drv->key_ring_lock);
-		dev_dbg(dev, "failed to acquire key slot, type %d\n", type);
+		dev_dbg(dev, "failed to acquire key slot, type 0x%02x\n", type);
 		return ERR_PTR(-ENOKEY);
 	}
 	list_del(&slot->entry);
@@ -665,7 +668,7 @@ static irqreturn_t hse_rx_dispatcher(int irq, void *dev)
  * @irq: interrupt line
  * @dev: HSE device
  *
- * In case a fatal intrusion has been detected, all MU interfaces are disabled
+ * In case a fatal error has been reported, all MU interfaces are disabled
  * and communication with HSE terminated. Therefore, all service requests
  * currently in progress are canceled and any further requests are prevented.
  */
@@ -675,16 +678,30 @@ static irqreturn_t hse_event_dispatcher(int irq, void *dev)
 	u32 event = hse_mu_check_event(drv->mu);
 	u8 channel;
 
-	dev_crit(dev, "fatal intrusion detected, event mask 0x%08x\n", event);
+	if (event & HSE_EVT_MASK_WARN) {
+		dev_warn(dev, "warning, event mask 0x%08x\n", event);
+		hse_mu_irq_clear(drv->mu, HSE_INT_SYS_EVENT, HSE_EVT_MASK_WARN);
 
-	/* disable RX and error notifications */
+		return IRQ_HANDLED;
+	}
+
+	/* disable RX and event notifications */
 	hse_mu_irq_disable(drv->mu, HSE_INT_RESPONSE, HSE_CH_MASK_ALL);
-	hse_mu_irq_disable(drv->mu, HSE_INT_SYS_EVENT, HSE_CH_MASK_ALL);
+	hse_mu_irq_disable(drv->mu, HSE_INT_SYS_EVENT, HSE_EVT_MASK_ALL);
 
-	/* notify upper layer that all requests are canceled */
+	dev_crit(dev, "fatal error, event mask 0x%08x\n", event);
+	hse_mu_irq_clear(drv->mu, HSE_INT_SYS_EVENT, HSE_EVT_MASK_ERR);
+
+	/* process pending requests, if any */
+	channel = hse_mu_next_pending_channel(drv->mu);
+	while (channel != HSE_CHANNEL_INV) {
+		hse_srv_rsp_dispatch(dev, channel);
+
+		channel = hse_mu_next_pending_channel(drv->mu);
+	}
+
+	/* notify upper layers that all requests are canceled */
 	for (channel = 0; channel < HSE_NUM_CHANNELS; channel++) {
-		drv->channel_busy[channel] = true;
-
 		if (drv->rx_cbk[channel].fn) {
 			void *ctx = drv->rx_cbk[channel].ctx;
 
@@ -692,14 +709,21 @@ static irqreturn_t hse_event_dispatcher(int irq, void *dev)
 			drv->rx_cbk[channel].fn = NULL;
 		} else if (drv->sync[channel].done) {
 			*drv->sync[channel].reply = -ECANCELED;
-			wmb(); /* write reply before complete */
+			wmb(); /* ensure reply is written before complete */
 
 			complete(drv->sync[channel].done);
 			drv->sync[channel].done = NULL;
 		}
+
+		if (drv->channel_busy[channel])
+			dev_dbg(dev, "request id 0x%08x canceled, channel %d\n",
+				channel, drv->srv_desc[channel].id);
+		drv->channel_busy[channel] = true;
 	}
 
-	hse_mu_irq_clear(drv->mu, HSE_INT_SYS_EVENT, event);
+	/* unregister hwrng */
+	if (IS_ENABLED(CONFIG_CRYPTO_DEV_NXP_HSE_HWRNG))
+		hse_hwrng_unregister(dev);
 
 	dev_crit(dev, "communication terminated, reset system to recover\n");
 
@@ -745,9 +769,10 @@ static int hse_probe(struct platform_device *pdev)
 	spin_lock_init(&drv->tx_lock);
 	spin_lock_init(&drv->key_ring_lock);
 
-	/* enable RX and error notifications */
+	/* enable RX and event notifications */
 	hse_mu_irq_enable(drv->mu, HSE_INT_RESPONSE, HSE_CH_MASK_ALL);
-	hse_mu_irq_enable(drv->mu, HSE_INT_SYS_EVENT, HSE_CH_MASK_ALL);
+	hse_mu_irq_enable(drv->mu, HSE_INT_SYS_EVENT, HSE_EVT_MASK_WARN);
+	hse_mu_irq_enable(drv->mu, HSE_INT_SYS_EVENT, HSE_EVT_MASK_ERR);
 
 	/* check firmware version */
 	hse_print_fw_version(dev);
@@ -810,9 +835,9 @@ static int hse_remove(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct hse_drvdata *drv = dev_get_drvdata(dev);
 
-	/* disable RX and error notifications */
+	/* disable RX and event notifications */
 	hse_mu_irq_disable(drv->mu, HSE_INT_RESPONSE, HSE_CH_MASK_ALL);
-	hse_mu_irq_disable(drv->mu, HSE_INT_SYS_EVENT, HSE_CH_MASK_ALL);
+	hse_mu_irq_disable(drv->mu, HSE_INT_SYS_EVENT, HSE_EVT_MASK_ALL);
 
 	if (IS_ENABLED(CONFIG_CRYPTO_DEV_NXP_HSE_UIO))
 		return 0;
@@ -821,6 +846,9 @@ static int hse_remove(struct platform_device *pdev)
 	hse_ahash_unregister(&drv->ahash_algs);
 	hse_skcipher_unregister(&drv->skcipher_algs);
 	hse_aead_unregister(&drv->aead_algs);
+
+	if (IS_ENABLED(CONFIG_CRYPTO_DEV_NXP_HSE_HWRNG))
+		hse_hwrng_unregister(dev);
 
 	/* empty used key rings */
 	hse_key_ring_free(&drv->aes_key_ring);
