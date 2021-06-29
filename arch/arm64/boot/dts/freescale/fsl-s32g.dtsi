@@ -138,7 +138,7 @@
 			status = "okay";
 			interrupts = <GIC_SPI 191 IRQ_TYPE_EDGE_RISING>;
 			reg = <1>;
-			fsl,pfeng-hif-mode = <PFENG_HIF_MODE_EXCLUSIVE>;
+			fsl,pfeng-hif-mode = <PFENG_HIF_MODE_SHARED>;
 		};
 
 		/* PFE_HIF_2 */
@@ -261,7 +261,7 @@
 			status = "okay";
 			local-mac-address = [ 00 04 9F BE EF 00 ];
 			fsl,pfeng-if-name = "pfe0";
-			fsl,pfeng-logif-mode = <0>;
+			fsl,pfeng-logif-mode = <PFENG_LOGIF_MODE_TX_INJECT>;
 			fsl,pfeng-emac-link = <&pfe_emac0>;
 			fsl,pfeng-hif-channels = <&pfe_hif0>;
 		};
@@ -274,7 +274,7 @@
 			status = "okay";
 			local-mac-address = [ 00 04 9F BE EF 01 ];
 			fsl,pfeng-if-name = "pfe1";
-			fsl,pfeng-logif-mode = <0>;
+			fsl,pfeng-logif-mode = <PFENG_LOGIF_MODE_TX_INJECT>;
 			fsl,pfeng-emac-link = <&pfe_emac1>;
 			fsl,pfeng-hif-channels = <&pfe_hif1>;
 		};
@@ -287,9 +287,21 @@
 			status = "okay";
 			local-mac-address = [ 00 04 9F BE EF 02 ];
 			fsl,pfeng-if-name = "pfe2";
-			fsl,pfeng-logif-mode = <0>;
+			fsl,pfeng-logif-mode = <PFENG_LOGIF_MODE_TX_CLASS>;
 			fsl,pfeng-emac-link = <&pfe_emac2>;
 			fsl,pfeng-hif-channels = <&pfe_hif2>;
+		};
+
+		/* Logical network interface 'aux0' */
+		pfe_aux0: ethernet@3 {
+			compatible = "fsl,pfeng-logif";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+			local-mac-address = [ 00 04 9F BE EF 80 ];
+			fsl,pfeng-if-name = "aux0";
+			fsl,pfeng-logif-mode = <PFENG_LOGIF_MODE_AUX>;
+			fsl,pfeng-hif-channels = <&pfe_hif1>;
 		};
 	};
 
@@ -320,17 +332,28 @@
 			fsl,pfeng-ihc;
 		};
 
-
 		/* Logical network interface 'pfe0sl' */
-		pfesl_logif0: ethernet@0 {
+		pfesl_logif0: ethernet@10 {
 			compatible = "fsl,pfeng-logif";
 			#address-cells = <1>;
 			#size-cells = <0>;
 			status = "okay";
 			local-mac-address = [ 00 04 9F BE FF 10 ];
 			fsl,pfeng-if-name = "pfe0sl";
-			fsl,pfeng-logif-mode = <0>;
+			fsl,pfeng-logif-mode = <PFENG_LOGIF_MODE_TX_INJECT>;
 			fsl,pfeng-emac-id = <0>; /* PFE_EMAC_0 */
+			fsl,pfeng-hif-channels = <&pfesl_hif3>;
+		};
+
+		/* Logical network interface 'aux0sl' */
+		pfesl_aux0: ethernet@11 {
+			compatible = "fsl,pfeng-logif";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+			local-mac-address = [ 00 04 9F BE FF 80 ];
+			fsl,pfeng-if-name = "aux0sl";
+			fsl,pfeng-logif-mode = <PFENG_LOGIF_MODE_AUX>;
 			fsl,pfeng-hif-channels = <&pfesl_hif3>;
 		};
 	};
