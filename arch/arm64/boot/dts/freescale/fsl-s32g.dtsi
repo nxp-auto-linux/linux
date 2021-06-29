@@ -297,7 +297,7 @@
 			compatible = "fsl,pfeng-logif";
 			#address-cells = <1>;
 			#size-cells = <0>;
-			status = "okay";
+			status = "disabled";
 			local-mac-address = [ 00 04 9F BE EF 80 ];
 			fsl,pfeng-if-name = "aux0";
 			fsl,pfeng-logif-mode = <PFENG_LOGIF_MODE_AUX>;
@@ -350,7 +350,7 @@
 			compatible = "fsl,pfeng-logif";
 			#address-cells = <1>;
 			#size-cells = <0>;
-			status = "okay";
+			status = "disabled";
 			local-mac-address = [ 00 04 9F BE FF 80 ];
 			fsl,pfeng-if-name = "aux0sl";
 			fsl,pfeng-logif-mode = <PFENG_LOGIF_MODE_AUX>;
