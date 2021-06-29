@@ -104,3 +104,14 @@ void hse_hwrng_register(struct device *dev)
 
 	dev_info(dev, "registered %s\n", hse_rng.name);
 }
+
+/**
+ * hse_hwrng_unregister - unregister random number generator
+ * @dev: HSE device
+ */
+void hse_hwrng_unregister(struct device *dev)
+{
+	devm_hwrng_unregister(dev, &hse_rng);
+
+	dev_info(dev, "unregistered %s", hse_rng.name);
+}
