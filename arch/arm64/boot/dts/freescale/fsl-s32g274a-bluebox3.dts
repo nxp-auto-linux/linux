@@ -5,7 +5,6 @@
 
 /dts-v1/;
 #include "fsl-s32g274a.dtsi"
-#include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/pinctrl/s32g274-pinctrl.h>
 / {
 	model = "Freescale S32G274 BlueBox3";
@@ -196,11 +195,19 @@
 
 &pfe_logif0 {
 	status = "okay";
-
+	phy-mode = "sgmii";
 	fixed-link {
 		speed = <1000>;
 		full-duplex;
 	};
+};
+
+&pfe_logif1 {
+	status = "disabled";
+};
+
+&pfe_logif2 {
+	status = "disabled";
 };
 
 &pfe_mdio0 {
@@ -208,36 +215,36 @@
 	pinctrl-0 = <&pinctrl0_pfe0_mdio>, <&pinctrl1_pfe0_mdio>;
 	status = "okay";
 
-	phy5: phy@5 {
+	sw3_port2_base_t_phy: ethernet-phy@5 {
 		reg = <5>;
 	};
 
-	phy6: phy@6 {
+	sw3_port3_base_t_phy: ethernet-phy@6 {
 		reg = <6>;
 	};
 
-	phy25: phy@25 {
-		reg = <25>;
+	sw3_port5_base_t1_phy: ethernet-phy@19 {
+		reg = <0x19>;
 	};
 
-	phy26: phy@26 {
-		reg = <26>;
+	sw3_port6_base_t1_phy: ethernet-phy@1a {
+		reg = <0x1a>;
 	};
 
-	phy27: phy@27 {
-		reg = <27>;
+	sw3_port7_base_t1_phy: ethernet-phy@1b {
+		reg = <0x1b>;
 	};
 
-	phy28: phy@28 {
-		reg = <28>;
+	sw3_port8_base_t1_phy: ethernet-phy@1c {
+		reg = <0x1c>;
 	};
 
-	phy29: phy@29 {
-		reg = <29>;
+	sw3_port9_base_t1_phy: ethernet-phy@1d {
+		reg = <0x1d>;
 	};
 
-	phy30: phy@30 {
-		reg = <30>;
+	sw3_port10_base_t1_phy: ethernet-phy@1e {
+		reg = <0x1e>;
 	};
 };
 
@@ -305,7 +312,6 @@
 				S32_GEN1_PAD_PB13__SIUL_GPIO29
 				S32_GEN1_PAD_PB14__SIUL_GPIO30
 				S32_GEN1_PAD_PB15__SIUL_GPIO31
-				S32_GEN1_PAD_PC5__SIUL_GPIO37
 				S32_GEN1_PAD_PC6__SIUL_GPIO38
 				S32_GEN1_PAD_PD12__SIUL_GPIO60
 				S32_GEN1_PAD_PD13__SIUL_GPIO61
@@ -430,10 +436,101 @@
 	#size-cells = <0>;
 	status = "okay";
 
-	spidev1: spidev@1 {
-		compatible = "rohm,dh2228fv";
-		spi-max-frequency = <4000000>;
+	ethernet-switch@1 {
+		compatible = "nxp,sja1110a";
 		reg = <1>;
+		spi-max-frequency = <4000000>;
+		dsa,member = <0 0>;
+
+		ethernet-ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			/* Microcontroller port */
+			port@0 {
+				reg = <0>;
+				status = "disabled";
+			};
+
+			/* SW3_P1 */
+			port@1 {
+				reg = <1>;
+				ethernet = <&pfe_logif0>;
+				phy-mode = "sgmii";
+
+				fixed-link {
+					speed = <1000>;
+					full-duplex;
+				};
+			};
+
+			port@2 {
+				reg = <2>;
+				label = "1ge_p3";
+				phy-mode = "rgmii-id";
+				phy-handle = <&sw3_port2_base_t_phy>;
+			};
+
+			port@3 {
+				reg = <3>;
+				label = "1ge_p4";
+				phy-mode = "rgmii-id";
+				phy-handle = <&sw3_port3_base_t_phy>;
+			};
+
+			port@4 {
+				reg = <4>;
+				label = "to_sw2";
+				phy-mode = "2500base-x";
+
+				fixed-link {
+					speed = <2500>;
+					full-duplex;
+				};
+			};
+
+			port@5 {
+				reg = <5>;
+				label = "trx13";
+				phy-mode = "internal";
+				phy-handle = <&sw3_port5_base_t1_phy>;
+			};
+
+			port@6 {
+				reg = <6>;
+				label = "trx14";
+				phy-mode = "internal";
+				phy-handle = <&sw3_port6_base_t1_phy>;
+			};
+
+			port@7 {
+				reg = <7>;
+				label = "trx15";
+				phy-mode = "internal";
+				phy-handle = <&sw3_port7_base_t1_phy>;
+			};
+
+			port@8 {
+				reg = <8>;
+				label = "trx16";
+				phy-mode = "internal";
+				phy-handle = <&sw3_port8_base_t1_phy>;
+			};
+
+			port@9 {
+				reg = <9>;
+				label = "trx17";
+				phy-mode = "internal";
+				phy-handle = <&sw3_port9_base_t1_phy>;
+			};
+
+			port@a {
+				reg = <10>;
+				label = "trx18";
+				phy-mode = "internal";
+				phy-handle = <&sw3_port10_base_t1_phy>;
+			};
+		};
 	};
 
 	spidev2: spidev@2 {
