@@ -15,8 +15,6 @@
 
 #include "hse-mu.h"
 
-#define HSE_STATUS_MASK     0xFFFF0000ul /* HSE global status FSR mask */
-
 #define HSE_REGS_NAME       "hse-" HSE_MU_INST "-regs"
 #define HSE_DESC_NAME       "hse-" HSE_MU_INST "-desc"
 #define HSE_RX_IRQ_NAME     "hse-" HSE_MU_INST "-rx"
@@ -116,17 +114,19 @@ void hse_mu_irq_enable(void *mu, enum hse_irq_type irq_type, u32 irq_mask)
 	struct hse_mu_data *priv = mu;
 	void *regaddr;
 	unsigned long flags;
-	u32 regval;
 
 	switch (irq_type) {
 	case HSE_INT_ACK_REQUEST:
 		regaddr = &priv->regs->tcr;
+		irq_mask &= HSE_CH_MASK_ALL;
 		break;
 	case HSE_INT_RESPONSE:
 		regaddr = &priv->regs->rcr;
+		irq_mask &= HSE_CH_MASK_ALL;
 		break;
 	case HSE_INT_SYS_EVENT:
 		regaddr = &priv->regs->gier;
+		irq_mask &= HSE_EVT_MASK_ALL;
 		break;
 	default:
 		return;
@@ -134,9 +134,7 @@ void hse_mu_irq_enable(void *mu, enum hse_irq_type irq_type, u32 irq_mask)
 
 	spin_lock_irqsave(&priv->reg_lock, flags);
 
-	regval = ioread32(regaddr);
-	regval |= irq_mask & HSE_CH_MASK_ALL;
-	iowrite32(regval, regaddr);
+	iowrite32(ioread32(regaddr) | irq_mask, regaddr);
 
 	spin_unlock_irqrestore(&priv->reg_lock, flags);
 }
@@ -152,17 +150,19 @@ void hse_mu_irq_disable(void *mu, enum hse_irq_type irq_type, u32 irq_mask)
 	struct hse_mu_data *priv = mu;
 	void *regaddr;
 	unsigned long flags;
-	u32 regval;
 
 	switch (irq_type) {
 	case HSE_INT_ACK_REQUEST:
 		regaddr = &priv->regs->tcr;
+		irq_mask &= HSE_CH_MASK_ALL;
 		break;
 	case HSE_INT_RESPONSE:
 		regaddr = &priv->regs->rcr;
+		irq_mask &= HSE_CH_MASK_ALL;
 		break;
 	case HSE_INT_SYS_EVENT:
 		regaddr = &priv->regs->gier;
+		irq_mask &= HSE_EVT_MASK_ALL;
 		break;
 	default:
 		return;
@@ -170,9 +170,7 @@ void hse_mu_irq_disable(void *mu, enum hse_irq_type irq_type, u32 irq_mask)
 
 	spin_lock_irqsave(&priv->reg_lock, flags);
 
-	regval = ioread32(regaddr);
-	regval &= ~(irq_mask & HSE_CH_MASK_ALL);
-	iowrite32(regval, regaddr);
+	iowrite32(ioread32(regaddr) & ~irq_mask, regaddr);
 
 	spin_unlock_irqrestore(&priv->reg_lock, flags);
 }
@@ -193,7 +191,7 @@ void hse_mu_irq_clear(void *mu, enum hse_irq_type irq_type, u32 irq_mask)
 	if (unlikely(irq_type != HSE_INT_SYS_EVENT))
 		return;
 
-	iowrite32(irq_mask & HSE_CH_MASK_ALL, &priv->regs->gsr);
+	iowrite32(irq_mask & HSE_EVT_MASK_ALL, &priv->regs->gsr);
 }
 
 /**
@@ -373,7 +371,7 @@ void *hse_mu_init(struct device *dev, void **desc_base_ptr, u64 *desc_base_dma,
 	/* disable all interrupt sources */
 	hse_mu_irq_disable(mu, HSE_INT_ACK_REQUEST, HSE_CH_MASK_ALL);
 	hse_mu_irq_disable(mu, HSE_INT_RESPONSE, HSE_CH_MASK_ALL);
-	hse_mu_irq_disable(mu, HSE_INT_SYS_EVENT, HSE_CH_MASK_ALL);
+	hse_mu_irq_disable(mu, HSE_INT_SYS_EVENT, HSE_EVT_MASK_ALL);
 
 	/* discard any pending messages */
 	for (channel = 0; channel < HSE_NUM_CHANNELS; channel++)
