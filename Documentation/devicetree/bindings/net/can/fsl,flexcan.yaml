@@ -48,7 +48,6 @@ properties:
     maxItems: 1
 
   interrupts:
-    maxItems: 1
     description: |
       Interrupt tuple(s) for this device. If interrupt-names are
       missing, these should specify, in order
@@ -172,9 +171,11 @@ examples:
         fsl,stop-mode = <&gpr 0x34 28>;
     };
   - |
-    flexcan@40055000 {
+    #include <dt-bindings/clock/s32v234-clock.h>
+
+    can@40055000 {
         compatible = "fsl,s32v234-flexcan";
-        reg = <0x0 0x40055000 0x0 0x1000>;
+        reg = <0x40055000 0x1000>;
         interrupts = <0 41 4>,
                      <0 42 4>;
         interrupt-names = "state-berr", "mb";

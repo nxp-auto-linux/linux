@@ -46,9 +46,9 @@ examples:
   - |
     #include <dt-bindings/clock/s32gen1-scmi-clock.h>
 
-    swt@40200000 {
+    watchdog@40200000 {
         compatible = "fsl,s32gen1-wdt";
-        reg = <0x0 0x40200000 0x0 0x1000>;
+        reg = <0x40200000 0x1000>;
         clocks = <&clks S32GEN1_SCMI_CLK_SWT_COUNTER>;
         clock-names = "swt";
         status = "disabled";

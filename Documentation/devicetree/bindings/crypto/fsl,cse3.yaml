@@ -14,7 +14,7 @@ description: |
     Currently only S32V234 is supported.
 
 allOf:
-  - $ref: "rs485.yaml"
+  - $ref: "/schemas/serial/rs485.yaml"
 
 properties:
   compatible:
@@ -45,7 +45,7 @@ examples:
   - |
     cse3: crypto@40001000 {
         compatible = "fsl,s32v234-cse3";
-        reg = <0x0 0x40001000 0x0 0x1000>;
+        reg = <0x40001000 0x1000>;
         interrupts = <0 18 4>;
         status = "disabled";
     };
