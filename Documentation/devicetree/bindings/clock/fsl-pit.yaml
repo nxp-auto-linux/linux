@@ -10,15 +10,15 @@ maintainers:
   - Larisa Grigore <larisa.grigore@nxp.com>
 
 allOf:
-  - $ref: "rs485.yaml"
+  - $ref: "/schemas/serial/rs485.yaml"
 
 properties:
   compatible:
     oneOf:
-      - const: fsl,vf610-pit
-      - items:
-          - const: fsl,s32v234-pit
-          - const: fsl,s32gen1-pit
+      - enum:
+          - fsl,vf610-pit
+          - fsl,s32v234-pit
+          - fsl,s32gen1-pit
 
   reg:
     maxItems: 1
@@ -52,18 +52,13 @@ unevaluatedProperties: false
 
 examples:
   - |
-    #include <dt-bindings/clock/s32gen1-scmi-clock.h>
+    #include <dt-bindings/clock/s32v234-clock.h>
 
-    pit0: pit@4003A000{
-        compatible = "fsl,s32v234-pit";
-        reg = <0x0 0x4003A000 0x0 0x1000>;
-        interrupts = <0 31 4>;
-        clocks = <&clks S32V234_CLK_SYS6>;
-        clock-names = "pit";
-        cpu = <0>;
-        status = "disabled";
-    };
-
-    &pit0 {
-        status = "okay";
+    pit0: pit@4003A000 {
+      compatible = "fsl,s32v234-pit";
+      reg = <0x4003A000 0x1000>;
+      interrupts = <0 31 4>;
+      clocks = <&clks S32V234_CLK_SYS6>;
+      clock-names = "pit";
+      cpu = <0>;
     };
