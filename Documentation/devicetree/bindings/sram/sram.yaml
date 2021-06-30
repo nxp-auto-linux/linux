@@ -30,7 +30,7 @@ properties:
         - mmio-sram
         - atmel,sama5d2-securam
         - rockchip,rk3288-pmu-sram
-	- nxp,s32g-llce-sram - This will initialize the SRAM by filling it with 0
+        - nxp,s32g-llce-sram - This will initialize the SRAM by filling it with 0
 
   reg:
     maxItems: 1

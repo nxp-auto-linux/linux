@@ -2,10 +2,13 @@
 # Copyright 2021 NXP.
 %YAML 1.2
 ---
-$id: http://devicetree.org/schemas/fsl-fbdcu.yaml#
+$id: http://devicetree.org/schemas/fb/fsl-fbdcu.yaml#
 $schema: http://devicetree.org/meta-schemas/core.yaml#
 
 title: NXP Display Control Unit
+
+maintainers:
+  - Ciprian Costea <ciprianmarian.costea@nxp.com>
 
 description: |
   A more detailed multi-line description of the binding.
@@ -33,14 +36,10 @@ properties:
   clock-names:
     description: From common clock binding - Shall be "dcu".
 
-  display:
-    description: The phandle to display node.
+  memory-region:
+    description: The phandle to the reserved memory region.
 
-  bits-per-pixel:
-    const: <24> for RGB888
-
-  display-timings:
-    description: Refer to binding doc display-timing.txt for details.
+additionalProperties: false
 
 required:
   - compatible
@@ -48,30 +47,19 @@ required:
   - interrupts
   - clocks
   - clock-names
-  - display
-  - bits-per-pixel
-  - display-timings
+  - memory-region
 
 examples:
   - |
-    &dcu0 {
-    display = <&display>;
-    status = "okay";
-    display: display@0 {
-      bits-per-pixel = <32>;
-      display-timings {
-        native-mode = <&timing0>;
-        timing0: nl4827hc19 {
-          clock-frequency = <56000000>;
-          hactive = <1920>;
-          vactive = <1080>;
-          hback-porch = <30>;
-          hfront-porch = <60>;
-          vback-porch = <30>;
-          vfront-porch = <3>;
-          hsync-len = <60>;
-          vsync-len = <3>;
-        };
-      };
-    };
+    #include <dt-bindings/clock/s32v234-clock.h>
+
+    dcu0: dcu@40028000 {
+      compatible = "fsl,s32v234-dcu";
+      reg = <0x40028000 0x5000>;
+      interrupts = <0 95 4>;
+      clocks = <&clks S32V234_CLK_DCU_AXI>,
+                <&clks S32V234_CLK_DCU_PIX>;
+      clock-names = "dcu", "ipg";
+      memory-region = <&dcu_surface_memory>;
+      status = "disabled";
     };

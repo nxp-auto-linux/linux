@@ -6,11 +6,18 @@ $schema: http://devicetree.org/meta-schemas/core.yaml#
 
 title: Device Tree bindings for Freescale DEC200 Driver
 
+maintainers:
+  - Ciprian Costea <ciprianmarian.costea@nxp.com>
+
 properties:
   compatible:
     oneOf:
-      - "fsl,s32v234-dec200_dec"
-      - "fsl,s32v234-dec200_enc"
+      - enum:
+          - fsl,s32v234-dec200_dec
+          - fsl,s32v234-dec200_enc
+
+  interrupts:
+    description: Specifies interrupt number.
 
   reg:
     description: Address and length of the register set for dec200.
@@ -22,6 +29,8 @@ properties:
     description: Should be "dcu", "sys6" for dec200_dec and
                  "sys3", "sys6" for dec200_enc
 
+additionalProperties: false
+
 required:
   - compatible
   - reg
@@ -30,9 +39,11 @@ required:
 
 examples:
   - |
+    #include <dt-bindings/clock/s32v234-clock.h>
+
     dec200_dec: dec200@40026000 {
         compatible = "fsl,s32v234-dec200_dec";
-        reg = <0x0 0x40026000 0x0 0x1000>;
+        reg = <0x40026000 0x1000>;
         interrupts = <0 97 4>;
         clocks = <&clks S32V234_CLK_DCU_AXI>,
                         <&clks S32V234_CLK_DEC200_ENC_IPS>;
@@ -42,7 +53,7 @@ examples:
 
     dec200_enc: dec200@40027000 {
         compatible = "fsl,s32v234-dec200_enc";
-        reg = <0x0 0x40027000 0x0 0x1000>;
+        reg = <0x40027000 0x1000>;
         interrupts = <0 98 4>;
         clocks = <&clks S32V234_CLK_DEC200_ENC_AHB>,
                         <&clks S32V234_CLK_DEC200_ENC_IPS>;
