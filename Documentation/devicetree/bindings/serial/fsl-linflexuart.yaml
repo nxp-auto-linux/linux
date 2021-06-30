@@ -64,9 +64,9 @@ examples:
   - |
     #include <dt-bindings/clock/s32gen1-scmi-clock.h>
 
-    uart0:serial@401C8000 {
+    uart0: serial@401C8000 {
         compatible = "fsl,s32-linflexuart";
-        reg = <0x0 0x401C8000 0x0 0x3000>;
+        reg = <0x401C8000 0x3000>;
         interrupts = <0 82 1>;
         clocks = <&clks S32GEN1_SCMI_CLK_LINFLEX_LIN>,
                  <&clks S32GEN1_SCMI_CLK_LINFLEX_XBAR>;
@@ -75,12 +75,13 @@ examples:
                <&edma0 0 3>;
         dma-names = "rx", "tx";
     };
+
   - |
     #include <dt-bindings/clock/s32v234-clock.h>
 
-    uart0:serial@40053000 {
+    uart1: serial@40053000 {
         compatible = "fsl,s32-linflexuart";
-        reg = <0x0 0x40053000 0x0 0x1000>;
+        reg = <0x40053000 0x1000>;
         interrupts = <0 59 1>;
         clocks = <&clks S32V234_CLK_LIN0>,
                  <&clks S32V234_CLK_LIN0_IPG>;

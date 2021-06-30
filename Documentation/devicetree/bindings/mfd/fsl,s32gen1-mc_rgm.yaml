@@ -16,10 +16,9 @@ description: |
 
 properties:
   compatible:
-    contains:
-      - items:
-          - const: fsl,s32gen1-rgm
-          - const: syscon
+    items:
+      - const: fsl,s32gen1-rgm
+      - const: syscon
 
   reg:
     maxItems: 1
@@ -34,5 +33,5 @@ examples:
   - |
     mc_rgm: mc_rgm@40078000 {
       compatible = "fsl,s32gen1-rgm", "syscon";
-      reg = <0x0 0x40078000 0x0 0x3000>;
+      reg = <0x40078000 0x3000>;
     };
