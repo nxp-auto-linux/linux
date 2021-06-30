@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
 %YAML 1.2
 ---
-$id: http://devicetree.org/schemas/serial/fsl,s32v234-shm.yaml#
+$id: http://devicetree.org/schemas/misc/fsl,s32v234-shm.yaml#
 $schema: http://devicetree.org/meta-schemas/core.yaml#
 
 title: S32V234 Shared Memory Block
@@ -20,19 +20,18 @@ description: |
     a proper synchronization mechanism for accessing the data.
 
 allOf:
-  - $ref: "rs485.yaml"
+  - $ref: "/schemas/serial/rs485.yaml"
 
 properties:
   compatible:
-    oneOf:
-      - enum:
-          - fsl,s32v234-shm
+    enum:
+      - fsl,s32v234-shm
 
   reg:
     maxItems: 1
 
-rs485-rts-active-low: true
-linux,rs485-enabled-at-boot-time: true
+  rs485-rts-active-low: true
+  linux,rs485-enabled-at-boot-time: true
 
 required:
   - compatible
@@ -42,19 +41,13 @@ unevaluatedProperties: false
 
 examples:
   - |
-    reserved-memory {
-       ....
-       /* 1Mb shared memory */
-       shared_memory: shm@0xC1000000 {
-                    compatible = "fsl,s32v234-shm";
-                    reg = <0x0 0xC1000000 0x0 0x100000>;    /* 1 MB */
-                    no-map;
-       };
+    /* 1Mb shared memory */
+    shared_memory: shm@C1000000 {
+      compatible = "fsl,s32v234-shm";
+      reg = <0xC1000000 0x100000>;    /* 1 MB */
+      no-map;
     };
 
-    ....
-
     some-device {
-       ....
        memory-region = <&shared_memory>;
     };
