@@ -80,9 +80,11 @@ Examples:
 		fsl,clk-source = <0>; // select clock source 0 for PE
 	};
 
+#include <dt-bindings/clock/s32v234-clock.h>
+
 	flexcan@40055000 {
 		compatible = "fsl,s32v234-flexcan";
-		reg = <0x0 0x40055000 0x0 0x1000>;
+		reg = <0x40055000 0x1000>;
 		interrupts = <0 41 4>,
 			     <0 42 4>;
 		interrupt-names = "state-berr", "mb";

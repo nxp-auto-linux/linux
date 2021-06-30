@@ -16,12 +16,33 @@ Required properties:
 - clock-names : should contain: "lin" - the uart clock
 
 Example:
-uart0:serial@40053000 {
+#include <dt-bindings/clock/s32gen1-scmi-clock.h>
+
+uart0: serial@401C8000 {
 	compatible = "fsl,s32-linflexuart";
-	reg = <0x0 0x40053000 0x0 0x1000>;
-	interrupts = <0 59 4>;
-	clocks = <&clks	S32V234_CLK_LIN>;
-	clock-names = "lin";
+	reg = <0x401C8000 0x3000>;
+	interrupts = <0 82 1>;
+	clocks = <&clks S32GEN1_SCMI_CLK_LINFLEX_LIN>,
+		 <&clks S32GEN1_SCMI_CLK_LINFLEX_XBAR>;
+	clock-names = "lin", "ipg";
+	dmas = <&edma0 0 4>,
+	       <&edma0 0 3>;
+	dma-names = "rx", "tx";
+};
+
+- |
+#include <dt-bindings/clock/s32v234-clock.h>
+
+uart1: serial@40053000 {
+	compatible = "fsl,s32-linflexuart";
+	reg = <0x40053000 0x1000>;
+	interrupts = <0 59 1>;
+	clocks = <&clks S32V234_CLK_LIN0>,
+		 <&clks S32V234_CLK_LIN0_IPG>;
+	clock-names = "lin", "ipg";
+	dmas = <&edma 0 20>,
+	       <&edma 0 19>;
+	dma-names = "rx", "tx";
 	status = "disabled";
 };
 

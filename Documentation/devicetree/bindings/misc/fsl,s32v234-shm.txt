@@ -26,7 +26,7 @@ reserved-memory {
 	/* 1Mb shared memory */
 	shared_memory: shm@0xC1000000 {
 		compatible = "fsl,s32v234-shm";
-		reg = <0x0 0xC1000000 0x0 0x100000>;    /* 1 MB */
+		reg = <0xC1000000 0x100000>;    /* 1 MB */
 		no-map;
 	};
 };

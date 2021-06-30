@@ -7,9 +7,11 @@ Required properties:
 - clock-names : "tsens"
 
 Example:
+	#include <dt-bindings/clock/s32v234-clock.h>
+
 	tmu: tmu@400CE000 {
 		compatible = "fsl,s32v234-tmu";
-		reg = <0x0 0x400CE000 0x0 0x1000>;
+		reg = <0x400CE000 0x1000>;
 		clocks = <&clks S32V234_CLK_TSENS>;
 		clock-names = "tsens";
 		status = "disabled";

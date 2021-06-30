@@ -19,24 +19,30 @@ Required properties:
 
 Example:
 
-gpioeirq: siul2-gpio@4006C000 {
-	compatible = "fsl,s32v234-siul2-gpio";
-	gpio-controller;
-	#gpio-cells = <2>;
-		/* GPIO 0-31 */
-	gpio-ranges = <&pinctrl 0 0 32>,
-		/* EIRQ pins */
-		<&pinctrl 590 590 32>;
-		/* Output pad */
-	reg = <0x4 0x0 0x0 0x4>,
-		/* Input Pad */
-		<0x4 0x40 0x0 0x4>,
-		/* Reserved */
-		<0x2 0x0 0x0 0x1C>,
-		<0x3 0x0 0x0 0x1C>,
-		/* EIRQ */
-		<0x0 0x0 0x0 0xC4>;
-	interrupt-controller;
-	interrupts = <0 70 4>;
-	status = "disabled";
+bus {
+
+	#address-cells = <2>;
+	#size-cells = <2>;
+
+	gpioeirq: siul2-gpio@4006C000 {
+		compatible = "fsl,s32v234-siul2-gpio";
+		gpio-controller;
+		#gpio-cells = <2>;
+			/* GPIO 0-31 */
+		gpio-ranges = <&pinctrl 0 0 32>,
+			/* EIRQ pins */
+			<&pinctrl 590 590 32>;
+			/* Output pad */
+		reg = <0x4 0x0 0x0 0x4>,
+			/* Input Pad */
+			<0x4 0x40 0x0 0x4>,
+			/* Reserved */
+			<0x2 0x0 0x0 0x1C>,
+			<0x3 0x0 0x0 0x1C>,
+			/* EIRQ */
+			<0x0 0x0 0x0 0xC4>;
+		interrupt-controller;
+		interrupts = <0 70 4>;
+		status = "disabled";
+	};
 };

@@ -6,14 +6,25 @@ for S32 Gen1 SoCs.
 Required properties:
 - compatible : "fsl,s32gen1-stm-global"
 - reg : Should contain 1 register range(address and length)
+- clocks : stm clock
+- clock-names : stm
+
+Optional properties:
+- interrupts
+- cpu
 
 Example:
 
+#include <dt-bindings/clock/s32gen1-scmi-clock.h>
+
 stm0: stm@4000D000{
 	compatible = "fsl,s32gen1-stm-global";
-	reg = <0x0 0x4000D000 0x0 0x1000>;
+	reg = <0x4000D000 0x1000>;
+	interrupts = <0 24 4>;
+	clocks = <&clks S32GEN1_SCMI_CLK_STM_MODULE>;
 	clock-names = "stm";
 	status = "disabled";
+	cpu = <2>;
 };
 
 &stm0 {

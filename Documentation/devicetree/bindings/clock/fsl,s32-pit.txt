@@ -14,6 +14,9 @@ Required properties:
 
 Example:
 
+#include <dt-bindings/clock/s32v234-clock.h>
+
+
 pit0: pit@4003A000{
 	compatible = "fsl,s32v234-pit";
 	reg = <0x0 0x4003A000 0x0 0x1000>;

@@ -12,10 +12,13 @@ Required properties:
                                 "sys3" and "sys6" for dec200_dec
 			See ../clock/clock-bindings.txt for details.
 
+Optional properties:
+- interrupts : Specifies interrupt number.
+
 Examples:
 dec200_dec: dec200@40026000 {
         compatible = "fsl,s32v234-dec200_dec";
-        reg = <0x0 0x40026000 0x0 0x1000>;
+        reg = <0x40026000 0x1000>;
         interrupts = <0 97 4>;
         clocks = <&clks S32V234_CLK_DCU_AXI>,
                         <&clks S32V234_CLK_SYS6>;
@@ -25,7 +28,7 @@ dec200_dec: dec200@40026000 {
 
 dec200_enc: dec200@40027000 {
         compatible = "fsl,s32v234-dec200_enc";
-        reg = <0x0 0x40027000 0x0 0x1000>;
+        reg = <0x40027000 0x1000>;
         interrupts = <0 98 4>;
         clocks = <&clks S32V234_CLK_DEC200_ENC_AHB>,
                         <&clks S32V234_CLK_DEC200_ENC_IPS>;

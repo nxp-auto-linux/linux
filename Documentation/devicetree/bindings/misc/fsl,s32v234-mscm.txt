@@ -25,7 +25,7 @@ Example:
 mscm1: mscm@40081000 {
 	compatible = "fsl,s32v234-mscm";
 
-	reg = <0x0 0x40081000 0x0 0x1000>;
+	reg = <0x40081000 0x1000>;
 
 	/* CPU2CPU interrupts */
 	interrupts = <0 0 4 >,

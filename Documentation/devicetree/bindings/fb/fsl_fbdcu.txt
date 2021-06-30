@@ -6,38 +6,19 @@ Required properties:
 - interrupts: Should contain DCU interrupts.
 - clocks: From common clock binding: handle to DCU clock.
 - clock-names: From common clock binding: Shall be "dcu".
-- display: The phandle to display node.
-
-* display node
-
-Required properties:
-- bits-per-pixel: <24> for RGB888.
-
-Required sub-node:
-- display-timings: Refer to binding doc display-timing.txt for details.
+- memory-region : The phandle to the reserved memory region.
 
 Examples:
 
-&dcu0 {
-	display = <&display>;
-	status = "okay";
-	display: display@0 {
-		bits-per-pixel = <32>;
+#include <dt-bindings/clock/s32v234-clock.h>
 
-		display-timings {
-			native-mode = <&timing0>;
-
-			timing0: nl4827hc19 {
-				clock-frequency = <56000000>;
-				hactive = <1920>;
-				vactive = <1080>;
-				hback-porch = <30>;
-				hfront-porch = <60>;
-				vback-porch = <30>;
-				vfront-porch = <3>;
-				hsync-len = <60>;
-				vsync-len = <3>;
-			};
-		};
-	};
+dcu0: dcu@40028000 {
+	compatible = "fsl,s32v234-dcu";
+	reg = <0x40028000 0x5000>;
+	interrupts = <0 95 4>;
+	clocks = <&clks S32V234_CLK_DCU_AXI>,
+		 <&clks S32V234_CLK_DCU_PIX>;
+	clock-names = "dcu", "ipg";
+	memory-region = <&dcu_surface_memory>;
+	status = "disabled";
 };

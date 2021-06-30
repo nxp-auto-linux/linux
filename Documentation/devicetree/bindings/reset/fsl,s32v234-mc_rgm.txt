@@ -23,5 +23,5 @@ example:
 
 mc_rgm: mc_rgm@40048000 {
 				compatible = "fsl,s32v234-mc_rgm";
-				reg = <0x0 0x40048000 0x0 0x1000>;
+				reg = <0x40048000 0x1000>;
 			};

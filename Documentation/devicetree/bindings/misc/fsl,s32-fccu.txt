@@ -20,7 +20,7 @@ Example:
 
 fccu: fccu@400B0000 {
 				compatible = "fsl,s32v234-fccu";
-				reg = <0x0 0x400B0000 0x0 0x1000>;
+				reg = <0x400B0000 0x1000>;
 				clocks = <&clks S32V234_CLK_SYS6>;
 				clock-names = "fccu";
 				nxp,ncf_fault_off = <35 36 37 38>;

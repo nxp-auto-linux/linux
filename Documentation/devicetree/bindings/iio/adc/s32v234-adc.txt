@@ -4,23 +4,27 @@ Required properties:
 - compatible: Should be "fsl,s32v234-adc" or "fsl,s32gen1-adc"
 - reg: Location and length of the register set for the device
 - interrupts: The interrupt for the device
-- clocks: ADC clock input (bus clock)
+- clocks: SAR-ADC source clock (S32GEN1_CLK_PER)
 - clock-names: Input clock name; should be "adc"
-- vref: Reference voltage (in millivolts)
+- vref: SAR-ADC reference voltage supply (in millivolts)
 
 Examples:
+#include <dt-bindings/clock/s32v234-clock.h>
+
 saradc0: adc@4004d000 {
 	compatible = "fsl,s32v234-adc";
-	reg = <0x0 0x4004d000 0x0 0x1000>;
+	reg = <0x4004d000 0x1000>;
 	interrupts = <0 39 4>;
 	clocks = <&clks S32V234_CLK_SARADC0>;
 	clock-names = "adc";
 	vref = <1800>;
 };
 
+#include <dt-bindings/clock/s32gen1-clock.h>
+
 saradc0: adc@401f8000 {
 	compatible = "fsl,s32gen1-adc";
-	reg = <0x0 0x401f8000 0x0 0x1000>;
+	reg = <0x401f8000 0x1000>;
 	interrupts = <0 70 4>;
 	clocks = <&clks S32GEN1_CLK_PER>;
 	clock-names = "adc";

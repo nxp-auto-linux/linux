@@ -7,5 +7,5 @@ Required properties:
 Example:
     tmu: tmu@400A8000 {
         compatible = "fsl,s32gen1-tmu";
-        reg = <0x0 0x400A8000 0x0 0x3000>;
+        reg = <0x400A8000 0x3000>;
     };

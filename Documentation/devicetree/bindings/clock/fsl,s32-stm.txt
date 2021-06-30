@@ -10,20 +10,31 @@ Required properties:
 - cpu: The virtual cpu id which will use the timer as
 	clockevents generator.
 
-Example:
+Optional properties:
+- clocks : stm clock
+- clock-names : stm
 
-stm0: stm@4000D000{
+Example 1:
+
+#include <dt-bindings/clock/s32gen1-scmi-clock.h>
+
+stm0: stm@4011C000 {
+	compatible = "fsl,s32gen1-stm";
+	reg = <0x4011C000 0x3000>;
+	interrupts= <0 24 4>;
+	clocks = <&clks S32GEN1_SCMI_CLK_STM_MODULE>;
+	clock-names = "stm";
+	cpu = <2>;
+};
+
+Example 2:
+
+#include <dt-bindings/clock/s32v234-clock.h>
+
+stm1: stm@4000D000{
 	compatible = "fsl,s32v234-stm";
-	reg = <0x0 0x4000D000 0x0 0x1000>;
+	reg = <0x4000D000 0x1000>;
 	interrupts= <0 19 4>;
 	clocks = <&clks S32V234_CLK_SYS6>;
 	clock-names = "stm";
 	cpu = <1>;
-	status = "disabled";
-};
-
-&stm0 {
-	status = "okay";
-};
-
-

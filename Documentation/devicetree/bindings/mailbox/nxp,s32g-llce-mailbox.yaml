@@ -49,8 +49,6 @@ properties:
       - const: txack_fifo
 
   reg:
-    minItems: 6
-    maxItems: 6
     items:
       - description: Address and Size of the RXIN fifo memory region
       - description: Address and Size of the RXOUT fifo memory region
@@ -70,8 +68,6 @@ properties:
       - const: logger_rx
 
   interrupts:
-    maxItems: 6
-    minItems: 6
     items:
       - description: Shared interrupt line for RXIN 0-7 fifos
       - description: Shared interrupt line for RXIN 8-15 fifos
@@ -105,7 +101,11 @@ examples:
   - |
     #include <dt-bindings/interrupt-controller/irq.h>
     #include <dt-bindings/clock/s32g-scmi-clock.h>
-    llce_mb: llce_mailbox@43800000 {
+    bus {
+      #address-cells = <2>;
+      #size-cells = <2>;
+
+      llce_mb: llce_mailbox@43800000 {
         compatible = "nxp,s32g-llce-mailbox";
         #mbox-cells = <2>;
 
@@ -141,5 +141,6 @@ examples:
             "txack_fifo_8_15",
             "logger_rx";
         status = "okay";
+      };
     };
 
