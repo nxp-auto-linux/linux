@@ -34,7 +34,7 @@ examples:
   - |
     reset: rgm@40078000 {
         compatible = "fsl,s32r45-reset";
-        reg = <0x0 0x40078000 0x0 0x3000>;
+        reg = <0x40078000 0x3000>;
         #reset-cells = <1>;
     };
 
