@@ -1452,6 +1452,7 @@ static int s32gen1_pcie_suspend(struct device *dev)
 {
 	struct s32gen1_pcie *s32_pp = dev_get_drvdata(dev);
 	struct dw_pcie *pcie = &(s32_pp->pcie);
+	struct pcie_port *pp = &(pcie->pp);
 
 	DEBUG_FID(s32_pp->id);
 
@@ -1462,6 +1463,10 @@ static int s32gen1_pcie_suspend(struct device *dev)
 	s32_pp->msi_ctrl_int = dw_pcie_readl_dbi(pcie,
 					       PORT_MSI_CTRL_INT_0_EN_OFF);
 	s32gen1_pcie_downstream_dev_to_D0(s32_pp);
+
+	pci_stop_root_bus(pp->bridge->bus);
+	pci_remove_root_bus(pp->bridge->bus);
+
 	s32gen1_pcie_pme_turnoff(s32_pp);
 
 	return deinit_controller(s32_pp);
@@ -1490,6 +1495,10 @@ static int s32gen1_pcie_resume(struct device *dev)
 		dev_err(dev, "Failed to init host: %d\n", ret);
 		goto fail_host_init;
 	}
+
+	ret = pci_host_probe(pp->bridge);
+	if (ret)
+		return ret;
 
 	/* Restore MSI interrupt vector */
 	dw_pcie_writel_dbi(pcie, PORT_MSI_CTRL_INT_0_EN_OFF,
