@@ -48,17 +48,4 @@ struct s32v234_pcie {
 #endif
 };
 
-struct s32v_inbound_region {
-	u32 bar_nr;
-	u32 target_addr;
-	u32 region;
-};
-struct s32v_outbound_region {
-	u64 target_addr;
-	u64 base_addr;
-	u32 size;
-	u32 region;
-	u32 region_type;
-};
-
 #endif  /* _PCIE_S32V234_H */
