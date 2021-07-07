@@ -442,7 +442,7 @@ int dw_pcie_dma_single_rw(struct dw_pcie *pci, struct dma_info *di,
 		return -EINVAL;
 
 	/* Invalid transfer size */
-	if (dma_single_rw->size > PCIE_DMA_MAX_SIZE)
+	if (dma_single_rw->size > CONFIG_PCIE_DMA_MAX_SIZE)
 		return -EINVAL;
 
 	flags = dma_single_rw->flags;
