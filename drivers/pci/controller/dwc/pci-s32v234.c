@@ -30,6 +30,7 @@
 #include <linux/of_platform.h>
 
 #include "pci-s32v234.h"
+#include "pci-ioctl-s32.h"
 
 /* TODO: across the entire file:
  * - use dedicated dw_* functions for dbi_base access
@@ -39,22 +40,6 @@
  * - update endpoint functionality based on the new dw ep implementation
  * and types
  */
-
-#define SETUP_OUTBOUND		_IOWR('S', 1, struct s32v_outbound_region)
-#define SETUP_INBOUND		_IOWR('S', 2, struct s32v_inbound_region)
-#define SEND_MSI		_IOWR('S', 3, u64)
-#define GET_BAR_INFO		_IOWR('S', 4, struct s32v_bar)
-#define STORE_PID		_IOR('S', 7,  s32)
-#define SEND_SIGNAL		_IOR('S', 8,  int)
-#ifdef CONFIG_PCI_DW_DMA
-#define SEND_SINGLE_DMA		_IOWR('S', 6, struct dma_data_elem)
-#define GET_DMA_CH_ERRORS	_IOR('S', 9,  u32)
-#define RESET_DMA_WRITE		_IOW('S', 10,  u32)
-#define RESET_DMA_READ		_IOW('S', 11,  u32)
-#define STORE_LL_INFO		_IOR('S', 12,  struct dma_ll_info)
-#define SEND_LL			_IOWR('S', 13, struct dma_list(*)[])
-#define START_LL		_IOWR('S', 14, u32)
-#endif
 
 #define PCIE_MSI_CAP			0x50
 #define PCIE_MSI_ADDR_LOWER		0x54
@@ -204,11 +189,6 @@ err_find_node:
 }
 
 struct task_struct *task;
-struct s32v_bar {
-	u32 bar_nr;
-	u32 size;
-	u32 addr;
-};
 
 struct s32v_outbound_region restore_outb_arr[4];
 struct s32v_inbound_region restore_inb_arr[4];
