@@ -210,6 +210,29 @@ has_neoverse_n1_erratum_1542419(const struct arm64_cpu_capabilities *entry,
 	return is_midr_in_range(midr, &range) && has_dic;
 }
 
+#ifdef CONFIG_NXP_S32CC_ERRATUM_ERR050481
+#define SYS_L2CTRL_NCORES_SHIFT	24
+#define SYS_L2CTRL_NCORES_MASK	(0x3 << SYS_L2CTRL_NCORES_SHIFT)
+#define SYS_L2CTRL_2CORES	0x1
+
+static bool
+has_nxp_s32cc_erratum_err050481(const struct arm64_cpu_capabilities *entry,
+				int scope)
+{
+	u64 l2ctrl = read_sysreg_s(SYS_L2CTRL_EL1);
+	u64 ncores;
+
+	ncores = (l2ctrl & SYS_L2CTRL_NCORES_MASK);
+	ncores >>= SYS_L2CTRL_NCORES_SHIFT;
+
+	/**
+	 * Applies to S32CC platforms with 2 cores per cluster.
+	 * This excludes S32G3.
+	 */
+	return (ncores == SYS_L2CTRL_2CORES);
+}
+#endif
+
 #ifdef CONFIG_ARM64_WORKAROUND_REPEAT_TLBI
 static const struct arm64_cpu_capabilities arm64_repeat_tlbi_list[] = {
 #ifdef CONFIG_QCOM_FALKOR_ERRATUM_1009
@@ -763,6 +786,14 @@ const struct arm64_cpu_capabilities arm64_errata[] = {
 		.desc = "AmpereOne erratum AC03_CPU_38",
 		.capability = ARM64_WORKAROUND_AMPERE_AC03_CPU_38,
 		ERRATA_MIDR_ALL_VERSIONS(MIDR_AMPERE1),
+	},
+#endif
+#ifdef CONFIG_NXP_S32CC_ERRATUM_ERR050481
+	{
+		.desc = "NXP erratum ERR050481 (TLBI by VA handled incorrectly)",
+		.capability = ARM64_WORKAROUND_NXP_ERR050481,
+		.type = ARM64_CPUCAP_LOCAL_CPU_ERRATUM,
+		.matches = has_nxp_s32cc_erratum_err050481,
 	},
 #endif
 	{
