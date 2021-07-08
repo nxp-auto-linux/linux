@@ -1038,6 +1038,21 @@ static inline bool cpu_has_lpa2(void)
 #endif
 }
 
+static inline bool cpu_has_nxp_err050481(void)
+{
+	if (!IS_ENABLED(CONFIG_NXP_S32CC_ERRATUM_ERR050481))
+		return false;
+
+	/**
+	 * Enable the workaround for the early stages of the boot
+	 * regardless of capability enablement.
+	 */
+	if (!system_capabilities_finalized())
+		return true;
+
+	return alternative_has_cap_unlikely(ARM64_WORKAROUND_NXP_ERR050481);
+}
+
 #endif /* __ASSEMBLY__ */
 
 #endif
