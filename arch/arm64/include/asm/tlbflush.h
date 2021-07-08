@@ -4,6 +4,7 @@
  *
  * Copyright (C) 1999-2003 Russell King
  * Copyright (C) 2012 ARM Ltd.
+ * Copyright 2022 NXP
  */
 #ifndef __ASM_TLBFLUSH_H
 #define __ASM_TLBFLUSH_H
@@ -46,7 +47,37 @@
 
 #define __TLBI_N(op, arg, n, ...) __TLBI_##n(op, arg)
 
+#if IS_ENABLED(CONFIG_NXP_S32CC_ERRATUM_ERR050481)
+ /**
+  * This checks if VA[48:41] bitset of an 12 bits shifted address is zero.
+  */
+#define IS_ERR050481_ADDR(addr_shr_12)  \
+	(((addr_shr_12) & GENMASK_ULL(36, 29)) != 0)
+
+#define S32CC_TLBI_ALT(OP, ADDR) do {\
+	unsigned long __temp_050481 = (ADDR);\
+	if (cpu_has_nxp_err050481() && IS_ERR050481_ADDR(__temp_050481))\
+		__TLBI_0(vmalle1is, 0);\
+	else\
+		__TLBI_1(OP, __temp_050481);\
+} while (0)
+
+#define __tlbi_vaae1is(ADDR, ...)	S32CC_TLBI_ALT(vaae1is, ADDR)
+#define __tlbi_vaae1is(ADDR, ...)	S32CC_TLBI_ALT(vaae1is, ADDR)
+#define __tlbi_vaale1is(ADDR, ...)	S32CC_TLBI_ALT(vaale1is, ADDR)
+#define __tlbi_vae1is(ADDR, ...)	S32CC_TLBI_ALT(vae1is, ADDR)
+#define __tlbi_vale1is(ADDR, ...)	S32CC_TLBI_ALT(vale1is, ADDR)
+#define __tlbi_vmalle1()		__TLBI_0(vmalle1, 0)
+#define __tlbi_vmalle1is()		__TLBI_0(vmalle1is, 0)
+#define __tlbi_aside1is(ASID)		__TLBI_1(aside1is, ASID)
+#define __tlbi_rvale1is(ADDR)		__TLBI_1(rvale1is, ADDR)
+#define __tlbi_rvae1is(ADDR)		__TLBI_1(rvae1is, ADDR)
+
+#define __tlbi(op, ...) __tlbi_##op(__VA_ARGS__)
+
+#else
 #define __tlbi(op, ...)		__TLBI_N(op, ##__VA_ARGS__, 1, 0)
+#endif
 
 #define __tlbi_user(op, arg) do {						\
 	if (arm64_kernel_unmapped_at_el0())					\
