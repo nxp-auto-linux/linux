@@ -1195,10 +1195,20 @@ static struct dw_pcie_host_ops s32v234_pcie_host_ops = {
 	.host_init = s32v234_pcie_host_init,
 };
 
-static int __init s32v234_add_pcie_port(struct pcie_port *pp,
+static int __init s32v234_add_pcie_port(struct dw_pcie *pcie,
 			struct platform_device *pdev)
 {
+	struct pcie_port *pp = &(pcie->pp);
 	int ret;
+
+	pp->ops = &s32v234_pcie_host_ops;
+
+	ret = dw_pcie_host_init(pp);
+	if (ret) {
+		dev_err(&pdev->dev, "failed to initialize host\n");
+		return ret;
+	}
+
 #ifdef CONFIG_PCI_MSI
 	pp->msi_irq = platform_get_irq_byname(pdev, "msi");
 	if (pp->msi_irq <= 0) {
@@ -1215,15 +1225,15 @@ static int __init s32v234_add_pcie_port(struct pcie_port *pp,
 	}
 	dev_info(&pdev->dev, "Allocated line %d for interrupt %d",
 		ret, pp->msi_irq);
-#endif
 
-	pp->ops = &s32v234_pcie_host_ops;
+	if (pci_msi_enabled()) {
+		u8 offset = dw_pcie_find_capability(pcie, PCI_CAP_ID_MSI);
+		u16 flags_val = dw_pcie_readw_dbi(pcie, offset + PCI_MSI_FLAGS);
 
-	ret = dw_pcie_host_init(pp);
-	if (ret) {
-		dev_err(&pdev->dev, "failed to initialize host\n");
-		return ret;
+		flags_val |= PCI_MSI_FLAGS_ENABLE;
+		dw_pcie_writew_dbi(pcie, offset + PCI_MSI_FLAGS, flags_val);
 	}
+#endif
 
 	return 0;
 }
@@ -1365,7 +1375,7 @@ static int s32v234_pcie_probe(struct platform_device *pdev)
 	s32v234_pp->soc_revision = s32v234_pcie_get_soc_revision();
 
 	if (!s32v234_pp->is_endpoint) {
-		ret = s32v234_add_pcie_port(pp, pdev);
+		ret = s32v234_add_pcie_port(pcie, pdev);
 		if (ret < 0)
 			return ret;
 	} else {
