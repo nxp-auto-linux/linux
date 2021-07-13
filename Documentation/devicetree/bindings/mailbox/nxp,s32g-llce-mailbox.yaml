@@ -23,6 +23,7 @@ properties:
       represents the ID of the channel.
       Channel types
         * S32G_LLCE_CAN_CONF_MB
+        * S32G_LLCE_CAN_LOGGER_MB
         * S32G_LLCE_CAN_RX_MB
         * S32G_LLCE_CAN_TX_MB
     const: 2
