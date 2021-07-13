@@ -6,6 +6,7 @@
 #include <linux/kernel.h>
 #include <linux/mailbox/nxp-llce/llce_fw_interface.h>
 #include <linux/module.h>
+#include <linux/moduleparam.h>
 #include <linux/of_address.h>
 #include <linux/of_platform.h>
 #include <linux/platform_device.h>
@@ -57,6 +58,9 @@ struct llce_core {
 
 	int nfrws;
 };
+
+static bool load_fw = true;
+module_param(load_fw, bool, 0660);
 
 static void devm_sram_pool_release(struct device *dev, void *res)
 {
@@ -382,6 +386,9 @@ static int llce_core_probe(struct platform_device *pdev)
 	struct llce_core *core;
 	int ret;
 
+	if (!load_fw)
+		return devm_of_platform_populate(&pdev->dev);
+
 	core = devm_kmalloc(dev, sizeof(*core), GFP_KERNEL);
 	if (!core)
 		return -ENOMEM;
@@ -438,6 +445,9 @@ static int llce_core_remove(struct platform_device *pdev)
 {
 	struct llce_core *core = platform_get_drvdata(pdev);
 
+	if (!load_fw)
+		return 0;
+
 	llce_release_fw_images(core);
 	deinit_core_clock(core);
 	return 0;
@@ -446,6 +456,9 @@ static int llce_core_remove(struct platform_device *pdev)
 static int __maybe_unused llce_core_suspend(struct device *dev)
 {
 	struct llce_core *core = dev_get_drvdata(dev);
+
+	if (!load_fw)
+		return 0;
 
 	deinit_core_clock(core);
 
@@ -456,6 +469,9 @@ static int __maybe_unused llce_core_resume(struct device *dev)
 {
 	struct llce_core *core = dev_get_drvdata(dev);
 	int ret;
+
+	if (!load_fw)
+		return 0;
 
 	ret = init_core_clock(dev, core);
 	if (ret)
