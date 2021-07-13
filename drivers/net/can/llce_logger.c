@@ -1,37 +1,38 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
-/* Copyright 2020 NXP
+/* Copyright 2020-2021 NXP
  *
  * Driver for the NXP Semiconductors LLCE engine logging of CAN messages.
  * The LLCE can be found on S32G2xx.
  */
 
-#include <linux/kernel.h>
-#include <linux/module.h>
-#include <linux/platform_device.h>
-#include <linux/interrupt.h>
-#include <linux/io.h>
-#include <linux/uaccess.h>
-#include <linux/slab.h>
-#include <linux/of_device.h>
-#include <linux/types.h>
-#include <linux/fs.h>
-#include <linux/debugfs.h>
-#include <linux/kthread.h>
-#include <linux/delay.h>
 #include <linux/atomic.h>
-#include "llce_control.h"
-#include "llce_interface.h"
+#include <linux/bitops.h>
+#include <linux/circ_buf.h>
+#include <linux/debugfs.h>
+#include <linux/delay.h>
+#include <linux/freezer.h>
+#include <linux/fs.h>
+#include <linux/io.h>
+#include <linux/kernel.h>
+#include <linux/mailbox/nxp-llce/llce_can.h>
+#include <linux/mailbox/nxp-llce/llce_interface_fifo.h>
+#include <linux/mailbox/nxp-llce/llce_mailbox.h>
+#include <linux/mailbox_client.h>
+#include <linux/module.h>
+#include <linux/moduleparam.h>
+#include <linux/of_device.h>
+#include <linux/platform_device.h>
+#include <linux/slab.h>
+#include <linux/uaccess.h>
 
 #define	DRIVER_NAME			"llce-logger"
 #define	INPUT_STRING_LENGTH 5
-#define MAX_LOG_SIZE		4096
 
-struct llce_hw {
-	void __iomem *fifo_ier;
-	void __iomem *fifo_pop0;
-	void __iomem *fifo_push0;
-	void __iomem *fifo_status1;
-	struct llce_can_shared_memory *shared_mem;
+/* Logging structure
+ */
+struct frame_log {
+	struct llce_can_mb frame;
+	u8 hw_ctrl;
 };
 
 struct llce_dbg {
@@ -40,27 +41,14 @@ struct llce_dbg {
 };
 
 struct llce_syncs {
-	struct completion new_frames_received;
+	wait_queue_head_t fifo_event;
 	/* guarantees max 1 userspace thread for consistency */
 	struct mutex userspace_access;
-	/* protects against race condition between read and
-	 * logging thread on the actual logged frames
-	 */
-	struct mutex logged_frames_lck;
-	u32 can_idx;
-	atomic_t frames_received;
-	atomic_t log_size;
 };
 
 struct llce_data {
-	struct frame_log logged_frames[MAX_LOG_SIZE];
-	/* input_string will hold the number written by the user in
-	 * the llce char device as a string.
-	 * Consider a maximum of MAX_LOG_SIZE frames logged on host.
-	 * MAX_LOG_SIZE has 4 digits. +1 because of string terminator.
-	 */
-	char input_string[INPUT_STRING_LENGTH];
-	size_t input_string_size;
+	struct circ_buf cbuf;
+	atomic_t frames_received;
 	size_t entry_disp_size;
 	char *out_str;
 };
@@ -68,50 +56,16 @@ struct llce_data {
 struct llce_priv {
 	struct llce_data data;
 	struct llce_syncs syncs;
-	struct llce_hw hw;
 	struct llce_dbg dbg;
+	struct mbox_client rx_client;
 
-	struct platform_device *pdev;
-	struct task_struct *copy_thread;
+	struct device *dev;
+	struct mbox_chan *rx_chan;
 };
 
-static int copy_logs(void *priv_data)
-{
-	struct llce_priv *priv = priv_data;
-	struct llce_can_rx_mb_descriptor desc;
-	u16 frame_idx;
-	u32 can_idx, wr_idx;
-	int log_size, cnt;
-	void *src, *dst;
-
-	wr_idx = 0;
-	while (1) {
-		wait_for_completion(&priv->syncs.new_frames_received);
-		if (kthread_should_stop())
-			break;
-
-		log_size = atomic_read(&priv->syncs.log_size);
-		can_idx = priv->syncs.can_idx;
-		desc = priv->hw.shared_mem->can_rx_mb_desc[can_idx];
-		frame_idx = desc.u16mb_frame_idx;
-
-		src = &priv->hw.shared_mem->can_mb[frame_idx];
-		dst = &priv->data.logged_frames[wr_idx].frame;
-		cnt = sizeof(priv->data.logged_frames[wr_idx].frame);
-		atomic_inc(&priv->syncs.frames_received);
-
-		mutex_lock(&priv->syncs.logged_frames_lck);
-		memcpy_fromio(dst, src, cnt);
-		wr_idx = (wr_idx + 1) % log_size;
-		mutex_unlock(&priv->syncs.logged_frames_lck);
-
-		reinit_completion(&priv->syncs.new_frames_received);
-	}
-
-	complete_and_exit(&priv->syncs.new_frames_received, 0);
-
-	return 0;
-}
+/* This must be a power of two due to circular buffer implementation */
+static unsigned long log_size = 4096;
+module_param(log_size, ulong, 0660);
 
 static size_t get_left_len(size_t cur_idx, size_t str_len)
 {
@@ -129,7 +83,7 @@ static unsigned int create_entry_string(struct frame_log *cur_frame,
 	u8 cur_char;
 	char *str_start;
 
-	tstamp = cur_frame->frame.u32_tstamp;
+	tstamp = cur_frame->frame.timestamp;
 	str_start = out_str + cur_idx;
 	wr_size = snprintf(str_start, get_left_len(cur_idx, str_len),
 			   "[t=%04x] ", tstamp);
@@ -150,55 +104,61 @@ static unsigned int create_entry_string(struct frame_log *cur_frame,
 	return cur_idx;
 }
 
-/* Takes an @offset in the complete output string (uncreated)
- * Takes the @size of the string that will need to be shown
- * return the @ret_len length of the created string
- */
-static int create_out_str(struct llce_priv *priv, loff_t *offset,
-			  size_t size, int *ret_len, int *read_from,
-			  size_t entry_print_size)
+static int dump_can_frames(struct llce_priv *priv, unsigned int *cur_idx,
+			   size_t string_size, size_t nelems)
 {
-	int start_idx, end_idx, i;
-	unsigned int cur_idx;
-	size_t string_size;
-	int log_size, frames_received, length;
+	struct llce_data *data = &priv->data;
+	struct frame_log *buffer;
+	size_t circ_elem, i;
+	int head, tail, ret;
 
-	/* Maximum log size in frames */
-	log_size = atomic_read(&priv->syncs.log_size);
-	/* The number of frames received */
-	frames_received = atomic_read(&priv->syncs.frames_received);
-	if (frames_received >= log_size)
-		length = log_size;
-	else
-		length = frames_received;
+	buffer = (struct frame_log *)data->cbuf.buf;
+	ret = wait_event_freezable(priv->syncs.fifo_event,
+				   CIRC_CNT(data->cbuf.head,
+					    data->cbuf.tail, log_size) >= 1);
+	if (ret)
+		return ret;
 
-	start_idx = *offset / entry_print_size;
-	if (start_idx >= length)
-		return -ERANGE;
-	*read_from = *offset % entry_print_size;
-	end_idx = (*offset + size) / entry_print_size;
-	if (end_idx >= length)
-		end_idx = length - 1;
+	/* Read index before reading contents at that index. */
+	head = smp_load_acquire(&data->cbuf.head);
+	tail = data->cbuf.tail;
 
-	/* If start_idx frame is same as end_idx frame then print it
-	 * +1 for string terminator
-	 */
-	string_size = (end_idx - start_idx + 1) * entry_print_size + 1;
+	circ_elem = CIRC_CNT_TO_END(head, tail, log_size);
+	nelems = min_t(size_t, circ_elem, nelems);
+
+	for (i = 0; i < nelems; i++) {
+		*cur_idx = create_entry_string(&buffer[tail + i],
+					       priv->data.out_str, *cur_idx,
+					       string_size);
+
+		atomic_inc(&priv->data.frames_received);
+	}
+
+	/* Finish reading descriptor before incrementing tail. */
+	smp_store_release(&data->cbuf.tail, (tail + nelems) & (log_size - 1));
+
+	return 0;
+}
+
+static int create_out_str(struct llce_priv *priv, loff_t *offset,
+			  size_t size, int *ret_len, size_t entry_print_size)
+{
+	unsigned int cur_idx = 0;
+	size_t string_size, nelems;
+	int ret;
+
+	nelems = size / entry_print_size;
+	string_size = nelems * entry_print_size + 1;
 
 	priv->data.out_str = kmalloc(string_size, GFP_KERNEL);
 	if (!priv->data.out_str)
 		return -ENOMEM;
 
-	mutex_lock(&priv->syncs.logged_frames_lck);
-	cur_idx = 0;
-	for (i = start_idx; i <= end_idx; i++)
-		cur_idx = create_entry_string(&priv->data.logged_frames[i],
-					      priv->data.out_str,
-						  cur_idx, string_size);
-	mutex_unlock(&priv->syncs.logged_frames_lck);
+	ret = dump_can_frames(priv, &cur_idx, string_size, nelems);
+
 	*ret_len = cur_idx;
 
-	return 0;
+	return ret;
 }
 
 static int can_logger_open(struct inode *inode, struct file *file)
@@ -209,39 +169,6 @@ static int can_logger_open(struct inode *inode, struct file *file)
 	priv = file->private_data;
 	/* Allow only one userspace thread at a time (for consistency) */
 	mutex_lock(&priv->syncs.userspace_access);
-
-	return 0;
-}
-
-/**
- * Parses the input string from the user and sets the size of
- *		the log according to that number
- */
-static int set_log_size(struct llce_priv *priv)
-{
-	int rc;
-	bool good_range;
-	int new_log_size;
-
-	priv->data.input_string[priv->data.input_string_size] = '\0';
-
-	rc = kstrtoint(priv->data.input_string, 0, &new_log_size);
-	if (rc == -EINVAL) {
-		dev_err(&priv->pdev->dev,
-			"Wrong format of input. Accepted input examples: \"100\", \"0x20\", \"085\" .\n");
-		return -EINVAL;
-	}
-	good_range = -ERANGE != rc &&
-		new_log_size > 0 &&
-		new_log_size <= ARRAY_SIZE(priv->data.logged_frames);
-	if (!good_range) {
-		dev_err(&priv->pdev->dev,
-			"Number should be in interval (0, %d).\n",
-			MAX_LOG_SIZE);
-		return -ERANGE;
-	}
-
-	atomic_set(&priv->syncs.log_size, new_log_size);
 
 	return 0;
 }
@@ -257,34 +184,28 @@ static int can_logger_release(struct inode *inode, struct file *file)
 }
 
 /**
- *  Used to return a string which contain the CAN logs.
+ *  Used to return a string which contains the CAN logs.
  */
-static ssize_t can_logger_read(struct file *file,
-			       char __user *user_buffer,
-			       size_t size,
-				   loff_t *offset)
+static ssize_t can_logger_read(struct file *file, char __user *user_buffer,
+			       size_t size, loff_t *offset)
 {
 	struct llce_priv *priv;
-	int ret_len, rc, read_from;
+	int ret_len, rc;
 	size_t entry_print_size;
 	int actual_size;
 
 	priv = file->private_data;
 	entry_print_size = priv->data.entry_disp_size;
 	rc = create_out_str(priv, offset, size,
-			    &ret_len, &read_from, entry_print_size);
+			    &ret_len, entry_print_size);
 	if (rc == -ERANGE)
 		return 0;
 	else if (rc)
 		return rc;
 
-	if (size >= ret_len - read_from)
-		actual_size = ret_len - read_from;
-	else
-		actual_size = size;
-	if (copy_to_user(user_buffer,
-			 priv->data.out_str + read_from,
-			 actual_size)) {
+	actual_size = ret_len;
+
+	if (copy_to_user(user_buffer, priv->data.out_str, actual_size)) {
 		kfree(priv->data.out_str);
 		return -EFAULT;
 	}
@@ -296,293 +217,145 @@ static ssize_t can_logger_read(struct file *file,
 	return actual_size;
 }
 
-/**
- * Used to set the log size.
- */
-static ssize_t can_logger_write(struct file *file,
-				const char __user *user_buffer,
-				size_t size,
-				loff_t *offset)
-{
-	struct llce_priv *priv;
-	int err;
-
-	priv = file->private_data;
-	if (size > sizeof(priv->data.input_string)) {
-		dev_err(&priv->pdev->dev,
-			"Input should be at most %zu characters long\n",
-			sizeof(priv->data.input_string) - 1);
-		return -EINVAL;
-	}
-
-	if (copy_from_user(priv->data.input_string, user_buffer, size)) {
-		dev_err(&priv->pdev->dev, "Error copying from userspace\n");
-		return -EFAULT;
-	}
-
-	priv->data.input_string_size = size;
-	err = set_log_size(priv);
-	if (err)
-		return -ERANGE;
-	dev_info(&priv->pdev->dev,
-		 "Current log size is %d.\n",
-		 atomic_read(&priv->syncs.log_size));
-
-	*offset += size;
-	return size;
-}
-
 static const struct file_operations fops = {
 	.owner		= THIS_MODULE,
 	.open		= can_logger_open,
 	.release	= can_logger_release,
 	.read		= can_logger_read,
-	.write		= can_logger_write,
+	.llseek		= no_llseek,
 };
-
-static int map_ctrl_regs(struct llce_priv *priv)
-{
-	struct device *dev;
-	struct resource *res;
-
-	dev = &priv->pdev->dev;
-
-	res = platform_get_resource_byname(priv->pdev,
-					   IORESOURCE_MEM, "fifo-ier");
-	if (!res) {
-		dev_err(&priv->pdev->dev, "Failed to read IER from dtb\n");
-		return -EIO;
-	}
-	priv->hw.fifo_ier = devm_ioremap_resource(dev, res);
-	if (!priv->hw.fifo_ier) {
-		dev_err(&priv->pdev->dev, "Failed to map IER.\n");
-		return -EIO;
-	}
-
-	res = platform_get_resource_byname(priv->pdev,
-					   IORESOURCE_MEM, "fifo-pop0");
-	if (!res) {
-		dev_err(&priv->pdev->dev, "Failed to read POP0 from dtb\n");
-		return -EIO;
-	}
-	priv->hw.fifo_pop0 = devm_ioremap_resource(dev, res);
-	if (!priv->hw.fifo_pop0) {
-		dev_err(&priv->pdev->dev, "Failed to map POP0.\n");
-		return -EIO;
-	}
-
-	res = platform_get_resource_byname(priv->pdev,
-					   IORESOURCE_MEM, "fifo-push0");
-	if (!res) {
-		dev_err(&priv->pdev->dev, "Failed to read PUSH0 from dtb\n");
-		return -EIO;
-	}
-	priv->hw.fifo_push0 = devm_ioremap_resource(dev, res);
-	if (!priv->hw.fifo_push0) {
-		dev_err(&priv->pdev->dev, "Failed to map PUSH0.\n");
-		return -EIO;
-	}
-
-	res = platform_get_resource_byname(priv->pdev,
-					   IORESOURCE_MEM, "fifo-status1");
-	if (!res) {
-		dev_err(&priv->pdev->dev, "Failed to read STATUS1 from dtb\n");
-		return -EIO;
-	}
-	priv->hw.fifo_status1 = devm_ioremap_resource(dev, res);
-	if (!priv->hw.fifo_status1) {
-		dev_err(&priv->pdev->dev, "Failed to map STATUS1.\n");
-		return -EIO;
-	}
-
-	return 0;
-}
-
-static irqreturn_t irq_handler(int irq, void *priv_data)
-{
-	struct llce_priv *priv;
-
-	priv = priv_data;
-	/* Read the index of the message buffer */
-	priv->syncs.can_idx = ioread32(priv->hw.fifo_pop0) &
-		LLCE_CAN_CONFIG_FIFO_FIXED_MASK;
-	complete(&priv->syncs.new_frames_received);
-	/* Write back to Rx core the index of the receive
-	 * mb descriptor
-	 */
-	iowrite32(priv->syncs.can_idx, priv->hw.fifo_push0);
-	/* Clear the interrupt status flag */
-	iowrite32(LLCE_FIFO_FNEMTY, priv->hw.fifo_status1);
-
-	return IRQ_HANDLED;
-}
-
-/* Device Tree Parsing */
 
 static const struct of_device_id llce_logger_dt_ids[] = {
 	{
-		.compatible = "fsl,s32g-llcelogger",
+		.compatible = "nxp,s32g-llce-can-logger",
 	},
 	{ /* sentinel */ }
 };
 
-static int init_interfaces(struct llce_priv *priv)
+static int add_dbgfs_entry(struct llce_priv *priv)
 {
-	int ret;
-	struct device *dev = &priv->pdev->dev;
-	struct resource *res;
-
-	ret = map_ctrl_regs(priv);
-	if (ret) {
-		dev_err(dev, "Failed initial mapping of registers.\n");
-		return ret;
-	}
-	dev_info(dev, "Success initial mapping of registers.\n");
-
-	res = platform_get_resource_byname(priv->pdev,
-					   IORESOURCE_MEM,
-						"llce-shared-mem");
-	priv->hw.shared_mem = devm_ioremap_resource(dev, res);
-	if (!priv->hw.shared_mem) {
-		dev_err(dev,
-			"Couldn't map the LLCE shared memory\n");
-		return -ENOMEM;
-	}
-	dev_info(dev,
-		 "Success initial mapping of shared memory.\n");
+	int ret = 0;
+	struct device *dev = priv->dev;
 
 	priv->dbg.dir = debugfs_create_dir("llce", 0);
 	if (!priv->dbg.dir) {
-		dev_err(&priv->pdev->dev, "Couldnt' create debugfs dir\n");
+		dev_err(dev, "Couldn't create debugfs dir\n");
 		return -ENOENT;
 	}
-	priv->dbg.log = debugfs_create_file("log",
-					    0600,
-					priv->dbg.dir,
-					priv,
-					&fops);
+
+	priv->dbg.log = debugfs_create_file("log", 0600, priv->dbg.dir,
+					    priv, &fops);
 	if (!priv->dbg.log) {
-		dev_err(&priv->pdev->dev, "Couldn't create debugfs file\n");
+		dev_err(dev, "Couldn't create debugfs file\n");
 		ret = -ENOENT;
-		goto exit_file_fail;
 	}
 
-	return 0;
+	if (ret)
+		debugfs_remove_recursive(priv->dbg.dir);
 
-exit_file_fail:
-	debugfs_remove_recursive(priv->dbg.dir);
 	return ret;
 }
 
-static void release_interfaces(struct llce_priv *priv)
+static void remove_dbgfs_entry(struct llce_priv *priv)
 {
 	debugfs_remove_recursive(priv->dbg.dir);
 }
 
-static int init_multithread_support(struct llce_priv *priv)
+/**
+ * This is called from IRQ context
+ */
+static void logger_notif_callback(struct mbox_client *cl, void *msg)
 {
-	struct device *dev = &priv->pdev->dev;
+	struct llce_priv *priv = container_of(cl, struct llce_priv, rx_client);
+	struct llce_data *data = &priv->data;
+	int head = data->cbuf.head;
+	int tail = READ_ONCE(data->cbuf.tail);
+	struct llce_logger_msg *item = msg;
+	struct frame_log *log_frame, *buffer;
 
-	atomic_set(&priv->syncs.log_size, MAX_LOG_SIZE);
-	atomic_set(&priv->syncs.frames_received, 0);
-	priv->data.input_string_size = 0;
+	buffer = (struct frame_log *)data->cbuf.buf;
+	if (CIRC_SPACE(head, tail, log_size) >= 1) {
+		log_frame = &buffer[head];
 
-	init_completion(&priv->syncs.new_frames_received);
-	priv->copy_thread = kthread_run(copy_logs, priv,
-					"llce_copy_thread");
-	if (IS_ERR(priv->copy_thread)) {
-		dev_err(dev, "Copy thread creation failed\n");
-		return IS_ERR(priv->copy_thread);
+		memcpy_fromio(&log_frame->frame, item->frame,
+			      sizeof(log_frame->frame));
+
+		/* Increment head and wake-up once consume */
+		smp_store_release(&data->cbuf.head,
+				  (head + 1) & (log_size - 1));
+		wake_up(&priv->syncs.fifo_event);
+	} else {
+		dev_warn_ratelimited(priv->dev, "Dropped a packet\n");
+	}
+}
+
+static int init_mb_channel(struct llce_priv *priv)
+{
+	int ret = 0;
+
+	priv->rx_client.dev = priv->dev;
+	priv->rx_client.tx_block = false;
+	priv->rx_client.rx_callback = logger_notif_callback;
+
+	priv->rx_chan = mbox_request_channel(&priv->rx_client, 0);
+	if (IS_ERR(priv->rx_chan)) {
+		ret = PTR_ERR(priv->rx_chan);
+		dev_err(priv->dev, "Failed to get logger mailbox: %d\n", ret);
 	}
 
-	mutex_init(&priv->syncs.userspace_access);
-	mutex_init(&priv->syncs.logged_frames_lck);
-
-	return 0;
+	return ret;
 }
 
-static void kill_multithread_support(struct llce_priv *priv)
+static void release_mb_channel(struct llce_priv *priv)
 {
-	complete(&priv->syncs.new_frames_received);
-	kthread_stop(priv->copy_thread);
+	mbox_free_channel(priv->rx_chan);
 }
-
-/**
- * llce_logger_probe - Registers interrupt handler for LLCE logging, rutes
- *		interrupts inside LLCE, prepares interfaces to LLCE & userspace.
- * @pdev: the associated platform device
- *
- * Gets the physical interrupt line number for LLCE logging from device tree
- * and maps it into a virtual interrupt line, then associates an interrupt
- * handler to that interrupt line.
- *
- * Prepare interface to LLCE (mapping registers and shared memory).
- * Prepare interface to userspace (char dev).
- *
- * Return: 0 on success, error code otherwise.
- */
 
 static int llce_logger_probe(struct platform_device *pdev)
 {
-	int err, irq_no;
-	unsigned int initial_content;
+	int err;
 	struct llce_priv *priv;
 	struct frame_log dummy;
+	struct device *dev = &pdev->dev;
 
-	/* This driver has to be compiled as module because the probing
-	 * function results in segfault if SRAM is not loaded.
-	 */
-	if (!IS_MODULE(CONFIG_LLCE_LOGGER))
-		return -ENOMEDIUM;
+	if (hweight_long(log_size) != 1) {
+		dev_err(dev, "log_size parameter must be a power of two\n");
+		return -EINVAL;
+	}
 
-	priv = devm_kmalloc(&pdev->dev, sizeof(*priv), GFP_KERNEL);
+	priv = devm_kmalloc(dev, sizeof(*priv), GFP_KERNEL);
 	if (!priv)
 		return -ENOMEM;
-	platform_set_drvdata(pdev, priv);
-	priv->pdev = pdev;
 
-	err = init_multithread_support(priv);
+	platform_set_drvdata(pdev, priv);
+	priv->dev = dev;
+
+	priv->data.cbuf.tail = 0;
+	priv->data.cbuf.head = 0;
+
+	priv->data.cbuf.buf = devm_kmalloc(dev, sizeof(*priv) * log_size,
+					   GFP_KERNEL);
+	if (!priv->data.cbuf.buf)
+		return -ENOMEM;
+
+	atomic_set(&priv->data.frames_received, 0);
+	init_waitqueue_head(&priv->syncs.fifo_event);
+	mutex_init(&priv->syncs.userspace_access);
+
+	err = add_dbgfs_entry(priv);
 	if (err)
 		return err;
 
-	err = init_interfaces(priv);
-	if (err)
-		goto release_thread;
-
 	priv->data.entry_disp_size = create_entry_string(&dummy, NULL, 0, 0);
 
-	irq_no = platform_get_irq(pdev, 0);
-	if (irq_no < 0) {
-		dev_err(&pdev->dev, "Failed platform get irq.\n");
-		err = irq_no;
-		goto release_interfaces;
-	}
-	err = devm_request_irq(&pdev->dev,
-			       irq_no,
-			       irq_handler,
-			       IRQF_SHARED,
-			       "llce-logger-handler",
-			       priv);
-	if (err) {
-		dev_err(&pdev->dev, "Failed requesting irq.\n");
-		goto release_interfaces;
-	}
-
-	/* If FW is not loaded, this mask application results in segfault.
-	 * Can't be helped because checking if FW loaded triggers segfault
-	 * if not loaded, as well.
-	 * This mask application enables routing inside FIFO module.
-	 */
-	initial_content = ioread32(priv->hw.fifo_ier);
-	initial_content |= LLCE_FIFO_FNEMTY;
-	iowrite32(initial_content, priv->hw.fifo_ier);
-
-release_interfaces:
+	err = init_mb_channel(priv);
 	if (err)
-		release_interfaces(priv);
-release_thread:
+		goto remove_dbgfs_entry;
+
+remove_dbgfs_entry:
 	if (err)
-		kill_multithread_support(priv);
+		remove_dbgfs_entry(priv);
+
 	return err;
 }
 
@@ -591,11 +364,13 @@ static int llce_logger_remove(struct platform_device *pdev)
 	struct llce_priv *priv;
 
 	priv = platform_get_drvdata(pdev);
-	kill_multithread_support(priv);
+
 	dev_info(&pdev->dev,
 		 "Total number of frames received = %u.\n",
-		 atomic_read(&priv->syncs.frames_received));
-	debugfs_remove_recursive(priv->dbg.dir);
+		 atomic_read(&priv->data.frames_received));
+
+	release_mb_channel(priv);
+	remove_dbgfs_entry(priv);
 
 	return 0;
 }
@@ -610,10 +385,6 @@ static struct platform_driver llce_logger_driver = {
 	},
 };
 
-/**
- * llce_logger_init - maps registers, shared memory, activate interrupts,
- *		provide userspace access
- */
 static int __init llce_logger_init(void)
 {
 	int ret;
@@ -630,11 +401,10 @@ static int __init llce_logger_init(void)
 static void __exit llce_logger_exit(void)
 {
 	platform_driver_unregister(&llce_logger_driver);
-	pr_info("called exit, done\n");
 }
 
 module_init(llce_logger_init);
 module_exit(llce_logger_exit);
 
-MODULE_DESCRIPTION("NXP llce logger driver for S32G");
+MODULE_DESCRIPTION("NXP LLCE logger driver for S32G");
 MODULE_LICENSE("GPL v2");
