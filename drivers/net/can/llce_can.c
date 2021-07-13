@@ -10,6 +10,7 @@
 #include <linux/mailbox_client.h>
 #include <linux/mailbox_controller.h>
 #include <linux/module.h>
+#include <linux/moduleparam.h>
 #include <linux/platform_device.h>
 #include <linux/stringify.h>
 
@@ -43,6 +44,9 @@ struct llce_can {
 
 	struct clk *clk;
 };
+
+static bool logging;
+module_param(logging, bool, 0660);
 
 static const struct can_bittiming_const llce_can_bittiming = {
 	.name = LLCE_CAN_DRV_NAME,
@@ -157,27 +161,66 @@ static int llce_can_deinit(struct llce_can *llce)
 	return 0;
 }
 
+static void set_rx_filter(struct llce_can_rx_filter *rx_filter, u8 intf)
+{
+	*rx_filter = (struct llce_can_rx_filter) {
+		.id_mask = 0,
+		.message_id = 0,
+		.filter_id = 0,
+		.mb_count = LLCE_CAN_MAX_TX_MB,
+		.rx_dest_interface = intf,
+		.entry_type = LLCE_CAN_ENTRY_CFG_MASKED,
+	};
+}
+
+static void set_basic_filter(struct llce_can_command *cmd, u8 intf)
+{
+	*cmd = (struct llce_can_command) {
+		.cmd_id = LLCE_CAN_CMD_SETFILTER,
+		.cmd_list.set_filter = {
+			.rx_filters_count = 1,
+		},
+	};
+
+	set_rx_filter(&cmd->cmd_list.set_filter.rx_filters[0], intf);
+}
+
+static void set_advanced_filter(struct llce_can_command *cmd, u8 intf)
+{
+	struct llce_can_advanced_filter *afilt;
+
+	*cmd = (struct llce_can_command) {
+		.cmd_id = LLCE_CAN_CMD_SETADVANCEDFILTER,
+		.cmd_list.set_advanced_filter = {
+			.rx_filters_count = 1,
+		},
+	};
+
+	afilt = &cmd->cmd_list.set_advanced_filter.advanced_filters[0];
+	afilt->llce_can_Advanced_feature = (struct llce_can_advanced_feature) {
+		.can_authentication_feature = LLCE_AF_AUTHENTICATION_DISABLED,
+		.can_custom_processing = LLCE_AF_CUSTOMPROCESSING_DISABLED,
+		.can_logging_feature = LLCE_AF_LOGGING_ENABLED,
+		.host_receive = LLCE_AF_HOSTRECEIVE_ENABLED,
+		.can2can_routing_table_idx = (u8)0x0U,
+		.can2eth_routing_table_idx = (u8)0x0U,
+
+	};
+
+	set_rx_filter(&afilt->llce_can_Rx_filter, intf);
+}
+
 static int can_add_open_filter(struct mbox_chan *conf_chan)
 {
 	struct device *dev = llce_can_chan_dev(conf_chan);
 	struct llce_chan_priv *priv = conf_chan->con_priv;
-	struct llce_can_command cmd = {
-		.cmd_id = LLCE_CAN_CMD_SETFILTER,
-		.cmd_list.set_filter = {
-			.rx_filters_count = 1,
-			.rx_filters = {
-				{
-					.id_mask = 0,
-					.message_id = 0,
-					.filter_id = 0,
-					.mb_count = LLCE_CAN_MAX_TX_MB,
-					.rx_dest_interface = priv->index,
-					.entry_type = LLCE_CAN_ENTRY_CFG_MASKED,
-				},
-			},
-		},
-	};
+	struct llce_can_command cmd;
 	int ret;
+
+	if (logging)
+		set_advanced_filter(&cmd, priv->index);
+	else
+		set_basic_filter(&cmd, priv->index);
 
 	ret = send_cmd_msg(conf_chan, &cmd);
 	if (ret) {
