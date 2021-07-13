@@ -60,4 +60,9 @@ struct llce_rx_msg {
 	};
 };
 
+struct llce_logger_msg {
+	struct llce_can_mb *frame;
+	u8 hw_ctrl;
+};
+
 #endif
