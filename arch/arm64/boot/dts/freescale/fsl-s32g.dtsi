@@ -528,23 +528,6 @@
 		status = "disabled";
 	};
 
-	llce: llcelogger@43000000 {
-		compatible = "fsl,s32g-llcelogger";
-		reg = <0x0 0x43000000 0x0 0x1000000>,
-			<0x0 0x43800000 0x0 0x3D000>,
-			<0x0 0x43A0C40C 0x0 0x4>,
-			<0x0 0x43A0C424 0x0 0x4>,
-			<0x0 0x43A0C014 0x0 0x4>,
-			<0x0 0x43A0C408	0x0 0x4>;
-		reg-names = "llce-range",
-			"llce-shared-mem",
-			"fifo-ier",
-			"fifo-pop0",
-			"fifo-push0",
-			"fifo-status1";
-		interrupts = <0x0 184 0x4>;
-	};
-
 	llce0_sram: llce0_sram@43000000 {
 		compatible = "nxp,s32g-llce-sram";
 		reg = <0x0 0x43000000 0x0 0x2000>;
@@ -643,6 +626,9 @@
 			status = "okay";
 		};
 
+		llce_can_logger: llce_can_logger {
+			compatible = "nxp,s32g-llce-can-logger";
+			mboxes = <&llce_mb S32G_LLCE_CAN_LOGGER_MB 0>;
 			status = "okay";
 		};
 
