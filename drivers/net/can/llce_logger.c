@@ -52,7 +52,6 @@ struct llce_data {
 	struct circ_buf cbuf;
 	atomic_t frames_received;
 	size_t max_ser_size;
-	char *out_str;
 };
 
 struct llce_priv {
@@ -126,8 +125,16 @@ static unsigned int create_entry_string(struct frame_log *frame,
 	return cur_idx;
 }
 
-static int dump_can_frames(struct llce_priv *priv, unsigned int *cur_idx,
-			   size_t string_size, size_t nelems)
+static bool has_elem_space(struct llce_priv *priv, size_t fill, size_t size)
+{
+	if (priv->data.max_ser_size + fill >= size)
+		return false;
+
+	return true;
+}
+
+static int dump_can_frames(struct llce_priv *priv, char *out_str,
+			   unsigned int *cur_idx, size_t size)
 {
 	struct llce_data *data = &priv->data;
 	struct frame_log *buffer;
@@ -146,41 +153,19 @@ static int dump_can_frames(struct llce_priv *priv, unsigned int *cur_idx,
 	tail = data->cbuf.tail;
 
 	circ_elem = CIRC_CNT_TO_END(head, tail, log_size);
-	nelems = min_t(size_t, circ_elem, nelems);
 
-	for (i = 0; i < nelems; i++) {
-		*cur_idx = create_entry_string(&buffer[tail + i],
-					       priv->data.out_str, *cur_idx,
-					       string_size);
+	for (i = 0; i < circ_elem && has_elem_space(priv, *cur_idx, size);
+	     i++) {
+		*cur_idx = create_entry_string(&buffer[tail + i], out_str,
+					       *cur_idx, size);
 
 		atomic_inc(&priv->data.frames_received);
 	}
 
 	/* Finish reading descriptor before incrementing tail. */
-	smp_store_release(&data->cbuf.tail, (tail + nelems) & (log_size - 1));
+	smp_store_release(&data->cbuf.tail, (tail + i) & (log_size - 1));
 
 	return 0;
-}
-
-static int create_out_str(struct llce_priv *priv, loff_t *offset,
-			  size_t size, int *ret_len, size_t entry_print_size)
-{
-	unsigned int cur_idx = 0;
-	size_t string_size, nelems;
-	int ret;
-
-	nelems = size / entry_print_size;
-	string_size = nelems * entry_print_size + 1;
-
-	priv->data.out_str = kmalloc(string_size, GFP_KERNEL);
-	if (!priv->data.out_str)
-		return -ENOMEM;
-
-	ret = dump_can_frames(priv, &cur_idx, string_size, nelems);
-
-	*ret_len = cur_idx;
-
-	return ret;
 }
 
 static int can_logger_open(struct inode *inode, struct file *file)
@@ -212,31 +197,33 @@ static ssize_t can_logger_read(struct file *file, char __user *user_buffer,
 			       size_t size, loff_t *offset)
 {
 	struct llce_priv *priv;
-	int ret_len, rc;
-	size_t entry_print_size;
-	int actual_size;
+	char *out_str;
+	unsigned int fill = 0;
+	int ret;
 
 	priv = file->private_data;
-	entry_print_size = priv->data.max_ser_size;
-	rc = create_out_str(priv, offset, size,
-			    &ret_len, entry_print_size);
-	if (rc == -ERANGE)
-		return 0;
-	else if (rc)
-		return rc;
 
-	actual_size = ret_len;
+	out_str = kmalloc(size, GFP_KERNEL);
+	if (!out_str)
+		return -ENOMEM;
 
-	if (copy_to_user(user_buffer, priv->data.out_str, actual_size)) {
-		kfree(priv->data.out_str);
-		return -EFAULT;
+	ret = dump_can_frames(priv, out_str, &fill, size);
+	if (ret) {
+		if (ret == -ERANGE)
+			ret = 0;
+		goto free_mem;
 	}
 
-	*offset += actual_size;
+	if (copy_to_user(user_buffer, out_str, fill)) {
+		ret = -EFAULT;
+		goto free_mem;
+	}
 
-	kfree(priv->data.out_str);
+	*offset += fill;
 
-	return actual_size;
+free_mem:
+	kfree(out_str);
+	return fill;
 }
 
 static const struct file_operations fops = {
@@ -333,16 +320,22 @@ static void release_mb_channel(struct llce_priv *priv)
 	mbox_free_channel(priv->rx_chan);
 }
 
-static int llce_logger_probe(struct platform_device *pdev)
+static void init_max_ser_size(struct llce_priv *priv)
 {
-	int err;
-	struct llce_priv *priv;
 	struct frame_log dummy = {
 		.frame = {
 			.word0 = pack_word0(true, true, CAN_EFF_MASK),
 			.word1 = pack_word1(true, 0xFFU, true, true),
 		},
 	};
+
+	priv->data.max_ser_size = create_entry_string(&dummy, NULL, 0, 0);
+}
+
+static int llce_logger_probe(struct platform_device *pdev)
+{
+	int err;
+	struct llce_priv *priv;
 	struct device *dev = &pdev->dev;
 
 	if (hweight_long(log_size) != 1) {
@@ -356,6 +349,8 @@ static int llce_logger_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, priv);
 	priv->dev = dev;
+
+	init_max_ser_size(priv);
 
 	priv->data.cbuf.tail = 0;
 	priv->data.cbuf.head = 0;
@@ -372,8 +367,6 @@ static int llce_logger_probe(struct platform_device *pdev)
 	err = add_dbgfs_entry(priv);
 	if (err)
 		return err;
-
-	priv->data.max_ser_size = create_entry_string(&dummy, NULL, 0, 0);
 
 	err = init_mb_channel(priv);
 	if (err)
