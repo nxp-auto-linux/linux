@@ -7,6 +7,7 @@
 
 #include <linux/atomic.h>
 #include <linux/bitops.h>
+#include <linux/can/dev.h>
 #include <linux/circ_buf.h>
 #include <linux/debugfs.h>
 #include <linux/delay.h>
@@ -15,6 +16,7 @@
 #include <linux/io.h>
 #include <linux/kernel.h>
 #include <linux/mailbox/nxp-llce/llce_can.h>
+#include <linux/mailbox/nxp-llce/llce_can_utils.h>
 #include <linux/mailbox/nxp-llce/llce_interface_fifo.h>
 #include <linux/mailbox/nxp-llce/llce_mailbox.h>
 #include <linux/mailbox_client.h>
@@ -49,7 +51,7 @@ struct llce_syncs {
 struct llce_data {
 	struct circ_buf cbuf;
 	atomic_t frames_received;
-	size_t entry_disp_size;
+	size_t max_ser_size;
 	char *out_str;
 };
 
@@ -74,31 +76,51 @@ static size_t get_left_len(size_t cur_idx, size_t str_len)
 	return str_len - cur_idx;
 }
 
-static unsigned int create_entry_string(struct frame_log *cur_frame,
+static unsigned int create_entry_string(struct frame_log *frame,
 					char *out_str, int cur_idx,
 					size_t str_len)
 {
 	int wr_size, j;
-	u32 tstamp;
-	u8 cur_char;
+	bool ide, fdf, rtr, brs, esi;
+	u32 tstamp, std_id, ext_id, can_id;
+	u8 cur_char, dlc;
 	char *str_start;
 
-	tstamp = cur_frame->frame.timestamp;
+	unpack_word0(frame->frame.word0, &rtr, &ide, &std_id, &ext_id);
+	unpack_word1(frame->frame.word1, &fdf, &dlc, &brs, &esi);
+	can_id = std_id & CAN_SFF_MASK;
+	if (fdf && ide)
+		can_id |= ((ext_id << CAN_SFF_ID_BITS) & CAN_EFF_MASK);
+
+	tstamp = frame->frame.timestamp;
 	str_start = out_str + cur_idx;
 	wr_size = snprintf(str_start, get_left_len(cur_idx, str_len),
-			   "[t=%04x] ", tstamp);
+			   "t=%04x rtr=%d brs=%d esi=%d ",
+			   tstamp, rtr, brs, esi);
 	cur_idx += wr_size;
 
-	for (j = 0; j < ARRAY_SIZE(cur_frame->frame.payload); j++) {
-		cur_char = cur_frame->frame.payload[j];
+	str_start = out_str + cur_idx;
+	wr_size = snprintf(str_start, get_left_len(cur_idx, str_len),
+			   "id=%x ", can_id);
+	cur_idx += wr_size;
+
+	str_start = out_str + cur_idx;
+	wr_size = snprintf(str_start, get_left_len(cur_idx, str_len), "d=(");
+	cur_idx += wr_size;
+
+	for (j = 0; j < can_fd_dlc2len(dlc); j++) {
+		cur_char = frame->frame.payload[j];
 		str_start = out_str + cur_idx;
 		wr_size = snprintf(str_start, get_left_len(cur_idx, str_len),
-				   "0x%02x ", cur_char);
+				   "%02x ", cur_char);
 		cur_idx += wr_size;
 	}
 
+	/* Remove extra space */
+	if (j)
+		cur_idx--;
 	str_start = out_str + cur_idx;
-	wr_size = snprintf(str_start, get_left_len(cur_idx, str_len), "\n");
+	wr_size = snprintf(str_start, get_left_len(cur_idx, str_len), ")\n");
 	cur_idx += wr_size;
 
 	return cur_idx;
@@ -195,7 +217,7 @@ static ssize_t can_logger_read(struct file *file, char __user *user_buffer,
 	int actual_size;
 
 	priv = file->private_data;
-	entry_print_size = priv->data.entry_disp_size;
+	entry_print_size = priv->data.max_ser_size;
 	rc = create_out_str(priv, offset, size,
 			    &ret_len, entry_print_size);
 	if (rc == -ERANGE)
@@ -315,7 +337,12 @@ static int llce_logger_probe(struct platform_device *pdev)
 {
 	int err;
 	struct llce_priv *priv;
-	struct frame_log dummy;
+	struct frame_log dummy = {
+		.frame = {
+			.word0 = pack_word0(true, true, CAN_EFF_MASK),
+			.word1 = pack_word1(true, 0xFFU, true, true),
+		},
+	};
 	struct device *dev = &pdev->dev;
 
 	if (hweight_long(log_size) != 1) {
@@ -346,7 +373,7 @@ static int llce_logger_probe(struct platform_device *pdev)
 	if (err)
 		return err;
 
-	priv->data.entry_disp_size = create_entry_string(&dummy, NULL, 0, 0);
+	priv->data.max_ser_size = create_entry_string(&dummy, NULL, 0, 0);
 
 	err = init_mb_channel(priv);
 	if (err)
