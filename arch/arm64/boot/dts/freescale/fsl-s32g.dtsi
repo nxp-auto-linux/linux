@@ -101,6 +101,10 @@
 			 <&clks S32G_SCMI_CLK_PFE_PE>,
 			 <&clks S32G_SCMI_CLK_PFE_TS>;
 		clock-names = "pfe_sys", "pfe_pe", "pfe_ts";
+		phys = <&serdes1 PHY_TYPE_XPCS 0 0>,
+			 <&serdes1 PHY_TYPE_XPCS 1 1>,
+			 <&serdes0 PHY_TYPE_XPCS 1 1>;
+		phy-names = "emac0_xpcs", "emac1_xpcs", "emac2_xpcs";
 		dma-coherent;
 		memory-region = <&pfe_reserved_bmu2>,
 				<&pfe_reserved>,
