@@ -392,13 +392,31 @@ static int llce_logger_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static int __maybe_unused logger_suspend(struct device *device)
+{
+	struct llce_priv *priv = dev_get_drvdata(device);
+
+	release_mb_channel(priv);
+	return 0;
+}
+
+static int __maybe_unused logger_resume(struct device *device)
+{
+	struct llce_priv *priv = dev_get_drvdata(device);
+
+	return init_mb_channel(priv);
+}
+
+static SIMPLE_DEV_PM_OPS(logger_pm_ops, logger_suspend, logger_resume);
+
 static struct platform_driver llce_logger_driver = {
 	.probe	= llce_logger_probe,
 	.remove	= llce_logger_remove,
 	.driver	= {
 		.name			= DRIVER_NAME,
 		.owner			= THIS_MODULE,
-		.of_match_table = llce_logger_dt_ids,
+		.of_match_table		= llce_logger_dt_ids,
+		.pm			= &logger_pm_ops,
 	},
 };
 
