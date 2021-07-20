@@ -608,7 +608,8 @@
 				"txack_fifo";
 			clocks = <&clks S32G_SCMI_CLK_LLCE_SYS>;
 			clock-names = "llce_sys";
-			memory-region = <&llce_shmem>;
+			memory-region = <&llce_shmem>, <&llce_boot_status>;
+			memory-region-names = "shmem", "status";
 			interrupts = <0 174 IRQ_TYPE_LEVEL_HIGH>,
 				<0 175 IRQ_TYPE_LEVEL_HIGH>,
 				<0 176 IRQ_TYPE_LEVEL_HIGH>,
