@@ -94,13 +94,8 @@ static unsigned int create_entry_string(struct frame_log *frame,
 	tstamp = frame->frame.timestamp;
 	str_start = out_str + cur_idx;
 	wr_size = snprintf(str_start, get_left_len(cur_idx, str_len),
-			   "t=%04x rtr=%d brs=%d esi=%d ",
-			   tstamp, rtr, brs, esi);
-	cur_idx += wr_size;
-
-	str_start = out_str + cur_idx;
-	wr_size = snprintf(str_start, get_left_len(cur_idx, str_len),
-			   "id=%x ", can_id);
+			   "intf=%2d t=%8x rtr=%d brs=%d esi=%d id=%8x ",
+			   frame->hw_ctrl, tstamp, rtr, brs, esi, can_id);
 	cur_idx += wr_size;
 
 	str_start = out_str + cur_idx;
@@ -288,6 +283,7 @@ static void logger_notif_callback(struct mbox_client *cl, void *msg)
 
 		memcpy_fromio(&log_frame->frame, item->frame,
 			      sizeof(log_frame->frame));
+		log_frame->hw_ctrl = item->hw_ctrl;
 
 		/* Increment head and wake-up once consume */
 		smp_store_release(&data->cbuf.head,
@@ -327,6 +323,7 @@ static void init_max_ser_size(struct llce_priv *priv)
 			.word0 = pack_word0(true, true, CAN_EFF_MASK),
 			.word1 = pack_word1(true, 0xFFU, true, true),
 		},
+		.hw_ctrl = 15,
 	};
 
 	priv->data.max_ser_size = create_entry_string(&dummy, NULL, 0, 0);
