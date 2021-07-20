@@ -15,7 +15,9 @@
 #include <linux/mailbox/nxp-llce/llce_mailbox.h>
 #include <linux/mailbox_controller.h>
 #include <linux/module.h>
+#include <linux/of_address.h>
 #include <linux/of_platform.h>
+#include <linux/of_reserved_mem.h>
 #include <linux/platform_device.h>
 #include <linux/processor.h>
 #include <linux/slab.h>
@@ -50,7 +52,9 @@
 
 #define LLCE_LOGGER_ICSR_IRQ		BIT(5)
 
-#define LLCE_CAN_COMPATIBLE "nxp,s32g-llce-can"
+#define LLCE_CAN_COMPATIBLE		"nxp,s32g-llce-can"
+#define LLCE_SHMEM_REG_NAME		"shmem"
+#define LLCE_STATUS_REG_NAME		"status"
 
 #define LLCE_ARR_ENTRY(BASE_INDEX, ENTRY) \
 	[(ENTRY) - (BASE_INDEX)] = __stringify_1(ENTRY)
@@ -79,6 +83,7 @@ struct llce_mb {
 	/* TX ACK lock. */
 	struct mutex txack_lock;
 	struct llce_can_shared_memory *sh_mem;
+	void __iomem *status;
 	void __iomem *rxout_fifo;
 	void __iomem *rxin_fifo;
 	void __iomem *txack_fifo;
@@ -895,8 +900,52 @@ static struct sram_pool *devm_sram_pool_alloc(struct device *dev,
 	return spool;
 }
 
-static int alloc_sram_pool(struct platform_device *pdev,
-			   struct llce_mb *mb)
+static struct device_node *get_sram_node(struct device *dev, const char *name)
+{
+	struct device_node *node, *dev_node;
+	int idx;
+
+	dev_node = dev->of_node;
+	idx = of_property_match_string(dev_node, "memory-region-names", name);
+	node = of_parse_phandle(dev_node, "memory-region", idx);
+	if (!node) {
+		dev_err(dev, "Failed to get '%s' memory region\n", name);
+		return ERR_PTR(-EIO);
+	}
+
+	return node;
+}
+
+static int map_llce_status(struct device *dev, struct llce_mb *mb)
+{
+	struct device_node *sram_node;
+	struct resource r;
+	resource_size_t size;
+	int ret;
+
+	sram_node = get_sram_node(dev, LLCE_STATUS_REG_NAME);
+	if (IS_ERR(sram_node))
+		return PTR_ERR(sram_node);
+
+	ret = of_address_to_resource(sram_node, 0, &r);
+	of_node_put(sram_node);
+	if (ret)
+		return ret;
+
+	size = resource_size(&r);
+
+	mb->status = devm_ioremap(dev, r.start, size);
+	if (!mb->status) {
+		dev_err(dev, "Failed to map '%s' memory region\n",
+			LLCE_STATUS_REG_NAME);
+		return -ENOMEM;
+	}
+
+	return 0;
+}
+
+static int alloc_llce_shmem(struct platform_device *pdev,
+			    struct llce_mb *mb)
 {
 	struct device_node *sram_node;
 	struct device *dev = &pdev->dev;
@@ -905,11 +954,9 @@ static int alloc_sram_pool(struct platform_device *pdev,
 	struct sram_pool *spool;
 	struct platform_device *sram_pdev;
 
-	sram_node = of_parse_phandle(pdev->dev.of_node, "memory-region", 0);
-	if (!sram_node) {
-		dev_err(&pdev->dev, "Failed to get 'memory-region'\n");
-		return -EIO;
-	}
+	sram_node = get_sram_node(dev, LLCE_SHMEM_REG_NAME);
+	if (IS_ERR(sram_node))
+		return PTR_ERR(sram_node);
 
 	name = sram_node->name;
 	sram_pdev = of_find_device_by_node(sram_node);
@@ -1652,7 +1699,11 @@ static int llce_mb_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
-	ret = alloc_sram_pool(pdev, mb);
+	ret = alloc_llce_shmem(pdev, mb);
+	if (ret)
+		return ret;
+
+	ret = map_llce_status(dev, mb);
 	if (ret)
 		return ret;
 
