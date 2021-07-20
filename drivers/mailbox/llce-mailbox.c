@@ -125,6 +125,13 @@ static int llce_hif_startup(struct mbox_chan *chan);
 static int llce_logger_startup(struct mbox_chan *chan);
 static int process_rx_cmd(struct mbox_chan *chan, struct llce_rx_msg *msg);
 
+/**
+ * Platform configuration can be skipped for cases when the HIF is completely
+ * managed by another software
+ */
+static bool config_platform = true;
+module_param(config_platform, bool, 0660);
+
 const char *llce_errors[] = {
 	LLCE_ERROR_ENTRY(LLCE_ERROR_TXACK_FIFO_FULL),
 	LLCE_ERROR_ENTRY(LLCE_ERROR_RXOUT_FIFO_FULL),
@@ -1632,6 +1639,9 @@ static int llce_platform_init(struct device *dev, struct llce_mb *mb)
 		},
 	};
 
+	if (!config_platform)
+		return 0;
+
 	pcmd = &cmd.cmd_list.init_platform;
 	memset(&pcmd->ctrl_init_status, UNINITIALIZED,
 	       sizeof(pcmd->ctrl_init_status));
@@ -1666,6 +1676,9 @@ static int llce_platform_deinit(struct llce_mb *mb)
 		.cmd_id = LLCE_CAN_CMD_DEINIT_PLATFORM,
 	};
 
+	if (!config_platform)
+		return 0;
+
 	return execute_hif_cmd(mb, &cmd);
 }
 
@@ -1678,6 +1691,9 @@ static int print_fw_version(struct llce_mb *mb)
 		.cmd_id = LLCE_CAN_CMD_GETFWVERSION,
 	};
 	int ret;
+
+	if (!config_platform)
+		return 0;
 
 	ret = execute_hif_cmd(mb, &cmd);
 	if (ret)
