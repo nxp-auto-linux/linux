@@ -54,6 +54,8 @@ struct llce_core {
 	struct sram_pool **pools;
 	size_t npools;
 
+	void __iomem *status;
+
 	size_t nfrws;
 };
 
@@ -119,19 +121,17 @@ static struct sram_pool *alloc_sram_node(struct device_node *sram_node,
 	return spool;
 }
 
-static struct sram_pool *alloc_sram_node_index(struct platform_device *pdev,
-					       int index)
+static struct device_node *get_sram_node(struct platform_device *pdev, int index)
 {
-	struct device_node *sram_node;
+	struct device_node *sram_node = of_parse_phandle(pdev->dev.of_node, "memory-region", index);
 
-	sram_node = of_parse_phandle(pdev->dev.of_node, "memory-region", index);
 	if (!sram_node) {
 		dev_err(&pdev->dev, "Failed to get the element %d from 'memory-region' list\n",
 			index);
 		return ERR_PTR(-EINVAL);
 	}
 
-	return alloc_sram_node(sram_node, &pdev->dev);
+	return sram_node;
 }
 
 static int llce_fw_load(struct platform_device *pdev, int index,
@@ -161,29 +161,73 @@ static void llce_release_fw(struct sram_pool *spool)
 	release_firmware(spool->fw_entry);
 }
 
-static int llce_alloc_sram(struct platform_device *pdev,
-			   struct llce_core *core)
+static int map_status_sram(struct llce_core *core,
+			   struct device *dev,
+			   struct device_node *sram_node)
 {
-	int i;
-	struct sram_pool *spool;
+	struct resource r;
+	resource_size_t size;
+	int ret;
 
-	core->npools = of_count_phandle_with_args(pdev->dev.of_node,
-						  "memory-region",
-						  NULL);
-	core->pools = devm_kmalloc(&pdev->dev,
+	ret = of_address_to_resource(sram_node, 0, &r);
+	of_node_put(sram_node);
+	if (ret)
+		return ret;
+
+	size = resource_size(&r);
+
+	core->status = devm_ioremap(dev, r.start, size);
+	if (!core->status) {
+		dev_err(dev, "Failed to map '%s' memory region\n",
+			LLCE_STATUS_POOL);
+		return -ENOMEM;
+	}
+
+	return 0;
+}
+
+static int map_and_alloc_sram(struct platform_device *pdev,
+			      struct llce_core *core)
+{
+	int i, j, ret;
+	struct sram_pool *spool;
+	struct device_node *sram_node;
+	size_t dtb_npools;
+
+	dtb_npools = of_count_phandle_with_args(pdev->dev.of_node,
+						"memory-region",
+						NULL);
+	/* Exclude boot status pool as it's only mapped */
+	core->npools = dtb_npools - 1;
+	core->pools = devm_kzalloc(&pdev->dev,
 				   core->npools * sizeof(*core->pools),
 				   GFP_KERNEL);
 	if (!core->pools)
 		return -ENOMEM;
 
-	for (i = 0; i < core->npools; i++) {
-		spool = alloc_sram_node_index(pdev, i);
+	for (i = 0, j = 0; i < dtb_npools; i++) {
+		sram_node = get_sram_node(pdev, i);
+		if (!sram_node)
+			return PTR_ERR(sram_node);
+
+		if (!strcmp(sram_node->name, LLCE_STATUS_POOL)) {
+			ret = map_status_sram(core, &pdev->dev, sram_node);
+			if (ret)
+				return ret;
+			continue;
+		}
+
+		spool = alloc_sram_node(sram_node, &pdev->dev);
 		if (IS_ERR(spool)) {
 			dev_err(&pdev->dev, "Failed to initialize SRAM buffer %d\n",
 				i);
 			return PTR_ERR(spool);
 		}
-		core->pools[i] = spool;
+
+		if (j < core->npools) {
+			core->pools[j] = spool;
+			j++;
+		}
 	}
 
 	return 0;
@@ -294,20 +338,6 @@ static int llce_cores_kickoff(struct device *dev, void __iomem *sysctrl_base,
 	return 0;
 }
 
-static struct sram_pool *get_status_pool(struct llce_core *core)
-{
-	size_t i;
-	struct sram_pool *pool;
-
-	for (i = 0; i < core->npools; i++) {
-		pool = core->pools[i];
-		if (!strcmp(LLCE_STATUS_POOL, pool->name))
-			return pool;
-	}
-
-	return NULL;
-}
-
 static int init_core_clock(struct device *dev, struct llce_core *core)
 {
 	int ret;
@@ -334,22 +364,13 @@ static void deinit_core_clock(struct llce_core *core)
 
 static int start_llce_cores(struct device *dev, struct llce_core *core)
 {
-	struct sram_pool *status_pool;
 	int ret;
 
 	reset_llce_cores(core->sysctrl_base);
 
 	llce_flush_fw(core);
 
-	status_pool = get_status_pool(core);
-	if (!status_pool) {
-		dev_err(dev, "'%s' pool is not attached to LLCE core\n",
-			LLCE_STATUS_POOL);
-		return -EIO;
-	}
-
-	ret = llce_cores_kickoff(dev, core->sysctrl_base,
-				 (void *)status_pool->vaddr);
+	ret = llce_cores_kickoff(dev, core->sysctrl_base, core->status);
 	if (ret) {
 		dev_err(dev, "Failed to start LLCE cores\n");
 		return ret;
@@ -392,7 +413,7 @@ static int llce_core_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
-	ret = llce_alloc_sram(pdev, core);
+	ret = map_and_alloc_sram(pdev, core);
 	if (ret)
 		goto disable_clk;
 
