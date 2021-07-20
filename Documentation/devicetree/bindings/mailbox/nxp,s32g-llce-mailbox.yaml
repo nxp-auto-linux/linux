@@ -59,6 +59,7 @@ properties:
       - const: rxout_fifo_8_15
       - const: txack_fifo_0_7
       - const: txack_fifo_8_15
+      - const: logger_rx
 
   interrupts:
     items:
@@ -68,6 +69,7 @@ properties:
       - description: Shared interrupt line for RXOUT 8-15 fifos
       - description: Shared interrupt line for TXACK 0-7 fifos
       - description: Shared interrupt line for TXACK 8-15 fifos
+      - description: Interrupt line for LLCE CAN logger
 
   clock-names:
     const: llce_sys
@@ -122,13 +124,15 @@ examples:
             <0 176 IRQ_TYPE_LEVEL_HIGH>,
             <0 177 IRQ_TYPE_LEVEL_HIGH>,
             <0 182 IRQ_TYPE_LEVEL_HIGH>,
-            <0 183 IRQ_TYPE_LEVEL_HIGH>;
+            <0 183 IRQ_TYPE_LEVEL_HIGH>,
+            <0 184 IRQ_TYPE_LEVEL_HIGH>;
         interrupt-names = "rxin_fifo_0_7",
             "rxin_fifo_8_15",
             "rxout_fifo_0_7",
             "rxout_fifo_8_15",
             "txack_fifo_0_7",
-            "txack_fifo_8_15";
+            "txack_fifo_8_15",
+            "logger_rx";
         status = "okay";
       };
     };
