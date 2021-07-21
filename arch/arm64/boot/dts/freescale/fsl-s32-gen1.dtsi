@@ -14,8 +14,6 @@
 #include <dt-bindings/phy/phy.h>
 #include <dt-bindings/reset/s32gen1-scmi-reset.h>
 
-/memreserve/ 0x8000fff8 0x00010000;
-
 / {
 	interrupt-parent = <&gic>;
 	#address-cells = <2>;
