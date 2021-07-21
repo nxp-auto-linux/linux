@@ -12,6 +12,7 @@
 #include <dt-bindings/mailbox/nxp-llce-mb.h>
 #include <dt-bindings/pinctrl/s32g-pinctrl.h>
 #include <dt-bindings/clock/s32g-scmi-clock.h>
+#include <dt-bindings/reset/s32g-scmi-reset.h>
 #include <dt-bindings/net/fsl-s32g-pfeng.h>
 
 / {
@@ -97,6 +98,8 @@
 			     <GIC_SPI 196 IRQ_TYPE_EDGE_RISING>,
 			     <GIC_SPI 197 IRQ_TYPE_EDGE_RISING>;
 		interrupt-names = "bmu", "upegpt", "safety";
+		resets = <&reset S32GEN1_SCMI_RST_PART2>;
+		reset-names = "pfe_part";
 		clocks = <&clks S32G_SCMI_CLK_PFE_AXI>,
 			 <&clks S32G_SCMI_CLK_PFE_PE>,
 			 <&clks S32G_SCMI_CLK_PFE_TS>;
@@ -300,6 +303,8 @@
 		dma-coherent;
 		memory-region = <&pfe_reserved_slave>,
 				<&pfe_reserved_bdr_slave>;
+		nvmem-cells = <&soc_revision>;
+		nvmem-cell-names = "soc_revision";
 		fsl,pfeng-master-hif-channel = <0>;
 		status = "disabled";
 
