@@ -279,9 +279,9 @@ static __always_inline void __load_stage2(struct kvm_s2_mmu *mmu,
 	write_sysreg(kvm_get_vttbr(mmu), vttbr_el2);
 
 	/*
-	 * ARM errata 1165522 and 1530923 require the actual execution of the
-	 * above before we can switch to the EL1/EL0 translation regime used by
-	 * the guest.
+	 * ARM errata 1165522, 1530923 and 1530924 require the actual execution
+	 * of the above before we can switch to the EL1/EL0 translation regime
+	 * used by the guest.
 	 */
 	asm(ALTERNATIVE("nop", "isb", ARM64_WORKAROUND_SPECULATIVE_AT));
 }

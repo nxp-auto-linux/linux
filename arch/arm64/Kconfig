@@ -612,6 +612,19 @@ config ARM64_ERRATUM_1530923
 
 	  If unsure, say Y.
 
+config ARM64_ERRATUM_1530924
+	bool "Cortex-A53: 1530924: Speculative AT instruction using out-of-context translation regime could cause subsequent request to generate an incorrect translation"
+	default y
+	select ARM64_WORKAROUND_SPECULATIVE_AT
+	help
+	  This option adds a workaround for ARM Cortex-A53 erratum 1530924.
+
+	  Affected Cortex-A53 cores (r0p0, r0p1, r0p2, r0p3, r0p4) could end-up with
+	  corrupted TLBs by speculating an AT instruction during a guest
+	  context switch.
+
+	  If unsure, say Y.
+
 config ARM64_WORKAROUND_REPEAT_TLBI
 	bool
 
