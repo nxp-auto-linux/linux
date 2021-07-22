@@ -5,6 +5,7 @@ config ARCH_S32
 	bool "Freescale S32 family"
 	select PINCTRL
 	select ARCH_S32_CLK
+	select ARM64_ERRATUM_1530924
 	help
 	  Support for Freescale S32 family of processors.
 
