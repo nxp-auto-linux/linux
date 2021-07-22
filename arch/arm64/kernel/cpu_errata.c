@@ -341,6 +341,10 @@ static const struct midr_range erratum_speculative_at_list[] = {
 	/* Kryo4xx Silver (rdpe => r1p0) */
 	MIDR_REV(MIDR_QCOM_KRYO_4XX_SILVER, 0xd, 0xe),
 #endif
+#ifdef CONFIG_ARM64_ERRATUM_1530924
+	/* Cortex-A53 r0p[01234] */
+	MIDR_REV_RANGE(MIDR_CORTEX_A53, 0, 0, 4),
+#endif
 	{},
 };
 #endif
@@ -509,7 +513,7 @@ const struct arm64_cpu_capabilities arm64_errata[] = {
 #endif
 #ifdef CONFIG_ARM64_WORKAROUND_SPECULATIVE_AT
 	{
-		.desc = "ARM errata 1165522, 1319367, or 1530923",
+		.desc = "ARM errata 1165522, 1319367, 1530923, or 1530924",
 		.capability = ARM64_WORKAROUND_SPECULATIVE_AT,
 		ERRATA_MIDR_RANGE_LIST(erratum_speculative_at_list),
 	},
