@@ -614,14 +614,13 @@ static void process_rx_msg(struct llce_can *llce, struct llce_can_mb *can_mb)
 	}
 
 	cf->can_id = std_id & CAN_SFF_MASK;
+	if (ide) {
+		cf->can_id |= ((ext_id << CAN_SFF_ID_BITS) &
+				   CAN_EFF_MASK);
+		cf->can_id |= CAN_EFF_FLAG;
+	}
 
 	if (fdf) {
-		if (ide) {
-			cf->can_id |= ((ext_id << CAN_SFF_ID_BITS) &
-				       CAN_EFF_MASK);
-			cf->can_id |= CAN_EFF_FLAG;
-		}
-
 		if (brs)
 			cf->flags |= CANFD_BRS;
 
