@@ -25,9 +25,9 @@ static void __tlb_switch_to_guest(struct kvm_s2_mmu *mmu,
 
 	if (cpus_have_final_cap(ARM64_WORKAROUND_SPECULATIVE_AT)) {
 		/*
-		 * For CPUs that are affected by ARM errata 1165522 or 1530923,
-		 * we cannot trust stage-1 to be in a correct state at that
-		 * point. Since we do not want to force a full load of the
+		 * For CPUs that are affected by ARM errata 1165522, 1530923, or
+		 * 1530924 we cannot trust stage-1 to be in a correct state at
+		 * that point. Since we do not want to force a full load of the
 		 * vcpu state, we prevent the EL1 page-table walker to
 		 * allocate new TLBs. This is done by setting the EPD bits
 		 * in the TCR_EL1 register. We also need to prevent it to
