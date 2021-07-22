@@ -77,9 +77,9 @@ static void __deactivate_traps(struct kvm_vcpu *vcpu)
 	write_sysreg(HCR_HOST_VHE_FLAGS, hcr_el2);
 
 	/*
-	 * ARM errata 1165522 and 1530923 require the actual execution of the
-	 * above before we can switch to the EL2/EL0 translation regime used by
-	 * the host.
+	 * ARM errata 1165522, 1530923 and 1530924 require the actual execution
+	 * of the above before we can switch to the EL2/EL0 translation regime
+	 * used by the host.
 	 */
 	asm(ALTERNATIVE("nop", "isb", ARM64_WORKAROUND_SPECULATIVE_AT));
 
