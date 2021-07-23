@@ -178,8 +178,9 @@ static void hse_ahash_done(int err, void *req)
 					 rctx->outlen, DMA_FROM_DEVICE);
 			fallthrough;
 		default:
-			dma_free_coherent(alg->dev, rctx->buflen, rctx->buf,
-					  rctx->buf_dma);
+			dma_unmap_single(alg->dev, rctx->buf_dma, rctx->buflen,
+					 DMA_TO_DEVICE);
+			kfree(rctx->buf);
 			rctx->buflen = 0;
 			break;
 		}
@@ -196,8 +197,9 @@ static void hse_ahash_done(int err, void *req)
 		hse_channel_release(alg->dev, rctx->channel);
 		fallthrough;
 	case HSE_ACCESS_MODE_ONE_PASS:
-		dma_free_coherent(alg->dev, rctx->buflen, rctx->buf,
-				  rctx->buf_dma);
+		dma_unmap_single(alg->dev, rctx->buf_dma, rctx->buflen,
+				 DMA_TO_DEVICE);
+		kfree(rctx->buf);
 		rctx->buflen = 0;
 
 		dma_unmap_single(alg->dev, rctx->outlen_dma,
@@ -228,10 +230,17 @@ static int hse_ahash_init(struct ahash_request *req)
 	unsigned int blocksize = crypto_ahash_blocksize(tfm);
 	int err;
 
-	rctx->buf = dma_alloc_coherent(alg->dev, blocksize, &rctx->buf_dma,
-				       GFP_KERNEL);
+	rctx->buf = kzalloc(blocksize, GFP_KERNEL);
 	if (IS_ERR_OR_NULL(rctx->buf))
 		return -ENOMEM;
+
+	rctx->buf_dma = dma_map_single(alg->dev, rctx->buf, blocksize,
+				       DMA_TO_DEVICE);
+	if (unlikely(dma_mapping_error(alg->dev, rctx->buf_dma))) {
+		err = -ENOMEM;
+		goto err_free_buf;
+	}
+
 	rctx->buflen = blocksize;
 	rctx->cache_idx = 0;
 	rctx->streaming_mode = false;
@@ -239,11 +248,14 @@ static int hse_ahash_init(struct ahash_request *req)
 	err = hse_channel_acquire(alg->dev, HSE_CH_TYPE_STREAM, &rctx->channel,
 				  &rctx->stream);
 	if (err)
-		goto err_free_buf;
+		goto err_unmap_buf;
 
 	return 0;
+err_unmap_buf:
+	dma_unmap_single(alg->dev, rctx->buf_dma, rctx->buflen, DMA_TO_DEVICE);
 err_free_buf:
-	dma_free_coherent(alg->dev, rctx->buflen, rctx->buf, rctx->buf_dma);
+	kfree(rctx->buf);
+	rctx->buflen = 0;
 	return err;
 }
 
@@ -276,19 +288,30 @@ static int hse_ahash_update(struct ahash_request *req)
 	full_blocks = rounddown(bytes_left, blocksize);
 
 	if (rctx->buflen < full_blocks) {
-		void *oldbuf = rctx->buf;
-		dma_addr_t oldbuf_dma = rctx->buf_dma;
+		void *newbuf;
+		dma_addr_t newbuf_dma;
 
 		/* realloc larger dynamic buffer */
-		rctx->buf = dma_alloc_coherent(alg->dev, full_blocks,
-					       &rctx->buf_dma, GFP_KERNEL);
-		if (IS_ERR_OR_NULL(rctx->buf)) {
-			rctx->buf = oldbuf;
-			rctx->buf_dma = oldbuf_dma;
+		newbuf = kzalloc(full_blocks, GFP_KERNEL);
+		if (IS_ERR_OR_NULL(newbuf)) {
 			err = -ENOMEM;
 			goto err_release_channel;
 		}
-		dma_free_coherent(alg->dev, rctx->buflen, oldbuf, oldbuf_dma);
+
+		newbuf_dma = dma_map_single(alg->dev, newbuf, full_blocks,
+					    DMA_TO_DEVICE);
+		if (unlikely(dma_mapping_error(alg->dev, newbuf_dma))) {
+			kfree(newbuf);
+			err = -ENOMEM;
+			goto err_release_channel;
+		}
+
+		dma_unmap_single(alg->dev, rctx->buf_dma, rctx->buflen,
+				 DMA_TO_DEVICE);
+		kfree(rctx->buf);
+
+		rctx->buf = newbuf;
+		rctx->buf_dma = newbuf_dma;
 		rctx->buflen = full_blocks;
 	}
 
@@ -342,7 +365,9 @@ static int hse_ahash_update(struct ahash_request *req)
 	return -EINPROGRESS;
 err_release_channel:
 	hse_channel_release(alg->dev, rctx->channel);
-	dma_free_coherent(alg->dev, rctx->buflen, rctx->buf, rctx->buf_dma);
+	dma_unmap_single(alg->dev, rctx->buf_dma, rctx->buflen, DMA_TO_DEVICE);
+	kfree(rctx->buf);
+	rctx->buflen = 0;
 	return err;
 }
 
@@ -431,7 +456,9 @@ err_unmap_result:
 			 DMA_FROM_DEVICE);
 err_release_channel:
 	hse_channel_release(alg->dev, rctx->channel);
-	dma_free_coherent(alg->dev, rctx->buflen, rctx->buf, rctx->buf_dma);
+	dma_unmap_single(alg->dev, rctx->buf_dma, rctx->buflen, DMA_TO_DEVICE);
+	kfree(rctx->buf);
+	rctx->buflen = 0;
 	return err;
 }
 
@@ -464,19 +491,30 @@ static int hse_ahash_finup(struct ahash_request *req)
 
 	bytes_left = rctx->cache_idx + req->nbytes;
 	if (rctx->buflen < bytes_left) {
-		void *oldbuf = rctx->buf;
-		dma_addr_t oldbuf_dma = rctx->buf_dma;
+		void *newbuf;
+		dma_addr_t newbuf_dma;
 
 		/* realloc larger dynamic buffer */
-		rctx->buf = dma_alloc_coherent(alg->dev, bytes_left,
-					       &rctx->buf_dma, GFP_KERNEL);
-		if (IS_ERR_OR_NULL(rctx->buf)) {
-			rctx->buf = oldbuf;
-			rctx->buf_dma = oldbuf_dma;
+		newbuf = kzalloc(bytes_left, GFP_KERNEL);
+		if (IS_ERR_OR_NULL(newbuf)) {
 			err = -ENOMEM;
 			goto err_unmap_outlen;
 		}
-		dma_free_coherent(alg->dev, rctx->buflen, oldbuf, oldbuf_dma);
+
+		newbuf_dma = dma_map_single(alg->dev, newbuf, bytes_left,
+					    DMA_TO_DEVICE);
+		if (unlikely(dma_mapping_error(alg->dev, newbuf_dma))) {
+			kfree(newbuf);
+			err = -ENOMEM;
+			goto err_release_channel;
+		}
+
+		dma_unmap_single(alg->dev, rctx->buf_dma, rctx->buflen,
+				 DMA_TO_DEVICE);
+		kfree(rctx->buf);
+
+		rctx->buf = newbuf;
+		rctx->buf_dma = newbuf_dma;
 		rctx->buflen = bytes_left;
 	}
 
@@ -485,7 +523,7 @@ static int hse_ahash_finup(struct ahash_request *req)
 	scatterwalk_map_and_copy(rctx->buf + rctx->cache_idx,
 				 req->src, 0, req->nbytes, 0);
 	/* sync needed as the cores and HSE do not share a coherency domain */
-	dma_sync_single_for_device(alg->dev, rctx->buf_dma, rctx->cache_idx,
+	dma_sync_single_for_device(alg->dev, rctx->buf_dma, rctx->buflen,
 				   DMA_TO_DEVICE);
 
 	/* use ONE-PASS access mode if no START request has been issued */
@@ -540,7 +578,9 @@ err_unmap_result:
 			 DMA_FROM_DEVICE);
 err_release_channel:
 	hse_channel_release(alg->dev, rctx->channel);
-	dma_free_coherent(alg->dev, rctx->buflen, rctx->buf, rctx->buf_dma);
+	dma_unmap_single(alg->dev, rctx->buf_dma, rctx->buflen, DMA_TO_DEVICE);
+	kfree(rctx->buf);
+	rctx->buflen = 0;
 	return err;
 }
 
@@ -571,12 +611,17 @@ static int hse_ahash_digest(struct ahash_request *req)
 	}
 
 	rctx->buflen = max(req->nbytes, blocksize);
-	rctx->buf = dma_alloc_coherent(alg->dev, rctx->buflen, &rctx->buf_dma,
-				       GFP_KERNEL);
+	rctx->buf = kzalloc(rctx->buflen, GFP_KERNEL);
 	if (IS_ERR_OR_NULL(rctx->buf)) {
-		rctx->buflen = 0;
 		err = -ENOMEM;
 		goto err_unmap_outlen;
+	}
+
+	rctx->buf_dma = dma_map_single(alg->dev, rctx->buf, rctx->buflen,
+				       DMA_TO_DEVICE);
+	if (unlikely(dma_mapping_error(alg->dev, rctx->buf_dma))) {
+		err = -ENOMEM;
+		goto err_free_buf;
 	}
 
 	scatterwalk_map_and_copy(rctx->buf, req->src, 0, req->nbytes, 0);
@@ -613,11 +658,13 @@ static int hse_ahash_digest(struct ahash_request *req)
 	err = hse_srv_req_async(alg->dev, HSE_CHANNEL_ANY, &rctx->srv_desc,
 				req, hse_ahash_done);
 	if (unlikely(err))
-		goto err_free_buf;
+		goto err_unmap_buf;
 
 	return -EINPROGRESS;
+err_unmap_buf:
+	dma_unmap_single(alg->dev, rctx->buf_dma, rctx->buflen, DMA_TO_DEVICE);
 err_free_buf:
-	dma_free_coherent(alg->dev, rctx->buflen, rctx->buf, rctx->buf_dma);
+	kfree(rctx->buf);
 	rctx->buflen = 0;
 err_unmap_outlen:
 	dma_unmap_single(alg->dev, rctx->outlen_dma, sizeof(rctx->outlen),
@@ -674,7 +721,8 @@ static int hse_ahash_export(struct ahash_request *req, void *out)
 	dma_unmap_single(alg->dev, sctx_dma, HSE_MAX_CTX_SIZE, DMA_FROM_DEVICE);
 out_release_channel:
 	hse_channel_release(alg->dev, rctx->channel);
-	dma_free_coherent(alg->dev, rctx->buflen, rctx->buf, rctx->buf_dma);
+	dma_unmap_single(alg->dev, rctx->buf_dma, rctx->buflen, DMA_TO_DEVICE);
+	kfree(rctx->buf);
 	rctx->buflen = 0;
 	return err;
 }
@@ -697,10 +745,15 @@ static int hse_ahash_import(struct ahash_request *req, const void *in)
 	if (unlikely(!in))
 		return -EINVAL;
 
-	rctx->buf = dma_alloc_coherent(alg->dev, blocksize, &rctx->buf_dma,
-				       GFP_KERNEL);
+	rctx->buf = kzalloc(blocksize, GFP_KERNEL);
 	if (IS_ERR_OR_NULL(rctx->buf))
 		return -ENOMEM;
+	rctx->buf_dma = dma_map_single(alg->dev, rctx->buf, blocksize,
+				       DMA_TO_DEVICE);
+	if (unlikely(dma_mapping_error(alg->dev, rctx->buf_dma))) {
+		err = -ENOMEM;
+		goto err_free_buf;
+	}
 	rctx->buflen = blocksize;
 
 	/* restore block-sized cache */
@@ -711,7 +764,7 @@ static int hse_ahash_import(struct ahash_request *req, const void *in)
 	err = hse_channel_acquire(alg->dev, HSE_CH_TYPE_STREAM, &rctx->channel,
 				  &rctx->stream);
 	if (err)
-		goto err_free_buf;
+		goto err_unmap_buf;
 
 	if (!state->streaming_mode)
 		return 0;
@@ -743,8 +796,10 @@ err_unmap_sctx:
 	dma_unmap_single(alg->dev, sctx_dma, HSE_MAX_CTX_SIZE, DMA_TO_DEVICE);
 err_release_channel:
 	hse_channel_release(alg->dev, rctx->channel);
+err_unmap_buf:
+	dma_unmap_single(alg->dev, rctx->buf_dma, blocksize, DMA_TO_DEVICE);
 err_free_buf:
-	dma_free_coherent(alg->dev, rctx->buflen, rctx->buf, rctx->buf_dma);
+	kfree(rctx->buf);
 	rctx->buflen = 0;
 	return err;
 }
