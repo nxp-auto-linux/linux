@@ -40,6 +40,8 @@
 #define COMMAND_READ				BIT(3)
 #define COMMAND_WRITE				BIT(4)
 #define COMMAND_COPY				BIT(5)
+#define COMMAND_DMA_READ			BIT(6)
+#define COMMAND_DMA_WRITE			BIT(7)
 
 #define PCI_ENDPOINT_TEST_STATUS		0x8
 #define STATUS_READ_SUCCESS			BIT(0)
@@ -427,7 +429,8 @@ err:
 	return ret;
 }
 
-static bool pci_endpoint_test_write(struct pci_endpoint_test *test, size_t size)
+static bool pci_endpoint_test_write(struct pci_endpoint_test *test,
+				    size_t size, bool dma_en)
 {
 	bool ret = false;
 	u32 reg;
@@ -482,8 +485,12 @@ static bool pci_endpoint_test_write(struct pci_endpoint_test *test, size_t size)
 
 	pci_endpoint_test_writel(test, PCI_ENDPOINT_TEST_IRQ_TYPE, irq_type);
 	pci_endpoint_test_writel(test, PCI_ENDPOINT_TEST_IRQ_NUMBER, 1);
-	pci_endpoint_test_writel(test, PCI_ENDPOINT_TEST_COMMAND,
-				 COMMAND_READ);
+	if (dma_en)
+		pci_endpoint_test_writel(test, PCI_ENDPOINT_TEST_COMMAND,
+					 COMMAND_DMA_READ);
+	else
+		pci_endpoint_test_writel(test, PCI_ENDPOINT_TEST_COMMAND,
+					 COMMAND_READ);
 
 	wait_for_completion(&test->irq_raised);
 
@@ -497,7 +504,8 @@ err:
 	return ret;
 }
 
-static bool pci_endpoint_test_read(struct pci_endpoint_test *test, size_t size)
+static bool pci_endpoint_test_read(struct pci_endpoint_test *test,
+				   size_t size, bool dma_en)
 {
 	bool ret = false;
 	void *addr;
@@ -545,8 +553,12 @@ static bool pci_endpoint_test_read(struct pci_endpoint_test *test, size_t size)
 
 	pci_endpoint_test_writel(test, PCI_ENDPOINT_TEST_IRQ_TYPE, irq_type);
 	pci_endpoint_test_writel(test, PCI_ENDPOINT_TEST_IRQ_NUMBER, 1);
-	pci_endpoint_test_writel(test, PCI_ENDPOINT_TEST_COMMAND,
-				 COMMAND_WRITE);
+	if (dma_en)
+		pci_endpoint_test_writel(test, PCI_ENDPOINT_TEST_COMMAND,
+					 COMMAND_DMA_WRITE);
+	else
+		pci_endpoint_test_writel(test, PCI_ENDPOINT_TEST_COMMAND,
+					 COMMAND_WRITE);
 
 	wait_for_completion(&test->irq_raised);
 
@@ -615,10 +627,16 @@ static long pci_endpoint_test_ioctl(struct file *file, unsigned int cmd,
 		ret = pci_endpoint_test_msi_irq(test, arg, cmd == PCITEST_MSIX);
 		break;
 	case PCITEST_WRITE:
-		ret = pci_endpoint_test_write(test, arg);
+		ret = pci_endpoint_test_write(test, arg, false);
 		break;
 	case PCITEST_READ:
-		ret = pci_endpoint_test_read(test, arg);
+		ret = pci_endpoint_test_read(test, arg, false);
+		break;
+	case PCITEST_DMA_WRITE:
+		ret = pci_endpoint_test_write(test, arg, true);
+		break;
+	case PCITEST_DMA_READ:
+		ret = pci_endpoint_test_read(test, arg, true);
 		break;
 	case PCITEST_COPY:
 		ret = pci_endpoint_test_copy(test, arg);
