@@ -165,12 +165,12 @@ static int s32gen1_ep_bars_en[] = {
 		PCIE_EP_BAR5_EN_DIS
 };
 
+#endif /* CONFIG_PCI_S32GEN1_INIT_EP_BARS */
+/* End EP BARs defines */
+
 struct s32gen1_pcie_data {
 	enum dw_pcie_device_mode mode;
 };
-
-#endif /* CONFIG_PCI_S32GEN1_INIT_EP_BARS */
-/* End EP BARs defines */
 
 #define xstr(s) str(s)
 #define str(s) #s
@@ -404,6 +404,7 @@ static void s32gen1_pcie_ep_init(struct dw_pcie_ep *ep)
 	struct pci_epc *epc;
 	int bar;
 #ifdef CONFIG_PCI_S32GEN1_INIT_EP_BARS
+	struct pci_epc *epc = ep->epc;
 	int ret = 0;
 #endif
 
