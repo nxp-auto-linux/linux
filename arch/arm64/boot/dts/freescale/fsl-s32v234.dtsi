@@ -10,6 +10,7 @@
 
 #include <dt-bindings/clock/s32v234-clock.h>
 #include <dt-bindings/pinctrl/s32v234-pinctrl.h>
+#include <dt-bindings/interrupt-controller/irq.h>
 
 /memreserve/ 0x80000000 0x00010000;
 
@@ -615,6 +616,10 @@
 			fccu: fccu@400B0000 {
 				compatible = "fsl,s32v234-fccu";
 				reg = <0x0 0x400B0000 0x0 0x1000>;
+				interrupts= <0 74 IRQ_TYPE_LEVEL_HIGH>,
+					    <0 75 IRQ_TYPE_LEVEL_HIGH>;
+				interrupt-names = "fccu_alarm",
+						  "fccu_misc";
 				clocks = <&clks S32V234_CLK_SYS6>;
 				clock-names = "fccu";
 				/* A53 software SWTn fault list */

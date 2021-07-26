@@ -26,6 +26,7 @@
 #include <linux/interrupt.h>
 #include <linux/of.h>
 #include <linux/slab.h>
+#include <dt-bindings/misc/s32-fccu.h>
 
 #define DRIVER_NAME "fsl_fccu"
 #define FCCU_MINOR	1
@@ -67,31 +68,101 @@
 
 #define FCCU_TIME_OUT				0x7UL
 
-#define FCCU_CFG_DEFAULT			0x8
 
 #define FCCU_NCFS_CFGN_OFF			0x4C
 #define FCCU_NCF_EN_OFF				0x94
 #define FCCU_NCF_SN_OFF				0x80
-#define FCCU_NCF_SN_MAX_NUM			0x4
-#define FCCU_NCFS_CFGN_MAX_NUM		0x8
-#define FCCU_NCFS_CFG_SIZE			16
-#define FCCU_NCF_SN(N)				(FCCU_NCF_SN_OFF + 4 * (N))
-#define FCCU_NCF_EN(N)				(FCCU_NCF_EN_OFF + 4 * (N))
-#define FCCU_NCFS_CFGN(N)			(FCCU_NCFS_CFGN_OFF + 4 * (N))
+#define FCCU_NCF_TOEN_OFF			0xA4
+#define FCCU_IRQ_ALARM_EN_OFF			0xFC
+#define FCCU_NMI_EN_OFF				0x10C
+#define FCCU_EOUT_SIG_EN_OFF			0x11C
 
-#define DIFF_MODE					1
-#define EQUAL_MODE					0
+#define FCCU_NCF_SN_MAX_NUM			0x4
+#define FCCU_NCFS_CFG_SIZE			16
+
+#define FCCU_ALARM_IRQ_NAME			"fccu_alarm"
+#define FCCU_MISC_IRQ_NAME			"fccu_misc"
+
+/* Maximum number of retries to reset the NCF fault. This is not specified in
+ * RM which assumes an infinite loop, but it is used here to avoid blocking
+ * forever in interrupt handler
+ */
+#define FCCU_RESET_MAX_NUMBER			20000
+
 
 static struct miscdevice fccu_miscdev = {
 	.minor = FCCU_MINOR,
 	.name = "fccu",
 };
 
-struct fccu_pri_data_t {
+struct fccu_ncf_regs {
+	u32 *mask;
+	const size_t size;
+	const u32 offset;
+};
+
+struct fccu_alarm_mask {
+	struct fccu_ncf_regs status;
+	struct fccu_ncf_regs alarm_state;
+	struct fccu_ncf_regs alarm_irq;
+	struct fccu_ncf_regs func_reset;
+	struct fccu_ncf_regs nmi;
+	struct fccu_ncf_regs eout;
+
+	struct fccu_ncf_regs ncf_enable;
+};
+
+static u32 fccu_status_mask[4];
+static u32 fccu_alarm_mask[4];
+static u32 fccu_func_reset_mask[8];
+static u32 fccu_nmi_mask[4];
+static u32 fccu_eout_mask[4];
+static u32 fccu_ncf_enable_mask[4];
+
+static struct fccu_alarm_mask mask = {
+	.status = {
+		.mask = fccu_status_mask,
+		.size = ARRAY_SIZE(fccu_status_mask),
+		.offset = FCCU_NCF_SN_OFF,
+	},
+	.alarm_state = {
+		.mask = fccu_alarm_mask,
+		.size = ARRAY_SIZE(fccu_alarm_mask),
+		.offset = FCCU_NCF_TOEN_OFF,
+	},
+	.alarm_irq = {
+		/* common mask with alarm_state */
+		.mask = fccu_alarm_mask,
+		.size = ARRAY_SIZE(fccu_alarm_mask),
+		.offset = FCCU_IRQ_ALARM_EN_OFF,
+	},
+	.func_reset = {
+		.mask = fccu_func_reset_mask,
+		.size = ARRAY_SIZE(fccu_func_reset_mask),
+		.offset = FCCU_NCFS_CFGN_OFF,
+	},
+	.nmi = {
+		.mask = fccu_nmi_mask,
+		.size = ARRAY_SIZE(fccu_nmi_mask),
+		.offset = FCCU_NMI_EN_OFF,
+	},
+	.eout = {
+		.mask = fccu_eout_mask,
+		.size = ARRAY_SIZE(fccu_eout_mask),
+		.offset = FCCU_EOUT_SIG_EN_OFF,
+	},
+	.ncf_enable = {
+		.mask = fccu_ncf_enable_mask,
+		.size = ARRAY_SIZE(fccu_ncf_enable_mask),
+		.offset = FCCU_NCF_EN_OFF,
+	},
+};
+
+struct fccu_pri_data {
 	struct resource *res;
+	struct device *dev;
 	void __iomem *base;
-	u32 ncfn_mask[FCCU_NCF_SN_MAX_NUM];
-	u32 ncfs_cfgn_mask[FCCU_NCFS_CFGN_MAX_NUM];
+	struct fccu_alarm_mask *mask;
 };
 
 static int fccu_get_ncf_reg_number(u32 val)
@@ -103,12 +174,15 @@ static int fccu_get_ncf_reg_number(u32 val)
 
 /* Set maximal fault masks for every NCF_Sn */
 static void set_maximal_fault_lists(struct device *dev,
-		struct fccu_pri_data_t *priv_data,
-		u32 *fault_list, u32 size)
+		struct fccu_pri_data *priv_data,
+		u32 *fault_list, u32 size,
+		u32 *reaction_list, u32 size_r)
 {
 	u32 i;
 	int ncf_num;
 	u32 reg_fault_pos;
+	struct fccu_alarm_mask *mask = priv_data->mask;
+	int reactions = 0;
 
 	for (i = 0; i < size; i++) {
 		ncf_num = fccu_get_ncf_reg_number(fault_list[i]);
@@ -119,15 +193,43 @@ static void set_maximal_fault_lists(struct device *dev,
 		}
 
 		reg_fault_pos = fault_list[i] % 32;
-		priv_data->ncfn_mask[ncf_num] |= BIT(reg_fault_pos);
 
-		if (reg_fault_pos < FCCU_NCFS_CFG_SIZE) {
-			priv_data->ncfs_cfgn_mask[ncf_num * 2] |=
-				BIT(reg_fault_pos * 2);
-		} else {
-			priv_data->ncfs_cfgn_mask[ncf_num * 2 + 1] |=
-				BIT((reg_fault_pos % FCCU_NCFS_CFG_SIZE) * 2);
+		/* Setup status bits */
+		mask->status.mask[ncf_num] |= BIT(reg_fault_pos);
+
+		if (size_r == 0)
+			continue;
+
+		/* Setup reaction bits */
+		if (reaction_list[i] & S32_FCCU_REACTION_ALARM) {
+			mask->alarm_state.mask[ncf_num] |= BIT(reg_fault_pos);
+			reactions++;
 		}
+
+		if (reaction_list[i] & S32_FCCU_REACTION_NMI) {
+			mask->nmi.mask[ncf_num] |= BIT(reg_fault_pos);
+			reactions++;
+		}
+
+		if (reaction_list[i] & S32_FCCU_REACTION_EOUT) {
+			mask->eout.mask[ncf_num] |= BIT(reg_fault_pos);
+			reactions++;
+		}
+
+		if (reaction_list[i] & S32_FCCU_REACTION_FUNC_RESET) {
+			if (reg_fault_pos < FCCU_NCFS_CFG_SIZE) {
+				mask->func_reset.mask[ncf_num * 2] |=
+				    BIT(reg_fault_pos * 2);
+			} else {
+				mask->func_reset.mask[ncf_num * 2 + 1] |=
+				    BIT((reg_fault_pos % FCCU_NCFS_CFG_SIZE) * 2);
+			}
+			reactions++;
+		}
+
+		/* Enable NCF reaction if at least one reaction is enabled */
+		if (reactions)
+			mask->ncf_enable.mask[ncf_num] |= BIT(reg_fault_pos);
 	}
 }
 
@@ -156,6 +258,11 @@ static int wait_op_success(void __iomem *base)
 	return 0;
 }
 
+static int get_fccu_status(void __iomem *base)
+{
+	return __raw_readl(base + FCCU_STAT) & FCCU_STAT_STATUS_MASK;
+}
+
 static int wait_become_normal_st(void __iomem *base)
 {
 	u32 ops_val = 0;
@@ -181,12 +288,72 @@ static int wait_become_normal_st(void __iomem *base)
 	return 0;
 }
 
-static int clear_fault_status(struct device *dev,
-		struct fccu_pri_data_t *priv_data)
+static inline u32 get_offset(struct fccu_ncf_regs *reg, int reg_index)
+{
+	return reg->offset + 4 * reg_index;
+}
+
+static void write_ncf_regs(struct fccu_pri_data *priv_data,
+			  struct fccu_ncf_regs *reg)
 {
 	void __iomem *base = priv_data->base;
+	int i;
+
+	for (i = 0; i < reg->size; i++)
+		__raw_writel(reg->mask[i], base + get_offset(reg, i));
+}
+
+
+static int reset_ncf_register(struct device *dev,
+				struct fccu_pri_data *priv_data,
+				int reg_index,
+				u32 *fault)
+{
+	void __iomem *base = priv_data->base;
+	struct fccu_ncf_regs *status = &priv_data->mask->status;
+	u32 ncf_val = 0;
+	int ret;
+	int count = 0;
+	int state = get_fccu_status(base);
+
+	if (IS_ERR_OR_NULL(fault))
+		return -EINVAL;
+
+	while ((ncf_val = status->mask[reg_index] &
+		 __raw_readl(base + get_offset(status, reg_index)))) {
+
+		if (++count == 1)
+			*fault = ncf_val;
+		else if (count >= FCCU_RESET_MAX_NUMBER) {
+			dev_err(dev, "Failed to reset NCF after %d retries state=%d->%d\n",
+				count, state, get_fccu_status(base));
+			return -EOVERFLOW;
+		}
+
+		/* Unlock FCCU fault status source register */
+		__raw_writel(FCCU_NCFK_UNLOCK_SEQUENCE,
+			     base + FCCU_NCFK);
+
+		/* Clear faults with maximal fault mask for NCF_Sn */
+		__raw_writel(status->mask[reg_index],
+			     base + get_offset(status, reg_index));
+
+		ret = wait_op_success(base);
+		if (ret)
+			return ret;
+	}
+
+	return count;
+}
+
+static int clear_fault_status(struct device *dev,
+		struct fccu_pri_data *priv_data)
+{
+	void __iomem *base = priv_data->base;
+	struct fccu_alarm_mask *mask = priv_data->mask;
 	u32 reg_ncf_val;
 	int i, ret;
+	int state = get_fccu_status(base);
 
 	if (IS_ERR_OR_NULL(base)) {
 		dev_err(fccu_miscdev.parent,
@@ -194,23 +361,16 @@ static int clear_fault_status(struct device *dev,
 		return -EINVAL;
 	}
 
-	for (i = 0; i < ARRAY_SIZE(priv_data->ncfn_mask); i++) {
-		reg_ncf_val = __raw_readl(base + FCCU_NCF_SN(i));
+	for (i = 0; i < mask->status.size; i++) {
+		ret = reset_ncf_register(dev, priv_data, i, &reg_ncf_val);
 
-		if (priv_data->ncfn_mask[i] & reg_ncf_val) {
-			/* Unlock FCCU fault status source register */
-			__raw_writel(FCCU_NCFK_UNLOCK_SEQUENCE,
-					base + FCCU_NCFK);
+		if (ret < 0)
+			return ret;
 
-			/* Clear faults with maximal fault mask for NCF_Sn */
-			__raw_writel(priv_data->ncfn_mask[i],
-					base + FCCU_NCF_SN(i));
-
-			ret = wait_op_success(base);
-			if (ret)
-				return ret;
-
-			dev_info(dev, "Cleared faults from NCF_S%d\n", i);
+		if (ret > 0) {
+			dev_info(dev, "Cleared faults 0x%x from NCF_S%d (%d) state=%d->%d\n",
+				reg_ncf_val, i, ret,
+				state, get_fccu_status(base));
 		}
 	}
 
@@ -218,10 +378,11 @@ static int clear_fault_status(struct device *dev,
 }
 
 static int enable_rs_channel(struct device *dev,
-		struct fccu_pri_data_t *priv_data)
+		struct fccu_pri_data *priv_data)
 {
 	void __iomem *base = priv_data->base;
-	int i = 0, ret;
+	struct fccu_alarm_mask *mask = priv_data->mask;
+	int ret;
 
 	if (IS_ERR_OR_NULL(base) || IS_ERR_OR_NULL(dev)) {
 		dev_err(fccu_miscdev.parent,
@@ -245,39 +406,199 @@ static int enable_rs_channel(struct device *dev,
 	if (ret)
 		return ret;
 
-	/* Setup Non-critical Fault Enable registers */
-	for (i = 0; i < ARRAY_SIZE(priv_data->ncfn_mask); i++)
-		__raw_writel(priv_data->ncfn_mask[i],
-				base + FCCU_NCF_EN(i));
+	/* 67.8.3 Configure the non-critical fault channels */
+	/* 1. Recovery type: NCF_CFGa - Default is SW recoverable, and the
+	 * recommended recovery type is SW. Therefore no change needed
+	 */
 
-	/* Setup Non-critical Fault-State Configuration registers */
-	for (i = 0; i < ARRAY_SIZE(priv_data->ncfs_cfgn_mask); i++)
-		__raw_writel(priv_data->ncfs_cfgn_mask[i],
-				base + FCCU_NCFS_CFGN(i));
+	/*2. Enable Fault-state reaction
+	 * - chip functional reset, NMI, or EOUT signal
+	 */
+	write_ncf_regs(priv_data, &mask->func_reset);
+	write_ncf_regs(priv_data, &mask->nmi);
+	write_ncf_regs(priv_data, &mask->eout);
+
+	/* 3. Set Alarm-state timeout
+	 * Leave default: 0x0003_A980
+	 */
+
+	/* 4. Enable Alarm state NCF_TOEa */
+	write_ncf_regs(priv_data, &mask->alarm_state);
+
+	/* 5. Enable Alarm state reaction IRQ_ALARM_ENa */
+	write_ncf_regs(priv_data, &mask->alarm_irq);
+
+	/* 6. Enable Non-critical Fault Enable registers */
+	write_ncf_regs(priv_data, &mask->ncf_enable);
 
 	/* Put FCCU into normal state */
 	__raw_writel(FCCU_CTRLK_UNLOCK_OP2, base + FCCU_CTRLK);
 	__raw_writel(FCCU_CTRL_OPR_OP2, base + FCCU_CTRL);
 
-	return wait_op_success(base);
+	ret = wait_op_success(base);
+	dev_info(dev, "FCCU status is %d (normal)\n", get_fccu_status(base));
+
+	return ret;
 }
+
+static irqreturn_t irq_alarm_handler(int irq, void *data)
+{
+	struct fccu_pri_data *priv_data = data;
+	struct device *dev = priv_data->dev;
+
+	clear_fault_status(dev, priv_data);
+	return IRQ_HANDLED;
+}
+
+static irqreturn_t irq_misc_handler(int irq, void *data)
+{
+	struct fccu_pri_data *priv_data = data;
+	struct device *dev = priv_data->dev;
+
+	/* The misc alarm handling is just informational */
+	dev_info(dev, "interrupt handler: misc. No action performed\n");
+	return IRQ_HANDLED;
+}
+
+static int init_fccu_irq_resources(struct platform_device *pdev,
+				   struct fccu_pri_data *priv_data)
+{
+	int irq_alarm, irq_misc;
+	struct device *dev = &pdev->dev;
+	int ret;
+
+	irq_alarm = platform_get_irq_byname(pdev, FCCU_ALARM_IRQ_NAME);
+	if (irq_alarm < 0) {
+		dev_err(dev, "Failed to request IRQ 0\n");
+		return irq_alarm;
+	}
+	irq_misc = platform_get_irq_byname(pdev, FCCU_MISC_IRQ_NAME);
+	if (irq_misc < 0) {
+		dev_err(dev, "Failed to request IRQ 1\n");
+		return irq_misc;
+	}
+
+	/* Interrtups are threaded because, along with clearing the NCF
+	 * they are also intended for printing the list of detect faults
+	 * in the log (dmesg)
+	 */
+	ret = devm_request_threaded_irq(dev, irq_alarm, NULL,
+					irq_alarm_handler, IRQF_ONESHOT,
+					FCCU_ALARM_IRQ_NAME, priv_data);
+	if (ret < 0) {
+		dev_err(dev, "Failed to register IRQ\n");
+		return ret;
+	}
+
+	ret = devm_request_threaded_irq(dev, irq_misc, NULL,
+					irq_misc_handler, IRQF_ONESHOT,
+					FCCU_MISC_IRQ_NAME, priv_data);
+	if (ret < 0) {
+		dev_err(dev, "Failed to register IRQ\n");
+		return ret;
+	}
+
+	return 0;
+}
+
+static int get_fccu_array(struct device *dev,
+			  const char *name,
+			  u32 **parray,
+			  size_t *psize)
+{
+	int ret;
+	struct device_node *np = dev->of_node;
+	struct property *prop = NULL;
+
+	if (IS_ERR_OR_NULL(parray) || IS_ERR_OR_NULL(psize)) {
+		dev_err(dev, "Invalid array parameters\n");
+		return -EINVAL;
+	}
+
+	prop = of_find_property(np, name, NULL);
+	if (prop == NULL) {
+		/* Allow missing property */
+		*psize = 0;
+		*parray = NULL;
+		return 0;
+	}
+
+	ret = of_property_count_elems_of_size(np, name, sizeof(u32));
+	if (ret <= 0) {
+		dev_err(dev, "Invalid number of elements in %s\n", name);
+		return -EINVAL;
+	}
+
+	*psize = ret;
+
+	*parray = kcalloc(*psize, sizeof(u32), GFP_KERNEL);
+	if (*parray == NULL)
+		return -ENOMEM;
+
+	ret = of_property_read_u32_array(np, name, *parray, *psize);
+	if (ret) {
+		kfree(*parray);
+		dev_err(dev, "Error reading %s array\n", name);
+		return -EINVAL;
+	}
+	return 0;
+
+}
+
+static int init_fccu_array_resources(struct device *dev,
+				     struct fccu_pri_data *priv_data)
+{
+	int ret = 0;
+	size_t size, size_r;
+	u32 *ncf_fault_arr = NULL;
+	u32 *ncf_reaction_arr = NULL;
+
+
+	ret = get_fccu_array(dev, "nxp,ncf_fault_list",
+			     &ncf_fault_arr, &size);
+	if (ret)
+		return ret;
+
+	ret = get_fccu_array(dev, "nxp,ncf_actions",
+			     &ncf_reaction_arr, &size_r);
+	if (ret)
+		goto free_fault;
+
+	/* If action list is present, its size must be the same as
+	 * the fault list: each action apply to a fault from the list
+	 */
+	if ((size_r) && (size != size_r)) {
+		dev_err(dev, "Error: size mismatch for fault properties list");
+		ret = -EINVAL;
+		goto out;
+	}
+
+	priv_data->mask = &mask;
+	set_maximal_fault_lists(dev, priv_data,
+				ncf_fault_arr, size,
+				ncf_reaction_arr, size_r);
+out:
+	kfree(ncf_reaction_arr);
+free_fault:
+	kfree(ncf_fault_arr);
+
+	return ret;
+}
+
 
 static int __init s32_fccu_probe(struct platform_device *pdev)
 {
 	int ret;
-	struct fccu_pri_data_t *priv_data = NULL;
-	struct property *prop = NULL;
+	struct fccu_pri_data *priv_data = NULL;
 	struct device *dev = &pdev->dev;
-	struct device_node *np = dev->of_node;
-	size_t size;
-	u32 *ncf_fault_arr = NULL;
 
 	priv_data = devm_kzalloc(dev,
-		sizeof(struct fccu_pri_data_t), GFP_KERNEL);
+		sizeof(struct fccu_pri_data), GFP_KERNEL);
 	if (priv_data == NULL)
 		return -ENOMEM;
 
 	fccu_miscdev.parent = dev;
+	priv_data->dev = dev;
 	priv_data->res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	priv_data->base = devm_ioremap_resource(dev, priv_data->res);
 
@@ -291,53 +612,36 @@ static int __init s32_fccu_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, priv_data);
 
-	prop = of_find_property(np, "nxp,ncf_fault_list", NULL);
-	if (prop == NULL) {
-		dev_err(fccu_miscdev.parent,
-				"can not find property: 'nxp,ncf_fault_list'\n");
-		return -EINVAL;
-	}
+	ret = init_fccu_irq_resources(pdev, priv_data);
+	if (ret)
+		return ret;
 
-	size = prop->length / sizeof(*ncf_fault_arr);
-	ncf_fault_arr = kcalloc(size, sizeof(*ncf_fault_arr), GFP_KERNEL);
-	if (ncf_fault_arr == NULL)
-		return -ENOMEM;
-
-	ret = of_property_read_u32_array(np,
-			"nxp,ncf_fault_list", ncf_fault_arr, size);
-	if (ret) {
-		dev_err(fccu_miscdev.parent,
-				"No fault status registers offset specified\n");
-		goto out;
-	}
-
-	set_maximal_fault_lists(dev, priv_data,
-			ncf_fault_arr, size);
+	ret = init_fccu_array_resources(dev, priv_data);
+	if (ret)
+		return ret;
 
 	ret = clear_fault_status(dev, priv_data);
 	if (ret) {
-		dev_err(fccu_miscdev.parent, "%s, %d, configuration meet timeout\n",
+		dev_err(fccu_miscdev.parent, "%s, %d, reset alarm timeout\n",
 			__func__, __LINE__);
-		goto out;
+		return ret;
 	}
 
 	ret = enable_rs_channel(dev, priv_data);
 	if (ret) {
-		dev_err(fccu_miscdev.parent, "%s, %d, configuration meet timeout\n",
+		dev_err(fccu_miscdev.parent, "%s, %d, configuration timeout\n",
 			__func__, __LINE__);
-		goto out;
+		return ret;
 	}
 
 	ret = misc_register(&fccu_miscdev);
 
-out:
-	kfree(ncf_fault_arr);
 	return ret;
 }
 
 static int __exit s32_fccu_remove(struct platform_device *pdev)
 {
-	struct fccu_pri_data_t *priv_data = NULL;
+	struct fccu_pri_data *priv_data = NULL;
 
 	priv_data = platform_get_drvdata(pdev);
 	if (IS_ERR_OR_NULL(priv_data->base)) {
@@ -359,7 +663,7 @@ static int __maybe_unused s32_fccu_suspend(struct device *dev)
 
 static int __maybe_unused s32_fccu_resume(struct device *dev)
 {
-	struct fccu_pri_data_t *priv_data = dev_get_drvdata(dev);
+	struct fccu_pri_data *priv_data = dev_get_drvdata(dev);
 	int ret;
 
 	ret = enable_rs_channel(dev, priv_data);
