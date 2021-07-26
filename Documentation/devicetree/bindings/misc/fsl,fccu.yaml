@@ -24,9 +24,25 @@ properties:
       - fsl,s32v234-fccu
       - fsl,s32gen1-fccu
 
-  nxp,ncf_fault_off:
+  nxp,ncf_fault_list:
     description: Array of faults for NCF_Sn registers
     $ref: /schemas/types.yaml#/definitions/uint32-array
+
+  nxp,ncf_actions:
+    description: Array of actions for NCF. Available actions are defined in
+                 dt-bindings/misc/s32-fccu.h. One can select multiple actions
+                 using '|' operator.
+    $ref: /schemas/types.yaml#/definitions/uint32-array
+
+  interrupt-names:
+    items:
+            - const: fccu_alarm
+            - const: fccu_misc
+
+  interrupts:
+    items:
+            - description: fccu alarm state interrupt
+            - description: fccu misc interrupt (configuration timeout)
 
   reg:
     description: The address range
@@ -44,21 +60,32 @@ properties:
 
 required:
   - compatible
-  - nxp,ncf_fault_off
+  - interrupts
+  - interrupt-names
   - reg
 
 additionalProperties: false
 
 examples:
   - |
+    #include <dt-bindings/interrupt-controller/irq.h>
     #include <dt-bindings/clock/s32v234-clock.h>
+    #include <dt-bindings/misc/s32-fccu.h>
 
     fccu@400B0000 {
       compatible = "fsl,s32v234-fccu";
       reg = <0x400B0000 0x1000>;
+      interrupts = <0 100 IRQ_TYPE_LEVEL_HIGH>,
+                  <0 101 IRQ_TYPE_LEVEL_HIGH>;
+      interrupt-names = "fccu_alarm",
+                        "fccu_misc";
       clocks = <&clks S32V234_CLK_SYS6>;
       clock-names = "fccu";
-      nxp,ncf_fault_off = <35 36 37 38>;
+      nxp,ncf_fault_list = <35 36 37 38>;
+      nxp,ncf_actions = <S32_FCCU_REACTION_ALARM
+                S32_FCCU_REACTION_ALARM
+                S32_FCCU_REACTION_ALARM
+                S32_FCCU_REACTION_ALARM>;
       status = "disabled";
     };
 ...
