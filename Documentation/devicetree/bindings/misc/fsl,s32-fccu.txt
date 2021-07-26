@@ -10,26 +10,41 @@ will be ignored.
 
 Required properties:
  - compatible: 		should be set to "fsl,s32v234-fccu" or "fsl,s32gen1-fccu"
- - nxp,ncf_fault_off:	array of faults for NCF_Sn registers
+ - nxp,ncf_fault_list:	array of faults for NCF_Sn registers
  - reg:				the address range
+ - interrupt-names:
+	- "fccu_alarm"
+	- "fccu_misc"
+ - interrupts:
+	- fccu alarm state interrupt
+	- fccu misc interrupt (configuration timeout)
+
+Optional properties:
+ - nxp,ncf_actions : Array of actions for NCF. Available actions are defined in
+		     dt-bindings/misc/s32-fccu.h. One can select multiple actions
+		     using '|' operator.
 
 Any driver requiring access to FCCU registers should reference it from its own
 device tree node.
 
 Example:
+    #include <dt-bindings/interrupt-controller/irq.h>
+    #include <dt-bindings/clock/s32v234-clock.h>
+    #include <dt-bindings/misc/s32-fccu.h>
 
-fccu: fccu@400B0000 {
-				compatible = "fsl,s32v234-fccu";
-				reg = <0x400B0000 0x1000>;
-				clocks = <&clks S32V234_CLK_SYS6>;
-				clock-names = "fccu";
-				nxp,ncf_fault_off = <35 36 37 38>;
-				status = "disabled";
-			};
-
-....
-
-some-device {
-	....
-	memory-region = <&shared_memory>;
-};
+    fccu@400B0000 {
+      compatible = "fsl,s32v234-fccu";
+      reg = <0x400B0000 0x1000>;
+      interrupts = <0 100 IRQ_TYPE_LEVEL_HIGH>,
+                  <0 101 IRQ_TYPE_LEVEL_HIGH>;
+      interrupt-names = "fccu_alarm",
+                        "fccu_misc";
+      clocks = <&clks S32V234_CLK_SYS6>;
+      clock-names = "fccu";
+      nxp,ncf_fault_list = <35 36 37 38>;
+      nxp,ncf_actions = <S32_FCCU_REACTION_ALARM
+                S32_FCCU_REACTION_ALARM
+                S32_FCCU_REACTION_ALARM
+                S32_FCCU_REACTION_ALARM>;
+      status = "disabled";
+    };
