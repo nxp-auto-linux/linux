@@ -81,6 +81,7 @@ struct hse_drvdata {
 	struct list_head hmac_key_ring;
 	struct list_head aes_key_ring;
 	spinlock_t key_ring_lock; /* covers key slot acquisition */
+	u32 rng_srv_id;
 };
 
 /**
@@ -117,6 +118,18 @@ static void hse_print_fw_version(struct device *dev)
 
 	dev_info(dev, "firmware type %d, version %d.%d.%d\n", fw_ver->fw_type,
 		 fw_ver->major, fw_ver->minor, fw_ver->patch);
+
+	drv->rng_srv_id = HSE_SRV_ID_GET_RANDOM_NUM;
+	if (fw_ver->major == 0u && fw_ver->minor == 9u &&
+	    (fw_ver->patch == 0u || fw_ver->patch == 1u))
+		drv->rng_srv_id |= 0x00A50000ul;
+}
+
+u32 _get_rng_srv_id(struct device *dev)
+{
+	struct hse_drvdata *drv = dev_get_drvdata(dev);
+
+	return drv->rng_srv_id;
 }
 
 /**
