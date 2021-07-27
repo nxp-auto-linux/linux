@@ -55,7 +55,7 @@ static int hse_hwrng_read(struct hwrng *rng, void *buf, size_t count, bool wait)
 		return 0;
 	}
 
-	ctx->srv_desc.srv_id = HSE_SRV_ID_GET_RANDOM_NUM;
+	ctx->srv_desc.srv_id = _get_rng_srv_id(ctx->dev);
 	ctx->srv_desc.rng_req.rng_class = HSE_RNG_CLASS_PTG3;
 	ctx->srv_desc.rng_req.random_num_len = count;
 	ctx->srv_desc.rng_req.random_num = data_dma;
