@@ -819,6 +819,8 @@
 		interrupt-names = "macirq";
 		tx-fifo-depth = <20480>;
 		rx-fifo-depth = <20480>;
+		phy-names = "gmac_xpcs";
+		phys = <&serdes0 PHY_TYPE_XPCS 0 0>;
 		clocks = <&clks S32GEN1_SCMI_CLK_GMAC0_AXI>,
 			 <&clks S32GEN1_SCMI_CLK_GMAC0_AXI>,
 			 <&clks S32GEN1_SCMI_CLK_GMAC0_TX_SGMII>,
