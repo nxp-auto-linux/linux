@@ -57,12 +57,11 @@
 	phy-mode = "rgmii-id";
 	phy-handle = <&gmac0_mdio_c_phy4>;
 	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl0_gmac0_rgmii_c>;
+	pinctrl-0 = <&pinctrl0_gmac0_rgmii_c>,
+				<&pinctrl0_gmac0_mdio_c>;
 };
 
 &gmac0_mdio {
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl0_gmac0_mdio_c>;
 	/* KSZ9031RNX on S32G-VNP-PROC */
 	gmac0_mdio_c_phy4: ethernet-phy@4 {
 		#address-cells = <1>;
