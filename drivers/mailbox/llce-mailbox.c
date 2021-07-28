@@ -103,13 +103,6 @@ struct llce_mb {
 	bool suspended;
 };
 
-struct sram_pool {
-	struct gen_pool *pool;
-	size_t size;
-	unsigned long vaddr;
-	const char *name;
-};
-
 struct llce_mb_desc {
 	unsigned int nchan;
 	int (*startup)(struct mbox_chan *chan);
@@ -933,35 +926,6 @@ static const struct mbox_chan_ops llce_mb_ops = {
 	.last_tx_done = llce_mb_last_tx_done,
 };
 
-static void devm_sram_pool_release(struct device *dev, void *res)
-{
-	struct sram_pool *spool = res;
-
-	gen_pool_free(spool->pool, spool->vaddr, spool->size);
-}
-
-static struct sram_pool *devm_sram_pool_alloc(struct device *dev,
-					      struct gen_pool *pool)
-{
-	struct sram_pool *spool = devres_alloc(devm_sram_pool_release,
-					       sizeof(*spool), GFP_KERNEL);
-
-	if (!spool)
-		return ERR_PTR(-ENOMEM);
-
-	spool->size = gen_pool_size(pool);
-	spool->vaddr = gen_pool_alloc(pool, spool->size);
-	if (!spool->vaddr) {
-		devres_free(spool);
-		return ERR_PTR(-ENOMEM);
-	}
-
-	spool->pool = pool;
-	devres_add(dev, spool);
-
-	return spool;
-}
-
 static struct device_node *get_sram_node(struct device *dev, const char *name)
 {
 	struct device_node *node, *dev_node;
@@ -978,14 +942,15 @@ static struct device_node *get_sram_node(struct device *dev, const char *name)
 	return node;
 }
 
-static int map_llce_status(struct device *dev, struct llce_mb *mb)
+static int map_sram_node(struct device *dev, const char *name,
+			 void __iomem **addr)
 {
 	struct device_node *sram_node;
 	struct resource r;
 	resource_size_t size;
 	int ret;
 
-	sram_node = get_sram_node(dev, LLCE_STATUS_REG_NAME);
+	sram_node = get_sram_node(dev, name);
 	if (IS_ERR(sram_node))
 		return PTR_ERR(sram_node);
 
@@ -996,52 +961,24 @@ static int map_llce_status(struct device *dev, struct llce_mb *mb)
 
 	size = resource_size(&r);
 
-	mb->status = devm_ioremap(dev, r.start, size);
-	if (!mb->status) {
-		dev_err(dev, "Failed to map '%s' memory region\n",
-			LLCE_STATUS_REG_NAME);
+	*addr = devm_ioremap_wc(dev, r.start, size);
+	if (!*addr) {
+		dev_err(dev, "Failed to map '%s' memory region\n", name);
 		return -ENOMEM;
 	}
 
 	return 0;
 }
 
-static int alloc_llce_shmem(struct platform_device *pdev,
-			    struct llce_mb *mb)
+static int map_llce_status(struct llce_mb *mb)
 {
-	struct device_node *sram_node;
-	struct device *dev = &pdev->dev;
-	struct gen_pool *pool;
-	const char *name;
-	struct sram_pool *spool;
-	struct platform_device *sram_pdev;
+	return map_sram_node(mb->dev, LLCE_STATUS_REG_NAME, &mb->status);
+}
 
-	sram_node = get_sram_node(dev, LLCE_SHMEM_REG_NAME);
-	if (IS_ERR(sram_node))
-		return PTR_ERR(sram_node);
-
-	name = sram_node->name;
-	sram_pdev = of_find_device_by_node(sram_node);
-	if (!sram_pdev) {
-		dev_err(dev, "failed to find sram device for '%s'!\n", name);
-		return -ENODEV;
-	}
-
-	pool = gen_pool_get(&sram_pdev->dev, NULL);
-	if (!pool) {
-		dev_err(dev, "Pool '%s' is unavailable!\n", name);
-		return -ENODEV;
-	}
-
-	spool = devm_sram_pool_alloc(dev, pool);
-	if (IS_ERR(spool)) {
-		dev_err(dev, "Unable to alloc '%s' pool\n", name);
-		return PTR_ERR(spool);
-	}
-
-	mb->sh_mem = (void *)spool->vaddr;
-
-	return 0;
+static int map_llce_shmem(struct llce_mb *mb)
+{
+	return map_sram_node(mb->dev, LLCE_SHMEM_REG_NAME,
+			     (void __iomem **)&mb->sh_mem);
 }
 
 static void __iomem *get_icsr_addr(struct llce_mb *mb, uint32_t icsr_id)
@@ -1772,11 +1709,11 @@ static int llce_mb_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
-	ret = alloc_llce_shmem(pdev, mb);
+	ret = map_llce_status(mb);
 	if (ret)
 		return ret;
 
-	ret = map_llce_status(dev, mb);
+	ret = map_llce_shmem(mb);
 	if (ret)
 		return ret;
 
