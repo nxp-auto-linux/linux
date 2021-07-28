@@ -283,7 +283,7 @@ static int llce_set_data_bittiming(struct net_device *dev)
 		},
 	};
 
-	if (bt->brp != dbt->brp) {
+	if (is_canfd_dev(can) && bt->brp != dbt->brp) {
 		netdev_err(dev, "Different values for nominal and data prescalers\n");
 		return -EINVAL;
 	}
