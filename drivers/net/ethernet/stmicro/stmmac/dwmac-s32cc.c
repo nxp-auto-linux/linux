@@ -144,9 +144,12 @@ static int s32cc_gmac_init(struct platform_device *pdev, void *priv)
 	int ret;
 
 	if (gmac->tx_clk) {
-		ret = clk_prepare_enable(gmac->tx_clk);
+		ret = clk_set_rate(gmac->tx_clk, GMAC_TX_RATE_125M);
+		if (!ret)
+			ret = clk_prepare_enable(gmac->tx_clk);
+
 		if (ret) {
-			dev_err(&pdev->dev, "cannot set tx clock\n");
+			dev_err(&pdev->dev, "Can't set tx clock\n");
 			return ret;
 		}
 	}
@@ -154,7 +157,7 @@ static int s32cc_gmac_init(struct platform_device *pdev, void *priv)
 	if (gmac->rx_clk) {
 		ret = clk_prepare_enable(gmac->rx_clk);
 		if (ret) {
-			dev_err(&pdev->dev, "cannot set rx clock\n");
+			dev_err(&pdev->dev, "Can't set rx clock\n");
 			return ret;
 		}
 	}
@@ -217,19 +220,16 @@ static void s32cc_fix_speed(void *priv, unsigned int speed)
 
 	switch (speed) {
 	case SPEED_1000:
-		dev_info(gmac->dev, "Set RX/TX clock to 125M\n");
+		dev_info(gmac->dev, "Set TX clock to 125M\n");
 		clk_set_rate(gmac->tx_clk, GMAC_TX_RATE_125M);
-		clk_set_rate(gmac->rx_clk, GMAC_TX_RATE_125M);
 		break;
 	case SPEED_100:
-		dev_info(gmac->dev, "Set RX/TX clock to 25M\n");
+		dev_info(gmac->dev, "Set TX clock to 25M\n");
 		clk_set_rate(gmac->tx_clk, GMAC_TX_RATE_25M);
-		clk_set_rate(gmac->rx_clk, GMAC_TX_RATE_25M);
 		break;
 	case SPEED_10:
-		dev_info(gmac->dev, "Set RX/TX clock to 2.5M\n");
+		dev_info(gmac->dev, "Set TX clock to 2.5M\n");
 		clk_set_rate(gmac->tx_clk, GMAC_TX_RATE_2M5);
-		clk_set_rate(gmac->rx_clk, GMAC_TX_RATE_2M5);
 		break;
 	default:
 		dev_err(gmac->dev, "Unsupported/Invalid speed: %d\n", speed);
