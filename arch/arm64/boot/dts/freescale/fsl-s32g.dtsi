@@ -529,32 +529,32 @@
 	};
 
 	llce0_sram: llce0_sram@43000000 {
-		compatible = "nxp,s32g-llce-sram";
+		compatible = "mmio-sram";
 		reg = <0x0 0x43000000 0x0 0x2000>;
 	};
 
 	llce1_sram: llce1_sram@43100000 {
-		compatible = "nxp,s32g-llce-sram";
+		compatible = "mmio-sram";
 		reg = <0x0 0x43100000 0x0 0x8000>;
 	};
 
 	llce2_sram: llce2_sram@43200000 {
-		compatible = "nxp,s32g-llce-sram";
+		compatible = "mmio-sram";
 		reg = <0x0 0x43200000 0x0 0x8000>;
 	};
 
 	llce3_sram: llce3_sram@43300000 {
-		compatible = "nxp,s32g-llce-sram";
+		compatible = "mmio-sram";
 		reg = <0x0 0x43300000 0x0 0x10000>;
 	};
 
 	llce_shmem: llce_shmem@43800000 {
-		compatible = "nxp,s32g-llce-sram";
+		compatible = "mmio-sram";
 		reg = <0x0 0x43800000 0x0 0x40000>;
 	};
 
 	llce_boot_status: llce_boot_status@43840000 {
-		compatible = "nxp,s32g-llce-sram";
+		compatible = "mmio-sram";
 		reg = <0x0 0x43840000 0x0 0x10000>;
 	};
 
@@ -580,7 +580,9 @@
 			"ppe_tx.bin", "frpe.bin";
 		memory-region = <&llce0_sram>, <&llce1_sram>,
 			<&llce2_sram>, <&llce3_sram>,
-			<&llce_boot_status>;
+			<&llce_shmem>, <&llce_boot_status>;
+		memory-region-names = "dte.bin", "ppe_rx.bin",
+			"ppe_tx.bin", "frpe.bin", "shmem", "status";
 		/* LLCE system control registers */
 		reg = <0x0 0x43FF8000 0x0 0x4000>;
 		reg-names = "sysctrl";
