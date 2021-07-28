@@ -3,7 +3,7 @@
  * Generic on-chip SRAM allocation driver
  *
  * Copyright (C) 2012 Philipp Zabel, Pengutronix
- * Copyright 2020-2021 NXP
+ * Copyright 2020 NXP
  */
 
 #include <linux/clk.h>
@@ -318,7 +318,7 @@ err_chunks:
 	return ret;
 }
 
-static int atmel_securam_wait(struct platform_device *pdev)
+static int atmel_securam_wait(void)
 {
 	struct regmap *regmap;
 	u32 val;
@@ -344,7 +344,6 @@ static int llce_init_sram(struct device *dev)
 static const struct of_device_id sram_dt_ids[] = {
 	{ .compatible = "mmio-sram" },
 	{ .compatible = "atmel,sama5d2-securam", .data = atmel_securam_wait },
-	{ .compatible = "nxp,s32g-llce-sram", .data = llce_init_sram },
 	{}
 };
 
@@ -352,7 +351,7 @@ static int sram_probe(struct platform_device *pdev)
 {
 	struct sram_dev *sram;
 	int ret;
-	int (*init_func)(struct device *dev);
+	int (*init_func)(void);
 
 	sram = devm_kzalloc(&pdev->dev, sizeof(*sram), GFP_KERNEL);
 	if (!sram)
@@ -389,7 +388,7 @@ static int sram_probe(struct platform_device *pdev)
 
 	init_func = of_device_get_match_data(&pdev->dev);
 	if (init_func) {
-		ret = init_func(&pdev->dev);
+		ret = init_func();
 		if (ret)
 			goto err_free_partitions;
 	}
