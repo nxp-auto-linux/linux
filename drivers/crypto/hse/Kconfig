@@ -27,6 +27,27 @@ config CRYPTO_DEV_NXP_HSE_UIO
 	  Enables NXP HSE user-space driver support. The driver shall not
 	  register any algorithms with crypto API when this is enabled.
 
+config CRYPTO_DEV_NXP_HSE_AHASH
+	bool "Asynchronous Hash and MAC Support"
+	depends on CRYPTO_DEV_NXP_HSE && !CRYPTO_DEV_NXP_HSE_UIO
+	default n
+	help
+	  Enables hash and hash-based MAC offloading to HSE.
+
+config CRYPTO_DEV_NXP_HSE_SKCIPHER
+	bool "Symmetric Key Cipher Support"
+	depends on CRYPTO_DEV_NXP_HSE && !CRYPTO_DEV_NXP_HSE_UIO
+	default y
+	help
+	  Enables symmetric key cipher offloading to HSE.
+
+config CRYPTO_DEV_NXP_HSE_AEAD
+	bool "Authenticated Encryption and AEAD Support"
+	depends on CRYPTO_DEV_NXP_HSE && !CRYPTO_DEV_NXP_HSE_UIO
+	default y
+	help
+	  Enables authenticated encryption and AEAD offloading to HSE.
+
 config CRYPTO_DEV_NXP_HSE_HWRNG
 	bool "NXP HSE hardware RNG support"
 	depends on CRYPTO_DEV_NXP_HSE && !CRYPTO_DEV_NXP_HSE_UIO
