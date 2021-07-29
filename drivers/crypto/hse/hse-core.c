@@ -829,11 +829,13 @@ static int hse_probe(struct platform_device *pdev)
 	if (unlikely(err))
 		goto err_probe_failed;
 
-	/* register kernel crypto algorithms */
-	hse_ahash_register(dev, &drv->ahash_algs);
-	hse_skcipher_register(dev, &drv->skcipher_algs);
-	hse_aead_register(dev, &drv->aead_algs);
-
+	/* register kernel crypto algorithms and hwrng */
+	if (IS_ENABLED(CONFIG_CRYPTO_DEV_NXP_HSE_AHASH))
+		hse_ahash_register(dev, &drv->ahash_algs);
+	if (IS_ENABLED(CONFIG_CRYPTO_DEV_NXP_HSE_SKCIPHER))
+		hse_skcipher_register(dev, &drv->skcipher_algs);
+	if (IS_ENABLED(CONFIG_CRYPTO_DEV_NXP_HSE_AEAD))
+		hse_aead_register(dev, &drv->aead_algs);
 	if (IS_ENABLED(CONFIG_CRYPTO_DEV_NXP_HSE_HWRNG))
 		hse_hwrng_register(dev);
 
@@ -854,14 +856,13 @@ static int hse_remove(struct platform_device *pdev)
 	hse_mu_irq_disable(drv->mu, HSE_INT_RESPONSE, HSE_CH_MASK_ALL);
 	hse_mu_irq_disable(drv->mu, HSE_INT_SYS_EVENT, HSE_EVT_MASK_ALL);
 
-	if (IS_ENABLED(CONFIG_CRYPTO_DEV_NXP_HSE_UIO))
-		return 0;
-
-	/* unregister algorithms */
-	hse_ahash_unregister(&drv->ahash_algs);
-	hse_skcipher_unregister(&drv->skcipher_algs);
-	hse_aead_unregister(&drv->aead_algs);
-
+	/* unregister kernel crypto algorithms and hwrng */
+	if (IS_ENABLED(CONFIG_CRYPTO_DEV_NXP_HSE_AHASH))
+		hse_ahash_unregister(&drv->ahash_algs);
+	if (IS_ENABLED(CONFIG_CRYPTO_DEV_NXP_HSE_SKCIPHER))
+		hse_skcipher_unregister(&drv->skcipher_algs);
+	if (IS_ENABLED(CONFIG_CRYPTO_DEV_NXP_HSE_AEAD))
+		hse_aead_unregister(&drv->aead_algs);
 	if (IS_ENABLED(CONFIG_CRYPTO_DEV_NXP_HSE_HWRNG))
 		hse_hwrng_unregister(dev);
 
