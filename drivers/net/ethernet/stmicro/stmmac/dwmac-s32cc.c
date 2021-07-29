@@ -12,10 +12,15 @@
 #include <linux/io.h>
 #include <linux/clk.h>
 #include <linux/phy.h>
+#include <linux/phylink.h>
+#include <linux/of_mdio.h>
 #include <linux/platform_device.h>
 #include <linux/of.h>
-#include <linux/of_net.h>
 #include <linux/stmmac.h>
+
+/* S32CC Serdes */
+#include <linux/pcs/pcs-xpcs.h>
+#include <linux/pcs/nxp-s32cc-xpcs.h>
 
 #include "stmmac_platform.h"
 
@@ -23,11 +28,14 @@
 #define GMAC_TX_RATE_25M	25000000	/* 25MHz */
 #define GMAC_TX_RATE_2M5	2500000		/* 2.5MHz */
 
-/* S32 SRC register for phyif selection */
+/* S32CC SRC register for phyif selection */
 #define PHY_INTF_SEL_SGMII      0x01
 #define PHY_INTF_SEL_RGMII      0x02
 #define PHY_INTF_SEL_RMII       0x08
 #define PHY_INTF_SEL_MII        0x00
+
+#define S32CC_DUMMY_XPCS_ID		0x7996ced0
+#define S32CC_DUMMY_XPCS_MASK		0xffffffff
 
 struct s32cc_priv_data {
 	void __iomem *ctrl_sts;
@@ -35,7 +43,99 @@ struct s32cc_priv_data {
 	phy_interface_t intf_mode;
 	struct clk *tx_clk;
 	struct clk *rx_clk;
+
+	/* Serdes */
+	int link_an;
+	bool phyless_an;
+	struct phy *serdes_phy;
+	struct s32cc_xpcs *xpcs;
+	const struct s32cc_xpcs_ops *xpcs_ops;
+	struct dw_xpcs priv_dw_xpcs;
+	struct phylink_pcs_ops pcs_xpcs_ops;
 };
+
+static const int xpcs_sgmii_features[] = {
+	ETHTOOL_LINK_MODE_Pause_BIT,
+	ETHTOOL_LINK_MODE_Asym_Pause_BIT,
+	ETHTOOL_LINK_MODE_Autoneg_BIT,
+	ETHTOOL_LINK_MODE_10baseT_Half_BIT,
+	ETHTOOL_LINK_MODE_10baseT_Full_BIT,
+	ETHTOOL_LINK_MODE_100baseT_Half_BIT,
+	ETHTOOL_LINK_MODE_100baseT_Full_BIT,
+	ETHTOOL_LINK_MODE_1000baseT_Half_BIT,
+	ETHTOOL_LINK_MODE_1000baseT_Full_BIT,
+	ETHTOOL_LINK_MODE_2500baseT_Full_BIT,
+	__ETHTOOL_LINK_MODE_MASK_NBITS,
+};
+
+static const phy_interface_t xpcs_sgmii_interfaces[] = {
+	PHY_INTERFACE_MODE_SGMII,
+};
+
+static const struct xpcs_compat s32cc_gmac_xpcs_compat[DW_XPCS_INTERFACE_MAX] = {
+	[DW_XPCS_SGMII] = {
+		.supported = xpcs_sgmii_features,
+		.interface = xpcs_sgmii_interfaces,
+		.num_interfaces = ARRAY_SIZE(xpcs_sgmii_interfaces),
+		.an_mode = DW_AN_C37_SGMII,
+		.pma_config = NULL,
+	},
+};
+
+static const struct xpcs_id s32cc_gmac_xpcs_id = {
+	.id = S32CC_DUMMY_XPCS_ID,
+	.mask = S32CC_DUMMY_XPCS_MASK,
+	.compat = s32cc_gmac_xpcs_compat,
+};
+
+static int xpcs_config(struct phylink_pcs *pcs, unsigned int mode,
+		       phy_interface_t interface,
+		       const unsigned long *advertising,
+		       bool permit_pause_to_mac)
+{
+	/* Advertising is the first member of struct phylink_link_state */
+	struct phylink_link_state *state = (struct phylink_link_state *)advertising;
+	struct phylink_link_state sgmii_state = { 0 };
+	struct s32cc_priv_data *gmac = container_of(pcs->ops, struct s32cc_priv_data, pcs_xpcs_ops);
+
+	if (gmac->intf_mode != PHY_INTERFACE_MODE_SGMII)
+		return 0;
+
+	if (!gmac->xpcs || !gmac->xpcs_ops)
+		return -EINVAL;
+
+	if (gmac->link_an == MLO_AN_FIXED || gmac->link_an == MLO_AN_PHY) {
+		gmac->xpcs_ops->xpcs_get_state(gmac->xpcs, &sgmii_state);
+		sgmii_state.speed = state->speed;
+		sgmii_state.duplex = state->duplex;
+		sgmii_state.an_enabled = false;
+		gmac->xpcs_ops->xpcs_config(gmac->xpcs, &sgmii_state);
+	} else if (gmac->link_an == MLO_AN_INBAND) {
+		gmac->xpcs_ops->xpcs_config(gmac->xpcs, state);
+	} else {
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+static void xpcs_get_state(struct phylink_pcs *pcs,
+			   struct phylink_link_state *state)
+{
+	struct s32cc_priv_data *gmac = container_of(pcs->ops, struct s32cc_priv_data, pcs_xpcs_ops);
+
+	if (gmac->intf_mode != PHY_INTERFACE_MODE_SGMII)
+		return;
+
+	if (!gmac->xpcs || !gmac->xpcs_ops)
+		return;
+
+	gmac->xpcs_ops->xpcs_get_state(gmac->xpcs, state);
+
+	/* Update SerDes state (Platform limitation) */
+	if (gmac->phyless_an)
+		gmac->xpcs_ops->xpcs_config(gmac->xpcs, state);
+}
 
 static int s32cc_gmac_init(struct platform_device *pdev, void *priv)
 {
@@ -137,14 +237,80 @@ static void s32cc_fix_speed(void *priv, unsigned int speed)
 	}
 }
 
+static int s32cc_configure_serdes(struct plat_stmmacenet_data *plat_dat,
+				  struct phy *serdes_phy)
+{
+	struct s32cc_priv_data *gmac = plat_dat->bsp_priv;
+	struct device_node *np = gmac->dev->of_node;
+	const char *managed;
+
+	gmac->serdes_phy = serdes_phy;
+
+	if (!gmac->serdes_phy) {
+		dev_err(gmac->dev, "SerDes PHY was not found\n");
+		return -EINVAL;
+	}
+
+	if (phy_init(gmac->serdes_phy) || phy_power_on(gmac->serdes_phy)) {
+		dev_err(gmac->dev, "SerDes PHY init failed\n");
+		return -EINVAL;
+	}
+
+	if (phy_configure(gmac->serdes_phy, NULL)) {
+		dev_err(gmac->dev, "SerDes PHY configuration failed\n");
+		return -EINVAL;
+	}
+
+	gmac->xpcs = s32cc_phy2xpcs(gmac->serdes_phy);
+	gmac->xpcs_ops = s32cc_xpcs_get_ops();
+
+	/* We have to know interface type due to platform limitations */
+	gmac->link_an = MLO_AN_PHY;
+	if (of_phy_is_fixed_link(np))
+		gmac->link_an = MLO_AN_FIXED;
+
+	if (of_property_read_string(np, "managed", &managed) == 0 &&
+	    strcmp(managed, "in-band-status") == 0) {
+		gmac->link_an = MLO_AN_INBAND;
+		dev_info(gmac->dev, "SGMII AN enabled\n");
+	}
+
+	gmac->phyless_an = false;
+	if (gmac->link_an == MLO_AN_INBAND &&
+	    !of_parse_phandle(np, "phy-handle", 0)) {
+		dev_info(gmac->dev, "PHY less SGMII\n");
+		gmac->phyless_an = true;
+	}
+
+	if (!gmac->xpcs || !gmac->xpcs_ops) {
+		dev_err(gmac->dev, "Can't get SGMII PCS\n");
+		gmac->xpcs_ops = NULL;
+		gmac->xpcs = NULL;
+	}
+
+	return 0;
+}
+
 static int s32cc_dwmac_probe(struct platform_device *pdev)
 {
 	struct plat_stmmacenet_data *plat_dat;
+	struct stmmac_priv *priv;
 	struct stmmac_resources stmmac_res;
 	struct s32cc_priv_data *gmac;
 	struct resource *res;
 	const char *tx_clk, *rx_clk;
+	struct phy *serdes_phy = NULL;
 	int ret;
+
+	if (device_get_phy_mode(&pdev->dev) == PHY_INTERFACE_MODE_SGMII) {
+		serdes_phy = devm_phy_get(&pdev->dev, "gmac_xpcs");
+
+		if (IS_ERR(serdes_phy) &&
+		    (PTR_ERR(serdes_phy) == -EPROBE_DEFER))
+			return -EPROBE_DEFER;
+		else if (IS_ERR(serdes_phy))
+			serdes_phy = NULL;
+	}
 
 	ret = stmmac_get_platform_resources(pdev, &stmmac_res);
 	if (ret)
@@ -154,6 +320,7 @@ static int s32cc_dwmac_probe(struct platform_device *pdev)
 	if (!gmac) {
 		return PTR_ERR(gmac);
 	}
+
 	gmac->dev = &pdev->dev;
 
 	/* S32G control reg */
@@ -164,21 +331,20 @@ static int s32cc_dwmac_probe(struct platform_device *pdev)
 		return PTR_ERR(gmac->ctrl_sts);
 	}
 
-	/* phy mode */
-	ret = of_get_phy_mode(pdev->dev.of_node, &gmac->intf_mode);
-	if (ret) {
-		dev_err(&pdev->dev, "missing phy-mode property\n");
-		return ret;
-	}
+	plat_dat = stmmac_probe_config_dt(pdev, stmmac_res.mac);
+	if (IS_ERR(plat_dat))
+		return PTR_ERR(plat_dat);
 
-	if (gmac->intf_mode != PHY_INTERFACE_MODE_SGMII &&
-	    !phy_interface_mode_is_rgmii(gmac->intf_mode)) {
+	plat_dat->bsp_priv = gmac;
+
+	if (plat_dat->phy_interface != PHY_INTERFACE_MODE_SGMII &&
+	    !phy_interface_mode_is_rgmii(plat_dat->phy_interface)) {
 		dev_err(&pdev->dev, "Not supported phy interface mode: [%s]\n",
-			phy_modes(gmac->intf_mode));
+			phy_modes(plat_dat->phy_interface));
 		return -EINVAL;
 	}
 
-	switch (gmac->intf_mode) {
+	switch (plat_dat->phy_interface) {
 	case PHY_INTERFACE_MODE_SGMII:
 		tx_clk = "tx_sgmii";
 		rx_clk = "rx_sgmii";
@@ -201,9 +367,7 @@ static int s32cc_dwmac_probe(struct platform_device *pdev)
 		break;
 	};
 
-	plat_dat = stmmac_probe_config_dt(pdev, stmmac_res.mac);
-	if (IS_ERR(plat_dat))
-		return PTR_ERR(plat_dat);
+	gmac->intf_mode = plat_dat->phy_interface;
 
 	plat_dat->bus_id = of_alias_get_id(pdev->dev.of_node, "gmac");
 	if (plat_dat->bus_id < 0)
@@ -215,6 +379,10 @@ static int s32cc_dwmac_probe(struct platform_device *pdev)
 		goto err_remove_config_dt;
 	}
 
+	ret = s32cc_configure_serdes(plat_dat, serdes_phy);
+	if (ret)
+		dev_err(&pdev->dev, "SERDES is not configured\n");
+
 	/* tx clock */
 	gmac->tx_clk = devm_clk_get(&pdev->dev, tx_clk);
 	if (IS_ERR(gmac->tx_clk)) {
@@ -225,15 +393,13 @@ static int s32cc_dwmac_probe(struct platform_device *pdev)
 	/* rx clock */
 	gmac->rx_clk = devm_clk_get(&pdev->dev, rx_clk);
 	if (IS_ERR(gmac->rx_clk)) {
-		dev_info(&pdev->dev, "tx clock not found\n");
+		dev_info(&pdev->dev, "rx clock not found\n");
 		gmac->rx_clk = NULL;
 	}
 
 	ret = s32cc_gmac_init(pdev, gmac);
 	if (ret)
 		goto err_remove_config_dt;
-
-	plat_dat->bsp_priv = gmac;
 
 	/* core feature set */
 	plat_dat->has_gmac4 = true;
@@ -242,7 +408,6 @@ static int s32cc_dwmac_probe(struct platform_device *pdev)
 
 	plat_dat->init = s32cc_gmac_init;
 	plat_dat->exit = s32cc_gmac_exit;
-	plat_dat->bsp_priv = gmac;
 	plat_dat->fix_mac_speed = s32cc_fix_speed;
 
 	/* configure bitfield for quirks */
@@ -255,6 +420,22 @@ static int s32cc_dwmac_probe(struct platform_device *pdev)
 	if (ret)
 		goto err_gmac_exit;
 
+	/* This is little hacked as we do not have
+	 * the serdes accessible via MDIO
+	 */
+	if (gmac->xpcs) {
+		gmac->pcs_xpcs_ops = (struct phylink_pcs_ops) {
+			.pcs_config = xpcs_config,
+			.pcs_get_state = xpcs_get_state,
+		};
+
+		priv = netdev_priv(dev_get_drvdata(&pdev->dev));
+		priv->hw->xpcs = &gmac->priv_dw_xpcs;
+		priv->hw->xpcs->pcs.ops = &gmac->pcs_xpcs_ops;
+		priv->hw->xpcs->pcs.poll = true;
+		priv->hw->xpcs->id = &s32cc_gmac_xpcs_id;
+	}
+
 	return 0;
 
 err_gmac_exit:
@@ -262,6 +443,23 @@ err_gmac_exit:
 err_remove_config_dt:
 	stmmac_remove_config_dt(pdev, plat_dat);
 	return ret;
+}
+
+static int s32cc_dwmac_remove(struct platform_device *pdev)
+{
+	struct net_device *ndev = platform_get_drvdata(pdev);
+	struct stmmac_priv *priv = netdev_priv(ndev);
+	struct plat_stmmacenet_data *plat = priv->plat;
+	struct s32cc_priv_data *gmac = plat->bsp_priv;
+
+	if (gmac->serdes_phy) {
+		phy_exit(gmac->serdes_phy);
+		gmac->serdes_phy = NULL;
+		gmac->xpcs = NULL;
+		gmac->xpcs_ops = NULL;
+	}
+
+	return stmmac_pltfr_remove(pdev);
 }
 
 static const struct of_device_id s32cc_dwmac_match[] = {
@@ -272,7 +470,7 @@ MODULE_DEVICE_TABLE(of, s32cc_dwmac_match);
 
 static struct platform_driver s32cc_dwmac_driver = {
 	.probe  = s32cc_dwmac_probe,
-	.remove = stmmac_pltfr_remove,
+	.remove = s32cc_dwmac_remove,
 	.driver = {
 		.name           = "s32cc-dwmac",
 		.pm		= &stmmac_pltfr_pm_ops,
