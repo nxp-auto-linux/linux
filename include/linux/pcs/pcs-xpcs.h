@@ -18,7 +18,30 @@
 #define DW_AN_C37_SGMII			2
 #define DW_2500BASEX			3
 
-struct xpcs_id;
+struct dw_xpcs;
+
+enum {
+	DW_XPCS_USXGMII,
+	DW_XPCS_10GKR,
+	DW_XPCS_XLGMII,
+	DW_XPCS_SGMII,
+	DW_XPCS_2500BASEX,
+	DW_XPCS_INTERFACE_MAX,
+};
+
+struct xpcs_compat {
+	const int *supported;
+	const phy_interface_t *interface;
+	int num_interfaces;
+	int an_mode;
+	int (*pma_config)(struct dw_xpcs *xpcs);
+};
+
+struct xpcs_id {
+	u32 id;
+	u32 mask;
+	const struct xpcs_compat *compat;
+};
 
 struct dw_xpcs {
 	struct mdio_device *mdiodev;
