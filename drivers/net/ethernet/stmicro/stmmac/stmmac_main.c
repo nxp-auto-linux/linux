@@ -1044,10 +1044,37 @@ static void stmmac_validate(struct phylink_config *config,
 		xpcs_validate(priv->hw->xpcs, supported, state);
 }
 
+static void stmmac_mac_pcs_get_state(struct phylink_config *config,
+				     struct phylink_link_state *state)
+{
+	struct stmmac_priv *priv = netdev_priv(to_net_dev(config->dev));
+	struct dw_xpcs *xpcs;
+
+	if (!priv->hw->xpcs)
+		return;
+
+	xpcs = priv->hw->xpcs;
+
+	if (xpcs->pcs.ops->pcs_get_state) {
+		state->link = 0;
+		xpcs->pcs.ops->pcs_get_state(&xpcs->pcs, state);
+	}
+}
+
 static void stmmac_mac_config(struct phylink_config *config, unsigned int mode,
 			      const struct phylink_link_state *state)
 {
-	/* Nothing to do, xpcs_config() handles everything */
+	struct stmmac_priv *priv = netdev_priv(to_net_dev(config->dev));
+	struct dw_xpcs *xpcs;
+
+	if (!priv->hw->xpcs)
+		return;
+
+	xpcs = priv->hw->xpcs;
+
+	if (xpcs->pcs.ops->pcs_config)
+		xpcs->pcs.ops->pcs_config(&xpcs->pcs, mode, state->interface,
+					  state->advertising, false);
 }
 
 static void stmmac_fpe_link_state_handle(struct stmmac_priv *priv, bool is_up)
@@ -1191,6 +1218,7 @@ static void stmmac_mac_link_up(struct phylink_config *config,
 
 static const struct phylink_mac_ops stmmac_phylink_mac_ops = {
 	.validate = stmmac_validate,
+	.mac_pcs_get_state = stmmac_mac_pcs_get_state,
 	.mac_config = stmmac_mac_config,
 	.mac_link_down = stmmac_mac_link_down,
 	.mac_link_up = stmmac_mac_link_up,
