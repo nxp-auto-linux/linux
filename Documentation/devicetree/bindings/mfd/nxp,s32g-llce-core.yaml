@@ -29,12 +29,21 @@ properties:
       - const: frpe.bin
 
   memory-region:
-    maxItems: 5
-    minItems: 5
+    maxItems: 6
+    minItems: 6
     description: |
       A set of phandles to memory regions corresponding to the firmware
       components and a link to the region where the firmware load status
       can be read.
+
+  memory-region-names:
+    items:
+      - const: dte.bin
+      - const: ppe_rx.bin
+      - const: ppe_tx.bin
+      - const: frpe.bin
+      - const: shmem
+      - const: status
 
   reg-names:
     const: sysctrl
@@ -77,6 +86,7 @@ required:
   - compatible
   - firmware-name
   - memory-region
+  - memory-region-names
   - reg-names
   - reg
   - clock-names
@@ -104,8 +114,11 @@ examples:
             firmware-name = "dte.bin", "ppe_rx.bin",
                 "ppe_tx.bin", "frpe.bin";
             memory-region = <&llce0_sram>, <&llce1_sram>,
-                <&llce2_sram>, <&llce3_sram>,
-                <&llce_boot_status>;
+                            <&llce2_sram>, <&llce3_sram>,
+                            <&llce_shmem>, <&llce_boot_status>;
+            memory-region-names = "dte.bin", "ppe_rx.bin",
+                                  "ppe_tx.bin", "frpe.bin",
+                                  "shmem", "status";
             reg = <0x6 0 0x0 0xc>;
             reg-names = "sysctrl";
             /* RX-IN_FIFO */
