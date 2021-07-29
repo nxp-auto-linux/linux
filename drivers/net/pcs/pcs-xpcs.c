@@ -107,29 +107,6 @@ static const phy_interface_t xpcs_2500basex_interfaces[] = {
 	PHY_INTERFACE_MODE_MAX,
 };
 
-enum {
-	DW_XPCS_USXGMII,
-	DW_XPCS_10GKR,
-	DW_XPCS_XLGMII,
-	DW_XPCS_SGMII,
-	DW_XPCS_2500BASEX,
-	DW_XPCS_INTERFACE_MAX,
-};
-
-struct xpcs_compat {
-	const int *supported;
-	const phy_interface_t *interface;
-	int num_interfaces;
-	int an_mode;
-	int (*pma_config)(struct dw_xpcs *xpcs);
-};
-
-struct xpcs_id {
-	u32 id;
-	u32 mask;
-	const struct xpcs_compat *compat;
-};
-
 static const struct xpcs_compat *xpcs_find_compat(const struct xpcs_id *id,
 						  phy_interface_t interface)
 {
