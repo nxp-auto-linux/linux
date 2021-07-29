@@ -528,20 +528,16 @@ int hse_srv_req_async(struct device *dev, u8 channel, void *srv_desc,
 		return -EBUSY;
 	}
 
+	drv->channel_busy[channel] = true;
+
+	spin_unlock(&drv->tx_lock);
+
 	drv->rx_cbk[channel].fn = rx_cbk;
 	drv->rx_cbk[channel].ctx = ctx;
 
 	hse_sync_srv_desc(dev, channel, srv_desc);
 
 	err = hse_mu_msg_send(drv->mu, channel, drv->srv_desc[channel].dma);
-	if (unlikely(err)) {
-		spin_unlock(&drv->tx_lock);
-		return err;
-	}
-
-	drv->channel_busy[channel] = true;
-
-	spin_unlock(&drv->tx_lock);
 
 	return err;
 }
@@ -586,25 +582,23 @@ int hse_srv_req_sync(struct device *dev, u8 channel, void *srv_desc)
 		return -EBUSY;
 	}
 
+	drv->channel_busy[channel] = true;
+
+	spin_unlock(&drv->tx_lock);
+
 	drv->sync[channel].done = &done;
 	drv->sync[channel].reply = &reply;
 
 	hse_sync_srv_desc(dev, channel, srv_desc);
 
 	err = hse_mu_msg_send(drv->mu, channel, drv->srv_desc[channel].dma);
-	if (unlikely(err)) {
-		spin_unlock(&drv->tx_lock);
+	if (unlikely(err))
 		return err;
-	}
-
-	drv->channel_busy[channel] = true;
-
-	spin_unlock(&drv->tx_lock);
 
 	err = wait_for_completion_interruptible(&done);
 	if (err) {
-		drv->sync[channel].done = NULL;
-		dev_dbg(dev, "%s: request interrupted: %d\n", __func__, err);
+		dev_dbg(dev, "%s: request on channel %d interrupted: %d\n",
+			__func__, channel, err);
 		return err;
 	}
 
@@ -644,9 +638,19 @@ static void hse_srv_rsp_dispatch(struct device *dev, u8 channel)
 	}
 
 	if (drv->rx_cbk[channel].fn) {
-		drv->rx_cbk[channel].fn(err, drv->rx_cbk[channel].ctx);
+		void (*rx_cbk)(int err, void *ctx) = drv->rx_cbk[channel].fn;
+		void *ctx = drv->rx_cbk[channel].ctx;
+
 		drv->rx_cbk[channel].fn = NULL;
-	} else if (drv->sync[channel].done) {
+		drv->rx_cbk[channel].ctx = NULL;
+
+		drv->channel_busy[channel] = false;
+
+		rx_cbk(err, ctx); /* upper layer RX callback */
+		return;
+	}
+
+	if (drv->sync[channel].done) {
 		*drv->sync[channel].reply = err;
 		wmb(); /* ensure reply is written before calling complete */
 
@@ -719,13 +723,11 @@ static irqreturn_t hse_event_dispatcher(int irq, void *dev)
 			void *ctx = drv->rx_cbk[channel].ctx;
 
 			drv->rx_cbk[channel].fn(-ECANCELED, ctx);
-			drv->rx_cbk[channel].fn = NULL;
 		} else if (drv->sync[channel].done) {
 			*drv->sync[channel].reply = -ECANCELED;
 			wmb(); /* ensure reply is written before complete */
 
 			complete(drv->sync[channel].done);
-			drv->sync[channel].done = NULL;
 		}
 
 		if (drv->channel_busy[channel])
