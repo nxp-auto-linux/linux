@@ -337,6 +337,10 @@ static int s32cc_dwmac_probe(struct platform_device *pdev)
 
 	plat_dat->bsp_priv = gmac;
 
+	/* Enable AXI fixup call */
+	plat_dat->axi = devm_kzalloc(&pdev->dev, sizeof(struct stmmac_axi),
+				     GFP_KERNEL);
+
 	if (plat_dat->phy_interface != PHY_INTERFACE_MODE_SGMII &&
 	    !phy_interface_mode_is_rgmii(plat_dat->phy_interface)) {
 		dev_err(&pdev->dev, "Not supported phy interface mode: [%s]\n",
