@@ -3,6 +3,7 @@
  * DWMAC4 DMA Header file.
  *
  * Copyright (C) 2007-2015  STMicroelectronics Ltd
+ * Copyright 2021 NXP
  *
  * Author: Alexandre Torgue <alexandre.torgue@st.com>
  */
@@ -23,6 +24,11 @@
 #define DMA_DEBUG_STATUS_2		0x00001014
 #define DMA_AXI_BUS_MODE		0x00001028
 #define DMA_TBS_CTRL			0x00001050
+
+/* Ace configuration */
+#define DMA_AXI4_TX_AR_ACE_CONTROL	0x00001020
+#define DMA_AXI4_RX_AW_ACE_CONTROL	0x00001024
+#define DMA_AXI4_TXRX_AWAR_ACE_CONTROL	0x00001028
 
 /* DMA Bus Mode bitmap */
 #define DMA_BUS_MODE_SFT_RESET		BIT(0)
@@ -82,6 +88,32 @@
 					DMA_AXI_BLEN4)
 
 #define DMA_AXI_BURST_LEN_MASK		0x000000FE
+
+/* DMA AXI ACE config */
+#define DMA_AXI_OUTER_SHARABLE		(0x2)
+
+#define DMA_AXI_SECURE_ACCESS		(0x0)
+#define DMA_AXI_NON_SECURE_ACCESS	(0x2)
+
+#define DMA_AXI_WBACK_RWALLOCATE	(0xf)
+
+#define DMA_AXI_AWAR(dom, cache, off) ((((dom) & 0x3) << 4 | ((cache) & 0xf)) \
+				       << (off))
+#define DMA_AXI_AWAR_PROT(prot, off) (((prot) & 0x3) << (off))
+
+#define DMA_ACE_TX_DESCRIPTOR_R	(0)
+#define DMA_ACE_TX_EXT_BUFF_TSO_R	(8)
+#define DMA_ACE_TX_FIRST_BUFF_TSO_R	(16)
+
+#define DMA_ACE_RX_DESCRIPTOR_W		(0)
+#define DMA_ACE_RX_PAYLOAD_W		(8)
+#define DMA_ACE_RX_DMA_HEADER_W		(16)
+#define DMA_ACE_RX_BUFFER_W		(24)
+
+#define DMA_ACE_TXRX_DESCRIPTOR_W	(0)
+#define DMA_ACE_TXRX_DESCRIPTOR_R	(8)
+#define DMA_ACE_TXRX_DMA_ARPROT		(16)
+#define DMA_ACE_TXRX_DMA_AWPROT		(20)
 
 /* DMA TBS Control */
 #define DMA_TBS_FTOS			GENMASK(31, 8)
