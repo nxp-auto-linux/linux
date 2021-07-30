@@ -6,6 +6,7 @@
  * This contains the functions to handle the dma.
  *
  * Copyright (C) 2015  STMicroelectronics Ltd
+ * Copyright 2021 NXP
  *
  * Author: Alexandre Torgue <alexandre.torgue@st.com>
  */
@@ -66,6 +67,52 @@ static void dwmac4_dma_axi(void __iomem *ioaddr, struct stmmac_axi *axi)
 	}
 
 	writel(value, ioaddr + DMA_SYS_BUS_MODE);
+}
+
+static void dwmac5_dma_axi(void __iomem *ioaddr, struct stmmac_axi *axi)
+{
+	u32 value;
+
+	value = DMA_AXI_AWAR(DMA_AXI_OUTER_SHARABLE,
+			     DMA_AXI_WBACK_RWALLOCATE,
+			     DMA_ACE_TX_DESCRIPTOR_R);
+	value |= DMA_AXI_AWAR(DMA_AXI_OUTER_SHARABLE,
+			      DMA_AXI_WBACK_RWALLOCATE,
+			      DMA_ACE_TX_EXT_BUFF_TSO_R);
+	value |= DMA_AXI_AWAR(DMA_AXI_OUTER_SHARABLE,
+			      DMA_AXI_WBACK_RWALLOCATE,
+			      DMA_ACE_TX_FIRST_BUFF_TSO_R);
+
+	writel(value, ioaddr + DMA_AXI4_TX_AR_ACE_CONTROL);
+
+	value = DMA_AXI_AWAR(DMA_AXI_OUTER_SHARABLE,
+			     DMA_AXI_WBACK_RWALLOCATE,
+			     DMA_ACE_RX_DESCRIPTOR_W);
+	value |= DMA_AXI_AWAR(DMA_AXI_OUTER_SHARABLE,
+			      DMA_AXI_WBACK_RWALLOCATE,
+			      DMA_ACE_RX_PAYLOAD_W);
+	value |= DMA_AXI_AWAR(DMA_AXI_OUTER_SHARABLE,
+			      DMA_AXI_WBACK_RWALLOCATE,
+			      DMA_ACE_RX_DMA_HEADER_W);
+	value |= DMA_AXI_AWAR(DMA_AXI_OUTER_SHARABLE,
+			      DMA_AXI_WBACK_RWALLOCATE,
+			      DMA_ACE_RX_BUFFER_W);
+
+	writel(value, ioaddr + DMA_AXI4_RX_AW_ACE_CONTROL);
+
+	value = DMA_AXI_AWAR(DMA_AXI_OUTER_SHARABLE,
+			     DMA_AXI_WBACK_RWALLOCATE,
+			     DMA_ACE_TXRX_DESCRIPTOR_W);
+	value |= DMA_AXI_AWAR(DMA_AXI_OUTER_SHARABLE,
+			      DMA_AXI_WBACK_RWALLOCATE,
+			      DMA_ACE_TXRX_DESCRIPTOR_R);
+
+	value |= DMA_AXI_AWAR_PROT(DMA_AXI_NON_SECURE_ACCESS,
+				   DMA_ACE_TXRX_DMA_ARPROT);
+	value |= DMA_AXI_AWAR_PROT(DMA_AXI_NON_SECURE_ACCESS,
+				   DMA_ACE_TXRX_DMA_AWPROT);
+
+	writel(value, ioaddr + DMA_AXI4_TXRX_AWAR_ACE_CONTROL);
 }
 
 static void dwmac4_dma_init_rx_chan(void __iomem *ioaddr,
@@ -597,7 +644,7 @@ const struct stmmac_dma_ops dwmac410_s32cc_dma_ops = {
 	.init_chan = dwmac4_dma_init_channel,
 	.init_rx_chan = dwmac4_dma_init_rx_chan,
 	.init_tx_chan = dwmac4_dma_init_tx_chan,
-	.axi = dwmac4_dma_axi,
+	.axi = dwmac5_dma_axi,
 	.dump_regs = dwmac4_dump_dma_regs,
 	.dma_rx_mode = dwmac4_dma_rx_chan_op_mode,
 	.dma_tx_mode = dwmac4_dma_tx_chan_op_mode,
