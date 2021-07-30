@@ -24,6 +24,10 @@ properties:
       - description: Main GMAC registers
       - description: S32 MAC control registers
 
+  dma-coherent:
+    description:
+      Declares GMAC device as DMA coherent
+
   interrupts:
     description: Common GMAC interrupt
 
@@ -96,6 +100,7 @@ patternProperties:
     additionalProperties: true
 
 required:
+  - dma-coherent
   - compatible
   - reg
   - interrupts
@@ -126,6 +131,7 @@ examples:
         rx-fifo-depth = <20480>;
         phy-names = "gmac_xpcs";
         phys = <&serdes0 PHY_TYPE_XPCS 0 0>;
+        dma-coherent;
         clocks = <&clks S32GEN1_SCMI_CLK_GMAC0_AXI>,
            <&clks S32GEN1_SCMI_CLK_GMAC0_AXI>,
            <&clks S32GEN1_SCMI_CLK_GMAC0_TX_SGMII>,
