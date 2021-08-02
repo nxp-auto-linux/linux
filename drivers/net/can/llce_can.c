@@ -609,6 +609,16 @@ static int release_rx_index(struct llce_can *llce, uint32_t index)
 	return send_rx_msg(llce, &msg);
 }
 
+static void add_hwtimestamp(struct sk_buff *skb, u32 timestamp)
+{
+	struct skb_shared_hwtstamps *shhwtstamps;
+
+	shhwtstamps = skb_hwtstamps(skb);
+
+	/* Report cycles as seconds */
+	shhwtstamps->hwtstamp = ms_to_ktime(timestamp * 1000);
+}
+
 static void process_rx_msg(struct llce_can *llce, struct llce_can_mb *can_mb)
 {
 	struct net_device *dev = llce->can.dev;
@@ -656,6 +666,8 @@ static void process_rx_msg(struct llce_can *llce, struct llce_can_mb *can_mb)
 
 	net_stats->rx_packets++;
 	net_stats->rx_bytes += cf->len;
+
+	add_hwtimestamp(skb, can_mb->timestamp);
 
 	netif_receive_skb(skb);
 
