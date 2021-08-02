@@ -10,6 +10,7 @@
 #include <linux/module.h>
 #include <linux/of_address.h>
 #include <linux/pcs/nxp-s32cc-xpcs.h>
+#include <linux/pcie/nxp-s32cc-pcie-phy-submode.h>
 #include <linux/phy/phy.h>
 #include <linux/platform_device.h>
 #include <linux/processor.h>
@@ -34,6 +35,7 @@
 
 #define PCIE_PHY_GEN_CTRL	(0x0)
 #define  REF_USE_PAD_MASK	BIT(17)
+#define  RX_SRIS_MODE_MASK	BIT(9)
 #define PCIE_PHY_MPLLA_CTRL	(0x10)
 #define  MPLLA_STATE_MASK	BIT(31)
 #define  MPLL_STATE_MASK	BIT(30)
@@ -78,6 +80,7 @@ struct serdes_ctrl {
 	struct clk_bulk_data *clks;
 	int nclks;
 	u32 ss_mode;
+	enum pcie_phy_mode phy_mode;
 	bool ext_clk;
 };
 
@@ -202,6 +205,10 @@ static int pci_phy_power_on_common(struct serdes *serdes)
 		return ret;
 
 	ctrl = readl(sctrl->ss_base + PCIE_PHY_GEN_CTRL);
+
+	/* if PCIE PHY is in SRIS mode */
+	if (sctrl->phy_mode == SRIS)
+		ctrl |= RX_SRIS_MODE_MASK;
 
 	if (sctrl->ext_clk)
 		ctrl |= REF_USE_PAD_MASK;
@@ -409,6 +416,44 @@ static int serdes_phy_init(struct phy *p)
 	return -EINVAL;
 }
 
+static int serdes_phy_set_mode_ext(struct phy *p,
+				   enum phy_mode mode, int submode)
+{
+	int id = p->id;
+	struct serdes *serdes = phy_get_drvdata(p);
+
+	if (p->attrs.mode != PHY_MODE_PCIE)
+		return -EINVAL;
+
+	/* Check if same PCIE PHY mode is set on both lanes */
+	if (id == 1)
+		if (submode != serdes->ctrl.phy_mode)
+			return -EINVAL;
+
+	if (mode == PHY_MODE_PCIE) {
+		/* Do not configure SRIS or CRSS PHY MODE in conjunction
+		 * with any SGMII mode on the same SerDes subsystem
+		 */
+		if (submode == CRSS || submode == SRIS) {
+			if (serdes->ctrl.ss_mode != 0)
+				return -EINVAL;
+		}
+
+		/* CRSS or SRIS PCIE PHY mode cannot be used
+		 * with internal clock
+		 */
+		if (!serdes->ctrl.ext_clk)
+			if (submode == CRSS || submode == SRIS)
+				return -EINVAL;
+
+		serdes->ctrl.phy_mode = submode;
+
+		return 0;
+	}
+
+	return -EINVAL;
+}
+
 static void serdes_phy_release(struct phy *p)
 {
 	if (p->attrs.mode == PHY_MODE_ETHERNET)
@@ -472,6 +517,7 @@ static int serdes_phy_configure(struct phy *phy, union phy_configure_opts *opts)
 static const struct phy_ops serdes_ops = {
 	.reset		= serdes_phy_reset,
 	.init		= serdes_phy_init,
+	.set_mode	= serdes_phy_set_mode_ext,
 	.power_on	= serdes_phy_power_on,
 	.power_off	= serdes_phy_power_off,
 	.release	= serdes_phy_release,
