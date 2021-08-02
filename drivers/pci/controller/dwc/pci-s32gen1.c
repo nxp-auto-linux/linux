@@ -809,6 +809,7 @@ static int s32gen1_pcie_dt_init(struct platform_device *pdev,
 	struct device_node *np = dev->of_node;
 	struct dw_pcie *pcie = &s32_pp->pcie;
 	struct resource *res;
+	const char *pcie_phy_mode;
 	const struct of_device_id *match;
 	const struct s32gen1_pcie_data *data;
 	enum dw_pcie_device_mode mode;
@@ -830,6 +831,21 @@ static int s32gen1_pcie_dt_init(struct platform_device *pdev,
 	if (ret) {
 		dev_err(dev, "Missing 'device_id' property\n");
 		return ret;
+	}
+
+	ret = of_property_read_string(np, "nxp,phy-mode", &pcie_phy_mode);
+	if (ret) {
+		dev_info(dev, "Missing 'nxp,phy-mode' property, using default CRNS\n");
+		s32_pp->phy_mode = CRNS;
+	} else if (!strcmp(pcie_phy_mode, "crns")) {
+		s32_pp->phy_mode = CRNS;
+	} else if (!strcmp(pcie_phy_mode, "crss")) {
+		s32_pp->phy_mode = CRSS;
+	} else if (!strcmp(pcie_phy_mode, "sris")) {
+		s32_pp->phy_mode = SRIS;
+	} else {
+		dev_info(dev, "Unsupported 'nxp,phy-mode' specified, using default CRNS\n");
+		s32_pp->phy_mode = CRNS;
 	}
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "dbi");
@@ -918,6 +934,10 @@ static int init_pcie(struct s32gen1_pcie *pci)
 	else
 		W32(pci, ctrl, PE0_GEN_CTRL_1,
 		    BUILD_MASK_VALUE(DEVICE_TYPE, PCIE_RC));
+
+	if (pci->phy_mode == SRIS)
+		BSET32(pci, ctrl, PE0_GEN_CTRL_1,
+		       SRIS_MODE_MASK);
 
 	/* Enable writing dbi registers */
 	dw_pcie_dbi_ro_wr_en(pcie);
@@ -1020,6 +1040,12 @@ static int init_pcie_phy(struct s32gen1_pcie *s32_pp)
 		return ret;
 	}
 
+	ret = phy_set_mode_ext(s32_pp->phy0, PHY_MODE_PCIE, s32_pp->phy_mode);
+	if (ret) {
+		dev_err(dev, "Failed to set mode on 'serdes_lane0' PHY\n");
+		return ret;
+	}
+
 	ret = phy_power_on(s32_pp->phy0);
 	if (ret) {
 		dev_err(dev, "Failed to power on 'serdes_lane0' PHY\n");
@@ -1037,6 +1063,12 @@ static int init_pcie_phy(struct s32gen1_pcie *s32_pp)
 	ret = phy_init(s32_pp->phy1);
 	if (ret) {
 		dev_err(dev, "Failed to init 'serdes_lane1' PHY\n");
+		return ret;
+	}
+
+	ret = phy_set_mode_ext(s32_pp->phy1, PHY_MODE_PCIE, s32_pp->phy_mode);
+	if (ret) {
+		dev_err(dev, "Failed to set mode on 'serdes_lane1' PHY\n");
 		return ret;
 	}
 
