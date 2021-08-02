@@ -28,6 +28,14 @@ properties:
     description: A list of interrupt outputs of the controller. Must contain an
       entry for each item in the interrupt-names property.
 
+  fsl,phy-mode:
+    description: Select PHY mode for PCIe controller
+    oneOf:
+      - items:
+          - const: "crns"  # Common Reference Clock, No Spread Spectrum
+          - const: "crss"  # Common Reference Clock, Spread Spectrum
+          - const: "sris"  # Separate Reference Clock, Spread Spectrum
+
   interrupt-names:
     items:
       - const: "link_req_rst_not"
@@ -56,6 +64,7 @@ required:
   - interrupts
   - interrupt-names
   - ranges
+  - nxp,phy-mode
 
 additionalProperties: true
 
