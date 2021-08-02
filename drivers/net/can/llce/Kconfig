@@ -1,0 +1,36 @@
+# SPDX-License-Identifier: GPL-2.0-only
+menuconfig CAN_LLCE
+	select NXP_LLCE_MBOX
+	select LLCE_CORE
+	depends on CAN_DEV && m
+	bool "NXP LLCE CAN support"
+	help
+	  Say Y here if you want support for NXP LLCE CAN drivers.
+	  This is common support for devices that embed the NXP LLCE CAN IP.
+
+	  If unsure choose N.
+
+if CAN_LLCE
+
+config CAN_LLCE_CONTROLLER
+	tristate "LLCE CAN"
+	depends on m
+	help
+	  Driver for CAN interface of the NXP LLCE accelerator. The CAN
+	  interface is one of the offloaded communication channels of the
+	  Low Latency Communication Engine. The hardware channels abstract
+	  the communication that is fully supported through a
+	  firmware-defined host interface.
+
+config CAN_LLCE_LOGGER
+	tristate "LLCE CAN Logger"
+	depends on m
+	help
+	  This driver is used on S32G2/S32G3 to log CAN messages received from
+	  LLCE. It provides a interface to userspace, as a char device, on
+	  which you can cat or you can echo a value to set the log size to that
+	  dimension. Separate LLCE configuration for CAN is expected.
+
+	  It assumes that the LLCE Firmware is already loaded.
+
+endif
