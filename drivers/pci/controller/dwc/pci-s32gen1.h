@@ -13,6 +13,7 @@
 #include <linux/types.h>
 #include <linux/version.h>
 #include <linux/phy/phy.h>
+#include <linux/pcie/fsl-s32gen1-pcie-phy-submode.h>
 #include "pcie-designware.h"
 
 #define BUILD_BIT_VALUE(field, x) (((x) & (1)) << field##_BIT)
@@ -37,6 +38,8 @@
 #define   DEVICE_TYPE_MASK		(0x0000000F)
 #define   DEVICE_TYPE			((DEVICE_TYPE_MASK) << \
 					(DEVICE_TYPE_LSB))
+#define   SRIS_MODE_BIT			(8)
+#define   SRIS_MODE_MASK		BIT(SRIS_MODE_BIT)
 
 /* PCIe controller 0 general control 3 (PE0_GEN_CTRL_3) */
 #define PE0_GEN_CTRL_3			0x58
@@ -89,6 +92,7 @@ struct s32gen1_pcie {
 	void __iomem *atu_base;
 
 	int id;
+	enum pcie_phy_mode phy_mode;
 	enum pcie_link_speed linkspeed;
 
 #ifdef CONFIG_PCI_DW_DMA
