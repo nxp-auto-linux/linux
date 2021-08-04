@@ -39,6 +39,7 @@ dtb-$(CONFIG_ARCH_S32) += fsl-s32v234-campp-secondary.dtb
 dtb-$(CONFIG_ARCH_S32) += fsl-s32v234-evb28899.dtb
 dtb-$(CONFIG_ARCH_S32) += fsl-s32v234-evb.dtb
 dtb-$(CONFIG_ARCH_S32) += fsl-s32v234-evbbcm.dtb
+dtb-$(CONFIG_ARCH_S32) += fsl-s32v234-hpcsom.dtb
 dtb-$(CONFIG_ARCH_S32) += fsl-s32v234-palladium.dtb
 dtb-$(CONFIG_ARCH_S32) += fsl-s32v234-pciebcm.dtb
 dtb-$(CONFIG_ARCH_S32) += fsl-s32v234-pcie.dtb
