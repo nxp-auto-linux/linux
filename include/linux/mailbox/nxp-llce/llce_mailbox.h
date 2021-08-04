@@ -22,6 +22,7 @@ struct llce_chan_priv {
 	unsigned int index;
 	enum llce_chan_state state;
 	spinlock_t lock;
+	void *data;
 };
 
 struct llce_tx_msg {
@@ -52,6 +53,7 @@ struct llce_rx_msg {
 		struct {
 			uint32_t index;
 			struct llce_can_mb *can_mb;
+			bool skip;
 		} rx_pop;
 		struct {
 			uint32_t index;
