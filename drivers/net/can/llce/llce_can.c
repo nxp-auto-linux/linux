@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: GPL-2.0+ OR BSD-3-Clause
 /* Copyright 2020-2021 NXP */
 #include <linux/can/dev.h>
+#include <linux/can/dev/llce_can_common.h>
 #include <linux/clk.h>
 #include <linux/ctype.h>
 #include <linux/kernel.h>
 #include <linux/mailbox/nxp-llce/llce_can.h>
-#include <linux/mailbox/nxp-llce/llce_can_utils.h>
 #include <linux/mailbox/nxp-llce/llce_mailbox.h>
 #include <linux/mailbox_client.h>
 #include <linux/mailbox_controller.h>
@@ -25,22 +25,14 @@
 #define LLCE_CBT_TSEG1_OFFSET		0U
 
 #define LLCE_CAN_MAX_TX_MB		16U
-#define LLCE_CAN_MAX_RX_MB		16U
-
-struct llce_xceiver {
-	bool delay_comp;
-	u32 delay_offset;
-};
 
 struct llce_can {
-	struct can_priv can; /* Must be the first member */
-	struct llce_xceiver xceiver;
-	struct napi_struct napi;
+	struct llce_can_dev common; /* Must be the first member */
 
 	struct completion config_done;
 
-	struct mbox_client config_client, tx_client, rx_client;
-	struct mbox_chan *config, *tx, *rx;
+	struct mbox_client config_client, tx_client;
+	struct mbox_chan *config, *tx;
 
 	struct clk *clk;
 };
@@ -112,7 +104,8 @@ static int llce_can_init(struct llce_can *llce)
 {
 	struct mbox_chan *conf_chan = llce->config;
 	struct device *dev = llce_can_chan_dev(conf_chan);
-	struct can_priv *can = &llce->can;
+	struct llce_can_dev *llce_dev = &llce->common;
+	struct can_priv *can = &llce_dev->can;
 	u32 ctrl_config = 0;
 	struct llce_can_command cmd = {
 		.cmd_id = LLCE_CAN_CMD_INIT,
@@ -308,7 +301,8 @@ static int llce_set_data_bittiming(struct net_device *dev)
 {
 	int ret;
 	struct llce_can *llce = netdev_priv(dev);
-	struct can_priv *can = &llce->can;
+	struct llce_can_dev *llce_dev = &llce->common;
+	struct can_priv *can = &llce_dev->can;
 	struct llce_can_controller_fd_config *controller_fd;
 	const struct can_bittiming *dbt = &can->data_bittiming;
 	const struct can_bittiming *bt = &can->bittiming;
@@ -350,7 +344,8 @@ static int llce_set_data_bittiming(struct net_device *dev)
 static int llce_can_open(struct net_device *dev)
 {
 	struct llce_can *llce = netdev_priv(dev);
-	struct can_priv *can = &llce->can;
+	struct llce_can_dev *common = &llce->common;
+	struct can_priv *can = &common->can;
 	int ret, ret1;
 
 	if (!can->bittiming.bitrate)
@@ -372,10 +367,10 @@ static int llce_can_open(struct net_device *dev)
 	if (ret)
 		goto can_deinit;
 
-	llce->rx = mbox_request_channel_byname(&llce->rx_client, "rx");
-	if (IS_ERR(llce->rx)) {
+	common->rx = mbox_request_channel_byname(&llce->common.rx_client, "rx");
+	if (IS_ERR(common->rx)) {
 		netdev_err(dev, "Failed to get rx mailbox: %d\n", ret);
-		ret = PTR_ERR(llce->rx);
+		ret = PTR_ERR(common->rx);
 		goto can_deinit;
 	}
 
@@ -386,7 +381,7 @@ static int llce_can_open(struct net_device *dev)
 		goto release_rx_chan;
 	}
 
-	napi_enable(&llce->napi);
+	napi_enable(&common->napi);
 
 	ret = start_llce_can(llce);
 	if (ret)
@@ -398,12 +393,12 @@ static int llce_can_open(struct net_device *dev)
 
 release_tx_chan:
 	if (ret) {
-		napi_disable(&llce->napi);
+		napi_disable(&common->napi);
 		mbox_free_channel(llce->tx);
 	}
 release_rx_chan:
 	if (ret)
-		mbox_free_channel(llce->rx);
+		mbox_free_channel(common->rx);
 can_deinit:
 	if (ret) {
 		ret1 = llce_can_deinit(llce);
@@ -422,6 +417,7 @@ close_dev:
 static int llce_can_close(struct net_device *dev)
 {
 	struct llce_can *llce = netdev_priv(dev);
+	struct llce_can_dev *common = &llce->common;
 	int ret, ret1;
 
 	netif_stop_queue(dev);
@@ -430,9 +426,9 @@ static int llce_can_close(struct net_device *dev)
 	if (ret)
 		netdev_err(dev, "Failed to stop\n");
 
-	napi_disable(&llce->napi);
+	napi_disable(&common->napi);
 	mbox_free_channel(llce->tx);
-	mbox_free_channel(llce->rx);
+	mbox_free_channel(common->rx);
 
 	ret1 = llce_can_deinit(llce);
 	if (ret1) {
@@ -446,287 +442,22 @@ static int llce_can_close(struct net_device *dev)
 	return ret;
 }
 
-static void llce_process_error(struct llce_can *llce, enum llce_fw_return error,
-			       enum llce_can_module module)
-{
-	struct can_frame *cf;
-	struct can_device_stats *can_stats = &llce->can.can_stats;
-	struct net_device_stats *net_stats = &llce->can.dev->stats;
-	struct sk_buff *skb = alloc_can_err_skb(llce->can.dev, &cf);
-	struct net_device *dev = llce->can.dev;
-
-	if (!skb) {
-		netdev_dbg(llce->can.dev, "Could not allocate error frame\n");
-		return;
-	}
-
-	if (module == LLCE_TX)
-		net_stats->tx_errors++;
-	else
-		net_stats->rx_errors++;
-
-	/* Propagate the error condition to the CAN stack */
-	cf->can_id |= CAN_ERR_PROT | CAN_ERR_BUSERROR;
-
-	switch (error) {
-	case LLCE_ERROR_BCAN_ACKERR:
-		cf->can_id |= CAN_ERR_ACK;
-		cf->data[3] = CAN_ERR_PROT_LOC_ACK;
-		fallthrough;
-	case LLCE_ERROR_BCAN_BIT0ERR:
-		if (error == LLCE_ERROR_BCAN_BIT0ERR)
-			cf->data[2] |= CAN_ERR_PROT_BIT0;
-		fallthrough;
-	case LLCE_ERROR_BCAN_BIT1ERR:
-		if (error == LLCE_ERROR_BCAN_BIT1ERR)
-			cf->data[2] |= CAN_ERR_PROT_BIT1;
-		fallthrough;
-	case LLCE_ERROR_BCAN_CRCERR:
-		if (error == LLCE_ERROR_BCAN_CRCERR) {
-			cf->data[2] |= CAN_ERR_PROT_BIT;
-			cf->data[3] = CAN_ERR_PROT_LOC_CRC_SEQ;
-		}
-		fallthrough;
-	case LLCE_ERROR_BCAN_FRMERR:
-		if (error == LLCE_ERROR_BCAN_FRMERR)
-			cf->data[2] |= CAN_ERR_PROT_FORM;
-		fallthrough;
-	case LLCE_ERROR_BCAN_FRZ_ENTER:
-	case LLCE_ERROR_BCAN_FRZ_EXIT:
-	case LLCE_ERROR_BCAN_LPM_EXIT:
-	case LLCE_ERROR_BCAN_SRT_ENTER:
-	case LLCE_ERROR_BCAN_STFERR:
-		if (error == LLCE_ERROR_BCAN_STFERR)
-			cf->data[2] |= CAN_ERR_PROT_STUFF;
-		fallthrough;
-	case LLCE_ERROR_BCAN_SYNC:
-	case LLCE_ERROR_BCAN_UNKNOWN_ERROR:
-		can_stats->bus_error++;
-		break;
-	case LLCE_ERROR_BUSOFF:
-	case LLCE_ERROR_HARDWARE_BUSOFF:
-		/**
-		 * A restart is not needed as we have automatic
-		 * bus-off recovery
-		 */
-		can_stats->bus_off++;
-		break;
-	case LLCE_ERROR_DATA_LOST:
-	case LLCE_ERROR_MB_NOTAVAILABLE:
-	case LLCE_ERROR_RXOUT_FIFO_FULL:
-	case LLCE_ERROR_SW_FIFO_FULL:
-		net_stats->rx_dropped++;
-		break;
-	case LLCE_ERROR_BCAN_RXFIFO_OVERRUN:
-		net_stats->rx_over_errors++;
-		net_stats->rx_errors++;
-		break;
-	default:
-		netdev_err(llce->can.dev, "Unhandled %d error %d\n",
-			   module, error);
-		break;
-	}
-
-	can_free_echo_skb(dev, 0);
-	netif_rx(skb);
-}
-
 static void llce_tx_notif_callback(struct mbox_client *cl, void *msg)
 {
 	struct llce_tx_notif *notif = msg;
 	struct llce_can *llce = container_of(cl, struct llce_can,
 					     tx_client);
-	struct net_device_stats *net_stats = &llce->can.dev->stats;
+	struct net_device_stats *net_stats = &llce->common.can.dev->stats;
 
 	/* This is executed in IRQ context */
 	if (notif->error) {
-		llce_process_error(llce, notif->error, LLCE_TX);
+		process_llce_can_error(&llce->common, notif->error, LLCE_TX);
 		return;
 	}
 
-	net_stats->tx_bytes += can_get_echo_skb(llce->can.dev, 0);
+	net_stats->tx_bytes += can_get_echo_skb(llce->common.can.dev, 0);
 	net_stats->tx_packets++;
-	netif_wake_queue(llce->can.dev);
-}
-
-static int send_rx_msg(struct llce_can *llce, struct llce_rx_msg *msg)
-{
-	int ret = mbox_send_message(llce->rx, msg);
-
-	if (ret < 0)
-		return ret;
-
-	mbox_client_txdone(llce->rx, 0);
-
-	return 0;
-}
-
-static int enable_rx_notif(struct llce_can *llce)
-{
-	struct llce_rx_msg msg = {
-		.cmd = LLCE_ENABLE_RX_NOTIF,
-	};
-
-	return send_rx_msg(llce, &msg);
-}
-
-static bool is_rx_empty(struct llce_can *llce)
-{
-	struct llce_rx_msg msg = {
-		.cmd = LLCE_IS_RX_EMPTY,
-	};
-
-	if (send_rx_msg(llce, &msg))
-		return false;
-
-	return msg.is_rx_empty;
-}
-
-static int pop_rx_fifo(struct llce_can *llce, uint32_t *index,
-		       struct llce_can_mb **can_mb)
-{
-	int ret;
-	struct llce_rx_msg msg = {
-		.cmd = LLCE_POP_RX,
-	};
-
-	ret = send_rx_msg(llce, &msg);
-
-	*can_mb = msg.rx_pop.can_mb;
-	*index = msg.rx_pop.index;
-	return ret;
-}
-
-static int release_rx_index(struct llce_can *llce, uint32_t index)
-{
-	struct llce_rx_msg msg = {
-		.cmd = LLCE_RELEASE_RX_INDEX,
-		.rx_release = {
-			.index = index,
-		},
-	};
-
-	return send_rx_msg(llce, &msg);
-}
-
-static void add_hwtimestamp(struct sk_buff *skb, u32 timestamp)
-{
-	struct skb_shared_hwtstamps *shhwtstamps;
-
-	shhwtstamps = skb_hwtstamps(skb);
-
-	/* Report cycles as seconds */
-	shhwtstamps->hwtstamp = ms_to_ktime(timestamp * 1000);
-}
-
-static void process_rx_msg(struct llce_can *llce, struct llce_can_mb *can_mb)
-{
-	struct net_device *dev = llce->can.dev;
-	struct net_device_stats *net_stats = &llce->can.dev->stats;
-	struct sk_buff *skb;
-	struct canfd_frame *cf;
-	u32 std_id, ext_id;
-	bool rtr, ide, brs, esi, fdf;
-	u8 len;
-
-	unpack_word0(can_mb->word0, &rtr, &ide, &std_id, &ext_id);
-	unpack_word1(can_mb->word1, &fdf, &len, &brs, &esi);
-
-	if (fdf)
-		skb = alloc_canfd_skb(dev, &cf);
-	else
-		skb = alloc_can_skb(dev, (struct can_frame **)&cf);
-
-	if (!skb) {
-		net_stats->rx_dropped++;
-		goto notif_exit;
-	}
-
-	cf->can_id = std_id & CAN_SFF_MASK;
-	if (ide) {
-		cf->can_id |= ((ext_id << CAN_SFF_ID_BITS) &
-				   CAN_EFF_MASK);
-		cf->can_id |= CAN_EFF_FLAG;
-	}
-
-	if (fdf) {
-		if (brs)
-			cf->flags |= CANFD_BRS;
-
-		if (esi)
-			cf->flags |= CANFD_ESI;
-
-	} else {
-		if (rtr)
-			cf->can_id |= CAN_RTR_FLAG;
-	}
-	cf->len = can_dlc2len(len);
-
-	memcpy(cf->data, can_mb->payload, cf->len);
-
-	net_stats->rx_packets++;
-	net_stats->rx_bytes += cf->len;
-
-	add_hwtimestamp(skb, can_mb->timestamp);
-
-	netif_receive_skb(skb);
-
-notif_exit:
-	return;
-}
-
-static int llce_rx_poll(struct napi_struct *napi, int quota)
-{
-	struct llce_can *llce = container_of(napi, struct llce_can, napi);
-	struct net_device *dev = llce->can.dev;
-	int num_pkts = 0;
-	struct llce_can_mb *can_mb;
-	u32 index;
-	int ret;
-
-	while (!is_rx_empty(llce) && num_pkts < quota) {
-		ret = pop_rx_fifo(llce, &index, &can_mb);
-		if (ret) {
-			netdev_err(dev, "Failed to peak RX FIFO\n");
-			return num_pkts;
-		}
-
-		process_rx_msg(llce, can_mb);
-
-		num_pkts++;
-
-		ret = release_rx_index(llce, index);
-		if (ret)
-			netdev_err(dev, "Failed to release RX FIFO index\n");
-	}
-
-	/* All packets processed */
-	if (num_pkts < quota) {
-		napi_complete_done(napi, num_pkts);
-
-		/* Enable RX notification / IRQ */
-		if (enable_rx_notif(llce))
-			netdev_err(dev, "Failed to enable RX notifications\n");
-	}
-
-	return num_pkts;
-}
-
-static void llce_rx_notif_callback(struct mbox_client *cl, void *msg)
-{
-	struct llce_rx_msg *rx_msg = msg;
-	struct llce_can *llce = container_of(cl, struct llce_can, rx_client);
-
-	/* This is executed in IRQ context */
-	if (rx_msg->error)
-		llce_process_error(llce, rx_msg->error, LLCE_RX);
-
-	if (rx_msg->cmd == LLCE_RX_NOTIF) {
-		if (!napi_schedule_prep(&llce->napi))
-			return;
-
-		__napi_schedule(&llce->napi);
-	}
+	netif_wake_queue(llce->common.can.dev);
 }
 
 static netdev_tx_t llce_can_start_xmit(struct sk_buff *skb,
@@ -767,7 +498,8 @@ static const struct net_device_ops llce_can_netdev_ops = {
 static int llce_can_set_mode(struct net_device *netdev, enum can_mode mode)
 {
 	struct llce_can *llce = netdev_priv(netdev);
-	struct net_device *dev = llce->can.dev;
+	struct llce_can_dev *common = &llce->common;
+	struct net_device *dev = common->can.dev;
 	int ret;
 
 	switch (mode) {
@@ -788,40 +520,6 @@ static int llce_can_set_mode(struct net_device *netdev, enum can_mode mode)
 	return 0;
 }
 
-static int get_llce_can_id(const char *node_name, unsigned long *id)
-{
-	const char *p = node_name + strlen(node_name) - 1;
-
-	while (isdigit(*p))
-		p--;
-
-	return kstrtoul(p + 1, 10, id);
-}
-
-static void *get_netdev_name(struct device *dev)
-{
-	unsigned long id;
-	char *dev_name;
-	const char *node_name;
-	size_t name_len;
-
-	node_name = dev->of_node->name;
-	if (get_llce_can_id(node_name, &id)) {
-		dev_err(dev, "Failed to detect node id for: %s\n", node_name);
-		return ERR_PTR(-EIO);
-	}
-
-	/* 0-99 device ids + \0 */
-	name_len = strlen(LLCE_CAN_NETDEV_IF_NAME) + 3;
-	dev_name = devm_kmalloc(dev, name_len, GFP_KERNEL);
-	if (!dev_name)
-		return ERR_PTR(-ENOMEM);
-
-	snprintf(dev_name, name_len, LLCE_CAN_NETDEV_IF_NAME "%lu", id);
-
-	return dev_name;
-}
-
 static int init_llce_chans(struct llce_can *llce, struct device *dev)
 {
 	long ret = 0;
@@ -833,9 +531,6 @@ static int init_llce_chans(struct llce_can *llce, struct device *dev)
 	llce->tx_client.dev = dev;
 	llce->tx_client.tx_block = false;
 	llce->tx_client.rx_callback = llce_tx_notif_callback;
-	llce->rx_client.dev = dev;
-	llce->rx_client.tx_block = false;
-	llce->rx_client.rx_callback = llce_rx_notif_callback;
 
 	llce->config = mbox_request_channel_byname(&llce->config_client,
 						   "config");
@@ -851,9 +546,10 @@ static int init_llce_chans(struct llce_can *llce, struct device *dev)
 
 static int llce_init_can_priv(struct llce_can *llce, struct device *dev)
 {
+	struct llce_can_dev *common = &llce->common;
+	struct can_priv *can = &common->can;
 	unsigned long rate;
 	int ret;
-	struct can_priv *can = &llce->can;
 
 	llce->clk = devm_clk_get(dev, "can_pe");
 	if (IS_ERR(llce->clk)) {
@@ -887,29 +583,22 @@ static int llce_can_probe(struct platform_device *pdev)
 {
 	int ret;
 	struct llce_can *llce;
+	struct llce_can_dev *common;
 	struct device *dev = &pdev->dev;
 	struct net_device *netdev;
-	char *dev_name;
 
-	netdev = alloc_candev(sizeof(struct llce_can), 1);
-	if (!netdev)
-		return -ENOMEM;
+	common = init_llce_can_dev(dev, sizeof(struct llce_can),
+				   LLCE_CAN_NETDEV_IF_NAME);
+	if (IS_ERR(common))
+		return PTR_ERR(common);
 
-	dev_name = get_netdev_name(dev);
-	if (IS_ERR_VALUE(dev_name)) {
-		ret = PTR_ERR(dev_name);
-		goto free_mem;
-	}
-
-	strncpy(netdev->name, dev_name, sizeof(netdev->name));
+	llce = container_of(common, struct llce_can, common);
+	netdev = common->can.dev;
 
 	platform_set_drvdata(pdev, netdev);
-	SET_NETDEV_DEV(netdev, &pdev->dev);
 
 	netdev->netdev_ops = &llce_can_netdev_ops;
 	netdev->flags |= IFF_ECHO;
-
-	llce = netdev_priv(netdev);
 
 	init_completion(&llce->config_done);
 
@@ -921,16 +610,17 @@ static int llce_can_probe(struct platform_device *pdev)
 	if (ret)
 		goto free_mem;
 
-	netif_napi_add(netdev, &llce->napi, llce_rx_poll, LLCE_CAN_MAX_RX_MB);
+	enable_llce_napi(common);
+
 	ret = register_candev(netdev);
 	if (ret) {
-		dev_err(dev, "Failed to register %s\n", dev_name);
+		dev_err(dev, "Failed to register %s\n", netdev->name);
 		mbox_free_channel(llce->config);
 	}
 
 free_mem:
 	if (ret)
-		free_candev(netdev);
+		free_llce_netdev(common);
 
 	return ret;
 }
@@ -939,9 +629,10 @@ static int llce_can_remove(struct platform_device *pdev)
 {
 	struct net_device *netdev = platform_get_drvdata(pdev);
 	struct llce_can *llce = netdev_priv(netdev);
+	struct llce_can_dev *common = &llce->common;
 
 	unregister_candev(netdev);
-	netif_napi_del(&llce->napi);
+	netif_napi_del(&common->napi);
 
 	clk_disable_unprepare(llce->clk);
 	mbox_free_channel(llce->config);
@@ -954,6 +645,7 @@ static int __maybe_unused llce_can_suspend(struct device *device)
 {
 	struct net_device *dev = dev_get_drvdata(device);
 	struct llce_can *llce = netdev_priv(dev);
+	struct llce_can_dev *common = &llce->common;
 	int ret = 0;
 
 	if (netif_running(dev)) {
@@ -961,7 +653,7 @@ static int __maybe_unused llce_can_suspend(struct device *device)
 		netif_device_detach(dev);
 	}
 
-	llce->can.state = CAN_STATE_SLEEPING;
+	common->can.state = CAN_STATE_SLEEPING;
 
 	return ret;
 }
@@ -970,9 +662,10 @@ static int __maybe_unused llce_can_resume(struct device *device)
 {
 	struct net_device *dev = dev_get_drvdata(device);
 	struct llce_can *llce = netdev_priv(dev);
+	struct llce_can_dev *common = &llce->common;
 	int ret = 0;
 
-	llce->can.state = CAN_STATE_ERROR_ACTIVE;
+	common->can.state = CAN_STATE_ERROR_ACTIVE;
 
 	if (netif_running(dev)) {
 		netif_device_attach(dev);
@@ -1005,4 +698,4 @@ module_platform_driver(llce_can_driver)
 
 MODULE_AUTHOR("Ghennadi Procopciuc <ghennadi.procopciuc@nxp.com>");
 MODULE_DESCRIPTION("NXP LLCE CAN");
-MODULE_LICENSE("GPL");
+MODULE_LICENSE("Dual BSD/GPL");
