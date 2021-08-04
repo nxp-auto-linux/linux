@@ -1231,7 +1231,7 @@ static int process_rx_cmd(struct mbox_chan *chan, struct llce_rx_msg *msg)
 		return process_is_rx_empty(chan, msg);
 	if (msg->cmd == LLCE_POP_RX)
 		return process_pop_rxout(chan, msg);
-	if (msg->cmd == LLCE_RELESE_RX_INDEX)
+	if (msg->cmd == LLCE_RELEASE_RX_INDEX)
 		return process_release_index(chan, msg);
 
 	return 0;
