@@ -32,6 +32,7 @@
 /* Module Configuration Register (SPI_MCR) */
 #define SPI_MCR				0x00
 #define SPI_MCR_MASTER			BIT(31)
+#define SPI_MCR_MTFE			BIT(26)
 #define SPI_MCR_PCSIS(x)		((x) << 16)
 #define SPI_MCR_CLR_TXF			BIT(11)
 #define SPI_MCR_CLR_RXF			BIT(10)
@@ -48,6 +49,7 @@
 #define SPI_CTAR(x)			(0x0c + (((x) & GENMASK(2, 0)) * 4))
 #define SPI_CTAR_FMSZ(x)		(((x) << 27) & GENMASK(30, 27))
 #define SPI_CTAR_SLAVE_FMSZ(x)		(((x) << 27) & GENMASK(31, 27))
+#define SPI_CTAR_DBR			BIT(31)
 #define SPI_CTAR_CPOL			BIT(26)
 #define SPI_CTAR_CPHA			BIT(25)
 #define SPI_CTAR_LSBFE			BIT(24)
@@ -131,6 +133,8 @@
 
 #define DMA_COMPLETION_TIMEOUT		msecs_to_jiffies(3000)
 
+#define SPI_25MHZ					25000000
+
 struct chip_data {
 	u32			ctar_val;
 	u16			void_write_data;
@@ -205,7 +209,7 @@ struct fsl_dspi {
 	struct regmap				*regmap_pushr;
 	int					irq;
 	struct clk				*clk;
-
+	bool					mtf_enabled;
 	struct spi_transfer			*cur_transfer;
 	struct spi_message			*cur_msg;
 	struct chip_data			*cur_chip;
@@ -523,7 +527,7 @@ static void dspi_release_dma(struct fsl_dspi *dspi)
 }
 
 static void hz_to_spi_baud(char *pbr, char *br, int speed_hz,
-			   unsigned long clkrate)
+			   unsigned long clkrate, bool mtf_enabled)
 {
 	/* Valid baud rate pre-scaler values */
 	int pbr_tbl[4] = {2, 3, 5, 7};
@@ -532,7 +536,7 @@ static void hz_to_spi_baud(char *pbr, char *br, int speed_hz,
 			256,	512,	1024,	2048,
 			4096,	8192,	16384,	32768 };
 	int scale_needed, scale, minscale = INT_MAX;
-	int i, j;
+	int i, j, dbr = 1;
 
 	scale_needed = clkrate / speed_hz;
 	if (clkrate % speed_hz)
@@ -540,7 +544,12 @@ static void hz_to_spi_baud(char *pbr, char *br, int speed_hz,
 
 	for (i = 0; i < ARRAY_SIZE(brs); i++)
 		for (j = 0; j < ARRAY_SIZE(pbr_tbl); j++) {
-			scale = brs[i] * pbr_tbl[j];
+
+			if (!mtf_enabled)
+				scale = brs[i] * pbr_tbl[j];
+			else
+				scale = (brs[i] * pbr_tbl[j]) / (1 + dbr);
+
 			if (scale >= scale_needed) {
 				if (scale < minscale) {
 					minscale = scale;
@@ -872,6 +881,18 @@ out:
 	return status;
 }
 
+static int dspi_set_mtf(struct fsl_dspi *dspi)
+{
+	if (!spi_controller_is_slave(dspi->ctlr)) {
+		if (dspi->mtf_enabled)
+			regmap_update_bits(dspi->regmap, SPI_MCR, SPI_MCR_MTFE, SPI_MCR_MTFE);
+		else
+			regmap_update_bits(dspi->regmap, SPI_MCR, SPI_MCR_MTFE, 0);
+	}
+
+	return 0;
+}
+
 static int dspi_setup(struct spi_device *spi)
 {
 	struct fsl_dspi *dspi = spi_controller_get_devdata(spi->controller);
@@ -906,7 +927,15 @@ static int dspi_setup(struct spi_device *spi)
 	chip->void_write_data = 0;
 
 	clkrate = clk_get_rate(dspi->clk);
-	hz_to_spi_baud(&pbr, &br, spi->max_speed_hz, clkrate);
+
+	if (dspi->devtype_data == &s32_data && spi->max_speed_hz > SPI_25MHZ)
+		dspi->mtf_enabled = true;
+	else
+		dspi->mtf_enabled = false;
+
+	dspi_set_mtf(dspi);
+
+	hz_to_spi_baud(&pbr, &br, spi->max_speed_hz, clkrate, dspi->mtf_enabled);
 
 	/* Set PCS to SCK delay scale values */
 	ns_delay_scale(&pcssck, &cssck, cs_sck_delay, clkrate);
@@ -927,6 +956,9 @@ static int dspi_setup(struct spi_device *spi)
 				  SPI_CTAR_ASC(asc) |
 				  SPI_CTAR_PBR(pbr) |
 				  SPI_CTAR_BR(br);
+
+		if (dspi->mtf_enabled)
+			chip->ctar_val |= SPI_CTAR_DBR;
 
 		if (spi->mode & SPI_LSB_FIRST)
 			chip->ctar_val |= SPI_CTAR_LSBFE;
@@ -1005,8 +1037,10 @@ static int dspi_resume(struct device *dev)
 	spi_controller_resume(dspi->ctlr);
 
 	if (dspi->devtype_data == &s32_data ||
-		dspi->devtype_data == &s32_slave_data)
+		dspi->devtype_data == &s32_slave_data) {
 		dspi_init(dspi);
+		dspi_set_mtf(dspi);
+	}
 
 	if (dspi->irq)
 		enable_irq(dspi->irq);
