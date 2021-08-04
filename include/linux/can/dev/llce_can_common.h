@@ -1,13 +1,24 @@
-/* SPDX-License-Identifier: GPL-2.0 */
-/*
- * Copyright 2021 NXP
- */
-#ifndef LLCE_CAN_UTILS_H
-#define LLCE_CAN_UTILS_H
+/* SPDX-License-Identifier: GPL-2.0+ OR BSD-3-Clause */
+/* Copyright 2021 NXP */
+
+#ifndef LLCE_CAN_COMMON_H
+#define LLCE_CAN_COMMON_H
 
 #include <linux/ctype.h>
+#include <linux/device.h>
 #include <linux/mailbox/nxp-llce/llce_can.h>
+#include <linux/mailbox_client.h>
+#include <linux/mailbox_controller.h>
+#include <linux/netdevice.h>
 #include <uapi/linux/can.h>
+
+struct llce_can_dev {
+	struct can_priv can; /* Must be the first member */
+	struct napi_struct napi;
+
+	struct mbox_client rx_client;
+	struct mbox_chan *rx;
+};
 
 static inline void unpack_word0(u32 word0, bool *rtr, bool *ide,
 				u32 *std_id, u32 *ext_id)
@@ -61,4 +72,16 @@ static inline u32 pack_word1(bool fdf, u8 dlc, bool brs, bool esi)
 	return word1;
 }
 
+struct llce_can_dev *init_llce_can_dev(struct device *dev, size_t priv_size,
+				       const char *basename);
+
+void free_llce_netdev(struct llce_can_dev *dev);
+
+void enable_llce_napi(struct llce_can_dev *dev);
+
+void process_llce_can_error(struct llce_can_dev *llce,
+			    enum llce_fw_return error,
+			    enum llce_can_module module);
+
+int enable_llce_rx_notif(struct llce_can_dev *llce);
 #endif
