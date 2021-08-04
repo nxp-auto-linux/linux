@@ -11,7 +11,7 @@ maintainers:
 
 description: |
   This driver is used on S32G2xx to log CAN messages received from LLCE.
-  It provides a interface to userspace, as a char device.
+  It provides a interface to userspace, as a vcan interface.
   Separate LLCE configuration for CAN is expected.
   It assumes that the LLCE Firmware is already loaded.
 

@@ -629,9 +629,99 @@
 			status = "okay";
 		};
 
-		llce_can_logger: llce_can_logger {
+		llce_can_logger0: llce_can_logger0 {
 			compatible = "nxp,s32g-llce-can-logger";
 			mboxes = <&llce_mb S32G_LLCE_CAN_LOGGER_MB 0>;
+			status = "okay";
+		};
+
+		llce_can_logger1: llce_can_logger1 {
+			compatible = "nxp,s32g-llce-can-logger";
+			mboxes = <&llce_mb S32G_LLCE_CAN_LOGGER_MB 1>;
+			status = "okay";
+		};
+
+		llce_can_logger2: llce_can_logger2 {
+			compatible = "nxp,s32g-llce-can-logger";
+			mboxes = <&llce_mb S32G_LLCE_CAN_LOGGER_MB 2>;
+			status = "okay";
+		};
+
+		llce_can_logger3: llce_can_logger3 {
+			compatible = "nxp,s32g-llce-can-logger";
+			mboxes = <&llce_mb S32G_LLCE_CAN_LOGGER_MB 3>;
+			status = "okay";
+		};
+
+		llce_can_logger4: llce_can_logger4 {
+			compatible = "nxp,s32g-llce-can-logger";
+			mboxes = <&llce_mb S32G_LLCE_CAN_LOGGER_MB 4>;
+			status = "okay";
+		};
+
+		llce_can_logger5: llce_can_logger5 {
+			compatible = "nxp,s32g-llce-can-logger";
+			mboxes = <&llce_mb S32G_LLCE_CAN_LOGGER_MB 5>;
+			status = "okay";
+		};
+
+		llce_can_logger6: llce_can_logger6 {
+			compatible = "nxp,s32g-llce-can-logger";
+			mboxes = <&llce_mb S32G_LLCE_CAN_LOGGER_MB 6>;
+			status = "okay";
+		};
+
+		llce_can_logger7: llce_can_logger7 {
+			compatible = "nxp,s32g-llce-can-logger";
+			mboxes = <&llce_mb S32G_LLCE_CAN_LOGGER_MB 7>;
+			status = "okay";
+		};
+
+		llce_can_logger8: llce_can_logger8 {
+			compatible = "nxp,s32g-llce-can-logger";
+			mboxes = <&llce_mb S32G_LLCE_CAN_LOGGER_MB 8>;
+			status = "okay";
+		};
+
+		llce_can_logger9: llce_can_logger9 {
+			compatible = "nxp,s32g-llce-can-logger";
+			mboxes = <&llce_mb S32G_LLCE_CAN_LOGGER_MB 9>;
+			status = "okay";
+		};
+
+		llce_can_logger10: llce_can_logger10 {
+			compatible = "nxp,s32g-llce-can-logger";
+			mboxes = <&llce_mb S32G_LLCE_CAN_LOGGER_MB 10>;
+			status = "okay";
+		};
+
+		llce_can_logger11: llce_can_logger11 {
+			compatible = "nxp,s32g-llce-can-logger";
+			mboxes = <&llce_mb S32G_LLCE_CAN_LOGGER_MB 11>;
+			status = "okay";
+		};
+
+		llce_can_logger12: llce_can_logger12 {
+			compatible = "nxp,s32g-llce-can-logger";
+			mboxes = <&llce_mb S32G_LLCE_CAN_LOGGER_MB 12>;
+			status = "okay";
+		};
+
+		llce_can_logger13: llce_can_logger13 {
+			compatible = "nxp,s32g-llce-can-logger";
+			mboxes = <&llce_mb S32G_LLCE_CAN_LOGGER_MB 13>;
+			status = "okay";
+		};
+
+		llce_can_logger14: llce_can_logger14 {
+			compatible = "nxp,s32g-llce-can-logger";
+			mboxes = <&llce_mb S32G_LLCE_CAN_LOGGER_MB 14>;
+			status = "okay";
+		};
+
+		llce_can_logger15: llce_can_logger15 {
+			compatible = "nxp,s32g-llce-can-logger";
+			mboxes = <&llce_mb S32G_LLCE_CAN_LOGGER_MB 15>;
 			status = "okay";
 		};
 
