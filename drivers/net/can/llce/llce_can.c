@@ -600,7 +600,7 @@ static int pop_rx_fifo(struct llce_can *llce, uint32_t *index,
 static int release_rx_index(struct llce_can *llce, uint32_t index)
 {
 	struct llce_rx_msg msg = {
-		.cmd = LLCE_RELESE_RX_INDEX,
+		.cmd = LLCE_RELEASE_RX_INDEX,
 		.rx_release = {
 			.index = index,
 		},
