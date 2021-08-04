@@ -23,6 +23,7 @@
 
 #define SPI_MCR				0x00
 #define SPI_MCR_MASTER			BIT(31)
+#define SPI_MCR_MTFE			BIT(26)
 #define SPI_MCR_PCSIS(x)		((x) << 16)
 #define SPI_MCR_CLR_TXF			BIT(11)
 #define SPI_MCR_CLR_RXF			BIT(10)
@@ -36,6 +37,7 @@
 
 #define SPI_CTAR(x)			(0x0c + (((x) & GENMASK(2, 0)) * 4))
 #define SPI_CTAR_FMSZ(x)		(((x) << 27) & GENMASK(30, 27))
+#define SPI_CTAR_DBR			BIT(31)
 #define SPI_CTAR_CPOL			BIT(26)
 #define SPI_CTAR_CPHA			BIT(25)
 #define SPI_CTAR_LSBFE			BIT(24)
@@ -108,6 +110,8 @@
 #define SPI_FRAME_EBITS(bits)		SPI_CTARE_FMSZE(((bits) - 1) >> 4)
 
 #define DMA_COMPLETION_TIMEOUT		msecs_to_jiffies(3000)
+
+#define SPI_25MHZ					25000000
 
 struct chip_data {
 	u32			ctar_val;
@@ -226,9 +230,9 @@ struct fsl_dspi {
 
 	struct regmap				*regmap;
 	struct regmap				*regmap_pushr;
-	int					irq;
+	int						irq;
 	struct clk				*clk;
-
+	bool					mtf_enabled;
 	struct spi_transfer			*cur_transfer;
 	struct spi_message			*cur_msg;
 	struct chip_data			*cur_chip;
@@ -266,7 +270,8 @@ static int dspi_init(struct fsl_dspi *dspi);
 
 static inline bool is_s32cc_dspi(struct fsl_dspi *data)
 {
-	return data->devtype_data == &devtype_data[S32CC];
+	return data->devtype_data == &devtype_data[S32CC] ||
+		data->devtype_data == &devtype_data[S32CC_SLAVE];
 }
 
 static void dspi_native_host_to_dev(struct fsl_dspi *dspi, u32 *txdata)
@@ -623,7 +628,7 @@ static void dspi_release_dma(struct fsl_dspi *dspi)
 }
 
 static void hz_to_spi_baud(char *pbr, char *br, int speed_hz,
-			   unsigned long clkrate)
+			   unsigned long clkrate, bool mtf_enabled)
 {
 	/* Valid baud rate pre-scaler values */
 	int pbr_tbl[4] = {2, 3, 5, 7};
@@ -632,7 +637,7 @@ static void hz_to_spi_baud(char *pbr, char *br, int speed_hz,
 			256,	512,	1024,	2048,
 			4096,	8192,	16384,	32768 };
 	int scale_needed, scale, minscale = INT_MAX;
-	int i, j;
+	int i, j, dbr = 1;
 
 	scale_needed = clkrate / speed_hz;
 	if (clkrate % speed_hz)
@@ -640,7 +645,11 @@ static void hz_to_spi_baud(char *pbr, char *br, int speed_hz,
 
 	for (i = 0; i < ARRAY_SIZE(brs); i++)
 		for (j = 0; j < ARRAY_SIZE(pbr_tbl); j++) {
-			scale = brs[i] * pbr_tbl[j];
+			if (!mtf_enabled)
+				scale = brs[i] * pbr_tbl[j];
+			else
+				scale = (brs[i] * pbr_tbl[j]) / (1 + dbr);
+
 			if (scale >= scale_needed) {
 				if (scale < minscale) {
 					minscale = scale;
@@ -996,6 +1005,18 @@ static int dspi_transfer_one_message(struct spi_controller *ctlr,
 	return status;
 }
 
+static int dspi_set_mtf(struct fsl_dspi *dspi)
+{
+	if (!spi_controller_is_slave(dspi->ctlr)) {
+		if (dspi->mtf_enabled)
+			regmap_update_bits(dspi->regmap, SPI_MCR, SPI_MCR_MTFE, SPI_MCR_MTFE);
+		else
+			regmap_update_bits(dspi->regmap, SPI_MCR, SPI_MCR_MTFE, 0);
+	}
+
+	return 0;
+}
+
 static int dspi_setup(struct spi_device *spi)
 {
 	struct fsl_dspi *dspi = spi_controller_get_devdata(spi->controller);
@@ -1043,7 +1064,15 @@ static int dspi_setup(struct spi_device *spi)
 		cs_sck_delay, sck_cs_delay);
 
 	clkrate = clk_get_rate(dspi->clk);
-	hz_to_spi_baud(&pbr, &br, spi->max_speed_hz, clkrate);
+
+	if (is_s32cc_dspi(dspi) && spi->max_speed_hz > SPI_25MHZ)
+		dspi->mtf_enabled = true;
+	else
+		dspi->mtf_enabled = false;
+
+	dspi_set_mtf(dspi);
+
+	hz_to_spi_baud(&pbr, &br, spi->max_speed_hz, clkrate, dspi->mtf_enabled);
 
 	/* Set PCS to SCK delay scale values */
 	ns_delay_scale(&pcssck, &cssck, cs_sck_delay, clkrate);
@@ -1064,6 +1093,9 @@ static int dspi_setup(struct spi_device *spi)
 				  SPI_CTAR_ASC(asc) |
 				  SPI_CTAR_PBR(pbr) |
 				  SPI_CTAR_BR(br);
+
+		if (dspi->mtf_enabled)
+			chip->ctar_val |= SPI_CTAR_DBR;
 
 		if (spi->mode & SPI_LSB_FIRST)
 			chip->ctar_val |= SPI_CTAR_LSBFE;
@@ -1156,6 +1188,8 @@ static int dspi_resume(struct device *dev)
 		dev_err(dev, "failed to initialize dspi during resume\n");
 		return ret;
 	}
+
+	dspi_set_mtf(dspi);
 
 	if (dspi->irq)
 		enable_irq(dspi->irq);
