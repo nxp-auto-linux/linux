@@ -16,7 +16,7 @@
 #include <linux/io.h>
 #include <linux/kernel.h>
 #include <linux/mailbox/nxp-llce/llce_can.h>
-#include <linux/mailbox/nxp-llce/llce_can_utils.h>
+#include <linux/can/dev/llce_can_common.h>
 #include <linux/mailbox/nxp-llce/llce_interface_fifo.h>
 #include <linux/mailbox/nxp-llce/llce_mailbox.h>
 #include <linux/mailbox_client.h>
