@@ -27,9 +27,10 @@ config CAN_LLCE_LOGGER
 	depends on m
 	help
 	  This driver is used on S32G2/S32G3 to log CAN messages received from
-	  LLCE. It provides a interface to userspace, as a char device, on
-	  which you can cat or you can echo a value to set the log size to that
-	  dimension. Separate LLCE configuration for CAN is expected.
+	  LLCE. It provides to user space as a virtual can (vcan) interface,
+	  on which you can listen to receive the RX traffic associated with its
+	  LLCE CAN counterpart.
+	  Separate LLCE configuration for CAN is expected.
 
 	  It assumes that the LLCE Firmware is already loaded.
 
