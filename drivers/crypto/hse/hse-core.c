@@ -53,6 +53,7 @@
  * @hmac_key_ring: HMAC key slots currently available
  * @aes_key_ring: AES key slots currently available
  * @key_ring_lock: lock used for key slot acquisition
+ * @firmware_dead: used to signal firmware fatal error
  */
 struct hse_drvdata {
 	struct {
@@ -81,6 +82,7 @@ struct hse_drvdata {
 	struct list_head hmac_key_ring;
 	struct list_head aes_key_ring;
 	spinlock_t key_ring_lock; /* covers key slot acquisition */
+	bool firmware_dead;
 	u32 rng_srv_id;
 };
 
@@ -499,7 +501,8 @@ int hse_channel_release(struct device *dev, u8 channel)
  * must be set to HSE_CHANNEL_ANY unless obtained via hse_channel_acquire().
  *
  * Return: 0 on success, -EINVAL for invalid parameter, -ECHRNG for channel
- *         index out of range, -EBUSY for channel busy or none available
+ *         index out of range, -ENOTRECOVERABLE for firmware stopped due to
+ *         internal fatal error, -EBUSY for channel busy or none available
  */
 int hse_srv_req_async(struct device *dev, u8 channel, void *srv_desc,
 		      void *ctx, void (*rx_cbk)(int err, void *ctx))
@@ -512,6 +515,9 @@ int hse_srv_req_async(struct device *dev, u8 channel, void *srv_desc,
 
 	if (unlikely(channel != HSE_CHANNEL_ANY && channel >= HSE_NUM_CHANNELS))
 		return -ECHRNG;
+
+	if (unlikely(drv->firmware_dead))
+		return -ENOTRECOVERABLE;
 
 	spin_lock(&drv->tx_lock);
 
@@ -553,7 +559,8 @@ int hse_srv_req_async(struct device *dev, u8 channel, void *srv_desc,
  * shall be set to HSE_CHANNEL_ANY unless obtained via hse_channel_acquire().
  *
  * Return: 0 on success, -EINVAL for invalid parameter, -ECHRNG for channel
- *         index out of range, -EBUSY for channel busy or none available
+ *         index out of range, -ENOTRECOVERABLE for firmware stopped due to
+ *         internal fatal error, -EBUSY for channel busy or none available
  */
 int hse_srv_req_sync(struct device *dev, u8 channel, void *srv_desc)
 {
@@ -566,6 +573,9 @@ int hse_srv_req_sync(struct device *dev, u8 channel, void *srv_desc)
 
 	if (unlikely(channel != HSE_CHANNEL_ANY && channel >= HSE_NUM_CHANNELS))
 		return -ECHRNG;
+
+	if (unlikely(drv->firmware_dead))
+		return -ENOTRECOVERABLE;
 
 	spin_lock(&drv->tx_lock);
 
@@ -685,9 +695,10 @@ static irqreturn_t hse_rx_dispatcher(int irq, void *dev)
  * @irq: interrupt line
  * @dev: HSE device
  *
+ * In case a warning has been reported, log the event mask, clear irq and exit.
  * In case a fatal error has been reported, all MU interfaces are disabled
  * and communication with HSE terminated. Therefore, all service requests
- * currently in progress are canceled and any further requests are prevented.
+ * currently in progress are canceled and any subsequent requests are prevented.
  */
 static irqreturn_t hse_event_dispatcher(int irq, void *dev)
 {
@@ -701,6 +712,9 @@ static irqreturn_t hse_event_dispatcher(int irq, void *dev)
 
 		return IRQ_HANDLED;
 	}
+
+	/* stop any subsequent requests */
+	drv->firmware_dead = true;
 
 	/* disable RX and event notifications */
 	hse_mu_irq_disable(drv->mu, HSE_INT_RESPONSE, HSE_CH_MASK_ALL);
@@ -719,6 +733,10 @@ static irqreturn_t hse_event_dispatcher(int irq, void *dev)
 
 	/* notify upper layers that all requests are canceled */
 	for (channel = 0; channel < HSE_NUM_CHANNELS; channel++) {
+		if (drv->channel_busy[channel])
+			dev_dbg(dev, "request id 0x%08x canceled, channel %d\n",
+				channel, drv->srv_desc[channel].id);
+
 		if (drv->rx_cbk[channel].fn) {
 			void *ctx = drv->rx_cbk[channel].ctx;
 
@@ -729,14 +747,15 @@ static irqreturn_t hse_event_dispatcher(int irq, void *dev)
 
 			complete(drv->sync[channel].done);
 		}
-
-		if (drv->channel_busy[channel])
-			dev_dbg(dev, "request id 0x%08x canceled, channel %d\n",
-				channel, drv->srv_desc[channel].id);
-		drv->channel_busy[channel] = true;
 	}
 
-	/* unregister hwrng */
+	/* unregister kernel crypto algorithms and hwrng */
+	if (IS_ENABLED(CONFIG_CRYPTO_DEV_NXP_HSE_AHASH))
+		hse_ahash_unregister(&drv->ahash_algs);
+	if (IS_ENABLED(CONFIG_CRYPTO_DEV_NXP_HSE_SKCIPHER))
+		hse_skcipher_unregister(&drv->skcipher_algs);
+	if (IS_ENABLED(CONFIG_CRYPTO_DEV_NXP_HSE_AEAD))
+		hse_aead_unregister(&drv->aead_algs);
 	if (IS_ENABLED(CONFIG_CRYPTO_DEV_NXP_HSE_HWRNG))
 		hse_hwrng_unregister(dev);
 
@@ -775,6 +794,7 @@ static int hse_probe(struct platform_device *pdev)
 		dev_err(dev, "firmware not found\n");
 		return -ENODEV;
 	}
+	drv->firmware_dead = false;
 
 	/* manage channels and descriptor space */
 	hse_manage_channels(dev, desc_base_ptr, desc_base_dma);
