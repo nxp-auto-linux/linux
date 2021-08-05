@@ -75,9 +75,6 @@ void hse_aead_unregister(struct list_head *alg_list);
 void hse_hwrng_register(struct device *dev);
 void hse_hwrng_unregister(struct device *dev);
 
-void *hse_uio_register(struct device *dev, void *mu);
-void hse_uio_notify(void *uio, u8 channel, u32 srv_rsp);
-
 u32 _get_rng_srv_id(struct device *dev);
 
 #endif /* HSE_CORE_H */
