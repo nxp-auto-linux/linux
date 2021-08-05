@@ -19,7 +19,7 @@
 #define HSE_CHANNEL_INV    0xFFu /* invalid acquired service channel index */
 #define HSE_CH_MASK_ALL    0x0000FFFFul /* all available channels irq mask */
 
-#define HSE_STATUS_MASK     0xFFFF0000ul /* HSE global status FSR mask */
+#define HSE_STATUS_MASK    0xFFFF0000ul /* HSE global status FSR mask */
 
 #define HSE_EVT_MASK_ERR     0x000000FFul /* fatal error GSR mask */
 #define HSE_EVT_MASK_WARN    0x0000FF00ul /* warning GSR mask */

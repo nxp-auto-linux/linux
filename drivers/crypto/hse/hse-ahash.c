@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: BSD-3-Clause
 /*
- * NXP HSE Driver - Asynchronous Hash Support
+ * NXP HSE Driver - Asynchronous Message Digest Support
  *
  * This file contains the implementation of the hash algorithms and hash-based
  * message authentication codes supported for hardware offloading via HSE.
