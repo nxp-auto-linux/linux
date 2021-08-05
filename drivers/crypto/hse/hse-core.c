@@ -19,18 +19,6 @@
 #include "hse-core.h"
 #include "hse-mu.h"
 
-#if !defined(CONFIG_CRYPTO_DEV_NXP_HSE_UIO)
-#define HSE_KS_RAM_AES_GID       CONFIG_CRYPTO_DEV_NXP_HSE_AES_KEY_GROUP_ID
-#define HSE_KS_RAM_AES_GSIZE     CONFIG_CRYPTO_DEV_NXP_HSE_AES_KEY_GROUP_SIZE
-#define HSE_KS_RAM_HMAC_GID      CONFIG_CRYPTO_DEV_NXP_HSE_HMAC_KEY_GROUP_ID
-#define HSE_KS_RAM_HMAC_GSIZE    CONFIG_CRYPTO_DEV_NXP_HSE_HMAC_KEY_GROUP_SIZE
-#else
-#define HSE_KS_RAM_AES_GID       0u
-#define HSE_KS_RAM_AES_GSIZE     0u
-#define HSE_KS_RAM_HMAC_GID      0u
-#define HSE_KS_RAM_HMAC_GSIZE    0u
-#endif /* CONFIG_CRYPTO_DEV_NXP_HSE_UIO */
-
 /**
  * struct hse_drvdata - HSE driver private data
  * @srv_desc[n].ptr: service descriptor virtual address for channel n
@@ -40,7 +28,6 @@
  * @skcipher_algs: registered symmetric key cipher algorithms
  * @aead_algs: registered authenticated encryption and AEAD algorithms
  * @mu: MU instance handle returned by lower abstraction layer
- * @uio: user-space I/O device handle
  * @channel_busy[n]: internally cached status of MU channel n
  * @refcnt[n]: service channel n acquired reference counter
  * @type[n]: designated type of service channel n
@@ -65,7 +52,6 @@ struct hse_drvdata {
 	struct list_head skcipher_algs;
 	struct list_head aead_algs;
 	void *mu;
-	void *uio;
 	bool channel_busy[HSE_NUM_CHANNELS];
 	atomic_t refcnt[HSE_NUM_CHANNELS];
 	enum hse_ch_type type[HSE_NUM_CHANNELS];
@@ -641,12 +627,6 @@ static void hse_srv_rsp_dispatch(struct device *dev, u8 channel)
 		dev_dbg(dev, "%s: service response 0x%08X on channel %d\n",
 			__func__, srv_rsp, channel);
 
-	/* when UIO support is enabled, let upper layer handle the reply */
-	if (IS_ENABLED(CONFIG_CRYPTO_DEV_NXP_HSE_UIO) && likely(drv->uio)) {
-		hse_uio_notify(drv->uio, channel, srv_rsp);
-		return;
-	}
-
 	if (drv->rx_cbk[channel].fn) {
 		void (*rx_cbk)(int err, void *ctx) = drv->rx_cbk[channel].fn;
 		void *ctx = drv->rx_cbk[channel].ctx;
@@ -819,8 +799,7 @@ static int hse_probe(struct platform_device *pdev)
 		err = -ENODEV;
 		goto err_probe_failed;
 	}
-	if (!IS_ENABLED(CONFIG_CRYPTO_DEV_NXP_HSE_UIO) &&
-	    !likely(status & HSE_STATUS_INSTALL_OK)) {
+	if (!likely(status & HSE_STATUS_INSTALL_OK)) {
 		dev_err(dev, "key catalogs not formatted\n");
 		err = -ENODEV;
 		goto err_probe_failed;
@@ -828,24 +807,16 @@ static int hse_probe(struct platform_device *pdev)
 	if (unlikely(status & HSE_STATUS_PUBLISH_SYS_IMAGE))
 		dev_warn(dev, "volatile configuration, publish SYS_IMAGE\n");
 
-	/* register UIO device */
-	if (IS_ENABLED(CONFIG_CRYPTO_DEV_NXP_HSE_UIO)) {
-		drv->uio = hse_uio_register(dev, drv->mu);
-		if (IS_ERR_OR_NULL(drv->uio)) {
-			dev_err(dev, "failed to register UIO device\n");
-			return PTR_ERR(drv->uio);
-		}
-		return 0;
-	}
-
 	/* initialize key rings */
-	err = hse_key_ring_init(dev, &drv->hmac_key_ring, HSE_KEY_TYPE_HMAC,
-				HSE_KS_RAM_HMAC_GID, HSE_KS_RAM_HMAC_GSIZE);
+	err = hse_key_ring_init(dev, &drv->aes_key_ring, HSE_KEY_TYPE_AES,
+				CONFIG_CRYPTO_DEV_NXP_HSE_AES_KEY_GROUP_ID,
+				CONFIG_CRYPTO_DEV_NXP_HSE_AES_KEY_GROUP_SIZE);
 	if (unlikely(err))
 		goto err_probe_failed;
 
-	err = hse_key_ring_init(dev, &drv->aes_key_ring, HSE_KEY_TYPE_AES,
-				HSE_KS_RAM_AES_GID, HSE_KS_RAM_AES_GSIZE);
+	err = hse_key_ring_init(dev, &drv->hmac_key_ring, HSE_KEY_TYPE_HMAC,
+				CONFIG_CRYPTO_DEV_NXP_HSE_HMAC_KEY_GROUP_ID,
+				CONFIG_CRYPTO_DEV_NXP_HSE_HMAC_KEY_GROUP_SIZE);
 	if (unlikely(err))
 		goto err_probe_failed;
 
