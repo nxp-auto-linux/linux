@@ -50,8 +50,8 @@ struct s32cc_priv_data {
 	const struct s32gen1_xpcs_ops *xpcs_ops;
 };
 
-int xpcs_config(struct mdio_xpcs_args *xpcs,
-		const struct phylink_link_state *state)
+static int xpcs_config(struct mdio_xpcs_args *xpcs,
+		       const struct phylink_link_state *state)
 {
 	struct phylink_link_state sgmii_state = { 0 };
 	struct s32cc_priv_data *gmac = (struct s32cc_priv_data *)xpcs->bus;
@@ -77,8 +77,8 @@ int xpcs_config(struct mdio_xpcs_args *xpcs,
 	return 0;
 }
 
-int xpcs_get_state(struct mdio_xpcs_args *xpcs,
-		   struct phylink_link_state *state)
+static int xpcs_get_state(struct mdio_xpcs_args *xpcs,
+			  struct phylink_link_state *state)
 {
 	struct s32cc_priv_data *gmac = (struct s32cc_priv_data *)xpcs->bus;
 
