@@ -124,6 +124,7 @@ struct siul2_gpio_dev {
 	struct regmap *ipadmap;
 	struct regmap *irqmap;
 	struct gpio_chip gc;
+	struct irq_chip irq;
 
 	/* Mutual access to SIUL2 registers. */
 	spinlock_t lock;
@@ -458,14 +459,6 @@ static void siul2_gpio_irq_mask(struct irq_data *data)
 	gpio_dev->eirq_pins[eirq].used = 0;
 	spin_unlock_irqrestore(&gpio_dev->lock, flags);
 }
-
-static struct irq_chip siul2_gpio_irq_chip = {
-	.name			= "siul2-gpio",
-	.irq_ack		= siul2_gpio_irq_mask,
-	.irq_mask		= siul2_gpio_irq_mask,
-	.irq_unmask		= siul2_gpio_irq_unmask,
-	.irq_set_type		= siul2_gpio_irq_set_type,
-};
 
 static const struct regmap_config siul2_regmap_conf = {
 	.val_bits = 32,
@@ -894,6 +887,13 @@ int siul2_gpio_probe(struct platform_device *pdev)
 		sizeof(*gpio_dev->pin_dir_bitmap);
 	gpio_dev->pin_dir_bitmap = devm_kzalloc(&pdev->dev, bitmap_size,
 						GFP_KERNEL);
+	gpio_dev->irq = (struct irq_chip) {
+		.name			= dev_name(&pdev->dev),
+		.irq_ack		= siul2_gpio_irq_mask,
+		.irq_mask		= siul2_gpio_irq_mask,
+		.irq_unmask		= siul2_gpio_irq_unmask,
+		.irq_set_type		= siul2_gpio_irq_set_type,
+	};
 
 	gc->parent = &pdev->dev;
 	gc->label = dev_name(&pdev->dev);
@@ -907,7 +907,7 @@ int siul2_gpio_probe(struct platform_device *pdev)
 	gc->owner = THIS_MODULE;
 
 	girq = &gc->irq;
-	girq->chip = &siul2_gpio_irq_chip;
+	girq->chip = &gpio_dev->irq;
 	girq->parent_handler = NULL;
 	girq->num_parents = 0;
 	girq->parents = NULL;
