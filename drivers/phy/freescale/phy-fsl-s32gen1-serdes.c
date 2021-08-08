@@ -597,7 +597,7 @@ static struct phy *serdes_xlate(struct device *dev,
 		return ERR_PTR(ret);
 
 	phy = serdes->phys[lane_id];
-	phy->id = instance;
+	phy->id = lane_id;
 	phy->attrs.mode = mode;
 
 	return phy;
