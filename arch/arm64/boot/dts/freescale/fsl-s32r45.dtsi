@@ -158,9 +158,10 @@
 				/* EIRQ[31] */
 				<&pinctrl0 0 44 1>;
 				/* Pad Data I/0 Registers */
-			regmap0 = <&opad0_regs>;
-			regmap1 = <&ipad0_regs>;
-			regmap2 = <&irq_regs>;
+			reg = <0x3 0x0 0x0 0x10>,
+			      <0x4 0x0 0x0 0x10>,
+			      <0x5 0x0 0x0 0x30>;
+			reg-names = "opads", "ipads", "eirqs";
 			interrupt-controller;
 			interrupts = <0 237 4>;
 			status = "okay";
@@ -175,7 +176,11 @@
 			  /* PINCTRL */
 		ranges = <1 0 0x0 0x4403C3D8 0x0 0x80>,
 			 /* IMCR range */
-			 <2 0 0x0 0x4403CBAC 0x0 0x2CC>;
+			 <2 0 0x0 0x4403CBAC 0x0 0x2CC>,
+			 /* Output pads */
+			 <3 0 0x0 0x4403D700 0x0 0x14>,
+			 /* Input pads */
+			 <4 0 0x0 0x4403D740 0x0 0x14>;
 
 		pinctrl1: siul2-pinctrl1@4403C000 {
 			compatible =
@@ -202,37 +207,12 @@
 			#gpio-cells = <2>;
 			#pinctrl-cells = <2>;
 			gpio-ranges = <&pinctrl1 0 102 32>;
-				/* Pad Data I/0 Registers */
-			regmap0 = <&opad1_regs>;
-			regmap1 = <&ipad1_regs>;
+			/* Pad Data I/0 Registers */
+			reg = <0x3 0x0 0x0 0x14>,
+			      <0x4 0x0 0x0 0x14>;
+			reg-names = "opads", "ipads";
 			status = "okay";
 		};
-	};
-
-	irq_regs: siul2_reg@0x4403C010 {
-		compatible = "fsl,irq_reqs-s32gen1","syscon","simple-mfd";
-		reg = <0x0 0x4403C010 0x0 0x30>;
-		little-endian;
-	};
-	opad0_regs: siul2_reg@0x4009D700 {
-		compatible = "fsl,opad0_reqs-s32gen1","syscon","simple-mfd";
-		reg = <0x0 0x4009D700 0x0 0x10>;
-		reg-io-width = <2>;
-	};
-	ipad0_regs: siul2_reg@0x4009D740 {
-		compatible = "fsl,ipad0_reqs-s32gen1","syscon","simple-mfd";
-		reg = <0x0 0x4009D740 0x0 0x10>;
-		reg-io-width = <2>;
-	};
-	opad1_regs: siul2_reg@0x4403D700 {
-		compatible = "fsl,opad0_reqs-s32gen1","syscon","simple-mfd";
-		reg = <0x0 0x4403D700 0x0 0x14>;
-		reg-io-width = <2>;
-	};
-	ipad1_regs: siul2_reg@0x4403D740 {
-		compatible = "fsl,ipad0_reqs-s32gen1","syscon","simple-mfd";
-		reg = <0x0 0x4403D740 0x0 0x14>;
-		reg-io-width = <2>;
 	};
 
 	gmac1: ethernet@44010000 {
