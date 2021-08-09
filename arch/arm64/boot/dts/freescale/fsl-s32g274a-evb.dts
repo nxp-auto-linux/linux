@@ -98,6 +98,10 @@
 	pinctrl-0 = <&pinctrl0_pfe1_rgmii_c>, <&pinctrl1_pfe1_rgmii_c>;
 };
 
+&pfe_emac2 {
+	phy-mode = "rgmii";
+};
+
 &pfe_logif2 {
 	fixed-link {
 		speed = <1000>;
@@ -136,13 +140,13 @@
 };
 
 &pfe_mdio2 {
-	/* KSZ9031RNX over SJA1105Q P1 */
+	/* KSZ9031RNX over SJA1105Q P3 */
 	mdio_a_phy2: ethernet-phy@2 {
 		#address-cells = <1>;
 		#size-cells = <0>;
 		reg = <2>;
 	};
-	/* KSZ9031RNX over SJA1105Q P2 */
+	/* KSZ9031RNX over SJA1105Q P4 */
 	mdio_a_phy3: ethernet-phy@3 {
 		#address-cells = <1>;
 		#size-cells = <0>;
@@ -155,19 +159,18 @@
 		#size-cells = <0>;
 		reg = <4>;
 	};
-	/* TJA1102 over SJA1105Q P3 */
+	/* TJA1102 over SJA1105Q P1 */
 	mdio_a_phy6: ethernet-phy@6 {
 		#address-cells = <1>;
 		#size-cells = <0>;
 		reg = <6>;
-		max-speed = <100>;
-	};
-	/* TJA1102 over SJA1105Q P4 */
-	mdio_a_phy7: ethernet-phy@7 {
-		#address-cells = <1>;
-		#size-cells = <0>;
-		reg = <7>;
-		max-speed = <100>;
+
+		/* TJA1102 over SJA1105Q P2 */
+		mdio_a_phy7: ethernet-phy@7 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <7>;
+		};
 	};
 };
 
@@ -820,38 +823,59 @@
 	#size-cells = <0>;
 	status = "okay";
 
-	sja1105p@0 {
-		compatible = "nxp,sja1105p-switch";
+	ethernet-switch@0 {
+		compatible = "nxp,sja1105q";
 		spi-max-frequency = <0x3D0900>;
 		spi-cpha;
 		fsl,spi-cs-sck-delay = <100>;
 		fsl,spi-sck-cs-delay = <100>;
-
 		reg = <0>;
-		port-0 {
-			is-host = <0x1>;
-			null-phy = <0x1>;
-			phy-ref = < 0 >;
-		};
-		port-1 {
-			is-host = <0x0>;
-			null-phy = <0x1>;
-			phy-ref = <&mdio_a_phy2>;
-		};
-		port-2 {
-			is-host = <0x0>;
-			null-phy = <0x0>;
-			phy-ref = <&mdio_a_phy3>;
-		};
-		port-3 {
-			is-host = <0x0>;
-			null-phy = <0x0>;
-			phy-ref = <&mdio_a_phy6>;
-		};
-		port-4 {
-			is-host = <0x0>;
-			null-phy = <0x0>;
-			phy-ref = <&mdio_a_phy7>;
+
+		dsa,member = < 0 0 >;
+
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			port@0 {
+				label = "sw0-p0";
+				phy-mode = "rgmii-id";
+				ethernet = <&pfe_logif2>;
+				reg = <0>;
+
+				fixed-link {
+					speed = <1000>;
+					full-duplex;
+				};
+			};
+
+			enet_p1@1 {
+				label = "enet_p1";
+				phy-mode = "mii";
+				phy-handle = <&mdio_a_phy6>;
+				reg = <1>;
+			};
+
+			enet_p2@2 {
+				label = "enet_p2";
+				phy-mode = "mii";
+				phy-handle = <&mdio_a_phy7>;
+				reg = <2>;
+			};
+
+			enet_p3@3 {
+				label = "enet_p3";
+				phy-mode = "rgmii-id";
+				phy-handle = <&mdio_a_phy2>;
+				reg = <3>;
+			};
+
+			enet_p4@4 {
+				label = "enet_p4";
+				phy-mode = "rgmii-id";
+				phy-handle = <&mdio_a_phy3>;
+				reg = <4>;
+			};
 		};
 	};
 };
