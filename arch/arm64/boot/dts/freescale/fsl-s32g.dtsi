@@ -395,9 +395,10 @@
 				/* EIRQ[27] - EIRQ[31] */
 				<&pinctrl0 0 36 5>;
 				/* Pad Data I/0 Registers */
-			regmap0 = <&opad0_regs>;
-			regmap1 = <&ipad0_regs>;
-			regmap2 = <&irq_regs>;
+			reg = <0x3 0x0 0x0 0x10>,
+			      <0x4 0x0 0x0 0x10>,
+			      <0x5 0x0 0x0 0x34>;
+			reg-names = "opads", "ipads", "eirqs";
 			interrupt-controller;
 			#interrupt-cells = <2>;
 			interrupts = <0 210 4>;
@@ -414,7 +415,13 @@
 			  /* MSCR 112-190 */
 		ranges = <1 0 0x0 0x44010400 0x0 0x13C>,
 			 /* IMCR range 631-1023 */
-			 <2 0 0x0 0x44010C1C 0x0 0x5E4>;
+			 <2 0 0x0 0x44010C1C 0x0 0x5E4>,
+			 /* Output pads */
+			 <3 0 0x0 0x44011700 0x0 0x18>,
+			 /* Input pads */
+			 <4 0 0x0 0x44011740 0x0 0x18>,
+			 /* EIRQS */
+			 <5 0 0x0 0x44010010 0x0 0x34>;
 
 		pinctrl1: siul2-pinctrl1@44010000 {
 			compatible = "fsl,s32g-siul2_1-pinctrl";
@@ -460,40 +467,16 @@
 				<&pinctrl1 0 113 3>,
 				/* EIRQ[26] */
 				<&pinctrl1 0 117 1>;
-				/* Pad Data I/0 Registers */
-			regmap0 = <&opad1_regs>;
-			regmap1 = <&ipad1_regs>;
-			regmap2 = <&irq_regs>;
+			/* Pad Data I/0 Registers */
+			reg = <0x3 0x0 0x0 0x18>,
+			    <0x04 0x0 0x0 0x18>,
+			    <0x5 0x0 0x0 0x34>;
+			reg-names = "opads", "ipads", "eirqs";
 			interrupt-controller;
 			interrupts = <0 210 4>;
 			#interrupt-cells = <2>;
 			status = "okay";
 		};
-	};
-	irq_regs: siul2_reg@0x44010010 {
-		compatible = "fsl,irq_reqs-s32gen1","syscon","simple-mfd";
-		reg = <0x0 0x44010010 0x0 0x34>;
-		little-endian;
-	};
-	opad0_regs: siul2_reg@0x4009D700 {
-		compatible = "fsl,opad0_reqs-s32gen1","syscon","simple-mfd";
-		reg = <0x0 0x4009D700 0x0 0x10>;
-		reg-io-width = <2>;
-	};
-	ipad0_regs: siul2_reg@0x4009D740 {
-		compatible = "fsl,ipad0_reqs-s32gen1","syscon","simple-mfd";
-		reg = <0x0 0x4009D740 0x0 0x10>;
-		reg-io-width = <2>;
-	};
-	opad1_regs: siul2_reg@0x44011700 {
-		compatible = "fsl,opad0_reqs-s32gen1","syscon","simple-mfd";
-		reg = <0x0 0x44011700 0x0 0x18>;
-		reg-io-width = <2>;
-	};
-	ipad1_regs: siul2_reg@0x44011740 {
-		compatible = "fsl,ipad0_reqs-s32gen1","syscon","simple-mfd";
-		reg = <0x0 0x44011740 0x0 0x18>;
-		reg-io-width = <2>;
 	};
 
 	usbmisc: usbmisc@44064200 {
