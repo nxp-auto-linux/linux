@@ -55,6 +55,8 @@
 #define LLCE_CAN_CONTROLLERCONFIG_SRX_EN (0x00400000U)
 /** CAN controller option used to enable automatic bus-off recovery. */
 #define LLCE_CAN_CONTROLLERCONFIG_ABR_EN (0x00000001U)
+/** CAN controller option used to enable TX FIFO mode. */
+#define LLCE_CAN_CONTROLLERCONFIG_TXFIFO_EN (0x00000002U)
 /**
  * Number of interfaces used for interrupt reporting
  * (one per channel) + number of polling classes.
@@ -323,9 +325,9 @@ enum llce_af_logging_options {
 } __packed;
 
 enum llce_can_host_receive_options {
-	/** Logging of CAN frame is disabled.*/
+	/** Reception of the CAN frame by the host is disabled.*/
 	LLCE_AF_HOSTRECEIVE_DISABLED = 1U,
-	/** Logging of CAN frame is enabled.*/
+	/** Reception of the CAN frame by the host is enabled.*/
 	LLCE_AF_HOSTRECEIVE_ENABLED
 } __packed;
 
@@ -761,8 +763,8 @@ struct llce_can_can2eth_routing_table {
 	/** INPUT: Size of each buffer for this destination */
 	u16 can2eth_buff_size;
 	/**
-	 * INPUT: Number of buffers of size can2eth_buff_size for
-	 * this destination
+	 * INPUT: Number of buffers of size can2eth_buff_size for this
+	 * destination
 	 */
 	u8 can2eth_buff_count;
 	/**
@@ -847,7 +849,7 @@ struct llce_can_set_advanced_filter_cmd {
 	 * more filters.
 	 */
 	struct llce_can_advanced_filter
-	    advanced_filters[LLCE_CAN_CONFIG_ADVANCED_FILTERS_COUNT];
+	 advanced_filters[LLCE_CAN_CONFIG_ADVANCED_FILTERS_COUNT];
 	/** INPUT: Number of configured filters. */
 	u16 rx_filters_count;
 } __aligned(4) __packed;
@@ -872,8 +874,7 @@ struct llce_can_error_category {
 	/** Internal errors, like timeouts. */
 	enum llce_can_error_processing internal_err;
 	/** Bus_off processing is selectable per channel */
-	enum llce_can_error_processing
-	    bus_off_err[LLCE_CAN_CONFIG_MAXCTRL_COUNT];
+	enum llce_can_error_processing bus_off_err[LLCE_CAN_CONFIG_MAXCTRL_COUNT];
 } __aligned(4) __packed;
 
 /**
@@ -1113,7 +1114,7 @@ union llce_can_command_list {
 	struct llce_can_abort_mb_cmd abort_mb;
 	/** Pointer to argument for custom command */
 	u32 p_custom_cmd_arg;
-};
+} __aligned(4) __packed;
 
 /**
  * Command used by host.
@@ -1159,7 +1160,7 @@ struct llce_can_error_notif {
 	 * See also enum llce_fw_return
 	 */
 	enum llce_fw_return error_code;
-	/** OUTPUT: Number of ocurrences of the last error. */
+	/** OUTPUT: Number of occurrences of the last error. */
 	u8 error_count;
 } __aligned(4) __packed;
 
@@ -1174,7 +1175,7 @@ struct llce_can_channel_error_notif {
 } __aligned(4) __packed;
 
 /**
- * List of notifications send by LLCe to host, used by host.
+ * List of notifications sent by LLCE to host, used by host.
  * It is used by LLCE to notify host about specific events inside LLCE.
  **/
 union llce_can_notification_list {
@@ -1193,7 +1194,7 @@ union llce_can_notification_list {
 	 * See also struct llce_can_channel_error_notif
 	 */
 	struct llce_can_channel_error_notif channel_error;
-};
+} __aligned(4) __packed;
 
 /**
  * Notifications used by LLCE.
@@ -1203,7 +1204,7 @@ union llce_can_notification_list {
 struct llce_can_notification {
 	/**
 	 * OUTPUT: Notification parameters.
-	 * See also llce_can_notification_list_type
+	 * See also union llce_can_notification_list
 	 */
 	union llce_can_notification_list notif_list;
 	/**
@@ -1216,7 +1217,7 @@ struct llce_can_notification {
 /**
  * Notification tables.
  * Notification tables used to store the details of the notifications.
- * The index of entries are send to host cores.The two tables are related to
+ * The index of entries are sent to host cores.The two tables are related to
  * reporting method:interrupt or polling.
  **/
 struct llce_can_notification_table {
@@ -1225,15 +1226,15 @@ struct llce_can_notification_table {
 	 * See also struct llce_can_notification
 	 */
 	struct llce_can_notification
-	    can_notif0_table[LLCE_CAN_CONFIG_HIF_COUNT]
-	    [LLCE_CAN_CONFIG_NOTIF_TABLE_SIZE];
+		can_notif0_table[LLCE_CAN_CONFIG_HIF_COUNT]
+				 [LLCE_CAN_CONFIG_NOTIF_TABLE_SIZE];
 	/**
 	 * OUTPUT: Table used to report notifications in polling mode.
 	 * See also struct llce_can_notification
 	 */
 	struct llce_can_notification
-	    can_notif1_Table[LLCE_CAN_CONFIG_HIF_COUNT]
-	    [LLCE_CAN_CONFIG_NOTIF_TABLE_SIZE];
+		can_notif1_table[LLCE_CAN_CONFIG_HIF_COUNT]
+				 [LLCE_CAN_CONFIG_NOTIF_TABLE_SIZE];
 } __aligned(4) __packed;
 
 /**
@@ -1247,12 +1248,12 @@ struct llce_can_shared_memory {
 	struct llce_can_tx_mb_desc can_tx_mb_desc[LLCE_CAN_CONFIG_MAXTXMB];
 	/** Shared memory used store the CAN message buffers. */
 	struct llce_can_mb can_mb[LLCE_CAN_CONFIG_MAXTXMB +
-	    LLCE_CAN_CONFIG_MAXRXMB +
-	    LLCE_CAN_CONFIG_MAXAFFRMB];
+				LLCE_CAN_CONFIG_MAXRXMB +
+				LLCE_CAN_CONFIG_MAXAFFRMB];
 	/** Shared memory used to send commands from Host to LLCE . */
 	struct llce_can_command can_cmd[LLCE_CAN_CONFIG_MAXCTRL_COUNT];
 	/**
-	 * Shared memory used to store notifications from LLCE to host.
+ * Shared memory used to store notifications from LLCE to host.
 	 */
 	struct llce_can_notification_table can_notification_table;
 	/**
@@ -1261,7 +1262,7 @@ struct llce_can_shared_memory {
 	 * purposes.
 	 */
 	struct llce_can_tx2host_ack_info
-	    can_tx_ack_info[LLCE_CAN_CONFIG_MAX_TXACKINFO];
+		can_tx_ack_info[LLCE_CAN_CONFIG_MAX_TXACKINFO];
 } __aligned(4) __packed;
 
 #endif /*LLCE_INTERFACECANTYPES_H*/
