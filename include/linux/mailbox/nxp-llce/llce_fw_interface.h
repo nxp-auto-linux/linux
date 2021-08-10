@@ -21,7 +21,7 @@ enum llce_fw_return {
 	LLCE_ERROR_SW_FIFO_EMPTY,
 	/** CAN firmware error: SW FIFO inside LLCE is full. */
 	LLCE_ERROR_SW_FIFO_FULL,
-	/** CAN firmware error: Message buffer is not avaialable. */
+	/** CAN firmware error: Message buffer is not available. */
 	LLCE_ERROR_MB_NOTAVAILABLE,
 	/**
 	 * CAN firmware error: CAN protocol error due to inability to get
@@ -86,14 +86,13 @@ enum llce_fw_return {
 	LLCE_ERROR_BCAN_DPBIT0ERR,
 	/**
 	 * CAN firmware error: DPSTFERR indicates that a stuffing error has
-	 * been detected by the receiver node in the data phase of a CAN-FD
-	 * frame.
+	 * been detected by the receiver node in the data phase of a CAN-FD frame.
 	 */
 	LLCE_ERROR_BCAN_DPSTFERR,
 	/**
 	 * CAN firmware error: DPFRMERR indicates that a form error has
-	 * been detected by the receiver node in the data phase of a CAN-FD
-	 * frame - a fixed-form bit field contains at least one illegal bit.
+	 * been detected by the receiver node in the data phase of a CAN-FD frame
+	 * - a fixed-form bit field contains at least one illegal bit.
 	 */
 	LLCE_ERROR_BCAN_DPFRMERR,
 	/**
@@ -127,7 +126,7 @@ enum llce_fw_return {
 	 * exceeded after the frame was received
 	 */
 	LLCE_ERROR_DATA_LOST,
-	/** CAN firmware error: TXLUT acclerator is full. */
+	/** CAN firmware error: TXLUT accelerator is full. */
 	LLCE_ERROR_TXLUT_FULL,
 	/** CAN firmware error: Error during command processing. */
 	LLCE_ERROR_CMD_PROCESSING,
@@ -245,7 +244,7 @@ enum llce_fw_return {
 	LLCE_ERROR_LOST_INDEXES,
 	/**
 	 * CAN firmware error: Error reported because there are no
-	 * filters avaialable to be set for a specific controller.
+	 * filters available to be set for a specific controller.
 	 */
 	LLCE_ERROR_FILTERS_FULL,
 	/**

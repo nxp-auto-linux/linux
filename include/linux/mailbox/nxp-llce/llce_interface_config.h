@@ -32,7 +32,9 @@
  */
 #define LLCE_CAN_CONFIG_MAXCTRL_COUNT 16U
 /**
- * Maximum number of hardware controllers usable inside LLCE.
+ * Maximum number of polling classes usable inside LLCE.
+ * A polling class is used to tie together multiple filters which
+ * report the received frames in polling.
  * See Llce_can_Init_cmd_type
  */
 #define LLCE_CAN_MAX_POLLING_CLASSES 6U
@@ -43,11 +45,17 @@
  */
 #define LLCE_CAN_CONFIG_MAXTXMB 256U
 /**
- * Maximum number of reception message buffers.32 from those are reserved
+ * Maximum number of reception message buffers.
+ * Note: 32 from those are reserved
  * for internal usage and are not available to the host.
  * See Llce_can_Rx_mb_descriptor_type
  */
 #define LLCE_CAN_CONFIG_MAXRXMB 2048U
+
+/**
+ * Number of AF descriptors reserved for each
+ * internal path within LLCE frame routing
+ */
 #define LLCE_CAN_CONFIG_MAXAFRXMB 256U
 #define LLCE_CAN_CONFIG_MAXAFTXMB 256U
 #define LLCE_CAN_CONFIG_MAXAFFRMB 256U
@@ -94,7 +102,7 @@
 /** Number of interfaces which can be used by host cores. */
 #define LLCE_CAN_CONFIG_HIF_COUNT 2U
 /**
- * Number of ocurrences of last error reported by the notification
+ * Number of occurrences of last error reported by the notification
  * mechanism.Limited by Llce_can_Error_notif_type structure size.
  */
 #define LLCE_CAN_CONFIG_MAX_OCCURENCES 255U
