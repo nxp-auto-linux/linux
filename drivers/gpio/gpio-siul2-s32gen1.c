@@ -269,6 +269,19 @@ static int siul2_gpio_dir_in(struct gpio_chip *chip, unsigned int gpio)
 	return ret;
 }
 
+static int siul2_to_irq(struct gpio_chip *chip, unsigned int gpio)
+{
+	struct siul2_gpio_dev *gpio_dev = to_siul2_gpio_dev(chip);
+	struct irq_domain *domain = chip->irq.domain;
+	int pin = siul2_gpio_to_pin(chip, gpio);
+	int eirq = siul2_pin_to_eirq(gpio_dev, pin);
+
+	if (eirq < 0)
+		return -ENXIO;
+
+	return irq_create_mapping(domain, eirq);
+}
+
 static int siul2_gpio_dir_out(struct gpio_chip *chip, unsigned int gpio,
 			      int val)
 {
@@ -305,7 +318,7 @@ static int siul2_get_eirq_from_data(struct irq_data *d)
 {
 	struct gpio_chip *gc = irq_data_get_irq_chip_data(d);
 	struct siul2_gpio_dev *gpio_dev = to_siul2_gpio_dev(gc);
-	int pin = siul2_gpio_to_pin(gc, d->hwirq);
+	int pin = siul2_eirq_to_pin(gpio_dev, irqd_to_hwirq(d));
 
 	return siul2_pin_to_eirq(gpio_dev, pin);
 }
@@ -367,7 +380,7 @@ static irqreturn_t siul2_gpio_irq_handler(int irq, void *data)
 {
 	struct siul2_gpio_dev *gpio_dev = data;
 	struct gpio_chip *gc = &gpio_dev->gc;
-	unsigned int eirq, pin, gpio, child_irq;
+	unsigned int eirq, child_irq;
 	uint32_t disr0_val;
 	unsigned long disr0_val_long;
 	irqreturn_t ret = IRQ_NONE;
@@ -381,9 +394,7 @@ static irqreturn_t siul2_gpio_irq_handler(int irq, void *data)
 		if (!gpio_dev->eirq_pins[eirq].used)
 			continue;
 
-		pin = siul2_eirq_to_pin(gpio_dev, eirq);
-		gpio = siul2_pin_to_gpio(gc, pin);
-		child_irq = irq_find_mapping(gc->irq.domain, gpio);
+		child_irq = irq_find_mapping(gc->irq.domain, eirq);
 
 		/*
 		 * Clear the interrupt before invoking the
@@ -815,7 +826,7 @@ static int siul2_gpio_pads_init(struct platform_device *pdev,
 	return 0;
 }
 
-int siul2_gpio_probe(struct platform_device *pdev)
+static int siul2_gpio_probe(struct platform_device *pdev)
 {
 	int err = 0;
 	struct siul2_gpio_dev *gpio_dev;
@@ -891,6 +902,8 @@ int siul2_gpio_probe(struct platform_device *pdev)
 		dev_err(dev, "unable to add gpiochip: %d\n", err);
 		return -EINVAL;
 	}
+
+	gc->to_irq = siul2_to_irq;
 
 	/* EIRQs setup */
 	err = siul2_irq_setup(pdev, gpio_dev);
