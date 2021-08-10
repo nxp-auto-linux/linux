@@ -723,13 +723,6 @@ static int siul2_irq_setup(struct platform_device *pdev,
 	return ret;
 }
 
-static void siul2_gpio_remove(struct platform_device *pdev)
-{
-	struct siul2_gpio_dev *gpio_dev = platform_get_drvdata(pdev);
-
-	gpiochip_remove(&gpio_dev->gc);
-}
-
 static const struct of_device_id siul2_gpio_dt_ids[] = {
 	{ .compatible = "nxp,s32g-siul2-gpio", .data = &s32g2_device_data },
 	{ .compatible = "nxp,s32r-siul2-gpio" },
@@ -826,9 +819,10 @@ int siul2_gpio_probe(struct platform_device *pdev)
 	struct of_phandle_args pinspec;
 	struct gpio_chip *gc;
 	size_t bitmap_size;
+	struct device *dev = &pdev->dev;
 	struct gpio_irq_chip *girq;
 
-	gpio_dev = devm_kzalloc(&pdev->dev, sizeof(*gpio_dev), GFP_KERNEL);
+	gpio_dev = devm_kzalloc(dev, sizeof(*gpio_dev), GFP_KERNEL);
 	if (!gpio_dev)
 		return -ENOMEM;
 
@@ -844,12 +838,11 @@ int siul2_gpio_probe(struct platform_device *pdev)
 
 	err = siul2_get_gpio_pinspec(pdev, &pinspec, 0);
 	if (err) {
-		dev_err(&pdev->dev,
-			"unable to get pinspec from device tree\n");
+		dev_err(dev, "unable to get pinspec from device tree\n");
 		return -EIO;
 	}
 
-	of_id = of_match_device(siul2_gpio_dt_ids, &pdev->dev);
+	of_id = of_match_device(siul2_gpio_dt_ids, dev);
 	if (of_id)
 		gpio_dev->platdata = of_id->data;
 
@@ -860,11 +853,11 @@ int siul2_gpio_probe(struct platform_device *pdev)
 
 	bitmap_size = BITS_TO_LONGS(gc->ngpio) *
 		sizeof(*gpio_dev->pin_dir_bitmap);
-	gpio_dev->pin_dir_bitmap = devm_kzalloc(&pdev->dev, bitmap_size,
+	gpio_dev->pin_dir_bitmap = devm_kzalloc(dev, bitmap_size,
 						GFP_KERNEL);
 
-	gc->parent = &pdev->dev;
-	gc->label = dev_name(&pdev->dev);
+	gc->parent = dev;
+	gc->label = dev_name(dev);
 
 	gc->set = siul2_gpio_set;
 	gc->get = siul2_gpio_get;
@@ -882,16 +875,14 @@ int siul2_gpio_probe(struct platform_device *pdev)
 	girq->default_type = IRQ_TYPE_NONE;
 	girq->handler = handle_simple_irq;
 
-	err = gpiochip_add_data(gc, gpio_dev);
-	if (err) {
-		dev_err(&pdev->dev, "unable to add gpiochip: %d\n", err);
-		return -EINVAL;
-	}
+	err = devm_gpiochip_add_data(dev, gc, gpio_dev);
+	if (err)
+		return dev_err_probe(dev, err, "unable to add gpiochip\n");
 
 	/* EIRQs setup */
 	err = siul2_irq_setup(pdev, gpio_dev);
 	if (err) {
-		dev_err(&pdev->dev, "failed to setup IRQ : %d\n", err);
+		dev_err(dev, "failed to setup IRQ : %d\n", err);
 		return -EINVAL;
 	}
 
@@ -943,7 +934,6 @@ static struct platform_driver siul2_gpio_driver = {
 		.pm = &siul2_pm_ops,
 	},
 	.probe		= siul2_gpio_probe,
-	.remove_new	= siul2_gpio_remove,
 };
 
 int siul2_gpio_init(void)
