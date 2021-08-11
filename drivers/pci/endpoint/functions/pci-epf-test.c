@@ -28,6 +28,8 @@
 #define COMMAND_READ			BIT(3)
 #define COMMAND_WRITE			BIT(4)
 #define COMMAND_COPY			BIT(5)
+#define COMMAND_DMA_READ		BIT(6)
+#define COMMAND_DMA_WRITE		BIT(7)
 
 #define STATUS_READ_SUCCESS		BIT(0)
 #define STATUS_READ_FAIL		BIT(1)
@@ -156,6 +158,8 @@ static int pci_epf_test_copy(struct pci_epf_test *epf_test)
 	memcpy(dst_addr, src_addr, reg->size);
 	ktime_get_ts64(&end);
 	pci_epf_test_print_rate("COPY", reg->size, &start, &end, false);
+
+	pci_epc_unmap_addr(epc, epf->func_no, dst_phys_addr);
 
 err_dst_addr:
 	pci_epc_mem_free_addr(epc, dst_phys_addr, dst_addr, reg->size);
@@ -296,6 +300,84 @@ err:
 	return ret;
 }
 
+static int pci_epf_test_dma_read(struct pci_epf_test *epf_test)
+{
+	int ret;
+	void __iomem *dst_addr;
+	u32 crc32;
+	dma_addr_t phys_addr;
+	struct pci_epf *epf = epf_test->epf;
+	struct device *dev = &epf->dev;
+	struct pci_epc *epc = epf->epc;
+	struct device *epc_dev = epf->epc->dev.parent;
+	enum pci_barno test_reg_bar = epf_test->test_reg_bar;
+	struct pci_epf_test_reg *reg = epf_test->reg[test_reg_bar];
+
+	dst_addr = dma_alloc_coherent(epc_dev, reg->size,
+		&phys_addr, GFP_KERNEL);
+	if (IS_ERR_OR_NULL(dst_addr)) {
+		dev_err(dev, "Failed to allocate destination address\n");
+		return -ENOMEM;
+	}
+
+	ret = pci_epc_start_dma(epc, epf->func_no, 1, reg->src_addr,
+				phys_addr, reg->size);
+	if (ret) {
+		dev_err(dev, "Failed to finish the DMA read\n");
+		goto err;
+	}
+	/*
+	 * wait 1ms inorder for the write to complete.
+	 */
+	usleep_range(1000, 2000);
+
+	crc32 = crc32_le(~0, dst_addr, reg->size);
+	if (crc32 != reg->checksum)
+		ret = -EIO;
+
+err:
+	dma_free_coherent(epc_dev, reg->size, dst_addr, phys_addr);
+	return ret;
+}
+
+static int pci_epf_test_dma_write(struct pci_epf_test *epf_test)
+{
+	int ret;
+	void __iomem *src_addr;
+	dma_addr_t phys_addr;
+	struct pci_epf *epf = epf_test->epf;
+	struct device *dev = &epf->dev;
+	struct pci_epc *epc = epf->epc;
+	struct device *epc_dev = epf->epc->dev.parent;
+	enum pci_barno test_reg_bar = epf_test->test_reg_bar;
+	struct pci_epf_test_reg *reg = epf_test->reg[test_reg_bar];
+
+	src_addr = dma_alloc_coherent(epc_dev, reg->size,
+		&phys_addr, GFP_KERNEL);
+	if (IS_ERR_OR_NULL(src_addr)) {
+		dev_err(dev, "Failed to allocate source address\n");
+		return -ENOMEM;
+	}
+
+	get_random_bytes(src_addr, reg->size);
+	reg->checksum = crc32_le(~0, src_addr, reg->size);
+
+	ret = pci_epc_start_dma(epc, epf->func_no, 0, phys_addr,
+			  reg->dst_addr, reg->size);
+	if (ret) {
+		dev_err(dev, "Failed to finish the DMA write\n");
+		goto err;
+	}
+	/*
+	 * wait 1ms inorder for the write to complete.
+	 */
+	usleep_range(1000, 2000);
+
+err:
+	dma_free_coherent(epc_dev, reg->size, src_addr, phys_addr);
+	return ret;
+}
+
 static void pci_epf_test_raise_irq(struct pci_epf_test *epf_test, u8 irq_type,
 				   u16 irq)
 {
@@ -367,6 +449,28 @@ static void pci_epf_test_cmd_handler(struct work_struct *work)
 
 	if (command & COMMAND_READ) {
 		ret = pci_epf_test_read(epf_test);
+		if (!ret)
+			reg->status |= STATUS_READ_SUCCESS;
+		else
+			reg->status |= STATUS_READ_FAIL;
+		pci_epf_test_raise_irq(epf_test, reg->irq_type,
+				       reg->irq_number);
+		goto reset_handler;
+	}
+
+	if (command & COMMAND_DMA_WRITE) {
+		ret = pci_epf_test_dma_write(epf_test);
+		if (ret)
+			reg->status |= STATUS_WRITE_FAIL;
+		else
+			reg->status |= STATUS_WRITE_SUCCESS;
+		pci_epf_test_raise_irq(epf_test, reg->irq_type,
+				       reg->irq_number);
+		goto reset_handler;
+	}
+
+	if (command & COMMAND_DMA_READ) {
+		ret = pci_epf_test_dma_read(epf_test);
 		if (!ret)
 			reg->status |= STATUS_READ_SUCCESS;
 		else

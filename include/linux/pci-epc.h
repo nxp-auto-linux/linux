@@ -61,6 +61,8 @@ struct pci_epc_ops {
 	void	(*stop)(struct pci_epc *epc);
 	const struct pci_epc_features* (*get_features)(struct pci_epc *epc,
 						       u8 func_no);
+	int	(*start_dma)(struct pci_epc *epc, u8 func_no, bool dir,
+			     dma_addr_t src, dma_addr_t dst, u32 len);
 	struct module *owner;
 };
 
@@ -172,6 +174,8 @@ int pci_epc_set_msix(struct pci_epc *epc, u8 func_no, u16 interrupts);
 int pci_epc_get_msix(struct pci_epc *epc, u8 func_no);
 int pci_epc_raise_irq(struct pci_epc *epc, u8 func_no,
 		      enum pci_epc_irq_type type, u16 interrupt_num);
+int pci_epc_start_dma(struct pci_epc *epc, u8 func_no, bool dir,
+		      dma_addr_t src, dma_addr_t dst, u32 len);
 int pci_epc_start(struct pci_epc *epc);
 void pci_epc_stop(struct pci_epc *epc);
 const struct pci_epc_features *pci_epc_get_features(struct pci_epc *epc,

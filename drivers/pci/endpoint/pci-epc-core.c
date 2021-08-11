@@ -181,6 +181,37 @@ int pci_epc_start(struct pci_epc *epc)
 EXPORT_SYMBOL_GPL(pci_epc_start);
 
 /**
+ * pci_epc_start_dma() - start the DMA operation at EP side
+ * @epc: the EPC device which starts the DMA operations to the host
+ * @func_no: the endpoint function number in the EPC device
+ * @dir: direction of the DMA operations; 1 read, 0 write
+ * @src: the source address of the DMA operation
+ * @dst: the destination address of the DMA operation
+ * @len: the data size of the DMA operation
+ *
+ * Invoke to start the DMA read or write operation
+ */
+int pci_epc_start_dma(struct pci_epc *epc, u8 func_no, bool dir,
+		      dma_addr_t src, dma_addr_t dst, u32 len)
+{
+	int ret;
+	unsigned long flags;
+
+	if (IS_ERR_OR_NULL(epc) || func_no >= epc->max_functions)
+		return -EINVAL;
+
+	if (!epc->ops->start_dma)
+		return 0;
+
+	spin_lock_irqsave(&epc->lock, flags);
+	ret = epc->ops->start_dma(epc, func_no, dir, src, dst, len);
+	spin_unlock_irqrestore(&epc->lock, flags);
+
+	return ret;
+}
+EXPORT_SYMBOL_GPL(pci_epc_start_dma);
+
+/**
  * pci_epc_raise_irq() - interrupt the host system
  * @epc: the EPC device which has to interrupt the host
  * @func_no: the endpoint function number in the EPC device
