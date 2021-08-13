@@ -238,6 +238,12 @@ static int dw_pcie_ep_set_bar(struct pci_epc *epc, u8 func_no,
 	else
 		as_type = DW_PCIE_AS_IO;
 
+	dev_info(pci->dev, "func:%d: Configuring BAR%d: size=%d bytes, addr=0x%llx, %s, %s, %s\n",
+		func_no, bar, (int)size, epf_bar->phys_addr,
+		(flags & PCI_BASE_ADDRESS_SPACE_IO ? "IO" : "MEM"),
+		(flags & PCI_BASE_ADDRESS_MEM_TYPE_64 ? "64bit" : "32bit"),
+		(flags & PCI_BASE_ADDRESS_MEM_PREFETCH ? "PREF" : "Non-PREF"));
+
 	ret = dw_pcie_ep_inbound_atu(ep, func_no, bar,
 				     epf_bar->phys_addr, as_type);
 	if (ret)
