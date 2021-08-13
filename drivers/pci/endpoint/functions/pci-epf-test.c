@@ -148,6 +148,9 @@ static int pci_epf_test_copy(struct pci_epf_test *epf_test)
 		goto err_dst_addr;
 	}
 
+	pr_info("\n%s => Using BAR:%d\tSize: %u bytes\tSrc Address: 0x%llX\tSrc Address: 0x%llX\n",
+		"COPY", test_reg_bar, reg->size, src_phys_addr, dst_phys_addr);
+
 	ktime_get_ts64(&start);
 	/* No DMA support for copy yet */
 	memcpy(dst_addr, src_addr, reg->size);
@@ -202,6 +205,9 @@ static int pci_epf_test_read(struct pci_epf_test *epf_test)
 		ret = -ENOMEM;
 		goto err_map_addr;
 	}
+
+	pr_info("\n%s => Using BAR:%d\tSize: %u bytes\tSrc Address: 0x%llX\n",
+		"READ", test_reg_bar, reg->size, phys_addr);
 
 	ktime_get_ts64(&start);
 	memcpy_fromio(buf, src_addr, reg->size);
@@ -259,6 +265,9 @@ static int pci_epf_test_write(struct pci_epf_test *epf_test)
 		ret = -ENOMEM;
 		goto err_map_addr;
 	}
+
+	pr_info("\n%s => Using BAR:%d\tSize: %u bytes\tDest Address: 0x%llX\n",
+		"WRITE", test_reg_bar, reg->size, phys_addr);
 
 	get_random_bytes(buf, reg->size);
 	reg->checksum = crc32_le(~0, buf, reg->size);
@@ -443,6 +452,8 @@ static int pci_epf_test_set_bar(struct pci_epf *epf)
 
 	epc_features = epf_test->epc_features;
 
+	dev_info(dev, "Setting test BAR%d\n", test_reg_bar);
+
 	for (bar = BAR_0; bar <= BAR_5; bar += add) {
 		epf_bar = &epf->bar[bar];
 		/*
@@ -569,10 +580,12 @@ static int pci_epf_test_bind(struct pci_epf *epf)
 	if (ret)
 		return ret;
 
+	dev_info(dev, "Configuring BARs\n");
 	ret = pci_epf_test_set_bar(epf);
 	if (ret)
 		return ret;
 
+	dev_info(dev, "Configuring MSIs\n");
 	if (msi_capable) {
 		ret = pci_epc_set_msi(epc, epf->func_no, epf->msi_interrupts);
 		if (ret) {
@@ -581,6 +594,7 @@ static int pci_epf_test_bind(struct pci_epf *epf)
 		}
 	}
 
+	dev_info(dev, "Configuring MSI-Xs\n");
 	if (msix_capable) {
 		ret = pci_epc_set_msix(epc, epf->func_no, epf->msix_interrupts);
 		if (ret) {
