@@ -194,7 +194,8 @@ static void pci_epf_test_clean_dma_chan(struct pci_epf_test *epf_test)
 	epf_test->dma_chan = NULL;
 }
 
-static void pci_epf_test_print_rate(const char *ops, u64 size,
+static void pci_epf_test_print_rate(struct device *dev,
+					const char *ops, u64 size,
 				    struct timespec64 *start,
 				    struct timespec64 *end, bool dma)
 {
@@ -219,7 +220,8 @@ static void pci_epf_test_print_rate(const char *ops, u64 size,
 	/* calculate the rate */
 	do_div(rate, (uint32_t)ns);
 
-	pr_info("\n%s => Size: %llu bytes\t DMA: %s\t Time: %llu.%09u seconds\t"
+	dev_info(dev,
+		"\n%s => Size: %llu bytes\t DMA: %s\t Time: %llu.%09u seconds\t"
 		"Rate: %llu KB/s\n", ops, size, dma ? "YES" : "NO",
 		(u64)ts.tv_sec, (u32)ts.tv_nsec, rate / 1024);
 }
@@ -271,6 +273,13 @@ static int pci_epf_test_copy(struct pci_epf_test *epf_test)
 		goto err_dst_addr;
 	}
 
+	dev_info(dev,
+		"\nCOPY => Src Address: 0x%llX\tDest Address: 0x%llX\n",
+		src_phys_addr, dst_phys_addr);
+	dev_info(dev,
+		"\nCOPY => Using BAR:%d\tSize: %u bytes\n",
+		test_reg_bar, reg->size);
+
 	ktime_get_ts64(&start);
 	use_dma = !!(reg->flags & FLAG_USE_DMA);
 	if (use_dma) {
@@ -298,7 +307,8 @@ static int pci_epf_test_copy(struct pci_epf_test *epf_test)
 		kfree(buf);
 	}
 	ktime_get_ts64(&end);
-	pci_epf_test_print_rate("COPY", reg->size, &start, &end, use_dma);
+	pci_epf_test_print_rate(dev, "COPY", reg->size,
+		&start, &end, use_dma);
 
 err_map_addr:
 	pci_epc_unmap_addr(epc, epf->func_no, epf->vfunc_no, dst_phys_addr);
@@ -355,6 +365,10 @@ static int pci_epf_test_read(struct pci_epf_test *epf_test)
 		goto err_map_addr;
 	}
 
+	dev_info(dev, "\nREAD => Src Address: 0x%llX\n", phys_addr);
+	dev_info(dev, "\nREAD => Using BAR:%d\tSize: %u bytes\n",
+		test_reg_bar, reg->size);
+
 	use_dma = !!(reg->flags & FLAG_USE_DMA);
 	if (use_dma) {
 		if (!epf_test->dma_supported) {
@@ -386,7 +400,8 @@ static int pci_epf_test_read(struct pci_epf_test *epf_test)
 		ktime_get_ts64(&end);
 	}
 
-	pci_epf_test_print_rate("READ", reg->size, &start, &end, use_dma);
+	pci_epf_test_print_rate(dev, "READ", reg->size,
+		&start, &end, use_dma);
 
 	crc32 = crc32_le(~0, buf, reg->size);
 	if (crc32 != reg->checksum)
@@ -443,6 +458,10 @@ static int pci_epf_test_write(struct pci_epf_test *epf_test)
 		goto err_map_addr;
 	}
 
+	dev_info(dev, "\nWRITE => Dest Address: 0x%llX\n", phys_addr);
+	dev_info(dev, "\nWRITE => Using BAR:%d\tSize: %u bytes\n",
+		test_reg_bar, reg->size);
+
 	get_random_bytes(buf, reg->size);
 	reg->checksum = crc32_le(~0, buf, reg->size);
 
@@ -477,7 +496,8 @@ static int pci_epf_test_write(struct pci_epf_test *epf_test)
 		ktime_get_ts64(&end);
 	}
 
-	pci_epf_test_print_rate("WRITE", reg->size, &start, &end, use_dma);
+	pci_epf_test_print_rate(dev, "WRITE", reg->size,
+		&start, &end, use_dma);
 
 	/*
 	 * wait 1ms inorder for the write to complete. Without this delay L3
@@ -652,6 +672,8 @@ static int pci_epf_test_set_bar(struct pci_epf *epf)
 
 	epc_features = epf_test->epc_features;
 
+	dev_info(dev, "Setting test BAR%d\n", test_reg_bar);
+
 	for (bar = 0; bar < PCI_STD_NUM_BARS; bar += add) {
 		epf_bar = &epf->bar[bar];
 		/*
@@ -708,6 +730,7 @@ static int pci_epf_test_core_init(struct pci_epf *epf)
 		return ret;
 
 	if (msi_capable) {
+		dev_info(dev, "Configuring MSIs\n");
 		ret = pci_epc_set_msi(epc, epf->func_no, epf->vfunc_no,
 				      epf->msi_interrupts);
 		if (ret) {
@@ -717,6 +740,7 @@ static int pci_epf_test_core_init(struct pci_epf *epf)
 	}
 
 	if (msix_capable) {
+		dev_info(dev, "Configuring MSI-Xs\n");
 		ret = pci_epc_set_msix(epc, epf->func_no, epf->vfunc_no,
 				       epf->msix_interrupts,
 				       epf_test->test_reg_bar,
