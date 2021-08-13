@@ -362,6 +362,13 @@ static void pci_epf_test_copy(struct pci_epf_test *epf_test,
 		goto err_dst_addr;
 	}
 
+	dev_info(dev,
+		 "\nCOPY => Src Address: 0x%llX\tDest Address: 0x%llX\n",
+		src_phys_addr, dst_phys_addr);
+	dev_info(dev,
+		 "\nCOPY => Using BAR:%d\tSize: %u bytes\n",
+		epf_test->test_reg_bar, reg->size);
+
 	ktime_get_ts64(&start);
 	if (reg->flags & FLAG_USE_DMA) {
 		if (!dma_has_cap(DMA_MEMCPY, epf_test->dma_chan_tx->device->cap_mask)) {
@@ -448,6 +455,10 @@ static void pci_epf_test_read(struct pci_epf_test *epf_test,
 		goto err_map_addr;
 	}
 
+	dev_info(dev, "\nREAD => Src Address: 0x%llX\n", phys_addr);
+	dev_info(dev, "\nREAD => Using BAR:%d\tSize: %u bytes\n",
+		 epf_test->test_reg_bar, reg->size);
+
 	if (reg->flags & FLAG_USE_DMA) {
 		dst_phys_addr = dma_map_single(dma_dev, buf, reg->size,
 					       DMA_FROM_DEVICE);
@@ -531,6 +542,10 @@ static void pci_epf_test_write(struct pci_epf_test *epf_test,
 		ret = -ENOMEM;
 		goto err_map_addr;
 	}
+
+	dev_info(dev, "\nWRITE => Dest Address: 0x%llX\n", phys_addr);
+	dev_info(dev, "\nWRITE => Using BAR:%d\tSize: %u bytes\n",
+		 epf_test->test_reg_bar, reg->size);
 
 	get_random_bytes(buf, reg->size);
 	reg->checksum = crc32_le(~0, buf, reg->size);
@@ -697,6 +712,8 @@ static int pci_epf_test_set_bar(struct pci_epf *epf)
 	struct pci_epf_test *epf_test = epf_get_drvdata(epf);
 	enum pci_barno test_reg_bar = epf_test->test_reg_bar;
 
+	dev_info(dev, "Setting test BAR%d\n", test_reg_bar);
+
 	for (bar = 0; bar < PCI_STD_NUM_BARS; bar++) {
 		if (!epf_test->reg[bar])
 			continue;
@@ -760,6 +777,7 @@ static int pci_epf_test_epc_init(struct pci_epf *epf)
 		return ret;
 
 	if (epc_features->msi_capable) {
+		dev_info(dev, "Configuring MSIs\n");
 		ret = pci_epc_set_msi(epc, epf->func_no, epf->vfunc_no,
 				      epf->msi_interrupts);
 		if (ret) {
@@ -769,6 +787,7 @@ static int pci_epf_test_epc_init(struct pci_epf *epf)
 	}
 
 	if (epc_features->msix_capable) {
+		dev_info(dev, "Configuring MSI-Xs\n");
 		ret = pci_epc_set_msix(epc, epf->func_no, epf->vfunc_no,
 				       epf->msix_interrupts,
 				       epf_test->test_reg_bar,

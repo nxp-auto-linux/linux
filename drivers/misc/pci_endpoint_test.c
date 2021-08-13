@@ -286,6 +286,7 @@ static bool pci_endpoint_test_bar(struct pci_endpoint_test *test,
 	void *write_buf __free(kfree) = NULL;
 	void *read_buf __free(kfree) = NULL;
 	struct pci_dev *pdev = test->pdev;
+	struct device *dev = &pdev->dev;
 
 	bar_size = pci_resource_len(pdev, barno);
 	if (!bar_size)
@@ -294,6 +295,7 @@ static bool pci_endpoint_test_bar(struct pci_endpoint_test *test,
 	if (!test->bar[barno])
 		return false;
 
+	dev_info(dev, "Testing BAR%d, size %d bytes\n", barno, bar_size);
 	if (barno == test->test_reg_bar)
 		bar_size = 0x4;
 
