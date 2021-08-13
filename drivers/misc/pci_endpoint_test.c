@@ -272,12 +272,14 @@ static bool pci_endpoint_test_bar(struct pci_endpoint_test *test,
 	u32 val;
 	int size;
 	struct pci_dev *pdev = test->pdev;
+	struct device *dev = &pdev->dev;
 
 	if (!test->bar[barno])
 		return false;
 
 	size = pci_resource_len(pdev, barno);
 
+	dev_info(dev, "Testing BAR%d, size %d bytes\n", barno, size);
 	if (barno == test->test_reg_bar)
 		size = 0x4;
 
@@ -286,8 +288,11 @@ static bool pci_endpoint_test_bar(struct pci_endpoint_test *test,
 
 	for (j = 0; j < size; j += 4) {
 		val = pci_endpoint_test_bar_readl(test, barno, j);
-		if (val != 0xA0A0A0A0)
+		if (val != 0xA0A0A0A0) {
+			dev_warn(dev, "BAR%d test failed at index %d\n",
+					barno, j);
 			return false;
+		}
 	}
 
 	return true;
