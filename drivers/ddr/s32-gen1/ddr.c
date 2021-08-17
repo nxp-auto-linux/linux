@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0+
 /*
- * Copyright 2020 NXP
+ * Copyright 2020-2021 NXP
  *
  */
 
@@ -139,13 +139,13 @@ static void __iomem *get_perf_map_by_phandle(struct device *dev)
 	perf_node = of_parse_phandle(dev->of_node, "perf-phandle", 0);
 	if (!perf_node) {
 		dev_info(dev, "perf-phandle node not found\n");
-		return ERR_PTR(-ENODEV);
+		return (void __iomem *)ERR_PTR(-ENODEV);
 	}
 
 	perf_regs = of_iomap(perf_node, 0);
 	if (!perf_regs) {
 		dev_warn(dev, "Cannot map PERF registers\n");
-		return ERR_PTR(-ENOMEM);
+		return (void __iomem *)ERR_PTR(-ENOMEM);
 	}
 	of_node_put(perf_node);
 
