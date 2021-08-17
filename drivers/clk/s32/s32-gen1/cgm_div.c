@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0+
 /*
- * Copyright 2020 NXP
+ * Copyright 2020-2021 NXP
  */
 #include <linux/clk-provider.h>
 #include <linux/err.h>
@@ -84,7 +84,7 @@ static int clk_cgm_div_enable(struct clk_hw *hw)
 	return 0;
 }
 
-const struct clk_ops clk_cgm_div_ops = {
+static const struct clk_ops clk_cgm_div_ops = {
 	.recalc_rate = clk_cgm_div_recalc_rate,
 	.round_rate = clk_cgm_div_round_rate,
 	.set_rate = clk_cgm_div_set_rate,

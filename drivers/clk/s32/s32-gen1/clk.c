@@ -22,7 +22,7 @@
 
 static struct s32gen1_clk_modules clk_modules;
 
-DEFINE_SPINLOCK(s32gen1_lock);
+static DEFINE_SPINLOCK(s32gen1_lock);
 
 /* sources for multiplexer clocks, this is used multiple times */
 PNAME(osc_sels) = {"firc", "fxosc", };
@@ -174,7 +174,7 @@ struct s32gen1_clocks {
 	struct clk_onecell_data scmi_clks;
 };
 
-struct clk *s32gen1_clk_src_get(struct of_phandle_args *clkspec, void *data)
+static struct clk *s32gen1_clk_src_get(struct of_phandle_args *clkspec, void *data)
 {
 	struct s32gen1_clocks *clks = data;
 	unsigned int idx = clkspec->args[0];
@@ -307,7 +307,7 @@ static void __init s32r45_extra_clocks_init(struct device_node *clocking_node)
 	set_plat_clk(S32GEN1_CLK_GMAC_1_RX, c);
 }
 
-void __init s32gen1_clocks_init(struct device_node *clocking_node)
+static void __init s32gen1_clocks_init(struct device_node *clocking_node)
 {
 	struct device_node *np;
 	struct clk *c;
@@ -683,7 +683,7 @@ void __init s32gen1_clocks_init(struct device_node *clocking_node)
 	of_clk_add_provider(clocking_node, s32gen1_clk_src_get, &plat_clks);
 }
 
-void __init s32gen1_mux0_gmac0_clock_init(struct device_node *clocking_node)
+static void __init s32gen1_mux0_gmac0_clock_init(struct device_node *clocking_node)
 {
 	struct clk *c;
 
@@ -712,7 +712,7 @@ void __init s32gen1_mux0_gmac0_clock_init(struct device_node *clocking_node)
 	set_plat_clk(S32GEN1_CLK_GMAC_0_TS, c);
 }
 
-void __init s32gen1_mux6_gmac0_clock_init(struct device_node *clocking_node)
+static void __init s32gen1_mux6_gmac0_clock_init(struct device_node *clocking_node)
 {
 	struct device_node *np;
 	struct clk *c;
@@ -758,7 +758,7 @@ static void init_scmi_clk(uint32_t scmi_id, uint32_t plat_clk)
 	scmi_clk[scmi_id] = get_plat_clk(plat_clk);
 }
 
-void s32gen1_scmi_clocks_init(void)
+static void s32gen1_scmi_clocks_init(void)
 {
 	init_scmi_clk(S32GEN1_SCMI_CLK_A53,
 		      S32GEN1_CLK_A53);
