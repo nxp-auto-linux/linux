@@ -1,6 +1,6 @@
 /*
  * Copyright 2015-2016 Freescale Semiconductor, Inc.
- * Copyright 2017-2019 NXP
+ * Copyright 2017-2019,2021 NXP
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -22,7 +22,7 @@ static void __iomem *mc_cgm3_base;
 static void __iomem *mc_me_base;
 static void __iomem *src_base;
 
-DEFINE_SPINLOCK(s32v234_lock);
+static DEFINE_SPINLOCK(s32v234_lock);
 
 /* sources for multiplexer clocks, this is used multiple times */
 PNAME(osc_sels) = {"firc", "fxosc", };
