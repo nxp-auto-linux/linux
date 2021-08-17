@@ -1,6 +1,6 @@
 /*
  * Copyright 2015-2016 Freescale Semiconductor, Inc.
- * Copyright 2017,2020 NXP
+ * Copyright 2017,2020-2021 NXP
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -100,7 +100,7 @@ static unsigned long get_pllx_dfsy_max_rate(enum s32gen1_plldig_type plltype,
 	return -EINVAL;
 }
 
-static void read_mfi_mfn(void *dfs_addr, u32 port, u32 *mfi, u32 *mfn)
+static void read_mfi_mfn(void __iomem *dfs_addr, u32 port, u32 *mfi, u32 *mfn)
 {
 	u32 dvport = readl_relaxed(DFS_DVPORTn(dfs_addr, port));
 
