@@ -478,8 +478,8 @@ static const struct regmap_config siul2_regmap_conf = {
 	.cache_type = REGCACHE_FLAT,
 };
 
-struct regmap *common_regmap_init(struct platform_device *pdev,
-				  struct regmap_config *conf, const char *name)
+static struct regmap *common_regmap_init(struct platform_device *pdev,
+					 struct regmap_config *conf, const char *name)
 {
 	struct resource *res;
 	void __iomem *base;
@@ -490,7 +490,7 @@ struct regmap *common_regmap_init(struct platform_device *pdev,
 	size = resource_size(res);
 	base = devm_ioremap(dev, res->start, size);
 	if (IS_ERR(base))
-		return base;
+		return ERR_PTR(-ENOMEM);
 
 	conf->val_bits = conf->reg_stride * 8;
 	conf->max_register = size - conf->reg_stride;
@@ -960,13 +960,13 @@ static struct platform_driver siul2_gpio_driver = {
 	.probe		= siul2_gpio_probe,
 };
 
-int siul2_gpio_init(void)
+static int siul2_gpio_init(void)
 {
 	return platform_driver_register(&siul2_gpio_driver);
 }
 module_init(siul2_gpio_init);
 
-void siul2_gpio_exit(void)
+static void siul2_gpio_exit(void)
 {
 	platform_driver_unregister(&siul2_gpio_driver);
 }
