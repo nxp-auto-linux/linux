@@ -501,7 +501,7 @@ static int fsl_edma_probe(struct platform_device *pdev)
 	struct fsl_edma_engine *fsl_edma;
 	const struct fsl_edma_drvdata *drvdata = NULL;
 	struct fsl_edma_chan *fsl_chan;
-	struct fsl_edma_hw_tcd *hw_tcd;
+	struct fsl_edma_hw_tcd __iomem *hw_tcd;
 	struct edma_regs *regs;
 	struct resource *res;
 	unsigned int ch;
@@ -630,7 +630,7 @@ static int fsl_edma_probe(struct platform_device *pdev)
 	for (i = 0; i < fsl_edma->n_chans; i++) {
 		struct fsl_edma_chan *fsl_chan = &fsl_edma->chans[i];
 
-		hw_tcd = (struct fsl_edma_hw_tcd *)
+		hw_tcd = (struct fsl_edma_hw_tcd __iomem *)
 			fsl_edma->drvdata->ops->edma_get_tcd_addr(fsl_chan);
 
 		edma_writew(fsl_edma, 0x0, &hw_tcd->csr);
@@ -708,10 +708,10 @@ static int fsl_edma_resume_early(struct device *dev)
 	int i;
 
 	for (i = 0; i < fsl_edma->n_chans; i++) {
-		struct fsl_edma_hw_tcd *hw_tcd;
+		struct fsl_edma_hw_tcd __iomem *hw_tcd;
 
 		fsl_chan = &fsl_edma->chans[i];
-		hw_tcd = (struct fsl_edma_hw_tcd *)
+		hw_tcd = (struct fsl_edma_hw_tcd __iomem *)
 			fsl_edma->drvdata->ops->edma_get_tcd_addr(fsl_chan);
 
 		fsl_chan->pm_state = RUNNING;
