@@ -46,7 +46,7 @@ static void mc_me_wait_update(u32 partition_n, u32 mask,
 static int is_enabled_clk_part_block(struct clk_hw *hw)
 {
 	struct clk_part_block *block = to_clk_part_block(hw);
-	void __iomem *mc_me = block->clk_mods->mc_me;
+	struct regmap *mc_me = block->clk_mods->mc_me;
 	unsigned int block_mask, part_status;
 	u32 partition_n = block->part;
 
