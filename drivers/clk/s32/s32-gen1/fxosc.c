@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0+
 /*
- * Copyright 2020 NXP
+ * Copyright 2020-2021 NXP
  */
 #include <linux/clk-provider.h>
 #include <linux/err.h>
@@ -63,7 +63,7 @@ static unsigned long fxosc_recalc_accuracy(struct clk_hw *hw,
 static int fxosc_is_enabled(struct clk_hw *hw)
 {
 	struct fxosc *osc = to_fxosc(hw);
-	void *base = osc->base;
+	void __iomem *base = osc->base;
 
 	if (readl(FXOSC_CTRL(base)) & FXOSC_CTRL_OSCON)
 		return 1;
@@ -74,7 +74,7 @@ static int fxosc_is_enabled(struct clk_hw *hw)
 static int fxosc_enable(struct clk_hw *hw)
 {
 	struct fxosc *osc = to_fxosc(hw);
-	void *base = osc->base;
+	void __iomem *base = osc->base;
 	uint32_t ctrl;
 
 	if (fxosc_is_enabled(hw))
@@ -96,7 +96,7 @@ static int fxosc_enable(struct clk_hw *hw)
 	return 0;
 }
 
-const struct clk_ops fxosc_ops = {
+static const struct clk_ops fxosc_ops = {
 	.recalc_rate = fxosc_recalc_rate,
 	.recalc_accuracy = fxosc_recalc_accuracy,
 	.enable = fxosc_enable,
