@@ -101,7 +101,7 @@ struct fsl_tmu_chip {
 	int		 sites;
 };
 
-struct fsl_tmu_chip gen1_tmu = {
+static struct fsl_tmu_chip gen1_tmu = {
 	.has_enable_bits = false,
 	.has_clk = false,
 	.has_sites = true, /* This is how you tell if Gen1 or V2 */
@@ -110,7 +110,7 @@ struct fsl_tmu_chip gen1_tmu = {
 	.sites = 3,
 };
 
-struct fsl_tmu_chip v234_tmu = {
+static struct fsl_tmu_chip v234_tmu = {
 	.has_enable_bits = true,
 	.has_clk = true,
 	.has_sites = false,
