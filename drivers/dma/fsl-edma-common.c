@@ -2,7 +2,7 @@
 //
 // Copyright (c) 2013-2014 Freescale Semiconductor, Inc
 // Copyright (c) 2017 Sysam, Angelo Dureghello  <angelo@sysam.it>
-// Copyright 2020 NXP
+// Copyright 2020-2021 NXP
 
 #include <linux/dmapool.h>
 #include <linux/module.h>
@@ -259,7 +259,7 @@ static size_t fsl_edma_desc_residue(struct fsl_edma_chan *fsl_chan,
 {
 	struct fsl_edma_desc *edesc = fsl_chan->edesc;
 	const struct fsl_edma_drvdata *drvdata = fsl_chan->edma->drvdata;
-	struct fsl_edma_hw_tcd *hw_tcd = (struct fsl_edma_hw_tcd *)
+	struct fsl_edma_hw_tcd __iomem *hw_tcd = (struct fsl_edma_hw_tcd __iomem *)
 		drvdata->ops->edma_get_tcd_addr(fsl_chan);
 	enum dma_transfer_direction dir = edesc->dirn;
 	dma_addr_t cur_addr, dma_addr;
@@ -335,7 +335,7 @@ static void fsl_edma_set_tcd_regs(struct fsl_edma_chan *fsl_chan,
 {
 	struct fsl_edma_engine *edma = fsl_chan->edma;
 	const struct fsl_edma_drvdata *drvdata = fsl_chan->edma->drvdata;
-	struct fsl_edma_hw_tcd *hw_tcd = (struct fsl_edma_hw_tcd *)
+	struct fsl_edma_hw_tcd __iomem *hw_tcd = (struct fsl_edma_hw_tcd __iomem *)
 		drvdata->ops->edma_get_tcd_addr(fsl_chan);
 
 	/*
