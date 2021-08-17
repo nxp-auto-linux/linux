@@ -1009,7 +1009,7 @@ int enable_spi(struct fsl_qspi *q, bool force)
 	return 0;
 }
 
-int qspi_read_mem(struct fsl_qspi *q,
+static int qspi_read_mem(struct fsl_qspi *q,
 			 const struct spi_mem_op *op, u8 lut_cfg)
 {
 	u32 mcr_reg;
