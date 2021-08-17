@@ -1,5 +1,5 @@
 /*
- * Copyright 2018,2020 NXP
+ * Copyright 2018,2020-2021 NXP
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -231,7 +231,7 @@ static int clk_plldig_set_rate(struct clk_hw *hw, unsigned long rate,
 
 	/* Disable dividers. */
 	for (i = 0; i < pll->phi_nr; i++)
-		writel_relaxed(0x0, PLLDIG_PLLODIV(pll, i));
+		writel_relaxed(0x0, (void __iomem *)PLLDIG_PLLODIV(pll, i));
 
 	/* Disable PLL. */
 	writel_relaxed(PLLDIG_PLLCR_PLLPD, PLLDIG_PLLCR(pll->base));
@@ -248,21 +248,22 @@ static int clk_plldig_set_rate(struct clk_hw *hw, unsigned long rate,
 		pllodiv = readl_relaxed(PLLDIG_PLLODIV(pll->base, i));
 		writel_relaxed(pllodiv |
 			PLLDIG_PLLODIV_DIV_SET(pll->plldv_pllodiv[i] - 1),
-			PLLDIG_PLLODIV(pll, i));
+			(void __iomem *)PLLDIG_PLLODIV(pll, i));
 	}
 
 	/* Enable the PLL. */
-	writel_relaxed(0x0, PLLDIG_PLLCR(pll));
+	writel_relaxed(0x0, (void __iomem *)PLLDIG_PLLCR(pll));
 
 	/* Poll until PLL acquires lock. */
-	while (!(readl_relaxed(PLLDIG_PLLSR(pll)) & PLLDIG_PLLSR_LOCK))
+	while (!(readl_relaxed((void __iomem *)PLLDIG_PLLSR(pll)) &
+				PLLDIG_PLLSR_LOCK))
 		;
 
 	/* Enable dividers. */
 	for (i = 0; i < pll->phi_nr; i++)
 		writel_relaxed(PLLDIG_PLLODIV_DE |
-				readl_relaxed(PLLDIG_PLLODIV(pll, i)),
-				PLLDIG_PLLODIV(pll, i));
+				readl_relaxed((void __iomem *)PLLDIG_PLLODIV(pll, i)),
+				(void __iomem *)PLLDIG_PLLODIV(pll, i));
 
 	return 0;
 }
@@ -412,7 +413,7 @@ static int plldig_phi_enable(struct clk_hw *hw)
 	return 0;
 }
 
-const struct clk_ops plldig_phi_ops = {
+static const struct clk_ops plldig_phi_ops = {
 	.round_rate = plldig_phi_round_rate,
 	.set_rate = plldig_phi_set_rate,
 	.recalc_rate = plldig_phi_recalc_rate,
