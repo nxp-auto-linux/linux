@@ -1329,17 +1329,14 @@ linflex_console_write(struct console *co, const char *s, unsigned int count)
 {
 	struct linflex_port *sport = linflex_ports[co->index];
 	unsigned long flags;
-	int locked = 1;
 
-	if (sport->port.sysrq)
-		locked = 0;
-	else
+	if (sport->port.sysrq) {
+		linflex_string_write(sport, s, count);
+	} else {
 		spin_lock_irqsave(&sport->port.lock, flags);
-
-	linflex_string_write(sport, s, count);
-
-	if (locked)
+		linflex_string_write(sport, s, count);
 		spin_unlock_irqrestore(&sport->port.lock, flags);
+	}
 }
 
 /*
