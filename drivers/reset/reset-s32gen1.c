@@ -227,7 +227,7 @@ static void mc_me_wait_update(struct s32gen1_reset *rst, uint32_t partition_n,
 	} while (pupd & mask);
 }
 
-static void set_rdc_lock(void *rdc, uint32_t partition_n, bool lock)
+static void set_rdc_lock(void __iomem *rdc, uint32_t partition_n, bool lock)
 {
 	uint32_t rdc_ctrl = readl_relaxed(RDC_RD_N_CTRL(rdc, partition_n));
 
@@ -239,12 +239,12 @@ static void set_rdc_lock(void *rdc, uint32_t partition_n, bool lock)
 	writel_relaxed(rdc_ctrl, RDC_RD_N_CTRL(rdc, partition_n));
 }
 
-static void unlock_rdc_write(void *rdc, uint32_t partition_n)
+static void unlock_rdc_write(void __iomem *rdc, uint32_t partition_n)
 {
 	set_rdc_lock(rdc, partition_n, false);
 }
 
-static void lock_rdc_write(void *rdc, uint32_t partition_n)
+static void lock_rdc_write(void __iomem *rdc, uint32_t partition_n)
 {
 	set_rdc_lock(rdc, partition_n, true);
 }
