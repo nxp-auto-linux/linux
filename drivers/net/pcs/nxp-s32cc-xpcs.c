@@ -265,7 +265,7 @@ static unsigned int xpcs_read(struct s32cc_xpcs *xpcs, const char *name,
 	return val;
 }
 
-const struct regmap_range xpcs_wr_ranges[] = {
+static const struct regmap_range xpcs_wr_ranges[] = {
 	regmap_reg_range(0x1F0000, 0x1F0000),
 	regmap_reg_range(0x1F0004, 0x1F0004),
 	regmap_reg_range(0x1F8000, 0x1F8003),
@@ -286,7 +286,7 @@ const struct regmap_range xpcs_wr_ranges[] = {
 	regmap_reg_range(0x1F80E1, 0x1F80E1),
 };
 
-const struct regmap_range xpcs_rd_ranges[] = {
+static const struct regmap_range xpcs_rd_ranges[] = {
 	regmap_reg_range(0x1F0001, 0x1F0003),
 	regmap_reg_range(0x1F0005, 0x1F0006),
 	regmap_reg_range(0x1F000F, 0x1F000F),
@@ -766,8 +766,8 @@ static int xpcs_init_plls(struct s32cc_xpcs *xpcs)
 	return 0;
 }
 
-int serdes_bifurcation_pll_transit(struct s32cc_xpcs *xpcs,
-				   enum s32cc_xpc_pll target_pll)
+static int serdes_bifurcation_pll_transit(struct s32cc_xpcs *xpcs,
+					  enum s32cc_xpc_pll target_pll)
 {
 	int ret = 0;
 	struct device *dev = get_xpcs_device(xpcs);
