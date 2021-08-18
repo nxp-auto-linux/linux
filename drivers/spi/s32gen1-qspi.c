@@ -1046,8 +1046,8 @@ int qspi_read_mem(struct fsl_qspi *q,
 	if (us_passed > 0) {
 		mb_int = div_u64_rem(op->data.nbytes, us_passed, &rem);
 		mb_frac = div64_u64(rem * 1000, us_passed);
-		dev_info(q->dev, "%u bytes read in %u us (%llu.%llu MB/s)\n",
-				op->data.nbytes, us_passed, mb_int, mb_frac);
+		dev_dbg(q->dev, "%u bytes read in %u us (%llu.%llu MB/s)\n",
+			op->data.nbytes, us_passed, mb_int, mb_frac);
 	}
 
 	qspi_writel(q, mcr_reg, base + QUADSPI_MCR);
