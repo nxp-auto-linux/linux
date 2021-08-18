@@ -62,6 +62,7 @@ enum hse_event {
  * enum hse_srv_id - HSE service ID
  * @HSE_SRV_ID_GET_ATTR: get attribute, such as firmware version
  * @HSE_SRV_ID_IMPORT_EXPORT_STREAM_CTX: import/export streaming context
+ * @HSE_SRV_ID_PREPARE_FOR_STANDBY: prepare for system stand-by mode
  * @HSE_SRV_ID_IMPORT_KEY: import/update key into a key store
  * @HSE_SRV_ID_HASH: perform a hash operation
  * @HSE_SRV_ID_MAC: generate a message authentication code
@@ -72,6 +73,7 @@ enum hse_event {
 enum hse_srv_id {
 	HSE_SRV_ID_GET_ATTR = 0x00A50002ul,
 	HSE_SRV_ID_IMPORT_EXPORT_STREAM_CTX = 0x00A5000Aul,
+	HSE_SRV_ID_PREPARE_FOR_STANDBY = 0x00A50017ul,
 	HSE_SRV_ID_IMPORT_KEY = 0x00000104ul,
 	HSE_SRV_ID_HASH = 0x00A50200ul,
 	HSE_SRV_ID_MAC = 0x00A50201ul,
@@ -553,6 +555,17 @@ struct hse_ctx_impex_srv {
 } __packed;
 
 /**
+ * struct hse_standby_prepare_srv - prepare for system stand-by mode
+ *
+ * Prepare the security subsystem (BootROM + HSE) for system stand-by. This
+ * service may be called only once per running state. HSE_SRV_RSP_NOT_ALLOWED
+ * is returned in case this service has already been called from somewhere else.
+ */
+struct hse_standby_prepare_srv {
+	u8 reserved[4];
+} __packed;
+
+/**
  * struct hse_srv_desc - HSE service descriptor
  * @srv_id: service ID of the HSE request
  * @get_attr_req: get attribute request
@@ -562,6 +575,8 @@ struct hse_ctx_impex_srv {
  * @aead_req: AEAD service request
  * @import_key_req: import key service request
  * @rng_req: RNG service request
+ * @ctx_impex_req: import/export streaming context request
+ * @standby_req: prepare for stand-by mode request
  */
 struct hse_srv_desc {
 	u32 srv_id;
@@ -575,6 +590,7 @@ struct hse_srv_desc {
 		struct hse_import_key_srv import_key_req;
 		struct hse_rng_srv rng_req;
 		struct hse_ctx_impex_srv ctx_impex_req;
+		struct hse_standby_prepare_srv standby_req;
 	};
 } __packed;
 
