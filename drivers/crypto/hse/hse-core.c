@@ -41,6 +41,7 @@
  * @aes_key_ring: AES key slots currently available
  * @key_ring_lock: lock used for key slot acquisition
  * @firmware_dead: used to signal firmware fatal error
+ * @firmware_standby: firmware preparing for system stand-by
  */
 struct hse_drvdata {
 	struct {
@@ -69,6 +70,7 @@ struct hse_drvdata {
 	struct list_head aes_key_ring;
 	spinlock_t key_ring_lock; /* covers key slot acquisition */
 	bool firmware_dead;
+	bool firmware_standby;
 	u32 rng_srv_id;
 };
 
@@ -505,6 +507,9 @@ int hse_srv_req_async(struct device *dev, u8 channel, void *srv_desc,
 	if (unlikely(drv->firmware_dead))
 		return -ENOTRECOVERABLE;
 
+	if (unlikely(drv->firmware_standby))
+		return -EBUSY;
+
 	spin_lock(&drv->tx_lock);
 
 	if (channel == HSE_CHANNEL_ANY) {
@@ -562,6 +567,9 @@ int hse_srv_req_sync(struct device *dev, u8 channel, void *srv_desc)
 
 	if (unlikely(drv->firmware_dead))
 		return -ENOTRECOVERABLE;
+
+	if (unlikely(drv->firmware_standby))
+		return -EBUSY;
 
 	spin_lock(&drv->tx_lock);
 
@@ -624,8 +632,8 @@ static void hse_srv_rsp_dispatch(struct device *dev, u8 channel)
 
 	err = hse_err_decode(srv_rsp);
 	if (err)
-		dev_dbg(dev, "%s: service response 0x%08X on channel %d\n",
-			__func__, srv_rsp, channel);
+		dev_dbg(dev, "%s: request id 0x%08x reply 0x%08X, channel %d\n",
+			__func__, drv->srv_desc[channel].id, srv_rsp, channel);
 
 	if (drv->rx_cbk[channel].fn) {
 		void (*rx_cbk)(int err, void *ctx) = drv->rx_cbk[channel].fn;
@@ -642,7 +650,7 @@ static void hse_srv_rsp_dispatch(struct device *dev, u8 channel)
 
 	if (drv->sync[channel].done) {
 		*drv->sync[channel].reply = err;
-		wmb(); /* ensure reply is written before calling complete */
+		mb(); /* ensure reply is written before calling complete */
 
 		complete(drv->sync[channel].done);
 		drv->sync[channel].done = NULL;
@@ -671,6 +679,44 @@ static irqreturn_t hse_rx_dispatcher(int irq, void *dev)
 }
 
 /**
+ * hse_srv_req_cancel_all - cancel all requests currently in progress
+ * @dev: HSE device
+ */
+static void hse_srv_req_cancel_all(struct device *dev)
+{
+	struct hse_drvdata *drv = dev_get_drvdata(dev);
+	u8 channel;
+
+	/* process pending replies, if any */
+	channel = hse_mu_next_pending_channel(drv->mu);
+	while (channel != HSE_CHANNEL_INV) {
+		hse_srv_rsp_dispatch(dev, channel);
+
+		channel = hse_mu_next_pending_channel(drv->mu);
+	}
+
+	/* notify upper layers that all requests are canceled */
+	for (channel = 0; channel < HSE_NUM_CHANNELS; channel++) {
+		if (drv->channel_busy[channel]) {
+			dev_dbg(dev, "request id 0x%08x canceled, channel %d\n",
+				channel, drv->srv_desc[channel].id);
+			drv->channel_busy[channel] = false;
+		}
+
+		if (drv->rx_cbk[channel].fn) {
+			void *ctx = drv->rx_cbk[channel].ctx;
+
+			drv->rx_cbk[channel].fn(-ECANCELED, ctx);
+		} else if (drv->sync[channel].done) {
+			*drv->sync[channel].reply = -ECANCELED;
+			mb(); /* ensure reply is written before complete */
+
+			complete(drv->sync[channel].done);
+		}
+	}
+}
+
+/**
  * hse_event_dispatcher - deferred handler for HSE_INT_SYS_EVENT type interrupts
  * @irq: interrupt line
  * @dev: HSE device
@@ -684,7 +730,6 @@ static irqreturn_t hse_event_dispatcher(int irq, void *dev)
 {
 	struct hse_drvdata *drv = dev_get_drvdata(dev);
 	u32 event = hse_mu_check_event(drv->mu);
-	u8 channel;
 
 	if (event & HSE_EVT_MASK_WARN) {
 		dev_warn(dev, "warning, event mask 0x%08x\n", event);
@@ -703,31 +748,8 @@ static irqreturn_t hse_event_dispatcher(int irq, void *dev)
 	dev_crit(dev, "fatal error, event mask 0x%08x\n", event);
 	hse_mu_irq_clear(drv->mu, HSE_INT_SYS_EVENT, HSE_EVT_MASK_ERR);
 
-	/* process pending requests, if any */
-	channel = hse_mu_next_pending_channel(drv->mu);
-	while (channel != HSE_CHANNEL_INV) {
-		hse_srv_rsp_dispatch(dev, channel);
-
-		channel = hse_mu_next_pending_channel(drv->mu);
-	}
-
-	/* notify upper layers that all requests are canceled */
-	for (channel = 0; channel < HSE_NUM_CHANNELS; channel++) {
-		if (drv->channel_busy[channel])
-			dev_dbg(dev, "request id 0x%08x canceled, channel %d\n",
-				channel, drv->srv_desc[channel].id);
-
-		if (drv->rx_cbk[channel].fn) {
-			void *ctx = drv->rx_cbk[channel].ctx;
-
-			drv->rx_cbk[channel].fn(-ECANCELED, ctx);
-		} else if (drv->sync[channel].done) {
-			*drv->sync[channel].reply = -ECANCELED;
-			wmb(); /* ensure reply is written before complete */
-
-			complete(drv->sync[channel].done);
-		}
-	}
+	/* cancel all requests */
+	hse_srv_req_cancel_all(dev);
 
 	/* unregister kernel crypto algorithms and hwrng */
 	if (IS_ENABLED(CONFIG_CRYPTO_DEV_NXP_HSE_AHASH))
@@ -775,6 +797,7 @@ static int hse_probe(struct platform_device *pdev)
 		return -ENODEV;
 	}
 	drv->firmware_dead = false;
+	drv->firmware_standby = false;
 
 	/* manage channels and descriptor space */
 	hse_manage_channels(dev, desc_base_ptr, desc_base_dma);
@@ -840,8 +863,8 @@ err_probe_failed:
 
 static int hse_remove(struct platform_device *pdev)
 {
+	struct hse_drvdata *drv = platform_get_drvdata(pdev);
 	struct device *dev = &pdev->dev;
-	struct hse_drvdata *drv = dev_get_drvdata(dev);
 
 	/* disable RX and event notifications */
 	hse_mu_irq_disable(drv->mu, HSE_INT_RESPONSE, HSE_CH_MASK_ALL);
@@ -866,6 +889,62 @@ static int hse_remove(struct platform_device *pdev)
 	return 0;
 }
 
+#ifdef CONFIG_PM_SLEEP
+static int hse_pm_suspend(struct device *dev)
+{
+	struct hse_drvdata *drv = dev_get_drvdata(dev);
+	struct hse_srv_desc srv_desc;
+	int err;
+
+	/* stop subsequent requests */
+	drv->firmware_standby = true;
+
+	/* disable RX notifications, except for HSE_CHANNEL_ADM */
+	hse_mu_irq_disable(drv->mu, HSE_INT_RESPONSE, HSE_CH_MASK_ALL);
+	hse_mu_irq_enable(drv->mu, HSE_INT_RESPONSE, BIT(HSE_CHANNEL_ADM));
+
+	/* prepare firmware for stand-by */
+	srv_desc.srv_id = HSE_SRV_ID_PREPARE_FOR_STANDBY;
+	err = hse_srv_req_sync(dev, HSE_CHANNEL_ADM, &srv_desc);
+
+	/* cancel all requests */
+	hse_srv_req_cancel_all(dev);
+
+	if (unlikely(err && err != -EPERM)) {
+		dev_err(dev, "%s: request failed: %d\n", __func__, err);
+		return err;
+	}
+
+	dev_info(dev, "firmware prepared for stand-by\n");
+
+	return 0;
+}
+
+static int hse_pm_resume(struct device *dev)
+{
+	struct hse_drvdata *drv = dev_get_drvdata(dev);
+	u16 status;
+
+	/* check firmware status */
+	status = hse_mu_check_status(drv->mu);
+	if (!likely(status & HSE_STATUS_INIT_OK)) {
+		dev_err(dev, "firmware not running\n");
+		return -ENODEV;
+	}
+
+	/* enable RX and event notifications */
+	hse_mu_irq_enable(drv->mu, HSE_INT_RESPONSE, HSE_CH_MASK_ALL);
+	hse_mu_irq_enable(drv->mu, HSE_INT_SYS_EVENT, HSE_EVT_MASK_WARN);
+	hse_mu_irq_enable(drv->mu, HSE_INT_SYS_EVENT, HSE_EVT_MASK_ERR);
+
+	dev_info(dev, "device resumed, status 0x%04X\n", status);
+
+	return 0;
+}
+#endif /* CONFIG_PM_SLEEP */
+
+static SIMPLE_DEV_PM_OPS(hse_pm_ops, hse_pm_suspend, hse_pm_resume);
+
 static const struct of_device_id hse_of_match[] = {
 	{
 		.name = HSE_MU_INST,
@@ -878,6 +957,7 @@ static struct platform_driver hse_driver = {
 	.driver = {
 		.name = KBUILD_MODNAME,
 		.of_match_table	= hse_of_match,
+		.pm = &hse_pm_ops,
 	},
 	.probe = hse_probe,
 	.remove = hse_remove,
