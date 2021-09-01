@@ -43,6 +43,9 @@ static int llce_logger_open(struct net_device *dev)
 	if (ret)
 		netdev_err(dev, "Failed to enable interrupt\n");
 
+	if (!ret && !netif_carrier_ok(dev))
+		netif_carrier_on(dev);
+
 disable_napi:
 	if (ret)
 		napi_disable(&llce_dev->napi);
