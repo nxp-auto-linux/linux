@@ -66,6 +66,8 @@
 
 #define SIUL2_0_MAX_16_PAD_BANK_NUM	6
 
+#define EIRQS_DTS_TAG	"eirqs"
+
 /**
  * enum gpio_dir - GPIO pin mode
  */
@@ -494,7 +496,8 @@ static const struct regmap_config siul2_regmap_conf = {
 };
 
 static struct regmap *common_regmap_init(struct platform_device *pdev,
-					 struct regmap_config *conf, const char *name)
+					 struct regmap_config *conf,
+					 const char *name)
 {
 	struct resource *res;
 	void __iomem *base;
@@ -632,12 +635,35 @@ static bool irqmap_volatile_reg(struct device *dev, unsigned int reg)
 static struct regmap *init_irqregmap(struct platform_device *pdev)
 {
 	struct regmap_config regmap_conf = siul2_regmap_conf;
+	static struct resource *glob_res;
+	static struct regmap *glob_reg;
+	struct resource *res;
+	struct regmap *reg = NULL;
+
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, EIRQS_DTS_TAG);
 
 	regmap_conf.writeable_reg = irqregmap_writeable;
 	regmap_conf.volatile_reg = irqmap_volatile_reg;
 	regmap_conf.val_format_endian = REGMAP_ENDIAN_LITTLE;
 
-	return common_regmap_init(pdev, &regmap_conf, "eirqs");
+	/**
+	 * For the cases when the same EIRQ block is shared among
+	 * multiple instances
+	 */
+	if (!glob_res) {
+		reg = common_regmap_init(pdev, &regmap_conf, EIRQS_DTS_TAG);
+		glob_res = res;
+		glob_reg = reg;
+		return reg;
+	}
+
+	if (glob_res->start == res->start)
+		return glob_reg;
+
+	if (reg)
+		return reg;
+
+	return common_regmap_init(pdev, &regmap_conf, EIRQS_DTS_TAG);
 }
 
 static bool not_writable(__always_unused struct device *dev,
