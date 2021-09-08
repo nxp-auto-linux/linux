@@ -3,14 +3,22 @@
  * NXP S32CC SoC family
  *
  * Copyright (c) 2021 SUSE LLC
+ * Copyright 2017-2021 NXP
  */
 
 #include <dt-bindings/interrupt-controller/arm-gic.h>
+#include <dt-bindings/clock/s32cc-scmi-clock.h>
 
 / {
 	interrupt-parent = <&gic>;
 	#address-cells = <2>;
 	#size-cells = <2>;
+
+	aliases {
+		serial0 = &uart0;
+		serial1 = &uart1;
+		serial2 = &uart2;
+	};
 
 	cpus {
 		#address-cells = <1>;
@@ -79,11 +87,41 @@
 		};
 	};
 
-	soc@0 {
+	soc {
 		compatible = "simple-bus";
 		#address-cells = <1>;
 		#size-cells = <1>;
 		ranges = <0 0 0 0x80000000>;
+
+		uart0: serial@401c8000 {
+			compatible = "nxp,s32cc-linflexuart",
+				     "fsl,s32v234-linflexuart";
+			reg = <0x0 0x401c8000 0x0 0x3000>;
+			interrupts = <GIC_SPI 82 IRQ_TYPE_EDGE_RISING>;
+			clocks = <&clks S32CC_SCMI_CLK_LINFLEX_LIN>,
+				 <&clks S32CC_SCMI_CLK_LINFLEX_XBAR>;
+			clock-names = "lin", "ipg";
+		};
+
+		uart1: serial@401cc000 {
+			compatible = "nxp,s32cc-linflexuart",
+				     "fsl,s32v234-linflexuart";
+			reg = <0x0 0x401cc000 0x0 0x3000>;
+			interrupts = <GIC_SPI 83 IRQ_TYPE_EDGE_RISING>;
+			clocks = <&clks S32CC_SCMI_CLK_LINFLEX_LIN>,
+				 <&clks S32CC_SCMI_CLK_LINFLEX_XBAR>;
+			clock-names = "lin", "ipg";
+		};
+
+		uart2: serial@402bc000 {
+			compatible = "nxp,s32cc-linflexuart",
+				     "fsl,s32v234-linflexuart";
+			reg = <0x0 0x402bc000 0x0 0x3000>;
+			interrupts = <GIC_SPI 84 IRQ_TYPE_EDGE_RISING>;
+			clocks = <&clks S32CC_SCMI_CLK_LINFLEX_LIN>,
+				 <&clks S32CC_SCMI_CLK_LINFLEX_XBAR>;
+			clock-names = "lin", "ipg";
+		};
 
 		gic: interrupt-controller@50800000 {
 			compatible = "arm,gic-v3";
