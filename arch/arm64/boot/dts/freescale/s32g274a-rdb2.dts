@@ -1,0 +1,10 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+/*
+ * Device Tree file for S32G274ARDB Board Rev C.
+ *
+ * Copyright 2020-2022 NXP
+ *
+ */
+
+/dts-v1/;
+#include "s32g274a-rdb2.dtsi"

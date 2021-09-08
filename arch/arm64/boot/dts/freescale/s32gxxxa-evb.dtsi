@@ -1,0 +1,14 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+/*
+ * Copyright 2019-2022 NXP
+ */
+
+/ {
+	chosen {
+		stdout-path = "serial0:115200n8";
+	};
+};
+
+&generic_timer {
+	clock-frequency = <5000000>;
+};
