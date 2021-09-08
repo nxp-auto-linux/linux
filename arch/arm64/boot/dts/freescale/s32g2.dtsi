@@ -1,0 +1,13 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+/*
+ * Device Tree file for NXP S32G2 SoC family.
+ *
+ * Copyright 2021-2022 NXP
+ *
+ */
+
+#include "s32g.dtsi"
+
+/ {
+	compatible = "nxp,s32g2";
+};
