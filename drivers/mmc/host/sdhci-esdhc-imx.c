@@ -1261,9 +1261,18 @@ static void esdhc_set_uhs_signaling(struct sdhci_host *host, unsigned timing)
 		break;
 	case MMC_TIMING_MMC_HS400:
 		m |= ESDHC_MIX_CTRL_DDREN | ESDHC_MIX_CTRL_HS400_EN;
+		if (imx_data->socdata == &usdhc_s32gen1_data &&
+			host->mmc->caps2 & MMC_CAP2_HS400_ES)
+			m |= ESDHC_MIX_CTRL_HS400_ES_EN;
 		writel(m, host->ioaddr + ESDHC_MIX_CTRL);
 		imx_data->is_ddr = 1;
 		/* update clock after enable DDR for strobe DLL lock */
+		if (imx_data->socdata == &usdhc_s32gen1_data)
+			/* The uSDHC controller on s32gen1 platforms requires
+			 * that the clock is above 133MHz when attempting the
+			 * strobe DLL lock
+			 */
+			host->clock = 200 * 1000 * 1000;
 		host->ops->set_clock(host, host->clock);
 		esdhc_set_strobe_dll(host);
 		break;
