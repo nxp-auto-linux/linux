@@ -1276,6 +1276,12 @@ static void esdhc_set_uhs_signaling(struct sdhci_host *host, unsigned timing)
 		writel(m, host->ioaddr + ESDHC_MIX_CTRL);
 		imx_data->is_ddr = 1;
 		/* update clock after enable DDR for strobe DLL lock */
+		if (is_s32cc_usdhc(imx_data))
+			/* The uSDHC controller on S32CC platforms requires
+			 * that the clock is above 133MHz when attempting the
+			 * strobe DLL lock
+			 */
+			host->clock = 200 * 1000 * 1000;
 		host->ops->set_clock(host, host->clock);
 		esdhc_set_strobe_dll(host);
 		break;
