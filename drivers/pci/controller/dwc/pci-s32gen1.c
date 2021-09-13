@@ -308,23 +308,56 @@ u32 dw_pcie_readl_ctrl(struct s32gen1_pcie *pci, u32 reg)
 static struct s32gen1_pcie *s32gen1_pcie_ep;
 
 #ifdef CONFIG_PCI_DW_DMA
+
+#ifdef CONFIG_PCI_EPF_TEST
+static u32 dma_data;
+static struct timespec64 tv1s, tv1e;
+
+void s32gen1_pcie_ep_dma_benchmark(struct device *dev, bool is_read)
+{
+	u32 tv_count;
+	u32 data_size = dma_data;
+
+	DEBUG_FUNC;
+
+	ktime_get_real_ts64(&tv1e);
+	dma_data = 0;
+	tv_count = (tv1e.tv_sec - tv1s.tv_sec) * USEC_PER_SEC
+		+ (tv1e.tv_nsec - tv1s.tv_nsec) / 1000;
+	dev_info(dev, "DMA %s uses %dus, speed:%ldMB/s\n",
+		 is_read ? "read" : "write",
+		 tv_count, ((data_size/1024) * MSEC_PER_SEC) / (tv_count));
+}
+#endif  /* CONFIG_PCI_EPF_TEST */
+
 static irqreturn_t s32gen1_pcie_dma_handler(int irq, void *arg)
 {
 	struct s32gen1_pcie *s32_pp = arg;
 	struct dw_pcie *pcie = &(s32_pp->pcie);
 	struct dma_info *di = &(s32_pp->dma);
+	u32 dma_error = DMA_ERR_NONE;
 
 	u32 val_write = 0;
 	u32 val_read = 0;
 
-	val_write = dw_pcie_readl_dbi(pcie, PCIE_DMA_WRITE_INT_STATUS);
-	val_read = dw_pcie_readl_dbi(pcie, PCIE_DMA_READ_INT_STATUS);
+	DEBUG_FUNC;
+
+	val_write = dw_pcie_readl_dma(di, PCIE_DMA_WRITE_INT_STATUS);
+	val_read = dw_pcie_readl_dma(di, PCIE_DMA_READ_INT_STATUS);
 
 	if (val_write) {
 #ifdef CONFIG_PCI_S32GEN1_ACCESS_FROM_USER
 		bool signal = (di->wr_ch.status == DMA_CH_RUNNING);
 #endif
-		dw_handle_dma_irq_write(di, val_write);
+		dma_error = dw_handle_dma_irq_write(di, val_write);
+		if (dma_error == DMA_ERR_NONE) {
+#ifdef CONFIG_PCI_EPF_TEST
+			s32gen1_pcie_ep_dma_benchmark(pcie->dev, false);
+#endif
+		} else
+			dev_info(pcie->dev, "dma write error 0x%0x.\n",
+					dma_error);
+
 #ifdef CONFIG_PCI_S32GEN1_ACCESS_FROM_USER
 		if (signal && s32_pp->uspace.send_signal_to_user)
 			s32_pp->uspace.send_signal_to_user(s32_pp);
@@ -337,7 +370,15 @@ static irqreturn_t s32gen1_pcie_dma_handler(int irq, void *arg)
 #ifdef CONFIG_PCI_S32GEN1_ACCESS_FROM_USER
 		bool signal = (di->rd_ch.status == DMA_CH_RUNNING);
 #endif
-		dw_handle_dma_irq_read(di, val_read);
+		dma_error = dw_handle_dma_irq_read(di, val_read);
+		if (dma_error == DMA_ERR_NONE) {
+#ifdef CONFIG_PCI_EPF_TEST
+			s32gen1_pcie_ep_dma_benchmark(pcie->dev, true);
+#endif
+		} else
+			dev_info(pcie->dev, "dma read error 0x%0x.\n",
+					dma_error);
+
 #ifdef CONFIG_PCI_S32GEN1_ACCESS_FROM_USER
 		if (signal && s32_pp->uspace.send_signal_to_user)
 			s32_pp->uspace.send_signal_to_user(s32_pp);
@@ -402,6 +443,7 @@ static void s32gen1_pcie_ep_init(struct dw_pcie_ep *ep)
 #ifdef CONFIG_PCI_S32GEN1_INIT_EP_BARS
 	struct pci_epc *epc = ep->epc;
 	int ret = 0;
+	struct pci_epc *epc;
 #endif
 #ifdef CONFIG_PCI_S32GEN1_EP_MSI
 	u32 val, ctrl, num_ctrls;
@@ -472,6 +514,7 @@ static void s32gen1_pcie_ep_init(struct dw_pcie_ep *ep)
 	dw_pcie_dbi_ro_wr_dis(pcie);
 
 #ifdef CONFIG_PCI_S32GEN1_INIT_EP_BARS
+	epc = s32gen1_pcie_ep->pcie.ep.epc;
 
 	/* Setup BARs and inbound regions */
 	for (bar = BAR_0; (bar < PCIE_NUM_BARS); bar++) {
@@ -890,10 +933,51 @@ s32gen1_pcie_ep_get_features(struct dw_pcie_ep *ep)
 	return &s32gen1_pcie_epc_features;
 }
 
+#ifdef CONFIG_PCI_DW_DMA
+
+/**
+ * s32en1_pcie_ep_start_dma - Start DMA on S32Gen1 PCIE EP.
+ * @ep: the EP start the DMA transmission.
+ * @dir: direction of the DMA, 1 read, 0 write;
+ * @src: source DMA address.
+ * @dst: destination DMA address.
+ * @len: transfer length.
+ */
+static int s32gen1_pcie_ep_start_dma(struct dw_pcie_ep *ep, bool dir,
+				 dma_addr_t src, dma_addr_t dst, u32 len)
+{
+	struct dw_pcie *pcie = to_dw_pcie_from_ep(ep);
+	struct s32gen1_pcie *s32_pp = to_s32gen1_from_dw_pcie(pcie);
+	struct dma_info *di = &(s32_pp->dma);
+
+	int ret = 0;
+	struct dma_data_elem dma_single = {
+		.ch_num = 0,
+		.flags = (DMA_FLAG_WRITE_ELEM | DMA_FLAG_EN_DONE_INT |
+				DMA_FLAG_LIE),
+	};
+
+	DEBUG_FUNC;
+
+	dma_single.size = len;
+	dma_single.sar = src;
+	dma_single.dar = dst;
+
+	/* Test the DMA benchmark */
+	dma_data = len;
+	ktime_get_real_ts64(&tv1s);
+	ret = dw_pcie_dma_single_rw(di, &dma_single);
+	return ret;
+}
+#endif
+
 static struct dw_pcie_ep_ops s32gen1_pcie_ep_ops = {
 	.ep_init = s32gen1_pcie_ep_init,
 	.raise_irq = s32gen1_pcie_ep_raise_irq,
 	.get_features = s32gen1_pcie_ep_get_features,
+#ifdef CONFIG_PCI_DW_DMA
+	.start_dma = s32gen1_pcie_ep_start_dma,
+#endif
 };
 
 static int __init s32gen1_add_pcie_ep(struct s32gen1_pcie *s32_pp,

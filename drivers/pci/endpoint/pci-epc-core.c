@@ -200,8 +200,10 @@ int pci_epc_start_dma(struct pci_epc *epc, u8 func_no, bool dir,
 	if (IS_ERR_OR_NULL(epc) || func_no >= epc->max_functions)
 		return -EINVAL;
 
-	if (!epc->ops->start_dma)
+	if (!epc->ops->start_dma) {
+		dev_warn(&epc->dev, "Nothing to do (NULL start_dma)\n");
 		return 0;
+	}
 
 	spin_lock_irqsave(&epc->lock, flags);
 	ret = epc->ops->start_dma(epc, func_no, dir, src, dst, len);

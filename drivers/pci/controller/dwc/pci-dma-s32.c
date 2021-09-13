@@ -568,11 +568,9 @@ void dw_pcie_dma_check_errors(struct dma_info *di,
 /* Generic int handlers for DMA read and write (separate).
  * They should be called from the platform specific interrupt handler.
  */
-irqreturn_t dw_handle_dma_irq_write(struct dma_info *di, u32 val_write)
+u32 dw_handle_dma_irq_write(struct dma_info *di, u32 val_write)
 {
-#ifdef DMA_PTR_FUNC
 	u32 err_type = DMA_ERR_NONE;
-#endif
 
 	if (val_write) {
 		if (di->wr_ch.status == DMA_CH_RUNNING) {
@@ -584,9 +582,7 @@ irqreturn_t dw_handle_dma_irq_write(struct dma_info *di, u32 val_write)
 				dw_pcie_writel_dma(di,
 					PCIE_DMA_WRITE_INT_CLEAR,
 					0x00FF0000);
-#ifdef DMA_PTR_FUNC
 				err_type = di->wr_ch.errors;
-#endif
 			} else { /* Done interrupt */
 				dw_pcie_writel_dma(di,
 					PCIE_DMA_WRITE_INT_CLEAR,
@@ -604,13 +600,11 @@ irqreturn_t dw_handle_dma_irq_write(struct dma_info *di, u32 val_write)
 #endif /* DMA_PTR_FUNC */
 	}
 
-	return IRQ_HANDLED;
+	return err_type;
 }
-irqreturn_t dw_handle_dma_irq_read(struct dma_info *di, u32 val_read)
+u32 dw_handle_dma_irq_read(struct dma_info *di, u32 val_read)
 {
-#ifdef DMA_PTR_FUNC
 	u32 err_type = DMA_ERR_NONE;
-#endif
 
 	if (val_read) {
 		if (di->rd_ch.status == DMA_CH_RUNNING) {
@@ -624,9 +618,7 @@ irqreturn_t dw_handle_dma_irq_read(struct dma_info *di, u32 val_read)
 				dw_pcie_writel_dma(di,
 					PCIE_DMA_READ_INT_CLEAR,
 					0x00FF0000);
-#ifdef DMA_PTR_FUNC
 				err_type = di->rd_ch.errors;
-#endif
 			} else { /* Done interrupt */
 				dw_pcie_writel_dma(di,
 					PCIE_DMA_READ_INT_CLEAR,
@@ -644,5 +636,5 @@ irqreturn_t dw_handle_dma_irq_read(struct dma_info *di, u32 val_read)
 #endif /* DMA_PTR_FUNC */
 	}
 
-	return IRQ_HANDLED;
+	return err_type;
 }
