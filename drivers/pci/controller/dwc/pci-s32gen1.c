@@ -593,8 +593,13 @@ static int s32gen1_pcie_start_link(struct dw_pcie *pcie)
 	s32gen1_pcie_enable_ltssm(s32_pp);
 	ret = dw_pcie_wait_for_link(pcie);
 
-	if (ret)
+	if (ret) {
+		/* We do not exit with error if link up was unsuccessful
+		 * Endpoint may be connected.
+		 */
+		ret = 0;
 		goto out;
+	}
 
 	/* Allow Gen2 or Gen3 mode after the link is up. */
 	BCLRSET16(pcie, dbi, PCI_EXP_CAP_ID + PCI_EXP_LNKCAP,
@@ -670,6 +675,7 @@ static irqreturn_t s32gen1_pcie_msi_handler(int irq, void *arg)
 static int s32gen1_pcie_host_init(struct pcie_port *pp)
 {
 	struct dw_pcie *pcie = to_dw_pcie_from_pp(pp);
+	struct s32gen1_pcie *s32_pci = to_s32gen1_from_dw_pcie(pcie);
 	int ret;
 
 	DEBUG_FUNC;
@@ -678,8 +684,12 @@ static int s32gen1_pcie_host_init(struct pcie_port *pp)
 
 	s32gen1_pcie_start_link(pcie);
 	ret = dw_pcie_wait_for_link(pcie);
-	if (ret)
-		return ret;
+	if (ret) {
+		if (!phy_validate(s32_pci->phy0, PHY_MODE_PCIE, 0, NULL)) {
+			dev_err(pcie->dev, "Failed to get link up with EP connected\n");
+			return ret;
+		}
+	}
 
 #ifdef CONFIG_PCI_MSI
 	if (!s32gen1_has_msi_parent(pp))
@@ -1284,8 +1294,12 @@ static int s32gen1_pcie_init_controller(struct s32gen1_pcie *s32_pp)
 	/* Only wait for link if RC */
 	if (!s32_pp->is_endpoint) {
 		ret = wait_phy_data_link(s32_pp);
-		if (ret)
-			return ret;
+		if (ret) {
+			if (!phy_validate(s32_pp->phy0, PHY_MODE_PCIE, 0, NULL)) {
+				dev_err(pcie->dev, "Failed to get link up with EP connected\n");
+				return ret;
+			}
+		}
 	}
 
 	dev_info(pcie->dev, "Configuring as %s\n",

@@ -48,6 +48,9 @@
 #define  PHY_REG_EN		BIT(31)
 #define PHY_REG_DATA		(0x4)
 
+#define PHY_SS_RO_REG_0		(0xE0)
+#define PHY_RX0_LOS			BIT(1)
+
 #define RAWLANE0_DIG_PCS_XF_RX_EQ_DELTA_IQ_OVRD_IN	(0x3019)
 #define RAWLANE1_DIG_PCS_XF_RX_EQ_DELTA_IQ_OVRD_IN	(0x3119)
 
@@ -516,12 +519,33 @@ static int serdes_phy_configure(struct phy *phy, union phy_configure_opts *opts)
 
 }
 
+static int serdes_phy_validate(struct phy *p, enum phy_mode mode, int submode,
+			       union phy_configure_opts *opts)
+{
+	struct serdes *serdes = phy_get_drvdata(p);
+	struct serdes_ctrl *sctrl = &serdes->ctrl;
+	u32 reg;
+
+	if (p->attrs.mode != PHY_MODE_PCIE)
+		return -EPERM;
+
+	/* Check if the receiver has lost the signal */
+	reg = readl(sctrl->ss_base + PHY_SS_RO_REG_0);
+	if (reg & PHY_RX0_LOS) {
+		/* Lost Phy signal */
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
 static const struct phy_ops serdes_ops = {
 	.reset		= serdes_phy_reset,
 	.init		= serdes_phy_init,
 	.set_mode	= serdes_phy_set_mode_ext,
 	.power_on	= serdes_phy_power_on,
 	.power_off	= serdes_phy_power_off,
+	.validate	= serdes_phy_validate,
 	.release	= serdes_phy_release,
 	.configure	= serdes_phy_configure,
 	.owner		= THIS_MODULE,
