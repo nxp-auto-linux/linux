@@ -291,18 +291,19 @@ static void s32_adc_calibration(struct s32_adc *info)
 	}
 
 	/* set AD_clk frequency to 40 MHz */
-	mcr_data &= ~ADC_ADCLKSEL & ~ADC_ADCLKDIV;
+	mcr_data &= ~ADC_ADCLKSEL;
 	clk_rate = clk_get_rate(info->clk);
-	switch (clk_rate) {
-	case ADC_CLK_FREQ_40MHz:
+	if (clk_rate == ADC_CLK_FREQ_40MHz) {
+		/* AD_CLK frequency is equal to bus clock frequency */
 		mcr_data |= ADC_ADCLKSEL;
-		break;
-	case ADC_CLK_FREQ_80MHz:
-		break;
-	case ADC_CLK_FREQ_160MHz:
-		mcr_data |= ADC_ADCLKDIV;
-		break;
-	default:
+	} else if (clk_rate == ADC_CLK_FREQ_160MHz) {
+		if (of_device_is_compatible(np, "fsl,s32v234-adc")) {
+			/* AD_clk is bus_clock divded by four */
+			mcr_data |= ADC_ADCLKDIV;
+		} else {
+			dev_err(info->dev, "Bad bus clock frequency\n");
+		}
+	} else if (clk_rate != ADC_CLK_FREQ_80MHz) {
 		dev_err(info->dev, "Bad bus clock frequency\n");
 	}
 
@@ -358,6 +359,8 @@ static void s32_adc_calibration(struct s32_adc *info)
 static void s32_adc_sample_set(struct s32_adc *info)
 {
 	struct s32_adc_feature *adc_feature = &info->adc_feature;
+	struct device_node *np = info->dev->of_node;
+	enum freq_sel freq_sel = adc_feature->freq_sel;
 	int mcr_data, ctr_data = 0, group;
 
 	/* configure AD_clk frequency */
@@ -365,18 +368,15 @@ static void s32_adc_sample_set(struct s32_adc *info)
 	mcr_data |= ADC_PWDN;
 	writel(mcr_data, info->regs + REG_ADC_MCR);
 
-	mcr_data &= ~ADC_ADCLKSEL & ~ADC_ADCLKDIV;
-
-	switch (adc_feature->freq_sel) {
-	case ADC_BUSCLK_EQUAL:
+	mcr_data &= ~ADC_ADCLKSEL;
+	if (freq_sel == ADC_BUSCLK_EQUAL) {
 		mcr_data |= ADC_ADCLKSEL;
-		break;
-	case ADC_BUSCLK_HALF:
-		break;
-	case ADC_BUSCLK_FOURTH:
-		mcr_data |= ADC_ADCLKDIV;
-		break;
-	default:
+	} else if (freq_sel == ADC_BUSCLK_FOURTH) {
+		if (of_device_is_compatible(np, "fsl,s32v234-adc"))
+			mcr_data |= ADC_ADCLKDIV;
+		else
+			dev_err(info->dev, "error frequency selection\n");
+	} else if (freq_sel != ADC_BUSCLK_HALF) {
 		dev_err(info->dev, "error frequency selection\n");
 	}
 
