@@ -123,22 +123,31 @@
 #define PCI_BASE_ADDRESS_MEM_NON_PREFETCH	0x00	/* non-prefetchable */
 
 #define PCIE_EP_BAR0_ADDR		CONFIG_SYS_PCI_EP_MEMORY_BASE
+#ifndef CONFIG_PCI_EPF_TEST
+/* BAR0 is configured by EPF */
 #define PCIE_EP_BAR0_SIZE		SZ_1M
+#else
+#define PCIE_EP_BAR0_SIZE		0
+#endif
 #define PCIE_EP_BAR1_ADDR		(PCIE_EP_BAR0_ADDR + PCIE_EP_BAR0_SIZE)
 #define PCIE_EP_BAR1_SIZE		0
 #define PCIE_EP_BAR2_ADDR		(PCIE_EP_BAR1_ADDR + PCIE_EP_BAR1_SIZE)
-#define PCIE_EP_BAR2_SIZE		SZ_1M
+#define PCIE_EP_BAR2_SIZE		(4 * SZ_1M)
 #define PCIE_EP_BAR3_ADDR		(PCIE_EP_BAR2_ADDR + PCIE_EP_BAR2_SIZE)
 #define PCIE_EP_BAR3_SIZE		0
 #define PCIE_EP_BAR4_ADDR		(PCIE_EP_BAR3_ADDR + PCIE_EP_BAR3_SIZE)
 #define PCIE_EP_BAR4_SIZE		0
 #define PCIE_EP_BAR5_ADDR		(PCIE_EP_BAR4_ADDR + PCIE_EP_BAR4_SIZE)
 #define PCIE_EP_BAR5_SIZE		0
+#ifndef CONFIG_PCI_EPF_TEST
 #define PCIE_EP_BAR0_EN_DIS		1
+#else
+#define PCIE_EP_BAR0_EN_DIS		0
+#endif
 #define PCIE_EP_BAR1_EN_DIS		0
 #define PCIE_EP_BAR2_EN_DIS		1
-#define PCIE_EP_BAR3_EN_DIS		1
-#define PCIE_EP_BAR4_EN_DIS		1
+#define PCIE_EP_BAR3_EN_DIS		0
+#define PCIE_EP_BAR4_EN_DIS		0
 #define PCIE_EP_BAR5_EN_DIS		0
 #define PCIE_EP_BAR0_INIT	(PCI_BASE_ADDRESS_SPACE_MEMORY | \
 			PCI_BASE_ADDRESS_MEM_TYPE_32 | \
@@ -826,10 +835,16 @@ static const struct pci_epc_features s32gen1_pcie_epc_features = {
 	.linkup_notifier = false,
 	.msi_capable = true,
 	.msix_capable = false,
-	.reserved_bar = BIT(BAR_1) | BIT(BAR_5),
+	.reserved_bar =
+#ifdef CONFIG_PCI_S32GEN1_INIT_EP_BARS
+		BIT(BAR_2) |
+#endif
+		BIT(BAR_1) | BIT(BAR_5),
 	.bar_fixed_64bit = BIT(BAR_0),
 	.bar_fixed_size[0] = SZ_1M,
+#ifndef CONFIG_PCI_S32GEN1_INIT_EP_BARS
 	.bar_fixed_size[2] = (4 * SZ_1M),
+#endif
 	.bar_fixed_size[3] = SZ_64K,
 	.bar_fixed_size[4] = 256,
 };
