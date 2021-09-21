@@ -62,6 +62,37 @@
 		status = "disabled";
 	};
 
+	stm8: stm@40520000 {
+		compatible = "fsl,s32gen1-stm-global";
+		reg = <0x0 0x40520000 0x0 0x3000>;
+		clocks = <&clks S32GEN1_SCMI_CLK_STM_MODULE>;
+		clock-names = "stm";
+		status = "disabled";
+	};
+
+	stm9: stm@40524000 {
+		compatible = "fsl,s32gen1-stm-global";
+		reg = <0x0 0x40524000 0x0 0x3000>;
+		clocks = <&clks S32GEN1_SCMI_CLK_STM_MODULE>;
+		clock-names = "stm";
+		status = "disabled";
+	};
+
+	stm10: stm@40528000 {
+		compatible = "fsl,s32gen1-stm-global";
+		reg = <0x0 0x40528000 0x0 0x3000>;
+		clocks = <&clks S32GEN1_SCMI_CLK_STM_MODULE>;
+		clock-names = "stm";
+		status = "disabled";
+	};
+
+	stm11: stm@4052C000 {
+		compatible = "fsl,s32gen1-stm-global";
+		reg = <0x0 0x4052C000 0x0 0x3000>;
+		clocks = <&clks S32GEN1_SCMI_CLK_STM_MODULE>;
+		clock-names = "stm";
+		status = "disabled";
+	};
 };
 
 &cpus {
