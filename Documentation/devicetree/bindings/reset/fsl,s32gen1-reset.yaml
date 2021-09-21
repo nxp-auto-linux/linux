@@ -15,6 +15,7 @@ properties:
     contains:
       enum:
         - fsl,s32g2-reset # Reset Controller for S32G2 SoCs
+        - fsl,s32g3-reset # Reset Controller for S32G3 SoCs
         - fsl,s32r45-reset # Reset Controller for S32R45 SoC
 
   reg:
