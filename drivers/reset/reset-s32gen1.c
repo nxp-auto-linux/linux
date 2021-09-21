@@ -3,9 +3,12 @@
  * Copyright 2021 NXP
  */
 #include <dt-bindings/reset/s32g-scmi-reset.h>
+#include <dt-bindings/reset/s32g3-scmi-reset.h>
 #include <dt-bindings/reset/s32gen1-scmi-reset.h>
 #include <dt-bindings/reset/s32r45-scmi-reset.h>
 #include <linux/io.h>
+#include <linux/mfd/s32gen1-mc_me.h>
+#include <linux/mfd/s32gen1-mc_rgm.h>
 #include <linux/mfd/syscon.h>
 #include <linux/module.h>
 #include <linux/of_device.h>
@@ -13,8 +16,6 @@
 #include <linux/processor.h>
 #include <linux/regmap.h>
 #include <linux/reset-controller.h>
-#include <linux/mfd/s32gen1-mc_me.h>
-#include <linux/mfd/s32gen1-mc_rgm.h>
 #include <s32/s32-gen1/clk.h>
 #include <s32/s32-gen1/rdc.h>
 
@@ -60,25 +61,48 @@ static const struct reset_entry s32gen1_reset_table[] = {
 	PERIPH_RESET(S32GEN1_SCMI_RST_SERDES0, 5),
 	PERIPH_RESET(S32GEN1_SCMI_RST_PCIE1, 16),
 	PERIPH_RESET(S32GEN1_SCMI_RST_SERDES1, 17),
+};
+
+static const struct reset_entry s32g2_reset_table[] = {
+	PART_RESET(S32G_SCMI_RST_PFE, 2),
+	PART_RESET(S32G_SCMI_RST_LLCE, 3),
 	PERIPH_RESET(S32GEN1_SCMI_RST_A53_0, 65),
 	PERIPH_RESET(S32GEN1_SCMI_RST_A53_1, 66),
 	PERIPH_RESET(S32GEN1_SCMI_RST_A53_2, 67),
 	PERIPH_RESET(S32GEN1_SCMI_RST_A53_3, 68),
 };
 
-static const struct reset_entry s32g2_reset_table[] = {
+static const struct reset_entry s32g3_reset_table[] = {
 	PART_RESET(S32G_SCMI_RST_PFE, 2),
 	PART_RESET(S32G_SCMI_RST_LLCE, 3),
+	PERIPH_RESET(S32G3_SCMI_RST_CM7_3, 6),
+	PERIPH_RESET(S32GEN1_SCMI_RST_A53_0, 65),
+	PERIPH_RESET(S32GEN1_SCMI_RST_A53_1, 66),
+	PERIPH_RESET(S32GEN1_SCMI_RST_A53_2, 69),
+	PERIPH_RESET(S32GEN1_SCMI_RST_A53_3, 70),
+	PERIPH_RESET(S32G3_SCMI_RST_A53_4, 67),
+	PERIPH_RESET(S32G3_SCMI_RST_A53_5, 68),
+	PERIPH_RESET(S32G3_SCMI_RST_A53_6, 71),
+	PERIPH_RESET(S32G3_SCMI_RST_A53_7, 72),
 };
 
 static const struct reset_entry s32r45_reset_table[] = {
 	PERIPH_RESET(S32R45_SCMI_RST_LAX, 128),
 	PERIPH_RESET(S32R45_SCMI_RST_RADAR, 192),
+	PERIPH_RESET(S32GEN1_SCMI_RST_A53_0, 65),
+	PERIPH_RESET(S32GEN1_SCMI_RST_A53_1, 66),
+	PERIPH_RESET(S32GEN1_SCMI_RST_A53_2, 67),
+	PERIPH_RESET(S32GEN1_SCMI_RST_A53_3, 68),
 };
 
 static const struct reset_data s32g2_resets = {
 	.resets = s32g2_reset_table,
 	.n_resets = ARRAY_SIZE(s32g2_reset_table),
+};
+
+static const struct reset_data s32g3_resets = {
+	.resets = s32g3_reset_table,
+	.n_resets = ARRAY_SIZE(s32g3_reset_table),
 };
 
 static const struct reset_data s32r45_resets = {
@@ -493,6 +517,7 @@ static int s32gen1_reset_remove(struct platform_device *pdev)
 
 static const struct of_device_id s32gen1_reset_match[] = {
 	{ .compatible = "fsl,s32g2-reset", .data = &s32g2_resets },
+	{ .compatible = "fsl,s32g3-reset", .data = &s32g3_resets },
 	{ .compatible = "fsl,s32r45-reset", .data = &s32r45_resets },
 	{ /* sentinel */ }
 };
