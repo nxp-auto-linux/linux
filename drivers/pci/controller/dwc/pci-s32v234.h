@@ -18,7 +18,7 @@
 #define _PCIE_S32V234_H
 
 #include "pcie-designware.h"
-#include "pci-dma-s32v234.h"
+#include "pci-dma-s32.h"
 
 #define to_s32v234_from_dw_pcie(x) \
 	container_of(x, struct s32v234_pcie, pcie)
@@ -31,7 +31,6 @@ struct s32v234_pcie {
 	struct dw_pcie	pcie;
 	struct regmap		*src;
 
-	int			dma_irq;
 	int			link_req_rst_not_irq;
 	struct dentry		*dir;
 	int			user_pid;
@@ -40,6 +39,7 @@ struct s32v234_pcie {
 	int (*send_signal_to_user)(struct s32v234_pcie *s32v234_pcie);
 
 #ifdef CONFIG_PCI_DW_DMA
+	int	dma_irq;
 	struct dma_info	dma;
 #endif
 };

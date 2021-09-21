@@ -79,6 +79,10 @@
 #define PCIE_ATU_BAR_NUM(bar)	((bar) << 8)
 #define PCIE_ATU_UPPER_TARGET		0x91C
 
+#ifdef CONFIG_PCI_DW_DMA
+#define PCIE_DMA_BASE			0x970
+#endif
+
 /* PCIe Root Complex registers (memory-mapped) */
 #define PCIE_RC_LCR				0x7c
 #define PCIE_RC_LCR_MAX_LINK_SPEEDS_GEN1	0x1
@@ -228,11 +232,9 @@ struct s32v_inbound_region restore_inb_arr[4];
 static struct s32v234_pcie *s32v234_pcie_ep;
 
 #ifdef CONFIG_PCI_DW_DMA
-static int s32v234_store_ll_array(struct s32v234_pcie *s32v234_pp, void __user *argp)
+static int s32v234_store_ll_array(struct dma_info *di, void __user *argp)
 {
 	int ret = 0;
-	struct dw_pcie *pcie = &s32v234_pp->pcie;
-	struct dma_info *di = &(s32v234_pp->dma);
 	u32 ll_nr_elem = di->ll_info.nr_elem;
 
 	if (argp && di->dma_linked_list) {
@@ -242,7 +244,7 @@ static int s32v234_store_ll_array(struct s32v234_pcie *s32v234_pp, void __user *
 	} else {/* Null argument */
 		return -EFAULT;
 	}
-	ret = dw_pcie_dma_load_linked_list(pcie, di,
+	ret = dw_pcie_dma_load_linked_list(di,
 		ll_nr_elem, di->ll_info.phy_list_addr,
 		di->ll_info.next_phy_list_addr,
 		di->ll_info.direction);
@@ -250,12 +252,10 @@ static int s32v234_store_ll_array(struct s32v234_pcie *s32v234_pp, void __user *
 	return ret;
 }
 
-int s32v234_start_dma_ll(struct s32v234_pcie *s32v234_pp, void __user *argp)
+int s32v234_start_dma_ll(struct dma_info *di, void __user *argp)
 {
 	int ret = 0;
 	u32 phy_addr;
-	struct dw_pcie *pcie = &(s32v234_pp->pcie);
-	struct dma_info *di = &(s32v234_pp->dma);
 
 	if (argp) {
 		if (copy_from_user(&phy_addr, argp, sizeof(phy_addr)))
@@ -263,7 +263,7 @@ int s32v234_start_dma_ll(struct s32v234_pcie *s32v234_pp, void __user *argp)
 	} else {/* Null argument */
 		return -EFAULT;
 	}
-	ret = dw_pcie_dma_start_linked_list(pcie, di,
+	ret = dw_pcie_dma_start_linked_list(di,
 		phy_addr,
 		di->ll_info.direction);
 	return ret;
@@ -303,12 +303,10 @@ static int s32v234_send_dma_errors(struct dma_info *di, void __user *argp)
 	return ret;
 }
 
-static int s32v234_send_dma_single(struct s32v234_pcie *s32v234_pp, void __user *argp)
+static int s32v234_send_dma_single(struct dma_info *di, void __user *argp)
 {
 	int ret = 0;
 	struct dma_data_elem dma_elem_local;
-	struct dw_pcie *pcie = &(s32v234_pp->pcie);
-	struct dma_info *di = &(s32v234_pp->dma);
 
 	if (argp) {
 		if (copy_from_user(&dma_elem_local, argp,
@@ -316,37 +314,20 @@ static int s32v234_send_dma_single(struct s32v234_pcie *s32v234_pp, void __user 
 			return -EFAULT;
 	} else
 		return -EFAULT;
-	ret = dw_pcie_dma_single_rw(pcie, di, &dma_elem_local);
+	ret = dw_pcie_dma_single_rw(di, &dma_elem_local);
 	return ret;
-}
-
-void s32v234_reset_dma_write(struct s32v234_pcie *s32v234_pp)
-{
-	struct dw_pcie *pcie = &(s32v234_pp->pcie);
-	struct dma_info *di = &(s32v234_pp->dma);
-
-	dw_pcie_dma_write_soft_reset(pcie, di);
-}
-
-void s32v234_reset_dma_read(struct s32v234_pcie *s32v234_pp)
-{
-	struct dw_pcie *pcie = &(s32v234_pp->pcie);
-	struct dma_info *di = &(s32v234_pp->dma);
-
-	dw_pcie_dma_read_soft_reset(pcie, di);
 }
 
 static irqreturn_t s32v234_pcie_dma_handler(int irq, void *arg)
 {
 	struct s32v234_pcie *s32v234_pp = arg;
-	struct dw_pcie *pcie = &(s32v234_pp->pcie);
 	struct dma_info *di = &(s32v234_pp->dma);
 
 	u32 val_write = 0;
 	u32 val_read = 0;
 
-	val_write = dw_pcie_readl_dbi(pcie, PCIE_DMA_WRITE_INT_STATUS);
-	val_read = dw_pcie_readl_dbi(pcie, PCIE_DMA_READ_INT_STATUS);
+	val_write = dw_pcie_readl_dma(di, PCIE_DMA_WRITE_INT_STATUS);
+	val_read = dw_pcie_readl_dma(di, PCIE_DMA_READ_INT_STATUS);
 
 	if (val_write) {
 		bool signal = (di->wr_ch.status == DMA_CH_RUNNING);
@@ -630,29 +611,29 @@ static ssize_t s32v234_ioctl(struct file *filp, u32 cmd,
 	case SEND_SIGNAL:
 		ret = send_signal_to_user(s32v234_pp);
 		return ret;
-	#ifdef CONFIG_PCI_DW_DMA
+#ifdef CONFIG_PCI_DW_DMA
 	case SEND_SINGLE_DMA:
-		ret = s32v234_send_dma_single(s32v234_pp, argp);
+		ret = s32v234_send_dma_single(di, argp);
 		return ret;
 	case GET_DMA_CH_ERRORS:
 		ret = s32v234_send_dma_errors(di, argp);
 		return ret;
 	case RESET_DMA_WRITE:
-		s32v234_reset_dma_write(s32v234_pp);
+		dw_pcie_dma_write_soft_reset(di);
 		return ret;
 	case RESET_DMA_READ:
-		s32v234_reset_dma_read(s32v234_pp);
+		dw_pcie_dma_read_soft_reset(di);
 		return ret;
 	case STORE_LL_INFO:
 		ret = s32v234_store_ll_array_info(di, argp);
 		return ret;
 	case SEND_LL:
-		ret = s32v234_store_ll_array(s32v234_pp, argp);
+		ret = s32v234_store_ll_array(di, argp);
 		return ret;
 	case START_LL:
-		ret = s32v234_start_dma_ll(s32v234_pp, argp);
+		ret = s32v234_start_dma_ll(di, argp);
 		return ret;
-	#endif
+#endif
 	default:
 		return -EINVAL;
 	}
@@ -1391,6 +1372,7 @@ static int s32v234_pcie_probe(struct platform_device *pdev)
 		s32v234_pp->user_pid = 0;
 
 #ifdef CONFIG_PCI_DW_DMA
+		s32v234_pp->dma.dma_base = pcie->dbi_base + PCIE_DMA_BASE;
 		s32v234_pp->dma_irq = platform_get_irq_byname(pdev, "dma");
 		if (s32v234_pp->dma_irq <= 0) {
 			dev_err(&pdev->dev, "failed to get DMA irq\n");
@@ -1403,7 +1385,7 @@ static int s32v234_pcie_probe(struct platform_device *pdev)
 			dev_err(&pdev->dev, "failed to request DMA irq\n");
 			return -ENODEV;
 		}
-		dw_pcie_dma_clear_regs(pcie, &s32v234_pp->dma);
+		dw_pcie_dma_clear_regs(&s32v234_pp->dma);
 
 		memset(&s32v234_pp->info, 0, sizeof(struct kernel_siginfo));
 		s32v234_pp->info.si_signo = SIGUSR1;

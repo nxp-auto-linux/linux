@@ -37,7 +37,6 @@
 #include "../../pci.h"
 
 #ifdef CONFIG_PCI_DW_DMA
-#include <linux/dma-mapping.h>
 #include "pci-dma-s32.h"
 #endif
 
@@ -325,7 +324,7 @@ static irqreturn_t s32gen1_pcie_dma_handler(int irq, void *arg)
 #ifdef CONFIG_PCI_S32GEN1_ACCESS_FROM_USER
 		bool signal = (di->wr_ch.status == DMA_CH_RUNNING);
 #endif
-		dw_handle_dma_irq_write(pcie, di, val_write);
+		dw_handle_dma_irq_write(di, val_write);
 #ifdef CONFIG_PCI_S32GEN1_ACCESS_FROM_USER
 		if (signal && s32_pp->uspace.send_signal_to_user)
 			s32_pp->uspace.send_signal_to_user(s32_pp);
@@ -338,7 +337,7 @@ static irqreturn_t s32gen1_pcie_dma_handler(int irq, void *arg)
 #ifdef CONFIG_PCI_S32GEN1_ACCESS_FROM_USER
 		bool signal = (di->rd_ch.status == DMA_CH_RUNNING);
 #endif
-		dw_handle_dma_irq_read(pcie, di, val_read);
+		dw_handle_dma_irq_read(di, val_read);
 #ifdef CONFIG_PCI_S32GEN1_ACCESS_FROM_USER
 		if (signal && s32_pp->uspace.send_signal_to_user)
 			s32_pp->uspace.send_signal_to_user(s32_pp);
@@ -848,9 +847,6 @@ static int s32gen1_pcie_ep_raise_irq(struct dw_pcie_ep *ep, u8 func_no,
 {
 	struct dw_pcie *pci = to_dw_pcie_from_ep(ep);
 
-	pr_debug_w("%s: W32(0x%llx, 0x%x)\n", __func__, (uint64_t)(reg),
-		(uint32_t)(write_data));
-
 	switch (type) {
 	case PCI_EPC_IRQ_LEGACY:
 		pr_debug("%s: func %d: legacy int\n", __func__, func_no);
@@ -1017,6 +1013,15 @@ static int s32gen1_pcie_dt_init(struct platform_device *pdev,
 	if (IS_ERR(pcie->atu_base))
 		return PTR_ERR(pcie->atu_base);
 	dev_dbg(dev, "atu virt: 0x%llx\n", (u64)pcie->atu_base);
+
+#ifdef CONFIG_PCI_DW_DMA
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "dma");
+	dev_dbg(dev, "dma: %pR\n", res);
+	s32_pp->dma.dma_base = devm_ioremap_resource(dev, res);
+	if (IS_ERR(s32_pp->dma.dma_base))
+		return PTR_ERR(s32_pp->dma.dma_base);
+	dev_dbg(dev, "dma virt: 0x%llx\n", (u64)s32_pp->dma.dma_base);
+#endif
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "ctrl");
 	s32_pp->ctrl_base = devm_ioremap_resource(dev, res);
@@ -1319,7 +1324,7 @@ static int s32gen1_pcie_probe(struct platform_device *pdev)
 			dev_err(dev, "failed to request dma irq\n");
 			goto err;
 		}
-		dw_pcie_dma_clear_regs(pcie, &s32_pp->dma);
+		dw_pcie_dma_clear_regs(&s32_pp->dma);
 #endif /* CONFIG_PCI_DW_DMA */
 
 #ifdef CONFIG_PCI_S32GEN1_ACCESS_FROM_USER
