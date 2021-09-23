@@ -664,6 +664,22 @@ static inline u32 id_aa64mmfr0_parange_to_phys_shift(int parange)
 	default: return CONFIG_ARM64_PA_BITS;
 	}
 }
+
+static inline bool cpu_has_nxp_err050481(void)
+{
+	if (!IS_ENABLED(CONFIG_NXP_S32GEN1_ERRATUM_ERR050481))
+		return false;
+
+	/**
+	 * Enable the workaround for the early stages of the boot
+	 * regardless of capability enablement.
+	 */
+	if (!system_capabilities_finalized())
+		return true;
+
+	return cpus_have_const_cap(ARM64_WORKAROUND_NXP_ERR050481);
+}
+
 #endif /* __ASSEMBLY__ */
 
 #endif

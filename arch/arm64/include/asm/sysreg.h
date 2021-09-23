@@ -361,6 +361,7 @@
 #define SYS_CCSIDR_EL1			sys_reg(3, 1, 0, 0, 0)
 #define SYS_CLIDR_EL1			sys_reg(3, 1, 0, 0, 1)
 #define SYS_AIDR_EL1			sys_reg(3, 1, 0, 0, 7)
+#define SYS_L2CTRL_EL1			sys_reg(3, 1, 11, 0, 2)
 
 #define SYS_CSSELR_EL1			sys_reg(3, 2, 0, 0, 0)
 
