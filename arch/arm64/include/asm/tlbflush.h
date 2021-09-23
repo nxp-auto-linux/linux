@@ -47,7 +47,37 @@
 
 #define __TLBI_N(op, arg, n, ...) __TLBI_##n(op, arg)
 
+#if IS_ENABLED(CONFIG_NXP_S32GEN1_ERRATUM_ERR050481)
+ /**
+  * This checks if VA[48:41] bitset of an 12 bits shifted address is zero.
+  */
+#define IS_ERR050481_ADDR(addr_shr_12)  \
+	(((addr_shr_12) & GENMASK_ULL(36, 29)) != 0)
+
+#define S32GEN1_TLBI_ALT(OP, ADDR) do {\
+	unsigned long __temp_050481 = (ADDR);\
+	if (cpu_has_nxp_err050481() && IS_ERR050481_ADDR(__temp_050481))\
+		__TLBI_0(vmalle1is, 0);\
+	else\
+		__TLBI_1(OP, __temp_050481);\
+} while (0)
+
+#define __tlbi_vaae1is(ADDR, ...)	S32GEN1_TLBI_ALT(vaae1is, ADDR)
+#define __tlbi_vaae1is(ADDR, ...)	S32GEN1_TLBI_ALT(vaae1is, ADDR)
+#define __tlbi_vaale1is(ADDR, ...)	S32GEN1_TLBI_ALT(vaale1is, ADDR)
+#define __tlbi_vae1is(ADDR, ...)	S32GEN1_TLBI_ALT(vae1is, ADDR)
+#define __tlbi_vale1is(ADDR, ...)	S32GEN1_TLBI_ALT(vale1is, ADDR)
+#define __tlbi_vmalle1()		__TLBI_0(vmalle1, 0)
+#define __tlbi_vmalle1is()		__TLBI_0(vmalle1is, 0)
+#define __tlbi_aside1is(ASID)		__TLBI_1(aside1is, ASID)
+#define __tlbi_rvale1is(ADDR)		__TLBI_1(rvale1is, ADDR)
+#define __tlbi_rvae1is(ADDR)		__TLBI_1(rvae1is, ADDR)
+
+#define __tlbi(op, ...) __tlbi_##op(__VA_ARGS__)
+
+#else
 #define __tlbi(op, ...)		__TLBI_N(op, ##__VA_ARGS__, 1, 0)
+#endif
 
 #define __tlbi_user(op, arg) do {						\
 	if (arm64_kernel_unmapped_at_el0())					\
@@ -62,17 +92,6 @@
 		__ta |= (unsigned long)(asid) << 48;		\
 		__ta;						\
 	})
-
-#if IS_ENABLED(CONFIG_NXP_S32GEN1_ERRATUM_ERR050481)
-/* The most significant 44 VA bits get encoded as VA[55:12] in TLBI instructions
- * on A53 cores. Of these, the most significant (44 - (VA_BITS - 12)) are either
- * all 1 or all 0.
- * Note: The __TLBI_VADDR(addr) macro has already shifted addr by 12 and masked
- * by GENMASK_ULL(43, 0).
- */
-#define S32_IS_KERN_ADDR(addr_shr_12)  \
-	((((long)(addr_shr_12)) >> (VA_BITS - 12)) + 1 == (1 << (56 - VA_BITS)))
-#endif
 
 /*
  * Get translation granule of the system, which is decided by
@@ -273,15 +292,8 @@ static inline void flush_tlb_page_nosync(struct vm_area_struct *vma,
 
 	dsb(ishst);
 	addr = __TLBI_VADDR(uaddr, ASID(vma->vm_mm));
-#if IS_ENABLED(CONFIG_NXP_S32GEN1_ERRATUM_ERR050481)
-	if (S32_IS_KERN_ADDR(addr)) {
-		__tlbi(vmalle1is);
-	} else
-#endif
-	{
-		__tlbi(vale1is, addr);
-		__tlbi_user(vale1is, addr);
-	}
+	__tlbi(vale1is, addr);
+	__tlbi_user(vale1is, addr);
 }
 
 static inline void flush_tlb_page(struct vm_area_struct *vma,
@@ -348,12 +360,6 @@ static inline void __flush_tlb_range(struct vm_area_struct *vma,
 		if (!system_supports_tlb_range() ||
 		    pages % 2 == 1) {
 			addr = __TLBI_VADDR(start, asid);
-#if IS_ENABLED(CONFIG_NXP_S32GEN1_ERRATUM_ERR050481)
-			if (S32_IS_KERN_ADDR(addr)) {
-				__tlbi(vmalle1is);
-				break;
-			}
-#endif
 			if (last_level) {
 				__tlbi_level(vale1is, addr, tlb_level);
 				__tlbi_user_level(vale1is, addr, tlb_level);
@@ -409,15 +415,8 @@ static inline void flush_tlb_kernel_range(unsigned long start, unsigned long end
 	end = __TLBI_VADDR(end, 0);
 
 	dsb(ishst);
-	for (addr = start; addr < end; addr += 1 << (PAGE_SHIFT - 12)) {
-#if IS_ENABLED(CONFIG_NXP_S32GEN1_ERRATUM_ERR050481)
-		if (S32_IS_KERN_ADDR(addr)) {
-			__tlbi(vmalle1is);
-			break;
-		}
-#endif
+	for (addr = start; addr < end; addr += 1 << (PAGE_SHIFT - 12))
 		__tlbi(vaale1is, addr);
-	}
 	dsb(ish);
 	isb();
 }
@@ -431,14 +430,7 @@ static inline void __flush_tlb_kernel_pgtable(unsigned long kaddr)
 	unsigned long addr = __TLBI_VADDR(kaddr, 0);
 
 	dsb(ishst);
-#if IS_ENABLED(CONFIG_NXP_S32GEN1_ERRATUM_ERR050481)
-	if (S32_IS_KERN_ADDR(addr))
-		__tlbi(vmalle1is);
-	else
-#endif
-	{
-		__tlbi(vaae1is, addr);
-	}
+	__tlbi(vaae1is, addr);
 	dsb(ish);
 	isb();
 }
