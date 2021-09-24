@@ -46,6 +46,7 @@ void *hse_mu_init(struct device *dev, void **desc_base_ptr, u64 *desc_base_dma,
 
 u16 hse_mu_check_status(void *mu);
 u32 hse_mu_check_event(void *mu);
+void hse_mu_trigger_event(void *mu, u32 evt);
 
 void hse_mu_irq_enable(void *mu, enum hse_irq_type irq_type, u32 irq_mask);
 void hse_mu_irq_disable(void *mu, enum hse_irq_type irq_type, u32 irq_mask);
