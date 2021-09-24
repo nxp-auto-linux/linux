@@ -104,6 +104,19 @@ u32 hse_mu_check_event(void *mu)
 }
 
 /**
+ * hse_mu_trigger_event - trigger HSE host event
+ * @mu: MU instance handle
+ *
+ * Return: HSE host event mask
+ */
+void hse_mu_trigger_event(void *mu, u32 evt)
+{
+	struct hse_mu_data *priv = mu;
+
+	return iowrite32(evt, &priv->regs->gcr);
+}
+
+/**
  * hse_mu_irq_enable - enable a specific type of interrupt using a mask
  * @mu: MU instance handle
  * @irq_type: interrupt type
