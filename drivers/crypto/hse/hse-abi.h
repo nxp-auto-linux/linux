@@ -59,6 +59,15 @@ enum hse_event {
 };
 
 /**
+ * enum hse_host_event - HSE host event
+ * @HSE_HOST_PERIPH_CONFIG_DONE: sent by the host to notify HSE when external
+ *				 peripherals have been configured at init-time
+ */
+enum hse_host_event {
+	HSE_HOST_PERIPH_CONFIG_DONE = BIT(0),
+};
+
+/**
  * enum hse_srv_id - HSE service ID
  * @HSE_SRV_ID_GET_ATTR: get attribute, such as firmware version
  * @HSE_SRV_ID_IMPORT_EXPORT_STREAM_CTX: import/export streaming context
