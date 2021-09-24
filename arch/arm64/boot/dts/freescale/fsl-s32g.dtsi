@@ -481,7 +481,7 @@
 
 	usbmisc: usbmisc@44064200 {
 		#index-cells = <1>;
-		compatible = "fsl,s32g-usbmisc";
+		compatible = "fsl,s32g2-usbmisc";
 		reg = <0x0 0x44064200 0x0 0x200>;
 	};
 
