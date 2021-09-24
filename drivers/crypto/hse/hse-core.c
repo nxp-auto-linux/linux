@@ -22,8 +22,8 @@
 /**
  * enum hse_fw_status - HSE firmware status
  * @HSE_FW_SHUTDOWN: firmware not initialized or shut down due to fatal error
- * @HSE_FW_RUNNING: firmware running
- * @HSE_FW_STANDBY: firmware standby
+ * @HSE_FW_RUNNING: firmware running and able to service any type of request
+ * @HSE_FW_STANDBY: firmware considered in stand-by state, no crypto requests
  */
 enum hse_fw_status {
 	HSE_FW_SHUTDOWN = 0u,
@@ -85,13 +85,15 @@ struct hse_drvdata {
 };
 
 /**
- * hse_print_fw_version - print firmware version
+ * hse_get_fw_version - retrieve firmware version
  * @dev: HSE device
  *
- * Get firmware version attribute from HSE and print it. Attribute buffer is
- * encoded into the descriptor to get around HSE memory access limitations.
+ * Attribute buffer is encoded into the descriptor to get around HSE memory
+ * access limitations and avoid DMA copy in upper range of 32-bit address space.
+ *
+ * Return: firmware version attribute
  */
-static void hse_print_fw_version(struct device *dev)
+static struct hse_attr_fw_version *hse_get_fw_version(struct device *dev)
 {
 	struct hse_drvdata *drv = dev_get_drvdata(dev);
 	struct hse_srv_desc srv_desc;
@@ -113,16 +115,10 @@ static void hse_print_fw_version(struct device *dev)
 	err = hse_srv_req_sync(dev, HSE_CHANNEL_ADM, &srv_desc);
 	if (unlikely(err)) {
 		dev_dbg(dev, "%s: request failed: %d\n", __func__, err);
-		return;
+		return ERR_PTR(err);
 	}
 
-	dev_info(dev, "firmware type %d, version %d.%d.%d\n", fw_ver->fw_type,
-		 fw_ver->major, fw_ver->minor, fw_ver->patch);
-
-	drv->rng_srv_id = HSE_SRV_ID_GET_RANDOM_NUM;
-	if (fw_ver->major == 0u && fw_ver->minor == 9u &&
-	    (fw_ver->patch == 0u || fw_ver->patch == 1u))
-		drv->rng_srv_id |= 0x00A50000ul;
+	return fw_ver;
 }
 
 u32 _get_rng_srv_id(struct device *dev)
@@ -790,6 +786,7 @@ static int hse_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct hse_drvdata *drv;
+	struct hse_attr_fw_version *fw_ver;
 	void *desc_base_ptr;
 	u64 desc_base_dma;
 	u16 status;
@@ -816,7 +813,6 @@ static int hse_probe(struct platform_device *pdev)
 		dev_err(dev, "firmware not found\n");
 		return -ENODEV;
 	}
-	drv->firmware_status = HSE_FW_RUNNING;
 
 	/* manage channels and descriptor space */
 	hse_manage_channels(dev, desc_base_ptr, desc_base_dma);
@@ -831,8 +827,23 @@ static int hse_probe(struct platform_device *pdev)
 	hse_mu_irq_enable(drv->mu, HSE_INT_SYS_EVENT, HSE_EVT_MASK_WARN);
 	hse_mu_irq_enable(drv->mu, HSE_INT_SYS_EVENT, HSE_EVT_MASK_ERR);
 
+	/* enable service requests */
+	drv->firmware_status = HSE_FW_RUNNING;
+
 	/* check firmware version */
-	hse_print_fw_version(dev);
+	fw_ver = hse_get_fw_version(dev);
+	if (IS_ERR_OR_NULL(fw_ver)) {
+		err = PTR_ERR(fw_ver);
+		goto err_probe_failed;
+	}
+
+	dev_info(dev, "firmware type %d, version %d.%d.%d\n", fw_ver->fw_type,
+		 fw_ver->major, fw_ver->minor, fw_ver->patch);
+
+	drv->rng_srv_id = HSE_SRV_ID_GET_RANDOM_NUM;
+	if (fw_ver->major == 0u && fw_ver->minor == 9u &&
+	    (fw_ver->patch == 0u || fw_ver->patch == 1u))
+		drv->rng_srv_id |= 0x00A50000ul;
 
 	/* check HSE global status */
 	if (IS_ENABLED(CONFIG_CRYPTO_DEV_NXP_HSE_HWRNG) &&
@@ -926,36 +937,57 @@ static int hse_pm_suspend(struct device *dev)
 	srv_desc.srv_id = HSE_SRV_ID_PREPARE_FOR_STANDBY;
 	err = hse_srv_req_sync(dev, HSE_CHANNEL_ADM, &srv_desc);
 
-	/* cancel all requests */
+	/* cancel other requests */
 	hse_srv_req_cancel_all(dev);
 
 	if (unlikely(err && err != -EPERM)) {
-		drv->firmware_status = HSE_FW_RUNNING;
 		dev_err(dev, "%s: request failed: %d\n", __func__, err);
-		return err;
+		goto err_enable_irq;
 	}
 
 	dev_info(dev, "firmware prepared for stand-by\n");
 
 	return 0;
+err_enable_irq:
+	hse_mu_irq_enable(drv->mu, HSE_INT_RESPONSE, HSE_CH_MASK_ALL);
+	drv->firmware_status = HSE_FW_RUNNING;
+	return err;
 }
 
 static int hse_pm_resume(struct device *dev)
 {
 	struct hse_drvdata *drv = dev_get_drvdata(dev);
+	struct hse_attr_fw_version *fw_ver;
 	u16 status;
 
-	/* check firmware status */
-	status = hse_mu_check_status(drv->mu);
-	if (!likely(status & HSE_STATUS_INIT_OK)) {
-		dev_err(dev, "firmware not running\n");
-		return -ENODEV;
-	}
+	/* signal firmware that peripheral configuration is done */
+	hse_mu_trigger_event(drv->mu, HSE_HOST_PERIPH_CONFIG_DONE);
 
 	/* enable RX and event notifications */
 	hse_mu_irq_enable(drv->mu, HSE_INT_RESPONSE, HSE_CH_MASK_ALL);
 	hse_mu_irq_enable(drv->mu, HSE_INT_SYS_EVENT, HSE_EVT_MASK_WARN);
 	hse_mu_irq_enable(drv->mu, HSE_INT_SYS_EVENT, HSE_EVT_MASK_ERR);
+
+	/* check firmware status */
+	status = hse_mu_check_status(drv->mu);
+	if (!(status & HSE_STATUS_INIT_OK)) {
+		/* wait for firmware init */
+		fw_ver = hse_get_fw_version(dev);
+		if (IS_ERR_OR_NULL(fw_ver)) {
+			dev_err(dev, "%s: request failed: %ld\n", __func__,
+				PTR_ERR(fw_ver));
+			return PTR_ERR(fw_ver);
+		}
+		status = hse_mu_check_status(drv->mu);
+	}
+
+	if (IS_ENABLED(CONFIG_CRYPTO_DEV_NXP_HSE_HWRNG) &&
+	    !likely(status & HSE_STATUS_RNG_INIT_OK))
+		dev_err(dev, "RNG not initialized\n");
+	if (!likely(status & HSE_STATUS_INSTALL_OK))
+		dev_err(dev, "key catalogs not formatted\n");
+	if (unlikely(status & HSE_STATUS_PUBLISH_SYS_IMAGE))
+		dev_warn(dev, "volatile configuration, publish SYS_IMAGE\n");
 
 	drv->firmware_status = HSE_FW_RUNNING;
 	dev_info(dev, "device resumed, status 0x%04X\n", status);
