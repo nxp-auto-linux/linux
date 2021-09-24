@@ -133,3 +133,7 @@
 		next-level-cache = <&cluster1_l2_cache>;
 	};
 };
+
+&usbmisc {
+	compatible = "fsl,s32g3-usbmisc";
+};
