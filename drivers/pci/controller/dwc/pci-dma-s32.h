@@ -12,7 +12,6 @@
 
 #ifdef CONFIG_PCI_DW_DMA
 
-#include "pcie-designware.h"
 #include "pci-ioctl-s32.h"
 
 /* Synopsys-specific PCIe configuration registers */
@@ -185,7 +184,6 @@ int dw_pcie_dma_start_linked_list(struct dma_info *di,
 void dw_pcie_dma_start_llw(struct dma_info *di, u64 phy_list_addr);
 irqreturn_t dw_handle_dma_irq_write(struct dma_info *di, u8 ch, u32 val_write);
 irqreturn_t dw_handle_dma_irq_read(struct dma_info *di, u8 ch, u32 val_read);
-
 
 #endif /* CONFIG_PCI_DW_DMA */
 

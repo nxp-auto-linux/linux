@@ -32,11 +32,9 @@ struct s32v234_pcie {
 	struct regmap		*src;
 
 	int			link_req_rst_not_irq;
-	struct dentry		*dir;
-	int			user_pid;
-	struct kernel_siginfo	info;    /* signal information */
+
 	void (*call_back)(u32 arg);
-	int (*send_signal_to_user)(struct s32v234_pcie *s32v234_pcie);
+	struct s32_userspace_info uinfo;
 
 #ifdef CONFIG_PCI_DW_DMA
 	int	dma_irq;
