@@ -1,22 +1,12 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright 2019-2021 NXP
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
  */
-
-/dts-v1/;
-#include "fsl-s32g274a.dtsi"
+#include "fsl-s32g.dtsi"
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/pinctrl/s32g-pinctrl.h>
-/ {
-	model = "Freescale S32G274";
-	compatible = "fsl,s32g274-simu", "fsl,s32g274",
-				 "arm,vexpress,v2p-aarch64", "arm,vexpress";
 
+/ {
 	chosen {
 		stdout-path = "serial0:115200n8";
 	};
