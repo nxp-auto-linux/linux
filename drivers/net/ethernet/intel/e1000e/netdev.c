@@ -1,5 +1,8 @@
 // SPDX-License-Identifier: GPL-2.0
-/* Copyright(c) 1999 - 2018 Intel Corporation. */
+/*
+ * Copyright(c) 1999 - 2018 Intel Corporation.
+ * Copyright 2021 NXP
+ */
 
 #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
 
@@ -7778,7 +7781,8 @@ static void e1000_remove(struct pci_dev *pdev)
 	/* Release control of h/w to f/w.  If f/w is AMT enabled, this
 	 * would have already happened in close and is redundant.
 	 */
-	e1000e_release_hw_control(adapter);
+	if (!pci_channel_offline(pdev))
+		e1000e_release_hw_control(adapter);
 
 	e1000e_reset_interrupt_capability(adapter);
 	kfree(adapter->tx_ring);
