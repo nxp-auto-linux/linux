@@ -246,8 +246,7 @@ static int s32v234_store_ll_array(struct dma_info *di, void __user *argp)
 	}
 	ret = dw_pcie_dma_load_linked_list(di,
 		ll_nr_elem, di->ll_info.phy_list_addr,
-		di->ll_info.next_phy_list_addr,
-		di->ll_info.direction);
+		di->ll_info.next_phy_list_addr);
 
 	return ret;
 }
@@ -264,8 +263,7 @@ int s32v234_start_dma_ll(struct dma_info *di, void __user *argp)
 		return -EFAULT;
 	}
 	ret = dw_pcie_dma_start_linked_list(di,
-		phy_addr,
-		di->ll_info.direction);
+		phy_addr);
 	return ret;
 }
 
@@ -331,7 +329,7 @@ static irqreturn_t s32v234_pcie_dma_handler(int irq, void *arg)
 
 	if (val_write) {
 		bool signal = (di->wr_ch.status == DMA_CH_RUNNING);
-		dw_handle_dma_irq_write(pcie, di, val_write);
+		dw_handle_dma_irq_write(di, val_write);
 		if (signal && s32v234_pp->send_signal_to_user) {
 			s32v234_pp->send_signal_to_user(s32v234_pp);
 		}
@@ -341,7 +339,7 @@ static irqreturn_t s32v234_pcie_dma_handler(int irq, void *arg)
 	}
 	if (val_read) {
 		bool signal = (di->rd_ch.status == DMA_CH_RUNNING);
-		dw_handle_dma_irq_read(pcie, di, val_read);
+		dw_handle_dma_irq_read(di, val_read);
 		if (signal && s32v234_pp->send_signal_to_user) {
 			s32v234_pp->send_signal_to_user(s32v234_pp);
 		}
