@@ -1504,9 +1504,6 @@ static int s32gen1_pcie_suspend(struct device *dev)
 
 	DEBUG_FID(s32_pp->id);
 
-	if (!s32gen1_pcie_link_is_up(pcie))
-		return 0;
-
 	/* Save MSI interrupt vector */
 	s32_pp->msi_ctrl_int = dw_pcie_readl_dbi(pcie,
 					       PORT_MSI_CTRL_INT_0_EN_OFF);
