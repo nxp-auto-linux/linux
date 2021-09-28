@@ -516,6 +516,16 @@ int s32_pcie_setup_inbound(struct s32_inbound_region *inbStr)
 }
 EXPORT_SYMBOL(s32_pcie_setup_inbound);
 
+static void s32gen1_pcie_enable_hot_unplug_irq(struct s32gen1_pcie *pci)
+{
+	BSET32(pci, ctrl, LINK_INT_CTRL_STS, LINK_REQ_RST_NOT_INT_EN);
+}
+
+static void s32gen1_pcie_disable_hot_unplug_irq(struct s32gen1_pcie *pci)
+{
+	BCLR32(pci, ctrl, LINK_INT_CTRL_STS, LINK_REQ_RST_NOT_INT_EN);
+}
+
 static void s32gen1_pcie_disable_ltssm(struct s32gen1_pcie *pci)
 {
 	DEBUG_FID(pci->id);
@@ -566,6 +576,23 @@ static int s32gen1_pcie_get_link_speed(struct s32gen1_pcie *s32_pp)
 
 	/* return link speed based on negotiated link status */
 	return link_sta & PCI_EXP_LNKSTA_CLS;
+}
+
+static struct pci_bus *s32gen1_get_child_downstream_bus(struct pci_bus *bus)
+{
+	struct pci_bus *child, *root_bus = NULL;
+
+	list_for_each_entry(child, &bus->children, node) {
+		if (child->parent == bus) {
+			root_bus = child;
+			break;
+		}
+	}
+
+	if (!root_bus)
+		return ERR_PTR(-ENODEV);
+
+	return root_bus;
 }
 
 static int s32gen1_pcie_start_link(struct dw_pcie *pcie)
@@ -731,6 +758,52 @@ static struct dw_pcie_host_ops s32gen1_pcie_host_ops2 = {
 	.host_init = s32gen1_pcie_host_init,
 	.msi_host_init = s32gen1_pcie_msi_host_init,
 };
+
+static irqreturn_t s32gen1_pcie_hot_unplug_irq(int irq, void *arg)
+{
+	struct s32gen1_pcie *s32_pci = arg;
+	struct dw_pcie *pcie = &s32_pci->pcie;
+
+	BSET32(s32_pci, ctrl, LINK_INT_CTRL_STS, LINK_REQ_RST_NOT_CLR);
+
+	if (s32gen1_pcie_link_is_up(pcie))
+		return IRQ_HANDLED;
+
+	return IRQ_WAKE_THREAD;
+}
+
+static irqreturn_t s32gen1_pcie_hot_unplug_thread(int irq, void *arg)
+{
+	struct s32gen1_pcie *s32_pci = arg;
+	struct dw_pcie *pcie = &s32_pci->pcie;
+	struct pcie_port *pp = &pcie->pp;
+	struct pci_bus *bus = pp->bridge->bus;
+	struct pci_bus *root_bus;
+	struct pci_dev *pdev, *temp;
+
+	pci_lock_rescan_remove();
+
+	root_bus = s32gen1_get_child_downstream_bus(bus);
+	if (IS_ERR(root_bus)) {
+		dev_err(pcie->dev, "Failed to find downstream devices\n");
+		goto out_unlock_rescan;
+	}
+
+	/* if EP is not connected -- Hot-Unplug Surprise event */
+	if (phy_validate(s32_pci->phy0, PHY_MODE_PCIE, 0, NULL))
+		pci_walk_bus(root_bus, pci_dev_set_disconnected, NULL);
+
+	list_for_each_entry_safe_reverse(pdev, temp,
+					 &root_bus->devices, bus_list) {
+		pci_dev_get(pdev);
+		pci_stop_and_remove_bus_device(pdev);
+		pci_dev_put(pdev);
+	}
+
+out_unlock_rescan:
+	pci_unlock_rescan_remove();
+	return IRQ_HANDLED;
+}
 
 #define MAX_IRQ_NAME_SIZE 32
 static int s32gen1_pcie_config_irq(int *irq_id, char *irq_name,
@@ -1222,7 +1295,7 @@ static void s32gen1_pcie_downstream_dev_to_D0(struct s32gen1_pcie *s32_pp)
 {
 	struct dw_pcie *pcie = &(s32_pp->pcie);
 	struct pcie_port *pp = &(pcie->pp);
-	struct pci_bus *child, *root_bus = NULL;
+	struct pci_bus *root_bus = NULL;
 	struct pci_dev *pdev;
 
 	DEBUG_FID(s32_pp->id);
@@ -1234,15 +1307,8 @@ static void s32gen1_pcie_downstream_dev_to_D0(struct s32gen1_pcie *s32_pp)
 	 * link into L2 state.
 	 */
 
-	list_for_each_entry(child, &pp->bridge->bus->children, node) {
-		/* Bring downstream devices to D0 if they are not already in */
-		if (child->parent == pp->bridge->bus) {
-			root_bus = child;
-			break;
-		}
-	}
-
-	if (!root_bus) {
+	root_bus = s32gen1_get_child_downstream_bus(pp->bridge->bus);
+	if (IS_ERR(root_bus)) {
 		dev_err(pcie->dev, "Failed to find downstream devices\n");
 		return;
 	}
@@ -1319,7 +1385,7 @@ static int s32gen1_pcie_config_common(struct s32gen1_pcie *s32_pp,
 	struct device *dev = &pdev->dev;
 	struct dw_pcie *pcie = &(s32_pp->pcie);
 	struct pcie_port *pp = &(pcie->pp);
-	int ret = 0;
+	int irq_id, ret = 0;
 
 	DEBUG_FID(s32_pp->id);
 
@@ -1428,6 +1494,24 @@ static int s32gen1_pcie_config_common(struct s32gen1_pcie *s32_pp,
 			goto fail_host_init;
 	}
 
+	if (!s32_pp->is_endpoint) {
+		irq_id = platform_get_irq_byname(pdev, "link_req_stat");
+		if (irq_id <= 0) {
+			dev_err(&pdev->dev, "Failed to get link_req_stat irq\n");
+			return -ENODEV;
+		}
+
+		ret = request_threaded_irq(irq_id, s32gen1_pcie_hot_unplug_irq,
+					   s32gen1_pcie_hot_unplug_thread, IRQF_SHARED,
+					   "s32gen1-pcie-hot-unplug", s32_pp);
+		if (ret) {
+			dev_err(&pdev->dev, "Failed to request link_reg_stat irq\n");
+			return ret;
+		}
+
+		s32gen1_pcie_enable_hot_unplug_irq(s32_pp);
+	}
+
 	/* TODO: Init debugfs here */
 
 	return ret;
@@ -1507,6 +1591,10 @@ static int s32gen1_pcie_suspend(struct device *dev)
 	/* Save MSI interrupt vector */
 	s32_pp->msi_ctrl_int = dw_pcie_readl_dbi(pcie,
 					       PORT_MSI_CTRL_INT_0_EN_OFF);
+
+	/* Disable Hot-Unplug irq */
+	s32gen1_pcie_disable_hot_unplug_irq(s32_pp);
+
 	s32gen1_pcie_downstream_dev_to_D0(s32_pp);
 
 	pci_stop_root_bus(pp->bridge->bus);
@@ -1548,6 +1636,9 @@ static int s32gen1_pcie_resume(struct device *dev)
 	/* Restore MSI interrupt vector */
 	dw_pcie_writel_dbi(pcie, PORT_MSI_CTRL_INT_0_EN_OFF,
 			   s32_pp->msi_ctrl_int);
+
+	/* Enable Hot-Unplug irq */
+	s32gen1_pcie_enable_hot_unplug_irq(s32_pp);
 
 	return 0;
 
