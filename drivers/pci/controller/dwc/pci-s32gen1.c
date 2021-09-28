@@ -388,7 +388,16 @@ static irqreturn_t s32gen1_pcie_dma_handler(int irq, void *arg)
 
 	if (val_write) {
 #ifdef CONFIG_PCI_S32GEN1_ACCESS_FROM_USER
-		bool signal = (di->wr_ch.status == DMA_CH_RUNNING);
+		/* If we have one running channel, then we need
+		 * to notify user space
+		 */
+		bool signal = false;
+
+		for (ch = 0; ch < PCIE_DMA_NR_CH; ch++)
+			if (di->wr_ch[ch].status == DMA_CH_RUNNING) {
+				siglal = true;
+				break;
+			}
 #endif
 		dma_error = dw_handle_dma_irq_write(di, val_write);
 		if (dma_error == DMA_ERR_NONE) {
@@ -409,7 +418,16 @@ static irqreturn_t s32gen1_pcie_dma_handler(int irq, void *arg)
 	}
 	if (val_read) {
 #ifdef CONFIG_PCI_S32GEN1_ACCESS_FROM_USER
-		bool signal = (di->rd_ch.status == DMA_CH_RUNNING);
+		/* If we have one running channel, then we need
+		 * to notify user space
+		 */
+		bool signal = false;
+
+		for (ch = 0; ch < PCIE_DMA_NR_CH; ch++)
+			if (di->rd_ch.status == DMA_CH_RUNNING) {
+				signal = true;
+				break;
+			}
 #endif
 		dma_error = dw_handle_dma_irq_read(di, val_read);
 		if (dma_error == DMA_ERR_NONE) {

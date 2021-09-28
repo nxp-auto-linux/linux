@@ -63,7 +63,7 @@
 #define PCIE_DMA_DAR_LOW_OFF			(0x14)
 #define PCIE_DMA_DAR_HIGH_OFF			(0x18)
 #define PCIE_DMA_LLP_LOW_OFF			(0x1C)
-#define PCIE_DMA_LLP_HIGH_OFF			(0x120)
+#define PCIE_DMA_LLP_HIGH_OFF			(0x20)
 
 /* DW DMA Internal flags */
 /* TODO: Number of channels and max size should come from a
@@ -71,7 +71,7 @@
  * e.g. PCIE_DMA_CTRL
  */
 #ifndef PCIE_DMA_NR_CH
-#define PCIE_DMA_NR_CH		1
+#define PCIE_DMA_NR_CH		4
 #endif
 #ifndef PCIE_DMA_MAX_SIZE
 #define PCIE_DMA_MAX_SIZE	(4 * 1024 * 1024)  /* 4G bytes */
@@ -151,9 +151,9 @@ struct dma_info {
 	void (*write_dma)(struct dma_info *di, void __iomem *base,
 			u32 reg, size_t size, u32 val);
 
-	struct dma_ch_info	wr_ch;
-	struct dma_ch_info	rd_ch;
-	struct dma_ll_info	ll_info;
+	struct dma_ch_info	wr_ch[PCIE_DMA_NR_CH];
+	struct dma_ch_info	rd_ch[PCIE_DMA_NR_CH];
+	struct dma_ll_info	ll_info; /* one channel for now */
 	struct dma_list(*dma_linked_list)[];
 #ifdef DMA_PTR_FUNC
 	int (*ptr_func)(u32 arg);
@@ -213,8 +213,8 @@ int dw_pcie_dma_load_linked_list(struct dma_info *di,
 int dw_pcie_dma_start_linked_list(struct dma_info *di,
 	u32 phy_list_addr);
 void dw_pcie_dma_start_llw(struct dma_info *di, u64 phy_list_addr);
-irqreturn_t dw_handle_dma_irq_write(struct dma_info *di, u32 val_write);
-irqreturn_t dw_handle_dma_irq_read(struct dma_info *di, u32 val_read);
+irqreturn_t dw_handle_dma_irq_write(struct dma_info *di, u8 ch, u32 val_write);
+irqreturn_t dw_handle_dma_irq_read(struct dma_info *di, u8 ch, u32 val_read);
 
 
 #endif /* CONFIG_PCI_DW_DMA */

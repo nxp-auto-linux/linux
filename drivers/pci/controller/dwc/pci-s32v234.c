@@ -291,10 +291,23 @@ int s32v234_store_ll_array_info(struct dma_info *di, void __user *argp)
 
 static int s32v234_send_dma_errors(struct dma_info *di, void __user *argp)
 {
-	int ret = 0;
-	u32 dma_errors;
+	int ret = 0, ch;
+	u32 dma_errors = DMA_ERR_NONE;
+	u32 wr_errors = DMA_ERR_NONE, rd_errors = DMA_ERR_NONE;
 
-	dma_errors = ((di->wr_ch.errors) << 16) | di->rd_ch.errors;
+	/* Find first channels with write and read errors */
+	for (ch = 0; ch < PCIE_DMA_NR_CH; ch++)
+		if (di->wr_ch[ch].errors != DMA_ERR_NONE) {
+			wr_errors = di->wr_ch[ch].errors;
+			break;
+		}
+	for (ch = 0; ch < PCIE_DMA_NR_CH; ch++)
+		if (di->rd_ch[ch].errors != DMA_ERR_NONE) {
+			rd_errors = di->rd_ch[ch].errors;
+			break;
+		}
+
+	dma_errors = (wr_errors << 16) | rd_errors;
 
 	if (copy_to_user((unsigned int *)argp, &dma_errors, sizeof(u32)))
 		return -EFAULT;
@@ -328,8 +341,18 @@ static irqreturn_t s32v234_pcie_dma_handler(int irq, void *arg)
 	val_read = dw_pcie_readl_dma(di, PCIE_DMA_READ_INT_STATUS);
 
 	if (val_write) {
-		bool signal = (di->wr_ch.status == DMA_CH_RUNNING);
-		dw_handle_dma_irq_write(di, val_write);
+		/* If we have one running channel, then we need
+		 * to notify user space
+		 */
+		bool signal = false;
+		u8 ch;
+
+		for (ch = 0; ch < PCIE_DMA_NR_CH; ch++)
+			if (di->wr_ch[ch].status == DMA_CH_RUNNING) {
+				signal = true;
+				break;
+			}
+		dw_handle_dma_irq_write(di, ch, val_write);
 		if (signal && s32v234_pp->send_signal_to_user) {
 			s32v234_pp->send_signal_to_user(s32v234_pp);
 		}
@@ -338,8 +361,18 @@ static irqreturn_t s32v234_pcie_dma_handler(int irq, void *arg)
 			s32v234_pp->call_back(val_write);
 	}
 	if (val_read) {
-		bool signal = (di->rd_ch.status == DMA_CH_RUNNING);
-		dw_handle_dma_irq_read(di, val_read);
+		/* If we have one running channel, then we need
+		 * to notify user space
+		 */
+		bool signal = false;
+		u8 ch;
+
+		for (ch = 0; ch < PCIE_DMA_NR_CH; ch++)
+			if (di->rd_ch[ch].status == DMA_CH_RUNNING) {
+				signal = true;
+				break;
+			}
+		dw_handle_dma_irq_read(di, ch, val_read);
 		if (signal && s32v234_pp->send_signal_to_user) {
 			s32v234_pp->send_signal_to_user(s32v234_pp);
 		}

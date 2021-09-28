@@ -71,10 +71,12 @@ int dw_pcie_dma_write_en(struct dma_info *di)
 }
 int dw_pcie_dma_write_soft_reset(struct dma_info *di)
 {
+	u8 ch;
 	dw_pcie_writel_dma(di, PCIE_DMA_WRITE_ENGINE_EN, 0x0);
 	while (dw_pcie_readl_dma(di, PCIE_DMA_WRITE_ENGINE_EN) == 1)
 		;
-	di->wr_ch.status = DMA_CH_STOPPED;
+	for (ch = 0; ch < PCIE_DMA_NR_CH; ch++)
+		di->wr_ch[ch].status = DMA_CH_STOPPED;
 	dw_pcie_writel_dma(di, PCIE_DMA_WRITE_ENGINE_EN, 0x1);
 	return 0;
 }
@@ -85,10 +87,12 @@ int dw_pcie_dma_read_en(struct dma_info *di)
 }
 int dw_pcie_dma_read_soft_reset(struct dma_info *di)
 {
+	u8 ch;
 	dw_pcie_writel_dma(di, PCIE_DMA_READ_ENGINE_EN, 0x0);
 	while (dw_pcie_readl_dma(di, PCIE_DMA_READ_ENGINE_EN) == 1)
 		;
-	di->rd_ch.status = DMA_CH_STOPPED;
+	for (ch = 0; ch < PCIE_DMA_NR_CH; ch++)
+		di->rd_ch[ch].status = DMA_CH_STOPPED;
 	dw_pcie_writel_dma(di, PCIE_DMA_READ_ENGINE_EN, 0x1);
 	return 0;
 }
@@ -273,23 +277,38 @@ void dw_pcie_dma_set_viewport(struct dma_info *di, u8 ch_nr, u8 dir)
 
 void dw_pcie_dma_clear_regs(struct dma_info *di)
 {
-	di->wr_ch.status = DMA_CH_STOPPED;
-	di->rd_ch.status = DMA_CH_STOPPED;
 	u8 ch = 0, ch_max = 0;
 	u8 dir = DMA_CH_WRITE;
 
-	for (dir = DMA_CH_WRITE; dir <= DMA_CH_READ; dir++) {
-		u32 ch_base = dw_pcie_get_dma_channel_base(di, ch, dir);
+	if (di->iatu_unroll_enabled)
+		ch_max = PCIE_DMA_NR_CH - 1;
 
-		dw_pcie_writel_dma(di, ch_base + PCIE_DMA_CH_CONTROL1_OFF, 0);
-		dw_pcie_writel_dma(di, ch_base + PCIE_DMA_CH_CONTROL2_OFF, 0);
-		dw_pcie_writel_dma(di, ch_base + PCIE_DMA_TRANSFER_SIZE_OFF, 0);
-		dw_pcie_writel_dma(di, ch_base + PCIE_DMA_SAR_LOW_OFF, 0);
-		dw_pcie_writel_dma(di, ch_base + PCIE_DMA_SAR_HIGH_OFF, 0);
-		dw_pcie_writel_dma(di, ch_base + PCIE_DMA_DAR_LOW_OFF, 0);
-		dw_pcie_writel_dma(di, ch_base + PCIE_DMA_DAR_HIGH_OFF, 0);
-		dw_pcie_writel_dma(di, ch_base + PCIE_DMA_LLP_LOW_OFF, 0);
-		dw_pcie_writel_dma(di, ch_base + PCIE_DMA_LLP_HIGH_OFF, 0);
+	for (ch = 0; ch <= ch_max; ch++) {
+		di->wr_ch[ch].status = DMA_CH_STOPPED;
+		di->rd_ch[ch].status = DMA_CH_STOPPED;
+		for (dir = DMA_CH_WRITE; dir <= DMA_CH_READ; dir++) {
+			u32 ch_base = dw_pcie_get_dma_channel_base(di,
+				ch, dir);
+
+			dw_pcie_writel_dma(di,
+				ch_base + PCIE_DMA_CH_CONTROL1_OFF, 0);
+			dw_pcie_writel_dma(di,
+				ch_base + PCIE_DMA_CH_CONTROL2_OFF, 0);
+			dw_pcie_writel_dma(di,
+				ch_base + PCIE_DMA_TRANSFER_SIZE_OFF, 0);
+			dw_pcie_writel_dma(di,
+				ch_base + PCIE_DMA_SAR_LOW_OFF, 0);
+			dw_pcie_writel_dma(di,
+				ch_base + PCIE_DMA_SAR_HIGH_OFF, 0);
+			dw_pcie_writel_dma(di,
+				ch_base + PCIE_DMA_DAR_LOW_OFF, 0);
+			dw_pcie_writel_dma(di,
+				ch_base + PCIE_DMA_DAR_HIGH_OFF, 0);
+			dw_pcie_writel_dma(di,
+				ch_base + PCIE_DMA_LLP_LOW_OFF, 0);
+			dw_pcie_writel_dma(di,
+				ch_base + PCIE_DMA_LLP_HIGH_OFF, 0);
+		}
 	}
 
 	dw_pcie_writel_dma(di, PCIE_DMA_WRITE_INT_MASK, 0);
@@ -367,7 +386,7 @@ void dw_pcie_dma_start_llw(struct dma_info *di, u64 phy_list_addr)
 	/* Set pointer to start of first list */
 	dw_pcie_dma_set_list_ptr(di, phy_list_addr, ch_nr, DMA_CH_WRITE);
 	/* Ring doorbell */
-	di->wr_ch.status = DMA_CH_RUNNING;
+	di->wr_ch[ch_nr].status = DMA_CH_RUNNING;
 	dw_pcie_writel_dma(di, PCIE_DMA_WRITE_DOORBELL, 0);
 }
 EXPORT_SYMBOL(dw_pcie_dma_start_llw);
@@ -376,21 +395,21 @@ static int dw_pcie_dma_start_ll_write(struct dma_info *di, u32 phy_list_addr)
 {
 	u8 ch_nr = di->ll_info.ch_num;
 
-	if (di->wr_ch.status != DMA_CH_RUNNING) {
+	if (di->wr_ch[ch_nr].status != DMA_CH_RUNNING) {
 		u32 ch_base = dw_pcie_get_dma_channel_base(di,
 			ch_nr, DMA_CH_WRITE);
 
 		/* Set ch_status */
-		di->wr_ch.status = DMA_CH_RUNNING;
+		di->wr_ch[ch_nr].status = DMA_CH_RUNNING;
 		/* Set last data elem */
-		dw_pcie_dma_set_data_elem((u32 *)di->wr_ch.virt_addr,
-		di->wr_ch.current_list_size - 1,
-		di->wr_ch.current_sar,
-		di->wr_ch.current_dar, di->wr_ch.current_size, 1);
+		dw_pcie_dma_set_data_elem((u32 *)di->wr_ch[ch_nr].virt_addr,
+		di->wr_ch[ch_nr].current_list_size - 1,
+		di->wr_ch[ch_nr].current_sar,
+		di->wr_ch[ch_nr].current_dar, di->wr_ch[ch_nr].current_size, 1);
 
 		/* Program DMA regs for LL mode */
 		dw_pcie_writel_dma(di, ch_base + PCIE_DMA_CH_CONTROL1_OFF, 0);
-		di->wr_ch.phy_list_addr = phy_list_addr;
+		di->wr_ch[ch_nr].phy_list_addr = phy_list_addr;
 		dw_pcie_writel_dma(di, PCIE_DMA_WRITE_ENGINE_EN, 1);
 		dw_pcie_writel_dma(di, PCIE_DMA_WRITE_INT_MASK, 0);
 		dw_pcie_writel_dma(di,
@@ -416,23 +435,25 @@ static int dw_pcie_dma_start_ll_read(struct dma_info *di, u32 phy_list_addr)
 {
 	u8 ch_nr = di->ll_info.ch_num;
 
-	if (di->rd_ch.status != DMA_CH_RUNNING) {
+	if (di->rd_ch[ch_nr].status != DMA_CH_RUNNING) {
 		u32 ch_base = dw_pcie_get_dma_channel_base(di,
 			ch_nr, DMA_CH_READ);
 
 		/* Set ch_status */
-		di->rd_ch.status = DMA_CH_RUNNING;
+		di->rd_ch[ch_nr].status = DMA_CH_RUNNING;
 		/* Set last data elem */
-		dw_pcie_dma_set_data_elem((u32 *)di->rd_ch.virt_addr,
-		di->rd_ch.current_list_size - 1,
-		di->rd_ch.current_sar,
-		di->rd_ch.current_dar,  di->rd_ch.current_size, 1);
+		dw_pcie_dma_set_data_elem((u32 *)di->rd_ch[ch_nr].virt_addr,
+			di->rd_ch[ch_nr].current_list_size - 1,
+			di->rd_ch[ch_nr].current_sar,
+			di->rd_ch[ch_nr].current_dar,
+			di->rd_ch[ch_nr].current_size, 1);
 
-		di->rd_ch.errors = 0;
+		di->rd_ch[ch_nr].errors = 0;
 		/* Clear CR1 for proper init */
-		dw_pcie_writel_dma(di, ch_base + PCIE_DMA_CH_CONTROL1_OFF, 0);
+		dw_pcie_writel_dma(di,
+			ch_base + PCIE_DMA_CH_CONTROL1_OFF, 0);
 
-		di->rd_ch.phy_list_addr = phy_list_addr;
+		di->rd_ch[ch_nr].phy_list_addr = phy_list_addr;
 		dw_pcie_writel_dma(di, PCIE_DMA_READ_ENGINE_EN, 1);
 		dw_pcie_writel_dma(di, PCIE_DMA_READ_INT_MASK, 0);
 		dw_pcie_writel_dma(di,
@@ -474,10 +495,10 @@ int dw_pcie_dma_load_linked_list(struct dma_info *di,
 	u8 i;
 	u32 *ptr_list;
 	struct dma_list *arr_ll;
-	u8 ch_nr = di->ll_info.ch_num, direction = di->ll_info.direction;
+	u8 ch_nr = di->ll_info.ch_num, dir = di->ll_info.direction;
 
-	struct dma_ch_info *ptr_ch = (direction == DMA_CH_WRITE) ?
-		&di->wr_ch : &di->rd_ch;
+	struct dma_ch_info *ptr_ch = (dir == DMA_CH_WRITE) ?
+		&di->wr_ch[ch_nr] : &di->rd_ch[ch_nr];
 	ptr_list = (u32 *)(ioremap(phy_list_addr, SZ_1K));
 	if (!ptr_list)
 		return -EFAULT;
@@ -526,22 +547,22 @@ int dw_pcie_dma_single_rw(struct dma_info *di,
 
 	flags = dma_single_rw->flags;
 	ptr_ch = (flags & DMA_FLAG_WRITE_ELEM) ?
-		&di->wr_ch : &di->rd_ch;
+		&di->wr_ch[ch_nr] : &di->rd_ch[ch_nr];
 
 	if (flags & DMA_FLAG_WRITE_ELEM) {
-		if (di->wr_ch.status == DMA_CH_RUNNING)
+		if (di->wr_ch[ch_nr].status == DMA_CH_RUNNING)
 			return -EBUSY;
 
-		di->wr_ch.status = DMA_CH_RUNNING;
-		di->wr_ch.errors = 0;
+		di->wr_ch[ch_nr].status = DMA_CH_RUNNING;
+		di->wr_ch[ch_nr].errors = 0;
 		dw_pcie_dma_write_en(di);
 		dir = DMA_CH_WRITE;
 	} else {
-		if (di->rd_ch.status == DMA_CH_RUNNING)
+		if (di->rd_ch[ch_nr].status == DMA_CH_RUNNING)
 			return -EBUSY;
 
-		di->rd_ch.status = DMA_CH_RUNNING;
-		di->rd_ch.errors = 0;
+		di->rd_ch[ch_nr].status = DMA_CH_RUNNING;
+		di->rd_ch[ch_nr].errors = 0;
 		dw_pcie_dma_read_en(di);
 	}
 
@@ -598,6 +619,7 @@ static void dw_pcie_dma_check_errors(struct dma_info *di,
 
 	if (direction == DMA_CH_WRITE) {
 		val = dw_pcie_readl_dma(di, PCIE_DMA_WRITE_ERR_STATUS);
+
 		if (val & 0x1)
 			*error |= DMA_ERR_WR;
 		if (val & 0x10000)
@@ -605,6 +627,7 @@ static void dw_pcie_dma_check_errors(struct dma_info *di,
 	} else {
 		/* Get error status low */
 		val = dw_pcie_readl_dma(di, PCIE_DMA_READ_ERR_STATUS_LOW);
+
 		if (val & 0x1)
 			*error |= DMA_ERR_RD;
 		if (val & 0x10000)
@@ -625,31 +648,40 @@ static void dw_pcie_dma_check_errors(struct dma_info *di,
 /* Generic int handlers for DMA read and write (separate).
  * They should be called from the platform specific interrupt handler.
  */
-u32 dw_handle_dma_irq_write(struct dma_info *di, u32 val_write)
+u32 dw_handle_dma_irq_write(struct dma_info *di, u8 ch, u32 val_write)
 {
 	u32 err_type = DMA_ERR_NONE;
 
 	if (val_write) {
-		if (di->wr_ch.status == DMA_CH_RUNNING) {
-			if (val_write & 0x10000) { /* Abort interrupt */
+		int ch;
+
+		if (di->wr_ch[ch].status == DMA_CH_RUNNING) {
+			/* Search interrupt type, abort or done */
+			/* Abort interrupt */
+			u8 int_bit = 1 << ch;
+
+			if (val_write & 0x10000) {
 				/* Get error type */
 				dw_pcie_dma_check_errors(di,
 					DMA_FLAG_WRITE_ELEM,
-					&di->wr_ch.errors);
+					&di->wr_ch[ch].errors);
 				dw_pcie_writel_dma(di,
 					PCIE_DMA_WRITE_INT_CLEAR,
-					0x00FF0000);
-				err_type = di->wr_ch.errors;
+					int_bit << 16);
+				/* Hold only the first error for now */
+				if ((err_type == DMA_ERR_NONE) &&
+					(di->wr_ch[ch].errors !=
+						DMA_ERR_NONE)) {
+					err_type = di->wr_ch[ch].errors;
+				}
 			} else { /* Done interrupt */
 				dw_pcie_writel_dma(di,
 					PCIE_DMA_WRITE_INT_CLEAR,
-					0x000000FF);
+					int_bit);
 				/* Check channel list mode */
 			}
-			di->wr_ch.status = DMA_CH_STOPPED;
-		} else
-			dw_pcie_writel_dma(di,
-				PCIE_DMA_WRITE_INT_CLEAR, 0x00FF00FF);
+			di->wr_ch[ch].status = DMA_CH_STOPPED;
+		}
 
 #ifdef DMA_PTR_FUNC
 		if (di->ptr_func)
@@ -659,33 +691,38 @@ u32 dw_handle_dma_irq_write(struct dma_info *di, u32 val_write)
 
 	return err_type;
 }
-u32 dw_handle_dma_irq_read(struct dma_info *di, u32 val_read)
+u32 dw_handle_dma_irq_read(struct dma_info *di, u8 ch, u32 val_read)
 {
 	u32 err_type = DMA_ERR_NONE;
 
 	if (val_read) {
-		if (di->rd_ch.status == DMA_CH_RUNNING) {
+		int ch;
+
+		if (di->rd_ch[ch].status == DMA_CH_RUNNING) {
 			/* Search interrupt type, abort or done */
 			/* Abort interrupt */
+			u8 int_bit = 1 << ch;
 			if (val_read & 0x80000) {
 				/* Get error type */
 				dw_pcie_dma_check_errors(di,
 					DMA_FLAG_READ_ELEM,
-					&di->rd_ch.errors);
+					&di->rd_ch[ch].errors);
 				dw_pcie_writel_dma(di,
 					PCIE_DMA_READ_INT_CLEAR,
-					0x00FF0000);
-				err_type = di->rd_ch.errors;
+					int_bit << 16);
+				if ((err_type == DMA_ERR_NONE) &&
+					(di->rd_ch[ch].errors !=
+						DMA_ERR_NONE)) {
+					err_type = di->rd_ch[ch].errors;
+				}
 			} else { /* Done interrupt */
 				dw_pcie_writel_dma(di,
 					PCIE_DMA_READ_INT_CLEAR,
-					0x000000FF);
+					int_bit);
 				/* Check channel list mode */
 			}
-			di->rd_ch.status = DMA_CH_STOPPED;
-		} else
-			dw_pcie_writel_dma(di, PCIE_DMA_READ_INT_CLEAR,
-						0x00FF00FF);
+			di->rd_ch[ch].status = DMA_CH_STOPPED;
+		}
 
 #ifdef DMA_PTR_FUNC
 		if (di->ptr_func)
