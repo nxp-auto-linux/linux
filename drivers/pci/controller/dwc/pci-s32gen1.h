@@ -59,6 +59,9 @@
 #define LINK_REQ_RST_NOT_INT_EN	BIT(1)
 #define LINK_REQ_RST_NOT_CLR	BIT(2)
 
+#define PE0_INT_STS				0xE8
+#define HP_INT_STS				BIT(6)
+
 #define to_s32gen1_from_dw_pcie(x) \
 	container_of(x, struct s32gen1_pcie, pcie)
 
