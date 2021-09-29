@@ -205,9 +205,6 @@ err_find_node:
 	return rev;
 }
 
-
-struct s32_outbound_region restore_outb_arr[4];
-struct s32_inbound_region restore_inb_arr[4];
 static struct s32v234_pcie *s32v234_pcie_ep;
 
 #ifdef CONFIG_PCI_DW_DMA
@@ -289,28 +286,6 @@ void s32_register_callback(struct dw_pcie *pcie,
 }
 EXPORT_SYMBOL(s32_register_callback);
 
-static void store_inb_atu(struct s32_inbound_region *ptrInb)
-{
-	int region_nr;
-
-	region_nr = ptrInb->region;
-	restore_inb_arr[region_nr].bar_nr = ptrInb->bar_nr;
-	restore_inb_arr[region_nr].target_addr = ptrInb->target_addr;
-	restore_inb_arr[region_nr].region = ptrInb->region;
-}
-
-static void store_outb_atu(struct s32_outbound_region *ptrOutb)
-{
-	int region_nr;
-
-	region_nr = ptrOutb->region;
-	restore_outb_arr[region_nr].target_addr = ptrOutb->target_addr;
-	restore_outb_arr[region_nr].base_addr = ptrOutb->base_addr;
-	restore_outb_arr[region_nr].size = ptrOutb->size;
-	restore_outb_arr[region_nr].region_type = ptrOutb->region_type;
-	restore_outb_arr[region_nr].region = ptrOutb->region;
-}
-
 static int s32v234_pcie_iatu_outbound_set(struct dw_pcie *pcie,
 		struct s32_outbound_region *ptrOutb)
 {
@@ -379,31 +354,6 @@ static bool s32v234_pcie_ignore_err009852(struct s32v234_pcie *s32v234_pp)
 }
 #endif
 
-static void restore_inb_atu(struct dw_pcie *pcie)
-{
-	int i;
-
-	for (i = 0 ; i < NR_REGIONS ; i++) {
-		struct s32_inbound_region *ptrInb = &restore_inb_arr[i];
-
-		if (ptrInb->target_addr == 0)
-			continue;
-		s32v234_pcie_iatu_inbound_set(pcie, ptrInb);
-	}
-}
-
-static void restore_outb_atu(struct dw_pcie *pcie)
-{
-	int i;
-
-	for (i = 0 ; i < NR_REGIONS ; i++) {
-		struct s32_outbound_region *ptrOutb = &restore_outb_arr[i];
-
-		if (ptrOutb->base_addr == 0)
-			continue;
-		s32v234_pcie_iatu_outbound_set(pcie, ptrOutb);
-	}
-}
 static void s32v234_pcie_set_bar(struct s32v234_pcie *s32v234_pp,
 				 int baroffset, int enable,
 				 unsigned int size,
@@ -504,7 +454,6 @@ int s32_pcie_setup_outbound(struct s32_outbound_region *outbStr)
 		return -EINVAL;
 
 	/* Call to setup outbound region */
-	store_outb_atu(outbStr);
 	ret = s32v234_pcie_iatu_outbound_set(&(s32v234_pcie_ep->pcie), outbStr);
 
 	return ret;
@@ -522,7 +471,6 @@ int s32_pcie_setup_inbound(struct s32_inbound_region *inbStr)
 		return -EINVAL;
 
 	/* Call to setup inbound region */
-	store_inb_atu(inbStr);
 	ret = s32v234_pcie_iatu_inbound_set(&(s32v234_pcie_ep->pcie), inbStr);
 	return ret;
 }
@@ -1047,10 +995,6 @@ static irqreturn_t s32v234_pcie_link_req_rst_not_handler(int irq, void *arg)
 		regmap_update_bits(s32v234_pp->src, SRC_GPR11,
 				SRC_GPR11_PCIE_PCIE_CFG_READY,
 				SRC_GPR11_PCIE_PCIE_CFG_READY);
-		if (s32v234_pcie_ignore_err009852(s32v234_pp)) {
-			restore_inb_atu(pcie);
-			restore_outb_atu(pcie);
-		}
 
 		goto done;
 	}
