@@ -4,7 +4,7 @@
  * PCIe host controller driver, customized
  * for the NXP S32V PCIE driver
  *
- * Copyright 2017-2020 NXP
+ * Copyright 2017-2021 NXP
  */
 
 #ifndef PCIE_DMA_S32_H

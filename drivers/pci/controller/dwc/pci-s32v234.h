@@ -7,7 +7,7 @@
  * Author: Sean Cross <xobs@kosagi.com>
  *
  * Copyright (C) 2014-2015 Freescale Semiconductor, Inc. All Rights Reserved.
- * Copyright 2017-2020 NXP
+ * Copyright 2017-2021 NXP
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
