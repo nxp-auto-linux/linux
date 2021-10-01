@@ -1,0 +1,74 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/crypto/nxp-hse.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: NXP Hardware Security Engine
+
+maintainers:
+  - Bogdan Folea <bogdan.folea@nxp.com>
+
+description: |
+  - NXP Hardware Security Engine is featured on some NXP S32 platforms:
+    Crpto offloading support is currently available on S32G274A and S32R45.
+
+properties:
+  compatible:
+    oneOf:
+      - enum:
+          - fsl,s32gen1-hse
+    description: Standard property. Must include "fsl,<soc_family>-hse".
+
+  reg:
+    maxItems: 2
+    description: Standard property. Should specify the physical address and size
+                 of MU hardware register space and service descriptor space.
+
+  reg-names:
+    maxItems: 2
+    description: Standard property. Should specify the names associated with
+                 the MU hardware register space and service descriptor space.
+
+  interrupts:
+    maxItems: 3
+    description: Standard property. Should specify the TX, RX and general
+                 purpose interrupt lines used by the respective MU instance.
+
+  interrupt-names:
+    maxItems: 3
+    description: Standard property. Should specify the names associated with
+                 the interrupt lines used by the respective MU instance.
+
+additionalProperties: false
+
+required:
+  - compatible
+  - reg
+  - reg-names
+  - interrupts
+  - interrupt-names
+
+examples:
+  - |
+    hse: crypto {
+        compatible = "simple-bus";
+        #address-cells = <2>;
+        #size-cells = <2>;
+        #interrupt-cells = <3>;
+        ranges;
+
+        mu0b@40210000 {
+                compatible = "fsl,s32gen1-hse";
+                reg = <0x0 0x40210000 0x0 0x1000>,
+                      <0x0 0x22C00000 0x0 0x1000>;
+                reg-names = "hse-mu0b-regs",
+                            "hse-mu0b-desc";
+                interrupts = <GIC_SPI 103 IRQ_TYPE_EDGE_RISING>,
+                             <GIC_SPI 104 IRQ_TYPE_EDGE_RISING>,
+                             <GIC_SPI 105 IRQ_TYPE_EDGE_RISING>;
+                interrupt-names = "hse-mu0b-ack",
+                                  "hse-mu0b-rx",
+                                  "hse-mu0b-err";
+        };
+    };
