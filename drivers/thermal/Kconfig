@@ -249,7 +249,7 @@ config S32V234_THERMAL
 
 config S32GEN1_THERMAL
 	bool "Temperature sensor driver for NXP s32G SoCs"
-	depends on SYSFS && THERMAL_HWMON && SOC_S32GEN1 && NVMEM_S32_SIUL2
+	depends on SYSFS && THERMAL_HWMON && SOC_S32GEN1
 	help
       Support for Temperature Monitoring Unit (TMU) found on NXP s32gen1
 	  SoCs. It supports reporting the immediate and average temperature
