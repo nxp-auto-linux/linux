@@ -13,7 +13,6 @@
 #include <linux/mfd/syscon.h>
 #include <linux/platform_device.h>
 #include <linux/mfd/syscon/s32v234-src.h>
-#include <soc/s32/revision.h>
 
 #define DRIVER_NAME "s32tmu"
 
@@ -32,18 +31,8 @@
  * thermally controlled environment and are specific to each
  * revision of the SoC.
  */
-static const uint32_t rev1_calib_scfgr[] = {
-	0x2C, 0x26, 0x3D, 0x6B, 0x9B, 0xC9, 0xF7, 0x112, 0x125,
-	0x155, 0x16C, 0x172
-};
-
 static const uint32_t rev2_calib_scfgr[] = {
 	0x2C, 0x59, 0xC6, 0x167
-};
-
-static const uint32_t rev1_calib_trcr[] = {
-	0xE9, 0xE6, 0xF2, 0x10A, 0x123, 0x13B, 0x153, 0x161, 0x16B,
-	0x184, 0x190, 0x193
 };
 
 static const uint32_t rev2_calib_trcr[] = {
@@ -149,28 +138,8 @@ struct tmu_driver_data {
 	void __iomem *tmu_registers;
 	void __iomem *fuse_base;
 	struct device *hwmon_device;
-	uint8_t	revision;
 	uint8_t calib_points;
 };
-
-static int s32gen1_get_soc_revision(struct device *dev, uint8_t *rev)
-{
-	struct s32_soc_rev soc_rev = {0};
-	u32 raw_rev = 0;
-	int ret;
-
-	ret = s32_siul2_nvmem_get_soc_revision(dev, "soc_revision", &soc_rev);
-	if (ret)
-		return ret;
-
-	raw_rev = (soc_rev.major << 8) | (soc_rev.minor << 4);
-	if (raw_rev == 0)
-		*rev = 1;
-	else
-		*rev = 2;
-
-	return 0;
-}
 
 static int get_site_idx_from_label(const char *label)
 {
@@ -406,29 +375,15 @@ static void get_calib_with_fuses(struct device *dev,
 static void get_calib_table(struct device *dev,
 		uint32_t *calib_scfgr, uint32_t *calib_trcr)
 {
-	struct tmu_driver_data *tmu_dd = dev_get_drvdata(dev);
+	const static u32 warm_idxes[] = {3};
+	const static u32 cold_idxes[] = {0};
 
-	if (tmu_dd->revision == 1) {
-		const static uint32_t warm_idxes[] = {7, 8, 9, 10, 11};
-		const static uint32_t cold_idxes[] = {};
-
-		get_calib_with_fuses(dev,
-				calib_scfgr, calib_trcr,
-				rev1_calib_scfgr, rev1_calib_trcr,
-				warm_idxes, cold_idxes,
-				ARRAY_SIZE(warm_idxes), ARRAY_SIZE(cold_idxes),
-				sizeof(rev1_calib_scfgr));
-	} else {
-		const static uint32_t warm_idxes[] = {3};
-		const static uint32_t cold_idxes[] = {0};
-
-		get_calib_with_fuses(dev,
-				calib_scfgr, calib_trcr,
-				rev2_calib_scfgr, rev2_calib_trcr,
-				warm_idxes, cold_idxes,
-				ARRAY_SIZE(warm_idxes), ARRAY_SIZE(cold_idxes),
-				sizeof(rev2_calib_scfgr));
-	}
+	get_calib_with_fuses(dev,
+			     calib_scfgr, calib_trcr,
+			     rev2_calib_scfgr, rev2_calib_trcr,
+			     warm_idxes, cold_idxes,
+			     ARRAY_SIZE(warm_idxes), ARRAY_SIZE(cold_idxes),
+			     sizeof(rev2_calib_scfgr));
 }
 
 static int tmu_calibrate_s32gen1(struct device *dev)
@@ -628,17 +583,8 @@ static int tmu_probe(struct platform_device *pd)
 		}
 	}
 
-	if (tmu_chip->has_sites) {
-		return_code = s32gen1_get_soc_revision(&pd->dev,
-						       &tmu_dd->revision);
-		if (return_code)
-			goto revision_get_failed;
-
-		if (tmu_dd->revision == 1)
-			tmu_dd->calib_points = 12;
-		else
-			tmu_dd->calib_points = 4;
-	}
+	if (tmu_chip->has_sites)
+		tmu_dd->calib_points = 4;
 
 	tmu_dd->hwmon_device =
 		hwmon_device_register_with_info(
@@ -677,7 +623,6 @@ device_create_file_failed:
 	for (i = 0; i < device_files_created; i++)
 		device_remove_file(tmu_dd->hwmon_device, &dev_attrs[i]);
 	hwmon_device_unregister(tmu_dd->hwmon_device);
-revision_get_failed:
 hwmon_register_failed:
 	if (tmu_chip->has_clk)
 		clk_disable_unprepare(tmu_dd->clk);
