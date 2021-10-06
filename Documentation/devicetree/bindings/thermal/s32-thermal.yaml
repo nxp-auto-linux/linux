@@ -34,16 +34,6 @@ properties:
       tsens
       Required only if fsl,s32v234-tmu.
 
-  nvmem-cell-names:
-    description: |
-      soc_revision
-      Required only if fsl,s32gen1-tmu.
-
-  nvmem-cells:
-    description:
-      The address of soc_revision node.
-      Required only if fsl,s32gen1-tmu.
-
 required:
   - compatible
   - reg
