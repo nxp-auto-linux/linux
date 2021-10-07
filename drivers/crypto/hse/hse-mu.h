@@ -40,9 +40,11 @@ enum hse_irq_type {
 	HSE_INT_SYS_EVENT = 2u,
 };
 
-void *hse_mu_init(struct device *dev, void **desc_base_ptr, u64 *desc_base_dma,
-		  irqreturn_t (*rx_isr)(int irq, void *dev),
-		  irqreturn_t (*event_isr)(int irq, void *dev));
+void *hse_mu_init(struct device *dev, irqreturn_t (*rx_isr)(int irq, void *dev),
+		  irqreturn_t (*evt_isr)(int irq, void *dev));
+
+void __iomem *hse_mu_desc_base_ptr(void *mu);
+dma_addr_t hse_mu_desc_base_dma(void *mu);
 
 u16 hse_mu_check_status(void *mu);
 u32 hse_mu_check_event(void *mu);

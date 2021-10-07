@@ -18,7 +18,7 @@
 #define HSE_REGS_NAME       "hse-" HSE_MU_INST "-regs"
 #define HSE_DESC_NAME       "hse-" HSE_MU_INST "-desc"
 #define HSE_RX_IRQ_NAME     "hse-" HSE_MU_INST "-rx"
-#define HSE_ERR_IRQ_NAME    "hse-" HSE_MU_INST "-err"
+#define HSE_EVT_IRQ_NAME    "hse-" HSE_MU_INST "-err"
 
 /**
  * struct hse_mu_regs - HSE Messaging Unit Registers
@@ -65,11 +65,15 @@ struct hse_mu_regs {
  * struct hse_mu_data - MU interface private data
  * @dev: HSE device, only used here for error logging
  * @regs: MU instance register space base virtual address
+ * @desc_base_ptr: descriptor space base virtual address
+ * @desc_base_dma: descriptor space base DMA address
  * @reg_lock: spinlock preventing concurrent register access
  */
 struct hse_mu_data {
 	struct device *dev;
 	struct hse_mu_regs __iomem *regs;
+	void __iomem *desc_base_ptr;
+	dma_addr_t desc_base_dma;
 	spinlock_t reg_lock; /* covers irq enable/disable */
 };
 
@@ -125,7 +129,7 @@ void hse_mu_trigger_event(void *mu, u32 evt)
 void hse_mu_irq_enable(void *mu, enum hse_irq_type irq_type, u32 irq_mask)
 {
 	struct hse_mu_data *priv = mu;
-	void *regaddr;
+	void __iomem *regaddr;
 	unsigned long flags;
 
 	switch (irq_type) {
@@ -161,7 +165,7 @@ void hse_mu_irq_enable(void *mu, enum hse_irq_type irq_type, u32 irq_mask)
 void hse_mu_irq_disable(void *mu, enum hse_irq_type irq_type, u32 irq_mask)
 {
 	struct hse_mu_data *priv = mu;
-	void *regaddr;
+	void __iomem *regaddr;
 	unsigned long flags;
 
 	switch (irq_type) {
@@ -333,19 +337,36 @@ int hse_mu_msg_recv(void *mu, u8 channel, u32 *msg)
 	return 0;
 }
 
+void __iomem *hse_mu_desc_base_ptr(void *mu)
+{
+	struct hse_mu_data *priv = mu;
+
+	if (unlikely(!mu))
+		return NULL;
+
+	return priv->desc_base_ptr;
+}
+
+dma_addr_t hse_mu_desc_base_dma(void *mu)
+{
+	struct hse_mu_data *priv = mu;
+
+	if (unlikely(!mu))
+		return 0;
+
+	return priv->desc_base_dma;
+}
+
 /**
  * hse_mu_init - initial setup of MU interface
  * @dev: parent device
- * @desc_base_ptr: descriptor base virtual address
- * @desc_base_dma: descriptor base DMA address
  * @rx_isr: RX soft handler
  * @err_isr: SYS_EVENT handler
  *
  * Return: MU instance handle on success, error code otherwise
  */
-void *hse_mu_init(struct device *dev, void **desc_base_ptr, u64 *desc_base_dma,
-		  irqreturn_t (*rx_isr)(int irq, void *dev),
-		  irqreturn_t (*event_isr)(int irq, void *dev))
+void *hse_mu_init(struct device *dev, irqreturn_t (*rx_isr)(int irq, void *dev),
+		  irqreturn_t (*evt_isr)(int irq, void *dev))
 {
 	struct platform_device *pdev = to_platform_device(dev);
 	struct hse_mu_data *mu;
@@ -354,7 +375,7 @@ void *hse_mu_init(struct device *dev, void **desc_base_ptr, u64 *desc_base_dma,
 	u8 channel;
 	u32 msg;
 
-	if (unlikely(!dev || !desc_base_ptr || !desc_base_dma))
+	if (unlikely(!dev || !rx_isr || !evt_isr))
 		return ERR_PTR(-EINVAL);
 
 	mu = devm_kzalloc(dev, sizeof(*mu), GFP_KERNEL);
@@ -373,13 +394,12 @@ void *hse_mu_init(struct device *dev, void **desc_base_ptr, u64 *desc_base_dma,
 
 	/* map service descriptor space */
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, HSE_DESC_NAME);
-	*desc_base_ptr = devm_ioremap_resource(dev, res);
-	if (IS_ERR_OR_NULL(*desc_base_ptr)) {
+	mu->desc_base_ptr = devm_ioremap_resource(dev, res);
+	if (IS_ERR_OR_NULL(mu->desc_base_ptr)) {
 		dev_err(dev, "failed to map %s @%pR\n", HSE_DESC_NAME, res);
 		return ERR_PTR(-ENOMEM);
 	}
-	*desc_base_dma = res->start;
-	dev_dbg(dev, "descriptors @%pR\n", res);
+	mu->desc_base_dma = res->start;
 
 	/* disable all interrupt sources */
 	hse_mu_irq_disable(mu, HSE_INT_ACK_REQUEST, HSE_CH_MASK_ALL);
@@ -388,8 +408,12 @@ void *hse_mu_init(struct device *dev, void **desc_base_ptr, u64 *desc_base_dma,
 
 	/* discard any pending messages */
 	for (channel = 0; channel < HSE_NUM_CHANNELS; channel++)
-		if (hse_mu_msg_pending(mu, channel))
-			msg = ioread32(&mu->regs->rr[channel]);
+		if (hse_mu_msg_pending(mu, channel)) {
+			err = hse_mu_msg_recv(mu, channel, &msg);
+			if (likely(!err))
+				dev_warn(dev, "channel %d: msg %08x dropped\n",
+					 channel, msg);
+		}
 
 	/* register RX interrupt handler */
 	irq = platform_get_irq_byname(pdev, HSE_RX_IRQ_NAME);
@@ -402,12 +426,12 @@ void *hse_mu_init(struct device *dev, void **desc_base_ptr, u64 *desc_base_dma,
 	}
 
 	/* register SYS_EVENT interrupt handler */
-	irq = platform_get_irq_byname(pdev, HSE_ERR_IRQ_NAME);
-	err = devm_request_threaded_irq(dev, irq, NULL, event_isr, IRQF_ONESHOT,
-					HSE_ERR_IRQ_NAME, dev);
+	irq = platform_get_irq_byname(pdev, HSE_EVT_IRQ_NAME);
+	err = devm_request_threaded_irq(dev, irq, NULL, evt_isr, IRQF_ONESHOT,
+					HSE_EVT_IRQ_NAME, dev);
 	if (unlikely(err)) {
 		dev_err(dev, "failed to register %s irq, line %d\n",
-			HSE_ERR_IRQ_NAME, irq);
+			HSE_EVT_IRQ_NAME, irq);
 		return ERR_PTR(-ENXIO);
 	}
 
