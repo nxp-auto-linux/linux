@@ -41,6 +41,22 @@
 		/* GIC interrupts between 167 and 182 can be used as MBIs. */
 		mbi-ranges = <167 16>;
 	};
+
+};
+
+&uart0 {
+	/delete-property/ dmas;
+	/delete-property/ dma-names;
+};
+
+&uart1 {
+	/delete-property/ dmas;
+	/delete-property/ dma-names;
+};
+
+&uart2 {
+	/delete-property/ dmas;
+	/delete-property/ dma-names;
 };
 
 &fxosc {
