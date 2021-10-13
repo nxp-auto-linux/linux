@@ -147,7 +147,7 @@ static int llce_can_deinit(struct llce_can *llce)
 
 	ret = send_cmd_msg(conf_chan, &cmd);
 	if (ret) {
-		dev_err(dev, "Failed to init LLCE CAN\n");
+		dev_err(dev, "Failed to deinit LLCE CAN\n");
 		return ret;
 	}
 
