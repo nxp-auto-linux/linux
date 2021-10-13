@@ -25,16 +25,10 @@
 #include <linux/phy.h>
 #include <linux/processor.h>
 
-#ifdef CONFIG_PCI_S32GEN1_ACCESS_FROM_USER
-#include <linux/debugfs.h>
-#include <linux/fs.h>
-#include <linux/sched/signal.h>
-#include <linux/uaccess.h>
-#endif
-
 #include "pci-s32gen1-regs.h"
 #include "pci-s32gen1.h"
 #include "../../pci.h"
+#include "pci-ioctl-s32.h"
 
 #ifdef CONFIG_PCI_DW_DMA
 #include "pci-dma-s32.h"
@@ -350,6 +344,13 @@ static struct s32gen1_pcie *s32gen1_pcie_ep;
 
 #ifdef CONFIG_PCI_DW_DMA
 
+struct dma_info *dw_get_dma_info(struct dw_pcie *pcie)
+{
+	struct s32gen1_pcie *s32_pp =
+		to_s32gen1_from_dw_pcie(pcie);
+	return &s32_pp->dma;
+}
+
 #ifdef CONFIG_PCI_EPF_TEST
 static u32 dma_data;
 static struct timespec64 tv1s, tv1e;
@@ -374,7 +375,9 @@ void s32gen1_pcie_ep_dma_benchmark(struct device *dev, bool is_read)
 static irqreturn_t s32gen1_pcie_dma_handler(int irq, void *arg)
 {
 	struct s32gen1_pcie *s32_pp = arg;
+#ifdef CONFIG_PCI_EPF_TEST
 	struct dw_pcie *pcie = &(s32_pp->pcie);
+#endif
 	struct dma_info *di = &(s32_pp->dma);
 	u32 dma_error = DMA_ERR_NONE;
 
@@ -387,19 +390,18 @@ static irqreturn_t s32gen1_pcie_dma_handler(int irq, void *arg)
 	val_read = dw_pcie_readl_dma(di, PCIE_DMA_READ_INT_STATUS);
 
 	if (val_write) {
-#ifdef CONFIG_PCI_S32GEN1_ACCESS_FROM_USER
 		/* If we have one running channel, then we need
 		 * to notify user space
 		 */
 		bool signal = false;
+		u8 ch;
 
 		for (ch = 0; ch < PCIE_DMA_NR_CH; ch++)
 			if (di->wr_ch[ch].status == DMA_CH_RUNNING) {
-				siglal = true;
+				signal = true;
 				break;
 			}
-#endif
-		dma_error = dw_handle_dma_irq_write(di, val_write);
+		dma_error = dw_handle_dma_irq_write(di, ch, val_write);
 		if (dma_error == DMA_ERR_NONE) {
 #ifdef CONFIG_PCI_EPF_TEST
 			s32gen1_pcie_ep_dma_benchmark(pcie->dev, false);
@@ -408,28 +410,25 @@ static irqreturn_t s32gen1_pcie_dma_handler(int irq, void *arg)
 			dev_info(pcie->dev, "dma write error 0x%0x.\n",
 					dma_error);
 
-#ifdef CONFIG_PCI_S32GEN1_ACCESS_FROM_USER
-		if (signal && s32_pp->uspace.send_signal_to_user)
-			s32_pp->uspace.send_signal_to_user(s32_pp);
-#endif
+		if (signal && s32_pp->uinfo.send_signal_to_user)
+			s32_pp->uinfo.send_signal_to_user(&s32_pp->uinfo);
 
 		if (s32_pp->call_back)
 			s32_pp->call_back(val_write);
 	}
 	if (val_read) {
-#ifdef CONFIG_PCI_S32GEN1_ACCESS_FROM_USER
 		/* If we have one running channel, then we need
 		 * to notify user space
 		 */
 		bool signal = false;
+		u8 ch;
 
 		for (ch = 0; ch < PCIE_DMA_NR_CH; ch++)
-			if (di->rd_ch.status == DMA_CH_RUNNING) {
+			if (di->rd_ch[ch].status == DMA_CH_RUNNING) {
 				signal = true;
 				break;
 			}
-#endif
-		dma_error = dw_handle_dma_irq_read(di, val_read);
+		dma_error = dw_handle_dma_irq_read(di, ch, val_read);
 		if (dma_error == DMA_ERR_NONE) {
 #ifdef CONFIG_PCI_EPF_TEST
 			s32gen1_pcie_ep_dma_benchmark(pcie->dev, true);
@@ -438,10 +437,8 @@ static irqreturn_t s32gen1_pcie_dma_handler(int irq, void *arg)
 			dev_info(pcie->dev, "dma read error 0x%0x.\n",
 					dma_error);
 
-#ifdef CONFIG_PCI_S32GEN1_ACCESS_FROM_USER
-		if (signal && s32_pp->uspace.send_signal_to_user)
-			s32_pp->uspace.send_signal_to_user(s32_pp);
-#endif
+		if (signal && s32_pp->uinfo.send_signal_to_user)
+			s32_pp->uinfo.send_signal_to_user(&s32_pp->uinfo);
 	}
 
 	return IRQ_HANDLED;
@@ -449,16 +446,21 @@ static irqreturn_t s32gen1_pcie_dma_handler(int irq, void *arg)
 
 #endif /* CONFIG_PCI_DW_DMA */
 
-#ifdef CONFIG_PCI_S32GEN1_ACCESS_FROM_USER
-ssize_t s32gen1_ioctl(struct file *filp, u32 cmd,
-		unsigned long data)
+struct s32_userspace_info *dw_get_userspace_info(struct dw_pcie *pcie)
+{
+	struct s32gen1_pcie *s32_pci = to_s32gen1_from_dw_pcie(pcie);
 
-static const struct file_operations s32v_pcie_ep_dbgfs_fops = {
-	.owner = THIS_MODULE,
-	.open = simple_open,
-	.unlocked_ioctl = s32gen1_ioctl,
-};
-#endif /* CONFIG_PCI_S32GEN1_ACCESS_FROM_USER */
+	return &s32_pci->uinfo;
+}
+
+void s32_register_callback(struct dw_pcie *pcie,
+		void (*call_back)(u32 arg))
+{
+	struct s32gen1_pcie *s32_pci = to_s32gen1_from_dw_pcie(pcie);
+
+	s32_pci->call_back = call_back;
+}
+EXPORT_SYMBOL(s32_register_callback);
 
 static bool s32gen1_has_msi_parent(struct pcie_port *pp)
 {
@@ -680,6 +682,14 @@ int s32_pcie_setup_inbound(struct s32_inbound_region *inbStr)
 	return ret;
 }
 EXPORT_SYMBOL(s32_pcie_setup_inbound);
+
+void __iomem *s32_set_msi(struct dw_pcie *pcie)
+{
+	/* Required from the ioctls */
+	/* TODO: Configure MSIs or reuse existing code */
+	dev_err(pcie->dev, "Set MSIs: Not supported\n");
+	return NULL;
+}
 
 static void s32gen1_pcie_disable_ltssm(struct s32gen1_pcie *pci)
 {
@@ -1456,10 +1466,6 @@ static int s32gen1_pcie_probe(struct platform_device *pdev)
 			goto err;
 
 	} else {
-#ifdef CONFIG_PCI_S32GEN1_ACCESS_FROM_USER
-		struct dentry *pfile;
-#endif
-
 		s32gen1_pcie_ep = s32_pp;
 		s32_pp->call_back = NULL;
 
@@ -1474,23 +1480,8 @@ static int s32gen1_pcie_probe(struct platform_device *pdev)
 		dw_pcie_dma_clear_regs(&s32_pp->dma);
 #endif /* CONFIG_PCI_DW_DMA */
 
-#ifdef CONFIG_PCI_S32GEN1_ACCESS_FROM_USER
-		s32_pp->uspace.user_pid = 0;
-		memset(&s32_pp->uspace.info, 0, sizeof(struct siginfo));
-		s32_pp->uspace.info.si_signo = SIGUSR1;
-		s32_pp->uspace.info.si_code = SI_USER;
-		s32_pp->uspace.info.si_int = 0;
-
-		s32_pp->dir = debugfs_create_dir("ep_dbgfs", NULL);
-		if (!s32_pp->dir)
-			dev_info(dev, "Creating debugfs dir failed\n");
-		pfile = debugfs_create_file("ep_file", 0444, s32_pp->dir,
-			(void *)s32_pp, &s32v_pcie_ep_dbgfs_fops);
-		if (!pfile)
-			dev_info(dev, "Creating debugfs failed\n");
-#endif /* CONFIG_PCI_S32GEN1_ACCESS_FROM_USER */
-
 		s32gen1_add_pcie_ep(s32_pp, pdev);
+		s32_config_user_space_data(&s32_pp->uinfo, pcie);
 	}
 
 err:

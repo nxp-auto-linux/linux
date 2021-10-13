@@ -30,14 +30,9 @@
 #include <linux/pm_runtime.h>
 #include <linux/regmap.h>
 #include <linux/io.h>
-#include <linux/debugfs.h>
 #include <linux/dma-mapping.h>
-#include <linux/uaccess.h>
-#include <linux/fs.h>
 #include <linux/sizes.h>
 #include <linux/of_platform.h>
-#include <linux/rcupdate.h>
-#include <linux/sched/signal.h>
 #include <linux/version.h>
 
 #include <linux/regulator/consumer.h>
@@ -484,9 +479,6 @@ EXPORT_SYMBOL(s32_get_msi_base_address);
 
 void __iomem *s32_set_msi(struct dw_pcie *pcie)
 {
-	int ret = 0;
-	u32 *ptr;
-	u64 msi_addr;
 	struct s32_outbound_region outbound;
 
 	outbound.target_addr =

@@ -19,6 +19,7 @@
 
 #include "pcie-designware.h"
 #include "pci-dma-s32.h"
+#include "pci-ioctl-s32.h"
 
 #define to_s32v234_from_dw_pcie(x) \
 	container_of(x, struct s32v234_pcie, pcie)
@@ -33,6 +34,7 @@ struct s32v234_pcie {
 
 	int			link_req_rst_not_irq;
 
+	/* TODO: change call_back this to a list */
 	void (*call_back)(u32 arg);
 	struct s32_userspace_info uinfo;
 

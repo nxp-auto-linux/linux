@@ -16,6 +16,7 @@
 
 #include "pcie-designware.h"
 #include "pci-dma-s32.h"
+#include "pci-ioctl-s32.h"
 
 #define BUILD_BIT_VALUE(field, x) (((x) & (1)) << field##_BIT)
 #define BUILD_MASK_VALUE(field, x) (((x) & (field##_MASK)) << field##_LSB)
@@ -59,7 +60,6 @@
 		container_of(x, struct s32gen1_pcie, dma)
 #endif
 
-
 enum pcie_dev_type {
 	PCIE_EP = 0x0,
 	PCIE_RC = 0x4
@@ -69,19 +69,6 @@ enum pcie_link_speed {
 	GEN1 = 0x1,
 	GEN2 = 0x2,
 	GEN3 = 0x3
-};
-
-#ifdef CONFIG_PCI_S32GEN1_ACCESS_FROM_USER
-struct userspace_info {
-	int			user_pid;
-	struct siginfo	info;    /* signal information */
-	int (*send_signal_to_user)(struct s32v234_pcie *s32v234_pcie);
-};
-#endif
-
-struct callback {
-	void (*call_back)(u32 arg);
-	struct list_head callback_list;
 };
 
 struct s32gen1_pcie {
@@ -102,30 +89,11 @@ struct s32gen1_pcie {
 	struct dma_info	dma;
 #endif
 
-#ifdef CONFIG_PCI_S32GEN1_ACCESS_FROM_USER
-	struct dentry	*dir;
-	struct userspace_info uspace;
-#endif
-
-	/* TODO: change this to a list */
+	/* TODO: change call_back this to a list */
 	void (*call_back)(u32 arg);
-	struct phy *phy0, *phy1;
-};
+	struct s32_userspace_info uinfo;
 
-struct s32_inbound_region {
-	u32 bar_nr;
-	u32 target_addr;
-	u32 region; /* for backwards compatibility */
-};
-struct s32_outbound_region {
-	u64 target_addr;
-	u64 base_addr;
-	u32 size;
-	u32 region;
-	/* region_type - for backwards compatibility;
-	 * must be PCIE_ATU_TYPE_MEM
-	 */
-	u32 region_type;
+	struct phy *phy0, *phy1;
 };
 
 void dw_pcie_writel_ctrl(struct s32gen1_pcie *pci, u32 reg, u32 val);

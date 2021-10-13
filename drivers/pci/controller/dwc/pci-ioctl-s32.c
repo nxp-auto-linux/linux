@@ -235,8 +235,9 @@ static ssize_t s32_ioctl(struct file *filp, u32 cmd,
 		return ret;
 	case SEND_MSI:
 		/* Setup MSI */
-		/* TODO: allow giving a custom MSI base address
-		 * and also trigger an MSI
+		/* TODO: allow selection of the MSI index and
+		 * also trigger the interrupts and catch them on the
+		 * receiver side
 		 */
 		ret = s32_set_msi(pcie);
 		return ret;

@@ -43,6 +43,10 @@ struct s32_outbound_region {
 	unsigned long base_addr;
 	unsigned int  size;
 	unsigned int  region;
+	/* region_type - used for older controllers
+	 * Kept for backwards compatibility only
+	 * Must be PCIE_ATU_TYPE_MEM
+	 */
 	unsigned int  region_type;
 };
 
