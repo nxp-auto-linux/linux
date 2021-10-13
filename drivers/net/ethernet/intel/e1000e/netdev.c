@@ -2745,11 +2745,13 @@ static int e1000_vlan_rx_kill_vid(struct net_device *netdev,
 	}
 
 	/* remove VID from filter table */
-	if (adapter->flags & FLAG_HAS_HW_VLAN_FILTER) {
-		index = (vid >> 5) & 0x7F;
-		vfta = E1000_READ_REG_ARRAY(hw, E1000_VFTA, index);
-		vfta &= ~BIT((vid & 0x1F));
-		hw->mac.ops.write_vfta(hw, index, vfta);
+	if (!pci_channel_offline(adapter->pdev)) {
+		if (adapter->flags & FLAG_HAS_HW_VLAN_FILTER) {
+			index = (vid >> 5) & 0x7F;
+			vfta = E1000_READ_REG_ARRAY(hw, E1000_VFTA, index);
+			vfta &= ~BIT((vid & 0x1F));
+			hw->mac.ops.write_vfta(hw, index, vfta);
+		}
 	}
 
 	clear_bit(vid, adapter->active_vlans);
@@ -4737,7 +4739,8 @@ int e1000e_close(struct net_device *netdev)
 
 	pm_runtime_get_sync(&pdev->dev);
 
-	if (netif_device_present(netdev)) {
+	if (netif_device_present(netdev) &&
+	    !pci_channel_offline(adapter->pdev)) {
 		e1000e_down(adapter, true);
 		e1000_free_irq(adapter);
 
@@ -4760,9 +4763,11 @@ int e1000e_close(struct net_device *netdev)
 	/* If AMT is enabled, let the firmware know that the network
 	 * interface is now closed
 	 */
-	if ((adapter->flags & FLAG_HAS_AMT) &&
-	    !test_bit(__E1000_TESTING, &adapter->state))
-		e1000e_release_hw_control(adapter);
+	if (!pci_channel_offline(adapter->pdev)) {
+		if ((adapter->flags & FLAG_HAS_AMT) &&
+		    !test_bit(__E1000_TESTING, &adapter->state))
+			e1000e_release_hw_control(adapter);
+	}
 
 	cpu_latency_qos_remove_request(&adapter->pm_qos_req);
 
@@ -7715,10 +7720,11 @@ static void e1000_remove(struct pci_dev *pdev)
 	/* Release control of h/w to f/w.  If f/w is AMT enabled, this
 	 * would have already happened in close and is redundant.
 	 */
-	if (!pci_channel_offline(pdev))
+	if (!pci_channel_offline(pdev)) {
 		e1000e_release_hw_control(adapter);
+		e1000e_reset_interrupt_capability(adapter);
+	}
 
-	e1000e_reset_interrupt_capability(adapter);
 	kfree(adapter->tx_ring);
 	kfree(adapter->rx_ring);
 
