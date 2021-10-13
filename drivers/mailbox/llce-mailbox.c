@@ -928,8 +928,9 @@ static void llce_mbox_chan_received_data(struct mbox_chan *chan, void *msg)
 	struct llce_chan_priv *priv = chan->con_priv;
 
 	if (!is_chan_registered(chan)) {
-		dev_err(chan->cl->dev, "Received a message on an unregistered channel (type = %u, index = %u)\n",
+		dev_err(chan->mbox->dev, "Received a message on an unregistered channel (type = %u, index = %u)\n",
 		       priv->type, priv->index);
+		return;
 	}
 
 	mbox_chan_received_data(chan, msg);
