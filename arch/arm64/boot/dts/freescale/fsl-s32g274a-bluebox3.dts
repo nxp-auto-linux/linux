@@ -10,6 +10,11 @@
 	model = "Freescale S32G274 BlueBox3";
 	compatible = "fsl,s32g274-simu", "arm,vexpress";
 
+	aliases {
+		rtc0 = &pcf85263;
+		rtc1 = &rtc0;
+	};
+
 	chosen {
 		stdout-path = "serial0:115200n8";
 	};
