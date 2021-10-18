@@ -494,7 +494,7 @@ void __iomem *s32_set_msi(struct dw_pcie *pcie)
 
 	devm_request_mem_region(pcie->dev, MSI_REGION, SZ_64K,
 			"pcie-msi-buff");
-	return (void __iomem *)devm_ioremap_nocache(
+	return devm_ioremap_nocache(
 			pcie->dev, (resource_size_t)MSI_REGION, SZ_64K);
 }
 EXPORT_SYMBOL(s32_set_msi);

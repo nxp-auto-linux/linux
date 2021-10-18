@@ -18,12 +18,10 @@
 #include <linux/mfd/syscon.h>
 #include <linux/mfd/syscon/s32v234-src.h>
 #include <linux/module.h>
-#include <linux/of_gpio.h>
 #include <linux/of_address.h>
 #include <linux/pci.h>
 #include <linux/pci_regs.h>
 #include <linux/platform_device.h>
-#include <linux/pm_runtime.h>
 #include <linux/regmap.h>
 #include <linux/io.h>
 #include <linux/debugfs.h>
@@ -34,7 +32,6 @@
 #include <linux/of_platform.h>
 #include <linux/rcupdate.h>
 #include <linux/sched/signal.h>
-#include <linux/version.h>
 
 #include "pcie-designware.h"
 #include "pci-dma-s32.h"
@@ -239,7 +236,7 @@ static ssize_t s32_ioctl(struct file *filp, u32 cmd,
 		 * also trigger the interrupts and catch them on the
 		 * receiver side
 		 */
-		ret = s32_set_msi(pcie);
+		ret = (__force ssize_t)s32_set_msi(pcie);
 		return ret;
 	case STORE_PID:
 		ret = s32_store_pid(uinfo, argp);
