@@ -1132,7 +1132,7 @@ static SIMPLE_DEV_PM_OPS(quadspi_pm_ops, quadspi_suspend, quadspi_resume);
 
 static struct platform_driver fsl_qspi_driver = {
 	.driver = {
-		.name	= "fsl-quadspi",
+		.name	= "fsl-quadspi-spi-nor",
 		.of_match_table = fsl_qspi_dt_ids,
 #ifdef CONFIG_SOC_S32GEN1
 		.pm = &quadspi_pm_ops,
