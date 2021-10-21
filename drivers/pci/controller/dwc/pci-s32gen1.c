@@ -401,7 +401,6 @@ out:
 static void s32gen1_pcie_ep_init(struct dw_pcie_ep *ep)
 {
 	struct dw_pcie *pcie = to_dw_pcie_from_ep(ep);
-	struct pci_epc *epc;
 	int bar;
 #ifdef CONFIG_PCI_S32GEN1_INIT_EP_BARS
 	struct pci_epc *epc = ep->epc;
@@ -415,29 +414,21 @@ static void s32gen1_pcie_ep_init(struct dw_pcie_ep *ep)
 		return;
 	}
 
-	epc = ep->epc;
-
-	if (!epc || !epc->ops) {
-		pr_err("Invalid S32Gen1 EP configuration\n");
-		return;
-	}
-
-	/* The DW code sets iATU unroll enabled for RC, but not the EP.
-	 * We set it here, since we can't setup BARs otherwise.
-	 * TODO: check if this is fixed for later kernels (5.x.y)
-	 */
 	pcie->iatu_unroll_enabled = dw_pcie_iatu_unroll_enabled(pcie);
 	dev_dbg(pcie->dev, "iATU unroll: %s\n",
 			pcie->iatu_unroll_enabled ? "enabled" : "disabled");
 
+	dw_pcie_dbi_ro_wr_en(pcie);
+
+#ifndef CONFIG_PCI_EPF_TEST
 	/*
 	 * Configure the class and revision for the EP device,
 	 * to enable human friendly enumeration by the RC (e.g. by lspci)
 	 */
-	dw_pcie_dbi_ro_wr_en(pcie);
 	BSET32(pcie, dbi, PCI_CLASS_REVISION,
 			((PCI_BASE_CLASS_PROCESSOR << PCI_BASE_CLASS_OFF) |
 			(PCI_SUBCLASS_OTHER << PCI_SUBCLASS_OFF)));
+#endif
 
 	pr_debug("%s: Enable MSI/MSI-X capabilities\n", __func__);
 
@@ -448,10 +439,6 @@ static void s32gen1_pcie_ep_init(struct dw_pcie_ep *ep)
 	BSET32(pcie, dbi, PCI_MSIX_CAP, MSIX_EN);
 
 	dw_pcie_dbi_ro_wr_dis(pcie);
-
-	/* TODO: Enable MSI capability, e.g.
-	 * epc->features |= EPC_FEATURE_MSIX_AVAILABLE;
-	 */
 
 #ifdef CONFIG_PCI_S32GEN1_INIT_EP_BARS
 	/* Setup BARs and inbound regions */
@@ -982,8 +969,11 @@ static int s32gen1_pcie_config_irq(int *irq_id, char *irq_name,
 			irq_name);
 	ret = devm_request_irq(&pdev->dev, *(irq_id), irq_handler,
 			IRQF_SHARED,  irq_name, irq_arg);
-	if (ret)
+	if (ret) {
+		dev_info(&pdev->dev, "Register interrupt %d (%s) failed (%d)\n",
+			 *(irq_id), irq_name, ret);
 		return ret;
+	}
 
 	dev_info(&pdev->dev, "Allocated line %d for interrupt %d (%s)",
 			ret, *(irq_id), irq_name);
@@ -1048,25 +1038,50 @@ static int s32gen1_pcie_ep_raise_irq(struct dw_pcie_ep *ep, u8 func_no,
 {
 	struct dw_pcie *pci = to_dw_pcie_from_ep(ep);
 
-	DEBUG_FUNC;
+	pr_debug_w("%s: W32(0x%llx, 0x%x)\n", __func__, (uint64_t)(reg),
+		(uint32_t)(write_data));
 
 	switch (type) {
 	case PCI_EPC_IRQ_LEGACY:
+		pr_debug("%s: func %d: legacy int\n", __func__, func_no);
 		return dw_pcie_ep_raise_legacy_irq(ep, func_no);
 	case PCI_EPC_IRQ_MSI:
+		pr_debug("%s: func %d: MSI %d\n", __func__, func_no,
+				interrupt_num);
 		return dw_pcie_ep_raise_msi_irq(ep, func_no, interrupt_num);
 	case PCI_EPC_IRQ_MSIX:
+		pr_debug("%s: func %d: MSI-X %d\n", __func__, func_no,
+				interrupt_num);
 		return dw_pcie_ep_raise_msix_irq(ep, func_no, interrupt_num);
 	default:
-		dev_err(pci->dev, "UNKNOWN IRQ type\n");
+		dev_err(pci->dev, "%s: UNKNOWN IRQ type\n", __func__);
 	}
 
 	return 0;
 }
 
-static struct dw_pcie_ep_ops pcie_ep_ops = {
+static const struct pci_epc_features s32gen1_pcie_epc_features = {
+	.linkup_notifier = false,
+	.msi_capable = true,
+	.msix_capable = false,
+	.reserved_bar = BIT(BAR_1) | BIT(BAR_5),
+	.bar_fixed_64bit = BIT(BAR_0),
+	.bar_fixed_size[0] = SZ_1M,
+	.bar_fixed_size[2] = (4 * SZ_1M),
+	.bar_fixed_size[3] = SZ_64K,
+	.bar_fixed_size[4] = 256,
+};
+
+static const struct pci_epc_features*
+s32gen1_pcie_ep_get_features(struct dw_pcie_ep *ep)
+{
+	return &s32gen1_pcie_epc_features;
+}
+
+static struct dw_pcie_ep_ops s32gen1_pcie_ep_ops = {
 	.ep_init = s32gen1_pcie_ep_init,
 	.raise_irq = s32gen1_pcie_ep_raise_irq,
+	.get_features = s32gen1_pcie_ep_get_features,
 };
 
 static int __init s32gen1_add_pcie_ep(struct s32gen1_pcie *s32_pp)
@@ -1078,7 +1093,7 @@ static int __init s32gen1_add_pcie_ep(struct s32gen1_pcie *s32_pp)
 
 	DEBUG_FID(s32_pp->id);
 
-	ep->ops = &pcie_ep_ops;
+	ep->ops = &s32gen1_pcie_ep_ops;
 
 	ret = dw_pcie_ep_init(ep);
 	if (ret) {
