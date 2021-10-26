@@ -41,6 +41,7 @@
 #define STATUS_DST_ADDR_INVALID		BIT(8)
 
 #define FLAG_USE_DMA			BIT(0)
+#define FLAG_USE_SINGLE_DMA		BIT(1)
 
 #define TIMER_RESOLUTION		1
 
@@ -281,6 +282,7 @@ static int pci_epf_test_copy(struct pci_epf_test *epf_test)
 		test_reg_bar, reg->size);
 
 	ktime_get_ts64(&start);
+	/* Only DMA Engine transfers supported for the COPY test */
 	use_dma = !!(reg->flags & FLAG_USE_DMA);
 	if (use_dma) {
 		if (!epf_test->dma_supported) {
@@ -306,6 +308,7 @@ static int pci_epf_test_copy(struct pci_epf_test *epf_test)
 		memcpy_toio(dst_addr, buf, reg->size);
 		kfree(buf);
 	}
+
 	ktime_get_ts64(&end);
 	pci_epf_test_print_rate(dev, "COPY", reg->size,
 		&start, &end, use_dma);
@@ -332,7 +335,7 @@ static int pci_epf_test_read(struct pci_epf_test *epf_test)
 	void __iomem *src_addr;
 	void *buf;
 	u32 crc32;
-	bool use_dma;
+	bool use_dma, use_single_dma;
 	phys_addr_t phys_addr;
 	phys_addr_t dst_phys_addr;
 	struct timespec64 start, end;
@@ -342,6 +345,7 @@ static int pci_epf_test_read(struct pci_epf_test *epf_test)
 	struct device *dma_dev = epf->epc->dev.parent;
 	enum pci_barno test_reg_bar = epf_test->test_reg_bar;
 	struct pci_epf_test_reg *reg = epf_test->reg[test_reg_bar];
+	bool show_stats = true;
 
 	src_addr = pci_epc_mem_alloc_addr(epc, &phys_addr, reg->size);
 	if (!src_addr) {
@@ -369,10 +373,16 @@ static int pci_epf_test_read(struct pci_epf_test *epf_test)
 	dev_info(dev, "\nREAD => Using BAR:%d\tSize: %u bytes\n",
 		test_reg_bar, reg->size);
 
-	use_dma = !!(reg->flags & FLAG_USE_DMA);
-	if (use_dma) {
-		if (!epf_test->dma_supported) {
-			dev_err(dev, "Cannot transfer data using DMA\n");
+	/* Select one type of DMA test, the regular DMA Engine based or
+	 * the simple, more limited single DMA transfer.
+	 * In case both are selected, use the second.
+	 */
+	use_single_dma = !!(reg->flags & FLAG_USE_SINGLE_DMA);
+	use_dma = !!(reg->flags & FLAG_USE_DMA) && (!use_single_dma);
+
+	if (use_dma || use_single_dma) {
+		if (use_dma && !epf_test->dma_supported) {
+			dev_err(dev, "Cannot transfer data using selected DMA\n");
 			ret = -EINVAL;
 			goto err_dma_map;
 		}
@@ -386,10 +396,30 @@ static int pci_epf_test_read(struct pci_epf_test *epf_test)
 		}
 
 		ktime_get_ts64(&start);
-		ret = pci_epf_test_data_transfer(epf_test, dst_phys_addr,
+		if (use_dma)
+			ret = pci_epf_test_data_transfer(
+						 epf_test, dst_phys_addr,
 						 phys_addr, reg->size);
-		if (ret)
+
+		if (use_single_dma) {
+			reinit_completion(&epf_test->transfer_complete);
+			ret = pci_epc_start_single_dma(epc, epf->func_no, 1,
+					phys_addr, dst_phys_addr, reg->size,
+					&epf_test->transfer_complete);
+			if (ret) {
+				dev_err(dev, "Failed to start single DMA read\n");
+			} else {
+				ret = wait_for_completion_interruptible(
+					&epf_test->transfer_complete);
+				if (ret < 0)
+					dev_err(dev, "DMA wait_for_completion_timeout\n");
+			}
+		}
+
+		if (ret) {
 			dev_err(dev, "Data transfer failed\n");
+			show_stats = false;
+		}
 		ktime_get_ts64(&end);
 
 		dma_unmap_single(dma_dev, dst_phys_addr, reg->size,
@@ -400,12 +430,15 @@ static int pci_epf_test_read(struct pci_epf_test *epf_test)
 		ktime_get_ts64(&end);
 	}
 
-	pci_epf_test_print_rate(dev, "READ", reg->size,
-		&start, &end, use_dma);
+	if (show_stats)
+		pci_epf_test_print_rate(dev, "READ", reg->size, &start, &end,
+			use_dma || use_single_dma);
 
 	crc32 = crc32_le(~0, buf, reg->size);
-	if (crc32 != reg->checksum)
+	if (crc32 != reg->checksum) {
+		dev_err(dev, "Checksums do not match\n");
 		ret = -EIO;
+	}
 
 err_dma_map:
 	kfree(buf);
@@ -425,7 +458,7 @@ static int pci_epf_test_write(struct pci_epf_test *epf_test)
 	int ret;
 	void __iomem *dst_addr;
 	void *buf;
-	bool use_dma;
+	bool use_dma, use_single_dma;
 	phys_addr_t phys_addr;
 	phys_addr_t src_phys_addr;
 	struct timespec64 start, end;
@@ -435,6 +468,7 @@ static int pci_epf_test_write(struct pci_epf_test *epf_test)
 	struct device *dma_dev = epf->epc->dev.parent;
 	enum pci_barno test_reg_bar = epf_test->test_reg_bar;
 	struct pci_epf_test_reg *reg = epf_test->reg[test_reg_bar];
+	bool show_stats = true;
 
 	dst_addr = pci_epc_mem_alloc_addr(epc, &phys_addr, reg->size);
 	if (!dst_addr) {
@@ -465,10 +499,16 @@ static int pci_epf_test_write(struct pci_epf_test *epf_test)
 	get_random_bytes(buf, reg->size);
 	reg->checksum = crc32_le(~0, buf, reg->size);
 
-	use_dma = !!(reg->flags & FLAG_USE_DMA);
-	if (use_dma) {
-		if (!epf_test->dma_supported) {
-			dev_err(dev, "Cannot transfer data using DMA\n");
+	/* Select one type of DMA test, the regular DMA Engine based or
+	 * the simple, more limited single DMA transfer.
+	 * In case both are selected, use the second.
+	 */
+	use_single_dma = !!(reg->flags & FLAG_USE_SINGLE_DMA);
+	use_dma = !!(reg->flags & FLAG_USE_DMA) && (!use_single_dma);
+
+	if (use_dma || use_single_dma) {
+		if (use_dma && !epf_test->dma_supported) {
+			dev_err(dev, "Cannot transfer data using selected DMA\n");
 			ret = -EINVAL;
 			goto err_dma_map;
 		}
@@ -482,10 +522,28 @@ static int pci_epf_test_write(struct pci_epf_test *epf_test)
 		}
 
 		ktime_get_ts64(&start);
-		ret = pci_epf_test_data_transfer(epf_test, phys_addr,
+		if (use_dma)
+			ret = pci_epf_test_data_transfer(
+						 epf_test, phys_addr,
 						 src_phys_addr, reg->size);
-		if (ret)
+		if (use_single_dma) {
+			reinit_completion(&epf_test->transfer_complete);
+			ret = pci_epc_start_single_dma(epc, epf->func_no, 0,
+					src_phys_addr, phys_addr, reg->size,
+					&epf_test->transfer_complete);
+			if (ret) {
+				dev_err(dev, "Failed to start single DMA write\n");
+			} else {
+				ret = wait_for_completion_interruptible(
+					&epf_test->transfer_complete);
+				if (ret < 0)
+					dev_err(dev, "DMA wait_for_completion_timeout\n");
+			}
+		}
+		if (ret) {
 			dev_err(dev, "Data transfer failed\n");
+			show_stats = false;
+		}
 		ktime_get_ts64(&end);
 
 		dma_unmap_single(dma_dev, src_phys_addr, reg->size,
@@ -496,8 +554,9 @@ static int pci_epf_test_write(struct pci_epf_test *epf_test)
 		ktime_get_ts64(&end);
 	}
 
-	pci_epf_test_print_rate(dev, "WRITE", reg->size,
-		&start, &end, use_dma);
+	if (show_stats)
+		pci_epf_test_print_rate(dev, "WRITE", reg->size, &start, &end,
+			use_dma || use_single_dma);
 
 	/*
 	 * wait 1ms inorder for the write to complete. Without this delay L3
