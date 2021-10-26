@@ -36,6 +36,7 @@ struct pci_test {
 	bool		copy;
 	unsigned long	size;
 	bool		use_dma;
+	bool		use_single_dma;
 };
 
 static int run_test(struct pci_test *test)
@@ -115,6 +116,8 @@ static int run_test(struct pci_test *test)
 
 	if (test->write) {
 		param.size = test->size;
+		if (test->use_single_dma)
+			param.flags = PCITEST_FLAGS_USE_SINGLE_DMA;
 		if (test->use_dma)
 			param.flags = PCITEST_FLAGS_USE_DMA;
 		ret = ioctl(fd, PCITEST_WRITE, &param);
@@ -127,6 +130,8 @@ static int run_test(struct pci_test *test)
 
 	if (test->read) {
 		param.size = test->size;
+		if (test->use_single_dma)
+			param.flags = PCITEST_FLAGS_USE_SINGLE_DMA;
 		if (test->use_dma)
 			param.flags = PCITEST_FLAGS_USE_DMA;
 		ret = ioctl(fd, PCITEST_READ, &param);
@@ -139,6 +144,8 @@ static int run_test(struct pci_test *test)
 
 	if (test->copy) {
 		param.size = test->size;
+		if (test->use_single_dma)
+			param.flags = PCITEST_FLAGS_USE_SINGLE_DMA;
 		if (test->use_dma)
 			param.flags = PCITEST_FLAGS_USE_DMA;
 		ret = ioctl(fd, PCITEST_COPY, &param);
@@ -174,8 +181,8 @@ int main(int argc, char **argv)
 	/* set default endpoint device */
 	test->device = "/dev/pci-endpoint-test.0";
 
-	while ((c = getopt(argc, argv, "D:b:m:x:i:deIlhrwcs:")) != EOF)
-	switch (c) {
+	while ((c = getopt(argc, argv, "D:b:m:x:i:dSeIlhrwcs:")) != EOF)
+		switch (c) {
 	case 'D':
 		test->device = optarg;
 		continue;
@@ -224,6 +231,9 @@ int main(int argc, char **argv)
 	case 'd':
 		test->use_dma = true;
 		continue;
+	case 'S':
+		test->use_single_dma = true;
+		continue;
 	case 'h':
 	default:
 usage:
@@ -237,7 +247,8 @@ usage:
 			"\t-i <irq type>	\tSet IRQ type (0 - Legacy, 1 - MSI, 2 - MSI-X)\n"
 			"\t-e			Clear IRQ\n"
 			"\t-I			Get current IRQ type configured\n"
-			"\t-d			Use DMA\n"
+			"\t-d			Use DMA Engine\n"
+			"\t-S			Use Simple Single DMA transfer\n"
 			"\t-l			Legacy IRQ test\n"
 			"\t-r			Read buffer test\n"
 			"\t-w			Write buffer test\n"
