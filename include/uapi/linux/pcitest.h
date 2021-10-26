@@ -22,6 +22,7 @@
 #define PCITEST_CLEAR_IRQ	_IO('P', 0x10)
 
 #define PCITEST_FLAGS_USE_DMA	0x00000001
+#define PCITEST_FLAGS_USE_SINGLE_DMA	0x00000002
 
 struct pci_endpoint_test_xfer_param {
 	unsigned long size;
