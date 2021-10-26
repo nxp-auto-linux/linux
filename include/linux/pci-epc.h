@@ -204,7 +204,7 @@ int pci_epc_start(struct pci_epc *epc);
 void pci_epc_stop(struct pci_epc *epc);
 const struct pci_epc_features *pci_epc_get_features(struct pci_epc *epc,
 						    u8 func_no);
-int pci_epc_start_dma(struct pci_epc *epc, u8 func_no, bool dir,
+int pci_epc_start_single_dma(struct pci_epc *epc, u8 func_no, bool dir,
 		      dma_addr_t src, dma_addr_t dst, u32 len,
 		      struct completion *complete);
 enum pci_barno
