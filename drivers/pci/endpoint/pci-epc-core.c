@@ -203,7 +203,7 @@ int pci_epc_start(struct pci_epc *epc)
 EXPORT_SYMBOL_GPL(pci_epc_start);
 
 /**
- * pci_epc_start_dma() - start the DMA operation at EP side
+ * pci_epc_start_single_dma() - start Single Transfer DMA operation at EP side
  * @epc: the EPC device which starts the DMA operations to the host
  * @func_no: the endpoint function number in the EPC device
  * @dir: direction of the DMA operations; 1 read, 0 write
@@ -214,7 +214,7 @@ EXPORT_SYMBOL_GPL(pci_epc_start);
  *
  * Invoke to start the DMA read or write operation
  */
-int pci_epc_start_dma(struct pci_epc *epc, u8 func_no, bool dir,
+int pci_epc_start_single_dma(struct pci_epc *epc, u8 func_no, bool dir,
 		      dma_addr_t src, dma_addr_t dst, u32 len,
 		      struct completion *complete)
 {
@@ -234,7 +234,7 @@ int pci_epc_start_dma(struct pci_epc *epc, u8 func_no, bool dir,
 
 	return ret;
 }
-EXPORT_SYMBOL_GPL(pci_epc_start_dma);
+EXPORT_SYMBOL_GPL(pci_epc_start_single_dma);
 
 /**
  * pci_epc_raise_irq() - interrupt the host system
