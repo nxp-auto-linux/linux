@@ -132,6 +132,29 @@ u32 _get_rng_srv_id(struct device *dev)
 }
 
 /**
+ * hse_fw_if_fixup - interface fixup to ensure compatibility with older firmware
+ * @dev: HSE device
+ */
+static void hse_fw_if_fixup(struct device *dev)
+{
+	struct hse_drvdata *drv = dev_get_drvdata(dev);
+	u8 channel;
+
+	/* adjust number of streaming contexts for fw < v1.0.0 */
+	if (drv->firmware_version.major < 1u)
+		for (channel = 1; channel < HSE_NUM_CHANNELS; channel++)
+			if (channel < HSE_NUM_CHANNELS - 2u)
+				drv->type[channel] = HSE_CH_TYPE_SHARED;
+
+	/* adjust RNG service ID for fw < v0.9.2 */
+	drv->rng_srv_id = HSE_SRV_ID_GET_RANDOM_NUM;
+	if (drv->firmware_version.major == 0u &&
+	    drv->firmware_version.minor == 9u &&
+	    drv->firmware_version.patch < 2u)
+		drv->rng_srv_id |= 0x00A50000ul;
+}
+
+/**
  * hse_key_ring_init - initialize all keys in a specific key group
  * @dev: HSE device
  * @key_ring: output key ring
@@ -835,12 +858,8 @@ static int hse_probe(struct platform_device *pdev)
 		 drv->firmware_version.fw_type, drv->firmware_version.major,
 		 drv->firmware_version.minor, drv->firmware_version.patch);
 
-	/* backwards compatibility with older firmware */
-	drv->rng_srv_id = HSE_SRV_ID_GET_RANDOM_NUM;
-	if (drv->firmware_version.major == 0u &&
-	    drv->firmware_version.minor == 9u &&
-	    drv->firmware_version.patch < 2u)
-		drv->rng_srv_id |= 0x00A50000ul;
+	/* interface fixup */
+	hse_fw_if_fixup(dev);
 
 	/* check HSE global status */
 	if (IS_ENABLED(CONFIG_CRYPTO_DEV_NXP_HSE_HWRNG) &&
