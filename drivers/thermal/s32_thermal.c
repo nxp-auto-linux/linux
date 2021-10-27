@@ -88,6 +88,7 @@ struct fsl_tmu_chip {
 	bool	 has_fuse;
 	uint32_t enable_mask;
 	int		 sites;
+	int16_t	 offset_to_celsius;
 };
 
 static struct fsl_tmu_chip gen1_tmu = {
@@ -97,6 +98,8 @@ static struct fsl_tmu_chip gen1_tmu = {
 	.has_fuse = true,
 	.enable_mask = 0x2,
 	.sites = 3,
+	/* For gen1, the TMU offers the value in Kelvin. 0 Celsius dgr. = 273K */
+	.offset_to_celsius = 273,
 };
 
 static struct fsl_tmu_chip v234_tmu = {
@@ -106,6 +109,8 @@ static struct fsl_tmu_chip v234_tmu = {
 	.has_fuse = false,
 	.enable_mask = 0x1,
 	.sites = 1,
+	/* For v234, the TMU offers the value directly in Celsius dgr. */
+	.offset_to_celsius = 0,
 };
 
 enum measurement_interval_t {
@@ -139,6 +144,7 @@ struct tmu_driver_data {
 	void __iomem *fuse_base;
 	struct device *hwmon_device;
 	uint8_t calib_points;
+	int16_t temp_offset;
 };
 
 static int get_site_idx_from_label(const char *label)
@@ -169,7 +175,7 @@ static inline int is_out_of_range(int8_t temperature)
 	return (temperature < -40 || temperature > 125);
 }
 
-/* The Reference Manual Rev.2, 03/2017 states that the 8 bit
+/* The S32V234 Reference Manual Rev.2, 03/2017 states that the 8 bit
  * TEMP field of the RITSR and RATSR registers should be interpreted
  * as a signed integer when the temperature is below 25 degrees
  * Celsius and as an unsigned integer when the temperature is above 25
@@ -178,19 +184,18 @@ static inline int is_out_of_range(int8_t temperature)
  * interpreting the field as a signed integer always leads to the
  * correct result. If the value would ever fall outside this range,
  * the `Valid` bit of the registers would be cleared by hardware.
- * No mention about this for Gen1 (Documentation is wrong for TMU),
- * but the TMUs are similar enough to think it is the same, not to
- * mention that it seems to work in practice.
  */
 static int tmu_immediate_temperature(struct device *dev,
-					int8_t *immediate_temperature, int site)
+					int16_t *immediate_temperature, bool *point5, int site)
 {
 	struct tmu_driver_data *tmu_dd = dev_get_drvdata(dev);
 	union TMU_RITSR_u tmu_ritsr;
 
 	tmu_ritsr.R = readl(tmu_dd->tmu_registers + TMU_RITSR(site));
 	if (likely(tmu_ritsr.B.V == 0x1)) {
-		*immediate_temperature = (int8_t)tmu_ritsr.B.TEMP;
+		*immediate_temperature = (int16_t)tmu_ritsr.B.TEMP;
+		*immediate_temperature -= tmu_dd->temp_offset;
+		*point5 = (bool)tmu_ritsr.B.TP5;
 		return is_out_of_range(*immediate_temperature);
 	}
 
@@ -198,14 +203,15 @@ static int tmu_immediate_temperature(struct device *dev,
 }
 
 static int tmu_average_temperature(struct device *dev,
-					int8_t *average_temperature, int site)
+					int16_t *average_temperature, int site)
 {
 	struct tmu_driver_data *tmu_dd = dev_get_drvdata(dev);
 	union TMU_RATSR_u tmu_ratsr;
 
 	tmu_ratsr.R = readl(tmu_dd->tmu_registers + TMU_RATSR(site));
 	if (likely(tmu_ratsr.B.V == 0x1)) {
-		*average_temperature = (int8_t)tmu_ratsr.B.TEMP;
+		*average_temperature = (int16_t)tmu_ratsr.B.TEMP;
+		*average_temperature -= tmu_dd->temp_offset;
 		return is_out_of_range(*average_temperature);
 	}
 
@@ -227,18 +233,19 @@ static ssize_t tmu_show_immediate_label(struct device *dev,
 static ssize_t tmu_show_immediate(struct device *dev,
 		struct device_attribute *attr, char *buffer)
 {
-	int8_t immediate_temperature;
+	int16_t immediate_temperature;
+	bool point5;
 	int site;
 
 	site = get_site_idx_from_label(attr->attr.name);
 	if (site == -1)
 		return snprintf(buffer, PAGE_SIZE, "Invalid site\n");
-	if (tmu_immediate_temperature(dev, &immediate_temperature, site))
+	if (tmu_immediate_temperature(dev, &immediate_temperature, &point5, site))
 		return snprintf(buffer, PAGE_SIZE,
 				"Invalid temperature reading!\n");
 	else
 		return snprintf(buffer, PAGE_SIZE, "%d",
-				immediate_temperature * 1000);
+				immediate_temperature * 1000 + 500 * point5);
 }
 
 static ssize_t tmu_show_average_label(struct device *dev,
@@ -256,7 +263,7 @@ static ssize_t tmu_show_average_label(struct device *dev,
 static ssize_t tmu_show_average(struct device *dev,
 		struct device_attribute *attr, char *buffer)
 {
-	int8_t average_temperature;
+	int16_t average_temperature;
 	int site;
 
 	site = get_site_idx_from_label(attr->attr.name);
@@ -583,6 +590,7 @@ static int tmu_probe(struct platform_device *pd)
 		}
 	}
 
+	tmu_dd->temp_offset = tmu_chip->offset_to_celsius;
 	if (tmu_chip->has_sites)
 		tmu_dd->calib_points = 4;
 
