@@ -50,7 +50,7 @@
 		fsl,spi-sck-cs-delay = <100>;
 		reg = <0>;
 
-		dsa,member = < 0 0 >;
+		dsa,member = <0 0>;
 
 		ports {
 			#address-cells = <1>;
@@ -59,6 +59,7 @@
 			sw0_p0: port@0 {
 				label = "sw0-p0";
 				phy-mode = "rgmii-txid";
+				link = <&sw1_p0>;
 				reg = <0>;
 
 				fixed-link {
@@ -118,7 +119,7 @@
 		fsl,spi-sck-cs-delay = <100>;
 		reg = <1>;
 
-		dsa,member = < 1 0 >;
+		dsa,member = <0 1>;
 
 		ports {
 			#address-cells = <1>;
@@ -127,7 +128,7 @@
 			sw1_p0: port@0 {
 				label = "sw1-p0";
 				phy-mode = "rgmii-txid";
-				ethernet = <&sw0_p0>;
+				link = <&sw0_p0>;
 				reg = <0>;
 
 				fixed-link {
@@ -169,16 +170,6 @@
 				};
 			};
 
-			port@4 {
-				label = "sw1-p4";
-				phy-mode = "rgmii-txid";
-				reg = <4>;
-
-				fixed-link {
-					speed = <1000>;
-					full-duplex;
-				};
-			};
 		};
 	};
 };
