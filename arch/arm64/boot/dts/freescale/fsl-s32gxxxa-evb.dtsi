@@ -2,7 +2,6 @@
 /*
  * Copyright 2019-2021 NXP
  */
-#include "fsl-s32g.dtsi"
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/pinctrl/s32g-pinctrl.h>
 
