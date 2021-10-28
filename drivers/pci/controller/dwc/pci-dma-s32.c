@@ -653,8 +653,6 @@ u32 dw_handle_dma_irq_write(struct dma_info *di, u8 ch, u32 val_write)
 	u32 err_type = DMA_ERR_NONE;
 
 	if (val_write) {
-		int ch;
-
 		if (di->wr_ch[ch].status == DMA_CH_RUNNING) {
 			/* Search interrupt type, abort or done */
 			/* Abort interrupt */
@@ -696,8 +694,6 @@ u32 dw_handle_dma_irq_read(struct dma_info *di, u8 ch, u32 val_read)
 	u32 err_type = DMA_ERR_NONE;
 
 	if (val_read) {
-		int ch;
-
 		if (di->rd_ch[ch].status == DMA_CH_RUNNING) {
 			/* Search interrupt type, abort or done */
 			/* Abort interrupt */
