@@ -170,10 +170,10 @@
 
 	generic_timer: timer {
 		compatible = "arm,armv8-timer";
-		interrupts = <1 13 0xf08>,
-			     <1 14 0xf08>,
-			     <1 11 0xf08>,
-			     <1 10 0xf08>;
+		interrupts = <GIC_PPI 13 0xf08>,
+			     <GIC_PPI 14 0xf08>,
+			     <GIC_PPI 11 0xf08>,
+			     <GIC_PPI 10 0xf08>;
 	};
 
 	fxosc: fxosc@40050000 {
