@@ -865,6 +865,41 @@ static int siul2_gpio_pads_init(struct platform_device *pdev,
 	return 0;
 }
 
+static int siul2_irq_domain_xlate(struct irq_domain *d,
+				  struct device_node *ctrlr, const u32 *intspec,
+				  unsigned int intsize,
+				  irq_hw_number_t *out_hwirq,
+				  unsigned int *out_type)
+{
+	int ret, pin, gpio, eirq;
+	struct gpio_chip *gc = d->host_data;
+	struct siul2_gpio_dev *gpio_dev;
+
+	ret = irq_domain_xlate_twocell(d, ctrlr, intspec, intsize,
+				       out_hwirq, out_type);
+	if (ret)
+		return ret;
+
+	gpio_dev = to_siul2_gpio_dev(gc);
+
+	eirq = *out_hwirq;
+	pin = siul2_eirq_to_pin(gpio_dev, eirq);
+	gpio = siul2_pin_to_gpio(gc, pin);
+
+	if (gpio < 0)
+		return -EINVAL;
+
+	*out_hwirq = gpio;
+
+	return 0;
+}
+
+static const struct irq_domain_ops siul2_domain_ops = {
+	.map	= gpiochip_irq_map,
+	.unmap	= gpiochip_irq_unmap,
+	.xlate	= siul2_irq_domain_xlate,
+};
+
 static int siul2_gpio_probe(struct platform_device *pdev)
 {
 	int err = 0;
@@ -935,6 +970,7 @@ static int siul2_gpio_probe(struct platform_device *pdev)
 	girq->parents = NULL;
 	girq->default_type = IRQ_TYPE_NONE;
 	girq->handler = handle_simple_irq;
+	girq->domain_ops = &siul2_domain_ops;
 
 	err = devm_gpiochip_add_data(dev, gc, gpio_dev);
 	if (err) {
