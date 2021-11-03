@@ -10,3 +10,19 @@
 	model = "Freescale S32G399A";
 	compatible = "fsl,s32g399", "arm,vexpress";
 };
+
+&swt8 {
+	status = "okay";
+};
+
+&swt9 {
+	status = "okay";
+};
+
+&swt10 {
+	status = "okay";
+};
+
+&swt11 {
+	status = "okay";
+};
