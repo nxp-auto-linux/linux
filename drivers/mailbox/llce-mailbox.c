@@ -13,6 +13,7 @@
 #include <linux/mailbox/nxp-llce/llce_can.h>
 #include <linux/mailbox/nxp-llce/llce_interface_fifo.h>
 #include <linux/mailbox/nxp-llce/llce_mailbox.h>
+#include <linux/mailbox/nxp-llce/llce_sema42.h>
 #include <linux/mailbox_client.h>
 #include <linux/mailbox_controller.h>
 #include <linux/module.h>
@@ -101,6 +102,7 @@ struct llce_mb {
 	void __iomem *blrout_fifo;
 	void __iomem *blrin_fifo;
 	void __iomem *icsr;
+	void __iomem *sema42;
 	struct clk *clk;
 	struct device *dev;
 	DECLARE_BITMAP(chans_map, LLCE_NFIFO_WITH_IRQ);
@@ -137,7 +139,7 @@ static int process_logger_cmd(struct mbox_chan *chan, struct llce_rx_msg *msg);
 static bool config_platform = true;
 module_param(config_platform, bool, 0660);
 
-const char *llce_errors[] = {
+static const char * const llce_errors[] = {
 	LLCE_ERROR_ENTRY(LLCE_ERROR_TXACK_FIFO_FULL),
 	LLCE_ERROR_ENTRY(LLCE_ERROR_RXOUT_FIFO_FULL),
 	LLCE_ERROR_ENTRY(LLCE_ERROR_HW_FIFO_EMPTY),
@@ -236,7 +238,7 @@ const char *llce_errors[] = {
 	LLCE_ERROR_ENTRY(LLCE_NOTIF_BUSOFF_DONE),
 };
 
-const char *llce_modules[] = {
+static const char * const llce_modules[] = {
 	LLCE_MODULE_ENTRY(LLCE_TX),
 	LLCE_MODULE_ENTRY(LLCE_RX),
 	LLCE_MODULE_ENTRY(LLCE_DTE),
@@ -715,33 +717,66 @@ static void disable_fifo_irq(void __iomem *fifo)
 	writel(ier_val, ier);
 }
 
+static enum llce_sema42_gate get_sema42_gate(u8 fifo)
+{
+	/**
+	 * Semaphore used to protect acces to TXACK and RXOUT between LLCE and
+	 * host on interrupt enable/disable.
+	 */
+	static const enum llce_sema42_gate
+	sema4_ier[LLCE_CAN_CONFIG_IER_SEMA4_COUNT][LLCE_CAN_CONFIG_HIF_COUNT] = {
+		{LLCE_SEMA42_GATE20, LLCE_SEMA42_GATE21},
+		{LLCE_SEMA42_GATE22, LLCE_SEMA42_GATE23}
+	};
+
+	return sema4_ier[fifo][LLCE_CAN_HIF0];
+}
+
+static void ctrl_rxout_irq_with_lock(struct llce_mb *mb, void __iomem *rxout,
+				     bool enable)
+{
+	enum llce_sema42_gate gate = get_sema42_gate(LLCE_FIFO_RXOUT_INDEX);
+
+	llce_sema42_lock(mb->sema42, gate, LLCE_HOST_CORE_SEMA42_DOMAIN);
+
+	if (enable)
+		enable_fifo_irq(rxout);
+	else
+		disable_fifo_irq(rxout);
+
+	llce_sema42_unlock(mb->sema42, gate);
+}
+
 static void disable_rx_irq(struct mbox_chan *chan)
 {
+	struct llce_chan_priv *priv = chan->con_priv;
+	struct llce_mb *mb = priv->mb;
 	void __iomem *rxout = get_rxout_fifo(chan);
 
-	disable_fifo_irq(rxout);
+	ctrl_rxout_irq_with_lock(mb, rxout, false);
 }
 
 static void enable_rx_irq(struct mbox_chan *chan)
 {
+	struct llce_chan_priv *priv = chan->con_priv;
+	struct llce_mb *mb = priv->mb;
 	void __iomem *rxout = get_rxout_fifo(chan);
 
-	enable_fifo_irq(rxout);
+	ctrl_rxout_irq_with_lock(mb, rxout, true);
 }
 
 static void enable_logger_irq(struct llce_mb *mb)
 {
 	void __iomem *rxout = get_logger_out(mb);
 
-	/* Enable interrupt routing inside FIFO module. */
-	enable_fifo_irq(rxout);
+	ctrl_rxout_irq_with_lock(mb, rxout, true);
 }
 
 static void disable_logger_irq(struct llce_mb *mb)
 {
 	void __iomem *rxout = get_logger_out(mb);
 
-	disable_fifo_irq(rxout);
+	ctrl_rxout_irq_with_lock(mb, rxout, false);
 }
 
 static int request_llce_irq(struct llce_mb *mb, struct llce_fifoirq *fifo_irq)
@@ -1690,6 +1725,7 @@ static int init_llce_mem_resources(struct platform_device *pdev,
 		{ .res_name = "blrin_fifo", .vaddr = &mb->blrin_fifo, },
 		{ .res_name = "rxin_fifo", .vaddr = &mb->rxin_fifo, },
 		{ .res_name = "icsr", .vaddr = &mb->icsr, },
+		{ .res_name = "sema42", .vaddr = &mb->sema42, },
 	};
 
 	for (i = 0; i < ARRAY_SIZE(resources); i++) {
