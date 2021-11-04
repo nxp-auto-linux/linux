@@ -414,6 +414,18 @@ enum llce_can_abort_mb {
 	ABORT_ALL_MB
 } __packed;
 
+/**
+ * MB length accepted by a filter
+ * MB length (8/64 bytes) configured to be accepted by a filter.
+ * No mixed mode available.
+ **/
+enum llce_can_rx_mb_length {
+	/** Opt for 64 bytes MB size accepted by a filter */
+	USE_LONG_MB = 0U,
+	/** Opt for 8 bytes MB size accepted by a filter */
+	USE_SHORT_MB,
+} __packed;
+
 /*
  * These structure must be kept as they are because BCAN is
  * sending data in this format !
@@ -451,6 +463,31 @@ struct llce_can_mb {
 	 * for the transmitted frames.
 	 */
 	u32 timestamp;
+
+} __aligned(4) __packed;
+
+struct llce_can_short_mb {
+	/**
+	 * INPUT/OUTPUT: The first word of a frame as it is
+	 * expected/provided by the CAN controller.
+	 */
+	u32 word0;
+	/**
+	 * INPUT/OUTPUT: The second word of a frame as it is
+	 * expected/provided by the CAN controller.
+	 */
+	u32 word1;
+	/**
+	 * INPUT/OUTPUT: Frame payload needed for the short
+	 * payload size case.
+	 */
+	u8 payload[LLCE_CAN_CONFIG_SHORT_PAYLOAD_MAX_SIZE];
+	/**
+	 * INPUT: Time stamp of the received frames.It is not used
+	 * for the transmitted frames.
+	 */
+	u32 timestamp;
+
 } __aligned(4) __packed;
 
 /**
@@ -489,7 +526,7 @@ struct llce_can_rx_mb_desc {
  * Transmission message buffer descriptor.
  * Transmission message buffer descriptor is a memory area placed in the shared
  * memory which is written by the host software with other additional info
- * (e.g. frame tag IDs) which is send back to the host by the LLCE firmware as
+ * (e.g. frame tag IDs) which is sent back to the host by the LLCE firmware as
  * acknowledge information. Those internal tags are not changed/used by the
  * LLCE firmware.
  * Before to use any transmission message buffer descriptor it is needed
@@ -564,7 +601,7 @@ struct llce_can_tx2host_ack_info {
 
 /**
  * Command for polling of controller state .
- * It is send from host to LLCE to query it for the controller state.
+ * It is sent from host to LLCE to query it for the controller state.
  **/
 struct llce_can_get_controller_mode_cmd {
 	/** OUTPUT: Current state of the CAN controller. */
@@ -573,7 +610,7 @@ struct llce_can_get_controller_mode_cmd {
 
 /**
  * Set controller mode command.
- * It is send from host to LLCE module in order request changing the state of a
+ * It is sent from host to LLCE module in order request changing the state of a
  * CAN controller. Currently it allows only to start and stop a controller.
  * When a controller is started it allows to transmit and receive frames from
  * the bus. When the controller is stopped it ignores all frames from the bus
@@ -635,7 +672,7 @@ struct llce_can_controller_fd_config {
 
 /**
  * Set baud rate command.
- * It is send from host to LLCE module in order to configure baud rate
+ * It is sent from host to LLCE module in order to configure baud rate
  * parameters for arbitration phase.
  **/
 struct llce_can_set_baudrate_cmd {
@@ -698,13 +735,6 @@ struct llce_can_rx_filter {
 	 */
 	u16 mb_count;
 	/**
-	 * INPUT: Reception interface id used to deliver frames accepted
-	 * by that filter to the host.
-	 */
-	u8 rx_dest_interface;
-	/** INPUT: Filter entry type: mask, range, exact match */
-	enum llce_can_entry entry_type;
-	/**
 	 * OUTPUT: Filter address inside hardware filtering accelerator
 	 * where the filter fields are stored.
 	 *
@@ -713,11 +743,21 @@ struct llce_can_rx_filter {
 	 * the high filter addresses.
 	 */
 	u16 filter_addr;
+	/**
+	 * INPUT: Reception interface id used to deliver frames accepted
+	 * by that filter to the host.
+	 */
+	u8 rx_dest_interface;
+	/** INPUT: Filter entry type: mask, range, exact match */
+	enum llce_can_entry entry_type;
+	/** INPUT: Message buffer payload length: 8 or 64 bytes */
+	enum llce_can_rx_mb_length filter_mb_length;
+
 } __aligned(4) __packed;
 
 /**
  * Set filter command.
- * It is send by the host to LLCE in order to configure one or more reception
+ * It is sent by the host to LLCE in order to configure one or more reception
  * filters inside LLCE.
  **/
 struct llce_can_set_filter_cmd {
@@ -841,7 +881,7 @@ struct llce_can_advanced_filter {
 
 /**
  * Set advanced filter command.
- * It is send by the host to LLCE in order to set one or more advanced filters.
+ * It is sent by the host to LLCE in order to set one or more advanced filters.
  **/
 struct llce_can_set_advanced_filter_cmd {
 	/**
@@ -973,9 +1013,7 @@ struct llce_can_init_cmd {
 struct llce_can_init_pfe_cmd {
 	/** OUTPUT: Address of the PFE RX Ring in LLCE memory */
 	u32 p_rx_ring;
-	/**
-	 * OUTPUT: Address of the PFE RX Writeback Ring in LLCE memory
-	 */
+	/** OUTPUT: Address of the PFE RX Writeback Ring in LLCE memory */
 	u32 p_rx_wb_ring;
 	/** OUTPUT: Address of the PFE TX Ring in LLCE memory */
 	u32 p_tx_ring;
@@ -987,7 +1025,7 @@ struct llce_can_init_pfe_cmd {
 
 /**
  * Get status command.
- * It is send by the host to LLCE in order to get the content of all status
+ * It is sent by the host to LLCE in order to get the content of all status
  * registers of a specific CAN controller. This command makes only a read
  * operation on the status registers of CAN controller.
  **/
@@ -1004,7 +1042,7 @@ struct llce_can_get_status_cmd {
 
 /**
  * Get firmware version command.
- * It is send by the host to LLCE in order to get the firmware version string.
+ * It is sent by the host to LLCE in order to get the firmware version string.
  * It is copied in the response.
  **/
 struct llce_can_get_fw_version {
@@ -1016,7 +1054,7 @@ struct llce_can_get_fw_version {
 
 /**
  * Remove filter command structure.
- * It is send by the host to LLCE in order to remove a specific filter
+ * It is sent by the host to LLCE in order to remove a specific filter
  * identified by a hardware address.
  **/
 struct llce_can_remove_filter {
@@ -1029,7 +1067,7 @@ struct llce_can_remove_filter {
 
 /**
  * Add AF destination command structure.
- * It is send by the host to LLCE in order add a destination to be used by AF
+ * It is sent by the host to LLCE in order add a destination to be used by AF
  **/
 struct llce_can_create_af_destination {
 	/** INPUT: Destination to add to the list */
@@ -1040,7 +1078,7 @@ struct llce_can_create_af_destination {
 
 /**
  * Abort MB command structure
- * It is send by the host to LLCE in order to abort the lowest priority pending
+ * It is sent by the host to LLCE in order to abort the lowest priority pending
  * transmission of a specific controller.
  **/
 struct llce_can_abort_mb_cmd {
@@ -1175,7 +1213,7 @@ struct llce_can_channel_error_notif {
 } __aligned(4) __packed;
 
 /**
- * List of notifications sent by LLCE to host, used by host.
+ * List of notifications send by LLCE to host, used by host.
  * It is used by LLCE to notify host about specific events inside LLCE.
  **/
 union llce_can_notification_list {
@@ -1217,7 +1255,7 @@ struct llce_can_notification {
 /**
  * Notification tables.
  * Notification tables used to store the details of the notifications.
- * The index of entries are sent to host cores.The two tables are related to
+ * The index of entries are send to host cores.The two tables are related to
  * reporting method:interrupt or polling.
  **/
 struct llce_can_notification_table {
@@ -1243,15 +1281,21 @@ struct llce_can_notification_table {
  **/
 struct llce_can_shared_memory {
 	/** Receive message buffer descriptors. */
-	struct llce_can_rx_mb_desc can_rx_mb_desc[LLCE_CAN_CONFIG_MAXRXMB];
+	struct llce_can_rx_mb_desc
+		can_rx_mb_desc[LLCE_CAN_CONFIG_MAXRXMB +
+			       LLCE_CAN_CONFIG_MAX_SHORTRXMB];
 	/** Transmit message buffer descriptors. */
 	struct llce_can_tx_mb_desc can_tx_mb_desc[LLCE_CAN_CONFIG_MAXTXMB];
-	/** Shared memory used store the CAN message buffers. */
-	struct llce_can_mb can_mb[LLCE_CAN_CONFIG_MAXTXMB +
-				LLCE_CAN_CONFIG_MAXRXMB +
+	/** Shared memory used to store the LONG CAN message buffers (64B). */
+	struct llce_can_mb can_mb[LLCE_CAN_CONFIG_MAXRXMB +
+				LLCE_CAN_CONFIG_MAXTXMB +
 				LLCE_CAN_CONFIG_MAXAFFRMB];
+
+	/** Shared memory used to store the SHORT CAN message buffers (8B). */
+	struct llce_can_short_mb can_short_mb[LLCE_CAN_CONFIG_MAX_SHORTRXMB];
+
 	/** Shared memory used to send commands from Host to LLCE . */
-	struct llce_can_command can_cmd[LLCE_CAN_CONFIG_MAXCTRL_COUNT];
+	struct llce_can_command can_cmd[LLCE_CAN_CONFIG_HIF_COUNT];
 	/**
  * Shared memory used to store notifications from LLCE to host.
 	 */
