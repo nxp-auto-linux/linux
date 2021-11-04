@@ -511,34 +511,34 @@
 		status = "disabled";
 	};
 
-	llce0_sram: llce0_sram@43000000 {
+	llce_dte_sram: llce_dte_sram@43000000 {
 		compatible = "mmio-sram";
 		reg = <0x0 0x43000000 0x0 0x2000>;
 	};
 
-	llce1_sram: llce1_sram@43100000 {
+	llce_ppe_rx_sram: llce_ppe_rx_sram@43100000 {
 		compatible = "mmio-sram";
 		reg = <0x0 0x43100000 0x0 0x8000>;
 	};
 
-	llce2_sram: llce2_sram@43200000 {
+	llce_ppe_tx_sram: llce_ppe_tx_sram@43200000 {
 		compatible = "mmio-sram";
 		reg = <0x0 0x43200000 0x0 0x8000>;
 	};
 
-	llce3_sram: llce3_sram@43300000 {
+	llce_frpe_sram: llce_frpe_sram@43300000 {
 		compatible = "mmio-sram";
 		reg = <0x0 0x43300000 0x0 0x10000>;
 	};
 
 	llce_shmem: llce_shmem@43800000 {
 		compatible = "mmio-sram";
-		reg = <0x0 0x43800000 0x0 0x40000>;
+		reg = <0x0 0x43800000 0x0 0x3c000>;
 	};
 
-	llce_boot_status: llce_boot_status@43840000 {
+	llce_boot_status: llce_boot_status@4383c000 {
 		compatible = "mmio-sram";
-		reg = <0x0 0x43840000 0x0 0x10000>;
+		reg = <0x0 0x4383c000 0x0 0x14000>;
 	};
 
 	llce {
@@ -561,8 +561,8 @@
 		clock-names = "llce_sys";
 		firmware-name = "dte.bin", "ppe_rx.bin",
 			"ppe_tx.bin", "frpe.bin";
-		memory-region = <&llce0_sram>, <&llce1_sram>,
-			<&llce2_sram>, <&llce3_sram>,
+		memory-region = <&llce_dte_sram>, <&llce_ppe_rx_sram>,
+			<&llce_ppe_tx_sram>, <&llce_frpe_sram>,
 			<&llce_shmem>, <&llce_boot_status>;
 		memory-region-names = "dte.bin", "ppe_rx.bin",
 			"ppe_tx.bin", "frpe.bin", "shmem", "status";
