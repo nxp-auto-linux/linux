@@ -447,6 +447,21 @@
 			>;
 		};
 
+		pinctrl0_ftm0: ftm0grp {
+			fsl,pins = <
+				S32_GEN1_PAD_PB_02__FTM0_CH2_O
+
+			>;
+		};
+
+		pinctrl0_ftm1: ftm1grp {
+			fsl,pins = <
+				S32_GEN1_PAD_PB_13__FTM1_CH2_O
+				S32_GEN1_PAD_PB_15__FTM1_CH3_O
+				S32_GEN1_PAD_PC_00__FTM1_CH4_O
+			>;
+		};
+
 		pinctrl_gpio0: gpiogrp0 {
 			fsl,pins = <
 				S32_GEN1_PAD_PA0__SIUL_GPIO0
@@ -688,6 +703,26 @@
 				S32_G274_PAD_PE11__PFE1_RX_D1_IN
 				S32_G274_PAD_PE12__PFE1_RX_D2_IN
 				S32_G274_PAD_PE13__PFE1_RX_D3_IN
+			>;
+		};
+
+		pinctrl1_ftm0: ftm0grp {
+			fsl,pins = <
+				S32_GEN1_PAD_PB_02__FTM0_CH2_I
+				S32_GEN1_PAD_PL_01__FTM0_CH1_O
+				S32_GEN1_PAD_PL_01__FTM0_CH1_I
+				S32_GEN1_PAD_PL_04__FTM0_CH3_O
+				S32_GEN1_PAD_PL_04__FTM0_CH3_I
+				S32_GEN1_PAD_PL_05__FTM0_CH4_O
+				S32_GEN1_PAD_PL_05__FTM0_CH4_I
+			>;
+		};
+
+		pinctrl1_ftm1: ftm1grp {
+			fsl,pins = <
+				S32_GEN1_PAD_PB_13__FTM1_CH2_I
+				S32_GEN1_PAD_PB_14__FTM1_CH3_I
+				S32_GEN1_PAD_PC_00__FTM1_CH4_I
 			>;
 		};
 
@@ -942,3 +977,16 @@
 &llce_can15 {
 	status = "okay";
 };
+
+&pwm0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl0_ftm0>, <&pinctrl1_ftm0>;
+	status = "okay";
+};
+
+&pwm1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl0_ftm1>, <&pinctrl1_ftm1>;
+	status = "okay";
+};
+
