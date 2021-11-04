@@ -27,6 +27,11 @@
  */
 #define LLCE_CAN_CONFIG_PAYLOAD_MAX_SIZE 64U
 /**
+ * Maximum buffer size used to store the short CAN FD frame payload.
+ * See Llce_can_Short_mb_type
+ */
+#define LLCE_CAN_CONFIG_SHORT_PAYLOAD_MAX_SIZE 8U
+/**
  * Maximum number of hardware controllers usable inside LLCE.
  * See Llce_can_Init_cmd_type
  */
@@ -45,12 +50,19 @@
  */
 #define LLCE_CAN_CONFIG_MAXTXMB 256U
 /**
- * Maximum number of reception message buffers.
+ * Maximum number of 64B reception message buffers.
  * Note: 32 from those are reserved
  * for internal usage and are not available to the host.
  * See Llce_can_Rx_mb_descriptor_type
  */
-#define LLCE_CAN_CONFIG_MAXRXMB 2048U
+#define LLCE_CAN_CONFIG_MAXRXMB 1732U
+
+/**
+ * Maximum number of 8B reception message buffers.
+ * for internal usage and are not available to the host.
+ * See Llce_can_Rx_mb_descriptor_type
+ */
+#define LLCE_CAN_CONFIG_MAX_SHORTRXMB 2396U
 
 /**
  * Number of AF descriptors reserved for each
@@ -101,11 +113,21 @@
 #define LLCE_CAN_HIF1 1U
 /** Number of interfaces which can be used by host cores. */
 #define LLCE_CAN_CONFIG_HIF_COUNT 2U
+/** Number of semaphores for each HIF. */
+#define LLCE_CAN_CONFIG_IER_SEMA4_COUNT 2U
+/** Index of FIFO_RXOUT inside Can_sema4_Ier array. */
+#define LLCE_FIFO_RXOUT_INDEX 0U
+/** Index of FIFO_TXACK inside Can_sema4_Ier array. */
+#define LLCE_FIFO_TXACK_INDEX 1U
+/** Number of FIFOs used by first HIF. */
+#define LLCE_CAN_HIF0_FIFO_CNT 8U
 /**
  * Number of occurrences of last error reported by the notification
  * mechanism.Limited by Llce_can_Error_notif_type structure size.
  */
 #define LLCE_CAN_CONFIG_MAX_OCCURENCES 255U
+/** Semaphore core domain */
+#define LLCE_HOST_CORE_SEMA42_DOMAIN LLCE_SEMA42_GR_GTFSM_9
 
 /* LIN defines */
 /** Maximum buffer size used to store the LIN frame payload */
