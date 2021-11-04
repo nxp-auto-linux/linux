@@ -28,7 +28,7 @@
 #include "mailbox.h"
 
 #define LLCE_FIFO_SIZE			0x400
-#define LLCE_RXMBEXTENSION_OFFSET	0x50
+#define LLCE_RXMBEXTENSION_OFFSET	0x8F0U
 
 #define LLCE_NFIFO_WITH_IRQ		16
 #define LLCE_RXIN_N_FIFO		20
@@ -66,6 +66,10 @@
 
 #define LLCE_MODULE_ENTRY(MODULE) \
 	LLCE_ARR_ENTRY(LLCE_TX, MODULE)
+
+/* Mask to extract the hw ctrl where the frame comes from */
+#define HWCTRL_MBEXTENSION_MASK		0x0FFU
+#define HWCTRL_MBEXTENSION_SHIFT	24
 
 struct llce_icsr {
 	uint8_t icsr0_num;
@@ -141,6 +145,7 @@ const char *llce_errors[] = {
 	LLCE_ERROR_ENTRY(LLCE_ERROR_SW_FIFO_EMPTY),
 	LLCE_ERROR_ENTRY(LLCE_ERROR_SW_FIFO_FULL),
 	LLCE_ERROR_ENTRY(LLCE_ERROR_MB_NOTAVAILABLE),
+	LLCE_ERROR_ENTRY(LLCE_ERROR_SHORT_MB_NOTAVAILABLE),
 	LLCE_ERROR_ENTRY(LLCE_ERROR_BCAN_FRZ_EXIT),
 	LLCE_ERROR_ENTRY(LLCE_ERROR_BCAN_SYNC),
 	LLCE_ERROR_ENTRY(LLCE_ERROR_BCAN_FRZ_ENTER),
@@ -1324,17 +1329,18 @@ static int process_pop_rxout(struct mbox_chan *chan, struct llce_rx_msg *msg)
 	return 0;
 }
 
-static u8 *get_ctrl_extension(struct llce_mb *mb)
+static u32 *get_ctrl_extension(struct llce_mb *mb)
 {
-	return (u8 *)mb->status + LLCE_RXMBEXTENSION_OFFSET;
+	return (uint32_t *)(mb->status + LLCE_RXMBEXTENSION_OFFSET);
 }
 
 static uint8_t get_hwctrl(struct llce_mb *mb, uint32_t frame_id,
 			  uint32_t mb_index)
 {
-	u8 *ctrl_extensions = get_ctrl_extension(mb);
+	u32 *ctrl_extensions = get_ctrl_extension(mb);
 
-	return ctrl_extensions[frame_id - LLCE_CAN_CONFIG_MAXTXMB];
+	return (ctrl_extensions[frame_id] >> HWCTRL_MBEXTENSION_SHIFT) &
+	    HWCTRL_MBEXTENSION_MASK;
 }
 
 static void pop_logger_frame(struct llce_mb *mb, struct llce_can_mb **frame,

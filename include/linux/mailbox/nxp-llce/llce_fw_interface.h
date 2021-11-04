@@ -24,6 +24,11 @@ enum llce_fw_return {
 	/** CAN firmware error: Message buffer is not available. */
 	LLCE_ERROR_MB_NOTAVAILABLE,
 	/**
+	 * CAN firmware error: Short Message buffer is configured
+	 * but a long frame is received.
+	 */
+	LLCE_ERROR_SHORT_MB_NOTAVAILABLE,
+	/**
 	 * CAN firmware error: CAN protocol error due to inability to get
 	 * out from the freeze mode.
 	 */
