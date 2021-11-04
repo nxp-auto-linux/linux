@@ -26,7 +26,8 @@ struct llce_chan_priv {
 };
 
 struct llce_tx_msg {
-	bool fd;
+	bool fd_msg;
+	bool long_msg;
 	struct canfd_frame *cf;
 };
 
@@ -45,14 +46,22 @@ enum llce_rx_cmd {
 	LLCE_ERROR,
 };
 
+struct llce_rx_can_mb {
+	union {
+		struct llce_can_short_mb *shortm;
+		struct llce_can_mb *longm;
+	} data;
+	bool is_long;
+};
+
 struct llce_rx_msg {
 	enum llce_rx_cmd cmd;
 	enum llce_fw_return error;
 	union {
 		bool is_rx_empty;
 		struct {
+			struct llce_rx_can_mb mb;
 			uint32_t index;
-			struct llce_can_mb *can_mb;
 			bool skip;
 		} rx_pop;
 		struct {

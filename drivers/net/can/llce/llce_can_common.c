@@ -78,7 +78,7 @@ static bool is_rx_empty(struct llce_can_dev *llce)
 }
 
 static int pop_rx_fifo(struct llce_can_dev *llce, uint32_t *index, bool *skip,
-		       struct llce_can_mb **can_mb)
+		       struct llce_rx_can_mb **can_mb)
 {
 	int ret;
 	struct llce_rx_msg msg = {
@@ -87,7 +87,7 @@ static int pop_rx_fifo(struct llce_can_dev *llce, uint32_t *index, bool *skip,
 
 	ret = send_rx_msg(llce, &msg);
 
-	*can_mb = msg.rx_pop.can_mb;
+	*can_mb = &msg.rx_pop.mb;
 	*index = msg.rx_pop.index;
 	*skip = msg.rx_pop.skip;
 	return ret;
@@ -115,18 +115,31 @@ static void add_hwtimestamp(struct sk_buff *skb, u32 timestamp)
 	shhwtstamps->hwtstamp = ms_to_ktime((u64)timestamp * 1000ULL);
 }
 
-static void process_rx_msg(struct llce_can_dev *llce, struct llce_can_mb *can_mb)
+static void process_rx_msg(struct llce_can_dev *llce,
+			   struct llce_rx_can_mb *can_mb)
 {
 	struct net_device *dev = llce->can.dev;
 	struct net_device_stats *net_stats = &llce->can.dev->stats;
 	struct sk_buff *skb;
 	struct canfd_frame *cf;
-	u32 std_id, ext_id;
+	u32 std_id, ext_id, word0, word1, timestamp;
 	bool rtr, ide, brs, esi, fdf;
-	u8 len;
+	u8 len, *payload;
 
-	unpack_word0(can_mb->word0, &rtr, &ide, &std_id, &ext_id);
-	unpack_word1(can_mb->word1, &fdf, &len, &brs, &esi);
+	if (can_mb->is_long) {
+		word0 = can_mb->data.longm->word0;
+		word1 = can_mb->data.longm->word1;
+		payload = &can_mb->data.longm->payload[0];
+		timestamp = can_mb->data.longm->timestamp;
+	} else {
+		word0 = can_mb->data.shortm->word0;
+		word1 = can_mb->data.shortm->word1;
+		payload = &can_mb->data.shortm->payload[0];
+		timestamp = can_mb->data.shortm->timestamp;
+	}
+
+	unpack_word0(word0, &rtr, &ide, &std_id, &ext_id);
+	unpack_word1(word1, &fdf, &len, &brs, &esi);
 
 	if (fdf)
 		skb = alloc_canfd_skb(dev, &cf);
@@ -158,12 +171,12 @@ static void process_rx_msg(struct llce_can_dev *llce, struct llce_can_mb *can_mb
 	}
 	cf->len = can_dlc2len(len);
 
-	memcpy(cf->data, can_mb->payload, cf->len);
+	memcpy(cf->data, payload, cf->len);
 
 	net_stats->rx_packets++;
 	net_stats->rx_bytes += cf->len;
 
-	add_hwtimestamp(skb, can_mb->timestamp);
+	add_hwtimestamp(skb, timestamp);
 
 	netif_receive_skb(skb);
 
@@ -176,7 +189,7 @@ static int llce_rx_poll(struct napi_struct *napi, int quota)
 	struct llce_can_dev *llce = container_of(napi, struct llce_can_dev, napi);
 	struct net_device *dev = llce->can.dev;
 	int num_pkts = 0;
-	struct llce_can_mb *can_mb;
+	struct llce_rx_can_mb *can_mb;
 	u32 index;
 	int ret;
 	bool skip = false;
