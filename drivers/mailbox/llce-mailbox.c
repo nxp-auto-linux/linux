@@ -650,7 +650,7 @@ static int send_can_msg(struct mbox_chan *chan, struct llce_tx_msg *msg)
 	dlc = can_len2dlc(cf->len);
 
 	mb_config = dlc;
-	if (msg->fd) {
+	if (msg->fd_msg) {
 		/* Configure the tx mb as a CAN FD frame. */
 		mb_config |= LLCE_CAN_MB_FDF;
 
@@ -1310,19 +1310,28 @@ static int process_pop_rxout(struct mbox_chan *chan, struct llce_rx_msg *msg)
 	struct llce_mb *mb = priv->mb;
 	void __iomem *rxout = get_rxout_fifo(chan);
 	void __iomem *pop0 = LLCE_FIFO_POP0(rxout);
-	uint32_t rx_mb;
-
 	struct llce_can_shared_memory *sh_mem = mb->sh_mem;
-	uint32_t frame_id;
 	unsigned int chan_index;
+	u32 rx_mb, frame_id;
+	u16 filter_id;
 
 
 	/* Get RX mailbox */
 	rx_mb = readl(pop0) & LLCE_CAN_CONFIG_FIFO_FIXED_MASK;
 
 	frame_id = sh_mem->can_rx_mb_desc[rx_mb].mb_frame_idx;
+	filter_id = sh_mem->can_rx_mb_desc[rx_mb].filter_id;
+
 	chan_index = get_channel_offset(S32G_LLCE_CAN_RX_MB, priv->index);
-	msg->rx_pop.can_mb = &sh_mem->can_mb[frame_id];
+
+	if (filter_id == USE_LONG_MB) {
+		msg->rx_pop.mb.data.longm = &sh_mem->can_mb[frame_id];
+		msg->rx_pop.mb.is_long = true;
+	} else {
+		msg->rx_pop.mb.data.shortm = &sh_mem->can_short_mb[frame_id];
+		msg->rx_pop.mb.is_long = false;
+	}
+
 	msg->rx_pop.index = rx_mb;
 	msg->rx_pop.skip = false;
 
@@ -1403,7 +1412,7 @@ static int process_pop_logger(struct mbox_chan *chan, struct llce_rx_msg *msg)
 	pop = pop_llce_logger_data(chan, &frame, &mb_index);
 	if (pop) {
 		msg->rx_pop.skip = false;
-		msg->rx_pop.can_mb = frame;
+		msg->rx_pop.mb.data.longm = frame;
 		msg->rx_pop.index = mb_index;
 
 		return 0;
@@ -1419,7 +1428,7 @@ static int process_pop_logger(struct mbox_chan *chan, struct llce_rx_msg *msg)
 	}
 
 	msg->rx_pop.skip = false;
-	msg->rx_pop.can_mb = frame;
+	msg->rx_pop.mb.data.longm = frame;
 	msg->rx_pop.index = mb_index;
 
 	return 0;
