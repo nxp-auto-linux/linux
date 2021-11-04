@@ -88,19 +88,19 @@
 	status = "okay";
 };
 
-&llce0_sram {
+&llce_dte_sram {
 	status = "okay";
 };
 
-&llce1_sram {
+&llce_ppe_rx_sram {
 	status = "okay";
 };
 
-&llce2_sram {
+&llce_ppe_tx_sram {
 	status = "okay";
 };
 
-&llce3_sram {
+&llce_frpe_sram {
 	status = "okay";
 };
 
