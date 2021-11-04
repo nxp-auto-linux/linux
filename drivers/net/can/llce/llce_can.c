@@ -154,19 +154,29 @@ static int llce_can_deinit(struct llce_can *llce)
 	return 0;
 }
 
-static void set_rx_filter(struct llce_can_rx_filter *rx_filter, u8 intf)
+static void set_rx_filter(struct llce_can_rx_filter *rx_filter, u8 intf,
+			  bool canfd)
 {
+	enum llce_can_rx_mb_length len;
+
+	if (canfd)
+		len = USE_LONG_MB;
+	else
+		len = USE_SHORT_MB;
+
 	*rx_filter = (struct llce_can_rx_filter) {
 		.id_mask = 0,
 		.message_id = 0,
-		.filter_id = 0,
+		/* Use packet type as filter id */
+		.filter_id = len,
 		.mb_count = LLCE_CAN_MAX_TX_MB,
-		.rx_dest_interface = intf,
 		.entry_type = LLCE_CAN_ENTRY_CFG_MASKED,
+		.filter_mb_length = len,
+		.rx_dest_interface = intf,
 	};
 }
 
-static void set_basic_filter(struct llce_can_command *cmd, u8 intf)
+static void set_basic_filter(struct llce_can_command *cmd, u8 intf, bool canfd)
 {
 	*cmd = (struct llce_can_command) {
 		.cmd_id = LLCE_CAN_CMD_SETFILTER,
@@ -175,10 +185,11 @@ static void set_basic_filter(struct llce_can_command *cmd, u8 intf)
 		},
 	};
 
-	set_rx_filter(&cmd->cmd_list.set_filter.rx_filters[0], intf);
+	set_rx_filter(&cmd->cmd_list.set_filter.rx_filters[0], intf, canfd);
 }
 
-static void set_advanced_filter(struct llce_can_command *cmd, u8 intf)
+static void set_advanced_filter(struct llce_can_command *cmd, u8 intf,
+				bool canfd)
 {
 	struct llce_can_advanced_filter *afilt;
 
@@ -200,10 +211,10 @@ static void set_advanced_filter(struct llce_can_command *cmd, u8 intf)
 
 	};
 
-	set_rx_filter(&afilt->llce_can_Rx_filter, intf);
+	set_rx_filter(&afilt->llce_can_Rx_filter, intf, canfd);
 }
 
-static int can_add_open_filter(struct mbox_chan *conf_chan)
+static int can_add_open_filter(struct mbox_chan *conf_chan, bool canfd)
 {
 	struct device *dev = llce_can_chan_dev(conf_chan);
 	struct llce_chan_priv *priv = conf_chan->con_priv;
@@ -211,9 +222,9 @@ static int can_add_open_filter(struct mbox_chan *conf_chan)
 	int ret;
 
 	if (logging)
-		set_advanced_filter(&cmd, priv->index);
+		set_advanced_filter(&cmd, priv->index, canfd);
 	else
-		set_basic_filter(&cmd, priv->index);
+		set_basic_filter(&cmd, priv->index, canfd);
 
 	ret = send_cmd_msg(conf_chan, &cmd);
 	if (ret) {
@@ -359,7 +370,7 @@ static int llce_can_open(struct net_device *dev)
 	if (ret)
 		goto close_dev;
 
-	ret = can_add_open_filter(llce->config);
+	ret = can_add_open_filter(llce->config, is_canfd_dev(can));
 	if (ret)
 		goto can_deinit;
 
@@ -465,9 +476,12 @@ static netdev_tx_t llce_can_start_xmit(struct sk_buff *skb,
 {
 	int ret;
 	struct llce_can *llce = netdev_priv(dev);
+	struct llce_can_dev *llce_dev = &llce->common;
+	struct can_priv *can = &llce_dev->can;
 	struct canfd_frame *cf = (struct canfd_frame *)skb->data;
 	struct llce_tx_msg msg = {
-		.fd = can_is_canfd_skb(skb),
+		.fd_msg = can_is_canfd_skb(skb),
+		.long_msg = is_canfd_dev(can),
 		.cf = cf,
 	};
 
