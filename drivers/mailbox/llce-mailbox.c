@@ -701,11 +701,13 @@ static void enable_fifo_irq(void __iomem *fifo)
 {
 	void __iomem *status1 = LLCE_FIFO_STATUS1(fifo);
 	void __iomem *ier = LLCE_FIFO_IER(fifo);
+	u32 ier_val;
 
 	/* Clear interrupt status flags. */
 	writel(readl(status1), status1);
 	/* Enable interrupt */
-	writel(LLCE_FIFO_FNEMTY, ier);
+	ier_val = readl(ier) | LLCE_FIFO_FNEMTY;
+	writel(ier_val, ier);
 }
 
 static void disable_fifo_irq(void __iomem *fifo)
