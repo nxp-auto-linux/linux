@@ -557,7 +557,7 @@ static int execute_config_cmd(struct mbox_chan *chan,
 
 	txack = get_host_txack(mb, LLCE_CAN_HIF0);
 
-	sh_cmd = &mb->sh_mem->can_cmd[idx];
+	sh_cmd = &mb->sh_mem->can_cmd[LLCE_CAN_HIF0];
 	push0 = LLCE_FIFO_PUSH0(txack);
 
 	if (!is_tx_fifo_empty(txack)) {
@@ -978,7 +978,6 @@ static void llce_mbox_chan_received_data(struct mbox_chan *chan, void *msg)
 static bool llce_mb_last_tx_done(struct mbox_chan *chan)
 {
 	struct llce_chan_priv *priv = chan->con_priv;
-	unsigned int idx = priv->index;
 	void __iomem *txack;
 	struct llce_mb *mb = priv->mb;
 	struct llce_can_command *cmd;
@@ -995,7 +994,7 @@ static bool llce_mb_last_tx_done(struct mbox_chan *chan)
 	spin_until_cond(is_tx_fifo_empty(txack));
 
 	cmd = priv->last_msg;
-	sh_cmd = &mb->sh_mem->can_cmd[idx];
+	sh_cmd = &mb->sh_mem->can_cmd[LLCE_CAN_HIF0];
 
 	memcpy(cmd, sh_cmd, sizeof(*cmd));
 
