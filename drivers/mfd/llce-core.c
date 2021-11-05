@@ -29,6 +29,7 @@
 #define LLCE_MGR_TX_BOOT_END			(0x00000F00U)
 #define LLCE_MGR_FRPE_BOOT_END			(0x0000F000U)
 #define LLCE_MGR_BOOT_END_ALL_CORES_MASK	(0x0000FFFFU)
+#define STATUS_REGS_OFFSET			(0x8A0U)
 
 
 struct llce_fw_cont {
@@ -328,7 +329,8 @@ static int start_llce_cores(struct device *dev, struct llce_core *core)
 
 	llce_flush_fw(core);
 
-	ret = llce_cores_kickoff(dev, core->sysctrl_base, status->addr);
+	ret = llce_cores_kickoff(dev, core->sysctrl_base,
+				 status->addr + STATUS_REGS_OFFSET);
 	if (ret) {
 		dev_err(dev, "Failed to start LLCE cores\n");
 		return ret;
