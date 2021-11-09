@@ -11,6 +11,7 @@
 #include "fsl-s32-gen1.dtsi"
 #include <dt-bindings/pinctrl/s32r45-pinctrl.h>
 #include <dt-bindings/clock/s32r45-scmi-clock.h>
+#include <dt-bindings/nvmem/s32-siul2-nvmem.h>
 
 / {
 	model = "Freescale S32R45";
@@ -173,8 +174,10 @@
 		#address-cells = <2>;
 		#size-cells = <2>;
 		status = "okay";
-			  /* PINCTRL */
-		ranges = <1 0 0x0 0x4403C3D8 0x0 0x80>,
+			 /* MIDR */
+		ranges = <0 0 0x0 0x4403C000 0x0 0x10>,
+			 /* PINCTRL */
+			 <1 0 0x0 0x4403C3D8 0x0 0x80>,
 			 /* IMCR range */
 			 <2 0 0x0 0x4403CBAC 0x0 0x2CC>,
 			 /* Output pads */
@@ -212,6 +215,17 @@
 			      <0x4 0x0 0x0 0x14>;
 			reg-names = "opads", "ipads";
 			status = "okay";
+		};
+
+		nvram1: nvram@4403C000 {
+			compatible = "fsl,s32gen1-siul2_1-nvmem";
+			reg = <0x0 0x0 0x0 0x10>;
+			#address-cells = <1>;
+			#size-cells = <1>;
+			status = "okay";
+			serdes_presence: serdes_presence@0 {
+				reg = <SERDES_PRESENCE_OFFSET SERDES_PRESENCE_SIZE>;
+			};
 		};
 	};
 
