@@ -26,3 +26,11 @@
 &swt11 {
 	status = "okay";
 };
+
+&pcie0 {
+	no-check-serdes;
+};
+
+&pcie1 {
+	no-check-serdes;
+};
