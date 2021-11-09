@@ -18,7 +18,11 @@ allOf:
 
 properties:
   compatible:
-    const: fsl,s32gen1-siul2-nvmem
+    description: |-
+      Each compatible string provides an interface for
+      SIUL2_0 or SIUL2_1 module.
+      const: fsl,s32gen1-siul2_0-nvmem
+      const: fsl,s32gen1-siul2_1-nvmem
 
   reg:
     description:
@@ -42,7 +46,7 @@ unevaluatedProperties: false
 examples:
   - |
     nvram: nvram@4009C000 {
-      compatible = "fsl,s32gen1-siul2-nvmem";
+      compatible = "fsl,s32gen1-siul2_0-nvmem";
       reg = <0x0 10>;
       #address-cells = <1>;
       #size-cells = <1>;
