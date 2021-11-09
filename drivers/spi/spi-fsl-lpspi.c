@@ -944,7 +944,10 @@ static int fsl_lpspi_remove(struct platform_device *pdev)
 
 	fsl_lpspi_dma_exit(controller);
 
+<<<<<<< HEAD
 	pm_runtime_dont_use_autosuspend(fsl_lpspi->dev);
+=======
+>>>>>>> 1218a8303d9b... spi: lpspi: release requested DMA channels
 	pm_runtime_disable(fsl_lpspi->dev);
 	return 0;
 }
