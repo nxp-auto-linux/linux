@@ -267,7 +267,7 @@
 			 /* EIRQs */
 			 <5 0 0x0 0x44010010 0x0 0x34>;
 		nvram: nvram@4009C000 {
-			compatible = "fsl,s32gen1-siul2-nvmem";
+			compatible = "fsl,s32gen1-siul2_0-nvmem";
 			reg = <0x0 0x0 0x0 0x10>;
 			#address-cells = <1>;
 			#size-cells = <1>;
@@ -963,6 +963,9 @@
 		num-ib-windows = <6>;
 		num-ob-windows = <6>;
 
+		nvmem-cell-names = "serdes_presence";
+		nvmem-cells = <&serdes_presence>;
+
 		status = "disabled";
 	};
 
@@ -1036,6 +1039,9 @@
 		/* EP mode only */
 		num-ib-windows = <6>;
 		num-ob-windows = <6>;
+
+		nvmem-cell-names = "serdes_presence";
+		nvmem-cells = <&serdes_presence>;
 
 		status = "disabled";
 	};
