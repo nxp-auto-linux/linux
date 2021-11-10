@@ -58,6 +58,17 @@ properties:
       should be declared as "msi-controller" and the list of available SPIs that
       can be used will be declared using "mbi-ranges".
 
+  nvmem-cell-names:
+    const: serdes_presence
+
+  nvmem-cells:
+    description: |
+      phandle to the SerDes presence field cells from MIDR2 register
+      from SIUL2_1 module
+
+  no-check-serdes:
+    description: Skip SerDes subsystem presence check
+
 required:
   - compatible
   - reg
