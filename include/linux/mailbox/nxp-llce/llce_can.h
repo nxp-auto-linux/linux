@@ -166,6 +166,10 @@ enum llce_can_command_id {
 	 * reception side.
 	 */
 	LLCE_CAN_CMD_SETADVANCEDFILTER,
+	/** Host enables/disables already set filter. */
+	LLCE_CAN_CMD_SETFILTERENABLESTATUS,
+	/** Host invalidate a specific filter.*/
+	LLCE_CAN_CMD_REMOVE_FILTER,
 	/** Request version string from FW.*/
 	LLCE_CAN_CMD_GETFWVERSION,
 	/** Host request for platform initialization.*/
@@ -187,8 +191,6 @@ enum llce_can_command_id {
 	 * HSE bridge use case.
 	 */
 	LLCE_CAN_CMD_INIT_HSE,
-	/** Host invalidate a specific filter.*/
-	LLCE_CAN_CMD_REMOVE_FILTER,
 	/**
 	 * Host creates a destination to be used by advanced
 	 * routing filters.
@@ -1053,16 +1055,18 @@ struct llce_can_get_fw_version {
 } __aligned(4) __packed;
 
 /**
- * Remove filter command structure.
- * It is sent by the host to LLCE in order to remove a specific filter
- * identified by a hardware address.
+ * Filter address identifier
+ * It is sent by the host to LLCE in order to specify a specific filter,
+ * identified by a hardware address, to enable/disable/remove
  **/
-struct llce_can_remove_filter {
+struct llce_can_change_filter {
 	/**
 	 * INPUT: Address of the filter which shall be
-	 * removed/disabled.
+	 * removed/disabled/enabled.
 	 */
 	u16 filter_addr;
+	/** INPUT: State of the filter when using Set_filter_enable_status command */
+	u8 filter_enabled;
 } __aligned(4) __packed;
 
 /**
@@ -1112,6 +1116,13 @@ union llce_can_command_list {
 	 */
 	struct llce_can_set_filter_cmd set_filter;
 	/**
+	 * Command for configuring filters in order to route frames to
+	 * other destinations than host.
+	 */
+	struct llce_can_set_advanced_filter_cmd set_advanced_filter;
+	/** Hardware address of filter to disable/enable/remove. */
+	struct llce_can_change_filter change_filter;
+	/**
 	 * Command for configuring baud rate parameters for a specific
 	 * CAN controller.
 	 */
@@ -1124,11 +1135,6 @@ union llce_can_command_list {
 	 * Command for changing the status of a specific CAN controller.
 	 */
 	struct llce_can_set_controller_mode_cmd set_controller_mode;
-	/**
-	 * Command for configuring filters in order to route frames to
-	 * other destinations than host.
-	 */
-	struct llce_can_set_advanced_filter_cmd set_advanced_filter;
 	/** Command for getting the firmware version. */
 	struct llce_can_get_fw_version get_fw_version;
 	/**
@@ -1141,8 +1147,6 @@ union llce_can_command_list {
 	 * buffer locations
 	 */
 	struct llce_can_init_pfe_cmd init_pfe;
-	/** Command for removing/disable a single filter. */
-	struct llce_can_remove_filter remove_filter;
 	/** Command for creating a destination for AF */
 	struct llce_can_create_af_destination create_af_dest;
 	/**
