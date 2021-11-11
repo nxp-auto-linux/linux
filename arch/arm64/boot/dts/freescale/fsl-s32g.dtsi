@@ -312,6 +312,8 @@
 		#address-cells = <0x01>;
 		#size-cells = <0x00>;
 		interrupt-parent = <&gic>;
+		/* Interrupt duplicated for XEN passthrough */
+		interrupts = <GIC_SPI 193 IRQ_TYPE_EDGE_RISING>;
 		dma-coherent;
 		memory-region = <&pfe_reserved_slave>,
 				<&pfe_reserved_bdr_slave>;
