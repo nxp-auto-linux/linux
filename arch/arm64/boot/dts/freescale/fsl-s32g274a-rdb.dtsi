@@ -756,6 +756,30 @@
 	status = "okay";
 };
 
+&llce_dte_sram {
+	status = "okay";
+};
+
+&llce_ppe_rx_sram {
+	status = "okay";
+};
+
+&llce_ppe_tx_sram {
+	status = "okay";
+};
+
+&llce_frpe_sram {
+	status = "okay";
+};
+
+&llce_shmem {
+	status = "okay";
+};
+
+&llce_boot_status {
+	status = "okay";
+};
+
 &llce_can0 {
 	status = "okay";
 };
