@@ -375,7 +375,7 @@ static u8 hse_next_free_channel(struct device *dev)
 	struct hse_drvdata *drv = dev_get_drvdata(dev);
 	u8 channel;
 
-	for (channel = 0; channel < HSE_NUM_CHANNELS; channel++)
+	for (channel = HSE_NUM_CHANNELS - 1; channel > 0; channel--)
 		switch (drv->type[channel]) {
 		case HSE_CH_TYPE_STREAM:
 			if (atomic_read(&drv->refcnt[channel]))
