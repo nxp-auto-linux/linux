@@ -24,6 +24,18 @@
 #define HSE_AEAD_MAX_IV_SIZE     GCM_AES_IV_SIZE
 
 /**
+ * enum hse_alg_type - algorithm type
+ * @HSE_ALG_TYPE_AEAD: AEAD
+ * @HSE_ALG_TYPE_AUTHENC: authenticated encryption
+ * @HSE_ALG_TYPE_KEYWRAP: key wrapping/blobbing
+ */
+enum hse_alg_type {
+	HSE_ALG_TYPE_AEAD = 0u,
+	HSE_ALG_TYPE_AUTHENC = 1u,
+	HSE_ALG_TYPE_KEYWRAP = 2u,
+};
+
+/**
  * struct hse_aead_tpl - algorithm template
  * @cipher_name: cipher algorithm name
  * @cipher_drv: cipher driver name
