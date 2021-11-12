@@ -185,7 +185,8 @@ static int hse_key_ring_init(struct device *dev, struct list_head *key_ring,
 		list_add_tail(&ring[i].entry, key_ring);
 	}
 
-	dev_dbg(dev, "key ring type 0x%02x: group id %d, size %d\n", type,
+	dev_dbg(dev, "%s key ring: group id %d, size %d\n",
+		type == HSE_KEY_TYPE_AES ? "aes" : "hmac",
 		group_id, group_size);
 
 	return 0;
@@ -854,9 +855,11 @@ static int hse_probe(struct platform_device *pdev)
 	if (unlikely(err))
 		goto err_probe_failed;
 
-	dev_info(dev, "firmware type %d, version %d.%d.%d\n",
-		 drv->firmware_version.fw_type, drv->firmware_version.major,
-		 drv->firmware_version.minor, drv->firmware_version.patch);
+	dev_info(dev, "%s firmware, version %d.%d.%d\n",
+		 drv->firmware_version.fw_type == 0 ? "standard" :
+		 (drv->firmware_version.fw_type == 1 ? "premium" : "custom"),
+		 drv->firmware_version.major, drv->firmware_version.minor,
+		 drv->firmware_version.patch);
 
 	/* interface fixup */
 	hse_fw_if_fixup(dev);
