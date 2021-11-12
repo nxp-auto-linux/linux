@@ -26,6 +26,18 @@
 #define HSE_MAX_RNG_SIZE    2048ul /* maximum random number length */
 
 /**
+ * enum hse_fw_type - HSE firmware type
+ * @HSE_FW_STANDARD: standard firmware
+ * @HSE_FW_PREMIUM: premium firmware
+ * @HSE_FW_CUSTOM: custom firmware
+ */
+enum hse_fw_type {
+	HSE_FW_STANDARD = 0u,
+	HSE_FW_PREMIUM = 1u,
+	HSE_FW_CUSTOM = 8u,
+};
+
+/**
  * enum hse_status - HSE status
  * @HSE_STATUS_RNG_INIT_OK: RNG initialization successfully completed
  * @HSE_STATUS_INIT_OK: HSE initialization successfully completed
