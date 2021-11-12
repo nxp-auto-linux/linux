@@ -316,7 +316,7 @@ static inline void hse_config_channels(struct device *dev)
  * Copy descriptor to the dedicated space and cache service ID internally.
  */
 static inline void hse_sync_srv_desc(struct device *dev, u8 channel,
-				     struct hse_srv_desc *srv_desc)
+				     const struct hse_srv_desc *srv_desc)
 {
 	struct hse_drvdata *drv = dev_get_drvdata(dev);
 
@@ -521,8 +521,8 @@ int hse_channel_release(struct device *dev, u8 channel)
  *         index out of range, -EBUSY for channel busy, no channel available or
  *         firmware on stand-by, -ENOTRECOVERABLE for firmware in shutdown state
  */
-int hse_srv_req_async(struct device *dev, u8 channel, void *srv_desc,
-		      void *ctx, void (*rx_cbk)(int err, void *ctx))
+int hse_srv_req_async(struct device *dev, u8 channel, const void *srv_desc,
+		      const void *ctx, void (*rx_cbk)(int err, void *ctx))
 {
 	struct hse_drvdata *drv = dev_get_drvdata(dev);
 	int err;
@@ -564,7 +564,7 @@ int hse_srv_req_async(struct device *dev, u8 channel, void *srv_desc,
 	spin_unlock(&drv->tx_lock);
 
 	drv->rx_cbk[channel].fn = rx_cbk;
-	drv->rx_cbk[channel].ctx = ctx;
+	drv->rx_cbk[channel].ctx = (void *)ctx;
 
 	hse_sync_srv_desc(dev, channel, srv_desc);
 
@@ -587,7 +587,7 @@ int hse_srv_req_async(struct device *dev, u8 channel, void *srv_desc,
  *         index out of range, -EBUSY for channel busy, no channel available or
  *         firmware on stand-by, -ENOTRECOVERABLE for firmware in shutdown state
  */
-int hse_srv_req_sync(struct device *dev, u8 channel, void *srv_desc)
+int hse_srv_req_sync(struct device *dev, u8 channel, const void *srv_desc)
 {
 	struct hse_drvdata *drv = dev_get_drvdata(dev);
 	DECLARE_COMPLETION_ONSTACK(done);
