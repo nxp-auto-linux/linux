@@ -64,8 +64,9 @@
 			no-map;
 		};
 
-		hse_reserved: shm@0x34000000 {
-			reg = <0x0 0x34000000 0x0 0x40000>;	/* 256k */
+		hse_reserved: shm@0x84000000 {
+			reg = <0x0 0x84000000 0x0 0x80000>;	/* 512k */
+			no-map;
 		};
 	};
 
