@@ -799,7 +799,7 @@ static irqreturn_t hse_evt_dispatcher(int irq, void *dev)
 	if (IS_ENABLED(CONFIG_CRYPTO_DEV_NXP_HSE_AEAD))
 		hse_aead_unregister(&drv->aead_algs);
 	if (IS_ENABLED(CONFIG_CRYPTO_DEV_NXP_HSE_HWRNG))
-		hse_hwrng_unregister(dev);
+		hse_rng_unregister(dev);
 
 	dev_crit(dev, "communication terminated, reset system to recover\n");
 
@@ -900,7 +900,7 @@ static int hse_probe(struct platform_device *pdev)
 	if (IS_ENABLED(CONFIG_CRYPTO_DEV_NXP_HSE_AEAD))
 		hse_aead_register(dev, &drv->aead_algs);
 	if (IS_ENABLED(CONFIG_CRYPTO_DEV_NXP_HSE_HWRNG))
-		hse_hwrng_register(dev);
+		hse_rng_register(dev);
 
 	dev_info(dev, "device ready, status 0x%04X\n", status);
 
@@ -927,7 +927,7 @@ static int hse_remove(struct platform_device *pdev)
 	if (IS_ENABLED(CONFIG_CRYPTO_DEV_NXP_HSE_AEAD))
 		hse_aead_unregister(&drv->aead_algs);
 	if (IS_ENABLED(CONFIG_CRYPTO_DEV_NXP_HSE_HWRNG))
-		hse_hwrng_unregister(dev);
+		hse_rng_unregister(dev);
 
 	/* empty used key rings */
 	hse_key_ring_free(&drv->aes_key_ring);
