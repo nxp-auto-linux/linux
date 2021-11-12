@@ -60,8 +60,8 @@ void hse_skcipher_unregister(struct list_head *alg_list);
 void hse_aead_register(struct device *dev, struct list_head *alg_list);
 void hse_aead_unregister(struct list_head *alg_list);
 
-void hse_hwrng_register(struct device *dev);
-void hse_hwrng_unregister(struct device *dev);
+void hse_rng_register(struct device *dev);
+void hse_rng_unregister(struct device *dev);
 
 u32 _get_rng_srv_id(struct device *dev);
 
