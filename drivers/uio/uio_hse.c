@@ -417,9 +417,8 @@ static int hse_uio_open(struct uio_info *info, struct inode *inode)
 {
 	struct hse_uio_drvdata *drv = info->priv;
 
-	if (!refcount_dec_and_test(&drv->refcnt)) {
+	if (!refcount_dec_if_one(&drv->refcnt)) {
 		dev_err(drv->dev, "%s device already in use\n", info->name);
-		refcount_inc(&drv->refcnt);
 
 		return -EBUSY;
 	}
@@ -440,7 +439,7 @@ static int hse_uio_release(struct uio_info *info, struct inode *inode)
 {
 	struct hse_uio_drvdata *drv = info->priv;
 
-	refcount_inc(&drv->refcnt);
+	refcount_set(&drv->refcnt, 1);
 
 	dev_info(drv->dev, "device %s released\n", info->name);
 
