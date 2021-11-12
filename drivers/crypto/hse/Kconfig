@@ -20,7 +20,7 @@ config CRYPTO_DEV_NXP_HSE_AHASH
 	bool "Message Digest Support"
 	depends on CRYPTO_DEV_NXP_HSE
 	select CRYPTO_HASH
-	default n
+	default y
 	help
 	  Enables hash and hash-based MAC offloading to HSE.
 
