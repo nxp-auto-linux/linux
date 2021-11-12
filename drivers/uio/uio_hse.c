@@ -4,7 +4,7 @@
  *
  * This file contains the HSE user-space I/O driver support.
  *
- * Copyright 2021 NXP
+ * Copyright 2021-2022 NXP
  */
 
 #include <linux/kernel.h>
@@ -80,7 +80,7 @@ struct hse_uio_intl {
 	u8 ready[HSE_NUM_CHANNELS];
 	u32 reply[HSE_NUM_CHANNELS];
 	u32 event;
-};
+} __packed;
 
 /**
  * struct hse_mu_regs - HSE Messaging Unit Registers
@@ -131,17 +131,17 @@ struct hse_mu_regs {
  * @regs: MU register space base virtual address
  * @desc: service descriptor space base virtual address
  * @intl: driver internal shared memory base address
- * @shared: driver DMA-able shared RAM
+ * @rmem: driver DMA-able reserved memory range
  * @reg_lock: spinlock preventing concurrent register access
  */
 struct hse_uio_drvdata {
 	struct device *dev;
 	struct uio_info info;
-	atomic_t refcnt;
+	refcount_t refcnt;
 	struct hse_mu_regs __iomem *regs;
 	void __iomem *desc;
 	struct hse_uio_intl *intl;
-	struct hse_uio_intl *shared;
+	void __iomem *rmem;
 	spinlock_t reg_lock; /* covers irq enable/disable */
 };
 
@@ -208,7 +208,7 @@ static void hse_uio_irq_enable(struct device *dev, enum hse_irq_type irq_type,
 			       u32 irq_mask)
 {
 	struct hse_uio_drvdata *drv = dev_get_drvdata(dev);
-	void *regaddr;
+	void __iomem *regaddr;
 	unsigned long flags;
 
 	switch (irq_type) {
@@ -245,7 +245,7 @@ static void hse_uio_irq_disable(struct device *dev, enum hse_irq_type irq_type,
 				u32 irq_mask)
 {
 	struct hse_uio_drvdata *drv = dev_get_drvdata(dev);
-	void *regaddr;
+	void __iomem *regaddr;
 	unsigned long flags;
 
 	switch (irq_type) {
@@ -417,12 +417,14 @@ static int hse_uio_open(struct uio_info *info, struct inode *inode)
 {
 	struct hse_uio_drvdata *drv = info->priv;
 
-	if (!atomic_dec_and_test(&drv->refcnt)) {
+	if (!refcount_dec_and_test(&drv->refcnt)) {
 		dev_err(drv->dev, "%s device already in use\n", info->name);
-		atomic_inc(&drv->refcnt);
+		refcount_inc(&drv->refcnt);
 
 		return -EBUSY;
 	}
+
+	dev_info(drv->dev, "device %s open\n", info->name);
 
 	return 0;
 }
@@ -438,7 +440,9 @@ static int hse_uio_release(struct uio_info *info, struct inode *inode)
 {
 	struct hse_uio_drvdata *drv = info->priv;
 
-	atomic_inc(&drv->refcnt);
+	refcount_inc(&drv->refcnt);
+
+	dev_info(drv->dev, "device %s released\n", info->name);
 
 	return 0;
 }
@@ -459,8 +463,8 @@ static irqreturn_t hse_uio_rx_dispatcher(int irq, void *dev)
 		/* handle reply */
 		err = hse_uio_msg_recv(dev, channel, &srv_rsp);
 		if (likely(!err)) {
-			drv->shared->reply[channel] = srv_rsp;
-			drv->shared->ready[channel] = 1;
+			drv->intl->reply[channel] = srv_rsp;
+			drv->intl->ready[channel] = 1;
 
 			/* notify upper layer */
 			uio_event_notify(&drv->info);
@@ -500,7 +504,7 @@ static irqreturn_t hse_uio_evt_dispatcher(int irq, void *dev)
 	hse_uio_irq_clear(dev, HSE_INT_SYS_EVENT, HSE_EVT_MASK_ERR);
 
 	/* notify upper layer */
-	drv->shared->event = event;
+	drv->intl->event = event;
 	uio_event_notify(&drv->info);
 
 	dev_crit(dev, "communication terminated, reset system to recover\n");
@@ -508,7 +512,7 @@ static irqreturn_t hse_uio_evt_dispatcher(int irq, void *dev)
 	return IRQ_HANDLED;
 }
 
-int hse_uio_probe(struct platform_device *pdev)
+static int hse_uio_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct hse_uio_drvdata *drv;
@@ -540,13 +544,13 @@ int hse_uio_probe(struct platform_device *pdev)
 	}
 
 	/* expose HSE MU register space to upper layer */
-	drv->info.mem[HSE_UIO_MAP_REGS].name = "HSE MU registers";
+	drv->info.mem[HSE_UIO_MAP_REGS].name = "hse-mu-registers";
 	drv->info.mem[HSE_UIO_MAP_REGS].addr = (uintptr_t)res->start;
 	drv->info.mem[HSE_UIO_MAP_REGS].size = resource_size(res);
 	drv->info.mem[HSE_UIO_MAP_REGS].memtype = UIO_MEM_PHYS;
 
 	drv->info.version = "1.0";
-	drv->info.name = "HSE UIO driver";
+	drv->info.name = "hse-uio";
 
 	drv->info.open = hse_uio_open;
 	drv->info.release = hse_uio_release;
@@ -564,7 +568,7 @@ int hse_uio_probe(struct platform_device *pdev)
 	}
 
 	/* expose service descriptor space to upper layer */
-	drv->info.mem[HSE_UIO_MAP_DESC].name = "HSE service descriptors";
+	drv->info.mem[HSE_UIO_MAP_DESC].name = "hse-service-descriptors";
 	drv->info.mem[HSE_UIO_MAP_DESC].addr = (uintptr_t)res->start;
 	drv->info.mem[HSE_UIO_MAP_DESC].internal_addr = drv->desc;
 	drv->info.mem[HSE_UIO_MAP_DESC].size = resource_size(res);
@@ -576,7 +580,7 @@ int hse_uio_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	/* expose driver internal memory to upper layer */
-	drv->info.mem[HSE_UIO_MAP_INTL].name = "HSE driver internal memory";
+	drv->info.mem[HSE_UIO_MAP_INTL].name = "hse-driver-internal";
 	drv->info.mem[HSE_UIO_MAP_INTL].addr = (uintptr_t)drv->intl;
 	drv->info.mem[HSE_UIO_MAP_INTL].size = PAGE_SIZE;
 	drv->info.mem[HSE_UIO_MAP_INTL].memtype = UIO_MEM_LOGICAL;
@@ -595,17 +599,20 @@ int hse_uio_probe(struct platform_device *pdev)
 	}
 	of_node_put(rmem_node);
 
-	drv->shared = devm_ioremap(dev, rmem->base, rmem->size);
-	if (IS_ERR_OR_NULL(drv->shared))
+	drv->rmem = devm_ioremap(dev, rmem->base, rmem->size);
+	if (IS_ERR_OR_NULL(drv->rmem))
 		return -EINVAL;
+	/* workaround: use reserved memory as internal */
+	memcpy(&drv->intl, &drv->rmem, sizeof(drv->intl));
 
 	/* expose HSE reserved memory to upper layer */
-	drv->info.mem[HSE_UIO_MAP_RMEM].name = "HSE reserved DMA-able memory";
+	drv->info.mem[HSE_UIO_MAP_RMEM].name = "hse-reserved-memory";
 	drv->info.mem[HSE_UIO_MAP_RMEM].addr = (uintptr_t)rmem->base;
+	drv->info.mem[HSE_UIO_MAP_RMEM].internal_addr = drv->rmem;
 	drv->info.mem[HSE_UIO_MAP_RMEM].size = rmem->size;
 	drv->info.mem[HSE_UIO_MAP_RMEM].memtype = UIO_MEM_PHYS;
 
-	atomic_set(&drv->refcnt, 1);
+	refcount_set(&drv->refcnt, 1);
 	spin_lock_init(&drv->reg_lock);
 
 	/* disable all interrupt sources */
@@ -646,7 +653,7 @@ int hse_uio_probe(struct platform_device *pdev)
 	return 0;
 }
 
-int hse_uio_remove(struct platform_device *pdev)
+static int hse_uio_remove(struct platform_device *pdev)
 {
 	struct hse_uio_drvdata *drv = platform_get_drvdata(pdev);
 
