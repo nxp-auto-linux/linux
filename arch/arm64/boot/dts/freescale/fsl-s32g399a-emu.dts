@@ -9,14 +9,14 @@
  */
 
 /dts-v1/;
-#include "fsl-s32g398a.dtsi"
+#include "fsl-s32g3.dtsi"
 
 /delete-node/ &pci_shared_memory;
 /delete-node/ &scmi_shbuf;
 /delete-node/ &scmi;
 / {
-	model = "Freescale S32G398A";
-	compatible = "fsl,s32g398a-emu", "fsl,s32g398a",
+	model = "Freescale S32G399A";
+	compatible = "fsl,s32g399a-emu", "fsl,s32g399a",
 				 "arm,vexpress,v2p-aarch64", "arm,vexpress";
 
 	chosen {
