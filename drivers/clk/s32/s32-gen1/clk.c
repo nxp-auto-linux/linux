@@ -1045,7 +1045,7 @@ static void __init s32g274_clocks_init(struct device_node *clks_node)
 	register_syscore_ops(&s32gen1_clk_syscore_ops);
 }
 
-static void __init s32g398_clocks_init(struct device_node *clks_node)
+static void __init s32g3_clocks_init(struct device_node *clks_node)
 {
 	s32gen1_clocks_init(clks_node);
 	s32gen1_mux6_gmac0_clock_init(clks_node);
@@ -1066,5 +1066,5 @@ static void __init s32r45_clocks_init(struct device_node *clks_node)
 }
 
 CLK_OF_DECLARE(S32G274, "fsl,s32g274a-clocking", s32g274_clocks_init);
-CLK_OF_DECLARE(S32G398, "fsl,s32g398a-clocking", s32g398_clocks_init);
+CLK_OF_DECLARE(S32G3, "fsl,s32g3-clocking", s32g3_clocks_init);
 CLK_OF_DECLARE(S32R45, "fsl,s32r45-clocking", s32r45_clocks_init);
