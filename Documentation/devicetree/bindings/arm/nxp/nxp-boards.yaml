@@ -33,9 +33,8 @@ properties:
 
       - description: S32G3 based boards
         items:
-          - const: fsl,s32g398a
-          - const: fsl,s32g398a-emu     # S32G3 emulator
-          - const: fsl,s32g399
+          - const: fsl,s32g399a
+          - const: fsl,s32g399a-emu     # S32G3 emulator
 
 
 required:
