@@ -624,11 +624,11 @@ properties:
       - description:
           Freescale S32G3 based boards
 
-          S32G398A base Emulator model
+          S32G399A base Emulator model
         items:
           - enum:
-              - fsl,s32g398a-emu
-          - const: fsl,s32g398a
+              - fsl,s32g399a-emu
+          - const: fsl,s32g399a
 
 additionalProperties: true
 
