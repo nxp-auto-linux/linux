@@ -5,6 +5,8 @@ Required properties:
   - "fsl,imx1-i2c" for I2C compatible with the one integrated on i.MX1 SoC
   - "fsl,imx21-i2c" for I2C compatible with the one integrated on i.MX21 SoC
   - "fsl,vf610-i2c" for I2C compatible with the one integrated on Vybrid vf610 SoC
+  - "fsl,s32v234-i2c" for I2C compatible with the on integrated on S32V234 SoC
+  - "fsl,s32gen1-i2c" for I2C compatible with the on integrated on S32GEN1 SoC
 - reg : Should contain I2C/HS-I2C registers location and length
 - interrupts : Should contain I2C/HS-I2C interrupt
 - clocks : Should contain the I2C/HS-I2C clock specifier
