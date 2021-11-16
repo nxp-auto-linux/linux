@@ -657,12 +657,14 @@ static void i2c_imx_clr_if_bit(unsigned int status, struct imx_i2c_struct *i2c_i
 	imx_i2c_write_reg(status, i2c_imx, IMX_I2C_I2SR);
 }
 
+#if IS_ENABLED(CONFIG_I2C_SLAVE)
 static void i2c_imx_clr_al_bit(unsigned int status, struct imx_i2c_struct *i2c_imx)
 {
 	status &= ~I2SR_IAL;
 	status |= (i2c_imx->hwdata->i2sr_clr_opcode & I2SR_IAL);
 	imx_i2c_write_reg(status, i2c_imx, IMX_I2C_I2SR);
 }
+#endif
 
 static irqreturn_t i2c_imx_master_isr(struct imx_i2c_struct *i2c_imx)
 {
