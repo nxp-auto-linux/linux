@@ -484,6 +484,42 @@ static const struct can_bittiming_const flexcan_fd_data_bittiming_const = {
 	.brp_inc = 1,
 };
 
+static const struct can_bittiming_const s32_flexcan_bittiming_const = {
+	.name = DRV_NAME,
+	.tseg1_min = 4,
+	.tseg1_max = 16,
+	.tseg2_min = 4,
+	.tseg2_max = 8,
+	.sjw_max = 4,
+	.brp_min = 1,
+	.brp_max = 256,
+	.brp_inc = 1,
+};
+
+static const struct can_bittiming_const s32_flexcan_fd_bittiming_const = {
+	.name = DRV_NAME,
+	.tseg1_min = 4,
+	.tseg1_max = 96,
+	.tseg2_min = 4,
+	.tseg2_max = 32,
+	.sjw_max = 32,
+	.brp_min = 1,
+	.brp_max = 1024,
+	.brp_inc = 1,
+};
+
+static const struct can_bittiming_const s32_flexcan_fd_data_bittiming_const = {
+	.name = DRV_NAME,
+	.tseg1_min = 2,
+	.tseg1_max = 39,
+	.tseg2_min = 2,
+	.tseg2_max = 8,
+	.sjw_max = 8,
+	.brp_min = 1,
+	.brp_max = 1024,
+	.brp_inc = 1,
+};
+
 static int is_s32_flexcan(const struct flexcan_priv *data)
 {
 	return ((data->devtype_data == &fsl_s32gen1_devtype_data) ||
@@ -2049,9 +2085,24 @@ static int flexcan_probe(struct platform_device *pdev)
 		if (fd_allowed) {
 			priv->can.ctrlmode_supported |= CAN_CTRLMODE_FD |
 				CAN_CTRLMODE_FD_NON_ISO;
-			priv->can.bittiming_const = &flexcan_fd_bittiming_const;
-			priv->can.data_bittiming_const =
-				&flexcan_fd_data_bittiming_const;
+			if (is_s32_flexcan(priv)) {
+				priv->can.bittiming_const =
+					&s32_flexcan_fd_bittiming_const;
+				priv->can.data_bittiming_const =
+					&s32_flexcan_fd_data_bittiming_const;
+			} else {
+				priv->can.bittiming_const =
+					&flexcan_fd_bittiming_const;
+				priv->can.data_bittiming_const =
+					&flexcan_fd_data_bittiming_const;
+			}
+		} else {
+			if (is_s32_flexcan(priv))
+				priv->can.bittiming_const =
+					&s32_flexcan_bittiming_const;
+			else
+				priv->can.bittiming_const =
+					&flexcan_bittiming_const;
 		}
 	}
 
