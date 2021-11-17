@@ -316,7 +316,7 @@ static irqreturn_t s32gen1_pcie_dma_handler(int irq, void *arg)
 ssize_t s32gen1_ioctl(struct file *filp, u32 cmd,
 		unsigned long data);
 
-static const struct file_operations s32v_pcie_ep_dbgfs_fops = {
+static const struct file_operations s32gen1_pcie_ep_dbgfs_fops = {
 	.owner = THIS_MODULE,
 	.open = simple_open,
 	.unlocked_ioctl = s32gen1_ioctl,
@@ -1674,7 +1674,7 @@ static int s32gen1_pcie_config_common(struct s32gen1_pcie *s32_pp,
 		if (!s32_pp->dir)
 			dev_info(dev, "Creating debugfs dir failed\n");
 		pfile = debugfs_create_file("ep_file", 0444, s32_pp->dir,
-			(void *)s32_pp, &s32v_pcie_ep_dbgfs_fops);
+			(void *)s32_pp, &s32gen1_pcie_ep_dbgfs_fops);
 		if (!pfile)
 			dev_info(dev, "Creating debugfs failed\n");
 #endif /* CONFIG_PCI_S32GEN1_ACCESS_FROM_USER */
