@@ -253,7 +253,7 @@ static int __init sac58r_wdt_probe(struct platform_device *pdev)
 	}
 
 	dev_info(&pdev->dev,
-		 "SAC58R/S32V234/S32GEN1 Watchdog Timer Registered. timeout=%ds (nowayout=%d)\n",
+		 "SAC58R/S32GEN1 Watchdog Timer Registered. timeout=%ds (nowayout=%d)\n",
 		 wdog->timeout, nowayout);
 	return 0;
 }
@@ -297,7 +297,6 @@ static const struct sac58r_data s32gen1_data = {
 
 static const struct of_device_id sac58r_wdt_dt_ids[] = {
 	{.compatible = "fsl,sac58r-wdt",},
-	{.compatible = "fsl,s32v234-wdt",},
 	{.compatible = "fsl,s32gen1-wdt", .data = &s32gen1_data},
 	{ /* sentinel */ }
 };
