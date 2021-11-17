@@ -78,14 +78,6 @@ enum pcie_link_speed {
 	GEN3 = 0x3
 };
 
-#ifdef CONFIG_PCI_S32GEN1_ACCESS_FROM_USER
-struct userspace_info {
-	int			user_pid;
-	struct siginfo	info;    /* signal information */
-	int (*send_signal_to_user)(struct s32v234_pcie *s32v234_pcie);
-};
-#endif
-
 struct callback {
 	void (*call_back)(u32 arg);
 	struct list_head callback_list;
@@ -125,6 +117,15 @@ struct s32gen1_pcie {
 	void (*call_back)(u32 arg);
 	struct phy *phy0, *phy1;
 };
+
+#ifdef CONFIG_PCI_S32GEN1_ACCESS_FROM_USER
+struct userspace_info {
+	int			user_pid;
+	struct siginfo	info;    /* signal information */
+	int (*send_signal_to_user)(struct s32gen1_pcie *s32gen1_pcie);
+};
+#endif
+
 
 struct s32_inbound_region {
 	u32 bar_nr;
