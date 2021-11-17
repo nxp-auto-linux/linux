@@ -2,7 +2,7 @@
 /*
  * DMA support for the Synopsys DesignWare
  * PCIe host controller driver, customized
- * for the NXP S32V PCIE driver
+ * for the NXP S32 PCIE driver
  *
  * Copyright 2017-2021 NXP
  */
