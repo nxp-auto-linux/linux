@@ -910,35 +910,4 @@ config CRYPTO_DEV_SA2UL
 	  used for crypto offload.  Select this if you want to use hardware
 	  acceleration for cryptographic algorithms on these devices.
 
-config CRYPTO_DEV_FSL_CSE3
-	tristate "Freescale CSE3 driver backend"
-	depends on SOC_S32V234
-	help
-	 Enables the driver module for Freescale's CSE3
-	 To compile this driver as a module, choose M here: the module
-	 will be called cse3.
-
-config CRYPTO_DEV_FSL_CSE3_HWRNG
-	bool "CSE3 HWRng interface"
-	depends on CRYPTO_DEV_FSL_CSE3
-	default n
-	select CRYPTO_RNG
-	select HW_RANDOM
-	help
-	 Enables the HWRng interface of the Freescale CSE3 driver, so the driver
-	 can handle "random number generator" request coming from the Linux HWRNG
-	 subsystem.
-
-config CRYPTO_DEV_FSL_CSE3_CRYPTO_API
-	bool "CSE3 Crypto API interface"
-	depends on CRYPTO_DEV_FSL_CSE3
-	default n
-	select CRYPTO_USER
-	select CRYPTO_USER_API_SKCIPHER
-	select CRYPTO_USER_API_HASH
-	help
-	 Enables the Crypto API interface of the Freescale CSE3 driver, so
-	 the driver can handle AES-128 crypto requests coming from the
-	 Linux CRYPTO API subsystem.
-
 endif # CRYPTO_HW
