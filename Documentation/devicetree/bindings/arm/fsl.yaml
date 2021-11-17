@@ -615,12 +615,6 @@ properties:
               - fsl,lx2160a-rdb
           - const: fsl,lx2160a
 
-      - description: S32V234 based Boards
-        items:
-          - enum:
-              - fsl,s32v234-evb           # S32V234-EVB2 Customer Evaluation Board
-          - const: fsl,s32v234
-
       - description:
           Freescale S32G3 based boards
 
