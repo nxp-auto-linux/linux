@@ -1552,7 +1552,7 @@ static int linflex_probe(struct platform_device *pdev)
 
 	ret = uart_add_one_port(&linflex_reg, &sport->port);
 	if (ret) {
-#if !defined(CONFIG_S32V234_PALLADIUM) && !defined(CONFIG_S32GEN1_EMULATOR)
+#if !defined(CONFIG_S32GEN1_EMULATOR)
 		clk_disable_unprepare(sport->clk);
 		clk_disable_unprepare(sport->clk_ipg);
 #endif
@@ -1581,7 +1581,7 @@ static int linflex_remove(struct platform_device *pdev)
 
 	uart_remove_one_port(&linflex_reg, &sport->port);
 
-#if !defined(CONFIG_S32V234_PALLADIUM) && !defined(CONFIG_S32GEN1_EMULATOR)
+#if !defined(CONFIG_S32GEN1_EMULATOR)
 	clk_disable_unprepare(sport->clk);
 	clk_disable_unprepare(sport->clk_ipg);
 #endif
