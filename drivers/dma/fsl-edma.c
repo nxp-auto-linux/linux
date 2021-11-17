@@ -7,7 +7,7 @@
  *
  * Driver for the Freescale eDMA engine with flexible channel multiplexing
  * capability for DMA request sources. The eDMA block can be found on some
- * Vybrid, Layerscape and S32V234 SoCs.
+ * Vybrid, Layerscape and S32GEN1 SoCs.
  */
 
 #include <linux/module.h>
@@ -24,7 +24,6 @@
 #define EDMA_TCD(ch)	(0x1000 + 32 * (ch))
 
 static int is_vf610_edma(struct fsl_edma_engine *data);
-static int is_s32v234_edma(struct fsl_edma_engine *data);
 static int is_s32gen1_edma(struct fsl_edma_engine *data);
 
 static void fsl_edma_synchronize(struct dma_chan *chan)
@@ -335,7 +334,7 @@ fsl_edma2_irq_init(struct platform_device *pdev,
 	return 0;
 }
 
-static unsigned int s32v234_mux_channel_mapping(u32 channel_id)
+static unsigned int s32gen1_mux_channel_mapping(u32 channel_id)
 {
 	return 4 * (channel_id/4) + ((4 - channel_id % 4) - 1);
 }
@@ -402,12 +401,6 @@ static struct fsl_edma_irq s32gen1_edma_irqs[] = {
 	{"edma-tx_16-31", fsl_edma3_tx_handler, },
 };
 
-static struct fsl_edma_irq s32v234_edma_irqs[] = {
-	{"edma-err", fsl_edma_irq_handler, },
-	{"edma-tx_0-15", fsl_edma_tx_handler, },
-	{"edma-tx_16-31", fsl_edma_tx_handler, },
-};
-
 static struct fsl_edma_irq vf610_edma_irqs[] = {
 	{"edma-err", fsl_edma_irq_handler, },
 	{"edma-tx", fsl_edma_tx_handler, },
@@ -427,21 +420,12 @@ static struct fsl_edma_ops fsl_edma3_ops = {
 	.edma_get_tcd_addr = fsl_edma3_get_tcd_addr,
 };
 
-static struct fsl_edma_drvdata s32v234_data = {
-	.version = v1,
-	.dmamuxs = DMAMUX_NR,
-	.n_irqs = ARRAY_SIZE(s32v234_edma_irqs),
-	.irqs = s32v234_edma_irqs,
-	.mux_channel_mapping = s32v234_mux_channel_mapping,
-	.ops = &fsl_edma_ops,
-};
-
 static struct fsl_edma_drvdata s32gen1_data = {
 	.version = v1,
 	.dmamuxs = DMAMUX_NR,
 	.n_irqs = ARRAY_SIZE(s32gen1_edma_irqs),
 	.irqs = s32gen1_edma_irqs,
-	.mux_channel_mapping = s32v234_mux_channel_mapping,
+	.mux_channel_mapping = s32gen1_mux_channel_mapping,
 	.ops = &fsl_edma3_ops,
 };
 
@@ -469,7 +453,6 @@ static struct fsl_edma_drvdata imx7ulp_data = {
 };
 
 static const struct of_device_id fsl_edma_dt_ids[] = {
-	{ .compatible = "fsl,s32v234-edma", .data = &s32v234_data},
 	{ .compatible = "fsl,s32gen1-edma", .data = &s32gen1_data},
 	{ .compatible = "fsl,vf610-edma", .data = &vf610_data},
 	{ .compatible = "fsl,ls1028a-edma", .data = &ls1028a_data},
@@ -477,11 +460,6 @@ static const struct of_device_id fsl_edma_dt_ids[] = {
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, fsl_edma_dt_ids);
-
-static inline int is_s32v234_edma(struct fsl_edma_engine *data)
-{
-	return data->drvdata == &s32v234_data;
-}
 
 static inline int is_s32gen1_edma(struct fsl_edma_engine *data)
 {
