@@ -141,7 +141,6 @@ enum {
 	LX2160A,
 	MCF5441X,
 	VF610,
-	S32V234,
 	S32GEN1,
 	S32_SLAVE,
 };
@@ -200,11 +199,6 @@ static const struct fsl_dspi_devtype_data devtype_data[] = {
 		.trans_mode		= DSPI_DMA_MODE,
 		.max_clock_factor	= 8,
 		.fifo_size		= 16,
-	},
-	[S32V234] = {
-		.trans_mode		= DSPI_XSPI_MODE,
-		.max_clock_factor	= 1,
-		.fifo_size		= 5,
 	},
 	[S32GEN1] = {
 		.trans_mode		= DSPI_XSPI_MODE,
@@ -274,15 +268,11 @@ struct fsl_dspi {
 	void (*dev_to_host)(struct fsl_dspi *dspi, u32 rxdata);
 };
 
-static int is_s32v234_dspi(struct fsl_dspi *data);
 static int is_s32gen1_dspi(struct fsl_dspi *data);
 
 static u8 get_dspi_pushr_cmd_pcs(struct fsl_dspi *dspi, unsigned int pos)
 {
-	if (is_s32v234_dspi(dspi))
-		return (BIT(pos) & GENMASK(7, 0));
-	else
-		return (BIT(pos) & GENMASK(5, 0));
+	return (BIT(pos) & GENMASK(5, 0));
 }
 
 static void dspi_native_host_to_dev(struct fsl_dspi *dspi, u32 *txdata)
@@ -1171,20 +1161,12 @@ static const struct of_device_id fsl_dspi_dt_ids[] = {
 		.compatible = "fsl,lx2160a-dspi",
 		.data = &devtype_data[LX2160A],
 	}, {
-		.compatible = "fsl,s32v234-dspi",
-		.data = &devtype_data[S32V234],
-	}, {
 		.compatible = "fsl,s32gen1-dspi",
 		.data = &devtype_data[S32GEN1],
 	},
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, fsl_dspi_dt_ids);
-
-static inline int is_s32v234_dspi(struct fsl_dspi *data)
-{
-	return data->devtype_data == &devtype_data[S32V234];
-}
 
 static inline int is_s32gen1_dspi(struct fsl_dspi *data)
 {
@@ -1195,11 +1177,7 @@ static int dspi_init(struct fsl_dspi *dspi)
 {
 	unsigned int mcr;
 
-	/* Set idle states for all chip select signals to high */
-	if (is_s32v234_dspi(dspi))
-		mcr = SPI_MCR_PCSIS(0xFF);
-	else
-		mcr = SPI_MCR_PCSIS(GENMASK(dspi->ctlr->max_native_cs - 1, 0));
+	mcr = SPI_MCR_PCSIS(GENMASK(dspi->ctlr->max_native_cs - 1, 0));
 
 	if (dspi->devtype_data->trans_mode == DSPI_XSPI_MODE)
 		mcr |= SPI_MCR_XSPI;
@@ -1499,7 +1477,7 @@ static int dspi_probe(struct platform_device *pdev)
 			goto out_ctlr_put;
 		}
 
-		if (is_s32v234_dspi(dspi) || is_s32gen1_dspi(dspi))
+		if (is_s32gen1_dspi(dspi))
 			is_s32_dspi = true;
 
 		if (ctlr->slave && is_s32_dspi)
