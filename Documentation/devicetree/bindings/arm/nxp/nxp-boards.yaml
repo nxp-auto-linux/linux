@@ -11,16 +11,6 @@ properties:
     const: '/'
   compatible:
     oneOf:
-      - description: S32V2 based boards
-        items:
-          - const: fsl,s32v234
-          - const: fsl,s32v234-campps32v2
-          - const: fsl,s32v234-ccpb
-          - const: fsl,s32v234-evb2016q4
-          - const: fsl,s32v234-evb28899
-          - const: fsl,s32v234-pcie
-          - const: fsl,s32v234-sbc
-
       - description: S32G2 based boards
         items:
           - const: fsl,s32g274
