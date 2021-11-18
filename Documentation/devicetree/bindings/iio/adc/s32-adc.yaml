@@ -11,13 +11,11 @@ maintainers:
   - Ciprian Marian Costea <ciprianmarian.costea@nxp.com>
 
 description: |
-  SAR-ADC analog-to-digital converter for
-  NXP S32V234 or S32GEN1 boards
+  SAR-ADC analog-to-digital converter for S32GEN1 boards
 
 properties:
   compatible:
     enum:
-      - fsl,s32v234-adc
       - fsl,s32gen1-adc
 
   reg:
@@ -48,19 +46,6 @@ additionalProperties: false
 
 examples:
   - |
-    #include <dt-bindings/clock/s32v234-clock.h>
-
-    saradc0: adc@4004d000 {
-        compatible = "fsl,s32v234-adc";
-        reg = <0x4004d000 0x1000>;
-        interrupts = <0 39 4>;
-        clocks = <&clks S32V234_CLK_SARADC0>;
-        clock-names = "adc";
-        vref = <1800>;
-        status = "okay";
-    };
-
-  - |
     #include <dt-bindings/clock/s32gen1-clock.h>
 
     saradc1: adc@401f8000 {
@@ -72,4 +57,4 @@ examples:
         vref = <1800>;
         status = "okay";
     };
-...
+
