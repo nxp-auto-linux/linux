@@ -9,7 +9,6 @@ maintainers:
 
 description: |
   Core driver for the S32GEN1 pin controller.
-  Based on fsl,s32v234-siul2-pinctrl implementation.
 
 properties:
   compatible:
