@@ -9,7 +9,6 @@ obj-$(CONFIG_LOGO)		  += logo/
 obj-y				  += backlight/
 obj-y				  += fbdev/
 
-obj-$(CONFIG_DEC200_FSL)	  += fsl_dec200_linux.o
 obj-$(CONFIG_FB_FSL)		  += fsl_fb.o
 
 obj-$(CONFIG_VIDEOMODE_HELPERS) += display_timing.o videomode.o
