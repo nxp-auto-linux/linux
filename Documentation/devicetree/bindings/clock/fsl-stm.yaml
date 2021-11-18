@@ -16,7 +16,6 @@ properties:
   compatible:
     oneOf:
       - enum:
-          - fsl,s32v234-stm
           - fsl,s32gen1-stm
 
   reg:
@@ -60,14 +59,3 @@ examples:
         cpu = <2>;
     };
 
-  - |
-    #include <dt-bindings/clock/s32v234-clock.h>
-
-    stm1: stm@4000D000{
-        compatible = "fsl,s32v234-stm";
-        reg = <0x4000D000 0x1000>;
-        interrupts = <0 19 4>;
-        clocks = <&clks S32V234_CLK_SYS6>;
-        clock-names = "stm";
-        cpu = <1>;
-    };
