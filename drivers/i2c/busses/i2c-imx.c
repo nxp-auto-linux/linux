@@ -80,7 +80,7 @@
 
 #define IMX_I2C_REGSHIFT	2
 #define VF610_I2C_REGSHIFT	0
-#define S32V234_I2C_REGSHIFT	0
+#define S32_I2C_REGSHIFT	0
 
 /* Bits of IMX I2C registers */
 #define I2SR_RXAK	0x01
@@ -161,8 +161,9 @@ static struct imx_i2c_clk_pair vf610_i2c_clk_div[] = {
 	{ 2304, 0x3C }, { 2560, 0x3D }, { 3072, 0x3E }, { 3584, 0x7A },
 	{ 3840, 0x3F }, { 4096, 0x7B }, { 5120, 0x7D }, { 6144, 0x7E },
 };
-/* S32V234 clock divider, register value pairs */
-static struct imx_i2c_clk_pair s32v234_i2c_clk_div[] = {
+
+/* S32GEN1 clock divider, register value pairs */
+static struct imx_i2c_clk_pair s32_i2c_clk_div[] = {
 	{ 20,    0x00 }, { 22,    0x01 }, { 24,    0x02 }, { 26,   0x03 },
 	{ 28,    0x04 }, { 30,    0x05 }, { 32,    0x09 }, { 34,   0x06 },
 	{ 36,    0x0A }, { 40,    0x07 }, { 44,    0x0C }, { 48,   0x0D },
@@ -187,7 +188,7 @@ enum imx_i2c_type {
 	IMX1_I2C,
 	IMX21_I2C,
 	VF610_I2C,
-	S32V234_I2C,
+	S32_I2C,
 };
 
 struct imx_i2c_hwdata {
@@ -264,10 +265,10 @@ static struct imx_i2c_hwdata vf610_i2c_hwdata = {
 };
 
 static struct imx_i2c_hwdata s32_i2c_hwdata = {
-	.devtype		= S32V234_I2C,
-	.regshift		= S32V234_I2C_REGSHIFT,
-	.clk_div		= s32v234_i2c_clk_div,
-	.ndivs			= ARRAY_SIZE(s32v234_i2c_clk_div),
+	.devtype		= S32_I2C,
+	.regshift		= S32_I2C_REGSHIFT,
+	.clk_div		= s32_i2c_clk_div,
+	.ndivs			= ARRAY_SIZE(s32_i2c_clk_div),
 	.i2sr_clr_opcode	= I2SR_CLR_OPCODE_W1C,
 	.i2cr_ien_opcode	= I2CR_IEN_OPCODE_0,
 
@@ -290,7 +291,6 @@ static const struct of_device_id i2c_imx_dt_ids[] = {
 	{ .compatible = "fsl,imx1-i2c", .data = &imx1_i2c_hwdata, },
 	{ .compatible = "fsl,imx21-i2c", .data = &imx21_i2c_hwdata, },
 	{ .compatible = "fsl,vf610-i2c", .data = &vf610_i2c_hwdata, },
-	{ .compatible = "fsl,s32v234-i2c", .data = &s32_i2c_hwdata, },
 	{ .compatible = "fsl,s32gen1-i2c", .data = &s32_i2c_hwdata, },
 	{ /* sentinel */ }
 };
