@@ -26,7 +26,6 @@ properties:
           - fsl,vf610-flexcan
           - fsl,ls1021ar2-flexcan
           - fsl,lx2160ar1-flexcan
-          - fsl,s32v234-flexcan
           - fsl,s32gen1-flexcan
       - items:
           - enum:
@@ -51,9 +50,6 @@ properties:
     description: |
       Interrupt tuple(s) for this device. If interrupt-names are
       missing, these should specify, in order
-      for S32V234
-      1. ERRINT | BOFFINT | BOFFDONEINT | TWRNINT | RWRNINT;
-      2. MB0-63 interrupts;
       for S32GEN1
       1. BOFFINT | BOFFDONEINT | TWRNINT | RWRNINT;
       2. ERRINT;
@@ -136,12 +132,6 @@ properties:
     description:
       Enable CAN remote wakeup.
 
-  s32v234-ocotp:
-    description: |
-      On S32V234 SoCs, phandle pointer to the On-Chip One Time
-      Programmable (OCOTP) node, if CAN FD support is desired on
-      compatible parts
-
 required:
   - compatible
   - reg
@@ -169,18 +159,4 @@ examples:
         clocks = <&clks 1>, <&clks 2>;
         clock-names = "ipg", "per";
         fsl,stop-mode = <&gpr 0x34 28>;
-    };
-  - |
-    #include <dt-bindings/clock/s32v234-clock.h>
-
-    can@40055000 {
-        compatible = "fsl,s32v234-flexcan";
-        reg = <0x40055000 0x1000>;
-        interrupts = <0 41 4>,
-                     <0 42 4>;
-        interrupt-names = "state-berr", "mb";
-        clocks = <&clks S32V234_CLK_CAN0>,
-                 <&clks S32V234_CLK_CAN>;
-        clock-names = "ipg", "per";
-        s32v234-ocotp = <&ocotp>;
     };
