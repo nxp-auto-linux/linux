@@ -392,11 +392,6 @@ static struct flexcan_irq combined_flexcan_irqs[] = {
 		FLEXCAN_HANDLER_MB },
 };
 
-static struct flexcan_irq s32v234_flexcan_irqs[] = {
-	{"state-berr", FLEXCAN_HANDLER_STATE | FLEXCAN_HANDLER_BERR },
-	{"mb", FLEXCAN_HANDLER_MB },
-};
-
 static struct flexcan_irq s32gen1_flexcan_irqs[] = {
 	{"state", FLEXCAN_HANDLER_STATE },
 	{"berr", FLEXCAN_HANDLER_BERR },
@@ -474,14 +469,6 @@ static const struct flexcan_devtype_data fsl_lx2160a_r1_devtype_data = {
 	.irqs = combined_flexcan_irqs,
 };
 
-static struct flexcan_devtype_data fsl_s32v234_devtype_data = {
-	.quirks = FLEXCAN_QUIRK_DISABLE_RXFG | FLEXCAN_QUIRK_ENABLE_EACEN_RRS |
-		FLEXCAN_QUIRK_DISABLE_MECR | FLEXCAN_QUIRK_USE_OFF_TIMESTAMP |
-		FLEXCAN_QUIRK_SETUP_STOP_MODE,
-	.n_irqs = ARRAY_SIZE(s32v234_flexcan_irqs),
-	.irqs = s32v234_flexcan_irqs,
-};
-
 static struct flexcan_devtype_data fsl_s32gen1_devtype_data = {
 	.quirks = FLEXCAN_QUIRK_DISABLE_RXFG | FLEXCAN_QUIRK_ENABLE_EACEN_RRS |
 		FLEXCAN_QUIRK_DISABLE_MECR | FLEXCAN_QUIRK_USE_OFF_TIMESTAMP |
@@ -492,43 +479,7 @@ static struct flexcan_devtype_data fsl_s32gen1_devtype_data = {
 
 static int is_s32_flexcan(struct flexcan_priv *data)
 {
-	return ((data->devtype_data == &fsl_s32v234_devtype_data) ||
-			(data->devtype_data == &fsl_s32gen1_devtype_data));
-}
-
-static inline int flexcan_request_fd(struct device *dev, bool *allowed)
-{
-	struct device_node *otp_node;
-	u32 cfg3;
-	void __iomem *otp_regs;
-
-	*allowed = false;
-
-	if (!of_device_is_compatible(dev->of_node, "fsl,s32v234-flexcan")) {
-		*allowed = true;
-		return 0;
-	}
-
-	otp_node = of_parse_phandle(dev->of_node, "s32v234-ocotp", 0);
-	if (!otp_node) {
-		dev_info(dev, "OCOTP node not found. CAN FD support is disabled.\n");
-		return 0;
-	}
-
-	otp_regs = of_iomap(otp_node, 0);
-	if (!otp_regs) {
-		dev_warn(dev, "Cannot map OCOTP registers. CAN FD support is disabled.\n");
-		return -ENOMEM;
-	}
-
-	cfg3 = readl(otp_regs + OCOTP_CFG3);
-	if (cfg3 & OCOTP_CFG3_CAN_FD_DISABLE) {
-		dev_info(dev, "CAN FD is not supported by hardware.\n");
-		return 0;
-	}
-
-	*allowed = true;
-	return 0;
+	return (data->devtype_data == &fsl_s32gen1_devtype_data);
 }
 
 static const struct can_bittiming_const flexcan_bittiming_const = {
@@ -2121,7 +2072,6 @@ static const struct of_device_id flexcan_of_match[] = {
 	{ .compatible = "fsl,vf610-flexcan", .data = &fsl_vf610_devtype_data, },
 	{ .compatible = "fsl,ls1021ar2-flexcan", .data = &fsl_ls1021a_r2_devtype_data, },
 	{ .compatible = "fsl,lx2160ar1-flexcan", .data = &fsl_lx2160a_r1_devtype_data, },
-	{ .compatible = "fsl,s32v234-flexcan", .data = &fsl_s32v234_devtype_data, },
 	{ .compatible = "fsl,s32gen1-flexcan", .data = &fsl_s32gen1_devtype_data, },
 	{ /* sentinel */ },
 };
@@ -2145,7 +2095,7 @@ static int flexcan_probe(struct platform_device *pdev)
 	int err, n_irqs, *irq_nos, i;
 	u8 clk_src = 1;
 	u32 clock_freq = 0;
-	bool fd_allowed, named_irqs;
+	bool named_irqs;
 
 	reg_xceiver = devm_regulator_get_optional(&pdev->dev, "xceiver");
 	if (PTR_ERR(reg_xceiver) == -EPROBE_DEFER)
@@ -2269,27 +2219,16 @@ static int flexcan_probe(struct platform_device *pdev)
 	priv->reg_xceiver = reg_xceiver;
 	priv->irq_nos = irq_nos;
 
-	err = flexcan_request_fd(&pdev->dev, &fd_allowed);
-	if (err)
-		goto failed_fd_check;
-
-	if (fd_allowed) {
-		priv->can.ctrlmode_supported |= CAN_CTRLMODE_FD |
-			CAN_CTRLMODE_FD_NON_ISO;
-		if (is_s32_flexcan(priv)) {
-			priv->can.bittiming_const = &s32_flexcan_fd_bittiming_const;
-			priv->can.data_bittiming_const =
-				&s32_flexcan_fd_data_bittiming_const;
-		} else {
-			priv->can.bittiming_const = &flexcan_fd_bittiming_const;
-			priv->can.data_bittiming_const =
-				&flexcan_fd_data_bittiming_const;
-		}
+	priv->can.ctrlmode_supported |= CAN_CTRLMODE_FD |
+		CAN_CTRLMODE_FD_NON_ISO;
+	if (is_s32_flexcan(priv)) {
+		priv->can.bittiming_const = &s32_flexcan_fd_bittiming_const;
+		priv->can.data_bittiming_const =
+			&s32_flexcan_fd_data_bittiming_const;
 	} else {
-		if (is_s32_flexcan(priv))
-			priv->can.bittiming_const = &s32_flexcan_bittiming_const;
-		else
-			priv->can.bittiming_const = &flexcan_bittiming_const;
+		priv->can.bittiming_const = &flexcan_fd_bittiming_const;
+		priv->can.data_bittiming_const =
+			&flexcan_fd_data_bittiming_const;
 	}
 
 	pm_runtime_get_noresume(&pdev->dev);
@@ -2321,7 +2260,6 @@ static int flexcan_probe(struct platform_device *pdev)
 
 	return 0;
 
- failed_fd_check:
  failed_register:
 	pm_runtime_put_noidle(&pdev->dev);
 	pm_runtime_disable(&pdev->dev);
