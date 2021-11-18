@@ -76,18 +76,3 @@ examples:
         dma-names = "rx", "tx";
     };
 
-  - |
-    #include <dt-bindings/clock/s32v234-clock.h>
-
-    uart1: serial@40053000 {
-        compatible = "fsl,s32-linflexuart";
-        reg = <0x40053000 0x1000>;
-        interrupts = <0 59 1>;
-        clocks = <&clks S32V234_CLK_LIN0>,
-                 <&clks S32V234_CLK_LIN0_IPG>;
-        clock-names = "lin", "ipg";
-        dmas = <&edma 0 20>,
-               <&edma 0 19>;
-        dma-names = "rx", "tx";
-        status = "disabled";
-    };
