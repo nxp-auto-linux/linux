@@ -12,7 +12,6 @@ Required properties:
 	"fsl,ls2080a-dspi" (optionally followed by "fsl,ls2085a-dspi"),
 	"fsl,ls2085a-dspi",
 	"fsl,lx2160a-dspi",
-	"fsl,s32v234-dspi",
 	"fsl,s32gen1-dspi",
 - reg : Offset and length of the register set for the device
 - interrupts : Should contain SPI controller interrupt
