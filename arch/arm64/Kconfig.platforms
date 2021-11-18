@@ -90,22 +90,6 @@ endmenu
 
 endif
 
-if SOC_S32V234
-menu "S32V234 execution target"
-	config S32V234_EVB
-		bool "S32V234 evb"
-		help
-		   S32V234 evb is a customer evaluation board
-		   of S32V234 platform.
-	config S32V234_PCIE
-		bool "S32V234 pcie"
-		help
-		   S32V234 pcie is a derivate of S32V234 platform which
-		   is designed to be connected to master board via PCI
-		   Express.
-endmenu
-endif
-
 endif
 
 config ARCH_ACTIONS
