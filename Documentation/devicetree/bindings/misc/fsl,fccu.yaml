@@ -4,7 +4,7 @@
 $id: http://devicetree.org/schemas/misc/fsl,fccu.yaml#
 $schema: http://devicetree.org/meta-schemas/core.yaml#
 
-title: Fault Collection and Control Unit (FCCU) for S32V234 and S32GEN1
+title: Fault Collection and Control Unit (FCCU) for S32GEN1
 
 maintainers:
   - Phu Luu An <phu.luuan@nxp.com>
@@ -21,7 +21,6 @@ description: |
 properties:
   compatible:
     enum:
-      - fsl,s32v234-fccu
       - fsl,s32gen1-fccu
 
   nxp,ncf_fault_list:
@@ -69,23 +68,26 @@ additionalProperties: false
 examples:
   - |
     #include <dt-bindings/interrupt-controller/irq.h>
-    #include <dt-bindings/clock/s32v234-clock.h>
     #include <dt-bindings/misc/s32-fccu.h>
+    #include <dt-bindings/clock/s32gen1-scmi-clock.h>
 
-    fccu@400B0000 {
-      compatible = "fsl,s32v234-fccu";
-      reg = <0x400B0000 0x1000>;
-      interrupts = <0 100 IRQ_TYPE_LEVEL_HIGH>,
-                  <0 101 IRQ_TYPE_LEVEL_HIGH>;
+    fccu: fccu@4030C000 {
+      compatible = "fsl,s32gen1-fccu";
+      reg = <0x0 0x4030C000 0x0 0x3000>;
+      interrupts= <0 100 IRQ_TYPE_LEVEL_HIGH>,
+      <0 101 IRQ_TYPE_LEVEL_HIGH>;
       interrupt-names = "fccu_alarm",
-                        "fccu_misc";
-      clocks = <&clks S32V234_CLK_SYS6>;
+      "fccu_misc";
+      clocks = <&clks S32GEN1_SCMI_CLK_FCCU_MODULE>;
       clock-names = "fccu";
-      nxp,ncf_fault_list = <35 36 37 38>;
+      /* A53 NCF fault list */
+      nxp,ncf_fault_list = <0 10 35 36 37 38>;
       nxp,ncf_actions = <S32_FCCU_REACTION_ALARM
-                S32_FCCU_REACTION_ALARM
-                S32_FCCU_REACTION_ALARM
-                S32_FCCU_REACTION_ALARM>;
+                         S32_FCCU_REACTION_ALARM
+                         S32_FCCU_REACTION_NONE
+                         S32_FCCU_REACTION_NONE
+                         S32_FCCU_REACTION_NONE
+                         S32_FCCU_REACTION_NONE>;
       status = "disabled";
     };
-...
+
