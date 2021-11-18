@@ -297,26 +297,13 @@ static void s32_adc_calibration(struct s32_adc *info)
 		/* AD_CLK frequency is equal to bus clock frequency */
 		mcr_data |= ADC_ADCLKSEL;
 	} else if (clk_rate == ADC_CLK_FREQ_160MHz) {
-		if (of_device_is_compatible(np, "fsl,s32v234-adc")) {
-			/* AD_clk is bus_clock divded by four */
-			mcr_data |= ADC_ADCLKDIV;
-		} else {
-			dev_err(info->dev, "Bad bus clock frequency\n");
-		}
+		dev_err(info->dev, "Bad bus clock frequency\n");
 	} else if (clk_rate != ADC_CLK_FREQ_80MHz) {
 		dev_err(info->dev, "Bad bus clock frequency\n");
 	}
 
 	mcr_data &= ~ADC_PWDN;
 	writel(mcr_data, info->regs + REG_ADC_MCR);
-
-	if (of_device_is_compatible(np, "fsl,s32v234-adc")) {
-		/* remove for production silicon where these values
-		 * will be auto-loaded from fuses
-		 */
-		writel(0x371b4fee, info->regs + REG_ADC_CALCFG(0));
-		writel(0x00000000, info->regs + REG_ADC_CALCFG(1));
-	}
 
 	mcr_data |= ADC_CALSTART;
 	writel(mcr_data, info->regs + REG_ADC_MCR);
@@ -359,7 +346,6 @@ static void s32_adc_calibration(struct s32_adc *info)
 static void s32_adc_sample_set(struct s32_adc *info)
 {
 	struct s32_adc_feature *adc_feature = &info->adc_feature;
-	struct device_node *np = info->dev->of_node;
 	enum freq_sel freq_sel = adc_feature->freq_sel;
 	int mcr_data, ctr_data = 0, group;
 
@@ -372,10 +358,7 @@ static void s32_adc_sample_set(struct s32_adc *info)
 	if (freq_sel == ADC_BUSCLK_EQUAL) {
 		mcr_data |= ADC_ADCLKSEL;
 	} else if (freq_sel == ADC_BUSCLK_FOURTH) {
-		if (of_device_is_compatible(np, "fsl,s32v234-adc"))
-			mcr_data |= ADC_ADCLKDIV;
-		else
-			dev_err(info->dev, "error frequency selection\n");
+		dev_err(info->dev, "error frequency selection\n");
 	} else if (freq_sel != ADC_BUSCLK_HALF) {
 		dev_err(info->dev, "error frequency selection\n");
 	}
@@ -694,7 +677,6 @@ static const struct iio_info s32_adc_iio_info = {
 };
 
 static const struct of_device_id s32_adc_match[] = {
-	{ .compatible = "fsl,s32v234-adc", },
 	{ .compatible = "fsl,s32gen1-adc", },
 	{ /* sentinel */ }
 };
