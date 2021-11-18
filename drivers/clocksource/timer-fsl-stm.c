@@ -434,7 +434,6 @@ static int fsl_stm_timer_remove(struct platform_device *pdev)
 }
 
 static const struct of_device_id fsl_stm_of_match[] = {
-	{ .compatible = "fsl,s32v234-stm", },
 	{ .compatible = "fsl,s32gen1-stm", },
 	{},
 };
