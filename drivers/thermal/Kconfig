@@ -1,4 +1,3 @@
-# SPDX-License-Identifier: GPL-2.0-only
 #
 # Generic thermal drivers configuration
 #
@@ -238,14 +237,6 @@ config HISI_THERMAL
 	  Enable this to plug hisilicon's thermal sensor driver into the Linux
 	  thermal framework. cpufreq is used as the cooling device to throttle
 	  CPUs when the passive trip is crossed.
-
-config S32V234_THERMAL
-	bool "Temperature sensor driver for NXP s32v234 SoCs"
-	depends on SYSFS
-	help
-	  Support for Temperature Monitoring Unit (TMU) found on NXP s32v234
-	  SoCs. It supports reporting the immediate and average temperature
-	  in a manner compatible with lm-sensors
 
 config S32GEN1_THERMAL
 	bool "Temperature sensor driver for NXP s32G SoCs"
