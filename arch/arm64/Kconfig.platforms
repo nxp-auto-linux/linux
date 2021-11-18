@@ -15,8 +15,6 @@ choice
 	prompt "S32 SOC selection"
 	default SOC_S32GEN1
 
-	config SOC_S32V234
-		bool "S32V234 SOC"
 	config SOC_S32GEN1
 		bool "S32 GEN1 SOC"
 		select NXP_ERRATUM_ERR050543
