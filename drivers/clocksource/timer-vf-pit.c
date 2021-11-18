@@ -462,7 +462,6 @@ static int fsl_pit_timer_remove(struct platform_device *pdev)
 }
 
 static const struct of_device_id fsl_pit_of_match[] = {
-	{ .compatible = "fsl,s32v234-pit", },
 	{ .compatible = "fsl,vf610-pit", },
 	{ .compatible = "fsl,s32gen1-pit", },
 	{},
