@@ -12,15 +12,10 @@
 #include <linux/of_address.h>
 #include <linux/mfd/syscon.h>
 #include <linux/platform_device.h>
-#include <linux/mfd/syscon/s32v234-src.h>
 
 #define DRIVER_NAME "s32tmu"
 
-#ifdef CONFIG_S32GEN1_THERMAL
 #include "s32gen1_thermal.h"
-#elif CONFIG_S32V234_THERMAL
-#include "s32v234_thermal.h"
-#endif
 
 #define TMU_SITE(n)			(1 << n)
 #define CALIB_POINTS_MAX	12
@@ -82,9 +77,7 @@ union TMU_TCFGR_GEN1_u {
 };
 
 struct fsl_tmu_chip {
-	bool	 has_enable_bits;
 	bool	 has_clk;
-	bool	 has_sites;
 	bool	 has_fuse;
 	uint32_t enable_mask;
 	int		 sites;
@@ -92,25 +85,12 @@ struct fsl_tmu_chip {
 };
 
 static struct fsl_tmu_chip gen1_tmu = {
-	.has_enable_bits = false,
 	.has_clk = false,
-	.has_sites = true, /* This is how you tell if Gen1 or V2 */
 	.has_fuse = true,
 	.enable_mask = 0x2,
 	.sites = 3,
 	/* For gen1, the TMU offers the value in Kelvin. 0 Celsius dgr. = 273K */
 	.offset_to_celsius = 273,
-};
-
-static struct fsl_tmu_chip v234_tmu = {
-	.has_enable_bits = true,
-	.has_clk = true,
-	.has_sites = false,
-	.has_fuse = false,
-	.enable_mask = 0x1,
-	.sites = 1,
-	/* For v234, the TMU offers the value directly in Celsius dgr. */
-	.offset_to_celsius = 0,
 };
 
 enum measurement_interval_t {
@@ -175,8 +155,7 @@ static inline int is_out_of_range(int8_t temperature)
 	return (temperature < -40 || temperature > 125);
 }
 
-/* The S32V234 Reference Manual Rev.2, 03/2017 states that the 8 bit
- * TEMP field of the RITSR and RATSR registers should be interpreted
+/* 8 bit TEMP field of the RITSR and RATSR registers should be interpreted
  * as a signed integer when the temperature is below 25 degrees
  * Celsius and as an unsigned integer when the temperature is above 25
  * degrees. The fact that the sensor reading range is -40 to 125 degrees
@@ -186,7 +165,8 @@ static inline int is_out_of_range(int8_t temperature)
  * the `Valid` bit of the registers would be cleared by hardware.
  */
 static int tmu_immediate_temperature(struct device *dev,
-					int16_t *immediate_temperature, bool *point5, int site)
+				     s16 *immediate_temperature,
+				     bool *point5, int site)
 {
 	struct tmu_driver_data *tmu_dd = dev_get_drvdata(dev);
 	union TMU_RITSR_u tmu_ritsr;
@@ -442,43 +422,6 @@ static int tmu_calibrate_s32gen1(struct device *dev)
 	return 0;
 }
 
-
-static void tmu_calibrate_s32v234(struct device *dev)
-{
-	struct tmu_driver_data *tmu_dd = dev_get_drvdata(dev);
-	union TMU_TCFGR_V234_u tmu_tcfgr;
-	union TMU_SCFGR_u tmu_scfgr;
-
-	int i, j;
-	static int calibration_table[5][16] = {
-		{  25, 30, 36, 42, 48, 54, 60, 66, 73,  80,  86, 93,  -1, -1,
-		   -1, -1 },
-		{  15, 22, 29, 36, 43, 51, 59, 67, 75,  83,  92, -1,  -1, -1,
-		   -1, -1 },
-		{  11, 19, 28, 37, 46, 56, 66, 76, 86,  -1,  -1, -1,  -1, -1,
-		   -1, -1 },
-		{   0, 9,  20, 30, 41, 53, 65, 77, 89, 102, 115, -1,  -1, -1,
-		   -1, -1 },
-		{  44, 48, 53, 57, 62, 67, 72, 77, 82,  88,  93, 99, 104, -1,
-		   -1, -1 },
-	};
-
-	tmu_tcfgr.R = readl(tmu_dd->tmu_registers + TMU_TCFGR);
-	tmu_scfgr.R = readl(tmu_dd->tmu_registers + TMU_SCFGR);
-
-	for (i = 0; i < 5; i++) {
-		tmu_tcfgr.B.Data1 = i;
-		for (j = 0; calibration_table[i][j] != -1; j++) {
-
-			tmu_tcfgr.B.Data0 = j;
-			tmu_scfgr.B.SENSOR = calibration_table[i][j];
-
-			writel(tmu_tcfgr.R, tmu_dd->tmu_registers + TMU_TCFGR);
-			writel(tmu_scfgr.R, tmu_dd->tmu_registers + TMU_SCFGR);
-		}
-	}
-}
-
 static int tmu_init_hw(struct device *dev,
 		const struct fsl_tmu_chip *tmu_chip)
 {
@@ -486,16 +429,12 @@ static int tmu_init_hw(struct device *dev,
 
 	tmu_monitor_enable(dev, tmu_chip->enable_mask, false);
 
-	if (tmu_chip->has_sites) {
-		tmu_enable_sites(dev);
+	tmu_enable_sites(dev);
 
-		ret = tmu_calibrate_s32gen1(dev);
-		if (ret) {
-			dev_err(dev, "TMU Calibration Failed\n");
-			return ret;
-		}
-	} else {
-		tmu_calibrate_s32v234(dev);
+	ret = tmu_calibrate_s32gen1(dev);
+	if (ret) {
+		dev_err(dev, "TMU Calibration Failed\n");
+		return ret;
 	}
 
 	tmu_configure_alpf(dev, alpf_0_5);
@@ -506,7 +445,6 @@ static int tmu_init_hw(struct device *dev,
 }
 
 static const struct of_device_id tmu_dt_ids[] = {
-		{ .compatible = "fsl,s32v234-tmu", .data = &v234_tmu, },
 		{ .compatible = "fsl,s32gen1-tmu", .data = &gen1_tmu, },
 		{ /* end */ }
 	};
@@ -518,7 +456,6 @@ static int tmu_probe(struct platform_device *pd)
 	struct tmu_driver_data *tmu_dd;
 	struct resource *tmu_resource;
 	struct resource *fuse_resource;
-	struct regmap *src_regmap = NULL;
 	int device_files_created = 0;
 	int return_code = 0;
 	int i;
@@ -537,15 +474,6 @@ static int tmu_probe(struct platform_device *pd)
 	if (!tmu_dd)
 		return -ENOMEM;
 	dev_set_drvdata(&pd->dev, tmu_dd);
-
-	if (tmu_chip->has_enable_bits) {
-		src_regmap =
-			syscon_regmap_lookup_by_compatible("fsl,s32v234-src");
-		if (!src_regmap) {
-			dev_err(&pd->dev, "Cannot obtain SRC regmap.\n");
-			return -ENODEV;
-		}
-	}
 
 	tmu_resource = platform_get_resource(pd, IORESOURCE_MEM, 0);
 	if (!tmu_resource) {
@@ -591,8 +519,6 @@ static int tmu_probe(struct platform_device *pd)
 	}
 
 	tmu_dd->temp_offset = tmu_chip->offset_to_celsius;
-	if (tmu_chip->has_sites)
-		tmu_dd->calib_points = 4;
 
 	tmu_dd->hwmon_device =
 		hwmon_device_register_with_info(
@@ -612,13 +538,6 @@ static int tmu_probe(struct platform_device *pd)
 		device_files_created++;
 	}
 
-	if (tmu_chip->has_enable_bits) {
-		return_code = regmap_update_bits(src_regmap, SRC_GPR4,
-				   SRC_GPR4_TSENS_ENABLE_MASK, 0x1);
-		if (return_code)
-			goto regmap_update_bits_failed;
-	}
-
 	return_code = tmu_init_hw(&pd->dev, tmu_chip);
 	if (return_code)
 		goto calibration_failed;
@@ -626,7 +545,6 @@ static int tmu_probe(struct platform_device *pd)
 	return 0;
 
 calibration_failed:
-regmap_update_bits_failed:
 device_create_file_failed:
 	for (i = 0; i < device_files_created; i++)
 		device_remove_file(tmu_dd->hwmon_device, &dev_attrs[i]);
