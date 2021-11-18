@@ -17,7 +17,6 @@ properties:
   compatible:
     oneOf:
       - enum:
-          - "fsl,s32v234-pcie"  # S32V234 SoCs
           - "fsl,s32gen1-pcie"  # S32Gen1 SoCs RC mode
           - "fsl,s32gen1-pcie-ep"  # S32Gen1 SoCs EP mode
 
@@ -81,32 +80,61 @@ additionalProperties: true
 
 examples:
   - |
-
     bus {
         #address-cells = <2>;
         #size-cells = <2>;
 
-        pcie: pcie@72000000 {
-          compatible = "fsl,s32v234-pcie";
-          reg = <0 0x72ffc000 0 0x4000>, <0 0x72f00000 0 0x80000>;
-          reg-names = "dbi", "config";
+        pcie0: pcie@40400000 {
+          compatible = "fsl,s32gen1-pcie";
+          dma-coherent;
+          reg = <0x00 0x40400000 0x0 0x00001000   /* dbi registers */
+                 0x00 0x40420000 0x0 0x00001000   /* dbi2 registers */
+                 0x00 0x40460000 0x0 0x00001000   /* atu registers */
+                 0x00 0x40470000 0x0 0x00001000   /* dma registers */
+                 0x00 0x40481000 0x0 0x000000F8   /* ctrl registers */
+                 /* RC configuration space, 4KB each for cfg0 and cfg1
+                  * at the end of the outbound memory map
+                  */
+                 0x5f 0xffffe000 0x0 0x00002000
+                 0x58 0x00000000 0x0 0x40000000>; /* 1GB EP addr space */
+          reg-names = "dbi", "dbi2", "atu", "dma", "ctrl",
+                "config", "addr_space";
           #address-cells = <3>;
           #size-cells = <2>;
           device_type = "pci";
-          ranges = <0x81000000 0x0 0x0 0x0 0x72f80000 0x0 0x00010000>,
-                    /* downstream I/O */
-                    <0x82000000 0x0 0x72000000 0x0 0x72000000 0x0 0x00f00000>;
-                    /* non-prefetchable memory */
-          num-lanes = <1>;
+          device_id = <0>;
+          ranges =
+            /* downstream I/O, 64KB and aligned naturally just
+             * before the config space to minimize fragmentation
+             */
+            <0x81000000 0x0 0x00000000 0x5f 0xfffe0000 0x0 0x00010000
+            /* non-prefetchable memory, with best case size and
+             * alignment
+             */
+             0x82000000 0x0 0x00000000 0x58 0x00000000 0x7 0xfffe0000>;
+
+          nxp,phy-mode = "crns";
+          num-lanes = <2>;
+          max-link-speed = <3>;
           bus-range = <0x0 0xff>;
-          interrupts =  <0 103 4>, <0 104 4>, <0 105 4>;
-          interrupt-names = "link_req_rst_not", "dma","msi";
+          interrupts =  <0 124 4>, <0 123 4>, <0 125 4>,
+                <0 126 4>, <0 127 4>, <0 132 4>,
+                <0 133 4>, <0 134 4>;
+          interrupt-names = "link_req_stat", "dma","msi",
+                "phy_link_down", "phy_link_up", "misc",
+                "pcs", "tlp_req_no_comp";
           #interrupt-cells = <1>;
           interrupt-map-mask = <0 0 0 0x7>;
-          interrupt-map = <0 0 0 1 &gic 0 108 4>,
-              <0 0 0 2 &gic 0 107 4>,
-              <0 0 0 3 &gic 0 106 4>,
-              <0 0 0 4 &gic 0 105 4>;
+          interrupt-map = <0 0 0 1 &gic 0 0 0 128 4>,
+                <0 0 0 2 &gic 0 0 0 129 4>,
+                <0 0 0 3 &gic 0 0 0 130 4>,
+                <0 0 0 4 &gic 0 0 0 131 4>;
+          /* msi-parent = <&gic>; */
+
+          /* EP mode only */
+          num-ib-windows = <6>;
+          num-ob-windows = <6>;
+
           status = "disabled";
         };
-      };
+    };
