@@ -16,7 +16,6 @@ properties:
   compatible:
     enum:
       - fsl,sac58r-wdt
-      - fsl,s32v234-wdt
       - fsl,s32gen1-wdt
 
   reg:
