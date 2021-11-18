@@ -17,22 +17,11 @@ description: |
 properties:
   compatible:
     enum:
-      - fsl,s32v234-tmu
       - fsl,s32gen1-tmu
 
   reg:
     description:
       Address range of the TMU registers
-
-  clocks:
-    description:
-      One entry, the clock for the TMU device
-      Required only if fsl,s32v234-tmu.
-
-  clock-names:
-    description: |
-      tsens
-      Required only if fsl,s32v234-tmu.
 
 required:
   - compatible
@@ -42,13 +31,9 @@ additionalProperties: false
 
 examples:
   - |
-    #include <dt-bindings/clock/s32v234-clock.h>
-
-    tmu: tmu@400CE000 {
-      compatible = "fsl,s32v234-tmu";
-      reg = <0x400CE000 0x1000>;
-      clocks = <&clks S32V234_CLK_TSENS>;
-      clock-names = "tsens";
-      status = "disabled";
+    tmu: tmu@400A8000 {
+      compatible = "fsl,s32gen1-tmu";
+      reg = <0x0 0x400A8000 0x0 0x3000>,
+          <0x0 0x400A4200 0x0 0x1FC>;
+      status = "okay";
     };
-...
