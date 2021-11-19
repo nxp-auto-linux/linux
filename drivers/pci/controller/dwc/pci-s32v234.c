@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0
 /*
  * PCIe host controller driver for Freescale S32V SoCs
  *
@@ -7,43 +8,31 @@
  * Author: Sean Cross <xobs@kosagi.com>
  *
  * Copyright (C) 2014-2015 Freescale Semiconductor, Inc. All Rights Reserved.
- * Copyright 2017-2020 NXP
+ * Copyright 2017-2021 NXP
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
  */
 
-#include <linux/clk.h>
-#include <linux/delay.h>
-#include <linux/gpio.h>
+#include <linux/debugfs.h>
+#include <linux/dma-mapping.h>
 #include <linux/interrupt.h>
-#include <linux/kernel.h>
+#include <linux/io.h>
 #include <linux/mfd/syscon.h>
 #include <linux/mfd/syscon/s32v234-src.h>
 #include <linux/module.h>
-#include <linux/of_gpio.h>
 #include <linux/of_address.h>
+#include <linux/of_platform.h>
 #include <linux/pci.h>
-#include <linux/pci_regs.h>
 #include <linux/platform_device.h>
 #include <linux/pm_runtime.h>
 #include <linux/regmap.h>
-#include <linux/io.h>
-#include <linux/debugfs.h>
-#include <linux/dma-mapping.h>
-#include <linux/uaccess.h>
-#include <linux/fs.h>
-#include <linux/sizes.h>
-#include <linux/of_platform.h>
-#include <linux/rcupdate.h>
 #include <linux/sched/signal.h>
-#include <linux/version.h>
+#include <linux/uaccess.h>
 
-#include <linux/regulator/consumer.h>
-
-#include "pci-s32v234.h"
 #include "pci-ioctl-s32.h"
+#include "pci-s32v234.h"
 
 /* TODO: across the entire file:
  * - use dedicated dw_* functions for dbi_base access
@@ -179,7 +168,7 @@ static int s32v234_pcie_get_soc_revision(void)
 	}
 
 	if (siul2_base_address != OF_BAD_ADDR) {
-		char *siul2_virt_addr = ioremap_nocache(siul2_base_address,
+		char *siul2_virt_addr = ioremap(siul2_base_address,
 							SZ_1K);
 
 		pr_soc_debug("Resolved SIUL2 base address to 0x%llx\n",
@@ -330,20 +319,20 @@ static irqreturn_t s32v234_pcie_dma_handler(int irq, void *arg)
 
 	if (val_write) {
 		bool signal = (di->wr_ch.status == DMA_CH_RUNNING);
+
 		dw_handle_dma_irq_write(pcie, di, val_write);
-		if (signal && s32v234_pp->send_signal_to_user) {
+		if (signal && s32v234_pp->send_signal_to_user)
 			s32v234_pp->send_signal_to_user(s32v234_pp);
-		}
 
 		if (s32v234_pp->call_back)
 			s32v234_pp->call_back(val_write);
 	}
 	if (val_read) {
 		bool signal = (di->rd_ch.status == DMA_CH_RUNNING);
+
 		dw_handle_dma_irq_read(pcie, di, val_read);
-		if (signal && s32v234_pp->send_signal_to_user) {
+		if (signal && s32v234_pp->send_signal_to_user)
 			s32v234_pp->send_signal_to_user(s32v234_pp);
-		}
 	}
 
 	return IRQ_HANDLED;
