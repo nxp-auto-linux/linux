@@ -879,7 +879,7 @@
 			 <&clks S32GEN1_SCMI_CLK_GMAC0_RX_RGMII>,
 			 <&clks S32GEN1_SCMI_CLK_GMAC0_RX_RMII>,
 			 <&clks S32GEN1_SCMI_CLK_GMAC0_RX_MII>,
-			 <&clks S32GEN1_SCMI_CLK_GMAC0_TS_RGMII>;
+			 <&clks S32GEN1_SCMI_CLK_GMAC0_TS>;
 		clock-names = "stmmaceth", "pclk",
 			      "tx_sgmii", "tx_rgmii",
 			      "tx_rmii", "tx_mii",
