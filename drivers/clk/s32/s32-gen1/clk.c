@@ -795,14 +795,12 @@ static void s32gen1_scmi_clocks_init(void)
 		      S32GEN1_CLK_GMAC_0_RX);
 	init_scmi_clk(S32GEN1_SCMI_CLK_GMAC0_TX_SGMII,
 		      S32GEN1_CLK_GMAC_0_TX);
-	init_scmi_clk(S32GEN1_SCMI_CLK_GMAC0_TS_SGMII,
+	init_scmi_clk(S32GEN1_SCMI_CLK_GMAC0_TS,
 		      S32GEN1_CLK_GMAC_0_TS);
 	init_scmi_clk(S32GEN1_SCMI_CLK_GMAC0_RX_RGMII,
 		      S32GEN1_CLK_GMAC_0_RX);
 	init_scmi_clk(S32GEN1_SCMI_CLK_GMAC0_TX_RGMII,
 		      S32GEN1_CLK_GMAC_0_TX);
-	init_scmi_clk(S32GEN1_SCMI_CLK_GMAC0_TS_RGMII,
-		      S32GEN1_CLK_GMAC_0_TS);
 	init_scmi_clk(S32GEN1_SCMI_CLK_GMAC0_RX_RMII,
 		      S32GEN1_CLK_GMAC_0_RX);
 	init_scmi_clk(S32GEN1_SCMI_CLK_GMAC0_TX_RMII,
@@ -811,8 +809,6 @@ static void s32gen1_scmi_clocks_init(void)
 		      S32GEN1_CLK_GMAC_0_RX);
 	init_scmi_clk(S32GEN1_SCMI_CLK_GMAC0_TX_MII,
 		      S32GEN1_CLK_GMAC_0_TX);
-	init_scmi_clk(S32GEN1_SCMI_CLK_GMAC0_TS_MII,
-		      S32GEN1_CLK_GMAC_0_TS);
 	init_scmi_clk(S32GEN1_SCMI_CLK_GMAC0_AXI,
 		      S32GEN1_CLK_XBAR);
 
