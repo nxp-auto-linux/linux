@@ -1,0 +1,20 @@
+* Freescale SIUL2 iomux controller
+
+Core driver for the S32GEN1 pin controller.
+Based on fsl,s32v234-siul2-pinctrl implementation.
+
+Required properties:
+- compatible:
+	* "fsl,s32g-siul2_0-pinctrl"
+	* "fsl,s32g-siul2_1-pinctrl"
+	* "fsl,s32r45-siul2_0-pinctrl"
+	* "fsl,s32r45-siul2_1-pinctrl"
+
+- fsl,pins: two integers array, represents a group of pins mux and config
+  setting. The format is fsl,pins = <PIN_FUNC_ID CONFIG>
+  PIN_FUNC_ID - id of MSCR to be modified
+  CONFIG - configuration to be written in the MSCR/IMCR register
+
+  Even though IMCR register should be used as input register, it can be
+  set and addressed in the same way as MSCR, only instead of passing the
+  IMCR index, IMCR_IDX + 512 is passed[1].
