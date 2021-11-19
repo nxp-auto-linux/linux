@@ -13,6 +13,7 @@
 #include <linux/types.h>
 #include <linux/version.h>
 #include <linux/phy/phy.h>
+#include <uapi/linux/pci_regs.h>
 #include <linux/pcie/fsl-s32gen1-pcie-phy-submode.h>
 #include "pcie-designware.h"
 
@@ -33,9 +34,6 @@
 #define PCI_MSIX_CAP	0xB0
 /* MSI-X Enable bit */
 #define MSIX_EN			BIT(31)
-
-/* PCIe Capabilities ID and next pointer register */
-#define PCI_EXP_CAP_ID			0x70
 
 /* PCIe controller 0 general control 1 (PE0_GEN_CTRL_1) */
 #define PE0_GEN_CTRL_1			0x50
