@@ -22,9 +22,6 @@
 #define GET_DMA_CH_ERRORS	_IOR('S', 9,  unsigned int)
 #define RESET_DMA_WRITE		_IOW('S', 10,  unsigned int)
 #define RESET_DMA_READ		_IOW('S', 11,  unsigned int)
-#define STORE_LL_INFO		_IOR('S', 12,  struct dma_ll_info)
-#define SEND_LL				_IOWR('S', 13, struct dma_list(*)[])
-#define START_LL			_IOWR('S', 14, unsigned int)
 
 #define DMA_FLAG_LIE					(1 << 0)
 #define DMA_FLAG_RIE					(1 << 1)
@@ -44,21 +41,6 @@ struct dma_data_elem {
 	unsigned int size;
 	unsigned int flags;
 	unsigned int ch_num;
-};
-/* Type of array of structures for passing linked list  */
-struct dma_list {
-	unsigned long sar;
-	unsigned long dar;
-	unsigned int size;
-};
-
-/* Linked list mode struct */
-struct dma_ll_info {
-	unsigned int direction;
-	unsigned int ch_num;
-	unsigned int nr_elem;
-	unsigned int phy_list_addr;
-	unsigned int next_phy_list_addr;
 };
 
 #endif /* PCI_IOCTL_S32_H */
