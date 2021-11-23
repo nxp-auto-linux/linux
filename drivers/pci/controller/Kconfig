@@ -66,25 +66,19 @@ config PCI_S32GEN1_EP_MSI
 	  This is not enforced by PCIe standard, but all the required registers
 	  are there for the EP mode too.
 
-config PCI_S32GEN1_DEBUG
-	bool "Enable basic debug by printing for S32GEN1 PCIe module"
-	depends on PCI_S32GEN1
+config PCI_S32_DEBUG
+	bool "Enable basic debug by printing for S32 PCIe module"
+	depends on PCI_S32GEN1 || PCI_S32V234
 	help
-	Enable basic debug by printing for S32GEN1 PCIe module.
+	Enable basic debug by printing for S32 PCIe module.
 
-config PCI_S32GEN1_DEBUG_WRITES
-	bool "Enable dumping register writes performed by the S32GEN1 PCIe module"
+config PCI_S32_DEBUG_WRITES
+	bool "Enable dumping register writes performed by the S32 PCIe module"
 	depends on PCI_S32GEN1 && PCI_S32GEN1_DEBUG
+	depends on PCI_S32V234 && PCI_S32V234_DEBUG
 	help
-	Enable dumping register writes performed by the S32GEN1 PCIe module.
+	Enable dumping register writes performed by the S32 PCIe module.
 	Register writes done by the DW code is not dumped.
-
-config PCI_S32GEN1_DEBUG_READS
-	bool "Enable dumping register reads performed by the S32GEN1 PCIe module"
-	depends on PCI_S32GEN1 && PCI_S32GEN1_DEBUG
-	help
-	Enable dumping register reads performed by the S32GEN1 PCIe module.
-	Register reads done by the DW code is not dumped.
 
 config PCI_DW_DMA
 	bool "Freescale S32 PCIe DW DMA"
