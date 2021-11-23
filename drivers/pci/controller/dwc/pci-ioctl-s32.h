@@ -49,9 +49,9 @@ struct s32_outbound_region {
 };
 
 struct s32_bar {
-	unsigned int bar_nr;
-	unsigned int size;
-	unsigned int addr;
+	u32 bar_nr;
+	u32 size;
+	u32 addr;
 };
 
 struct s32_userspace_info;
@@ -76,8 +76,7 @@ struct s32_userspace_info *dw_get_userspace_info(struct dw_pcie *pcie);
 int s32_pcie_setup_outbound(struct s32_outbound_region *outbStr);
 int s32_pcie_setup_inbound(struct s32_inbound_region *inbStr);
 
-void __iomem *s32_get_msi_base_address(struct dw_pcie *pcie);
-void __iomem *s32_set_msi(struct dw_pcie *pcie);
+int s32_send_msi(struct dw_pcie *pcie);
 
 void s32_register_callback(struct dw_pcie *pcie,
 	void (*call_back)(u32 arg));
