@@ -106,6 +106,12 @@ static inline void s32gen1_pcie_write(struct dw_pcie *pci,
 	else if ((uintptr_t)base == (uintptr_t)(pci->dbi_base2))
 		dev_dbg_w(pci->dev, "W%d(dbi2+0x%x, 0x%x)\n",
 			(int)size * 8, (u32)(reg), (u32)(val));
+#ifdef CONFIG_PCI_DW_DMA
+	else if ((u64)base == (u64)(s32_pci->dma.dma_base))
+		pr_debug_w("pcie%d:%s: W%d(dma+0x%x, 0x%x)\n",
+			s32_pci->id, __func__,
+			(int)size * 8, (u32)(reg), (u32)(val));
+#endif
 	else
 		dev_dbg_w(pci->dev, "W%d(%lx+0x%x, 0x%x)\n",
 			(int)size * 8, (uintptr_t)(base), (u32)(reg), (u32)(val));
@@ -116,6 +122,17 @@ static inline void s32gen1_pcie_write(struct dw_pcie *pci,
 		dev_err(pci->dev, "(pcie%d): Write to address 0x%lx failed\n",
 			s32_pci->id, (uintptr_t)(base + reg));
 }
+
+#if (defined(CONFIG_PCI_DW_DMA) && defined(CONFIG_PCI_S32GEN1_DEBUG_WRITES))
+/* Allow printing DMA writes */
+static inline void s32gen1_pcie_write_dma(struct dma_info *di,
+		void __iomem *base, u32 reg, size_t size, u32 val)
+{
+	struct s32gen1_pcie *s32_pci = to_s32gen1_from_dma_info(di);
+
+	s32gen1_pcie_write(&s32_pci->pcie, base, reg, size, val);
+}
+#endif
 
 void dw_pcie_writel_ctrl(struct s32gen1_pcie *pci, u32 reg, u32 val)
 {
@@ -1147,6 +1164,10 @@ static int s32gen1_pcie_dt_init(struct platform_device *pdev,
 	if (IS_ERR(s32_pp->dma.dma_base))
 		return PTR_ERR(s32_pp->dma.dma_base);
 	dev_dbg(dev, "dma virt: 0x%llx\n", (u64)s32_pp->dma.dma_base);
+	s32_pp->dma.iatu_unroll_enabled = dw_pcie_iatu_unroll_enabled(pcie);
+#if defined(CONFIG_PCI_S32GEN1_DEBUG_WRITES)
+	s32_pp->dma.write_dma = s32gen1_pcie_write_dma;
+#endif
 #endif
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "ctrl");
