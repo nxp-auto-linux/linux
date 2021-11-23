@@ -5,7 +5,7 @@
  * Copyright 2020-2022 NXP
  */
 
-#ifdef CONFIG_PCI_S32GEN1_DEBUG
+#ifdef CONFIG_PCI_S32_DEBUG
 #define DEBUG
 #endif
 
@@ -32,15 +32,12 @@
 #include "pci-s32gen1.h"
 #include "../../pci.h"
 
-#ifdef CONFIG_PCI_S32GEN1_DEBUG_READS
-#define dev_dbg_r dev_dbg
-#else
-#define dev_dbg_r(fmt, ...)
-#endif
-#ifdef CONFIG_PCI_S32GEN1_DEBUG_WRITES
+#ifdef CONFIG_PCI_S32_DEBUG_WRITES
 #define dev_dbg_w dev_dbg
+#define PTR_FMT "%px"
 #else
 #define dev_dbg_w(fmt, ...)
+#define PTR_FMT "%p"
 #endif
 
 #define PCIE_LINKUP_MASK	(PCIE_SS_SMLH_LINK_UP | PCIE_SS_RDLH_LINK_UP | \
@@ -86,7 +83,7 @@ static inline void s32gen1_pcie_write(struct dw_pcie *pci,
 	int ret;
 	struct s32gen1_pcie *s32_pci = to_s32gen1_from_dw_pcie(pci);
 
-#ifdef CONFIG_PCI_S32GEN1_DEBUG_WRITES
+#ifdef CONFIG_PCI_S32_DEBUG_WRITES
 	if ((uintptr_t)base == (uintptr_t)(s32_pci->ctrl_base))
 		dev_dbg_w(pci->dev, "W%d(ctrl+0x%x, 0x%x)\n",
 			(int)size * 8, (u32)(reg), (u32)(val));
@@ -100,9 +97,8 @@ static inline void s32gen1_pcie_write(struct dw_pcie *pci,
 		dev_dbg_w(pci->dev, "W%d(dbi2+0x%x, 0x%x)\n",
 			(int)size * 8, (u32)(reg), (u32)(val));
 #ifdef CONFIG_PCI_DW_DMA
-	else if ((u64)base == (u64)(s32_pci->dma.dma_base))
-		pr_debug_w("pcie%d:%s: W%d(dma+0x%x, 0x%x)\n",
-			s32_pci->id, __func__,
+	else if ((uintptr_t)base == (uintptr_t)(s32_pci->dma.dma_base))
+		dev_dbg_w(pci->dev, "W%d(dma+0x%x, 0x%x)\n",
 			(int)size * 8, (u32)(reg), (u32)(val));
 #endif
 	else
@@ -116,7 +112,7 @@ static inline void s32gen1_pcie_write(struct dw_pcie *pci,
 			s32_pci->id, (uintptr_t)(base + reg));
 }
 
-#if (defined(CONFIG_PCI_DW_DMA) && defined(CONFIG_PCI_S32GEN1_DEBUG_WRITES))
+#if (defined(CONFIG_PCI_DW_DMA) && defined(CONFIG_PCI_S32_DEBUG_WRITES))
 /* Allow printing DMA writes */
 static inline void s32gen1_pcie_write_dma(struct dma_info *di,
 		void __iomem *base, u32 reg, size_t size, u32 val)
@@ -1150,21 +1146,21 @@ static int s32gen1_pcie_dt_init(struct platform_device *pdev,
 	if (IS_ERR(pcie->dbi_base))
 		return PTR_ERR(pcie->dbi_base);
 	dev_dbg(dev, "dbi: %pR\n", res);
-	dev_dbg(dev, "dbi virt: 0x%p\n", pcie->dbi_base);
+	dev_dbg(dev, "dbi virt: 0x" PTR_FMT "\n", pcie->dbi_base);
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "dbi2");
 	pcie->dbi_base2 = devm_ioremap_resource(dev, res);
 	if (IS_ERR(pcie->dbi_base2))
 		return PTR_ERR(pcie->dbi_base2);
 	dev_dbg(dev, "dbi2: %pR\n", res);
-	dev_dbg(dev, "dbi2 virt: 0x%p\n", pcie->dbi_base2);
+	dev_dbg(dev, "dbi2 virt: 0x" PTR_FMT "\n", pcie->dbi_base2);
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "atu");
 	dev_dbg(dev, "atu: %pR\n", res);
 	pcie->atu_base = devm_ioremap_resource(dev, res);
 	if (IS_ERR(pcie->atu_base))
 		return PTR_ERR(pcie->atu_base);
-	dev_dbg(dev, "atu virt: 0x%p\n", pcie->atu_base);
+	dev_dbg(dev, "atu virt: 0x" PTR_FMT "\n", pcie->atu_base);
 
 #ifdef CONFIG_PCI_DW_DMA
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "dma");
@@ -1172,9 +1168,9 @@ static int s32gen1_pcie_dt_init(struct platform_device *pdev,
 	s32_pp->dma.dma_base = devm_ioremap_resource(dev, res);
 	if (IS_ERR(s32_pp->dma.dma_base))
 		return PTR_ERR(s32_pp->dma.dma_base);
-	dev_dbg(dev, "dma virt: 0x%llx\n", (u64)s32_pp->dma.dma_base);
+	dev_dbg(dev, "dma virt: 0x" PTR_FMT "\n", s32_pp->dma.dma_base);
 	s32_pp->dma.iatu_unroll_enabled = dw_pcie_iatu_unroll_enabled(pcie);
-#if defined(CONFIG_PCI_S32GEN1_DEBUG_WRITES)
+#if defined(CONFIG_PCI_S32_DEBUG_WRITES)
 	s32_pp->dma.write_dma = s32gen1_pcie_write_dma;
 #endif
 #endif
@@ -1184,7 +1180,7 @@ static int s32gen1_pcie_dt_init(struct platform_device *pdev,
 	if (IS_ERR(s32_pp->ctrl_base))
 		return PTR_ERR(s32_pp->ctrl_base);
 	dev_dbg(dev, "ctrl: %pR\n", res);
-	dev_dbg(dev, "ctrl virt: 0x%p\n", s32_pp->ctrl_base);
+	dev_dbg(dev, "ctrl virt: 0x" PTR_FMT "\n", s32_pp->ctrl_base);
 
 	s32_pp->linkspeed = of_pci_get_max_link_speed(np);
 	if (s32_pp->linkspeed < GEN1 || s32_pp->linkspeed > GEN3) {
