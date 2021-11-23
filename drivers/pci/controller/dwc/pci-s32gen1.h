@@ -15,7 +15,9 @@
 #include <linux/phy/phy.h>
 #include <uapi/linux/pci_regs.h>
 #include <linux/pcie/fsl-s32gen1-pcie-phy-submode.h>
+
 #include "pcie-designware.h"
+#include "pci-dma-s32.h"
 
 #define BUILD_BIT_VALUE(field, x) (((x) & (1)) << field##_BIT)
 #define BUILD_MASK_VALUE(field, x) (((x) & (field##_MASK)) << field##_LSB)
@@ -65,6 +67,12 @@
 #define to_s32gen1_from_dw_pcie(x) \
 	container_of(x, struct s32gen1_pcie, pcie)
 
+#ifdef CONFIG_PCI_DW_DMA
+#define to_s32gen1_from_dma_info(x) \
+		container_of(x, struct s32gen1_pcie, dma)
+#endif
+
+
 enum pcie_dev_type {
 	PCIE_EP = 0x0,
 	PCIE_RC = 0x4
@@ -94,8 +102,6 @@ struct s32gen1_pcie {
 	 * dbi in struct dw_pcie, so define only ctrl here
 	 */
 	void __iomem *ctrl_base;
-	void __iomem *phy_base;
-	void __iomem *atu_base;
 
 	int id;
 	enum pcie_phy_mode phy_mode;
