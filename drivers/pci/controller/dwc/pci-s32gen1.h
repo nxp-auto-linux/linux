@@ -18,11 +18,7 @@
 
 #include "pcie-designware.h"
 #include "pci-ioctl-s32.h"
-
-#ifdef CONFIG_PCI_DW_DMA
-#include <linux/dma-mapping.h>
 #include "pci-dma-s32.h"
-#endif
 
 #define BUILD_BIT_VALUE(field, x) (((x) & (1)) << field##_BIT)
 #define BUILD_MASK_VALUE(field, x) (((x) & (field##_MASK)) << field##_LSB)
@@ -72,7 +68,6 @@
 		container_of(x, struct s32gen1_pcie, dma)
 #endif
 
-
 enum pcie_dev_type {
 	PCIE_EP = 0x0,
 	PCIE_RC = 0x4
@@ -82,11 +77,6 @@ enum pcie_link_speed {
 	GEN1 = 0x1,
 	GEN2 = 0x2,
 	GEN3 = 0x3
-};
-
-struct callback {
-	void (*call_back)(u32 arg);
-	struct list_head callback_list;
 };
 
 struct s32gen1_pcie {
@@ -112,13 +102,10 @@ struct s32gen1_pcie {
 	struct dma_info	dma;
 #endif
 
-#ifdef CONFIG_PCI_S32GEN1_ACCESS_FROM_USER
-	struct dentry	*dir;
-	struct userspace_info uspace;
-#endif
-
-	/* TODO: change this to a list */
+	/* TODO: change call_back to a list */
 	void (*call_back)(u32 arg);
+	struct s32_userspace_info uinfo;
+
 	struct phy *phy0, *phy1;
 };
 
