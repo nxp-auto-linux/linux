@@ -144,20 +144,16 @@ struct s32gen1_pcie_ep_node {
 static irqreturn_t s32gen1_pcie_dma_handler(int irq, void *arg)
 {
 	struct s32gen1_pcie *s32_pp = arg;
-	struct dw_pcie *pcie = &(s32_pp->pcie);
 	struct dma_info *di = &(s32_pp->dma);
 
-	u32 val_write = 0;
-	u32 val_read = 0;
-
-	val_write = dw_pcie_readl_dbi(pcie, PCIE_DMA_WRITE_INT_STATUS);
-	val_read = dw_pcie_readl_dbi(pcie, PCIE_DMA_READ_INT_STATUS);
+	u32 val_write = dw_pcie_readl_dma(di, PCIE_DMA_WRITE_INT_STATUS);
+	u32 val_read = dw_pcie_readl_dma(di, PCIE_DMA_READ_INT_STATUS);
 
 	if (val_write) {
 #ifdef CONFIG_PCI_S32GEN1_ACCESS_FROM_USER
 		bool signal = (di->wr_ch.status == DMA_CH_RUNNING);
 #endif
-		dw_handle_dma_irq_write(pcie, di, val_write);
+		dw_handle_dma_irq_write(di, val_write);
 #ifdef CONFIG_PCI_S32GEN1_ACCESS_FROM_USER
 		if (signal && s32_pp->uspace.send_signal_to_user)
 			s32_pp->uspace.send_signal_to_user(s32_pp);
@@ -170,7 +166,7 @@ static irqreturn_t s32gen1_pcie_dma_handler(int irq, void *arg)
 #ifdef CONFIG_PCI_S32GEN1_ACCESS_FROM_USER
 		bool signal = (di->rd_ch.status == DMA_CH_RUNNING);
 #endif
-		dw_handle_dma_irq_read(pcie, di, val_read);
+		dw_handle_dma_irq_read(di, val_read);
 #ifdef CONFIG_PCI_S32GEN1_ACCESS_FROM_USER
 		if (signal && s32_pp->uspace.send_signal_to_user)
 			s32_pp->uspace.send_signal_to_user(s32_pp);
@@ -1144,6 +1140,15 @@ static int s32gen1_pcie_dt_init(struct platform_device *pdev,
 		return PTR_ERR(pcie->atu_base);
 	dev_dbg(dev, "atu virt: 0x%p\n", pcie->atu_base);
 
+#ifdef CONFIG_PCI_DW_DMA
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "dma");
+	dev_dbg(dev, "dma: %pR\n", res);
+	s32_pp->dma.dma_base = devm_ioremap_resource(dev, res);
+	if (IS_ERR(s32_pp->dma.dma_base))
+		return PTR_ERR(s32_pp->dma.dma_base);
+	dev_dbg(dev, "dma virt: 0x%llx\n", (u64)s32_pp->dma.dma_base);
+#endif
+
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "ctrl");
 	s32_pp->ctrl_base = devm_ioremap_resource(dev, res);
 	if (IS_ERR(s32_pp->ctrl_base))
@@ -1663,6 +1668,17 @@ static int s32gen1_pcie_config_common(struct s32gen1_pcie *s32_pp,
 
 		s32_pp->call_back = NULL;
 
+#ifdef CONFIG_PCI_DW_DMA
+		ret = s32gen1_pcie_config_irq(&s32_pp->dma_irq,
+				"dma", pdev,
+				s32gen1_pcie_dma_handler, s32_pp);
+		if (ret) {
+			dev_err(dev, "failed to request dma irq\n");
+			goto fail_host_init;
+		}
+		dw_pcie_dma_clear_regs(&s32_pp->dma);
+#endif /* CONFIG_PCI_DW_DMA */
+
 #ifdef CONFIG_PCI_S32GEN1_ACCESS_FROM_USER
 		s32_pp->uspace.user_pid = 0;
 		memset(&s32_pp->uspace.info, 0, sizeof(struct siginfo));
@@ -1755,17 +1771,6 @@ static int s32gen1_pcie_probe(struct platform_device *pdev)
 		dev_err(dev, "failed to set common PCIe settings\n");
 		goto err;
 	}
-
-#ifdef CONFIG_PCI_DW_DMA
-		ret = s32gen1_pcie_config_irq(&s32_pp->dma_irq,
-				"dma", pdev,
-				s32gen1_pcie_dma_handler, s32_pp);
-		if (ret) {
-			dev_err(dev, "failed to request dma irq\n");
-			goto err;
-		}
-		dw_pcie_dma_clear_regs(pcie, &s32_pp->dma);
-#endif /* CONFIG_PCI_DW_DMA */
 
 err:
 	if (ret) {
