@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
  * PCIe ioctl handler for Freescale S32 SoCs
- * This file was split from pci-s32v234.c
  *
  * Copyright (C) 2013 Kosagi
  *		http://www.kosagi.com
@@ -16,7 +15,6 @@
 #include <linux/interrupt.h>
 #include <linux/kernel.h>
 #include <linux/mfd/syscon.h>
-#include <linux/mfd/syscon/s32v234-src.h>
 #include <linux/module.h>
 #include <linux/of_address.h>
 #include <linux/pci.h>
@@ -37,7 +35,7 @@
 #include "pci-dma-s32.h"
 #include "pci-ioctl-s32.h"
 
-struct task_struct *task;
+static struct task_struct *task;
 
 #ifdef CONFIG_PCI_DW_DMA
 
@@ -93,7 +91,7 @@ static int send_signal_to_user(struct s32_userspace_info *uinfo)
 	return ret;
 }
 
-int s32_store_pid(struct s32_userspace_info *uinfo, void __user *argp)
+static int s32_store_pid(struct s32_userspace_info *uinfo, void __user *argp)
 {
 	int ret = 0;
 
@@ -173,10 +171,10 @@ static ssize_t s32_ioctl(struct file *filp, u32 cmd,
 		return ret;
 	case SEND_MSI:
 		/* Setup MSI */
-		/* TODO: allow giving a custom MSI base address
-		 * and also trigger an MSI
+		/* TODO: allow selection of the MSI index and
+		 * also handle it on the receiver side
 		 */
-		ret = (ssize_t)s32_set_msi(pcie);
+		ret = s32_send_msi(pcie);
 		return ret;
 	case STORE_PID:
 		ret = s32_store_pid(uinfo, argp);
