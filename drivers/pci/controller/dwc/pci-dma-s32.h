@@ -50,16 +50,21 @@
 #define PCIE_DMA_READ_CH45_IMWR_DATA		(0x0E4)
 #define PCIE_DMA_READ_CH67_IMWR_DATA		(0x0E8)
 
+/* These are register offsets used for the compressed/viewport layout */
 #define PCIE_DMA_VIEWPORT_SEL			(0x0FC)
-#define PCIE_DMA_CH_CONTROL1			(0x100)
-#define PCIE_DMA_CH_CONTROL2			(0x104)
-#define PCIE_DMA_TRANSFER_SIZE			(0x108)
-#define PCIE_DMA_SAR_LOW			(0x10C)
-#define PCIE_DMA_SAR_HIGH			(0x110)
-#define PCIE_DMA_DAR_LOW			(0x114)
-#define PCIE_DMA_DAR_HIGH			(0x118)
-#define PCIE_DMA_LLP_LOW			(0x11C)
-#define PCIE_DMA_LLP_HIGH			(0x120)
+#define PCIE_DMA_CH_BASE				(0x100)
+/* This is the base register offset to be used for the unrolled layout */
+#define PCIE_DMA_CH_BASE_UNROLL			(0x200)
+
+#define PCIE_DMA_CH_CONTROL1_OFF		(0x00)
+#define PCIE_DMA_CH_CONTROL2_OFF		(0x04)
+#define PCIE_DMA_TRANSFER_SIZE_OFF		(0x08)
+#define PCIE_DMA_SAR_LOW_OFF			(0x0C)
+#define PCIE_DMA_SAR_HIGH_OFF			(0x10)
+#define PCIE_DMA_DAR_LOW_OFF			(0x14)
+#define PCIE_DMA_DAR_HIGH_OFF			(0x18)
+#define PCIE_DMA_LLP_LOW_OFF			(0x1C)
+#define PCIE_DMA_LLP_HIGH_OFF			(0x120)
 
 #define NUM_DMA_RD_CHAN_MASK	0xF0000
 #define NUM_DMA_RD_CHAN_SHIFT	16
@@ -108,6 +113,7 @@ struct dma_ch_info {
 
 struct dma_info {
 	void __iomem *dma_base;
+	u8	iatu_unroll_enabled;
 	u32	(*read_dma)(struct dma_info *di, void __iomem *base,
 			u32 reg, size_t size);
 	void (*write_dma)(struct dma_info *di, void __iomem *base,
@@ -137,18 +143,28 @@ int dw_pcie_dma_write_soft_reset(struct dma_info *di);
 int dw_pcie_dma_read_soft_reset(struct dma_info *di);
 irqreturn_t dw_handle_dma_irq(struct dma_info *di);
 
-void dw_pcie_dma_set_sar(struct dma_info *di, u64 val);
-void dw_pcie_dma_set_dar(struct dma_info *di, u64 val);
-void dw_pcie_dma_set_transfer_size(struct dma_info *di, u32 val);
-void dw_pcie_dma_set_rd_viewport(struct dma_info *di, u8 ch_nr);
-void dw_pcie_dma_set_wr_viewport(struct dma_info *di, u8 ch_nr);
+static inline int dw_pcie_dma_get_nr_chan(struct dma_info *di)
+{
+	u32 dma_nr_ch = dw_pcie_readl_dma(di, PCIE_DMA_CTRL);
+
+	dma_nr_ch = (dma_nr_ch & NUM_DMA_RD_CHAN_MASK)
+					>> NUM_DMA_RD_CHAN_SHIFT;
+	return dma_nr_ch;
+}
+
+void dw_pcie_dma_set_sar(struct dma_info *di, u64 val, u8 ch_nr, u8 dir);
+void dw_pcie_dma_set_dar(struct dma_info *di, u64 val, u8 ch_nr, u8 dir);
+void dw_pcie_dma_set_transfer_size(struct dma_info *di,
+	u32 val, u8 ch_nr, u8 dir);
+
+void dw_pcie_dma_set_viewport(struct dma_info *di, u8 ch_nr, u8 dir);
 
 void dw_pcie_dma_clear_regs(struct dma_info *di);
 int dw_pcie_dma_single_rw(struct dma_info *di,
 	struct dma_data_elem *dma_single_rw);
 
-irqreturn_t dw_handle_dma_irq_write(struct dma_info *di, u32 val_write);
-irqreturn_t dw_handle_dma_irq_read(struct dma_info *di, u32 val_read);
+u32 dw_handle_dma_irq_write(struct dma_info *di, u32 val_write);
+u32 dw_handle_dma_irq_read(struct dma_info *di, u32 val_read);
 
 #endif /* CONFIG_PCI_DW_DMA */
 
