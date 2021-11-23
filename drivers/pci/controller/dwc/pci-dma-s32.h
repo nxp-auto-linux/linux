@@ -13,7 +13,6 @@
 #ifdef CONFIG_PCI_DW_DMA
 
 #include "pcie-designware.h"
-#include "pci-ioctl-s32.h"
 
 /* Synopsys-specific PCIe configuration registers */
 #define PCIE_DMA_CTRL				(0x008)
@@ -76,6 +75,16 @@
 #define PCIE_DMA_MAX_SIZE	(4 * 1024 * 1024)  /* 4G bytes */
 #endif
 
+#define DMA_FLAG_LIE					BIT(0)
+#define DMA_FLAG_RIE					BIT(1)
+#define DMA_FLAG_LLP					BIT(2)
+#define DMA_FLAG_WRITE_ELEM				BIT(3)
+#define DMA_FLAG_READ_ELEM				BIT(4)
+#define DMA_FLAG_EN_DONE_INT			BIT(5)
+#define DMA_FLAG_EN_ABORT_INT			BIT(6)
+#define DMA_FLAG_EN_REMOTE_DONE_INT		BIT(7)
+#define DMA_FLAG_EN_REMOTE_ABORT_INT	BIT(8)
+
 enum DMA_CH_FLAGS {
 	DMA_CH_STOPPED = 0,
 	DMA_CH_RUNNING,
@@ -111,6 +120,16 @@ struct dma_ch_info {
 	u8 current_list_size;
 };
 
+/* Single block DMA transfer struct */
+struct dma_data_elem {
+	unsigned long sar;
+	unsigned long dar;
+	unsigned long imwr;
+	unsigned int size;
+	unsigned int flags;
+	unsigned int ch_num;
+};
+
 struct dma_info {
 	void __iomem *dma_base;
 	u8	iatu_unroll_enabled;
@@ -125,6 +144,8 @@ struct dma_info {
 	int (*ptr_func)(u32 arg);
 #endif /* DMA_PTR_FUNC */
 };
+
+struct dma_info *dw_get_dma_info(struct dw_pcie *pcie);
 
 u32 dw_pcie_read_dma(struct dma_info *di, u32 reg, size_t size);
 void dw_pcie_write_dma(struct dma_info *di, u32 reg, size_t size, u32 val);
