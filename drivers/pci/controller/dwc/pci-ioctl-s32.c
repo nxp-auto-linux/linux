@@ -122,16 +122,16 @@ static int s32_get_bar_info(struct dw_pcie *pcie, void __user *argp)
 	if (bar_info.bar_nr)
 		bar_nr = bar_info.bar_nr;
 
-	addr = readl(pcie->dbi_base + (PCI_BASE_ADDRESS_0 +
+	addr = dw_pcie_readl_dbi(pcie, (PCI_BASE_ADDRESS_0 +
 				bar_info.bar_nr * 4));
 	bar_info.addr = addr & 0xFFFFFFF0;
-	writel(0xFFFFFFFF, pcie->dbi_base +
-		(PCI_BASE_ADDRESS_0 + bar_nr * 4));
-	bar_info.size = readl(pcie->dbi_base +
+	dw_pcie_writel_dbi(pcie, (PCI_BASE_ADDRESS_0 + bar_nr * 4),
+			0xFFFFFFFF);
+	bar_info.size = dw_pcie_readl_dbi(pcie,
 		(PCI_BASE_ADDRESS_0 + bar_nr * 4));
 	bar_info.size = ~(bar_info.size & 0xFFFFFFF0) + 1;
-	writel(addr, pcie->dbi_base +
-		(PCI_BASE_ADDRESS_0 + bar_nr * 4));
+	dw_pcie_writel_dbi(pcie,
+		(PCI_BASE_ADDRESS_0 + bar_nr * 4), addr);
 
 	if (copy_to_user(argp, &bar_info, sizeof(bar_info)))
 		return -EFAULT;
