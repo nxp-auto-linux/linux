@@ -219,6 +219,11 @@ struct dw_pcie_ep_ops {
 	 * driver.
 	 */
 	unsigned int (*func_conf_select)(struct dw_pcie_ep *ep, u8 func_no);
+#ifdef CONFIG_PCI_EPF_TEST
+	int	(*start_dma)(struct dw_pcie_ep *ep, bool dir,
+				dma_addr_t src, dma_addr_t dst, u32 len,
+				struct completion *complete);
+#endif
 };
 
 struct dw_pcie_ep_func {

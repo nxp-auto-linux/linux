@@ -13,6 +13,9 @@
 #ifdef CONFIG_PCI_DW_DMA
 
 #include "pcie-designware.h"
+#ifdef CONFIG_PCI_EPF_TEST
+#include  <linux/completion.h>
+#endif
 
 /* Synopsys-specific PCIe configuration registers */
 #define PCIE_DMA_CTRL				(0x008)
@@ -140,6 +143,10 @@ struct dma_info {
 
 	struct dma_ch_info	wr_ch;
 	struct dma_ch_info	rd_ch;
+
+#ifdef CONFIG_PCI_EPF_TEST
+	struct completion *complete;
+#endif
 #ifdef DMA_PTR_FUNC
 	int (*ptr_func)(u32 arg);
 #endif /* DMA_PTR_FUNC */
@@ -187,6 +194,20 @@ int dw_pcie_dma_single_rw(struct dma_info *di,
 u32 dw_handle_dma_irq_write(struct dma_info *di, u32 val_write);
 u32 dw_handle_dma_irq_read(struct dma_info *di, u32 val_read);
 
-#endif /* CONFIG_PCI_DW_DMA */
+#if (defined(CONFIG_PCI_EPF_TEST))
 
+/**
+ * dw_pcie_ep_start_dma - Start DMA on S32Gen1 PCIE EP.
+ * @ep: the EP start the DMA transmission.
+ * @dir: direction of the DMA, 1 read, 0 write;
+ * @src: source DMA address.
+ * @dst: destination DMA address.
+ * @len: transfer length.
+ */
+int dw_pcie_ep_start_dma(struct dw_pcie_ep *ep, bool dir,
+				 dma_addr_t src, dma_addr_t dst, u32 len,
+				 struct completion *complete);
+#endif
+
+#endif  /* CONFIG_PCI_DW_DMA */
 #endif  /* PCIE_DMA_S32_H */
