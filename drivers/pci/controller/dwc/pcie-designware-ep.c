@@ -466,6 +466,23 @@ dw_pcie_ep_get_features(struct pci_epc *epc, u8 func_no)
 	return ep->ops->get_features(ep);
 }
 
+#ifdef CONFIG_PCI_EPF_TEST
+static int dw_pcie_ep_start_dma(struct pci_epc *epc, u8 func_no, bool dir,
+				dma_addr_t src, dma_addr_t dst, u32 len,
+				struct completion *complete)
+{
+	struct dw_pcie_ep *ep = epc_get_drvdata(epc);
+	struct dw_pcie *pci = to_dw_pcie_from_ep(ep);
+
+	dev_dbg(pci->dev, "%s: Running start_dma\n", __func__);
+
+	if (!ep->ops->start_dma)
+		return -EINVAL;
+
+	return ep->ops->start_dma(ep, dir, src, dst, len, complete);
+}
+#endif
+
 static const struct pci_epc_ops epc_ops = {
 	.write_header		= dw_pcie_ep_write_header,
 	.set_bar		= dw_pcie_ep_set_bar,
@@ -480,6 +497,9 @@ static const struct pci_epc_ops epc_ops = {
 	.start			= dw_pcie_ep_start,
 	.stop			= dw_pcie_ep_stop,
 	.get_features		= dw_pcie_ep_get_features,
+#ifdef CONFIG_PCI_EPF_TEST
+	.start_dma		= dw_pcie_ep_start_dma,
+#endif
 };
 
 int dw_pcie_ep_raise_legacy_irq(struct dw_pcie_ep *ep, u8 func_no)

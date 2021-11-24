@@ -465,3 +465,36 @@ u32 dw_handle_dma_irq_read(struct dma_info *di, u32 val_read)
 
 	return err_type;
 }
+
+#if (defined(CONFIG_PCI_EPF_TEST))
+
+int dw_pcie_ep_start_dma(struct dw_pcie_ep *ep, bool dir,
+				 dma_addr_t src, dma_addr_t dst, u32 len,
+				 struct completion *complete)
+{
+	struct dw_pcie *pcie = to_dw_pcie_from_ep(ep);
+	struct dma_info *di = dw_get_dma_info(pcie);
+
+	int ret = 0;
+/* TODO: make channel configurable, or get automatically
+ * the next one available.
+ */
+	struct dma_data_elem dma_single = {
+		.ch_num = 0,
+		.flags = (DMA_FLAG_WRITE_ELEM | DMA_FLAG_EN_DONE_INT |
+				DMA_FLAG_LIE),
+	};
+
+	dev_dbg(pcie->dev, "%s\n", __func__);
+
+	dma_single.size = len;
+	dma_single.sar = src;
+	dma_single.dar = dst;
+
+	di->complete = complete;
+
+	/* Test the DMA benchmark */
+	ret = dw_pcie_dma_single_rw(di, &dma_single);
+	return ret;
+}
+#endif
