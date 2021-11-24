@@ -159,6 +159,7 @@ static irqreturn_t s32gen1_pcie_dma_handler(int irq, void *arg)
 {
 	struct s32gen1_pcie *s32_pp = arg;
 	struct dma_info *di = &(s32_pp->dma);
+	u32 dma_error = DMA_ERR_NONE;
 
 	u32 val_write = dw_pcie_readl_dma(di, PCIE_DMA_WRITE_INT_STATUS);
 	u32 val_read = dw_pcie_readl_dma(di, PCIE_DMA_READ_INT_STATUS);
@@ -166,7 +167,15 @@ static irqreturn_t s32gen1_pcie_dma_handler(int irq, void *arg)
 	if (val_write) {
 		bool signal = (di->wr_ch.status == DMA_CH_RUNNING);
 
-		dw_handle_dma_irq_write(di, val_write);
+		dma_error = dw_handle_dma_irq_write(di, val_write);
+		if (dma_error != DMA_ERR_NONE)
+			dev_info(s32_pp->pcie.dev, "dma write error 0x%0x.\n",
+					dma_error);
+#ifdef CONFIG_PCI_EPF_TEST
+		else if (di->complete)
+			complete(di->complete);
+#endif
+
 		if (signal && s32_pp->uinfo.send_signal_to_user)
 			s32_pp->uinfo.send_signal_to_user(&s32_pp->uinfo);
 
@@ -176,7 +185,15 @@ static irqreturn_t s32gen1_pcie_dma_handler(int irq, void *arg)
 	if (val_read) {
 		bool signal = (di->rd_ch.status == DMA_CH_RUNNING);
 
-		dw_handle_dma_irq_read(di, val_read);
+		dma_error = dw_handle_dma_irq_read(di, val_read);
+		if (dma_error != DMA_ERR_NONE)
+			dev_info(s32_pp->pcie.dev, "dma read error 0x%0x.\n",
+					dma_error);
+#ifdef CONFIG_PCI_EPF_TEST
+		else if (di->complete)
+			complete(di->complete);
+#endif
+
 		if (signal && s32_pp->uinfo.send_signal_to_user)
 			s32_pp->uinfo.send_signal_to_user(&s32_pp->uinfo);
 	}
@@ -1039,6 +1056,9 @@ static struct dw_pcie_ep_ops s32gen1_pcie_ep_ops = {
 	.ep_init = s32gen1_pcie_ep_init,
 	.raise_irq = s32gen1_pcie_ep_raise_irq,
 	.get_features = s32gen1_pcie_ep_get_features,
+#if (defined(CONFIG_PCI_DW_DMA) && defined(CONFIG_PCI_EPF_TEST))
+	.start_dma = dw_pcie_ep_start_dma,
+#endif
 };
 
 int s32_send_msi(struct dw_pcie *pcie)
