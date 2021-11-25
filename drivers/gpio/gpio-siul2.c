@@ -165,7 +165,7 @@ static inline void __iomem *siul2_get_ipad_addr(void __iomem *ipads,
 	return siul2_get_pad_addr(ipads, pad);
 }
 
-static void siul2_gpio_set(struct gpio_chip *chip,
+static void siul2_gpio_set_nocheck(struct gpio_chip *chip,
 			   unsigned int offset, int value)
 {
 	struct siul2_gpio_dev *gpio_dev = to_siul2_gpio_dev(chip);
@@ -174,11 +174,6 @@ static void siul2_gpio_set(struct gpio_chip *chip,
 
 	unsigned int mask = siul2_pin2mask(offset, gpio_dev);
 	unsigned int pad = siul2_pin2pad(offset, gpio_dev);
-	enum gpio_dir dir;
-
-	dir = gpio_get_direction(gpio_dev, offset);
-	if (dir == IN)
-		return;
 
 	reg = siul2_get_opad_addr(gpio_dev->opads, pad);
 
@@ -193,6 +188,16 @@ static void siul2_gpio_set(struct gpio_chip *chip,
 	writel(data, reg);
 
 	spin_unlock_irqrestore(&gpio_dev->lock, flags);
+}
+
+static void siul2_gpio_set(struct gpio_chip *chip,
+			   unsigned int offset, int value)
+{
+	struct siul2_gpio_dev *gpio_dev = to_siul2_gpio_dev(chip);
+	enum gpio_dir dir = gpio_get_direction(gpio_dev, offset);
+
+	if (dir != IN)
+		siul2_gpio_set_nocheck(chip, offset, value);
 }
 
 static int siul2_gpio_get(struct gpio_chip *chip, unsigned int offset)
@@ -242,12 +247,13 @@ static int siul2_gpio_dir_out(struct gpio_chip *chip, unsigned int gpio,
 	int ret = 0;
 	struct siul2_gpio_dev *gpio_dev;
 
+	gpio_dev = to_siul2_gpio_dev(chip);
+	siul2_gpio_set_nocheck(chip, gpio, val);
+
 	ret = pinctrl_gpio_direction_output(chip->base + gpio);
 	if (ret)
 		return ret;
 
-	gpio_dev = to_siul2_gpio_dev(chip);
-	siul2_gpio_set(chip, gpio, val);
 	gpio_set_direction(gpio_dev, gpio, OUT);
 
 	return ret;
