@@ -73,18 +73,17 @@ static inline struct pit_timer *evt_pit_timer(struct clock_event_device *evt)
 
 static inline void pit_timer_enable(struct pit_timer *pit)
 {
-	__raw_writel(PITTCTRL_TEN | PITTCTRL_TIE,
-		     pit->clkevt_base + PITTCTRL);
+	writel(PITTCTRL_TEN | PITTCTRL_TIE, pit->clkevt_base + PITTCTRL);
 }
 
 static inline void pit_timer_disable(struct pit_timer *pit)
 {
-	__raw_writel(0, pit->clkevt_base + PITTCTRL);
+	writel(0, pit->clkevt_base + PITTCTRL);
 }
 
 static inline void pit_irq_acknowledge(struct pit_timer *pit)
 {
-	__raw_writel(PITTFLG_TIF, pit->clkevt_base + PITTFLG);
+	writel(PITTFLG_TIF, pit->clkevt_base + PITTFLG);
 }
 
 static struct pit_timer *cs_to_pit(struct clocksource *cs)
@@ -101,7 +100,7 @@ static struct pit_timer *work_to_pit(struct work_struct *work)
 
 static u64 pit_read_down_val(struct pit_timer *pit)
 {
-	return ~__raw_readl(pit->clksrc_base + PITCVAL);
+	return ~readl(pit->clksrc_base + PITCVAL);
 }
 
 static u64 notrace pit_read_sched_clock(void)
@@ -118,22 +117,22 @@ static u64 pit_clksrc_read(struct clocksource *cs)
 
 static void pit_clksrc_disable(struct pit_timer *pit)
 {
-	__raw_writel(0,  pit->clksrc_base + PITTCTRL);
+	writel(0,  pit->clksrc_base + PITTCTRL);
 }
 
 static void pit_clksrc_enable(struct pit_timer *pit)
 {
-	__raw_writel(PITTCTRL_TEN,  pit->clksrc_base + PITTCTRL);
+	writel(PITTCTRL_TEN,  pit->clksrc_base + PITTCTRL);
 }
 
 static void pit_clksrc_loadval(struct pit_timer *pit, u32 val)
 {
-	__raw_writel(val, pit->clksrc_base + PITLDVAL);
+	writel(val, pit->clksrc_base + PITLDVAL);
 }
 
 static void pit_clksrc_save_cnt(struct pit_timer *pit)
 {
-	pit->saved_cnt = __raw_readl(pit->clksrc_base + PITCVAL);
+	pit->saved_cnt = readl(pit->clksrc_base + PITCVAL);
 }
 
 static void pit_clksrc_suspend(struct clocksource *cs)
@@ -205,7 +204,7 @@ static int pit_set_next_event(unsigned long delta,
 	 * hardware requirement.
 	 */
 	pit_timer_disable(pit);
-	__raw_writel(delta - 1, pit->clkevt_base + PITLDVAL);
+	writel(delta - 1, pit->clkevt_base + PITLDVAL);
 	pit_timer_enable(pit);
 
 	return 0;
@@ -251,7 +250,7 @@ static int pit_clockevent_init(struct pit_timer *pit, unsigned long rate,
 {
 	int ret;
 
-	__raw_writel(0, pit->clkevt_base + PITTCTRL);
+	writel(0, pit->clkevt_base + PITTCTRL);
 
 	pit->clockevent_pit.name = TIMER_NAME;
 	pit->clockevent_pit.features = CLOCK_EVT_FEAT_PERIODIC |
@@ -283,14 +282,14 @@ static int pit_clockevent_init(struct pit_timer *pit, unsigned long rate,
 	clockevents_config_and_register(&pit->clockevent_pit, rate, 2,
 					0xffffffff);
 
-	__raw_writel(PITTFLG_TIF, pit->clkevt_base + PITTFLG);
+	writel(PITTFLG_TIF, pit->clkevt_base + PITTFLG);
 
 	return 0;
 }
 
 static void enable_pit(struct pit_timer *pit)
 {
-	__raw_writel(~PITMCR_MDIS, pit->module_base + PITMCR);
+	writel(~PITMCR_MDIS, pit->module_base + PITMCR);
 }
 
 static void register_clkevent_work(struct work_struct *work)
