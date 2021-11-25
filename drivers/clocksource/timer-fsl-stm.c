@@ -61,6 +61,19 @@ struct stm_timer {
 };
 
 static struct stm_timer *clocksource;
+static LIST_HEAD(stms_list);
+
+static struct stm_timer *stm_timer_from_cpu(unsigned int cpu)
+{
+	struct stm_timer *stm;
+
+	list_for_each_entry(stm, &stms_list, list) {
+		if (stm->cpu == cpu)
+			return stm;
+	}
+
+	return NULL;
+}
 
 static inline struct stm_timer *stm_timer_from_evt(struct clock_event_device *evt)
 {
@@ -253,7 +266,9 @@ static int stm_clockevent_init(struct stm_timer *stm, unsigned long rate,
 	stm->clockevent_stm.cpumask = cpumask_of(stm->cpu);
 	stm->clockevent_stm.irq = irq;
 
-	ret = request_irq(irq, stm_timer_interrupt, IRQF_TIMER | IRQF_PERCPU,
+	irq_set_status_flags(irq, IRQ_NOAUTOEN);
+	ret = request_irq(irq, stm_timer_interrupt,
+			  IRQF_TIMER | IRQF_NOBALANCING,
 			  STM_TIMER_NAME, &stm->clockevent_stm);
 	if (ret)
 		return ret;
@@ -266,6 +281,39 @@ static int stm_clockevent_init(struct stm_timer *stm, unsigned long rate,
 					0xffffffff);
 
 	writel(STM_CIR_CIF, stm->clkevt_base + STM_CIR);
+	enable_irq(irq);
+
+	return 0;
+}
+
+static void stm_clockevent_deinit(struct stm_timer *stm)
+{
+	int irq = stm->clockevent_stm.irq;
+
+	disable_irq_nosync(irq);
+	free_irq(irq, &stm->clockevent_stm);
+}
+
+static int stm_timer_starting_cpu(unsigned int cpu)
+{
+	struct stm_timer *stm = stm_timer_from_cpu(cpu);
+
+	if (!stm)
+		return 0;
+
+	return stm_clockevent_init(stm, stm->cycle_per_jiffy * (HZ),
+				   stm->irq);
+}
+
+static int stm_timer_dying_cpu(unsigned int cpu)
+{
+	struct stm_timer *stm = stm_timer_from_cpu(cpu);
+
+	if (!stm)
+		return 0;
+
+	stm_clockevent_deinit(stm);
+	stm_timer_disable(stm);
 
 	return 0;
 }
@@ -292,6 +340,7 @@ static int __init fsl_stm_timer_probe(struct platform_device *pdev)
 	unsigned int cpu;
 	int ret;
 	struct stm_timer *stm;
+	static bool added_hp_clbs;
 
 	of_property_read_u32(np, "cpu", &cpu);
 	if (cpu >= num_possible_cpus()) {
@@ -308,6 +357,7 @@ static int __init fsl_stm_timer_probe(struct platform_device *pdev)
 	stm->dev = dev;
 
 	platform_set_drvdata(pdev, stm);
+	list_add_tail(&stm->list, &stms_list);
 
 	stm->cpu = cpu;
 
@@ -338,6 +388,14 @@ static int __init fsl_stm_timer_probe(struct platform_device *pdev)
 
 	clk_rate = clk_get_rate(stm->stm_clk);
 	stm->cycle_per_jiffy = clk_rate / (HZ);
+
+	if (!added_hp_clbs) {
+		ret = cpuhp_setup_state_nocalls(CPUHP_AP_FSL_STM_TIMER_STARTING,
+						"STM timer:starting",
+						stm_timer_starting_cpu,
+						stm_timer_dying_cpu);
+		added_hp_clbs = true;
+	}
 
 	if (cpu == MASTER_CPU) {
 		ret = stm_clocksource_init(stm, clk_rate);
