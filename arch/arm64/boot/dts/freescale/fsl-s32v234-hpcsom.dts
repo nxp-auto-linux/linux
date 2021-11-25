@@ -10,6 +10,7 @@
 
 /dts-v1/;
 #include "fsl-s32v234.dtsi"
+#include <dt-bindings/gpio/gpio.h>
 
 / {
 	model = "Freescale S32V234 HPC SOM";
@@ -63,6 +64,13 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_gpio>;
 	status = "okay";
+
+	module_good {
+		gpio-hog;
+		gpios = <127 GPIO_ACTIVE_HIGH>;
+		output-high;
+		label = "module_good";
+	};
 };
 
 &h264decoder {
