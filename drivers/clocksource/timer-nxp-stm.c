@@ -80,13 +80,12 @@ static struct stm_timer *work_to_stm(struct work_struct *work)
 
 static void enable_stm(struct stm_timer *stm)
 {
-	__raw_writel(STM_CR_FRZ | STM_CR_TEN,
-		     stm->timer_base + STM_CR);
+	writel(STM_CR_FRZ | STM_CR_TEN, stm->timer_base + STM_CR);
 }
 
 static void disable_stm(struct stm_timer *stm)
 {
-	__raw_writel(0,  stm->timer_base + STM_CR);
+	writel(0,  stm->timer_base + STM_CR);
 }
 
 static inline void stm_timer_enable(struct stm_timer *stm)
@@ -94,7 +93,7 @@ static inline void stm_timer_enable(struct stm_timer *stm)
 	enable_stm(stm);
 
 	/* enable clockevent channel */
-	__raw_writel(STM_CCR_CEN, stm->clkevt_base + STM_CCR);
+	writel(STM_CCR_CEN, stm->clkevt_base + STM_CCR);
 }
 
 static inline void stm_timer_disable(struct stm_timer *stm)
@@ -105,13 +104,13 @@ static inline void stm_timer_disable(struct stm_timer *stm)
 	 * be lost if we don't disable the entire module.
 	 * Disabling the entire module, makes STM not suitable as clocksource.
 	 */
-	__raw_writel(0, stm->timer_base + STM_CR);
-	__raw_writel(0, stm->clkevt_base + STM_CCR);
+	writel(0, stm->timer_base + STM_CR);
+	writel(0, stm->clkevt_base + STM_CCR);
 }
 
 static u32 get_counter(struct stm_timer *stm)
 {
-	return __raw_readl(stm->timer_base + STM_CNT);
+	return readl(stm->timer_base + STM_CNT);
 }
 
 static inline void stm_irq_acknowledge(struct stm_timer *stm)
@@ -119,21 +118,21 @@ static inline void stm_irq_acknowledge(struct stm_timer *stm)
 	u32 val;
 
 	/* clear the interrupt */
-	__raw_writel(STM_CIR_CIF, stm->clkevt_base + STM_CIR);
+	writel(STM_CIR_CIF, stm->clkevt_base + STM_CIR);
 
 	/* update STM_CMP value using the counter value */
 	val = get_counter(stm) + stm->delta;
-	__raw_writel(val, stm->clkevt_base + STM_CMP);
+	writel(val, stm->clkevt_base + STM_CMP);
 }
 
 static u64 stm_read_sched_clock(void)
 {
-	return __raw_readl(clocksource->timer_base + STM_CNT);
+	return readl(clocksource->timer_base + STM_CNT);
 }
 
 static void stm_clksrc_save_cnt(struct stm_timer *stm)
 {
-	stm->saved_cnt = __raw_readl(stm->timer_base + STM_CNT);
+	stm->saved_cnt = readl(stm->timer_base + STM_CNT);
 }
 
 static void stm_clksrc_suspend(struct clocksource *cs)
@@ -146,7 +145,7 @@ static void stm_clksrc_suspend(struct clocksource *cs)
 
 static void stm_clksrc_setcnt(struct stm_timer *stm, u32 cnt)
 {
-	__raw_writel(cnt, stm->timer_base + STM_CNT);
+	writel(cnt, stm->timer_base + STM_CNT);
 }
 
 static void stm_clksrc_resume(struct clocksource *cs)
@@ -194,7 +193,7 @@ static int stm_set_next_event(unsigned long delta,
 	stm->delta = delta;
 
 	val = get_counter(stm) + delta;
-	__raw_writel(val, stm->clkevt_base + STM_CMP);
+	writel(val, stm->clkevt_base + STM_CMP);
 
 	stm_timer_enable(stm);
 
@@ -240,7 +239,7 @@ static int stm_clockevent_init(struct stm_timer *stm, unsigned long rate,
 {
 	int ret;
 
-	__raw_writel(0, stm->clkevt_base + STM_CCR);
+	writel(0, stm->clkevt_base + STM_CCR);
 
 	stm->clockevent_stm.name = STM_TIMER_NAME;
 	stm->clockevent_stm.features = CLOCK_EVT_FEAT_PERIODIC |
@@ -264,7 +263,7 @@ static int stm_clockevent_init(struct stm_timer *stm, unsigned long rate,
 	clockevents_config_and_register(&stm->clockevent_stm, rate, 1,
 					0xffffffff);
 
-	__raw_writel(STM_CIR_CIF, stm->clkevt_base + STM_CIR);
+	writel(STM_CIR_CIF, stm->clkevt_base + STM_CIR);
 
 	return 0;
 }
