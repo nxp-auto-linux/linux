@@ -11,6 +11,7 @@
 /dts-v1/;
 #include "fsl-s32v234.dtsi"
 #include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/input/input.h>
 
 / {
 	model = "Freescale S32V234 HPC SOM";
@@ -28,6 +29,16 @@
 	memory_DDR1@c0000000 {
 		device_type = "memory";
 		reg = <0 0xc0000000 0 0x20000000>;
+	};
+
+	keys {
+		compatible = "gpio-keys";
+
+		reset-gpio@21 {
+			label = "reset";
+			linux,code = <KEY_RESTART>;
+			gpios = <&gpioeirq 21 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
+		};
 	};
 };
 
@@ -258,6 +269,7 @@
 				S32V234_PAD_PL2__SIUL_GPIO162
 				S32V234_PAD_PK13__SIUL_GPIO157
 				S32V234_PAD_PK14__SIUL_GPIO158
+				S32V234_PAD_PB5__SIUL_GPIO21
 				>;
 		};
 
@@ -265,6 +277,7 @@
 			fsl,pins = <
 				S32V234_PAD_PA8__SIUL_EIRQ8
 				S32V234_PAD_PA5__SIUL_EIRQ5
+				S32V234_PAD_PB5__SIUL_EIRQ21
 			>;
 		};
 
