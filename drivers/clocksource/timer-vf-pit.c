@@ -65,6 +65,18 @@ struct pit_timer {
 };
 
 static struct pit_timer *clocksource;
+static LIST_HEAD(pits_list);
+
+static struct pit_timer *cpu_pit_timer(unsigned int cpu)
+{
+	struct pit_timer *pit;
+
+	list_for_each_entry(pit, &pits_list, list)
+		if (pit->cpu == cpu)
+			return pit;
+
+	return NULL;
+}
 
 static inline struct pit_timer *evt_pit_timer(struct clock_event_device *evt)
 {
@@ -262,7 +274,9 @@ static int pit_clockevent_init(struct pit_timer *pit, unsigned long rate,
 	pit->clockevent_pit.cpumask = cpumask_of(pit->cpu);
 	pit->clockevent_pit.irq = irq;
 
-	ret = request_irq(irq, pit_timer_interrupt, IRQF_TIMER | IRQF_PERCPU,
+	irq_set_status_flags(irq, IRQ_NOAUTOEN);
+	ret = request_irq(irq, pit_timer_interrupt,
+			  IRQF_TIMER | IRQF_NOBALANCING,
 			  TIMER_NAME, &pit->clockevent_pit);
 	if (ret)
 		return ret;
@@ -283,6 +297,39 @@ static int pit_clockevent_init(struct pit_timer *pit, unsigned long rate,
 					0xffffffff);
 
 	writel(PITTFLG_TIF, pit->clkevt_base + PITTFLG);
+	enable_irq(irq);
+
+	return 0;
+}
+
+static void pit_clockevent_deinit(struct pit_timer *pit)
+{
+	int irq = pit->clockevent_pit.irq;
+
+	disable_irq_nosync(irq);
+	free_irq(irq, &pit->clockevent_pit);
+}
+
+static int pit_timer_starting_cpu(unsigned int cpu)
+{
+	struct pit_timer *pit = cpu_pit_timer(cpu);
+
+	if (!pit)
+		return 0;
+
+	return pit_clockevent_init(pit, pit->cycle_per_jiffy * (HZ),
+				   pit->irq);
+}
+
+static int pit_timer_dying_cpu(unsigned int cpu)
+{
+	struct pit_timer *pit = cpu_pit_timer(cpu);
+
+	if (!pit)
+		return 0;
+
+	pit_clockevent_deinit(pit);
+	pit_timer_disable(pit);
 
 	return 0;
 }
@@ -314,6 +361,7 @@ static int __init fsl_pit_timer_probe(struct platform_device *pdev)
 	unsigned int cpu;
 	int ret;
 	struct pit_timer *pit;
+	static bool added_hp_clbs;
 
 	of_property_read_u32(np, "cpu", &cpu);
 	if (cpu >= num_possible_cpus()) {
@@ -330,6 +378,7 @@ static int __init fsl_pit_timer_probe(struct platform_device *pdev)
 	pit->dev = dev;
 
 	platform_set_drvdata(pdev, pit);
+	list_add_tail(&pit->list, &pits_list);
 
 	pit->cpu = cpu;
 
@@ -369,6 +418,14 @@ static int __init fsl_pit_timer_probe(struct platform_device *pdev)
 
 	/* enable the pit module */
 	enable_pit(pit);
+
+	if (!added_hp_clbs) {
+		ret = cpuhp_setup_state_nocalls(CPUHP_AP_VF_PIT_TIMER_STARTING,
+						"PIT timer:starting",
+						pit_timer_starting_cpu,
+						pit_timer_dying_cpu);
+		added_hp_clbs = true;
+	}
 
 	if (cpu == MASTER_CPU) {
 		ret = pit_clocksource_init(pit, clk_rate);
