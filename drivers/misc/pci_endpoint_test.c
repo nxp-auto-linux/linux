@@ -73,7 +73,8 @@
 #define PCI_DEVICE_ID_TI_AM654			0xb00c
 #define PCI_DEVICE_ID_LS1088A			0x80c0
 #define PCI_DEVICE_ID_LX2160A			0x8d80
-#define PCI_DEVICE_ID_S32G			0x4002
+#define PCI_DEVICE_ID_S32G2			0x4002
+#define PCI_DEVICE_ID_S32G3			0x4003
 #define PCI_DEVICE_ID_S32V			0x4001
 
 #define is_am654_pci_dev(pdev)		\
@@ -1008,14 +1009,20 @@ static const struct pci_device_id pci_endpoint_test_tbl[] = {
 	{ PCI_DEVICE(PCI_VENDOR_ID_FREESCALE, PCI_DEVICE_ID_LX2160A),
 	  .driver_data = (kernel_ulong_t)&default_data,
 	},
-	{ PCI_DEVICE(PCI_VENDOR_ID_FREESCALE, PCI_DEVICE_ID_S32G),
+	{ PCI_DEVICE(PCI_VENDOR_ID_FREESCALE, PCI_DEVICE_ID_S32G2),
+	  .driver_data = (kernel_ulong_t)&s32_data,
+	},
+	{ PCI_DEVICE(PCI_VENDOR_ID_FREESCALE, PCI_DEVICE_ID_S32G3),
 	  .driver_data = (kernel_ulong_t)&s32_data,
 	},
 	{ PCI_DEVICE(PCI_VENDOR_ID_FREESCALE, PCI_DEVICE_ID_S32V),
 	  .driver_data = (kernel_ulong_t)&s32_data,
 	},
-	/* somehow the vendor gets 0x0 and the device last digit 0x2 */
-	{ PCI_DEVICE(0x0, PCI_DEVICE_ID_S32G),
+	/* somehow for S32G the vendor gets 0x0 and the device last digit 0x2 */
+	{ PCI_DEVICE(0x0, PCI_DEVICE_ID_S32G2),
+	  .driver_data = (kernel_ulong_t)&s32_data,
+	},
+	{ PCI_DEVICE(0x0, PCI_DEVICE_ID_S32G3),
 	  .driver_data = (kernel_ulong_t)&s32_data,
 	},
 	{ PCI_DEVICE_DATA(SYNOPSYS, EDDA, NULL) },
