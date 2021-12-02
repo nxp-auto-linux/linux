@@ -128,7 +128,13 @@ u32 dw_pcie_readl_ctrl(struct s32gen1_pcie *pci, u32 reg)
 	return val;
 }
 
-static struct s32gen1_pcie *s32gen1_pcie_ep;
+static LIST_HEAD(s32gen1_pcie_ep_list);
+static DEFINE_MUTEX(s32gen1_pcie_ep_list_mutex);
+
+struct s32gen1_pcie_ep_node {
+	struct list_head list;
+	struct s32gen1_pcie *ep;
+};
 
 #ifdef CONFIG_PCI_DW_DMA
 static irqreturn_t s32gen1_pcie_dma_handler(int irq, void *arg)
@@ -257,6 +263,62 @@ out:
 	return ret;
 }
 
+/* Return the s32gen1_pcie object for the EP with the given PCIe ID,
+ * as specified in the device tree
+ */
+struct s32gen1_pcie *s32_get_dw_pcie(int pcie_ep_id)
+{
+	struct s32gen1_pcie_ep_node *pci_node;
+	struct s32gen1_pcie *res = ERR_PTR(-ENODEV);
+
+	mutex_lock(&s32gen1_pcie_ep_list_mutex);
+	list_for_each_entry(pci_node, &s32gen1_pcie_ep_list, list) {
+		if (pci_node->ep->id == pcie_ep_id) {
+			res = pci_node->ep;
+			break;
+		}
+	}
+	mutex_unlock(&s32gen1_pcie_ep_list_mutex);
+
+	return res;
+}
+EXPORT_SYMBOL(s32_get_dw_pcie);
+
+static int s32gen1_add_pcie_ep_to_list(struct s32gen1_pcie *s32_ep)
+{
+	struct s32gen1_pcie_ep_node *ep_entry;
+
+	if (!s32_ep)
+		return -EINVAL;
+
+	ep_entry = kmalloc(sizeof(struct s32gen1_pcie_ep_node),
+				  GFP_KERNEL);
+	if (!ep_entry)
+		return -ENOMEM;
+
+	ep_entry->ep = s32_ep;
+	mutex_lock(&s32gen1_pcie_ep_list_mutex);
+	list_add(&ep_entry->list, &s32gen1_pcie_ep_list);
+	mutex_unlock(&s32gen1_pcie_ep_list_mutex);
+
+	return 0;
+}
+
+static void s32gen1_del_pcie_ep_from_list(int pcie_id)
+{
+	struct s32gen1_pcie_ep_node *ep_entry;
+
+	mutex_lock(&s32gen1_pcie_ep_list_mutex);
+	list_for_each_entry(ep_entry, &s32gen1_pcie_ep_list, list) {
+		if (ep_entry->ep->id == pcie_id) {
+			list_del(&ep_entry->list);
+			kfree(ep_entry);
+			break;
+		}
+	}
+	mutex_unlock(&s32gen1_pcie_ep_list_mutex);
+}
+
 static void s32gen1_pcie_ep_init(struct dw_pcie_ep *ep)
 {
 	struct dw_pcie *pcie;
@@ -323,9 +385,18 @@ int s32_pcie_setup_outbound(struct s32_outbound_region *ptrOutb)
 {
 	int ret = 0;
 	struct pci_epc *epc;
+	struct s32gen1_pcie *s32gen1_pcie_ep;
 
-	if (!s32gen1_pcie_ep) {
-		pr_err("%s: No S32Gen1 EP configuration found\n", __func__);
+	if (!ptrOutb) {
+		pr_err("%s: Invalid Outbound data\n", __func__);
+		return -EINVAL;
+	}
+
+	s32gen1_pcie_ep = s32_get_dw_pcie(ptrOutb->pcie_id);
+
+	if (IS_ERR(s32gen1_pcie_ep)) {
+		pr_err("%s: No S32Gen1 EP configuration found for PCIe%d\n",
+			__func__, ptrOutb->pcie_id);
 		return -ENODEV;
 	}
 	dev_dbg(s32gen1_pcie_ep->pcie.dev, "%s\n", __func__);
@@ -337,9 +408,6 @@ int s32_pcie_setup_outbound(struct s32_outbound_region *ptrOutb)
 			"Invalid S32Gen1 EP configuration\n");
 		return -ENODEV;
 	}
-
-	if (!ptrOutb)
-		return -EINVAL;
 
 	/* Setup outbound region */
 	ret = epc->ops->map_addr(epc, 0, ptrOutb->base_addr,
@@ -350,7 +418,7 @@ int s32_pcie_setup_outbound(struct s32_outbound_region *ptrOutb)
 EXPORT_SYMBOL(s32_pcie_setup_outbound);
 
 /* Only for EP. Currently only one EP supported. */
-int s32_pcie_setup_inbound(struct s32_inbound_region *inbStr)
+int s32_pcie_setup_inbound(struct s32_inbound_region *ptrInb)
 {
 	int ret = 0;
 	struct pci_epc *epc;
@@ -358,9 +426,18 @@ int s32_pcie_setup_inbound(struct s32_inbound_region *inbStr)
 	struct pci_epf_bar bar = {
 		.size = PCIE_EP_DEFAULT_BAR_SIZE
 	};
+	struct s32gen1_pcie *s32gen1_pcie_ep;
 
-	if (!s32gen1_pcie_ep) {
-		pr_err("%s: No S32Gen1 EP configuration found\n", __func__);
+	if (!ptrInb) {
+		pr_err("%s: Invalid Inbound data\n", __func__);
+		return -EINVAL;
+	}
+
+	s32gen1_pcie_ep = s32_get_dw_pcie(ptrInb->pcie_id);
+
+	if (IS_ERR(s32gen1_pcie_ep)) {
+		pr_err("%s: No S32Gen1 EP configuration found for PCIe%d\n",
+			__func__, ptrInb->pcie_id);
 		return -ENODEV;
 	}
 	dev_dbg(s32gen1_pcie_ep->pcie.dev, "%s\n", __func__);
@@ -373,11 +450,8 @@ int s32_pcie_setup_inbound(struct s32_inbound_region *inbStr)
 		return -ENODEV;
 	}
 
-	if (!inbStr)
-		return -EINVAL;
-
 	/* Setup inbound region */
-	bar_num = inbStr->bar_nr;
+	bar_num = ptrInb->bar_nr;
 	if (bar_num >= BAR_5) {
 		dev_err(s32gen1_pcie_ep->pcie.dev,
 			"Invalid BAR number (%d)\n", bar_num);
@@ -385,7 +459,7 @@ int s32_pcie_setup_inbound(struct s32_inbound_region *inbStr)
 	}
 
 	bar.barno = bar_num;
-	bar.phys_addr = inbStr->target_addr;
+	bar.phys_addr = ptrInb->target_addr;
 	ret = epc->ops->set_bar(epc, 0, &bar);
 
 	return ret;
@@ -974,6 +1048,9 @@ static int __init s32gen1_add_pcie_ep(struct s32gen1_pcie *s32_pp)
 		dev_err(dev, "failed to initialize endpoint\n");
 		return ret;
 	}
+	ret = s32gen1_add_pcie_ep_to_list(s32_pp);
+	if (ret)
+		dev_warn(s32_pp->pcie.dev, "can't populate EP list\n");
 
 	return 0;
 }
@@ -996,12 +1073,6 @@ static void s32gen1_pcie_shutdown(struct platform_device *pdev)
 
 	mdelay(PCIE_CX_CPL_BASE_TIMER_VALUE);
 }
-
-struct s32gen1_pcie *s32_get_dw_pcie(void)
-{
-	return s32gen1_pcie_ep;
-}
-EXPORT_SYMBOL(s32_get_dw_pcie);
 
 static const struct of_device_id s32gen1_pcie_of_match[];
 
@@ -1401,8 +1472,10 @@ static int s32gen1_pcie_deinit_controller(struct s32gen1_pcie *s32_pp)
 
 	if (!s32_pp->is_endpoint)
 		dw_pcie_host_deinit(pp);
-	else
+	else {
 		dw_pcie_ep_exit(&pcie->ep);
+		s32gen1_del_pcie_ep_from_list(s32_pp->id);
+	}
 
 	s32gen1_pcie_pme_turnoff(s32_pp);
 
@@ -1538,7 +1611,6 @@ static int s32gen1_pcie_config_common(struct s32gen1_pcie *s32_pp,
 		struct dentry *pfile;
 #endif
 
-		s32gen1_pcie_ep = s32_pp;
 		s32_pp->call_back = NULL;
 
 #ifdef CONFIG_PCI_S32GEN1_ACCESS_FROM_USER
