@@ -2,7 +2,7 @@
  * SIUL2 GPIO support.
  *
  * Copyright (c) 2016 Freescale Semiconductor, Inc.
- * Copyright 2018-2020 NXP
+ * Copyright 2018-2021 NXP
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 or
@@ -94,7 +94,7 @@ struct siul2_gpio_dev {
 static inline int siul2_get_gpio_pinspec(
 	struct platform_device *pdev,
 	struct of_phandle_args *pinspec,
-	unsigned range_index)
+	unsigned int range_index)
 {
 	struct device_node *np = pdev->dev.of_node;
 	int ret = of_parse_phandle_with_fixed_args(np, "gpio-ranges", 3,
@@ -125,6 +125,102 @@ static inline struct siul2_gpio_dev *to_siul2_gpio_dev(struct gpio_chip *chip)
 	return container_of(chip, struct siul2_gpio_dev, gc);
 }
 
+static inline unsigned int siul2_pin2mask(int pin,
+					  struct siul2_gpio_dev *gpio_dev)
+{
+	unsigned int pad_size;
+
+	pad_size = SIUL2_GPIO_PAD_SIZE;
+	pin %= pad_size;
+	return (1 << (pad_size - 1 - pin));
+}
+
+static inline unsigned int siul2_pin2pad(int pin,
+					 struct siul2_gpio_dev *gpio_dev)
+{
+	unsigned int pad_size;
+
+	pad_size = SIUL2_GPIO_PAD_SIZE;
+	return pin / pad_size;
+}
+
+static inline void __iomem *siul2_get_pad_addr(void __iomem *pads,
+					       unsigned int pad)
+{
+	u32 pad_offset = (SIUL2_GPIO_PAD_SIZE / BITS_PER_BYTE) * pad;
+	void __iomem *opad_reg = pads + pad_offset;
+
+	return opad_reg;
+}
+
+static inline void __iomem *siul2_get_opad_addr(void __iomem *opads,
+						unsigned int pad)
+{
+	return siul2_get_pad_addr(opads, pad);
+}
+
+static inline void __iomem *siul2_get_ipad_addr(void __iomem *ipads,
+						unsigned int pad)
+{
+	return siul2_get_pad_addr(ipads, pad);
+}
+
+static void siul2_gpio_set(struct gpio_chip *chip,
+			   unsigned int offset, int value)
+{
+	struct siul2_gpio_dev *gpio_dev = to_siul2_gpio_dev(chip);
+	void __iomem *reg;
+	unsigned long flags, data;
+
+	unsigned int mask = siul2_pin2mask(offset, gpio_dev);
+	unsigned int pad = siul2_pin2pad(offset, gpio_dev);
+	enum gpio_dir dir;
+
+	dir = gpio_get_direction(gpio_dev, offset);
+	if (dir == IN)
+		return;
+
+	reg = siul2_get_opad_addr(gpio_dev->opads, pad);
+
+	spin_lock_irqsave(&gpio_dev->lock, flags);
+
+	data = readl(reg);
+	if (value)
+		data |= mask;
+	else
+		data &= ~mask;
+
+	writel(data, reg);
+
+	spin_unlock_irqrestore(&gpio_dev->lock, flags);
+}
+
+static int siul2_gpio_get(struct gpio_chip *chip, unsigned int offset)
+{
+	struct siul2_gpio_dev *gpio_dev = to_siul2_gpio_dev(chip);
+	void __iomem *reg;
+	unsigned long flags, data = 0;
+	enum gpio_dir dir;
+
+	unsigned int mask = siul2_pin2mask(offset, gpio_dev);
+	unsigned int pad = siul2_pin2pad(offset, gpio_dev);
+
+	dir = gpio_get_direction(gpio_dev, offset);
+
+	if (dir == OUT)
+		reg = siul2_get_opad_addr(gpio_dev->opads, pad);
+	else
+		reg = siul2_get_ipad_addr(gpio_dev->ipads, pad);
+
+	spin_lock_irqsave(&gpio_dev->lock, flags);
+
+	data = readl(reg) & mask;
+
+	spin_unlock_irqrestore(&gpio_dev->lock, flags);
+
+	return data ? 1 : 0;
+}
+
 static int siul2_gpio_dir_in(struct gpio_chip *chip, unsigned int gpio)
 {
 	int ret = 0;
@@ -151,18 +247,18 @@ static int siul2_gpio_dir_out(struct gpio_chip *chip, unsigned int gpio,
 		return ret;
 
 	gpio_dev = to_siul2_gpio_dev(chip);
-	chip->set(chip, gpio, val);
+	siul2_gpio_set(chip, gpio, val);
 	gpio_set_direction(gpio_dev, gpio, OUT);
 
 	return ret;
 }
 
-static int siul2_gpio_request(struct gpio_chip *chip, unsigned gpio_pin)
+static int siul2_gpio_request(struct gpio_chip *chip, unsigned int gpio_pin)
 {
 	return pinctrl_gpio_request(chip->base + gpio_pin);
 }
 
-static void siul2_gpio_free(struct gpio_chip *chip, unsigned offset)
+static void siul2_gpio_free(struct gpio_chip *chip, unsigned int offset)
 {
 	pinctrl_gpio_free(chip->base + offset);
 }
@@ -224,7 +320,7 @@ static void siul2_gpio_irq_handler(struct irq_desc *desc)
 	struct gpio_chip *gc = irq_desc_get_handler_data(desc);
 	struct siul2_gpio_dev *gpio_dev = to_siul2_gpio_dev(gc);
 	struct irq_chip *irq_chip = irq_desc_get_chip(desc);
-	unsigned pin;
+	unsigned int pin;
 	unsigned long disr0_val;
 
 	chained_irq_enter(irq_chip, desc);
@@ -400,99 +496,6 @@ static const struct of_device_id siul2_gpio_dt_ids[] = {
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, siul2_gpio_dt_ids);
-
-static inline unsigned siul2_pin2mask(int pin, struct siul2_gpio_dev *gpio_dev)
-{
-	unsigned pad_size;
-
-	pad_size = SIUL2_GPIO_PAD_SIZE;
-	pin %= pad_size;
-	return (1 << (pad_size - 1 - pin));
-}
-
-static inline unsigned siul2_pin2pad(int pin, struct siul2_gpio_dev *gpio_dev)
-{
-	unsigned pad_size;
-
-	pad_size = SIUL2_GPIO_PAD_SIZE;
-	return pin / pad_size;
-}
-
-static inline void __iomem *siul2_get_pad_addr(void __iomem *pads, unsigned pad)
-{
-	u32 pad_offset = (SIUL2_GPIO_PAD_SIZE / BITS_PER_BYTE) * pad;
-	void __iomem *opad_reg = pads + pad_offset;
-
-	return opad_reg;
-}
-
-static inline void __iomem *siul2_get_opad_addr(void __iomem *opads,
-						unsigned pad)
-{
-	return siul2_get_pad_addr(opads, pad);
-}
-
-static inline void __iomem *siul2_get_ipad_addr(void __iomem *ipads,
-						unsigned pad)
-{
-	return siul2_get_pad_addr(ipads, pad);
-}
-
-static void siul2_gpio_set(struct gpio_chip *chip, unsigned offset, int value)
-{
-	struct siul2_gpio_dev *gpio_dev = to_siul2_gpio_dev(chip);
-	void __iomem *reg;
-	unsigned long flags, data;
-
-	unsigned mask = siul2_pin2mask(offset, gpio_dev);
-	unsigned pad = siul2_pin2pad(offset, gpio_dev);
-	enum gpio_dir dir;
-
-	dir = gpio_get_direction(gpio_dev, offset);
-	if (dir == IN)
-		return;
-
-	reg = siul2_get_opad_addr(gpio_dev->opads, pad);
-
-	spin_lock_irqsave(&gpio_dev->lock, flags);
-
-	data = readl(reg);
-	if (value)
-		data |= mask;
-	else
-		data &= ~mask;
-
-	writel(data, reg);
-
-	spin_unlock_irqrestore(&gpio_dev->lock, flags);
-}
-
-static int siul2_gpio_get(struct gpio_chip *chip, unsigned offset)
-{
-	struct siul2_gpio_dev *gpio_dev = to_siul2_gpio_dev(chip);
-	void __iomem *reg;
-	unsigned long flags, data = 0;
-	enum gpio_dir dir;
-
-	unsigned mask = siul2_pin2mask(offset, gpio_dev);
-	unsigned pad = siul2_pin2pad(offset, gpio_dev);
-
-	dir = gpio_get_direction(gpio_dev, offset);
-
-	if (dir == OUT)
-		reg = siul2_get_opad_addr(gpio_dev->opads, pad);
-	else
-		reg = siul2_get_ipad_addr(gpio_dev->ipads, pad);
-
-	spin_lock_irqsave(&gpio_dev->lock, flags);
-
-	data = readl(reg) & mask;
-
-	spin_unlock_irqrestore(&gpio_dev->lock, flags);
-
-	return data ? 1 : 0;
-}
-
 
 static int siul2_gpio_pads_init(struct platform_device *pdev,
 				     struct siul2_gpio_dev *gpio_dev)
