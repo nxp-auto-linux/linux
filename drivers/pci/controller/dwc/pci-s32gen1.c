@@ -90,27 +90,27 @@ static inline void s32gen1_pcie_write(struct dw_pcie *pci,
 	struct s32gen1_pcie *s32_pci = to_s32gen1_from_dw_pcie(pci);
 
 #ifdef CONFIG_PCI_S32GEN1_DEBUG_WRITES
-	if ((u64)base == (u64)(s32_pci->ctrl_base))
+	if ((uintptr_t)base == (uintptr_t)(s32_pci->ctrl_base))
 		dev_dbg_w(pci->dev, "W%d(ctrl+0x%x, 0x%x)\n",
 			(int)size * 8, (u32)(reg), (u32)(val));
-	else if ((u64)base == (u64)(pci->atu_base))
+	else if ((uintptr_t)base == (uintptr_t)(pci->atu_base))
 		dev_dbg_w(pci->dev, "W%d(atu+0x%x, 0x%x)\n",
 			(int)size * 8, (u32)(reg), (u32)(val));
-	else if ((u64)base == (u64)(pci->dbi_base))
+	else if ((uintptr_t)base == (uintptr_t)(pci->dbi_base))
 		dev_dbg_w(pci->dev, "W%d(dbi+0x%x, 0x%x)\n",
 			(int)size * 8, (u32)(reg), (u32)(val));
-	else if ((u64)base == (u64)(pci->dbi_base2))
+	else if ((uintptr_t)base == (uintptr_t)(pci->dbi_base2))
 		dev_dbg_w(pci->dev, "W%d(dbi2+0x%x, 0x%x)\n",
 			(int)size * 8, (u32)(reg), (u32)(val));
 	else
-		dev_dbg_w(pci->dev, "W%d(%llx+0x%x, 0x%x)\n",
-			(int)size * 8, (u64)(base), (u32)(reg), (u32)(val));
+		dev_dbg_w(pci->dev, "W%d(%lx+0x%x, 0x%x)\n",
+			(int)size * 8, (uintptr_t)(base), (u32)(reg), (u32)(val));
 #endif
 
 	ret = dw_pcie_write(base + reg, size, val);
 	if (ret)
-		dev_err(pci->dev, "(pcie%d): Write to address 0x%llx failed\n",
-			s32_pci->id, (u64)(base) + (u32)(reg));
+		dev_err(pci->dev, "(pcie%d): Write to address 0x%lx failed\n",
+			s32_pci->id, (uintptr_t)(base + reg));
 }
 
 void dw_pcie_writel_ctrl(struct s32gen1_pcie *pci, u32 reg, u32 val)

@@ -145,4 +145,13 @@ struct s32_outbound_region {
 void dw_pcie_writel_ctrl(struct s32gen1_pcie *pci, u32 reg, u32 val);
 u32 dw_pcie_readl_ctrl(struct s32gen1_pcie *pci, u32 reg);
 
+/* Get the EndPoint data (if any) for the controller with the given ID */
+struct s32gen1_pcie *s32_get_dw_pcie(int pcie_ep_id);
+
+/* Configure Outbound window from ptrOutb for the corresponding EndPoint */
+int s32_pcie_setup_outbound(struct s32_outbound_region *ptrOutb);
+
+/* Configure Inbound window from ptrInb for the corresponding EndPoint */
+int s32_pcie_setup_inbound(struct s32_inbound_region *ptrInb);
+
 #endif	/*	PCIE_S32GEN1_H	*/
