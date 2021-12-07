@@ -358,13 +358,25 @@ static u8 dw_pcie_iatu_unroll_enabled(struct dw_pcie *pci)
 	return 0;
 }
 
-static int s32gen1_check_serdes(struct device *dev)
+static int s32gen1_check_serdes(struct device *dev,
+				struct s32gen1_pcie *s32_pp)
 {
 	struct device_node *np = dev->of_node;
 	struct nvmem_cell *serdes_cell;
 	size_t read_len = 0;
 	u8 *serdes = NULL;
 	int ret = 0;
+
+	/* s32_pp has just been kzalloc'ed */
+	WARN(s32_pp->phy0, "Unexpected non-null phy0");
+	s32_pp->phy0 = devm_phy_get(dev, "serdes_lane0");
+	if (IS_ERR(s32_pp->phy0)) {
+		if (PTR_ERR(s32_pp->phy0) == -EPROBE_DEFER)
+			dev_dbg(dev, "Deferring init for 'serdes_lane0' PHY\n");
+		else
+			dev_err(dev, "Failed to get 'serdes_lane0' PHY\n");
+		return PTR_ERR(s32_pp->phy0);
+	}
 
 	if (of_find_property(np, "no-check-serdes", NULL))
 		return 0;
@@ -390,6 +402,7 @@ static int s32gen1_check_serdes(struct device *dev)
 		dev_err(dev, "SerDes subsystem is not present, skipping configuring PCIe\n");
 		ret = -ENODEV;
 	}
+
 out:
 	kfree(serdes);
 	return ret;
@@ -1328,22 +1341,6 @@ static int init_pcie_phy(struct s32gen1_pcie *s32_pp)
 
 	DEBUG_FID(s32_pp->id);
 
-	/*
-	 *	s32_pp is kzalloc'ed so it is safe to consider that
-	 *	null phy0 means phy0 uninitialized and non-zero initialized.
-	 *	So if phy0 is non-zero then reuse the handler.
-	 */
-	if (!s32_pp->phy0) {
-		s32_pp->phy0 = devm_phy_get(dev, "serdes_lane0");
-		if (IS_ERR(s32_pp->phy0)) {
-			if (PTR_ERR(s32_pp->phy0) == -EPROBE_DEFER)
-				dev_dbg(dev, "Deferring init for 'serdes_lane0' PHY\n");
-			else
-				dev_err(dev, "Failed to get 'serdes_lane0' PHY\n");
-			return PTR_ERR(s32_pp->phy0);
-		}
-	}
-
 	ret = phy_init(s32_pp->phy0);
 	if (ret) {
 		dev_err(dev, "Failed to init 'serdes_lane0' PHY\n");
@@ -1724,7 +1721,7 @@ static int s32gen1_pcie_probe(struct platform_device *pdev)
 	if (!s32_pp)
 		return -ENOMEM;
 
-	ret = s32gen1_check_serdes(dev);
+	ret = s32gen1_check_serdes(dev, s32_pp);
 	if (ret)
 		return ret;
 
