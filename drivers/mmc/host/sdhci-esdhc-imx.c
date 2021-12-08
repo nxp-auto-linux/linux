@@ -5,7 +5,7 @@
  * derived from the OF-version.
  *
  * Copyright (c) 2010 Pengutronix e.K.
- * Copyright 2020-2021 NXP
+ * Copyright 2020-2021, 2023 NXP
  *   Author: Wolfram Sang <kernel@pengutronix.de>
  */
 
@@ -49,6 +49,11 @@
 #define ESDHC_DEBUG_SEL_ADMA_STATE		5
 #define ESDHC_DEBUG_SEL_FIFO_STATE		6
 #define ESDHC_DEBUG_SEL_ASYNC_FIFO_STATE	7
+
+#define ESDHC_SYS_CTRL			0x2c
+#define SYS_CTRL_FIFO			BIT(22)
+#define SYS_CTRL_RSTA			BIT(24)
+
 #define ESDHC_WTMK_LVL			0x44
 #define  ESDHC_WTMK_DEFAULT_VAL		0x10401040
 #define  ESDHC_WTMK_LVL_RD_WML_MASK	0x000000FF
@@ -78,9 +83,12 @@
 
 /* tune control register */
 #define ESDHC_TUNE_CTRL_STATUS		0x68
-#define  ESDHC_TUNE_CTRL_STEP		1
-#define  ESDHC_TUNE_CTRL_MIN		0
-#define  ESDHC_TUNE_CTRL_MAX		((1 << 7) - 1)
+#define ESDHC_TUNE_CTRL_STEP		1
+#define ESDHC_TUNE_CTRL_MIN		0
+#define ESDHC_TUNE_CTRL_MAX		((1 << 7) - 1)
+#define DLY_CELL_SET_PRE(val)		(((val) << 8) & 0x7f00)
+#define TUNE_CTRL_TAP_SEL(r)		(((r) >> 16) & 0x7fff)
+#define TUNE_CTRL_DLY_CELL_SET(r)	((r) & 0x7fff)
 
 /* strobe dll register */
 #define ESDHC_STROBE_DLL_CTRL		0x70
@@ -404,6 +412,24 @@ static inline void esdhc_clrset_le(struct sdhci_host *host, u32 mask, u32 val, i
 	u32 shift = (reg & 0x3) * 8;
 
 	writel(((readl(base) & ~(mask << shift)) | (val << shift)), base);
+}
+
+static inline void esdhc_set_bits(struct sdhci_host *host, u32 addr, u32 bits)
+{
+	u32 reg;
+
+	reg = readl(host->ioaddr + addr);
+	reg |= bits;
+	writel(reg, host->ioaddr + addr);
+}
+
+static inline void esdhc_clear_bits(struct sdhci_host *host, u32 addr, u32 bits)
+{
+	u32 reg;
+
+	reg = readl(host->ioaddr + addr);
+	reg &= ~bits;
+	writel(reg, host->ioaddr + addr);
 }
 
 #define DRIVER_NAME "sdhci-esdhc-imx"
@@ -1124,76 +1150,88 @@ static int usdhc_execute_tuning(struct mmc_host *mmc, u32 opcode)
 	return err;
 }
 
-static void esdhc_prepare_tuning(struct sdhci_host *host, u32 val)
+static void esdhc_poll_sys_ctrl_field(struct sdhci_host *host, u32 field)
 {
-	u32 reg;
-	u8 sw_rst;
 	int ret;
+	u32 reg;
 
-	/* FIXME: delay a bit for card to be ready for next tuning due to errors */
-	mdelay(1);
-
-	/* IC suggest to reset USDHC before every tuning command */
-	esdhc_clrset_le(host, 0xff, SDHCI_RESET_ALL, SDHCI_SOFTWARE_RESET);
-	ret = readb_poll_timeout(host->ioaddr + SDHCI_SOFTWARE_RESET, sw_rst,
-				!(sw_rst & SDHCI_RESET_ALL), 10, 100);
-	if (ret == -ETIMEDOUT)
+	esdhc_set_bits(host, ESDHC_SYS_CTRL, field);
+	ret = readl_poll_timeout(host->ioaddr + ESDHC_SYS_CTRL, reg,
+				 !(reg & field), 10, 100);
+	if (ret)
 		dev_warn(mmc_dev(host->mmc),
-		"warning! RESET_ALL never complete before sending tuning command\n");
-
-	reg = readl(host->ioaddr + ESDHC_MIX_CTRL);
-	reg |= ESDHC_MIX_CTRL_EXE_TUNE | ESDHC_MIX_CTRL_SMPCLK_SEL |
-			ESDHC_MIX_CTRL_FBCLK_SEL;
-	writel(reg, host->ioaddr + ESDHC_MIX_CTRL);
-	writel(val << 8, host->ioaddr + ESDHC_TUNE_CTRL_STATUS);
-	dev_dbg(mmc_dev(host->mmc),
-		"tuning with delay 0x%x ESDHC_TUNE_CTRL_STATUS 0x%x\n",
-			val, readl(host->ioaddr + ESDHC_TUNE_CTRL_STATUS));
+			 "Warning: Reset did not complete within 100us, status: %d\n", ret);
 }
 
-static void esdhc_post_tuning(struct sdhci_host *host)
+static void esdhc_cfg_delay_chain(struct sdhci_host *host, u32 val)
 {
-	u32 reg;
-
-	reg = readl(host->ioaddr + ESDHC_MIX_CTRL);
-	reg &= ~ESDHC_MIX_CTRL_EXE_TUNE;
-	writel(reg, host->ioaddr + ESDHC_MIX_CTRL);
+	esdhc_poll_sys_ctrl_field(host, SYS_CTRL_RSTA);
+	writel(DLY_CELL_SET_PRE(val),
+	       host->ioaddr + ESDHC_TUNE_CTRL_STATUS);
+	esdhc_poll_sys_ctrl_field(host, SYS_CTRL_FIFO);
 }
 
 static int esdhc_executing_tuning(struct sdhci_host *host, u32 opcode)
 {
-	int min, max, avg, ret;
+	u32 r, value_start, value_end;
+	bool tuning_failed_before = false;
 
-	/* find the mininum delay first which can pass tuning */
-	min = ESDHC_TUNE_CTRL_MIN;
-	while (min < ESDHC_TUNE_CTRL_MAX) {
-		esdhc_prepare_tuning(host, min);
-		if (!mmc_send_tuning(host->mmc, opcode, NULL))
-			break;
-		min += ESDHC_TUNE_CTRL_STEP;
-	}
+	esdhc_clear_bits(host, ESDHC_TUNING_CTRL, ESDHC_STD_TUNING_EN);
+	esdhc_clear_bits(host, ESDHC_VENDOR_SPEC, ESDHC_VENDOR_SPEC_FRC_SDCLK_ON);
+	esdhc_clear_bits(host, ESDHC_MIX_CTRL, ESDHC_MIX_CTRL_FBCLK_SEL);
+	esdhc_set_bits(host, ESDHC_MIX_CTRL,
+		       (ESDHC_MIX_CTRL_EXE_TUNE | ESDHC_MIX_CTRL_SMPCLK_SEL));
 
-	/* find the maxinum delay which can not pass tuning */
-	max = min + ESDHC_TUNE_CTRL_STEP;
-	while (max < ESDHC_TUNE_CTRL_MAX) {
-		esdhc_prepare_tuning(host, max);
-		if (mmc_send_tuning(host->mmc, opcode, NULL)) {
-			max -= ESDHC_TUNE_CTRL_STEP;
-			break;
+	/* Find the start of the passing window
+	 * Passing window should not start from value 0.
+	 */
+	for (value_start = ESDHC_TUNE_CTRL_MIN;
+	     value_start <= ESDHC_TUNE_CTRL_MAX;
+	     value_start += ESDHC_TUNE_CTRL_STEP) {
+		esdhc_cfg_delay_chain(host, value_start);
+		if (!mmc_send_tuning(host->mmc, opcode, NULL)) {
+			if (tuning_failed_before)
+				break;
+		} else {
+			tuning_failed_before = true;
 		}
-		max += ESDHC_TUNE_CTRL_STEP;
+	}
+	if (value_start > ESDHC_TUNE_CTRL_MAX)
+		return -EINVAL;
+
+	/* Find the end of the passing window */
+	for (value_end = value_start;
+	     value_end + ESDHC_TUNE_CTRL_STEP <= ESDHC_TUNE_CTRL_MAX;
+	     value_end += ESDHC_TUNE_CTRL_STEP) {
+		esdhc_cfg_delay_chain(host, value_end + ESDHC_TUNE_CTRL_STEP);
+		if (mmc_send_tuning(host->mmc, opcode, NULL))
+			break;
 	}
 
-	/* use average delay to get the best timing */
-	avg = (min + max) / 2;
-	esdhc_prepare_tuning(host, avg);
-	ret = mmc_send_tuning(host->mmc, opcode, NULL);
-	esdhc_post_tuning(host);
+	esdhc_clear_bits(host, ESDHC_MIX_CTRL, ESDHC_MIX_CTRL_EXE_TUNE);
+	esdhc_poll_sys_ctrl_field(host, SYS_CTRL_RSTA);
+	esdhc_set_bits(host, ESDHC_MIX_CTRL, ESDHC_MIX_CTRL_SMPCLK_SEL);
 
-	dev_dbg(mmc_dev(host->mmc), "tuning %s at 0x%x ret %d\n",
-		ret ? "failed" : "passed", avg, ret);
+	/* According to the "Manual Tuning Procedure" chapter in the RM */
+	r = ((value_start + value_end) / 2);
+	r = ((r << 8) & 0xffffff00);
+	if (r < 0x300) {
+		dev_warn(mmc_dev(host->mmc),
+			 "Passing tuning window: [%u - %u] is too small\n",
+			 value_start, value_end);
+		return -EINVAL;
+	}
 
-	return ret;
+	r = ((r - 0x300) | 0x33);
+	writel(r, host->ioaddr + ESDHC_TUNE_CTRL_STATUS);
+
+	readl_poll_timeout(host->ioaddr + ESDHC_TUNE_CTRL_STATUS, r,
+			   TUNE_CTRL_TAP_SEL(r) == TUNE_CTRL_DLY_CELL_SET(r),
+			   0, 0);
+
+	esdhc_set_bits(host, ESDHC_MIX_CTRL, ESDHC_MIX_CTRL_AUTO_TUNE_EN);
+
+	return 0;
 }
 
 static void esdhc_hs400_enhanced_strobe(struct mmc_host *mmc, struct mmc_ios *ios)
