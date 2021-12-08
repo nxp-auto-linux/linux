@@ -371,10 +371,9 @@ static int s32gen1_check_serdes(struct device *dev,
 	WARN(s32_pp->phy0, "Unexpected non-null phy0");
 	s32_pp->phy0 = devm_phy_get(dev, "serdes_lane0");
 	if (IS_ERR(s32_pp->phy0)) {
-		if (PTR_ERR(s32_pp->phy0) == -EPROBE_DEFER)
-			dev_dbg(dev, "Deferring init for 'serdes_lane0' PHY\n");
-		else
+		if (PTR_ERR(s32_pp->phy0) != -EPROBE_DEFER)
 			dev_err(dev, "Failed to get 'serdes_lane0' PHY\n");
+
 		return PTR_ERR(s32_pp->phy0);
 	}
 
