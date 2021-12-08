@@ -358,8 +358,7 @@ static u8 dw_pcie_iatu_unroll_enabled(struct dw_pcie *pci)
 	return 0;
 }
 
-static int s32gen1_check_serdes(struct device *dev,
-				struct s32gen1_pcie *s32_pp)
+static int s32gen1_check_serdes(struct device *dev)
 {
 	struct device_node *np = dev->of_node;
 	struct nvmem_cell *serdes_cell;
@@ -367,22 +366,14 @@ static int s32gen1_check_serdes(struct device *dev,
 	u8 *serdes = NULL;
 	int ret = 0;
 
-	/* s32_pp has just been kzalloc'ed */
-	WARN(s32_pp->phy0, "Unexpected non-null phy0");
-	s32_pp->phy0 = devm_phy_get(dev, "serdes_lane0");
-	if (IS_ERR(s32_pp->phy0)) {
-		if (PTR_ERR(s32_pp->phy0) != -EPROBE_DEFER)
-			dev_err(dev, "Failed to get 'serdes_lane0' PHY\n");
-
-		return PTR_ERR(s32_pp->phy0);
-	}
-
 	if (of_find_property(np, "no-check-serdes", NULL))
 		return 0;
 
 	serdes_cell = devm_nvmem_cell_get(dev, "serdes_presence");
 	if (IS_ERR(serdes_cell)) {
-		dev_err(dev, "Failed to get serdes cell\n");
+		if (PTR_ERR(serdes_cell) != -EPROBE_DEFER)
+			dev_err(dev, "Failed to get serdes cell\n");
+
 		return PTR_ERR(serdes_cell);
 	}
 
@@ -1712,18 +1703,28 @@ static int s32gen1_pcie_probe(struct platform_device *pdev)
 	struct s32gen1_pcie *s32_pp;
 	struct dw_pcie *pcie;
 	struct pcie_port *pp;
+	struct phy *phy;
 	int ret = 0;
 
 	DEBUG_FUNC;
+
+	ret = s32gen1_check_serdes(dev);
+	if (ret)
+		return ret;
+
+	phy = devm_phy_get(dev, "serdes_lane0");
+	if (IS_ERR(phy)) {
+		if (PTR_ERR(phy) != -EPROBE_DEFER)
+			dev_err(dev, "Failed to get 'serdes_lane0' PHY\n");
+
+		return PTR_ERR(phy);
+	}
 
 	s32_pp = devm_kzalloc(dev, sizeof(*s32_pp), GFP_KERNEL);
 	if (!s32_pp)
 		return -ENOMEM;
 
-	ret = s32gen1_check_serdes(dev, s32_pp);
-	if (ret)
-		return ret;
-
+	s32_pp->phy0 = phy;
 	pcie = &(s32_pp->pcie);
 	pp = &(pcie->pp);
 
