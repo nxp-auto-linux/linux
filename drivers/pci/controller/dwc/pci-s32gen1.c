@@ -1771,6 +1771,8 @@ static int s32gen1_pcie_suspend(struct device *dev)
 	struct s32gen1_pcie *s32_pp = dev_get_drvdata(dev);
 	struct dw_pcie *pcie = &(s32_pp->pcie);
 	struct pcie_port *pp = &(pcie->pp);
+	struct pci_bus *bus = pp->bridge->bus;
+	struct pci_bus *root_bus;
 
 	DEBUG_FID(s32_pp->id);
 
@@ -1785,6 +1787,10 @@ static int s32gen1_pcie_suspend(struct device *dev)
 		s32gen1_pcie_disable_hot_plug_irq(pcie);
 
 		s32gen1_pcie_downstream_dev_to_D0(s32_pp);
+
+		root_bus = s32gen1_get_child_downstream_bus(bus);
+		if (!IS_ERR(root_bus))
+			pci_walk_bus(root_bus, pci_dev_set_disconnected, NULL);
 
 		pci_stop_root_bus(pp->bridge->bus);
 		pci_remove_root_bus(pp->bridge->bus);
