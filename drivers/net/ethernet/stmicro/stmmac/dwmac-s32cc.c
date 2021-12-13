@@ -396,6 +396,7 @@ static int s32cc_dwmac_probe(struct platform_device *pdev)
 		priv = netdev_priv(dev_get_drvdata(&pdev->dev));
 		priv->hw->xpcs = &s32cc_xpcs_ops;
 		priv->hw->xpcs_args.bus = (struct mii_bus *)gmac;
+		priv->hw->xpcs_args.an_mode = DW_AN_C37_SGMII;
 	}
 
 	return 0;
