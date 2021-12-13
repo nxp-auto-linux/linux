@@ -233,11 +233,14 @@
 		compatible = "fsl,s32cc-dwmac";
 		reg = <0x0 0x44010000 0x0 0x2000>, /* gmac IP */
 		      <0x0 0x4007CA00 0x0 0x4>;    /* S32 CTRL_STS reg */
+		dma-coherent;
 		interrupt-parent = <&gic>;
 		interrupts = <0 220 4>;
 		interrupt-names = "macirq";
 		tx-fifo-depth = <20480>;
 		rx-fifo-depth = <20480>;
+		phy-names = "gmac_xpcs";
+		phys = <&serdes1 PHY_TYPE_XPCS 0 0>;
 		clocks = <&clks S32R45_SCMI_CLK_GMAC1_AXI>,
 			 <&clks S32R45_SCMI_CLK_GMAC1_AXI>,
 			 <&clks S32R45_SCMI_CLK_GMAC1_TX_SGMII>,
