@@ -689,20 +689,23 @@
 };
 
 &gmac1 {
+	pinctrl-names = "default";
 	phy-mode = "sgmii";
 	status = "disabled";
-
-	/* Current GMAC driver supports only CL22 but EVB phy
-	 * supports only CL45, so no MDIO communication is
-	 * possible.
-	 */
-	fixed-link {
-		speed = <1000>;
-		full-duplex;
-	};
+	pinctrl-0 = <&pinctrl1_mdio3>;
+	phy-handle = <&gmac1_phy1>;
 };
+
 &gpio1 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_gpioeirq>;
 	status = "okay";
+};
+
+&gmac1_mdio {
+	/* AQR107 on S32GRV-PLATEVB */
+	gmac1_phy1: ethernet-phy@1 {
+		compatible = "ethernet-phy-ieee802.3-c45";
+		reg = <1>;
+	};
 };
