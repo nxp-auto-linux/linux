@@ -437,9 +437,11 @@ static int llce_can_close(struct net_device *dev)
 	if (ret)
 		netdev_err(dev, "Failed to stop\n");
 
+	/* Free RX queue */
+	while (is_llce_rx_busy(common))
+		;
+
 	napi_disable(&common->napi);
-	mbox_free_channel(llce->tx);
-	mbox_free_channel(common->rx);
 
 	ret1 = llce_can_deinit(llce);
 	if (ret1) {
@@ -447,6 +449,9 @@ static int llce_can_close(struct net_device *dev)
 		if (!ret)
 			ret = ret1;
 	}
+
+	mbox_free_channel(llce->tx);
+	mbox_free_channel(common->rx);
 
 	close_candev(dev);
 
