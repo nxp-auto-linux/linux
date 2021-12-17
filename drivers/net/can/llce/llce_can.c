@@ -12,10 +12,12 @@
 #include <linux/module.h>
 #include <linux/moduleparam.h>
 #include <linux/platform_device.h>
+#include <linux/processor.h>
 #include <linux/stringify.h>
 
 /* 10 ms timeout on all channels */
 #define CHAN_TIMEOUT			10
+#define LLCE_STATE_TRANSITION_NS	(500 * NSEC_PER_MSEC)
 #define LLCE_CAN_DRV_NAME		"llce_can"
 #define LLCE_CAN_NETDEV_IF_NAME		"llcecan"
 
@@ -235,12 +237,41 @@ static int can_add_open_filter(struct mbox_chan *conf_chan, bool canfd)
 	return 0;
 }
 
+static bool state_transition(struct mbox_chan *conf_chan,
+			     enum llce_can_ctrl_state state)
+{
+	int ret;
+	struct device *dev = llce_can_chan_dev(conf_chan);
+	struct llce_can_command get_cmd = {
+		.cmd_id = LLCE_CAN_CMD_GETCONTROLLERMODE,
+	};
+
+	ret = send_cmd_msg(conf_chan, &get_cmd);
+	if (ret) {
+		dev_err(dev, "Failed to get controller's state\n");
+		return false;
+	}
+
+	return (get_cmd.cmd_list.get_controller_mode.controller_state == state);
+}
+
+static bool state_transition_timeout(struct mbox_chan *conf_chan,
+				     enum llce_can_ctrl_state state,
+				     ktime_t timeout)
+{
+	ktime_t cur = ktime_get();
+
+	return state_transition(conf_chan, state) || ktime_after(cur, timeout);
+}
+
 static int set_controller_mode(struct mbox_chan *conf_chan,
 			       enum llce_can_state_transition mode)
 {
+	ktime_t timeout = ktime_add_ns(ktime_get(), LLCE_STATE_TRANSITION_NS);
 	struct device *dev = llce_can_chan_dev(conf_chan);
 	const char *mode_str;
-	struct llce_can_command cmd = {
+	enum llce_can_ctrl_state exp_state;
+	struct llce_can_command set_cmd = {
 		.cmd_id = LLCE_CAN_CMD_SETCONTROLLERMODE,
 		.cmd_list.set_controller_mode = {
 			.transition = mode,
@@ -248,15 +279,24 @@ static int set_controller_mode(struct mbox_chan *conf_chan,
 	};
 	int ret;
 
-	ret = send_cmd_msg(conf_chan, &cmd);
-	if (ret) {
-		if (mode == LLCE_CAN_T_STOP)
-			mode_str = __stringify_1(LLCE_CAN_T_STOP);
-		else
-			mode_str = __stringify_1(LLCE_CAN_T_START);
+	if (mode == LLCE_CAN_T_STOP) {
+		mode_str = __stringify_1(LLCE_CAN_T_STOP);
+		exp_state = LLCE_CAN_STOPPED;
+	} else {
+		mode_str = __stringify_1(LLCE_CAN_T_START);
+		exp_state = LLCE_CAN_STARTED;
+	}
 
-		dev_err(dev, "Failed to transition to %s\n", mode_str);
+	ret = send_cmd_msg(conf_chan, &set_cmd);
+	if (ret) {
+		dev_err(dev, "Failed to send %s command\n", mode_str);
 		return ret;
+	}
+
+	spin_until_cond(state_transition_timeout(conf_chan, exp_state, timeout));
+	if (!state_transition(conf_chan, exp_state)) {
+		dev_err(dev, "Failed the transition to %s state\n", mode_str);
+		return -EIO;
 	}
 
 	return 0;
