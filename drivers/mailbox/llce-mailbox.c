@@ -106,6 +106,7 @@ struct llce_mb {
 };
 
 struct llce_mb_desc {
+	const char *name;
 	unsigned int nchan;
 	int (*startup)(struct mbox_chan *chan);
 	void (*shutdown)(struct mbox_chan *chan);
@@ -145,23 +146,28 @@ static const char * const llce_modules[] = {
 
 static const struct llce_mb_desc mb_map[] = {
 	[S32G_LLCE_HIF_CONF_MB] = {
+		.name = "HIF Config",
 		.nchan = 2,
 		.startup = llce_hif_startup,
 	},
 	[S32G_LLCE_CAN_CONF_MB] = {
+		.name = "CAN Config",
 		.nchan = 16,
 	},
 	[S32G_LLCE_CAN_RX_MB] = {
+		.name = "CAN RX",
 		.nchan = 16,
 		.startup = llce_rx_startup,
 		.shutdown = llce_rx_shutdown,
 	},
 	[S32G_LLCE_CAN_TX_MB] = {
+		.name = "CAN TX",
 		.nchan = 16,
 		.startup = llce_tx_startup,
 		.shutdown = llce_tx_shutdown,
 	},
 	[S32G_LLCE_CAN_LOGGER_MB] = {
+		.name = "CAN Logger",
 		.nchan = 16,
 		.startup = llce_logger_startup,
 		.shutdown = llce_logger_shutdown,
@@ -187,7 +193,7 @@ static const char *get_module_name(enum llce_can_module module)
 {
 	u32 index = module - LLCE_TX;
 
-	if (index > ARRAY_SIZE(llce_modules))
+	if (index >= ARRAY_SIZE(llce_modules))
 		return "Unknown module";
 
 	return llce_modules[index];
@@ -222,6 +228,14 @@ static unsigned int get_channel_offset(unsigned int type, unsigned int index)
 	}
 
 	return off;
+}
+
+static const char *get_channel_type_name(unsigned int type)
+{
+	if (type >= ARRAY_SIZE(mb_map))
+		return "Unknown channel type";
+
+	return mb_map[type].name;
 }
 
 static bool is_tx_fifo_empty(void __iomem *tx_fifo)
@@ -855,8 +869,8 @@ static void llce_mbox_chan_received_data(struct mbox_chan *chan, void *msg)
 	struct llce_chan_priv *priv = chan->con_priv;
 
 	if (!is_chan_registered(chan)) {
-		dev_err(chan->mbox->dev, "Received a message on an unregistered channel (type = %u, index = %u)\n",
-		       priv->type, priv->index);
+		dev_err(chan->mbox->dev, "Received a message on an unregistered channel (type: %s, index: %u)\n",
+			get_channel_type_name(priv->type), priv->index);
 		return;
 	}
 
