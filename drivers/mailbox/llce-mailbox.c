@@ -59,14 +59,8 @@
 #define LLCE_SHMEM_REG_NAME		"shmem"
 #define LLCE_STATUS_REG_NAME		"status"
 
-#define LLCE_ARR_ENTRY(BASE_INDEX, ENTRY) \
-	[(ENTRY) - (BASE_INDEX)] = __stringify_1(ENTRY)
-
-#define LLCE_ERROR_ENTRY(ERROR) \
-	LLCE_ARR_ENTRY(LLCE_ERROR_TXACK_FIFO_FULL, ERROR)
-
 #define LLCE_MODULE_ENTRY(MODULE) \
-	LLCE_ARR_ENTRY(LLCE_TX, MODULE)
+	[MODULE - LLCE_TX] = __stringify_1(MODULE)
 
 /* Mask to extract the hw ctrl where the frame comes from */
 #define HWCTRL_MBEXTENSION_MASK		0x0FFU
@@ -140,104 +134,7 @@ static int process_logger_cmd(struct mbox_chan *chan, struct llce_rx_msg *msg);
 static bool config_platform = true;
 module_param(config_platform, bool, 0660);
 
-static const char * const llce_errors[] = {
-	LLCE_ERROR_ENTRY(LLCE_ERROR_TXACK_FIFO_FULL),
-	LLCE_ERROR_ENTRY(LLCE_ERROR_RXOUT_FIFO_FULL),
-	LLCE_ERROR_ENTRY(LLCE_ERROR_HW_FIFO_EMPTY),
-	LLCE_ERROR_ENTRY(LLCE_ERROR_HW_FIFO_FULL),
-	LLCE_ERROR_ENTRY(LLCE_ERROR_SW_FIFO_EMPTY),
-	LLCE_ERROR_ENTRY(LLCE_ERROR_SW_FIFO_FULL),
-	LLCE_ERROR_ENTRY(LLCE_ERROR_MB_NOTAVAILABLE),
-	LLCE_ERROR_ENTRY(LLCE_ERROR_SHORT_MB_NOTAVAILABLE),
-	LLCE_ERROR_ENTRY(LLCE_ERROR_BCAN_FRZ_EXIT),
-	LLCE_ERROR_ENTRY(LLCE_ERROR_BCAN_SYNC),
-	LLCE_ERROR_ENTRY(LLCE_ERROR_BCAN_FRZ_ENTER),
-	LLCE_ERROR_ENTRY(LLCE_ERROR_BCAN_LPM_EXIT),
-	LLCE_ERROR_ENTRY(LLCE_ERROR_BCAN_SRT_ENTER),
-	LLCE_ERROR_ENTRY(LLCE_ERROR_BCAN_UNKNOWN_ERROR),
-	LLCE_ERROR_ENTRY(LLCE_ERROR_BCAN_ACKERR),
-	LLCE_ERROR_ENTRY(LLCE_ERROR_BCAN_CRCERR),
-	LLCE_ERROR_ENTRY(LLCE_ERROR_BCAN_BIT0ERR),
-	LLCE_ERROR_ENTRY(LLCE_ERROR_BCAN_BIT1ERR),
-	LLCE_ERROR_ENTRY(LLCE_ERROR_BCAN_DPBIT1ERR),
-	LLCE_ERROR_ENTRY(LLCE_ERROR_BCAN_DPBIT0ERR),
-	LLCE_ERROR_ENTRY(LLCE_ERROR_BCAN_DPSTFERR),
-	LLCE_ERROR_ENTRY(LLCE_ERROR_BCAN_DPFRMERR),
-	LLCE_ERROR_ENTRY(LLCE_ERROR_BCAN_DPCRCERR),
-	LLCE_ERROR_ENTRY(LLCE_ERROR_BCAN_FRMERR),
-	LLCE_ERROR_ENTRY(LLCE_ERROR_BCAN_STFERR),
-	LLCE_ERROR_ENTRY(LLCE_ERROR_BCAN_TDCFAIL),
-	LLCE_ERROR_ENTRY(LLCE_ERROR_BCAN_RXFIFO_OVERRUN),
-	LLCE_ERROR_ENTRY(LLCE_ERROR_DATA_LOST),
-	LLCE_ERROR_ENTRY(LLCE_ERROR_TXLUT_FULL),
-	LLCE_ERROR_ENTRY(LLCE_ERROR_CMD_PROCESSING),
-	LLCE_ERROR_ENTRY(LLCE_ERROR_RXLUT_SLOW_SEARCH),
-	LLCE_ERROR_ENTRY(LLCE_ERROR_RXLUT_ACCESS_MODE),
-	LLCE_ERROR_ENTRY(LLCE_ERROR_RXLUT_SEARCH_MODE),
-	LLCE_ERROR_ENTRY(LLCE_ERROR_RXLUT_SLOW_OPERATION),
-	LLCE_ERROR_ENTRY(LLCE_ERROR_RXLUT_INCOMPLETE_OP),
-	LLCE_ERROR_ENTRY(LLCE_ERROR_RXLUT_OPERATING_MODE),
-	LLCE_ERROR_ENTRY(LLCE_ERROR_RXLUT_INIT_SLOW_OP),
-	LLCE_ERROR_ENTRY(LLCE_ERROR_RXLUT_DEINIT_SLOW_OP),
-	LLCE_ERROR_ENTRY(LLCE_ERROR_RXLUT_INIT_OPERATING_MODE),
-	LLCE_ERROR_ENTRY(LLCE_ERROR_RXLUT_DEINIT_OPERATING_MODE1),
-	LLCE_ERROR_ENTRY(LLCE_ERROR_RXLUT_DEINIT_OPERATING_MODE2),
-	LLCE_ERROR_ENTRY(LLCE_ERROR_HARDWARE_BUSOFF),
-	LLCE_ERROR_ENTRY(LLCE_ERROR_CTRL_NOT_READY),
-	LLCE_ERROR_ENTRY(LLCE_ERROR_BUSOFF),
-	LLCE_ERROR_ENTRY(LLCE_ERROR_FIFO_LOG_FULL),
-	LLCE_ERROR_ENTRY(LLCE_ERROR_CAN2CAN),
-	LLCE_ERROR_ENTRY(LLCE_ERROR_COMMAND_PARAM),
-	LLCE_ERROR_ENTRY(LLCE_ERROR_COMMAND_RXPPE_NORESPONSE),
-	LLCE_ERROR_ENTRY(LLCE_ERROR_COMMAND_AF_NORESPONSE),
-	LLCE_ERROR_ENTRY(LLCE_ERROR_COMMAND_DEINIT_NOTSTOP),
-	LLCE_ERROR_ENTRY(LLCE_ERROR_RXTOKENS_UNRETURNED),
-	LLCE_ERROR_ENTRY(LLCE_ERROR_TXACK_NOT_READ),
-	LLCE_ERROR_ENTRY(LLCE_ERROR_COMMAND_NOTSUPPORTED),
-	LLCE_ERROR_ENTRY(LLCE_ERROR_COMMAND_NOTVALIDATED),
-	LLCE_ERROR_ENTRY(LLCE_ERROR_COMMAND_NOTACCEPTED),
-	LLCE_ERROR_ENTRY(LLCE_ERROR_COMMAND_INVALID_PARAMS),
-	LLCE_ERROR_ENTRY(LLCE_ERROR_CTRL_NOT_STARTED),
-	LLCE_ERROR_ENTRY(LLCE_ERROR_FRAME_NOT_DELIVERED),
-	LLCE_ERROR_ENTRY(LLCE_ERROR_FRAME_NOT_DELIVERED_TO_AF),
-	LLCE_ERROR_ENTRY(LLCE_ERROR_FRAME_NOT_DELIVERED_TO_HOST),
-	LLCE_ERROR_ENTRY(LLCE_ERROR_LOST_INDEXES),
-	LLCE_ERROR_ENTRY(LLCE_ERROR_FILTERS_FULL),
-	LLCE_ERROR_ENTRY(LLCE_ERROR_FILTERS_NOTEXIST),
-	LLCE_ERROR_ENTRY(LLCE_ERROR_FILTERS_MASK_EMPTY),
-	LLCE_ERROR_ENTRY(LLCE_ERROR_FILTERS_RANGE_EMPTY),
-	LLCE_ERROR_ENTRY(LLCE_ERROR_FILTERS_EM_EMPTY),
-	LLCE_ERROR_ENTRY(LLCE_ERROR_IDX_NOT_VALID_HOST),
-	LLCE_ERROR_ENTRY(LLCE_ERROR_IDX_NOT_VALID_LOG),
-	LLCE_ERROR_ENTRY(LLCE_ERROR_INVALID_HOST_CORE),
-	LLCE_ERROR_ENTRY(LLCE_ERROR_RXFRAME_NOT_DELIVERED_TO_HSE),
-	LLCE_ERROR_ENTRY(LLCE_ERROR_TXFRAME_NOT_DELIVERED_TO_HSE),
-	LLCE_ERROR_ENTRY(LLCE_ERROR_RXFRAME_AUTH_ERROR),
-	LLCE_ERROR_ENTRY(LLCE_ERROR_INVALID_REQUEST_FROM_TX),
-	LLCE_ERROR_ENTRY(LLCE_ERROR_INVALID_REQUEST_FROM_RX),
-	LLCE_ERROR_ENTRY(LLCE_ERROR_RX_SW_FIFO_EMPTY),
-	LLCE_ERROR_ENTRY(LLCE_ERROR_PFEIF),
-	LLCE_ERROR_ENTRY(LLCE_ERROR_HSEIF),
-	LLCE_ERROR_ENTRY(LLCE_FW_SUCCESS),
-	LLCE_ERROR_ENTRY(LLCE_FW_ERROR),
-	LLCE_ERROR_ENTRY(LLCE_FW_NOTRUN),
-	LLCE_ERROR_ENTRY(LLCE_ERROR_INTERNALDESC_NOT_RETURNED),
-	LLCE_ERROR_ENTRY(LLCE_ERROR_INTERNALDESC_NOT_DELIVERED),
-	LLCE_ERROR_ENTRY(LLCE_ERROR_INTERNALDESC_NOTAVAIL),
-	LLCE_ERROR_ENTRY(LLCE_ERROR_INTERNALDESC_FIFO_FULL),
-	LLCE_ERROR_ENTRY(LLCE_ERROR_MB_NOTAVAIL),
-	LLCE_ERROR_ENTRY(LLCE_ERROR_MB_FIFO_FULL),
-	LLCE_ERROR_ENTRY(LLCE_ERROR_NO_MB_AVAILABLE),
-	LLCE_ERROR_ENTRY(LLCE_ERROR_UNKNOWN_SRC),
-	LLCE_ERROR_ENTRY(LLCE_ERROR_UNKNOWN_DEST),
-	LLCE_ERROR_ENTRY(LLCE_ERROR_UNKNOWN_REQUEST),
-	LLCE_ERROR_ENTRY(LLCE_ERROR_CONVERSION),
-	LLCE_ERROR_ENTRY(LLCE_ERROR_NO_MB_TO_ABORT),
-	LLCE_ERROR_ENTRY(LLCE_ERROR_INDEX_NOT_RECOVERED),
-	LLCE_ERROR_ENTRY(LLCE_ERROR_RESET_PENDING),
-	LLCE_ERROR_ENTRY(LLCE_NOTIF_BUSOFF_AUTO_RECOVERY_PENDING),
-	LLCE_ERROR_ENTRY(LLCE_NOTIF_BUSOFF_DONE),
-};
+const struct llce_error *get_llce_errors(size_t *n_elems);
 
 static const char * const llce_modules[] = {
 	LLCE_MODULE_ENTRY(LLCE_TX),
@@ -285,16 +182,6 @@ static const struct llce_icsr icsrs[] = {
 		.icsr8_num = LLCE_CAN_TXACK_ICSR_8_15,
 	},
 };
-
-static const char *get_error_name(enum llce_fw_return err)
-{
-	u32 index = err - LLCE_ERROR_TXACK_FIFO_FULL;
-
-	if (index > ARRAY_SIZE(llce_errors))
-		return "Undefined error";
-
-	return llce_errors[index];
-}
 
 static const char *get_module_name(enum llce_can_module module)
 {
@@ -624,10 +511,8 @@ static int send_can_msg(struct mbox_chan *chan, struct llce_tx_msg *msg)
 	/* Get a free message buffer from BLROUT queue */
 	mb_index = readl(pop0);
 
-	if (mb_index == LLCE_FIFO_NULL_VALUE) {
-		pr_err("All LLCE buffers are in use\n");
+	if (mb_index == LLCE_FIFO_NULL_VALUE)
 		return -EAGAIN;
-	}
 
 	mb_index &= LLCE_CAN_CONFIG_FIFO_FIXED_MASK;
 
@@ -1166,19 +1051,26 @@ static void process_chan_err(struct llce_mb *mb, u32 chan_type,
 {
 	unsigned int chan_index;
 	struct mbox_controller *ctrl = &mb->controller;
-	struct llce_rx_msg notif = {
-		.cmd = LLCE_ERROR,
-		.error = error->error_info.error_code,
-	};
+	void *notif;
+	struct llce_rx_msg rx_notif;
+	struct llce_tx_notif tx_notif;
 
 	chan_index = get_channel_offset(chan_type, error->hw_ctrl);
-	notif.error = error->error_info.error_code;
 
-	/* Release the channel if an error occurred */
-	if (is_tx_chan(chan_type))
+	if (is_tx_chan(chan_type)) {
+		tx_notif.error = error->error_info.error_code;
+
+		/* Release the channel if an error occurred */
 		mbox_chan_txdone(&ctrl->chans[chan_index], 0);
+		notif = &tx_notif;
+	} else {
+		rx_notif.cmd = LLCE_ERROR;
+		rx_notif.error = error->error_info.error_code;
 
-	llce_mbox_chan_received_data(&ctrl->chans[chan_index], &notif);
+		notif = &rx_notif;
+	}
+
+	llce_mbox_chan_received_data(&ctrl->chans[chan_index], notif);
 }
 
 static void process_channel_err(struct llce_mb *mb,
@@ -1187,28 +1079,16 @@ static void process_channel_err(struct llce_mb *mb,
 	enum llce_can_module module_id = error->error_info.module_id;
 	enum llce_fw_return err = error->error_info.error_code;
 
-	/**
-	 * Limit ACK and bit error flooding
-	 */
-	if (err == LLCE_ERROR_BCAN_ACKERR ||
-	    err == LLCE_ERROR_BCAN_BIT0ERR ||
-	    err == LLCE_NOTIF_BUSOFF_DONE ||
-	    err == LLCE_NOTIF_BUSOFF_AUTO_RECOVERY_PENDING)
-		net_warn_ratelimited("%s: Error module:%s Error:%s HW module:%d\n",
-				     dev_name(mb->controller.dev),
-				     get_module_name(module_id), get_error_name(err),
-				     error->hw_ctrl);
-	else
-		dev_warn(mb->controller.dev, "Error module:%s Error:%s HW module:%d\n",
-			 get_module_name(module_id), get_error_name(err),
-			 error->hw_ctrl);
-
 	switch (module_id) {
 	case LLCE_TX:
 		return process_chan_err(mb, S32G_LLCE_CAN_TX_MB, error);
 	case LLCE_RX:
 		return process_chan_err(mb, S32G_LLCE_CAN_RX_MB, error);
 	default:
+		net_warn_ratelimited("%s: Error module:%s Error:%d HW module:%d\n",
+				     dev_name(mb->controller.dev),
+				     get_module_name(module_id), err,
+				     error->hw_ctrl);
 		break;
 	}
 }
