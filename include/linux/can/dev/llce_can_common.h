@@ -18,6 +18,7 @@ struct llce_can_dev {
 
 	struct mbox_client rx_client;
 	struct mbox_chan *rx;
+	u64 *stats;
 };
 
 static inline void unpack_word0(u32 word0, bool *rtr, bool *ide,
