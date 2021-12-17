@@ -310,14 +310,15 @@ static int llce_rx_poll(struct napi_struct *napi, int quota)
 	int num_pkts = 0;
 	struct llce_rx_can_mb *can_mb;
 	u32 index;
-	int ret;
+	int ret = 0;
 	bool skip = false;
 
+	atomic_set(&llce->rx_processing, 1);
 	while (!is_rx_empty(llce) && num_pkts < quota) {
 		ret = pop_rx_fifo(llce, &index, &skip, &can_mb);
 		if (ret) {
 			netdev_err(dev, "Failed to pop RX FIFO\n");
-			return num_pkts;
+			break;
 		}
 
 		if (skip)
@@ -332,8 +333,12 @@ static int llce_rx_poll(struct napi_struct *napi, int quota)
 			netdev_err(dev, "Failed to release RX FIFO index\n");
 	}
 
+	if (ret)
+		return num_pkts;
+
 	/* All packets processed */
 	if (num_pkts < quota) {
+		atomic_set(&llce->rx_processing, 0);
 		napi_complete_done(napi, num_pkts);
 
 		/* Enable RX notification / IRQ */
