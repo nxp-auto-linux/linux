@@ -19,7 +19,13 @@ struct llce_can_dev {
 	struct mbox_client rx_client;
 	struct mbox_chan *rx;
 	u64 *stats;
+	atomic_t rx_processing;
 };
+
+static inline bool is_llce_rx_busy(struct llce_can_dev *dev)
+{
+	return !!atomic_read(&dev->rx_processing);
+}
 
 static inline void unpack_word0(u32 word0, bool *rtr, bool *ide,
 				u32 *std_id, u32 *ext_id)
