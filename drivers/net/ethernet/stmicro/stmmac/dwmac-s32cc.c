@@ -383,9 +383,13 @@ static int s32cc_dwmac_probe(struct platform_device *pdev)
 		goto err_remove_config_dt;
 	}
 
-	ret = s32cc_configure_serdes(plat_dat, serdes_phy);
-	if (ret)
-		dev_err(&pdev->dev, "SERDES is not configured\n");
+	if (plat_dat->phy_interface == PHY_INTERFACE_MODE_SGMII) {
+		ret = s32cc_configure_serdes(plat_dat, serdes_phy);
+		if (ret) {
+			dev_err(&pdev->dev, "SERDES is not configured\n");
+			return ret;
+		}
+	}
 
 	/* tx clock */
 	gmac->tx_clk = devm_clk_get(&pdev->dev, tx_clk);
