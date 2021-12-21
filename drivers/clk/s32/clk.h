@@ -1,6 +1,6 @@
 /*
  * Copyright 2015-2016 Freescale Semiconductor, Inc.
- * Copyright 2017-2018 NXP
+ * Copyright 2017-2018,2021 NXP
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -16,7 +16,7 @@
 #include <linux/clk-provider.h>
 
 #define PNAME(x) \
-	static const char *x[] __initconst
+	static const char *x[]
 
 void s32_check_clocks(struct clk *clks[], unsigned int count);
 
