@@ -54,9 +54,6 @@ static bool mc_rgm_readable_reg(struct device *dev, unsigned int reg)
 }
 
 static const struct regmap_config mc_rgm_regmap_config = {
-	.reg_bits = 32,
-	.val_bits = 32,
-	.reg_stride = 4,
 	.writeable_reg = mc_rgm_writeable_reg,
 	.readable_reg = mc_rgm_readable_reg,
 	.max_register = RGM_PSTAT(7),
@@ -77,12 +74,6 @@ static int s32gen1_mc_rgm_probe(struct platform_device *pdev)
 	if (IS_ERR(mc_rgm)) {
 		dev_err(&pdev->dev, "Cannot map 'RGM' resource\n");
 		return -ENODEV;
-	}
-
-	err = regmap_attach_dev(dev, mc_rgm, &mc_rgm_regmap_config);
-	if (err) {
-		dev_err(dev, "Failed to attach device to 'RGM' regmap.\n");
-		return err;
 	}
 
 	err = regmap_reinit_cache(mc_rgm, &mc_rgm_regmap_config);
