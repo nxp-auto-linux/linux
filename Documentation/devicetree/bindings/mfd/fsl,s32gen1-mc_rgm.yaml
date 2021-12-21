@@ -23,9 +23,14 @@ properties:
   reg:
     maxItems: 1
 
+  nxp,syscon-mc-me:
+    description: |
+      A phandle to MC_ME syscon registers.
+
 required:
   - compatible
   - reg
+  - nxp,syscon-mc-me
 
 additionalProperties: false
 
@@ -34,4 +39,5 @@ examples:
     mc_rgm: mc_rgm@40078000 {
       compatible = "fsl,s32gen1-rgm", "syscon";
       reg = <0x40078000 0x3000>;
+      nxp,syscon-mc-me = <&mc_me>;
     };
