@@ -39,9 +39,14 @@ properties:
   reg:
     description: Location and length of the register set
 
+  nxp,syscon-mc-me:
+    description: |
+      A phandle to MC_ME syscon registers.
+
 required:
   - compatible
   - reg
+  - nxp,syscon-mc-me
 
 additionalProperties: false
 
@@ -56,5 +61,6 @@ examples:
             <0x40050000 0x3000>, /*xosc*/
             <0x40054000 0x3000>, /*armdfs*/
             <0x40058000 0x3000>; /*periphdfs*/
+        nxp,syscon-mc-me = <&mc_me>;
     };
 ...
