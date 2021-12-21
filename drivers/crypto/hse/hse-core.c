@@ -830,7 +830,7 @@ static int hse_probe(struct platform_device *pdev)
 	/* check firmware status */
 	status = hse_mu_check_status(drv->mu);
 	if (!likely(status & HSE_STATUS_INIT_OK)) {
-		dev_err(dev, "firmware not found\n");
+		dev_warn(dev, "firmware not found\n");
 		return -ENODEV;
 	}
 
