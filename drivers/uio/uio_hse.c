@@ -538,7 +538,7 @@ static int hse_uio_probe(struct platform_device *pdev)
 	/* check firmware status */
 	status = hse_uio_check_status(dev);
 	if (unlikely(!status)) {
-		dev_err(dev, "firmware not found\n");
+		dev_warn(dev, "firmware not found\n");
 		return -ENODEV;
 	}
 
