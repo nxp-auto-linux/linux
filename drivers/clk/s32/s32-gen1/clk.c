@@ -13,6 +13,7 @@
 #include <linux/clk.h>
 #include <linux/mfd/syscon.h>
 #include <linux/of_address.h>
+#include <linux/of_device.h>
 #include <linux/syscore_ops.h>
 
 #include "clk.h"
@@ -211,7 +212,7 @@ static struct clk *get_plat_clk(uint32_t pos)
 	return clk[S32GEN1_CLK_ARR_INDEX(pos)];
 }
 
-static void __init s32g274_extra_clocks_init(struct device_node *clocking_node)
+static void s32g274_extra_clocks_init(struct device_node *clocking_node)
 {
 	struct clk *c;
 
@@ -273,7 +274,7 @@ static void __init s32g274_extra_clocks_init(struct device_node *clocking_node)
 	set_plat_clk(S32GEN1_CLK_PFE_EMAC_2_TX, c);
 }
 
-static void __init s32r45_extra_clocks_init(struct device_node *clocking_node)
+static void s32r45_extra_clocks_init(struct device_node *clocking_node)
 {
 	struct clk *c;
 
@@ -307,7 +308,7 @@ static void __init s32r45_extra_clocks_init(struct device_node *clocking_node)
 	set_plat_clk(S32GEN1_CLK_GMAC_1_RX, c);
 }
 
-static void __init s32gen1_clocks_init(struct device_node *clocking_node)
+static void s32gen1_clocks_init(struct device_node *clocking_node)
 {
 	struct device_node *np;
 	struct clk *c;
@@ -377,8 +378,8 @@ static void __init s32gen1_clocks_init(struct device_node *clocking_node)
 	if (WARN_ON(!clk_modules.mc_cgm5_base))
 		return;
 
-	clk_modules.mc_me =
-		syscon_regmap_lookup_by_compatible("fsl,s32gen1-mc_me");
+	clk_modules.mc_me = syscon_regmap_lookup_by_phandle(clocking_node,
+							    "nxp,syscon-mc-me");
 	if (IS_ERR(clk_modules.mc_me)) {
 		pr_err("s32gen1_clk: Cannot map 'MC_ME' resource\n");
 		return;
@@ -683,7 +684,7 @@ static void __init s32gen1_clocks_init(struct device_node *clocking_node)
 	of_clk_add_provider(clocking_node, s32gen1_clk_src_get, &plat_clks);
 }
 
-static void __init s32gen1_mux0_gmac0_clock_init(struct device_node *clocking_node)
+static void s32gen1_mux0_gmac0_clock_init(struct device_node *clocking_node)
 {
 	struct clk *c;
 
@@ -712,7 +713,7 @@ static void __init s32gen1_mux0_gmac0_clock_init(struct device_node *clocking_no
 	set_plat_clk(S32GEN1_CLK_GMAC_0_TS, c);
 }
 
-static void __init s32gen1_mux6_gmac0_clock_init(struct device_node *clocking_node)
+static void s32gen1_mux6_gmac0_clock_init(struct device_node *clocking_node)
 {
 	struct device_node *np;
 	struct clk *c;
@@ -1035,7 +1036,7 @@ static struct syscore_ops s32gen1_clk_syscore_ops = {
 	.resume = s32gen1_clk_resume,
 };
 
-static void __init s32g274_clocks_init(struct device_node *clks_node)
+static void s32g2_clocks_init(struct device_node *clks_node)
 {
 	s32gen1_clocks_init(clks_node);
 	s32gen1_mux0_gmac0_clock_init(clks_node);
@@ -1045,7 +1046,7 @@ static void __init s32g274_clocks_init(struct device_node *clks_node)
 	register_syscore_ops(&s32gen1_clk_syscore_ops);
 }
 
-static void __init s32g3_clocks_init(struct device_node *clks_node)
+static void s32g3_clocks_init(struct device_node *clks_node)
 {
 	s32gen1_clocks_init(clks_node);
 	s32gen1_mux6_gmac0_clock_init(clks_node);
@@ -1055,7 +1056,7 @@ static void __init s32g3_clocks_init(struct device_node *clks_node)
 	register_syscore_ops(&s32gen1_clk_syscore_ops);
 }
 
-static void __init s32r45_clocks_init(struct device_node *clks_node)
+static void s32r45_clocks_init(struct device_node *clks_node)
 {
 	s32gen1_clocks_init(clks_node);
 	s32gen1_mux0_gmac0_clock_init(clks_node);
@@ -1065,6 +1066,58 @@ static void __init s32r45_clocks_init(struct device_node *clks_node)
 	register_syscore_ops(&s32gen1_clk_syscore_ops);
 }
 
-CLK_OF_DECLARE(S32G274, "fsl,s32g274a-clocking", s32g274_clocks_init);
-CLK_OF_DECLARE(S32G3, "fsl,s32g3-clocking", s32g3_clocks_init);
-CLK_OF_DECLARE(S32R45, "fsl,s32r45-clocking", s32r45_clocks_init);
+enum s32gen1_soc_family {
+	S32G2 = 1,
+	S32G3,
+	S32R45,
+};
+
+static int s32gen1_clks_probe(struct platform_device *pdev)
+{
+	enum s32gen1_soc_family soc_fam;
+	struct device *dev = &pdev->dev;
+	struct device_node *np = dev_of_node(dev);
+	const void *data;
+
+	data = of_device_get_match_data(&pdev->dev);
+	if (!data)
+		return -EINVAL;
+
+	soc_fam = (enum s32gen1_soc_family)data;
+
+	switch (soc_fam) {
+	case S32G2:
+		s32g2_clocks_init(np);
+		break;
+	case S32G3:
+		s32g3_clocks_init(np);
+		break;
+	case S32R45:
+		s32r45_clocks_init(np);
+		break;
+	};
+
+	return 0;
+}
+
+static const struct of_device_id s32gen1_clk_match[] = {
+	{ .compatible = "fsl,s32g3-clocking", .data = (void *)S32G3 },
+	{ .compatible = "fsl,s32g274a-clocking", .data = (void *)S32G2 },
+	{ .compatible = "fsl,s32r45-clocking", .data = (void *)S32R45 },
+	{},
+};
+
+static struct platform_driver s32gen1_clk_driver = {
+	.driver = {
+		.name = "s32gen1-clks",
+		.of_match_table = s32gen1_clk_match
+	},
+	.probe = s32gen1_clks_probe,
+};
+
+static int __init s32gen1_module_init(void)
+{
+	return platform_driver_register(&s32gen1_clk_driver);
+}
+
+subsys_initcall(s32gen1_module_init);
