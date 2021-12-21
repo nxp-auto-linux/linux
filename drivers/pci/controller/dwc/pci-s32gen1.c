@@ -1423,7 +1423,7 @@ static int wait_phy_data_link(struct s32gen1_pcie *s32_pp)
 
 	spin_until_cond(pcie_link_or_timeout(s32_pp, timeout));
 	if (!has_data_phy_link(s32_pp)) {
-		dev_err(s32_pp->pcie.dev, "Failed to stabilize PHY link\n");
+		dev_info(s32_pp->pcie.dev, "Failed to stabilize PHY link\n");
 		return -ETIMEDOUT;
 	}
 
