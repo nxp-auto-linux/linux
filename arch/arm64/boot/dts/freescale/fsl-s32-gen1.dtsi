@@ -217,6 +217,7 @@
 	reset_0: reset@40078000 {
 		compatible = "fsl,s32gen1-prstc";
 		nxp,syscon-mc-me = <&mc_me>;
+		nxp,syscon-mc-rgm = <&mc_rgm>;
 	};
 
 	a53_gpr: a53_gpr@4007C400 {

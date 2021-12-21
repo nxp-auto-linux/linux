@@ -98,7 +98,18 @@ static struct platform_driver s32gen1_mc_rgm_driver = {
 	.probe = s32gen1_mc_rgm_probe,
 };
 
-module_platform_driver(s32gen1_mc_rgm_driver);
+static int __init mc_rgm_module_init(void)
+{
+	return platform_driver_register(&s32gen1_mc_rgm_driver);
+}
+
+static void __exit mc_rgm_module_cleanup(void)
+{
+	platform_driver_unregister(&s32gen1_mc_rgm_driver);
+}
+
+arch_initcall(mc_rgm_module_init);
+module_exit(mc_rgm_module_cleanup);
 
 MODULE_AUTHOR("Andra Ilie <andra.ilie@nxp.com>");
 MODULE_DESCRIPTION("S32GEN1 MC_RGM regmap driver");
