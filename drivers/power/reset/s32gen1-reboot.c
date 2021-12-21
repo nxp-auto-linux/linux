@@ -88,8 +88,8 @@ static int s32gen1_reboot_probe(struct platform_device *pdev)
 		return -ENODEV;
 	}
 
-	priv->mc_rgm =
-		syscon_regmap_lookup_by_compatible("fsl,s32gen1-rgm");
+	priv->mc_rgm = syscon_regmap_lookup_by_phandle(dev->of_node,
+						       "nxp,syscon-mc-rgm");
 	if (IS_ERR(priv->mc_rgm)) {
 		dev_err(dev, "Cannot map 'RGM' resource\n");
 		return -ENODEV;
