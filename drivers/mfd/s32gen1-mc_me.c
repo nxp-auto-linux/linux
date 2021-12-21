@@ -89,9 +89,6 @@ static bool mc_me_writeable_reg(struct device *dev, unsigned int reg)
 }
 
 static const struct regmap_config mc_me_regmap_config = {
-	.reg_bits = 32,
-	.val_bits = 32,
-	.reg_stride = 4,
 	.writeable_reg = mc_me_writeable_reg,
 	.readable_reg = mc_me_readable_reg,
 	.max_register = MC_ME_PRTN_N_COFB0_CLKEN(3),
@@ -112,12 +109,6 @@ static int s32gen1_mc_me_probe(struct platform_device *pdev)
 	if (IS_ERR(mc_me)) {
 		dev_err(&pdev->dev, "Cannot map 'MC_ME' resource\n");
 		return -ENODEV;
-	}
-
-	err = regmap_attach_dev(dev, mc_me, &mc_me_regmap_config);
-	if (err) {
-		dev_err(dev, "Failed to attach device to 'MC_ME' regmap.\n");
-		return err;
 	}
 
 	err = regmap_reinit_cache(mc_me, &mc_me_regmap_config);
