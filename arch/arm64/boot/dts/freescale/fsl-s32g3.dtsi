@@ -117,7 +117,7 @@
 };
 
 &reset {
-	compatible = "fsl,s32gen1-rgm", "fsl,s32g3-reset", "syscon";
+	compatible = "fsl,s32g3-reset", "syscon";
 };
 
 &cpus {
