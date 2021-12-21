@@ -486,8 +486,8 @@ static int s32gen1_reset_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 
-	reset->mc_me =
-		syscon_regmap_lookup_by_compatible("fsl,s32gen1-mc_me");
+	reset->mc_me = syscon_regmap_lookup_by_phandle(dev->of_node,
+						       "nxp,syscon-mc-me");
 	if (IS_ERR(reset->mc_me)) {
 		dev_err(&pdev->dev, "Cannot map 'MC_ME' resource\n");
 		return PTR_ERR(reset->mc_me);

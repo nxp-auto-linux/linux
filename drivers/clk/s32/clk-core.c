@@ -1,6 +1,6 @@
 /*
  * Copyright 2015 Freescale Semiconductor, Inc.
- * Copyright 2017 NXP
+ * Copyright 2017,2021 NXP
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -16,7 +16,7 @@
 #include <linux/spinlock.h>
 #include "clk.h"
 
-void __init s32_check_clocks(struct clk *clks[], unsigned int count)
+void s32_check_clocks(struct clk *clks[], unsigned int count)
 {
 	unsigned int i;
 
@@ -26,7 +26,7 @@ void __init s32_check_clocks(struct clk *clks[], unsigned int count)
 			       i, PTR_ERR(clks[i]));
 }
 
-static struct clk * __init s32_obtain_fixed_clock_from_dt(const char *name)
+static struct clk *s32_obtain_fixed_clock_from_dt(const char *name)
 {
 	struct of_phandle_args phandle;
 	struct clk *clk = ERR_PTR(-ENODEV);
@@ -46,8 +46,7 @@ static struct clk * __init s32_obtain_fixed_clock_from_dt(const char *name)
 	return clk;
 }
 
-struct clk * __init s32_obtain_fixed_clock(
-			const char *name, unsigned long rate)
+struct clk *s32_obtain_fixed_clock(const char *name, unsigned long rate)
 {
 	struct clk *clk;
 
