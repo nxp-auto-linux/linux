@@ -2,7 +2,7 @@
 /*
  * PCIe host controller driver for NXP S32Gen1 SoCs
  *
- * Copyright 2020-2021 NXP
+ * Copyright 2020-2022 NXP
  */
 
 #ifdef CONFIG_PCI_S32GEN1_DEBUG
@@ -243,7 +243,7 @@ static int s32gen1_check_serdes(struct device *dev)
 	}
 
 	serdes = nvmem_cell_read(serdes_cell, &read_len);
-	nvmem_cell_put(serdes_cell);
+	devm_nvmem_cell_put(dev, serdes_cell);
 	if (IS_ERR(serdes)) {
 		dev_err(dev, "Failed to read serdes cell\n");
 		return PTR_ERR(serdes);
