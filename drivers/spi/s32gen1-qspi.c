@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0+
 /*
- * Copyright 2020-2021 NXP
+ * Copyright 2020-2022 NXP
  */
 #include <linux/io.h>
 #include <linux/mtd/spi-nor.h>
@@ -1031,7 +1031,7 @@ static int qspi_read_mem(struct fsl_qspi *q,
 	qspi_writel(q, lut_cfg << QUADSPI_BFGENCR_SEQID_SHIFT,
 			base + QUADSPI_BFGENCR);
 
-	__inval_dcache_area(q->ahb_addr + op->addr.val, op->data.nbytes);
+	__inval_dcache_area((void __force *)q->ahb_addr + op->addr.val, op->data.nbytes);
 
 	/* Read out the data directly from the AHB buffer. */
 	ktime_get_ts64(&start);
