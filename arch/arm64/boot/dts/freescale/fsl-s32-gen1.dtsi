@@ -959,7 +959,7 @@
 					<0 0 0 2 &gic 0 0 0 129 4>,
 					<0 0 0 3 &gic 0 0 0 130 4>,
 					<0 0 0 4 &gic 0 0 0 131 4>;
-		/* msi-parent = <&gic>; */
+		msi-parent = <&gic>;
 
 		/* EP mode only */
 		num-ib-windows = <6>;
@@ -1036,7 +1036,7 @@
 					<0 0 0 2 &gic 0 0 0 220 4>,
 					<0 0 0 3 &gic 0 0 0 221 4>,
 					<0 0 0 4 &gic 0 0 0 222 4>;
-		/* msi-parent = <&gic>; */
+		msi-parent = <&gic>;
 
 		/* EP mode only */
 		num-ib-windows = <6>;
