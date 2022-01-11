@@ -43,19 +43,17 @@ properties:
 
   msi-parent:
     description: |
-      Use this option pointing to the GIC controller node which will
-      handle the MSIs. This property can be used only in Root Complex case.
-      By default, MSIs are handled by iMSI-RX -Integrated MSI Receiver
-      [AXI Bridge]-, an integrated MSI reception module in AXI Bridge which
+      Use this option to reference the GIC controller node which will
+      handle the MSIs. This property can be used only in Root Complex mode.
+      The msi-parent node must be declared as "msi-controller" and the list of
+      available SPIs that can be used must be declared using "mbi-ranges".
+      If "msi-parent" is not present in the PCIe node, MSIs will be handled
+      by iMSI-RX -Integrated MSI Receiver [AXI Bridge]-, an integrated
+      MSI reception module in the PCIe controller's AXI Bridge which
       detects and terminates inbound MSI requests (received on the RX wire).
-      These MSIs will no longer appear on the AXI bus. The disadvantage of this
-      approach is that only one hardware interrupt can be used, the one named
-      "msi" from the interrupt list, which will make impossible MSIs balancing
-      between several cores. If one wants to use more than one hardware
-      interrupt, iMSI-RX should be skipped and MSIs should be generated as SPIs.
-      This can be achived by adding the "msi-parent" property. The msi-parent
-      should be declared as "msi-controller" and the list of available SPIs that
-      can be used will be declared using "mbi-ranges".
+      These MSIs no longer appear on the AXI bus, instead a hard-wired
+      interrupt is raised, documented as "DSP AXI MSI Interrupt" in the SoC
+      Reference Manual.
 
   nvmem-cell-names:
     const: serdes_presence
