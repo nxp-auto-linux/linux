@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Freescale eSDHC i.MX controller driver for the platform bus.
+ * NXP eSDHC/uSDHC controller driver for the platform bus.
  *
  * derived from the OF-version.
  *
  * Copyright (c) 2010 Pengutronix e.K.
- * Copyright 2020-2021 NXP
+ * Copyright 2020-2022 NXP
  *   Author: Wolfram Sang <kernel@pengutronix.de>
  */
 
@@ -53,6 +53,8 @@
 
 #define ESDHC_SYS_CTRL			0x2c
 #define SYS_CTRL_RSTA			BIT(24)
+
+#define SDHCI_CAPABILITIES_MAX_SD_CLK_HZ(x)	((x) << 8)
 
 #define ESDHC_WTMK_LVL			0x44
 #define  ESDHC_WTMK_DEFAULT_VAL		0x10401040
@@ -450,6 +452,13 @@ static u32 esdhc_readl_le(struct sdhci_host *host, int reg)
 		if (val & SDHCI_CAN_DO_ADMA1) {
 			val &= ~SDHCI_CAN_DO_ADMA1;
 			val |= SDHCI_CAN_DO_ADMA2;
+		}
+
+		/* Maximum frequency for the SD Clock is 208MHz,
+		 * used in SDR104 mode.
+		 */
+		if (is_s32gen1_usdhc(imx_data)) {
+			val |= SDHCI_CAPABILITIES_MAX_SD_CLK_HZ(208);
 		}
 	}
 
