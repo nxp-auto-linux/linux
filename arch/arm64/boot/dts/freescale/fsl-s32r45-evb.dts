@@ -1,5 +1,5 @@
 /*
- * Copyright 2019-2021 NXP
+ * Copyright 2019-2022 NXP
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -665,7 +665,7 @@
 		#address-cells = <1>;
 		#size-cells = <1>;
 		compatible = "jedec,spi-nor";
-		spi-max-frequency = <133000000>;
+		spi-max-frequency = <133333333>;
 		spi-tx-bus-width = <8>;
 		spi-rx-bus-width = <8>;
 		spi-no-functional-reset;
