@@ -2,12 +2,10 @@
 /*
  * Device Tree file for S32G274ARDB Board.
  *
- * Copyright 2019-2021 NXP
+ * Copyright 2019-2022 NXP
  *
  */
 
-/dts-v1/;
-#include "fsl-s32g274a.dtsi"
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/pinctrl/s32g-pinctrl.h>
 / {
@@ -82,6 +80,19 @@
 	scl-gpios = <&gpio0 32 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
 	sda-gpios = <&gpio0 31 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
 	status = "okay";
+
+	pcal6524: gpio-expander@22 {
+		compatible = "nxp,pcal6524";
+		reg = <0x22>;
+		gpio-controller;
+		#gpio-cells = <2>;
+	};
+
+	rtc@51 {
+		compatible = "nxp,pca85073a";
+		reg = <0x51>;
+		nxp,no-battery;
+	};
 };
 
 &i2c1 {
@@ -90,7 +101,7 @@
 	pinctrl-1 = <&pinctrl1_i2c1_gpio>;
 	scl-gpios = <&gpio1 163 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
 	sda-gpios = <&gpio1 165 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
-	status = "okay";
+	status = "disabled";
 };
 
 &i2c2 {
@@ -703,6 +714,26 @@
 	#address-cells = <1>;
 	#size-cells = <0>;
 	status = "okay";
+
+	/* 1 hardware cs and 1 gpio cs*/
+	spi-num-chipselects = <1>;
+	cs-gpios = <0>, <&gpio0 30 0>;
+
+	sja1110-uc@0 {
+		compatible = "nxp,sja1110-uc";
+		spi-max-frequency = <5000000>;
+		fsl,spi-cs-sck-delay = <50>;
+		fsl,spi-sck-cs-delay = <50>;
+		reg = <0>;
+	};
+
+	sja1110-sw@1 {
+		compatible = "nxp,sja1110-switch";
+		spi-max-frequency = <5000000>;
+		fsl,spi-cs-sck-delay = <50>;
+		fsl,spi-sck-cs-delay = <50>;
+		reg = <1>;
+	};
 };
 
 &usbmisc {
@@ -754,6 +785,32 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_gpioeirq>;
 	status = "okay";
+};
+
+&gmac0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl0_gmac0_rgmii_a &pinctrl0_gmac0_mdio_a>;
+	phy-mode = "rgmii-id";
+	status = "okay";
+	/* Connected to KSZ9031 MDIO_A */
+	phy-handle = <&mdio_a_phy1>;
+};
+
+&gmac0_mdio {
+	/* KSZ9031 GMAC */
+	mdio_a_phy1: ethernet-phy@1 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		max-speed = <1000>;
+		reg = <1>;
+	};
+	/* ARQ107 */
+	mdio_a_phy3: ethernet-phy@3 {
+		compatible = "ethernet-phy-ieee802.3-c45";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg = <3>;
+	};
 };
 
 &llce_dte_sram {
@@ -820,6 +877,18 @@
 	status = "okay";
 };
 
+&llce_can10 {
+	status = "okay";
+};
+
+&llce_can11 {
+	status = "okay";
+};
+
+&llce_can13 {
+	status = "okay";
+};
+
 &llce_can14 {
 	status = "okay";
 };
@@ -827,3 +896,22 @@
 &llce_can15 {
 	status = "okay";
 };
+
+&pfe_logif1 {
+	phy-handle = <&mdio_a_phy3>;
+};
+
+&pfe_emac1 {
+	phy-mode = "sgmii";
+};
+
+&pfe_mdio2 {
+	/* AR8035 */
+	mdio_b_phy4: ethernet-phy@4 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg = <4>;
+	};
+	/* SJA1110's phys: 0x09-0x0e */
+};
+
