@@ -4,7 +4,7 @@
  *
  * This file defines the firmware binary interface of HSE cryptographic engine.
  *
- * Copyright 2019-2021 NXP
+ * Copyright 2019-2022 NXP
  */
 
 #ifndef HSE_ABI_H
@@ -21,7 +21,7 @@
 
 #define HSE_KEY_HMAC_MIN_SIZE    16u /* minimum key size admitted for HMAC */
 
-#define HSE_MAX_CTX_SIZE    0x128u /* maximum streaming context size */
+#define HSE_MAX_CTX_SIZE    368ul /* maximum streaming context size */
 #define HSE_MIN_RNG_SIZE    32ul /* minimum random number length */
 #define HSE_MAX_RNG_SIZE    2048ul /* maximum random number length */
 
