@@ -4,7 +4,7 @@
  * PCIe host controller driver, customized
  * for the NXP S32 PCIE driver
  *
- * Copyright 2017-2021 NXP
+ * Copyright 2017-2022 NXP
  */
 
 #include <linux/clk.h>
@@ -312,6 +312,7 @@ int dw_pcie_dma_single_rw(struct dma_info *di,
 		di->rd_ch.status = DMA_CH_RUNNING;
 		di->rd_ch.errors = 0;
 		dw_pcie_dma_read_en(di);
+		dir = DMA_CH_READ;
 	}
 
 	if (!di->iatu_unroll_enabled)
@@ -466,9 +467,9 @@ u32 dw_handle_dma_irq_read(struct dma_info *di, u32 val_read)
 	return err_type;
 }
 
-#if (defined(CONFIG_PCI_EPF_TEST))
+#ifdef CONFIG_PCI_EPF_TEST
 
-int dw_pcie_ep_start_dma(struct dw_pcie_ep *ep, bool dir,
+int dw_pcie_ep_start_dma(struct dw_pcie_ep *ep, bool read,
 				 dma_addr_t src, dma_addr_t dst, u32 len,
 				 struct completion *complete)
 {
@@ -476,16 +477,14 @@ int dw_pcie_ep_start_dma(struct dw_pcie_ep *ep, bool dir,
 	struct dma_info *di = dw_get_dma_info(pcie);
 
 	int ret = 0;
-/* TODO: make channel configurable, or get automatically
- * the next one available.
- */
-	struct dma_data_elem dma_single = {
-		.ch_num = 0,
-		.flags = (DMA_FLAG_WRITE_ELEM | DMA_FLAG_EN_DONE_INT |
-				DMA_FLAG_LIE),
-	};
+	struct dma_data_elem dma_single = { 0, };
 
-	dev_dbg(pcie->dev, "%s\n", __func__);
+	if (read)
+		dma_single.flags = (DMA_FLAG_READ_ELEM | DMA_FLAG_EN_DONE_INT  |
+			DMA_FLAG_LIE);
+	else
+		dma_single.flags = (DMA_FLAG_WRITE_ELEM | DMA_FLAG_EN_DONE_INT |
+			DMA_FLAG_LIE);
 
 	dma_single.size = len;
 	dma_single.sar = src;
