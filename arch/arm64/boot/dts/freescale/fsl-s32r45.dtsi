@@ -280,6 +280,22 @@
 			#size-cells = <0>;
 		};
 	};
+
+	pcie1: pcie@44100000 {
+		interrupts =  <0 209 4>, <0 208 4>, <0 210 4>,
+					<0 211 4>, <0 212 4>, <0 217 4>,
+					<0 218 4>, <0 219 4>;
+		interrupt-names = "link_req_stat", "dma","msi",
+					"phy_link_down", "phy_link_up", "misc",
+					"pcs", "tlp_req_no_comp";
+		#interrupt-cells = <1>;
+		interrupt-map-mask = <0 0 0 0x7>;
+		interrupt-map = <0 0 0 1 &gic 0 0 0 213 4>,
+					<0 0 0 2 &gic 0 0 0 214 4>,
+					<0 0 0 3 &gic 0 0 0 215 4>,
+					<0 0 0 4 &gic 0 0 0 216 4>;
+		msi-parent = <&gic>;
+	};
 };
 
 &pcie0 {
