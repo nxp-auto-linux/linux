@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright 2019-2021 NXP
+ * Copyright 2019-2022 NXP
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -310,7 +310,9 @@
 	/* Example of PFE slave driver entry. Requires SLAVE mode driver */
 	pfe_slave: pfe_slave@46000000 {
 		compatible = "fsl,s32g274a-pfeng-slave";
-		reg = <0x0 0x46000000 0x0 0x1000000>;	 /* PFE controller */
+		reg = <0x0 0x46000000 0x0 0x1000000>,	/* PFE controller */
+		      <0x0 0x4007caec 0x0 0x4>;			/* S32G274a syscon */
+		reg-names = "cbus", "gpr";
 		#address-cells = <0x01>;
 		#size-cells = <0x00>;
 		interrupt-parent = <&gic>;
