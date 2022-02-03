@@ -522,14 +522,6 @@
 		status = "disabled";
 	};
 
-	ddr: ddr@403C0000 {
-		compatible = "fsl,s32gen1-ddr";
-		reg = <0x0 0x403C0000 0x0 0x100>;
-		perf-phandle = <&perf>;
-		/* Will be modified by u-boot */
-		status = "disabled";
-	};
-
 	llce_dte_sram: llce_dte_sram@43000000 {
 		compatible = "mmio-sram";
 		reg = <0x0 0x43000000 0x0 0x2000>;
