@@ -1,5 +1,5 @@
 /*
- * Copyright 2017-2021 NXP
+ * Copyright 2017-2022 NXP
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -1086,6 +1086,14 @@
 		reg = <0x0 0x403e0000 0x0 0x100>;
 		interrupt-parent = <&gic>;
 		interrupts = <GIC_SPI 115 IRQ_TYPE_LEVEL_HIGH>; /* GIC 147 */
+	};
+
+	ddr: ddr@403C0000 {
+		compatible = "fsl,s32gen1-ddr";
+		reg = <0x0 0x403C0000 0x0 0x100>;
+		perf-phandle = <&perf>;
+		/* Will be modified by u-boot */
+		status = "disabled";
 	};
 };
 
