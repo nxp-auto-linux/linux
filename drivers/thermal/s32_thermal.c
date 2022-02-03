@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0
-/* Copyright 2017-2018,2020-2021 NXP */
+/* Copyright 2017-2018,2020-2022 NXP */
 
 #include <linux/io.h>
 #include <linux/clk.h>
@@ -18,7 +18,7 @@
 #include "s32gen1_thermal.h"
 
 #define TMU_SITE(n)			(1 << n)
-#define CALIB_POINTS_MAX	12
+#define CALIB_POINTS		4
 #define NO_INTERF_FILES		4
 
 /* The hard-coded vectors are required to calibrate the thermal
@@ -123,7 +123,6 @@ struct tmu_driver_data {
 	void __iomem *tmu_registers;
 	void __iomem *fuse_base;
 	struct device *hwmon_device;
-	uint8_t calib_points;
 	int16_t temp_offset;
 };
 
@@ -381,14 +380,9 @@ static int tmu_calibrate_s32gen1(struct device *dev)
 	union TMU_TRCR_u tmu_trcr;
 	union TMU_CMCFG_u tmu_cmcfg;
 	int i;
-	uint32_t calib_scfgr[CALIB_POINTS_MAX];
-	uint32_t calib_trcr[CALIB_POINTS_MAX];
+	u32 calib_scfgr[CALIB_POINTS];
+	u32 calib_trcr[CALIB_POINTS];
 
-	if (tmu_dd->calib_points > CALIB_POINTS_MAX) {
-		dev_err(dev,
-				"The allocated calibration tables are not large enough\n");
-		return -ENOMEM;
-	}
 	get_calib_table(dev, calib_scfgr, calib_trcr);
 
 	/* These values do look like magic numbers because
@@ -408,7 +402,7 @@ static int tmu_calibrate_s32gen1(struct device *dev)
 	tmu_tcfgr.R = readl(tmu_dd->tmu_registers + TMU_TCFGR);
 	tmu_scfgr.R = readl(tmu_dd->tmu_registers + TMU_SCFGR);
 
-	for (i = 0; i < tmu_dd->calib_points; i++) {
+	for (i = 0; i < CALIB_POINTS; i++) {
 		tmu_trcr.R	= readl(tmu_dd->tmu_registers + TMU_TRCR(i));
 		tmu_tcfgr.B.CAL_PT = i;
 		tmu_scfgr.B.SENSOR = calib_scfgr[i];
