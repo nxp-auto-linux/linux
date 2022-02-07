@@ -1,5 +1,5 @@
 /*
- * Copyright 2017-2021 NXP
+ * Copyright 2017-2022 NXP
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -42,7 +42,7 @@
 		interrupts = <0 68 4>;
 	};
 
-	clks: clks@40038000 {
+	clks@40038000 {
 		compatible = "fsl,s32g274-clocking";
 		reg = <0x0 0x40038000 0x0 0x3000>, /*armpll*/
 		      <0x0 0x4003C000 0x0 0x3000>, /*periphpll*/
@@ -51,6 +51,7 @@
 		      <0x0 0x40054000 0x0 0x3000>, /*armdfs*/
 		      <0x0 0x40058000 0x0 0x3000>; /*periphdfs*/
 		#clock-cells = <1>;
+		status = "disabled";
 	};
 };
 
