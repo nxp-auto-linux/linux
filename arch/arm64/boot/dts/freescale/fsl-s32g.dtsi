@@ -80,11 +80,12 @@
 		reg = <0x0 0x44018000 0x0 0x3000>;
 	};
 
-	reset: rgm@40078000 {
+	rgm@40078000 {
 		compatible = "fsl,s32g2-reset", "syscon";
 		reg = <0x0 0x40078000 0x0 0x3000>;
 		nxp,syscon-mc-me = <&mc_me>;
 		#reset-cells = <1>;
+		status = "disabled";
 	};
 
 	pfe: pfe@46080000 {

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright 2021 NXP
+ * Copyright 2021-2022 NXP
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -12,8 +12,6 @@
 #include "fsl-s32g3.dtsi"
 
 /delete-node/ &pci_shared_memory;
-/delete-node/ &scmi_shbuf;
-/delete-node/ &scmi;
 / {
 	model = "Freescale S32G399A";
 	compatible = "fsl,s32g399a-emu", "fsl,s32g399a",
