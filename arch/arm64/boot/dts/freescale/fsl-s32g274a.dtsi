@@ -2,14 +2,14 @@
 /*
  * Device Tree file for S32G274ARDB Board.
  *
- * Copyright 2021 NXP
+ * Copyright 2021-2022 NXP
  *
  */
 
 #include "fsl-s32g.dtsi"
 
 / {
-	clks: clks@40038000 {
+	clks@40038000 {
 		compatible = "fsl,s32g274a-clocking";
 		reg = <0x0 0x40038000 0x0 0x3000>,
 		      <0x0 0x4003C000 0x0 0x3000>,
@@ -21,6 +21,7 @@
 			   "ddrpll", "armdfs", "periphdfs";
 		nxp,syscon-mc-me = <&mc_me>;
 		#clock-cells = <1>;
+		status = "disabled";
 	};
 
 };

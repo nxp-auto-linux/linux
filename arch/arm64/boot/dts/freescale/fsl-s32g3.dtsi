@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright 2021 NXP
+ * Copyright 2021-2022 NXP
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -37,7 +37,7 @@
 		reg = <0x0 0x4053C000 0x0 0x3000>;
 	};
 
-	clks: clks@40038000 {
+	clks@40038000 {
 		compatible = "fsl,s32g3-clocking";
 		reg = <0x0 0x40038000 0x0 0x3000>,
 		      <0x0 0x4003C000 0x0 0x3000>,
@@ -49,6 +49,7 @@
 			   "ddrpll", "armdfs", "periphdfs";
 		nxp,syscon-mc-me = <&mc_me>;
 		#clock-cells = <1>;
+		status = "disabled";
 	};
 
 	swt8: swt@40500000 {
