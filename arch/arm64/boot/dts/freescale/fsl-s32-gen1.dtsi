@@ -100,29 +100,25 @@
 			device_type = "cpu";
 			compatible = "arm,cortex-a53";
 			reg = <0x0 0x0>;
-			enable-method = "spin-table";
-			cpu-release-addr = <0x0 0x00>;
+			enable-method = "psci";
 		};
 		cpu1: cpu@1 {
 			device_type = "cpu";
 			compatible = "arm,cortex-a53";
 			reg = <0x0 0x1>;
-			enable-method = "spin-table";
-			cpu-release-addr = <0x0 0x00>;
+			enable-method = "psci";
 		};
 		cpu2: cpu@100 {
 			device_type = "cpu";
 			compatible = "arm,cortex-a53";
 			reg = <0x0 0x100>;
-			enable-method = "spin-table";
-			cpu-release-addr = <0x0 0x00>;
+			enable-method = "psci";
 		};
 		cpu3: cpu@101 {
 			device_type = "cpu";
 			compatible = "arm,cortex-a53";
 			reg = <0x0 0x101>;
-			enable-method = "spin-table";
-			cpu-release-addr = <0x0 0x00>;
+			enable-method = "psci";
 		};
 
 		cluster0_l2_cache: l2-cache0 {
@@ -211,6 +207,11 @@
 	mc_cgm5: mc_cgm5@40068000 {
 		compatible = "fsl,s32gen1-mc_cgm5";
 		reg = <0x0 0x40068000 0x0 0x3000>;
+	};
+
+	psci: psci {
+		compatible = "arm,psci-1.0";
+		method = "smc";
 	};
 
 	reset_0: reset@40078000 {
