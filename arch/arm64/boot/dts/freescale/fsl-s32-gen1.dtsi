@@ -78,18 +78,17 @@
 			arm,smc-id = <0xc20000fe>;
 			#address-cells = <1>;
 			#size-cells = <0>;
-			status = "disabled";
+			status = "okay";
 
-			scmi_clks: protocol@14 {
+			clks: protocol@14 {
 				reg = <0x14>;
 				#clock-cells = <1>;
 			};
 
-			scmi_reset: protocol@16 {
+			reset: protocol@16 {
 				reg = <0x16>;
 				#reset-cells = <1>;
 			};
-
 		};
 	};
 
