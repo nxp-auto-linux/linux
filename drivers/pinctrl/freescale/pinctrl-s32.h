@@ -1,7 +1,7 @@
 /*
  * S32 pinmux core definitions
  *
- * Copyright 2016-2020 NXP
+ * Copyright 2016-2020,2022 NXP
  * Copyright 2015-2016 Freescale Semiconductor, Inc.
  * Copyright (C) 2012 Linaro Ltd.
  *
@@ -74,10 +74,6 @@ struct s32_pinctrl_soc_info {
 	unsigned int nfunctions;
 	unsigned int flags;
 	unsigned int grp_index;
-	unsigned int mscr_base_pin;
-	unsigned int mscr_end_pin;
-	unsigned int imcr_base_pin;
-	unsigned int imcr_end_pin;
 };
 
 #define S32_PINCTRL_PIN(pin)	PINCTRL_PIN(pin, #pin)

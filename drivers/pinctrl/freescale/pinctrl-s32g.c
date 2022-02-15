@@ -368,7 +368,10 @@ enum s32_pins {
 };
 
 /* Pad names for the pinmux subsystem */
-static const struct pinctrl_pin_desc s32_pinctrl_pads_siul2_0[] = {
+static const struct pinctrl_pin_desc s32_pinctrl_pads_siul2[] = {
+
+	/* SIUL2_0 pins. */
+
 	S32_PINCTRL_PIN(S32G_MSCR_PA_00),
 	S32_PINCTRL_PIN(S32G_MSCR_PA_01),
 	S32_PINCTRL_PIN(S32G_MSCR_PA_02),
@@ -517,9 +520,9 @@ static const struct pinctrl_pin_desc s32_pinctrl_pads_siul2_0[] = {
 	S32_PINCTRL_PIN(S32G_IMCR_Ethernet_RX_DV),
 	S32_PINCTRL_PIN(S32G_IMCR_Ethernet_TX_CLK),
 	S32_PINCTRL_PIN(S32G_IMCR_Ethernet_REF_CLK),
-};
 
-static const struct pinctrl_pin_desc s32_pinctrl_pads_siul2_1[] = {
+	/* SIUL2_1 pins. */
+
 	S32_PINCTRL_PIN(S32G_MSCR_PH_00),
 	S32_PINCTRL_PIN(S32G_MSCR_PH_01),
 	S32_PINCTRL_PIN(S32G_MSCR_PH_02),
@@ -711,24 +714,16 @@ static const struct pinctrl_pin_desc s32_pinctrl_pads_siul2_1[] = {
 	S32_PINCTRL_PIN(S32G_IMCR_SIUL_EIRQ31),
 };
 
-static struct s32_pinctrl_soc_info s32_pinctrl_info_0 = {
-	.pins = s32_pinctrl_pads_siul2_0,
-	.npins = ARRAY_SIZE(s32_pinctrl_pads_siul2_0),
-};
-
-static struct s32_pinctrl_soc_info s32_pinctrl_info_1 = {
-	.pins = s32_pinctrl_pads_siul2_1,
-	.npins = ARRAY_SIZE(s32_pinctrl_pads_siul2_1),
+static struct s32_pinctrl_soc_info s32_pinctrl_info = {
+	.pins = s32_pinctrl_pads_siul2,
+	.npins = ARRAY_SIZE(s32_pinctrl_pads_siul2),
 };
 
 static const struct of_device_id s32_pinctrl_of_match[] = {
 	{
-		.compatible = "nxp,s32g-siul2_0-pinctrl",
-		.data = (void *) &s32_pinctrl_info_0,
-	},
-	{
-		.compatible = "nxp,s32g-siul2_1-pinctrl",
-		.data = (void *) &s32_pinctrl_info_1,
+
+		.compatible = "nxp,s32g-siul2-pinctrl",
+		.data = (void *) &s32_pinctrl_info,
 	},
 	{ /* sentinel */ }
 };
