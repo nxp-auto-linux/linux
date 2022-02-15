@@ -3,7 +3,7 @@
  * s32g pinctrl driver based on imx pinmux and pinconf core
  *
  * Copyright 2015-2016 Freescale Semiconductor, Inc.
- * Copyright 2017-2018, 2020-2021 NXP
+ * Copyright 2017-2018, 2020-2022 NXP
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -368,7 +368,9 @@ enum s32cc_pins {
 };
 
 /* Pad names for the pinmux subsystem */
-static const struct pinctrl_pin_desc s32g_pinctrl_pads_siul2_0[] = {
+static const struct pinctrl_pin_desc s32g_pinctrl_pads_siul2[] = {
+	/* SIUL2_0 pins. */
+
 	S32CC_PINCTRL_PIN(S32G_MSCR_PA_00),
 	S32CC_PINCTRL_PIN(S32G_MSCR_PA_01),
 	S32CC_PINCTRL_PIN(S32G_MSCR_PA_02),
@@ -517,9 +519,9 @@ static const struct pinctrl_pin_desc s32g_pinctrl_pads_siul2_0[] = {
 	S32CC_PINCTRL_PIN(S32G_IMCR_Ethernet_RX_DV),
 	S32CC_PINCTRL_PIN(S32G_IMCR_Ethernet_TX_CLK),
 	S32CC_PINCTRL_PIN(S32G_IMCR_Ethernet_REF_CLK),
-};
 
-static const struct pinctrl_pin_desc s32g_pinctrl_pads_siul2_1[] = {
+	/* SIUL2_1 pins. */
+
 	S32CC_PINCTRL_PIN(S32G_MSCR_PH_00),
 	S32CC_PINCTRL_PIN(S32G_MSCR_PH_01),
 	S32CC_PINCTRL_PIN(S32G_MSCR_PH_02),
@@ -712,24 +714,15 @@ static const struct pinctrl_pin_desc s32g_pinctrl_pads_siul2_1[] = {
 	S32CC_PINCTRL_PIN(S32G_IMCR_SIUL_EIRQ31),
 };
 
-static struct s32cc_pinctrl_soc_info s32g_pinctrl_info_0 = {
-	.pins = s32g_pinctrl_pads_siul2_0,
-	.npins = ARRAY_SIZE(s32g_pinctrl_pads_siul2_0),
-};
-
-static struct s32cc_pinctrl_soc_info s32g_pinctrl_info_1 = {
-	.pins = s32g_pinctrl_pads_siul2_1,
-	.npins = ARRAY_SIZE(s32g_pinctrl_pads_siul2_1),
+static struct s32cc_pinctrl_soc_info s32g_pinctrl_info = {
+	.pins = s32g_pinctrl_pads_siul2,
+	.npins = ARRAY_SIZE(s32g_pinctrl_pads_siul2),
 };
 
 static const struct of_device_id s32g_pinctrl_of_match[] = {
 	{
-		.compatible = "nxp,s32g-siul2_0-pinctrl",
-		.data = (void *) &s32g_pinctrl_info_0,
-	},
-	{
-		.compatible = "nxp,s32g-siul2_1-pinctrl",
-		.data = (void *) &s32g_pinctrl_info_1,
+		.compatible = "nxp,s32g-siul2-pinctrl",
+		.data = (void *)&s32g_pinctrl_info,
 	},
 	{ /* sentinel */ }
 };
