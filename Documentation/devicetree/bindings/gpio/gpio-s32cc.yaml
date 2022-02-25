@@ -80,7 +80,7 @@ additionalProperties: false
 
 examples:
   - |
-    gpio1: siul2-gpio1 {
+    gpio: siul2-gpio {
       compatible = "nxp,s32g-siul2-gpio";
       gpio-controller;
       #gpio-cells = <2>;
