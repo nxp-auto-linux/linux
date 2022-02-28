@@ -122,6 +122,20 @@
 		#address-cells = <2>;
 		#size-cells = <2>;
 		status = "okay";
+
+			  /* MIDR */
+		ranges = <0 0 0x0 0x4009C000 0x0 0x10>,
+			  /* MSCR 0-101 */
+			 <1 0 0x0 0x4009C240 0x0 0x198>,
+			 /* IMCR range 512–595 */
+			 <2 0 0x0 0x4009CA40 0x0 0x150>,
+			 /* Output pads */
+			 <3 0 0x0 0x4009D700 0x0 0x10>,
+			 /* Input pads */
+			 <4 0 0x0 0x4009D740 0x0 0x10>,
+			 /* EIRQs */
+			 <5 0 0x0 0x4403C010 0x0 0x34>;
+
 		pinctrl0: siul2-pinctrl0@4009C000 {
 			compatible = "fsl,s32r45-siul2_0-pinctrl";
 			#pinctrl-cells = <2>;
@@ -165,9 +179,10 @@
 				/* Pad Data I/0 Registers */
 			reg = <0x3 0x0 0x0 0x10>,
 			      <0x4 0x0 0x0 0x10>,
-			      <0x5 0x0 0x0 0x30>;
+			      <0x5 0x0 0x0 0x34>;
 			reg-names = "opads", "ipads", "eirqs";
 			interrupt-controller;
+			#interrupt-cells = <2>;
 			interrupts = <0 237 4>;
 			status = "okay";
 		};
