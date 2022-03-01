@@ -2,6 +2,7 @@
 /* NXP TJA1100 BroadRReach PHY driver
  *
  * Copyright (C) 2018 Marek Vasut <marex@denx.de>
+ * Copyright 2022 NXP
  */
 #include <linux/delay.h>
 #include <linux/ethtool.h>
@@ -518,11 +519,6 @@ static void tja1102_p1_register(struct work_struct *work)
 				addr);
 			continue;
 		}
-
-		/* Overwrite parent device. phy_device_create() set parent to
-		 * the mii_bus->dev, which is not correct in case.
-		 */
-		phy->mdio.dev.parent = dev;
 
 		ret = of_mdiobus_phy_device_register(bus, phy, child, addr);
 		if (ret) {
