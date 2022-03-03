@@ -19,40 +19,26 @@
 	};
 };
 
-&pfe_reserved_slave {
+&gmac0 {
 	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl0_gmac0_rgmii_a>, <&pinctrl0_gmac0_mdio_a>;
+	phy-handle = <&gmac_mdio_a_phy1>;
+	phy-mode = "rgmii-id";
 };
 
-&pfe_reserved_bdr_slave {
-	status = "okay";
-};
-
-&pfe_slave {
-	status = "okay";
+&gmac0_mdio {
+	/* KSZ9031 GMAC */
+	gmac_mdio_a_phy1: ethernet-phy@1 {
+		reg = <1>;
+	};
 };
 
 &pfe {
 	status = "okay";
 	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl0_pfe2_mdio_b>,
-		    <&pinctrl1_pfe2_mdio_b>,
-		    <&pinctrl0_pfe2_rgmii_b>,
-		    <&pinctrl1_pfe2_rgmii_b>;
-};
-
-&pfe_logif0 {
-	fixed-link {
-		speed = <2500>;
-		full-duplex;
-	};
-};
-
-&pfe_logif1 {
-	status = "disabled";
-};
-
-&pfe_logif2 {
-	phy-handle = <&mdio_b_phy4>;
+	pinctrl-0 = <&pinctrl0_pfe2_mdio_b>, <&pinctrl1_pfe2_mdio_b>,
+		    <&pinctrl0_pfe2_rgmii_b>, <&pinctrl1_pfe2_rgmii_b>;
 };
 
 &pfe_mdio0 {
@@ -63,6 +49,31 @@
 &pfe_mdio1 {
 	/* occupied by GMAC0 */
 	status = "disabled";
+};
+
+&pfe_mdio2 {
+	/* AR8035 */
+	pfe_mdio_b_phy4: ethernet-phy@4 {
+		reg = <4>;
+	};
+	/* SJA1110's phys: 0x09-0x0e */
+};
+
+&pfe_netif0 {
+	phy-mode = "sgmii";
+	fixed-link {
+		speed = <2500>;
+		full-duplex;
+	};
+};
+
+&pfe_netif1 {
+	phy-mode = "sgmii";
+};
+
+&pfe_netif2 {
+	phy-mode = "rgmii-id";
+	phy-handle = <&pfe_mdio_b_phy4>;
 };
 
 &fxosc {
@@ -804,32 +815,6 @@
 	status = "okay";
 };
 
-&gmac0 {
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl0_gmac0_rgmii_a &pinctrl0_gmac0_mdio_a>;
-	phy-mode = "rgmii-id";
-	status = "okay";
-	/* Connected to KSZ9031 MDIO_A */
-	phy-handle = <&mdio_a_phy1>;
-};
-
-&gmac0_mdio {
-	/* KSZ9031 GMAC */
-	mdio_a_phy1: ethernet-phy@1 {
-		#address-cells = <1>;
-		#size-cells = <0>;
-		max-speed = <1000>;
-		reg = <1>;
-	};
-	/* ARQ107 */
-	mdio_a_phy3: ethernet-phy@3 {
-		compatible = "ethernet-phy-ieee802.3-c45";
-		#address-cells = <1>;
-		#size-cells = <0>;
-		reg = <3>;
-	};
-};
-
 &llce_dte_sram {
 	status = "okay";
 };
@@ -913,22 +898,3 @@
 &llce_can15 {
 	status = "okay";
 };
-
-&pfe_logif1 {
-	phy-handle = <&mdio_a_phy3>;
-};
-
-&pfe_emac1 {
-	phy-mode = "sgmii";
-};
-
-&pfe_mdio2 {
-	/* AR8035 */
-	mdio_b_phy4: ethernet-phy@4 {
-		#address-cells = <1>;
-		#size-cells = <0>;
-		reg = <4>;
-	};
-	/* SJA1110's phys: 0x09-0x0e */
-};
-

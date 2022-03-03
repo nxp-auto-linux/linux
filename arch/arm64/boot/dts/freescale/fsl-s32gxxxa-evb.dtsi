@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /*
- * Copyright 2019-2021 NXP
+ * Copyright 2019-2022 NXP
  */
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/pinctrl/s32g-pinctrl.h>
@@ -43,59 +43,34 @@
 
 &gmac0 {
 	status = "okay";
-	phy-mode = "rgmii-id";
-	phy-handle = <&gmac0_mdio_c_phy4>;
 	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl0_gmac0_rgmii_c>,
-				<&pinctrl0_gmac0_mdio_c>;
+	pinctrl-0 = <&pinctrl0_gmac0_rgmii_c>, <&pinctrl0_gmac0_mdio_c>;
+	phy-handle = <&gmac0_mdio_c_phy4>;
+	phy-mode = "rgmii-id";
 };
 
 &gmac0_mdio {
-	/* KSZ9031RNX on S32G-VNP-PROC */
+	/* AQR107 on S32RGV-VNP-PLAT */
+	gmac_mdio_c_phy1: ethernet-phy@1 {
+		compatible = "ethernet-phy-ieee802.3-c45";
+		reg = <1>;
+	};
+	/* KSZ9031RNX on S32G-PROCEVB-S/S32G-PROCEVB3-S */
 	gmac0_mdio_c_phy4: ethernet-phy@4 {
-		#address-cells = <1>;
-		#size-cells = <0>;
 		reg = <4>;
 	};
-};
-
-&pfe_reserved_slave {
-	status = "okay";
-};
-
-&pfe_reserved_bdr_slave {
-	status = "okay";
-};
-
-&pfe_slave {
-	status = "okay";
+	/* KSZ9031RNX on S32RGV-VNP-PLAT */
+	gmac_mdio_c_phy5: ethernet-phy@5 {
+		status = "disabled"; /* blocked by USB by default */
+		reg = <5>;
+	};
 };
 
 &pfe {
 	status = "okay";
-};
-
-&pfe_logif0 {
-	phy-handle = <&mdio_a_phy4>;
-};
-
-&pfe_logif1 {
-	/* RGMII port occupied by GMAC0 */
-	status = "disabled";
-	phy-handle = <&mdio_c_phy4>;
 	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl0_pfe1_rgmii_c>, <&pinctrl1_pfe1_rgmii_c>;
-};
-
-&pfe_emac2 {
-	phy-mode = "rgmii";
-};
-
-&pfe_logif2 {
-	fixed-link {
-		speed = <1000>;
-		full-duplex;
-	};
+	pinctrl-0 = <&pinctrl0_pfe2_mdio_a>, <&pinctrl1_pfe2_mdio_a>,
+		    <&pinctrl0_pfe2_rgmii_a>, <&pinctrl1_pfe2_rgmii_a>;
 };
 
 &pfe_mdio0 {
@@ -104,62 +79,43 @@
 };
 
 &pfe_mdio1 {
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl0_pfe1_mdio_c>, <&pinctrl1_pfe1_mdio_c>;
-	/* ARQ107 on S32RGV-VNP-PLAT */
-	mdio_c_phy1: ethernet-phy@1 {
-		compatible = "ethernet-phy-ieee802.3-c45";
-		#address-cells = <1>;
-		#size-cells = <0>;
-		reg = <1>;
-	};
-	/* KSZ9031RNX on S32G-VNP-PROC */
-	mdio_c_phy4: ethernet-phy@4 {
-		#address-cells = <1>;
-		#size-cells = <0>;
-		reg = <4>;
-	};
-	/* KSZ9031RNX on S32RGV-VNP-PLAT */
-	mdio_c_phy5: ethernet-phy@5 {
-		#address-cells = <1>;
-		#size-cells = <0>;
-		status = "disabled"; /* blocked by USB by default */
-		reg = <5>;
-	};
+	/* unused */
+	status = "disabled";
 };
 
 &pfe_mdio2 {
 	/* KSZ9031RNX over SJA1105Q P3 */
-	mdio_a_phy2: ethernet-phy@2 {
-		#address-cells = <1>;
-		#size-cells = <0>;
+	pfe_mdio_a_phy2: ethernet-phy@2 {
 		reg = <2>;
 	};
 	/* KSZ9031RNX over SJA1105Q P4 */
-	mdio_a_phy3: ethernet-phy@3 {
-		#address-cells = <1>;
-		#size-cells = <0>;
+	pfe_mdio_a_phy3: ethernet-phy@3 {
 		reg = <3>;
 	};
-	/* ARQ107 on S32RGV-VNP-PROC */
-	mdio_a_phy4: ethernet-phy@4 {
-		compatible = "ethernet-phy-ieee802.3-c45";
-		#address-cells = <1>;
-		#size-cells = <0>;
-		reg = <4>;
-	};
+
 	/* TJA1102 over SJA1105Q P1 */
-	mdio_a_phy6: ethernet-phy@6 {
+	pfe_mdio_a_phy6: ethernet-phy@6 {
 		#address-cells = <1>;
 		#size-cells = <0>;
 		reg = <6>;
 
 		/* TJA1102 over SJA1105Q P2 */
-		mdio_a_phy7: ethernet-phy@7 {
-			#address-cells = <1>;
-			#size-cells = <0>;
+		pfe_mdio_a_phy7: ethernet-phy@7 {
 			reg = <7>;
 		};
+	};
+};
+
+&pfe_netif1 {
+	phy-mode = "sgmii";
+	phy-handle = <&gmac_mdio_c_phy1>;
+};
+
+&pfe_netif2 {
+	phy-mode = "rgmii";
+	fixed-link {
+		speed = <1000>;
+		full-duplex;
 	};
 };
 
@@ -380,14 +336,14 @@
 
 		pinctrl0_pfe2_mdio_a: pfe2mdioagrp {
 			fsl,pins = <
-				S32_GEN1_PAD_PE15__SIUL_GPIO79
-				S32_GEN1_PAD_PF2__SIUL_GPIO82
+				S32_G274_PAD_PF2__PFE2_MDC
+				S32_G274_PAD_PE15__PFE2_MDIO_OUT
 			>;
 		};
 
 		pinctrl0_pfe2_rgmii_a: pfe2rgmiiagrp {
 			fsl,pins = <
-				S32_GEN1_PAD_PE14__SIUL_GPIO78
+				S32_G274_PAD_PE14__PFE2_TX_EN_OUT
 			>;
 		};
 
@@ -726,6 +682,35 @@
 			>;
 		};
 
+		pinctrl1_pfe2_mdio_a: pfe2mdioagrp {
+			fsl,pins = <
+				S32_G274_PAD_PE15__PFE2_MDIO_IN
+			>;
+		};
+
+		pinctrl1_pfe2_rgmii_a: pfe2rgmiiagrp {
+			fsl,pins = <
+				S32_G274_PAD_PJ0__PFE2_TX_D0_OUT
+				S32_G274_PAD_PH1__PFE2_TX_D1_OUT
+				S32_G274_PAD_PH2__PFE2_TX_D2_OUT
+				S32_G274_PAD_PH3__PFE2_TX_D3_OUT
+				S32_G274_PAD_PH4__PFE2_RXCLK_OUT
+				S32_G274_PAD_PH4__PFE2_RXCLK_IN
+				S32_G274_PAD_PH5__PFE2_RX_DV_OUT
+				S32_G274_PAD_PH5__PFE2_RX_DV_IN
+				S32_G274_PAD_PH6__PFE2_RX_D0_OUT
+				S32_G274_PAD_PH6__PFE2_RX_D0_IN
+				S32_G274_PAD_PH7__PFE2_RX_D1_OUT
+				S32_G274_PAD_PH7__PFE2_RX_D1_IN
+				S32_G274_PAD_PH8__PFE2_RX_D2_OUT
+				S32_G274_PAD_PH8__PFE2_RX_D2_IN
+				S32_G274_PAD_PH9__PFE2_RX_D3_OUT
+				S32_G274_PAD_PH9__PFE2_RX_D3_IN
+				S32_G274_PAD_PH10__PFE2_TXCLK_OUT
+				S32_G274_PAD_PH10__PFE2_TXCLK_IN
+			>;
+		};
+
 		pinctrl_gpio1: gpiogrp1 {
 			fsl,pins = <
 				S32_GEN1_PAD_PH0__SIUL_GPIO112
@@ -866,7 +851,7 @@
 			port@0 {
 				label = "sw0-p0";
 				phy-mode = "rgmii-id";
-				ethernet = <&pfe_logif2>;
+				ethernet = <&pfe_netif2>;
 				reg = <0>;
 
 				fixed-link {
@@ -878,28 +863,28 @@
 			enet_p1@1 {
 				label = "enet_p1";
 				phy-mode = "mii";
-				phy-handle = <&mdio_a_phy6>;
+				phy-handle = <&pfe_mdio_a_phy6>;
 				reg = <1>;
 			};
 
 			enet_p2@2 {
 				label = "enet_p2";
 				phy-mode = "mii";
-				phy-handle = <&mdio_a_phy7>;
+				phy-handle = <&pfe_mdio_a_phy7>;
 				reg = <2>;
 			};
 
 			enet_p3@3 {
 				label = "enet_p3";
 				phy-mode = "rgmii-id";
-				phy-handle = <&mdio_a_phy2>;
+				phy-handle = <&pfe_mdio_a_phy2>;
 				reg = <3>;
 			};
 
 			enet_p4@4 {
 				label = "enet_p4";
 				phy-mode = "rgmii-id";
-				phy-handle = <&mdio_a_phy3>;
+				phy-handle = <&pfe_mdio_a_phy3>;
 				reg = <4>;
 			};
 		};
