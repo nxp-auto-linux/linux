@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /*
- * Device Tree file for S32G274ARDB Board Rev C.
+ * Device Tree file for S32G399ARDB3 Board Rev E.
  *
  * Copyright 2022 NXP
  *
@@ -12,6 +12,21 @@
 / {
 	model = "Freescale S32G399A";
 	compatible = "fsl,s32g399", "arm,vexpress";
+};
+
+&gmac0_mdio {
+	/* AQR113C */
+	gmac_mdio_a_phy8: ethernet-phy@3 {
+		compatible = "ethernet-phy-ieee802.3-c45";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg = <8>;
+	};
+};
+
+&pfe_netif1 {
+	phy-mode = "sgmii";
+	phy-handle = <&gmac_mdio_a_phy8>;
 };
 
 &swt8 {

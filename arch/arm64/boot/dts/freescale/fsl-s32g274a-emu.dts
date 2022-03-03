@@ -39,10 +39,6 @@
 	status = "disabled";
 };
 
-&pfe_reserved_slave  {
-	status = "disabled";
-};
-
 &fxosc {
 	clock-frequency = <40000000>;
 };
