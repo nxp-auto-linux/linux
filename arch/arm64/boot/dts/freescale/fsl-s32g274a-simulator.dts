@@ -87,14 +87,6 @@
 	clock-frequency = <1200000>;
 };
 
-&pfe_reserved  {
-	status = "disabled";
-};
-
-&pfe_reserved_slave  {
-	status = "disabled";
-};
-
 &i2c0 {
 	status = "okay";
 };
