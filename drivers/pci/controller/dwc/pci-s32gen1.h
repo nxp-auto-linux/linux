@@ -2,7 +2,7 @@
 /*
  * PCIe host controller driver for Freescale S32Gen1 SoCs
  *
- * Copyright 2020-2021 NXP
+ * Copyright 2020-2022 NXP
  */
 
 #ifndef PCIE_S32GEN1_H
@@ -107,6 +107,10 @@ struct s32gen1_pcie {
 	struct s32_userspace_info uinfo;
 
 	struct phy *phy0, *phy1;
+
+#ifndef CONFIG_PCI_S32GEN1_IOCTL_LIMIT_ONE_ENDPOINT
+	struct resource shared_mem;
+#endif
 };
 
 void dw_pcie_writel_ctrl(struct s32gen1_pcie *pci, u32 reg, u32 val);
