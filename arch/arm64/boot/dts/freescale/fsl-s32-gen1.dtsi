@@ -53,9 +53,14 @@
 		ranges;
 
 		/* 4Mb shared memory for PCIe shared mem transfers, EP mode */
-		pci_shared_memory: shm@0xc0000000 {
+		pci_shared_memory0: shm@0xc0000000 {
 			compatible = "fsl,s32gen1-shm";
 			reg = <0x0 0xc0000000 0x0 0x400000>;    /* 4 MB */
+			no-map;
+		};
+		pci_shared_memory1: shm@0xc0400000 {
+			compatible = "fsl,s32gen1-shm";
+			reg = <0x0 0xc0400000 0x0 0x400000>;    /* 4 MB */
 			no-map;
 		};
 
@@ -964,6 +969,8 @@
 					<0 0 0 4 &gic 0 0 0 131 4>;
 		msi-parent = <&gic>;
 
+		shared-mem = <&pci_shared_memory0>;
+
 		/* EP mode only */
 		num-ib-windows = <6>;
 		num-ob-windows = <6>;
@@ -1027,6 +1034,8 @@
 		num-lanes = <1>;
 		max-link-speed = <3>;
 		bus-range = <0x0 0xff>;
+
+		shared-mem = <&pci_shared_memory1>;
 
 		/* EP mode only */
 		num-ib-windows = <6>;
