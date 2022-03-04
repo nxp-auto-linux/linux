@@ -122,6 +122,22 @@
 	status = "okay";
 };
 
+&gpio0 {
+	sja1110-rst-phy-t1 {
+		gpio-hog;
+		gpios = <24 GPIO_ACTIVE_LOW>;
+		output-low;
+		line-name = "sja1110-rst-phy-t1";
+	};
+
+	sja1110-rst-core {
+		gpio-hog;
+		gpios = <81 GPIO_ACTIVE_LOW>;
+		output-low;
+		line-name = "sja1110-rst-core";
+	};
+};
+
 &usdhc0 {
 	status = "okay";
 };
