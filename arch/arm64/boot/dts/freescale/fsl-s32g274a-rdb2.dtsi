@@ -1,0 +1,39 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+/*
+ * Device Tree file for S32G274ARDB Board Rev C.
+ *
+ * Copyright 2020-2022 NXP
+ *
+ */
+
+/dts-v1/;
+#include "fsl-s32g274a.dtsi"
+#include "fsl-s32gxxxa-rdb.dtsi"
+/ {
+	model = "Freescale S32G274";
+	compatible = "fsl,s32g274-simu", "fsl,s32g274",
+				 "arm,vexpress,v2p-aarch64", "arm,vexpress";
+};
+
+&usdhc0 {
+	no-1-8-v;
+};
+
+&gmac0_mdio {
+	/* AQR107 */
+	gmac_mdio_a_phy3: ethernet-phy@3 {
+		compatible = "ethernet-phy-ieee802.3-c45";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		/*
+		 * Warning: from board rev D it is subject
+		 * for eth fixup: addr changed to 0x8
+		 */
+		reg = <3>;
+	};
+};
+
+&pfe_netif1 {
+	phy-mode = "sgmii";
+	phy-handle = <&gmac_mdio_a_phy3>;
+};
