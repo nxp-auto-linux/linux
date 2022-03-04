@@ -3,43 +3,4 @@
  * Copyright 2021-2022 NXP
  */
 
-/dts-v1/;
-#include "fsl-s32g3.dtsi"
-#include "fsl-s32gxxxa-evb.dtsi"
-/ {
-	model = "Freescale S32G399A";
-	compatible = "fsl,s32g399", "arm,vexpress";
-};
-
-&swt8 {
-	status = "okay";
-};
-
-&swt9 {
-	status = "okay";
-};
-
-&swt10 {
-	status = "okay";
-};
-
-&swt11 {
-	status = "okay";
-};
-
-&usdhc0 {
-	no-1-8-v;
-};
-
-&pfe_mdio2 {
-	/* AQR107 on S32G-PROCEVB-S */
-	pfe_mdio_a_phy4: ethernet-phy@4 {
-		compatible = "ethernet-phy-ieee802.3-c45";
-		reg = <4>;
-	};
-};
-
-&pfe_netif0 {
-	phy-mode = "sgmii";
-	phy-handle = <&pfe_mdio_a_phy4>;
-};
+#include "fsl-s32g3xxa-evb.dtsi"

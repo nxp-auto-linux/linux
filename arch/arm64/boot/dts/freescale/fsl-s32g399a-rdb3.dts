@@ -6,41 +6,4 @@
  *
  */
 
-/dts-v1/;
-#include "fsl-s32g3.dtsi"
-#include "fsl-s32gxxxa-rdb.dtsi"
-/ {
-	model = "Freescale S32G399A";
-	compatible = "fsl,s32g399", "arm,vexpress";
-};
-
-&gmac0_mdio {
-	/* AQR113C */
-	gmac_mdio_a_phy8: ethernet-phy@3 {
-		compatible = "ethernet-phy-ieee802.3-c45";
-		#address-cells = <1>;
-		#size-cells = <0>;
-		reg = <8>;
-	};
-};
-
-&pfe_netif1 {
-	phy-mode = "sgmii";
-	phy-handle = <&gmac_mdio_a_phy8>;
-};
-
-&swt8 {
-	status = "okay";
-};
-
-&swt9 {
-	status = "okay";
-};
-
-&swt10 {
-	status = "okay";
-};
-
-&swt11 {
-	status = "okay";
-};
+#include "fsl-s32g399a-rdb3.dtsi"
