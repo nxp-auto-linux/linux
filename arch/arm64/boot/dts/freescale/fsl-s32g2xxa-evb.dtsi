@@ -1,0 +1,32 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+/*
+ * Device Tree file for S32G-VNP-PROC + S32RGV-VNP-PLAT boards
+ *
+ * Copyright 2021-2022 NXP
+ */
+
+/dts-v1/;
+#include "fsl-s32g274a.dtsi"
+#include "fsl-s32gxxxa-evb.dtsi"
+/ {
+	model = "Freescale S32G274A";
+	compatible = "fsl,s32g274-simu", "fsl,s32g274",
+		   "arm,vexpress,v2p-aarch64", "arm,vexpress";
+};
+
+&usdhc0 {
+	no-1-8-v;
+};
+
+&pfe_mdio2 {
+	/* AQR107 on S32G-PROCEVB-S */
+	pfe_mdio_a_phy4: ethernet-phy@4 {
+		compatible = "ethernet-phy-ieee802.3-c45";
+		reg = <4>;
+	};
+};
+
+&pfe_netif0 {
+	phy-mode = "sgmii";
+	phy-handle = <&pfe_mdio_a_phy4>;
+};
