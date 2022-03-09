@@ -91,7 +91,10 @@ struct llce_mb {
 	struct llce_pair_irq rxin_irqs;
 	struct llce_pair_irq rxout_irqs;
 	struct llce_pair_irq txack_irqs;
-	struct mutex txack_lock;
+
+	/* spinlock used to protect the execution of the config commands. */
+	spinlock_t txack_lock;
+
 	struct llce_can_shared_memory *sh_mem;
 	void __iomem *status;
 	void __iomem *rxout_fifo;
@@ -465,14 +468,15 @@ static int execute_config_cmd(struct mbox_chan *chan,
 	unsigned int idx = priv->index;
 	struct llce_can_command *sh_cmd;
 	void __iomem *txack, *push0;
+	unsigned long flags;
 	int ret = 0;
-
-	mutex_lock_io(&mb->txack_lock);
 
 	txack = get_host_txack(mb, LLCE_CAN_HIF0);
 
 	sh_cmd = &mb->sh_mem->can_cmd[LLCE_CAN_HIF0];
 	push0 = LLCE_FIFO_PUSH0(txack);
+
+	spin_lock_irqsave(&mb->txack_lock, flags);
 
 	if (!is_tx_fifo_empty(txack)) {
 		ret = -EBUSY;
@@ -487,7 +491,7 @@ static int execute_config_cmd(struct mbox_chan *chan,
 	writel(idx, push0);
 
 release_lock:
-	mutex_unlock(&mb->txack_lock);
+	spin_unlock_irqrestore(&mb->txack_lock, flags);
 	return ret;
 }
 
@@ -914,6 +918,7 @@ static bool llce_mb_last_tx_done(struct mbox_chan *chan)
 	struct llce_mb *mb = priv->mb;
 	struct llce_can_command *cmd;
 	struct llce_can_command *sh_cmd;
+	unsigned long flags;
 
 	if (is_logger_config_chan(priv->type)) {
 		llce_mbox_chan_received_data(chan, NULL);
@@ -923,24 +928,26 @@ static bool llce_mb_last_tx_done(struct mbox_chan *chan)
 	if (!is_config_chan(priv->type))
 		return false;
 
-	mutex_lock_io(&mb->txack_lock);
-
 	txack = get_host_txack(mb, LLCE_CAN_HIF0);
-
-	/* Wait an answer from LLCE FW */
-	spin_until_cond(is_tx_fifo_empty(txack));
-
-	cmd = priv->last_msg;
 	sh_cmd = &mb->sh_mem->can_cmd[LLCE_CAN_HIF0];
 
+	spin_lock_irqsave(&mb->txack_lock, flags);
+
+	if (!is_tx_fifo_empty(txack))
+		goto out_busy;
+
+	cmd = priv->last_msg;
 	memcpy(cmd, sh_cmd, sizeof(*cmd));
 
-	mutex_unlock(&mb->txack_lock);
+	spin_unlock_irqrestore(&mb->txack_lock, flags);
 
 	if (priv->type != S32G_LLCE_HIF_CONF_MB)
 		llce_mbox_chan_received_data(chan, cmd);
 
 	return true;
+out_busy:
+	spin_unlock_irqrestore(&mb->txack_lock, flags);
+	return false;
 }
 
 static void llce_mb_shutdown(struct mbox_chan *chan)
@@ -1729,6 +1736,7 @@ static int execute_hif_cmd(struct llce_mb *mb,
 	struct mbox_controller *ctrl = &mb->controller;
 	struct device *dev = ctrl->dev;
 	static struct mbox_chan *chan;
+	int retries = 10;
 	int ret;
 
 	chan = get_hif_cfg_chan(mb);
@@ -1740,8 +1748,8 @@ static int execute_hif_cmd(struct llce_mb *mb,
 	}
 
 	/* Wait for command completion */
-	if (!llce_mb_last_tx_done(chan))
-		return -EIO;
+	while (!llce_mb_last_tx_done(chan) && retries--)
+		msleep(100);
 
 	if (cmd->return_value != LLCE_FW_SUCCESS) {
 		dev_err(dev, "LLCE FW error %d\n", cmd->return_value);
@@ -1915,7 +1923,7 @@ static int llce_mb_probe(struct platform_device *pdev)
 	if (!mb)
 		return -ENOMEM;
 
-	mutex_init(&mb->txack_lock);
+	spin_lock_init(&mb->txack_lock);
 
 	ctrl = &mb->controller;
 	ctrl->txdone_irq = false;
