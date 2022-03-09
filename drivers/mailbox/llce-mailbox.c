@@ -19,7 +19,6 @@
 #include <linux/module.h>
 #include <linux/of_address.h>
 #include <linux/of_platform.h>
-#include <linux/once.h>
 #include <linux/platform_device.h>
 #include <linux/processor.h>
 #include <linux/slab.h>
@@ -78,6 +77,7 @@ struct llce_fifoirq {
 	unsigned int num;
 	const char *name;
 	irq_handler_t handler;
+	bool registered;
 };
 
 struct llce_pair_irq {
@@ -726,12 +726,16 @@ static int request_llce_irq(struct llce_mb *mb, struct llce_fifoirq *fifo_irq)
 {
 	int ret;
 
+	if (fifo_irq->registered)
+		return 0;
+
 	ret = devm_request_irq(mb->dev, fifo_irq->num, fifo_irq->handler,
 			       IRQF_SHARED, fifo_irq->name, mb);
 	if (ret < 0)
 		dev_err(mb->dev, "Failed to register '%s' IRQ\n",
 			fifo_irq->name);
 
+	fifo_irq->registered = true;
 	return ret;
 }
 
@@ -755,7 +759,7 @@ static int llce_hif_startup(struct mbox_chan *chan)
 	struct llce_chan_priv *priv = chan->con_priv;
 	struct llce_mb *mb = priv->mb;
 
-	DO_ONCE(request_llce_pair_irq, mb, &mb->rxin_irqs);
+	request_llce_pair_irq(mb, &mb->rxin_irqs);
 
 	return 0;
 }
@@ -766,7 +770,7 @@ static int llce_rx_startup(struct mbox_chan *chan)
 	struct llce_mb *mb = priv->mb;
 	unsigned long flags;
 
-	DO_ONCE(request_llce_pair_irq, mb, &mb->rxout_irqs);
+	request_llce_pair_irq(mb, &mb->rxout_irqs);
 
 	/* State change must go under the lock protection */
 	spin_lock_irqsave(&priv->lock, flags);
@@ -809,7 +813,7 @@ static int llce_tx_startup(struct mbox_chan *chan)
 	struct llce_mb *mb = priv->mb;
 	unsigned long flags;
 
-	DO_ONCE(request_llce_pair_irq, mb, &mb->txack_irqs);
+	request_llce_pair_irq(mb, &mb->txack_irqs);
 
 	spin_lock_irqsave(&priv->lock, flags);
 	priv->state = LLCE_REGISTERED_CHAN;
@@ -845,7 +849,9 @@ static int llce_logger_startup(struct mbox_chan *chan)
 	unsigned long flags;
 	int ret = 0;
 
-	DO_ONCE(request_llce_irq, mb, &mb->logger_irq);
+	ret = request_llce_irq(mb, &mb->logger_irq);
+	if (ret)
+		return ret;
 
 	spin_lock_irqsave(&priv->lock, flags);
 	priv->state = LLCE_REGISTERED_CHAN;
