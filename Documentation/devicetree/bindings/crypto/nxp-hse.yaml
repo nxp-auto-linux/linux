@@ -51,24 +51,16 @@ required:
 
 examples:
   - |
-    hse: crypto {
-        compatible = "simple-bus";
-        #address-cells = <2>;
-        #size-cells = <2>;
-        #interrupt-cells = <3>;
-        ranges;
-
-        mu0b@40210000 {
-                compatible = "fsl,s32gen1-hse";
-                reg = <0x0 0x40210000 0x0 0x1000>,
-                      <0x0 0x22C00000 0x0 0x1000>;
-                reg-names = "hse-mu0b-regs",
-                            "hse-mu0b-desc";
-                interrupts = <GIC_SPI 103 IRQ_TYPE_EDGE_RISING>,
-                             <GIC_SPI 104 IRQ_TYPE_EDGE_RISING>,
-                             <GIC_SPI 105 IRQ_TYPE_EDGE_RISING>;
-                interrupt-names = "hse-mu0b-ack",
-                                  "hse-mu0b-rx",
-                                  "hse-mu0b-err";
-        };
+    mu0b@40210000 {
+            compatible = "fsl,s32gen1-hse";
+            reg = <0x40210000 0x1000>,
+                  <0x22C00000 0x1000>;
+            reg-names = "hse-mu0b-regs",
+                        "hse-mu0b-desc";
+            interrupts = <0 103 1>,
+                         <0 104 1>,
+                         <0 105 1>;
+            interrupt-names = "hse-mu0b-ack",
+                              "hse-mu0b-rx",
+                              "hse-mu0b-err";
     };
