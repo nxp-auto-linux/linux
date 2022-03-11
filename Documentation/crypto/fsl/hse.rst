@@ -4,11 +4,11 @@
 HSE crypto offloading engine driver
 ===================================
 
-:Copyright: 2019-2021 NXP
+:Copyright: 2019-2022 NXP
 
 Overview
 ========
-The NXP Hardware Security Engine is a security subsystem aimed ar running
+The NXP Hardware Security Engine is a security subsystem aimed at running
 relevant security functions for applications with stringent confidentiality
 and authenticity requirements. This file contains general information about
 the HSE crypto driver, which provides support for offloading cryptographic
@@ -20,6 +20,7 @@ This driver provides cryptographic offloading support for the
 following NXP processors:
 
 - S32G274A
+- S32G399A
 - S32R45
 
 Supported Algorithms
@@ -87,9 +88,6 @@ The following Kconfig options are available:
 Known Limitations
 =================
 This driver is affected by the following known issues:
-
-- The crypto driver does not currently support the RNG non-blocking mode of
-  operation (the wait parameter from hwrng_read is ignored).
 
 - With standard firmware, hmac(sha384) and hmac(sha512) are not supported with
   keys between 64 and 128 bytes in length due to the firmware-imposed limits.
