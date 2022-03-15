@@ -3,7 +3,7 @@
  * NXP S32 DDR Performance Monitor
  *
  * Copyright 2016 Freescale Semiconductor, Inc.
- * Copyright 2017,2020 NXP
+ * Copyright 2017,2020,2022 NXP
  */
 
 #include <linux/kernel.h>
@@ -227,22 +227,37 @@ static int ddr_perf_event_init(struct perf_event *event)
 	return 0;
 }
 
+static void ddr_perf_counter_clear(struct ddr_pmu *pmu, int counter)
+{
+	u8 reg = counter * 4 + COUNTER_CNTL;
+	int val;
+
+	if (counter >= NUM_COUNTERS)
+		return;
+
+	val = ioread32(pmu->base + reg);
+	val &= ~CNTL_CLEAR;
+	iowrite32(val, pmu->base + reg);
+
+	/* Cycles counter also needs CLEAR bit set to reset */
+	if (counter == EVENT_CYCLES_COUNTER) {
+		val |= CNTL_CLEAR;
+		iowrite32(val, pmu->base + reg);
+	}
+}
+
 static void ddr_perf_event_update(struct perf_event *event)
 {
 	struct ddr_pmu *pmu = to_ddr_pmu(event->pmu);
 	struct hw_perf_event *hwc = &event->hw;
-	u64 delta, prev_raw_count, new_raw_count;
+	u64 new_raw_count;
 	int counter = hwc->idx;
 
-	do {
-		prev_raw_count = local64_read(&hwc->prev_count);
-		new_raw_count = ddr_perf_read_counter(pmu, counter);
-	} while (local64_cmpxchg(&hwc->prev_count, prev_raw_count,
-			new_raw_count) != prev_raw_count);
+	new_raw_count = ddr_perf_read_counter(pmu, counter);
+	local64_add(new_raw_count, &event->count);
 
-	delta = (new_raw_count - prev_raw_count) & 0xFFFFFFFF;
-
-	local64_add(delta, &event->count);
+	/* Clear counter after each event update to prevent overflow */
+	ddr_perf_counter_clear(pmu, counter);
 }
 
 static void ddr_perf_counter_enable(struct ddr_pmu *pmu, int config,
@@ -378,7 +393,7 @@ static irqreturn_t ddr_perf_irq_handler(int irq, void *p)
 {
 	int i;
 	struct ddr_pmu *pmu = (struct ddr_pmu *)p;
-	struct perf_event *event, *cycle_event = NULL;
+	struct perf_event *event;
 
 	/* all counter will stop if cycle counter disabled */
 	ddr_perf_counter_enable(pmu, EVENT_CYCLES_ID, EVENT_CYCLES_COUNTER,
@@ -399,15 +414,10 @@ static irqreturn_t ddr_perf_irq_handler(int irq, void *p)
 
 		event = pmu->events[i];
 		ddr_perf_event_update(event);
-
-		if (event->hw.idx == EVENT_CYCLES_COUNTER)
-			cycle_event = event;
 	}
 
 	ddr_perf_counter_enable(pmu, EVENT_CYCLES_ID, EVENT_CYCLES_COUNTER,
 				true);
-	if (cycle_event)
-		ddr_perf_event_update(cycle_event);
 
 	return IRQ_HANDLED;
 }
