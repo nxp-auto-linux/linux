@@ -3,7 +3,7 @@
  * Freescale LINFlexD UART serial port driver
  *
  * Copyright 2012-2016 Freescale Semiconductor, Inc.
- * Copyright 2017-2021 NXP
+ * Copyright 2017-2022 NXP
  */
 
 #include <linux/clk.h>
@@ -195,7 +195,7 @@ struct linflex_port {
 
 static const struct of_device_id linflex_dt_ids[] = {
 	{
-		.compatible = "fsl,s32-linflexuart",
+		.compatible = "nxp,s32-cc-linflexuart",
 	},
 	{ /* sentinel */ }
 };
@@ -1455,7 +1455,7 @@ static int __init linflex_early_console_setup(struct earlycon_device *device,
 	return 0;
 }
 
-OF_EARLYCON_DECLARE(linflex, "fsl,s32-linflexuart",
+OF_EARLYCON_DECLARE(linflex, "nxp,s32-cc-linflexuart",
 		    linflex_early_console_setup);
 
 #define LINFLEX_CONSOLE	(&linflex_console)
