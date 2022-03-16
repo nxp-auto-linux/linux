@@ -458,7 +458,7 @@
 	};
 
 	uart0:serial@401C8000 {
-		compatible = "fsl,s32-linflexuart";
+		compatible = "nxp,s32-cc-linflexuart";
 		reg = <0x0 0x401C8000 0x0 0x3000>;
 		interrupts = <0 82 1>;
 		clocks = <&clks S32GEN1_SCMI_CLK_LINFLEX_LIN>,
@@ -470,7 +470,7 @@
 	};
 
 	uart1:serial@401CC000 {
-		compatible = "fsl,s32-linflexuart";
+		compatible = "nxp,s32-cc-linflexuart";
 		reg = <0x0 0x401CC000 0x0 0x3000>;
 		interrupts = <0 83 1>;
 		clocks = <&clks S32GEN1_SCMI_CLK_LINFLEX_LIN>,
@@ -729,7 +729,7 @@
 	};
 
 	uart2:serial@402BC000 {
-		compatible = "fsl,s32-linflexuart";
+		compatible = "nxp,s32-cc-linflexuart";
 		reg = <0x0 0x402BC000 0x0 0x3000>;
 		interrupts = <0 84 1>;
 		clocks = <&clks S32GEN1_SCMI_CLK_LINFLEX_LIN>,
