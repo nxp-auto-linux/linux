@@ -16,7 +16,7 @@ properties:
   compatible:
     oneOf:
       - enum:
-          - fsl,s32-linflexuart
+          - nxp,s32-cc-linflexuart
 
   reg:
     maxItems: 1
@@ -65,7 +65,7 @@ examples:
     #include <dt-bindings/clock/s32gen1-scmi-clock.h>
 
     uart0: serial@401C8000 {
-        compatible = "fsl,s32-linflexuart";
+        compatible = "nxp,s32-cc-linflexuart";
         reg = <0x401C8000 0x3000>;
         interrupts = <0 82 1>;
         clocks = <&clks S32GEN1_SCMI_CLK_LINFLEX_LIN>,
