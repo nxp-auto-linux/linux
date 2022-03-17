@@ -3847,6 +3847,7 @@ static int stmmac_rx(struct stmmac_priv *priv, int limit, u32 queue)
 	}
 	while (count < limit) {
 		unsigned int buf1_len = 0, buf2_len = 0;
+		unsigned int fcs_len_in_buf1, fcs_len_in_buf2;
 		enum pkt_hash_types hash_type;
 		struct stmmac_rx_buffer *buf;
 		struct dma_desc *np, *p;
@@ -3937,11 +3938,13 @@ read_again:
 		if (likely(!(status & rx_not_ls)) &&
 		    (likely(priv->synopsys_id >= DWMAC_CORE_4_00) ||
 		     unlikely(status != llc_snap))) {
-			if (buf2_len)
-				buf2_len -= ETH_FCS_LEN;
-			else
-				buf1_len -= ETH_FCS_LEN;
 
+			fcs_len_in_buf2 = min_t(unsigned int, ETH_FCS_LEN, buf2_len);
+			fcs_len_in_buf1 = min_t(unsigned int,
+						ETH_FCS_LEN - fcs_len_in_buf2, buf1_len);
+
+			buf2_len -= fcs_len_in_buf2;
+			buf1_len -= fcs_len_in_buf1;
 			len -= ETH_FCS_LEN;
 		}
 
