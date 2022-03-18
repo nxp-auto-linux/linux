@@ -456,9 +456,16 @@ static int ddr_perf_init(struct ddr_pmu *pmu, void __iomem *base,
 
 static irqreturn_t ddr_perf_irq_handler(int irq, void *p)
 {
-	int i, cntl;
+	int i;
+	unsigned int cntl;
 	struct ddr_pmu *pmu = (struct ddr_pmu *)p;
 	struct perf_event *event;
+
+	/* If no overflow on counter0, return */
+	cntl = ioread32(pmu->base + EVENT_CYCLES_COUNTER * 4 + COUNTER_CNTL);
+	cntl &= CNTL_OVER;
+	if (!cntl)
+		return IRQ_NONE;
 
 	/* all counter will stop if cycle counter disabled */
 	ddr_perf_counter_enable(pmu, EVENT_CYCLES_ID, EVENT_CYCLES_COUNTER,
