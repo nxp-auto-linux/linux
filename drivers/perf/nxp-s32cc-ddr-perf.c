@@ -3,7 +3,7 @@
  * NXP S32CC DDR Performance Monitor
  *
  * Copyright 2016 Freescale Semiconductor, Inc.
- * Copyright 2017,2020,2022 NXP
+ * Copyright 2017,2020,2022-2023 NXP
  */
 
 #include <linux/bitfield.h>
@@ -17,6 +17,7 @@
 #include <linux/perf_event.h>
 #include <linux/platform_device.h>
 #include <linux/slab.h>
+#include <soc/s32cc/nvmem_common.h>
 
 #define COUNTER_CNTL		0x0
 #define COUNTER_READ		0x20
@@ -32,6 +33,10 @@
 
 #define EVENT_CYCLES_COUNTER	0
 #define NUM_COUNTERS		4
+
+#define DDR_GPR_CONFIG_0		0x0
+#define DDR_GPR_CONFIG_0_SHIFT		31
+#define DDR_GPR_CONFIG_0_PERF_CNT	BIT(DDR_GPR_CONFIG_0_SHIFT)
 
 #define to_ddr_pmu(p)		container_of(p, struct ddr_pmu, pmu)
 
@@ -491,6 +496,7 @@ static int ddr_perf_offline_cpu(unsigned int cpu, struct hlist_node *node)
 static int ddr_perf_probe(struct platform_device *pdev)
 {
 	struct ddr_pmu *pmu;
+	struct nvmem_cell *cell;
 	void __iomem *base;
 	char *name;
 	int num;
@@ -498,6 +504,13 @@ static int ddr_perf_probe(struct platform_device *pdev)
 	int irq;
 
 	dev_info(&pdev->dev, "probing device\n");
+
+	/* Check if NVMEM for DDR_GPR is available */
+	cell = nvmem_cell_get(&pdev->dev, "ddr_pmu_irq");
+	if (IS_ERR(cell))
+		return PTR_ERR(cell);
+
+	nvmem_cell_put(cell);
 
 	base = devm_platform_ioremap_resource(pdev, 0);
 	if (IS_ERR(base))
@@ -554,6 +567,11 @@ static int ddr_perf_probe(struct platform_device *pdev)
 		dev_err(pmu->dev, "Failed to set interrupt affinity!\n");
 		goto ddr_perf_err;
 	}
+
+	/* Enable DDR PMU interrupt */
+	ret = write_nvmem_cell(&pdev->dev, "ddr_pmu_irq", BIT(0));
+	if (ret)
+		goto ddr_perf_err;
 
 	ret = perf_pmu_register(&pmu->pmu, name, -1);
 	if (unlikely(ret))
