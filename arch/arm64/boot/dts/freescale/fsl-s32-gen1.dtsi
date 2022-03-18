@@ -1081,6 +1081,11 @@
 		status = "okay";
 	};
 
+	ddr_gpr: ddr_gpr@4007c600 {
+		compatible = "nxp,s32cc-ddr-gpr", "syscon";
+		reg = <0x0 0x4007c600 0x0 0x20>;
+	};
+
 	perf: ddr-perf@403e0000 {
 		compatible = "fsl,s32gen1-ddr-perf";
 		reg = <0x0 0x403e0000 0x0 0x100>;
