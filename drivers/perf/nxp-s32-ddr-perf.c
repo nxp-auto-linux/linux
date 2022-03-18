@@ -6,15 +6,15 @@
  * Copyright 2017,2020,2022 NXP
  */
 
-#include <linux/kernel.h>
-#include <linux/module.h>
-#include <linux/platform_device.h>
-#include <linux/interrupt.h>
-#include <linux/mod_devicetable.h>
 #include <linux/bitfield.h>
+#include <linux/interrupt.h>
 #include <linux/init.h>
 #include <linux/io.h>
+#include <linux/kernel.h>
+#include <linux/mod_devicetable.h>
+#include <linux/module.h>
 #include <linux/perf_event.h>
+#include <linux/platform_device.h>
 #include <linux/slab.h>
 
 #define COUNTER_CNTL		0x0
