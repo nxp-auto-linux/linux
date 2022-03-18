@@ -284,8 +284,9 @@ static void ddr_perf_counter_enable(struct ddr_pmu *pmu, int config,
 		val |= FIELD_PREP(CNTL_CSV_MASK, config);
 		iowrite32(val, pmu->base + reg);
 	} else {
-		/* Disable counter */
-		iowrite32(0, pmu->base + reg);
+		/* Disable counter without resetting it */
+		val = ioread32(pmu->base + reg) & CNTL_EN_MASK;
+		iowrite32(val, pmu->base + reg);
 	}
 }
 
