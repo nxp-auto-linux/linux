@@ -253,18 +253,30 @@ static void ddr_perf_counter_clear(struct ddr_pmu *pmu, int counter)
 	}
 }
 
-static void ddr_perf_event_update(struct perf_event *event)
+static bool ddr_perf_counter_disabled(struct ddr_pmu *pmu, int counter)
 {
-	struct ddr_pmu *pmu = to_ddr_pmu(event->pmu);
-	struct hw_perf_event *hwc = &event->hw;
-	u64 new_raw_count;
-	int counter = hwc->idx;
+	u8 reg = counter * 4 + COUNTER_CNTL;
+	int val, is_enabled, is_cleared, is_csv_set;
 
-	new_raw_count = ddr_perf_read_counter(pmu, counter);
-	local64_add(new_raw_count, &event->count);
+	val = ioread32(pmu->base + reg);
+	is_enabled = val & CNTL_EN;
+	is_cleared = val & CNTL_CLEAR;
+	is_csv_set = val & CNTL_CSV_MASK;
 
-	/* Clear counter after each event update to prevent overflow */
-	ddr_perf_counter_clear(pmu, counter);
+	return !is_enabled && is_cleared && !is_csv_set;
+}
+
+static void ddr_perf_counter_stop(struct ddr_pmu *pmu, int counter)
+{
+	u8 reg = counter * 4 + COUNTER_CNTL;
+	int val;
+
+	/* Write 0 in CSV field and CNTR_EN */
+	val = ioread32(pmu->base + reg);
+	val &= ~CNTL_CSV_MASK;
+	val &= ~CNTL_EN;
+
+	iowrite32(val, pmu->base + reg);
 }
 
 static void ddr_perf_counter_enable(struct ddr_pmu *pmu, int config,
@@ -288,6 +300,25 @@ static void ddr_perf_counter_enable(struct ddr_pmu *pmu, int config,
 		val = ioread32(pmu->base + reg) & CNTL_EN_MASK;
 		iowrite32(val, pmu->base + reg);
 	}
+}
+
+static void ddr_perf_event_update(struct perf_event *event)
+{
+	struct ddr_pmu *pmu = to_ddr_pmu(event->pmu);
+	struct hw_perf_event *hwc = &event->hw;
+	u64 new_raw_count;
+	int counter = hwc->idx;
+
+	new_raw_count = ddr_perf_read_counter(pmu, counter);
+	local64_add(new_raw_count, &event->count);
+
+	/* Clear counter after each event update to prevent overflow */
+	ddr_perf_counter_clear(pmu, counter);
+
+	/* Check if counter was previously stopped and enable it */
+	if (ddr_perf_counter_disabled(pmu, counter))
+		ddr_perf_counter_enable(pmu, event->attr.config, counter,
+					true);
 }
 
 static void ddr_perf_event_start(struct perf_event *event, int flags)
@@ -399,7 +430,7 @@ static int ddr_perf_init(struct ddr_pmu *pmu, void __iomem *base,
 
 static irqreturn_t ddr_perf_irq_handler(int irq, void *p)
 {
-	int i;
+	int i, cntl;
 	struct ddr_pmu *pmu = (struct ddr_pmu *)p;
 	struct perf_event *event;
 
@@ -416,6 +447,16 @@ static irqreturn_t ddr_perf_irq_handler(int irq, void *p)
 	 * lose events.
 	 *
 	 */
+
+	/* Stop all counters first, to not sketch the measurement */
+	for (i = 0; i < NUM_COUNTERS; i++) {
+		if (!pmu->events[i])
+			continue;
+
+		ddr_perf_counter_stop(pmu, i);
+	}
+
+	/* Read all counter values and re-enable them */
 	for (i = 0; i < NUM_COUNTERS; i++) {
 		if (!pmu->events[i])
 			continue;
