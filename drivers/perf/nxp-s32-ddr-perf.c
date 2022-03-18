@@ -11,10 +11,12 @@
 #include <linux/init.h>
 #include <linux/io.h>
 #include <linux/kernel.h>
+#include <linux/mfd/syscon.h>
 #include <linux/mod_devicetable.h>
 #include <linux/module.h>
 #include <linux/perf_event.h>
 #include <linux/platform_device.h>
+#include <linux/regmap.h>
 #include <linux/slab.h>
 
 #define COUNTER_CNTL		0x0
@@ -34,6 +36,10 @@
 #define EVENT_CYCLES_COUNTER	0
 #define NUM_COUNTERS		4
 
+#define DDR_GPR_CONFIG_0		0x0
+#define DDR_GPR_CONFIG_0_SHIFT		31
+#define DDR_GPR_CONFIG_0_PERF_CNT	BIT(DDR_GPR_CONFIG_0_SHIFT)
+
 #define to_ddr_pmu(p)		container_of(p, struct ddr_pmu, pmu)
 
 #define DDR_PERF_DEV_NAME	"s32_ddr"
@@ -52,6 +58,7 @@ struct ddr_pmu {
 	enum cpuhp_state cpuhp_state;
 	int irq;
 	int id;
+	struct regmap *ddr_gpr;
 };
 
 static ssize_t ddr_perf_cpumask_show(struct device *dev,
@@ -446,6 +453,7 @@ static int ddr_perf_probe(struct platform_device *pdev)
 {
 	struct ddr_pmu *pmu;
 	struct device_node *np;
+	struct regmap *ddr_gpr;
 	void __iomem *base;
 	char *name;
 	int num;
@@ -453,6 +461,13 @@ static int ddr_perf_probe(struct platform_device *pdev)
 	int irq;
 
 	dev_info(&pdev->dev, "probing device\n");
+
+	/* Get DDR_GPR regmap */
+	ddr_gpr = syscon_regmap_lookup_by_compatible("nxp,s32cc-ddr-gpr");
+	if (IS_ERR(ddr_gpr)) {
+		dev_err(&pdev->dev, "Didn't find ddr_gpr syscon node\n");
+		return PTR_ERR(ddr_gpr);
+	}
 
 	base = devm_platform_ioremap_resource(pdev, 0);
 	if (IS_ERR(base))
@@ -473,6 +488,7 @@ static int ddr_perf_probe(struct platform_device *pdev)
 	if (unlikely(!name))
 		return -ENOMEM;
 
+	pmu->ddr_gpr = ddr_gpr;
 	pmu->cpu = raw_smp_processor_id();
 	ret = cpuhp_setup_state_multi(CPUHP_AP_ONLINE_DYN, DDR_CPUHP_CB_NAME,
 				      NULL, ddr_perf_offline_cpu);
@@ -510,6 +526,11 @@ static int ddr_perf_probe(struct platform_device *pdev)
 	ret = perf_pmu_register(&pmu->pmu, name, -1);
 	if (unlikely(ret))
 		goto ddr_perf_err;
+
+	/* Enable DDR PMU interrupt */
+	regmap_update_bits(pmu->ddr_gpr, DDR_GPR_CONFIG_0,
+			   DDR_GPR_CONFIG_0_PERF_CNT,
+			   DDR_GPR_CONFIG_0_PERF_CNT);
 
 	dev_info(pmu->dev, "device initialized successfully\n");
 
