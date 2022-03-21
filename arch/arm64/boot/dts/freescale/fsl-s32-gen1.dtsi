@@ -270,7 +270,7 @@
 			 /* EIRQs */
 			 <5 0 0x0 0x44010010 0x0 0x34>;
 		nvram: nvram@4009C000 {
-			compatible = "fsl,s32gen1-siul2_0-nvmem";
+			compatible = "nxp,s32cc-siul2_0-nvmem";
 			reg = <0x0 0x0 0x0 0x10>;
 			#address-cells = <1>;
 			#size-cells = <1>;
