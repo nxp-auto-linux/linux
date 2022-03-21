@@ -1098,7 +1098,7 @@
 	};
 
 	ddr: ddr@403C0000 {
-		compatible = "fsl,s32gen1-ddr";
+		compatible = "nxp,s32cc-ddr";
 		reg = <0x0 0x403C0000 0x0 0x100>;
 		perf-phandle = <&perf>;
 		/* Will be modified by u-boot */
