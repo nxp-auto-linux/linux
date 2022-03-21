@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0+
 /*
- * Copyright 2020-2021 NXP
+ * Copyright 2020-2022 NXP
  *
  */
 
@@ -197,7 +197,7 @@ static int ddr_remove(struct platform_device *pdev)
 
 static const struct of_device_id s32_ddr_errata_dt_ids[] = {
 	{
-		.compatible = "fsl,s32gen1-ddr",
+		.compatible = "nxp,s32cc-ddr",
 	}, {}
 };
 MODULE_DEVICE_TABLE(of, s32_ddr_errata_dt_ids);
