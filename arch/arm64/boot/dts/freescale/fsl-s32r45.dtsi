@@ -236,7 +236,7 @@
 		};
 
 		nvram1: nvram@4403C000 {
-			compatible = "fsl,s32gen1-siul2_1-nvmem";
+			compatible = "nxp,s32cc-siul2_1-nvmem";
 			reg = <0x0 0x0 0x0 0x10>;
 			#address-cells = <1>;
 			#size-cells = <1>;
