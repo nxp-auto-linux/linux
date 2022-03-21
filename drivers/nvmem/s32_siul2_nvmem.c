@@ -131,8 +131,8 @@ static int s32_siul2_1_nvmem_read(void *context, unsigned int offset,
 }
 
 static const struct of_device_id s32_siul2_nvmem_match[] = {
-	{ .compatible = "fsl,s32gen1-siul2_0-nvmem", },
-	{ .compatible = "fsl,s32gen1-siul2_1-nvmem", },
+	{ .compatible = "nxp,s32cc-siul2_0-nvmem", },
+	{ .compatible = "nxp,s32cc-siul2_1-nvmem", },
 	{ /* sentinel */ },
 };
 MODULE_DEVICE_TABLE(of, s32_siul2_nvmem_match);
@@ -160,10 +160,10 @@ static int s32_siul2_nvmem_probe(struct platform_device *pdev)
 	}
 
 	priv->dev = dev;
-	if (of_device_is_compatible(np, "fsl,s32gen1-siul2_0-nvmem")) {
+	if (of_device_is_compatible(np, "nxp,s32cc-siul2_0-nvmem")) {
 		econfig = &econfig_0;
 		econfig->reg_read = s32_siul2_0_nvmem_read;
-	} else if (of_device_is_compatible(np, "fsl,s32gen1-siul2_1-nvmem")) {
+	} else if (of_device_is_compatible(np, "nxp,s32cc-siul2_1-nvmem")) {
 		econfig = &econfig_1;
 		econfig->reg_read = s32_siul2_1_nvmem_read;
 	} else {
