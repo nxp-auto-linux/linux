@@ -21,12 +21,22 @@ properties:
 
   mboxes:
     description: |
+      Must be an array of two mbox channels. The array must have a channel of
+      type S32G_LLCE_CAN_LOGGER_CONFIG_MB and the other one of type
+      S32G_LLCE_CAN_LOGGER_MB.
       Link to LLCE CAN Logger mailbox.
       (see mailbox/nxp,s32g-llce-mailbox.yaml for more details)
+
+  mboxes-names:
+    description: |
+      Must be an array of two strings. One of them must be "config" and the
+      other one must be "rx". The strings must be in the same order as mbox
+      channels.
 
 required:
   - compatible
   - mboxes
+  - mbox-names
 
 additionalProperties: false
 
@@ -35,6 +45,8 @@ examples:
     #include <dt-bindings/mailbox/nxp-llce-mb.h>
     llce_can_logger: llce_can_logger {
       compatible = "nxp,s32g-llce-can-logger";
-      mboxes = <&llce_mb S32G_LLCE_CAN_LOGGER_MB 0>;
+      mboxes = <&llce_mb S32G_LLCE_CAN_LOGGER_CONFIG_MB 0>,
+        <&llce_mb S32G_LLCE_CAN_LOGGER_MB 0>;
+      mbox-names = "config", "rx";
     };
 ...
