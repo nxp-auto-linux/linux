@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0+ OR BSD-3-Clause */
-/* Copyright 2021 NXP */
+/* Copyright 2021-2022 NXP */
 
 #ifndef LLCE_CAN_COMMON_H
 #define LLCE_CAN_COMMON_H
@@ -16,8 +16,10 @@ struct llce_can_dev {
 	struct can_priv can; /* Must be the first member */
 	struct napi_struct napi;
 
-	struct mbox_client rx_client;
-	struct mbox_chan *rx;
+	struct completion config_cmd_done;
+
+	struct mbox_client config_client, rx_client;
+	struct mbox_chan *config, *rx;
 	u64 *stats;
 	atomic_t rx_processing;
 };
