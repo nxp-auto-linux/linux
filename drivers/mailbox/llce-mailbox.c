@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0+ OR BSD-3-Clause
 /*
- * Copyright 2020-2021 NXP
+ * Copyright 2020-2022 NXP
  */
 #include <dt-bindings/mailbox/nxp-llce-mb.h>
 #include <linux/can/dev.h>
@@ -66,6 +66,10 @@
 #define HWCTRL_MBEXTENSION_MASK		0x0FFU
 #define HWCTRL_MBEXTENSION_SHIFT	24
 
+#define LLCE_FEATURE_DISABLED	'_'
+
+#define LLCE_LOGGING		(4)
+
 struct llce_icsr {
 	uint8_t icsr0_num;
 	uint8_t icsr8_num;
@@ -102,6 +106,7 @@ struct llce_mb {
 	DECLARE_BITMAP(chans_map, LLCE_NFIFO_WITH_IRQ);
 	struct llce_fifoirq logger_irq;
 	bool suspended;
+	bool fw_logger_support;
 };
 
 struct llce_mb_desc {
@@ -170,6 +175,10 @@ static const struct llce_mb_desc mb_map[] = {
 		.nchan = 16,
 		.startup = llce_logger_startup,
 		.shutdown = llce_logger_shutdown,
+	},
+	[S32G_LLCE_CAN_LOGGER_CONFIG_MB] = {
+		.name = "CAN Logger Config",
+		.nchan = 16,
 	},
 };
 
@@ -369,6 +378,11 @@ static bool is_logger_chan(unsigned int chan_type)
 	return chan_type == S32G_LLCE_CAN_LOGGER_MB;
 }
 
+static bool is_logger_config_chan(unsigned int chan_type)
+{
+	return chan_type == S32G_LLCE_CAN_LOGGER_CONFIG_MB;
+}
+
 static int init_chan_priv(struct mbox_chan *chan, struct llce_mb *mb,
 			  unsigned int type, unsigned int index)
 {
@@ -383,9 +397,8 @@ static int init_chan_priv(struct mbox_chan *chan, struct llce_mb *mb,
 	priv->index = index;
 
 	chan->con_priv = priv;
-
 	/* Polling for firmware configuration */
-	if (is_config_chan(type)) {
+	if (is_config_chan(type) || is_logger_config_chan(type)) {
 		chan->txdone_method = TXDONE_BY_POLL;
 		priv->state = LLCE_REGISTERED_CHAN;
 	} else {
@@ -573,6 +586,21 @@ static int send_can_msg(struct mbox_chan *chan, struct llce_tx_msg *msg)
 	return 0;
 }
 
+static int process_logger_config_cmd(struct mbox_chan *chan, void *data)
+{
+	struct llce_chan_priv *priv = chan->con_priv;
+	struct logger_config_msg *msg = data;
+	struct llce_mb *mb = priv->mb;
+
+	switch (msg->cmd) {
+	case LOGGER_CMD_FW_SUPPORT:
+		msg->fw_logger_support = mb->fw_logger_support;
+		return 0;
+	default:
+		return -EINVAL;
+	}
+}
+
 static int llce_mb_send_data(struct mbox_chan *chan, void *data)
 {
 	struct llce_chan_priv *priv = chan->con_priv;
@@ -592,6 +620,9 @@ static int llce_mb_send_data(struct mbox_chan *chan, void *data)
 
 	if (is_logger_chan(priv->type))
 		return process_logger_cmd(chan, data);
+
+	if (is_logger_config_chan(priv->type))
+		return process_logger_config_cmd(chan, data);
 
 	return -EINVAL;
 }
@@ -883,6 +914,11 @@ static bool llce_mb_last_tx_done(struct mbox_chan *chan)
 	struct llce_mb *mb = priv->mb;
 	struct llce_can_command *cmd;
 	struct llce_can_command *sh_cmd;
+
+	if (is_logger_config_chan(priv->type)) {
+		llce_mbox_chan_received_data(chan, NULL);
+		return true;
+	}
 
 	if (!is_config_chan(priv->type))
 		return false;
@@ -1804,11 +1840,9 @@ static int llce_platform_deinit(struct llce_mb *mb)
 	return execute_hif_cmd(mb, &cmd);
 }
 
-static int print_fw_version(struct llce_mb *mb)
+static int get_fw_version(struct llce_mb *mb,
+			  struct llce_can_get_fw_version *ver)
 {
-	struct mbox_controller *ctrl = &mb->controller;
-	struct device *dev = ctrl->dev;
-	struct llce_can_get_fw_version *ver;
 	struct llce_can_command cmd = {
 		.cmd_id = LLCE_CAN_CMD_GETFWVERSION,
 	};
@@ -1821,11 +1855,28 @@ static int print_fw_version(struct llce_mb *mb)
 	if (ret)
 		return ret;
 
-	ver = &cmd.cmd_list.get_fw_version;
-
-	dev_info(dev, "LLCE firmware version: %s\n", ver->version_string);
+	*ver = cmd.cmd_list.get_fw_version;
 
 	return 0;
+}
+
+static void fw_logger_support(struct llce_mb *mb,
+			      struct llce_can_get_fw_version *ver)
+{
+	struct device *dev = mb->controller.dev;
+
+	mb->fw_logger_support =
+		!(ver->version_string[LLCE_LOGGING] == LLCE_FEATURE_DISABLED);
+	dev_info(dev, "LLCE firmware: logging support %s\n",
+		 mb->fw_logger_support ? "enabled" : "disabled");
+}
+
+static void print_fw_version(struct llce_mb *mb,
+			     struct llce_can_get_fw_version *ver)
+{
+	struct device *dev = mb->controller.dev;
+
+	dev_info(dev, "LLCE firmware version: %s\n", ver->version_string);
 }
 
 static int init_core_clock(struct device *dev, struct clk **clk)
@@ -1854,6 +1905,7 @@ static void deinit_core_clock(struct clk *clk)
 
 static int llce_mb_probe(struct platform_device *pdev)
 {
+	struct llce_can_get_fw_version ver;
 	struct mbox_controller *ctrl;
 	struct llce_mb *mb;
 	struct device *dev = &pdev->dev;
@@ -1913,11 +1965,15 @@ static int llce_mb_probe(struct platform_device *pdev)
 	if (ret)
 		goto hif_deinit;
 
-	ret = print_fw_version(mb);
+	ret = get_fw_version(mb, &ver);
 	if (ret) {
 		dev_err(dev, "Failed to get firmware version\n");
 		goto disable_clk;
 	}
+
+	print_fw_version(mb, &ver);
+
+	fw_logger_support(mb, &ver);
 
 	ret = llce_platform_init(dev, mb);
 	if (ret) {
