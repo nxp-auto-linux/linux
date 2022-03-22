@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0+ OR BSD-3-Clause
-/* Copyright 2020-2021 NXP
+/* Copyright 2020-2022 NXP
  *
  * Driver for the NXP Semiconductors LLCE engine logging of CAN messages.
  * The LLCE can be found on S32G2/S32G3.
@@ -69,6 +69,57 @@ static const struct net_device_ops llce_logger_netdev_ops = {
 	.ndo_stop	= llce_logger_close,
 };
 
+static int llce_logger_send_config_cmd(struct llce_can_dev *can_dev,
+				       struct logger_config_msg *config_msg)
+{
+	struct device *dev = can_dev->config_client.dev;
+	int ret;
+
+	reinit_completion(&can_dev->config_cmd_done);
+
+	ret = mbox_send_message(can_dev->config, config_msg);
+	if (ret < 0) {
+		dev_err(dev, "Failed to send config message\n");
+		return ret;
+	}
+
+	wait_for_completion(&can_dev->config_cmd_done);
+
+	return ret;
+}
+
+static void llce_logger_config_callback(struct mbox_client *cl, void *msg)
+{
+	struct llce_can_dev *can_dev = container_of(cl, struct llce_can_dev,
+						    config_client);
+	complete(&can_dev->config_cmd_done);
+}
+
+static int llce_logger_setup_config(struct llce_can_dev *can_dev,
+				    struct device *dev)
+{
+	int ret = 0;
+
+	can_dev->config_client = (struct mbox_client) {
+		.dev = dev,
+		.tx_block = true,
+		.rx_callback = llce_logger_config_callback,
+	};
+
+	can_dev->config = mbox_request_channel_byname(&can_dev->config_client,
+						      "config");
+	if (IS_ERR(can_dev->config)) {
+		ret = PTR_ERR(can_dev->config);
+		if (ret != -EPROBE_DEFER)
+			dev_err(dev, "Failed to request config channel\n");
+		return ret;
+	}
+
+	init_completion(&can_dev->config_cmd_done);
+
+	return ret;
+}
+
 static int llce_logger_probe(struct platform_device *pdev)
 {
 	struct net_device *netdev;
@@ -76,6 +127,7 @@ static int llce_logger_probe(struct platform_device *pdev)
 	struct llce_can_dev *common;
 	struct device *dev = &pdev->dev;
 	struct can_priv *can;
+	struct logger_config_msg config_msg;
 	int ret;
 
 	common = init_llce_can_dev(dev, sizeof(struct llce_logger),
@@ -86,6 +138,21 @@ static int llce_logger_probe(struct platform_device *pdev)
 	logger = container_of(common, struct llce_logger, common);
 	can = &common->can;
 	netdev = can->dev;
+
+	ret = llce_logger_setup_config(common, dev);
+	if (ret)
+		return ret;
+
+	config_msg.cmd = LOGGER_CMD_FW_SUPPORT;
+
+	ret = llce_logger_send_config_cmd(common, &config_msg);
+
+	mbox_free_channel(common->config);
+
+	if (!config_msg.fw_logger_support) {
+		ret = -ENODEV;
+		goto llce_logger_out;
+	}
 
 	platform_set_drvdata(pdev, netdev);
 
@@ -102,8 +169,12 @@ static int llce_logger_probe(struct platform_device *pdev)
 	ret = register_candev(netdev);
 	if (ret) {
 		dev_err(dev, "Failed to register %s\n", netdev->name);
-		free_llce_netdev(common);
+		goto llce_logger_out;
 	}
+
+llce_logger_out:
+	if (ret)
+		free_llce_netdev(common);
 
 	return ret;
 }
