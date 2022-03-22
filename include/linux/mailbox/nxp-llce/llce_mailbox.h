@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0+ */
-/* Copyright 2020-2021 NXP */
+/* Copyright 2020-2022 NXP */
 #ifndef LLCE_MAILBOX_H
 #define LLCE_MAILBOX_H
 
@@ -76,4 +76,12 @@ struct llce_logger_msg {
 	u8 hw_ctrl;
 };
 
+enum logger_config_cmd {
+	LOGGER_CMD_FW_SUPPORT = 1,
+};
+
+struct logger_config_msg {
+	enum logger_config_cmd cmd;
+	bool fw_logger_support;
+};
 #endif
