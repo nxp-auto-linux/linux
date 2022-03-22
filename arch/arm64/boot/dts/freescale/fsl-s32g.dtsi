@@ -630,97 +630,129 @@
 
 		llce_can_logger0: llce_can_logger0 {
 			compatible = "nxp,s32g-llce-can-logger";
-			mboxes = <&llce_mb S32G_LLCE_CAN_LOGGER_MB 0>;
+			mboxes = <&llce_mb S32G_LLCE_CAN_LOGGER_CONFIG_MB 0>,
+				<&llce_mb S32G_LLCE_CAN_LOGGER_MB 0>;
+			mbox-names = "config", "rx";
 			status = "okay";
 		};
 
 		llce_can_logger1: llce_can_logger1 {
 			compatible = "nxp,s32g-llce-can-logger";
-			mboxes = <&llce_mb S32G_LLCE_CAN_LOGGER_MB 1>;
+			mboxes = <&llce_mb S32G_LLCE_CAN_LOGGER_CONFIG_MB 1>,
+				<&llce_mb S32G_LLCE_CAN_LOGGER_MB 1>;
+			mbox-names = "config", "rx";
 			status = "okay";
 		};
 
 		llce_can_logger2: llce_can_logger2 {
 			compatible = "nxp,s32g-llce-can-logger";
-			mboxes = <&llce_mb S32G_LLCE_CAN_LOGGER_MB 2>;
+			mboxes = <&llce_mb S32G_LLCE_CAN_LOGGER_CONFIG_MB 2>,
+				<&llce_mb S32G_LLCE_CAN_LOGGER_MB 2>;
+			mbox-names = "config", "rx";
 			status = "okay";
 		};
 
 		llce_can_logger3: llce_can_logger3 {
 			compatible = "nxp,s32g-llce-can-logger";
-			mboxes = <&llce_mb S32G_LLCE_CAN_LOGGER_MB 3>;
+			mboxes = <&llce_mb S32G_LLCE_CAN_LOGGER_CONFIG_MB 3>,
+				<&llce_mb S32G_LLCE_CAN_LOGGER_MB 3>;
+			mbox-names = "config", "rx";
 			status = "okay";
 		};
 
 		llce_can_logger4: llce_can_logger4 {
 			compatible = "nxp,s32g-llce-can-logger";
-			mboxes = <&llce_mb S32G_LLCE_CAN_LOGGER_MB 4>;
+			mboxes = <&llce_mb S32G_LLCE_CAN_LOGGER_CONFIG_MB 4>,
+				<&llce_mb S32G_LLCE_CAN_LOGGER_MB 4>;
+			mbox-names = "config", "rx";
 			status = "okay";
 		};
 
 		llce_can_logger5: llce_can_logger5 {
 			compatible = "nxp,s32g-llce-can-logger";
-			mboxes = <&llce_mb S32G_LLCE_CAN_LOGGER_MB 5>;
+			mboxes = <&llce_mb S32G_LLCE_CAN_LOGGER_CONFIG_MB 5>,
+				<&llce_mb S32G_LLCE_CAN_LOGGER_MB 5>;
+			mbox-names = "config", "rx";
 			status = "okay";
 		};
 
 		llce_can_logger6: llce_can_logger6 {
 			compatible = "nxp,s32g-llce-can-logger";
-			mboxes = <&llce_mb S32G_LLCE_CAN_LOGGER_MB 6>;
+			mboxes = <&llce_mb S32G_LLCE_CAN_LOGGER_CONFIG_MB 6>,
+				<&llce_mb S32G_LLCE_CAN_LOGGER_MB 6>;
+			mbox-names = "config", "rx";
 			status = "okay";
 		};
 
 		llce_can_logger7: llce_can_logger7 {
 			compatible = "nxp,s32g-llce-can-logger";
-			mboxes = <&llce_mb S32G_LLCE_CAN_LOGGER_MB 7>;
+			mboxes = <&llce_mb S32G_LLCE_CAN_LOGGER_CONFIG_MB 7>,
+				<&llce_mb S32G_LLCE_CAN_LOGGER_MB 7>;
+			mbox-names = "config", "rx";
 			status = "okay";
 		};
 
 		llce_can_logger8: llce_can_logger8 {
 			compatible = "nxp,s32g-llce-can-logger";
-			mboxes = <&llce_mb S32G_LLCE_CAN_LOGGER_MB 8>;
+			mboxes = <&llce_mb S32G_LLCE_CAN_LOGGER_CONFIG_MB 8>,
+				<&llce_mb S32G_LLCE_CAN_LOGGER_MB 8>;
+			mbox-names = "config", "rx";
 			status = "okay";
 		};
 
 		llce_can_logger9: llce_can_logger9 {
 			compatible = "nxp,s32g-llce-can-logger";
-			mboxes = <&llce_mb S32G_LLCE_CAN_LOGGER_MB 9>;
+			mboxes = <&llce_mb S32G_LLCE_CAN_LOGGER_CONFIG_MB 9>,
+				<&llce_mb S32G_LLCE_CAN_LOGGER_MB 9>;
+			mbox-names = "config", "rx";
 			status = "okay";
 		};
 
 		llce_can_logger10: llce_can_logger10 {
 			compatible = "nxp,s32g-llce-can-logger";
-			mboxes = <&llce_mb S32G_LLCE_CAN_LOGGER_MB 10>;
+			mboxes = <&llce_mb S32G_LLCE_CAN_LOGGER_CONFIG_MB 10>,
+				<&llce_mb S32G_LLCE_CAN_LOGGER_MB 10>;
+			mbox-names = "config", "rx";
 			status = "okay";
 		};
 
 		llce_can_logger11: llce_can_logger11 {
 			compatible = "nxp,s32g-llce-can-logger";
-			mboxes = <&llce_mb S32G_LLCE_CAN_LOGGER_MB 11>;
+			mboxes = <&llce_mb S32G_LLCE_CAN_LOGGER_CONFIG_MB 11>,
+				<&llce_mb S32G_LLCE_CAN_LOGGER_MB 11>;
+			mbox-names = "config", "rx";
 			status = "okay";
 		};
 
 		llce_can_logger12: llce_can_logger12 {
 			compatible = "nxp,s32g-llce-can-logger";
-			mboxes = <&llce_mb S32G_LLCE_CAN_LOGGER_MB 12>;
+			mboxes = <&llce_mb S32G_LLCE_CAN_LOGGER_CONFIG_MB 12>,
+				<&llce_mb S32G_LLCE_CAN_LOGGER_MB 12>;
+			mbox-names = "config", "rx";
 			status = "okay";
 		};
 
 		llce_can_logger13: llce_can_logger13 {
 			compatible = "nxp,s32g-llce-can-logger";
-			mboxes = <&llce_mb S32G_LLCE_CAN_LOGGER_MB 13>;
+			mboxes = <&llce_mb S32G_LLCE_CAN_LOGGER_CONFIG_MB 13>,
+				<&llce_mb S32G_LLCE_CAN_LOGGER_MB 13>;
+			mbox-names = "config", "rx";
 			status = "okay";
 		};
 
 		llce_can_logger14: llce_can_logger14 {
 			compatible = "nxp,s32g-llce-can-logger";
-			mboxes = <&llce_mb S32G_LLCE_CAN_LOGGER_MB 14>;
+			mboxes = <&llce_mb S32G_LLCE_CAN_LOGGER_CONFIG_MB 14>,
+				<&llce_mb S32G_LLCE_CAN_LOGGER_MB 14>;
+			mbox-names = "config", "rx";
 			status = "okay";
 		};
 
 		llce_can_logger15: llce_can_logger15 {
 			compatible = "nxp,s32g-llce-can-logger";
-			mboxes = <&llce_mb S32G_LLCE_CAN_LOGGER_MB 15>;
+			mboxes = <&llce_mb S32G_LLCE_CAN_LOGGER_CONFIG_MB 15>,
+				<&llce_mb S32G_LLCE_CAN_LOGGER_MB 15>;
+			mbox-names = "config", "rx";
 			status = "okay";
 		};
 
