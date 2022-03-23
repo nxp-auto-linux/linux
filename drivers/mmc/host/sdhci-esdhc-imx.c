@@ -286,7 +286,8 @@ static struct esdhc_soc_data usdhc_imx8mm_data = {
 static struct esdhc_soc_data usdhc_s32gen1_data = {
 	.flags = ESDHC_FLAG_USDHC | ESDHC_FLAG_HS400_ES
 			| ESDHC_FLAG_HS200 | ESDHC_FLAG_HS400
-			| ESDHC_FLAG_HAVE_CAP1 | ESDHC_FLAG_MAN_TUNING,
+			| ESDHC_FLAG_HAVE_CAP1 | ESDHC_FLAG_MAN_TUNING
+			| ESDHC_FLAG_CQHCI,
 };
 
 struct pltfm_imx_data {
