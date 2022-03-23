@@ -2,7 +2,7 @@
  * s32r45 pinctrl driver based on imx pinmux and pinconf core
  *
  * Copyright 2015-2016 Freescale Semiconductor, Inc.
- * Copyright 2017-2018 NXP
+ * Copyright 2017-2018,2022 NXP
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -566,11 +566,11 @@ static struct s32_pinctrl_soc_info s32_pinctrl_info_1 = {
 
 static const struct of_device_id s32_pinctrl_of_match[] = {
 	{
-		.compatible = "fsl,s32r45-siul2_0-pinctrl",
+		.compatible = "nxp,s32r45-siul2_0-pinctrl",
 		.data = (void *) &s32_pinctrl_info_0,
 	},
 	{
-		.compatible = "fsl,s32r45-siul2_1-pinctrl",
+		.compatible = "nxp,s32r45-siul2_1-pinctrl",
 		.data = (void *) &s32_pinctrl_info_1,
 	},
 	{ /* sentinel */ }
