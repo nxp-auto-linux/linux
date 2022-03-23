@@ -2,21 +2,22 @@
 %YAML 1.2
 ---
 
-title: Freescale S32GEN1 SIUL2 iomux controller
+title: NXP S32 Common Chassis SIUL2 iomux controller
 
 maintainers:
   - Ghennadi Procopciuc <Ghennadi.Procopciuc@nxp.com>
 
 description: |
-  Core driver for the S32GEN1 pin controller.
+  Core driver for the pin controller found on S32 Common Chassis SoC.
 
 properties:
   compatible:
     const:
-      - fsl,s32g-siul2_0-pinctrl
-      - fsl,s32g-siul2_1-pinctrl
-      - fsl,s32r45-siul2_0-pinctrl
-      - fsl,s32r45-siul2_1-pinctrl
+      - nxp,s32cc-siul2-pinctrl
+      - nxp,s32g-siul2_0-pinctrl
+      - nxp,s32g-siul2_1-pinctrl
+      - nxp,s32r45-siul2_0-pinctrl
+      - nxp,s32r45-siul2_1-pinctrl
 
   fsl,pins:
     description: |
