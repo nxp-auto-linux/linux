@@ -326,7 +326,8 @@ static struct esdhc_soc_data usdhc_s32cc_data = {
 			| ESDHC_FLAG_HS200
 			| ESDHC_FLAG_HS400
 			| ESDHC_FLAG_HS400_ES
-			| ESDHC_FLAG_MAN_TUNING,
+			| ESDHC_FLAG_MAN_TUNING
+			| ESDHC_FLAG_CQHCI,
 };
 
 struct pltfm_imx_data {
