@@ -1098,11 +1098,9 @@ linflex_set_termios(struct uart_port *port, struct ktermios *termios,
 	 * linflex_startup(), which is called a bit later.
 	 */
 	if (sport->dma_rx_buf_bus && sport->dma_rx_use &&
-	    !linflex_dma_rx(sport)) {
-		timer_setup(&sport->timer, linflex_timer_func, 0);
-		sport->timer.expires = jiffies + sport->dma_rx_timeout;
-		add_timer(&sport->timer);
-	}
+	    !linflex_dma_rx(sport))
+		mod_timer(&sport->timer, jiffies + sport->dma_rx_timeout);
+
 	if (sport->dma_tx_use) {
 		xmit = &sport->port.state->xmit;
 		if (uart_circ_chars_pending(xmit) < WAKEUP_CHARS)
