@@ -370,7 +370,7 @@
 		#size-cells = <2>;
 		status = "okay";
 		pinctrl0: siul2-pinctrl0@4009C000 {
-			compatible = "fsl,s32g-siul2_0-pinctrl";
+			compatible = "nxp,s32g-siul2_0-pinctrl";
 			#pinctrl-cells = <2>;
 			reg = <0x1 0x0 0x0 0x198>,
 			<0x2 0x0 0x0 0x150>;
@@ -432,7 +432,7 @@
 			 <5 0 0x0 0x44010010 0x0 0x34>;
 
 		pinctrl1: siul2-pinctrl1@44010000 {
-			compatible = "fsl,s32g-siul2_1-pinctrl";
+			compatible = "nxp,s32g-siul2_1-pinctrl";
 			#pinctrl-cells = <2>;
 			reg = <0x1 0x0 0x0 0x13C>,
 			<0x2 0x0 0x0 0x5E4>;
