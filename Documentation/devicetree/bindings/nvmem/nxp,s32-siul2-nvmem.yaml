@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: (GPL-2.0 or BSD-2-Clause)
 %YAML 1.2
 ---
-$id: http://devicetree.org/schemas/nvmem/fsl,s32-siul2-nvmem.yaml#
+$id: http://devicetree.org/schemas/nvmem/nxp,s32-siul2-nvmem.yaml#
 $schema: http://devicetree.org/meta-schemas/core.yaml#
 
 title: NXP S32 SIUL2 NVMEM driver
@@ -21,8 +21,8 @@ properties:
     description: |-
       Each compatible string provides an interface for
       SIUL2_0 or SIUL2_1 module.
-      const: fsl,s32gen1-siul2_0-nvmem
-      const: fsl,s32gen1-siul2_1-nvmem
+      const: nxp,s32cc-siul2_0-nvmem
+      const: nxp,s32cc-siul2_1-nvmem
 
   reg:
     description:
@@ -46,7 +46,7 @@ unevaluatedProperties: false
 examples:
   - |
     nvram: nvram@4009C000 {
-      compatible = "fsl,s32gen1-siul2_0-nvmem";
+      compatible = "nxp,s32cc-siul2_0-nvmem";
       reg = <0x0 10>;
       #address-cells = <1>;
       #size-cells = <1>;
