@@ -22,6 +22,8 @@ struct llce_can_dev {
 	struct mbox_chan *config, *rx;
 	u64 *stats;
 	atomic_t rx_processing;
+
+	int id;
 };
 
 static inline bool is_llce_rx_busy(struct llce_can_dev *dev)
