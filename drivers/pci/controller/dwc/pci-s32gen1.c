@@ -26,6 +26,7 @@
 #include <linux/processor.h>
 #include <linux/nvmem-consumer.h>
 #include <linux/ioport.h>
+#include <soc/s32/revision.h>
 
 #ifdef CONFIG_PCI_S32GEN1_ACCESS_FROM_USER
 #include <linux/debugfs.h>
@@ -67,6 +68,8 @@
 #define PCI_SUBCLASS_OFF	16
 
 #define PCIE_EP_DEFAULT_BAR_SIZE	SZ_1M
+
+#define PCI_DEVICE_ID_SHIFT	16
 
 struct s32gen1_pcie_data {
 	enum dw_pcie_device_mode mode;
@@ -1085,6 +1088,7 @@ static int s32gen1_pcie_dt_init(struct platform_device *pdev,
 	const struct s32gen1_pcie_data *data;
 	enum dw_pcie_device_mode mode;
 	struct dw_pcie_ep *ep = &pcie->ep;
+	u32 pcie_vendor_id, pcie_variant_bits = 0;
 	int ret;
 
 	match = of_match_device(s32gen1_pcie_of_match, dev);
@@ -1169,6 +1173,18 @@ static int s32gen1_pcie_dt_init(struct platform_device *pdev,
 	 */
 	if (!s32_pp->is_endpoint && of_parse_phandle(np, "msi-parent", 0))
 		s32_pp->has_msi_parent = true;
+
+	ret = s32_siul2_nvmem_get_pcie_dev_id(dev, "pcie_variant",
+					      &pcie_variant_bits);
+	if (ret)
+		return ret;
+
+	dw_pcie_dbi_ro_wr_en(pcie);
+	pcie_vendor_id = dw_pcie_readl_dbi(pcie, PCI_VENDOR_ID);
+	pcie_vendor_id |= pcie_variant_bits << PCI_DEVICE_ID_SHIFT;
+	dev_info(dev, "Setting PCI Device ID to: 0x%x\n", pcie_vendor_id >> 16);
+	dw_pcie_writel_dbi(pcie, PCI_VENDOR_ID, pcie_vendor_id);
+	dw_pcie_dbi_ro_wr_dis(pcie);
 
 	return 0;
 }
