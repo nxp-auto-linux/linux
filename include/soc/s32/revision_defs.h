@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright 2021 NXP
+ * Copyright 2021-2022 NXP
  *
  */
 
@@ -9,6 +9,7 @@
 
 #define S32_SOC_REV_MAJOR_SHIFT		(24)
 #define S32_SOC_REV_MINOR_SHIFT		(16)
+#define S32_PCIE_DEV_VARIANT		(0)
 
 struct s32_soc_rev {
 	u8 major;
