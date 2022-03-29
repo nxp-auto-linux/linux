@@ -11,7 +11,6 @@
 #include "fsl-s32-gen1.dtsi"
 #include <dt-bindings/pinctrl/s32r45-pinctrl.h>
 #include <dt-bindings/clock/s32r45-scmi-clock.h>
-#include <dt-bindings/nvmem/s32-siul2-nvmem.h>
 
 / {
 	model = "Freescale S32R45";
@@ -243,7 +242,7 @@
 			#size-cells = <1>;
 			status = "okay";
 			serdes_presence: serdes_presence@0 {
-				reg = <SERDES_PRESENCE_OFFSET SERDES_PRESENCE_SIZE>;
+				reg = <SERDES_PRESENCE_OFFSET NVRAM_CELL_SIZE>;
 			};
 		};
 	};

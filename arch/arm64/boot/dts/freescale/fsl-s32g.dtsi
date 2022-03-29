@@ -14,7 +14,6 @@
 #include <dt-bindings/clock/s32g-scmi-clock.h>
 #include <dt-bindings/reset/s32g-scmi-reset.h>
 #include <dt-bindings/net/fsl-s32g-pfeng.h>
-#include <dt-bindings/nvmem/s32-siul2-nvmem.h>
 
 / {
 	sysclk: clk10000000 {
@@ -494,7 +493,7 @@
 			#size-cells = <1>;
 			status = "okay";
 			serdes_presence: serdes_presence@0 {
-				reg = <SERDES_PRESENCE_OFFSET SERDES_PRESENCE_SIZE>;
+				reg = <SERDES_PRESENCE_OFFSET NVRAM_CELL_SIZE>;
 			};
 		};
 	};
