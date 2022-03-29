@@ -10,10 +10,11 @@
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/clock/s32gen1-clock.h>
 #include <dt-bindings/clock/s32gen1-scmi-clock.h>
+#include <dt-bindings/misc/s32-fccu.h>
+#include <dt-bindings/nvmem/s32-siul2-nvmem.h>
 #include <dt-bindings/phy/phy-s32gen1-serdes.h>
 #include <dt-bindings/phy/phy.h>
 #include <dt-bindings/reset/s32gen1-scmi-reset.h>
-#include <dt-bindings/misc/s32-fccu.h>
 
 / {
 	interrupt-parent = <&gic>;
@@ -275,7 +276,10 @@
 			#size-cells = <1>;
 			status = "okay";
 			soc_revision: soc_revision@0 {
-				reg = <0x0 0x4>;
+				reg = <SOC_REVISION_OFFSET NVRAM_CELL_SIZE>;
+			};
+			pcie_variant: pcie_variant@4 {
+				reg = <PCIE_VARIANT_OFFSET NVRAM_CELL_SIZE>;
 			};
 		};
 	};
@@ -965,8 +969,8 @@
 		num-ib-windows = <6>;
 		num-ob-windows = <6>;
 
-		nvmem-cell-names = "serdes_presence";
-		nvmem-cells = <&serdes_presence>;
+		nvmem-cell-names = "serdes_presence", "pcie_variant";
+		nvmem-cells = <&serdes_presence>, <&pcie_variant>;
 
 		status = "disabled";
 	};
@@ -1042,8 +1046,8 @@
 		num-ib-windows = <6>;
 		num-ob-windows = <6>;
 
-		nvmem-cell-names = "serdes_presence";
-		nvmem-cells = <&serdes_presence>;
+		nvmem-cell-names = "serdes_presence", "pcie_variant";
+		nvmem-cells = <&serdes_presence>, <&pcie_variant>;
 
 		status = "disabled";
 	};
