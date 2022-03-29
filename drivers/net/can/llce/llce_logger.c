@@ -31,7 +31,7 @@ static int llce_logger_open(struct net_device *dev)
 
 	napi_enable(&llce_dev->napi);
 
-	llce_dev->rx = mbox_request_channel(&llce_dev->rx_client, 0);
+	llce_dev->rx = mbox_request_channel_byname(&llce_dev->rx_client, "rx");
 	if (IS_ERR(llce_dev->rx)) {
 		ret = PTR_ERR(llce_dev->rx);
 		netdev_err(dev, "Failed to get logger RX mailbox: %d\n",
