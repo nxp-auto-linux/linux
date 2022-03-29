@@ -52,6 +52,9 @@ examples:
       #size-cells = <1>;
       status = "okay";
       soc_revision: soc_revision@0 {
-              reg = <0x0 0x4>;
+              reg = <SOC_REVISION_OFFSET NVRAM_CELL_SIZE>;
+      };
+      pcie_variant: pcie_variant@4 {
+              reg = <PCIE_VARIANT_OFFSET NVRAM_CELL_SIZE>;
       };
     };
