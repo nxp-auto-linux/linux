@@ -53,7 +53,7 @@ static int s32_siul2_0_nvmem_read(void *context, unsigned int offset,
 	u32 midr1;
 	u32 major, minor;
 
-	if (offset != SOC_REVISION_OFFSET || bytes != SOC_REVISION_SIZE)
+	if (offset != SOC_REVISION_OFFSET || bytes != NVRAM_CELL_SIZE)
 		return -EOPNOTSUPP;
 
 	midr1 = ioread32(priv->siul2 + SIUL2_MIDR1_OFF);
@@ -74,7 +74,7 @@ static int s32_siul2_1_nvmem_read(void *context, unsigned int offset,
 	u32 midr2;
 	u32 serdes;
 
-	if (offset != SERDES_PRESENCE_OFFSET || bytes != SERDES_PRESENCE_SIZE)
+	if (offset != SERDES_PRESENCE_OFFSET || bytes != NVRAM_CELL_SIZE)
 		return -EOPNOTSUPP;
 
 	midr2 = ioread32(priv->siul2 + SIUL2_MIDR2_OFF);
