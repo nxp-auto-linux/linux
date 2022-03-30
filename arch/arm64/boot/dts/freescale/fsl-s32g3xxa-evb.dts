@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /*
- * Copyright 2021 NXP
+ * Copyright 2021-2022 NXP
  */
 
 /dts-v1/;
@@ -25,12 +25,4 @@
 
 &swt11 {
 	status = "okay";
-};
-
-&pcie0 {
-	no-check-serdes;
-};
-
-&pcie1 {
-	no-check-serdes;
 };
