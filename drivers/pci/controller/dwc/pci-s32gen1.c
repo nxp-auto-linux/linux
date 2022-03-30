@@ -226,14 +226,10 @@ static u8 dw_pcie_iatu_unroll_enabled(struct dw_pcie *pci)
 
 static int s32gen1_check_serdes(struct device *dev)
 {
-	struct device_node *np = dev->of_node;
 	struct nvmem_cell *serdes_cell;
 	size_t read_len = 0;
 	u8 *serdes = NULL;
 	int ret = 0;
-
-	if (of_find_property(np, "no-check-serdes", NULL))
-		return 0;
 
 	serdes_cell = devm_nvmem_cell_get(dev, "serdes_presence");
 	if (IS_ERR(serdes_cell)) {
