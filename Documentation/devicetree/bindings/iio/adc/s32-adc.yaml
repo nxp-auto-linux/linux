@@ -7,16 +7,15 @@ $schema: http://devicetree.org/meta-schemas/core.yaml#
 title: NXP S32 Analog-to-Digital Converter (SAR-ADC)
 
 maintainers:
-  - Stefan-Gabriel Mirea <stefan-gabriel.mirea@nxp.com>
   - Ciprian Marian Costea <ciprianmarian.costea@nxp.com>
 
 description: |
-  SAR-ADC analog-to-digital converter for S32GEN1 boards
+  SAR-ADC analog-to-digital converter for S32CC boards
 
 properties:
   compatible:
     enum:
-      - fsl,s32gen1-adc
+      - nxp,s32cc-adc
 
   reg:
     maxItems: 1
@@ -25,7 +24,7 @@ properties:
     maxItems: 1
 
   clocks:
-    description: SAR-ADC source clock (S32GEN1_CLK_PER)
+    description: SAR-ADC source clock (S32GEN1_SCMI_CLK_SAR_ADC_BUS)
     maxItems: 1
 
   clock-names:
@@ -48,13 +47,12 @@ examples:
   - |
     #include <dt-bindings/clock/s32gen1-clock.h>
 
-    saradc1: adc@401f8000 {
-        compatible = "fsl,s32gen1-adc";
-        reg = <0x401f8000 0x1000>;
+    saradc0: adc@401f8000 {
+        compatible = "nxp,s32cc-adc";
+        reg = <0x0 0x401f8000 0x0 0x1000>;
         interrupts = <0 70 4>;
-        clocks = <&clks S32GEN1_CLK_PER>;
+        clocks = <&clks S32GEN1_SCMI_CLK_SAR_ADC_BUS>;
         clock-names = "adc";
         vref = <1800>;
         status = "okay";
     };
-
