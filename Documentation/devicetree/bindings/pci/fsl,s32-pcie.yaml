@@ -63,9 +63,6 @@ properties:
       phandle to the SerDes presence field cells from MIDR2 register
       from SIUL2_1 module
 
-  no-check-serdes:
-    description: Skip SerDes subsystem presence check
-
 required:
   - compatible
   - reg
