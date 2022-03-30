@@ -3,7 +3,7 @@
  * driver by Fugang Duan <B38611@freescale.com>)
  *
  * Copyright 2013 Freescale Semiconductor, Inc.
- * Copyright 2017-2021 NXP
+ * Copyright 2017-2022 NXP
  */
 
 #include <linux/module.h>
@@ -19,6 +19,7 @@
 #include <linux/of_irq.h>
 #include <linux/regulator/consumer.h>
 #include <linux/of_platform.h>
+#include <linux/iopoll.h>
 #include <linux/err.h>
 #include <linux/version.h>
 
@@ -28,8 +29,6 @@
 #include <linux/iio/trigger.h>
 #include <linux/iio/triggered_buffer.h>
 #include <linux/iio/trigger_consumer.h>
-
-#include <linux/time64.h>
 
 /* This will be the driver name the kernel reports */
 #define DRIVER_NAME "s32-adc"
@@ -64,9 +63,8 @@
 #define ADC_OWREN			0x80000000
 
 /* Main Status Register field define */
-#define ADC_CALBUSY		0x20000000
-#define ADC_CALFAIL		0x40000000
-#define ADC_CALBRTD		0x80000000
+#define ADC_CALBUSY		BIT(29)
+#define ADC_CALFAIL		BIT(30)
 
 /* Interrupt Status Register field define */
 #define ADC_ECH			0x01
@@ -101,14 +99,14 @@
 /* Other field define */
 #define ADC_CLK_FREQ_40MHz		40000000
 #define ADC_CLK_FREQ_80MHz		80000000
-#define ADC_CLK_FREQ_160MHz	160000000
-#define ADC_CONV_TIMEOUT		100 /* ms */
-#define ADC_CAL_TIMEOUT		100 /* ms */
-#define ADC_WAIT			2   /* ms */
+#define ADC_CLK_FREQ_160MHz		160000000
+#define ADC_CONV_TIMEOUT		100	/* ms */
+#define ADC_CAL_TIMEOUT			100000	/* us */
+#define ADC_WAIT				2000	/* us */
 #define ADC_NSEC_PER_SEC		1000000000
 #define ADC_NUM_CAL_STEPS		14
-#define ADC_NUM_GROUPS		2
-#define ADC_RESOLUTION		12
+#define ADC_NUM_GROUPS			2
+#define ADC_RESOLUTION			12
 
 /* Duration of conversion phases */
 #define ADC_TPT			2
@@ -256,10 +254,8 @@ static void s32_adc_cfg_post_set(struct s32_adc *info)
 static void s32_adc_calibration(struct s32_adc *info)
 {
 	struct s32_adc_feature *adc_feature = &info->adc_feature;
-	struct device_node *np = info->dev->of_node;
 	int mcr_data, msr_data, calstat_data;
-	int ms_passed, step;
-	struct timespec64 tv_start, tv_current;
+	int step;
 	unsigned long clk_rate;
 
 	if (!info->adc_feature.calibration)
@@ -308,24 +304,9 @@ static void s32_adc_calibration(struct s32_adc *info)
 	mcr_data |= ADC_CALSTART;
 	writel(mcr_data, info->regs + REG_ADC_MCR);
 
-	if (of_device_is_compatible(np, "fsl,s32gen1-adc")) {
-		do {
-			msleep(ADC_WAIT);
-			msr_data = readl(info->regs + REG_ADC_MSR);
-		} while (!(msr_data & ADC_CALBRTD) &&
-				!(msr_data & ADC_CALFAIL));
-	} else {
-		ktime_get_ts64(&tv_start);
-		do {
-			msleep(ADC_WAIT);
-			msr_data = readl(info->regs + REG_ADC_MSR);
-			ktime_get_ts64(&tv_current);
-			ms_passed = (tv_current.tv_sec -
-					tv_start.tv_sec) * 1000 +
-				(tv_current.tv_nsec - tv_start.tv_nsec) / 1000;
-		} while (msr_data & ADC_CALBUSY &&
-			ms_passed < ADC_CAL_TIMEOUT);
-	}
+	if (read_poll_timeout(readl, msr_data, !(msr_data & ADC_CALBUSY),
+			      ADC_WAIT, ADC_CAL_TIMEOUT, true, info->regs + REG_ADC_MSR))
+		dev_err(info->dev, "SAR ADC Calibration failed\n");
 
 	if (msr_data & ADC_CALBUSY) {
 		dev_err(info->dev, "Timeout for adc calibration\n");
@@ -677,7 +658,7 @@ static const struct iio_info s32_adc_iio_info = {
 };
 
 static const struct of_device_id s32_adc_match[] = {
-	{ .compatible = "fsl,s32gen1-adc", },
+	{ .compatible = "nxp,s32cc-adc", },
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, s32_adc_match);
