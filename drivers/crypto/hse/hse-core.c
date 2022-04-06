@@ -4,7 +4,7 @@
  *
  * This file contains the device driver core for the HSE cryptographic engine.
  *
- * Copyright 2019-2021 NXP
+ * Copyright 2019-2022 NXP
  */
 
 #include <linux/kernel.h>
@@ -51,6 +51,7 @@ enum hse_fw_status {
  * @aes_key_ring: AES key slots currently available
  * @stream_lock: lock used for stream channel reservation
  * @tx_lock: lock used for service request transmission
+ * @rx_lock: lock used for synchronous request completion
  * @key_ring_lock: lock used for key slot acquisition
  * @firmware_version: firmware version attribute structure
  * @firmware_status: internally cached status of HSE firmware
@@ -80,6 +81,7 @@ struct hse_drvdata {
 	struct list_head aes_key_ring;
 	spinlock_t stream_lock; /* covers stream reservation */
 	spinlock_t tx_lock; /* covers request transmission */
+	spinlock_t rx_lock; /* covers request completion */
 	spinlock_t key_ring_lock; /* covers key slot acquisition */
 	struct hse_attr_fw_version firmware_version;
 	enum hse_fw_status firmware_status;
@@ -528,7 +530,7 @@ int hse_srv_req_async(struct device *dev, u8 channel, const void *srv_desc,
 	struct hse_drvdata *drv = dev_get_drvdata(dev);
 	int err;
 
-	if (unlikely(!dev || !rx_cbk || !ctx))
+	if (unlikely(!dev || !rx_cbk || !ctx || !srv_desc))
 		return -EINVAL;
 
 	if (unlikely(channel != HSE_CHANNEL_ANY && channel >= HSE_NUM_CHANNELS))
@@ -592,9 +594,10 @@ int hse_srv_req_sync(struct device *dev, u8 channel, const void *srv_desc)
 {
 	struct hse_drvdata *drv = dev_get_drvdata(dev);
 	DECLARE_COMPLETION_ONSTACK(done);
+	unsigned long flags;
 	int err, reply;
 
-	if (unlikely(!dev))
+	if (unlikely(!dev || !srv_desc))
 		return -EINVAL;
 
 	if (unlikely(channel != HSE_CHANNEL_ANY && channel >= HSE_NUM_CHANNELS))
@@ -641,6 +644,11 @@ int hse_srv_req_sync(struct device *dev, u8 channel, const void *srv_desc)
 
 	err = wait_for_completion_interruptible(&done);
 	if (err) {
+		spin_lock_irqsave(&drv->rx_lock, flags);
+		drv->sync[channel].done = NULL;
+		drv->sync[channel].reply = NULL;
+		spin_unlock_irqrestore(&drv->rx_lock, flags);
+
 		dev_dbg(dev, "%s: request on channel %d interrupted: %d\n",
 			__func__, channel, err);
 		return err;
@@ -660,6 +668,7 @@ int hse_srv_req_sync(struct device *dev, u8 channel, const void *srv_desc)
 static void hse_srv_rsp_dispatch(struct device *dev, u8 channel)
 {
 	struct hse_drvdata *drv = dev_get_drvdata(dev);
+	unsigned long flags;
 	u32 srv_rsp;
 	int err;
 
@@ -688,13 +697,16 @@ static void hse_srv_rsp_dispatch(struct device *dev, u8 channel)
 		return;
 	}
 
+	spin_lock_irqsave(&drv->rx_lock, flags);
 	if (drv->sync[channel].done) {
 		*drv->sync[channel].reply = err;
 		mb(); /* ensure reply is written before calling complete */
 
 		complete(drv->sync[channel].done);
 		drv->sync[channel].done = NULL;
+		drv->sync[channel].reply = NULL;
 	}
+	spin_unlock_irqrestore(&drv->rx_lock, flags);
 
 	drv->channel_busy[channel] = false;
 }
@@ -840,6 +852,7 @@ static int hse_probe(struct platform_device *pdev)
 	/* initialize locks */
 	spin_lock_init(&drv->stream_lock);
 	spin_lock_init(&drv->tx_lock);
+	spin_lock_init(&drv->rx_lock);
 	spin_lock_init(&drv->key_ring_lock);
 
 	/* enable RX and event notifications */
