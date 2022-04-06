@@ -63,6 +63,11 @@ properties:
       phandle to the SerDes presence field cells from MIDR2 register
       from SIUL2_1 module
 
+  shared-mem:
+    description: |
+      reference to a reserved-memory node which has compatible property set
+      to "fsl,s32gen1-shm"
+
 required:
   - compatible
   - reg
