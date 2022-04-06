@@ -112,8 +112,9 @@
 		phy-names = "emac0_xpcs", "emac1_xpcs", "emac2_xpcs";
 		dma-coherent;
 		memory-region = <&pfe_reserved_bmu2>,
-				<&pfe_reserved>,
-				<&pfe_reserved_bdr>;
+				<&pfe_reserved>, <&pfe_reserved_bdr>;
+		memory-region-names = "pfe-bmu2-pool",
+				      "pfe-shared-pool", "pfe-bdr-pool";
 		fsl,fw-class-name = "s32g_pfe_class.fw";
 		fsl,fw-util-name = "s32g_pfe_util.fw";
 		nvmem-cells = <&soc_revision>;
@@ -321,6 +322,7 @@
 		dma-coherent;
 		memory-region = <&pfe_reserved_slave>,
 				<&pfe_reserved_bdr_slave>;
+		memory-region-names = "pfe-shared-pool", "pfe-bdr-pool";
 		nvmem-cells = <&soc_revision>;
 		nvmem-cell-names = "soc_revision";
 		fsl,pfeng-master-hif-channel = <0>;
