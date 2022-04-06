@@ -34,10 +34,10 @@
 		#size-cells = <2>;
 		ranges;
 
-		pfe_reserved_bmu2: pfebufs@83000000 {
+		pfe_reserved_bmu2: pfebufs@34000000 {
 			compatible = "fsl,pfe-bmu2-pool";
-			/* 2 MB */
-			reg = <0 0x83000000 0 0x200000>;
+			/* BMU2: 512 KB */
+			reg = <0 0x34000000 0 0x80000>;
 			no-map;
 			status = "okay";
 		};
@@ -50,7 +50,7 @@
 			status = "okay";
 		};
 
-		pfe_reserved_bdr: pfebufs@83bf0000 {
+		pfe_reserved_bdr: pfebufs@835e0000 {
 			compatible = "fsl,pfe-bdr-pool";
 			/* 128 KB */
 			reg = <0 0x835e0000 0 0x20000>;
