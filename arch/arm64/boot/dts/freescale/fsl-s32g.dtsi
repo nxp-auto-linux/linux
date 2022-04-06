@@ -42,6 +42,14 @@
 			status = "okay";
 		};
 
+		pfe_reserved_rt: pfebufs@34080000 {
+			compatible = "fsl,pfe-rt-pool";
+			/* RT: 128 KB */
+			reg = <0 0x34080000 0 0x20000>;
+			no-map;
+			status = "okay";
+		};
+
 		pfe_reserved: pfebufs@83200000 {
 			compatible = "shared-dma-pool";
 			/* 4 MB - 128 KB */
@@ -111,9 +119,9 @@
 			 <&serdes0 PHY_TYPE_XPCS 1 1>;
 		phy-names = "emac0_xpcs", "emac1_xpcs", "emac2_xpcs";
 		dma-coherent;
-		memory-region = <&pfe_reserved_bmu2>,
+		memory-region = <&pfe_reserved_bmu2>, <&pfe_reserved_rt>,
 				<&pfe_reserved>, <&pfe_reserved_bdr>;
-		memory-region-names = "pfe-bmu2-pool",
+		memory-region-names = "pfe-bmu2-pool", "pfe-rt-pool",
 				      "pfe-shared-pool", "pfe-bdr-pool";
 		fsl,fw-class-name = "s32g_pfe_class.fw";
 		fsl,fw-util-name = "s32g_pfe_util.fw";
