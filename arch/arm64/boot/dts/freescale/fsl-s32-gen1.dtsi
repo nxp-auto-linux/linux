@@ -1012,7 +1012,7 @@
 		       /* RC configuration space, 4KB each for cfg0 and cfg1
 			* at the end of the outbound memory map
 			*/
-		       0x48 0xffffe000 0x0 0x00002000
+		       0x4f 0xffffe000 0x0 0x00002000
 		       0x48 0x00000000 0x0 0x40000000>; /* 1GB EP addr space */
 		reg-names = "dbi", "dbi2", "atu", "dma", "ctrl",
 			    "config", "addr_space";
