@@ -65,14 +65,13 @@ config PCI_S32GEN1_EP_MSI
 
 config PCI_S32_DEBUG
 	bool "Enable basic debug by printing for S32 PCIe module"
-	depends on PCI_S32GEN1 || PCI_S32V234
+	depends on PCI_S32GEN1
 	help
 	Enable basic debug by printing for S32 PCIe module.
 
 config PCI_S32_DEBUG_WRITES
 	bool "Enable dumping register writes performed by the S32 PCIe module"
-	depends on PCI_S32GEN1 && PCI_S32GEN1_DEBUG
-	depends on PCI_S32V234 && PCI_S32V234_DEBUG
+	depends on PCI_S32GEN1 && PCI_S32_DEBUG
 	help
 	Enable dumping register writes performed by the S32 PCIe module.
 	Register writes done by the DW code is not dumped.
