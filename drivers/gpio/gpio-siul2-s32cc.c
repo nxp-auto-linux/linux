@@ -3,7 +3,7 @@
  * SIUL2 GPIO support.
  *
  * Copyright (c) 2016 Freescale Semiconductor, Inc.
- * Copyright 2019-2021 NXP
+ * Copyright 2019-2022 NXP
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 or
@@ -778,8 +778,8 @@ irq_setup_err:
 }
 
 static const struct of_device_id siul2_gpio_dt_ids[] = {
-	{ .compatible = "fsl,s32g-siul2-gpio", .data = &s32g2_device_data },
-	{ .compatible = "fsl,s32gen1-siul2-gpio" },
+	{ .compatible = "nxp,s32g-siul2-gpio", .data = &s32g2_device_data },
+	{ .compatible = "nxp,s32r-siul2-gpio" },
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, siul2_gpio_dt_ids);
@@ -1029,7 +1029,7 @@ static SIMPLE_DEV_PM_OPS(siul2_pm_ops, siul2_suspend, siul2_resume);
 
 static struct platform_driver siul2_gpio_driver = {
 	.driver		= {
-		.name	= "s32-gen1-siul2-gpio",
+		.name	= "s32cc-siul2-gpio",
 		.owner = THIS_MODULE,
 		.of_match_table = siul2_gpio_dt_ids,
 		.pm = &siul2_pm_ops,
