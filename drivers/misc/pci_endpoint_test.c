@@ -74,7 +74,7 @@
 #define PCI_DEVICE_ID_LS1088A			0x80c0
 #define PCI_DEVICE_ID_LX2160A			0x8d80
 #define PCI_DEVICE_ID_S32G2			0x4002
-#define PCI_DEVICE_ID_S32G3			0x4003
+#define PCI_DEVICE_ID_S32G3			0x4300
 #define PCI_DEVICE_ID_S32V			0x4001
 
 #define is_am654_pci_dev(pdev)		\
