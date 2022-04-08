@@ -2,14 +2,14 @@
 %YAML 1.2
 ---
 
-title: NXP S32Gen1 SIUL2 GPIO controller
+title: NXP S32CC SIUL2 GPIO controller
 
 maintainers:
   - Ghennadi Procopciuc <Ghennadi.Procopciuc@nxp.com>
   - Larisa Grigore <larisa.grigore@nxp.com>
 
 description: |
-  Support for the SIUL2 GPIOs found on the S32-GEN1 chips.
+  Support for the SIUL2 GPIOs found on the S32CC chips.
   It includes an IRQ controller for all EIRQ pins.
 
   In S32G case, the eirqs are split in two ranges
@@ -36,8 +36,8 @@ description: |
 properties:
   compatible:
     const:
-      - fsl,s32gen1-siul2-gpio
-      - fsl,s32g-siul2-gpio
+      - nxp,s32cc-siul2-gpio
+      - nxp,s32g-siul2-gpio
 
   interrupts:
     description:
@@ -81,7 +81,7 @@ additionalProperties: false
 examples:
   - |
     gpio1: siul2-gpio1 {
-      compatible = "fsl,s32gen1-siul2-gpio";
+      compatible = "nxp,s32cc-siul2-gpio";
       gpio-controller;
       #gpio-cells = <2>;
         /* GPIO 112-190 */
