@@ -147,7 +147,7 @@
 			status = "okay";
 		};
 		gpio0: siul2-gpio0 {
-			compatible = "fsl,s32gen1-siul2-gpio";
+			compatible = "nxp,s32cc-siul2-gpio";
 			#pinctrl-cells = <2>;
 			gpio-controller;
 			#gpio-cells = <2>;
@@ -223,7 +223,7 @@
 		 */
 
 		gpio1: siul2-gpio1 {
-			compatible = "fsl,s32gen1-siul2-gpio";
+			compatible = "nxp,s32cc-siul2-gpio";
 			gpio-controller;
 			#gpio-cells = <2>;
 			#pinctrl-cells = <2>;
