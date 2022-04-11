@@ -413,7 +413,7 @@
 	};
 
 	pit0: pit@40188000{
-		compatible = "fsl,s32gen1-pit";
+		compatible = "nxp,s32cc-pit";
 		reg = <0x0 0x40188000 0x0 0x3000>;
 		interrupts= <0 53 4>;
 		clocks = <&clks S32GEN1_SCMI_CLK_PIT_MODULE>;
@@ -695,7 +695,7 @@
 	};
 
 	pit1: pit@40288000{
-		compatible = "fsl,s32gen1-pit";
+		compatible = "nxp,s32cc-pit";
 		reg = <0x0 0x40288000 0x0 0x3000>;
 		interrupts= <0 54 4>;
 		cpu = <1>;
