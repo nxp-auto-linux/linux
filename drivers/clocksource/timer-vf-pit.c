@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright 2012-2013 Freescale Semiconductor, Inc.
- * Copyright 2021 NXP
+ * Copyright 2021-2022 NXP
  */
 
 #include <linux/clk.h>
@@ -463,7 +463,7 @@ static int fsl_pit_timer_remove(struct platform_device *pdev)
 
 static const struct of_device_id fsl_pit_of_match[] = {
 	{ .compatible = "fsl,vf610-pit", },
-	{ .compatible = "fsl,s32gen1-pit", },
+	{ .compatible = "nxp,s32cc-pit", },
 	{},
 };
 MODULE_DEVICE_TABLE(of, fsl_pit_of_match);
