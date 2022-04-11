@@ -955,10 +955,15 @@
 		num-lanes = <2>;
 		max-link-speed = <3>;
 		bus-range = <0x0 0xff>;
-		interrupts =  <0 124 4>, <0 123 4>, <0 125 4>,
-					<0 126 4>, <0 127 4>, <0 132 4>,
-					<0 133 4>, <0 134 4>;
-		interrupt-names = "link_req_stat", "dma","msi",
+		interrupts =  <GIC_SPI 124 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 123 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 125 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 126 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 127 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 132 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 133 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 134 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "link_req_stat", "dma", "msi",
 					"phy_link_down", "phy_link_up", "misc",
 					"pcs", "tlp_req_no_comp";
 		#interrupt-cells = <1>;
