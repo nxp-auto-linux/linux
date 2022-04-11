@@ -17,7 +17,7 @@ properties:
     oneOf:
       - enum:
           - fsl,vf610-pit
-          - fsl,s32gen1-pit
+          - nxp,s32cc-pit
 
   reg:
     maxItems: 1
@@ -54,7 +54,7 @@ examples:
     #include <dt-bindings/clock/s32gen1-scmi-clock.h>
 
     pit0: pit@40188000{
-      compatible = "fsl,s32gen1-pit";
+      compatible = "nxp,s32cc-pit";
       reg = <0x0 0x40188000 0x0 0x3000>;
       interrupts= <0 53 4>;
       clocks = <&clks S32GEN1_SCMI_CLK_PIT_MODULE>;
