@@ -36,8 +36,8 @@ description: |
 properties:
   compatible:
     const:
-      - nxp,s32cc-siul2-gpio
       - nxp,s32g-siul2-gpio
+      - nxp,s32r-siul2-gpio
 
   interrupts:
     description:
@@ -81,7 +81,7 @@ additionalProperties: false
 examples:
   - |
     gpio1: siul2-gpio1 {
-      compatible = "nxp,s32cc-siul2-gpio";
+      compatible = "nxp,s32g-siul2-gpio";
       gpio-controller;
       #gpio-cells = <2>;
         /* GPIO 112-190 */
