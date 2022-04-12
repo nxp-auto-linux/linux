@@ -88,6 +88,7 @@ static int stmmac_dwmac_510_quirks(struct stmmac_priv *priv)
 	if (priv->plat->quirk_mask_id & QUIRK_MASK_S32G274A) {
 		dev_info(priv->device, "Enabled workarounds for s32g274a platform\n");
 		mac->dma = &dwmac410_s32cc_dma_ops;
+		priv->dma_cap.sphen = 0;
 	}
 
 	return 0;
