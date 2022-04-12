@@ -38,44 +38,48 @@
 
 		/* Network interface 'pfe0sl' */
 		pfesl_netif0: ethernet@100 {
-			compatible = "nxp,s32g-pfe-netif";
+			compatible = "nxp,s32g-pfe-netif", "fsl,pfeng-logif";
 			status = "okay";
 			reg = <100>;
 			local-mac-address = [ 00 04 9F BE FF 00 ];
 			nxp,pfeng-if-name = "pfe0sl";
+			fsl,pfeng-if-name = "pfe0sl";
 			nxp,pfeng-hif-channels = <PFE_HIF_CHANNEL_3>;
 			nxp,pfeng-emac-id = <PFE_EMAC_0>;
 		};
 
 		/* Network interface 'pfe1sl' */
 		pfesl_netif1: ethernet@101 {
-			compatible = "nxp,s32g-pfe-netif";
+			compatible = "nxp,s32g-pfe-netif", "fsl,pfeng-logif";
 			status = "okay";
 			reg = <101>;
 			local-mac-address = [ 00 04 9F BE FF 01 ];
 			nxp,pfeng-if-name = "pfe1sl";
+			fsl,pfeng-if-name = "pfe1sl";
 			nxp,pfeng-hif-channels = <PFE_HIF_CHANNEL_3>;
 			nxp,pfeng-emac-id = <PFE_EMAC_1>;
 		};
 
 		/* Network interface 'pfe2sl' */
 		pfesl_netif2: ethernet@102 {
-			compatible = "nxp,s32g-pfe-netif";
+			compatible = "nxp,s32g-pfe-netif", "fsl,pfeng-logif";
 			status = "okay";
 			reg = <102>;
 			local-mac-address = [ 00 04 9F BE FF 02 ];
 			nxp,pfeng-if-name = "pfe2sl";
+			fsl,pfeng-if-name = "pfe2sl";
 			nxp,pfeng-hif-channels = <PFE_HIF_CHANNEL_3>;
 			nxp,pfeng-emac-id = <PFE_EMAC_2>;
 		};
 
 		/* Network interface 'aux0sl' */
 		pfesl_aux0: ethernet@103 {
-			compatible = "nxp,s32g-pfe-netif";
+			compatible = "nxp,s32g-pfe-netif", "fsl,pfeng-logif";
 			status = "disabled";
 			reg = <103>;
 			local-mac-address = [ 00 04 9F BE FF 80 ];
 			nxp,pfeng-if-name = "aux0sl";
+			fsl,pfeng-if-name = "aux0sl";
 			nxp,pfeng-hif-channels = <PFE_HIF_CHANNEL_3>;
 			nxp,pfeng-netif-mode-aux;
 		};
