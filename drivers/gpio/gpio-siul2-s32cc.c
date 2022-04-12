@@ -780,7 +780,7 @@ irq_setup_err:
 
 static const struct of_device_id siul2_gpio_dt_ids[] = {
 	{ .compatible = "nxp,s32g-siul2-gpio", .data = &s32g2_device_data },
-	{ .compatible = "nxp,s32cc-siul2-gpio" },
+	{ .compatible = "nxp,s32r-siul2-gpio" },
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, siul2_gpio_dt_ids);
