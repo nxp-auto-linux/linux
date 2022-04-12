@@ -11,7 +11,7 @@
 
 / {
 	pfe: pfe@46000000 {
-		compatible = "nxp,s32g-pfe";
+		compatible = "nxp,s32g-pfe", "fsl,s32g274a-pfeng";
 		reg = <0x0 0x46000000 0x0 0x1000000>,
 		      <0x0 0x4007ca00 0x0 0x100>;
 		reg-names = "pfe-cbus", "s32g-main-gpr";
@@ -78,11 +78,12 @@
 
 		/* Network interface 'pfe0' */
 		pfe_netif0: ethernet@10 {
-			compatible = "nxp,s32g-pfe-netif";
+			compatible = "nxp,s32g-pfe-netif", "fsl,pfeng-logif";
 			status = "okay";
 			reg = <10>;
 			local-mac-address = [ 00 04 9F BE EF 00 ];
 			nxp,pfeng-if-name = "pfe0";
+			fsl,pfeng-if-name = "pfe0";
 			nxp,pfeng-hif-channels = <PFE_HIF_CHANNEL_0>;
 			nxp,pfeng-emac-id = <PFE_EMAC_0>;
 			clocks = <&clks S32G_SCMI_CLK_PFE0_TX_SGMII>,
@@ -101,11 +102,12 @@
 
 		/* Network interface 'pfe1' */
 		pfe_netif1: ethernet@11 {
-			compatible = "nxp,s32g-pfe-netif";
+			compatible = "nxp,s32g-pfe-netif", "fsl,pfeng-logif";
 			status = "okay";
 			reg = <11>;
 			local-mac-address = [ 00 04 9F BE EF 01 ];
 			nxp,pfeng-if-name = "pfe1";
+			fsl,pfeng-if-name = "pfe1";
 			nxp,pfeng-hif-channels = <PFE_HIF_CHANNEL_1>;
 			nxp,pfeng-emac-id = <PFE_EMAC_1>;
 			clocks = <&clks S32G_SCMI_CLK_PFE1_TX_SGMII>,
@@ -124,11 +126,12 @@
 
 		/* Network interface 'pfe2' */
 		pfe_netif2: ethernet@12 {
-			compatible = "nxp,s32g-pfe-netif";
+			compatible = "nxp,s32g-pfe-netif", "fsl,pfeng-logif";
 			status = "okay";
 			reg = <12>;
 			local-mac-address = [ 00 04 9F BE EF 02 ];
 			nxp,pfeng-if-name = "pfe2";
+			fsl,pfeng-if-name = "pfe2";
 			nxp,pfeng-hif-channels = <PFE_HIF_CHANNEL_2>;
 			nxp,pfeng-emac-id = <PFE_EMAC_2>;
 			clocks = <&clks S32G_SCMI_CLK_PFE2_TX_SGMII>,
@@ -147,11 +150,12 @@
 
 		/* Network interface 'aux0' */
 		pfe_aux0: ethernet@13 {
-			compatible = "nxp,s32g-pfe-netif";
+			compatible = "nxp,s32g-pfe-netif", "fsl,pfeng-logif";
 			status = "disabled";
 			reg = <13>;
 			local-mac-address = [ 00 04 9F BE EF 80 ];
 			nxp,pfeng-if-name = "aux0";
+			fsl,pfeng-if-name = "aux0";
 			nxp,pfeng-hif-channels = <PFE_HIF_CHANNEL_0>,
 						 <PFE_HIF_CHANNEL_1>,
 						 <PFE_HIF_CHANNEL_2>;
