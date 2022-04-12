@@ -503,6 +503,19 @@ static int dwmac4_get_hw_feature(void __iomem *ioaddr,
 	return 0;
 }
 
+static int s32cc_dwmac4_get_hw_feature(void __iomem *ioaddr,
+				       struct dma_features *dma_cap)
+{
+	int rc;
+
+	rc = dwmac4_get_hw_feature(ioaddr, dma_cap);
+	if (rc)
+		return rc;
+
+	dma_cap->sphen = 0;
+	return 0;
+}
+
 /* Enable/disable TSO feature and set MSS */
 static void dwmac4_enable_tso(void __iomem *ioaddr, bool en, u32 chan)
 {
@@ -655,7 +668,7 @@ const struct stmmac_dma_ops dwmac410_s32cc_dma_ops = {
 	.start_rx = dwmac4_dma_start_rx,
 	.stop_rx = dwmac4_dma_stop_rx,
 	.dma_interrupt = dwmac4_dma_interrupt,
-	.get_hw_feature = dwmac4_get_hw_feature,
+	.get_hw_feature = s32cc_dwmac4_get_hw_feature,
 	.rx_watchdog = dwmac4_rx_watchdog_e50082,
 	.set_rx_ring_len = dwmac4_set_rx_ring_len,
 	.set_tx_ring_len = dwmac4_set_tx_ring_len,
