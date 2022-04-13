@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /*
- * Copyright 2021 NXP
+ * Copyright 2021-2022 NXP
  */
 
 /dts-v1/;
@@ -10,4 +10,8 @@
 	model = "Freescale S32G274A";
 	compatible = "fsl,s32g274-simu", "fsl,s32g274",
 		   "arm,vexpress,v2p-aarch64", "arm,vexpress";
+};
+
+&usdhc0 {
+	no-1-8-v;
 };
