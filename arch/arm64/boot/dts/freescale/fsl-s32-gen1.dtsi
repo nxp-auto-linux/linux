@@ -829,7 +829,6 @@
 			 <&clks S32GEN1_SCMI_CLK_USDHC_CORE>;
 		clock-names = "ipg", "ahb", "per";
 		bus-width = <8>;
-		no-1-8-v;
 		status = "disabled";
 	};
 
