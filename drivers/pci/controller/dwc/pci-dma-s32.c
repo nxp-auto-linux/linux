@@ -23,6 +23,10 @@
 #include <linux/sched/signal.h>
 #include "pci-dma-s32.h"
 
+/* Reset timeout */
+#define DMA_RESET_TIMEOUT_MS	1000
+#define DMA_RESET_TIMEOUT_US	(DMA_RESET_TIMEOUT_MS * USEC_PER_MSEC)
+#define DMA_RESET_WAIT_US	100
 
 u32 dw_pcie_read_dma(struct dma_info *di,
 			u32 reg, size_t size)
@@ -60,7 +64,7 @@ static inline u32 dw_pcie_get_dma_channel_base(struct dma_info *di,
 {
 	if (di->iatu_unroll_enabled)
 		return PCIE_DMA_CH_BASE_UNROLL * (ch_nr + 1) +
-				0x100 * dir;
+				PCIE_DMA_IATU_INBOUND_OFF * dir;
 	return PCIE_DMA_CH_BASE;
 }
 
@@ -72,12 +76,22 @@ int dw_pcie_dma_write_en(struct dma_info *di)
 
 int dw_pcie_dma_write_soft_reset(struct dma_info *di)
 {
+	u32 dma_en_reg;
+	int ret;
+
 	dw_pcie_writel_dma(di, PCIE_DMA_WRITE_ENGINE_EN, 0x0);
-	while (dw_pcie_readl_dma(di, PCIE_DMA_WRITE_ENGINE_EN) == 1)
-		;
+	/* Wait for the enable bit to flip to 0.
+	 * In case we get timeout, do not exit,
+	 * try to set it anyway, but return -ETIMEDOUT.
+	 */
+	ret = read_poll_timeout(dw_pcie_readl_dma, dma_en_reg, (dma_en_reg == 0),
+			DMA_RESET_WAIT_US, DMA_RESET_TIMEOUT_US, 0,
+			di, PCIE_DMA_WRITE_ENGINE_EN);
+
 	di->wr_ch.status = DMA_CH_STOPPED;
+	/* Pull back the enable bit to 1 */
 	dw_pcie_writel_dma(di, PCIE_DMA_WRITE_ENGINE_EN, 0x1);
-	return 0;
+	return ret;
 }
 
 int dw_pcie_dma_read_en(struct dma_info *di)
@@ -88,12 +102,22 @@ int dw_pcie_dma_read_en(struct dma_info *di)
 
 int dw_pcie_dma_read_soft_reset(struct dma_info *di)
 {
+	u32 dma_en_reg;
+	int ret;
+
 	dw_pcie_writel_dma(di, PCIE_DMA_READ_ENGINE_EN, 0x0);
-	while (dw_pcie_readl_dma(di, PCIE_DMA_READ_ENGINE_EN) == 1)
-		;
+	/* Wait for the enable bit to flip to 0.
+	 * In case we get timeout, do not exit,
+	 * try to set it anyway, but return -ETIMEDOUT.
+	 */
+	ret = read_poll_timeout(dw_pcie_readl_dma, dma_en_reg, (dma_en_reg == 0),
+			DMA_RESET_WAIT_US, DMA_RESET_TIMEOUT_US, 0,
+			di, PCIE_DMA_READ_ENGINE_EN);
+
 	di->rd_ch.status = DMA_CH_STOPPED;
+	/* Pull back the enable bit to 1 */
 	dw_pcie_writel_dma(di, PCIE_DMA_READ_ENGINE_EN, 0x1);
-	return 0;
+	return ret;
 }
 
 static void dw_pcie_dma_set_wr_remote_done_int(struct dma_info *di, u64 val, u8 ch_nr)
