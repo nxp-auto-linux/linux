@@ -1,5 +1,5 @@
 /*
- * Copyright 2017-2021 NXP
+ * Copyright 2017-2022 NXP
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -10,6 +10,11 @@
 /dts-v1/;
 #include "fsl-s32g274a.dtsi"
 #include <dt-bindings/pinctrl/s32g-pinctrl.h>
+
+/* Emulator has less than 1GB of RAM, remove reserved memory above this limit */
+/delete-node/ &pci_shared_memory0;
+/delete-node/ &pci_shared_memory1;
+
 / {
 	model = "Freescale S32G274";
 	compatible = "fsl,s32g274-simu", "fsl,s32g274",
@@ -365,4 +370,14 @@
 
 &spi5 {
 	status = "okay";
+};
+
+&pcie0 {
+	/delete-property/ shared-mem;
+	status = "disabled";
+};
+
+&pcie1 {
+	/delete-property/ shared-mem;
+	status = "disabled";
 };
