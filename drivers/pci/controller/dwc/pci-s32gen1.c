@@ -50,6 +50,8 @@
 
 /* PHY link timeout */
 #define PCIE_LINK_TIMEOUT_MS	1000
+#define PCIE_LINK_TIMEOUT_US	(PCIE_LINK_TIMEOUT_MS * USEC_PER_MSEC)
+#define PCIE_LINK_WAIT_US	100
 
 #define PCIE_EP_RC_MODE(ep_mode) ((ep_mode) ? "EndPoint" : "RootComplex")
 
@@ -1617,24 +1619,16 @@ static int deinit_controller(struct s32gen1_pcie *s32_pp)
 	return deinit_pcie_phy(s32_pp);
 }
 
-static bool pcie_link_or_timeout(struct s32gen1_pcie *s32_pp, ktime_t timeout)
-{
-	ktime_t cur = ktime_get();
-
-	return has_data_phy_link(s32_pp) || ktime_after(cur, timeout);
-}
-
 static int wait_phy_data_link(struct s32gen1_pcie *s32_pp)
 {
-	ktime_t timeout = ktime_add_ms(ktime_get(), PCIE_LINK_TIMEOUT_MS);
+	bool has_link;
+	int ret = read_poll_timeout(has_data_phy_link, has_link, has_link,
+			PCIE_LINK_WAIT_US, PCIE_LINK_TIMEOUT_US, 0, s32_pp);
 
-	spin_until_cond(pcie_link_or_timeout(s32_pp, timeout));
-	if (!has_data_phy_link(s32_pp)) {
+	if (ret)
 		dev_info(s32_pp->pcie.dev, "Failed to stabilize PHY link\n");
-		return -ETIMEDOUT;
-	}
 
-	return 0;
+	return ret;
 }
 
 static void s32gen1_pcie_downstream_dev_to_D0(struct s32gen1_pcie *s32_pp)
