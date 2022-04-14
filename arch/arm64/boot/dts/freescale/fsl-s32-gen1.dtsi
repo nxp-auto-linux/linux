@@ -919,7 +919,7 @@
 	};
 
 	pcie0: pcie@40400000 {
-		compatible = "fsl,s32gen1-pcie";
+		compatible = "nxp,s32cc-pcie";
 		dma-coherent;
 		reg = <0x00 0x40400000 0x0 0x00001000   /* dbi registers */
 		       0x00 0x40420000 0x0 0x00001000   /* dbi2 registers */
@@ -996,7 +996,7 @@
 	};
 
 	pcie1: pcie@44100000 {
-		compatible = "fsl,s32gen1-pcie";
+		compatible = "nxp,s32cc-pcie";
 		dma-coherent;
 		reg = <0x00 0x44100000 0x0 0x00001000   /* dbi registers */
 		       0x00 0x44120000 0x0 0x00001000   /* dbi2 registers */
