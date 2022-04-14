@@ -2,7 +2,7 @@
 # Copyright 2021 NXP
 %YAML 1.2
 ---
-$id: "http://devicetree.org/schemas/net/fsl,s32cc-dwmac.yaml#"
+$id: "http://devicetree.org/schemas/net/nxp,s32cc-dwmac.yaml#"
 $schema: "http://devicetree.org/meta-schemas/core.yaml#"
 
 title: NXP S32G/R GMAC ethernet controller
@@ -17,7 +17,7 @@ description: |
 properties:
   compatible:
     enum:
-      - fsl,s32cc-dwmac
+      - nxp,s32cc-dwmac
 
   reg:
     items:
@@ -121,7 +121,7 @@ examples:
       #size-cells = <2>;
 
       gmac0: ethernet@4033c000 {
-        compatible = "fsl,s32cc-dwmac";
+        compatible = "nxp,s32cc-dwmac";
         reg = <0x0 0x4033c000 0x0 0x2000>, /* gmac IP */
               <0x0 0x4007C004 0x0 0x4>;    /* S32 CTRL_STS reg */
         interrupt-parent = <&gic>;
