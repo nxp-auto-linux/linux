@@ -821,7 +821,7 @@
 	};
 
 	usdhc0: usdhc@402F0000{
-		compatible = "fsl,s32gen1-usdhc";
+		compatible = "nxp,s32cc-usdhc";
 		reg = <0x0 0x402F0000 0x0 0x1000>;
 		interrupts = <0 36 4>;
 		clocks = <&clks S32GEN1_SCMI_CLK_USDHC_MODULE>,
