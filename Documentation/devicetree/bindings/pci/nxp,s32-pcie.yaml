@@ -17,8 +17,8 @@ properties:
   compatible:
     oneOf:
       - enum:
-          - "fsl,s32gen1-pcie"  # S32Gen1 SoCs RC mode
-          - "fsl,s32gen1-pcie-ep"  # S32Gen1 SoCs EP mode
+          - "nxp,s32cc-pcie"  # S32Gen1 SoCs RC mode
+          - "nxp,s32cc-pcie-ep"  # S32Gen1 SoCs EP mode
 
   reg:
     description: base address and length of the PCIe controller
@@ -80,7 +80,7 @@ examples:
         #size-cells = <2>;
 
         pcie0: pcie@40400000 {
-          compatible = "fsl,s32gen1-pcie";
+          compatible = "nxp,s32cc-pcie";
           dma-coherent;
           reg = <0x00 0x40400000 0x0 0x00001000   /* dbi registers */
                  0x00 0x40420000 0x0 0x00001000   /* dbi2 registers */
