@@ -2,7 +2,7 @@
 # Copyright 2021 NXP
 %YAML 1.2
 ---
-$id: "http://devicetree.org/schemas/phy/fsl,s32gen1-serdes.yaml#"
+$id: "http://devicetree.org/schemas/phy/nxp,s32cc-serdes.yaml#"
 $schema: "http://devicetree.org/meta-schemas/core.yaml#"
 
 title: S32GEN1 SerDes PHY Tree Bindings
@@ -45,7 +45,7 @@ properties:
 
   compatible:
     enum:
-      - fsl,s32gen1-serdes
+      - nxp,s32cc-serdes
 
   clocks:
     description:
@@ -121,7 +121,7 @@ examples:
 
       serdes1: serdes@44180000 {
         #phy-cells = <3>;
-        compatible = "fsl,s32gen1-serdes";
+        compatible = "nxp,s32cc-serdes";
         clocks = <&clks S32GEN1_SCMI_CLK_SERDES_AXI>,
            <&clks S32GEN1_SCMI_CLK_SERDES_AUX>,
            <&clks S32GEN1_SCMI_CLK_SERDES_APB>,
