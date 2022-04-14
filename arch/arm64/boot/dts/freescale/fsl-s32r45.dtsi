@@ -248,7 +248,7 @@
 	};
 
 	gmac1: ethernet@44010000 {
-		compatible = "fsl,s32cc-dwmac";
+		compatible = "nxp,s32cc-dwmac";
 		reg = <0x0 0x44010000 0x0 0x2000>, /* gmac IP */
 		      <0x0 0x4007CA00 0x0 0x4>;    /* S32 CTRL_STS reg */
 		dma-coherent;
