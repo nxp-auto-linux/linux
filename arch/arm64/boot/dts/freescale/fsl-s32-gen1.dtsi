@@ -534,7 +534,7 @@
 	};
 
 	qspi: spi@40134000 {
-		compatible = "fsl,s32gen1-qspi";
+		compatible = "nxp,s32cc-qspi";
 		#address-cells = <1>;
 		#size-cells = <0>;
 		reg = <0x0 0x00000000 0x0 0x20000000>,
