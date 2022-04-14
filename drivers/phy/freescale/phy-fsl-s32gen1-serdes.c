@@ -2,7 +2,7 @@
 /**
  * SERDES driver for S32GEN1 SoCs
  *
- * Copyright 2021 NXP
+ * Copyright 2021-2022 NXP
  */
 #include <dt-bindings/phy/phy.h>
 #include <linux/clk.h>
@@ -1017,7 +1017,7 @@ static int __maybe_unused serdes_resume(struct device *device)
 
 static const struct of_device_id serdes_match[] = {
 	{
-		.compatible = "fsl,s32gen1-serdes",
+		.compatible = "nxp,s32cc-serdes",
 	},
 	{ /* sentinel */ }
 };
