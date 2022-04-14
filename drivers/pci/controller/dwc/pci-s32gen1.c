@@ -1882,8 +1882,8 @@ static const struct s32gen1_pcie_data ep_of_data = {
 };
 
 static const struct of_device_id s32gen1_pcie_of_match[] = {
-	{ .compatible = "fsl,s32gen1-pcie", .data = &rc_of_data },
-	{ .compatible = "fsl,s32gen1-pcie-ep", .data = &ep_of_data },
+	{ .compatible = "nxp,s32cc-pcie", .data = &rc_of_data },
+	{ .compatible = "nxp,s32cc-pcie-ep", .data = &ep_of_data },
 	{},
 };
 MODULE_DEVICE_TABLE(of, s32gen1_pcie_of_match);
