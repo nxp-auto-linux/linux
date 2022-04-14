@@ -2,7 +2,7 @@
 /*
  * dwmac-s32cc.c - S32x GMAC glue layer
  *
- * Copyright 2019-2021 NXP
+ * Copyright 2019-2022 NXP
  *
  */
 
@@ -430,7 +430,7 @@ static int s32cc_dwmac_remove(struct platform_device *pdev)
 }
 
 static const struct of_device_id s32_dwmac_match[] = {
-	{ .compatible = "fsl,s32cc-dwmac" },
+	{ .compatible = "nxp,s32cc-dwmac" },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, s32_dwmac_match);
