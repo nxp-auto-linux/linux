@@ -4,7 +4,7 @@
  * PCIe host controller driver, customized
  * for the NXP S32Gen1 PCIE driver
  *
- * Copyright 2017-2021 NXP
+ * Copyright 2017-2022 NXP
  */
 
 #ifndef PCIE_DMA_S32_H
@@ -69,15 +69,9 @@
 #define PCIE_DMA_LLP_LOW_OFF			(0x1C)
 #define PCIE_DMA_LLP_HIGH_OFF			(0x120)
 
-#define NUM_DMA_RD_CHAN_MASK	0xF0000
+#define NUM_DMA_RD_CHAN_MASK	GENMASK(19, 16)
 #define NUM_DMA_RD_CHAN_SHIFT	16
-#define NUM_DMA_WR_CHAN_MASK	0xF
-
-/* DW DMA Internal flags */
-/* TODO: Max size should come from a kernel config node */
-#ifndef PCIE_DMA_MAX_SIZE
-#define PCIE_DMA_MAX_SIZE	(4 * 1024 * 1024)  /* 4G bytes */
-#endif
+#define NUM_DMA_WR_CHAN_MASK	GENMASK(3, 0)
 
 #define DMA_FLAG_LIE					BIT(0)
 #define DMA_FLAG_RIE					BIT(1)
@@ -124,7 +118,9 @@ struct dma_ch_info {
 	u8 current_list_size;
 };
 
-/* Single block DMA transfer struct */
+/* Single block DMA transfer struct, also used for ioctl.
+ * Should match the data structure used in the user space.
+ */
 struct dma_data_elem {
 	unsigned long sar;
 	unsigned long dar;
@@ -136,7 +132,7 @@ struct dma_data_elem {
 
 struct dma_info {
 	void __iomem *dma_base;
-	u8	iatu_unroll_enabled;
+	u8	iatu_unroll_enabled; /* copy of its homonym in struct dw_pcie */
 	u32	(*read_dma)(struct dma_info *di, void __iomem *base,
 			u32 reg, size_t size);
 	void (*write_dma)(struct dma_info *di, void __iomem *base,
