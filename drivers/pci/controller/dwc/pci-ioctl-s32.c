@@ -6,36 +6,20 @@
  *		http://www.kosagi.com
  *
  * Copyright (C) 2014-2015 Freescale Semiconductor, Inc. All Rights Reserved.
- * Copyright 2017-2021 NXP
+ * Copyright 2017-2022 NXP
  */
 
-#include <linux/clk.h>
-#include <linux/delay.h>
-#include <linux/gpio.h>
-#include <linux/interrupt.h>
-#include <linux/kernel.h>
-#include <linux/mfd/syscon.h>
-#include <linux/module.h>
-#include <linux/of_address.h>
-#include <linux/pci.h>
-#include <linux/pci_regs.h>
-#include <linux/platform_device.h>
-#include <linux/regmap.h>
-#include <linux/io.h>
 #include <linux/debugfs.h>
-#include <linux/dma-mapping.h>
 #include <linux/uaccess.h>
-#include <linux/fs.h>
-#include <linux/sizes.h>
-#include <linux/of_platform.h>
-#include <linux/rcupdate.h>
-#include <linux/sched/signal.h>
 
 #include "pcie-designware.h"
 #include "pci-dma-s32.h"
 #include "pci-ioctl-s32.h"
 
 static struct task_struct *task;
+
+#define PCIE_BAR_ADDRESS_MASK	GENMASK(31, 4)
+#define PCIE_BAR_MASK		GENMASK(31, 0)
 
 #ifdef CONFIG_PCI_DW_DMA
 
@@ -124,12 +108,12 @@ static int s32_get_bar_info(struct dw_pcie *pcie, void __user *argp)
 
 	addr = dw_pcie_readl_dbi(pcie, (PCI_BASE_ADDRESS_0 +
 				bar_info.bar_nr * 4));
-	bar_info.addr = addr & 0xFFFFFFF0;
+	bar_info.addr = addr & PCIE_BAR_ADDRESS_MASK;
 	dw_pcie_writel_dbi(pcie, (PCI_BASE_ADDRESS_0 + bar_nr * 4),
-			0xFFFFFFFF);
+			PCIE_BAR_MASK);
 	bar_info.size = dw_pcie_readl_dbi(pcie,
 		(PCI_BASE_ADDRESS_0 + bar_nr * 4));
-	bar_info.size = ~(bar_info.size & 0xFFFFFFF0) + 1;
+	bar_info.size = ~(bar_info.size & PCIE_BAR_ADDRESS_MASK) + 1;
 	dw_pcie_writel_dbi(pcie,
 		(PCI_BASE_ADDRESS_0 + bar_nr * 4), addr);
 

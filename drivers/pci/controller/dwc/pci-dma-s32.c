@@ -7,26 +7,27 @@
  * Copyright 2017-2022 NXP
  */
 
-#include <linux/clk.h>
-#include <linux/delay.h>
-#include <linux/interrupt.h>
-#include <linux/kernel.h>
-#include <linux/module.h>
-#include <linux/pci.h>
-#include <linux/pci_regs.h>
-#include <linux/platform_device.h>
-#include <linux/regmap.h>
-#include <linux/io.h>
-#include <linux/dma-mapping.h>
-#include <linux/sizes.h>
-#include <linux/of_platform.h>
-#include <linux/sched/signal.h>
+#include <linux/iopoll.h>
+
 #include "pci-dma-s32.h"
 
 /* Reset timeout */
 #define DMA_RESET_TIMEOUT_MS	1000
 #define DMA_RESET_TIMEOUT_US	(DMA_RESET_TIMEOUT_MS * USEC_PER_MSEC)
 #define DMA_RESET_WAIT_US	100
+
+/* Error flags for channel 0 */
+#define PCIE_DMA_APP_ERR_CH0			BIT(0)
+#define PCIE_DMA_LL_FETCH_ERR_CH0		BIT(16)
+#define PCIE_DMA_UNSUPPORTED_REQ_ERR_CH0	BIT(0)
+#define PCIE_DMA_CPL_ABORT_ERR_CH0		BIT(8)
+#define PCIE_DMA_CPL_TIMEOUT_ERR_CH0		BIT(16)
+#define PCIE_DMA_DATA_POISIONING_ERR_CH0	BIT(24)
+
+/* Interrupt masks */
+#define PCIE_ABORT_INT_STATUS_MASK		GENMASK(23, 16)
+#define PCIE_ABORT_INT_CLEAR_MASK		GENMASK(23, 16)
+#define PCIE_DONE_INT_CLEAR_MASK		GENMASK(7, 0)
 
 u32 dw_pcie_read_dma(struct dma_info *di,
 			u32 reg, size_t size)
@@ -70,7 +71,7 @@ static inline u32 dw_pcie_get_dma_channel_base(struct dma_info *di,
 
 int dw_pcie_dma_write_en(struct dma_info *di)
 {
-	dw_pcie_writel_dma(di, PCIE_DMA_WRITE_ENGINE_EN, 0x1);
+	dw_pcie_writel_dma(di, PCIE_DMA_WRITE_ENGINE_EN, BIT(0));
 	return 0;
 }
 
@@ -90,13 +91,13 @@ int dw_pcie_dma_write_soft_reset(struct dma_info *di)
 
 	di->wr_ch.status = DMA_CH_STOPPED;
 	/* Pull back the enable bit to 1 */
-	dw_pcie_writel_dma(di, PCIE_DMA_WRITE_ENGINE_EN, 0x1);
+	dw_pcie_writel_dma(di, PCIE_DMA_WRITE_ENGINE_EN, BIT(0));
 	return ret;
 }
 
 int dw_pcie_dma_read_en(struct dma_info *di)
 {
-	dw_pcie_writel_dma(di, PCIE_DMA_READ_ENGINE_EN, 0x1);
+	dw_pcie_writel_dma(di, PCIE_DMA_READ_ENGINE_EN, BIT(0));
 	return 0;
 }
 
@@ -116,7 +117,7 @@ int dw_pcie_dma_read_soft_reset(struct dma_info *di)
 
 	di->rd_ch.status = DMA_CH_STOPPED;
 	/* Pull back the enable bit to 1 */
-	dw_pcie_writel_dma(di, PCIE_DMA_READ_ENGINE_EN, 0x1);
+	dw_pcie_writel_dma(di, PCIE_DMA_READ_ENGINE_EN, BIT(0));
 	return ret;
 }
 
@@ -392,26 +393,26 @@ static void dw_pcie_dma_check_errors(struct dma_info *di,
 
 	if (direction == DMA_CH_WRITE) {
 		val = dw_pcie_readl_dma(di, PCIE_DMA_WRITE_ERR_STATUS);
-		if (val & 0x1)
+		if (val & PCIE_DMA_APP_ERR_CH0)
 			*error |= DMA_ERR_WR;
-		if (val & 0x10000)
+		if (val & PCIE_DMA_LL_FETCH_ERR_CH0)
 			*error |= DMA_ERR_FETCH_LL;
 	} else {
 		/* Get error status low */
 		val = dw_pcie_readl_dma(di, PCIE_DMA_READ_ERR_STATUS_LOW);
-		if (val & 0x1)
+		if (val & PCIE_DMA_APP_ERR_CH0)
 			*error |= DMA_ERR_RD;
-		if (val & 0x10000)
+		if (val & PCIE_DMA_LL_FETCH_ERR_CH0)
 			*error |= DMA_ERR_FETCH_LL;
 		/* Get error status high */
 		val = dw_pcie_readl_dma(di, PCIE_DMA_READ_ERR_STATUS_HIGH);
-		if (val & 0x1)
+		if (val & PCIE_DMA_UNSUPPORTED_REQ_ERR_CH0)
 			*error |= DMA_ERR_UNSUPPORTED_REQ;
-		if (val & 0x100)
+		if (val & PCIE_DMA_CPL_ABORT_ERR_CH0)
 			*error |= DMA_ERR_CPL_ABORT;
-		if (val & 0x10000)
+		if (val & PCIE_DMA_CPL_TIMEOUT_ERR_CH0)
 			*error |= DMA_ERR_CPL_TIMEOUT;
-		if (val & 0x1000000)
+		if (val & PCIE_DMA_DATA_POISIONING_ERR_CH0)
 			*error |= DMA_ERR_DATA_POISIONING;
 	}
 }
@@ -425,26 +426,30 @@ u32 dw_handle_dma_irq_write(struct dma_info *di, u32 val_write)
 
 	if (val_write) {
 		if (di->wr_ch.status == DMA_CH_RUNNING) {
-			if (val_write & 0x10000) { /* Abort interrupt */
+			if (val_write & PCIE_ABORT_INT_STATUS_MASK) {
+				/* Abort interrupt */
 				/* Get error type */
 				dw_pcie_dma_check_errors(di,
 					DMA_FLAG_WRITE_ELEM,
 					&di->wr_ch.errors);
+				/* Clear interrupt */
 				dw_pcie_writel_dma(di,
 					PCIE_DMA_WRITE_INT_CLEAR,
-					0x00FF0000);
+					PCIE_ABORT_INT_CLEAR_MASK);
 				err_type = di->wr_ch.errors;
 			} else { /* Done interrupt */
 				dw_pcie_writel_dma(di,
 					PCIE_DMA_WRITE_INT_CLEAR,
-					0x000000FF);
-				/* Check channel list mode */
+					PCIE_DONE_INT_CLEAR_MASK);
 			}
 			di->wr_ch.status = DMA_CH_STOPPED;
-		} else
+		} else {
+			/* Clear all interrupts */
 			dw_pcie_writel_dma(di,
-				PCIE_DMA_WRITE_INT_CLEAR, 0x00FF00FF);
-
+				PCIE_DMA_WRITE_INT_CLEAR,
+				PCIE_ABORT_INT_CLEAR_MASK |
+				PCIE_DONE_INT_CLEAR_MASK);
+		}
 #ifdef DMA_PTR_FUNC
 		if (di->ptr_func)
 			di->ptr_func(err_type);
@@ -461,27 +466,29 @@ u32 dw_handle_dma_irq_read(struct dma_info *di, u32 val_read)
 	if (val_read) {
 		if (di->rd_ch.status == DMA_CH_RUNNING) {
 			/* Search interrupt type, abort or done */
-			/* Abort interrupt */
-			if (val_read & 0x80000) {
+			if (val_read & PCIE_ABORT_INT_STATUS_MASK) {
+				/* Abort interrupt */
 				/* Get error type */
 				dw_pcie_dma_check_errors(di,
 					DMA_FLAG_READ_ELEM,
 					&di->rd_ch.errors);
+				/* Clear interrupt */
 				dw_pcie_writel_dma(di,
 					PCIE_DMA_READ_INT_CLEAR,
-					0x00FF0000);
+					PCIE_ABORT_INT_CLEAR_MASK);
 				err_type = di->rd_ch.errors;
 			} else { /* Done interrupt */
 				dw_pcie_writel_dma(di,
 					PCIE_DMA_READ_INT_CLEAR,
-					0x000000FF);
-				/* Check channel list mode */
+					PCIE_DONE_INT_CLEAR_MASK);
 			}
 			di->rd_ch.status = DMA_CH_STOPPED;
-		} else
+		} else {
+			/* Clear all interrupts */
 			dw_pcie_writel_dma(di, PCIE_DMA_READ_INT_CLEAR,
-						0x00FF00FF);
-
+				PCIE_ABORT_INT_CLEAR_MASK |
+				PCIE_DONE_INT_CLEAR_MASK);
+		}
 #ifdef DMA_PTR_FUNC
 		if (di->ptr_func)
 			di->ptr_func(err_type);
