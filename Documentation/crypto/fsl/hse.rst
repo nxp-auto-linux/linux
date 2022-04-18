@@ -31,13 +31,13 @@ This driver currently supports the following crypto operations:
 - Symmetric Key Ciphering: AES-CTR, AES-CBC, AES-ECB, AES-CFB
 - Message Authentication Codes: HMAC(MD5), HMAC(SHA1), HMAC(SHA2)
 - Authenticated Encryption with Associated Data: AES-GCM
-- Hardware Random Number Generation: PTG.3 class
+- Hardware True Random Number Generation: PTG.3 class
 
 Configuration
 =============
 The following Kconfig options are available:
 
-- Messaging Unit Instance (CONFIG_CRYPTO_DEV_NXP_HSE_MU_ID):
+- Messaging Unit Interface (CONFIG_CRYPTO_DEV_NXP_HSE_MU):
   There are 4 Messaging Unit instances available for interfacing application
   processor subsystems with HSE and the user can configure which one is used
   by the Linux driver for sending service requests and receiving replies.
@@ -57,10 +57,10 @@ The following Kconfig options are available:
 - NXP key wrapping/blobbing support (CRYPTO_DEV_NXP_HSE_KEY_WRAPPING):
   Enables NXP key wrapping/blobbing with a device-specific hidden key.
 
-- Hardware RNG support (CONFIG_CRYPTO_DEV_NXP_HSE_HWRNG):
-  Enables hardware random number generation via HSE.
+- Hardware RNG support (CONFIG_CRYPTO_DEV_NXP_HSE_RNG):
+  Enables hardware true random number generation via HSE.
 
-- RAM Catalog AES Key Group Configuration:
+- RAM Key Catalog AES Group Configuration:
 	- AES 256-bit Key Group ID within RAM Key Catalog
 	  (CRYPTO_DEV_NXP_HSE_AES_KEY_GROUP_ID):
 	  This option specifies which key group is used by driver for
@@ -71,7 +71,7 @@ The following Kconfig options are available:
 	  This option specifies the maximum number of keys that can be
 	  stored in the AES 256-bit key group.
 
-- RAM Catalog HMAC Key Group Configuration:
+- RAM Key Catalog HMAC Group Configuration:
 	- HMAC 1024-bit Key Group ID within RAM Key Catalog
 	  (CRYPTO_DEV_NXP_HSE_HMAC_KEY_GROUP_ID):
 	  This option specifies which key group is used by driver for
