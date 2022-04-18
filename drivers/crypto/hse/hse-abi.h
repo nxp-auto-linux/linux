@@ -73,7 +73,8 @@ enum hse_event {
 /**
  * enum hse_host_event - HSE host event
  * @HSE_HOST_PERIPH_CONFIG_DONE: sent by the host to notify HSE when external
- *				 peripherals have been configured at init-time
+ *                               peripherals have been configured at init-time
+ *                               (signal valid only when triggered from MU0)
  */
 enum hse_host_event {
 	HSE_HOST_PERIPH_CONFIG_DONE = BIT(0),
