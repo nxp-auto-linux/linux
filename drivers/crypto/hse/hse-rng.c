@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: BSD 3-clause
 /*
- * NXP HSE Driver - Hardware RNG Support
+ * NXP HSE Driver - Hardware True Random Number Generator Support
  *
  * This file contains the hw_random framework support for HSE hardware TRNG.
  *
- * Copyright 2019-2021 NXP
+ * Copyright 2019-2022 NXP
  */
 
 #include <linux/kernel.h>
@@ -46,12 +46,13 @@ static void hse_rng_done(int err, void *_ctx)
 {
 	struct hse_rng_ctx *ctx = (struct hse_rng_ctx *)_ctx;
 
-	if (unlikely(err))
-		dev_dbg(ctx->dev, "%s: request failed: %d\n", __func__, err);
-	else
+	if (likely(!err))
 		ctx->cache_idx += ctx->srv_desc.rng_req.random_num_len;
 
 	mutex_unlock(&ctx->req_lock);
+
+	if (unlikely(err))
+		dev_dbg(ctx->dev, "%s: request failed: %d\n", __func__, err);
 }
 
 /**
