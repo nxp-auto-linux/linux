@@ -5,7 +5,7 @@
  * This file contains the interface implementation for the Messaging Unit
  * instance used by host application cores to request services from HSE.
  *
- * Copyright 2019-2021 NXP
+ * Copyright 2019-2022 NXP
  */
 
 #include <linux/kernel.h>
@@ -15,10 +15,10 @@
 
 #include "hse-mu.h"
 
-#define HSE_REGS_NAME       "hse-" HSE_MU_INST "-regs"
-#define HSE_DESC_NAME       "hse-" HSE_MU_INST "-desc"
-#define HSE_RX_IRQ_NAME     "hse-" HSE_MU_INST "-rx"
-#define HSE_EVT_IRQ_NAME    "hse-" HSE_MU_INST "-err"
+#define HSE_REGS_NAME       "hse-" CONFIG_CRYPTO_DEV_NXP_HSE_MU "-regs"
+#define HSE_DESC_NAME       "hse-" CONFIG_CRYPTO_DEV_NXP_HSE_MU "-desc"
+#define HSE_RX_IRQ_NAME     "hse-" CONFIG_CRYPTO_DEV_NXP_HSE_MU "-rx"
+#define HSE_EVT_IRQ_NAME    "hse-" CONFIG_CRYPTO_DEV_NXP_HSE_MU "-err"
 
 /**
  * struct hse_mu_regs - HSE Messaging Unit Registers
