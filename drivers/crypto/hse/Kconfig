@@ -5,16 +5,35 @@ config CRYPTO_DEV_NXP_HSE
 	depends on SOC_S32GEN1
 	default m
 	help
-	  Enables the driver module for NXP's Hardware Security Engine (HSE).
+	  Enables crypto driver support for NXP Hardware Security Engine (HSE).
 
-config CRYPTO_DEV_NXP_HSE_MU_ID
-	int "Messaging Unit Instance"
+choice
+	prompt "Messaging Unit Interface"
 	depends on CRYPTO_DEV_NXP_HSE
-	range 0 3
-	default "0"
+	default CRYPTO_DEV_NXP_HSE_MU0
 	help
-	  Index of the Messaging Unit instance to be used by the crypto driver.
+	  Configures the Messaging Unit instance reserved for the crypto driver.
 
+config CRYPTO_DEV_NXP_HSE_MU0
+	bool "MU0"
+config CRYPTO_DEV_NXP_HSE_MU1
+	bool "MU1"
+config CRYPTO_DEV_NXP_HSE_MU2
+	bool "MU2"
+config CRYPTO_DEV_NXP_HSE_MU3
+	bool "MU3"
+endchoice
+
+config CRYPTO_DEV_NXP_HSE_MU
+	string
+	depends on CRYPTO_DEV_NXP_HSE
+	default mu0b if CRYPTO_DEV_NXP_HSE_MU0
+	default mu1b if CRYPTO_DEV_NXP_HSE_MU1
+	default mu2b if CRYPTO_DEV_NXP_HSE_MU2
+	default mu3b if CRYPTO_DEV_NXP_HSE_MU3
+
+comment "MU interface must be activated by HSE firmware before use"
+	depends on CRYPTO_DEV_NXP_HSE && !CRYPTO_DEV_NXP_HSE_MU0
 
 config CRYPTO_DEV_NXP_HSE_AHASH
 	bool "Message Digest Support"
@@ -47,15 +66,15 @@ config CRYPTO_DEV_NXP_HSE_KEY_WRAPPING
 	help
 	  Enables NXP key wrapping/blobbing with a device-specific hidden key.
 
-config CRYPTO_DEV_NXP_HSE_HWRNG
-	bool "Hardware RNG support"
+config CRYPTO_DEV_NXP_HSE_RNG
+	bool "Hardware TRNG support"
 	depends on CRYPTO_DEV_NXP_HSE
 	select HW_RANDOM
 	default y
 	help
-	  Enables hardware random number generation via HSE.
+	  Enables hardware true random number generation via HSE.
 
-menu "RAM Catalog AES Key Group Configuration"
+menu "RAM Key Catalog AES Group Configuration"
 depends on CRYPTO_DEV_NXP_HSE
 visible if CRYPTO_DEV_NXP_HSE_SKCIPHER || CRYPTO_DEV_NXP_HSE_AEAD
 
@@ -79,7 +98,7 @@ config CRYPTO_DEV_NXP_HSE_AES_KEY_GROUP_SIZE
 
 endmenu
 
-menu "RAM Catalog HMAC Key Group Configuration"
+menu "RAM Key Catalog HMAC Group Configuration"
 depends on CRYPTO_DEV_NXP_HSE
 visible if CRYPTO_DEV_NXP_HSE_AHASH
 
@@ -108,4 +127,4 @@ config CRYPTO_DEV_NXP_HSE_DEBUG
 	depends on CRYPTO_DEV_NXP_HSE
         default n
 	help
-	  Enables printing driver debug messages to the kernel log.
+	  Enables printing crypto driver debug messages to the kernel log.
