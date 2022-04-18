@@ -17,18 +17,10 @@
 #include <linux/of.h>
 #include <linux/of_reserved_mem.h>
 
-#ifdef CONFIG_CRYPTO_DEV_NXP_HSE_MU_ID
-#if CONFIG_UIO_NXP_HSE_MU_ID == CONFIG_CRYPTO_DEV_NXP_HSE_MU_ID
-	#error "Invalid MU Instance index"
-#endif
-#endif /* CONFIG_CRYPTO_DEV_NXP_HSE_MU_ID */
-
-#define HSE_UIO_MU_INST    "mu" __stringify(CONFIG_UIO_NXP_HSE_MU_ID) "b"
-
-#define HSE_REGS_NAME       "hse-" HSE_UIO_MU_INST "-regs"
-#define HSE_DESC_NAME       "hse-" HSE_UIO_MU_INST "-desc"
-#define HSE_RX_IRQ_NAME     "hse-" HSE_UIO_MU_INST "-rx"
-#define HSE_ERR_IRQ_NAME    "hse-" HSE_UIO_MU_INST "-err"
+#define HSE_REGS_NAME       "hse-" CONFIG_UIO_NXP_HSE_MU "-regs"
+#define HSE_DESC_NAME       "hse-" CONFIG_UIO_NXP_HSE_MU "-desc"
+#define HSE_RX_IRQ_NAME     "hse-" CONFIG_UIO_NXP_HSE_MU "-rx"
+#define HSE_ERR_IRQ_NAME    "hse-" CONFIG_UIO_NXP_HSE_MU "-err"
 
 #define HSE_NUM_CHANNELS    16u /* number of available service channels */
 
@@ -418,7 +410,7 @@ static int hse_uio_open(struct uio_info *info, struct inode *inode)
 	struct hse_uio_drvdata *drv = info->priv;
 
 	if (!refcount_dec_if_one(&drv->refcnt)) {
-		dev_err(drv->dev, "%s device already in use\n", info->name);
+		dev_err(drv->dev, "device %s already in use\n", info->name);
 
 		return -EBUSY;
 	}
@@ -663,15 +655,15 @@ static int hse_uio_remove(struct platform_device *pdev)
 
 static const struct of_device_id hse_uio_of_match[] = {
 	{
-		.name = HSE_UIO_MU_INST,
-		.compatible = "fsl,s32gen1-hse",
+		.name = CONFIG_UIO_NXP_HSE_MU,
+		.compatible = "nxp,s32cc-hse",
 	}, {}
 };
 MODULE_DEVICE_TABLE(of, hse_uio_of_match);
 
 static struct platform_driver hse_uio_driver = {
 	.driver = {
-		.name = KBUILD_MODNAME,
+		.name = "hse-uio",
 		.of_match_table	= hse_uio_of_match,
 	},
 	.probe = hse_uio_probe,
