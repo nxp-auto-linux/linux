@@ -443,7 +443,7 @@ int hse_channel_acquire(struct device *dev, enum hse_ch_type type, u8 *channel,
 			}
 		if (*channel == HSE_CHANNEL_INV) {
 			spin_unlock(&drv->stream_lock);
-			dev_dbg(dev, "%s: no type %d channel available\n",
+			dev_dbg(dev, "%s: no channel of type %d available\n",
 				__func__, type);
 			return -EBUSY;
 		}
@@ -649,8 +649,8 @@ int hse_srv_req_sync(struct device *dev, u8 channel, const void *srv_desc)
 		drv->sync[channel].reply = NULL;
 		spin_unlock_irqrestore(&drv->rx_lock, flags);
 
-		dev_dbg(dev, "%s: request on channel %d interrupted: %d\n",
-			__func__, channel, err);
+		dev_dbg(dev, "%s: request id 0x%08x interrupted, channel %d\n",
+			__func__, drv->srv_desc[channel].id, channel);
 		return err;
 	}
 
@@ -810,7 +810,7 @@ static irqreturn_t hse_evt_dispatcher(int irq, void *dev)
 		hse_skcipher_unregister(&drv->skcipher_algs);
 	if (IS_ENABLED(CONFIG_CRYPTO_DEV_NXP_HSE_AEAD))
 		hse_aead_unregister(&drv->aead_algs);
-	if (IS_ENABLED(CONFIG_CRYPTO_DEV_NXP_HSE_HWRNG))
+	if (IS_ENABLED(CONFIG_CRYPTO_DEV_NXP_HSE_RNG))
 		hse_rng_unregister(dev);
 
 	dev_crit(dev, "communication terminated, reset system to recover\n");
@@ -835,14 +835,17 @@ static int hse_probe(struct platform_device *pdev)
 	/* MU interface setup */
 	drv->mu = hse_mu_init(dev, hse_rx_dispatcher, hse_evt_dispatcher);
 	if (IS_ERR(drv->mu)) {
-		dev_dbg(dev, "failed to initialize MU communication\n");
+		dev_err(dev, "failed to initialize MU interface\n");
 		return PTR_ERR(drv->mu);
 	}
 
-	/* check firmware status */
+	/* check for firmware */
 	status = hse_mu_check_status(drv->mu);
 	if (!likely(status & HSE_STATUS_INIT_OK)) {
-		dev_warn(dev, "firmware not found\n");
+		if (IS_ENABLED(CONFIG_CRYPTO_DEV_NXP_HSE_MU0))
+			dev_warn(dev, "firmware not found\n");
+		else
+			dev_warn(dev, "MU interface not active\n");
 		return -ENODEV;
 	}
 
@@ -877,8 +880,8 @@ static int hse_probe(struct platform_device *pdev)
 	/* interface fixup */
 	hse_fw_if_fixup(dev);
 
-	/* check HSE global status */
-	if (IS_ENABLED(CONFIG_CRYPTO_DEV_NXP_HSE_HWRNG) &&
+	/* check firmware global status */
+	if (IS_ENABLED(CONFIG_CRYPTO_DEV_NXP_HSE_RNG) &&
 	    !likely(status & HSE_STATUS_RNG_INIT_OK)) {
 		dev_err(dev, "RNG not initialized\n");
 		err = -ENODEV;
@@ -912,7 +915,7 @@ static int hse_probe(struct platform_device *pdev)
 		hse_skcipher_register(dev, &drv->skcipher_algs);
 	if (IS_ENABLED(CONFIG_CRYPTO_DEV_NXP_HSE_AEAD))
 		hse_aead_register(dev, &drv->aead_algs);
-	if (IS_ENABLED(CONFIG_CRYPTO_DEV_NXP_HSE_HWRNG))
+	if (IS_ENABLED(CONFIG_CRYPTO_DEV_NXP_HSE_RNG))
 		hse_rng_register(dev);
 
 	dev_info(dev, "device ready, status 0x%04X\n", status);
@@ -939,7 +942,7 @@ static int hse_remove(struct platform_device *pdev)
 		hse_skcipher_unregister(&drv->skcipher_algs);
 	if (IS_ENABLED(CONFIG_CRYPTO_DEV_NXP_HSE_AEAD))
 		hse_aead_unregister(&drv->aead_algs);
-	if (IS_ENABLED(CONFIG_CRYPTO_DEV_NXP_HSE_HWRNG))
+	if (IS_ENABLED(CONFIG_CRYPTO_DEV_NXP_HSE_RNG))
 		hse_rng_unregister(dev);
 
 	/* empty used key rings */
@@ -977,7 +980,7 @@ static int hse_pm_suspend(struct device *dev)
 		goto err_enable_irq;
 	}
 
-	dev_info(dev, "firmware prepared for stand-by\n");
+	dev_info(dev, "device ready for stand-by\n");
 
 	return 0;
 err_enable_irq:
@@ -992,8 +995,10 @@ static int hse_pm_resume(struct device *dev)
 	u16 status;
 	int err;
 
-	/* signal firmware not to wait for peripheral configuration */
-	hse_mu_trigger_event(drv->mu, HSE_HOST_PERIPH_CONFIG_DONE);
+	if (IS_ENABLED(CONFIG_CRYPTO_DEV_NXP_HSE_MU0)) {
+		/* signal firmware not to wait for peripheral configuration */
+		hse_mu_trigger_event(drv->mu, HSE_HOST_PERIPH_CONFIG_DONE);
+	}
 
 	/* enable RX and event notifications */
 	hse_mu_irq_enable(drv->mu, HSE_INT_RESPONSE, HSE_CH_MASK_ALL);
@@ -1012,7 +1017,7 @@ static int hse_pm_resume(struct device *dev)
 		status = hse_mu_check_status(drv->mu);
 	}
 
-	if (IS_ENABLED(CONFIG_CRYPTO_DEV_NXP_HSE_HWRNG) &&
+	if (IS_ENABLED(CONFIG_CRYPTO_DEV_NXP_HSE_RNG) &&
 	    !likely(status & HSE_STATUS_RNG_INIT_OK))
 		dev_err(dev, "RNG not initialized\n");
 	if (!likely(status & HSE_STATUS_INSTALL_OK))
@@ -1031,8 +1036,8 @@ static SIMPLE_DEV_PM_OPS(hse_pm_ops, hse_pm_suspend, hse_pm_resume);
 
 static const struct of_device_id hse_of_match[] = {
 	{
-		.name = HSE_MU_INST,
-		.compatible = "fsl,s32gen1-hse",
+		.name = CONFIG_CRYPTO_DEV_NXP_HSE_MU,
+		.compatible = "nxp,s32cc-hse",
 	}, {}
 };
 MODULE_DEVICE_TABLE(of, hse_of_match);
