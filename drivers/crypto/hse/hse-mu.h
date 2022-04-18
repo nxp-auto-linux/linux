@@ -5,13 +5,11 @@
  * This file defines the interface specification for the Messaging Unit
  * instance used by host application cores to request services from HSE.
  *
- * Copyright 2019-2021 NXP
+ * Copyright 2019-2022 NXP
  */
 
 #ifndef HSE_MU_H
 #define HSE_MU_H
-
-#define HSE_MU_INST    "mu" __stringify(CONFIG_CRYPTO_DEV_NXP_HSE_MU_ID) "b"
 
 #define HSE_NUM_CHANNELS    16u /* number of available service channels */
 #define HSE_STREAM_COUNT    4u /* number of usable streams per MU instance */
