@@ -11,14 +11,14 @@ maintainers:
 
 description: |
   - NXP Hardware Security Engine is featured on some NXP S32 platforms:
-    Crpto offloading support is currently available on S32G274A and S32R45.
+    Crpto offloading support is available on S32G274A, S32G399A and S32R45.
 
 properties:
   compatible:
     oneOf:
       - enum:
-          - fsl,s32gen1-hse
-    description: Standard property. Must include "fsl,<soc_family>-hse".
+          - nxp,s32cc-hse
+    description: Standard property. Must include "nxp,s32cc-hse".
 
   reg:
     maxItems: 2
@@ -52,7 +52,7 @@ required:
 examples:
   - |
     mu0b@40210000 {
-            compatible = "fsl,s32gen1-hse";
+            compatible = "nxp,s32cc-hse";
             reg = <0x40210000 0x1000>,
                   <0x22C00000 0x1000>;
             reg-names = "hse-mu0b-regs",
