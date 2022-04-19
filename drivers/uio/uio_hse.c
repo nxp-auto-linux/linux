@@ -2,7 +2,8 @@
 /*
  * NXP HSE UIO Driver
  *
- * This file contains the HSE user-space I/O driver support.
+ * This file contains the user-space I/O support for the Hardware Security
+ * Engine user space driver. Used by the HSE user space library - libhse.
  *
  * Copyright 2021-2022 NXP
  */
@@ -27,7 +28,7 @@
 #define HSE_CHANNEL_INV    0xFFu /* invalid acquired service channel index */
 #define HSE_CH_MASK_ALL    0x0000FFFFul /* all available channels irq mask */
 
-#define HSE_STATUS_MASK     0xFFFF0000ul /* HSE global status FSR mask */
+#define HSE_STATUS_MASK    0xFFFF0000ul /* HSE global status FSR mask */
 
 #define HSE_EVT_MASK_ERR     0x000000FFul /* fatal error GSR mask */
 #define HSE_EVT_MASK_WARN    0x0000FF00ul /* warning GSR mask */
@@ -123,7 +124,6 @@ struct hse_mu_regs {
  * @regs: MU register space base virtual address
  * @desc: service descriptor space base virtual address
  * @intl: driver internal shared memory base address
- * @rmem: driver DMA-able reserved memory range
  * @reg_lock: spinlock preventing concurrent register access
  */
 struct hse_uio_drvdata {
@@ -133,7 +133,6 @@ struct hse_uio_drvdata {
 	struct hse_mu_regs __iomem *regs;
 	void __iomem *desc;
 	struct hse_uio_intl *intl;
-	void __iomem *rmem;
 	spinlock_t reg_lock; /* covers irq enable/disable */
 };
 
@@ -536,7 +535,7 @@ static int hse_uio_probe(struct platform_device *pdev)
 
 	/* expose HSE MU register space to upper layer */
 	drv->info.mem[HSE_UIO_MAP_REGS].name = "hse-mu-registers";
-	drv->info.mem[HSE_UIO_MAP_REGS].addr = (uintptr_t)res->start;
+	drv->info.mem[HSE_UIO_MAP_REGS].addr = (phys_addr_t)res->start;
 	drv->info.mem[HSE_UIO_MAP_REGS].size = resource_size(res);
 	drv->info.mem[HSE_UIO_MAP_REGS].memtype = UIO_MEM_PHYS;
 
@@ -560,19 +559,18 @@ static int hse_uio_probe(struct platform_device *pdev)
 
 	/* expose service descriptor space to upper layer */
 	drv->info.mem[HSE_UIO_MAP_DESC].name = "hse-service-descriptors";
-	drv->info.mem[HSE_UIO_MAP_DESC].addr = (uintptr_t)res->start;
-	drv->info.mem[HSE_UIO_MAP_DESC].internal_addr = drv->desc;
+	drv->info.mem[HSE_UIO_MAP_DESC].addr = (phys_addr_t)res->start;
 	drv->info.mem[HSE_UIO_MAP_DESC].size = resource_size(res);
 	drv->info.mem[HSE_UIO_MAP_DESC].memtype = UIO_MEM_PHYS;
 
 	/* alloc internal shared memory */
-	drv->intl = devm_kzalloc(dev, PAGE_SIZE, GFP_KERNEL);
-	if (IS_ERR_OR_NULL(drv->intl))
+	drv->intl = (void *)devm_get_free_pages(dev, GFP_KERNEL | __GFP_ZERO, 0);
+	if (unlikely(!drv->intl))
 		return -ENOMEM;
 
 	/* expose driver internal memory to upper layer */
 	drv->info.mem[HSE_UIO_MAP_INTL].name = "hse-driver-internal";
-	drv->info.mem[HSE_UIO_MAP_INTL].addr = (uintptr_t)drv->intl;
+	drv->info.mem[HSE_UIO_MAP_INTL].addr = (phys_addr_t)drv->intl;
 	drv->info.mem[HSE_UIO_MAP_INTL].size = PAGE_SIZE;
 	drv->info.mem[HSE_UIO_MAP_INTL].memtype = UIO_MEM_LOGICAL;
 
@@ -590,16 +588,9 @@ static int hse_uio_probe(struct platform_device *pdev)
 	}
 	of_node_put(rmem_node);
 
-	drv->rmem = devm_ioremap(dev, rmem->base, rmem->size);
-	if (IS_ERR_OR_NULL(drv->rmem))
-		return -EINVAL;
-	/* workaround: use reserved memory as internal */
-	memcpy(&drv->intl, &drv->rmem, sizeof(drv->intl));
-
 	/* expose HSE reserved memory to upper layer */
 	drv->info.mem[HSE_UIO_MAP_RMEM].name = "hse-reserved-memory";
-	drv->info.mem[HSE_UIO_MAP_RMEM].addr = (uintptr_t)rmem->base;
-	drv->info.mem[HSE_UIO_MAP_RMEM].internal_addr = drv->rmem;
+	drv->info.mem[HSE_UIO_MAP_RMEM].addr = (phys_addr_t)rmem->base;
 	drv->info.mem[HSE_UIO_MAP_RMEM].size = rmem->size;
 	drv->info.mem[HSE_UIO_MAP_RMEM].memtype = UIO_MEM_PHYS;
 
