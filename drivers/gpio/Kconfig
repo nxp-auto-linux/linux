@@ -482,7 +482,7 @@ config GPIO_RCAR
 
 config GPIO_S32CC
 	tristate "GPIO driver for S32CC"
-	depends on PINCTRL_S32GEN1
+	depends on PINCTRL_S32CC
 	select GPIOLIB_IRQCHIP
 	help
 	  This enables support for the SIUL2 GPIOs found on the S32CC chips.
