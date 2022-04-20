@@ -195,15 +195,21 @@ config PINCTRL_IMX28
 	bool
 	select PINCTRL_MXS
 
-config PINCTRL_S32_GEN1_CORE
-	bool "Driver for the S32-gen1 family pin controller"
+config PINCTRL_S32CC_CORE
+	bool "Driver for the S32CC family pin controller"
         help
-          Say Y here to enable S32-gen1 family pin controller
+          Say Y here to enable S32CC family pin controller.
+	  The S32CC core is shared between the S32R45 and S32G
+	  pinctrl drivers.
 
-config PINCTRL_S32GEN1
-	bool "Freescale S32GEN1 pinctrl driver"
-	depends on SOC_S32GEN1
-	select PINCTRL_IMX
-	select PINCTRL_S32_GEN1_CORE
+config PINCTRL_S32CC
+	bool "NXP S32CC pinctrl driver"
+	depends on SOC_S32GEN1 && OF
+	select PINCTRL_S32CC_CORE
+	select GENERIC_PINCTRL_GROUPS
+	select GENERIC_PINMUX_FUNCTIONS
+	select GENERIC_PINCONF
+	select REGMAP
+
 	help
-	  Say Y here to enable the Freescale S32GEN1 pinctrl driver
+	  Say Y here to enable the NXP S32CC pinctrl driver
