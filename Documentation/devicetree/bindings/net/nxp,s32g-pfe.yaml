@@ -1,0 +1,245 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+# Copyright 2022 NXP
+%YAML 1.2
+---
+$id: "http://devicetree.org/schemas/net/nxp,s32g-pfe.yaml#"
+$schema: "http://devicetree.org/meta-schemas/core.yaml#"
+
+title: The PFE Ethernet accelerator with three MACs (Media Access Controller)
+
+maintainers:
+  - Jan Petrous <jan.petrous@nxp.com>
+  - Claudiu Manoil <claudiu.manoil@nxp.com>
+
+description: |
+  The NXP S32G2/S32G3 automotive SoC contains PFE Ethernet controller.
+  PFE offloads Ethernet packet processing from the host cores, yielding
+  higher performance and lower power consumption than what software
+  processing alone could achieve.
+
+properties:
+  "#address-cells": true
+  "#size-cells": true
+
+  compatible:
+    items:
+      - enum:
+        - nxp,s32g-pfe
+        - nxp,s32g-pfe-slave
+    description:
+      The single instance driver (aka standalone driver mode) and the Master
+      driver require "nxp,s32g-pfe", the Slave driver requires "nxp,s32g-pfe-slave".
+
+  reg:
+    items:
+      - description: The PFE IP physical base address and size
+      - description: The SoC S32G MEM_GPR base address and size
+
+  reg-names:
+    items:
+      - const: pfe-cbus
+      - const: s32g-main-gpr
+
+  clocks:
+    items:
+      - description: PFE SYS clock
+      - description: PFE PE clock
+      - description: TS clock
+
+  clock-names:
+    maxItems: 3
+    oneOf:
+      - items:
+        - const: pfe_sys
+        - const: pfe_pe
+        - const: pfe_ts
+      - items:
+        - const: pfe_sys
+        - const: pfe_pe
+
+  interrupts:
+    items:
+      - description: HIF channel 0 interrupt
+      - description: HIF channel 1 interrupt
+      - description: HIF channel 2 interrupt
+      - description: HIF channel 3 interrupt
+      - description: BMU interrupt
+      - description: UTIL interrupt
+      - description: SAFETY interrupt
+
+  interrupt-names:
+    items:
+      - const: hif0
+      - const: hif1
+      - const: hif2
+      - const: hif3
+      - const: bmu
+      - const: upegpt
+      - const: safety
+
+  dma-coherent: true
+
+  resets:
+    maxItems: 1
+    description: |
+      Reference S32G reset controller used for PFE reset.
+
+  resets-names:
+    maxItems: 1
+
+  memory-region:
+    maxItems: 4
+    items:
+      - description: The BMU2 buffer pool, must be in the range 0x00020000 - 0xbfffffff
+      - description: RT region
+      - description: Non-cacheable DMA buffers
+      - description: Buffer descriptor rings
+
+  memory-region-names:
+    maxItems: 4
+    items:
+      - const: pfe-bmu2-pool
+      - const: pfe-rt-pool
+      - const: pfe-shared-pool
+      - const: pfe-bdr-pool
+
+  nxp,fw-class-name:
+    $ref: /schemas/types.yaml#/definitions/string
+    description: |
+      If present, name (or relative path) of the file within the
+      firmware search path containing the firmware image used when
+      initializing PFE CLASS hardware.
+
+  nxp,fw-util-name:
+    $ref: /schemas/types.yaml#/definitions/string
+    description: |
+      If present, name (or relative path) of the file within the
+      firmware search path containing the firmware image used when
+      initializing PFE UTIL hardware. Optional.
+
+  nxp,pfeng-hif-channels:
+    $ref: /schemas/types.yaml#/definitions/uint32-array
+    description: |
+      The set of managed HIF channels. Any combination of standard
+      HIF channel can be used. HIF_NCPY is not supported.
+    minItems: 1
+    maxItems: 4
+    items:
+      minimum: 0
+      maximum: 3
+
+  nxp,pfeng-ihc-channel:
+    $ref: /schemas/types.yaml#/definitions/uint32
+    description: |
+      The HIF channel number used for IHC transport.
+      The outgoing channel, must be one from set
+      specified in nxp,pfeng-hif-channels.
+    maxItems: 1
+    items:
+      minimum: 0
+      maximum: 3
+
+
+  nxp,pfeng-master-channel:
+    $ref: /schemas/types.yaml#/definitions/uint32
+    description: |
+      The HIF channel number used for IHC transport.
+      The destination channel used by Master for
+      receiving IHC messages. Here can also be used
+      the HIF_NCPY channel.
+    maxItems: 1
+    items:
+      minimum: 0
+      maximum: 4
+
+  phys:
+    maxItems: 3
+
+  phy-names:
+    description: |
+      Required for SGMII mode. Should reference
+      S32G SerDes XPCS instance. One per PFE_EMAC.
+    maxItems: 3
+    contains:
+      enum:
+        - emac0_xpcs
+        - emac1_xpcs
+        - emac2_xpcs
+
+  # mdio
+  mdio:
+    $ref: mdio.yaml#
+    description: |
+      Optional node for embedded MDIO controller.
+    properties:
+      compatible:
+        items:
+          - const: nxp,s32g-pfe-mdio
+      reg:
+        maxItems: 1
+        description: The index of embedded MDIO bus.
+      unevaluatedProperties: false
+
+  # ethernet
+  ethernet:
+    $ref: ethernet-controller.yaml#
+    description: |
+      Describes net device.
+    properties:
+      compatible:
+        items:
+          - const: nxp,s32g-pfe-netif
+      local-mac-address: true
+      phy-mode: true
+      phy-handle: true
+      nxp,pfeng-if-name:
+        $ref: /schemas/types.yaml#/definitions/string
+        description: |
+          The netdev interface name.
+      nxp,pfeng-hif-channels:
+        $ref: /schemas/types.yaml#/definitions/uint32-array
+        description: |
+          The set of used HIF channels. Any combination of standard
+          HIF channel can be used. HIF_NOCPY is not supported.
+        minItems: 1
+        maxItems: 4
+        items:
+          minimum: 0
+          maximum: 3
+      nxp,pfeng-emac-id:
+        $ref: /schemas/types.yaml#/definitions/uint32-array
+        description: |
+          The linked PFE_EMAC port.
+      nxp,pfeng-netif-mode-aux:
+        $ref: /schemas/types.yaml#/definitions/flag
+        description: |
+          If present, the netdevice is used in AUX mode.
+      unevaluatedProperties: false
+
+required:
+  - compatible
+  - reg
+  - reg-names
+  - interrupts
+  - interrupt-names
+  - '#address-cells'
+  - '#size-cells'
+  - ethernet
+
+additionalProperties: false
+
+unevaluatedProperties: false
+
+allOf:
+  - if:
+      properties:
+        compatible:
+          contains:
+            const: nxp,s32g-pfe
+    then:
+      required:
+        - clocks
+        - clock-names
+    else:
+      required:
+        - nxp,pfeng-master-channel
