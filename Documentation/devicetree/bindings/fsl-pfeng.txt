@@ -13,13 +13,13 @@ Required properties:
 		  The property is required for the standalone mode driver and the Master driver, but is optional for the Slave driver.
 		  The list of supported memory regions ('reserved-memory' nodes) and their recommended order:
 		  1) reserved region for the BMU2 buffer pool, must be in the range 0x00020000 - 0xbfffffff,
-		  "fsl,pfe-bmu2-pool" compatible; [optional (recommended)]
+		  "nxp,s32g-pfe-bmu2-pool" compatible; [optional (recommended)]
 		  2) reserved region for the fast-path Routing Table (RT),
-		  "fsl,pfe-rt-pool" compatible; [optional (recommended)]
+		  "nxp,s32g-pfe-rt-pool" compatible; [optional (recommended)]
 		  3) reserved region for non-cacheable DMA buffers,
 		  "shared-dma-pool" compatible; [required]
 		  4) reserved region for buffer descriptor rings,
-		  "fsl,pfe-bdr-pool" compatible; [optional (recommended)]
+		  "nxp,s32g-pfe-bdr-pool" compatible; [optional (recommended)]
 - memory-region-names : Named resource property for 'memory-region'.
 		  Members must be in the same order as the 'memory-region' list entries, and their values can
 		  be one of the following (specified in the same order as the 'memory-region' members):
