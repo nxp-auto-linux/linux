@@ -491,7 +491,7 @@
 	};
 
 	spi0: spi@401D4000 {
-		compatible = "fsl,s32gen1-dspi";
+		compatible = "nxp,s32cc-dspi";
 		reg = <0x0 0x401D4000 0x0 0x3000>;
 		interrupts = <0 85 4>;
 		clocks = <&clks S32GEN1_SCMI_CLK_SPI_MODULE>;
@@ -507,7 +507,7 @@
 	};
 
 	spi1: spi@401D8000 {
-		compatible = "fsl,s32gen1-dspi";
+		compatible = "nxp,s32cc-dspi";
 		reg = <0x0 0x401D8000 0x0 0x3000>;
 		interrupts = <0 86 4>;
 		clocks = <&clks S32GEN1_SCMI_CLK_SPI_MODULE>;
@@ -523,7 +523,7 @@
 	};
 
 	spi2: spi@401DC000 {
-		compatible = "fsl,s32gen1-dspi";
+		compatible = "nxp,s32cc-dspi";
 		reg = <0x0 0x401DC000 0x0 0x3000>;
 		interrupts = <0 87 4>;
 		clocks = <&clks S32GEN1_SCMI_CLK_SPI_MODULE>;
@@ -750,7 +750,7 @@
 	};
 
 	spi3: spi@402C8000 {
-		compatible = "fsl,s32gen1-dspi";
+		compatible = "nxp,s32cc-dspi";
 		reg = <0x0 0x402C8000 0x0 0x3000>;
 		interrupts = <0 88 4>;
 		clocks = <&clks S32GEN1_SCMI_CLK_SPI_MODULE>;
@@ -766,7 +766,7 @@
 	};
 
 	spi4: spi@402CC000 {
-		compatible = "fsl,s32gen1-dspi";
+		compatible = "nxp,s32cc-dspi";
 		reg = <0x0 0x402CC000 0x0 0x3000>;
 		interrupts = <0 89 4>;
 		clocks = <&clks S32GEN1_SCMI_CLK_SPI_MODULE>;
@@ -782,7 +782,7 @@
 	};
 
 	spi5: spi@402D0000 {
-		compatible = "fsl,s32gen1-dspi";
+		compatible = "nxp,s32cc-dspi";
 		reg = <0x0 0x402D0000 0x0 0x3000>;
 		interrupts = <0 90 4>;
 		clocks = <&clks S32GEN1_SCMI_CLK_SPI_MODULE>;
