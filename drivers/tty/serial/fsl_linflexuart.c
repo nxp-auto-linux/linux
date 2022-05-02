@@ -195,7 +195,7 @@ struct linflex_port {
 
 static const struct of_device_id linflex_dt_ids[] = {
 	{
-		.compatible = "nxp,s32-cc-linflexuart",
+		.compatible = "nxp,s32cc-linflexuart",
 	},
 	{ /* sentinel */ }
 };
@@ -1453,7 +1453,7 @@ static int __init linflex_early_console_setup(struct earlycon_device *device,
 	return 0;
 }
 
-OF_EARLYCON_DECLARE(linflex, "nxp,s32-cc-linflexuart",
+OF_EARLYCON_DECLARE(linflex, "nxp,s32cc-linflexuart",
 		    linflex_early_console_setup);
 
 #define LINFLEX_CONSOLE	(&linflex_console)
