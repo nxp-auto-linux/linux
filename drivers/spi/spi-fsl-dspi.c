@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0+
 //
 // Copyright 2013 Freescale Semiconductor, Inc.
-// Copyright 2020-2021 NXP
+// Copyright 2020-2022 NXP
 //
 // Freescale DSPI driver
 // This file contains a driver for the Freescale DSPI
@@ -1146,7 +1146,7 @@ static const struct of_device_id fsl_dspi_dt_ids[] = {
 		.compatible = "fsl,lx2160a-dspi",
 		.data = &devtype_data[LX2160A],
 	}, {
-		.compatible = "fsl,s32gen1-dspi",
+		.compatible = "nxp,s32cc-dspi",
 		.data = &devtype_data[S32GEN1],
 	},
 	{ /* sentinel */ }
