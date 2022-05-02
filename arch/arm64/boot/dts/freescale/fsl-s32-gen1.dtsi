@@ -555,7 +555,7 @@
 	i2c0: i2c@401E4000 {
 		#address-cells = <1>;
 		#size-cells = <0>;
-		compatible = "fsl,s32gen1-i2c";
+		compatible = "nxp,s32cc-i2c";
 		reg = <0x0 0x401E4000 0x0 0x1000>;
 		interrupts =<0 92 4>;
 		clocks = <&clks S32GEN1_SCMI_CLK_I2C_MODULE>;
@@ -569,7 +569,7 @@
 	i2c1: i2c@401E8000 {
 		#address-cells = <1>;
 		#size-cells = <0>;
-		compatible = "fsl,s32gen1-i2c";
+		compatible = "nxp,s32cc-i2c";
 		reg = <0x0 0x401E8000 0x0 0x1000>;
 		interrupts =<0 93 4>;
 		clocks = <&clks S32GEN1_SCMI_CLK_I2C_MODULE>;
@@ -583,7 +583,7 @@
 	i2c2: i2c@401EC000 {
 		#address-cells = <1>;
 		#size-cells = <0>;
-		compatible = "fsl,s32gen1-i2c";
+		compatible = "nxp,s32cc-i2c";
 		reg = <0x0 0x401EC000 0x0 0x1000>;
 		interrupts =<0 94 4>;
 		clocks = <&clks S32GEN1_SCMI_CLK_I2C_MODULE>;
@@ -800,7 +800,7 @@
 	i2c3: i2c@402D8000 {
 		#address-cells = <1>;
 		#size-cells = <0>;
-		compatible = "fsl,s32gen1-i2c";
+		compatible = "nxp,s32cc-i2c";
 		reg = <0x0 0x402D8000 0x0 0x1000>;
 		interrupts =<0 95 4>;
 		clocks = <&clks S32GEN1_SCMI_CLK_I2C_MODULE>;
@@ -814,7 +814,7 @@
 	i2c4: i2c@402DC000 {
 		#address-cells = <1>;
 		#size-cells = <0>;
-		compatible = "fsl,s32gen1-i2c";
+		compatible = "nxp,s32cc-i2c";
 		reg = <0x0 0x402DC000 0x0 0x1000>;
 		interrupts =<0 96 4>;
 		clocks = <&clks S32GEN1_SCMI_CLK_I2C_MODULE>;
