@@ -47,7 +47,7 @@
 		i2c4 = &i2c4;
 	};
 
-	reserved-memory {
+	reserved_memory: reserved-memory  {
 		#address-cells = <2>;
 		#size-cells = <2>;
 		ranges;
@@ -1097,11 +1097,10 @@
 		interrupts = <GIC_SPI 115 IRQ_TYPE_LEVEL_HIGH>; /* GIC 147 */
 	};
 
-	ddr: ddr@403C0000 {
+	ddr_errata: ddr_errata@403C0000 {
 		compatible = "nxp,s32cc-ddr";
 		reg = <0x0 0x403C0000 0x0 0x100>;
 		perf-phandle = <&perf>;
-		/* Will be modified by u-boot */
 		status = "disabled";
 	};
 };
