@@ -101,9 +101,7 @@ ddr_pmu_event_show(struct device *dev, struct device_attribute *attr,
 static struct attribute *ddr_perf_events_attrs[] = {
 	S32CC_DDR_PMU_EVENT_ATTR(cycles, EVENT_CYCLES_ID),
 	S32CC_DDR_PMU_EVENT_ATTR(selfresh, 0x01),
-	S32CC_DDR_PMU_EVENT_ATTR(read-accesses, 0x04),
 	S32CC_DDR_PMU_EVENT_ATTR(write-accesses, 0x05),
-	S32CC_DDR_PMU_EVENT_ATTR(read-queue-depth, 0x08),
 	S32CC_DDR_PMU_EVENT_ATTR(write-queue-depth, 0x09),
 	S32CC_DDR_PMU_EVENT_ATTR(lp-read-credit-cnt, 0x10),
 	S32CC_DDR_PMU_EVENT_ATTR(hp-read-credit-cnt, 0x11),
@@ -129,8 +127,6 @@ static struct attribute *ddr_perf_events_attrs[] = {
 	S32CC_DDR_PMU_EVENT_ATTR(refresh, 0x37),
 	S32CC_DDR_PMU_EVENT_ATTR(write, 0x38),
 	S32CC_DDR_PMU_EVENT_ATTR(raw-hazard, 0x39),
-	S32CC_DDR_PMU_EVENT_ATTR(axid-read, 0x41),
-	S32CC_DDR_PMU_EVENT_ATTR(axid-write, 0x42),
 	NULL,
 };
 
