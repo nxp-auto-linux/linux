@@ -247,16 +247,6 @@ config RESET_ZYNQ
 	help
 	  This enables the reset controller driver for Xilinx Zynq SoCs.
 
-config RESET_S32GEN1
-	tristate "S32GEN1 Reset Driver"
-	default SOC_S32GEN1
-	help
-	  This enables the reset driver support for NXP S32GEN1 devices with
-	  memory-mapped reset registers as part of a syscon device node. It
-	  uses MC_RGM block to reset a peripheral and doesn't include clock
-	  partitions. If you wish to use the reset framework say Y here.
-	  Otherwise, say N.
-
 source "drivers/reset/sti/Kconfig"
 source "drivers/reset/hisilicon/Kconfig"
 source "drivers/reset/tegra/Kconfig"
