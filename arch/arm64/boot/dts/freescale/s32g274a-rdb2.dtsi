@@ -7,7 +7,7 @@
  */
 
 /dts-v1/;
-#include "s32g274a.dtsi"
+#include "s32g2.dtsi"
 #include "s32gxxxa-rdb.dtsi"
 / {
 	model = "NXP S32G274A-RDB2";
