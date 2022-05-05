@@ -260,7 +260,7 @@
 		reg = <0x0 0x4383c000 0x0 0x14000>;
 	};
 
-	llce {
+	llce: llce@43A00000 {
 		compatible = "nxp,s32g-llce-core";
 
 		/* RX-IN_FIFO */
@@ -296,7 +296,7 @@
 		#size-cells = <2>;
 		#interrupt-cells = <3>;
 
-		llce_mb: llce_mb {
+		llce_mb: llce_mb@43A00000 {
 			compatible = "nxp,s32g-llce-mailbox";
 			#mbox-cells = <2>;
 
