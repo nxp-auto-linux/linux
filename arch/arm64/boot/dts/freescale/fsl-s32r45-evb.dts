@@ -12,6 +12,8 @@
 #include <dt-bindings/gpio/gpio.h>
 
 / {
+	model = "NXP S32R458-EVB";
+
 	aliases {
 		gmac0 = &gmac0;
 		gmac1 = &gmac1;
