@@ -76,10 +76,6 @@
 	phy-handle = <&pfe_mdio_b_phy4>;
 };
 
-&fxosc {
-	clock-frequency = <40000000>;
-};
-
 &generic_timer {
 	clock-frequency = <5000000>;
 };

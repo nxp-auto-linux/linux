@@ -1,0 +1,27 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+/*
+ * Device Tree file for S32G274ARDB Board.
+ *
+ * Copyright 2021-2022 NXP
+ *
+ */
+
+#include <dt-bindings/ddr-errata/s32-ddr-errata.h>
+#include "s32g.dtsi"
+
+/ {
+	compatible = "nxp,s32g2";
+};
+
+&reserved_memory {
+		ddr_errata_reserved: ddr@85000000 {
+			reg = <0x0 DDR_ERRATA_REGION_BASE
+				   0x0 DDR_ERRATA_REGION_SIZE>; /* 4 KB */
+			no-map;
+		};
+};
+
+&ddr_errata {
+	memory-region = <&ddr_errata_reserved>;
+	status = "okay";
+};
