@@ -269,4 +269,3 @@ obj-$(CONFIG_SGI_MFD_IOC3)	+= ioc3.o
 obj-$(CONFIG_MFD_SIMPLE_MFD_I2C)	+= simple-mfd-i2c.o
 obj-$(CONFIG_MFD_INTEL_M10_BMC)   += intel-m10-bmc.o
 obj-$(CONFIG_S32GEN1_MC_ME) 	+= s32gen1-mc_me.o
-obj-$(CONFIG_S32GEN1_MC_RGM) 	+= s32gen1-mc_rgm.o
