@@ -11,6 +11,8 @@
 /dts-v1/;
 #include "fsl-s32r45.dtsi"
 / {
+	model = "NXP S32G274A-SIM";
+
 	chosen {
 		stdout-path = "serial0:115200n8";
 	};

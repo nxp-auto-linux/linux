@@ -13,6 +13,8 @@
 #include <dt-bindings/pinctrl/s32r45-pinctrl.h>
 
 / {
+	model = "ZeBu model for NXP S32R45";
+
 	chosen {
 		stdout-path = "serial1:115200n8";
 	};

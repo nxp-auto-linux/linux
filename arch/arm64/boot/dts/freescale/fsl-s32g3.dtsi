@@ -14,6 +14,8 @@
 /delete-node/ &gic;
 
 / {
+	compatible = "nxp,s32g3";
+
 	gic: interrupt-controller@50800000 {
 		compatible = "arm,gic-v3";
 		#interrupt-cells = <3>;
