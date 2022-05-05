@@ -7,8 +7,7 @@
 #include "fsl-s32g3.dtsi"
 #include "fsl-s32gxxxa-evb.dtsi"
 / {
-	model = "NXP S32G399A";
-	compatible = "nxp,s32g399";
+	model = "NXP S32G3XXX-EVB3";
 };
 
 &swt8 {

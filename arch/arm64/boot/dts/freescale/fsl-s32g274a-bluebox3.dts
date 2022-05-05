@@ -8,8 +8,7 @@
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/pinctrl/s32g-pinctrl.h>
 / {
-	model = "Freescale S32G274 BlueBox3";
-	compatible = "fsl,s32g274-simu", "arm,vexpress";
+	model = "NXP S32G274A BlueBox3";
 
 	chosen {
 		stdout-path = "serial0:115200n8";

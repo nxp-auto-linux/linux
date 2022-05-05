@@ -16,9 +16,7 @@
 /delete-node/ &pci_shared_memory1;
 
 / {
-	model = "Freescale S32G274";
-	compatible = "fsl,s32g274-simu", "fsl,s32g274",
-				 "arm,vexpress,v2p-aarch64", "arm,vexpress";
+	model = "NXP S32G274A-EMU";
 
 	chosen {
 		stdout-path = "serial1:115200n8";
