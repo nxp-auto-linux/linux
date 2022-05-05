@@ -8,7 +8,7 @@
  */
 
 /dts-v1/;
-#include "fsl-s32g274a.dtsi"
+#include "s32g274a.dtsi"
 #include <dt-bindings/pinctrl/s32g-pinctrl.h>
 
 /* Emulator has less than 1GB of RAM, remove reserved memory above this limit */
@@ -35,10 +35,6 @@
 
 &pfe_reserved  {
 	status = "disabled";
-};
-
-&fxosc {
-	clock-frequency = <40000000>;
 };
 
 &generic_timer {

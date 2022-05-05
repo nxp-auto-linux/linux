@@ -8,7 +8,7 @@
  * (at your option) any later version.
  */
 
-#include "fsl-s32-gen1.dtsi"
+#include "s32-gen1.dtsi"
 #include <dt-bindings/ddr-errata/s32-ddr-errata.h>
 #include <dt-bindings/pinctrl/s32r45-pinctrl.h>
 #include <dt-bindings/clock/s32r45-scmi-clock.h>
@@ -20,44 +20,10 @@
 		can4 = &can4;
 	};
 
-	sysclk: clk10000000 {
-		compatible = "fixed-clock";
-		#clock-cells = <0>;
-		clock-frequency = <10000000>;
-		clock-output-names = "sysclk";
-	};
-
 	virtio_block@39501000 {
 		compatible = "virtio,mmio";
 		reg = <0x0 0x39501000 0x0 0x1000>;
 		interrupts = <0 68 4>;
-	};
-
-	clks@40038000 {
-		compatible = "fsl,s32r45-clocking";
-		reg = <0x0 0x40038000 0x0 0x3000>, /*armpll*/
-		      <0x0 0x4003C000 0x0 0x3000>, /*periphpll*/
-		      <0x0 0x40040000 0x0 0x3000>, /*accelpll*/
-		      <0x0 0x40044000 0x0 0x3000>, /*ddrpll*/
-		      <0x0 0x40054000 0x0 0x3000>, /*armdfs*/
-		      <0x0 0x40058000 0x0 0x3000>; /*periphdfs*/
-		nxp,syscon-mc-me = <&mc_me>;
-		#clock-cells = <1>;
-		#reset-cells = <1>;
-		status = "disabled";
-	};
-
-	mc_cgm2: mc_cgm2@440C0000 {
-		compatible = "fsl,s32gen1-mc_cgm2";
-		reg = <0x0 0x440C0000 0x0 0x3000>;
-	};
-
-	rgm@40078000 {
-		compatible = "fsl,s32r45-reset", "syscon";
-		reg = <0x0 0x40078000 0x0 0x3000>;
-		nxp,syscon-mc-me = <&mc_me>;
-		#reset-cells = <1>;
-		status = "disabled";
 	};
 
 	can4: flexcan@44000000 {

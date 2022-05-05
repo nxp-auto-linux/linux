@@ -8,7 +8,7 @@
  */
 
 /dts-v1/;
-#include "fsl-s32g274a.dtsi"
+#include "s32g274a.dtsi"
 #include <dt-bindings/pinctrl/s32g-pinctrl.h>
 / {
 	model = "NXP S32G274A-SIM";
@@ -26,30 +26,10 @@
 		device_type = "memory";
 		reg = <0 0xc0000000 0 0x40000000>;
 	};
-
-	sysclk: clk10000000 {
-		compatible = "fixed-clock";
-		#clock-cells = <0>;
-		clock-frequency = <10000000>;
-		clock-output-names = "sysclk";
-	};
-
 	virtio_block@39501000 {
 		compatible = "virtio,mmio";
 		reg = <0x0 0x39501000 0x0 0x1000>;
 		interrupts = <0 68 4>;
-	};
-
-	clks@40038000 {
-		compatible = "fsl,s32g274-clocking";
-		reg = <0x0 0x40038000 0x0 0x3000>, /*armpll*/
-		      <0x0 0x4003C000 0x0 0x3000>, /*periphpll*/
-		      <0x0 0x40040000 0x0 0x3000>, /*accelpll*/
-		      <0x0 0x40044000 0x0 0x3000>, /*ddrpll*/
-		      <0x0 0x40054000 0x0 0x3000>, /*armdfs*/
-		      <0x0 0x40058000 0x0 0x3000>; /*periphdfs*/
-		#clock-cells = <1>;
-		status = "disabled";
 	};
 };
 
@@ -75,10 +55,6 @@
 
 &cpu3 {
 	next-level-cache = <&cluster1_l2_cache>;
-};
-
-&fxosc {
-	clock-frequency = <40000000>;
 };
 
 &generic_timer {
