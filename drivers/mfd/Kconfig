@@ -2186,13 +2186,5 @@ config S32GEN1_MC_ME
 	  Device driver that handles configuration of MC_ME
 	  regmap ranges.
 
-config S32GEN1_MC_RGM
-	bool "MC_RGM regmap driver"
-	depends on ARCH_S32
-	default SOC_S32GEN1
-	help
-	  Device driver that handles configuration of MC_RGM
-	  regmap ranges
-
 endmenu
 endif
