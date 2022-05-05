@@ -14,9 +14,8 @@
 #include <dt-bindings/clock/s32r45-scmi-clock.h>
 
 / {
-	model = "Freescale S32R45";
-	compatible = "fsl,s32r45-simu", "fsl,s32r45",
-				 "arm,vexpress,v2p-aarch64", "arm,vexpress";
+	compatible = "nxp,s32r45";
+
 	aliases {
 		can4 = &can4;
 	};
