@@ -1,4 +1,0 @@
-config ARCH_S32_CLK
-	bool "Enable S32 CLK Framework"
-	help
-	  Support for the Clock Framework on S32 SoCs.
