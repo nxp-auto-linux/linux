@@ -10,6 +10,8 @@
 #include "fsl-s32g.dtsi"
 
 / {
+	compatible = "nxp,s32g2";
+
 	clks@40038000 {
 		compatible = "fsl,s32g274a-clocking";
 		reg = <0x0 0x40038000 0x0 0x3000>,

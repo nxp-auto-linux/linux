@@ -9,9 +9,7 @@
 #include "fsl-s32g274a.dtsi"
 #include "fsl-s32gxxxa-evb.dtsi"
 / {
-	model = "Freescale S32G274A";
-	compatible = "fsl,s32g274-simu", "fsl,s32g274",
-		   "arm,vexpress,v2p-aarch64", "arm,vexpress";
+	model = "NXP S32G2XXX-EVB";
 };
 
 &usdhc0 {
