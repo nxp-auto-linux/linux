@@ -6,4 +6,4 @@
  *
  */
 
-#include "fsl-s32g399a-rdb3.dtsi"
+#include "s32g399a-rdb3.dtsi"

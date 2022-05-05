@@ -4,7 +4,7 @@
  */
 
 /dts-v1/;
-#include "fsl-s32g274a.dtsi"
+#include "s32g274a.dtsi"
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/pinctrl/s32g-pinctrl.h>
 / {
@@ -25,10 +25,6 @@
 
 &fccu {
 	status = "okay";
-};
-
-&fxosc {
-	clock-frequency = <40000000>;
 };
 
 &generic_timer {

@@ -5,4 +5,4 @@
  * Copyright 2021-2022 NXP
  */
 
-#include "fsl-s32g2xxa-evb.dtsi"
+#include "s32g2xxa-evb.dtsi"
