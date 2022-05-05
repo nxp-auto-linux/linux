@@ -8,7 +8,7 @@
  * (at your option) any later version.
  */
 
-#include "s32-gen1.dtsi"
+#include "s32cc.dtsi"
 #include <dt-bindings/ddr-errata/s32-ddr-errata.h>
 #include <dt-bindings/pinctrl/s32r45-pinctrl.h>
 #include <dt-bindings/clock/s32r45-scmi-clock.h>
