@@ -7,8 +7,7 @@
 #include "fsl-s32g3.dtsi"
 #include "fsl-s32gxxxa-evb.dtsi"
 / {
-	model = "Freescale S32G399A";
-	compatible = "fsl,s32g399", "arm,vexpress";
+	model = "NXP S32G3XXX-EVB";
 };
 
 &swt8 {
