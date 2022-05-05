@@ -8,7 +8,7 @@
  */
 
 /dts-v1/;
-#include "fsl-s32r45.dtsi"
+#include "s32r45.dtsi"
 #include <dt-bindings/gpio/gpio.h>
 
 / {
@@ -22,10 +22,6 @@
 	chosen {
 		stdout-path = "serial0:115200n8";
 	};
-};
-
-&fxosc {
-	clock-frequency = <40000000>;
 };
 
 &generic_timer {

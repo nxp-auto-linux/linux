@@ -9,7 +9,7 @@
  */
 
 /dts-v1/;
-#include "fsl-s32g.dtsi"
+#include "s32g.dtsi"
 
 /delete-node/ &gic;
 
@@ -32,26 +32,6 @@
 		msi-controller;
 		/* GIC interrupts between 167 and 182 can be used as MBIs. */
 		mbi-ranges = <167 16>;
-	};
-
-	mc_cgm6: mc_cgm6@4053C000 {
-		compatible = "fsl,s32gen1-mc_cgm6";
-		reg = <0x0 0x4053C000 0x0 0x3000>;
-	};
-
-	clks@40038000 {
-		compatible = "fsl,s32g3-clocking";
-		reg = <0x0 0x40038000 0x0 0x3000>,
-		      <0x0 0x4003C000 0x0 0x3000>,
-		      <0x0 0x40040000 0x0 0x3000>,
-		      <0x0 0x40044000 0x0 0x3000>,
-		      <0x0 0x40054000 0x0 0x3000>,
-		      <0x0 0x40058000 0x0 0x3000>;
-		reg-name = "armpll", "periphpll", "accelpll",
-			   "ddrpll", "armdfs", "periphdfs";
-		nxp,syscon-mc-me = <&mc_me>;
-		#clock-cells = <1>;
-		status = "disabled";
 	};
 
 	swt8: swt@40500000 {
@@ -117,10 +97,6 @@
 		clock-names = "stm";
 		status = "disabled";
 	};
-};
-
-&reset {
-	compatible = "fsl,s32g3-reset", "syscon";
 };
 
 &cpus {

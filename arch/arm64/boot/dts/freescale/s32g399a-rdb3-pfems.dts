@@ -7,8 +7,8 @@
  *
  */
 
-#include "fsl-s32g399a-rdb3.dtsi"
-#include "fsl-s32g-pfe-slave.dtsi"
+#include "s32g399a-rdb3.dtsi"
+#include "s32g-pfe-slave.dtsi"
 
 &pfe_reserved_slave {
 	status = "okay";

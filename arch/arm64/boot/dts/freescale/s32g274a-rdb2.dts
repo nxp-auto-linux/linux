@@ -7,4 +7,4 @@
  */
 
 /dts-v1/;
-#include "fsl-s32g274a-rdb2.dtsi"
+#include "s32g274a-rdb2.dtsi"

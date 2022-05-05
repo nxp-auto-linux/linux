@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright 2017-2021 NXP
+ * Copyright 2017-2022 NXP
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -9,7 +9,7 @@
  */
 
 /dts-v1/;
-#include "fsl-s32r45.dtsi"
+#include "s32r45.dtsi"
 / {
 	model = "NXP S32G274A-SIM";
 
@@ -26,10 +26,6 @@
 		device_type = "memory";
 		reg = <0 0xc0000000 0 0x40000000>;
 	};
-};
-
-&fxosc {
-	clock-frequency = <40000000>;
 };
 
 &generic_timer {

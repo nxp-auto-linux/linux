@@ -1,14 +1,13 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /*
- * Device Tree file for S32G274ARDB Board Rev C.
+ * Device Tree file for S32G-PROCEVB with S32G2 + S32RGV-VNP-PLAT boards
  * PFE Master/Slave mode supported
  *
  * Copyright 2022 NXP
- *
  */
 
-#include "fsl-s32g274a-rdb2.dtsi"
-#include "fsl-s32g-pfe-slave.dtsi"
+#include "s32g2xxa-evb.dtsi"
+#include "s32g-pfe-slave.dtsi"
 
 &pfe_reserved_slave {
 	status = "okay";

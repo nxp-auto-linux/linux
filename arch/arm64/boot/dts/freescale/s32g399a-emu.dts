@@ -9,14 +9,14 @@
  */
 
 /dts-v1/;
-#include "fsl-s32g3.dtsi"
+#include "s32g3.dtsi"
 
 /* Emulator has 1GB of RAM, remove reserved memory above this limit */
 /delete-node/ &pci_shared_memory0;
 /delete-node/ &pci_shared_memory1;
 
 / {
-	model = "ZeBu model for NXP S32G399A";
+	model = "Emulator for NXP S32G399A";
 
 	chosen {
 		stdout-path = "serial1:115200n8";
@@ -36,10 +36,6 @@
 &uart2 {
 	/delete-property/ dmas;
 	/delete-property/ dma-names;
-};
-
-&fxosc {
-	clock-frequency = <40000000>;
 };
 
 &generic_timer {
