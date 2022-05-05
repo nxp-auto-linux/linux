@@ -119,10 +119,6 @@
 	};
 };
 
-&fxosc {
-	clock-frequency = <40000000>;
-};
-
 &generic_timer {
 	clock-frequency = <5000000>;
 };
