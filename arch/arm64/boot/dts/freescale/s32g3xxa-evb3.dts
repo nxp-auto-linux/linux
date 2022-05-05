@@ -3,4 +3,4 @@
  * Copyright 2022 NXP
  */
 
-#include "fsl-s32g3xxa-evb3.dtsi"
+#include "s32g3xxa-evb3.dtsi"

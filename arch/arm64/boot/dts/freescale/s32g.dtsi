@@ -8,8 +8,8 @@
  * (at your option) any later version.
  */
 
-#include "fsl-s32-gen1.dtsi"
-#include "fsl-s32g-pfe.dtsi"
+#include "s32-gen1.dtsi"
+#include "s32g-pfe.dtsi"
 #include <dt-bindings/mailbox/nxp-llce-mb.h>
 #include <dt-bindings/pinctrl/s32g-pinctrl.h>
 #include <dt-bindings/clock/s32g-scmi-clock.h>
@@ -17,13 +17,6 @@
 #include <dt-bindings/net/s32g-pfe.h>
 
 / {
-	sysclk: clk10000000 {
-		compatible = "fixed-clock";
-		#clock-cells = <0>;
-		clock-frequency = <10000000>;
-		clock-output-names = "sysclk";
-	};
-
 	virtio_block@39501000 {
 		compatible = "virtio,mmio";
 		reg = <0x0 0x39501000 0x0 0x1000>;
@@ -31,10 +24,6 @@
 	};
 
 	reserved-memory {
-		#address-cells = <2>;
-		#size-cells = <2>;
-		ranges;
-
 		pfe_reserved_bmu2: pfebufs@34000000 {
 			compatible = "nxp,s32g-pfe-bmu2-pool";
 			/* BMU2: 512 KB */
@@ -81,19 +70,6 @@
 			status = "disabled";
 		};
 		/* ends 0x83800000 */
-	};
-
-	mc_cgm2: mc_cgm2@44018000 {
-		compatible = "fsl,s32gen1-mc_cgm2";
-		reg = <0x0 0x44018000 0x0 0x3000>;
-	};
-
-	rgm@40078000 {
-		compatible = "fsl,s32g2-reset", "syscon";
-		reg = <0x0 0x40078000 0x0 0x3000>;
-		nxp,syscon-mc-me = <&mc_me>;
-		#reset-cells = <1>;
-		status = "disabled";
 	};
 
 	siul2_0 {
