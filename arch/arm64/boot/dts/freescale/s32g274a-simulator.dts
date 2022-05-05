@@ -8,7 +8,7 @@
  */
 
 /dts-v1/;
-#include "s32g274a.dtsi"
+#include "s32g2.dtsi"
 #include <dt-bindings/pinctrl/s32g-pinctrl.h>
 / {
 	model = "NXP S32G274A-SIM";

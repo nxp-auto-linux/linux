@@ -4,7 +4,7 @@
  */
 
 /dts-v1/;
-#include "s32g274a.dtsi"
+#include "s32g2.dtsi"
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/pinctrl/s32g-pinctrl.h>
 / {
