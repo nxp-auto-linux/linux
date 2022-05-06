@@ -103,28 +103,31 @@
 	cpu4: cpu@2 {
 		device_type = "cpu";
 		compatible = "arm,cortex-a53";
-		reg = <0x0 0x2>;
+		reg = <0x2>;
 		enable-method = "psci";
 		next-level-cache = <&cluster0_l2_cache>;
 	};
+
 	cpu5: cpu@3 {
 		device_type = "cpu";
 		compatible = "arm,cortex-a53";
-		reg = <0x0 0x3>;
+		reg = <0x3>;
 		enable-method = "psci";
 		next-level-cache = <&cluster0_l2_cache>;
 	};
+
 	cpu6: cpu@102 {
 		device_type = "cpu";
 		compatible = "arm,cortex-a53";
-		reg = <0x0 0x102>;
+		reg = <0x102>;
 		enable-method = "psci";
 		next-level-cache = <&cluster1_l2_cache>;
 	};
+
 	cpu7: cpu@103 {
 		device_type = "cpu";
 		compatible = "arm,cortex-a53";
-		reg = <0x0 0x103>;
+		reg = <0x103>;
 		enable-method = "psci";
 		next-level-cache = <&cluster1_l2_cache>;
 	};
