@@ -27,7 +27,7 @@
 		      <0 0x50400000 0 0x2000>,
 		      <0 0x50410000 0 0x2000>,
 		      <0 0x50420000 0 0x2000>;
-		interrupts = <1 9 0xf04>;
+		interrupts = <GIC_PPI 9 IRQ_TYPE_LEVEL_HIGH>;
 
 		msi-controller;
 		/* GIC interrupts between 167 and 182 can be used as MBIs. */
