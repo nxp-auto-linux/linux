@@ -21,32 +21,55 @@ properties:
     description:
       Specifies the Real Time Clock interrupts id.
 
-  clksel:
+  nxp,clksel:
     description:
       Input clock selector; choose between 0-SIRC and 2-FIRC
 
-  dividers:
+  nxp,dividers:
     description:
       An array of two u32 elements, the former encoding DIV512,
       the latter encoding DIV32. These are dividers that can be enabled
       individually, or cascaded. Use 0 to disable the respective divider,
       and 1 to enable it.
 
+  clocks:
+    items:
+      - description: Registers Clock
+      - description: FIRC frequency
+      - description: SIRC frequency
+
+  clock-names:
+    items:
+      - const: ipg
+      - const: firc
+      - const: sirc
+
 required:
+  - clock-names
+  - clocks
   - compatible
-  - reg
   - interrupts
-  - clksel
-  - dividers
+  - nxp,clksel
+  - nxp,dividers
+  - reg
 
 additionalProperties: false
 
 examples:
   - |
+    #define RTC_FIRC_CLKSEL	2
+    #define RTC_SIRC_CLKSEL	0
+    #define S32GEN1_SCMI_CLK_RTC_REG
+    #define S32GEN1_SCMI_CLK_RTC_SIRC
+    #define S32GEN1_SCMI_CLK_RTC_FIRC
     rtc0: rtc@40060000 {
         compatible = "fsl,s32gen1-rtc";
         reg = <0x40060000 0x1000>;
         interrupts = <0 121 4>;
-        clksel = <2>;
-        dividers = <1 0>;
+        clocks = <&clks S32GEN1_SCMI_CLK_RTC_REG>,
+                 <&clks S32GEN1_SCMI_CLK_RTC_SIRC>,
+                 <&clks S32GEN1_SCMI_CLK_RTC_FIRC>;
+        clock-names = "ipg", "sirc", "firc";
+        nxp,clksel = <RTC_FIRC_CLKSEL>;
+        nxp,dividers = <1 0>;
     };
