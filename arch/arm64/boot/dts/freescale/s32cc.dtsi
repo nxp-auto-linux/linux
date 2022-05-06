@@ -99,47 +99,58 @@
 				#reset-cells = <1>;
 			};
 		};
+
+		psci {
+			compatible = "arm,psci-1.0";
+			method = "smc";
+		};
 	};
 
 	cpus: cpus {
-		#address-cells = <2>;
+		#address-cells = <1>;
 		#size-cells = <0>;
 
 		cpu0: cpu@0 {
 			device_type = "cpu";
 			compatible = "arm,cortex-a53";
-			reg = <0x0 0x0>;
+			reg = <0x0>;
 			enable-method = "psci";
+			next-level-cache = <&cluster0_l2_cache>;
 		};
+
 		cpu1: cpu@1 {
 			device_type = "cpu";
 			compatible = "arm,cortex-a53";
-			reg = <0x0 0x1>;
+			reg = <0x1>;
 			enable-method = "psci";
+			next-level-cache = <&cluster0_l2_cache>;
 		};
+
 		cpu2: cpu@100 {
 			device_type = "cpu";
 			compatible = "arm,cortex-a53";
-			reg = <0x0 0x100>;
+			reg = <0x100>;
 			enable-method = "psci";
+			next-level-cache = <&cluster1_l2_cache>;
 		};
+
 		cpu3: cpu@101 {
 			device_type = "cpu";
 			compatible = "arm,cortex-a53";
-			reg = <0x0 0x101>;
+			reg = <0x101>;
 			enable-method = "psci";
+			next-level-cache = <&cluster1_l2_cache>;
 		};
 
 		cluster0_l2_cache: l2-cache0 {
 			compatible = "cache";
-			status = "disabled";
+			status = "okay";
 		};
 
 		cluster1_l2_cache: l2-cache1 {
 			compatible = "cache";
-			status = "disabled";
+			status = "okay";
 		};
-
 	};
 
 	pmu {
@@ -149,15 +160,10 @@
 
 	generic_timer: timer {
 		compatible = "arm,armv8-timer";
-		interrupts = <GIC_PPI 13 0xf08>,
-			     <GIC_PPI 14 0xf08>,
-			     <GIC_PPI 11 0xf08>,
-			     <GIC_PPI 10 0xf08>;
-	};
-
-	psci: psci {
-		compatible = "arm,psci-1.0";
-		method = "smc";
+		interrupts = <GIC_PPI 13 IRQ_TYPE_LEVEL_LOW>,
+			     <GIC_PPI 14 IRQ_TYPE_LEVEL_LOW>,
+			     <GIC_PPI 11 IRQ_TYPE_LEVEL_LOW>,
+			     <GIC_PPI 10 IRQ_TYPE_LEVEL_LOW>;
 	};
 
 	clocks {
@@ -796,7 +802,7 @@
 		      <0 0x50400000 0 0x2000>,
 		      <0 0x50410000 0 0x2000>,
 		      <0 0x50420000 0 0x2000>;
-		interrupts = <1 9 0xf04>;
+		interrupts = <GIC_PPI 9 IRQ_TYPE_LEVEL_HIGH>;
 
 		msi-controller;
 		/* GIC interrupts between 167 and 182 can be used as MBIs. */
@@ -1055,28 +1061,4 @@
 		perf-phandle = <&perf>;
 		status = "disabled";
 	};
-};
-
-&cluster0_l2_cache {
-	status = "okay";
-};
-
-&cluster1_l2_cache {
-	status = "okay";
-};
-
-&cpu0 {
-	next-level-cache = <&cluster0_l2_cache>;
-};
-
-&cpu1 {
-	next-level-cache = <&cluster0_l2_cache>;
-};
-
-&cpu2 {
-	next-level-cache = <&cluster1_l2_cache>;
-};
-
-&cpu3 {
-	next-level-cache = <&cluster1_l2_cache>;
 };
