@@ -64,17 +64,6 @@ menu "S32 GEN1 execution target"
 		help
 		   S32GEN1 Emulator is a presilicon development solution.
 
-
-	config S32GEN1_A53GPR_WORKAROUND
-		bool "S32GEN1 A53 GPR Model Workaround"
-		depends on S32GEN1_SIMULATOR
-		help
-		   This enables a workaround required for the
-		   S32GEN1 Software Simulator from Synopsys
-		   after the introduction of the A53 GPR Model
-		   which broke the wake up mechanism
-		   for the cores in the second cluster.
-
 endmenu
 	config NXP_S32GEN1_ERRATUM_ERR050481
 		bool "Enable workaround for the NXP ERR050481 erratum"
