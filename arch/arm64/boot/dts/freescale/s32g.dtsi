@@ -20,7 +20,7 @@
 	virtio_block@39501000 {
 		compatible = "virtio,mmio";
 		reg = <0x0 0x39501000 0x0 0x1000>;
-		interrupts = <0 68 4>;
+		interrupts = <GIC_SPI 68 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
 	reserved-memory {
@@ -115,7 +115,7 @@
 			reg-names = "opads", "ipads", "eirqs";
 			interrupt-controller;
 			#interrupt-cells = <2>;
-			interrupts = <0 210 4>;
+			interrupts = <GIC_SPI 210 IRQ_TYPE_LEVEL_HIGH>;
 			status = "okay";
 		};
 	};
@@ -189,7 +189,7 @@
 			    <0x5 0x0 0x0 0x34>;
 			reg-names = "opads", "ipads", "eirqs";
 			interrupt-controller;
-			interrupts = <0 210 4>;
+			interrupts = <GIC_SPI 210 IRQ_TYPE_LEVEL_HIGH>;
 			#interrupt-cells = <2>;
 			status = "okay";
 		};
@@ -216,8 +216,8 @@
 		compatible = "fsl,s32g-usb";
 		reg = <0x0 0x44064000 0x0 0x200>;
 		interrupt-parent = <&gic>;
-		interrupts = <0 211 4>, /* OTG Core */
-		             <0 212 4>; /* OTG Wakeup */
+		interrupts = <GIC_SPI 211 IRQ_TYPE_LEVEL_HIGH>, /* OTG Core */
+			     <GIC_SPI 212 IRQ_TYPE_LEVEL_HIGH>; /* OTG Wakeup */
 		clocks = <&clks S32G_SCMI_CLK_USB_MEM>,
 			 <&clks S32G_SCMI_CLK_USB_LOW>;
 		fsl,usbmisc = <&usbmisc 0>;
@@ -318,13 +318,13 @@
 			clock-names = "llce_sys";
 			memory-region = <&llce_shmem>, <&llce_boot_status>;
 			memory-region-names = "shmem", "status";
-			interrupts = <0 174 IRQ_TYPE_LEVEL_HIGH>,
-				<0 175 IRQ_TYPE_LEVEL_HIGH>,
-				<0 176 IRQ_TYPE_LEVEL_HIGH>,
-				<0 177 IRQ_TYPE_LEVEL_HIGH>,
-				<0 182 IRQ_TYPE_LEVEL_HIGH>,
-				<0 183 IRQ_TYPE_LEVEL_HIGH>,
-				<0 184 IRQ_TYPE_LEVEL_HIGH>;
+			interrupts = <GIC_SPI 174 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 175 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 176 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 177 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 182 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 183 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 184 IRQ_TYPE_LEVEL_HIGH>;
 			interrupt-names = "rxin_fifo_0_7",
 				"rxin_fifo_8_15",
 				"rxout_fifo_0_7",

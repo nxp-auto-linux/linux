@@ -23,16 +23,16 @@
 	virtio_block@39501000 {
 		compatible = "virtio,mmio";
 		reg = <0x0 0x39501000 0x0 0x1000>;
-		interrupts = <0 68 4>;
+		interrupts = <GIC_SPI 68 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
 	can4: flexcan@44000000 {
 		compatible = "fsl,s32gen1-flexcan";
 		reg = <0x0 0x44000000 0x0 0x4000>;
-		interrupts = <0 192 4>,
-			     <0 193 4>,
-			     <0 194 4>,
-			     <0 195 4>;
+		interrupts = <GIC_SPI 192 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 193 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 194 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 195 IRQ_TYPE_LEVEL_HIGH>;
 		interrupt-names = "state", "berr", "mb_0-7", "mb_8-127";
 		clocks = <&clks S32GEN1_SCMI_CLK_FLEXCAN_CAN>,
 			 <&clks S32GEN1_SCMI_CLK_FLEXCAN_REG>;
@@ -43,10 +43,10 @@
 	can5: flexcan@44004000 {
 		compatible = "fsl,s32gen1-flexcan";
 		reg = <0x0 0x44004000 0x0 0x4000>;
-		interrupts = <0 196 4>,
-			     <0 197 4>,
-			     <0 198 4>,
-			     <0 199 4>;
+		interrupts = <GIC_SPI 196 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 197 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 198 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 199 IRQ_TYPE_LEVEL_HIGH>;
 		interrupt-names = "state", "berr", "mb_0-7", "mb_8-127";
 		clocks = <&clks S32GEN1_SCMI_CLK_FLEXCAN_CAN>,
 			 <&clks S32GEN1_SCMI_CLK_FLEXCAN_REG>;
@@ -57,10 +57,10 @@
 	can6: flexcan@44008000 {
 		compatible = "fsl,s32gen1-flexcan";
 		reg = <0x0 0x44008000 0x0 0x4000>;
-		interrupts = <0 200 4>,
-			     <0 201 4>,
-			     <0 202 4>,
-			     <0 203 4>;
+		interrupts = <GIC_SPI 200 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 201 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 202 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 203 IRQ_TYPE_LEVEL_HIGH>;
 		interrupt-names = "state", "berr", "mb_0-7", "mb_8-127";
 		clocks = <&clks S32GEN1_SCMI_CLK_FLEXCAN_CAN>,
 			 <&clks S32GEN1_SCMI_CLK_FLEXCAN_REG>;
@@ -71,10 +71,10 @@
 	can7: flexcan@4400C000 {
 		compatible = "fsl,s32gen1-flexcan";
 		reg = <0x0 0x4400C000 0x0 0x4000>;
-		interrupts = <0 204 4>,
-			     <0 205 4>,
-			     <0 206 4>,
-			     <0 207 4>;
+		interrupts = <GIC_SPI 204 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 205 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 206 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 207 IRQ_TYPE_LEVEL_HIGH>;
 		interrupt-names = "state", "berr", "mb_0-7", "mb_8-127";
 		clocks = <&clks S32GEN1_SCMI_CLK_FLEXCAN_CAN>,
 			 <&clks S32GEN1_SCMI_CLK_FLEXCAN_REG>;
@@ -148,7 +148,7 @@
 			reg-names = "opads", "ipads", "eirqs";
 			interrupt-controller;
 			#interrupt-cells = <2>;
-			interrupts = <0 237 4>;
+			interrupts = <GIC_SPI 237 IRQ_TYPE_LEVEL_HIGH>;
 			status = "okay";
 		};
 	};
@@ -219,7 +219,7 @@
 		      <0x0 0x4007CA00 0x0 0x4>;    /* S32 CTRL_STS reg */
 		dma-coherent;
 		interrupt-parent = <&gic>;
-		interrupts = <0 220 4>;
+		interrupts = <GIC_SPI 220 IRQ_TYPE_LEVEL_HIGH>;
 		interrupt-names = "macirq";
 		tx-fifo-depth = <20480>;
 		rx-fifo-depth = <20480>;
