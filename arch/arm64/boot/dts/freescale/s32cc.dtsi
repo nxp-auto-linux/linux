@@ -188,8 +188,8 @@
 	fccu: fccu@4030C000 {
 		compatible = "fsl,s32gen1-fccu";
 		reg = <0x0 0x4030C000 0x0 0x3000>;
-		interrupts= <0 100 IRQ_TYPE_LEVEL_HIGH>,
-			    <0 101 IRQ_TYPE_LEVEL_HIGH>;
+		interrupts = <GIC_SPI 100 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 101 IRQ_TYPE_LEVEL_HIGH>;
 		interrupt-names = "fccu_alarm",
 				  "fccu_misc";
 		clocks = <&clks S32GEN1_SCMI_CLK_FCCU_MODULE>;
@@ -267,7 +267,7 @@
 	stm0: stm@4011C000{
 		compatible = "fsl,s32gen1-stm";
 		reg = <0x0 0x4011C000 0x0 0x3000>;
-		interrupts= <0 24 4>;
+		interrupts = <GIC_SPI 24 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&clks S32GEN1_SCMI_CLK_STM_MODULE>;
 		clock-names = "stm";
 		cpu = <2>;
@@ -277,7 +277,7 @@
 	stm1: stm@40120000{
 		compatible = "fsl,s32gen1-stm";
 		reg = <0x0 0x40120000 0x0 0x3000>;
-		interrupts= <0 25 4>;
+		interrupts = <GIC_SPI 25 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&clks S32GEN1_SCMI_CLK_STM_MODULE>;
 		clock-names = "stm";
 		cpu = <3>;
@@ -339,9 +339,9 @@
 		      <0x0 0x4012C000 0x0 0x3000>,
 		      <0x0 0x40130000 0x0 0x3000>;
 		dma-channels = <32>;
-		interrupts = <0 8 4>,
-			     <0 9 4>,
-			     <0 10 4>;
+		interrupts = <GIC_SPI 8 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 9 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 10 IRQ_TYPE_LEVEL_HIGH>;
 		interrupt-names = "edma-tx_0-15",
 				  "edma-tx_16-31",
 				  "edma-err";
@@ -354,7 +354,7 @@
 	saradc0: adc@401f8000 {
 		compatible = "nxp,s32cc-adc";
 		reg = <0x0 0x401f8000 0x0 0x1000>;
-		interrupts = <0 70 4>;
+		interrupts = <GIC_SPI 70 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&clks S32GEN1_SCMI_CLK_SAR_ADC_BUS>;
 		clock-names = "adc";
 		vref = <1800>;
@@ -364,7 +364,7 @@
 	saradc1: adc@402e8000 {
 		compatible = "nxp,s32cc-adc";
 		reg = <0x0 0x402e8000 0x0 0x1000>;
-		interrupts = <0 71 4>;
+		interrupts = <GIC_SPI 71 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&clks S32GEN1_SCMI_CLK_SAR_ADC_BUS>;
 		clock-names = "adc";
 		vref = <1800>;
@@ -374,7 +374,7 @@
 	pit0: pit@40188000{
 		compatible = "nxp,s32cc-pit";
 		reg = <0x0 0x40188000 0x0 0x3000>;
-		interrupts= <0 53 4>;
+		interrupts = <GIC_SPI 53 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&clks S32GEN1_SCMI_CLK_PIT_MODULE>;
 		clock-names = "pit";
 		cpu = <0>;
@@ -387,18 +387,18 @@
 		reg = <0x0 0x40198000 0x0 0x1000>;
 
 		/* CPU2CPU interrupts */
-		interrupts = <0 1 4>, // CPU to M7/A53/R52 interrupt#0 (GIC 33)
-			     <0 2 4>, // CPU to M7/A53/R52 interrupt#1 (GIC 34)
-			     <0 3 4>; // CPU to M7/A53/R52 interrupt#2 (GIC 35)
+		interrupts = <GIC_SPI 1 IRQ_TYPE_LEVEL_HIGH>, // CPU to M7/A53/R52 interrupt#0
+			     <GIC_SPI 2 IRQ_TYPE_LEVEL_HIGH>, // CPU to M7/A53/R52 interrupt#1
+			     <GIC_SPI 3 IRQ_TYPE_LEVEL_HIGH>; // CPU to M7/A53/R52 interrupt#2
 	};
 
 	can0: flexcan@401B4000{
 		compatible = "fsl,s32gen1-flexcan";
 		reg = <0x0 0x401B4000 0x0 0xA000>;
-		interrupts = <0 37 4>,
-			     <0 38 4>,
-			     <0 39 4>,
-			     <0 40 4>;
+		interrupts = <GIC_SPI 37 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 38 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 39 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 40 IRQ_TYPE_LEVEL_HIGH>;
 		interrupt-names = "state", "berr", "mb_0-7", "mb_8-127";
 		clocks = <&clks S32GEN1_SCMI_CLK_FLEXCAN_CAN>,
 			 <&clks S32GEN1_SCMI_CLK_FLEXCAN_REG>;
@@ -409,10 +409,10 @@
 	can1: flexcan@401BE000{
 		compatible = "fsl,s32gen1-flexcan";
 		reg = <0x0 0x401BE000 0x0 0xA000>;
-		interrupts = <0 41 4>,
-			     <0 42 4>,
-			     <0 43 4>,
-			     <0 44 4>;
+		interrupts = <GIC_SPI 41 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 42 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 43 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 44 IRQ_TYPE_LEVEL_HIGH>;
 		interrupt-names = "state", "berr", "mb_0-7", "mb_8-127";
 		clocks = <&clks S32GEN1_SCMI_CLK_FLEXCAN_CAN>,
 			 <&clks S32GEN1_SCMI_CLK_FLEXCAN_REG>;
@@ -423,7 +423,7 @@
 	uart0:serial@401C8000 {
 		compatible = "nxp,s32cc-linflexuart";
 		reg = <0x0 0x401C8000 0x0 0x3000>;
-		interrupts = <0 82 1>;
+		interrupts = <GIC_SPI 82 IRQ_TYPE_EDGE_RISING>;
 		clocks = <&clks S32GEN1_SCMI_CLK_LINFLEX_LIN>,
 			 <&clks S32GEN1_SCMI_CLK_LINFLEX_XBAR>;
 		clock-names = "lin", "ipg";
@@ -435,7 +435,7 @@
 	uart1:serial@401CC000 {
 		compatible = "nxp,s32cc-linflexuart";
 		reg = <0x0 0x401CC000 0x0 0x3000>;
-		interrupts = <0 83 1>;
+		interrupts = <GIC_SPI 83 IRQ_TYPE_EDGE_RISING>;
 		clocks = <&clks S32GEN1_SCMI_CLK_LINFLEX_LIN>,
 			 <&clks S32GEN1_SCMI_CLK_LINFLEX_XBAR>;
 		clock-names = "lin", "ipg";
@@ -447,7 +447,7 @@
 	spi0: spi@401D4000 {
 		compatible = "nxp,s32cc-dspi";
 		reg = <0x0 0x401D4000 0x0 0x3000>;
-		interrupts = <0 85 4>;
+		interrupts = <GIC_SPI 85 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&clks S32GEN1_SCMI_CLK_SPI_MODULE>;
 		clock-names = "dspi";
 		spi-num-chipselects = <8>;
@@ -463,7 +463,7 @@
 	spi1: spi@401D8000 {
 		compatible = "nxp,s32cc-dspi";
 		reg = <0x0 0x401D8000 0x0 0x3000>;
-		interrupts = <0 86 4>;
+		interrupts = <GIC_SPI 86 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&clks S32GEN1_SCMI_CLK_SPI_MODULE>;
 		clock-names = "dspi";
 		spi-num-chipselects = <5>;
@@ -479,7 +479,7 @@
 	spi2: spi@401DC000 {
 		compatible = "nxp,s32cc-dspi";
 		reg = <0x0 0x401DC000 0x0 0x3000>;
-		interrupts = <0 87 4>;
+		interrupts = <GIC_SPI 87 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&clks S32GEN1_SCMI_CLK_SPI_MODULE>;
 		clock-names = "dspi";
 		spi-num-chipselects = <5>;
@@ -499,7 +499,7 @@
 		reg = <0x0 0x00000000 0x0 0x20000000>,
 			<0x0 0x40134000 0x0 0x1000>;
 		reg-names = "QuadSPI-memory", "QuadSPI";
-		interrupts = <0 32 4>;
+		interrupts = <GIC_SPI 32 IRQ_TYPE_LEVEL_HIGH>;
 		clock-names = "qspi_en", "qspi";
 		clocks = <&clks S32GEN1_SCMI_CLK_QSPI_FLASH1X>,
 			 <&clks S32GEN1_SCMI_CLK_QSPI_FLASH1X>;
@@ -511,7 +511,7 @@
 		#size-cells = <0>;
 		compatible = "nxp,s32cc-i2c";
 		reg = <0x0 0x401E4000 0x0 0x1000>;
-		interrupts =<0 92 4>;
+		interrupts = <GIC_SPI 92 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&clks S32GEN1_SCMI_CLK_I2C_MODULE>;
 		clock-names = "ipg";
 		dmas = <&edma0 0 16>,
@@ -525,7 +525,7 @@
 		#size-cells = <0>;
 		compatible = "nxp,s32cc-i2c";
 		reg = <0x0 0x401E8000 0x0 0x1000>;
-		interrupts =<0 93 4>;
+		interrupts = <GIC_SPI 93 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&clks S32GEN1_SCMI_CLK_I2C_MODULE>;
 		clock-names = "ipg";
 		dmas = <&edma0 0 18>,
@@ -539,7 +539,7 @@
 		#size-cells = <0>;
 		compatible = "nxp,s32cc-i2c";
 		reg = <0x0 0x401EC000 0x0 0x1000>;
-		interrupts =<0 94 4>;
+		interrupts = <GIC_SPI 94 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&clks S32GEN1_SCMI_CLK_I2C_MODULE>;
 		clock-names = "ipg";
 		dmas = <&edma1 1 16>,
@@ -641,9 +641,9 @@
 		      <0x0 0x4022C000 0x0 0x3000>,
 		      <0x0 0x40230000 0x0 0x3000>;
 		dma-channels = <32>;
-		interrupts = <0 11 4>,
-			     <0 12 4>,
-			     <0 13 4>;
+		interrupts = <GIC_SPI 11 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 12 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 13 IRQ_TYPE_LEVEL_HIGH>;
 		interrupt-names = "edma-tx_0-15",
 				  "edma-tx_16-31",
 				  "edma-err";
@@ -656,7 +656,7 @@
 	pit1: pit@40288000{
 		compatible = "nxp,s32cc-pit";
 		reg = <0x0 0x40288000 0x0 0x3000>;
-		interrupts= <0 54 4>;
+		interrupts = <GIC_SPI 54 IRQ_TYPE_LEVEL_HIGH>;
 		cpu = <1>;
 		clocks = <&clks S32GEN1_SCMI_CLK_PIT_MODULE>;
 		clock-names = "pit";
@@ -666,10 +666,10 @@
 	can2: flexcan@402A8000{
 		compatible = "fsl,s32gen1-flexcan";
 		reg = <0x0 0x402A8000 0x0 0xA000>;
-		interrupts = <0 45 4>,
-			     <0 46 4>,
-			     <0 47 4>,
-			     <0 48 4>;
+		interrupts = <GIC_SPI 45 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 46 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 47 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 48 IRQ_TYPE_LEVEL_HIGH>;
 		interrupt-names = "state", "berr", "mb_0-7", "mb_8-127";
 		clocks = <&clks S32GEN1_SCMI_CLK_FLEXCAN_CAN>,
 			 <&clks S32GEN1_SCMI_CLK_FLEXCAN_REG>;
@@ -680,10 +680,10 @@
 	can3: flexcan@402B2000{
 		compatible = "fsl,s32gen1-flexcan";
 		reg = <0x0 0x402B2000 0x0 0xA000>;
-		interrupts = <0 49 4>,
-			     <0 50 4>,
-			     <0 51 4>,
-			     <0 52 4>;
+		interrupts = <GIC_SPI 49 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 50 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 51 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 52 IRQ_TYPE_LEVEL_HIGH>;
 		interrupt-names = "state", "berr", "mb_0-7", "mb_8-127";
 		clocks = <&clks S32GEN1_SCMI_CLK_FLEXCAN_CAN>,
 			 <&clks S32GEN1_SCMI_CLK_FLEXCAN_REG>;
@@ -694,7 +694,7 @@
 	uart2:serial@402BC000 {
 		compatible = "nxp,s32cc-linflexuart";
 		reg = <0x0 0x402BC000 0x0 0x3000>;
-		interrupts = <0 84 1>;
+		interrupts = <GIC_SPI 84 IRQ_TYPE_EDGE_RISING>;
 		clocks = <&clks S32GEN1_SCMI_CLK_LINFLEX_LIN>,
 			 <&clks S32GEN1_SCMI_CLK_LINFLEX_XBAR>;
 		clock-names = "lin", "ipg";
@@ -706,7 +706,7 @@
 	spi3: spi@402C8000 {
 		compatible = "nxp,s32cc-dspi";
 		reg = <0x0 0x402C8000 0x0 0x3000>;
-		interrupts = <0 88 4>;
+		interrupts = <GIC_SPI 88 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&clks S32GEN1_SCMI_CLK_SPI_MODULE>;
 		clock-names = "dspi";
 		spi-num-chipselects = <5>;
@@ -722,7 +722,7 @@
 	spi4: spi@402CC000 {
 		compatible = "nxp,s32cc-dspi";
 		reg = <0x0 0x402CC000 0x0 0x3000>;
-		interrupts = <0 89 4>;
+		interrupts = <GIC_SPI 89 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&clks S32GEN1_SCMI_CLK_SPI_MODULE>;
 		clock-names = "dspi";
 		spi-num-chipselects = <5>;
@@ -738,7 +738,7 @@
 	spi5: spi@402D0000 {
 		compatible = "nxp,s32cc-dspi";
 		reg = <0x0 0x402D0000 0x0 0x3000>;
-		interrupts = <0 90 4>;
+		interrupts = <GIC_SPI 90 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&clks S32GEN1_SCMI_CLK_SPI_MODULE>;
 		clock-names = "dspi";
 		spi-num-chipselects = <5>;
@@ -756,7 +756,7 @@
 		#size-cells = <0>;
 		compatible = "nxp,s32cc-i2c";
 		reg = <0x0 0x402D8000 0x0 0x1000>;
-		interrupts =<0 95 4>;
+		interrupts = <GIC_SPI 95 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&clks S32GEN1_SCMI_CLK_I2C_MODULE>;
 		clock-names = "ipg";
 		dmas = <&edma1 1 18>,
@@ -770,7 +770,7 @@
 		#size-cells = <0>;
 		compatible = "nxp,s32cc-i2c";
 		reg = <0x0 0x402DC000 0x0 0x1000>;
-		interrupts =<0 96 4>;
+		interrupts = <GIC_SPI 96 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&clks S32GEN1_SCMI_CLK_I2C_MODULE>;
 		clock-names = "ipg";
 		dmas = <&edma1 1 20>,
@@ -782,7 +782,7 @@
 	usdhc0: usdhc@402F0000{
 		compatible = "nxp,s32cc-usdhc";
 		reg = <0x0 0x402F0000 0x0 0x1000>;
-		interrupts = <0 36 4>;
+		interrupts = <GIC_SPI 36 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&clks S32GEN1_SCMI_CLK_USDHC_MODULE>,
 			 <&clks S32GEN1_SCMI_CLK_USDHC_AHB>,
 			 <&clks S32GEN1_SCMI_CLK_USDHC_CORE>;
@@ -813,7 +813,7 @@
 		compatible = "fsl,s32gen1-rtc";
 		#interrupt-cells = <3>;
 		reg = <0x0 0x40060000 0x0 0x1000>;
-		interrupts = <0 121 4>;	// RTC irq - GIC 153
+		interrupts = <GIC_SPI 121 IRQ_TYPE_LEVEL_HIGH>;	// RTC irq - GIC 153
 		clocks = <&clks S32GEN1_SCMI_CLK_RTC_REG>,
 			 <&clks S32GEN1_SCMI_CLK_RTC_SIRC>,
 			 <&clks S32GEN1_SCMI_CLK_RTC_FIRC>;
@@ -830,7 +830,7 @@
 		reg = <0x0 0x4033c000 0x0 0x2000>, /* gmac IP */
 		      <0x0 0x4007C004 0x0 0x4>;    /* S32 CTRL_STS reg */
 		interrupt-parent = <&gic>;
-		interrupts = <0 57 4>;
+		interrupts = <GIC_SPI 57 IRQ_TYPE_LEVEL_HIGH>;
 		interrupt-names = "macirq";
 		tx-fifo-depth = <20480>;
 		rx-fifo-depth = <20480>;
