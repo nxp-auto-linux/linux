@@ -16,6 +16,9 @@
 #include <dt-bindings/phy/phy.h>
 #include <dt-bindings/reset/s32gen1-scmi-reset.h>
 
+#define RTC_FIRC_CLKSEL	2
+#define RTC_SIRC_CLKSEL	0
+
 / {
 	interrupt-parent = <&gic>;
 	#address-cells = <2>;
@@ -805,11 +808,15 @@
 		#interrupt-cells = <3>;
 		reg = <0x0 0x40060000 0x0 0x1000>;
 		interrupts = <0 121 4>;	// RTC irq - GIC 153
+		clocks = <&clks S32GEN1_SCMI_CLK_RTC_REG>,
+			 <&clks S32GEN1_SCMI_CLK_RTC_SIRC>,
+			 <&clks S32GEN1_SCMI_CLK_RTC_FIRC>;
+		clock-names = "ipg", "sirc", "firc";
 		/* Input clock selection: use the 48MHz FIRC with DIV512,
 		 * for a roll-over time of just under 13 hours.
 		 */
-		clksel = <2>;		// 2: FIRC; 0: SIRC
-		dividers = <1 0>;	// div512 enabled; div32 disabled
+		nxp,clksel = <RTC_FIRC_CLKSEL>; // 2: FIRC; 0: SIRC
+		nxp,dividers = <1 0>; // div512 enabled; div32 disabled
 	};
 
 	gmac0: ethernet@4033c000 {
