@@ -251,6 +251,38 @@
 				<0x0 0x400a4200 0x0 0x1fc>;
 			status = "okay";
 		};
+
+		swt3: swt@4010c000 {
+			compatible = "fsl,s32gen1-wdt";
+			reg = <0x0 0x4010c000 0x0 0x1000>;
+			clocks = <&clks S32GEN1_SCMI_CLK_SWT_COUNTER>;
+			clock-names = "swt";
+			status = "disabled";
+		};
+
+		swt4: swt@40200000 {
+			compatible = "fsl,s32gen1-wdt";
+			reg = <0x0 0x40200000 0x0 0x1000>;
+			clocks = <&clks S32GEN1_SCMI_CLK_SWT_COUNTER>;
+			clock-names = "swt";
+			status = "disabled";
+		};
+
+		swt5: swt@40204000 {
+			compatible = "fsl,s32gen1-wdt";
+			reg = <0x0 0x40204000 0x0 0x1000>;
+			clocks = <&clks S32GEN1_SCMI_CLK_SWT_COUNTER>;
+			clock-names = "swt";
+			status = "disabled";
+		};
+
+		swt6: swt@40208000 {
+			compatible = "fsl,s32gen1-wdt";
+			reg = <0x0 0x40208000 0x0 0x1000>;
+			clocks = <&clks S32GEN1_SCMI_CLK_SWT_COUNTER>;
+			clock-names = "swt";
+			status = "disabled";
+		};
 	};
 
 	fccu: fccu@4030c000 {
@@ -283,14 +315,6 @@
 		 * to GPIO
 		 */
 		midr-reg = <0x0 0x44010000 0x0 0x10>;
-		status = "disabled";
-	};
-
-	swt3: swt@4010C000 {
-		compatible = "fsl,s32gen1-wdt";
-		reg = <0x0 0x4010C000 0x0 0x1000>;
-		clocks = <&clks S32GEN1_SCMI_CLK_SWT_COUNTER>;
-		clock-names = "swt";
 		status = "disabled";
 	};
 
@@ -575,30 +599,6 @@
 		dmas = <&edma1 1 16>,
 		       <&edma1 1 17>;
 		dma-names = "rx","tx";
-		status = "disabled";
-	};
-
-	swt4: swt@40200000 {
-		compatible = "fsl,s32gen1-wdt";
-		reg = <0x0 0x40200000 0x0 0x1000>;
-		clocks = <&clks S32GEN1_SCMI_CLK_SWT_COUNTER>;
-		clock-names = "swt";
-		status = "disabled";
-	};
-
-	swt5: swt@40204000 {
-		compatible = "fsl,s32gen1-wdt";
-		reg = <0x0 0x40204000 0x0 0x1000>;
-		clocks = <&clks S32GEN1_SCMI_CLK_SWT_COUNTER>;
-		clock-names = "swt";
-		status = "disabled";
-	};
-
-	swt6: swt@40208000 {
-		compatible = "fsl,s32gen1-wdt";
-		reg = <0x0 0x40208000 0x0 0x1000>;
-		clocks = <&clks S32GEN1_SCMI_CLK_SWT_COUNTER>;
-		clock-names = "swt";
 		status = "disabled";
 	};
 
