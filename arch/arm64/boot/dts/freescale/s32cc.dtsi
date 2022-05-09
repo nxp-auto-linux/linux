@@ -206,6 +206,44 @@
 			compatible = "nxp,s32cc-ddr-gpr", "syscon";
 			reg = <0x0 0x4007c600 0x0 0x20>;
 		};
+
+		siul2_0@4009c000 {
+			compatible = "simple-mfd";
+			#address-cells = <2>;
+			#size-cells = <2>;
+			/* MIDR registers
+			 * They physically exist in EIRQ
+			 * addr space but they don't belong
+			 * to GPIO
+			 */
+			midr-reg = <0x0 0x4009c000 0x0 0x10>;
+			status = "disabled";
+				  /* MIDR */
+			ranges = <0 0 0x0 0x4009c000 0x0 0x10>,
+				  /* MSCR 0-101 */
+				 <1 0 0x0 0x4009c240 0x0 0x198>,
+				 /* IMCR range 512–595 */
+				 <2 0 0x0 0x4009ca40 0x0 0x150>,
+				 /* Output pads */
+				 <3 0 0x0 0x4009d700 0x0 0x10>,
+				 /* Input pads */
+				 <4 0 0x0 0x4009d740 0x0 0x10>,
+				 /* EIRQs */
+				 <5 0 0x0 0x44010010 0x0 0x34>;
+			nvram: nvram@4009c000 {
+				compatible = "nxp,s32cc-siul2_0-nvmem";
+				reg = <0x0 0x0 0x0 0x10>;
+				#address-cells = <1>;
+				#size-cells = <1>;
+				status = "okay";
+				soc_revision: soc_revision@0 {
+					reg = <SOC_REVISION_OFFSET NVRAM_CELL_SIZE>;
+				};
+				pcie_variant: pcie_variant@4 {
+					reg = <PCIE_VARIANT_OFFSET NVRAM_CELL_SIZE>;
+				};
+			};
+		};
 	};
 
 	fccu: fccu@4030c000 {
@@ -226,44 +264,6 @@
 		    S32_FCCU_REACTION_NONE
 		    S32_FCCU_REACTION_NONE>;
 		status = "disabled";
-	};
-
-	siul2_0 {
-		compatible = "simple-mfd";
-		#address-cells = <2>;
-		#size-cells = <2>;
-		/* MIDR registers
-		 * They physically exist in EIRQ
-		 * addr space but they don't belong
-		 * to GPIO
-		 */
-		midr-reg = <0x0 0x4009C000 0x0 0x10>;
-		status = "disabled";
-			  /* MIDR */
-		ranges = <0 0 0x0 0x4009C000 0x0 0x10>,
-			  /* MSCR 0-101 */
-			 <1 0 0x0 0x4009C240 0x0 0x198>,
-			 /* IMCR range 512–595 */
-			 <2 0 0x0 0x4009CA40 0x0 0x150>,
-			 /* Output pads */
-			 <3 0 0x0 0x4009D700 0x0 0x10>,
-			 /* Input pads */
-			 <4 0 0x0 0x4009D740 0x0 0x10>,
-			 /* EIRQs */
-			 <5 0 0x0 0x44010010 0x0 0x34>;
-		nvram: nvram@4009C000 {
-			compatible = "nxp,s32cc-siul2_0-nvmem";
-			reg = <0x0 0x0 0x0 0x10>;
-			#address-cells = <1>;
-			#size-cells = <1>;
-			status = "okay";
-			soc_revision: soc_revision@0 {
-				reg = <SOC_REVISION_OFFSET NVRAM_CELL_SIZE>;
-			};
-			pcie_variant: pcie_variant@4 {
-				reg = <PCIE_VARIANT_OFFSET NVRAM_CELL_SIZE>;
-			};
-		};
 	};
 
 	siul2_1 {
