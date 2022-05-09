@@ -341,6 +341,17 @@
 			status = "disabled";
 		};
 
+		mscm0: mscm@40198000 {
+			compatible = "fsl,s32gen1-mscm";
+
+			reg = <0x0 0x40198000 0x0 0x1000>;
+
+			/* CPU2CPU interrupts */
+			interrupts = <GIC_SPI 1 IRQ_TYPE_LEVEL_HIGH>, // CPU to M7/A53 interrupt#0
+				     <GIC_SPI 2 IRQ_TYPE_LEVEL_HIGH>, // CPU to M7/A53 interrupt#1
+				     <GIC_SPI 3 IRQ_TYPE_LEVEL_HIGH>; // CPU to M7/A53 interrupt#2
+		};
+
 		swt4: swt@40200000 {
 			compatible = "fsl,s32gen1-wdt";
 			reg = <0x0 0x40200000 0x0 0x1000>;
@@ -478,17 +489,6 @@
 		clock-names = "adc";
 		vref = <1800>;
 		status = "okay";
-	};
-
-	mscm0: mscm@40198000  {
-		compatible = "fsl,s32gen1-mscm";
-
-		reg = <0x0 0x40198000 0x0 0x1000>;
-
-		/* CPU2CPU interrupts */
-		interrupts = <GIC_SPI 1 IRQ_TYPE_LEVEL_HIGH>, // CPU to M7/A53/R52 interrupt#0
-			     <GIC_SPI 2 IRQ_TYPE_LEVEL_HIGH>, // CPU to M7/A53/R52 interrupt#1
-			     <GIC_SPI 3 IRQ_TYPE_LEVEL_HIGH>; // CPU to M7/A53/R52 interrupt#2
 	};
 
 	can0: flexcan@401B4000{
