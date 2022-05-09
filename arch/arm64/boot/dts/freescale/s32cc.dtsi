@@ -296,6 +296,22 @@
 			status = "disabled";
 		};
 
+		qspi: spi@40134000 {
+			compatible = "nxp,s32cc-qspi";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0x0 0x00000000 0x0 0x20000000>,
+				<0x0 0x40134000 0x0 0x1000>;
+			reg-names = "QuadSPI-memory", "QuadSPI";
+			interrupts = <GIC_SPI 32 IRQ_TYPE_LEVEL_HIGH>;
+			clock-names = "qspi_en", "qspi";
+			clocks = <&clks S32GEN1_SCMI_CLK_QSPI_FLASH1X>,
+				 <&clks S32GEN1_SCMI_CLK_QSPI_FLASH1X>;
+			spi-max-frequency = <200000000>;
+			spi-num-chipselects = <2>;
+			status = "disabled";
+		};
+
 		edma0: dma-controller@40144000 {
 			#dma-cells = <2>;
 			compatible = "fsl,s32gen1-edma";
@@ -562,20 +578,6 @@
 		spi-cpha;
 		dmas = <&edma0 0 13>, <&edma0 0 14>;
 		dma-names = "tx", "rx";
-		status = "disabled";
-	};
-
-	qspi: spi@40134000 {
-		compatible = "nxp,s32cc-qspi";
-		#address-cells = <1>;
-		#size-cells = <0>;
-		reg = <0x0 0x00000000 0x0 0x20000000>,
-			<0x0 0x40134000 0x0 0x1000>;
-		reg-names = "QuadSPI-memory", "QuadSPI";
-		interrupts = <GIC_SPI 32 IRQ_TYPE_LEVEL_HIGH>;
-		clock-names = "qspi_en", "qspi";
-		clocks = <&clks S32GEN1_SCMI_CLK_QSPI_FLASH1X>,
-			 <&clks S32GEN1_SCMI_CLK_QSPI_FLASH1X>;
 		status = "disabled";
 	};
 
