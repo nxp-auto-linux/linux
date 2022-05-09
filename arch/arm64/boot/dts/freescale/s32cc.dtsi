@@ -180,7 +180,30 @@
 		};
 	};
 
-	fccu: fccu@4030C000 {
+	soc {
+		compatible = "simple-bus";
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges = <0x0 0x0 0x0 0x0 0x0 0x80000000>;
+
+		rtc0: rtc@40060000 {
+			compatible = "fsl,s32gen1-rtc";
+			#interrupt-cells = <3>;
+			reg = <0x0 0x40060000 0x0 0x1000>;
+			interrupts = <GIC_SPI 121 IRQ_TYPE_LEVEL_HIGH>;	// RTC irq - GIC 153
+			clocks = <&clks S32GEN1_SCMI_CLK_RTC_REG>,
+				 <&clks S32GEN1_SCMI_CLK_RTC_SIRC>,
+				 <&clks S32GEN1_SCMI_CLK_RTC_FIRC>;
+			clock-names = "ipg", "sirc", "firc";
+			/* Input clock selection: use the 48MHz FIRC with DIV512,
+			 * for a roll-over time of just under 13 hours.
+			 */
+			nxp,clksel = <RTC_FIRC_CLKSEL>; // 2: FIRC; 0: SIRC
+			nxp,dividers = <1 0>; // div512 enabled; div32 disabled
+		};
+	};
+
+	fccu: fccu@4030c000 {
 		compatible = "fsl,s32gen1-fccu";
 		reg = <0x0 0x4030C000 0x0 0x3000>;
 		interrupts = <GIC_SPI 100 IRQ_TYPE_LEVEL_HIGH>,
@@ -804,21 +827,6 @@
 		mbi-ranges = <167 16>;
 	};
 
-	rtc0: rtc@40060000 {
-		compatible = "fsl,s32gen1-rtc";
-		#interrupt-cells = <3>;
-		reg = <0x0 0x40060000 0x0 0x1000>;
-		interrupts = <GIC_SPI 121 IRQ_TYPE_LEVEL_HIGH>;	// RTC irq - GIC 153
-		clocks = <&clks S32GEN1_SCMI_CLK_RTC_REG>,
-			 <&clks S32GEN1_SCMI_CLK_RTC_SIRC>,
-			 <&clks S32GEN1_SCMI_CLK_RTC_FIRC>;
-		clock-names = "ipg", "sirc", "firc";
-		/* Input clock selection: use the 48MHz FIRC with DIV512,
-		 * for a roll-over time of just under 13 hours.
-		 */
-		nxp,clksel = <RTC_FIRC_CLKSEL>; // 2: FIRC; 0: SIRC
-		nxp,dividers = <1 0>; // div512 enabled; div32 disabled
-	};
 
 	gmac0: ethernet@4033c000 {
 		compatible = "nxp,s32cc-dwmac";
