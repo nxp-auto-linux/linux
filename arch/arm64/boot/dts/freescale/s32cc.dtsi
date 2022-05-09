@@ -352,6 +352,34 @@
 				     <GIC_SPI 3 IRQ_TYPE_LEVEL_HIGH>; // CPU to M7/A53 interrupt#2
 		};
 
+		can0: flexcan@401b4000 {
+			compatible = "fsl,s32gen1-flexcan";
+			reg = <0x0 0x401b4000 0x0 0xa000>;
+			interrupts = <GIC_SPI 37 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 38 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 39 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 40 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "state", "berr", "mb_0-7", "mb_8-127";
+			clocks = <&clks S32GEN1_SCMI_CLK_FLEXCAN_CAN>,
+				 <&clks S32GEN1_SCMI_CLK_FLEXCAN_REG>;
+			clock-names = "per", "ipg";
+			status = "disabled";
+		};
+
+		can1: flexcan@401be000 {
+			compatible = "fsl,s32gen1-flexcan";
+			reg = <0x0 0x401be000 0x0 0xa000>;
+			interrupts = <GIC_SPI 41 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 42 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 43 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 44 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "state", "berr", "mb_0-7", "mb_8-127";
+			clocks = <&clks S32GEN1_SCMI_CLK_FLEXCAN_CAN>,
+				 <&clks S32GEN1_SCMI_CLK_FLEXCAN_REG>;
+			clock-names = "per", "ipg";
+			status = "disabled";
+		};
+
 		swt4: swt@40200000 {
 			compatible = "fsl,s32gen1-wdt";
 			reg = <0x0 0x40200000 0x0 0x1000>;
@@ -436,6 +464,34 @@
 			clock-names = "pit";
 			status = "disabled";
 		};
+
+		can2: flexcan@402a8000 {
+			compatible = "fsl,s32gen1-flexcan";
+			reg = <0x0 0x402a8000 0x0 0xa000>;
+			interrupts = <GIC_SPI 45 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 46 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 47 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 48 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "state", "berr", "mb_0-7", "mb_8-127";
+			clocks = <&clks S32GEN1_SCMI_CLK_FLEXCAN_CAN>,
+				 <&clks S32GEN1_SCMI_CLK_FLEXCAN_REG>;
+			clock-names = "per", "ipg";
+			status = "disabled";
+		};
+
+		can3: flexcan@402b2000 {
+			compatible = "fsl,s32gen1-flexcan";
+			reg = <0x0 0x402b2000 0x0 0xa000>;
+			interrupts = <GIC_SPI 49 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 50 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 51 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 52 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "state", "berr", "mb_0-7", "mb_8-127";
+			clocks = <&clks S32GEN1_SCMI_CLK_FLEXCAN_CAN>,
+				 <&clks S32GEN1_SCMI_CLK_FLEXCAN_REG>;
+			clock-names = "per", "ipg";
+			status = "disabled";
+		};
 	};
 
 	fccu: fccu@4030c000 {
@@ -489,34 +545,6 @@
 		clock-names = "adc";
 		vref = <1800>;
 		status = "okay";
-	};
-
-	can0: flexcan@401B4000{
-		compatible = "fsl,s32gen1-flexcan";
-		reg = <0x0 0x401B4000 0x0 0xA000>;
-		interrupts = <GIC_SPI 37 IRQ_TYPE_LEVEL_HIGH>,
-			     <GIC_SPI 38 IRQ_TYPE_LEVEL_HIGH>,
-			     <GIC_SPI 39 IRQ_TYPE_LEVEL_HIGH>,
-			     <GIC_SPI 40 IRQ_TYPE_LEVEL_HIGH>;
-		interrupt-names = "state", "berr", "mb_0-7", "mb_8-127";
-		clocks = <&clks S32GEN1_SCMI_CLK_FLEXCAN_CAN>,
-			 <&clks S32GEN1_SCMI_CLK_FLEXCAN_REG>;
-		clock-names = "per", "ipg";
-		status = "disabled";
-	};
-
-	can1: flexcan@401BE000{
-		compatible = "fsl,s32gen1-flexcan";
-		reg = <0x0 0x401BE000 0x0 0xA000>;
-		interrupts = <GIC_SPI 41 IRQ_TYPE_LEVEL_HIGH>,
-			     <GIC_SPI 42 IRQ_TYPE_LEVEL_HIGH>,
-			     <GIC_SPI 43 IRQ_TYPE_LEVEL_HIGH>,
-			     <GIC_SPI 44 IRQ_TYPE_LEVEL_HIGH>;
-		interrupt-names = "state", "berr", "mb_0-7", "mb_8-127";
-		clocks = <&clks S32GEN1_SCMI_CLK_FLEXCAN_CAN>,
-			 <&clks S32GEN1_SCMI_CLK_FLEXCAN_REG>;
-		clock-names = "per", "ipg";
-		status = "disabled";
 	};
 
 	uart0:serial@401C8000 {
@@ -693,34 +721,6 @@
 			                  "hse-mu3b-rx",
 			                  "hse-mu3b-err";
 		};
-	};
-
-	can2: flexcan@402A8000{
-		compatible = "fsl,s32gen1-flexcan";
-		reg = <0x0 0x402A8000 0x0 0xA000>;
-		interrupts = <GIC_SPI 45 IRQ_TYPE_LEVEL_HIGH>,
-			     <GIC_SPI 46 IRQ_TYPE_LEVEL_HIGH>,
-			     <GIC_SPI 47 IRQ_TYPE_LEVEL_HIGH>,
-			     <GIC_SPI 48 IRQ_TYPE_LEVEL_HIGH>;
-		interrupt-names = "state", "berr", "mb_0-7", "mb_8-127";
-		clocks = <&clks S32GEN1_SCMI_CLK_FLEXCAN_CAN>,
-			 <&clks S32GEN1_SCMI_CLK_FLEXCAN_REG>;
-		clock-names = "per", "ipg";
-		status = "disabled";
-	};
-
-	can3: flexcan@402B2000{
-		compatible = "fsl,s32gen1-flexcan";
-		reg = <0x0 0x402B2000 0x0 0xA000>;
-		interrupts = <GIC_SPI 49 IRQ_TYPE_LEVEL_HIGH>,
-			     <GIC_SPI 50 IRQ_TYPE_LEVEL_HIGH>,
-			     <GIC_SPI 51 IRQ_TYPE_LEVEL_HIGH>,
-			     <GIC_SPI 52 IRQ_TYPE_LEVEL_HIGH>;
-		interrupt-names = "state", "berr", "mb_0-7", "mb_8-127";
-		clocks = <&clks S32GEN1_SCMI_CLK_FLEXCAN_CAN>,
-			 <&clks S32GEN1_SCMI_CLK_FLEXCAN_REG>;
-		clock-names = "per", "ipg";
-		status = "disabled";
 	};
 
 	uart2:serial@402BC000 {
