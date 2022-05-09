@@ -380,6 +380,30 @@
 			status = "disabled";
 		};
 
+		uart0: serial@401c8000 {
+			compatible = "nxp,s32cc-linflexuart";
+			reg = <0x0 0x401c8000 0x0 0x3000>;
+			interrupts = <GIC_SPI 82 IRQ_TYPE_EDGE_RISING>;
+			clocks = <&clks S32GEN1_SCMI_CLK_LINFLEX_LIN>,
+				 <&clks S32GEN1_SCMI_CLK_LINFLEX_XBAR>;
+			clock-names = "lin", "ipg";
+			dmas = <&edma0 0 4>,
+			       <&edma0 0 3>;
+			dma-names = "rx", "tx";
+		};
+
+		uart1: serial@401cc000 {
+			compatible = "nxp,s32cc-linflexuart";
+			reg = <0x0 0x401cc000 0x0 0x3000>;
+			interrupts = <GIC_SPI 83 IRQ_TYPE_EDGE_RISING>;
+			clocks = <&clks S32GEN1_SCMI_CLK_LINFLEX_LIN>,
+				 <&clks S32GEN1_SCMI_CLK_LINFLEX_XBAR>;
+			clock-names = "lin", "ipg";
+			dmas = <&edma0 0 6>,
+			       <&edma0 0 5>;
+			dma-names = "rx", "tx";
+		};
+
 		swt4: swt@40200000 {
 			compatible = "fsl,s32gen1-wdt";
 			reg = <0x0 0x40200000 0x0 0x1000>;
@@ -492,6 +516,18 @@
 			clock-names = "per", "ipg";
 			status = "disabled";
 		};
+
+		uart2: serial@402bc000 {
+			compatible = "nxp,s32cc-linflexuart";
+			reg = <0x0 0x402bc000 0x0 0x3000>;
+			interrupts = <GIC_SPI 84 IRQ_TYPE_EDGE_RISING>;
+			clocks = <&clks S32GEN1_SCMI_CLK_LINFLEX_LIN>,
+				 <&clks S32GEN1_SCMI_CLK_LINFLEX_XBAR>;
+			clock-names = "lin", "ipg";
+			dmas = <&edma1 1 4>,
+			       <&edma1 1 3>;
+			dma-names = "rx", "tx";
+		};
 	};
 
 	fccu: fccu@4030c000 {
@@ -545,30 +581,6 @@
 		clock-names = "adc";
 		vref = <1800>;
 		status = "okay";
-	};
-
-	uart0:serial@401C8000 {
-		compatible = "nxp,s32cc-linflexuart";
-		reg = <0x0 0x401C8000 0x0 0x3000>;
-		interrupts = <GIC_SPI 82 IRQ_TYPE_EDGE_RISING>;
-		clocks = <&clks S32GEN1_SCMI_CLK_LINFLEX_LIN>,
-			 <&clks S32GEN1_SCMI_CLK_LINFLEX_XBAR>;
-		clock-names = "lin", "ipg";
-		dmas = <&edma0 0 4>,
-		       <&edma0 0 3>;
-		dma-names = "rx", "tx";
-	};
-
-	uart1:serial@401CC000 {
-		compatible = "nxp,s32cc-linflexuart";
-		reg = <0x0 0x401CC000 0x0 0x3000>;
-		interrupts = <GIC_SPI 83 IRQ_TYPE_EDGE_RISING>;
-		clocks = <&clks S32GEN1_SCMI_CLK_LINFLEX_LIN>,
-			 <&clks S32GEN1_SCMI_CLK_LINFLEX_XBAR>;
-		clock-names = "lin", "ipg";
-		dmas = <&edma0 0 6>,
-		       <&edma0 0 5>;
-		dma-names = "rx", "tx";
 	};
 
 	spi0: spi@401D4000 {
@@ -721,18 +733,6 @@
 			                  "hse-mu3b-rx",
 			                  "hse-mu3b-err";
 		};
-	};
-
-	uart2:serial@402BC000 {
-		compatible = "nxp,s32cc-linflexuart";
-		reg = <0x0 0x402BC000 0x0 0x3000>;
-		interrupts = <GIC_SPI 84 IRQ_TYPE_EDGE_RISING>;
-		clocks = <&clks S32GEN1_SCMI_CLK_LINFLEX_LIN>,
-			 <&clks S32GEN1_SCMI_CLK_LINFLEX_XBAR>;
-		clock-names = "lin", "ipg";
-		dmas = <&edma1 1 4>,
-		       <&edma1 1 3>;
-		dma-names = "rx", "tx";
 	};
 
 	spi3: spi@402C8000 {
