@@ -296,6 +296,25 @@
 			status = "disabled";
 		};
 
+		edma0: dma-controller@40144000 {
+			#dma-cells = <2>;
+			compatible = "fsl,s32gen1-edma";
+			reg = <0x0 0x40144000 0x0 0x24000>,
+			      <0x0 0x4012c000 0x0 0x3000>,
+			      <0x0 0x40130000 0x0 0x3000>;
+			dma-channels = <32>;
+			interrupts = <GIC_SPI 8 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 9 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 10 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "edma-tx_0-15",
+					  "edma-tx_16-31",
+					  "edma-err";
+			clock-names = "dmamux0", "dmamux1";
+			clocks = <&clks S32GEN1_SCMI_CLK_EDMA_MODULE>,
+				 <&clks S32GEN1_SCMI_CLK_EDMA_AHB>;
+			status = "disabled";
+		};
+
 		swt4: swt@40200000 {
 			compatible = "fsl,s32gen1-wdt";
 			reg = <0x0 0x40200000 0x0 0x1000>;
@@ -351,6 +370,25 @@
 			clock-names = "stm";
 			status = "disabled";
 		};
+
+		edma1: dma-controller@40244000 {
+			#dma-cells = <2>;
+			compatible = "fsl,s32gen1-edma";
+			reg = <0x0 0x40244000 0x0 0x24000>,
+			      <0x0 0x4022c000 0x0 0x3000>,
+			      <0x0 0x40230000 0x0 0x3000>;
+			dma-channels = <32>;
+			interrupts = <GIC_SPI 11 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 12 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 13 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "edma-tx_0-15",
+					  "edma-tx_16-31",
+					  "edma-err";
+			clock-names = "dmamux0", "dmamux1";
+			clocks = <&clks S32GEN1_SCMI_CLK_EDMA_MODULE>,
+				 <&clks S32GEN1_SCMI_CLK_EDMA_AHB>;
+			status = "disabled";
+		};
 	};
 
 	fccu: fccu@4030c000 {
@@ -383,25 +421,6 @@
 		 * to GPIO
 		 */
 		midr-reg = <0x0 0x44010000 0x0 0x10>;
-		status = "disabled";
-	};
-
-	edma0: dma-controller@40144000 {
-		#dma-cells = <2>;
-		compatible = "fsl,s32gen1-edma";
-		reg = <0x0 0x40144000 0x0 0x24000>,
-		      <0x0 0x4012C000 0x0 0x3000>,
-		      <0x0 0x40130000 0x0 0x3000>;
-		dma-channels = <32>;
-		interrupts = <GIC_SPI 8 IRQ_TYPE_LEVEL_HIGH>,
-			     <GIC_SPI 9 IRQ_TYPE_LEVEL_HIGH>,
-			     <GIC_SPI 10 IRQ_TYPE_LEVEL_HIGH>;
-		interrupt-names = "edma-tx_0-15",
-				  "edma-tx_16-31",
-				  "edma-err";
-		clock-names = "dmamux0", "dmamux1";
-		clocks = <&clks S32GEN1_SCMI_CLK_EDMA_MODULE>,
-			 <&clks S32GEN1_SCMI_CLK_EDMA_AHB>;
 		status = "disabled";
 	};
 
@@ -662,25 +681,6 @@
 			                  "hse-mu3b-rx",
 			                  "hse-mu3b-err";
 		};
-	};
-
-	edma1: dma-controller@40244000 {
-		#dma-cells = <2>;
-		compatible = "fsl,s32gen1-edma";
-		reg = <0x0 0x40244000 0x0 0x24000>,
-		      <0x0 0x4022C000 0x0 0x3000>,
-		      <0x0 0x40230000 0x0 0x3000>;
-		dma-channels = <32>;
-		interrupts = <GIC_SPI 11 IRQ_TYPE_LEVEL_HIGH>,
-			     <GIC_SPI 12 IRQ_TYPE_LEVEL_HIGH>,
-			     <GIC_SPI 13 IRQ_TYPE_LEVEL_HIGH>;
-		interrupt-names = "edma-tx_0-15",
-				  "edma-tx_16-31",
-				  "edma-err";
-		clock-names = "dmamux0", "dmamux1";
-		clocks = <&clks S32GEN1_SCMI_CLK_EDMA_MODULE>,
-			 <&clks S32GEN1_SCMI_CLK_EDMA_AHB>;
-		status = "disabled";
 	};
 
 	pit1: pit@40288000{
