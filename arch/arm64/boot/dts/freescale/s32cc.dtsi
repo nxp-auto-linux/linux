@@ -201,6 +201,11 @@
 			nxp,clksel = <RTC_FIRC_CLKSEL>; // 2: FIRC; 0: SIRC
 			nxp,dividers = <1 0>; // div512 enabled; div32 disabled
 		};
+
+		ddr_gpr: ddr_gpr@4007c600 {
+			compatible = "nxp,s32cc-ddr-gpr", "syscon";
+			reg = <0x0 0x4007c600 0x0 0x20>;
+		};
 	};
 
 	fccu: fccu@4030c000 {
@@ -1044,11 +1049,6 @@
 		reg = <0x0 0x400A8000 0x0 0x3000>,
 			<0x0 0x400A4200 0x0 0x1FC>;
 		status = "okay";
-	};
-
-	ddr_gpr: ddr_gpr@4007c600 {
-		compatible = "nxp,s32cc-ddr-gpr", "syscon";
-		reg = <0x0 0x4007c600 0x0 0x20>;
 	};
 
 	perf: ddr-perf@403e0000 {
