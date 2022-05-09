@@ -244,6 +244,13 @@
 				};
 			};
 		};
+
+		tmu: tmu@400a8000 {
+			compatible = "fsl,s32gen1-tmu";
+			reg = <0x0 0x400a8000 0x0 0x3000>,
+				<0x0 0x400a4200 0x0 0x1fc>;
+			status = "okay";
+		};
 	};
 
 	fccu: fccu@4030c000 {
@@ -1042,13 +1049,6 @@
 			 <&clks S32GEN1_SCMI_CLK_FTM1_SYS>,
 			 <&clks S32GEN1_SCMI_CLK_FTM1_SYS>;
 		status = "disabled";
-	};
-
-	tmu: tmu@400A8000 {
-		compatible = "fsl,s32gen1-tmu";
-		reg = <0x0 0x400A8000 0x0 0x3000>,
-			<0x0 0x400A4200 0x0 0x1FC>;
-		status = "okay";
 	};
 
 	perf: ddr-perf@403e0000 {
