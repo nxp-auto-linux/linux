@@ -331,6 +331,16 @@
 			status = "disabled";
 		};
 
+		pit0: pit@40188000 {
+			compatible = "nxp,s32cc-pit";
+			reg = <0x0 0x40188000 0x0 0x3000>;
+			interrupts = <GIC_SPI 53 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&clks S32GEN1_SCMI_CLK_PIT_MODULE>;
+			clock-names = "pit";
+			cpu = <0>;
+			status = "disabled";
+		};
+
 		swt4: swt@40200000 {
 			compatible = "fsl,s32gen1-wdt";
 			reg = <0x0 0x40200000 0x0 0x1000>;
@@ -405,6 +415,16 @@
 				 <&clks S32GEN1_SCMI_CLK_EDMA_AHB>;
 			status = "disabled";
 		};
+
+		pit1: pit@40288000 {
+			compatible = "nxp,s32cc-pit";
+			reg = <0x0 0x40288000 0x0 0x3000>;
+			interrupts = <GIC_SPI 54 IRQ_TYPE_LEVEL_HIGH>;
+			cpu = <1>;
+			clocks = <&clks S32GEN1_SCMI_CLK_PIT_MODULE>;
+			clock-names = "pit";
+			status = "disabled";
+		};
 	};
 
 	fccu: fccu@4030c000 {
@@ -458,16 +478,6 @@
 		clock-names = "adc";
 		vref = <1800>;
 		status = "okay";
-	};
-
-	pit0: pit@40188000{
-		compatible = "nxp,s32cc-pit";
-		reg = <0x0 0x40188000 0x0 0x3000>;
-		interrupts = <GIC_SPI 53 IRQ_TYPE_LEVEL_HIGH>;
-		clocks = <&clks S32GEN1_SCMI_CLK_PIT_MODULE>;
-		clock-names = "pit";
-		cpu = <0>;
-		status = "disabled";
 	};
 
 	mscm0: mscm@40198000  {
@@ -683,16 +693,6 @@
 			                  "hse-mu3b-rx",
 			                  "hse-mu3b-err";
 		};
-	};
-
-	pit1: pit@40288000{
-		compatible = "nxp,s32cc-pit";
-		reg = <0x0 0x40288000 0x0 0x3000>;
-		interrupts = <GIC_SPI 54 IRQ_TYPE_LEVEL_HIGH>;
-		cpu = <1>;
-		clocks = <&clks S32GEN1_SCMI_CLK_PIT_MODULE>;
-		clock-names = "pit";
-		status = "disabled";
 	};
 
 	can2: flexcan@402A8000{
