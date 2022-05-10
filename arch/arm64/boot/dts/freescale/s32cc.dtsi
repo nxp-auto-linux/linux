@@ -839,6 +839,42 @@
 			    S32_FCCU_REACTION_NONE>;
 			status = "disabled";
 		};
+
+		gmac0: ethernet@4033c000 {
+			compatible = "nxp,s32cc-dwmac";
+			reg = <0x0 0x4033c000 0x0 0x2000>, /* gmac IP */
+			      <0x0 0x4007c004 0x0 0x4>;    /* S32 CTRL_STS reg */
+			interrupt-parent = <&gic>;
+			interrupts = <GIC_SPI 57 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "macirq";
+			tx-fifo-depth = <20480>;
+			rx-fifo-depth = <20480>;
+			phy-names = "gmac_xpcs";
+			phys = <&serdes0 PHY_TYPE_XPCS 0 0>;
+			dma-coherent;
+			clocks = <&clks S32GEN1_SCMI_CLK_GMAC0_AXI>,
+				 <&clks S32GEN1_SCMI_CLK_GMAC0_AXI>,
+				 <&clks S32GEN1_SCMI_CLK_GMAC0_TX_SGMII>,
+				 <&clks S32GEN1_SCMI_CLK_GMAC0_TX_RGMII>,
+				 <&clks S32GEN1_SCMI_CLK_GMAC0_TX_RMII>,
+				 <&clks S32GEN1_SCMI_CLK_GMAC0_TX_MII>,
+				 <&clks S32GEN1_SCMI_CLK_GMAC0_RX_SGMII>,
+				 <&clks S32GEN1_SCMI_CLK_GMAC0_RX_RGMII>,
+				 <&clks S32GEN1_SCMI_CLK_GMAC0_RX_RMII>,
+				 <&clks S32GEN1_SCMI_CLK_GMAC0_RX_MII>,
+				 <&clks S32GEN1_SCMI_CLK_GMAC0_TS>;
+			clock-names = "stmmaceth", "pclk",
+				      "tx_sgmii", "tx_rgmii",
+				      "tx_rmii", "tx_mii",
+				      "rx_sgmii", "rx_rgmii",
+				      "rx_rmii", "rx_mii",
+				      "ptp_ref";
+			gmac0_mdio: mdio0 {
+				compatible = "snps,dwmac-mdio";
+				#address-cells = <1>;
+				#size-cells = <0>;
+			};
+		};
 	};
 
 	siul2_1 {
@@ -870,43 +906,6 @@
 		msi-controller;
 		/* GIC interrupts between 167 and 182 can be used as MBIs. */
 		mbi-ranges = <167 16>;
-	};
-
-
-	gmac0: ethernet@4033c000 {
-		compatible = "nxp,s32cc-dwmac";
-		reg = <0x0 0x4033c000 0x0 0x2000>, /* gmac IP */
-		      <0x0 0x4007C004 0x0 0x4>;    /* S32 CTRL_STS reg */
-		interrupt-parent = <&gic>;
-		interrupts = <GIC_SPI 57 IRQ_TYPE_LEVEL_HIGH>;
-		interrupt-names = "macirq";
-		tx-fifo-depth = <20480>;
-		rx-fifo-depth = <20480>;
-		phy-names = "gmac_xpcs";
-		phys = <&serdes0 PHY_TYPE_XPCS 0 0>;
-		dma-coherent;
-		clocks = <&clks S32GEN1_SCMI_CLK_GMAC0_AXI>,
-			 <&clks S32GEN1_SCMI_CLK_GMAC0_AXI>,
-			 <&clks S32GEN1_SCMI_CLK_GMAC0_TX_SGMII>,
-			 <&clks S32GEN1_SCMI_CLK_GMAC0_TX_RGMII>,
-			 <&clks S32GEN1_SCMI_CLK_GMAC0_TX_RMII>,
-			 <&clks S32GEN1_SCMI_CLK_GMAC0_TX_MII>,
-			 <&clks S32GEN1_SCMI_CLK_GMAC0_RX_SGMII>,
-			 <&clks S32GEN1_SCMI_CLK_GMAC0_RX_RGMII>,
-			 <&clks S32GEN1_SCMI_CLK_GMAC0_RX_RMII>,
-			 <&clks S32GEN1_SCMI_CLK_GMAC0_RX_MII>,
-			 <&clks S32GEN1_SCMI_CLK_GMAC0_TS>;
-		clock-names = "stmmaceth", "pclk",
-			      "tx_sgmii", "tx_rgmii",
-			      "tx_rmii", "tx_mii",
-			      "rx_sgmii", "rx_rgmii",
-			      "rx_rmii", "rx_mii",
-			      "ptp_ref";
-		gmac0_mdio: mdio0 {
-			compatible = "snps,dwmac-mdio";
-			#address-cells = <1>;
-			#size-cells = <0>;
-		};
 	};
 
 	serdes0: serdes@40480000 {
