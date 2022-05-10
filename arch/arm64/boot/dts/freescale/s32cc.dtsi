@@ -875,6 +875,20 @@
 				#size-cells = <0>;
 			};
 		};
+
+		ddr_errata: ddr_errata@403c0000 {
+			compatible = "nxp,s32cc-ddr";
+			reg = <0x0 0x403c0000 0x0 0x100>;
+			perf-phandle = <&perf>;
+			status = "disabled";
+		};
+
+		perf: ddr-perf@403e0000 {
+			compatible = "fsl,s32gen1-ddr-perf";
+			reg = <0x0 0x403e0000 0x0 0x100>;
+			interrupt-parent = <&gic>;
+			interrupts = <GIC_SPI 115 IRQ_TYPE_LEVEL_HIGH>; /* GIC 147 */
+		};
 	};
 
 	siul2_1 {
@@ -1054,20 +1068,6 @@
 		nvmem-cell-names = "serdes_presence", "pcie_variant";
 		nvmem-cells = <&serdes_presence>, <&pcie_variant>;
 
-		status = "disabled";
-	};
-
-	perf: ddr-perf@403e0000 {
-		compatible = "fsl,s32gen1-ddr-perf";
-		reg = <0x0 0x403e0000 0x0 0x100>;
-		interrupt-parent = <&gic>;
-		interrupts = <GIC_SPI 115 IRQ_TYPE_LEVEL_HIGH>; /* GIC 147 */
-	};
-
-	ddr_errata: ddr_errata@403C0000 {
-		compatible = "nxp,s32cc-ddr";
-		reg = <0x0 0x403C0000 0x0 0x100>;
-		perf-phandle = <&perf>;
 		status = "disabled";
 	};
 };
