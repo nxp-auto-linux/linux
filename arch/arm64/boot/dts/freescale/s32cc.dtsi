@@ -186,7 +186,9 @@
 		#size-cells = <2>;
 		ranges = <0x0 0x0 0x0 0x0 0x0 0x20000000>,
 			 <0x0 0x22C00000 0x0 0x22C00000 0x0 0x4000>,
-			 <0x0 0x40000000 0x0 0x40000000 0x0 0x14000000>;
+			 <0x0 0x40000000 0x0 0x40000000 0x0 0x14000000>,
+			 <0x48 0x0 0x48 0x0 0x8 0x0>,
+			 <0x58 0x0 0x58 0x0 0x8 0x0>;
 
 		rtc0: rtc@40060000 {
 			compatible = "fsl,s32gen1-rtc";
@@ -889,6 +891,116 @@
 			interrupt-parent = <&gic>;
 			interrupts = <GIC_SPI 115 IRQ_TYPE_LEVEL_HIGH>; /* GIC 147 */
 		};
+
+		pcie0: pcie@40400000 {
+			compatible = "nxp,s32cc-pcie";
+			dma-coherent;
+			reg = <0x00 0x40400000 0x0 0x00001000   /* dbi registers */
+			       0x00 0x40420000 0x0 0x00001000   /* dbi2 registers */
+			       0x00 0x40460000 0x0 0x00001000   /* atu registers */
+			       0x00 0x40470000 0x0 0x00001000   /* dma registers */
+			       0x00 0x40481000 0x0 0x000000f8   /* ctrl registers */
+			       /* RC configuration space, 4KB each for cfg0 and cfg1
+				* at the end of the outbound memory map
+				*/
+			       0x5f 0xffffe000 0x0 0x00002000
+			       0x58 0x00000000 0x0 0x40000000>; /* 1GB EP addr space */
+			reg-names = "dbi", "dbi2", "atu", "dma", "ctrl",
+				    "config", "addr_space";
+			#address-cells = <3>;
+			#size-cells = <2>;
+			device_type = "pci";
+			device_id = <0>;
+			ranges =
+				/* downstream I/O, 64KB and aligned naturally just
+				 * before the config space to minimize fragmentation
+				 */
+				<0x81000000 0x0 0x00000000 0x5f 0xfffe0000 0x0 0x00010000
+				/* non-prefetchable memory, with best case size and
+				 * alignment
+				 */
+				 0x82000000 0x0 0x00000000 0x58 0x00000000 0x7 0xfffe0000>;
+
+			nxp,phy-mode = "crns";
+			num-lanes = <2>;
+			max-link-speed = <3>;
+			bus-range = <0x0 0xff>;
+			interrupts =  <GIC_SPI 124 IRQ_TYPE_LEVEL_HIGH>,
+					<GIC_SPI 123 IRQ_TYPE_LEVEL_HIGH>,
+					<GIC_SPI 125 IRQ_TYPE_LEVEL_HIGH>,
+					<GIC_SPI 126 IRQ_TYPE_LEVEL_HIGH>,
+					<GIC_SPI 127 IRQ_TYPE_LEVEL_HIGH>,
+					<GIC_SPI 132 IRQ_TYPE_LEVEL_HIGH>,
+					<GIC_SPI 133 IRQ_TYPE_LEVEL_HIGH>,
+					<GIC_SPI 134 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "link_req_stat", "dma", "msi",
+						"phy_link_down", "phy_link_up", "misc",
+						"pcs", "tlp_req_no_comp";
+			#interrupt-cells = <1>;
+			interrupt-map-mask = <0 0 0 0x7>;
+			interrupt-map = <0 0 0 1 &gic 0 0 0 128 4>,
+						<0 0 0 2 &gic 0 0 0 129 4>,
+						<0 0 0 3 &gic 0 0 0 130 4>,
+						<0 0 0 4 &gic 0 0 0 131 4>;
+			msi-parent = <&gic>;
+
+			shared-mem = <&pci_shared_memory0>;
+
+			/* EP mode only */
+			num-ib-windows = <6>;
+			num-ob-windows = <6>;
+
+			nvmem-cell-names = "serdes_presence", "pcie_variant";
+			nvmem-cells = <&serdes_presence>, <&pcie_variant>;
+
+			status = "disabled";
+		};
+
+		pcie1: pcie@44100000 {
+			compatible = "nxp,s32cc-pcie";
+			dma-coherent;
+			reg = <0x00 0x44100000 0x0 0x00001000   /* dbi registers */
+			       0x00 0x44120000 0x0 0x00001000   /* dbi2 registers */
+			       0x00 0x44160000 0x0 0x00001000   /* atu registers */
+			       0x00 0x44170000 0x0 0x00001000   /* dma registers */
+			       0x00 0x44181000 0x0 0x000000f8   /* ctrl registers */
+			       /* RC configuration space, 4KB each for cfg0 and cfg1
+				* at the end of the outbound memory map
+				*/
+			       0x4f 0xffffe000 0x0 0x00002000
+			       0x48 0x00000000 0x0 0x40000000>; /* 1GB EP addr space */
+			reg-names = "dbi", "dbi2", "atu", "dma", "ctrl",
+				    "config", "addr_space";
+			#address-cells = <3>;
+			#size-cells = <2>;
+			device_type = "pci";
+			device_id = <1>;
+			ranges =
+				/* downstream I/O, 64KB and aligned naturally just
+				 * before the config space to minimize fragmentation
+				 */
+				<0x81000000 0x0 0x00000000 0x4f 0xfffe0000 0x0 0x00010000
+				/* non-prefetchable memory, with best case size and
+				 * alignment
+				 */
+				 0x82000000 0x0 0x00000000 0x48 0x00000000 0x7 0xfffe0000>;
+
+			nxp,phy-mode = "crns";
+			num-lanes = <1>;
+			max-link-speed = <3>;
+			bus-range = <0x0 0xff>;
+
+			shared-mem = <&pci_shared_memory1>;
+
+			/* EP mode only */
+			num-ib-windows = <6>;
+			num-ob-windows = <6>;
+
+			nvmem-cell-names = "serdes_presence", "pcie_variant";
+			nvmem-cells = <&serdes_presence>, <&pcie_variant>;
+
+			status = "disabled";
+		};
 	};
 
 	siul2_1 {
@@ -941,70 +1053,6 @@
 		reg-names = "ss_pcie", "pcie_phy", "xpcs0", "xpcs1";
 	};
 
-	pcie0: pcie@40400000 {
-		compatible = "nxp,s32cc-pcie";
-		dma-coherent;
-		reg = <0x00 0x40400000 0x0 0x00001000   /* dbi registers */
-		       0x00 0x40420000 0x0 0x00001000   /* dbi2 registers */
-		       0x00 0x40460000 0x0 0x00001000   /* atu registers */
-		       0x00 0x40470000 0x0 0x00001000   /* dma registers */
-		       0x00 0x40481000 0x0 0x000000F8   /* ctrl registers */
-		       /* RC configuration space, 4KB each for cfg0 and cfg1
-			* at the end of the outbound memory map
-			*/
-		       0x5f 0xffffe000 0x0 0x00002000
-		       0x58 0x00000000 0x0 0x40000000>; /* 1GB EP addr space */
-		reg-names = "dbi", "dbi2", "atu", "dma", "ctrl",
-			    "config", "addr_space";
-		#address-cells = <3>;
-		#size-cells = <2>;
-		device_type = "pci";
-		device_id = <0>;
-		ranges =
-			/* downstream I/O, 64KB and aligned naturally just
-			 * before the config space to minimize fragmentation
-			 */
-			<0x81000000 0x0 0x00000000 0x5f 0xfffe0000 0x0 0x00010000
-			/* non-prefetchable memory, with best case size and
-			 * alignment
-			 */
-			 0x82000000 0x0 0x00000000 0x58 0x00000000 0x7 0xfffe0000>;
-
-		nxp,phy-mode = "crns";
-		num-lanes = <2>;
-		max-link-speed = <3>;
-		bus-range = <0x0 0xff>;
-		interrupts =  <GIC_SPI 124 IRQ_TYPE_LEVEL_HIGH>,
-				<GIC_SPI 123 IRQ_TYPE_LEVEL_HIGH>,
-				<GIC_SPI 125 IRQ_TYPE_LEVEL_HIGH>,
-				<GIC_SPI 126 IRQ_TYPE_LEVEL_HIGH>,
-				<GIC_SPI 127 IRQ_TYPE_LEVEL_HIGH>,
-				<GIC_SPI 132 IRQ_TYPE_LEVEL_HIGH>,
-				<GIC_SPI 133 IRQ_TYPE_LEVEL_HIGH>,
-				<GIC_SPI 134 IRQ_TYPE_LEVEL_HIGH>;
-		interrupt-names = "link_req_stat", "dma", "msi",
-					"phy_link_down", "phy_link_up", "misc",
-					"pcs", "tlp_req_no_comp";
-		#interrupt-cells = <1>;
-		interrupt-map-mask = <0 0 0 0x7>;
-		interrupt-map = <0 0 0 1 &gic 0 0 0 128 4>,
-					<0 0 0 2 &gic 0 0 0 129 4>,
-					<0 0 0 3 &gic 0 0 0 130 4>,
-					<0 0 0 4 &gic 0 0 0 131 4>;
-		msi-parent = <&gic>;
-
-		shared-mem = <&pci_shared_memory0>;
-
-		/* EP mode only */
-		num-ib-windows = <6>;
-		num-ob-windows = <6>;
-
-		nvmem-cell-names = "serdes_presence", "pcie_variant";
-		nvmem-cells = <&serdes_presence>, <&pcie_variant>;
-
-		status = "disabled";
-	};
-
 	serdes1: serdes@44180000 {
 		#phy-cells = <3>;
 		compatible = "nxp,s32cc-serdes";
@@ -1025,49 +1073,4 @@
 		status = "okay";
 	};
 
-	pcie1: pcie@44100000 {
-		compatible = "nxp,s32cc-pcie";
-		dma-coherent;
-		reg = <0x00 0x44100000 0x0 0x00001000   /* dbi registers */
-		       0x00 0x44120000 0x0 0x00001000   /* dbi2 registers */
-		       0x00 0x44160000 0x0 0x00001000   /* atu registers */
-		       0x00 0x44170000 0x0 0x00001000   /* dma registers */
-		       0x00 0x44181000 0x0 0x000000F8   /* ctrl registers */
-		       /* RC configuration space, 4KB each for cfg0 and cfg1
-			* at the end of the outbound memory map
-			*/
-		       0x4f 0xffffe000 0x0 0x00002000
-		       0x48 0x00000000 0x0 0x40000000>; /* 1GB EP addr space */
-		reg-names = "dbi", "dbi2", "atu", "dma", "ctrl",
-			    "config", "addr_space";
-		#address-cells = <3>;
-		#size-cells = <2>;
-		device_type = "pci";
-		device_id = <1>;
-		ranges =
-			/* downstream I/O, 64KB and aligned naturally just
-			 * before the config space to minimize fragmentation
-			 */
-			<0x81000000 0x0 0x00000000 0x4f 0xfffe0000 0x0 0x00010000
-			/* non-prefetchable memory, with best case size and
-			 * alignment
-			 */
-			 0x82000000 0x0 0x00000000 0x48 0x00000000 0x7 0xfffe0000>;
-
-		nxp,phy-mode = "crns";
-		num-lanes = <1>;
-		max-link-speed = <3>;
-		bus-range = <0x0 0xff>;
-
-		shared-mem = <&pci_shared_memory1>;
-
-		/* EP mode only */
-		num-ib-windows = <6>;
-		num-ob-windows = <6>;
-
-		nvmem-cell-names = "serdes_presence", "pcie_variant";
-		nvmem-cells = <&serdes_presence>, <&pcie_variant>;
-
-		status = "disabled";
-	};
 };
