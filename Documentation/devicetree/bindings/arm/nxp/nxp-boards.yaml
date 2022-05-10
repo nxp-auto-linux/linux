@@ -13,18 +13,15 @@ properties:
     oneOf:
       - description: S32G2 based boards
         items:
-          - const: fsl,s32g274
-          - const: fsl,s32g274-simu     # S32G274A simulator
+          - const: nxp,s32g2
 
       - description: S32R45 based boards
         items:
           - const: fsl,s32r45
-          - const: fsl,s32r45-simu     # S32R45 simulator
 
       - description: S32G3 based boards
         items:
-          - const: nxp,s32g399a
-          - const: fsl,s32g399a-emu     # S32G3 emulator
+          - const: nxp,s32g3
 
 
 required:
