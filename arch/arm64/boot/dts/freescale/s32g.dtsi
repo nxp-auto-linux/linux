@@ -115,6 +115,449 @@
 			};
 		};
 
+		llce_dte_sram: llce_dte_sram@43000000 {
+			compatible = "mmio-sram";
+			reg = <0x0 0x43000000 0x0 0x2000>;
+		};
+
+		llce_ppe_rx_sram: llce_ppe_rx_sram@43100000 {
+			compatible = "mmio-sram";
+			reg = <0x0 0x43100000 0x0 0x8000>;
+		};
+
+		llce_ppe_tx_sram: llce_ppe_tx_sram@43200000 {
+			compatible = "mmio-sram";
+			reg = <0x0 0x43200000 0x0 0x8000>;
+		};
+
+		llce_frpe_sram: llce_frpe_sram@43300000 {
+			compatible = "mmio-sram";
+			reg = <0x0 0x43300000 0x0 0x10000>;
+		};
+
+		llce_shmem: llce_shmem@43800000 {
+			compatible = "mmio-sram";
+			reg = <0x0 0x43800000 0x0 0x3c000>;
+		};
+
+		llce_boot_status: llce_boot_status@4383c000 {
+			compatible = "mmio-sram";
+			reg = <0x0 0x4383c000 0x0 0x14000>;
+		};
+
+		llce: llce@43a00000 {
+			compatible = "nxp,s32g-llce-core";
+
+			/* RX-IN_FIFO */
+			ranges = <0x0 0 0x0 0x43a00000 0x0 0x6000>,
+				/* RX-OUT_FIFO */
+				<0x1 0 0x0 0x43a08000 0x0 0x8000>,
+				/* LLCE interrupt Concentrator */
+				<0x2 0 0x0 0x43a14000 0x0 0x1000>,
+				/* BLR-IN_FIFO */
+				<0x3 0 0x0 0x43b00000 0x0 0x6000>,
+				/* BLR-OUT_FIFO */
+				<0x4 0 0x0 0x43b08000 0x0 0x6000>,
+				/* Tx_Ack_FIFO */
+				<0x5 0 0x0 0x43b10000 0x0 0x8000>,
+				/* LLCE SEMA42*/
+				<0x6 0 0x0 0x43c20000 0x0 0x44>;
+
+			clocks = <&clks S32G_SCMI_CLK_LLCE_SYS>;
+			clock-names = "llce_sys";
+			firmware-name = "dte.bin", "ppe_rx.bin",
+				"ppe_tx.bin", "frpe.bin";
+			memory-region = <&llce_dte_sram>, <&llce_ppe_rx_sram>,
+				<&llce_ppe_tx_sram>, <&llce_frpe_sram>,
+				<&llce_shmem>, <&llce_boot_status>;
+			memory-region-names = "dte.bin", "ppe_rx.bin",
+				"ppe_tx.bin", "frpe.bin", "shmem", "status";
+			/* LLCE system control registers */
+			reg = <0x0 0x43ff8000 0x0 0x4000>;
+			reg-names = "sysctrl";
+			status = "okay";
+
+			#address-cells = <2>;
+			#size-cells = <2>;
+			#interrupt-cells = <3>;
+
+			llce_mb: llce_mb@43a00000 {
+				compatible = "nxp,s32g-llce-mailbox";
+				#mbox-cells = <2>;
+
+				reg = <0x0 0x0 0x0 0x6000>,
+					<0x1 0x0 0x0 0x8000>,
+					<0x2 0x0 0x0 0x1000>,
+					<0x3 0x0 0x0 0x6000>,
+					<0x4 0x0 0x0 0x6000>,
+					<0x5 0x0 0x0 0x8000>,
+					<0x6 0x0 0x0 0x44>;
+				reg-names = "rxin_fifo",
+					"rxout_fifo",
+					"icsr",
+					"blrin_fifo",
+					"blrout_fifo",
+					"txack_fifo",
+					"sema42";
+				clocks = <&clks S32G_SCMI_CLK_LLCE_SYS>;
+				clock-names = "llce_sys";
+				memory-region = <&llce_shmem>, <&llce_boot_status>;
+				memory-region-names = "shmem", "status";
+				interrupts = <GIC_SPI 174 IRQ_TYPE_LEVEL_HIGH>,
+					<GIC_SPI 175 IRQ_TYPE_LEVEL_HIGH>,
+					<GIC_SPI 176 IRQ_TYPE_LEVEL_HIGH>,
+					<GIC_SPI 177 IRQ_TYPE_LEVEL_HIGH>,
+					<GIC_SPI 182 IRQ_TYPE_LEVEL_HIGH>,
+					<GIC_SPI 183 IRQ_TYPE_LEVEL_HIGH>,
+					<GIC_SPI 184 IRQ_TYPE_LEVEL_HIGH>;
+				interrupt-names = "rxin_fifo_0_7",
+					"rxin_fifo_8_15",
+					"rxout_fifo_0_7",
+					"rxout_fifo_8_15",
+					"txack_fifo_0_7",
+					"txack_fifo_8_15",
+					"logger_rx";
+				status = "okay";
+			};
+
+			llce_can_logger0: llce_can_logger0 {
+				compatible = "nxp,s32g-llce-can-logger";
+				mboxes = <&llce_mb S32G_LLCE_CAN_LOGGER_CONFIG_MB 0>,
+					<&llce_mb S32G_LLCE_CAN_LOGGER_MB 0>;
+				mbox-names = "config", "rx";
+				status = "okay";
+			};
+
+			llce_can_logger1: llce_can_logger1 {
+				compatible = "nxp,s32g-llce-can-logger";
+				mboxes = <&llce_mb S32G_LLCE_CAN_LOGGER_CONFIG_MB 1>,
+					<&llce_mb S32G_LLCE_CAN_LOGGER_MB 1>;
+				mbox-names = "config", "rx";
+				status = "okay";
+			};
+
+			llce_can_logger2: llce_can_logger2 {
+				compatible = "nxp,s32g-llce-can-logger";
+				mboxes = <&llce_mb S32G_LLCE_CAN_LOGGER_CONFIG_MB 2>,
+					<&llce_mb S32G_LLCE_CAN_LOGGER_MB 2>;
+				mbox-names = "config", "rx";
+				status = "okay";
+			};
+
+			llce_can_logger3: llce_can_logger3 {
+				compatible = "nxp,s32g-llce-can-logger";
+				mboxes = <&llce_mb S32G_LLCE_CAN_LOGGER_CONFIG_MB 3>,
+					<&llce_mb S32G_LLCE_CAN_LOGGER_MB 3>;
+				mbox-names = "config", "rx";
+				status = "okay";
+			};
+
+			llce_can_logger4: llce_can_logger4 {
+				compatible = "nxp,s32g-llce-can-logger";
+				mboxes = <&llce_mb S32G_LLCE_CAN_LOGGER_CONFIG_MB 4>,
+					<&llce_mb S32G_LLCE_CAN_LOGGER_MB 4>;
+				mbox-names = "config", "rx";
+				status = "okay";
+			};
+
+			llce_can_logger5: llce_can_logger5 {
+				compatible = "nxp,s32g-llce-can-logger";
+				mboxes = <&llce_mb S32G_LLCE_CAN_LOGGER_CONFIG_MB 5>,
+					<&llce_mb S32G_LLCE_CAN_LOGGER_MB 5>;
+				mbox-names = "config", "rx";
+				status = "okay";
+			};
+
+			llce_can_logger6: llce_can_logger6 {
+				compatible = "nxp,s32g-llce-can-logger";
+				mboxes = <&llce_mb S32G_LLCE_CAN_LOGGER_CONFIG_MB 6>,
+					<&llce_mb S32G_LLCE_CAN_LOGGER_MB 6>;
+				mbox-names = "config", "rx";
+				status = "okay";
+			};
+
+			llce_can_logger7: llce_can_logger7 {
+				compatible = "nxp,s32g-llce-can-logger";
+				mboxes = <&llce_mb S32G_LLCE_CAN_LOGGER_CONFIG_MB 7>,
+					<&llce_mb S32G_LLCE_CAN_LOGGER_MB 7>;
+				mbox-names = "config", "rx";
+				status = "okay";
+			};
+
+			llce_can_logger8: llce_can_logger8 {
+				compatible = "nxp,s32g-llce-can-logger";
+				mboxes = <&llce_mb S32G_LLCE_CAN_LOGGER_CONFIG_MB 8>,
+					<&llce_mb S32G_LLCE_CAN_LOGGER_MB 8>;
+				mbox-names = "config", "rx";
+				status = "okay";
+			};
+
+			llce_can_logger9: llce_can_logger9 {
+				compatible = "nxp,s32g-llce-can-logger";
+				mboxes = <&llce_mb S32G_LLCE_CAN_LOGGER_CONFIG_MB 9>,
+					<&llce_mb S32G_LLCE_CAN_LOGGER_MB 9>;
+				mbox-names = "config", "rx";
+				status = "okay";
+			};
+
+			llce_can_logger10: llce_can_logger10 {
+				compatible = "nxp,s32g-llce-can-logger";
+				mboxes = <&llce_mb S32G_LLCE_CAN_LOGGER_CONFIG_MB 10>,
+					<&llce_mb S32G_LLCE_CAN_LOGGER_MB 10>;
+				mbox-names = "config", "rx";
+				status = "okay";
+			};
+
+			llce_can_logger11: llce_can_logger11 {
+				compatible = "nxp,s32g-llce-can-logger";
+				mboxes = <&llce_mb S32G_LLCE_CAN_LOGGER_CONFIG_MB 11>,
+					<&llce_mb S32G_LLCE_CAN_LOGGER_MB 11>;
+				mbox-names = "config", "rx";
+				status = "okay";
+			};
+
+			llce_can_logger12: llce_can_logger12 {
+				compatible = "nxp,s32g-llce-can-logger";
+				mboxes = <&llce_mb S32G_LLCE_CAN_LOGGER_CONFIG_MB 12>,
+					<&llce_mb S32G_LLCE_CAN_LOGGER_MB 12>;
+				mbox-names = "config", "rx";
+				status = "okay";
+			};
+
+			llce_can_logger13: llce_can_logger13 {
+				compatible = "nxp,s32g-llce-can-logger";
+				mboxes = <&llce_mb S32G_LLCE_CAN_LOGGER_CONFIG_MB 13>,
+					<&llce_mb S32G_LLCE_CAN_LOGGER_MB 13>;
+				mbox-names = "config", "rx";
+				status = "okay";
+			};
+
+			llce_can_logger14: llce_can_logger14 {
+				compatible = "nxp,s32g-llce-can-logger";
+				mboxes = <&llce_mb S32G_LLCE_CAN_LOGGER_CONFIG_MB 14>,
+					<&llce_mb S32G_LLCE_CAN_LOGGER_MB 14>;
+				mbox-names = "config", "rx";
+				status = "okay";
+			};
+
+			llce_can_logger15: llce_can_logger15 {
+				compatible = "nxp,s32g-llce-can-logger";
+				mboxes = <&llce_mb S32G_LLCE_CAN_LOGGER_CONFIG_MB 15>,
+					<&llce_mb S32G_LLCE_CAN_LOGGER_MB 15>;
+				mbox-names = "config", "rx";
+				status = "okay";
+			};
+
+			llce_can0: llce_can0 {
+				compatible = "nxp,s32g-llce-can";
+				mboxes = <&llce_mb S32G_LLCE_CAN_CONF_MB 0>,
+					 <&llce_mb S32G_LLCE_CAN_RX_MB 0>,
+					 <&llce_mb S32G_LLCE_CAN_TX_MB 0>;
+				mbox-names = "config", "rx", "tx";
+				clocks = <&clks S32G_SCMI_CLK_LLCE_CAN_PE>;
+				clock-names = "can_pe";
+				pinctrl-names = "default";
+				pinctrl-0 = <&pinctrl0_llce_can0>,
+					<&pinctrl1_llce_can0>;
+				status = "disabled";
+			};
+
+			llce_can1: llce_can1 {
+				compatible = "nxp,s32g-llce-can";
+				mboxes = <&llce_mb S32G_LLCE_CAN_CONF_MB 1>,
+					 <&llce_mb S32G_LLCE_CAN_RX_MB 1>,
+					 <&llce_mb S32G_LLCE_CAN_TX_MB 1>;
+				mbox-names = "config", "rx", "tx";
+				clocks = <&clks S32G_SCMI_CLK_LLCE_CAN_PE>;
+				clock-names = "can_pe";
+				pinctrl-names = "default";
+				pinctrl-0 = <&pinctrl1_llce_can1>;
+				status = "disabled";
+			};
+
+			llce_can2: llce_can2 {
+				compatible = "nxp,s32g-llce-can";
+				mboxes = <&llce_mb S32G_LLCE_CAN_CONF_MB 2>,
+					 <&llce_mb S32G_LLCE_CAN_RX_MB 2>,
+					 <&llce_mb S32G_LLCE_CAN_TX_MB 2>;
+				mbox-names = "config", "rx", "tx";
+				clocks = <&clks S32G_SCMI_CLK_LLCE_CAN_PE>;
+				clock-names = "can_pe";
+				pinctrl-names = "default";
+				pinctrl-0 = <&pinctrl1_llce_can2>;
+				status = "disabled";
+			};
+
+			llce_can3: llce_can3 {
+				compatible = "nxp,s32g-llce-can";
+				mboxes = <&llce_mb S32G_LLCE_CAN_CONF_MB 3>,
+					 <&llce_mb S32G_LLCE_CAN_RX_MB 3>,
+					 <&llce_mb S32G_LLCE_CAN_TX_MB 3>;
+				mbox-names = "config", "rx", "tx";
+				clocks = <&clks S32G_SCMI_CLK_LLCE_CAN_PE>;
+				clock-names = "can_pe";
+				pinctrl-names = "default";
+				pinctrl-0 = <&pinctrl1_llce_can3>;
+				status = "disabled";
+			};
+
+			llce_can4: llce_can4 {
+				compatible = "nxp,s32g-llce-can";
+				mboxes = <&llce_mb S32G_LLCE_CAN_CONF_MB 4>,
+					 <&llce_mb S32G_LLCE_CAN_RX_MB 4>,
+					 <&llce_mb S32G_LLCE_CAN_TX_MB 4>;
+				mbox-names = "config", "rx", "tx";
+				clocks = <&clks S32G_SCMI_CLK_LLCE_CAN_PE>;
+				clock-names = "can_pe";
+				pinctrl-names = "default";
+				pinctrl-0 = <&pinctrl1_llce_can4>;
+				status = "disabled";
+			};
+
+			llce_can5: llce_can5 {
+				compatible = "nxp,s32g-llce-can";
+				mboxes = <&llce_mb S32G_LLCE_CAN_CONF_MB 5>,
+					 <&llce_mb S32G_LLCE_CAN_RX_MB 5>,
+					 <&llce_mb S32G_LLCE_CAN_TX_MB 5>;
+				mbox-names = "config", "rx", "tx";
+				clocks = <&clks S32G_SCMI_CLK_LLCE_CAN_PE>;
+				clock-names = "can_pe";
+				pinctrl-names = "default";
+				pinctrl-0 = <&pinctrl1_llce_can5>;
+				status = "disabled";
+			};
+
+			llce_can6: llce_can6 {
+				compatible = "nxp,s32g-llce-can";
+				mboxes = <&llce_mb S32G_LLCE_CAN_CONF_MB 6>,
+					 <&llce_mb S32G_LLCE_CAN_RX_MB 6>,
+					 <&llce_mb S32G_LLCE_CAN_TX_MB 6>;
+				mbox-names = "config", "rx", "tx";
+				clocks = <&clks S32G_SCMI_CLK_LLCE_CAN_PE>;
+				clock-names = "can_pe";
+				pinctrl-names = "default";
+				pinctrl-0 = <&pinctrl1_llce_can6>;
+				status = "disabled";
+			};
+
+			llce_can7: llce_can7 {
+				compatible = "nxp,s32g-llce-can";
+				mboxes = <&llce_mb S32G_LLCE_CAN_CONF_MB 7>,
+					 <&llce_mb S32G_LLCE_CAN_RX_MB 7>,
+					 <&llce_mb S32G_LLCE_CAN_TX_MB 7>;
+				mbox-names = "config", "rx", "tx";
+				clocks = <&clks S32G_SCMI_CLK_LLCE_CAN_PE>;
+				clock-names = "can_pe";
+				pinctrl-names = "default";
+				pinctrl-0 = <&pinctrl1_llce_can7>;
+				status = "disabled";
+			};
+
+			llce_can8: llce_can8 {
+				compatible = "nxp,s32g-llce-can";
+				mboxes = <&llce_mb S32G_LLCE_CAN_CONF_MB 8>,
+					 <&llce_mb S32G_LLCE_CAN_RX_MB 8>,
+					 <&llce_mb S32G_LLCE_CAN_TX_MB 8>;
+				mbox-names = "config", "rx", "tx";
+				clocks = <&clks S32G_SCMI_CLK_LLCE_CAN_PE>;
+				clock-names = "can_pe";
+				pinctrl-names = "default";
+				pinctrl-0 = <&pinctrl1_llce_can8>;
+				status = "disabled";
+			};
+
+			llce_can9: llce_can9 {
+				compatible = "nxp,s32g-llce-can";
+				mboxes = <&llce_mb S32G_LLCE_CAN_CONF_MB 9>,
+					 <&llce_mb S32G_LLCE_CAN_RX_MB 9>,
+					 <&llce_mb S32G_LLCE_CAN_TX_MB 9>;
+				mbox-names = "config", "rx", "tx";
+				clocks = <&clks S32G_SCMI_CLK_LLCE_CAN_PE>;
+				clock-names = "can_pe";
+				pinctrl-names = "default";
+				pinctrl-0 = <&pinctrl1_llce_can9>;
+				status = "disabled";
+			};
+
+			llce_can10: llce_can10 {
+				compatible = "nxp,s32g-llce-can";
+				mboxes = <&llce_mb S32G_LLCE_CAN_CONF_MB 10>,
+					 <&llce_mb S32G_LLCE_CAN_RX_MB 10>,
+					 <&llce_mb S32G_LLCE_CAN_TX_MB 10>;
+				mbox-names = "config", "rx", "tx";
+				clocks = <&clks S32G_SCMI_CLK_LLCE_CAN_PE>;
+				clock-names = "can_pe";
+				pinctrl-names = "default";
+				pinctrl-0 = <&pinctrl1_llce_can10>;
+				status = "disabled";
+			};
+
+			llce_can11: llce_can11 {
+				compatible = "nxp,s32g-llce-can";
+				mboxes = <&llce_mb S32G_LLCE_CAN_CONF_MB 11>,
+					 <&llce_mb S32G_LLCE_CAN_RX_MB 11>,
+					 <&llce_mb S32G_LLCE_CAN_TX_MB 11>;
+				mbox-names = "config", "rx", "tx";
+				clocks = <&clks S32G_SCMI_CLK_LLCE_CAN_PE>;
+				clock-names = "can_pe";
+				pinctrl-names = "default";
+				pinctrl-0 = <&pinctrl1_llce_can11>;
+				status = "disabled";
+			};
+
+			llce_can12: llce_can12 {
+				compatible = "nxp,s32g-llce-can";
+				mboxes = <&llce_mb S32G_LLCE_CAN_CONF_MB 12>,
+					 <&llce_mb S32G_LLCE_CAN_RX_MB 12>,
+					 <&llce_mb S32G_LLCE_CAN_TX_MB 12>;
+				mbox-names = "config", "rx", "tx";
+				clocks = <&clks S32G_SCMI_CLK_LLCE_CAN_PE>;
+				clock-names = "can_pe";
+				pinctrl-names = "default";
+				pinctrl-0 = <&pinctrl1_llce_can12>;
+				status = "disabled";
+			};
+
+			llce_can13: llce_can13 {
+				compatible = "nxp,s32g-llce-can";
+				mboxes = <&llce_mb S32G_LLCE_CAN_CONF_MB 13>,
+					 <&llce_mb S32G_LLCE_CAN_RX_MB 13>,
+					 <&llce_mb S32G_LLCE_CAN_TX_MB 13>;
+				mbox-names = "config", "rx", "tx";
+				clocks = <&clks S32G_SCMI_CLK_LLCE_CAN_PE>;
+				clock-names = "can_pe";
+				pinctrl-names = "default";
+				pinctrl-0 = <&pinctrl1_llce_can13>;
+				status = "disabled";
+			};
+
+			llce_can14: llce_can14 {
+				compatible = "nxp,s32g-llce-can";
+				mboxes = <&llce_mb S32G_LLCE_CAN_CONF_MB 14>,
+					 <&llce_mb S32G_LLCE_CAN_RX_MB 14>,
+					 <&llce_mb S32G_LLCE_CAN_TX_MB 14>;
+				mbox-names = "config", "rx", "tx";
+				clocks = <&clks S32G_SCMI_CLK_LLCE_CAN_PE>;
+				clock-names = "can_pe";
+				pinctrl-names = "default";
+				pinctrl-0 = <&pinctrl1_llce_can14>;
+				status = "disabled";
+			};
+
+			llce_can15: llce_can15 {
+				compatible = "nxp,s32g-llce-can";
+				mboxes = <&llce_mb S32G_LLCE_CAN_CONF_MB 15>,
+					 <&llce_mb S32G_LLCE_CAN_RX_MB 15>,
+					 <&llce_mb S32G_LLCE_CAN_TX_MB 15>;
+				mbox-names = "config", "rx", "tx";
+				clocks = <&clks S32G_SCMI_CLK_LLCE_CAN_PE>;
+				clock-names = "can_pe";
+				pinctrl-names = "default";
+				pinctrl-0 = <&pinctrl1_llce_can15>;
+				status = "disabled";
+			};
+		};
+
 		siul2_1@44010000 {
 			compatible = "simple-mfd";
 			#address-cells = <2>;
@@ -226,448 +669,6 @@
 		status = "disabled";
 	};
 
-	llce_dte_sram: llce_dte_sram@43000000 {
-		compatible = "mmio-sram";
-		reg = <0x0 0x43000000 0x0 0x2000>;
-	};
-
-	llce_ppe_rx_sram: llce_ppe_rx_sram@43100000 {
-		compatible = "mmio-sram";
-		reg = <0x0 0x43100000 0x0 0x8000>;
-	};
-
-	llce_ppe_tx_sram: llce_ppe_tx_sram@43200000 {
-		compatible = "mmio-sram";
-		reg = <0x0 0x43200000 0x0 0x8000>;
-	};
-
-	llce_frpe_sram: llce_frpe_sram@43300000 {
-		compatible = "mmio-sram";
-		reg = <0x0 0x43300000 0x0 0x10000>;
-	};
-
-	llce_shmem: llce_shmem@43800000 {
-		compatible = "mmio-sram";
-		reg = <0x0 0x43800000 0x0 0x3c000>;
-	};
-
-	llce_boot_status: llce_boot_status@4383c000 {
-		compatible = "mmio-sram";
-		reg = <0x0 0x4383c000 0x0 0x14000>;
-	};
-
-	llce: llce@43A00000 {
-		compatible = "nxp,s32g-llce-core";
-
-		/* RX-IN_FIFO */
-		ranges = <0x0 0 0x0 0x43A00000 0x0 0x6000>,
-			/* RX-OUT_FIFO */
-			<0x1 0 0x0 0x43A08000 0x0 0x8000>,
-			/* LLCE interrupt Concentrator */
-			<0x2 0 0x0 0x43A14000 0x0 0x1000>,
-			/* BLR-IN_FIFO */
-			<0x3 0 0x0 0x43B00000 0x0 0x6000>,
-			/* BLR-OUT_FIFO */
-			<0x4 0 0x0 0x43B08000 0x0 0x6000>,
-			/* Tx_Ack_FIFO */
-			<0x5 0 0x0 0x43B10000 0x0 0x8000>,
-			/* LLCE SEMA42*/
-			<0x6 0 0x0 0x43C20000 0x0 0x44>;
-
-		clocks = <&clks S32G_SCMI_CLK_LLCE_SYS>;
-		clock-names = "llce_sys";
-		firmware-name = "dte.bin", "ppe_rx.bin",
-			"ppe_tx.bin", "frpe.bin";
-		memory-region = <&llce_dte_sram>, <&llce_ppe_rx_sram>,
-			<&llce_ppe_tx_sram>, <&llce_frpe_sram>,
-			<&llce_shmem>, <&llce_boot_status>;
-		memory-region-names = "dte.bin", "ppe_rx.bin",
-			"ppe_tx.bin", "frpe.bin", "shmem", "status";
-		/* LLCE system control registers */
-		reg = <0x0 0x43FF8000 0x0 0x4000>;
-		reg-names = "sysctrl";
-		status = "okay";
-
-		#address-cells = <2>;
-		#size-cells = <2>;
-		#interrupt-cells = <3>;
-
-		llce_mb: llce_mb@43A00000 {
-			compatible = "nxp,s32g-llce-mailbox";
-			#mbox-cells = <2>;
-
-			reg = <0x0 0x0 0x0 0x6000>,
-				<0x1 0x0 0x0 0x8000>,
-				<0x2 0x0 0x0 0x1000>,
-				<0x3 0x0 0x0 0x6000>,
-				<0x4 0x0 0x0 0x6000>,
-				<0x5 0x0 0x0 0x8000>,
-				<0x6 0x0 0x0 0x44>;
-			reg-names = "rxin_fifo",
-				"rxout_fifo",
-				"icsr",
-				"blrin_fifo",
-				"blrout_fifo",
-				"txack_fifo",
-				"sema42";
-			clocks = <&clks S32G_SCMI_CLK_LLCE_SYS>;
-			clock-names = "llce_sys";
-			memory-region = <&llce_shmem>, <&llce_boot_status>;
-			memory-region-names = "shmem", "status";
-			interrupts = <GIC_SPI 174 IRQ_TYPE_LEVEL_HIGH>,
-				<GIC_SPI 175 IRQ_TYPE_LEVEL_HIGH>,
-				<GIC_SPI 176 IRQ_TYPE_LEVEL_HIGH>,
-				<GIC_SPI 177 IRQ_TYPE_LEVEL_HIGH>,
-				<GIC_SPI 182 IRQ_TYPE_LEVEL_HIGH>,
-				<GIC_SPI 183 IRQ_TYPE_LEVEL_HIGH>,
-				<GIC_SPI 184 IRQ_TYPE_LEVEL_HIGH>;
-			interrupt-names = "rxin_fifo_0_7",
-				"rxin_fifo_8_15",
-				"rxout_fifo_0_7",
-				"rxout_fifo_8_15",
-				"txack_fifo_0_7",
-				"txack_fifo_8_15",
-				"logger_rx";
-			status = "okay";
-		};
-
-		llce_can_logger0: llce_can_logger0 {
-			compatible = "nxp,s32g-llce-can-logger";
-			mboxes = <&llce_mb S32G_LLCE_CAN_LOGGER_CONFIG_MB 0>,
-				<&llce_mb S32G_LLCE_CAN_LOGGER_MB 0>;
-			mbox-names = "config", "rx";
-			status = "okay";
-		};
-
-		llce_can_logger1: llce_can_logger1 {
-			compatible = "nxp,s32g-llce-can-logger";
-			mboxes = <&llce_mb S32G_LLCE_CAN_LOGGER_CONFIG_MB 1>,
-				<&llce_mb S32G_LLCE_CAN_LOGGER_MB 1>;
-			mbox-names = "config", "rx";
-			status = "okay";
-		};
-
-		llce_can_logger2: llce_can_logger2 {
-			compatible = "nxp,s32g-llce-can-logger";
-			mboxes = <&llce_mb S32G_LLCE_CAN_LOGGER_CONFIG_MB 2>,
-				<&llce_mb S32G_LLCE_CAN_LOGGER_MB 2>;
-			mbox-names = "config", "rx";
-			status = "okay";
-		};
-
-		llce_can_logger3: llce_can_logger3 {
-			compatible = "nxp,s32g-llce-can-logger";
-			mboxes = <&llce_mb S32G_LLCE_CAN_LOGGER_CONFIG_MB 3>,
-				<&llce_mb S32G_LLCE_CAN_LOGGER_MB 3>;
-			mbox-names = "config", "rx";
-			status = "okay";
-		};
-
-		llce_can_logger4: llce_can_logger4 {
-			compatible = "nxp,s32g-llce-can-logger";
-			mboxes = <&llce_mb S32G_LLCE_CAN_LOGGER_CONFIG_MB 4>,
-				<&llce_mb S32G_LLCE_CAN_LOGGER_MB 4>;
-			mbox-names = "config", "rx";
-			status = "okay";
-		};
-
-		llce_can_logger5: llce_can_logger5 {
-			compatible = "nxp,s32g-llce-can-logger";
-			mboxes = <&llce_mb S32G_LLCE_CAN_LOGGER_CONFIG_MB 5>,
-				<&llce_mb S32G_LLCE_CAN_LOGGER_MB 5>;
-			mbox-names = "config", "rx";
-			status = "okay";
-		};
-
-		llce_can_logger6: llce_can_logger6 {
-			compatible = "nxp,s32g-llce-can-logger";
-			mboxes = <&llce_mb S32G_LLCE_CAN_LOGGER_CONFIG_MB 6>,
-				<&llce_mb S32G_LLCE_CAN_LOGGER_MB 6>;
-			mbox-names = "config", "rx";
-			status = "okay";
-		};
-
-		llce_can_logger7: llce_can_logger7 {
-			compatible = "nxp,s32g-llce-can-logger";
-			mboxes = <&llce_mb S32G_LLCE_CAN_LOGGER_CONFIG_MB 7>,
-				<&llce_mb S32G_LLCE_CAN_LOGGER_MB 7>;
-			mbox-names = "config", "rx";
-			status = "okay";
-		};
-
-		llce_can_logger8: llce_can_logger8 {
-			compatible = "nxp,s32g-llce-can-logger";
-			mboxes = <&llce_mb S32G_LLCE_CAN_LOGGER_CONFIG_MB 8>,
-				<&llce_mb S32G_LLCE_CAN_LOGGER_MB 8>;
-			mbox-names = "config", "rx";
-			status = "okay";
-		};
-
-		llce_can_logger9: llce_can_logger9 {
-			compatible = "nxp,s32g-llce-can-logger";
-			mboxes = <&llce_mb S32G_LLCE_CAN_LOGGER_CONFIG_MB 9>,
-				<&llce_mb S32G_LLCE_CAN_LOGGER_MB 9>;
-			mbox-names = "config", "rx";
-			status = "okay";
-		};
-
-		llce_can_logger10: llce_can_logger10 {
-			compatible = "nxp,s32g-llce-can-logger";
-			mboxes = <&llce_mb S32G_LLCE_CAN_LOGGER_CONFIG_MB 10>,
-				<&llce_mb S32G_LLCE_CAN_LOGGER_MB 10>;
-			mbox-names = "config", "rx";
-			status = "okay";
-		};
-
-		llce_can_logger11: llce_can_logger11 {
-			compatible = "nxp,s32g-llce-can-logger";
-			mboxes = <&llce_mb S32G_LLCE_CAN_LOGGER_CONFIG_MB 11>,
-				<&llce_mb S32G_LLCE_CAN_LOGGER_MB 11>;
-			mbox-names = "config", "rx";
-			status = "okay";
-		};
-
-		llce_can_logger12: llce_can_logger12 {
-			compatible = "nxp,s32g-llce-can-logger";
-			mboxes = <&llce_mb S32G_LLCE_CAN_LOGGER_CONFIG_MB 12>,
-				<&llce_mb S32G_LLCE_CAN_LOGGER_MB 12>;
-			mbox-names = "config", "rx";
-			status = "okay";
-		};
-
-		llce_can_logger13: llce_can_logger13 {
-			compatible = "nxp,s32g-llce-can-logger";
-			mboxes = <&llce_mb S32G_LLCE_CAN_LOGGER_CONFIG_MB 13>,
-				<&llce_mb S32G_LLCE_CAN_LOGGER_MB 13>;
-			mbox-names = "config", "rx";
-			status = "okay";
-		};
-
-		llce_can_logger14: llce_can_logger14 {
-			compatible = "nxp,s32g-llce-can-logger";
-			mboxes = <&llce_mb S32G_LLCE_CAN_LOGGER_CONFIG_MB 14>,
-				<&llce_mb S32G_LLCE_CAN_LOGGER_MB 14>;
-			mbox-names = "config", "rx";
-			status = "okay";
-		};
-
-		llce_can_logger15: llce_can_logger15 {
-			compatible = "nxp,s32g-llce-can-logger";
-			mboxes = <&llce_mb S32G_LLCE_CAN_LOGGER_CONFIG_MB 15>,
-				<&llce_mb S32G_LLCE_CAN_LOGGER_MB 15>;
-			mbox-names = "config", "rx";
-			status = "okay";
-		};
-
-		llce_can0: llce_can0 {
-			compatible = "nxp,s32g-llce-can";
-			mboxes = <&llce_mb S32G_LLCE_CAN_CONF_MB 0>,
-				 <&llce_mb S32G_LLCE_CAN_RX_MB 0>,
-				 <&llce_mb S32G_LLCE_CAN_TX_MB 0>;
-			mbox-names = "config", "rx", "tx";
-			clocks = <&clks S32G_SCMI_CLK_LLCE_CAN_PE>;
-			clock-names = "can_pe";
-			pinctrl-names = "default";
-			pinctrl-0 = <&pinctrl0_llce_can0>,
-				<&pinctrl1_llce_can0>;
-			status = "disabled";
-		};
-
-		llce_can1: llce_can1 {
-			compatible = "nxp,s32g-llce-can";
-			mboxes = <&llce_mb S32G_LLCE_CAN_CONF_MB 1>,
-				 <&llce_mb S32G_LLCE_CAN_RX_MB 1>,
-				 <&llce_mb S32G_LLCE_CAN_TX_MB 1>;
-			mbox-names = "config", "rx", "tx";
-			clocks = <&clks S32G_SCMI_CLK_LLCE_CAN_PE>;
-			clock-names = "can_pe";
-			pinctrl-names = "default";
-			pinctrl-0 = <&pinctrl1_llce_can1>;
-			status = "disabled";
-		};
-
-		llce_can2: llce_can2 {
-			compatible = "nxp,s32g-llce-can";
-			mboxes = <&llce_mb S32G_LLCE_CAN_CONF_MB 2>,
-				 <&llce_mb S32G_LLCE_CAN_RX_MB 2>,
-				 <&llce_mb S32G_LLCE_CAN_TX_MB 2>;
-			mbox-names = "config", "rx", "tx";
-			clocks = <&clks S32G_SCMI_CLK_LLCE_CAN_PE>;
-			clock-names = "can_pe";
-			pinctrl-names = "default";
-			pinctrl-0 = <&pinctrl1_llce_can2>;
-			status = "disabled";
-		};
-
-		llce_can3: llce_can3 {
-			compatible = "nxp,s32g-llce-can";
-			mboxes = <&llce_mb S32G_LLCE_CAN_CONF_MB 3>,
-				 <&llce_mb S32G_LLCE_CAN_RX_MB 3>,
-				 <&llce_mb S32G_LLCE_CAN_TX_MB 3>;
-			mbox-names = "config", "rx", "tx";
-			clocks = <&clks S32G_SCMI_CLK_LLCE_CAN_PE>;
-			clock-names = "can_pe";
-			pinctrl-names = "default";
-			pinctrl-0 = <&pinctrl1_llce_can3>;
-			status = "disabled";
-		};
-
-		llce_can4: llce_can4 {
-			compatible = "nxp,s32g-llce-can";
-			mboxes = <&llce_mb S32G_LLCE_CAN_CONF_MB 4>,
-				 <&llce_mb S32G_LLCE_CAN_RX_MB 4>,
-				 <&llce_mb S32G_LLCE_CAN_TX_MB 4>;
-			mbox-names = "config", "rx", "tx";
-			clocks = <&clks S32G_SCMI_CLK_LLCE_CAN_PE>;
-			clock-names = "can_pe";
-			pinctrl-names = "default";
-			pinctrl-0 = <&pinctrl1_llce_can4>;
-			status = "disabled";
-		};
-
-		llce_can5: llce_can5 {
-			compatible = "nxp,s32g-llce-can";
-			mboxes = <&llce_mb S32G_LLCE_CAN_CONF_MB 5>,
-				 <&llce_mb S32G_LLCE_CAN_RX_MB 5>,
-				 <&llce_mb S32G_LLCE_CAN_TX_MB 5>;
-			mbox-names = "config", "rx", "tx";
-			clocks = <&clks S32G_SCMI_CLK_LLCE_CAN_PE>;
-			clock-names = "can_pe";
-			pinctrl-names = "default";
-			pinctrl-0 = <&pinctrl1_llce_can5>;
-			status = "disabled";
-		};
-
-		llce_can6: llce_can6 {
-			compatible = "nxp,s32g-llce-can";
-			mboxes = <&llce_mb S32G_LLCE_CAN_CONF_MB 6>,
-				 <&llce_mb S32G_LLCE_CAN_RX_MB 6>,
-				 <&llce_mb S32G_LLCE_CAN_TX_MB 6>;
-			mbox-names = "config", "rx", "tx";
-			clocks = <&clks S32G_SCMI_CLK_LLCE_CAN_PE>;
-			clock-names = "can_pe";
-			pinctrl-names = "default";
-			pinctrl-0 = <&pinctrl1_llce_can6>;
-			status = "disabled";
-		};
-
-		llce_can7: llce_can7 {
-			compatible = "nxp,s32g-llce-can";
-			mboxes = <&llce_mb S32G_LLCE_CAN_CONF_MB 7>,
-				 <&llce_mb S32G_LLCE_CAN_RX_MB 7>,
-				 <&llce_mb S32G_LLCE_CAN_TX_MB 7>;
-			mbox-names = "config", "rx", "tx";
-			clocks = <&clks S32G_SCMI_CLK_LLCE_CAN_PE>;
-			clock-names = "can_pe";
-			pinctrl-names = "default";
-			pinctrl-0 = <&pinctrl1_llce_can7>;
-			status = "disabled";
-		};
-
-		llce_can8: llce_can8 {
-			compatible = "nxp,s32g-llce-can";
-			mboxes = <&llce_mb S32G_LLCE_CAN_CONF_MB 8>,
-				 <&llce_mb S32G_LLCE_CAN_RX_MB 8>,
-				 <&llce_mb S32G_LLCE_CAN_TX_MB 8>;
-			mbox-names = "config", "rx", "tx";
-			clocks = <&clks S32G_SCMI_CLK_LLCE_CAN_PE>;
-			clock-names = "can_pe";
-			pinctrl-names = "default";
-			pinctrl-0 = <&pinctrl1_llce_can8>;
-			status = "disabled";
-		};
-
-		llce_can9: llce_can9 {
-			compatible = "nxp,s32g-llce-can";
-			mboxes = <&llce_mb S32G_LLCE_CAN_CONF_MB 9>,
-				 <&llce_mb S32G_LLCE_CAN_RX_MB 9>,
-				 <&llce_mb S32G_LLCE_CAN_TX_MB 9>;
-			mbox-names = "config", "rx", "tx";
-			clocks = <&clks S32G_SCMI_CLK_LLCE_CAN_PE>;
-			clock-names = "can_pe";
-			pinctrl-names = "default";
-			pinctrl-0 = <&pinctrl1_llce_can9>;
-			status = "disabled";
-		};
-
-		llce_can10: llce_can10 {
-			compatible = "nxp,s32g-llce-can";
-			mboxes = <&llce_mb S32G_LLCE_CAN_CONF_MB 10>,
-				 <&llce_mb S32G_LLCE_CAN_RX_MB 10>,
-				 <&llce_mb S32G_LLCE_CAN_TX_MB 10>;
-			mbox-names = "config", "rx", "tx";
-			clocks = <&clks S32G_SCMI_CLK_LLCE_CAN_PE>;
-			clock-names = "can_pe";
-			pinctrl-names = "default";
-			pinctrl-0 = <&pinctrl1_llce_can10>;
-			status = "disabled";
-		};
-
-		llce_can11: llce_can11 {
-			compatible = "nxp,s32g-llce-can";
-			mboxes = <&llce_mb S32G_LLCE_CAN_CONF_MB 11>,
-				 <&llce_mb S32G_LLCE_CAN_RX_MB 11>,
-				 <&llce_mb S32G_LLCE_CAN_TX_MB 11>;
-			mbox-names = "config", "rx", "tx";
-			clocks = <&clks S32G_SCMI_CLK_LLCE_CAN_PE>;
-			clock-names = "can_pe";
-			pinctrl-names = "default";
-			pinctrl-0 = <&pinctrl1_llce_can11>;
-			status = "disabled";
-		};
-
-		llce_can12: llce_can12 {
-			compatible = "nxp,s32g-llce-can";
-			mboxes = <&llce_mb S32G_LLCE_CAN_CONF_MB 12>,
-				 <&llce_mb S32G_LLCE_CAN_RX_MB 12>,
-				 <&llce_mb S32G_LLCE_CAN_TX_MB 12>;
-			mbox-names = "config", "rx", "tx";
-			clocks = <&clks S32G_SCMI_CLK_LLCE_CAN_PE>;
-			clock-names = "can_pe";
-			pinctrl-names = "default";
-			pinctrl-0 = <&pinctrl1_llce_can12>;
-			status = "disabled";
-		};
-
-		llce_can13: llce_can13 {
-			compatible = "nxp,s32g-llce-can";
-			mboxes = <&llce_mb S32G_LLCE_CAN_CONF_MB 13>,
-				 <&llce_mb S32G_LLCE_CAN_RX_MB 13>,
-				 <&llce_mb S32G_LLCE_CAN_TX_MB 13>;
-			mbox-names = "config", "rx", "tx";
-			clocks = <&clks S32G_SCMI_CLK_LLCE_CAN_PE>;
-			clock-names = "can_pe";
-			pinctrl-names = "default";
-			pinctrl-0 = <&pinctrl1_llce_can13>;
-			status = "disabled";
-		};
-
-		llce_can14: llce_can14 {
-			compatible = "nxp,s32g-llce-can";
-			mboxes = <&llce_mb S32G_LLCE_CAN_CONF_MB 14>,
-				 <&llce_mb S32G_LLCE_CAN_RX_MB 14>,
-				 <&llce_mb S32G_LLCE_CAN_TX_MB 14>;
-			mbox-names = "config", "rx", "tx";
-			clocks = <&clks S32G_SCMI_CLK_LLCE_CAN_PE>;
-			clock-names = "can_pe";
-			pinctrl-names = "default";
-			pinctrl-0 = <&pinctrl1_llce_can14>;
-			status = "disabled";
-		};
-
-		llce_can15: llce_can15 {
-			compatible = "nxp,s32g-llce-can";
-			mboxes = <&llce_mb S32G_LLCE_CAN_CONF_MB 15>,
-				 <&llce_mb S32G_LLCE_CAN_RX_MB 15>,
-				 <&llce_mb S32G_LLCE_CAN_TX_MB 15>;
-			mbox-names = "config", "rx", "tx";
-			clocks = <&clks S32G_SCMI_CLK_LLCE_CAN_PE>;
-			clock-names = "can_pe";
-			pinctrl-names = "default";
-			pinctrl-0 = <&pinctrl1_llce_can15>;
-			status = "disabled";
-		};
-	};
 };
 
 &pinctrl0 {
