@@ -16,22 +16,24 @@
 / {
 	compatible = "nxp,s32g3";
 
-	gic: interrupt-controller@50800000 {
-		compatible = "arm,gic-v3";
-		#interrupt-cells = <3>;
-		#address-cells = <2>;
-		#size-cells = <2>;
-		interrupt-controller;
-		reg = <0 0x50800000 0 0x10000>,
-		      <0 0x50900000 0 0x200000>,
-		      <0 0x50400000 0 0x2000>,
-		      <0 0x50410000 0 0x2000>,
-		      <0 0x50420000 0 0x2000>;
-		interrupts = <GIC_PPI 9 IRQ_TYPE_LEVEL_HIGH>;
+	soc {
+		gic: interrupt-controller@50800000 {
+			compatible = "arm,gic-v3";
+			#interrupt-cells = <3>;
+			#address-cells = <2>;
+			#size-cells = <2>;
+			interrupt-controller;
+			reg = <0 0x50800000 0 0x10000>,
+			      <0 0x50900000 0 0x200000>,
+			      <0 0x50400000 0 0x2000>,
+			      <0 0x50410000 0 0x2000>,
+			      <0 0x50420000 0 0x2000>;
+			interrupts = <GIC_PPI 9 IRQ_TYPE_LEVEL_HIGH>;
 
-		msi-controller;
-		/* GIC interrupts between 167 and 182 can be used as MBIs. */
-		mbi-ranges = <167 16>;
+			msi-controller;
+			/* GIC interrupts between 167 and 182 can be used as MBIs. */
+			mbi-ranges = <167 16>;
+		};
 	};
 
 	swt8: swt@40500000 {
