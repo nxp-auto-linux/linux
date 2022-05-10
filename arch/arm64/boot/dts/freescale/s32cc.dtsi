@@ -807,6 +807,18 @@
 			vref = <1800>;
 			status = "okay";
 		};
+
+		usdhc0: usdhc@402f0000 {
+			compatible = "nxp,s32cc-usdhc";
+			reg = <0x0 0x402f0000 0x0 0x1000>;
+			interrupts = <GIC_SPI 36 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&clks S32GEN1_SCMI_CLK_USDHC_MODULE>,
+				 <&clks S32GEN1_SCMI_CLK_USDHC_AHB>,
+				 <&clks S32GEN1_SCMI_CLK_USDHC_CORE>;
+			clock-names = "ipg", "ahb", "per";
+			bus-width = <8>;
+			status = "disabled";
+		};
 	};
 
 	fccu: fccu@4030c000 {
@@ -839,18 +851,6 @@
 		 * to GPIO
 		 */
 		midr-reg = <0x0 0x44010000 0x0 0x10>;
-		status = "disabled";
-	};
-
-	usdhc0: usdhc@402F0000{
-		compatible = "nxp,s32cc-usdhc";
-		reg = <0x0 0x402F0000 0x0 0x1000>;
-		interrupts = <GIC_SPI 36 IRQ_TYPE_LEVEL_HIGH>;
-		clocks = <&clks S32GEN1_SCMI_CLK_USDHC_MODULE>,
-			 <&clks S32GEN1_SCMI_CLK_USDHC_AHB>,
-			 <&clks S32GEN1_SCMI_CLK_USDHC_CORE>;
-		clock-names = "ipg", "ahb", "per";
-		bus-width = <8>;
 		status = "disabled";
 	};
 
