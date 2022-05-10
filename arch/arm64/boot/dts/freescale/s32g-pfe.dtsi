@@ -10,156 +10,158 @@
 #include <dt-bindings/nvmem/s32-siul2-nvmem.h>
 
 / {
-	pfe: pfe@46000000 {
-		compatible = "nxp,s32g-pfe", "fsl,s32g274a-pfeng";
-		reg = <0x0 0x46000000 0x0 0x1000000>,
-		      <0x0 0x4007ca00 0x0 0x100>;
-		reg-names = "pfe-cbus", "s32g-main-gpr";
-		#address-cells = <1>;
-		#size-cells = <0>;
-		interrupt-parent = <&gic>;
-		interrupts = <GIC_SPI 190 IRQ_TYPE_EDGE_RISING>,
-			     <GIC_SPI 191 IRQ_TYPE_EDGE_RISING>,
-			     <GIC_SPI 192 IRQ_TYPE_EDGE_RISING>,
-			     <GIC_SPI 193 IRQ_TYPE_EDGE_RISING>,
-			     <GIC_SPI 194 IRQ_TYPE_EDGE_RISING>,
-			     <GIC_SPI 196 IRQ_TYPE_EDGE_RISING>,
-			     <GIC_SPI 197 IRQ_TYPE_EDGE_RISING>;
-		interrupt-names = "hif0", "hif1", "hif2", "hif3",
-				  "bmu", "upegpt", "safety";
-		resets = <&reset S32GEN1_SCMI_RST_PART2>;
-		reset-names = "pfe_part";
-		clocks = <&clks S32G_SCMI_CLK_PFE_AXI>,
-			 <&clks S32G_SCMI_CLK_PFE_PE>,
-			 <&clks S32G_SCMI_CLK_PFE_TS>;
-		clock-names = "pfe_sys", "pfe_pe", "pfe_ts";
-		phys = <&serdes1 PHY_TYPE_XPCS 0 0>,
-			 <&serdes1 PHY_TYPE_XPCS 1 1>,
-			 <&serdes0 PHY_TYPE_XPCS 1 1>;
-		phy-names = "emac0_xpcs", "emac1_xpcs", "emac2_xpcs";
-		dma-coherent;
-		memory-region = <&pfe_reserved_bmu2>, <&pfe_reserved_rt>,
-				<&pfe_reserved>, <&pfe_reserved_bdr>;
-		memory-region-names = "pfe-bmu2-pool", "pfe-rt-pool",
-				      "pfe-shared-pool", "pfe-bdr-pool";
-		nxp,fw-class-name = "s32g_pfe_class.fw";
-		nxp,fw-util-name = "s32g_pfe_util.fw";
-		nvmem-cells = <&soc_revision>;
-		nvmem-cell-names = "soc_revision";
-		nxp,pfeng-hif-channels = <PFE_HIF_CHANNEL_0>,
-					 <PFE_HIF_CHANNEL_1>,
-					 <PFE_HIF_CHANNEL_2>;
-		nxp,pfeng-ihc-channel = <PFE_HIF_CHANNEL_0>;
-		status = "disabled";
-
-		/* MDIO on EMAC 0 */
-		pfe_mdio0: mdio@0 {
-			compatible = "nxp,s32g-pfe-mdio";
+	soc {
+		pfe: pfe@46000000 {
+			compatible = "nxp,s32g-pfe", "fsl,s32g274a-pfeng";
+			reg = <0x0 0x46000000 0x0 0x1000000>,
+			      <0x0 0x4007ca00 0x0 0x100>;
+			reg-names = "pfe-cbus", "s32g-main-gpr";
 			#address-cells = <1>;
 			#size-cells = <0>;
-			reg = <0>;
-		};
-
-		/* MDIO on EMAC 1 */
-		pfe_mdio1: mdio@1 {
-			compatible = "nxp,s32g-pfe-mdio";
-			#address-cells = <1>;
-			#size-cells = <0>;
-			reg = <1>;
-		};
-
-		/* MDIO on EMAC 2 */
-		pfe_mdio2: mdio@2 {
-			compatible = "nxp,s32g-pfe-mdio";
-			#address-cells = <1>;
-			#size-cells = <0>;
-			reg = <2>;
-		};
-
-		/* Network interface 'pfe0' */
-		pfe_netif0: ethernet@10 {
-			compatible = "nxp,s32g-pfe-netif", "fsl,pfeng-logif";
-			status = "okay";
-			reg = <10>;
-			local-mac-address = [ 00 04 9F BE EF 00 ];
-			nxp,pfeng-if-name = "pfe0";
-			fsl,pfeng-if-name = "pfe0";
-			nxp,pfeng-hif-channels = <PFE_HIF_CHANNEL_0>;
-			nxp,pfeng-emac-id = <PFE_EMAC_0>;
-			clocks = <&clks S32G_SCMI_CLK_PFE0_TX_SGMII>,
-				 <&clks S32G_SCMI_CLK_PFE0_TX_RGMII>,
-				 <&clks S32G_SCMI_CLK_PFE0_TX_RMII>,
-				 <&clks S32G_SCMI_CLK_PFE0_TX_MII>,
-				 <&clks S32G_SCMI_CLK_PFE0_RX_SGMII>,
-				 <&clks S32G_SCMI_CLK_PFE0_RX_RGMII>,
-				 <&clks S32G_SCMI_CLK_PFE0_RX_RMII>,
-				 <&clks S32G_SCMI_CLK_PFE0_RX_MII>;
-			clock-names = "tx_sgmii", "tx_rgmii",
-				      "tx_rmii", "tx_mii",
-				      "rx_sgmii", "rx_rgmii",
-				      "rx_rmii", "rx_mii";
-		};
-
-		/* Network interface 'pfe1' */
-		pfe_netif1: ethernet@11 {
-			compatible = "nxp,s32g-pfe-netif", "fsl,pfeng-logif";
-			status = "okay";
-			reg = <11>;
-			local-mac-address = [ 00 04 9F BE EF 01 ];
-			nxp,pfeng-if-name = "pfe1";
-			fsl,pfeng-if-name = "pfe1";
-			nxp,pfeng-hif-channels = <PFE_HIF_CHANNEL_1>;
-			nxp,pfeng-emac-id = <PFE_EMAC_1>;
-			clocks = <&clks S32G_SCMI_CLK_PFE1_TX_SGMII>,
-				 <&clks S32G_SCMI_CLK_PFE1_TX_RGMII>,
-				 <&clks S32G_SCMI_CLK_PFE1_TX_RMII>,
-				 <&clks S32G_SCMI_CLK_PFE1_TX_MII>,
-				 <&clks S32G_SCMI_CLK_PFE1_RX_SGMII>,
-				 <&clks S32G_SCMI_CLK_PFE1_RX_RGMII>,
-				 <&clks S32G_SCMI_CLK_PFE1_RX_RMII>,
-				 <&clks S32G_SCMI_CLK_PFE1_RX_MII>;
-			clock-names = "tx_sgmii", "tx_rgmii",
-				      "tx_rmii", "tx_mii",
-				      "rx_sgmii", "rx_rgmii",
-				      "rx_rmii", "rx_mii";
-		};
-
-		/* Network interface 'pfe2' */
-		pfe_netif2: ethernet@12 {
-			compatible = "nxp,s32g-pfe-netif", "fsl,pfeng-logif";
-			status = "okay";
-			reg = <12>;
-			local-mac-address = [ 00 04 9F BE EF 02 ];
-			nxp,pfeng-if-name = "pfe2";
-			fsl,pfeng-if-name = "pfe2";
-			nxp,pfeng-hif-channels = <PFE_HIF_CHANNEL_2>;
-			nxp,pfeng-emac-id = <PFE_EMAC_2>;
-			clocks = <&clks S32G_SCMI_CLK_PFE2_TX_SGMII>,
-				 <&clks S32G_SCMI_CLK_PFE2_TX_RGMII>,
-				 <&clks S32G_SCMI_CLK_PFE2_TX_RMII>,
-				 <&clks S32G_SCMI_CLK_PFE2_TX_MII>,
-				 <&clks S32G_SCMI_CLK_PFE2_RX_SGMII>,
-				 <&clks S32G_SCMI_CLK_PFE2_RX_RGMII>,
-				 <&clks S32G_SCMI_CLK_PFE2_RX_RMII>,
-				 <&clks S32G_SCMI_CLK_PFE2_RX_MII>;
-			clock-names = "tx_sgmii", "tx_rgmii",
-				      "tx_rmii", "tx_mii",
-				      "rx_sgmii", "rx_rgmii",
-				      "rx_rmii", "rx_mii";
-		};
-
-		/* Network interface 'aux0' */
-		pfe_aux0: ethernet@13 {
-			compatible = "nxp,s32g-pfe-netif", "fsl,pfeng-logif";
-			status = "disabled";
-			reg = <13>;
-			local-mac-address = [ 00 04 9F BE EF 80 ];
-			nxp,pfeng-if-name = "aux0";
-			fsl,pfeng-if-name = "aux0";
+			interrupt-parent = <&gic>;
+			interrupts = <GIC_SPI 190 IRQ_TYPE_EDGE_RISING>,
+				     <GIC_SPI 191 IRQ_TYPE_EDGE_RISING>,
+				     <GIC_SPI 192 IRQ_TYPE_EDGE_RISING>,
+				     <GIC_SPI 193 IRQ_TYPE_EDGE_RISING>,
+				     <GIC_SPI 194 IRQ_TYPE_EDGE_RISING>,
+				     <GIC_SPI 196 IRQ_TYPE_EDGE_RISING>,
+				     <GIC_SPI 197 IRQ_TYPE_EDGE_RISING>;
+			interrupt-names = "hif0", "hif1", "hif2", "hif3",
+					  "bmu", "upegpt", "safety";
+			resets = <&reset S32GEN1_SCMI_RST_PART2>;
+			reset-names = "pfe_part";
+			clocks = <&clks S32G_SCMI_CLK_PFE_AXI>,
+				 <&clks S32G_SCMI_CLK_PFE_PE>,
+				 <&clks S32G_SCMI_CLK_PFE_TS>;
+			clock-names = "pfe_sys", "pfe_pe", "pfe_ts";
+			phys = <&serdes1 PHY_TYPE_XPCS 0 0>,
+				 <&serdes1 PHY_TYPE_XPCS 1 1>,
+				 <&serdes0 PHY_TYPE_XPCS 1 1>;
+			phy-names = "emac0_xpcs", "emac1_xpcs", "emac2_xpcs";
+			dma-coherent;
+			memory-region = <&pfe_reserved_bmu2>, <&pfe_reserved_rt>,
+					<&pfe_reserved>, <&pfe_reserved_bdr>;
+			memory-region-names = "pfe-bmu2-pool", "pfe-rt-pool",
+					      "pfe-shared-pool", "pfe-bdr-pool";
+			nxp,fw-class-name = "s32g_pfe_class.fw";
+			nxp,fw-util-name = "s32g_pfe_util.fw";
+			nvmem-cells = <&soc_revision>;
+			nvmem-cell-names = "soc_revision";
 			nxp,pfeng-hif-channels = <PFE_HIF_CHANNEL_0>,
 						 <PFE_HIF_CHANNEL_1>,
 						 <PFE_HIF_CHANNEL_2>;
-			nxp,pfeng-netif-mode-aux;
+			nxp,pfeng-ihc-channel = <PFE_HIF_CHANNEL_0>;
+			status = "disabled";
+
+			/* MDIO on EMAC 0 */
+			pfe_mdio0: mdio@0 {
+				compatible = "nxp,s32g-pfe-mdio";
+				#address-cells = <1>;
+				#size-cells = <0>;
+				reg = <0>;
+			};
+
+			/* MDIO on EMAC 1 */
+			pfe_mdio1: mdio@1 {
+				compatible = "nxp,s32g-pfe-mdio";
+				#address-cells = <1>;
+				#size-cells = <0>;
+				reg = <1>;
+			};
+
+			/* MDIO on EMAC 2 */
+			pfe_mdio2: mdio@2 {
+				compatible = "nxp,s32g-pfe-mdio";
+				#address-cells = <1>;
+				#size-cells = <0>;
+				reg = <2>;
+			};
+
+			/* Network interface 'pfe0' */
+			pfe_netif0: ethernet@10 {
+				compatible = "nxp,s32g-pfe-netif", "fsl,pfeng-logif";
+				status = "okay";
+				reg = <10>;
+				local-mac-address = [ 00 04 9F BE EF 00 ];
+				nxp,pfeng-if-name = "pfe0";
+				fsl,pfeng-if-name = "pfe0";
+				nxp,pfeng-hif-channels = <PFE_HIF_CHANNEL_0>;
+				nxp,pfeng-emac-id = <PFE_EMAC_0>;
+				clocks = <&clks S32G_SCMI_CLK_PFE0_TX_SGMII>,
+					 <&clks S32G_SCMI_CLK_PFE0_TX_RGMII>,
+					 <&clks S32G_SCMI_CLK_PFE0_TX_RMII>,
+					 <&clks S32G_SCMI_CLK_PFE0_TX_MII>,
+					 <&clks S32G_SCMI_CLK_PFE0_RX_SGMII>,
+					 <&clks S32G_SCMI_CLK_PFE0_RX_RGMII>,
+					 <&clks S32G_SCMI_CLK_PFE0_RX_RMII>,
+					 <&clks S32G_SCMI_CLK_PFE0_RX_MII>;
+				clock-names = "tx_sgmii", "tx_rgmii",
+					      "tx_rmii", "tx_mii",
+					      "rx_sgmii", "rx_rgmii",
+					      "rx_rmii", "rx_mii";
+			};
+
+			/* Network interface 'pfe1' */
+			pfe_netif1: ethernet@11 {
+				compatible = "nxp,s32g-pfe-netif", "fsl,pfeng-logif";
+				status = "okay";
+				reg = <11>;
+				local-mac-address = [ 00 04 9F BE EF 01 ];
+				nxp,pfeng-if-name = "pfe1";
+				fsl,pfeng-if-name = "pfe1";
+				nxp,pfeng-hif-channels = <PFE_HIF_CHANNEL_1>;
+				nxp,pfeng-emac-id = <PFE_EMAC_1>;
+				clocks = <&clks S32G_SCMI_CLK_PFE1_TX_SGMII>,
+					 <&clks S32G_SCMI_CLK_PFE1_TX_RGMII>,
+					 <&clks S32G_SCMI_CLK_PFE1_TX_RMII>,
+					 <&clks S32G_SCMI_CLK_PFE1_TX_MII>,
+					 <&clks S32G_SCMI_CLK_PFE1_RX_SGMII>,
+					 <&clks S32G_SCMI_CLK_PFE1_RX_RGMII>,
+					 <&clks S32G_SCMI_CLK_PFE1_RX_RMII>,
+					 <&clks S32G_SCMI_CLK_PFE1_RX_MII>;
+				clock-names = "tx_sgmii", "tx_rgmii",
+					      "tx_rmii", "tx_mii",
+					      "rx_sgmii", "rx_rgmii",
+					      "rx_rmii", "rx_mii";
+			};
+
+			/* Network interface 'pfe2' */
+			pfe_netif2: ethernet@12 {
+				compatible = "nxp,s32g-pfe-netif", "fsl,pfeng-logif";
+				status = "okay";
+				reg = <12>;
+				local-mac-address = [ 00 04 9F BE EF 02 ];
+				nxp,pfeng-if-name = "pfe2";
+				fsl,pfeng-if-name = "pfe2";
+				nxp,pfeng-hif-channels = <PFE_HIF_CHANNEL_2>;
+				nxp,pfeng-emac-id = <PFE_EMAC_2>;
+				clocks = <&clks S32G_SCMI_CLK_PFE2_TX_SGMII>,
+					 <&clks S32G_SCMI_CLK_PFE2_TX_RGMII>,
+					 <&clks S32G_SCMI_CLK_PFE2_TX_RMII>,
+					 <&clks S32G_SCMI_CLK_PFE2_TX_MII>,
+					 <&clks S32G_SCMI_CLK_PFE2_RX_SGMII>,
+					 <&clks S32G_SCMI_CLK_PFE2_RX_RGMII>,
+					 <&clks S32G_SCMI_CLK_PFE2_RX_RMII>,
+					 <&clks S32G_SCMI_CLK_PFE2_RX_MII>;
+				clock-names = "tx_sgmii", "tx_rgmii",
+					      "tx_rmii", "tx_mii",
+					      "rx_sgmii", "rx_rgmii",
+					      "rx_rmii", "rx_mii";
+			};
+
+			/* Network interface 'aux0' */
+			pfe_aux0: ethernet@13 {
+				compatible = "nxp,s32g-pfe-netif", "fsl,pfeng-logif";
+				status = "disabled";
+				reg = <13>;
+				local-mac-address = [ 00 04 9F BE EF 80 ];
+				nxp,pfeng-if-name = "aux0";
+				fsl,pfeng-if-name = "aux0";
+				nxp,pfeng-hif-channels = <PFE_HIF_CHANNEL_0>,
+							 <PFE_HIF_CHANNEL_1>,
+							 <PFE_HIF_CHANNEL_2>;
+				nxp,pfeng-netif-mode-aux;
+			};
 		};
 	};
 };
