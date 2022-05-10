@@ -406,7 +406,7 @@
 
 		spi0: spi@401d4000 {
 			compatible = "nxp,s32cc-dspi";
-			reg = <0x0 0x401d4000 0x0 0x3000>;
+			reg = <0x0 0x401d4000 0x0 0x1000>;
 			interrupts = <GIC_SPI 85 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&clks S32GEN1_SCMI_CLK_SPI_MODULE>;
 			clock-names = "dspi";
@@ -422,7 +422,7 @@
 
 		spi1: spi@401d8000 {
 			compatible = "nxp,s32cc-dspi";
-			reg = <0x0 0x401d8000 0x0 0x3000>;
+			reg = <0x0 0x401d8000 0x0 0x1000>;
 			interrupts = <GIC_SPI 86 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&clks S32GEN1_SCMI_CLK_SPI_MODULE>;
 			clock-names = "dspi";
@@ -438,7 +438,7 @@
 
 		spi2: spi@401dc000 {
 			compatible = "nxp,s32cc-dspi";
-			reg = <0x0 0x401dc000 0x0 0x3000>;
+			reg = <0x0 0x401dc000 0x0 0x1000>;
 			interrupts = <GIC_SPI 87 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&clks S32GEN1_SCMI_CLK_SPI_MODULE>;
 			clock-names = "dspi";
@@ -449,6 +449,48 @@
 			spi-cpha;
 			dmas = <&edma0 0 13>, <&edma0 0 14>;
 			dma-names = "tx", "rx";
+			status = "disabled";
+		};
+
+		i2c0: i2c@401e4000 {
+			compatible = "nxp,s32cc-i2c";
+			reg = <0x0 0x401e4000 0x0 0x1000>;
+			interrupts = <GIC_SPI 92 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&clks S32GEN1_SCMI_CLK_I2C_REG>;
+			clock-names = "ipg";
+			dmas = <&edma0 0 16>,
+			       <&edma0 0 17>;
+			dma-names = "rx","tx";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+		};
+
+		i2c1: i2c@401e8000 {
+			compatible = "nxp,s32cc-i2c";
+			reg = <0x0 0x401e8000 0x0 0x1000>;
+			interrupts = <GIC_SPI 93 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&clks S32GEN1_SCMI_CLK_I2C_REG>;
+			clock-names = "ipg";
+			dmas = <&edma0 0 18>,
+			       <&edma0 0 19>;
+			dma-names = "rx","tx";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+		};
+
+		i2c2: i2c@401ec000 {
+			compatible = "nxp,s32cc-i2c";
+			reg = <0x0 0x401ec000 0x0 0x1000>;
+			interrupts = <GIC_SPI 94 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&clks S32GEN1_SCMI_CLK_I2C_REG>;
+			clock-names = "ipg";
+			dmas = <&edma1 1 16>,
+			       <&edma1 1 17>;
+			dma-names = "rx","tx";
+			#address-cells = <1>;
+			#size-cells = <0>;
 			status = "disabled";
 		};
 
@@ -624,6 +666,34 @@
 			dma-names = "tx", "rx";
 			status = "disabled";
 		};
+
+		i2c3: i2c@402d8000 {
+			compatible = "nxp,s32cc-i2c";
+			reg = <0x0 0x402d8000 0x0 0x1000>;
+			interrupts = <GIC_SPI 95 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&clks S32GEN1_SCMI_CLK_I2C_REG>;
+			clock-names = "ipg";
+			dmas = <&edma1 1 18>,
+			       <&edma1 1 19>;
+			dma-names = "rx","tx";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+		};
+
+		i2c4: i2c@402dc000 {
+			compatible = "nxp,s32cc-i2c";
+			reg = <0x0 0x402dc000 0x0 0x1000>;
+			interrupts = <GIC_SPI 96 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&clks S32GEN1_SCMI_CLK_I2C_REG>;
+			clock-names = "ipg";
+			dmas = <&edma1 1 20>,
+			       <&edma1 1 21>;
+			dma-names = "rx","tx";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+		};
 	};
 
 	fccu: fccu@4030c000 {
@@ -677,48 +747,6 @@
 		clock-names = "adc";
 		vref = <1800>;
 		status = "okay";
-	};
-
-	i2c0: i2c@401E4000 {
-		#address-cells = <1>;
-		#size-cells = <0>;
-		compatible = "nxp,s32cc-i2c";
-		reg = <0x0 0x401E4000 0x0 0x1000>;
-		interrupts = <GIC_SPI 92 IRQ_TYPE_LEVEL_HIGH>;
-		clocks = <&clks S32GEN1_SCMI_CLK_I2C_MODULE>;
-		clock-names = "ipg";
-		dmas = <&edma0 0 16>,
-		       <&edma0 0 17>;
-		dma-names = "rx","tx";
-		status = "disabled";
-	};
-
-	i2c1: i2c@401E8000 {
-		#address-cells = <1>;
-		#size-cells = <0>;
-		compatible = "nxp,s32cc-i2c";
-		reg = <0x0 0x401E8000 0x0 0x1000>;
-		interrupts = <GIC_SPI 93 IRQ_TYPE_LEVEL_HIGH>;
-		clocks = <&clks S32GEN1_SCMI_CLK_I2C_MODULE>;
-		clock-names = "ipg";
-		dmas = <&edma0 0 18>,
-		       <&edma0 0 19>;
-		dma-names = "rx","tx";
-		status = "disabled";
-	};
-
-	i2c2: i2c@401EC000 {
-		#address-cells = <1>;
-		#size-cells = <0>;
-		compatible = "nxp,s32cc-i2c";
-		reg = <0x0 0x401EC000 0x0 0x1000>;
-		interrupts = <GIC_SPI 94 IRQ_TYPE_LEVEL_HIGH>;
-		clocks = <&clks S32GEN1_SCMI_CLK_I2C_MODULE>;
-		clock-names = "ipg";
-		dmas = <&edma1 1 16>,
-		       <&edma1 1 17>;
-		dma-names = "rx","tx";
-		status = "disabled";
 	};
 
 	hse: crypto {
@@ -781,34 +809,6 @@
 			                  "hse-mu3b-rx",
 			                  "hse-mu3b-err";
 		};
-	};
-
-	i2c3: i2c@402D8000 {
-		#address-cells = <1>;
-		#size-cells = <0>;
-		compatible = "nxp,s32cc-i2c";
-		reg = <0x0 0x402D8000 0x0 0x1000>;
-		interrupts = <GIC_SPI 95 IRQ_TYPE_LEVEL_HIGH>;
-		clocks = <&clks S32GEN1_SCMI_CLK_I2C_MODULE>;
-		clock-names = "ipg";
-		dmas = <&edma1 1 18>,
-		       <&edma1 1 19>;
-		dma-names = "rx","tx";
-		status = "disabled";
-	};
-
-	i2c4: i2c@402DC000 {
-		#address-cells = <1>;
-		#size-cells = <0>;
-		compatible = "nxp,s32cc-i2c";
-		reg = <0x0 0x402DC000 0x0 0x1000>;
-		interrupts = <GIC_SPI 96 IRQ_TYPE_LEVEL_HIGH>;
-		clocks = <&clks S32GEN1_SCMI_CLK_I2C_MODULE>;
-		clock-names = "ipg";
-		dmas = <&edma1 1 20>,
-		       <&edma1 1 21>;
-		dma-names = "rx","tx";
-		status = "disabled";
 	};
 
 	usdhc0: usdhc@402F0000{
