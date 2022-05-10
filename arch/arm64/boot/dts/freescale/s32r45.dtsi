@@ -20,12 +20,6 @@
 		can4 = &can4;
 	};
 
-	virtio_block@39501000 {
-		compatible = "virtio,mmio";
-		reg = <0x0 0x39501000 0x0 0x1000>;
-		interrupts = <GIC_SPI 68 IRQ_TYPE_LEVEL_HIGH>;
-	};
-
 	can4: flexcan@44000000 {
 		compatible = "fsl,s32gen1-flexcan";
 		reg = <0x0 0x44000000 0x0 0x4000>;
