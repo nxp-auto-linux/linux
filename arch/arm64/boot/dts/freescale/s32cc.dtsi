@@ -1042,19 +1042,6 @@
 		};
 	};
 
-	siul2_1 {
-		compatible = "simple-mfd";
-		#address-cells = <2>;
-		#size-cells = <2>;
-		/* MIDR registers
-		 * They physically exist in EIRQ
-		 * addr space but they don't belong
-		 * to GPIO
-		 */
-		midr-reg = <0x0 0x44010000 0x0 0x10>;
-		status = "disabled";
-	};
-
 	gic: interrupt-controller@50800000 {
 		compatible = "arm,gic-v3";
 		#interrupt-cells = <3>;
