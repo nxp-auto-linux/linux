@@ -956,6 +956,25 @@
 			status = "disabled";
 		};
 
+		serdes0: serdes@40480000 {
+			#phy-cells = <3>;
+			compatible = "nxp,s32cc-serdes";
+			clocks = <&clks S32GEN1_SCMI_CLK_SERDES_AXI>,
+				 <&clks S32GEN1_SCMI_CLK_SERDES_AUX>,
+				 <&clks S32GEN1_SCMI_CLK_SERDES_APB>,
+				 <&clks S32GEN1_SCMI_CLK_SERDES_REF>;
+			clock-names = "axi", "aux", "apb", "ref";
+			resets = <&reset S32GEN1_SCMI_RST_SERDES0>,
+				 <&reset S32GEN1_SCMI_RST_PCIE0>;
+			reset-names = "serdes", "pcie";
+			fsl,sys-mode = <XPCSX2_MODE>;
+			reg = <0x0 0x40480000 0x0 0x108>,
+			      <0x0 0x40483008 0x0 0x10>,
+			      <0x0 0x40482000 0x0 0x800>,
+			      <0x0 0x40482800 0x0 0x800>;
+			reg-names = "ss_pcie", "pcie_phy", "xpcs0", "xpcs1";
+		};
+
 		pcie1: pcie@44100000 {
 			compatible = "nxp,s32cc-pcie";
 			dma-coherent;
@@ -1001,6 +1020,26 @@
 
 			status = "disabled";
 		};
+
+		serdes1: serdes@44180000 {
+			#phy-cells = <3>;
+			compatible = "nxp,s32cc-serdes";
+			clocks = <&clks S32GEN1_SCMI_CLK_SERDES_AXI>,
+				 <&clks S32GEN1_SCMI_CLK_SERDES_AUX>,
+				 <&clks S32GEN1_SCMI_CLK_SERDES_APB>,
+				 <&clks S32GEN1_SCMI_CLK_SERDES_REF>;
+			clock-names = "axi", "aux", "apb", "ref";
+			resets = <&reset S32GEN1_SCMI_RST_SERDES1>,
+				 <&reset S32GEN1_SCMI_RST_PCIE1>;
+			reset-names = "serdes", "pcie";
+			fsl,sys-mode = <PCIE_XPCS0_MODE>;
+			reg = <0x0 0x44180000 0x0 0x108>,
+			      <0x0 0x44183008 0x0 0x10>,
+			      <0x0 0x44182000 0x0 0x800>,
+			      <0x0 0x44182800 0x0 0x800>;
+			reg-names = "ss_pcie", "pcie_phy", "xpcs0", "xpcs1";
+			status = "okay";
+		};
 	};
 
 	siul2_1 {
@@ -1032,45 +1071,6 @@
 		msi-controller;
 		/* GIC interrupts between 167 and 182 can be used as MBIs. */
 		mbi-ranges = <167 16>;
-	};
-
-	serdes0: serdes@40480000 {
-		#phy-cells = <3>;
-		compatible = "nxp,s32cc-serdes";
-		clocks = <&clks S32GEN1_SCMI_CLK_SERDES_AXI>,
-			 <&clks S32GEN1_SCMI_CLK_SERDES_AUX>,
-			 <&clks S32GEN1_SCMI_CLK_SERDES_APB>,
-			 <&clks S32GEN1_SCMI_CLK_SERDES_REF>;
-		clock-names = "axi", "aux", "apb", "ref";
-		resets = <&reset S32GEN1_SCMI_RST_SERDES0>,
-			 <&reset S32GEN1_SCMI_RST_PCIE0>;
-		reset-names = "serdes", "pcie";
-		fsl,sys-mode = <XPCSX2_MODE>;
-		reg = <0x0 0x40480000 0x0 0x108>,
-		      <0x0 0x40483008 0x0 0x10>,
-		      <0x0 0x40482000 0x0 0x800>,
-		      <0x0 0x40482800 0x0 0x800>;
-		reg-names = "ss_pcie", "pcie_phy", "xpcs0", "xpcs1";
-	};
-
-	serdes1: serdes@44180000 {
-		#phy-cells = <3>;
-		compatible = "nxp,s32cc-serdes";
-		clocks = <&clks S32GEN1_SCMI_CLK_SERDES_AXI>,
-			 <&clks S32GEN1_SCMI_CLK_SERDES_AUX>,
-			 <&clks S32GEN1_SCMI_CLK_SERDES_APB>,
-			 <&clks S32GEN1_SCMI_CLK_SERDES_REF>;
-		clock-names = "axi", "aux", "apb", "ref";
-		resets = <&reset S32GEN1_SCMI_RST_SERDES1>,
-			 <&reset S32GEN1_SCMI_RST_PCIE1>;
-		reset-names = "serdes", "pcie";
-		fsl,sys-mode = <PCIE_XPCS0_MODE>;
-		reg = <0x0 0x44180000 0x0 0x108>,
-		      <0x0 0x44183008 0x0 0x10>,
-		      <0x0 0x44182000 0x0 0x800>,
-		      <0x0 0x44182800 0x0 0x800>;
-		reg-names = "ss_pcie", "pcie_phy", "xpcs0", "xpcs1";
-		status = "okay";
 	};
 
 };
