@@ -168,14 +168,10 @@ static struct attribute_group ddr_perf_events_attr_group = {
 
 PMU_FORMAT_ATTR(event, "config:0-7");
 PMU_FORMAT_ATTR(counter_cp, "config:8-15");
-PMU_FORMAT_ATTR(axi_id, "config1:0-15");
-PMU_FORMAT_ATTR(axi_mask, "config1:16-31");
 
 static struct attribute *ddr_perf_format_attrs[] = {
 	&format_attr_event.attr,
 	&format_attr_counter_cp.attr,
-	&format_attr_axi_id.attr,
-	&format_attr_axi_mask.attr,
 	NULL,
 };
 
