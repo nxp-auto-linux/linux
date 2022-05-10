@@ -184,7 +184,9 @@
 		compatible = "simple-bus";
 		#address-cells = <2>;
 		#size-cells = <2>;
-		ranges = <0x0 0x0 0x0 0x0 0x0 0x80000000>;
+		ranges = <0x0 0x0 0x0 0x0 0x0 0x20000000>,
+			 <0x0 0x22C00000 0x0 0x22C00000 0x0 0x4000>,
+			 <0x0 0x40000000 0x0 0x40000000 0x0 0x14000000>;
 
 		rtc0: rtc@40060000 {
 			compatible = "fsl,s32gen1-rtc";
@@ -541,6 +543,71 @@
 			status = "disabled";
 		};
 
+		hse: crypto {
+			compatible = "simple-bus";
+			#address-cells = <2>;
+			#size-cells = <2>;
+			#interrupt-cells = <3>;
+			memory-region = <&hse_reserved>;
+			ranges;
+
+			mu0b@40210000 {
+				compatible = "nxp,s32cc-hse";
+				reg = <0x0 0x40210000 0x0 0x1000>,
+				      <0x0 0x22c00000 0x0 0x1000>;
+				reg-names = "hse-mu0b-regs",
+					    "hse-mu0b-desc";
+				interrupts = <GIC_SPI 103 IRQ_TYPE_EDGE_RISING>, /* GIC 135 */
+					     <GIC_SPI 104 IRQ_TYPE_EDGE_RISING>, /* GIC 136 */
+					     <GIC_SPI 105 IRQ_TYPE_EDGE_RISING>; /* GIC 137 */
+				interrupt-names = "hse-mu0b-ack",
+						  "hse-mu0b-rx",
+						  "hse-mu0b-err";
+			};
+
+			mu1b@40211000 {
+				compatible = "nxp,s32cc-hse";
+				reg = <0x0 0x40211000 0x0 0x1000>,
+				      <0x0 0x22c01000 0x0 0x1000>;
+				reg-names = "hse-mu1b-regs",
+					    "hse-mu1b-desc";
+				interrupts = <GIC_SPI 106 IRQ_TYPE_EDGE_RISING>, /* GIC 138 */
+					     <GIC_SPI 107 IRQ_TYPE_EDGE_RISING>, /* GIC 139 */
+					     <GIC_SPI 108 IRQ_TYPE_EDGE_RISING>; /* GIC 140 */
+				interrupt-names = "hse-mu1b-ack",
+						  "hse-mu1b-rx",
+						  "hse-mu1b-err";
+			};
+
+			mu2b@40212000 {
+				compatible = "nxp,s32cc-hse";
+				reg = <0x0 0x40212000 0x0 0x1000>,
+				      <0x0 0x22c02000 0x0 0x1000>;
+				reg-names = "hse-mu2b-regs",
+					    "hse-mu2b-desc";
+				interrupts = <GIC_SPI 109 IRQ_TYPE_EDGE_RISING>, /* GIC 141 */
+					     <GIC_SPI 110 IRQ_TYPE_EDGE_RISING>, /* GIC 142 */
+					     <GIC_SPI 111 IRQ_TYPE_EDGE_RISING>; /* GIC 143 */
+				interrupt-names = "hse-mu2b-ack",
+						  "hse-mu2b-rx",
+						  "hse-mu2b-err";
+			};
+
+			mu3b@40213000 {
+				compatible = "nxp,s32cc-hse";
+				reg = <0x0 0x40213000 0x0 0x1000>,
+				      <0x0 0x22c03000 0x0 0x1000>;
+				reg-names = "hse-mu3b-regs",
+					    "hse-mu3b-desc";
+				interrupts = <GIC_SPI 112 IRQ_TYPE_EDGE_RISING>, /* GIC 144 */
+					     <GIC_SPI 113 IRQ_TYPE_EDGE_RISING>, /* GIC 145 */
+					     <GIC_SPI 114 IRQ_TYPE_EDGE_RISING>; /* GIC 146 */
+				interrupt-names = "hse-mu3b-ack",
+						  "hse-mu3b-rx",
+						  "hse-mu3b-err";
+			};
+		};
+
 		stm4: stm@4021c000 {
 			compatible = "fsl,s32gen1-stm-global";
 			reg = <0x0 0x4021c000 0x0 0x3000>;
@@ -773,68 +840,6 @@
 		 */
 		midr-reg = <0x0 0x44010000 0x0 0x10>;
 		status = "disabled";
-	};
-
-	hse: crypto {
-		compatible = "simple-bus";
-		#address-cells = <2>;
-		#size-cells = <2>;
-		#interrupt-cells = <3>;
-		memory-region = <&hse_reserved>;
-		ranges;
-
-		mu0b@40210000 {
-			compatible = "nxp,s32cc-hse";
-			reg = <0x0 0x40210000 0x0 0x1000>,
-			      <0x0 0x22C00000 0x0 0x1000>;
-			reg-names = "hse-mu0b-regs",
-				    "hse-mu0b-desc";
-			interrupts = <GIC_SPI 103 IRQ_TYPE_EDGE_RISING>, /* GIC 135 */
-			             <GIC_SPI 104 IRQ_TYPE_EDGE_RISING>, /* GIC 136 */
-			             <GIC_SPI 105 IRQ_TYPE_EDGE_RISING>; /* GIC 137 */
-			interrupt-names = "hse-mu0b-ack",
-			                  "hse-mu0b-rx",
-			                  "hse-mu0b-err";
-		};
-		mu1b@40211000 {
-			compatible = "nxp,s32cc-hse";
-			reg = <0x0 0x40211000 0x0 0x1000>,
-			      <0x0 0x22C01000 0x0 0x1000>;
-			reg-names = "hse-mu1b-regs",
-				    "hse-mu1b-desc";
-			interrupts = <GIC_SPI 106 IRQ_TYPE_EDGE_RISING>, /* GIC 138 */
-			             <GIC_SPI 107 IRQ_TYPE_EDGE_RISING>, /* GIC 139 */
-			             <GIC_SPI 108 IRQ_TYPE_EDGE_RISING>; /* GIC 140 */
-			interrupt-names = "hse-mu1b-ack",
-			                  "hse-mu1b-rx",
-			                  "hse-mu1b-err";
-		};
-		mu2b@40212000 {
-			compatible = "nxp,s32cc-hse";
-			reg = <0x0 0x40212000 0x0 0x1000>,
-			      <0x0 0x22C02000 0x0 0x1000>;
-			reg-names = "hse-mu2b-regs",
-				    "hse-mu2b-desc";
-			interrupts = <GIC_SPI 109 IRQ_TYPE_EDGE_RISING>, /* GIC 141 */
-			             <GIC_SPI 110 IRQ_TYPE_EDGE_RISING>, /* GIC 142 */
-			             <GIC_SPI 111 IRQ_TYPE_EDGE_RISING>; /* GIC 143 */
-			interrupt-names = "hse-mu2b-ack",
-			                  "hse-mu2b-rx",
-			                  "hse-mu2b-err";
-		};
-		mu3b@40213000 {
-			compatible = "nxp,s32cc-hse";
-			reg = <0x0 0x40213000 0x0 0x1000>,
-			      <0x0 0x22C03000 0x0 0x1000>;
-			reg-names = "hse-mu3b-regs",
-				    "hse-mu3b-desc";
-			interrupts = <GIC_SPI 112 IRQ_TYPE_EDGE_RISING>, /* GIC 144 */
-			             <GIC_SPI 113 IRQ_TYPE_EDGE_RISING>, /* GIC 145 */
-			             <GIC_SPI 114 IRQ_TYPE_EDGE_RISING>; /* GIC 146 */
-			interrupt-names = "hse-mu3b-ack",
-			                  "hse-mu3b-rx",
-			                  "hse-mu3b-err";
-		};
 	};
 
 	usdhc0: usdhc@402F0000{
