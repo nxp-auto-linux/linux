@@ -17,6 +17,38 @@
 	compatible = "nxp,s32g3";
 
 	soc {
+		swt8: swt@40500000 {
+			compatible = "fsl,s32gen1-wdt";
+			reg = <0x0 0x40500000 0x0 0x1000>;
+			clocks = <&clks S32GEN1_SCMI_CLK_SWT_COUNTER>;
+			clock-names = "swt";
+			status = "disabled";
+		};
+
+		swt9: swt@40504000 {
+			compatible = "fsl,s32gen1-wdt";
+			reg = <0x0 0x40504000 0x0 0x1000>;
+			clocks = <&clks S32GEN1_SCMI_CLK_SWT_COUNTER>;
+			clock-names = "swt";
+			status = "disabled";
+		};
+
+		swt10: swt@40508000 {
+			compatible = "fsl,s32gen1-wdt";
+			reg = <0x0 0x40508000 0x0 0x1000>;
+			clocks = <&clks S32GEN1_SCMI_CLK_SWT_COUNTER>;
+			clock-names = "swt";
+			status = "disabled";
+		};
+
+		swt11: swt@4050c000 {
+			compatible = "fsl,s32gen1-wdt";
+			reg = <0x0 0x4050c000 0x0 0x1000>;
+			clocks = <&clks S32GEN1_SCMI_CLK_SWT_COUNTER>;
+			clock-names = "swt";
+			status = "disabled";
+		};
+
 		gic: interrupt-controller@50800000 {
 			compatible = "arm,gic-v3";
 			#interrupt-cells = <3>;
@@ -34,38 +66,6 @@
 			/* GIC interrupts between 167 and 182 can be used as MBIs. */
 			mbi-ranges = <167 16>;
 		};
-	};
-
-	swt8: swt@40500000 {
-		compatible = "fsl,s32gen1-wdt";
-		reg = <0x0 0x40500000 0x0 0x1000>;
-		clocks = <&clks S32GEN1_SCMI_CLK_SWT_COUNTER>;
-		clock-names = "swt";
-		status = "disabled";
-	};
-
-	swt9: swt@40504000 {
-		compatible = "fsl,s32gen1-wdt";
-		reg = <0x0 0x40504000 0x0 0x1000>;
-		clocks = <&clks S32GEN1_SCMI_CLK_SWT_COUNTER>;
-		clock-names = "swt";
-		status = "disabled";
-	};
-
-	swt10: swt@40508000 {
-		compatible = "fsl,s32gen1-wdt";
-		reg = <0x0 0x40508000 0x0 0x1000>;
-		clocks = <&clks S32GEN1_SCMI_CLK_SWT_COUNTER>;
-		clock-names = "swt";
-		status = "disabled";
-	};
-
-	swt11: swt@4050C000 {
-		compatible = "fsl,s32gen1-wdt";
-		reg = <0x0 0x4050C000 0x0 0x1000>;
-		clocks = <&clks S32GEN1_SCMI_CLK_SWT_COUNTER>;
-		clock-names = "swt";
-		status = "disabled";
 	};
 
 	stm8: stm@40520000 {
@@ -92,9 +92,9 @@
 		status = "disabled";
 	};
 
-	stm11: stm@4052C000 {
+	stm11: stm@4052c000 {
 		compatible = "fsl,s32gen1-stm-global";
-		reg = <0x0 0x4052C000 0x0 0x3000>;
+		reg = <0x0 0x4052c000 0x0 0x3000>;
 		clocks = <&clks S32GEN1_SCMI_CLK_STM_MODULE>;
 		clock-names = "stm";
 		status = "disabled";
