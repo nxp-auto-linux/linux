@@ -30,6 +30,7 @@
 #define CNTL_OVER_MASK		0xFFFFFFFE
 
 #define CNTL_CSV_MASK		GENMASK(31, 24)
+#define CNTL_CP_MASK		GENMASK(23, 16)
 
 #define EVENT_CYCLES_COUNTER	0
 #define NUM_COUNTERS		4
@@ -166,11 +167,13 @@ static struct attribute_group ddr_perf_events_attr_group = {
 };
 
 PMU_FORMAT_ATTR(event, "config:0-7");
+PMU_FORMAT_ATTR(counter_cp, "config:8-15");
 PMU_FORMAT_ATTR(axi_id, "config1:0-15");
 PMU_FORMAT_ATTR(axi_mask, "config1:16-31");
 
 static struct attribute *ddr_perf_format_attrs[] = {
 	&format_attr_event.attr,
+	&format_attr_counter_cp.attr,
 	&format_attr_axi_id.attr,
 	&format_attr_axi_mask.attr,
 	NULL,
@@ -306,11 +309,42 @@ static void ddr_perf_counter_stop(struct ddr_pmu *pmu, int counter)
 	iowrite32(val, pmu->base + reg);
 }
 
+static unsigned int ddr_perf_counter_cp_mask_by_event(unsigned int config)
+{
+	unsigned int event_id, counter_cp, event_mask;
+
+	/* Bits [7:0] of the "config" attribute */
+	event_id = config & 0xFF;
+	/* Bits [15:8] of the "config" attribute */
+	counter_cp = (config >> 8) & 0xFF;
+
+	switch (event_id) {
+	case SELF_REFRESH_EVT:
+		event_mask = GENMASK(1, 0);
+		break;
+	case WRITE_QUEUE_DEPTH_EVT:
+		event_mask = GENMASK(3, 0);
+		break;
+	case LP_READ_CREDIT_CNT_EVT:
+	case HP_READ_CREDIT_CNT_EVT:
+	case WRITE_CREDIT_CNT_EVT:
+		event_mask = GENMASK(6, 0);
+		break;
+	default:
+		event_mask = 0;
+		break;
+	}
+
+	return counter_cp & event_mask;
+}
+
 static void ddr_perf_counter_enable(struct ddr_pmu *pmu, unsigned int config,
 				    int counter, bool enable)
 {
 	u8 reg = counter * 4 + COUNTER_CNTL;
-	unsigned int val;
+	unsigned int val, counter_cp;
+
+	counter_cp = ddr_perf_counter_cp_mask_by_event(config);
 
 	if (enable) {
 		/*
@@ -321,6 +355,7 @@ static void ddr_perf_counter_enable(struct ddr_pmu *pmu, unsigned int config,
 		iowrite32(0, pmu->base + reg);
 		val = CNTL_EN | CNTL_CLEAR;
 		val |= FIELD_PREP(CNTL_CSV_MASK, config);
+		val |= FIELD_PREP(CNTL_CP_MASK, counter_cp);
 		iowrite32(val, pmu->base + reg);
 	} else {
 		/* Disable counter without resetting it */
