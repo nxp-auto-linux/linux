@@ -819,26 +819,26 @@
 			bus-width = <8>;
 			status = "disabled";
 		};
-	};
 
-	fccu: fccu@4030c000 {
-		compatible = "fsl,s32gen1-fccu";
-		reg = <0x0 0x4030C000 0x0 0x3000>;
-		interrupts = <GIC_SPI 100 IRQ_TYPE_LEVEL_HIGH>,
-			     <GIC_SPI 101 IRQ_TYPE_LEVEL_HIGH>;
-		interrupt-names = "fccu_alarm",
-				  "fccu_misc";
-		clocks = <&clks S32GEN1_SCMI_CLK_FCCU_MODULE>;
-		clock-names = "fccu";
-		/* A53 NCF fault list */
-		nxp,ncf_fault_list = <0 10 35 36 37 38>;
-		nxp,ncf_actions = <S32_FCCU_REACTION_ALARM
-		    S32_FCCU_REACTION_ALARM
-		    S32_FCCU_REACTION_NONE
-		    S32_FCCU_REACTION_NONE
-		    S32_FCCU_REACTION_NONE
-		    S32_FCCU_REACTION_NONE>;
-		status = "disabled";
+		fccu: fccu@4030c000 {
+			compatible = "fsl,s32gen1-fccu";
+			reg = <0x0 0x4030c000 0x0 0x3000>;
+			interrupts = <GIC_SPI 100 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 101 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "fccu_alarm",
+					  "fccu_misc";
+			clocks = <&clks S32GEN1_SCMI_CLK_FCCU_MODULE>;
+			clock-names = "fccu";
+			/* A53 NCF fault list */
+			nxp,ncf_fault_list = <0 10 35 36 37 38>;
+			nxp,ncf_actions = <S32_FCCU_REACTION_ALARM
+			    S32_FCCU_REACTION_ALARM
+			    S32_FCCU_REACTION_NONE
+			    S32_FCCU_REACTION_NONE
+			    S32_FCCU_REACTION_NONE
+			    S32_FCCU_REACTION_NONE>;
+			status = "disabled";
+		};
 	};
 
 	siul2_1 {
