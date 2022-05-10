@@ -494,6 +494,19 @@
 			status = "disabled";
 		};
 
+		pwm0: pwm@401f4000 {
+			compatible = "fsl,s32gen1-ftm-pwm";
+			#pwm-cells = <3>;
+			reg = <0x0 0x401f4000 0x0 0x1000>;
+			clock-names = "ftm_sys", "ftm_ext",
+				      "ftm_fix", "ftm_cnt_clk_en";
+			clocks = <&clks S32GEN1_SCMI_CLK_FTM0_SYS>,
+				 <&clks S32GEN1_SCMI_CLK_FTM0_EXT>,
+				 <&clks S32GEN1_SCMI_CLK_FTM0_SYS>,
+				 <&clks S32GEN1_SCMI_CLK_FTM0_SYS>;
+			status = "disabled";
+		};
+
 		swt4: swt@40200000 {
 			compatible = "fsl,s32gen1-wdt";
 			reg = <0x0 0x40200000 0x0 0x1000>;
@@ -692,6 +705,19 @@
 			dma-names = "rx","tx";
 			#address-cells = <1>;
 			#size-cells = <0>;
+			status = "disabled";
+		};
+
+		pwm1: pwm@402e4000 {
+			compatible = "fsl,s32gen1-ftm-pwm";
+			#pwm-cells = <3>;
+			reg = <0x0 0x402e4000 0x0 0x1000>;
+			clock-names = "ftm_sys", "ftm_ext",
+				      "ftm_fix", "ftm_cnt_clk_en";
+			clocks = <&clks S32GEN1_SCMI_CLK_FTM1_SYS>,
+				 <&clks S32GEN1_SCMI_CLK_FTM1_EXT>,
+				 <&clks S32GEN1_SCMI_CLK_FTM1_SYS>,
+				 <&clks S32GEN1_SCMI_CLK_FTM1_SYS>;
 			status = "disabled";
 		};
 	};
@@ -1024,32 +1050,6 @@
 		nvmem-cell-names = "serdes_presence", "pcie_variant";
 		nvmem-cells = <&serdes_presence>, <&pcie_variant>;
 
-		status = "disabled";
-	};
-
-	pwm0: pwm@401F4000 {
-		compatible = "fsl,s32gen1-ftm-pwm";
-		#pwm-cells = <3>;
-		reg = <0x0 0x401F4000 0x0 0x1000>;
-		clock-names = "ftm_sys", "ftm_ext",
-			      "ftm_fix", "ftm_cnt_clk_en";
-		clocks = <&clks S32GEN1_SCMI_CLK_FTM0_SYS>,
-			 <&clks S32GEN1_SCMI_CLK_FTM0_EXT>,
-			 <&clks S32GEN1_SCMI_CLK_FTM0_SYS>,
-			 <&clks S32GEN1_SCMI_CLK_FTM0_SYS>;
-		status = "disabled";
-	};
-
-	pwm1: pwm@402E4000 {
-		compatible = "fsl,s32gen1-ftm-pwm";
-		#pwm-cells = <3>;
-		reg = <0x0 0x402E4000 0x0 0x1000>;
-		clock-names = "ftm_sys", "ftm_ext",
-			      "ftm_fix", "ftm_cnt_clk_en";
-		clocks = <&clks S32GEN1_SCMI_CLK_FTM1_SYS>,
-			 <&clks S32GEN1_SCMI_CLK_FTM1_EXT>,
-			 <&clks S32GEN1_SCMI_CLK_FTM1_SYS>,
-			 <&clks S32GEN1_SCMI_CLK_FTM1_SYS>;
 		status = "disabled";
 	};
 
