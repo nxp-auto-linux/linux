@@ -17,12 +17,6 @@
 #include <dt-bindings/net/s32g-pfe.h>
 
 / {
-	virtio_block@39501000 {
-		compatible = "virtio,mmio";
-		reg = <0x0 0x39501000 0x0 0x1000>;
-		interrupts = <GIC_SPI 68 IRQ_TYPE_LEVEL_HIGH>;
-	};
-
 	reserved-memory {
 		pfe_reserved_bmu2: pfebufs@34000000 {
 			compatible = "nxp,s32g-pfe-bmu2-pool";
