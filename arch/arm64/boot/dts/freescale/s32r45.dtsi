@@ -20,6 +20,140 @@
 		can4 = &can4;
 	};
 
+	soc {
+		siul2_0@4009c000 {
+			compatible = "simple-mfd";
+			#address-cells = <2>;
+			#size-cells = <2>;
+			status = "okay";
+
+				  /* MIDR */
+			ranges = <0 0 0x0 0x4009c000 0x0 0x10>,
+				  /* MSCR 0-101 */
+				 <1 0 0x0 0x4009c240 0x0 0x198>,
+				 /* IMCR range 512–595 */
+				 <2 0 0x0 0x4009ca40 0x0 0x150>,
+				 /* Output pads */
+				 <3 0 0x0 0x4009d700 0x0 0x10>,
+				 /* Input pads */
+				 <4 0 0x0 0x4009d740 0x0 0x10>,
+				 /* EIRQs */
+				 <5 0 0x0 0x4403c010 0x0 0x34>;
+
+			pinctrl0: siul2-pinctrl0@4009c000 {
+				compatible = "nxp,s32r45-siul2_0-pinctrl";
+				#pinctrl-cells = <2>;
+				reg = <0x1 0x0 0x0 0x198>,
+				<0x2 0x0 0x0 0x150>;
+				/* MSCR range */
+				pins = <&pinctrl0 0 101>,
+				/* IMCR range */
+				<&pinctrl0 512 573>;
+				status = "okay";
+			};
+
+			gpio0: siul2-gpio0 {
+				compatible = "nxp,s32cc-siul2-gpio";
+				#pinctrl-cells = <2>;
+				gpio-controller;
+				#gpio-cells = <2>;
+					/* GPIO 0-101 */
+				gpio-ranges = <&pinctrl0 0 0 102>;
+					/* Pad Data I/0 Registers */
+				eirq-ranges =
+					/* EIRQ[0] */
+					<&pinctrl0 0 0 1>,
+					/* EIRQ[1] - EIRQ[4] */
+					<&pinctrl0 0 3 4>,
+					/* EIRQ[5] - EIRQ[8] */
+					<&pinctrl0 0 8 4>,
+					/* EIRQ[9] */
+					<&pinctrl0 0 13 1>,
+					/* EIRQ[10] - EIRQ[12] */
+					<&pinctrl0 0 16 3>,
+					/* EIRQ[13] */
+					<&pinctrl0 0 20 1>,
+					/* EIRQ[14] - EIRQ[15] */
+					<&pinctrl0 0 22 2>,
+					/* EIRQ[16] - EIRQ[24] */
+					<&pinctrl0 0 25 9>,
+					/* EIRQ[25] - EIRQ[30] */
+					<&pinctrl0 0 35 6>,
+					/* EIRQ[31] */
+					<&pinctrl0 0 44 1>;
+					/* Pad Data I/0 Registers */
+				reg = <0x3 0x0 0x0 0x10>,
+				      <0x4 0x0 0x0 0x10>,
+				      <0x5 0x0 0x0 0x34>;
+				reg-names = "opads", "ipads", "eirqs";
+				interrupt-controller;
+				#interrupt-cells = <2>;
+				interrupts = <GIC_SPI 237 IRQ_TYPE_LEVEL_HIGH>;
+				status = "okay";
+			};
+		};
+
+		siul2_1@4403c000 {
+			compatible = "simple-mfd";
+			#address-cells = <2>;
+			#size-cells = <2>;
+			status = "okay";
+				 /* MIDR */
+			ranges = <0 0 0x0 0x4403c000 0x0 0x10>,
+				 /* PINCTRL */
+				 <1 0 0x0 0x4403c3d8 0x0 0x80>,
+				 /* IMCR range */
+				 <2 0 0x0 0x4403cbac 0x0 0x2cc>,
+				 /* Output pads */
+				 <3 0 0x0 0x4403d700 0x0 0x14>,
+				 /* Input pads */
+				 <4 0 0x0 0x4403d740 0x0 0x14>;
+
+			pinctrl1: siul2-pinctrl1@4403c000 {
+				compatible =
+					"nxp,s32r45-siul2_1-pinctrl";
+				#pinctrl-cells = <2>;
+				reg = <0x1 0x0 0x0 0x80>,
+				<0x2 0x0 0x0 0x2cc>;
+				/* MSCR range */
+				pins = <&pinctrl1 102 133>,
+				/* IMCR range */
+				<&pinctrl1 603 785>;
+				status = "okay";
+			};
+
+			/*
+			 * Note gpio controller nodes are split into sections
+			 * of contiguous GPIO numbering at this
+			 * point in time, functions working with gpio chips
+			 * assume this for many things.
+			 */
+			gpio1: siul2-gpio1 {
+				compatible = "nxp,s32cc-siul2-gpio";
+				gpio-controller;
+				#gpio-cells = <2>;
+				#pinctrl-cells = <2>;
+				gpio-ranges = <&pinctrl1 0 102 32>;
+				/* Pad Data I/0 Registers */
+				reg = <0x3 0x0 0x0 0x14>,
+				      <0x4 0x0 0x0 0x14>;
+				reg-names = "opads", "ipads";
+				status = "okay";
+			};
+
+			nvram1: nvram@4403c000 {
+				compatible = "nxp,s32cc-siul2_1-nvmem";
+				reg = <0x0 0x0 0x0 0x10>;
+				#address-cells = <1>;
+				#size-cells = <1>;
+				status = "okay";
+				serdes_presence: serdes_presence@0 {
+					reg = <SERDES_PRESENCE_OFFSET NVRAM_CELL_SIZE>;
+				};
+			};
+		};
+	};
+
 	can4: flexcan@44000000 {
 		compatible = "fsl,s32gen1-flexcan";
 		reg = <0x0 0x44000000 0x0 0x4000>;
@@ -76,141 +210,10 @@
 		status = "disabled";
 	};
 
-	siul2_0 {
-		compatible = "simple-mfd";
-		#address-cells = <2>;
-		#size-cells = <2>;
-		status = "okay";
-
-			  /* MIDR */
-		ranges = <0 0 0x0 0x4009C000 0x0 0x10>,
-			  /* MSCR 0-101 */
-			 <1 0 0x0 0x4009C240 0x0 0x198>,
-			 /* IMCR range 512–595 */
-			 <2 0 0x0 0x4009CA40 0x0 0x150>,
-			 /* Output pads */
-			 <3 0 0x0 0x4009D700 0x0 0x10>,
-			 /* Input pads */
-			 <4 0 0x0 0x4009D740 0x0 0x10>,
-			 /* EIRQs */
-			 <5 0 0x0 0x4403C010 0x0 0x34>;
-
-		pinctrl0: siul2-pinctrl0@4009C000 {
-			compatible = "nxp,s32r45-siul2_0-pinctrl";
-			#pinctrl-cells = <2>;
-			reg = <0x1 0x0 0x0 0x198>,
-			<0x2 0x0 0x0 0x150>;
-			/* MSCR range */
-			pins = <&pinctrl0 0 101>,
-			/* IMCR range */
-			<&pinctrl0 512 573>;
-			status = "okay";
-		};
-		gpio0: siul2-gpio0 {
-			compatible = "nxp,s32cc-siul2-gpio";
-			#pinctrl-cells = <2>;
-			gpio-controller;
-			#gpio-cells = <2>;
-				/* GPIO 0-101 */
-			gpio-ranges = <&pinctrl0 0 0 102>;
-				/* Pad Data I/0 Registers */
-			eirq-ranges =
-				/* EIRQ[0] */
-				<&pinctrl0 0 0 1>,
-				/* EIRQ[1] - EIRQ[4] */
-				<&pinctrl0 0 3 4>,
-				/* EIRQ[5] - EIRQ[8] */
-				<&pinctrl0 0 8 4>,
-				/* EIRQ[9] */
-				<&pinctrl0 0 13 1>,
-				/* EIRQ[10] - EIRQ[12] */
-				<&pinctrl0 0 16 3>,
-				/* EIRQ[13] */
-				<&pinctrl0 0 20 1>,
-				/* EIRQ[14] - EIRQ[15] */
-				<&pinctrl0 0 22 2>,
-				/* EIRQ[16] - EIRQ[24] */
-				<&pinctrl0 0 25 9>,
-				/* EIRQ[25] - EIRQ[30] */
-				<&pinctrl0 0 35 6>,
-				/* EIRQ[31] */
-				<&pinctrl0 0 44 1>;
-				/* Pad Data I/0 Registers */
-			reg = <0x3 0x0 0x0 0x10>,
-			      <0x4 0x0 0x0 0x10>,
-			      <0x5 0x0 0x0 0x34>;
-			reg-names = "opads", "ipads", "eirqs";
-			interrupt-controller;
-			#interrupt-cells = <2>;
-			interrupts = <GIC_SPI 237 IRQ_TYPE_LEVEL_HIGH>;
-			status = "okay";
-		};
-	};
-
-	siul2_1 {
-		compatible = "simple-mfd";
-		#address-cells = <2>;
-		#size-cells = <2>;
-		status = "okay";
-			 /* MIDR */
-		ranges = <0 0 0x0 0x4403C000 0x0 0x10>,
-			 /* PINCTRL */
-			 <1 0 0x0 0x4403C3D8 0x0 0x80>,
-			 /* IMCR range */
-			 <2 0 0x0 0x4403CBAC 0x0 0x2CC>,
-			 /* Output pads */
-			 <3 0 0x0 0x4403D700 0x0 0x14>,
-			 /* Input pads */
-			 <4 0 0x0 0x4403D740 0x0 0x14>;
-
-		pinctrl1: siul2-pinctrl1@4403C000 {
-			compatible =
-				"nxp,s32r45-siul2_1-pinctrl";
-			#pinctrl-cells = <2>;
-			reg = <0x1 0x0 0x0 0x80>,
-			<0x2 0x0 0x0 0x2CC>;
-			/* MSCR range */
-			pins = <&pinctrl1 102 133>,
-			/* IMCR range */
-			<&pinctrl1 603 785>;
-			status = "okay";
-		};
-		/*
-		 * Note gpio controller nodes are split into sections
-		 * of contiguous GPIO numbering at this
-		 * point in time, functions working with gpio chips
-		 * assume this for many things.
-		 */
-
-		gpio1: siul2-gpio1 {
-			compatible = "nxp,s32cc-siul2-gpio";
-			gpio-controller;
-			#gpio-cells = <2>;
-			#pinctrl-cells = <2>;
-			gpio-ranges = <&pinctrl1 0 102 32>;
-			/* Pad Data I/0 Registers */
-			reg = <0x3 0x0 0x0 0x14>,
-			      <0x4 0x0 0x0 0x14>;
-			reg-names = "opads", "ipads";
-			status = "okay";
-		};
-
-		nvram1: nvram@4403C000 {
-			compatible = "nxp,s32cc-siul2_1-nvmem";
-			reg = <0x0 0x0 0x0 0x10>;
-			#address-cells = <1>;
-			#size-cells = <1>;
-			status = "okay";
-			serdes_presence: serdes_presence@0 {
-				reg = <SERDES_PRESENCE_OFFSET NVRAM_CELL_SIZE>;
-			};
-		};
-	};
-
 	gmac1: ethernet@44010000 {
 		compatible = "nxp,s32cc-dwmac";
 		reg = <0x0 0x44010000 0x0 0x2000>, /* gmac IP */
-		      <0x0 0x4007CA00 0x0 0x4>;    /* S32 CTRL_STS reg */
+		      <0x0 0x4007ca00 0x0 0x4>;    /* S32 CTRL_STS reg */
 		dma-coherent;
 		interrupt-parent = <&gic>;
 		interrupts = <GIC_SPI 220 IRQ_TYPE_LEVEL_HIGH>;
