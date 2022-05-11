@@ -876,7 +876,7 @@
 		};
 
 		perf: ddr-perf@403e0000 {
-			compatible = "fsl,s32gen1-ddr-perf";
+			compatible = "nxp,s32cc-ddr-perf";
 			reg = <0x0 0x403e0000 0x0 0x100>;
 			interrupt-parent = <&gic>;
 			interrupts = <GIC_SPI 115 IRQ_TYPE_LEVEL_HIGH>; /* GIC 147 */
