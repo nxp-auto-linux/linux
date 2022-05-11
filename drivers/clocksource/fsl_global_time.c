@@ -151,7 +151,7 @@ static int global_timer_remove(struct platform_device *pdev)
 
 static const struct of_device_id global_timer_dt_ids[] = {
 	{
-		.compatible = "fsl,s32gen1-stm-global",
+		.compatible = "nxp,s32cc-stm-global",
 	},
 	{ /* sentinel */ }
 };
