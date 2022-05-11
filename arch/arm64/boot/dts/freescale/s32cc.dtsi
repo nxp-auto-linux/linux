@@ -286,7 +286,7 @@
 		};
 
 		stm2: stm@40124000 {
-			compatible = "fsl,s32gen1-stm-global";
+			compatible = "nxp,s32cc-stm-global";
 			reg = <0x0 0x40124000 0x0 0x3000>;
 			clocks = <&clks S32GEN1_SCMI_CLK_STM_MODULE>;
 			clock-names = "stm";
@@ -294,7 +294,7 @@
 		};
 
 		stm3: stm@40128000 {
-			compatible = "fsl,s32gen1-stm-global";
+			compatible = "nxp,s32cc-stm-global";
 			reg = <0x0 0x40128000 0x0 0x3000>;
 			clocks = <&clks S32GEN1_SCMI_CLK_STM_MODULE>;
 			clock-names = "stm";
@@ -612,7 +612,7 @@
 		};
 
 		stm4: stm@4021c000 {
-			compatible = "fsl,s32gen1-stm-global";
+			compatible = "nxp,s32cc-stm-global";
 			reg = <0x0 0x4021c000 0x0 0x3000>;
 			clocks = <&clks S32GEN1_SCMI_CLK_STM_MODULE>;
 			clock-names = "stm";
@@ -620,7 +620,7 @@
 		};
 
 		stm5: stm@40220000 {
-			compatible = "fsl,s32gen1-stm-global";
+			compatible = "nxp,s32cc-stm-global";
 			reg = <0x0 0x40220000 0x0 0x3000>;
 			clocks = <&clks S32GEN1_SCMI_CLK_STM_MODULE>;
 			clock-names = "stm";
@@ -628,7 +628,7 @@
 		};
 
 		stm6: stm@40224000 {
-			compatible = "fsl,s32gen1-stm-global";
+			compatible = "nxp,s32cc-stm-global";
 			reg = <0x0 0x40224000 0x0 0x3000>;
 			clocks = <&clks S32GEN1_SCMI_CLK_STM_MODULE>;
 			clock-names = "stm";
@@ -636,7 +636,7 @@
 		};
 
 		stm7: stm@40228000 {
-			compatible = "fsl,s32gen1-stm-global";
+			compatible = "nxp,s32cc-stm-global";
 			reg = <0x0 0x40228000 0x0 0x3000>;
 			clocks = <&clks S32GEN1_SCMI_CLK_STM_MODULE>;
 			clock-names = "stm";
