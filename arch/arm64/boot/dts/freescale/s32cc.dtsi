@@ -319,7 +319,7 @@
 
 		edma0: dma-controller@40144000 {
 			#dma-cells = <2>;
-			compatible = "fsl,s32gen1-edma";
+			compatible = "nxp,s32cc-edma";
 			reg = <0x0 0x40144000 0x0 0x24000>,
 			      <0x0 0x4012c000 0x0 0x3000>,
 			      <0x0 0x40130000 0x0 0x3000>;
@@ -645,7 +645,7 @@
 
 		edma1: dma-controller@40244000 {
 			#dma-cells = <2>;
-			compatible = "fsl,s32gen1-edma";
+			compatible = "nxp,s32cc-edma";
 			reg = <0x0 0x40244000 0x0 0x24000>,
 			      <0x0 0x4022c000 0x0 0x3000>,
 			      <0x0 0x40230000 0x0 0x3000>;
