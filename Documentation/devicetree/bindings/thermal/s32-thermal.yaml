@@ -17,7 +17,7 @@ description: |
 properties:
   compatible:
     enum:
-      - fsl,s32gen1-tmu
+      - nxp,s32cc-tmu
 
   reg:
     description:
@@ -32,7 +32,7 @@ additionalProperties: false
 examples:
   - |
     tmu: tmu@400A8000 {
-      compatible = "fsl,s32gen1-tmu";
+      compatible = "nxp,s32cc-tmu";
       reg = <0x0 0x400A8000 0x0 0x3000>,
           <0x0 0x400A4200 0x0 0x1FC>;
       status = "okay";
