@@ -251,7 +251,7 @@
 		};
 
 		tmu: tmu@400a8000 {
-			compatible = "fsl,s32gen1-tmu";
+			compatible = "nxp,s32cc-tmu";
 			reg = <0x0 0x400a8000 0x0 0x3000>,
 				<0x0 0x400a4200 0x0 0x1fc>;
 			status = "okay";
