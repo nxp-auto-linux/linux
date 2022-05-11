@@ -297,7 +297,7 @@ static const struct sac58r_data s32gen1_data = {
 
 static const struct of_device_id sac58r_wdt_dt_ids[] = {
 	{.compatible = "fsl,sac58r-wdt",},
-	{.compatible = "fsl,s32gen1-wdt", .data = &s32gen1_data},
+	{.compatible = "nxp,s32cc-wdt", .data = &s32gen1_data},
 	{ /* sentinel */ }
 };
 
