@@ -26,7 +26,7 @@ properties:
           - fsl,vf610-flexcan
           - fsl,ls1021ar2-flexcan
           - fsl,lx2160ar1-flexcan
-          - fsl,s32gen1-flexcan
+          - nxp,s32cc-flexcan
       - items:
           - enum:
               - fsl,imx53-flexcan
