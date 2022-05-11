@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: (GPL-2.0 OR BSD-2-Clause)
 %YAML 1.2
 ---
-$id: http://devicetree.org/schemas/rtc/fsl,s32gen1-rtc.yaml#
+$id: http://devicetree.org/schemas/rtc/nxp,s32cc-rtc.yaml#
 $schema: http://devicetree.org/meta-schemas/core.yaml#
 
 title: NXP S32GEN1 Real Time Clock (RTC)
@@ -11,7 +11,7 @@ maintainers:
 
 properties:
   compatible:
-    const: fsl,s32gen1-rtc
+    const: nxp,s32cc-rtc
 
   reg:
     description:
@@ -63,7 +63,7 @@ examples:
     #define S32GEN1_SCMI_CLK_RTC_SIRC
     #define S32GEN1_SCMI_CLK_RTC_FIRC
     rtc0: rtc@40060000 {
-        compatible = "fsl,s32gen1-rtc";
+        compatible = "nxp,s32cc-rtc";
         reg = <0x40060000 0x1000>;
         interrupts = <0 121 4>;
         clocks = <&clks S32GEN1_SCMI_CLK_RTC_REG>,
