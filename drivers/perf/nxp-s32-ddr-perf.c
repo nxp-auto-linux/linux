@@ -671,7 +671,7 @@ static int ddr_perf_remove(struct platform_device *pdev)
 
 static const struct of_device_id s32_ddr_perf_dt_ids[] = {
 	{
-		.compatible = "fsl,s32gen1-ddr-perf",
+		.compatible = "nxp,s32cc-ddr-perf",
 	}, {}
 };
 MODULE_DEVICE_TABLE(of, s32_ddr_perf_dt_ids);
