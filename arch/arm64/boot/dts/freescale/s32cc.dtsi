@@ -57,12 +57,13 @@
 
 		/* 4Mb shared memory for PCIe shared mem transfers, EP mode */
 		pci_shared_memory0: shm@c0000000 {
-			compatible = "fsl,s32gen1-shm";
+			compatible = "nxp,s32cc-shm";
 			reg = <0x0 0xc0000000 0x0 0x400000>;    /* 4 MB */
 			no-map;
 		};
+
 		pci_shared_memory1: shm@c0400000 {
-			compatible = "fsl,s32gen1-shm";
+			compatible = "nxp,s32cc-shm";
 			reg = <0x0 0xc0400000 0x0 0x400000>;    /* 4 MB */
 			no-map;
 		};
