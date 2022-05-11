@@ -102,7 +102,7 @@
 		};
 
 		can4: flexcan@44000000 {
-			compatible = "fsl,s32gen1-flexcan";
+			compatible = "nxp,s32cc-flexcan";
 			reg = <0x0 0x44000000 0x0 0x4000>;
 			interrupts = <GIC_SPI 192 IRQ_TYPE_LEVEL_HIGH>,
 				     <GIC_SPI 193 IRQ_TYPE_LEVEL_HIGH>,
@@ -116,7 +116,7 @@
 		};
 
 		can5: flexcan@44004000 {
-			compatible = "fsl,s32gen1-flexcan";
+			compatible = "nxp,s32cc-flexcan";
 			reg = <0x0 0x44004000 0x0 0x4000>;
 			interrupts = <GIC_SPI 196 IRQ_TYPE_LEVEL_HIGH>,
 				     <GIC_SPI 197 IRQ_TYPE_LEVEL_HIGH>,
@@ -130,7 +130,7 @@
 		};
 
 		can6: flexcan@44008000 {
-			compatible = "fsl,s32gen1-flexcan";
+			compatible = "nxp,s32cc-flexcan";
 			reg = <0x0 0x44008000 0x0 0x4000>;
 			interrupts = <GIC_SPI 200 IRQ_TYPE_LEVEL_HIGH>,
 				     <GIC_SPI 201 IRQ_TYPE_LEVEL_HIGH>,
@@ -144,7 +144,7 @@
 		};
 
 		can7: flexcan@4400c000 {
-			compatible = "fsl,s32gen1-flexcan";
+			compatible = "nxp,s32cc-flexcan";
 			reg = <0x0 0x4400c000 0x0 0x4000>;
 			interrupts = <GIC_SPI 204 IRQ_TYPE_LEVEL_HIGH>,
 				     <GIC_SPI 205 IRQ_TYPE_LEVEL_HIGH>,
