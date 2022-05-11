@@ -191,7 +191,7 @@
 			 <0x58 0x0 0x58 0x0 0x8 0x0>;
 
 		rtc0: rtc@40060000 {
-			compatible = "fsl,s32gen1-rtc";
+			compatible = "nxp,s32cc-rtc";
 			#interrupt-cells = <3>;
 			reg = <0x0 0x40060000 0x0 0x1000>;
 			interrupts = <GIC_SPI 121 IRQ_TYPE_LEVEL_HIGH>;	// RTC irq - GIC 153
