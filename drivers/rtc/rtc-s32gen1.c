@@ -672,7 +672,7 @@ static int s32gen1_rtc_resume(struct device *dev)
 #endif /* CONFIG_PM_SLEEP */
 
 static const struct of_device_id s32gen1_rtc_of_match[] = {
-	{.compatible = "fsl,s32gen1-rtc" },
+	{.compatible = "nxp,s32cc-rtc" },
 	{ /* sentinel */ },
 };
 
