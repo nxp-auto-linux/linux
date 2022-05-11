@@ -21,7 +21,7 @@ description: |
 properties:
   compatible:
     enum:
-      - fsl,s32gen1-fccu
+      - nxp,s32cc-fccu
 
   nxp,ncf_fault_list:
     description: Array of faults for NCF_Sn registers
@@ -72,7 +72,7 @@ examples:
     #include <dt-bindings/clock/s32gen1-scmi-clock.h>
 
     fccu: fccu@4030C000 {
-      compatible = "fsl,s32gen1-fccu";
+      compatible = "nxp,s32cc-fccu";
       reg = <0x0 0x4030C000 0x0 0x3000>;
       interrupts= <0 100 IRQ_TYPE_LEVEL_HIGH>,
       <0 101 IRQ_TYPE_LEVEL_HIGH>;
