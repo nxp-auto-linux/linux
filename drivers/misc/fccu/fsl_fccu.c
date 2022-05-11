@@ -677,7 +677,7 @@ static int __maybe_unused s32_fccu_resume(struct device *dev)
 static SIMPLE_DEV_PM_OPS(s32_fccu_pm_ops, s32_fccu_suspend, s32_fccu_resume);
 
 static const struct of_device_id s32_fccu_dt_ids[] = {
-	{.compatible = "fsl,s32gen1-fccu",},
+	{.compatible = "nxp,s32cc-fccu",},
 	{ /* sentinel */ }
 };
 
