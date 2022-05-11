@@ -439,7 +439,7 @@ static int tmu_init_hw(struct device *dev,
 }
 
 static const struct of_device_id tmu_dt_ids[] = {
-		{ .compatible = "fsl,s32gen1-tmu", .data = &gen1_tmu, },
+		{ .compatible = "nxp,s32cc-tmu", .data = &gen1_tmu, },
 		{ /* end */ }
 	};
 MODULE_DEVICE_TABLE(of, tmu_dt_ids);
