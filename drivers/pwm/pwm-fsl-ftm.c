@@ -584,7 +584,7 @@ static const struct fsl_ftm_soc s32gen1_ftm_pwm = {
 static const struct of_device_id fsl_pwm_dt_ids[] = {
 	{ .compatible = "fsl,vf610-ftm-pwm", .data = &vf610_ftm_pwm },
 	{ .compatible = "fsl,imx8qm-ftm-pwm", .data = &imx8qm_ftm_pwm },
-	{ .compatible = "fsl,s32gen1-ftm-pwm", .data = &s32gen1_ftm_pwm },
+	{ .compatible = "nxp,s32cc-ftm-pwm", .data = &s32gen1_ftm_pwm },
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, fsl_pwm_dt_ids);

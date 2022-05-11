@@ -489,7 +489,7 @@
 		};
 
 		pwm0: pwm@401f4000 {
-			compatible = "fsl,s32gen1-ftm-pwm";
+			compatible = "nxp,s32cc-ftm-pwm";
 			#pwm-cells = <3>;
 			reg = <0x0 0x401f4000 0x0 0x1000>;
 			clock-names = "ftm_sys", "ftm_ext",
@@ -778,7 +778,7 @@
 		};
 
 		pwm1: pwm@402e4000 {
-			compatible = "fsl,s32gen1-ftm-pwm";
+			compatible = "nxp,s32cc-ftm-pwm";
 			#pwm-cells = <3>;
 			reg = <0x0 0x402e4000 0x0 0x1000>;
 			clock-names = "ftm_sys", "ftm_ext",
