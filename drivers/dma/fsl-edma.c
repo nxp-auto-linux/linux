@@ -453,7 +453,7 @@ static struct fsl_edma_drvdata imx7ulp_data = {
 };
 
 static const struct of_device_id fsl_edma_dt_ids[] = {
-	{ .compatible = "fsl,s32gen1-edma", .data = &s32gen1_data},
+	{ .compatible = "nxp,s32cc-edma", .data = &s32gen1_data},
 	{ .compatible = "fsl,vf610-edma", .data = &vf610_data},
 	{ .compatible = "fsl,ls1028a-edma", .data = &ls1028a_data},
 	{ .compatible = "fsl,imx7ulp-edma", .data = &imx7ulp_data},
