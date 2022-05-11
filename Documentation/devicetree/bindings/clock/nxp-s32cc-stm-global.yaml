@@ -16,7 +16,7 @@ properties:
   compatible:
     oneOf:
       - enum:
-          - fsl,s32gen1-stm-global
+          - nxp,s32cc-stm-global
 
   reg:
     maxItems: 1
@@ -51,7 +51,7 @@ examples:
     #include <dt-bindings/clock/s32gen1-scmi-clock.h>
 
     stm0: stm@4000D000{
-        compatible = "fsl,s32gen1-stm-global";
+        compatible = "nxp,s32cc-stm-global";
         reg = <0x4000D000 0x1000>;
         interrupts= <0 24 4>;
         clocks = <&clks S32GEN1_SCMI_CLK_STM_MODULE>;
