@@ -189,7 +189,7 @@ static const struct attribute_group *attr_groups[] = {
 	NULL,
 };
 
-static int ddr_perf_alloc_counter(struct ddr_pmu *pmu, int event)
+static int ddr_perf_alloc_counter(struct ddr_pmu *pmu, unsigned int event)
 {
 	int i;
 
@@ -273,7 +273,7 @@ static int ddr_perf_event_init(struct perf_event *event)
 static void ddr_perf_counter_clear(struct ddr_pmu *pmu, int counter)
 {
 	u32 reg = counter * 4 + COUNTER_CNTL;
-	int val;
+	unsigned int val;
 
 	if (counter >= NUM_COUNTERS)
 		return;
@@ -295,7 +295,7 @@ static void ddr_perf_counter_clear(struct ddr_pmu *pmu, int counter)
 static bool ddr_perf_counter_disabled(struct ddr_pmu *pmu, int counter)
 {
 	void __iomem *reg;
-	int val, is_enabled, is_cleared, is_csv_set;
+	unsigned int val, is_enabled, is_cleared, is_csv_set;
 
 	if (counter >= NUM_COUNTERS)
 		return false;
@@ -328,11 +328,10 @@ static void ddr_perf_counter_stop(struct ddr_pmu *pmu, int counter)
 	iowrite32(val, reg);
 }
 
-static void ddr_perf_counter_enable(struct ddr_pmu *pmu, int config,
+static void ddr_perf_counter_enable(struct ddr_pmu *pmu, unsigned int config,
 				    int counter, bool enable)
 {
-	u32 reg;
-	int val;
+	u32 reg, val;
 
 	if (counter >= NUM_COUNTERS)
 		return;
@@ -392,7 +391,7 @@ static int ddr_perf_event_add(struct perf_event *event, int flags)
 	struct ddr_pmu *pmu = to_ddr_pmu(event->pmu);
 	struct hw_perf_event *hwc = &event->hw;
 	int counter;
-	int cfg = event->attr.config;
+	unsigned int cfg = event->attr.config;
 
 	counter = ddr_perf_alloc_counter(pmu, cfg);
 	if (counter < 0) {
