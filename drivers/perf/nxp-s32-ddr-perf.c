@@ -129,7 +129,7 @@ ddr_pmu_event_show(struct device *dev, struct device_attribute *attr,
 
 static struct attribute *ddr_perf_events_attrs[] = {
 	S32_DDR_PMU_EVENT_ATTR(cycles, CYCLES_EVT),
-	S32_DDR_PMU_EVENT_ATTR(selfresh, SELF_REFRESH_EVT),
+	S32_DDR_PMU_EVENT_ATTR(self-refresh, SELF_REFRESH_EVT),
 	S32_DDR_PMU_EVENT_ATTR(write-accesses, WRITE_ACCESSES_EVT),
 	S32_DDR_PMU_EVENT_ATTR(write-queue-depth, WRITE_QUEUE_DEPTH_EVT),
 	S32_DDR_PMU_EVENT_ATTR(lp-read-credit-cnt, LP_READ_CREDIT_CNT_EVT),
