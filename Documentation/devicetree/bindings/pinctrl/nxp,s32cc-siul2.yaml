@@ -14,10 +14,8 @@ properties:
   compatible:
     const:
       - nxp,s32cc-siul2-pinctrl
-      - nxp,s32g-siul2_0-pinctrl
-      - nxp,s32g-siul2_1-pinctrl
-      - nxp,s32r45-siul2_0-pinctrl
-      - nxp,s32r45-siul2_1-pinctrl
+      - nxp,s32g-siul2-pinctrl
+      - nxp,s32r45-siul2-pinctrl
 
   fsl,pins:
     description: |
