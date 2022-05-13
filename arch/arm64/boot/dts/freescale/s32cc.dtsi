@@ -50,7 +50,7 @@
 		i2c4 = &i2c4;
 	};
 
-	reserved_memory: reserved-memory  {
+	reserved-memory  {
 		#address-cells = <2>;
 		#size-cells = <2>;
 		ranges;
