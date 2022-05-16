@@ -1,10 +1,10 @@
 /* SPDX-License-Identifier: GPL-2.0+ */
-/* Copyright 2020-2021 NXP */
+/* Copyright 2020-2022 NXP */
 #ifndef LLCE_INTERFACE_CONFIG_H
 #define LLCE_INTERFACE_CONFIG_H
 
-
-/* LLCE configuration parameters. */
+/* LLCE configuration parameters.
+ */
 /**
  * Default controller ID needed by the host 0 interface in order to
  * transmit INIT_PLATFORM and DEINIT_PLATFORM commands from host to LLCE.
@@ -67,7 +67,7 @@
 /**
  * Number of AF descriptors reserved for each
  * internal path within LLCE frame routing
- */
+*/
 #define LLCE_CAN_CONFIG_MAXAFRXMB 256U
 #define LLCE_CAN_CONFIG_MAXAFTXMB 256U
 #define LLCE_CAN_CONFIG_MAXAFFRMB 256U
@@ -121,15 +121,13 @@
 #define LLCE_FIFO_TXACK_INDEX 1U
 /** Number of FIFOs used by first HIF. */
 #define LLCE_CAN_HIF0_FIFO_CNT 8U
-/**
- * Number of occurrences of last error reported by the notification
- * mechanism.Limited by Llce_can_Error_notif_type structure size.
- */
-#define LLCE_CAN_CONFIG_MAX_OCCURENCES 255U
 /** Semaphore core domain */
 #define LLCE_HOST_CORE_SEMA42_DOMAIN LLCE_SEMA42_GR_GTFSM_9
+/** No result from Rx_lut2 */
+#define LLCE_RXLUT2_NO_RESULT 0xFFFFU
 
-/* LIN defines */
+/* LIN defines
+ */
 /** Maximum buffer size used to store the LIN frame payload */
 #define LLCE_LIN_CONFIG_PAYLOAD_MAX_SIZE 8U
 /** Maximum number of LIN transmission buffers */
