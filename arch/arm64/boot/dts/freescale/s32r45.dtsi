@@ -178,12 +178,14 @@
 				 <&clks S32R45_SCMI_CLK_GMAC1_RX_SGMII>,
 				 <&clks S32R45_SCMI_CLK_GMAC1_RX_RGMII>,
 				 <&clks S32R45_SCMI_CLK_GMAC1_RX_RMII>,
-				 <&clks S32R45_SCMI_CLK_GMAC1_RX_MII>;
+				 <&clks S32R45_SCMI_CLK_GMAC1_RX_MII>,
+				 <&clks S32R45_SCMI_CLK_GMAC1_TS>;
 			clock-names = "stmmaceth", "pclk",
 				      "tx_sgmii", "tx_rgmii",
 				      "tx_rmii", "tx_mii",
 				      "rx_sgmii", "rx_rgmii",
-				      "rx_rmii", "rx_mii";
+				      "rx_rmii", "rx_mii",
+				      "ptp_ref";
 			gmac1_mdio: mdio0 {
 				compatible = "snps,dwmac-mdio";
 				#address-cells = <1>;
