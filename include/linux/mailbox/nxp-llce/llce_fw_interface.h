@@ -1,7 +1,25 @@
 /* SPDX-License-Identifier: GPL-2.0+ */
-/* Copyright 2020-2021 NXP */
+/* Copyright 2020-2022 NXP */
 #ifndef LLCE_FW_INTERFACE_H
 #define LLCE_FW_INTERFACE_H
+
+#include "llce_fw_version.h"
+
+/**
+ * CAN firmware notification categories.
+ * Contains the notification categories of the values returned by the LLCE Firmware.
+ * @see enum llce_fw_return
+ **/
+enum llce_fw_notification_category {
+	LLCE_NOTIFCAT_CAN_PROTOCOL = 1U,
+	LLCE_NOTIFCAT_DATA_LOST,
+	LLCE_NOTIFCAT_CONFIGURATION,
+	LLCE_NOTIFCAT_INTERNAL,
+	LLCE_NOTIFCAT_BUSOFF,
+	LLCE_NOTIFCAT_FW_STATUS,
+	LLCE_NOTIFCAT_CAN_PROTOCOL_CRITICAL_STATE
+
+} __packed;
 
 /**
  * CAN firmware error values.
@@ -23,10 +41,7 @@ enum llce_fw_return {
 	LLCE_ERROR_SW_FIFO_FULL,
 	/** CAN firmware error: Message buffer is not available. */
 	LLCE_ERROR_MB_NOTAVAILABLE,
-	/**
-	 * CAN firmware error: Short Message buffer is configured
-	 * but a long frame is received.
-	 */
+	/** CAN firmware error: Short Message buffer is configured but a long frame is received. */
 	LLCE_ERROR_SHORT_MB_NOTAVAILABLE,
 	/**
 	 * CAN firmware error: CAN protocol error due to inability to get
@@ -380,7 +395,17 @@ enum llce_fw_return {
 	 * CAN firmware notification: BCAN is ready to leave bus-off
 	 * state after the automatic recovery procedure
 	 */
-	LLCE_NOTIF_BUSOFF_DONE
+	LLCE_NOTIF_BUSOFF_DONE,
+	/** CAN firmware error: TXWRN is set when the Tx error counter ECR[TEC] reached 96. */
+	LLCE_ERROR_BCAN_TXWRN,
+	/** CAN firmware error: RXWRN is set when the Rx error counter ECR[REC] reached 96. */
+	LLCE_ERROR_BCAN_RXWRN,
+	/** CAN firmware error: PASSERR is set when BCAN enters Passive state. */
+	LLCE_ERROR_BCAN_PASSERR,
+	/**
+	 * Number of enum elements. It must be kept as the last member of the list.
+	 */
+	LLCE_FW_RETURNTYPE_COUNT
 
 } __packed;
 
@@ -409,6 +434,97 @@ struct llce_mgr_status {
 	 * a specific ERROR information
 	 */
 	enum llce_fw_return frpe_boot_status;
+	/** OUTPUT: LLCE FW version structure. */
+	struct llce_fw_version llce_fw_version;
+
 } __aligned(4) __packed;
 
-#endif /* LLCE_INTERFACEFWMGR_H */
+/**
+ * Helper function that returns the category of a value returned by the LLCE FW.
+ * Determines the category of a value returned by the LLCE Firmware.
+ * It can take as input errors, notifications and status values (see enum llce_fw_return).
+ * It will return the category that value belongs to.
+ * @param[in] notification_code CAN error, notification or status values as they are reported by
+ * the LLCE firmware.
+ * @return CAN firmware notification category.
+ */
+static inline enum llce_fw_notification_category
+llce_get_notification_category(enum llce_fw_return e_notification_code)
+{
+	enum llce_fw_notification_category notif_category;
+
+	switch (e_notification_code) {
+	case LLCE_ERROR_BUSOFF:
+	case LLCE_NOTIF_BUSOFF_AUTO_RECOVERY_PENDING:
+	case LLCE_NOTIF_BUSOFF_DONE:
+	 notif_category = LLCE_NOTIFCAT_BUSOFF;
+		break;
+
+	/* Treat all the cases leading to DATA_LOST which should be reported to the host
+	 */
+	case LLCE_ERROR_RXOUT_FIFO_FULL:
+	case LLCE_ERROR_MB_NOTAVAILABLE:
+	case LLCE_ERROR_BCAN_RXFIFO_OVERRUN:
+	 notif_category = LLCE_NOTIFCAT_DATA_LOST;
+		break;
+
+	/* Can protocol errors
+	 */
+	case LLCE_ERROR_BCAN_TDCFAIL:
+	case LLCE_ERROR_BCAN_ACKERR:
+	case LLCE_ERROR_BCAN_CRCERR:
+	case LLCE_ERROR_BCAN_BIT0ERR:
+	case LLCE_ERROR_BCAN_BIT1ERR:
+	case LLCE_ERROR_BCAN_DPBIT0ERR:
+	case LLCE_ERROR_BCAN_DPBIT1ERR:
+	case LLCE_ERROR_BCAN_STFERR:
+	case LLCE_ERROR_BCAN_FRMERR:
+	case LLCE_ERROR_BCAN_DPSTFERR:
+	case LLCE_ERROR_BCAN_DPFRMERR:
+	case LLCE_ERROR_BCAN_DPCRCERR:
+	case LLCE_ERROR_BCAN_UNKNOWN_ERROR:
+	case LLCE_ERROR_BCAN_FRZ_EXIT:
+	case LLCE_ERROR_BCAN_SYNC:
+	case LLCE_ERROR_BCAN_FRZ_ENTER:
+	case LLCE_ERROR_BCAN_LPM_EXIT:
+	case LLCE_ERROR_BCAN_SRT_ENTER:
+	 notif_category = LLCE_NOTIFCAT_CAN_PROTOCOL;
+		break;
+	case LLCE_ERROR_BCAN_TXWRN:
+	case LLCE_ERROR_BCAN_RXWRN:
+	case LLCE_ERROR_BCAN_PASSERR:
+	 notif_category = LLCE_NOTIFCAT_CAN_PROTOCOL_CRITICAL_STATE;
+		break;
+
+	/* Initialization errors. This category contains errors caused by bad usage or a
+	 * malicious host (eg initialization errors, bad cmd parameters, invalid indexes etc).
+	 */
+	case LLCE_ERROR_COMMAND_NOTSUPPORTED:
+	case LLCE_ERROR_COMMAND_NOTACCEPTED:
+	case LLCE_ERROR_COMMAND_INVALID_PARAMS:
+	case LLCE_ERROR_RXTOKENS_UNRETURNED:
+	case LLCE_ERROR_FILTERS_NOTEXIST:
+	case LLCE_ERROR_FILTERS_FULL:
+	case LLCE_ERROR_CMD_PROCESSING:
+	case LLCE_ERROR_TXACK_NOT_READ:
+	case LLCE_ERROR_COMMAND_DEINIT_NOTSTOP:
+	 notif_category = LLCE_NOTIFCAT_CONFIGURATION;
+		break;
+
+	/* Values that are neither errors nor notifications.
+	 */
+	case LLCE_FW_SUCCESS:
+	case LLCE_FW_ERROR:
+	case LLCE_FW_NOTRUN:
+	 notif_category = LLCE_NOTIFCAT_FW_STATUS;
+		break;
+
+	default:
+	 notif_category = LLCE_NOTIFCAT_INTERNAL;
+		break;
+	}
+
+	return notif_category;
+}
+
+#endif /* LLCE_FW_INTERFACE_H */
