@@ -160,6 +160,7 @@
 };
 
 &usdhc0 {
+	no-1-8-v;
 	status = "okay";
 };
 
