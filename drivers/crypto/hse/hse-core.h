@@ -4,7 +4,7 @@
  *
  * This file defines the driver core interface for the HSE cryptographic engine.
  *
- * Copyright 2019-2021 NXP
+ * Copyright 2019-2022 NXP
  */
 
 #ifndef HSE_CORE_H
@@ -62,7 +62,5 @@ void hse_aead_unregister(struct list_head *alg_list);
 
 void hse_rng_register(struct device *dev);
 void hse_rng_unregister(struct device *dev);
-
-u32 _get_rng_srv_id(struct device *dev);
 
 #endif /* HSE_CORE_H */
