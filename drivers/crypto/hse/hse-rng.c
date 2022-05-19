@@ -133,7 +133,7 @@ static int hse_rng_read(struct hwrng *rng, void *buf, size_t count, bool wait)
 	if (unlikely(dma_mapping_error(ctx->dev, buf_dma)))
 		return -ENOMEM;
 
-	srv_desc.srv_id = _get_rng_srv_id(ctx->dev);
+	srv_desc.srv_id = HSE_SRV_ID_GET_RANDOM_NUM;
 	srv_desc.rng_req.rng_class = HSE_RNG_CLASS_PTG3;
 	srv_desc.rng_req.random_num_len = count;
 	srv_desc.rng_req.random_num = buf_dma;
@@ -157,7 +157,7 @@ static int hse_rng_init(struct hwrng *rng)
 
 	mutex_init(&ctx->req_lock);
 
-	ctx->srv_desc.srv_id = _get_rng_srv_id(ctx->dev);
+	ctx->srv_desc.srv_id = HSE_SRV_ID_GET_RANDOM_NUM;
 	ctx->srv_desc.rng_req.rng_class = HSE_RNG_CLASS_PTG3;
 
 	ctx->cache_dma = dma_map_single(ctx->dev, ctx->cache, HSE_RNG_CACHE_MAX,
