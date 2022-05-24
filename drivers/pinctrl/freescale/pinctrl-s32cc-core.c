@@ -28,7 +28,6 @@
 
 #include <dt-bindings/pinctrl/s32-gen1-pinctrl.h>
 
-#define GPIO_GROUP_NAME "gpiogrp"
 #define S32_PINCTRL_NUM_REGIONS 5
 
 struct s32_pinctrl_mem_region {
@@ -377,29 +376,11 @@ static int s32_pmx_gpio_request_enable(struct pinctrl_dev *pctldev,
 {
 	struct s32_pinctrl *ipctl = pinctrl_dev_get_drvdata(pctldev);
 	unsigned long config;
-	const struct s32_pin_group *grp;
-	const struct s32_pin *pin;
 	struct gpio_pin_config *gpio_pin;
 	int ret;
 
-	const struct s32_pinctrl_soc_info *info = ipctl->info;
-
-	/* Find the pinctrl config for the requested pin */
-	grp = s32_pinctrl_find_group_by_name(info, GPIO_GROUP_NAME);
-	if (!grp) {
-		dev_err(info->dev, "unable to find group for gpiogrp node\n");
-		return -EINVAL;
-	}
-
-	pin = s32_pinctrl_find_pin(grp, offset);
-	if (!pin) {
-		dev_err(info->dev, "The pin %d is not member of a gpio group\n",
-					offset);
-		return -EINVAL;
-	}
-
-	ret = s32_pinctrl_readl(pctldev, pin->pin_id, &config);
-	if (ret)
+	ret = s32_pinctrl_readl(pctldev, offset, &config);
+	if (ret != 0)
 		return -EINVAL;
 
 	/* Save current configuration */
@@ -407,14 +388,14 @@ static int s32_pmx_gpio_request_enable(struct pinctrl_dev *pctldev,
 	if (!gpio_pin)
 		return -ENOMEM;
 
-	gpio_pin->pin = *pin;
+	gpio_pin->pin.pin_id = offset;
 	gpio_pin->pin.config = config;
 	list_add(&(gpio_pin->list), &(ipctl->gpio_configs));
 
 	config &= ~PAD_CTL_MUX_MODE_MASK;
 	config |= PAD_CTL_SRC_SIG_SEL0;
 
-	return s32_pinctrl_writel(config, pctldev, pin->pin_id);
+	return s32_pinctrl_writel(config, pctldev, offset);
 }
 
 static void s32_pmx_gpio_disable_free(struct pinctrl_dev *pctldev,
@@ -449,26 +430,11 @@ static int s32_pmx_gpio_set_direction(struct pinctrl_dev *pctldev,
 				      unsigned int offset,
 				      bool input)
 {
-	struct s32_pinctrl *ipctl = pinctrl_dev_get_drvdata(pctldev);
-	const struct s32_pinctrl_soc_info *info = ipctl->info;
 	unsigned long config;
-	const struct s32_pin_group *grp;
-	const struct s32_pin *pin;
 	int ret;
 
-	/* Find the pinctrl config for the requested pin */
-	grp = s32_pinctrl_find_group_by_name(info, GPIO_GROUP_NAME);
-	if (!grp) {
-		dev_err(info->dev, "unable to find group for gpiogrp node\n");
-		return -EINVAL;
-	}
-
-	pin = s32_pinctrl_find_pin(grp, offset);
-	if (!pin)
-		return -EINVAL;
-
-	ret = s32_pinctrl_readl(pctldev, pin->pin_id, &config);
-	if (ret)
+	ret = s32_pinctrl_readl(pctldev, offset, &config);
+	if (ret != 0)
 		return -EINVAL;
 
 	if (input) {
@@ -481,7 +447,7 @@ static int s32_pmx_gpio_set_direction(struct pinctrl_dev *pctldev,
 		config |= PAD_CTL_OBE;
 	}
 
-	return s32_pinctrl_writel(config, pctldev, pin->pin_id);
+	return s32_pinctrl_writel(config, pctldev, offset);
 }
 
 static const struct pinmux_ops s32_pmx_ops = {
