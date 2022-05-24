@@ -163,17 +163,39 @@ s32_pinctrl_find_pin(const struct s32_pin_group *grp,
 	return NULL;
 }
 
-static inline const struct s32_pin_group *
-s32_pinctrl_find_group_by_name(const struct s32_pinctrl_soc_info *info,
-			       const char *name)
+static inline const struct s32_pin_group *s32_pinctrl_find_group_by_func(
+				const struct s32_pinctrl_soc_info *info,
+				const char *func_name)
 {
 	const struct s32_pin_group *grp = NULL;
+	const char *grp_name = NULL;
+	struct s32_pmx_func *func;
 	unsigned int i;
+
+	/**
+	 * Assupmtion: Each function contains one pinmuxing group
+	 */
+	for (i = 0; i < info->nfunctions; i++) {
+		func = &info->functions[i];
+
+		if (strcmp(func->name, func_name))
+			continue;
+		if (func->num_groups != 1)
+			continue;
+		if (!func->groups || !func->groups[0])
+			continue;
+
+		grp_name = func->groups[0];
+		break;
+	}
+
+	if (!grp_name)
+		return grp;
 
 	for (i = 0; i < info->ngroups; i++) {
 		if (!info->groups[i].name)
 			continue;
-		if (!strcmp(info->groups[i].name, name)) {
+		if (!strcmp(info->groups[i].name, grp_name)) {
 			grp = &info->groups[i];
 			break;
 		}
@@ -238,7 +260,7 @@ static int s32_dt_node_to_map(struct pinctrl_dev *pctldev,
 	 * first find the group of this node and check if we need create
 	 * config maps for pins
 	 */
-	grp = s32_pinctrl_find_group_by_name(info, np->name);
+	grp = s32_pinctrl_find_group_by_func(info, np->name);
 	if (!grp) {
 		dev_err(info->dev, "unable to find group for node %s\n",
 			np->name);
@@ -261,8 +283,8 @@ static int s32_dt_node_to_map(struct pinctrl_dev *pctldev,
 		return -EINVAL;
 	}
 	new_map[0].type = PIN_MAP_TYPE_MUX_GROUP;
-	new_map[0].data.mux.function = parent->name;
-	new_map[0].data.mux.group = np->name;
+	new_map[0].data.mux.function = np->name;
+	new_map[0].data.mux.group = grp->name;
 	of_node_put(parent);
 
 	/* create config map */
