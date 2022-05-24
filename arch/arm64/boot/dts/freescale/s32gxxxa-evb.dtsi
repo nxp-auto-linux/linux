@@ -22,7 +22,7 @@
 
 &usbotg {
 	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_usbotg>;
+	pinctrl-0 = <&usbotg_pins>;
 	fsl,usbphy = <&usbphynop>;
 	status = "okay";
 };
@@ -44,7 +44,7 @@
 &gmac0 {
 	status = "okay";
 	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_gmac0_rgmii_c>, <&pinctrl_gmac0_mdio_c>;
+	pinctrl-0 = <&gmac0rgmiic_pins>, <&gmac0mdioc_pins>;
 	phy-handle = <&gmac0_mdio_c_phy4>;
 	phy-mode = "rgmii-id";
 };
@@ -69,7 +69,7 @@
 &pfe {
 	status = "okay";
 	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_pfe2_mdio_a>, <&pinctrl_pfe2_rgmii_a>;
+	pinctrl-0 = <&pfe2mdioa_pins>, <&pfe2rgmiia_pins>;
 };
 
 &pfe_mdio0 {
@@ -124,8 +124,8 @@
 
 &i2c0 {
 	pinctrl-names = "default", "gpio";
-	pinctrl-0 = <&pinctrl_i2c0>;
-	pinctrl-1 = <&pinctrl_i2c0_gpio>;
+	pinctrl-0 = <&i2c0_pins>;
+	pinctrl-1 = <&i2c0_gpio_pins>;
 	scl-gpios = <&gpio 17 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
 	sda-gpios = <&gpio 16 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
 	status = "okay";
@@ -133,8 +133,8 @@
 
 &i2c1 {
 	pinctrl-names = "default", "gpio";
-	pinctrl-0 = <&pinctrl_i2c1>;
-	pinctrl-1 = <&pinctrl_i2c1_gpio>;
+	pinctrl-0 = <&i2c1_pins>;
+	pinctrl-1 = <&i2c1_gpio_pins>;
 	scl-gpios = <&gpio 19 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
 	sda-gpios = <&gpio 20 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
 	status = "okay";
@@ -142,8 +142,8 @@
 
 &i2c2 {
 	pinctrl-names = "default", "gpio";
-	pinctrl-0 = <&pinctrl_i2c2>;
-	pinctrl-1 = <&pinctrl_i2c2_gpio>;
+	pinctrl-0 = <&i2c2_pins>;
+	pinctrl-1 = <&i2c2_gpio_pins>;
 	scl-gpios = <&gpio 21 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
 	sda-gpios = <&gpio 22 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
 	status = "okay";
@@ -151,8 +151,8 @@
 
 &i2c4 {
 	pinctrl-names = "default", "gpio";
-	pinctrl-0 = <&pinctrl_i2c4>;
-	pinctrl-1 = <&pinctrl_i2c4_gpio>;
+	pinctrl-0 = <&i2c4_pins>;
+	pinctrl-1 = <&i2c4_gpio_pins>;
 	scl-gpios = <&gpio 34 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
 	sda-gpios = <&gpio 33 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
 	status = "okay";
@@ -165,19 +165,19 @@
 
 &can0 {
 	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_can0>;
+	pinctrl-0 = <&can0_pins>;
 	status = "okay";
 };
 
 &can2 {
 	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_can2>;
+	pinctrl-0 = <&can2_pins>;
 	status = "okay";
 };
 
 &can3 {
 	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_can3>;
+	pinctrl-0 = <&can3_pins>;
 	status = "okay";
 };
 
@@ -211,32 +211,38 @@
 
 &pinctrl {
 	status = "okay";
-	s32g274a-evb {
-		pinctrl_can0: can0grp {
+	can0_pins: can0 {
+		can0_grp {
 			fsl,pins = <
 				S32_GEN1_PAD_PC12__CAN0_TXD
 				S32_GEN1_PAD_PC11__CAN0_RXD_OUT
 				S32_GEN1_PAD_PC11__CAN0_RXD_IN
 			>;
 		};
+	};
 
-		pinctrl_can2: can2grp {
+	can2_pins: can2 {
+		can2_grp {
 			fsl,pins = <
 				S32_GEN1_PAD_PB11__CAN2_TXD
 				S32_GEN1_PAD_PB12__CAN2_RXD_OUT
 				S32_GEN1_PAD_PB12__CAN2_RXD_IN
 			>;
 		};
+	};
 
-		pinctrl_can3: can3grp {
+	can3_pins: can3 {
+		can3_grp {
 		       fsl,pins = <
 				S32_GEN1_PAD_PB9__CAN3_TXD
 				S32_GEN1_PAD_PB10__CAN3_RXD_OUT
 				S32_GEN1_PAD_PB10__CAN3_RXD_IN
 			   >;
 		};
+	};
 
-		pinctrl_dspi1: dspi1grp {
+	dspi1_pins: dspi1 {
+		dspi1_grp {
 			fsl,pins = <
 				S32_GEN1_PAD_PA7__SPI1_CS0_OUT
 				S32_GEN1_PAD_PA6__SPI1_SOUT_OUT
@@ -245,8 +251,10 @@
 				S32_GEN1_PAD_PF15__SPI1_SIN_IN
 			>;
 		};
+	};
 
-		pinctrl_dspi1_slave: dspi1slavegrp {
+	dspi1slave_pins: dspi1slave {
+		dspi1slave_grp {
 			fsl,pins = <
 				S32_GEN1_PAD_PA6__SPI1_SOUT_OUT
 				S32_GEN1_PAD_PA7__SPI1_CS0_SLAVE_OUT
@@ -257,8 +265,10 @@
 				S32_GEN1_PAD_PF15__SPI1_SIN_IN
 			>;
 		};
+	};
 
-		pinctrl_dspi5: dspi5grp {
+	dspi5_pins: dspi5 {
+		dspi5_grp {
 			fsl,pins = <
 				S32_GEN1_PAD_PA9__SPI5_SCK_OUT
 				S32_GEN1_PAD_PA10__SPI5_SIN_OUT
@@ -267,8 +277,10 @@
 				S32_GEN1_PAD_PA12__SPI5_CS0_OUT
 			>;
 		};
+	};
 
-		pinctrl_i2c0: i2c0grp {
+	i2c0_pins: i2c0 {
+		i2c0_grp {
 			fsl,pins = <
 				S32_GEN1_PAD_PB0__I2C0_DATA_OUT
 				S32_GEN1_PAD_PB0__I2C0_DATA_IN
@@ -276,8 +288,10 @@
 				S32_GEN1_PAD_PB1__I2C0_SCLK_IN
 			>;
 		};
+	};
 
-		pinctrl_i2c0_gpio: i2c0grp_gpio {
+	i2c0_gpio_pins: i2c0_gpio {
+		i2c0_gpio_grp {
 			fsl,pins = <
 				S32_GEN1_PAD_PB0__I2C0_DATA_GPIO
 				S32_GEN1_PAD_PB0__DISABLED_IN
@@ -285,8 +299,10 @@
 				S32_GEN1_PAD_PB1__DISABLED_IN
 			>;
 		};
+	};
 
-		pinctrl_i2c1: i2c1grp {
+	i2c1_pins: i2c1 {
+		i2c1_grp {
 			fsl,pins = <
 				S32_GEN1_PAD_PB3__I2C1_SCLK_OUT
 				S32_GEN1_PAD_PB3__I2C1_SCLK_IN
@@ -294,8 +310,10 @@
 				S32_GEN1_PAD_PB4__I2C1_DATA_IN
 			>;
 		};
+	};
 
-		pinctrl_i2c1_gpio: i2c1grp_gpio {
+	i2c1_gpio_pins: i2c1_gpio {
+		i2c1_gpio_grp {
 			fsl,pins = <
 				S32_GEN1_PAD_PB3__I2C1_SCLK_GPIO
 				S32_GEN1_PAD_PB3__DISABLED_IN
@@ -303,8 +321,10 @@
 				S32_GEN1_PAD_PB4__DISABLED_IN
 			>;
 		};
+	};
 
-		pinctrl_i2c2: i2c2grp {
+	i2c2_pins: i2c2 {
+		i2c2_grp {
 			fsl,pins = <
 				S32_GEN1_PAD_PB5__I2C2_SCLK_OUT
 				S32_GEN1_PAD_PB5__I2C2_SCLK_IN
@@ -312,8 +332,10 @@
 				S32_GEN1_PAD_PB6__I2C2_DATA_IN
 			>;
 		};
+	};
 
-		pinctrl_i2c2_gpio: i2c2grp_gpio {
+	i2c2_gpio_pins: i2c2_gpio {
+		i2c2_gpio_grp {
 			fsl,pins = <
 				S32_GEN1_PAD_PB5__DISABLED_IN
 				S32_GEN1_PAD_PB5__I2C2_SCLK_GPIO
@@ -321,8 +343,10 @@
 				S32_GEN1_PAD_PB6__I2C2_DATA_GPIO
 			>;
 		};
+	};
 
-		pinctrl_i2c4: i2c4grp {
+	i2c4_pins: i2c4 {
+		i2c4_grp {
 			fsl,pins = <
 				S32_GEN1_PAD_PC1__I2C4_DATA_OUT
 				S32_GEN1_PAD_PC1__I2C4_DATA_IN
@@ -330,8 +354,10 @@
 				S32_GEN1_PAD_PC2__I2C4_SCLK_IN
 			>;
 		};
+	};
 
-		pinctrl_i2c4_gpio: i2c4grp_gpio {
+	i2c4_gpio_pins: i2c4_gpio {
+		i2c4_gpio_grp {
 			fsl,pins = <
 				S32_GEN1_PAD_PC1__I2C4_DATA_GPIO
 				S32_GEN1_PAD_PC1__DISABLED_IN
@@ -339,8 +365,10 @@
 				S32_GEN1_PAD_PC2__DISABLED_IN
 			>;
 		};
+	};
 
-		pinctrl_usbotg: usbotggrp {
+	usbotg_pins: usbotg {
+		usbotg_grp {
 		       fsl,pins = <
 				S32_GEN1_PAD_PD14__USB_ULPI_DATA_I0_IN
 				S32_GEN1_PAD_PD14__USB_ULPI_DATA_O0
@@ -367,16 +395,20 @@
 				S32_GEN1_PAD_PL11__USB_ULPI_NXT_IN
 			   >;
 		};
+	};
 
-		pinctrl_pfe2_mdio_a: pfe2mdioagrp {
+	pfe2mdioa_pins: pfe2mdioa {
+		pfe2mdioa_grp {
 			fsl,pins = <
 				S32_G274_PAD_PF2__PFE2_MDC
 				S32_G274_PAD_PE15__PFE2_MDIO_OUT
 				S32_G274_PAD_PE15__PFE2_MDIO_IN
 			>;
 		};
+	};
 
-		pinctrl_pfe2_rgmii_a: pfe2rgmiiagrp {
+	pfe2rgmiia_pins: pfe2rgmiia {
+		pfe2rgmiia_grp {
 			fsl,pins = <
 				S32_G274_PAD_PJ0__PFE2_TX_D0_OUT
 				S32_G274_PAD_PH1__PFE2_TX_D1_OUT
@@ -399,16 +431,20 @@
 				S32_G274_PAD_PE14__PFE2_TX_EN_OUT
 			>;
 		};
+	};
 
-		pinctrl_gmac0_mdio_c: gmac0mdiocgrp {
+	gmac0mdioc_pins: gmac0mdioc {
+		gmac0mdioc_grp {
 			fsl,pins = <
 				S32_GEN1_PAD_PD12__GMAC0_MDC
 				S32_GEN1_PAD_PD13__GMAC0_MDIO_OUT
 				S32_GEN1_PAD_PD13__GMAC0_MDIO_IN
 			>;
 		};
+	};
 
-		pinctrl_gmac0_rgmii_c: gmac0rgmiicgrp {
+	gmac0rgmiic_pins: gmac0rgmiic {
+		gmac0rgmiic_grp {
 			fsl,pins = <
 				S32_GEN1_PAD_PE2__GMAC0_TXCLK_OUT
 				S32_GEN1_PAD_PE2__GMAC0_TXCLK_IN
@@ -431,16 +467,20 @@
 				S32_GEN1_PAD_PE13__GMAC0_RX_D3_IN
 			>;
 		};
+	};
 
-		pinctrl_pfe1_mdio_c: pfe1mdiocgrp {
+	pfe1mdioc_pins: pfe1mdioc {
+		pfe1mdioc_grp {
 			fsl,pins = <
 				S32_G274_PAD_PD12__PFE1_MDC
 				S32_G274_PAD_PD13__PFE1_MDIO_OUT
 				S32_G274_PAD_PD13__PFE1_MDIO_IN
 			>;
 		};
+	};
 
-		pinctrl_pfe1_rgmii_c: pfe1rgmiicgrp {
+	pfe1rgmiic_pins: pfe1rgmiic {
+		pfe1rgmiic_grp {
 			fsl,pins = <
 				S32_G274_PAD_PE2__PFE1_TXCLK_OUT
 				S32_G274_PAD_PE2__PFE1_TXCLK_IN
@@ -463,8 +503,10 @@
 				S32_G274_PAD_PE13__PFE1_RX_D3_IN
 			>;
 		};
+	};
 
-		pinctrl_ftm0: ftm0grp {
+	ftm0_pins: ftm0 {
+		ftm0_grp {
 			fsl,pins = <
 				S32_GEN1_PAD_PB_02__FTM0_CH2_I
 				S32_GEN1_PAD_PB_02__FTM0_CH2_O
@@ -476,8 +518,10 @@
 				S32_GEN1_PAD_PL_05__FTM0_CH4_I
 			>;
 		};
+	};
 
-		pinctrl_ftm1: ftm1grp {
+	ftm1_pins: ftm1 {
+		ftm1_grp {
 			fsl,pins = <
 				S32_GEN1_PAD_PB_13__FTM1_CH2_O
 				S32_GEN1_PAD_PB_13__FTM1_CH2_I
@@ -487,8 +531,10 @@
 				S32_GEN1_PAD_PC_00__FTM1_CH4_I
 			>;
 		};
+	};
 
-		pinctrl_rgmii_a: gmacrgmiiagrp {
+	gmacrgmiia_pins: gmacrgmiia {
+		gmacrgmiia_grp {
 			fsl,pins = <
 				S32_GEN1_PAD_PH1__SIUL_GPIO113
 				S32_GEN1_PAD_PH2__SIUL_GPIO114
@@ -515,8 +561,8 @@
 };
 
 &spi1 {
-	pinctrl-0 = <&pinctrl_dspi1>;
-	pinctrl-1 = <&pinctrl_dspi1_slave>;
+	pinctrl-0 = <&dspi1_pins>;
+	pinctrl-1 = <&dspi1slave_pins>;
 	pinctrl-names = "default", "slave";
 	#address-cells = <1>;
 	#size-cells = <0>;
@@ -533,7 +579,7 @@
 
 &spi5 {
 	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_dspi5>;
+	pinctrl-0 = <&dspi5_pins>;
 	#address-cells = <1>;
 	#size-cells = <0>;
 	status = "okay";
@@ -689,13 +735,13 @@
 
 &pwm0 {
 	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_ftm0>;
+	pinctrl-0 = <&ftm0_pins>;
 	status = "okay";
 };
 
 &pwm1 {
 	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_ftm1>;
+	pinctrl-0 = <&ftm1_pins>;
 	status = "okay";
 };
 
