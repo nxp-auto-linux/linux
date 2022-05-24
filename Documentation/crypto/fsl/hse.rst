@@ -54,9 +54,6 @@ The following Kconfig options are available:
 - AuthEnc and AEAD Support (CONFIG_CRYPTO_DEV_NXP_HSE_AEAD):
   Enables authenticated encryption and AEAD offloading to HSE.
 
-- NXP key wrapping/blobbing support (CRYPTO_DEV_NXP_HSE_KEY_WRAPPING):
-  Enables NXP key wrapping/blobbing with a device-specific hidden key.
-
 - Hardware RNG support (CONFIG_CRYPTO_DEV_NXP_HSE_RNG):
   Enables hardware true random number generation via HSE.
 
