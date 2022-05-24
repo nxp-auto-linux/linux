@@ -15,6 +15,7 @@
 #include <dt-bindings/phy/phy-s32gen1-serdes.h>
 #include <dt-bindings/phy/phy.h>
 #include <dt-bindings/reset/s32gen1-scmi-reset.h>
+#include <dt-bindings/memory/s32-siul2.h>
 
 #define RTC_FIRC_CLKSEL	2
 #define RTC_SIRC_CLKSEL	0
@@ -212,32 +213,18 @@
 			reg = <0x0 0x4007c600 0x0 0x20>;
 		};
 
-		siul2_0@4009c000 {
+		siul2@4009c000 {
 			compatible = "simple-mfd";
 			#address-cells = <2>;
 			#size-cells = <2>;
-			/* MIDR registers
-			 * They physically exist in EIRQ
-			 * addr space but they don't belong
-			 * to GPIO
-			 */
-			midr-reg = <0x0 0x4009c000 0x0 0x10>;
-			status = "disabled";
+			status = "okay";
+
 				  /* MIDR */
-			ranges = <0 0 0x0 0x4009c000 0x0 0x10>,
-				  /* MSCR 0-101 */
-				 <1 0 0x0 0x4009c240 0x0 0x198>,
-				 /* IMCR range 512–595 */
-				 <2 0 0x0 0x4009ca40 0x0 0x150>,
-				 /* Output pads */
-				 <3 0 0x0 0x4009d700 0x0 0x10>,
-				 /* Input pads */
-				 <4 0 0x0 0x4009d740 0x0 0x10>,
-				 /* EIRQs */
-				 <5 0 0x0 0x44010010 0x0 0x34>;
+			ranges = <MIDR_SIUL2_0 0x0 0x0 0x4009c000 0x0 0x10>;
+
 			nvram: nvram@4009c000 {
 				compatible = "nxp,s32cc-siul2_0-nvmem";
-				reg = <0x0 0x0 0x0 0x10>;
+				reg = <MIDR_SIUL2_0 0x0 0x0 0x10>;
 				#address-cells = <1>;
 				#size-cells = <1>;
 				status = "okay";

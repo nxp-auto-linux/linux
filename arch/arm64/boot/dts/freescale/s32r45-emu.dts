@@ -106,10 +106,10 @@
 	status = "okay";
 };
 
-&pinctrl0 {
+&pinctrl {
 	status = "okay";
 	s32r45-simu {
-		pinctrl_gpio0: gpiogrp0 {
+		pinctrl_gpio: gpiogrp {
 			fsl,pins = <
 				S32R45_PAD_PA_00_SIUL_GPIO0
 				S32R45_PAD_PA_01_SIUL_GPIO1
@@ -213,16 +213,6 @@
 				S32R45_PAD_PG_03_SIUL_GPIO99
 				S32R45_PAD_PG_04_SIUL_GPIO100
 				S32R45_PAD_PG_05_SIUL_GPIO101
-				>;
-		};
-	};
-};
-
-&pinctrl1 {
-	status = "okay";
-	s32r45-simu {
-		pinctrl_gpio1: gpiogrp1 {
-			fsl,pins = <
 				S32R45_PAD_PH_06_SIUL_GPIO102
 				S32R45_PAD_PH_07_SIUL_GPIO103
 				S32R45_PAD_PH_08_SIUL_GPIO104
@@ -258,7 +248,7 @@
 				>;
 		};
 
-		pinctrl_gpioeirq0: gpioeirqgrp0 {
+		pinctrl_gpioeirq: gpioeirqgrp {
 			fsl,pins = <
 				S32R45_PAD_PA_00_SIUL_EIRQ0
 				S32R45_PAD_PA_03_SIUL_EIRQ1
