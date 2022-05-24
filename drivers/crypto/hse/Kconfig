@@ -59,13 +59,6 @@ config CRYPTO_DEV_NXP_HSE_AEAD
 	help
 	  Enables authenticated encryption and AEAD offloading to HSE.
 
-config CRYPTO_DEV_NXP_HSE_KEY_WRAPPING
-	bool "NXP key wrapping/blobbing support"
-	depends on CRYPTO_DEV_NXP_HSE_AEAD
-	default n
-	help
-	  Enables NXP key wrapping/blobbing with a device-specific hidden key.
-
 config CRYPTO_DEV_NXP_HSE_RNG
 	bool "Hardware TRNG support"
 	depends on CRYPTO_DEV_NXP_HSE
