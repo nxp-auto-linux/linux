@@ -52,51 +52,95 @@
 	};
 
 	soc {
-		siul2_0@4009c000 {
+		siul2@4009c000 {
 			compatible = "simple-mfd";
+			status = "okay";
 			#address-cells = <2>;
 			#size-cells = <2>;
-			status = "okay";
-			pinctrl0: siul2-pinctrl0@4009c240 {
-				compatible = "nxp,s32g-siul2_0-pinctrl";
+
+				 /* MIDR */
+			ranges = <MIDR_SIUL2_0 0x0 0x0 0x4009c000 0x0 0x10>,
+				 <MIDR_SIUL2_1 0x0 0x0 0x44010000 0x0 0x10>,
+
+				 /* MSCR 0-101 */
+				 <MSCRS_SIUL2_0 0x0 0x0 0x4009c240 0x0 0x198>,
+				 /* MSCR 112-190 */
+				 <MSCRS_SIUL2_1 0x0 0x0 0x44010400 0x0 0x13c>,
+
+				 /* IMCR range 512–595 */
+				 <IMCRS_SIUL2_0 0x0 0x0 0x4009ca40 0x0 0x150>,
+				 /* IMCR range 631 - 909 */
+				 <IMCRS_SIUL2_1_0 0x0 0x0 0x44010c1c 0x0 0x45c>,
+				 /* IMCR range 910 - 941 (EIRQs) */
+				 <IMCRS_SIUL2_1_EIRQS 0x0 0x0 0x44011078 0x0 0x80>,
+				 /* IMCR range 942 - 1007 */
+				 <IMCRS_SIUL2_1_1 0x0 0x0 0x440110f8 0x0 0x108>,
+
+				 /* Output pads */
+				 <OPADS_SIUL2_0 0x0 0x0 0x4009d700 0x0 0x10>,
+				 <OPADS_SIUL2_1 0x0 0x0 0x4401170c 0x0 0xc>,
+
+				 /* Input pads */
+				 <IPADS_SIUL2_0 0x0 0x0 0x4009d740 0x0 0x10>,
+				 <IPADS_SIUL2_1 0x0 0x0 0x4401174c 0x0 0xc>,
+
+				 /* EIRQs */
+				 <EIRQS_SIUL2_1 0x0 0x0 0x44010010 0x0 0xb4>;
+
+			pinctrl: siul2-pinctrl@4009c240 {
+				compatible = "nxp,s32g-siul2-pinctrl";
 				#pinctrl-cells = <2>;
-				reg = <0x1 0x0 0x0 0x198>,
-				<0x2 0x0 0x0 0x150>;
-				/* MSCR range */
-				pins = <&pinctrl0 0 101>,
-				/* IMCR range */
-				<&pinctrl0 512 595>;
+
+				reg = <MSCRS_SIUL2_0   0 0x0 0x198>,
+				      <MSCRS_SIUL2_1   0 0x0 0x13c>,
+				      <IMCRS_SIUL2_0   0 0x0 0x150>,
+				      <IMCRS_SIUL2_1_0 0 0x0 0x45c>,
+				      <IMCRS_SIUL2_1_1 0 0x0 0x108>;
+
+					/* MSCR range */
+				pins = <&pinctrl 0   101
+					&pinctrl 112 190
+					/* IMCR range */
+					&pinctrl 512 595
+					&pinctrl 631 909
+					&pinctrl 942 1007>;
 				status = "okay";
 			};
-			gpio0: siul2-gpio0 {
+
+			gpio: siul2-gpio@4009d700 {
 				compatible = "nxp,s32g-siul2-gpio";
-				gpio-controller;
+
+				reg = <OPADS_SIUL2_0        0    0x0 0x10>,
+				      <OPADS_SIUL2_1        0    0x0 0xc>,
+				      <IPADS_SIUL2_0        0    0x0 0x10>,
+				      <IPADS_SIUL2_1        0    0x0 0xc>,
+				      <EIRQS_SIUL2_1        0    0x0 0xb4>,
+				      <IMCRS_SIUL2_1_EIRQS  0    0x0 0x80>;
+				reg-names = "opads0", "opads1", "ipads0",
+					    "ipads1", "eirqs", "eirq-imcrs";
+
 				#gpio-cells = <2>;
+				gpio-controller;
 					/* GPIO 0-101 */
-				gpio-ranges = <&pinctrl0 0 0 102>;
-					/* Pad Data I/0 Registers */
-				eirq-ranges =
-					/* EIRQ[0] - EIRQ[10] */
-					<&pinctrl0 0 19 11>,
-					/* EIRQ[11] */
-					<&pinctrl0 0 S32GEN1_INVALID_GPIO 1>,
-					/* EIRQ[12] */
-					<&pinctrl0 0 31 1>,
-					/* EIRQ[13] - EIRQ[15] */
-					<&pinctrl0 0 33 3>,
-					/* EIRQ[16] - EIRQ[26] */
-					<&pinctrl0 0 S32GEN1_INVALID_GPIO 11>,
-					/* EIRQ[27] - EIRQ[31] */
-					<&pinctrl0 0 36 5>;
-					/* Pad Data I/0 Registers */
-				reg = <0x3 0x0 0x0 0x10>,
-				      <0x4 0x0 0x0 0x10>,
-				      <0x5 0x0 0x0 0x34>;
-				reg-names = "opads", "ipads", "eirqs";
+				gpio-ranges = <&pinctrl 0   0   102>,
+					/* GPIO 112-190 */
+					      <&pinctrl 112 112 79>;
+
 				interrupt-controller;
 				#interrupt-cells = <2>;
 				interrupts = <GIC_SPI 210 IRQ_TYPE_LEVEL_HIGH>;
 				status = "okay";
+			};
+
+			nvram1: nvram@44010000 {
+				compatible = "nxp,s32cc-siul2_1-nvmem";
+				reg = <MIDR_SIUL2_1 0x0 0x0 0x10>;
+				#address-cells = <1>;
+				#size-cells = <1>;
+				status = "okay";
+				serdes_presence: serdes_presence@0 {
+					reg = <SERDES_PRESENCE_OFFSET NVRAM_CELL_SIZE>;
+				};
 			};
 		};
 
@@ -342,8 +386,7 @@
 				clocks = <&clks S32G_SCMI_CLK_LLCE_CAN_PE>;
 				clock-names = "can_pe";
 				pinctrl-names = "default";
-				pinctrl-0 = <&pinctrl0_llce_can0>,
-					<&pinctrl1_llce_can0>;
+				pinctrl-0 = <&pinctrl_llce_can0>;
 				status = "disabled";
 			};
 
@@ -356,7 +399,7 @@
 				clocks = <&clks S32G_SCMI_CLK_LLCE_CAN_PE>;
 				clock-names = "can_pe";
 				pinctrl-names = "default";
-				pinctrl-0 = <&pinctrl1_llce_can1>;
+				pinctrl-0 = <&pinctrl_llce_can1>;
 				status = "disabled";
 			};
 
@@ -369,7 +412,7 @@
 				clocks = <&clks S32G_SCMI_CLK_LLCE_CAN_PE>;
 				clock-names = "can_pe";
 				pinctrl-names = "default";
-				pinctrl-0 = <&pinctrl1_llce_can2>;
+				pinctrl-0 = <&pinctrl_llce_can2>;
 				status = "disabled";
 			};
 
@@ -382,7 +425,7 @@
 				clocks = <&clks S32G_SCMI_CLK_LLCE_CAN_PE>;
 				clock-names = "can_pe";
 				pinctrl-names = "default";
-				pinctrl-0 = <&pinctrl1_llce_can3>;
+				pinctrl-0 = <&pinctrl_llce_can3>;
 				status = "disabled";
 			};
 
@@ -395,7 +438,7 @@
 				clocks = <&clks S32G_SCMI_CLK_LLCE_CAN_PE>;
 				clock-names = "can_pe";
 				pinctrl-names = "default";
-				pinctrl-0 = <&pinctrl1_llce_can4>;
+				pinctrl-0 = <&pinctrl_llce_can4>;
 				status = "disabled";
 			};
 
@@ -408,7 +451,7 @@
 				clocks = <&clks S32G_SCMI_CLK_LLCE_CAN_PE>;
 				clock-names = "can_pe";
 				pinctrl-names = "default";
-				pinctrl-0 = <&pinctrl1_llce_can5>;
+				pinctrl-0 = <&pinctrl_llce_can5>;
 				status = "disabled";
 			};
 
@@ -421,7 +464,7 @@
 				clocks = <&clks S32G_SCMI_CLK_LLCE_CAN_PE>;
 				clock-names = "can_pe";
 				pinctrl-names = "default";
-				pinctrl-0 = <&pinctrl1_llce_can6>;
+				pinctrl-0 = <&pinctrl_llce_can6>;
 				status = "disabled";
 			};
 
@@ -434,7 +477,7 @@
 				clocks = <&clks S32G_SCMI_CLK_LLCE_CAN_PE>;
 				clock-names = "can_pe";
 				pinctrl-names = "default";
-				pinctrl-0 = <&pinctrl1_llce_can7>;
+				pinctrl-0 = <&pinctrl_llce_can7>;
 				status = "disabled";
 			};
 
@@ -447,7 +490,7 @@
 				clocks = <&clks S32G_SCMI_CLK_LLCE_CAN_PE>;
 				clock-names = "can_pe";
 				pinctrl-names = "default";
-				pinctrl-0 = <&pinctrl1_llce_can8>;
+				pinctrl-0 = <&pinctrl_llce_can8>;
 				status = "disabled";
 			};
 
@@ -460,7 +503,7 @@
 				clocks = <&clks S32G_SCMI_CLK_LLCE_CAN_PE>;
 				clock-names = "can_pe";
 				pinctrl-names = "default";
-				pinctrl-0 = <&pinctrl1_llce_can9>;
+				pinctrl-0 = <&pinctrl_llce_can9>;
 				status = "disabled";
 			};
 
@@ -473,7 +516,7 @@
 				clocks = <&clks S32G_SCMI_CLK_LLCE_CAN_PE>;
 				clock-names = "can_pe";
 				pinctrl-names = "default";
-				pinctrl-0 = <&pinctrl1_llce_can10>;
+				pinctrl-0 = <&pinctrl_llce_can10>;
 				status = "disabled";
 			};
 
@@ -486,7 +529,7 @@
 				clocks = <&clks S32G_SCMI_CLK_LLCE_CAN_PE>;
 				clock-names = "can_pe";
 				pinctrl-names = "default";
-				pinctrl-0 = <&pinctrl1_llce_can11>;
+				pinctrl-0 = <&pinctrl_llce_can11>;
 				status = "disabled";
 			};
 
@@ -499,7 +542,7 @@
 				clocks = <&clks S32G_SCMI_CLK_LLCE_CAN_PE>;
 				clock-names = "can_pe";
 				pinctrl-names = "default";
-				pinctrl-0 = <&pinctrl1_llce_can12>;
+				pinctrl-0 = <&pinctrl_llce_can12>;
 				status = "disabled";
 			};
 
@@ -512,7 +555,7 @@
 				clocks = <&clks S32G_SCMI_CLK_LLCE_CAN_PE>;
 				clock-names = "can_pe";
 				pinctrl-names = "default";
-				pinctrl-0 = <&pinctrl1_llce_can13>;
+				pinctrl-0 = <&pinctrl_llce_can13>;
 				status = "disabled";
 			};
 
@@ -525,7 +568,7 @@
 				clocks = <&clks S32G_SCMI_CLK_LLCE_CAN_PE>;
 				clock-names = "can_pe";
 				pinctrl-names = "default";
-				pinctrl-0 = <&pinctrl1_llce_can14>;
+				pinctrl-0 = <&pinctrl_llce_can14>;
 				status = "disabled";
 			};
 
@@ -538,94 +581,8 @@
 				clocks = <&clks S32G_SCMI_CLK_LLCE_CAN_PE>;
 				clock-names = "can_pe";
 				pinctrl-names = "default";
-				pinctrl-0 = <&pinctrl1_llce_can15>;
+				pinctrl-0 = <&pinctrl_llce_can15>;
 				status = "disabled";
-			};
-		};
-
-		siul2_1@44010000 {
-			compatible = "simple-mfd";
-			#address-cells = <2>;
-			#size-cells = <2>;
-			status = "okay";
-
-				 /* MIDR */
-			ranges = <0 0 0x0 0x44010000 0x0 0x10>,
-				 /* MSCR 112-190 */
-				 <1 0 0x0 0x44010400 0x0 0x13c>,
-				 /* IMCR range 631-1023 */
-				 <2 0 0x0 0x44010c1c 0x0 0x5e4>,
-				 /* Output pads */
-				 <3 0 0x0 0x44011700 0x0 0x18>,
-				 /* Input pads */
-				 <4 0 0x0 0x44011740 0x0 0x18>,
-				 /* EIRQS */
-				 <5 0 0x0 0x44010010 0x0 0x34>;
-
-			pinctrl1: siul2-pinctrl1@44010000 {
-				compatible = "nxp,s32g-siul2_1-pinctrl";
-				#pinctrl-cells = <2>;
-				reg = <0x1 0x0 0x0 0x13c>,
-				<0x2 0x0 0x0 0x5e4>;
-				/* MSCR range */
-				pins = <&pinctrl1 112 190>,
-				/* IMCR range */
-				<&pinctrl1 631 1023>;
-				status = "okay";
-			};
-			/*
-			 * Note gpio controller nodes are split into sections
-			 * of contiguous GPIO numbering at this
-			 * point in time, functions working with gpio chips
-			 * assume this for many things.
-			 */
-			gpio1: siul2-gpio1 {
-				compatible = "nxp,s32g-siul2-gpio";
-				gpio-controller;
-				#gpio-cells = <2>;
-					/* GPIO 112-190 */
-				gpio-ranges = <&pinctrl1 0 112 79>;
-				eirq-ranges =
-					/* EIRQ[0] - EIRQ[1] */
-					<&pinctrl1 0 151 2>,
-					/* EIRQ[2] - EIRQ[7] */
-					<&pinctrl1 0 177 6>,
-					/* EIRQ[8] */
-					<&pinctrl1 0 154 1>,
-					/* EIRQ[9] */
-					<&pinctrl1 0 160 1>,
-					/* EIRQ[10] */
-					<&pinctrl1 0 165 1>,
-					/* EIRQ[11] */
-					<&pinctrl1 0 168 1>,
-					/* EIRQ[12] - EIRQ[15] */
-					<&pinctrl1 0 S32GEN1_INVALID_GPIO 4>,
-					/* EIRQ[16] - EIRQ[22] */
-					<&pinctrl1 0 184 7>,
-					/* EIRQ[23] - EIRQ[25] */
-					<&pinctrl1 0 113 3>,
-					/* EIRQ[26] */
-					<&pinctrl1 0 117 1>;
-				/* Pad Data I/0 Registers */
-				reg = <0x3 0x0 0x0 0x18>,
-				    <0x04 0x0 0x0 0x18>,
-				    <0x5 0x0 0x0 0x34>;
-				reg-names = "opads", "ipads", "eirqs";
-				interrupt-controller;
-				interrupts = <GIC_SPI 210 IRQ_TYPE_LEVEL_HIGH>;
-				#interrupt-cells = <2>;
-				status = "okay";
-			};
-
-			nvram1: nvram@44010000 {
-				compatible = "nxp,s32cc-siul2_1-nvmem";
-				reg = <0x0 0x0 0x0 0x10>;
-				#address-cells = <1>;
-				#size-cells = <1>;
-				status = "okay";
-				serdes_presence: serdes_presence@0 {
-					reg = <SERDES_PRESENCE_OFFSET NVRAM_CELL_SIZE>;
-				};
 			};
 		};
 
@@ -655,16 +612,137 @@
 	};
 };
 
-&pinctrl0 {
+&pinctrl {
 	s32g274a {
-		pinctrl0_llce_can0: llce_can0 {
+		pinctrl_llce_can0: llce_can0 {
 			fsl,pins = <
 				S32_GEN1_PAD_PC_11_LLCE_CAN0_RX_O
 				S32_GEN1_PAD_PC_12_LLCE_CAN0_TX
+				S32_GEN1_PAD_PC_11_LLCE_CAN0_RX_I
 			>;
 		};
 
-		pinctrl0_qspi: qspigrp {
+		pinctrl_llce_can1: llce_can1 {
+			fsl,pins = <
+				S32_GEN1_PAD_PJ_01_LLCE_CAN1_TX
+				S32_GEN1_PAD_PJ_02_LLCE_CAN1_RX_I
+				S32_GEN1_PAD_PJ_02_LLCE_CAN1_RX_O
+			>;
+		};
+
+		pinctrl_llce_can2: llce_can2 {
+			fsl,pins = <
+				S32_GEN1_PAD_PJ_04_LLCE_CAN2_RX_I
+				S32_GEN1_PAD_PJ_04_LLCE_CAN2_RX_O
+				S32_GEN1_PAD_PJ_03_LLCE_CAN2_TX
+			>;
+		};
+
+		pinctrl_llce_can3: llce_can3 {
+			fsl,pins = <
+				S32_GEN1_PAD_PJ_06_LLCE_CAN3_RX_I
+				S32_GEN1_PAD_PJ_06_LLCE_CAN3_RX_O
+				S32_GEN1_PAD_PJ_05_LLCE_CAN3_TX
+			>;
+		};
+
+		pinctrl_llce_can4: llce_can4 {
+			fsl,pins = <
+				S32_GEN1_PAD_PJ_08_LLCE_CAN4_RX_I
+				S32_GEN1_PAD_PJ_08_LLCE_CAN4_RX_O
+				S32_GEN1_PAD_PJ_07_LLCE_CAN4_TX
+			>;
+		};
+
+		pinctrl_llce_can5: llce_can5 {
+			fsl,pins = <
+				S32_GEN1_PAD_PJ_10_LLCE_CAN5_RX_I
+				S32_GEN1_PAD_PJ_10_LLCE_CAN5_RX_O
+				S32_GEN1_PAD_PJ_09_LLCE_CAN5_TX
+			>;
+		};
+
+		pinctrl_llce_can6: llce_can6 {
+			fsl,pins = <
+				S32_GEN1_PAD_PJ_12_LLCE_CAN6_RX_I
+				S32_GEN1_PAD_PJ_12_LLCE_CAN6_RX_O
+				S32_GEN1_PAD_PJ_11_LLCE_CAN6_TX
+			>;
+		};
+
+		pinctrl_llce_can7: llce_can7 {
+			fsl,pins = <
+				S32_GEN1_PAD_PJ_14_LLCE_CAN7_RX_I
+				S32_GEN1_PAD_PJ_14_LLCE_CAN7_RX_O
+				S32_GEN1_PAD_PJ_13_LLCE_CAN7_TX
+			>;
+		};
+
+		pinctrl_llce_can8: llce_can8 {
+			fsl,pins = <
+				S32_GEN1_PAD_PK_00_LLCE_CAN8_RX_I
+				S32_GEN1_PAD_PK_00_LLCE_CAN8_RX_O
+				S32_GEN1_PAD_PJ_15_LLCE_CAN8_TX
+			>;
+		};
+
+		pinctrl_llce_can9: llce_can9 {
+			fsl,pins = <
+				S32_GEN1_PAD_PK_02_LLCE_CAN9_RX_I
+				S32_GEN1_PAD_PK_02_LLCE_CAN9_RX_O
+				S32_GEN1_PAD_PK_01_LLCE_CAN9_TX
+			>;
+		};
+
+		pinctrl_llce_can10: llce_can10 {
+			fsl,pins = <
+				S32_GEN1_PAD_PK_04_LLCE_CAN10_RX_I
+				S32_GEN1_PAD_PK_04_LLCE_CAN10_RX_O
+				S32_GEN1_PAD_PK_03_LLCE_CAN10_TX
+			>;
+		};
+
+		pinctrl_llce_can11: llce_can11 {
+			fsl,pins = <
+				S32_GEN1_PAD_PK_06_LLCE_CAN11_RX_I
+				S32_GEN1_PAD_PK_06_LLCE_CAN11_RX_O
+				S32_GEN1_PAD_PK_05_LLCE_CAN11_TX
+			>;
+		};
+
+		pinctrl_llce_can12: llce_can12 {
+			fsl,pins = <
+				S32_GEN1_PAD_PK_08_LLCE_CAN12_RX_I
+				S32_GEN1_PAD_PK_08_LLCE_CAN12_RX_O
+				S32_GEN1_PAD_PK_07_LLCE_CAN12_TX
+			>;
+		};
+
+		pinctrl_llce_can13: llce_can13 {
+			fsl,pins = <
+				S32_GEN1_PAD_PK_10_LLCE_CAN13_RX_I
+				S32_GEN1_PAD_PK_10_LLCE_CAN13_RX_O
+				S32_GEN1_PAD_PK_09_LLCE_CAN13_TX
+			>;
+		};
+
+		pinctrl_llce_can14: llce_can14 {
+			fsl,pins = <
+				S32_GEN1_PAD_PK_12_LLCE_CAN14_RX_I
+				S32_GEN1_PAD_PK_12_LLCE_CAN14_RX_O
+				S32_GEN1_PAD_PK_11_LLCE_CAN14_TX
+			>;
+		};
+
+		pinctrl_llce_can15: llce_can15 {
+			fsl,pins = <
+				S32_GEN1_PAD_PK_14_LLCE_CAN15_RX_I
+				S32_GEN1_PAD_PK_14_LLCE_CAN15_RX_O
+				S32_GEN1_PAD_PK_13_LLCE_CAN15_TX
+			>;
+		};
+
+		pinctrl_qspi: qspigrp {
 				fsl,pins = <
 					S32_GEN1_PAD_PF13__QSPI_A_DQS_OUT
 					S32_GEN1_PAD_PF13__QSPI_A_DQS_IN
@@ -716,139 +794,9 @@
 	msi-parent = <&gic>;
 };
 
-&pinctrl1 {
-	s32g274a {
-		pinctrl1_llce_can0: llce_can0 {
-			fsl,pins = <
-				S32_GEN1_PAD_PC_11_LLCE_CAN0_RX_I
-			>;
-		};
-
-		pinctrl1_llce_can1: llce_can1 {
-			fsl,pins = <
-				S32_GEN1_PAD_PJ_01_LLCE_CAN1_TX
-				S32_GEN1_PAD_PJ_02_LLCE_CAN1_RX_I
-				S32_GEN1_PAD_PJ_02_LLCE_CAN1_RX_O
-			>;
-		};
-
-		pinctrl1_llce_can2: llce_can2 {
-			fsl,pins = <
-				S32_GEN1_PAD_PJ_04_LLCE_CAN2_RX_I
-				S32_GEN1_PAD_PJ_04_LLCE_CAN2_RX_O
-				S32_GEN1_PAD_PJ_03_LLCE_CAN2_TX
-			>;
-		};
-
-		pinctrl1_llce_can3: llce_can3 {
-			fsl,pins = <
-				S32_GEN1_PAD_PJ_06_LLCE_CAN3_RX_I
-				S32_GEN1_PAD_PJ_06_LLCE_CAN3_RX_O
-				S32_GEN1_PAD_PJ_05_LLCE_CAN3_TX
-			>;
-		};
-
-		pinctrl1_llce_can4: llce_can4 {
-			fsl,pins = <
-				S32_GEN1_PAD_PJ_08_LLCE_CAN4_RX_I
-				S32_GEN1_PAD_PJ_08_LLCE_CAN4_RX_O
-				S32_GEN1_PAD_PJ_07_LLCE_CAN4_TX
-			>;
-		};
-
-		pinctrl1_llce_can5: llce_can5 {
-			fsl,pins = <
-				S32_GEN1_PAD_PJ_10_LLCE_CAN5_RX_I
-				S32_GEN1_PAD_PJ_10_LLCE_CAN5_RX_O
-				S32_GEN1_PAD_PJ_09_LLCE_CAN5_TX
-			>;
-		};
-
-		pinctrl1_llce_can6: llce_can6 {
-			fsl,pins = <
-				S32_GEN1_PAD_PJ_12_LLCE_CAN6_RX_I
-				S32_GEN1_PAD_PJ_12_LLCE_CAN6_RX_O
-				S32_GEN1_PAD_PJ_11_LLCE_CAN6_TX
-			>;
-		};
-
-		pinctrl1_llce_can7: llce_can7 {
-			fsl,pins = <
-				S32_GEN1_PAD_PJ_14_LLCE_CAN7_RX_I
-				S32_GEN1_PAD_PJ_14_LLCE_CAN7_RX_O
-				S32_GEN1_PAD_PJ_13_LLCE_CAN7_TX
-			>;
-		};
-
-		pinctrl1_llce_can8: llce_can8 {
-			fsl,pins = <
-				S32_GEN1_PAD_PK_00_LLCE_CAN8_RX_I
-				S32_GEN1_PAD_PK_00_LLCE_CAN8_RX_O
-				S32_GEN1_PAD_PJ_15_LLCE_CAN8_TX
-			>;
-		};
-
-		pinctrl1_llce_can9: llce_can9 {
-			fsl,pins = <
-				S32_GEN1_PAD_PK_02_LLCE_CAN9_RX_I
-				S32_GEN1_PAD_PK_02_LLCE_CAN9_RX_O
-				S32_GEN1_PAD_PK_01_LLCE_CAN9_TX
-			>;
-		};
-
-		pinctrl1_llce_can10: llce_can10 {
-			fsl,pins = <
-				S32_GEN1_PAD_PK_04_LLCE_CAN10_RX_I
-				S32_GEN1_PAD_PK_04_LLCE_CAN10_RX_O
-				S32_GEN1_PAD_PK_03_LLCE_CAN10_TX
-			>;
-		};
-
-		pinctrl1_llce_can11: llce_can11 {
-			fsl,pins = <
-				S32_GEN1_PAD_PK_06_LLCE_CAN11_RX_I
-				S32_GEN1_PAD_PK_06_LLCE_CAN11_RX_O
-				S32_GEN1_PAD_PK_05_LLCE_CAN11_TX
-			>;
-		};
-
-		pinctrl1_llce_can12: llce_can12 {
-			fsl,pins = <
-				S32_GEN1_PAD_PK_08_LLCE_CAN12_RX_I
-				S32_GEN1_PAD_PK_08_LLCE_CAN12_RX_O
-				S32_GEN1_PAD_PK_07_LLCE_CAN12_TX
-			>;
-		};
-
-		pinctrl1_llce_can13: llce_can13 {
-			fsl,pins = <
-				S32_GEN1_PAD_PK_10_LLCE_CAN13_RX_I
-				S32_GEN1_PAD_PK_10_LLCE_CAN13_RX_O
-				S32_GEN1_PAD_PK_09_LLCE_CAN13_TX
-			>;
-		};
-
-		pinctrl1_llce_can14: llce_can14 {
-			fsl,pins = <
-				S32_GEN1_PAD_PK_12_LLCE_CAN14_RX_I
-				S32_GEN1_PAD_PK_12_LLCE_CAN14_RX_O
-				S32_GEN1_PAD_PK_11_LLCE_CAN14_TX
-			>;
-		};
-
-		pinctrl1_llce_can15: llce_can15 {
-			fsl,pins = <
-				S32_GEN1_PAD_PK_14_LLCE_CAN15_RX_I
-				S32_GEN1_PAD_PK_14_LLCE_CAN15_RX_O
-				S32_GEN1_PAD_PK_13_LLCE_CAN15_TX
-			>;
-		};
-	};
-};
-
 &qspi {
 	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl0_qspi>;
+	pinctrl-0 = <&pinctrl_qspi>;
 };
 
 &stm0 {

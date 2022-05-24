@@ -22,7 +22,7 @@
 
 &usbotg {
 	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl0_usbotg>, <&pinctrl1_usbotg>;
+	pinctrl-0 = <&pinctrl_usbotg>;
 	fsl,usbphy = <&usbphynop>;
 	status = "okay";
 };
@@ -44,7 +44,7 @@
 &gmac0 {
 	status = "okay";
 	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl0_gmac0_rgmii_c>, <&pinctrl0_gmac0_mdio_c>;
+	pinctrl-0 = <&pinctrl_gmac0_rgmii_c>, <&pinctrl_gmac0_mdio_c>;
 	phy-handle = <&gmac0_mdio_c_phy4>;
 	phy-mode = "rgmii-id";
 };
@@ -69,8 +69,7 @@
 &pfe {
 	status = "okay";
 	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl0_pfe2_mdio_a>, <&pinctrl1_pfe2_mdio_a>,
-		    <&pinctrl0_pfe2_rgmii_a>, <&pinctrl1_pfe2_rgmii_a>;
+	pinctrl-0 = <&pinctrl_pfe2_mdio_a>, <&pinctrl_pfe2_rgmii_a>;
 };
 
 &pfe_mdio0 {
@@ -125,37 +124,37 @@
 
 &i2c0 {
 	pinctrl-names = "default", "gpio";
-	pinctrl-0 = <&pinctrl0_i2c0>;
-	pinctrl-1 = <&pinctrl0_i2c0_gpio>;
-	scl-gpios = <&gpio0 17 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
-	sda-gpios = <&gpio0 16 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
+	pinctrl-0 = <&pinctrl_i2c0>;
+	pinctrl-1 = <&pinctrl_i2c0_gpio>;
+	scl-gpios = <&gpio 17 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
+	sda-gpios = <&gpio 16 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
 	status = "okay";
 };
 
 &i2c1 {
 	pinctrl-names = "default", "gpio";
-	pinctrl-0 = <&pinctrl0_i2c1 &pinctrl1_i2c1>;
-	pinctrl-1 = <&pinctrl0_i2c1_gpio &pinctrl1_i2c1_gpio>;
-	scl-gpios = <&gpio0 19 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
-	sda-gpios = <&gpio0 20 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
+	pinctrl-0 = <&pinctrl_i2c1>;
+	pinctrl-1 = <&pinctrl_i2c1_gpio>;
+	scl-gpios = <&gpio 19 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
+	sda-gpios = <&gpio 20 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
 	status = "okay";
 };
 
 &i2c2 {
 	pinctrl-names = "default", "gpio";
-	pinctrl-0 = <&pinctrl0_i2c2 &pinctrl1_i2c2>;
-	pinctrl-1 = <&pinctrl0_i2c2_gpio &pinctrl1_i2c2_gpio>;
-	scl-gpios = <&gpio0 21 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
-	sda-gpios = <&gpio0 22 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
+	pinctrl-0 = <&pinctrl_i2c2>;
+	pinctrl-1 = <&pinctrl_i2c2_gpio>;
+	scl-gpios = <&gpio 21 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
+	sda-gpios = <&gpio 22 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
 	status = "okay";
 };
 
 &i2c4 {
 	pinctrl-names = "default", "gpio";
-	pinctrl-0 = <&pinctrl0_i2c4 &pinctrl1_i2c4>;
-	pinctrl-1 = <&pinctrl0_i2c4_gpio &pinctrl1_i2c4_gpio>;
-	scl-gpios = <&gpio0 34 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
-	sda-gpios = <&gpio0 33 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
+	pinctrl-0 = <&pinctrl_i2c4>;
+	pinctrl-1 = <&pinctrl_i2c4_gpio>;
+	scl-gpios = <&gpio 34 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
+	sda-gpios = <&gpio 33 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
 	status = "okay";
 };
 
@@ -166,19 +165,19 @@
 
 &can0 {
 	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl0_can0>;
+	pinctrl-0 = <&pinctrl_can0>;
 	status = "okay";
 };
 
 &can2 {
 	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl0_can2>, <&pinctrl1_can2>;
+	pinctrl-0 = <&pinctrl_can2>;
 	status = "okay";
 };
 
 &can3 {
 	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl0_can3>, <&pinctrl1_can3>;
+	pinctrl-0 = <&pinctrl_can3>;
 	status = "okay";
 };
 
@@ -210,10 +209,10 @@
 	status = "okay";
 };
 
-&pinctrl0 {
+&pinctrl {
 	status = "okay";
 	s32g274a-evb {
-		pinctrl0_can0: can0grp {
+		pinctrl_can0: can0grp {
 			fsl,pins = <
 				S32_GEN1_PAD_PC12__CAN0_TXD
 				S32_GEN1_PAD_PC11__CAN0_RXD_OUT
@@ -221,48 +220,55 @@
 			>;
 		};
 
-		pinctrl0_can2: can2grp {
+		pinctrl_can2: can2grp {
 			fsl,pins = <
 				S32_GEN1_PAD_PB11__CAN2_TXD
 				S32_GEN1_PAD_PB12__CAN2_RXD_OUT
+				S32_GEN1_PAD_PB12__CAN2_RXD_IN
 			>;
 		};
 
-		pinctrl0_can3: can3grp {
+		pinctrl_can3: can3grp {
 		       fsl,pins = <
 				S32_GEN1_PAD_PB9__CAN3_TXD
 				S32_GEN1_PAD_PB10__CAN3_RXD_OUT
+				S32_GEN1_PAD_PB10__CAN3_RXD_IN
 			   >;
 		};
 
-		pinctrl0_dspi1: dspi1grp {
+		pinctrl_dspi1: dspi1grp {
 			fsl,pins = <
 				S32_GEN1_PAD_PA7__SPI1_CS0_OUT
 				S32_GEN1_PAD_PA6__SPI1_SOUT_OUT
 				S32_GEN1_PAD_PA8__SPI1_SCK_OUT
 				S32_GEN1_PAD_PF15__SPI1_SIN_OUT
+				S32_GEN1_PAD_PF15__SPI1_SIN_IN
 			>;
 		};
 
-		pinctrl0_dspi1_slave: dspi1slavegrp {
+		pinctrl_dspi1_slave: dspi1slavegrp {
 			fsl,pins = <
-				S32_GEN1_PAD_PA7__SPI1_CS0_SLAVE_OUT
 				S32_GEN1_PAD_PA6__SPI1_SOUT_OUT
+				S32_GEN1_PAD_PA7__SPI1_CS0_SLAVE_OUT
+				S32_GEN1_PAD_PA7__SPI1_CS0_SLAVE_IN
 				S32_GEN1_PAD_PA8__SPI1_SCK_SLAVE_OUT
+				S32_GEN1_PAD_PA8__SPI1_SCK_SLAVE_IN
 				S32_GEN1_PAD_PF15__SPI1_SIN_OUT
+				S32_GEN1_PAD_PF15__SPI1_SIN_IN
 			>;
 		};
 
-		pinctrl0_dspi5: dspi5grp {
+		pinctrl_dspi5: dspi5grp {
 			fsl,pins = <
-				S32_GEN1_PAD_PA12__SPI5_CS0_OUT
-				S32_GEN1_PAD_PA11__SPI5_SOUT_OUT
 				S32_GEN1_PAD_PA9__SPI5_SCK_OUT
 				S32_GEN1_PAD_PA10__SPI5_SIN_OUT
+				S32_GEN1_PAD_PA10__SPI5_SIN_IN
+				S32_GEN1_PAD_PA11__SPI5_SOUT_OUT
+				S32_GEN1_PAD_PA12__SPI5_CS0_OUT
 			>;
 		};
 
-		pinctrl0_i2c0: i2c0grp {
+		pinctrl_i2c0: i2c0grp {
 			fsl,pins = <
 				S32_GEN1_PAD_PB0__I2C0_DATA_OUT
 				S32_GEN1_PAD_PB0__I2C0_DATA_IN
@@ -271,7 +277,7 @@
 			>;
 		};
 
-		pinctrl0_i2c0_gpio: i2c0grp_gpio {
+		pinctrl_i2c0_gpio: i2c0grp_gpio {
 			fsl,pins = <
 				S32_GEN1_PAD_PB0__I2C0_DATA_GPIO
 				S32_GEN1_PAD_PB0__DISABLED_IN
@@ -280,71 +286,121 @@
 			>;
 		};
 
-		pinctrl0_i2c1: i2c1grp {
+		pinctrl_i2c1: i2c1grp {
 			fsl,pins = <
 				S32_GEN1_PAD_PB3__I2C1_SCLK_OUT
+				S32_GEN1_PAD_PB3__I2C1_SCLK_IN
 				S32_GEN1_PAD_PB4__I2C1_DATA_OUT
+				S32_GEN1_PAD_PB4__I2C1_DATA_IN
 			>;
 		};
 
-		pinctrl0_i2c1_gpio: i2c1grp_gpio {
+		pinctrl_i2c1_gpio: i2c1grp_gpio {
 			fsl,pins = <
 				S32_GEN1_PAD_PB3__I2C1_SCLK_GPIO
+				S32_GEN1_PAD_PB3__DISABLED_IN
 				S32_GEN1_PAD_PB4__I2C1_DATA_GPIO
+				S32_GEN1_PAD_PB4__DISABLED_IN
 			>;
 		};
 
-		pinctrl0_i2c2: i2c2grp {
+		pinctrl_i2c2: i2c2grp {
 			fsl,pins = <
 				S32_GEN1_PAD_PB5__I2C2_SCLK_OUT
+				S32_GEN1_PAD_PB5__I2C2_SCLK_IN
 				S32_GEN1_PAD_PB6__I2C2_DATA_OUT
+				S32_GEN1_PAD_PB6__I2C2_DATA_IN
 			>;
 		};
 
-		pinctrl0_i2c2_gpio: i2c2grp_gpio {
+		pinctrl_i2c2_gpio: i2c2grp_gpio {
 			fsl,pins = <
+				S32_GEN1_PAD_PB5__DISABLED_IN
 				S32_GEN1_PAD_PB5__I2C2_SCLK_GPIO
+				S32_GEN1_PAD_PB6__DISABLED_IN
 				S32_GEN1_PAD_PB6__I2C2_DATA_GPIO
 			>;
 		};
 
-		pinctrl0_i2c4: i2c4grp {
+		pinctrl_i2c4: i2c4grp {
 			fsl,pins = <
-				S32_GEN1_PAD_PC2__I2C4_SCLK_OUT
 				S32_GEN1_PAD_PC1__I2C4_DATA_OUT
+				S32_GEN1_PAD_PC1__I2C4_DATA_IN
+				S32_GEN1_PAD_PC2__I2C4_SCLK_OUT
+				S32_GEN1_PAD_PC2__I2C4_SCLK_IN
 			>;
 		};
 
-		pinctrl0_i2c4_gpio: i2c4grp_gpio {
+		pinctrl_i2c4_gpio: i2c4grp_gpio {
 			fsl,pins = <
 				S32_GEN1_PAD_PC1__I2C4_DATA_GPIO
+				S32_GEN1_PAD_PC1__DISABLED_IN
 				S32_GEN1_PAD_PC2__I2C4_SCLK_GPIO
+				S32_GEN1_PAD_PC2__DISABLED_IN
 			>;
 		};
 
-		pinctrl0_usbotg: usbotggrp {
+		pinctrl_usbotg: usbotggrp {
 		       fsl,pins = <
+				S32_GEN1_PAD_PD14__USB_ULPI_DATA_I0_IN
 				S32_GEN1_PAD_PD14__USB_ULPI_DATA_O0
+				S32_GEN1_PAD_PD15__USB_ULPI_DATA_I1_IN
 				S32_GEN1_PAD_PD15__USB_ULPI_DATA_O1
+				S32_GEN1_PAD_PE0__USB_ULPI_DATA_I2_IN
 				S32_GEN1_PAD_PE0__USB_ULPI_DATA_O2
+				S32_GEN1_PAD_PE1__USB_ULPI_DATA_I3_IN
 				S32_GEN1_PAD_PE1__USB_ULPI_DATA_O3
+				S32_GEN1_PAD_PL12__USB_ULPI_DATA_O4
+				S32_GEN1_PAD_PL12__USB_ULPI_DATA_I4_IN
+				S32_GEN1_PAD_PL13__USB_ULPI_DATA_O5
+				S32_GEN1_PAD_PL13__USB_ULPI_DATA_I5_IN
+				S32_GEN1_PAD_PL14__USB_ULPI_DATA_O6
+				S32_GEN1_PAD_PL14__USB_ULPI_DATA_I6_IN
+				S32_GEN1_PAD_PH0__USB_ULPI_DATA_O7
+				S32_GEN1_PAD_PH0__USB_ULPI_DATA_I7_IN
+				S32_GEN1_PAD_PL8__USB_ULPI_CLK_OUT
+				S32_GEN1_PAD_PL8__USB_ULPI_CLK_IN
+				S32_GEN1_PAD_PL9__USB_ULPI_DIR_OUT
+				S32_GEN1_PAD_PL9__USB_ULPI_DIR_IN
+				S32_GEN1_PAD_PL10__USB_ULPI_STP
+				S32_GEN1_PAD_PL11__USB_ULPI_NXT_OUT
+				S32_GEN1_PAD_PL11__USB_ULPI_NXT_IN
 			   >;
 		};
 
-		pinctrl0_pfe2_mdio_a: pfe2mdioagrp {
+		pinctrl_pfe2_mdio_a: pfe2mdioagrp {
 			fsl,pins = <
 				S32_G274_PAD_PF2__PFE2_MDC
 				S32_G274_PAD_PE15__PFE2_MDIO_OUT
+				S32_G274_PAD_PE15__PFE2_MDIO_IN
 			>;
 		};
 
-		pinctrl0_pfe2_rgmii_a: pfe2rgmiiagrp {
+		pinctrl_pfe2_rgmii_a: pfe2rgmiiagrp {
 			fsl,pins = <
+				S32_G274_PAD_PJ0__PFE2_TX_D0_OUT
+				S32_G274_PAD_PH1__PFE2_TX_D1_OUT
+				S32_G274_PAD_PH2__PFE2_TX_D2_OUT
+				S32_G274_PAD_PH3__PFE2_TX_D3_OUT
+				S32_G274_PAD_PH4__PFE2_RXCLK_OUT
+				S32_G274_PAD_PH4__PFE2_RXCLK_IN
+				S32_G274_PAD_PH5__PFE2_RX_DV_OUT
+				S32_G274_PAD_PH5__PFE2_RX_DV_IN
+				S32_G274_PAD_PH6__PFE2_RX_D0_OUT
+				S32_G274_PAD_PH6__PFE2_RX_D0_IN
+				S32_G274_PAD_PH7__PFE2_RX_D1_OUT
+				S32_G274_PAD_PH7__PFE2_RX_D1_IN
+				S32_G274_PAD_PH8__PFE2_RX_D2_OUT
+				S32_G274_PAD_PH8__PFE2_RX_D2_IN
+				S32_G274_PAD_PH9__PFE2_RX_D3_OUT
+				S32_G274_PAD_PH9__PFE2_RX_D3_IN
+				S32_G274_PAD_PH10__PFE2_TXCLK_OUT
+				S32_G274_PAD_PH10__PFE2_TXCLK_IN
 				S32_G274_PAD_PE14__PFE2_TX_EN_OUT
 			>;
 		};
 
-		pinctrl0_gmac0_mdio_c: gmac0mdiocgrp {
+		pinctrl_gmac0_mdio_c: gmac0mdiocgrp {
 			fsl,pins = <
 				S32_GEN1_PAD_PD12__GMAC0_MDC
 				S32_GEN1_PAD_PD13__GMAC0_MDIO_OUT
@@ -352,7 +408,7 @@
 			>;
 		};
 
-		pinctrl0_gmac0_rgmii_c: gmac0rgmiicgrp {
+		pinctrl_gmac0_rgmii_c: gmac0rgmiicgrp {
 			fsl,pins = <
 				S32_GEN1_PAD_PE2__GMAC0_TXCLK_OUT
 				S32_GEN1_PAD_PE2__GMAC0_TXCLK_IN
@@ -376,46 +432,63 @@
 			>;
 		};
 
-		pinctrl0_pfe1_mdio_c: pfe1mdiocgrp {
+		pinctrl_pfe1_mdio_c: pfe1mdiocgrp {
 			fsl,pins = <
 				S32_G274_PAD_PD12__PFE1_MDC
 				S32_G274_PAD_PD13__PFE1_MDIO_OUT
+				S32_G274_PAD_PD13__PFE1_MDIO_IN
 			>;
 		};
 
-		pinctrl0_pfe1_rgmii_c: pfe1rgmiicgrp {
+		pinctrl_pfe1_rgmii_c: pfe1rgmiicgrp {
 			fsl,pins = <
 				S32_G274_PAD_PE2__PFE1_TXCLK_OUT
+				S32_G274_PAD_PE2__PFE1_TXCLK_IN
 				S32_G274_PAD_PE3__PFE1_TX_EN_OUT
 				S32_G274_PAD_PE4__PFE1_TX_D0_OUT
 				S32_G274_PAD_PE5__PFE1_TX_D1_OUT
 				S32_G274_PAD_PE6__PFE1_TX_D2_OUT
 				S32_G274_PAD_PE7__PFE1_TX_D3_OUT
 				S32_G274_PAD_PE8__PFE1_RXCLK_OUT
+				S32_G274_PAD_PE8__PFE1_RXCLK_IN
 				S32_G274_PAD_PE9__PFE1_RX_DV_OUT
+				S32_G274_PAD_PE9__PFE1_RX_DV_IN
 				S32_G274_PAD_PE10__PFE1_RX_D0_OUT
+				S32_G274_PAD_PE10__PFE1_RX_D0_IN
 				S32_G274_PAD_PE11__PFE1_RX_D1_OUT
+				S32_G274_PAD_PE11__PFE1_RX_D1_IN
 				S32_G274_PAD_PE12__PFE1_RX_D2_OUT
+				S32_G274_PAD_PE12__PFE1_RX_D2_IN
 				S32_G274_PAD_PE13__PFE1_RX_D3_OUT
+				S32_G274_PAD_PE13__PFE1_RX_D3_IN
 			>;
 		};
 
-		pinctrl0_ftm0: ftm0grp {
+		pinctrl_ftm0: ftm0grp {
 			fsl,pins = <
+				S32_GEN1_PAD_PB_02__FTM0_CH2_I
 				S32_GEN1_PAD_PB_02__FTM0_CH2_O
-
+				S32_GEN1_PAD_PL_01__FTM0_CH1_O
+				S32_GEN1_PAD_PL_01__FTM0_CH1_I
+				S32_GEN1_PAD_PL_04__FTM0_CH3_O
+				S32_GEN1_PAD_PL_04__FTM0_CH3_I
+				S32_GEN1_PAD_PL_05__FTM0_CH4_O
+				S32_GEN1_PAD_PL_05__FTM0_CH4_I
 			>;
 		};
 
-		pinctrl0_ftm1: ftm1grp {
+		pinctrl_ftm1: ftm1grp {
 			fsl,pins = <
 				S32_GEN1_PAD_PB_13__FTM1_CH2_O
+				S32_GEN1_PAD_PB_13__FTM1_CH2_I
+				S32_GEN1_PAD_PB_14__FTM1_CH3_I
 				S32_GEN1_PAD_PB_15__FTM1_CH3_O
 				S32_GEN1_PAD_PC_00__FTM1_CH4_O
+				S32_GEN1_PAD_PC_00__FTM1_CH4_I
 			>;
 		};
 
-		pinctrl_gpio0: gpiogrp0 {
+		pinctrl_gpio: gpiogrp {
 			fsl,pins = <
 				S32_GEN1_PAD_PA0__SIUL_GPIO0
 				S32_GEN1_PAD_PA1__SIUL_GPIO1
@@ -519,197 +592,6 @@
 				S32_GEN1_PAD_PG3__SIUL_GPIO99
 				S32_GEN1_PAD_PG4__SIUL_GPIO100
 				S32_GEN1_PAD_PG5__SIUL_GPIO101
-				>;
-		};
-	};
-};
-
-&pinctrl1 {
-	status = "okay";
-	s32g274a-evb {
-		pinctrl1_can2: can2grp {
-			fsl,pins = <
-				S32_GEN1_PAD_PB12__CAN2_RXD_IN
-			>;
-		};
-
-		pinctrl1_can3: can3grp {
-			fsl,pins = <
-				S32_GEN1_PAD_PB10__CAN3_RXD_IN
-			>;
-		};
-
-		pinctrl1_dspi1: dspi1grp {
-			fsl,pins = <
-				S32_GEN1_PAD_PF15__SPI1_SIN_IN
-			>;
-		};
-
-		pinctrl1_dspi1_slave: dspi1slavegrp {
-			fsl,pins = <
-				S32_GEN1_PAD_PA7__SPI1_CS0_SLAVE_IN
-				S32_GEN1_PAD_PA8__SPI1_SCK_SLAVE_IN
-				S32_GEN1_PAD_PF15__SPI1_SIN_IN
-			>;
-		};
-
-		pinctrl1_dspi5: dspi5grp {
-			fsl,pins = <
-				S32_GEN1_PAD_PA10__SPI5_SIN_IN
-			>;
-		};
-
-		pinctrl1_i2c1: i2c1grp {
-			fsl,pins = <
-				S32_GEN1_PAD_PB3__I2C1_SCLK_IN
-				S32_GEN1_PAD_PB4__I2C1_DATA_IN
-			>;
-		};
-
-		pinctrl1_i2c1_gpio: i2c1grp_gpio {
-			fsl,pins = <
-				S32_GEN1_PAD_PB3__DISABLED_IN
-				S32_GEN1_PAD_PB4__DISABLED_IN
-			>;
-		};
-
-		pinctrl1_i2c2: i2c2grp {
-			fsl,pins = <
-				S32_GEN1_PAD_PB5__I2C2_SCLK_IN
-				S32_GEN1_PAD_PB6__I2C2_DATA_IN
-			>;
-		};
-
-		pinctrl1_i2c2_gpio: i2c2grp_gpio {
-			fsl,pins = <
-				S32_GEN1_PAD_PB6__DISABLED_IN
-				S32_GEN1_PAD_PB5__DISABLED_IN
-			>;
-		};
-
-		pinctrl1_i2c4: i2c4grp {
-			fsl,pins = <
-				S32_GEN1_PAD_PC1__I2C4_DATA_IN
-				S32_GEN1_PAD_PC2__I2C4_SCLK_IN
-			>;
-		};
-
-		pinctrl1_i2c4_gpio: i2c4grp_gpio {
-			fsl,pins = <
-				S32_GEN1_PAD_PC1__DISABLED_IN
-				S32_GEN1_PAD_PC2__DISABLED_IN
-			>;
-		};
-
-		pinctrl1_usbotg: usbotggrp {
-		       fsl,pins = <
-				S32_GEN1_PAD_PD14__USB_ULPI_DATA_I0_IN
-				S32_GEN1_PAD_PD15__USB_ULPI_DATA_I1_IN
-				S32_GEN1_PAD_PE0__USB_ULPI_DATA_I2_IN
-				S32_GEN1_PAD_PE1__USB_ULPI_DATA_I3_IN
-				S32_GEN1_PAD_PL12__USB_ULPI_DATA_O4
-				S32_GEN1_PAD_PL12__USB_ULPI_DATA_I4_IN
-				S32_GEN1_PAD_PL13__USB_ULPI_DATA_O5
-				S32_GEN1_PAD_PL13__USB_ULPI_DATA_I5_IN
-				S32_GEN1_PAD_PL14__USB_ULPI_DATA_O6
-				S32_GEN1_PAD_PL14__USB_ULPI_DATA_I6_IN
-				S32_GEN1_PAD_PH0__USB_ULPI_DATA_O7
-				S32_GEN1_PAD_PH0__USB_ULPI_DATA_I7_IN
-				S32_GEN1_PAD_PL8__USB_ULPI_CLK_OUT
-				S32_GEN1_PAD_PL8__USB_ULPI_CLK_IN
-				S32_GEN1_PAD_PL9__USB_ULPI_DIR_OUT
-				S32_GEN1_PAD_PL9__USB_ULPI_DIR_IN
-				S32_GEN1_PAD_PL10__USB_ULPI_STP
-				S32_GEN1_PAD_PL11__USB_ULPI_NXT_OUT
-				S32_GEN1_PAD_PL11__USB_ULPI_NXT_IN
-			   >;
-		};
-
-		pinctrl1_rgmii_a: gmacrgmiiagrp {
-			fsl,pins = <
-				S32_GEN1_PAD_PH1__SIUL_GPIO113
-				S32_GEN1_PAD_PH2__SIUL_GPIO114
-				S32_GEN1_PAD_PH3__SIUL_GPIO115
-				S32_GEN1_PAD_PH4__SIUL_GPIO116
-				S32_GEN1_PAD_PH5__SIUL_GPIO117
-				S32_GEN1_PAD_PH6__SIUL_GPIO118
-				S32_GEN1_PAD_PH7__SIUL_GPIO119
-				S32_GEN1_PAD_PH8__SIUL_GPIO120
-				S32_GEN1_PAD_PH9__SIUL_GPIO121
-				S32_GEN1_PAD_PH10__SIUL_GPIO122
-				S32_GEN1_PAD_PJ0__SIUL_GPIO144
-			>;
-		};
-
-		pinctrl1_pfe1_mdio_c: pfe1mdiocgrp {
-			fsl,pins = <
-				S32_G274_PAD_PD13__PFE1_MDIO_IN
-			>;
-		};
-
-		pinctrl1_pfe1_rgmii_c: pfe1rgmiicgrp {
-			fsl,pins = <
-				S32_G274_PAD_PE2__PFE1_TXCLK_IN
-				S32_G274_PAD_PE8__PFE1_RXCLK_IN
-				S32_G274_PAD_PE9__PFE1_RX_DV_IN
-				S32_G274_PAD_PE10__PFE1_RX_D0_IN
-				S32_G274_PAD_PE11__PFE1_RX_D1_IN
-				S32_G274_PAD_PE12__PFE1_RX_D2_IN
-				S32_G274_PAD_PE13__PFE1_RX_D3_IN
-			>;
-		};
-
-		pinctrl1_ftm0: ftm0grp {
-			fsl,pins = <
-				S32_GEN1_PAD_PB_02__FTM0_CH2_I
-				S32_GEN1_PAD_PL_01__FTM0_CH1_O
-				S32_GEN1_PAD_PL_01__FTM0_CH1_I
-				S32_GEN1_PAD_PL_04__FTM0_CH3_O
-				S32_GEN1_PAD_PL_04__FTM0_CH3_I
-				S32_GEN1_PAD_PL_05__FTM0_CH4_O
-				S32_GEN1_PAD_PL_05__FTM0_CH4_I
-			>;
-		};
-
-		pinctrl1_ftm1: ftm1grp {
-			fsl,pins = <
-				S32_GEN1_PAD_PB_13__FTM1_CH2_I
-				S32_GEN1_PAD_PB_14__FTM1_CH3_I
-				S32_GEN1_PAD_PC_00__FTM1_CH4_I
-			>;
-		};
-
-		pinctrl1_pfe2_mdio_a: pfe2mdioagrp {
-			fsl,pins = <
-				S32_G274_PAD_PE15__PFE2_MDIO_IN
-			>;
-		};
-
-		pinctrl1_pfe2_rgmii_a: pfe2rgmiiagrp {
-			fsl,pins = <
-				S32_G274_PAD_PJ0__PFE2_TX_D0_OUT
-				S32_G274_PAD_PH1__PFE2_TX_D1_OUT
-				S32_G274_PAD_PH2__PFE2_TX_D2_OUT
-				S32_G274_PAD_PH3__PFE2_TX_D3_OUT
-				S32_G274_PAD_PH4__PFE2_RXCLK_OUT
-				S32_G274_PAD_PH4__PFE2_RXCLK_IN
-				S32_G274_PAD_PH5__PFE2_RX_DV_OUT
-				S32_G274_PAD_PH5__PFE2_RX_DV_IN
-				S32_G274_PAD_PH6__PFE2_RX_D0_OUT
-				S32_G274_PAD_PH6__PFE2_RX_D0_IN
-				S32_G274_PAD_PH7__PFE2_RX_D1_OUT
-				S32_G274_PAD_PH7__PFE2_RX_D1_IN
-				S32_G274_PAD_PH8__PFE2_RX_D2_OUT
-				S32_G274_PAD_PH8__PFE2_RX_D2_IN
-				S32_G274_PAD_PH9__PFE2_RX_D3_OUT
-				S32_G274_PAD_PH9__PFE2_RX_D3_IN
-				S32_G274_PAD_PH10__PFE2_TXCLK_OUT
-				S32_G274_PAD_PH10__PFE2_TXCLK_IN
-			>;
-		};
-
-		pinctrl_gpio1: gpiogrp1 {
-			fsl,pins = <
 				S32_GEN1_PAD_PH0__SIUL_GPIO112
 				S32_GEN1_PAD_PJ1__SIUL_GPIO145
 				S32_GEN1_PAD_PJ2__SIUL_GPI146
@@ -760,6 +642,22 @@
 				>;
 		};
 
+		pinctrl_rgmii_a: gmacrgmiiagrp {
+			fsl,pins = <
+				S32_GEN1_PAD_PH1__SIUL_GPIO113
+				S32_GEN1_PAD_PH2__SIUL_GPIO114
+				S32_GEN1_PAD_PH3__SIUL_GPIO115
+				S32_GEN1_PAD_PH4__SIUL_GPIO116
+				S32_GEN1_PAD_PH5__SIUL_GPIO117
+				S32_GEN1_PAD_PH6__SIUL_GPIO118
+				S32_GEN1_PAD_PH7__SIUL_GPIO119
+				S32_GEN1_PAD_PH8__SIUL_GPIO120
+				S32_GEN1_PAD_PH9__SIUL_GPIO121
+				S32_GEN1_PAD_PH10__SIUL_GPIO122
+				S32_GEN1_PAD_PJ0__SIUL_GPIO144
+			>;
+		};
+
 		pinctrl_gpioeirq: gpioeirqgrp {
 			fsl,pins = <
 				S32_GEN1_PAD_PB3__SIUL_EIRQ0
@@ -808,8 +706,8 @@
 };
 
 &spi1 {
-	pinctrl-0 = <&pinctrl0_dspi1>, <&pinctrl1_dspi1>;
-	pinctrl-1 = <&pinctrl0_dspi1_slave>, <&pinctrl1_dspi1_slave>;
+	pinctrl-0 = <&pinctrl_dspi1>;
+	pinctrl-1 = <&pinctrl_dspi1_slave>;
 	pinctrl-names = "default", "slave";
 	#address-cells = <1>;
 	#size-cells = <0>;
@@ -826,7 +724,7 @@
 
 &spi5 {
 	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl0_dspi5>, <&pinctrl1_dspi5>;
+	pinctrl-0 = <&pinctrl_dspi5>;
 	#address-cells = <1>;
 	#size-cells = <0>;
 	status = "okay";
@@ -896,7 +794,7 @@
 	status = "okay";
 };
 
-&gpio1 {
+&gpio {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_gpioeirq>;
 	status = "okay";
@@ -988,13 +886,13 @@
 
 &pwm0 {
 	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl0_ftm0>, <&pinctrl1_ftm0>;
+	pinctrl-0 = <&pinctrl_ftm0>;
 	status = "okay";
 };
 
 &pwm1 {
 	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl0_ftm1>, <&pinctrl1_ftm1>;
+	pinctrl-0 = <&pinctrl_ftm1>;
 	status = "okay";
 };
 
