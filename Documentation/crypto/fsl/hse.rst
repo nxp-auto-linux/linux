@@ -57,6 +57,9 @@ The following Kconfig options are available:
 - Hardware RNG support (CONFIG_CRYPTO_DEV_NXP_HSE_RNG):
   Enables hardware true random number generation via HSE.
 
+- Entropy cache maximum size (CONFIG_CRYPTO_DEV_NXP_HSE_RNG_CACHE)
+  Total size of driver entropy cache. Used to improve request latency.
+
 - RAM Key Catalog AES Group Configuration:
 	- AES 256-bit Key Group ID within RAM Key Catalog
 	  (CRYPTO_DEV_NXP_HSE_AES_KEY_GROUP_ID):
