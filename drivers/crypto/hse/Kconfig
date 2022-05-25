@@ -67,6 +67,14 @@ config CRYPTO_DEV_NXP_HSE_RNG
 	help
 	  Enables hardware true random number generation via HSE.
 
+config CRYPTO_DEV_NXP_HSE_RNG_CACHE
+	int "Entropy cache maximum size"
+	depends on CRYPTO_DEV_NXP_HSE_RNG
+	range 64 512
+	default 512
+	help
+	  Total size of driver entropy cache. Used to improve request latency.
+
 menu "RAM Key Catalog AES Group Configuration"
 depends on CRYPTO_DEV_NXP_HSE
 visible if CRYPTO_DEV_NXP_HSE_SKCIPHER || CRYPTO_DEV_NXP_HSE_AEAD
