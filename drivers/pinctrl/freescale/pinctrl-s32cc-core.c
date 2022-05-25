@@ -42,7 +42,8 @@ struct s32_pinctrl_mem_region {
  * @list: Linked list entry for each gpio pin
  */
 struct gpio_pin_config {
-	struct s32_pin pin;
+	unsigned int pin_id;
+	unsigned int config;
 	struct list_head list;
 };
 
@@ -410,8 +411,8 @@ static int s32_pmx_gpio_request_enable(struct pinctrl_dev *pctldev,
 	if (!gpio_pin)
 		return -ENOMEM;
 
-	gpio_pin->pin.pin_id = offset;
-	gpio_pin->pin.config = config;
+	gpio_pin->pin_id = offset;
+	gpio_pin->config = config;
 	list_add(&(gpio_pin->list), &(ipctl->gpio_configs));
 
 	config &= ~PAD_CTL_MUX_MODE_MASK;
@@ -427,17 +428,15 @@ static void s32_pmx_gpio_disable_free(struct pinctrl_dev *pctldev,
 	struct s32_pinctrl *ipctl = pinctrl_dev_get_drvdata(pctldev);
 	struct list_head *pos, *tmp;
 	struct gpio_pin_config *gpio_pin;
-	struct s32_pin pin;
 	int ret;
 
 	list_for_each_safe(pos, tmp, &ipctl->gpio_configs) {
 		gpio_pin = list_entry(pos, struct gpio_pin_config, list);
-		pin = gpio_pin->pin;
 
-		if (pin.pin_id == offset) {
-			ret = s32_pinctrl_writel(pin.config, pctldev,
-						 pin.pin_id);
-			if (ret)
+		if (gpio_pin->pin_id == offset) {
+			ret = s32_pinctrl_writel(gpio_pin->config, pctldev,
+						 gpio_pin->pin_id);
+			if (ret != 0)
 				return;
 
 			list_del(pos);
