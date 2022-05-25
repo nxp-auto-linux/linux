@@ -17,7 +17,7 @@
 #define HSE_RNG_QUALITY    1024u /* number of entropy bits per 1024 bits */
 
 #define HSE_RNG_CACHE_MIN    64u /* minimum threshold for cache refill */
-#define HSE_RNG_CACHE_MAX    512u /* total size of driver internal cache */
+#define HSE_RNG_CACHE_MAX    CONFIG_CRYPTO_DEV_NXP_HSE_RNG_CACHE /* total */
 
 /**
  * struct hse_rng_ctx - RNG context
@@ -73,7 +73,7 @@ static void hse_rng_refill_cache(struct hwrng *rng)
 	}
 
 	ctx->cache_idx = 0; /* discard remining data bytes */
-	ctx->srv_desc.rng_req.random_num_len = HSE_RNG_CACHE_MAX;
+	ctx->srv_desc.rng_req.random_num_len = rounddown(HSE_RNG_CACHE_MAX, 64);
 	ctx->srv_desc.rng_req.random_num = ctx->cache_dma;
 
 	err = hse_srv_req_async(ctx->dev, HSE_CHANNEL_ANY, &ctx->srv_desc, ctx,
