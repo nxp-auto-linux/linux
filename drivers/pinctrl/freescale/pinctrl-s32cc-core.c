@@ -24,11 +24,31 @@
 #include <linux/slab.h>
 
 #include "../core.h"
+#include "../pinconf.h"
+#include "../pinctrl-utils.h"
 #include "pinctrl-s32.h"
 
-#include <dt-bindings/pinctrl/s32-gen1-pinctrl.h>
+#define S32_PINCTRL_NUM_REGIONS	5
+#define S32CC_PIN_NO_SHIFT	4
 
-#define S32_PINCTRL_NUM_REGIONS 5
+#define S32_MSCR_SSS_MASK	GENMASK(2, 0)
+#define S32_MSCR_PUS		BIT(12)
+#define S32_MSCR_PUE		BIT(13)
+#define S32_MSCR_SRE(X)		(((X) & GENMASK(3, 0)) << 14)
+#define S32_MSCR_IBE		BIT(19)
+#define S32_MSCR_ODE		BIT(20)
+#define S32_MSCR_OBE		BIT(21)
+#define S32_MSCR_CFG_MASK	GENMASK(21, 12)
+
+static u32 get_pin_no(u32 pinmux)
+{
+	return pinmux >> S32CC_PIN_NO_SHIFT;
+}
+
+static u32 get_pin_func(u32 pinmux)
+{
+	return pinmux & GENMASK(3, 0);
+}
 
 struct s32_pinctrl_mem_region {
 	void __iomem *base;
@@ -164,47 +184,6 @@ s32_pinctrl_find_pin(const struct s32_pin_group *grp,
 	return NULL;
 }
 
-static inline const struct s32_pin_group *s32_pinctrl_find_group_by_func(
-				const struct s32_pinctrl_soc_info *info,
-				const char *func_name)
-{
-	const struct s32_pin_group *grp = NULL;
-	const char *grp_name = NULL;
-	struct s32_pmx_func *func;
-	unsigned int i;
-
-	/**
-	 * Assupmtion: Each function contains one pinmuxing group
-	 */
-	for (i = 0; i < info->nfunctions; i++) {
-		func = &info->functions[i];
-
-		if (strcmp(func->name, func_name))
-			continue;
-		if (func->num_groups != 1)
-			continue;
-		if (!func->groups || !func->groups[0])
-			continue;
-
-		grp_name = func->groups[0];
-		break;
-	}
-
-	if (!grp_name)
-		return grp;
-
-	for (i = 0; i < info->ngroups; i++) {
-		if (!info->groups[i].name)
-			continue;
-		if (!strcmp(info->groups[i].name, grp_name)) {
-			grp = &info->groups[i];
-			break;
-		}
-	}
-
-	return grp;
-}
-
 static int s32_get_groups_count(struct pinctrl_dev *pctldev)
 {
 	struct s32_pinctrl *ipctl = pinctrl_dev_get_drvdata(pctldev);
@@ -244,71 +223,96 @@ static void s32_pin_dbg_show(struct pinctrl_dev *pctldev, struct seq_file *s,
 	seq_printf(s, "%s", dev_name(pctldev->dev));
 }
 
+static int s32_dt_group_node_to_map(struct pinctrl_dev *pctldev,
+				    struct device_node *np,
+				    struct pinctrl_map **map,
+				    unsigned int *reserved_maps,
+				    unsigned int *num_maps,
+				    const char *func_name)
+{
+	struct s32_pinctrl *ipctl = pinctrl_dev_get_drvdata(pctldev);
+	unsigned long *cfgs = NULL;
+	unsigned int n_cfgs;
+	struct device *dev;
+	struct property *prop;
+	int n_pins, ret;
+	u32 pinmux, pin;
+	const __be32 *p;
+	const char *pin_name;
+
+	if (!ipctl)
+		return -EINVAL;
+
+	dev = ipctl->dev;
+
+	n_pins = of_property_count_elems_of_size(np, "pinmux", sizeof(u32));
+	if (n_pins < 0) {
+		dev_err(dev, "Failed to read 'pinmux' property in node %s.\n",
+			np->name);
+	} else if (!n_pins) {
+		return -EINVAL;
+	}
+
+	ret = pinconf_generic_parse_dt_config(np, pctldev, &cfgs, &n_cfgs);
+	if (ret) {
+		dev_err(dev, "%pOF: could not parse node property\n", np);
+		return ret;
+	}
+
+	ret = pinctrl_utils_reserve_map(pctldev, map, reserved_maps, num_maps,
+					n_pins + 1);
+	if (ret < 0)
+		goto free_cfgs;
+
+	ret = pinctrl_utils_add_map_mux(pctldev, map, reserved_maps, num_maps,
+					np->name, func_name);
+	if (ret < 0)
+		goto free_cfgs;
+
+	if (n_cfgs) {
+		of_property_for_each_u32(np, "pinmux", prop, p, pinmux) {
+			pin = get_pin_no(pinmux);
+
+			pin_name = pin_get_name(pctldev, pin);
+			ret = pinctrl_utils_add_map_configs(pctldev, map, reserved_maps,
+							    num_maps, pin_name, cfgs, n_cfgs,
+							    PIN_MAP_TYPE_CONFIGS_PIN);
+			if (ret < 0)
+				break;
+		}
+	}
+
+free_cfgs:
+	kfree(cfgs);
+	return ret;
+}
+
 static int s32_dt_node_to_map(struct pinctrl_dev *pctldev,
-			      struct device_node *np,
+			      struct device_node *np_config,
 			      struct pinctrl_map **map,
 			      unsigned int *num_maps)
 {
-	struct s32_pinctrl *ipctl = pinctrl_dev_get_drvdata(pctldev);
-	const struct s32_pinctrl_soc_info *info = ipctl->info;
-	const struct s32_pin_group *grp;
-	struct pinctrl_map *new_map;
-	struct device_node *parent;
-	int map_num = 1;
-	int i;
+	unsigned int reserved_maps;
+	struct device_node *np;
+	int ret = 0;
 
-	/*
-	 * first find the group of this node and check if we need create
-	 * config maps for pins
-	 */
-	grp = s32_pinctrl_find_group_by_func(info, np->name);
-	if (!grp) {
-		dev_err(info->dev, "unable to find group for node %s\n",
-			np->name);
-		return -EINVAL;
+	reserved_maps = 0;
+	*map = NULL;
+	*num_maps = 0;
+
+	for_each_available_child_of_node(np_config, np) {
+		ret = s32_dt_group_node_to_map(pctldev, np, map,
+					       &reserved_maps, num_maps,
+					       np_config->name);
+		if (ret < 0)
+			break;
 	}
 
-	map_num += grp->npins;
+	if (ret)
+		pinctrl_utils_free_map(pctldev, *map, *num_maps);
 
-	new_map = kmalloc_array(map_num, sizeof(struct pinctrl_map), GFP_KERNEL);
-	if (!new_map)
-		return -ENOMEM;
+	return ret;
 
-	*map = new_map;
-	*num_maps = map_num;
-
-	/* create mux map */
-	parent = of_get_parent(np);
-	if (!parent) {
-		kfree(new_map);
-		return -EINVAL;
-	}
-	new_map[0].type = PIN_MAP_TYPE_MUX_GROUP;
-	new_map[0].data.mux.function = np->name;
-	new_map[0].data.mux.group = grp->name;
-	of_node_put(parent);
-
-	/* create config map */
-	new_map++;
-	for (i = 0; i < grp->npins; i++) {
-		new_map[i].type = PIN_MAP_TYPE_CONFIGS_PIN;
-		new_map[i].data.configs.group_or_pin =
-			pin_get_name(pctldev, grp->pins[i].pin_id);
-		new_map[i].data.configs.configs = &grp->pins[i].config;
-		new_map[i].data.configs.num_configs = 1;
-	}
-
-	dev_dbg(pctldev->dev, "maps: function %s group %s num %d\n",
-		(*map)->data.mux.function, (*map)->data.mux.group, map_num);
-
-	return 0;
-}
-
-static void s32_dt_free_map(struct pinctrl_dev *pctldev,
-			    struct pinctrl_map *map,
-			    unsigned int num_maps)
-{
-	kfree(map);
 }
 
 static const struct pinctrl_ops s32_pctrl_ops = {
@@ -317,9 +321,28 @@ static const struct pinctrl_ops s32_pctrl_ops = {
 	.get_group_pins = s32_get_group_pins,
 	.pin_dbg_show = s32_pin_dbg_show,
 	.dt_node_to_map = s32_dt_node_to_map,
-	.dt_free_map = s32_dt_free_map,
-
+	.dt_free_map = pinctrl_utils_free_map,
 };
+
+static int s32_update_pin_mscr(struct pinctrl_dev *pctldev, unsigned int pin,
+			       unsigned long mask, unsigned long new_mask)
+{
+	int ret;
+	unsigned long config;
+
+	ret = s32_pinctrl_readl(pctldev, pin, &config);
+	if (ret)
+		return ret;
+
+	config &= ~mask;
+	config |= new_mask;
+
+	ret = s32_pinctrl_writel(config, pctldev, pin);
+	if (ret)
+		return ret;
+
+	return 0;
+}
 
 static int s32_pmx_set(struct pinctrl_dev *pctldev, unsigned int selector,
 		       unsigned int group)
@@ -327,7 +350,7 @@ static int s32_pmx_set(struct pinctrl_dev *pctldev, unsigned int selector,
 	struct s32_pinctrl *ipctl = pinctrl_dev_get_drvdata(pctldev);
 	const struct s32_pinctrl_soc_info *info = ipctl->info;
 	unsigned int npins;
-	int ret, i;
+	int i, ret = 0, err;
 	struct s32_pin_group *grp;
 
 	/*
@@ -337,7 +360,7 @@ static int s32_pmx_set(struct pinctrl_dev *pctldev, unsigned int selector,
 	grp = &info->groups[group];
 	npins = grp->npins;
 
-	dev_dbg(ipctl->dev, "enable function %s group %s\n",
+	dev_dbg(ipctl->dev, "set mux for function %s group %s\n",
 		info->functions[selector].name, grp->name);
 
 	/* Check beforehand so we don't have a partial config. */
@@ -354,12 +377,15 @@ static int s32_pmx_set(struct pinctrl_dev *pctldev, unsigned int selector,
 	for (i = 0; i < npins; ++i) {
 		struct s32_pin *pin = &grp->pins[i];
 
-		ret = s32_pinctrl_writel(pin->config, pctldev, pin->pin_id);
-		if (ret)
-			return ret;
+		err = s32_update_pin_mscr(pctldev, pin->pin_id,
+					  S32_MSCR_SSS_MASK, pin->sss);
+		if (err) {
+			if (!ret)
+				ret = err;
+		}
 	}
 
-	return 0;
+	return ret;
 }
 
 static int s32_pmx_get_funcs_count(struct pinctrl_dev *pctldev)
@@ -415,8 +441,8 @@ static int s32_pmx_gpio_request_enable(struct pinctrl_dev *pctldev,
 	gpio_pin->config = config;
 	list_add(&(gpio_pin->list), &(ipctl->gpio_configs));
 
-	config &= ~PAD_CTL_MUX_MODE_MASK;
-	config |= PAD_CTL_SRC_SIG_SEL0;
+	/* GPIO pin means SSS = 0 */
+	config &= ~S32_MSCR_SSS_MASK;
 
 	return s32_pinctrl_writel(config, pctldev, offset);
 }
@@ -460,12 +486,12 @@ static int s32_pmx_gpio_set_direction(struct pinctrl_dev *pctldev,
 
 	if (input) {
 		/* Disable output buffer and enable input buffer */
-		config &= ~PAD_CTL_OBE;
-		config |= PAD_CTL_IBE;
+		config &= ~S32_MSCR_OBE;
+		config |= S32_MSCR_IBE;
 	} else {
 		/* Disable input buffer and enable output buffer */
-		config &= ~PAD_CTL_IBE;
-		config |= PAD_CTL_OBE;
+		config &= ~S32_MSCR_IBE;
+		config |= S32_MSCR_OBE;
 	}
 
 	return s32_pinctrl_writel(config, pctldev, offset);
@@ -493,30 +519,88 @@ static int s32_pinconf_get(struct pinctrl_dev *pctldev,
 	return 0;
 }
 
+static int s32_get_pin_conf(struct s32_pinctrl *ipctl, unsigned int pin_id,
+			    enum pin_config_param param, u32 arg,
+			    unsigned long *config)
+{
+	switch (param) {
+	/* All pins are persistent over suspend */
+	case PIN_CONFIG_PERSIST_STATE:
+		return 0;
+	case PIN_CONFIG_DRIVE_OPEN_DRAIN:
+		*config |= S32_MSCR_ODE;
+		break;
+	case PIN_CONFIG_OUTPUT_ENABLE:
+		if (arg)
+			*config |= S32_MSCR_OBE;
+		else
+			*config &= ~S32_MSCR_OBE;
+		break;
+	case PIN_CONFIG_INPUT_ENABLE:
+		if (arg)
+			*config |= S32_MSCR_IBE;
+		else
+			*config &= ~S32_MSCR_IBE;
+		break;
+	case PIN_CONFIG_SLEW_RATE:
+		*config |= S32_MSCR_SRE(arg);
+		break;
+	case PIN_CONFIG_BIAS_PULL_UP:
+		if (arg)
+			*config |= S32_MSCR_PUS;
+		else
+			*config &= ~S32_MSCR_PUS;
+		fallthrough;
+	case PIN_CONFIG_BIAS_PULL_DOWN:
+		if (arg)
+			*config |= S32_MSCR_PUE;
+		else
+			*config &= ~S32_MSCR_PUE;
+		break;
+	case PIN_CONFIG_BIAS_HIGH_IMPEDANCE:
+		*config &= ~(S32_MSCR_ODE | S32_MSCR_OBE | S32_MSCR_IBE);
+		fallthrough;
+	case PIN_CONFIG_BIAS_DISABLE:
+		*config &= ~(S32_MSCR_PUS | S32_MSCR_PUE);
+		break;
+	default:
+		return -EOPNOTSUPP;
+	}
+
+	return 0;
+}
+
 static int s32_pinconf_set(struct pinctrl_dev *pctldev,
-			   unsigned int pin_id,
-			   unsigned long *configs,
+			   unsigned int pin_id, unsigned long *configs,
 			   unsigned int num_configs)
 {
 	struct s32_pinctrl *ipctl = pinctrl_dev_get_drvdata(pctldev);
-	int ret, i;
+	unsigned long config = 0;
+	int i, ret;
 
 	if (s32_check_pin(pctldev, pin_id) != 0)
 		return -EINVAL;
 
 	dev_dbg(ipctl->dev, "pinconf set pin %s with %d configs\n",
-			pin_get_name(pctldev, pin_id), num_configs);
+		pin_get_name(pctldev, pin_id), num_configs);
 
 	for (i = 0; i < num_configs; i++) {
-		ret = s32_pinctrl_writel(configs[i], pctldev, pin_id);
+		ret = s32_get_pin_conf(ipctl, pin_id,
+				       pinconf_to_config_param(configs[i]),
+				       pinconf_to_config_argument(configs[i]),
+				       &config);
 		if (ret)
 			return ret;
+	}
 
-		dev_dbg(ipctl->dev, "write: offset 0x%x val 0x%lx\n",
-			S32_PAD_CONFIG(pin_id), configs[i]);
-	} /* for each config */
+	if (!config)
+		return 0;
 
-	return 0;
+	ret = s32_update_pin_mscr(pctldev, pin_id,
+				  S32_MSCR_CFG_MASK, config);
+	dev_dbg(ipctl->dev, "update: pin %d cfg 0x%lx\n", pin_id, config);
+
+	return ret;
 }
 
 static void s32_pinconf_dbg_show(struct pinctrl_dev *pctldev,
@@ -560,7 +644,7 @@ static void s32_pinconf_group_dbg_show(struct pinctrl_dev *pctldev,
 
 static const struct pinconf_ops s32_pinconf_ops = {
 	.pin_config_get = s32_pinconf_get,
-	.pin_config_set = s32_pinconf_set,
+	.pin_config_set	= s32_pinconf_set,
 	.pin_config_dbg_show = s32_pinconf_dbg_show,
 	.pin_config_group_dbg_show = s32_pinconf_group_dbg_show,
 };
@@ -648,33 +732,29 @@ static int s32_pinctrl_parse_groups(struct device_node *np,
 				    struct s32_pinctrl_soc_info *info,
 				    u32 index)
 {
-	int size, i;
-	const __be32 *list;
+	const __be32 *p;
+	struct device *dev;
+	struct property *prop;
+	int i, npins;
+	u32 pinmux = 0U;
 
-	dev_dbg(info->dev, "group(%d): %s\n", index, np->name);
+	dev = info->dev;
+
+	dev_dbg(dev, "group(%d): %s\n", index, np->name);
 
 	/* Initialise group */
 	grp->name = np->name;
 
-	/*
-	 * the binding format is fsl,pins = <PIN CONFIG>,
-	 * do sanity check and calculate pins number
-	 */
-	list = of_get_property(np, "fsl,pins", &size);
-	if (!list) {
-		dev_err(info->dev, "no fsl,pins property in node %s\n",
-				np->full_name);
+	npins = of_property_count_elems_of_size(np, "pinmux", sizeof(u32));
+	if (npins < 0) {
+		dev_err(dev, "Failed to read 'pinmux' property in node %s.\n",
+			np->name);
+	} else if (!npins) {
+		dev_err(dev, "The group %s has no pins.\n", np->name);
 		return -EINVAL;
 	}
+	grp->npins = npins;
 
-	/* we do not check return since it's safe node passed down */
-	if (!size || size % S32_PIN_SIZE) {
-		dev_err(info->dev, "Invalid fsl,pins property in node %s\n",
-				np->full_name);
-		return -EINVAL;
-	}
-
-	grp->npins = size / S32_PIN_SIZE;
 	grp->pins = devm_kzalloc(info->dev,
 				 grp->npins * sizeof(struct s32_pin),
 				 GFP_KERNEL);
@@ -684,15 +764,17 @@ static int s32_pinctrl_parse_groups(struct device_node *np,
 	if (!grp->pins || !grp->pin_ids)
 		return -ENOMEM;
 
-	for (i = 0; i < grp->npins; i++) {
+	i = 0;
+	of_property_for_each_u32(np, "pinmux", prop, p, pinmux) {
 		struct s32_pin *pin = &grp->pins[i];
 
-		pin->pin_id = be32_to_cpu(*list++);
-		pin->config = be32_to_cpu(*list++);
+		pin->pin_id = get_pin_no(pinmux);
+		pin->sss = get_pin_func(pinmux);
 		grp->pin_ids[i] = grp->pins[i].pin_id;
 
 		dev_dbg(info->dev, "%s: 0x%08lx",
-			pin_get_name_from_info(info, pin->pin_id), pin->config);
+			pin_get_name_from_info(info, pin->pin_id), pin->sss);
+		i++;
 	}
 
 	return 0;
