@@ -232,13 +232,9 @@ static int s32_dt_group_node_to_map(struct pinctrl_dev *pctldev,
 {
 	struct s32_pinctrl *ipctl = pinctrl_dev_get_drvdata(pctldev);
 	unsigned long *cfgs = NULL;
-	unsigned int n_cfgs;
+	unsigned int n_cfgs, reserve = 1;
 	struct device *dev;
-	struct property *prop;
 	int n_pins, ret;
-	u32 pinmux, pin;
-	const __be32 *p;
-	const char *pin_name;
 
 	if (!ipctl)
 		return -EINVAL;
@@ -259,8 +255,11 @@ static int s32_dt_group_node_to_map(struct pinctrl_dev *pctldev,
 		return ret;
 	}
 
+	if (n_cfgs)
+		reserve++;
+
 	ret = pinctrl_utils_reserve_map(pctldev, map, reserved_maps, num_maps,
-					n_pins + 1);
+					reserve);
 	if (ret < 0)
 		goto free_cfgs;
 
@@ -270,16 +269,11 @@ static int s32_dt_group_node_to_map(struct pinctrl_dev *pctldev,
 		goto free_cfgs;
 
 	if (n_cfgs) {
-		of_property_for_each_u32(np, "pinmux", prop, p, pinmux) {
-			pin = get_pin_no(pinmux);
-
-			pin_name = pin_get_name(pctldev, pin);
-			ret = pinctrl_utils_add_map_configs(pctldev, map, reserved_maps,
-							    num_maps, pin_name, cfgs, n_cfgs,
-							    PIN_MAP_TYPE_CONFIGS_PIN);
-			if (ret < 0)
-				break;
-		}
+		ret = pinctrl_utils_add_map_configs(pctldev, map, reserved_maps,
+						    num_maps, np->name, cfgs, n_cfgs,
+						    PIN_MAP_TYPE_CONFIGS_GROUP);
+		if (ret < 0)
+			goto free_cfgs;
 	}
 
 free_cfgs:
@@ -603,6 +597,36 @@ static int s32_pinconf_set(struct pinctrl_dev *pctldev,
 	return ret;
 }
 
+static int s32_pconf_group_set(struct pinctrl_dev *pctldev, unsigned int group,
+			       unsigned long *configs, unsigned int num_configs)
+{
+	struct s32_pinctrl *ipctl = pinctrl_dev_get_drvdata(pctldev);
+	const struct s32_pinctrl_soc_info *info;
+	struct s32_pin_group *grp;
+	struct s32_pin *pin;
+	int i, ret;
+
+	if (!ipctl)
+		return -EINVAL;
+
+	info = ipctl->info;
+
+	if (group > info->ngroups)
+		return -EINVAL;
+
+	grp = &info->groups[group];
+	for (i = 0; i < grp->npins; i++) {
+		pin = &grp->pins[i];
+
+		ret = s32_pinconf_set(pctldev, pin->pin_id,
+				      configs, num_configs);
+		if (ret)
+			return ret;
+	}
+
+	return 0;
+}
+
 static void s32_pinconf_dbg_show(struct pinctrl_dev *pctldev,
 				 struct seq_file *s, unsigned int pin_id)
 {
@@ -645,6 +669,7 @@ static void s32_pinconf_group_dbg_show(struct pinctrl_dev *pctldev,
 static const struct pinconf_ops s32_pinconf_ops = {
 	.pin_config_get = s32_pinconf_get,
 	.pin_config_set	= s32_pinconf_set,
+	.pin_config_group_set = s32_pconf_group_set,
 	.pin_config_dbg_show = s32_pinconf_dbg_show,
 	.pin_config_group_dbg_show = s32_pinconf_group_dbg_show,
 };
