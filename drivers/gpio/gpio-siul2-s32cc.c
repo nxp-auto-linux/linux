@@ -34,8 +34,6 @@
 #include <linux/regmap.h>
 #include <linux/mfd/syscon.h>
 
-#include <dt-bindings/pinctrl/s32-gen1-pinctrl.h>
-
 #define SIUL2_PGPDO(N)		(((N) ^ 1) * 2)
 #define SIUL2_EIRQ_REG(r)	((r) * 4)
 #define S32_EIRQS_NUM		32

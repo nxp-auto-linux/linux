@@ -9,7 +9,6 @@
 
 /dts-v1/;
 #include "s32g2.dtsi"
-#include <dt-bindings/pinctrl/s32g-pinctrl.h>
 
 /* Emulator has less than 1GB of RAM, remove reserved memory above this limit */
 /delete-node/ &pci_shared_memory0;
