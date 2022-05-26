@@ -123,255 +123,477 @@
 &pinctrl {
 	status = "okay";
 	can0_pins: can0 {
-		can0_grp {
-			fsl,pins = <
-				S32_GEN1_PAD_PC12__CAN0_TXD
-				S32_GEN1_PAD_PC11__CAN0_RXD_OUT
-				S32_GEN1_PAD_PC11__CAN0_RXD_IN
-			>;
+		can0_grp0 {
+			pinmux = <S32CC_PINMUX(44, FUNC1)>;
+			output-enable;
+			slew-rate = <S32CC_SLEW_150MHZ>;
 		};
+
+		can0_grp1 {
+			pinmux = <S32CC_PINMUX(43, FUNC0)>;
+			input-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+		};
+
+		can0_grp2 {
+			pinmux = <S32CC_PINMUX(513, FUNC2)>;
+		};
+
 	};
 
 	can1_pins: can1 {
-		can1_grp {
-			fsl,pins = <
-				S32_GEN1_PAD_PD14__CAN1_TXD
-				S32_GEN1_PAD_PA7__CAN1_RXD_OUT
-				S32_GEN1_PAD_PA7__CAN1_RXD_IN
-			>;
+		can1_grp0 {
+			pinmux = <S32CC_PINMUX(62, FUNC3)>;
+			output-enable;
+			slew-rate = <S32CC_SLEW_150MHZ>;
 		};
+
+		can1_grp1 {
+			pinmux = <S32CC_PINMUX(7, FUNC0)>;
+			input-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+		};
+
+		can1_grp2 {
+			pinmux = <S32CC_PINMUX(658, FUNC3)>;
+		};
+
 	};
 
 	can2_pins: can2 {
-		can2_grp {
-			fsl,pins = <
-				S32_GEN1_PAD_PB03__CAN2_TXD
-				S32_GEN1_PAD_PJ12__CAN2_RXD_OUT
-				S32_GEN1_PAD_PJ12__CAN2_RXD_IN
-			>;
+		can2_grp0 {
+			pinmux = <S32CC_PINMUX(19, FUNC1)>;
+			output-enable;
+			slew-rate = <S32CC_SLEW_150MHZ>;
 		};
+
+		can2_grp1 {
+			pinmux = <S32CC_PINMUX(124, FUNC0)>;
+			input-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+		};
+
+		can2_grp2 {
+			pinmux = <S32CC_PINMUX(617, FUNC3)>;
+		};
+
 	};
 
 	can3_pins: can3 {
-		can3_grp {
-			fsl,pins = <
-				S32_GEN1_PAD_PJ7__CAN3_RXD_OUT
-				S32_GEN1_PAD_PJ7__CAN3_RXD_IN
-				S32_GEN1_PAD_PB2__CAN3_TXD
-			>;
+		can3_grp0 {
+			pinmux = <S32CC_PINMUX(119, FUNC0)>;
+			input-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
 		};
+
+		can3_grp1 {
+			pinmux = <S32CC_PINMUX(619, FUNC3)>;
+		};
+
+		can3_grp2 {
+			pinmux = <S32CC_PINMUX(18, FUNC4)>;
+			output-enable;
+			slew-rate = <S32CC_SLEW_150MHZ>;
+		};
+
 	};
 
 	can5_pins: can5 {
-		can5_grp {
-			fsl,pins = <
-				S32_GEN1_PAD_PJ0__CAN5_RXD_OUT
-				S32_GEN1_PAD_PJ0__CAN5_RXD_IN
-				S32_GEN1_PAD_PC2__CAN5_TXD
-			>;
+		can5_grp0 {
+			pinmux = <S32CC_PINMUX(112, FUNC0)>;
+			input-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
 		};
+
+		can5_grp1 {
+			pinmux = <S32CC_PINMUX(635, FUNC3)>;
+		};
+
+		can5_grp2 {
+			pinmux = <S32CC_PINMUX(34, FUNC3)>;
+			output-enable;
+			slew-rate = <S32CC_SLEW_150MHZ>;
+		};
+
 	};
 
 	i2c0_pins: i2c0 {
-		i2c0_grp {
-			fsl,pins = <
-				S32_GEN1_PAD_PB0__I2C0_DATA_OUT
-				S32_GEN1_PAD_PB1__I2C0_SCLK_OUT
-				S32_GEN1_PAD_PB0__I2C0_DATA_IN
-				S32_GEN1_PAD_PB1__I2C0_SCLK_IN
-			>;
+		i2c0_grp0 {
+			pinmux = <S32CC_PINMUX(16, FUNC1)>,
+				 <S32CC_PINMUX(17, FUNC1)>;
+			drive-open-drain;
+			output-enable;
+			input-enable;
+			slew-rate = <S32CC_SLEW_83MHZ>;
 		};
+
+		i2c0_grp1 {
+			pinmux = <S32CC_PINMUX(565, FUNC2)>,
+				 <S32CC_PINMUX(566, FUNC2)>;
+		};
+
 	};
 
 	i2c0_gpio_pins: i2c0_gpio {
-		i2c0_gpio_grp {
-			fsl,pins = <
-				S32_GEN1_PAD_PB0__I2C0_DATA_GPIO
-				S32_GEN1_PAD_PB1__I2C0_SCLK_GPIO
-				S32_GEN1_PAD_PB0__DISABLED_IN
-				S32_GEN1_PAD_PB1__DISABLED_IN
-			>;
+		i2c0_gpio_grp0 {
+			pinmux = <S32CC_PINMUX(16, FUNC0)>,
+				 <S32CC_PINMUX(17, FUNC0)>;
+			drive-open-drain;
+			output-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
 		};
+
+		i2c0_gpio_grp1 {
+			pinmux = <S32CC_PINMUX(565, FUNC0)>,
+				 <S32CC_PINMUX(566, FUNC0)>;
+		};
+
 	};
 
 	i2c1_pins: i2c1 {
-		i2c1_grp {
-			fsl,pins = <
-				S32_GEN1_PAD_PA14__I2C1_SCLK_IN
-				S32_GEN1_PAD_PA14__I2C1_SCLK_OUT
-				S32_GEN1_PAD_PA15__I2C1_DATA_IN
-				S32_GEN1_PAD_PA15__I2C1_DATA_OUT
-			>;
+		i2c1_grp0 {
+			pinmux = <S32CC_PINMUX(615, FUNC2)>,
+				 <S32CC_PINMUX(616, FUNC2)>;
 		};
+
+		i2c1_grp1 {
+			pinmux = <S32CC_PINMUX(14, FUNC4)>;
+			drive-open-drain;
+			output-enable;
+			input-enable;
+			slew-rate = <S32CC_SLEW_83MHZ>;
+		};
+
+		i2c1_grp2 {
+			pinmux = <S32CC_PINMUX(15, FUNC3)>;
+			drive-open-drain;
+			output-enable;
+			input-enable;
+			slew-rate = <S32CC_SLEW_83MHZ>;
+		};
+
 	};
 
 	i2c1_gpio_pins: i2c1_gpio {
-		i2c1_gpio_grp {
-			fsl,pins = <
-				S32_GEN1_PAD_PA14__DISABLED_IN
-				S32_GEN1_PAD_PA14__I2C1_SCLK_GPIO
-				S32_GEN1_PAD_PA15__DISABLED_IN
-				S32_GEN1_PAD_PA15__I2C1_DATA_GPIO
-			>;
+		i2c1_gpio_grp0 {
+			pinmux = <S32CC_PINMUX(615, FUNC0)>,
+				 <S32CC_PINMUX(616, FUNC0)>;
 		};
+
+		i2c1_gpio_grp1 {
+			pinmux = <S32CC_PINMUX(14, FUNC0)>,
+				 <S32CC_PINMUX(15, FUNC0)>;
+			drive-open-drain;
+			output-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+		};
+
 	};
 
 	qspi_pins: qspi {
-		qspi_grp {
-				fsl,pins = <
-					S32_GEN1_PAD_PF13__QSPI_A_DQS_OUT
-					S32_GEN1_PAD_PF13__QSPI_A_DQS_IN
-					S32_GEN1_PAD_PG4__QSPI_A_CS0
-					S32_GEN1_PAD_PG5__QSPI_A_CS1
-					S32_GEN1_PAD_PF5__QSPI_A_DATA0_IN
-					S32_GEN1_PAD_PF5__QSPI_A_DATA0_OUT
-					S32_GEN1_PAD_PF6__QSPI_A_DATA1_IN
-					S32_GEN1_PAD_PF6__QSPI_A_DATA1_OUT
-					S32_GEN1_PAD_PF7__QSPI_A_DATA2_IN
-					S32_GEN1_PAD_PF7__QSPI_A_DATA2_OUT
-					S32_GEN1_PAD_PF8__QSPI_A_DATA3_IN
-					S32_GEN1_PAD_PF8__QSPI_A_DATA3_OUT
-					S32_GEN1_PAD_PF9__QSPI_A_DATA4_IN
-					S32_GEN1_PAD_PF9__QSPI_A_DATA4_OUT
-					S32_GEN1_PAD_PF10__QSPI_A_DATA5_IN
-					S32_GEN1_PAD_PF10__QSPI_A_DATA5_OUT
-					S32_GEN1_PAD_PF11__QSPI_A_DATA6_IN
-					S32_GEN1_PAD_PF11__QSPI_A_DATA6_OUT
-					S32_GEN1_PAD_PF12__QSPI_A_DATA7_IN
-					S32_GEN1_PAD_PF12__QSPI_A_DATA7_OUT
-					S32_GEN1_PAD_PG0__QSPI_A_SCK
-					S32_GEN1_PAD_PG1__QSPI_A_B_SCK
-					S32_GEN1_PAD_PG2__QSPI_A_SCK2
-					S32_GEN1_PAD_PG3__QSPI_A_B_SCK2
-				>;
+		qspi_grp0 {
+			pinmux = <S32CC_PINMUX(93, FUNC1)>,
+				 <S32CC_PINMUX(97, FUNC1)>,
+				 <S32CC_PINMUX(98, FUNC1)>,
+				 <S32CC_PINMUX(99, FUNC1)>;
+			output-enable;
+			input-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+			bias-pull-down;
 		};
+
+		qspi_grp1 {
+			pinmux = <S32CC_PINMUX(548, FUNC2)>,
+				 <S32CC_PINMUX(540, FUNC2)>,
+				 <S32CC_PINMUX(541, FUNC2)>,
+				 <S32CC_PINMUX(542, FUNC2)>,
+				 <S32CC_PINMUX(543, FUNC2)>,
+				 <S32CC_PINMUX(544, FUNC2)>,
+				 <S32CC_PINMUX(545, FUNC2)>,
+				 <S32CC_PINMUX(546, FUNC2)>,
+				 <S32CC_PINMUX(547, FUNC2)>;
+		};
+
+		qspi_grp2 {
+			pinmux = <S32CC_PINMUX(100, FUNC1)>,
+				 <S32CC_PINMUX(101, FUNC1)>,
+				 <S32CC_PINMUX(96, FUNC1)>;
+			output-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+		};
+
+		qspi_grp3 {
+			pinmux = <S32CC_PINMUX(85, FUNC1)>,
+				 <S32CC_PINMUX(86, FUNC1)>,
+				 <S32CC_PINMUX(87, FUNC1)>,
+				 <S32CC_PINMUX(88, FUNC1)>,
+				 <S32CC_PINMUX(89, FUNC1)>,
+				 <S32CC_PINMUX(90, FUNC1)>,
+				 <S32CC_PINMUX(91, FUNC1)>,
+				 <S32CC_PINMUX(92, FUNC1)>;
+			output-enable;
+			input-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+		};
+
 	};
 
 	dspi1_pins: dspi1 {
-		dspi1_grp {
-			fsl,pins = <
-				S32_GEN1_PAD_PB6__SPI1_SOUT_OUT
-				S32_GEN1_PAD_PB5__SPI1_SIN_OUT
-				S32_GEN1_PAD_PB5__SPI1_SIN_IN
-				S32_GEN1_PAD_PB4__SPI1_SCK_OUT
-				S32_GEN1_PAD_PB7__SPI1_CS0_OUT
-				S32_GEN1_PAD_PB8__SPI1_CS1_OUT
-			>;
+		dspi1_grp0 {
+			pinmux = <S32CC_PINMUX(22, FUNC1)>,
+				 <S32CC_PINMUX(20, FUNC1)>;
+			output-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
 		};
+
+		dspi1_grp1 {
+			pinmux = <S32CC_PINMUX(21, FUNC0)>;
+			input-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+			bias-pull-up;
+		};
+
+		dspi1_grp2 {
+			pinmux = <S32CC_PINMUX(623, FUNC4)>;
+		};
+
+		dspi1_grp3 {
+			pinmux = <S32CC_PINMUX(23, FUNC1)>,
+				 <S32CC_PINMUX(24, FUNC1)>;
+			output-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+			bias-pull-up;
+		};
+
 	};
 
 	dspi2_pins: dspi2 {
-		dspi2_grp {
-			fsl,pins = <
-				S32_GEN1_PAD_PB13__SPI2_SOUT_OUT
-				S32_GEN1_PAD_PC01__SPI2_SIN_OUT
-				S32_GEN1_PAD_PC01__SPI2_SIN_IN
-				S32_GEN1_PAD_PB11__SPI2_SCK_OUT
-				S32_GEN1_PAD_PB14__SPI2_CS0_OUT
-				S32_GEN1_PAD_PB15__SPI2_CS1_OUT
-			>;
+		dspi2_grp0 {
+			pinmux = <S32CC_PINMUX(29, FUNC1)>,
+				 <S32CC_PINMUX(27, FUNC1)>;
+			output-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
 		};
+
+		dspi2_grp1 {
+			pinmux = <S32CC_PINMUX(33, FUNC0)>;
+			input-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+			bias-pull-up;
+		};
+
+		dspi2_grp2 {
+			pinmux = <S32CC_PINMUX(681, FUNC2)>;
+		};
+
+		dspi2_grp3 {
+			pinmux = <S32CC_PINMUX(30, FUNC1)>,
+				 <S32CC_PINMUX(31, FUNC1)>;
+			output-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+			bias-pull-up;
+		};
+
 	};
 
 	dspi3_pins: dspi3 {
-		dspi3_grp {
-			fsl,pins = <
-				S32_GEN1_PAD_PC13__SPI3_SOUT_OUT
-				S32_GEN1_PAD_PC6__SPI3_SIN_OUT
-				S32_GEN1_PAD_PC6__SPI3_SIN_IN
-				S32_GEN1_PAD_PC4__SPI3_SCK_OUT
-				S32_GEN1_PAD_PC7__SPI3_CS0_OUT
-				S32_GEN1_PAD_PC8__SPI3_CS1_OUT
-			>;
+		dspi3_grp0 {
+			pinmux = <S32CC_PINMUX(45, FUNC1)>,
+				 <S32CC_PINMUX(36, FUNC1)>;
+			output-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
 		};
+
+		dspi3_grp1 {
+			pinmux = <S32CC_PINMUX(38, FUNC0)>;
+			input-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+			bias-pull-up;
+		};
+
+		dspi3_grp2 {
+			pinmux = <S32CC_PINMUX(654, FUNC2)>;
+		};
+
+		dspi3_grp3 {
+			pinmux = <S32CC_PINMUX(39, FUNC1)>,
+				 <S32CC_PINMUX(40, FUNC1)>;
+			output-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+			bias-pull-up;
+		};
+
 	};
 
 	mdio2_pins: mdio2 {
-		mdio2_grp {
-			fsl,pins = <
-				S32_GEN1_PAD_PD12__MDC
-				S32_GEN1_PAD_PD13__MDIO_OUT
-				S32_GEN1_PAD_PD13__MDIO_IN
-			>;
+		mdio2_grp0 {
+			pinmux = <S32CC_PINMUX(60, FUNC1)>;
+			output-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
 		};
+
+		mdio2_grp1 {
+			pinmux = <S32CC_PINMUX(61, FUNC1)>;
+			output-enable;
+			input-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+		};
+
+		mdio2_grp2 {
+			pinmux = <S32CC_PINMUX(527, FUNC2)>;
+		};
+
 	};
 
 	rgmii2_pins: rgmii2 {
-		rgmii2_grp {
-			fsl,pins = <
-				S32_GEN1_PAD_PE2__TXCLK_OUT
-				S32_GEN1_PAD_PE2__TXCLK_IN
-				S32_GEN1_PAD_PE3__TX_EN_OUT
-				S32_GEN1_PAD_PE4__TX_D0_OUT
-				S32_GEN1_PAD_PE5__TX_D1_OUT
-				S32_GEN1_PAD_PE6__TX_D2_OUT
-				S32_GEN1_PAD_PE7__TX_D3_OUT
-				S32_GEN1_PAD_PE8__RXCLK_OUT
-				S32_GEN1_PAD_PE8__RXCLK_IN
-				S32_GEN1_PAD_PE9__RX_DV_OUT
-				S32_GEN1_PAD_PE9__RX_DV_IN
-				S32_GEN1_PAD_PE10__RX_D0_OUT
-				S32_GEN1_PAD_PE10__RX_D0_IN
-				S32_GEN1_PAD_PE11__RX_D1_OUT
-				S32_GEN1_PAD_PE11__RX_D1_IN
-				S32_GEN1_PAD_PE12__RX_D2_OUT
-				S32_GEN1_PAD_PE12__RX_D2_IN
-				S32_GEN1_PAD_PE13__RX_D3_OUT
-				S32_GEN1_PAD_PE13__RX_D3_IN
-			>;
+		rgmii2_grp0 {
+			pinmux = <S32CC_PINMUX(66, FUNC1)>;
+			output-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+			bias-pull-up;
 		};
+
+		rgmii2_grp1 {
+			pinmux = <S32CC_PINMUX(538, FUNC2)>,
+				 <S32CC_PINMUX(529, FUNC2)>,
+				 <S32CC_PINMUX(530, FUNC2)>,
+				 <S32CC_PINMUX(531, FUNC2)>,
+				 <S32CC_PINMUX(532, FUNC2)>,
+				 <S32CC_PINMUX(533, FUNC2)>,
+				 <S32CC_PINMUX(534, FUNC2)>;
+		};
+
+		rgmii2_grp2 {
+			pinmux = <S32CC_PINMUX(67, FUNC1)>,
+				 <S32CC_PINMUX(68, FUNC1)>,
+				 <S32CC_PINMUX(69, FUNC1)>,
+				 <S32CC_PINMUX(70, FUNC1)>,
+				 <S32CC_PINMUX(71, FUNC1)>;
+			output-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+		};
+
+		rgmii2_grp3 {
+			pinmux = <S32CC_PINMUX(72, FUNC0)>,
+				 <S32CC_PINMUX(73, FUNC0)>,
+				 <S32CC_PINMUX(74, FUNC0)>,
+				 <S32CC_PINMUX(75, FUNC0)>,
+				 <S32CC_PINMUX(76, FUNC0)>,
+				 <S32CC_PINMUX(77, FUNC0)>;
+			input-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+		};
+
 	};
 
 	can4_pins: can4 {
-		can4_grp {
-			fsl,pins = <
-				S32_GEN1_PAD_PJ9__CAN4_TXD
-				S32_GEN1_PAD_PH7__CAN4_RXD_OUT
-				S32_GEN1_PAD_PH7__CAN4_RXD_IN
-			>;
+		can4_grp0 {
+			pinmux = <S32CC_PINMUX(121, FUNC3)>;
+			output-enable;
+			slew-rate = <S32CC_SLEW_150MHZ>;
 		};
+
+		can4_grp1 {
+			pinmux = <S32CC_PINMUX(103, FUNC0)>;
+			input-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+		};
+
+		can4_grp2 {
+			pinmux = <S32CC_PINMUX(633, FUNC3)>;
+		};
+
 	};
 
 	can6_pins: can6 {
-		can6_grp {
-			fsl,pins = <
-				S32_GEN1_PAD_PH6__CAN6_TXD
-				S32_GEN1_PAD_PH8__CAN6_RXD_OUT
-				S32_GEN1_PAD_PH8__CAN6_RXD_IN
-			>;
+		can6_grp0 {
+			pinmux = <S32CC_PINMUX(102, FUNC3)>;
+			output-enable;
+			slew-rate = <S32CC_SLEW_150MHZ>;
 		};
+
+		can6_grp1 {
+			pinmux = <S32CC_PINMUX(104, FUNC0)>;
+			input-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+		};
+
+		can6_grp2 {
+			pinmux = <S32CC_PINMUX(655, FUNC3)>;
+		};
+
 	};
 
 	can7_pins: can7 {
-		can7_grp {
-			fsl,pins = <
-				S32_GEN1_PAD_PJ8__CAN7_TXD
-				S32_GEN1_PAD_PJ11__CAN7_RXD_OUT
-				S32_GEN1_PAD_PJ11__CAN7_RXD_IN
-			>;
+		can7_grp0 {
+			pinmux = <S32CC_PINMUX(120, FUNC3)>;
+			output-enable;
+			slew-rate = <S32CC_SLEW_150MHZ>;
 		};
+
+		can7_grp1 {
+			pinmux = <S32CC_PINMUX(123, FUNC0)>;
+			input-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+		};
+
+		can7_grp2 {
+			pinmux = <S32CC_PINMUX(657, FUNC3)>;
+		};
+
 	};
 
 	mdio3_pins: mdio3 {
-		mdio3_grp {
-			fsl,pins = <
-				S32_GEN1_PAD_PH6__MDC
-				S32_GEN1_PAD_PH7__MDIO_OUT
-				S32_GEN1_PAD_PH7__MDIO_IN
-			>;
+		mdio3_grp0 {
+			pinmux = <S32CC_PINMUX(102, FUNC1)>;
+			output-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
 		};
+
+		mdio3_grp1 {
+			pinmux = <S32CC_PINMUX(103, FUNC1)>;
+			output-enable;
+			input-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+		};
+
+		mdio3_grp2 {
+			pinmux = <S32CC_PINMUX(659, FUNC2)>;
+		};
+
 	};
 
 	dspi5_pins: dspi5 {
-		dspi5_grp {
-			fsl,pins = <
-				S32_GEN1_PAD_PK05__SPI5_SOUT_OUT
-				S32_GEN1_PAD_PK04__SPI5_SIN_OUT
-				S32_GEN1_PAD_PK04__SPI5_SIN_IN
-				S32_GEN1_PAD_PK00__SPI5_SCK_OUT
-				S32_GEN1_PAD_PK03__SPI5_CS0_OUT
-			>;
+		dspi5_grp0 {
+			pinmux = <S32CC_PINMUX(133, FUNC4)>;
+			output-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
 		};
+
+		dspi5_grp1 {
+			pinmux = <S32CC_PINMUX(132, FUNC0)>;
+			input-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+			bias-pull-up;
+		};
+
+		dspi5_grp2 {
+			pinmux = <S32CC_PINMUX(750, FUNC4)>;
+		};
+
+		dspi5_grp3 {
+			pinmux = <S32CC_PINMUX(128, FUNC1)>;
+			output-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+		};
+
+		dspi5_grp4 {
+			pinmux = <S32CC_PINMUX(131, FUNC2)>;
+			output-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+			bias-pull-up;
+		};
+
 	};
 };
 
