@@ -75,11 +75,12 @@
 				      <IMCRS_SIUL2_1_1 0 0x0 0xe8>;
 
 				/* MSCR range */
-				pins = <&pinctrl 0 101
+				pins = <&pinctrl 0   101
 					&pinctrl 102 133
 				/* IMCR range */
 					&pinctrl 512 595
-					&pinctrl 603 785>;
+					&pinctrl 603 695
+					&pinctrl 728 785>;
 				status = "okay";
 			};
 
