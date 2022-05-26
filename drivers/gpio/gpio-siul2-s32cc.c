@@ -36,7 +36,9 @@
 
 #include <dt-bindings/pinctrl/s32-gen1-pinctrl.h>
 
-#define SIUL2_PGPDO(N) (((N) ^ 1) * 2)
+#define SIUL2_PGPDO(N)		(((N) ^ 1) * 2)
+#define SIUL2_EIRQ_REG(r)	((r) * 4)
+#define S32_EIRQS_NUM 32
 
 /* DMA/Interrupt Status Flag Register */
 #define SIUL2_DISR0			0x0
@@ -66,7 +68,8 @@
 
 #define SIUL2_0_MAX_16_PAD_BANK_NUM	6
 
-#define EIRQS_DTS_TAG	"eirqs"
+#define EIRQS_DTS_TAG		"eirqs"
+#define EIRQIMCRS_DTS_TAG	"eirq-imcrs"
 
 /**
  * enum gpio_dir - GPIO pin mode
@@ -94,7 +97,7 @@ struct eirq_mapping {
 	u32 gpio;
 	u16 eirq;
 	u16 imscr;
-	u8 value;
+	u8  imscr_conf;
 };
 
 /**
@@ -141,6 +144,7 @@ struct siul2_gpio_dev {
 	struct regmap *ipadmap20;
 	struct regmap *ipadmap21;
 	struct regmap *irqmap;
+	struct regmap *eirqimcrsmap;
 	struct gpio_chip gc;
 	struct irq_chip irq;
 	spinlock_t lock;
@@ -399,6 +403,7 @@ static void siul2_gpio_irq_unmask(struct irq_data *data)
 	unsigned long flags;
 	u32 direr0_val;
 	u32 disr0_val;
+	int ret;
 	int index = siul2_irq_gpio_index(platdata, gpio);
 
 	if (index < 0)
@@ -428,9 +433,18 @@ static void siul2_gpio_irq_unmask(struct irq_data *data)
 
 	bitmap_set(&gpio_dev->eirqs_bitmap, platdata->irqs[index].eirq, 1);
 
-	spin_unlock_irqrestore(&gpio_dev->lock, flags);
+	regmap_write(gpio_dev->eirqimcrsmap,
+		     SIUL2_EIRQ_REG(platdata->irqs[index].eirq),
+		     platdata->irqs[index].imscr_conf);
 
-	(void)siul2_gpio_dir_in(gc, gpio);
+	ret = siul2_gpio_dir_in(gc, gpio);
+	if (ret) {
+		dev_err(gc->parent, "Failed to configure GPIO %d as input\n",
+			ret);
+		return;
+	}
+
+	spin_unlock_irqrestore(&gpio_dev->lock, flags);
 }
 
 static void siul2_gpio_irq_mask(struct irq_data *data)
@@ -468,9 +482,13 @@ static void siul2_gpio_irq_mask(struct irq_data *data)
 
 	bitmap_clear(&gpio_dev->eirqs_bitmap, platdata->irqs[index].eirq, 1);
 
+	regmap_write(gpio_dev->eirqimcrsmap,
+		     SIUL2_EIRQ_REG(platdata->irqs[index].eirq),
+		     0);
+
 	spin_unlock_irqrestore(&gpio_dev->lock, flags);
 
-	pinctrl_gpio_free(siul2_gpio_to_pin(gc, gpio));
+	siul2_gpio_free(gc, gpio);
 }
 
 static const struct regmap_config siul2_regmap_conf = {
@@ -554,7 +572,7 @@ static inline u32 siul2_get_ipad_offset(unsigned int pad)
 	return siul2_get_pad_offset(pad);
 }
 
-static const struct regmap_range s32g2_pad_yes_ranges[] = {
+static const struct regmap_range s32g_pad_yes_ranges[] = {
 	regmap_reg_range(SIUL2_PGPDO(0), SIUL2_PGPDO(0)),
 	regmap_reg_range(SIUL2_PGPDO(1), SIUL2_PGPDO(1)),
 	regmap_reg_range(SIUL2_PGPDO(2), SIUL2_PGPDO(2)),
@@ -568,96 +586,96 @@ static const struct regmap_range s32g2_pad_yes_ranges[] = {
 	regmap_reg_range(SIUL2_PGPDO(11), SIUL2_PGPDO(11)),
 };
 
-static const struct eirq_mapping s32g2_irqs[] = {
-	{ .gpio = 151,	.eirq = 0,	.imscr = 910,	.value = 0x11 },
-	{ .gpio = 19,	.eirq = 0,	.imscr = 910,	.value = 0x10 },
-	{ .gpio = 152,	.eirq = 1,	.imscr = 911,	.value = 0x11 },
-	{ .gpio = 20,	.eirq = 1,	.imscr = 911,	.value = 0x10 },
-	{ .gpio = 177,	.eirq = 2,	.imscr = 912,	.value = 0x11 },
-	{ .gpio = 21,	.eirq = 2,	.imscr = 912,	.value = 0x10 },
-	{ .gpio = 178,	.eirq = 3,	.imscr = 913,	.value = 0x11 },
-	{ .gpio = 22,	.eirq = 3,	.imscr = 913,	.value = 0x10 },
-	{ .gpio = 179,	.eirq = 4,	.imscr = 914,	.value = 0x11 },
-	{ .gpio = 23,	.eirq = 4,	.imscr = 914,	.value = 0x10 },
-	{ .gpio = 180,	.eirq = 5,	.imscr = 915,	.value = 0x11 },
-	{ .gpio = 24,	.eirq = 5,	.imscr = 915,	.value = 0x10 },
-	{ .gpio = 181,	.eirq = 6,	.imscr = 916,	.value = 0x11 },
-	{ .gpio = 25,	.eirq = 6,	.imscr = 916,	.value = 0x10 },
-	{ .gpio = 182,	.eirq = 7,	.imscr = 917,	.value = 0x11 },
-	{ .gpio = 26,	.eirq = 7,	.imscr = 917,	.value = 0x10 },
-	{ .gpio = 154,	.eirq = 8,	.imscr = 918,	.value = 0x11 },
-	{ .gpio = 27,	.eirq = 8,	.imscr = 918,	.value = 0x10 },
-	{ .gpio = 160,	.eirq = 9,	.imscr = 919,	.value = 0x11 },
-	{ .gpio = 28,	.eirq = 9,	.imscr = 919,	.value = 0x10 },
-	{ .gpio = 165,	.eirq = 10,	.imscr = 920,	.value = 0x11 },
-	{ .gpio = 29,	.eirq = 10,	.imscr = 920,	.value = 0x10 },
-	{ .gpio = 168,	.eirq = 11,	.imscr = 921,	.value = 0x10 },
-	{ .gpio = 31,	.eirq = 12,	.imscr = 922,	.value = 0x10 },
-	{ .gpio = 33,	.eirq = 13,	.imscr = 923,	.value = 0x10 },
-	{ .gpio = 34,	.eirq = 14,	.imscr = 924,	.value = 0x10 },
-	{ .gpio = 35,	.eirq = 15,	.imscr = 925,	.value = 0x10 },
-	{ .gpio = 184,	.eirq = 16,	.imscr = 926,	.value = 0x10 },
-	{ .gpio = 185,	.eirq = 17,	.imscr = 927,	.value = 0x10 },
-	{ .gpio = 186,	.eirq = 18,	.imscr = 928,	.value = 0x10 },
-	{ .gpio = 187,	.eirq = 19,	.imscr = 929,	.value = 0x10 },
-	{ .gpio = 188,	.eirq = 20,	.imscr = 930,	.value = 0x10 },
-	{ .gpio = 189,	.eirq = 21,	.imscr = 931,	.value = 0x10 },
-	{ .gpio = 190,	.eirq = 22,	.imscr = 932,	.value = 0x10 },
-	{ .gpio = 113,	.eirq = 23,	.imscr = 933,	.value = 0x10 },
-	{ .gpio = 114,	.eirq = 24,	.imscr = 934,	.value = 0x10 },
-	{ .gpio = 115,	.eirq = 25,	.imscr = 935,	.value = 0x10 },
-	{ .gpio = 117,	.eirq = 26,	.imscr = 936,	.value = 0x10 },
-	{ .gpio = 36,	.eirq = 27,	.imscr = 937,	.value = 0x10 },
-	{ .gpio = 37,	.eirq = 28,	.imscr = 938,	.value = 0x10 },
-	{ .gpio = 38,	.eirq = 29,	.imscr = 939,	.value = 0x10 },
-	{ .gpio = 39,	.eirq = 30,	.imscr = 940,	.value = 0x10 },
-	{ .gpio = 40,	.eirq = 31,	.imscr = 941,	.value = 0x10 },
+static const struct eirq_mapping s32g_irqs[] = {
+	{ .gpio = 151,	.eirq = 0,	.imscr = 910,	.imscr_conf = 3 },
+	{ .gpio = 19,	.eirq = 0,	.imscr = 910,	.imscr_conf = 2 },
+	{ .gpio = 152,	.eirq = 1,	.imscr = 911,	.imscr_conf = 3 },
+	{ .gpio = 20,	.eirq = 1,	.imscr = 911,	.imscr_conf = 2 },
+	{ .gpio = 177,	.eirq = 2,	.imscr = 912,	.imscr_conf = 3 },
+	{ .gpio = 21,	.eirq = 2,	.imscr = 912,	.imscr_conf = 2 },
+	{ .gpio = 178,	.eirq = 3,	.imscr = 913,	.imscr_conf = 3 },
+	{ .gpio = 22,	.eirq = 3,	.imscr = 913,	.imscr_conf = 2 },
+	{ .gpio = 179,	.eirq = 4,	.imscr = 914,	.imscr_conf = 3 },
+	{ .gpio = 23,	.eirq = 4,	.imscr = 914,	.imscr_conf = 2 },
+	{ .gpio = 180,	.eirq = 5,	.imscr = 915,	.imscr_conf = 3 },
+	{ .gpio = 24,	.eirq = 5,	.imscr = 915,	.imscr_conf = 2 },
+	{ .gpio = 181,	.eirq = 6,	.imscr = 916,	.imscr_conf = 3 },
+	{ .gpio = 25,	.eirq = 6,	.imscr = 916,	.imscr_conf = 2 },
+	{ .gpio = 182,	.eirq = 7,	.imscr = 917,	.imscr_conf = 3 },
+	{ .gpio = 26,	.eirq = 7,	.imscr = 917,	.imscr_conf = 2 },
+	{ .gpio = 154,	.eirq = 8,	.imscr = 918,	.imscr_conf = 3 },
+	{ .gpio = 27,	.eirq = 8,	.imscr = 918,	.imscr_conf = 2 },
+	{ .gpio = 160,	.eirq = 9,	.imscr = 919,	.imscr_conf = 3 },
+	{ .gpio = 28,	.eirq = 9,	.imscr = 919,	.imscr_conf = 2 },
+	{ .gpio = 165,	.eirq = 10,	.imscr = 920,	.imscr_conf = 3 },
+	{ .gpio = 29,	.eirq = 10,	.imscr = 920,	.imscr_conf = 2 },
+	{ .gpio = 168,	.eirq = 11,	.imscr = 921,	.imscr_conf = 2 },
+	{ .gpio = 31,	.eirq = 12,	.imscr = 922,	.imscr_conf = 2 },
+	{ .gpio = 33,	.eirq = 13,	.imscr = 923,	.imscr_conf = 2 },
+	{ .gpio = 34,	.eirq = 14,	.imscr = 924,	.imscr_conf = 2 },
+	{ .gpio = 35,	.eirq = 15,	.imscr = 925,	.imscr_conf = 2 },
+	{ .gpio = 184,	.eirq = 16,	.imscr = 926,	.imscr_conf = 2 },
+	{ .gpio = 185,	.eirq = 17,	.imscr = 927,	.imscr_conf = 2 },
+	{ .gpio = 186,	.eirq = 18,	.imscr = 928,	.imscr_conf = 2 },
+	{ .gpio = 187,	.eirq = 19,	.imscr = 929,	.imscr_conf = 2 },
+	{ .gpio = 188,	.eirq = 20,	.imscr = 930,	.imscr_conf = 2 },
+	{ .gpio = 189,	.eirq = 21,	.imscr = 931,	.imscr_conf = 2 },
+	{ .gpio = 190,	.eirq = 22,	.imscr = 932,	.imscr_conf = 2 },
+	{ .gpio = 113,	.eirq = 23,	.imscr = 933,	.imscr_conf = 2 },
+	{ .gpio = 114,	.eirq = 24,	.imscr = 934,	.imscr_conf = 2 },
+	{ .gpio = 115,	.eirq = 25,	.imscr = 935,	.imscr_conf = 2 },
+	{ .gpio = 117,	.eirq = 26,	.imscr = 936,	.imscr_conf = 2 },
+	{ .gpio = 36,	.eirq = 27,	.imscr = 937,	.imscr_conf = 2 },
+	{ .gpio = 37,	.eirq = 28,	.imscr = 938,	.imscr_conf = 2 },
+	{ .gpio = 38,	.eirq = 29,	.imscr = 939,	.imscr_conf = 2 },
+	{ .gpio = 39,	.eirq = 30,	.imscr = 940,	.imscr_conf = 2 },
+	{ .gpio = 40,	.eirq = 31,	.imscr = 941,	.imscr_conf = 2 },
 };
 
-static const struct regmap_access_table s32g2_pad_access_table = {
-	.yes_ranges	= s32g2_pad_yes_ranges,
-	.n_yes_ranges	= ARRAY_SIZE(s32g2_pad_yes_ranges),
+static const struct regmap_access_table s32g_pad_access_table = {
+	.yes_ranges	= s32g_pad_yes_ranges,
+	.n_yes_ranges	= ARRAY_SIZE(s32g_pad_yes_ranges),
 };
 
-static const struct siul2_device_data s32g2_device_data = {
-	.pad_access	= &s32g2_pad_access_table,
-	.num_irqs	= ARRAY_SIZE(s32g2_irqs),
-	.irqs		= s32g2_irqs
+static const struct siul2_device_data s32g_device_data = {
+	.pad_access	= &s32g_pad_access_table,
+	.num_irqs	= ARRAY_SIZE(s32g_irqs),
+	.irqs		= s32g_irqs
 };
 
 static const struct eirq_mapping s32r45_irqs[] = {
-	{ .gpio = 0,	.eirq = 0,	.imscr = 696,	.value = 0x10 },
-	{ .gpio = 1,	.eirq = 1,	.imscr = 697,	.value = 0x10 },
-	{ .gpio = 4,	.eirq = 2,	.imscr = 698,	.value = 0x10 },
-	{ .gpio = 5,	.eirq = 3,	.imscr = 699,	.value = 0x10 },
-	{ .gpio = 6,	.eirq = 4,	.imscr = 700,	.value = 0x10 },
-	{ .gpio = 8,	.eirq = 5,	.imscr = 701,	.value = 0x10 },
-	{ .gpio = 9,	.eirq = 6,	.imscr = 702,	.value = 0x10 },
-	{ .gpio = 10,	.eirq = 7,	.imscr = 703,	.value = 0x10 },
-	{ .gpio = 11,	.eirq = 8,	.imscr = 704,	.value = 0x10 },
-	{ .gpio = 13,	.eirq = 9,	.imscr = 705,	.value = 0x10 },
-	{ .gpio = 16,	.eirq = 10,	.imscr = 706,	.value = 0x10 },
-	{ .gpio = 17,	.eirq = 11,	.imscr = 707,	.value = 0x10 },
-	{ .gpio = 18,	.eirq = 12,	.imscr = 708,	.value = 0x10 },
-	{ .gpio = 20,	.eirq = 13,	.imscr = 709,	.value = 0x10 },
-	{ .gpio = 22,	.eirq = 14,	.imscr = 710,	.value = 0x10 },
-	{ .gpio = 23,	.eirq = 15,	.imscr = 711,	.value = 0x10 },
-	{ .gpio = 25,	.eirq = 16,	.imscr = 712,	.value = 0x10 },
-	{ .gpio = 26,	.eirq = 17,	.imscr = 713,	.value = 0x10 },
-	{ .gpio = 27,	.eirq = 18,	.imscr = 714,	.value = 0x10 },
-	{ .gpio = 28,	.eirq = 19,	.imscr = 715,	.value = 0x10 },
-	{ .gpio = 29,	.eirq = 20,	.imscr = 716,	.value = 0x10 },
-	{ .gpio = 30,	.eirq = 21,	.imscr = 717,	.value = 0x10 },
-	{ .gpio = 31,	.eirq = 22,	.imscr = 718,	.value = 0x10 },
-	{ .gpio = 32,	.eirq = 23,	.imscr = 719,	.value = 0x10 },
-	{ .gpio = 33,	.eirq = 24,	.imscr = 720,	.value = 0x10 },
-	{ .gpio = 35,	.eirq = 25,	.imscr = 721,	.value = 0x10 },
-	{ .gpio = 36,	.eirq = 26,	.imscr = 722,	.value = 0x10 },
-	{ .gpio = 37,	.eirq = 27,	.imscr = 723,	.value = 0x10 },
-	{ .gpio = 38,	.eirq = 28,	.imscr = 724,	.value = 0x10 },
-	{ .gpio = 39,	.eirq = 29,	.imscr = 725,	.value = 0x10 },
-	{ .gpio = 40,	.eirq = 30,	.imscr = 726,	.value = 0x10 },
-	{ .gpio = 44,	.eirq = 31,	.imscr = 727,	.value = 0x10 },
+	{ .gpio = 0,	.eirq = 0,	.imscr = 696,	.imscr_conf = 2 },
+	{ .gpio = 1,	.eirq = 1,	.imscr = 697,	.imscr_conf = 2 },
+	{ .gpio = 4,	.eirq = 2,	.imscr = 698,	.imscr_conf = 2 },
+	{ .gpio = 5,	.eirq = 3,	.imscr = 699,	.imscr_conf = 2 },
+	{ .gpio = 6,	.eirq = 4,	.imscr = 700,	.imscr_conf = 2 },
+	{ .gpio = 8,	.eirq = 5,	.imscr = 701,	.imscr_conf = 2 },
+	{ .gpio = 9,	.eirq = 6,	.imscr = 702,	.imscr_conf = 2 },
+	{ .gpio = 10,	.eirq = 7,	.imscr = 703,	.imscr_conf = 2 },
+	{ .gpio = 11,	.eirq = 8,	.imscr = 704,	.imscr_conf = 2 },
+	{ .gpio = 13,	.eirq = 9,	.imscr = 705,	.imscr_conf = 2 },
+	{ .gpio = 16,	.eirq = 10,	.imscr = 706,	.imscr_conf = 2 },
+	{ .gpio = 17,	.eirq = 11,	.imscr = 707,	.imscr_conf = 2 },
+	{ .gpio = 18,	.eirq = 12,	.imscr = 708,	.imscr_conf = 2 },
+	{ .gpio = 20,	.eirq = 13,	.imscr = 709,	.imscr_conf = 2 },
+	{ .gpio = 22,	.eirq = 14,	.imscr = 710,	.imscr_conf = 2 },
+	{ .gpio = 23,	.eirq = 15,	.imscr = 711,	.imscr_conf = 2 },
+	{ .gpio = 25,	.eirq = 16,	.imscr = 712,	.imscr_conf = 2 },
+	{ .gpio = 26,	.eirq = 17,	.imscr = 713,	.imscr_conf = 2 },
+	{ .gpio = 27,	.eirq = 18,	.imscr = 714,	.imscr_conf = 2 },
+	{ .gpio = 28,	.eirq = 19,	.imscr = 715,	.imscr_conf = 2 },
+	{ .gpio = 29,	.eirq = 20,	.imscr = 716,	.imscr_conf = 2 },
+	{ .gpio = 30,	.eirq = 21,	.imscr = 717,	.imscr_conf = 2 },
+	{ .gpio = 31,	.eirq = 22,	.imscr = 718,	.imscr_conf = 2 },
+	{ .gpio = 32,	.eirq = 23,	.imscr = 719,	.imscr_conf = 2 },
+	{ .gpio = 33,	.eirq = 24,	.imscr = 720,	.imscr_conf = 2 },
+	{ .gpio = 35,	.eirq = 25,	.imscr = 721,	.imscr_conf = 2 },
+	{ .gpio = 36,	.eirq = 26,	.imscr = 722,	.imscr_conf = 2 },
+	{ .gpio = 37,	.eirq = 27,	.imscr = 723,	.imscr_conf = 2 },
+	{ .gpio = 38,	.eirq = 28,	.imscr = 724,	.imscr_conf = 2 },
+	{ .gpio = 39,	.eirq = 29,	.imscr = 725,	.imscr_conf = 2 },
+	{ .gpio = 40,	.eirq = 30,	.imscr = 726,	.imscr_conf = 2 },
+	{ .gpio = 44,	.eirq = 31,	.imscr = 727,	.imscr_conf = 2 },
 };
 
 static const struct siul2_device_data s32r45_device_data = {
@@ -741,8 +759,6 @@ static bool irqmap_volatile_reg(struct device *dev, unsigned int reg)
 static struct regmap *init_irqregmap(struct platform_device *pdev)
 {
 	struct regmap_config regmap_conf = siul2_regmap_conf;
-	static struct resource *glob_res;
-	static struct regmap *glob_reg;
 	struct resource *res;
 	struct regmap *reg = NULL;
 
@@ -752,29 +768,22 @@ static struct regmap *init_irqregmap(struct platform_device *pdev)
 	regmap_conf.volatile_reg = irqmap_volatile_reg;
 	regmap_conf.val_format_endian = REGMAP_ENDIAN_LITTLE;
 
-	/**
-	 * For the cases when the same EIRQ block is shared among
-	 * multiple instances
-	 */
-	if (!glob_res) {
-		reg = common_regmap_init(pdev, &regmap_conf, EIRQS_DTS_TAG);
-		glob_res = res;
-		glob_reg = reg;
-		return reg;
-	}
+	reg = common_regmap_init(pdev, &regmap_conf, EIRQS_DTS_TAG);
 
-	if (glob_res->start == res->start)
-		return glob_reg;
-
-	if (reg)
-		return reg;
-
-	return common_regmap_init(pdev, &regmap_conf, EIRQS_DTS_TAG);
+	return reg;
 }
 
 static bool not_writable(__always_unused struct device *dev,
 			 __always_unused unsigned int reg)
 {
+	return false;
+}
+
+static bool eirq_accessible(struct device *dev, unsigned int reg)
+{
+	if (reg < SIUL2_EIRQ_REG(S32_EIRQS_NUM))
+		return true;
+
 	return false;
 }
 
@@ -817,6 +826,17 @@ static struct regmap *init_ipadregmap(struct platform_device *pdev, int selector
 	return NULL;
 }
 
+static struct regmap *init_eirqimcrsregmap(struct platform_device *pdev)
+{
+	struct regmap_config regmap_conf = siul2_regmap_conf;
+
+	regmap_conf.cache_type = REGCACHE_NONE;
+	regmap_conf.writeable_reg = eirq_accessible;
+	regmap_conf.readable_reg = eirq_accessible;
+
+	return common_regmap_init(pdev, &regmap_conf, EIRQIMCRS_DTS_TAG);
+}
+
 static int siul2_irq_setup(struct platform_device *pdev,
 			  struct siul2_gpio_dev *gpio_dev)
 {
@@ -839,9 +859,13 @@ static int siul2_irq_setup(struct platform_device *pdev,
 
 	gpio_dev->irqmap = init_irqregmap(pdev);
 	if (IS_ERR(gpio_dev->irqmap)) {
-		dev_err(dev, "Failed to initialize ipad regmap configuration\n");
+		dev_err(dev, "Failed to initialize irq regmap configuration\n");
 		return PTR_ERR(gpio_dev->irqmap);
 	}
+
+	gpio_dev->eirqimcrsmap = init_eirqimcrsregmap(pdev);
+	if (IS_ERR(gpio_dev->eirqimcrsmap))
+		dev_err(dev, "Failed to initialize EIRQ IMCRS' regmap configuration\n");
 
 	/* Request IRQ */
 	irq = platform_get_irq(pdev, 0);
@@ -892,7 +916,7 @@ irq_setup_err:
 }
 
 static const struct of_device_id siul2_gpio_dt_ids[] = {
-	{ .compatible = "nxp,s32g-siul2-gpio", .data = &s32g2_device_data },
+	{ .compatible = "nxp,s32g-siul2-gpio", .data = &s32g_device_data },
 	{ .compatible = "nxp,s32r-siul2-gpio", .data = &s32r45_device_data},
 	{ /* sentinel */ }
 };
@@ -1115,7 +1139,7 @@ static int siul2_gpio_probe(struct platform_device *pdev)
 	err = devm_gpiochip_add_data(dev, gc, gpio_dev);
 	if (err) {
 		dev_err(dev, "unable to add gpiochip: %d\n", err);
-		return -EINVAL;
+		return err;
 	}
 
 	gc->to_irq = siul2_to_irq;
@@ -1124,7 +1148,7 @@ static int siul2_gpio_probe(struct platform_device *pdev)
 	err = siul2_irq_setup(pdev, gpio_dev);
 	if (err) {
 		dev_err(dev, "failed to setup IRQ : %d\n", err);
-		return -EINVAL;
+		return err;
 	}
 
 	return err;
