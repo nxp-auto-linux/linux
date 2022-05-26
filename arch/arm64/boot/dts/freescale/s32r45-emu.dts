@@ -10,7 +10,6 @@
 
 /dts-v1/;
 #include "s32r45.dtsi"
-#include <dt-bindings/pinctrl/s32r45-pinctrl.h>
 
 / {
 	model = "Emulator for NXP S32R45";
