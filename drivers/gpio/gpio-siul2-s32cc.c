@@ -206,10 +206,16 @@ static inline struct regmap *siul2_offset_to_regmap(struct siul2_gpio_dev *dev,
 static inline void gpio_set_direction(struct siul2_gpio_dev *dev, int gpio,
 						enum gpio_dir dir)
 {
+	unsigned long flags;
+
+	spin_lock_irqsave(&dev->lock, flags);
+
 	if (dir == IN)
 		bitmap_clear(dev->pin_dir_bitmap, gpio, 1);
 	else
 		bitmap_set(dev->pin_dir_bitmap, gpio, 1);
+
+	spin_unlock_irqrestore(&dev->lock, flags);
 }
 
 static inline enum gpio_dir gpio_get_direction(struct siul2_gpio_dev *dev,
@@ -301,11 +307,9 @@ static int siul2_gpio_irq_set_type(struct irq_data *d, unsigned int type)
 	const struct siul2_device_data *platdata = gpio_dev->platdata;
 	unsigned int irq_type = type & IRQ_TYPE_SENSE_MASK;
 	int gpio = irqd_to_hwirq(d);
-	unsigned long flags;
-	u32 ireer0_val;
-	u32 ifeer0_val;
 	int index;
 	int ret = 0;
+	u32 mask;
 
 	ret = siul2_gpio_dir_in(gc, gpio);
 	if (ret) {
@@ -322,33 +326,23 @@ static int siul2_gpio_irq_set_type(struct irq_data *d, unsigned int type)
 		return -EINVAL;
 	}
 
-	spin_lock_irqsave(&gpio_dev->lock, flags);
-
 	index = siul2_irq_gpio_index(platdata, gpio);
 
 	if (index < 0) {
 		ret = index;
-		goto unlock;
 	}
 
-	regmap_read(gpio_dev->irqmap, SIUL2_IREER0, &ireer0_val);
-	regmap_read(gpio_dev->irqmap, SIUL2_IFEER0, &ifeer0_val);
+	mask = BIT(platdata->irqs[index].eirq);
 
 	if (irq_type & IRQ_TYPE_EDGE_RISING)
-		ireer0_val |= BIT(platdata->irqs[index].eirq);
+		regmap_update_bits(gpio_dev->irqmap, SIUL2_IREER0, mask, mask);
 	else
-		ireer0_val &= ~BIT(platdata->irqs[index].eirq);
+		regmap_update_bits(gpio_dev->irqmap, SIUL2_IREER0, mask, 0);
 
 	if (irq_type & IRQ_TYPE_EDGE_FALLING)
-		ifeer0_val |= BIT(platdata->irqs[index].eirq);
+		regmap_update_bits(gpio_dev->irqmap, SIUL2_IFEER0, mask, mask);
 	else
-		ifeer0_val &= ~BIT(platdata->irqs[index].eirq);
-
-	regmap_write(gpio_dev->irqmap, SIUL2_IREER0, ireer0_val);
-	regmap_write(gpio_dev->irqmap, SIUL2_IFEER0, ifeer0_val);
-
-unlock:
-	spin_unlock_irqrestore(&gpio_dev->lock, flags);
+		regmap_update_bits(gpio_dev->irqmap, SIUL2_IFEER0, mask, 0);
 
 	return ret;
 }
@@ -411,51 +405,45 @@ static void siul2_gpio_irq_unmask(struct irq_data *data)
 	struct siul2_gpio_dev *gpio_dev = to_siul2_gpio_dev(gc);
 	const struct siul2_device_data *platdata = gpio_dev->platdata;
 	int gpio = irqd_to_hwirq(data);
-	unsigned long flags;
-	u32 direr0_val;
-	u32 disr0_val;
-	int ret;
 	int index = siul2_irq_gpio_index(platdata, gpio);
+	unsigned long flags;
+	u32 mask;
+	int ret;
 
 	if (index < 0)
 		return;
 
-	spin_lock_irqsave(&gpio_dev->lock, flags);
+	mask = BIT(platdata->irqs[index].eirq);
 
 	/* Is interrupt used? */
 	if (test_bit(platdata->irqs[index].eirq, &gpio_dev->eirqs_bitmap)) {
-		spin_unlock_irqrestore(&gpio_dev->lock, flags);
 		return;
 	}
 
-	regmap_read(gpio_dev->irqmap, SIUL2_DIRER0, &direr0_val);
-
 	/* Disable interrupt */
-	direr0_val &= ~BIT(platdata->irqs[index].eirq);
-	/* Clear status flag */
-	disr0_val = BIT(platdata->irqs[index].eirq);
+	regmap_update_bits(gpio_dev->irqmap, SIUL2_DIRER0, mask, 0);
 
-	regmap_write(gpio_dev->irqmap, SIUL2_DIRER0, direr0_val);
-	regmap_write(gpio_dev->irqmap, SIUL2_DISR0, disr0_val);
+	/* Clear status flag */
+	regmap_update_bits(gpio_dev->irqmap, SIUL2_DISR0, mask, mask);
 
 	/* Enable Interrupt */
-	direr0_val |= BIT(platdata->irqs[index].eirq);
-	regmap_write(gpio_dev->irqmap, SIUL2_DIRER0, direr0_val);
+	regmap_update_bits(gpio_dev->irqmap, SIUL2_DIRER0, mask, mask);
 
+	spin_lock_irqsave(&gpio_dev->lock, flags);
 	bitmap_set(&gpio_dev->eirqs_bitmap, platdata->irqs[index].eirq, 1);
+	spin_unlock_irqrestore(&gpio_dev->lock, flags);
 
+	/* Set IMCR */
 	regmap_write(gpio_dev->eirqimcrsmap,
 		     SIUL2_EIRQ_REG(platdata->irqs[index].eirq),
 		     platdata->irqs[index].imscr_conf);
 
+	/* Configure GPIO as input */
 	ret = siul2_gpio_dir_in(gc, gpio);
 	if (ret) {
 		dev_err(gc->parent, "Failed to configure GPIO %d as input\n",
 			ret);
-		return;
 	}
-
-	spin_unlock_irqrestore(&gpio_dev->lock, flags);
 }
 
 static void siul2_gpio_irq_mask(struct irq_data *data)
@@ -464,40 +452,34 @@ static void siul2_gpio_irq_mask(struct irq_data *data)
 	struct siul2_gpio_dev *gpio_dev = to_siul2_gpio_dev(gc);
 	const struct siul2_device_data *platdata = gpio_dev->platdata;
 	int gpio = irqd_to_hwirq(data);
-	u32 direr0_val;
-	u32 disr0_val;
 	unsigned long flags;
 	int index;
+	u32 mask;
 
 	index = siul2_irq_gpio_index(platdata, gpio);
 	if (index < 0)
 		return;
 
-	spin_lock_irqsave(&gpio_dev->lock, flags);
+	mask = BIT(platdata->irqs[index].eirq);
 
 	/* Is interrupt not used? */
 	if (!test_bit(platdata->irqs[index].eirq, &gpio_dev->eirqs_bitmap)) {
-		spin_unlock_irqrestore(&gpio_dev->lock, flags);
 		return;
 	}
 
-	regmap_read(gpio_dev->irqmap, SIUL2_DIRER0, &direr0_val);
-
 	/* Disable interrupt */
-	direr0_val &= ~BIT(platdata->irqs[index].eirq);
+	regmap_update_bits(gpio_dev->irqmap, SIUL2_DIRER0, mask, 0);
+
 	/* Clean status flag */
-	disr0_val = BIT(platdata->irqs[index].eirq);
+	regmap_update_bits(gpio_dev->irqmap, SIUL2_DISR0, mask, mask);
 
-	regmap_write(gpio_dev->irqmap, SIUL2_DIRER0, direr0_val);
-	regmap_write(gpio_dev->irqmap, SIUL2_DISR0, disr0_val);
-
+	spin_lock_irqsave(&gpio_dev->lock, flags);
 	bitmap_clear(&gpio_dev->eirqs_bitmap, platdata->irqs[index].eirq, 1);
+	spin_unlock_irqrestore(&gpio_dev->lock, flags);
 
 	regmap_write(gpio_dev->eirqimcrsmap,
 		     SIUL2_EIRQ_REG(platdata->irqs[index].eirq),
 		     0);
-
-	spin_unlock_irqrestore(&gpio_dev->lock, flags);
 
 	siul2_gpio_free(gc, gpio);
 }
@@ -827,12 +809,10 @@ static int siul2_irq_setup(struct platform_device *pdev,
 	const int *intspec;
 	int intlen;
 	int irq;
-	unsigned long flags;
 	/*
 	 * Allow multiple instances of the gpio driver to only
 	 * initialize the irq control registers only once.
 	 */
-	static int init_flag;
 	struct device *dev = &pdev->dev;
 
 	/* Skip gpio node without interrupts */
@@ -858,27 +838,19 @@ static int siul2_irq_setup(struct platform_device *pdev,
 		goto irq_setup_err;
 	}
 
-	spin_lock_irqsave(&gpio_dev->lock, flags);
+	/* Disable the interrupts and clear the status */
+	regmap_write(gpio_dev->irqmap, SIUL2_DIRER0, 0);
+	regmap_write(gpio_dev->irqmap, SIUL2_DISR0, ~0);
 
-	if (!init_flag) {
-		/* Disable the interrupts and clear the status */
-		regmap_write(gpio_dev->irqmap, SIUL2_DIRER0, 0);
-		regmap_write(gpio_dev->irqmap, SIUL2_DISR0, ~0);
+	/* Select interrupts by default */
+	regmap_write(gpio_dev->irqmap, SIUL2_DIRSR0, 0);
 
-		/* Select interrupts by default */
-		regmap_write(gpio_dev->irqmap, SIUL2_DIRSR0, 0);
+	/* Disable rising-edge events */
+	regmap_write(gpio_dev->irqmap, SIUL2_IREER0, 0);
+	/* Disable falling-edge events */
+	regmap_write(gpio_dev->irqmap, SIUL2_IFEER0, 0);
 
-		/* Disable rising-edge events */
-		regmap_write(gpio_dev->irqmap, SIUL2_IREER0, 0);
-		/* Disable falling-edge events */
-		regmap_write(gpio_dev->irqmap, SIUL2_IFEER0, 0);
-
-		/* set flag after successful initialization */
-		init_flag = 1;
-
-	}
-
-	spin_unlock_irqrestore(&gpio_dev->lock, flags);
+	/* set flag after successful initialization */
 
 	/*
 	 * We need to request the interrupt here (instead of providing chip
@@ -909,7 +881,6 @@ static void siul2_gpio_set(
 	struct gpio_chip *chip, unsigned int offset, int value)
 {
 	struct siul2_gpio_dev *gpio_dev = to_siul2_gpio_dev(chip);
-	unsigned long flags;
 	unsigned int pad, reg_offset;
 	enum gpio_dir dir;
 	u16 mask;
@@ -932,15 +903,12 @@ static void siul2_gpio_set(
 	else
 		value = 0;
 
-	spin_lock_irqsave(&gpio_dev->lock, flags);
 	regmap_update_bits(regmap, reg_offset, mask, value);
-	spin_unlock_irqrestore(&gpio_dev->lock, flags);
 }
 
 static int siul2_gpio_get(struct gpio_chip *chip, unsigned int offset)
 {
 	struct siul2_gpio_dev *gpio_dev = to_siul2_gpio_dev(chip);
-	unsigned long flags;
 	unsigned int mask, pad, reg_offset, data = 0;
 	enum gpio_dir dir;
 	struct regmap *regmap;
@@ -955,9 +923,7 @@ static int siul2_gpio_get(struct gpio_chip *chip, unsigned int offset)
 	if (!regmap)
 		return -EINVAL;
 
-	spin_lock_irqsave(&(gpio_dev->lock), flags);
 	regmap_read(regmap, reg_offset, &data);
-	spin_unlock_irqrestore(&(gpio_dev->lock), flags);
 
 	return !!(data & mask);
 }
