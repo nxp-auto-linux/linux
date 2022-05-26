@@ -37,8 +37,7 @@
 
 &gpio {
 	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_gpio>, <&pinctrl_gpioeirq>;
-	status = "okay";
+	pinctrl-0 = <&pinctrl_gpio>;
 };
 
 &i2c0 {
@@ -361,16 +360,6 @@
 				S32_G274_PAD_PE15__PFE0_MDIO_OUT
 				S32_G274_PAD_PE15__PFE0_MDIO_IN
 			>;
-		};
-
-		pinctrl_gpioeirq: gpioeirqgrp {
-			fsl,pins = <
-				S32_GEN1_PAD_PB7__SIUL_EIRQ4
-				S32_GEN1_PAD_PB8__SIUL_EIRQ5
-				S32_GEN1_PAD_PB11__SIUL_EIRQ8
-				S32_GEN1_PAD_PB12__SIUL_EIRQ9
-				S32_GEN1_PAD_PB15__SIUL_EIRQ12
-				>;
 		};
 	};
 };
