@@ -16,6 +16,7 @@
 #include <dt-bindings/phy/phy.h>
 #include <dt-bindings/reset/s32gen1-scmi-reset.h>
 #include <dt-bindings/memory/s32-siul2.h>
+#include <dt-bindings/pinctrl/s32cc-pinfunc.h>
 
 #define RTC_FIRC_CLKSEL	2
 #define RTC_SIRC_CLKSEL	0
