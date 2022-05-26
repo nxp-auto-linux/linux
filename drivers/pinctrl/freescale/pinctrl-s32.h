@@ -29,11 +29,11 @@ struct platform_device;
 /**
  * struct s32_pin - describes a single S32 pin
  * @pin_id: the pin_id of this pin
- * @config: the config for this pin.
+ * @sss: source signal select of the pin
  */
 struct s32_pin {
 	unsigned int pin_id;
-	unsigned long config;
+	unsigned long sss;
 };
 
 /**
@@ -79,7 +79,6 @@ struct s32_pinctrl_soc_info {
 #define S32_PINCTRL_PIN(pin)	PINCTRL_PIN(pin, #pin)
 #define S32_MSCR_OFFSET	(0x240)
 #define S32_PAD_CONFIG(idx)	((idx) * 4)
-#define S32_PIN_SIZE		(8)
 
 int s32_pinctrl_probe(struct platform_device *pdev,
 			struct s32_pinctrl_soc_info *info);

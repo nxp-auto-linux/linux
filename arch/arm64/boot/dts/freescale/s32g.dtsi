@@ -11,7 +11,6 @@
 #include "s32cc.dtsi"
 #include "s32g-pfe.dtsi"
 #include <dt-bindings/mailbox/nxp-llce-mb.h>
-#include <dt-bindings/pinctrl/s32g-pinctrl.h>
 #include <dt-bindings/clock/s32g-scmi-clock.h>
 #include <dt-bindings/reset/s32g-scmi-reset.h>
 #include <dt-bindings/net/s32g-pfe.h>
@@ -614,194 +613,355 @@
 
 &pinctrl {
 	llce_can0_pins: llce_can0 {
-		llce_can0_grp {
-			fsl,pins = <
-				S32_GEN1_PAD_PC_11_LLCE_CAN0_RX_O
-				S32_GEN1_PAD_PC_12_LLCE_CAN0_TX
-				S32_GEN1_PAD_PC_11_LLCE_CAN0_RX_I
-			>;
+		llce_can0_grp0 {
+			pinmux = <S32CC_PINMUX(43, FUNC0)>;
+			input-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
 		};
+
+		llce_can0_grp1 {
+			pinmux = <S32CC_PINMUX(44, FUNC2)>;
+			output-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+		};
+
+		llce_can0_grp2 {
+			pinmux = <S32CC_PINMUX(745, FUNC2)>;
+		};
+
 	};
 
 	llce_can1_pins: llce_can1 {
-		llce_can1_grp {
-			fsl,pins = <
-				S32_GEN1_PAD_PJ_01_LLCE_CAN1_TX
-				S32_GEN1_PAD_PJ_02_LLCE_CAN1_RX_I
-				S32_GEN1_PAD_PJ_02_LLCE_CAN1_RX_O
-			>;
+		llce_can1_grp0 {
+			pinmux = <S32CC_PINMUX(145, FUNC1)>;
+			output-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
 		};
+
+		llce_can1_grp1 {
+			pinmux = <S32CC_PINMUX(746, FUNC2)>;
+		};
+
+		llce_can1_grp2 {
+			pinmux = <S32CC_PINMUX(146, FUNC0)>;
+			input-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+		};
+
 	};
 
 	llce_can2_pins: llce_can2 {
-		llce_can2_grp {
-			fsl,pins = <
-				S32_GEN1_PAD_PJ_04_LLCE_CAN2_RX_I
-				S32_GEN1_PAD_PJ_04_LLCE_CAN2_RX_O
-				S32_GEN1_PAD_PJ_03_LLCE_CAN2_TX
-			>;
+		llce_can2_grp0 {
+			pinmux = <S32CC_PINMUX(747, FUNC2)>;
 		};
+
+		llce_can2_grp1 {
+			pinmux = <S32CC_PINMUX(148, FUNC0)>;
+			input-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+		};
+
+		llce_can2_grp2 {
+			pinmux = <S32CC_PINMUX(147, FUNC1)>;
+			output-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+		};
+
 	};
 
 	llce_can3_pins: llce_can3 {
-		llce_can3_grp {
-			fsl,pins = <
-				S32_GEN1_PAD_PJ_06_LLCE_CAN3_RX_I
-				S32_GEN1_PAD_PJ_06_LLCE_CAN3_RX_O
-				S32_GEN1_PAD_PJ_05_LLCE_CAN3_TX
-			>;
+		llce_can3_grp0 {
+			pinmux = <S32CC_PINMUX(748, FUNC2)>;
 		};
+
+		llce_can3_grp1 {
+			pinmux = <S32CC_PINMUX(150, FUNC0)>;
+			input-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+		};
+
+		llce_can3_grp2 {
+			pinmux = <S32CC_PINMUX(149, FUNC1)>;
+			output-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+		};
+
 	};
 
 	llce_can4_pins: llce_can4 {
-		llce_can4_grp {
-			fsl,pins = <
-				S32_GEN1_PAD_PJ_08_LLCE_CAN4_RX_I
-				S32_GEN1_PAD_PJ_08_LLCE_CAN4_RX_O
-				S32_GEN1_PAD_PJ_07_LLCE_CAN4_TX
-			>;
+		llce_can4_grp0 {
+			pinmux = <S32CC_PINMUX(749, FUNC2)>;
 		};
+
+		llce_can4_grp1 {
+			pinmux = <S32CC_PINMUX(152, FUNC0)>;
+			input-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+		};
+
+		llce_can4_grp2 {
+			pinmux = <S32CC_PINMUX(151, FUNC1)>;
+			output-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+		};
+
 	};
 
 	llce_can5_pins: llce_can5 {
-		llce_can5_grp {
-			fsl,pins = <
-				S32_GEN1_PAD_PJ_10_LLCE_CAN5_RX_I
-				S32_GEN1_PAD_PJ_10_LLCE_CAN5_RX_O
-				S32_GEN1_PAD_PJ_09_LLCE_CAN5_TX
-			>;
+		llce_can5_grp0 {
+			pinmux = <S32CC_PINMUX(750, FUNC2)>;
 		};
+
+		llce_can5_grp1 {
+			pinmux = <S32CC_PINMUX(154, FUNC0)>;
+			input-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+		};
+
+		llce_can5_grp2 {
+			pinmux = <S32CC_PINMUX(153, FUNC1)>;
+			output-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+		};
+
 	};
 
 	llce_can6_pins: llce_can6 {
-		llce_can6_grp {
-			fsl,pins = <
-				S32_GEN1_PAD_PJ_12_LLCE_CAN6_RX_I
-				S32_GEN1_PAD_PJ_12_LLCE_CAN6_RX_O
-				S32_GEN1_PAD_PJ_11_LLCE_CAN6_TX
-			>;
+		llce_can6_grp0 {
+			pinmux = <S32CC_PINMUX(751, FUNC2)>;
 		};
+
+		llce_can6_grp1 {
+			pinmux = <S32CC_PINMUX(156, FUNC0)>;
+			input-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+		};
+
+		llce_can6_grp2 {
+			pinmux = <S32CC_PINMUX(155, FUNC1)>;
+			output-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+		};
+
 	};
 
 	llce_can7_pins: llce_can7 {
-		llce_can7_grp {
-			fsl,pins = <
-				S32_GEN1_PAD_PJ_14_LLCE_CAN7_RX_I
-				S32_GEN1_PAD_PJ_14_LLCE_CAN7_RX_O
-				S32_GEN1_PAD_PJ_13_LLCE_CAN7_TX
-			>;
+		llce_can7_grp0 {
+			pinmux = <S32CC_PINMUX(752, FUNC2)>;
 		};
+
+		llce_can7_grp1 {
+			pinmux = <S32CC_PINMUX(158, FUNC0)>;
+			input-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+		};
+
+		llce_can7_grp2 {
+			pinmux = <S32CC_PINMUX(157, FUNC1)>;
+			output-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+		};
+
 	};
 
 	llce_can8_pins: llce_can8 {
-		llce_can8_grp {
-			fsl,pins = <
-				S32_GEN1_PAD_PK_00_LLCE_CAN8_RX_I
-				S32_GEN1_PAD_PK_00_LLCE_CAN8_RX_O
-				S32_GEN1_PAD_PJ_15_LLCE_CAN8_TX
-			>;
+		llce_can8_grp0 {
+			pinmux = <S32CC_PINMUX(753, FUNC2)>;
 		};
+
+		llce_can8_grp1 {
+			pinmux = <S32CC_PINMUX(160, FUNC0)>;
+			input-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+		};
+
+		llce_can8_grp2 {
+			pinmux = <S32CC_PINMUX(159, FUNC1)>;
+			output-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+		};
+
 	};
 
 	llce_can9_pins: llce_can9 {
-		llce_can9_grp {
-			fsl,pins = <
-				S32_GEN1_PAD_PK_02_LLCE_CAN9_RX_I
-				S32_GEN1_PAD_PK_02_LLCE_CAN9_RX_O
-				S32_GEN1_PAD_PK_01_LLCE_CAN9_TX
-			>;
+		llce_can9_grp0 {
+			pinmux = <S32CC_PINMUX(754, FUNC2)>;
 		};
+
+		llce_can9_grp1 {
+			pinmux = <S32CC_PINMUX(162, FUNC0)>;
+			input-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+		};
+
+		llce_can9_grp2 {
+			pinmux = <S32CC_PINMUX(161, FUNC1)>;
+			output-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+		};
+
 	};
 
 	llce_can10_pins: llce_can10 {
-		llce_can10_grp {
-			fsl,pins = <
-				S32_GEN1_PAD_PK_04_LLCE_CAN10_RX_I
-				S32_GEN1_PAD_PK_04_LLCE_CAN10_RX_O
-				S32_GEN1_PAD_PK_03_LLCE_CAN10_TX
-			>;
+		llce_can10_grp0 {
+			pinmux = <S32CC_PINMUX(755, FUNC2)>;
 		};
+
+		llce_can10_grp1 {
+			pinmux = <S32CC_PINMUX(164, FUNC0)>;
+			input-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+		};
+
+		llce_can10_grp2 {
+			pinmux = <S32CC_PINMUX(163, FUNC1)>;
+			output-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+		};
+
 	};
 
 	llce_can11_pins: llce_can11 {
-		llce_can11_grp {
-			fsl,pins = <
-				S32_GEN1_PAD_PK_06_LLCE_CAN11_RX_I
-				S32_GEN1_PAD_PK_06_LLCE_CAN11_RX_O
-				S32_GEN1_PAD_PK_05_LLCE_CAN11_TX
-			>;
+		llce_can11_grp0 {
+			pinmux = <S32CC_PINMUX(756, FUNC2)>;
 		};
+
+		llce_can11_grp1 {
+			pinmux = <S32CC_PINMUX(166, FUNC0)>;
+			input-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+		};
+
+		llce_can11_grp2 {
+			pinmux = <S32CC_PINMUX(165, FUNC1)>;
+			output-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+		};
+
 	};
 
 	llce_can12_pins: llce_can12 {
-		llce_can12_grp {
-			fsl,pins = <
-				S32_GEN1_PAD_PK_08_LLCE_CAN12_RX_I
-				S32_GEN1_PAD_PK_08_LLCE_CAN12_RX_O
-				S32_GEN1_PAD_PK_07_LLCE_CAN12_TX
-			>;
+		llce_can12_grp0 {
+			pinmux = <S32CC_PINMUX(757, FUNC2)>;
 		};
+
+		llce_can12_grp1 {
+			pinmux = <S32CC_PINMUX(168, FUNC0)>;
+			input-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+		};
+
+		llce_can12_grp2 {
+			pinmux = <S32CC_PINMUX(167, FUNC1)>;
+			output-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+		};
+
 	};
 
 	llce_can13_pins: llce_can13 {
-		llce_can13_grp {
-			fsl,pins = <
-				S32_GEN1_PAD_PK_10_LLCE_CAN13_RX_I
-				S32_GEN1_PAD_PK_10_LLCE_CAN13_RX_O
-				S32_GEN1_PAD_PK_09_LLCE_CAN13_TX
-			>;
+		llce_can13_grp0 {
+			pinmux = <S32CC_PINMUX(758, FUNC2)>;
 		};
+
+		llce_can13_grp1 {
+			pinmux = <S32CC_PINMUX(170, FUNC0)>;
+			input-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+		};
+
+		llce_can13_grp2 {
+			pinmux = <S32CC_PINMUX(169, FUNC1)>;
+			output-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+		};
+
 	};
 
 	llce_can14_pins: llce_can14 {
-		llce_can14_grp {
-			fsl,pins = <
-				S32_GEN1_PAD_PK_12_LLCE_CAN14_RX_I
-				S32_GEN1_PAD_PK_12_LLCE_CAN14_RX_O
-				S32_GEN1_PAD_PK_11_LLCE_CAN14_TX
-			>;
+		llce_can14_grp0 {
+			pinmux = <S32CC_PINMUX(759, FUNC2)>;
 		};
+
+		llce_can14_grp1 {
+			pinmux = <S32CC_PINMUX(172, FUNC0)>;
+			input-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+		};
+
+		llce_can14_grp2 {
+			pinmux = <S32CC_PINMUX(171, FUNC1)>;
+			output-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+		};
+
 	};
 
 	llce_can15_pins: llce_can15 {
-		llce_can15_grp {
-			fsl,pins = <
-				S32_GEN1_PAD_PK_14_LLCE_CAN15_RX_I
-				S32_GEN1_PAD_PK_14_LLCE_CAN15_RX_O
-				S32_GEN1_PAD_PK_13_LLCE_CAN15_TX
-			>;
+		llce_can15_grp0 {
+			pinmux = <S32CC_PINMUX(760, FUNC2)>;
 		};
+
+		llce_can15_grp1 {
+			pinmux = <S32CC_PINMUX(174, FUNC0)>;
+			input-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+		};
+
+		llce_can15_grp2 {
+			pinmux = <S32CC_PINMUX(173, FUNC1)>;
+			output-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+		};
+
 	};
 
 	qspi_pins: qspi {
-		qspi_grp {
-				fsl,pins = <
-					S32_GEN1_PAD_PF13__QSPI_A_DQS_OUT
-					S32_GEN1_PAD_PF13__QSPI_A_DQS_IN
-					S32_GEN1_PAD_PG4__QSPI_A_CS0
-					S32_GEN1_PAD_PG5__QSPI_A_CS1
-					S32_GEN1_PAD_PF5__QSPI_A_DATA0_IN
-					S32_GEN1_PAD_PF5__QSPI_A_DATA0_OUT
-					S32_GEN1_PAD_PF6__QSPI_A_DATA1_IN
-					S32_GEN1_PAD_PF6__QSPI_A_DATA1_OUT
-					S32_GEN1_PAD_PF7__QSPI_A_DATA2_IN
-					S32_GEN1_PAD_PF7__QSPI_A_DATA2_OUT
-					S32_GEN1_PAD_PF8__QSPI_A_DATA3_IN
-					S32_GEN1_PAD_PF8__QSPI_A_DATA3_OUT
-					S32_GEN1_PAD_PF9__QSPI_A_DATA4_IN
-					S32_GEN1_PAD_PF9__QSPI_A_DATA4_OUT
-					S32_GEN1_PAD_PF10__QSPI_A_DATA5_IN
-					S32_GEN1_PAD_PF10__QSPI_A_DATA5_OUT
-					S32_GEN1_PAD_PF11__QSPI_A_DATA6_IN
-					S32_GEN1_PAD_PF11__QSPI_A_DATA6_OUT
-					S32_GEN1_PAD_PF12__QSPI_A_DATA7_IN
-					S32_GEN1_PAD_PF12__QSPI_A_DATA7_OUT
-					S32_GEN1_PAD_PG0__QSPI_A_SCK
-					S32_GEN1_PAD_PG1__QSPI_A_B_SCK
-					S32_GEN1_PAD_PG2__QSPI_A_SCK2
-					S32_GEN1_PAD_PG3__QSPI_A_B_SCK2
-				>;
+		qspi_grp0 {
+			pinmux = <S32CC_PINMUX(93, FUNC1)>,
+				 <S32CC_PINMUX(97, FUNC1)>,
+				 <S32CC_PINMUX(98, FUNC1)>,
+				 <S32CC_PINMUX(99, FUNC1)>;
+			output-enable;
+			input-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+			bias-pull-down;
 		};
+
+		qspi_grp1 {
+			pinmux = <S32CC_PINMUX(548, FUNC2)>,
+				 <S32CC_PINMUX(540, FUNC2)>,
+				 <S32CC_PINMUX(541, FUNC2)>,
+				 <S32CC_PINMUX(542, FUNC2)>,
+				 <S32CC_PINMUX(543, FUNC2)>,
+				 <S32CC_PINMUX(544, FUNC2)>,
+				 <S32CC_PINMUX(545, FUNC2)>,
+				 <S32CC_PINMUX(546, FUNC2)>,
+				 <S32CC_PINMUX(547, FUNC2)>;
+		};
+
+		qspi_grp2 {
+			pinmux = <S32CC_PINMUX(100, FUNC1)>,
+				 <S32CC_PINMUX(101, FUNC1)>,
+				 <S32CC_PINMUX(96, FUNC1)>;
+			output-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+		};
+
+		qspi_grp3 {
+			pinmux = <S32CC_PINMUX(85, FUNC1)>,
+				 <S32CC_PINMUX(86, FUNC1)>,
+				 <S32CC_PINMUX(87, FUNC1)>,
+				 <S32CC_PINMUX(88, FUNC1)>,
+				 <S32CC_PINMUX(89, FUNC1)>,
+				 <S32CC_PINMUX(90, FUNC1)>,
+				 <S32CC_PINMUX(91, FUNC1)>,
+				 <S32CC_PINMUX(92, FUNC1)>;
+			output-enable;
+			input-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+		};
+
 	};
 };
 
