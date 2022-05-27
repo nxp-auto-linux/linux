@@ -48,22 +48,7 @@
 			reg = <0 0x835e0000 0 0x20000>;
 			status = "okay";
 		};
-
-		pfe_reserved_slave: pfebufs@83600000 {
-			compatible = "shared-dma-pool";
-			/* 2 MB - 128 KB */
-			reg = <0 0x83600000 0 0x1e0000>;
-			no-map;
-			status = "disabled";
-		};
-
-		pfe_reserved_bdr_slave: pfebufs@837e0000 {
-			compatible = "nxp,s32g-pfe-bdr-pool";
-			/* 128 KB */
-			reg = <0 0x837e0000 0 0x20000>;
-			status = "disabled";
-		};
-		/* ends 0x83800000 */
+		/* ends 0x83600000 */
 	};
 
 	soc {

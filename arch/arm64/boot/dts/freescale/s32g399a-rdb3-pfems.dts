@@ -10,14 +10,6 @@
 #include "s32g399a-rdb3.dtsi"
 #include "s32g-pfe-slave.dtsi"
 
-&pfe_reserved_slave {
-	status = "okay";
-};
-
-&pfe_reserved_bdr_slave {
-	status = "okay";
-};
-
 &pfe_aux0 {
 	status = "okay";
 };
