@@ -288,6 +288,12 @@ static int siul2_gpio_dir_out(struct gpio_chip *chip, unsigned int gpio,
 	return ret;
 }
 
+static int siul2_set_config(struct gpio_chip *chip, unsigned int offset,
+			    unsigned long config)
+{
+	return pinctrl_gpio_set_config(siul2_gpio_to_pin(chip, offset), config);
+}
+
 static int siul2_gpio_request(struct gpio_chip *chip, unsigned int gpio)
 {
 	return pinctrl_gpio_request(siul2_gpio_to_pin(chip, gpio));
@@ -1075,6 +1081,7 @@ static int siul2_gpio_probe(struct platform_device *pdev)
 
 	gc->set = siul2_gpio_set;
 	gc->get = siul2_gpio_get;
+	gc->set_config = siul2_set_config;
 	gc->request = siul2_gpio_request;
 	gc->free = siul2_gpio_free;
 	gc->direction_output = siul2_gpio_dir_out;
