@@ -29,9 +29,6 @@
 				 <&clks S32G_SCMI_CLK_PFE_TS>;
 			clock-names = "pfe_sys", "pfe_pe", "pfe_ts";
 			dma-coherent;
-			memory-region = <&pfe_reserved_slave>,
-					<&pfe_reserved_bdr_slave>;
-			memory-region-names = "pfe-shared-pool", "pfe-bdr-pool";
 			nxp,pfeng-hif-channels = <PFE_HIF_CHANNEL_3>;
 			nxp,pfeng-ihc-channel = <PFE_HIF_CHANNEL_3>;
 			nxp,pfeng-master-channel = <PFE_HIF_CHANNEL_0>;
