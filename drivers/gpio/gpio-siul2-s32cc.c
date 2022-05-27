@@ -512,7 +512,7 @@ static struct regmap *common_regmap_init(struct platform_device *pdev,
 	conf->max_register = size - conf->reg_stride;
 	conf->name = name;
 
-	return regmap_init_mmio(dev, base, conf);
+	return devm_regmap_init_mmio(dev, base, conf);
 }
 
 static bool irqregmap_writeable(struct device *dev, unsigned int reg)
@@ -1092,7 +1092,8 @@ static int siul2_gpio_probe(struct platform_device *pdev)
 
 	err = devm_gpiochip_add_data(dev, gc, gpio_dev);
 	if (err) {
-		dev_err(dev, "unable to add gpiochip: %d\n", err);
+		if (err != -EPROBE_DEFER)
+			dev_err(dev, "unable to add gpiochip: %d\n", err);
 		return err;
 	}
 
