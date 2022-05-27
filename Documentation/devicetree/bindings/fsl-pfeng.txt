@@ -10,7 +10,7 @@ Required properties:
 - interrupts : Should contain all pfeng interrupts but hifs: bmu,upegpt,safety
 - clocks : Should contain at least: pfe_sys, pfe_pe
 - memory-region : Ordered list of 'reserved-memory' node phandles, representing physical address ranges for PFE buffers.
-		  The property is required for the standalone mode driver and the Master driver, but is optional for the Slave driver.
+		  The property is required for the standalone mode driver and the Master driver.
 		  The list of supported memory regions ('reserved-memory' nodes) and their recommended order:
 		  1) reserved region for the BMU2 buffer pool, must be in the range 0x00020000 - 0xbfffffff,
 		  "nxp,s32g-pfe-bmu2-pool" compatible; [optional (recommended)]
