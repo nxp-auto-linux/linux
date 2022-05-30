@@ -28,8 +28,7 @@
 
 #include <dt-bindings/pinctrl/s32-gen1-pinctrl.h>
 
-#define GPIO_GROUP_NAME0 "gpiogrp"
-#define GPIO_GROUP_NAME1 "gpiogrp"
+#define GPIO_GROUP_NAME "gpiogrp"
 #define S32_PINCTRL_NUM_REGIONS 5
 
 struct s32_pinctrl_mem_region {
@@ -386,13 +385,10 @@ static int s32_pmx_gpio_request_enable(struct pinctrl_dev *pctldev,
 	const struct s32_pinctrl_soc_info *info = ipctl->info;
 
 	/* Find the pinctrl config for the requested pin */
-	grp = s32_pinctrl_find_group_by_name(info, GPIO_GROUP_NAME0);
+	grp = s32_pinctrl_find_group_by_name(info, GPIO_GROUP_NAME);
 	if (!grp) {
-		grp = s32_pinctrl_find_group_by_name(info, GPIO_GROUP_NAME1);
-		if (!grp) {
-			dev_err(info->dev, "unable to find group for gpiogrp node\n");
-			return -EINVAL;
-		}
+		dev_err(info->dev, "unable to find group for gpiogrp node\n");
+		return -EINVAL;
 	}
 
 	pin = s32_pinctrl_find_pin(grp, offset);
@@ -461,13 +457,10 @@ static int s32_pmx_gpio_set_direction(struct pinctrl_dev *pctldev,
 	int ret;
 
 	/* Find the pinctrl config for the requested pin */
-	grp = s32_pinctrl_find_group_by_name(info, GPIO_GROUP_NAME0);
+	grp = s32_pinctrl_find_group_by_name(info, GPIO_GROUP_NAME);
 	if (!grp) {
-		grp = s32_pinctrl_find_group_by_name(info, GPIO_GROUP_NAME1);
-		if (!grp) {
-			dev_err(info->dev, "unable to find group for gpiogrp node\n");
-			return -EINVAL;
-		}
+		dev_err(info->dev, "unable to find group for gpiogrp node\n");
+		return -EINVAL;
 	}
 
 	pin = s32_pinctrl_find_pin(grp, offset);
