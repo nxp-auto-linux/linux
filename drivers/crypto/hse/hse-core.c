@@ -90,39 +90,32 @@ struct hse_drvdata {
 /**
  * hse_check_fw_version - retrieve firmware version
  * @dev: HSE device
- *
- * Attribute buffer is encoded into the descriptor to get around HSE memory
- * access limitations and avoid DMA copy in upper range of 32-bit address space.
  */
 static int hse_check_fw_version(struct device *dev)
 {
 	struct hse_drvdata *drv = dev_get_drvdata(dev);
+	dma_addr_t firmware_version_dma;
 	struct hse_srv_desc srv_desc;
-	struct hse_attr_fw_version *fw_ver;
-	unsigned int fw_ver_offset;
-	int err;
+	int err = 0;
 
-	/* place attribute right after descriptor */
-	fw_ver_offset = offsetof(struct hse_srv_desc, get_attr_req) +
-			sizeof(struct hse_get_attr_srv);
-	fw_ver = (void *)&srv_desc + fw_ver_offset;
+	firmware_version_dma = dma_map_single(dev, &drv->firmware_version,
+					      sizeof(drv->firmware_version),
+					      DMA_FROM_DEVICE);
+	if (unlikely(dma_mapping_error(dev, firmware_version_dma)))
+		return -ENOMEM;
 
 	srv_desc.srv_id = HSE_SRV_ID_GET_ATTR;
 	srv_desc.get_attr_req.attr_id = HSE_FW_VERSION_ATTR_ID;
-	srv_desc.get_attr_req.attr_len = sizeof(*fw_ver);
-	srv_desc.get_attr_req.attr = drv->srv_desc[HSE_CHANNEL_ADM].dma +
-				     fw_ver_offset;
+	srv_desc.get_attr_req.attr_len = sizeof(drv->firmware_version);
+	srv_desc.get_attr_req.attr = firmware_version_dma;
 
 	err = hse_srv_req_sync(dev, HSE_CHANNEL_ADM, &srv_desc);
-	if (unlikely(err)) {
+	if (unlikely(err))
 		dev_dbg(dev, "%s: request failed: %d\n", __func__, err);
-		return err;
-	}
 
-	memcpy_fromio(&drv->firmware_version, drv->srv_desc[HSE_CHANNEL_ADM].ptr
-		      + fw_ver_offset, sizeof(*fw_ver));
-
-	return 0;
+	dma_unmap_single(dev, firmware_version_dma,
+			 sizeof(drv->firmware_version), DMA_FROM_DEVICE);
+	return err;
 }
 
 /**
