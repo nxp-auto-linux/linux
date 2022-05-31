@@ -214,12 +214,14 @@ enum hse_cipher_algorithm {
  * @HSE_CIPHER_BLOCK_MODE_CBC: cipher block chaining mode
  * @HSE_CIPHER_BLOCK_MODE_ECB: electronic codebook mode
  * @HSE_CIPHER_BLOCK_MODE_CFB: cipher feedback mode
+ * @HSE_CIPHER_BLOCK_MODE_OFB: output feedback mode
  */
 enum hse_block_mode {
 	HSE_CIPHER_BLOCK_MODE_CTR = 1u,
 	HSE_CIPHER_BLOCK_MODE_CBC = 2u,
 	HSE_CIPHER_BLOCK_MODE_ECB = 3u,
 	HSE_CIPHER_BLOCK_MODE_CFB = 4u,
+	HSE_CIPHER_BLOCK_MODE_OFB = 5u,
 };
 
 /**
