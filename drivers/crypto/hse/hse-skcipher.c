@@ -5,7 +5,7 @@
  * This file contains the implementation of the symmetric key block cipher
  * algorithms supported for hardware offloading via HSE.
  *
- * Copyright 2019-2021 NXP
+ * Copyright 2019-2022 NXP
  */
 
 #include <linux/kernel.h>
@@ -429,6 +429,16 @@ static const struct hse_skcipher_tpl hse_skcipher_algs_tpl[] = {
 		.ivsize = AES_BLOCK_SIZE,
 		.cipher_type = HSE_CIPHER_ALGO_AES,
 		.block_mode = HSE_CIPHER_BLOCK_MODE_CFB,
+		.key_type = HSE_KEY_TYPE_AES,
+	}, {
+		.cipher_name = "ofb(aes)",
+		.cipher_drv = "ofb-aes-hse",
+		.blocksize = AES_BLOCK_SIZE,
+		.min_keysize = AES_MIN_KEY_SIZE,
+		.max_keysize = AES_MAX_KEY_SIZE,
+		.ivsize = AES_BLOCK_SIZE,
+		.cipher_type = HSE_CIPHER_ALGO_AES,
+		.block_mode = HSE_CIPHER_BLOCK_MODE_OFB,
 		.key_type = HSE_KEY_TYPE_AES,
 	},
 };
