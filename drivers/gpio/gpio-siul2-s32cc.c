@@ -105,11 +105,13 @@ struct eirq_mapping {
  * @pad_access: access table for output pads
  * @num_irqs: the number of EIRQ - IMSCR - GPIO mappings
  * @irqs: the EIRQ - IMSCR - GPIO mappings
+ * @reset_cnt: reset the pin name counter to zero when switching to SIUL2_1
  */
 struct siul2_device_data {
 	const struct regmap_access_table *pad_access;
 	const u32 num_irqs;
 	const struct eirq_mapping *irqs;
+	const bool reset_cnt;
 };
 
 /**
@@ -637,7 +639,8 @@ static const struct regmap_access_table s32g_pad_access_table = {
 static const struct siul2_device_data s32g_device_data = {
 	.pad_access	= &s32g_pad_access_table,
 	.num_irqs	= ARRAY_SIZE(s32g_irqs),
-	.irqs		= s32g_irqs
+	.irqs		= s32g_irqs,
+	.reset_cnt	= true,
 };
 
 static const struct eirq_mapping s32r45_irqs[] = {
@@ -677,7 +680,8 @@ static const struct eirq_mapping s32r45_irqs[] = {
 
 static const struct siul2_device_data s32r45_device_data = {
 	.num_irqs	= ARRAY_SIZE(s32r45_irqs),
-	.irqs		= s32r45_irqs
+	.irqs		= s32r45_irqs,
+	.reset_cnt	= false,
 };
 
 static bool regmap_siul2_accessible(struct device *dev,
@@ -1005,6 +1009,57 @@ static const struct irq_domain_ops siul2_domain_ops = {
 	.xlate	= siul2_irq_domain_xlate,
 };
 
+static int siul2_gen_names(struct device *dev, int cnt, char **names,
+			   char *ch_index, int *num_index)
+{
+	int i;
+
+	for (i = 0; i < cnt; i++) {
+		if (i != 0 && !(*num_index % 16))
+			(*ch_index)++;
+
+		names[i] = devm_kasprintf(dev, GFP_KERNEL, "P%c_%02d",
+					  *ch_index, 0x0F & (*num_index)++);
+		if (!names[i])
+			return -ENOMEM;
+	}
+
+	return 0;
+}
+
+static int siul2_gpio_populate_names(struct device *dev,
+				     struct siul2_gpio_dev *gpio_dev)
+{
+	char ch_index = 'A';
+	int num_index = 0;
+	char **names;
+	int ret;
+
+	names = devm_kcalloc(dev, gpio_dev->gc.ngpio, sizeof(*names),
+			     GFP_KERNEL);
+	if (!names)
+		return -ENOMEM;
+
+	ret = siul2_gen_names(dev, gpio_dev->siul2[0].gpio_num, names,
+			      &ch_index, &num_index);
+	if (ret)
+		return ret;
+
+	if (gpio_dev->platdata->reset_cnt)
+		num_index = 0;
+
+	ch_index++;
+	ret = siul2_gen_names(dev, gpio_dev->siul2[1].gpio_num,
+			      names + gpio_dev->siul2[1].gpio_base, &ch_index,
+			      &num_index);
+	if (ret)
+		return ret;
+
+	gpio_dev->gc.names = (const char *const *)names;
+
+	return 0;
+}
+
 static int siul2_gpio_probe(struct platform_device *pdev)
 {
 	int err = 0;
@@ -1061,6 +1116,10 @@ static int siul2_gpio_probe(struct platform_device *pdev)
 
 	/* In some cases, there is a gap between SIUL20 and SIUL21 GPIOS. */
 	gc->ngpio = gpio_dev->siul2[1].gpio_base + gpio_dev->siul2[1].gpio_num;
+
+	err = siul2_gpio_populate_names(&pdev->dev, gpio_dev);
+	if (err)
+		return err;
 
 	gpio_dev->eirqs_bitmap = 0;
 
