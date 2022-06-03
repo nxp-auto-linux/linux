@@ -150,3 +150,11 @@
 &llce_frpe_sram {
 	reg = <0x0 0x43300000 0x0 0x40000>;
 };
+
+&pcie0 {
+	pcie_device_id = <0x4300>;
+};
+
+&pcie1 {
+	pcie_device_id = <0x4300>;
+};
