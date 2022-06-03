@@ -726,7 +726,7 @@ static bool regmap_siul2_accessible(struct device *dev,
 					    access->n_yes_ranges);
 	}
 
-	return true;
+	return false;
 }
 
 static bool regmap_siul20_accessible(struct device *dev, unsigned int reg)
