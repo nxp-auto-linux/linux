@@ -1,0 +1,45 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/crypto/s32cc-hse-rmem.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: NXP Hardware Security Engine Reserved Memory
+
+maintainers:
+  - Vlad Pelin <vlad.pelin@nxp.com>
+
+description: |
+  - Reserved Memory required for NXP Hardware Security Engine
+
+properties:
+  compatible:
+    oneOf:
+      - enum:
+          - nxp,s32cc-hse-rmem
+    description: Standard property. Must include "nxp,s32cc-hse-rmem".
+
+  reg:
+    maxItems: 2
+    description: Standard property. Should specify the physical address and size
+                 of reserved memory region
+
+additionalProperties: false
+
+required:
+  - compatible
+  - reg
+
+examples:
+  - |
+    reserved-memory {
+        #address-cells = <2>;
+	#size-cells = <2>;
+	ranges;
+
+        hse_reserved: shm@84000000 {
+            compatible = "nxp,s32cc-hse-rmem";
+            reg = <0x0 0x84000000 0x0 0x80000>;
+            no-map;
+        };
+    };
