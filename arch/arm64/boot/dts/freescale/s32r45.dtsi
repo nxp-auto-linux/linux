@@ -54,11 +54,11 @@
 
 				 /* Output pads */
 				 <OPADS_SIUL2_0 0 0x0 0x4009d700 0x0 0x10>,
-				 <OPADS_SIUL2_1 0 0x0 0x4403d70c 0x0 0x8>,
+				 <OPADS_SIUL2_1 0 0x0 0x4403d700 0x0 0x14>,
 
 				 /* Input pads */
 				 <IPADS_SIUL2_0 0 0x0 0x4009d740 0x0 0x10>,
-				 <IPADS_SIUL2_1 0 0x0 0x4403d74c 0x0 0x8>,
+				 <IPADS_SIUL2_1 0 0x0 0x4403d740 0x0 0x14>,
 
 				/* EIRQs */
 				 <EIRQS_SIUL2_1 0 0x0 0x4403c010 0x0 0xb4>;
@@ -87,9 +87,9 @@
 				compatible = "nxp,s32r-siul2-gpio";
 
 				reg = <OPADS_SIUL2_0       0 0x0 0x10>,
-				      <OPADS_SIUL2_1       0 0x0 0x8>,
+				      <OPADS_SIUL2_1       0 0x0 0x14>,
 				      <IPADS_SIUL2_0       0 0x0 0x10>,
-				      <IPADS_SIUL2_1       0 0x0 0x8>,
+				      <IPADS_SIUL2_1       0 0x0 0x14>,
 				      <EIRQS_SIUL2_1       0 0x0 0xb4>,
 				      <IMCRS_SIUL2_1_EIRQS 0 0x0 0x80>;
 				reg-names = "opads0", "opads1", "ipads0",
