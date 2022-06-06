@@ -1337,7 +1337,7 @@ static int s32gen1_pcie_dt_init(struct platform_device *pdev,
 	if (ret) {
 		ret = s32_siul2_nvmem_get_pcie_dev_id(dev, "pcie_variant_bits",
 					      &pcie_variant_bits);
-		if (ret || !pcie_variant_bits) {
+		if (!ret && !pcie_variant_bits) {
 			dev_info(dev, "Error reading SIUL2 Device ID\n");
 			return ret;
 		}
