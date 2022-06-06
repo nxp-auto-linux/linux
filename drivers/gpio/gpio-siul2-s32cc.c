@@ -273,6 +273,49 @@ static int siul2_to_irq(struct gpio_chip *chip, unsigned int gpio)
 	return irq_create_mapping(domain, gpio);
 }
 
+static unsigned int siul2_pin2pad(int pin)
+{
+	return pin / SIUL2_GPIO_16_PAD_SIZE;
+}
+
+static u16 siul2_pin2mask(int pin)
+{
+	/**
+	 * From Reference manual :
+	 * PGPDOx[PPDOy] = GPDO(x × 16) + (15 - y)[PDO_(x × 16) + (15 - y)]
+	 */
+	return BIT(15 - pin % SIUL2_GPIO_16_PAD_SIZE);
+}
+
+static inline u32 siul2_get_pad_offset(unsigned int pad)
+{
+	return SIUL2_PGPDO(pad);
+}
+
+static void siul2_gpio_set_val(struct gpio_chip *chip, unsigned int offset,
+			       int value)
+{
+	struct siul2_gpio_dev *gpio_dev = to_siul2_gpio_dev(chip);
+	unsigned int pad, reg_offset;
+	u16 mask;
+	struct regmap *regmap;
+
+	mask = siul2_pin2mask(offset);
+	pad = siul2_pin2pad(offset);
+
+	reg_offset = siul2_get_pad_offset(pad);
+	regmap = siul2_offset_to_regmap(gpio_dev, offset, false);
+	if (!regmap)
+		return;
+
+	if (value)
+		value = mask;
+	else
+		value = 0;
+
+	regmap_update_bits(regmap, reg_offset, mask, value);
+}
+
 static int siul2_gpio_dir_out(struct gpio_chip *chip, unsigned int gpio,
 			      int val)
 {
@@ -284,8 +327,8 @@ static int siul2_gpio_dir_out(struct gpio_chip *chip, unsigned int gpio,
 		return ret;
 
 	gpio_dev = to_siul2_gpio_dev(chip);
+	siul2_gpio_set_val(chip, gpio, val);
 	gpio_set_direction(gpio_dev, gpio, OUT);
-	chip->set(chip, gpio, val);
 
 	return ret;
 }
@@ -535,25 +578,6 @@ static bool irqregmap_writeable(struct device *dev, unsigned int reg)
 	default:
 		return false;
 	};
-}
-
-static u16 siul2_pin2mask(int pin)
-{
-	/**
-	 * From Reference manual :
-	 * PGPDOx[PPDOy] = GPDO(x × 16) + (15 - y)[PDO_(x × 16) + (15 - y)]
-	 */
-	return BIT(15 - pin % SIUL2_GPIO_16_PAD_SIZE);
-}
-
-static unsigned int siul2_pin2pad(int pin)
-{
-	return pin / SIUL2_GPIO_16_PAD_SIZE;
-}
-
-static inline u32 siul2_get_pad_offset(unsigned int pad)
-{
-	return SIUL2_PGPDO(pad);
 }
 
 static inline int siul2_get_pin(struct gpio_chip *gc, u32 offset)
@@ -885,33 +909,21 @@ static const struct of_device_id siul2_gpio_dt_ids[] = {
 };
 MODULE_DEVICE_TABLE(of, siul2_gpio_dt_ids);
 
-static void siul2_gpio_set(
-	struct gpio_chip *chip, unsigned int offset, int value)
+static void siul2_gpio_set(struct gpio_chip *chip, unsigned int offset,
+			   int value)
 {
 	struct siul2_gpio_dev *gpio_dev = to_siul2_gpio_dev(chip);
-	unsigned int pad, reg_offset;
 	enum gpio_dir dir;
-	u16 mask;
-	struct regmap *regmap;
+
+	if (!gpio_dev)
+		return;
 
 	dir = gpio_get_direction(gpio_dev, offset);
+
 	if (dir == IN)
 		return;
 
-	mask = siul2_pin2mask(offset);
-	pad = siul2_pin2pad(offset);
-
-	reg_offset = siul2_get_pad_offset(pad);
-	regmap = siul2_offset_to_regmap(gpio_dev, offset, false);
-	if (!regmap)
-		return;
-
-	if (value)
-		value = mask;
-	else
-		value = 0;
-
-	regmap_update_bits(regmap, reg_offset, mask, value);
+	siul2_gpio_set_val(chip, offset, value);
 }
 
 static int siul2_gpio_get(struct gpio_chip *chip, unsigned int offset)
