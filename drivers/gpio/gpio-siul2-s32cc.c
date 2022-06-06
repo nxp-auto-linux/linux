@@ -717,9 +717,9 @@ static bool regmap_siul2_accessible(struct device *dev,
 	const struct regmap_access_table *access;
 	struct gpio_chip *gc = &gpio_dev->gc;
 	int pin = siul2_get_pin(gc, reg);
+	unsigned int pad;
 	bool in_range = false;
-	u32 start_off;
-	u32 end_off;
+	u32 off, start_off, end_off;
 	u32 ngpio;
 	u32 base;
 
@@ -729,8 +729,21 @@ static bool regmap_siul2_accessible(struct device *dev,
 	base = gpio_dev->siul2[siul2_module].gpio_base;
 	ngpio = gpio_dev->siul2[siul2_module].gpio_num;
 
-	start_off = siul2_get_pad_offset(siul2_pin2pad(base));
-	end_off = siul2_get_pad_offset(siul2_pin2pad(base + ngpio - 1));
+	/**
+	 * Establish pad range considering that the pads are in
+	 * big endian order.
+	 */
+	pad = siul2_pin2pad(base);
+	start_off = siul2_get_pad_offset(pad);
+	off = siul2_get_pad_offset(pad + 1);
+	if (off < start_off)
+		start_off = off;
+
+	pad = siul2_pin2pad(base + ngpio - 1);
+	end_off = siul2_get_pad_offset(pad);
+	off = siul2_get_pad_offset(pad - 1);
+	if (off > end_off)
+		end_off = off;
 
 	if (reg < start_off || reg > end_off)
 		return false;
