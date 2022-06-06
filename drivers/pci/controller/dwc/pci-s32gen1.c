@@ -1326,22 +1326,6 @@ static int init_pcie_phy(struct s32gen1_pcie *s32_pp)
 
 	DEBUG_FID(s32_pp->id);
 
-	/*
-	 *	s32_pp is kzalloc'ed so it is safe to consider that
-	 *	null phy0 means phy0 uninitialized and non-zero initialized.
-	 *	So if phy0 is non-zero then reuse the handler.
-	 */
-	if (!s32_pp->phy0) {
-		s32_pp->phy0 = devm_phy_get(dev, "serdes_lane0");
-		if (IS_ERR(s32_pp->phy0)) {
-			if (PTR_ERR(s32_pp->phy0) == -EPROBE_DEFER)
-				dev_dbg(dev, "Deferring init for 'serdes_lane0' PHY\n");
-			else
-				dev_err(dev, "Failed to get 'serdes_lane0' PHY\n");
-			return PTR_ERR(s32_pp->phy0);
-		}
-	}
-
 	ret = phy_init(s32_pp->phy0);
 	if (ret) {
 		dev_err(dev, "Failed to init 'serdes_lane0' PHY\n");
@@ -1714,15 +1698,25 @@ static int s32gen1_pcie_probe(struct platform_device *pdev)
 	struct s32gen1_pcie *s32_pp;
 	struct dw_pcie *pcie;
 	struct pcie_port *pp;
+	struct phy *phy;
 
 	int ret = 0;
 
 	DEBUG_FUNC;
 
+	phy = devm_phy_get(dev, "serdes_lane0");
+	if (IS_ERR(phy)) {
+		if (PTR_ERR(phy) != -EPROBE_DEFER)
+			dev_err(dev, "Failed to get 'serdes_lane0' PHY\n");
+
+		return PTR_ERR(phy);
+	}
+
 	s32_pp = devm_kzalloc(dev, sizeof(*s32_pp), GFP_KERNEL);
 	if (!s32_pp)
 		return -ENOMEM;
 
+	s32_pp->phy0 = phy;
 	pcie = &(s32_pp->pcie);
 	pp = &(pcie->pp);
 
