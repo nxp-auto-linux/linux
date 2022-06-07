@@ -78,6 +78,7 @@ struct s32cc_pinctrl_context {
  * @regions: reserved memory regions with start/end pin
  * @info: structure containing information about the pin
  * @gpio_configs: Saved configurations for GPIO pins
+ * @gpiop_configs_lock: lock for the `gpio_configs` list
  * @s32cc_pinctrl_context: Configuration saved over system sleep
  */
 struct s32cc_pinctrl {
@@ -86,6 +87,8 @@ struct s32cc_pinctrl {
 	struct s32cc_pinctrl_mem_region regions[S32CC_PINCTRL_NUM_REGIONS];
 	struct s32cc_pinctrl_soc_info *info;
 	struct list_head gpio_configs;
+	/* lock for the `gpio_configs` list */
+	spinlock_t gpio_configs_lock;
 #ifdef CONFIG_PM_SLEEP
 	struct s32cc_pinctrl_context saved_context;
 #endif
@@ -422,6 +425,7 @@ static int s32cc_pmx_gpio_request_enable(struct pinctrl_dev *pctldev,
 	struct s32cc_pinctrl *ipctl = pinctrl_dev_get_drvdata(pctldev);
 	unsigned long config;
 	struct gpio_pin_config *gpio_pin;
+	unsigned long flags;
 	int ret;
 
 	ret = s32cc_pinctrl_readl(pctldev, offset, &config);
@@ -435,7 +439,10 @@ static int s32cc_pmx_gpio_request_enable(struct pinctrl_dev *pctldev,
 
 	gpio_pin->pin_id = offset;
 	gpio_pin->config = config;
+
+	spin_lock_irqsave(&ipctl->gpio_configs_lock, flags);
 	list_add(&(gpio_pin->list), &(ipctl->gpio_configs));
+	spin_unlock_irqrestore(&ipctl->gpio_configs_lock, flags);
 
 	/* GPIO pin means SSS = 0 */
 	config &= ~S32CC_MSCR_SSS_MASK;
@@ -450,7 +457,10 @@ static void s32cc_pmx_gpio_disable_free(struct pinctrl_dev *pctldev,
 	struct s32cc_pinctrl *ipctl = pinctrl_dev_get_drvdata(pctldev);
 	struct list_head *pos, *tmp;
 	struct gpio_pin_config *gpio_pin;
+	unsigned long flags;
 	int ret;
+
+	spin_lock_irqsave(&ipctl->gpio_configs_lock, flags);
 
 	list_for_each_safe(pos, tmp, &ipctl->gpio_configs) {
 		gpio_pin = list_entry(pos, struct gpio_pin_config, list);
@@ -459,13 +469,16 @@ static void s32cc_pmx_gpio_disable_free(struct pinctrl_dev *pctldev,
 			ret = s32cc_pinctrl_writel(gpio_pin->config, pctldev,
 						   gpio_pin->pin_id);
 			if (ret != 0)
-				return;
+				goto unlock;
 
 			list_del(pos);
 			kfree(gpio_pin);
 			break;
 		}
 	}
+
+unlock:
+	spin_unlock_irqrestore(&ipctl->gpio_configs_lock, flags);
 }
 
 static int s32cc_pmx_gpio_set_direction(struct pinctrl_dev *pctldev,
@@ -952,6 +965,7 @@ int s32cc_pinctrl_probe(struct platform_device *pdev,
 	}
 
 	INIT_LIST_HEAD(&ipctl->gpio_configs);
+	spin_lock_init(&ipctl->gpio_configs_lock);
 
 #ifdef CONFIG_PM_SLEEP
 	saved_context = &ipctl->saved_context;
@@ -973,14 +987,19 @@ int s32cc_pinctrl_remove(struct platform_device *pdev)
 	struct list_head *pos, *tmp;
 	struct gpio_pin_config *gpio_pin;
 	struct s32cc_pinctrl *ipctl = platform_get_drvdata(pdev);
+	unsigned long flags;
 
 	pinctrl_unregister(ipctl->pctl);
+
+	spin_lock_irqsave(&ipctl->gpio_configs_lock, flags);
 
 	list_for_each_safe(pos, tmp, &ipctl->gpio_configs) {
 		gpio_pin = list_entry(pos, struct gpio_pin_config, list);
 		list_del(pos);
 		kfree(gpio_pin);
 	}
+
+	spin_unlock_irqrestore(&ipctl->gpio_configs_lock, flags);
 
 	return 0;
 }
