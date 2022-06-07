@@ -80,6 +80,7 @@ struct s32cc_pinctrl_context {
  * @gpio_configs: Saved configurations for GPIO pins
  * @gpiop_configs_lock: lock for the `gpio_configs` list
  * @s32cc_pinctrl_context: Configuration saved over system sleep
+ * @reg_lock: lock for the `mscr/imcrs` registers
  */
 struct s32cc_pinctrl {
 	struct device *dev;
@@ -92,6 +93,8 @@ struct s32cc_pinctrl {
 #ifdef CONFIG_PM_SLEEP
 	struct s32cc_pinctrl_context saved_context;
 #endif
+	/* lock for the `mscr/imcrs` registers */
+	spinlock_t reg_lock;
 };
 
 static const char *pin_get_name_from_info(struct s32cc_pinctrl_soc_info *info,
@@ -129,9 +132,9 @@ static inline int s32cc_check_pin(struct pinctrl_dev *pctldev,
 	return s32cc_get_region(pctldev, pin) ? 0 : -EINVAL;
 }
 
-static inline unsigned long s32cc_pinctrl_readl(struct pinctrl_dev *pctldev,
-						unsigned int pin,
-						unsigned long *config)
+static inline int s32cc_pinctrl_readl_nolock(struct pinctrl_dev *pctldev,
+					     unsigned int pin,
+					     unsigned long *config)
 {
 	struct s32cc_pinctrl_mem_region *region;
 	void __iomem *base;
@@ -149,9 +152,24 @@ static inline unsigned long s32cc_pinctrl_readl(struct pinctrl_dev *pctldev,
 	return 0;
 }
 
-static inline int s32cc_pinctrl_writel(unsigned long config,
-				       struct pinctrl_dev *pctldev,
-				       unsigned int pin)
+static inline int s32cc_pinctrl_readl(struct pinctrl_dev *pctldev,
+				      unsigned int pin,
+				      unsigned long *config)
+{
+	struct s32cc_pinctrl *ipctl = pinctrl_dev_get_drvdata(pctldev);
+	unsigned long flags;
+	int ret;
+
+	spin_lock_irqsave(&ipctl->reg_lock, flags);
+	ret = s32cc_pinctrl_readl_nolock(pctldev, pin, config);
+	spin_unlock_irqrestore(&ipctl->reg_lock, flags);
+
+	return ret;
+}
+
+static inline int s32cc_pinctrl_writel_nolock(struct pinctrl_dev *pctldev,
+					      unsigned int pin,
+					      unsigned long config)
 {
 	struct s32cc_pinctrl_mem_region *region;
 	void __iomem *base;
@@ -167,6 +185,21 @@ static inline int s32cc_pinctrl_writel(unsigned long config,
 	writel(config, base + S32CC_PAD_CONFIG(offset));
 
 	return 0;
+}
+
+static inline int s32cc_pinctrl_writel(unsigned long config,
+				       struct pinctrl_dev *pctldev,
+				       unsigned int pin)
+{
+	struct s32cc_pinctrl *ipctl = pinctrl_dev_get_drvdata(pctldev);
+	unsigned long flags;
+	int ret;
+
+	spin_lock_irqsave(&ipctl->reg_lock, flags);
+	ret = s32cc_pinctrl_writel_nolock(pctldev, pin, config);
+	spin_unlock_irqrestore(&ipctl->reg_lock, flags);
+
+	return ret;
 }
 
 static inline const
@@ -327,21 +360,27 @@ static int s32cc_update_pin_mscr(struct pinctrl_dev *pctldev,
 				 unsigned long mask,
 				 unsigned long new_mask)
 {
+	struct s32cc_pinctrl *ipctl = pinctrl_dev_get_drvdata(pctldev);
+	unsigned long config, flags;
 	int ret;
-	unsigned long config;
 
-	ret = s32cc_pinctrl_readl(pctldev, pin, &config);
+	spin_lock_irqsave(&ipctl->reg_lock, flags);
+
+	ret = s32cc_pinctrl_readl_nolock(pctldev, pin, &config);
 	if (ret)
-		return ret;
+		goto unlock;
 
 	config &= ~mask;
 	config |= new_mask;
 
-	ret = s32cc_pinctrl_writel(config, pctldev, pin);
+	ret = s32cc_pinctrl_writel_nolock(pctldev, pin, config);
 	if (ret)
-		return ret;
+		goto unlock;
 
-	return 0;
+unlock:
+	spin_unlock_irqrestore(&ipctl->reg_lock, flags);
+
+	return ret;
 }
 
 static int s32cc_pmx_set(struct pinctrl_dev *pctldev, unsigned int selector,
@@ -966,6 +1005,7 @@ int s32cc_pinctrl_probe(struct platform_device *pdev,
 
 	INIT_LIST_HEAD(&ipctl->gpio_configs);
 	spin_lock_init(&ipctl->gpio_configs_lock);
+	spin_lock_init(&ipctl->reg_lock);
 
 #ifdef CONFIG_PM_SLEEP
 	saved_context = &ipctl->saved_context;
