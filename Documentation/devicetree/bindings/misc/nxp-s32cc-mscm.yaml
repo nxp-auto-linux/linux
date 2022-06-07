@@ -1,0 +1,36 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/misc/nxp-s32cc-mscm.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Miscellaneous System Control Module (MSCM)
+
+properties:
+  compatible:
+    const: nxp,s32cc-mscm
+
+  reg:
+    maxItems: 1
+
+  interrupts:
+    maxItems: 3
+
+required:
+  - compatible
+  - reg
+
+unevaluatedProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/interrupt-controller/arm-gic.h>
+
+    mscm@40198000 {
+        compatible = "nxp,s32cc-mscm";
+        reg = <0x40198000 0x1000>
+        /* CPU2CPU interrupts */
+        interrupts = <GIC_SPI 1 IRQ_TYPE_LEVEL_HIGH>, // CPU to M7/A53 interrupt#0
+                     <GIC_SPI 2 IRQ_TYPE_LEVEL_HIGH>, // CPU to M7/A53 interrupt#1
+                     <GIC_SPI 3 IRQ_TYPE_LEVEL_HIGH>; // CPU to M7/A53 interrupt#2
+    };
