@@ -566,6 +566,7 @@ static int s32_pinconf_get(struct pinctrl_dev *pctldev,
 
 static int s32_get_pin_conf(struct s32_pinctrl *ipctl, unsigned int pin_id,
 			    enum pin_config_param param, u32 arg,
+			    unsigned long *mask,
 			    unsigned long *config)
 {
 	switch (param) {
@@ -574,21 +575,25 @@ static int s32_get_pin_conf(struct s32_pinctrl *ipctl, unsigned int pin_id,
 		return 0;
 	case PIN_CONFIG_DRIVE_OPEN_DRAIN:
 		*config |= S32_MSCR_ODE;
+		*mask |= S32_MSCR_ODE;
 		break;
 	case PIN_CONFIG_OUTPUT_ENABLE:
 		if (arg)
 			*config |= S32_MSCR_OBE;
 		else
 			*config &= ~S32_MSCR_OBE;
+		*mask |= S32_MSCR_OBE;
 		break;
 	case PIN_CONFIG_INPUT_ENABLE:
 		if (arg)
 			*config |= S32_MSCR_IBE;
 		else
 			*config &= ~S32_MSCR_IBE;
+		*mask |= S32_MSCR_IBE;
 		break;
 	case PIN_CONFIG_SLEW_RATE:
 		*config |= S32_MSCR_SRE(arg);
+		*mask |= S32_MSCR_SRE(~0);
 		break;
 	case PIN_CONFIG_BIAS_PULL_UP:
 		if (arg)
@@ -601,12 +606,15 @@ static int s32_get_pin_conf(struct s32_pinctrl *ipctl, unsigned int pin_id,
 			*config |= S32_MSCR_PUE;
 		else
 			*config &= ~S32_MSCR_PUE;
+		*mask |= S32_MSCR_PUE | S32_MSCR_PUS;
 		break;
 	case PIN_CONFIG_BIAS_HIGH_IMPEDANCE:
 		*config &= ~(S32_MSCR_ODE | S32_MSCR_OBE | S32_MSCR_IBE);
+		*mask |= S32_MSCR_ODE | S32_MSCR_OBE | S32_MSCR_IBE;
 		fallthrough;
 	case PIN_CONFIG_BIAS_DISABLE:
 		*config &= ~(S32_MSCR_PUS | S32_MSCR_PUE);
+		*mask |= S32_MSCR_PUS | S32_MSCR_PUE;
 		break;
 	default:
 		return -EOPNOTSUPP;
@@ -620,7 +628,7 @@ static int s32_pinconf_set(struct pinctrl_dev *pctldev,
 			   unsigned int num_configs)
 {
 	struct s32_pinctrl *ipctl = pinctrl_dev_get_drvdata(pctldev);
-	unsigned long config = 0;
+	unsigned long config = 0, mask = 0;
 	int i, ret;
 
 	if (s32_check_pin(pctldev, pin_id) != 0)
@@ -633,16 +641,15 @@ static int s32_pinconf_set(struct pinctrl_dev *pctldev,
 		ret = s32_get_pin_conf(ipctl, pin_id,
 				       pinconf_to_config_param(configs[i]),
 				       pinconf_to_config_argument(configs[i]),
-				       &config);
+				       &mask, &config);
 		if (ret)
 			return ret;
 	}
 
-	if (!config)
+	if (!config && !mask)
 		return 0;
 
-	ret = s32_update_pin_mscr(pctldev, pin_id,
-				  S32_MSCR_CFG_MASK, config);
+	ret = s32_update_pin_mscr(pctldev, pin_id, mask, config);
 	dev_dbg(ipctl->dev, "update: pin %d cfg 0x%lx\n", pin_id, config);
 
 	return ret;
