@@ -228,7 +228,7 @@ static int llce_can_remove_filter(struct llce_can *llce, int filter)
 	return ret;
 }
 
-static void llce_can_filters_cleaup(struct llce_can *llce)
+static void llce_can_cleanup_filters(struct llce_can *llce)
 {
 	if (!llce->filter_setup_done)
 		return;
@@ -236,8 +236,15 @@ static void llce_can_filters_cleaup(struct llce_can *llce)
 	/* The return value is ignored on purpose.
 	 * We should try to remove all the filters.
 	 */
-	llce_can_remove_filter(llce, llce->basic_filter_addr);
-	llce_can_remove_filter(llce, llce->advanced_filter_addr);
+	if (llce->basic_filter_addr != -EINVAL) {
+		llce_can_remove_filter(llce, llce->basic_filter_addr);
+		llce->basic_filter_addr = -EINVAL;
+	}
+	if (llce->advanced_filter_addr != -EINVAL) {
+		llce_can_remove_filter(llce, llce->advanced_filter_addr);
+		llce->advanced_filter_addr = -EINVAL;
+	}
+	llce->filter_setup_done = false;
 }
 
 static int llce_can_set_filter_status(struct llce_can *llce, int filter,
@@ -693,7 +700,7 @@ static int llce_can_close(struct net_device *dev)
 	int ret, ret1;
 
 	llce_can_configure_filter(llce, false);
-
+	llce_can_cleanup_filters(llce);
 	netif_stop_queue(dev);
 
 	ret = stop_llce_can(llce);
@@ -920,7 +927,7 @@ static void llce_can_remove(struct platform_device *pdev)
 	struct llce_can_dev *common = &llce->common;
 
 	llce_can_interfaces_cleanup(llce);
-	llce_can_filters_cleaup(llce);
+	llce_can_cleanup_filters(llce);
 
 	unregister_candev(netdev);
 	netif_napi_del(&common->napi);
