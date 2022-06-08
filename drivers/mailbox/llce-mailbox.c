@@ -1292,7 +1292,7 @@ static int process_pop_rxout(struct mbox_chan *chan, struct llce_rx_msg *msg)
 	void __iomem *pop0 = LLCE_FIFO_POP0(rxout);
 	struct llce_can_shared_memory *sh_mem = mb->sh_mem;
 	unsigned int chan_index;
-	u32 rx_mb;
+	u32 rx_mb, rx_short_mb;
 	u16 filter_id;
 
 	/* Get RX mailbox */
@@ -1306,7 +1306,8 @@ static int process_pop_rxout(struct mbox_chan *chan, struct llce_rx_msg *msg)
 		msg->rx_pop.mb.data.longm = &sh_mem->can_mb[rx_mb];
 		msg->rx_pop.mb.is_long = true;
 	} else {
-		msg->rx_pop.mb.data.shortm = &sh_mem->can_short_mb[rx_mb];
+		rx_short_mb = rx_mb - LLCE_CAN_CONFIG_MAXRXMB;
+		msg->rx_pop.mb.data.shortm = &sh_mem->can_short_mb[rx_short_mb];
 		msg->rx_pop.mb.is_long = false;
 	}
 
