@@ -1292,22 +1292,21 @@ static int process_pop_rxout(struct mbox_chan *chan, struct llce_rx_msg *msg)
 	void __iomem *pop0 = LLCE_FIFO_POP0(rxout);
 	struct llce_can_shared_memory *sh_mem = mb->sh_mem;
 	unsigned int chan_index;
-	u32 rx_mb, frame_id;
+	u32 rx_mb;
 	u16 filter_id;
 
 	/* Get RX mailbox */
 	rx_mb = readl(pop0) & LLCE_CAN_CONFIG_FIFO_FIXED_MASK;
 
-	frame_id = sh_mem->can_rx_mb_desc[rx_mb].aux_search_result;
 	filter_id = sh_mem->can_rx_mb_desc[rx_mb].filter_id;
 
 	chan_index = get_channel_offset(S32G_LLCE_CAN_RX_MB, priv->index);
 
 	if (filter_id == USE_LONG_MB) {
-		msg->rx_pop.mb.data.longm = &sh_mem->can_mb[frame_id];
+		msg->rx_pop.mb.data.longm = &sh_mem->can_mb[rx_mb];
 		msg->rx_pop.mb.is_long = true;
 	} else {
-		msg->rx_pop.mb.data.shortm = &sh_mem->can_short_mb[frame_id];
+		msg->rx_pop.mb.data.shortm = &sh_mem->can_short_mb[rx_mb];
 		msg->rx_pop.mb.is_long = false;
 	}
 
@@ -1322,8 +1321,7 @@ static u32 *get_ctrl_extension(struct llce_mb *mb)
 	return (uint32_t *)(mb->status + LLCE_RXMBEXTENSION_OFFSET);
 }
 
-static uint8_t get_hwctrl(struct llce_mb *mb, uint32_t frame_id,
-			  uint32_t mb_index)
+static uint8_t get_hwctrl(struct llce_mb *mb, uint32_t frame_id)
 {
 	u32 *ctrl_extensions = get_ctrl_extension(mb);
 
@@ -1337,14 +1335,11 @@ static void pop_logger_frame(struct llce_mb *mb, struct llce_can_mb **frame,
 	struct llce_can_shared_memory *sh_mem = mb->sh_mem;
 	void __iomem *out_fifo = get_logger_out(mb);
 	void __iomem *pop0 = LLCE_FIFO_POP0(out_fifo);
-	u32 frame_id;
 
 	*index = readl(pop0) & LLCE_CAN_CONFIG_FIFO_FIXED_MASK;
 
-	frame_id = sh_mem->can_rx_mb_desc[*index].aux_search_result;
-
-	*frame = &sh_mem->can_mb[frame_id];
-	*hw_ctrl = get_hwctrl(mb, frame_id, *index);
+	*frame = &sh_mem->can_mb[*index];
+	*hw_ctrl = get_hwctrl(mb, *index);
 }
 
 static void release_logger_index(struct llce_mb *mb, uint32_t index)
