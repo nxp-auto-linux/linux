@@ -368,7 +368,7 @@ static int can_add_open_filter(struct net_device *dev)
 	set_advanced_filter(&cmd, priv->index, canfd);
 	ret = send_cmd_msg(conf_chan, &cmd);
 	if (ret) {
-		netdev_err(dev, "Failed to set advanced RX filter\n");
+		netdev_info(dev, "Advanced RX filter not added. Logging feature not available.\n");
 		llce->advanced_filter_addr = -EINVAL;
 		llce->filter_setup_done = true;
 		/* Return 0 on purpose.
