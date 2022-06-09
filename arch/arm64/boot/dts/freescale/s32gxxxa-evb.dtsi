@@ -998,11 +998,22 @@
 };
 
 &llce_can14 {
-	status = "okay";
+	/* LLCE CAN 14 uses the same transceiver as FLEXCAN2.
+	 * By default, FLEXCAN2 is connected to the transceiver.
+	 * To connect the LLCE CAN 14 interface to the transceiver
+	 * move the J166(CAN2_SEL) jumpers to positions 4-6 and 3-5.
+	 */
+	status = "disabled";
 };
 
 &llce_can15 {
-	status = "okay";
+	/* LLCE CAN 15 uses the same transceiver as FLEXCAN3.
+	 * By default, FLEXCAN3 is connected to the transceiver.
+	 * To connect the LLCE CAN 15 interface to the transceiver
+	 * move the J167(CAN3_SEL) jumpers to positions 4-6 and 3-5.
+	 */
+
+	status = "disabled";
 };
 
 &pwm0 {
