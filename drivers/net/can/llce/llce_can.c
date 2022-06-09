@@ -316,8 +316,7 @@ static void set_basic_filter(struct llce_can_command *cmd, u8 intf, bool canfd)
 	set_rx_filter(&cmd->cmd_list.set_filter.rx_filters[0], intf, canfd);
 }
 
-static void set_advanced_filter(struct llce_can_command *cmd, u8 intf,
-				bool canfd)
+static void set_advanced_filter(struct llce_can_command *cmd, u8 intf)
 {
 	struct llce_can_advanced_filter *afilt;
 
@@ -338,7 +337,7 @@ static void set_advanced_filter(struct llce_can_command *cmd, u8 intf,
 		.can2eth_routing_table_idx = (u8)0x0U,
 	};
 
-	set_rx_filter(&afilt->llce_can_Rx_filter, intf, canfd);
+	set_rx_filter(&afilt->llce_can_Rx_filter, intf, true);
 }
 
 static int can_add_open_filter(struct net_device *dev)
@@ -365,7 +364,16 @@ static int can_add_open_filter(struct net_device *dev)
 	filt = &cmd.cmd_list.set_filter.rx_filters[0];
 	llce->basic_filter_addr = filt->filter_addr;
 
-	set_advanced_filter(&cmd, priv->index, canfd);
+	if (!canfd) {
+		/* Logging is not supported if the interface is not in CAN FD
+		 * mode.
+		 */
+		llce->advanced_filter_addr = -EINVAL;
+		llce->filter_setup_done = true;
+		return 0;
+	}
+
+	set_advanced_filter(&cmd, priv->index);
 	ret = send_cmd_msg(conf_chan, &cmd);
 	if (ret) {
 		netdev_info(dev, "Advanced RX filter not added. Logging feature not available.\n");
@@ -570,6 +578,10 @@ static int llce_can_device_event(struct notifier_block *nb,
 
 	if (!llce)
 		goto llce_can_event_out_unlock;
+
+	if (!is_canfd_dev(&llce->common.can)) {
+		goto llce_can_event_out_unlock;
+	}
 
 	switch (action) {
 	case NETDEV_DOWN:
