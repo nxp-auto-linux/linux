@@ -33,7 +33,7 @@ examples:
   - |
     tmu: tmu@400A8000 {
       compatible = "nxp,s32cc-tmu";
-      reg = <0x0 0x400A8000 0x0 0x3000>,
-          <0x0 0x400A4200 0x0 0x1FC>;
+      reg = <0x400A8000 0x3000>,
+            <0x400A4200 0x1FC>;
       status = "okay";
     };
