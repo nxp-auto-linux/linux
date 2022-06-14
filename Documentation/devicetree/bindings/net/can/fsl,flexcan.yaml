@@ -11,7 +11,24 @@ maintainers:
   - Marc Kleine-Budde <mkl@pengutronix.de>
 
 allOf:
-  - $ref: can-controller.yaml#
+  - if:
+      properties:
+        compatible:
+          contains:
+            enum:
+              - nxp,s32cc-flexcan
+    then:
+      properties:
+        interrupts:
+          minItems: 4
+          maxItems: 4
+      required:
+        - interrupt-names
+    else:
+      properties:
+        interrupts:
+          minItems: 1
+          maxItems: 1
 
 properties:
   compatible:
@@ -57,19 +74,25 @@ properties:
       4. MB8-127 interrupts;
       for all the other SoCs
       1. all interrupts combined.
+    minItems: 1
+    maxItems: 4
 
   interrupt-names:
     description: |
       Allows the interrupt specifiers in "interrupts" to be stated
       in any order, one for each name in here. Can contain
-      "state" - BOFFINT | BOFFDONEINT | TWRNINT | RWRNINT;
-      "berr" - ERRINT;
-      "mb_0-7" - MB0-7 interrupts;
-      "mb_8-127" - MB8-127 interrupts;
-      "state-berr" - ERRINT | BOFFINT | BOFFDONEINT | TWRNINT |
-                     RWRNINT;
-      "mb" - all MB interrupts;
-      "all" - all interrupts combined.
+      "state" - BOFFINT | BOFFDONEINT | TWRNINT | RWRNINT
+      "berr" - ERRINT
+      "mb_0-7" - MB0-7 interrupts
+      "mb_8-127" - MB8-127 interrupts
+      "state-berr" - ERRINT | BOFFINT | BOFFDONEINT | TWRNINT | RWRNINT
+      "mb" - all MB interrupts
+      "all" - all interrupts combined
+    items:
+      - const: state
+      - const: berr
+      - const: mb_0-7
+      - const: mb_8-127
 
   clocks:
     maxItems: 2
@@ -137,7 +160,7 @@ required:
   - reg
   - interrupts
 
-additionalProperties: false
+unevaluatedProperties: false
 
 examples:
   - |
