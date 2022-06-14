@@ -10,7 +10,7 @@ maintainers:
   - Larisa Grigore <larisa.grigore@nxp.com>
 
 allOf:
-  - $ref: "rs485.yaml"
+  - $ref: /schemas/serial.yaml#
 
 properties:
   compatible:
@@ -28,15 +28,11 @@ properties:
     items:
       - description: lin clock
       - description: ipg clock
-    minItems: 1
-    maxItems: 2
 
   clock-names:
     items:
       - const: lin
       - const: ipg
-    minItems: 1
-    maxItems: 2
 
   dmas:
     items:
@@ -64,7 +60,7 @@ examples:
   - |
     #include <dt-bindings/clock/s32gen1-scmi-clock.h>
 
-    uart0: serial@401C8000 {
+    uart0: serial@401c8000 {
         compatible = "nxp,s32cc-linflexuart";
         reg = <0x401C8000 0x3000>;
         interrupts = <0 82 1>;
