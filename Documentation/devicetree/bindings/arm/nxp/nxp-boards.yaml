@@ -6,6 +6,9 @@ $schema: http://devicetree.org/meta-schemas/core.yaml#
 
 title: NXP boards
 
+maintainers:
+  - Ghennadi Procopciuc <ghennadi.procopciuc@nxp.com>
+
 properties:
   $nodename:
     const: '/'
@@ -17,7 +20,7 @@ properties:
 
       - description: S32R45 based boards
         items:
-          - const: fsl,s32r45
+          - const: nxp,s32r45
 
       - description: S32G3 based boards
         items:
