@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
-# Copyright 2021 NXP
+# Copyright 2021-2022 NXP
 %YAML 1.2
 ---
 $id: "http://devicetree.org/schemas/net/nxp,s32cc-dwmac.yaml#"
@@ -46,6 +46,10 @@ properties:
       - description: Receive RGMII clock
       - description: Receive RMII clock
       - description: Receive MII clock
+      - description:
+          PTP reference clock. This clock is used for programming the
+          Timestamp Addend Register. If not passed then the system
+          clock will be used and this is fine on some platforms.
 
   clock-names:
     items:
@@ -59,6 +63,7 @@ properties:
       - const: rx_rgmii
       - const: rx_rmii
       - const: rx_mii
+      - const: ptp_ref
 
   tx-fifo-depth:
     const: 20480
@@ -69,13 +74,13 @@ properties:
     description: Platform specific configuration has to be 20480.
 
   phy-handle:
-    $ref: "ethernet-controller.yaml#/properties/phy-handle"
+    $ref: /schemas/types.yaml#/definitions/phandle
     description:
       The device node referenced by "phy" or "phy-handle" must be a child node
       of the mdio node. See phy.txt for the generic PHY bindings.
 
   phy:
-    $ref: "#/properties/phy-handle"
+    $ref: /schemas/types.yaml#/definitions/phandle
 
   phys:
     description: S32G serdes XPCS for sgmii operation
@@ -114,8 +119,19 @@ additionalProperties: true
 
 examples:
   - |
-    #include <dt-bindings/clock/s32gen1-scmi-clock.h>
+    #include <dt-bindings/interrupt-controller/arm-gic.h>
+    #include <dt-bindings/interrupt-controller/irq.h>
     #include <dt-bindings/phy/phy.h>
+    #define S32GEN1_SCMI_CLK_GMAC0_AXI
+    #define S32GEN1_SCMI_CLK_GMAC0_TX_SGMII
+    #define S32GEN1_SCMI_CLK_GMAC0_TX_RGMII
+    #define S32GEN1_SCMI_CLK_GMAC0_TX_RMII
+    #define S32GEN1_SCMI_CLK_GMAC0_TX_MII
+    #define S32GEN1_SCMI_CLK_GMAC0_RX_SGMII
+    #define S32GEN1_SCMI_CLK_GMAC0_RX_RGMII
+    #define S32GEN1_SCMI_CLK_GMAC0_RX_RMII
+    #define S32GEN1_SCMI_CLK_GMAC0_RX_MII
+    #define S32GEN1_SCMI_CLK_GMAC0_TS
     bus {
       #address-cells = <2>;
       #size-cells = <2>;
@@ -125,7 +141,7 @@ examples:
         reg = <0x0 0x4033c000 0x0 0x2000>, /* gmac IP */
               <0x0 0x4007C004 0x0 0x4>;    /* S32 CTRL_STS reg */
         interrupt-parent = <&gic>;
-        interrupts = <0 57 4>;
+        interrupts = <GIC_SPI 57 IRQ_TYPE_LEVEL_HIGH>;
         interrupt-names = "macirq";
         tx-fifo-depth = <20480>;
         rx-fifo-depth = <20480>;
@@ -141,12 +157,14 @@ examples:
            <&clks S32GEN1_SCMI_CLK_GMAC0_RX_SGMII>,
            <&clks S32GEN1_SCMI_CLK_GMAC0_RX_RGMII>,
            <&clks S32GEN1_SCMI_CLK_GMAC0_RX_RMII>,
-           <&clks S32GEN1_SCMI_CLK_GMAC0_RX_MII>;
+           <&clks S32GEN1_SCMI_CLK_GMAC0_RX_MII>,
+           <&clks S32GEN1_SCMI_CLK_GMAC0_TS>;
         clock-names = "stmmaceth", "pclk",
                 "tx_sgmii", "tx_rgmii",
                 "tx_rmii", "tx_mii",
                 "rx_sgmii", "rx_rgmii",
-                "rx_rmii", "rx_mii";
+                "rx_rmii", "rx_mii",
+                "ptp_ref";
         gmac0_mdio: mdio0 {
           compatible = "snps,dwmac-mdio";
           #address-cells = <1>;
