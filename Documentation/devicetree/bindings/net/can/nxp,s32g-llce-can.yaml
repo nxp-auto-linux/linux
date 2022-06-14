@@ -52,7 +52,6 @@ properties:
   clocks:
     description: LLCE CAN clock
 
-
   pinctrl-0:
     description:
       A phandle to the default pinctrl state.
@@ -71,13 +70,12 @@ required:
   - pinctrl-names
   - pinctrl-0
 
-unevaluatedProperties: false
 additionalProperties: false
 
 examples:
   - |
-    #include <dt-bindings/clock/s32g-scmi-clock.h>
     #include <dt-bindings/mailbox/nxp-llce-mb.h>
+    #define S32G_SCMI_CLK_LLCE_CAN_PE
     llce_can0: llce_can0 {
         compatible = "nxp,s32g-llce-can";
         mboxes = <&llce_mb S32G_LLCE_CAN_CONF_MB 0>,
