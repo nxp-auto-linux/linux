@@ -24,8 +24,8 @@ properties:
   compatible:
     items:
       - enum:
-        - nxp,s32g-pfe
-        - nxp,s32g-pfe-slave
+          - nxp,s32g-pfe
+          - nxp,s32g-pfe-slave
     description:
       The single instance driver (aka standalone driver mode) and the Master
       driver require "nxp,s32g-pfe", the Slave driver requires "nxp,s32g-pfe-slave".
@@ -50,12 +50,12 @@ properties:
     maxItems: 3
     oneOf:
       - items:
-        - const: pfe_sys
-        - const: pfe_pe
-        - const: pfe_ts
+          - const: pfe_sys
+          - const: pfe_pe
+          - const: pfe_ts
       - items:
-        - const: pfe_sys
-        - const: pfe_pe
+          - const: pfe_sys
+          - const: pfe_pe
 
   interrupts:
     items:
@@ -88,7 +88,6 @@ properties:
     maxItems: 1
 
   memory-region:
-    maxItems: 4
     items:
       - description: The BMU2 buffer pool, must be in the range 0x00020000 - 0xbfffffff
       - description: RT region
@@ -96,7 +95,6 @@ properties:
       - description: Buffer descriptor rings
 
   memory-region-names:
-    maxItems: 4
     items:
       - const: pfe-bmu2-pool
       - const: pfe-rt-pool
@@ -134,10 +132,8 @@ properties:
       The HIF channel number used for IHC transport.
       The outgoing channel, must be one from set
       specified in nxp,pfeng-hif-channels.
-    maxItems: 1
-    items:
-      minimum: 0
-      maximum: 3
+    minimum: 0
+    maximum: 3
 
 
   nxp,pfeng-master-channel:
@@ -147,10 +143,8 @@ properties:
       The destination channel used by Master for
       receiving IHC messages. Here can also be used
       the HIF_NCPY channel.
-    maxItems: 1
-    items:
-      minimum: 0
-      maximum: 4
+    minimum: 0
+    maximum: 4
 
   phys:
     maxItems: 3
@@ -227,8 +221,6 @@ required:
   - ethernet
 
 additionalProperties: false
-
-unevaluatedProperties: false
 
 allOf:
   - if:
