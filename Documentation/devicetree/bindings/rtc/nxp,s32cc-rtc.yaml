@@ -22,10 +22,15 @@ properties:
       Specifies the Real Time Clock interrupts id.
 
   nxp,clksel:
+    $ref: /schemas/types.yaml#/definitions/uint32
     description:
       Input clock selector; choose between 0-SIRC and 2-FIRC
+    enum:
+      - 0 # SIRC
+      - 2 # FIRC
 
   nxp,dividers:
+    $ref: /schemas/types.yaml#/definitions/uint32-array
     description:
       An array of two u32 elements, the former encoding DIV512,
       the latter encoding DIV32. These are dividers that can be enabled
@@ -35,14 +40,14 @@ properties:
   clocks:
     items:
       - description: Registers Clock
-      - description: FIRC frequency
       - description: SIRC frequency
+      - description: FIRC frequency
 
   clock-names:
     items:
       - const: ipg
-      - const: firc
       - const: sirc
+      - const: firc
 
 required:
   - clock-names
