@@ -59,8 +59,8 @@ properties:
     description: LLCE system clock
 
   ranges:
-    minItems: 6
-    maxItems: 6
+    minItems: 7
+    maxItems: 7
     description:
       LLCE FIFOs registers ranges
 
@@ -82,6 +82,9 @@ patternProperties:
   '^llce_can[0-9]+.*':
     type: object
 
+  '^llce_can_logger[0-9]+.*':
+    type: object
+
 required:
   - compatible
   - firmware-name
@@ -96,13 +99,11 @@ required:
   - '#size-cells'
   - '#interrupt-cells'
 
-unevaluatedProperties: false
 additionalProperties: false
 
 examples:
   - |
-    #include <dt-bindings/clock/s32g-scmi-clock.h>
-
+    #define S32G_SCMI_CLK_LLCE_SYS
     bus {
         #address-cells = <2>;
         #size-cells = <2>;
@@ -132,7 +133,9 @@ examples:
                 /* BLR-OUT_FIFO */
                 <0x4 0 0x0 0x43B08000 0x0 0x6000>,
                 /* Tx_Ack_FIFO */
-                <0x5 0 0x0 0x43B10000 0x0 0x8000>;
+                <0x5 0 0x0 0x43B10000 0x0 0x8000>,
+                /* LLCE SEMA42 */
+                <0x6 0 0x0 0x43c20000 0x0 0x44>;
             #address-cells = <2>;
             #size-cells = <2>;
             #interrupt-cells = <3>;
