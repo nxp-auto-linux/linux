@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
 %YAML 1.2
 ---
-$id: http://devicetree.org/schemas/misc/fsl,fccu.yaml#
+$id: http://devicetree.org/schemas/misc/nxp-s32cc-fccu.yaml#
 $schema: http://devicetree.org/meta-schemas/core.yaml#
 
 title: Fault Collection and Control Unit (FCCU) for S32GEN1
@@ -35,13 +35,13 @@ properties:
 
   interrupt-names:
     items:
-            - const: fccu_alarm
-            - const: fccu_misc
+      - const: fccu_alarm
+      - const: fccu_misc
 
   interrupts:
     items:
-            - description: fccu alarm state interrupt
-            - description: fccu misc interrupt (configuration timeout)
+      - description: fccu alarm state interrupt
+      - description: fccu misc interrupt (configuration timeout)
 
   reg:
     description: The address range
@@ -67,17 +67,18 @@ additionalProperties: false
 
 examples:
   - |
+    #include <dt-bindings/interrupt-controller/arm-gic.h>
     #include <dt-bindings/interrupt-controller/irq.h>
     #include <dt-bindings/misc/s32-fccu.h>
-    #include <dt-bindings/clock/s32gen1-scmi-clock.h>
 
-    fccu: fccu@4030C000 {
+    #define S32GEN1_SCMI_CLK_FCCU_MODULE
+    fccu: fccu@4030c000 {
       compatible = "nxp,s32cc-fccu";
-      reg = <0x0 0x4030C000 0x0 0x3000>;
-      interrupts= <0 100 IRQ_TYPE_LEVEL_HIGH>,
-      <0 101 IRQ_TYPE_LEVEL_HIGH>;
+      reg = <0x4030c000 0x3000>;
+      interrupts = <GIC_SPI 100 IRQ_TYPE_LEVEL_HIGH>,
+                   <GIC_SPI 101 IRQ_TYPE_LEVEL_HIGH>;
       interrupt-names = "fccu_alarm",
-      "fccu_misc";
+                        "fccu_misc";
       clocks = <&clks S32GEN1_SCMI_CLK_FCCU_MODULE>;
       clock-names = "fccu";
       /* A53 NCF fault list */
