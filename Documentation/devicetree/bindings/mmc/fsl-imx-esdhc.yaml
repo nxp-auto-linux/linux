@@ -152,3 +152,20 @@ examples:
         cd-gpios = <&gpio1 6 0>; /* GPIO1_6 */
         wp-gpios = <&gpio1 5 0>; /* GPIO1_5 */
     };
+
+  - |
+    #include <dt-bindings/interrupt-controller/arm-gic.h>
+    #include <dt-bindings/interrupt-controller/irq.h>
+    #define S32CC_SCMI_CLK_USDHC_MODULE
+    #define S32CC_SCMI_CLK_USDHC_AHB
+    #define S32CC_SCMI_CLK_USDHC_CORE
+    usdhc0: mmc@402f0000 {
+        compatible = "nxp,s32cc-usdhc";
+        reg = <0x402f0000 0x1000>;
+        interrupts = <GIC_SPI 36 IRQ_TYPE_LEVEL_HIGH>;
+        clocks = <&clks S32CC_SCMI_CLK_USDHC_MODULE>,
+                 <&clks S32CC_SCMI_CLK_USDHC_AHB>,
+                 <&clks S32CC_SCMI_CLK_USDHC_CORE>;
+        clock-names = "ipg", "ahb", "per";
+        bus-width = <8>;
+    };
