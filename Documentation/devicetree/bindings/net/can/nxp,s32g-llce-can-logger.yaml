@@ -27,11 +27,14 @@ properties:
       Link to LLCE CAN Logger mailbox.
       (see mailbox/nxp,s32g-llce-mailbox.yaml for more details)
 
-  mboxes-names:
+  mbox-names:
     description: |
       Must be an array of two strings. One of them must be "config" and the
       other one must be "rx". The strings must be in the same order as mbox
       channels.
+    items:
+      - const: config
+      - const: rx
 
 required:
   - compatible
