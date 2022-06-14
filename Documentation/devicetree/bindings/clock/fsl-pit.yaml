@@ -9,9 +9,6 @@ title: Freescale PIT timer used as clocksource/clockevents
 maintainers:
   - Larisa Grigore <larisa.grigore@nxp.com>
 
-allOf:
-  - $ref: "/schemas/serial/rs485.yaml"
-
 properties:
   compatible:
     oneOf:
@@ -53,9 +50,9 @@ examples:
   - |
     #include <dt-bindings/clock/s32gen1-scmi-clock.h>
 
-    pit0: pit@40188000{
+    pit0: pit@40188000 {
       compatible = "nxp,s32cc-pit";
-      reg = <0x0 0x40188000 0x0 0x3000>;
+      reg = <0x40188000 0x3000>;
       interrupts= <0 53 4>;
       clocks = <&clks S32GEN1_SCMI_CLK_PIT_MODULE>;
       clock-names = "pit";
