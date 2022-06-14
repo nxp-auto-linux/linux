@@ -45,11 +45,11 @@ additionalProperties: false
 
 examples:
   - |
-    #include <dt-bindings/clock/s32gen1-clock.h>
+    #define S32GEN1_SCMI_CLK_SAR_ADC_BUS
 
     saradc0: adc@401f8000 {
         compatible = "nxp,s32cc-adc";
-        reg = <0x0 0x401f8000 0x0 0x1000>;
+        reg = <0x401f8000 0x1000>;
         interrupts = <0 70 4>;
         clocks = <&clks S32GEN1_SCMI_CLK_SAR_ADC_BUS>;
         clock-names = "adc";
