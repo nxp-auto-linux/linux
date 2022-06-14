@@ -48,6 +48,7 @@ properties:
       - const: blrin_fifo
       - const: blrout_fifo
       - const: txack_fifo
+      - const: sema42
 
   reg:
     items:
@@ -57,6 +58,7 @@ properties:
       - description: Address and Size of the BLRIN fifo memory region
       - description: Address and Size of the BLROUT fifo memory region
       - description: Address and Size of the TXACK fifo memory region
+      - description: Address and Size of the SEMA42 region
 
   interrupt-names:
     items:
@@ -95,18 +97,17 @@ required:
   - clock-names
   - clocks
 
-unevaluatedProperties: false
 additionalProperties: false
 
 examples:
   - |
     #include <dt-bindings/interrupt-controller/irq.h>
-    #include <dt-bindings/clock/s32g-scmi-clock.h>
+    #define S32G_SCMI_CLK_LLCE_SYS
     bus {
       #address-cells = <2>;
       #size-cells = <2>;
 
-      llce_mb: llce_mailbox@43800000 {
+      llce_mb: llce_mb@43a00000 {
         compatible = "nxp,s32g-llce-mailbox";
         #mbox-cells = <2>;
 
@@ -115,13 +116,15 @@ examples:
             <0x2 0x0 0x0 0x1000>,
             <0x3 0x0 0x0 0x6000>,
             <0x4 0x0 0x0 0x6000>,
-            <0x5 0x0 0x0 0x8000>;
+            <0x5 0x0 0x0 0x8000>,
+            <0x6 0x0 0x0 0x44>;
         reg-names = "rxin_fifo",
             "rxout_fifo",
             "icsr",
             "blrin_fifo",
             "blrout_fifo",
-            "txack_fifo";
+            "txack_fifo",
+            "sema42";
         clocks = <&clks S32G_SCMI_CLK_LLCE_SYS>;
         clock-names = "llce_sys";
 
