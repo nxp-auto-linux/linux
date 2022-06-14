@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /*
- * Copyright 2019-2021 NXP
+ * Copyright 2019-2022 NXP
  */
+#include "s32g-pfe-slave.dtsi"
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/pinctrl/s32g-pinctrl.h>
 
@@ -61,14 +62,6 @@
 	};
 };
 
-&pfe_reserved_slave {
-	status = "okay";
-};
-
-&pfe_reserved_bdr_slave {
-	status = "okay";
-};
-
 &pfe_slave {
 	status = "okay";
 };
@@ -77,23 +70,22 @@
 	status = "okay";
 };
 
-&pfe_logif0 {
+&pfe_netif0 {
+	phy-mode = "sgmii";
 	phy-handle = <&mdio_a_phy4>;
 };
 
-&pfe_logif1 {
+&pfe_netif1 {
 	/* RGMII port occupied by GMAC0 */
 	status = "disabled";
+	phy-mode = "rgmii-id";
 	phy-handle = <&mdio_c_phy4>;
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl0_pfe1_rgmii_c>, <&pinctrl1_pfe1_rgmii_c>;
 };
 
-&pfe_emac2 {
+&pfe_netif2 {
 	phy-mode = "rgmii";
-};
-
-&pfe_logif2 {
 	fixed-link {
 		speed = <1000>;
 		full-duplex;
@@ -866,7 +858,7 @@
 			port@0 {
 				label = "sw0-p0";
 				phy-mode = "rgmii-id";
-				ethernet = <&pfe_logif2>;
+				ethernet = <&pfe_netif2>;
 				reg = <0>;
 
 				fixed-link {

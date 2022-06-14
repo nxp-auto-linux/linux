@@ -6,6 +6,7 @@
  *
  */
 
+#include "s32g-pfe-slave.dtsi"
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/pinctrl/s32g-pinctrl.h>
 / {
@@ -17,14 +18,6 @@
 		compatible = "usb-nop-xceiv";
 		#phy-cells = <0>;
 	};
-};
-
-&pfe_reserved_slave {
-	status = "okay";
-};
-
-&pfe_reserved_bdr_slave {
-	status = "okay";
 };
 
 &pfe_slave {
@@ -40,18 +33,20 @@
 		    <&pinctrl1_pfe2_rgmii_b>;
 };
 
-&pfe_logif0 {
+&pfe_netif0 {
+	phy-mode = "sgmii";
 	fixed-link {
 		speed = <2500>;
 		full-duplex;
 	};
 };
 
-&pfe_logif1 {
+&pfe_netif1 {
 	status = "disabled";
 };
 
-&pfe_logif2 {
+&pfe_netif2 {
+	phy-mode = "rgmii-id";
 	phy-handle = <&mdio_b_phy4>;
 };
 
@@ -899,12 +894,9 @@
 	status = "okay";
 };
 
-&pfe_logif1 {
-	phy-handle = <&mdio_a_phy3>;
-};
-
-&pfe_emac1 {
+&pfe_netif1 {
 	phy-mode = "sgmii";
+	phy-handle = <&mdio_a_phy3>;
 };
 
 &pfe_mdio2 {

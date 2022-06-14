@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /*
- * Copyright 2020-2021 NXP
+ * Copyright 2020-2022 NXP
  */
 
 /dts-v1/;
@@ -182,12 +182,11 @@
 
 &pfe {
 	status = "okay";
-	memory-region = <&pfe_reserved>;
 };
 
-&pfe_logif0 {
+&pfe_netif0 {
 	status = "okay";
-
+	phy-mode = "sgmii";
 	fixed-link {
 		speed = <1000>;
 		full-duplex;
