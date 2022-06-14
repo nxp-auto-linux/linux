@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: (GPL-2.0 OR BSD-2-Clause)
 %YAML 1.2
 ---
-$id: http://devicetree.org/schemas/watchdog/nxp-s32cc-ddr.yaml#
+$id: http://devicetree.org/schemas/ddr/nxp,s32cc-ddr.yaml#
 $schema: http://devicetree.org/meta-schemas/core.yaml#
 
 title: Freescale DDR Controller ERRATUM 050543
@@ -9,30 +9,26 @@ title: Freescale DDR Controller ERRATUM 050543
 maintainers:
   - Ciprian Marian Costea <ciprianmarian.costea@nxp.com>
 
-allOf:
-  - $ref: "ddr.yaml#"
-
 properties:
   compatible:
-    enum:
-      - nxp,s32cc-ddr
+    const: nxp,s32cc-ddr
 
   reg:
     maxItems: 1
 
-  status:
-    enum:
-      - enabled
-      - disabled
-
   perf-phandle:
     description: phandle to the "ddr-perf" node
+
+  memory-region:
+    maxItems: 1
 
 required:
   - compatible
   - reg
-  - status
   - perf-phandle
+  - memory-region
+
+additionalProperties: false
 
 examples:
   - |
@@ -40,7 +36,6 @@ examples:
         compatible = "nxp,s32cc-ddr";
         reg = <0x403C0000 0x100>;
         perf-phandle = <&perf>;
+        memory-region = <&ddr_errata_reserved>;
         status = "disabled";
     };
-
-...
