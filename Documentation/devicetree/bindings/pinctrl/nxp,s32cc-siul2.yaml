@@ -1,7 +1,8 @@
 # SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
 %YAML 1.2
 ---
-
+$id: http://devicetree.org/schemas/pinctrl/nxp,s32cc-siul2.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
 title: NXP S32 Common Chassis SIUL2 iomux controller
 
 maintainers:
@@ -12,26 +13,77 @@ description: |
 
 properties:
   compatible:
-    const:
-      - nxp,s32cc-siul2-pinctrl
-      - nxp,s32g-siul2-pinctrl
-      - nxp,s32r45-siul2-pinctrl
+    oneOf:
+      - enum:
+          - nxp,s32cc-siul2-pinctrl
+          - nxp,s32g-siul2-pinctrl
+          - nxp,s32r45-siul2-pinctrl
 
-  fsl,pins:
-    description: |
-      Two integers array, represents a group of pins mux and config
-      setting. The format is fsl,pins = <PIN_FUNC_ID CONFIG>
-      PIN_FUNC_ID - id of MSCR to be modified
-      CONFIG - configuration to be written in the MSCR/IMCR register
+  reg:
+    minItems: 5
+    maxItems: 5
+    description: base address and length of the PCIe controller
 
-      Even though IMCR register should be used as input register, it can be
-      set and addressed in the same way as MSCR, only instead of passing the
-      IMCR index, IMCR_IDX + 512 is passed.
+  pins:
+    #$ref: /schemas/types.yaml#/definitions/uint32-array
+    description:
+      The list of pin identifiers that properties in the node apply to.
+
+  '#pinctrl-cells':
+    const: 2
 
 required:
   - compatible
-  - fsl,pins
+  - reg
+  - pins
+  - '#pinctrl-cells'
+
+
+patternProperties:
+  '_pins$':
+    type: object
+    patternProperties:
+      '_grp[0-9]$':
+        type: object
+        allOf:
+          - $ref: pinmux-node.yaml#
+          - $ref: pincfg-node.yaml#
+        description:
+          Pinctrl node's client devices specify pin muxes using subnodes,
+          which in turn use the standard properties below.
 
 additionalProperties: false
 
-...
+examples:
+  - |
+    pinctrl: siul2-pinctrl@4009c240 {
+        compatible = "nxp,s32g-siul2-pinctrl";
+        #pinctrl-cells = <2>;
+
+        pins = <&pinctrl 0   101
+                &pinctrl 112 190
+                &pinctrl 512 595
+                &pinctrl 631 909
+                &pinctrl 942 1007>;
+
+        reg = <0x4009c240 0x198>,
+              <0x4009c440 0x13c>,
+              <0x4009c640 0x150>,
+              <0x4009c840 0x45c>,
+              <0x4009cc40 0x108>;
+
+        llce_can0_pins {
+            llce_can0_grp0 {
+                pinmux = <0x2b0>;
+                input-enable;
+                slew-rate = <0x00>;
+            };
+
+            llce_can0_grp1 {
+                pinmux = <0x2c2>;
+                output-enable;
+                slew-rate = <0x00>;
+            };
+        };
+    };
+
