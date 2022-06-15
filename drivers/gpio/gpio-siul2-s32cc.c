@@ -102,13 +102,13 @@ struct eirq_mapping {
 
 /**
  * Platform data attached to compatible
- * @pad_access: access table for output pads
+ * @pad_access: access table for I/O pads, consists of S32_SIUL2_NUM tables
  * @num_irqs: the number of EIRQ - IMSCR - GPIO mappings
  * @irqs: the EIRQ - IMSCR - GPIO mappings
  * @reset_cnt: reset the pin name counter to zero when switching to SIUL2_1
  */
 struct siul2_device_data {
-	const struct regmap_access_table *pad_access;
+	const struct regmap_access_table **pad_access;
 	const u32 num_irqs;
 	const struct eirq_mapping *irqs;
 	const bool reset_cnt;
@@ -120,16 +120,14 @@ struct siul2_device_data {
  * @gpio_num: the number of GPIO pins
  * @opadmap: the regmap of the Parallel GPIO Pad Data Out Register
  * @ipadmap: the regmap of the Parallel GPIO Pad Data In Register
- * @regmap_accessible: the function used by regmap to check if access to
- *		       a reg is allowed.
+ * @pad_access: array of valid I/O pads
  */
 struct siul2_desc {
 	u32 gpio_base;
 	u32 gpio_num;
 	struct regmap *opadmap;
 	struct regmap *ipadmap;
-	bool (*regmap_accessible)(struct device *dev,
-				  unsigned int reg);
+	const struct regmap_access_table *pad_access;
 };
 
 /**
@@ -595,7 +593,9 @@ static inline u32 siul2_get_ipad_offset(unsigned int pad)
 	return siul2_get_pad_offset(pad);
 }
 
-static const struct regmap_range s32g_pad_yes_ranges[] = {
+/* Common for both S32R45 an S32G* */
+
+static const struct regmap_range s32cc_siul20_pad_yes_ranges[] = {
 	regmap_reg_range(SIUL2_PGPDO(0), SIUL2_PGPDO(0)),
 	regmap_reg_range(SIUL2_PGPDO(1), SIUL2_PGPDO(1)),
 	regmap_reg_range(SIUL2_PGPDO(2), SIUL2_PGPDO(2)),
@@ -603,6 +603,14 @@ static const struct regmap_range s32g_pad_yes_ranges[] = {
 	regmap_reg_range(SIUL2_PGPDO(4), SIUL2_PGPDO(4)),
 	regmap_reg_range(SIUL2_PGPDO(5), SIUL2_PGPDO(5)),
 	regmap_reg_range(SIUL2_PGPDO(6), SIUL2_PGPDO(6)),
+};
+
+static const struct regmap_access_table s32cc_siul20_pad_access_table = {
+	.yes_ranges	= s32cc_siul20_pad_yes_ranges,
+	.n_yes_ranges	= ARRAY_SIZE(s32cc_siul20_pad_yes_ranges),
+};
+
+static const struct regmap_range s32g_siul21_pad_yes_ranges[] = {
 	regmap_reg_range(SIUL2_PGPDO(7), SIUL2_PGPDO(7)),
 	regmap_reg_range(SIUL2_PGPDO(9), SIUL2_PGPDO(9)),
 	regmap_reg_range(SIUL2_PGPDO(10), SIUL2_PGPDO(10)),
@@ -655,16 +663,29 @@ static const struct eirq_mapping s32g_irqs[] = {
 	{ .gpio = 40,	.eirq = 31,	.imscr = 941,	.imscr_conf = 2 },
 };
 
-static const struct regmap_access_table s32g_pad_access_table = {
-	.yes_ranges	= s32g_pad_yes_ranges,
-	.n_yes_ranges	= ARRAY_SIZE(s32g_pad_yes_ranges),
+static const struct regmap_access_table s32g_siul21_pad_access_table = {
+	.yes_ranges	= s32g_siul21_pad_yes_ranges,
+	.n_yes_ranges	= ARRAY_SIZE(s32g_siul21_pad_yes_ranges),
 };
 
+static const struct regmap_access_table *s32g_pad_access_table[] = {
+	&s32cc_siul20_pad_access_table,
+	&s32g_siul21_pad_access_table
+};
+
+static_assert(ARRAY_SIZE(s32g_pad_access_table) == S32_SIUL2_NUM);
+
 static const struct siul2_device_data s32g_device_data = {
-	.pad_access	= &s32g_pad_access_table,
+	.pad_access	= s32g_pad_access_table,
 	.num_irqs	= ARRAY_SIZE(s32g_irqs),
 	.irqs		= s32g_irqs,
 	.reset_cnt	= true,
+};
+
+static const struct regmap_range s32r_siul21_pad_yes_ranges[] = {
+	regmap_reg_range(SIUL2_PGPDO(6), SIUL2_PGPDO(6)),
+	regmap_reg_range(SIUL2_PGPDO(7), SIUL2_PGPDO(7)),
+	regmap_reg_range(SIUL2_PGPDO(8), SIUL2_PGPDO(8)),
 };
 
 static const struct eirq_mapping s32r45_irqs[] = {
@@ -702,78 +723,24 @@ static const struct eirq_mapping s32r45_irqs[] = {
 	{ .gpio = 44,	.eirq = 31,	.imscr = 727,	.imscr_conf = 2 },
 };
 
+static const struct regmap_access_table s32r_siul21_pad_access_table = {
+	.yes_ranges	= s32r_siul21_pad_yes_ranges,
+	.n_yes_ranges	= ARRAY_SIZE(s32r_siul21_pad_yes_ranges),
+};
+
+static const struct regmap_access_table *s32r_pad_access_table[] = {
+	&s32cc_siul20_pad_access_table,
+	&s32r_siul21_pad_access_table,
+};
+
+static_assert(ARRAY_SIZE(s32r_pad_access_table) == S32_SIUL2_NUM);
+
 static const struct siul2_device_data s32r45_device_data = {
+	.pad_access	= s32r_pad_access_table,
 	.num_irqs	= ARRAY_SIZE(s32r45_irqs),
 	.irqs		= s32r45_irqs,
 	.reset_cnt	= false,
 };
-
-static bool regmap_siul2_accessible(struct device *dev,
-				    unsigned int siul2_module,
-				    unsigned int reg)
-{
-	struct siul2_gpio_dev *gpio_dev = dev_get_drvdata(dev);
-	const struct siul2_device_data *platdata = gpio_dev->platdata;
-	const struct regmap_access_table *access;
-	struct gpio_chip *gc = &gpio_dev->gc;
-	int pin = siul2_get_pin(gc, reg);
-	unsigned int pad;
-	bool in_range = false;
-	u32 off, start_off, end_off;
-	u32 ngpio;
-	u32 base;
-
-	if (siul2_module >= ARRAY_SIZE(gpio_dev->siul2))
-		return false;
-
-	base = gpio_dev->siul2[siul2_module].gpio_base;
-	ngpio = gpio_dev->siul2[siul2_module].gpio_num;
-
-	/**
-	 * Establish pad range considering that the pads are in
-	 * big endian order.
-	 */
-	pad = siul2_pin2pad(base);
-	start_off = siul2_get_pad_offset(pad);
-	off = siul2_get_pad_offset(pad + 1);
-	if (off < start_off)
-		start_off = off;
-
-	pad = siul2_pin2pad(base + ngpio - 1);
-	end_off = siul2_get_pad_offset(pad);
-	off = siul2_get_pad_offset(pad - 1);
-	if (off > end_off)
-		end_off = off;
-
-	if (reg < start_off || reg > end_off)
-		return false;
-
-	if (pin >= base && pin < base + ngpio) {
-		in_range = true;
-
-		/* No access filters */
-		if (!platdata)
-			return true;
-	}
-
-	if (platdata && in_range && platdata->pad_access) {
-		access = platdata->pad_access;
-		return regmap_reg_in_ranges(reg, access->yes_ranges,
-					    access->n_yes_ranges);
-	}
-
-	return false;
-}
-
-static bool regmap_siul20_accessible(struct device *dev, unsigned int reg)
-{
-	return regmap_siul2_accessible(dev, 0, reg);
-}
-
-static bool regmap_siul21_accessible(struct device *dev, unsigned int reg)
-{
-	return regmap_siul2_accessible(dev, 1, reg);
-}
 
 static bool irqmap_volatile_reg(struct device *dev, unsigned int reg)
 {
@@ -817,20 +784,23 @@ static struct regmap *init_padregmap(struct platform_device *pdev,
 {
 	struct regmap_config regmap_conf = siul2_regmap_conf;
 	char dts_tag[S32_PADS_DTS_TAG_LEN];
+	const struct siul2_device_data *platdata = gpio_dev->platdata;
+
 	regmap_conf.reg_stride = 2;
 
 	if (selector != 0 && selector != 1)
 		return ERR_PTR(-EINVAL);
 
+	regmap_conf.rd_table = platdata->pad_access[selector];
+
 	snprintf(dts_tag, ARRAY_SIZE(dts_tag),  "%cpads%d", input ? 'i' : 'o',
 		 selector);
-
-	regmap_conf.writeable_reg = gpio_dev->siul2[selector].regmap_accessible;
-	regmap_conf.readable_reg = gpio_dev->siul2[selector].regmap_accessible;
 
 	if (input) {
 		regmap_conf.writeable_reg = not_writable;
 		regmap_conf.cache_type = REGCACHE_NONE;
+	} else {
+		regmap_conf.wr_table = platdata->pad_access[selector];
 	}
 
 	return common_regmap_init(pdev, &regmap_conf, dts_tag);
@@ -1101,8 +1071,17 @@ static int siul2_gpio_probe(struct platform_device *pdev)
 	if (!gpio_dev)
 		return -ENOMEM;
 
-	gpio_dev->siul2[0].regmap_accessible = regmap_siul20_accessible;
-	gpio_dev->siul2[1].regmap_accessible = regmap_siul21_accessible;
+	of_id = of_match_device(siul2_gpio_dt_ids, dev);
+	if (!of_id) {
+		dev_err(dev, "Could not retrieve platdata\n");
+		return -EINVAL;
+	}
+
+	gpio_dev->platdata = of_id->data;
+
+	for (i = 0; i < S32_SIUL2_NUM; ++i)
+		gpio_dev->siul2[i].pad_access =
+			gpio_dev->platdata->pad_access[i];
 
 	err = siul2_gpio_pads_init(pdev, gpio_dev);
 	if (err)
@@ -1132,10 +1111,6 @@ static int siul2_gpio_probe(struct platform_device *pdev)
 		gpio_dev->siul2[i].gpio_base = pinspec.args[1];
 		gpio_dev->siul2[i].gpio_num = pinspec.args[2];
 	}
-
-	of_id = of_match_device(siul2_gpio_dt_ids, dev);
-	if (of_id)
-		gpio_dev->platdata = of_id->data;
 
 	gc->base = -1;
 
