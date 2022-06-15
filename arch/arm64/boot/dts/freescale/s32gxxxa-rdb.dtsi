@@ -191,7 +191,7 @@
 
 &pinctrl {
 	status = "okay";
-	ftm1_pins: ftm1 {
+	ftm1_pins: ftm1_pins {
 		ftm1_grp0 {
 			pinmux = <S32CC_PINMUX(670, FUNC2)>;
 		};
@@ -205,7 +205,7 @@
 
 	};
 
-	can0_pins: can0 {
+	can0_pins: can0_pins {
 		can0_grp0 {
 			pinmux = <S32CC_PINMUX(17, FUNC2)>;
 			output-enable;
@@ -224,7 +224,7 @@
 
 	};
 
-	can1_pins: can1 {
+	can1_pins: can1_pins {
 		can1_grp0 {
 			pinmux = <S32CC_PINMUX(19, FUNC2)>;
 			output-enable;
@@ -243,7 +243,7 @@
 
 	};
 
-	can2_pins: can2 {
+	can2_pins: can2_pins {
 		can2_grp0 {
 			pinmux = <S32CC_PINMUX(27, FUNC2)>;
 			output-enable;
@@ -262,7 +262,7 @@
 
 	};
 
-	can3_pins: can3 {
+	can3_pins: can3_pins {
 		can3_grp0 {
 			pinmux = <S32CC_PINMUX(25, FUNC2)>;
 			output-enable;
@@ -281,7 +281,7 @@
 
 	};
 
-	dspi1_pins: dspi1 {
+	dspi1_pins: dspi1_pins {
 		dspi1_grp0 {
 			pinmux = <S32CC_PINMUX(6, FUNC2)>;
 			output-enable;
@@ -314,7 +314,7 @@
 
 	};
 
-	dspi1_slave_pins: dspi1slave {
+	dspi1_slave_pins: dspi1_slave_pins {
 		dspi1slave_grp0 {
 			pinmux = <S32CC_PINMUX(6, FUNC2)>;
 			output-enable;
@@ -348,7 +348,7 @@
 
 	};
 
-	dspi5_pins: dspi5 {
+	dspi5_pins: dspi5_pins {
 		dspi5_grp0 {
 			pinmux = <S32CC_PINMUX(9, FUNC3)>,
 				 <S32CC_PINMUX(11, FUNC3)>;
@@ -376,7 +376,7 @@
 
 	};
 
-	i2c0_pins: i2c0 {
+	i2c0_pins: i2c0_pins {
 		i2c0_grp0 {
 			pinmux = <S32CC_PINMUX(31, FUNC2)>;
 			drive-open-drain;
@@ -400,7 +400,7 @@
 
 	};
 
-	i2c0_gpio_pins: i2c0grp_gpio {
+	i2c0_gpio_pins: i2c0_gpio_pins {
 		i2c0_gpio_grp0 {
 			pinmux = <S32CC_PINMUX(31, FUNC0)>,
 				 <S32CC_PINMUX(32, FUNC0)>;
@@ -416,7 +416,7 @@
 
 	};
 
-	i2c2_pins: i2c2 {
+	i2c2_pins: i2c2_pins {
 		i2c2_grp0 {
 			pinmux = <S32CC_PINMUX(21, FUNC1)>,
 				 <S32CC_PINMUX(22, FUNC1)>;
@@ -433,7 +433,7 @@
 
 	};
 
-	i2c2_gpio_pins: i2c2grp_gpio {
+	i2c2_gpio_pins: i2c2_gpio_pins {
 		i2c2_gpio_grp0 {
 			pinmux = <S32CC_PINMUX(719, FUNC0)>,
 				 <S32CC_PINMUX(720, FUNC0)>;
@@ -449,7 +449,7 @@
 
 	};
 
-	i2c4_pins: i2c4 {
+	i2c4_pins: i2c4_pins {
 		i2c4_grp0 {
 			pinmux = <S32CC_PINMUX(33, FUNC1)>;
 			drive-open-drain;
@@ -473,7 +473,7 @@
 
 	};
 
-	i2c4_gpio_pins: i2c4grp_gpio {
+	i2c4_gpio_pins: i2c4_gpio_pins {
 		i2c4_gpio_grp0 {
 			pinmux = <S32CC_PINMUX(33, FUNC0)>,
 				 <S32CC_PINMUX(34, FUNC0)>;
@@ -489,7 +489,7 @@
 
 	};
 
-	usbotg_pins: usbotg {
+	usbotg_pins: usbotg_pins {
 		usbotg_grp0 {
 			pinmux = <S32CC_PINMUX(896, FUNC2)>,
 				 <S32CC_PINMUX(897, FUNC2)>,
@@ -534,7 +534,7 @@
 
 	};
 
-	gmac0mdioa_pins: gmac0mdioa {
+	gmac0mdioa_pins: gmac0mdioa_pins {
 		gmac0mdioa_grp0 {
 			pinmux = <S32CC_PINMUX(60, FUNC1)>;
 			output-enable;
@@ -554,7 +554,7 @@
 
 	};
 
-	gmac0rgmiia_pins: gmac0rgmiia {
+	gmac0rgmiia_pins: gmac0rgmiia_pins {
 		gmac0rgmiia_grp0 {
 			pinmux = <S32CC_PINMUX(66, FUNC1)>;
 			output-enable;
@@ -595,7 +595,7 @@
 
 	};
 
-	pfe2mdiob_pins: pfe2mdiob {
+	pfe2mdiob_pins: pfe2mdiob_pins {
 		pfe2mdiob_grp0 {
 			pinmux = <S32CC_PINMUX(82, FUNC2)>;
 			output-enable;
@@ -615,7 +615,7 @@
 
 	};
 
-	pfe2rgmiib_pins: pfe2rgmiib {
+	pfe2rgmiib_pins: pfe2rgmiib_pins {
 		pfe2rgmiib_grp0 {
 			pinmux = <S32CC_PINMUX(78, FUNC2)>,
 				 <S32CC_PINMUX(144, FUNC2)>,
@@ -656,7 +656,7 @@
 
 	};
 
-	ftm0_pins: ftm0 {
+	ftm0_pins: ftm0_pins {
 		ftm0_grp0 {
 			pinmux = <S32CC_PINMUX(167, FUNC3)>;
 			output-enable;
@@ -670,7 +670,7 @@
 
 	};
 
-	i2c1_pins: i2c1 {
+	i2c1_pins: i2c1_pins {
 		i2c1_grp0 {
 			pinmux = <S32CC_PINMUX(163, FUNC3)>,
 				 <S32CC_PINMUX(165, FUNC3)>;
@@ -690,7 +690,7 @@
 
 	};
 
-	i2c1_gpio_pins: i2c1grp_gpio {
+	i2c1_gpio_pins: i2c1_gpio_pins {
 		i2c1_gpio_grp0 {
 			pinmux = <S32CC_PINMUX(163, FUNC0)>,
 				 <S32CC_PINMUX(165, FUNC0)>;
