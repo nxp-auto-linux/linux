@@ -800,7 +800,7 @@
 			status = "okay";
 		};
 
-		usdhc0: usdhc@402f0000 {
+		usdhc0: mmc@402f0000 {
 			compatible = "nxp,s32cc-usdhc";
 			reg = <0x0 0x402f0000 0x0 0x1000>;
 			interrupts = <GIC_SPI 36 IRQ_TYPE_LEVEL_HIGH>;
