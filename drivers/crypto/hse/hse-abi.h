@@ -21,9 +21,9 @@
 
 #define HSE_KEY_HMAC_MIN_SIZE    16u /* minimum key size admitted for HMAC */
 
-#define HSE_MAX_CTX_SIZE    368ul /* maximum streaming context size */
+#define HSE_MAX_CTX_SIZE    372ul /* maximum streaming context size */
 #define HSE_MIN_RNG_SIZE    32ul /* minimum random number length */
-#define HSE_MAX_RNG_SIZE    2048ul /* maximum random number length */
+#define HSE_MAX_RNG_SIZE    512ul /* maximum random number length */
 
 /**
  * enum hse_fw_type - HSE firmware type
