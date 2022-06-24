@@ -623,9 +623,10 @@ static int s32_get_pin_conf(struct s32_pinctrl *ipctl, unsigned int pin_id,
 	return 0;
 }
 
-static int s32_pinconf_set(struct pinctrl_dev *pctldev,
-			   unsigned int pin_id, unsigned long *configs,
-			   unsigned int num_configs)
+static int s32_pinconf_mscr_modify_write(struct pinctrl_dev *pctldev,
+				       unsigned int pin_id,
+				       unsigned long *configs,
+				       unsigned int num_configs, bool write)
 {
 	struct s32_pinctrl *ipctl = pinctrl_dev_get_drvdata(pctldev);
 	unsigned long config = 0, mask = 0;
@@ -646,13 +647,47 @@ static int s32_pinconf_set(struct pinctrl_dev *pctldev,
 			return ret;
 	}
 
+	/* If the MSCR configuration has to be written,
+	 * the SSS field should not be touched.
+	 */
+	if (write)
+		mask = ~S32_MSCR_SSS_MASK;
+
 	if (!config && !mask)
 		return 0;
 
 	ret = s32_update_pin_mscr(pctldev, pin_id, mask, config);
-	dev_dbg(ipctl->dev, "update: pin %d cfg 0x%lx\n", pin_id, config);
+
+	if (write)
+		dev_dbg(ipctl->dev, "set: pin %d cfg 0x%lx\n", pin_id, config);
+	else
+		dev_dbg(ipctl->dev, "update: pin %d cfg 0x%lx\n", pin_id,
+			config);
 
 	return ret;
+}
+
+static int s32_pinconf_mscr_write(struct pinctrl_dev *pctldev,
+			   unsigned int pin_id, unsigned long *configs,
+			   unsigned int num_configs)
+{
+	return s32_pinconf_mscr_modify_write(pctldev, pin_id, configs,
+					     num_configs, true);
+}
+
+static int s32_pinconf_mscr_modify(struct pinctrl_dev *pctldev,
+			   unsigned int pin_id, unsigned long *configs,
+			   unsigned int num_configs)
+{
+	return s32_pinconf_mscr_modify_write(pctldev, pin_id, configs,
+					     num_configs, false);
+}
+
+static int s32_pinconf_set(struct pinctrl_dev *pctldev,
+			   unsigned int pin_id, unsigned long *configs,
+			   unsigned int num_configs)
+{
+	return s32_pinconf_mscr_modify(pctldev, pin_id, configs, num_configs);
 }
 
 static int s32_pconf_group_set(struct pinctrl_dev *pctldev, unsigned int group,
@@ -676,8 +711,8 @@ static int s32_pconf_group_set(struct pinctrl_dev *pctldev, unsigned int group,
 	for (i = 0; i < grp->npins; i++) {
 		pin = &grp->pins[i];
 
-		ret = s32_pinconf_set(pctldev, pin->pin_id,
-				      configs, num_configs);
+		ret = s32_pinconf_mscr_write(pctldev, pin->pin_id,
+					     configs, num_configs);
 		if (ret)
 			return ret;
 	}
