@@ -1,0 +1,52 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+/*
+ * Copyright 2022 NXP
+ */
+
+&qspi {
+	macronix_memory: mx25uw51245g@0 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "jedec,spi-nor";
+		spi-max-frequency = <200000000>;
+		spi-tx-bus-width = <8>;
+		spi-rx-bus-width = <8>;
+		reg = <0>;
+
+		partitions {
+			compatible = "fixed-partitions";
+			#address-cells = <1>;
+			#size-cells = <1>;
+
+			flashimage@0 {
+				label = "Flash-Image";
+				reg = <0x0 0x4000000>;
+			};
+
+			boot@0 {
+				label = "FIP";
+				reg = <0x0 0x1e0000>;
+			};
+
+			boot-env@1e0000 {
+				label = "U-Boot-Env";
+				reg = <0x1e0000 0x10000>;
+			};
+
+			kernel@1f0000 {
+				label = "Kernel";
+				reg = <0x1f0000 0xe00000>;
+			};
+
+			dtb@ff0000 {
+				label = "DTB";
+				reg = <0xff0000 0x100000>;
+			};
+
+			rootfs@10f0000 {
+				label = "Rootfs";
+				reg = <0x10f0000 0x1f10000>;
+			};
+		};
+	};
+};
