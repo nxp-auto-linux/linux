@@ -9,6 +9,7 @@
 
 /dts-v1/;
 #include "s32r45.dtsi"
+#include "s32cc-nxp-flash-macronix.dtsi"
 #include <dt-bindings/gpio/gpio.h>
 
 / {
@@ -690,14 +691,8 @@
 	status = "okay";
 
 	mx25uw51245g@0 {
-		#address-cells = <1>;
-		#size-cells = <1>;
-		compatible = "jedec,spi-nor";
 		spi-max-frequency = <133333333>;
-		spi-tx-bus-width = <8>;
-		spi-rx-bus-width = <8>;
 		spi-no-functional-reset;
-		reg = <0>;
 	};
 };
 
