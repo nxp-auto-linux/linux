@@ -22,6 +22,12 @@ Required SPI slave node properties:
 		<2>: Bus B, CS 0
 		<3>: Bus B, CS 1
 
+Optional properties:
+  - nxp,spi-no-functional-reset: In some platforms, such as S32R45-EVB, the Macronix
+     Flash memory is only reset on POR (power on reset) and not
+	 on a functional reset. This flag is used in order to keep
+	 the flash memory in a proper state after a functional reset.
+
 Example:
 
 qspi0: quadspi@40044000 {
