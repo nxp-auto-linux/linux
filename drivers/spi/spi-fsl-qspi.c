@@ -812,7 +812,7 @@ static int fsl_qspi_probe(struct platform_device *pdev)
 			goto err_destroy_mutex;
 
 		q->no_functional_reset = of_property_read_bool(np,
-				"spi-no-functional-reset");
+				"nxp,spi-no-functional-reset");
 	}
 
 	ret = devm_spi_register_controller(dev, ctlr);
