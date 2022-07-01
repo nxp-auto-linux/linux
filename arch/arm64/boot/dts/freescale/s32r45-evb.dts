@@ -692,7 +692,7 @@
 
 	mx25uw51245g@0 {
 		spi-max-frequency = <133333333>;
-		spi-no-functional-reset;
+		nxp,spi-no-functional-reset;
 	};
 };
 
