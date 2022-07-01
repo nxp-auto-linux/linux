@@ -39,8 +39,8 @@
 		clks = &clks;
 		reset = &reset;
 
-		pcie0 = &pcie0;
-		pcie1 = &pcie1;
+		pci0 = &pcie0;
+		pci1 = &pcie1;
 
 		serdes0 = &serdes0;
 		serdes1 = &serdes1;
