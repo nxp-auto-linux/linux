@@ -128,6 +128,8 @@
 				gpio-ranges = <&pinctrl 0   0   102>,
 					/* GPIO 112-190 */
 					      <&pinctrl 112 112 79>;
+				gpio-reserved-ranges = <102 10>,
+						       <123 21>;
 
 				interrupt-controller;
 				#interrupt-cells = <2>;
