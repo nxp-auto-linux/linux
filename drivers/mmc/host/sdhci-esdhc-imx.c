@@ -1161,7 +1161,9 @@ static void sdhci_esdhc_imx_hwinit(struct sdhci_host *host)
 		 * The imx6q ROM code will change the default watermark
 		 * level setting to something insane.  Change it back here.
 		 */
-		writel(ESDHC_WTMK_DEFAULT_VAL, host->ioaddr + ESDHC_WTMK_LVL);
+		if (is_imx6q_usdhc(imx_data))
+			writel(ESDHC_WTMK_DEFAULT_VAL,
+			       host->ioaddr + ESDHC_WTMK_LVL);
 
 		/*
 		 * ROM code will change the bit burst_length_enable setting
