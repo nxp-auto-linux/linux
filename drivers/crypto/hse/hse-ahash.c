@@ -85,15 +85,15 @@ struct hse_ahash_tfm_ctx {
 /**
  * struct hse_ahash_state - crypto request state
  * @sctx: streaming mode hardware state context
- * @streaming_mode: request in HSE streaming mode
  * @cache: block-sized cache for small input fragments
  * @cache_idx: current written byte index in the cache
+ * @streaming_mode: request in HSE streaming mode
  */
 struct hse_ahash_state {
 	u8 sctx[HSE_MAX_CTX_SIZE];
-	bool streaming_mode;
 	u8 cache[HSE_AHASH_MAX_BLOCK_SIZE];
 	u8 cache_idx;
+	bool streaming_mode;
 };
 
 /**
@@ -685,23 +685,32 @@ static int hse_ahash_export(struct ahash_request *req, void *out)
 	struct hse_ahash_req_ctx *rctx = ahash_request_ctx(req);
 	struct crypto_ahash *tfm = crypto_ahash_reqtfm(req);
 	struct hse_ahash_alg *alg = hse_ahash_get_alg(tfm);
-	struct hse_ahash_state *state = out;
+	struct hse_ahash_state *state;
 	dma_addr_t sctx_dma;
 	int err = 0;
 
-	if (unlikely(!out))
-		return -EINVAL;
+	if (unlikely(!out)) {
+		err = -EINVAL;
+		goto out_release_channel;
+	}
+
+	/* alloc state buffer in DMAable area */
+	state = kzalloc(sizeof(*state), GFP_KERNEL);
+	if (IS_ERR_OR_NULL(state)) {
+		err = -ENOMEM;
+		goto out_release_channel;
+	}
 
 	/* save block-sized cache */
 	memcpy(state->cache, rctx->cache, rctx->cache_idx);
 	state->cache_idx = rctx->cache_idx;
 	state->streaming_mode = rctx->streaming_mode;
 
-	if (!state->streaming_mode)
-		goto out_release_channel;
-
 	/* reset state buffer */
 	memzero_explicit(state->sctx, HSE_MAX_CTX_SIZE);
+
+	if (!state->streaming_mode)
+		goto out_free_state;
 
 	/* save hardware state */
 	sctx_dma = dma_map_single(alg->dev, state->sctx, HSE_MAX_CTX_SIZE,
@@ -722,6 +731,10 @@ static int hse_ahash_export(struct ahash_request *req, void *out)
 			__func__, crypto_ahash_alg_name(tfm), err);
 
 	dma_unmap_single(alg->dev, sctx_dma, HSE_MAX_CTX_SIZE, DMA_FROM_DEVICE);
+
+out_free_state:
+	memcpy(out, state, sizeof(*state));
+	kfree(state);
 out_release_channel:
 	hse_channel_release(alg->dev, rctx->channel);
 	dma_unmap_single(alg->dev, rctx->buf_dma, rctx->buflen, DMA_TO_DEVICE);
@@ -741,16 +754,23 @@ static int hse_ahash_import(struct ahash_request *req, const void *in)
 	struct crypto_ahash *tfm = crypto_ahash_reqtfm(req);
 	struct hse_ahash_alg *alg = hse_ahash_get_alg(tfm);
 	unsigned int blocksize = crypto_ahash_blocksize(tfm);
-	struct hse_ahash_state *state = (void *)in;
+	struct hse_ahash_state *state;
 	dma_addr_t sctx_dma;
 	int err;
 
 	if (unlikely(!in))
 		return -EINVAL;
 
-	rctx->buf = kzalloc(blocksize, GFP_KERNEL);
-	if (IS_ERR_OR_NULL(rctx->buf))
+	/* alloc state buffer in DMAable area */
+	state = kmemdup(in, sizeof(*state), GFP_KERNEL);
+	if (IS_ERR_OR_NULL(state))
 		return -ENOMEM;
+
+	rctx->buf = kzalloc(blocksize, GFP_KERNEL);
+	if (IS_ERR_OR_NULL(rctx->buf)) {
+		err = -ENOMEM;
+		goto err_free_state;
+	}
 	rctx->buf_dma = dma_map_single(alg->dev, rctx->buf, blocksize,
 				       DMA_TO_DEVICE);
 	if (unlikely(dma_mapping_error(alg->dev, rctx->buf_dma))) {
@@ -769,8 +789,10 @@ static int hse_ahash_import(struct ahash_request *req, const void *in)
 	if (err)
 		goto err_unmap_buf;
 
-	if (!state->streaming_mode)
+	if (!state->streaming_mode) {
+		kfree(state);
 		return 0;
+	}
 
 	/* restore hardware state */
 	sctx_dma = dma_map_single(alg->dev, state->sctx, HSE_MAX_CTX_SIZE,
@@ -793,6 +815,7 @@ static int hse_ahash_import(struct ahash_request *req, const void *in)
 	}
 
 	dma_unmap_single(alg->dev, sctx_dma, HSE_MAX_CTX_SIZE, DMA_TO_DEVICE);
+	kfree(state);
 
 	return 0;
 err_unmap_sctx:
@@ -804,6 +827,8 @@ err_unmap_buf:
 err_free_buf:
 	kfree(rctx->buf);
 	rctx->buflen = 0;
+err_free_state:
+	kfree(state);
 	return err;
 }
 
