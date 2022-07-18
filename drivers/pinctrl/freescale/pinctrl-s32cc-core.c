@@ -41,6 +41,8 @@
 #define S32CC_MSCR_OBE		BIT(21)
 #define S32CC_MSCR_CFG_MASK	GENMASK(21, 12)
 
+#define S32CC_NXP_PINS		"nxp,pins"
+
 static u32 get_pin_no(u32 pinmux)
 {
 	return pinmux >> S32CC_PIN_NO_SHIFT;
@@ -943,9 +945,9 @@ static int s32cc_pinctrl_probe_dt(struct platform_device *pdev,
 				struct s32cc_pinctrl *ipctl)
 {
 	struct device_node *np = pdev->dev.of_node;
-	struct of_phandle_args pinspec;
 	struct device_node *child;
 	struct s32cc_pinctrl_soc_info *info = ipctl->info;
+	u32 start, end;
 	u32 nfuncs = 0;
 	u32 i = 0;
 	int ret;
@@ -954,14 +956,22 @@ static int s32cc_pinctrl_probe_dt(struct platform_device *pdev,
 		return -ENODEV;
 
 	for (i = 0; i < S32CC_PINCTRL_NUM_REGIONS; ++i) {
-		ret = of_parse_phandle_with_fixed_args(np, "pins", 2, i,
-						       &pinspec);
+		ret = of_property_read_u32_index(np, S32CC_NXP_PINS, i * 2,
+						 &start);
 		if (ret) {
-			dev_err(&pdev->dev, "pins0 error\n");
+			dev_err(&pdev->dev, "%s error\n", S32CC_NXP_PINS);
 			return -EINVAL;
 		}
-		ipctl->regions[i].start_pin = pinspec.args[0];
-		ipctl->regions[i].end_pin = pinspec.args[1];
+
+		ret = of_property_read_u32_index(np, S32CC_NXP_PINS, i * 2 + 1,
+						 &end);
+		if (ret) {
+			dev_err(&pdev->dev, "%s error\n", S32CC_NXP_PINS);
+			return -EINVAL;
+		}
+
+		ipctl->regions[i].start_pin = start;
+		ipctl->regions[i].end_pin = end;
 	}
 
 	nfuncs = of_get_child_count(np);
