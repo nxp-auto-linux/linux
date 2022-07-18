@@ -96,13 +96,13 @@
 				      <IMCRS_SIUL2_1_0 0 0x0 0x45c>,
 				      <IMCRS_SIUL2_1_1 0 0x0 0x108>;
 
-					/* MSCR range */
-				pins = <&pinctrl 0   101
-					&pinctrl 112 190
-					/* IMCR range */
-					&pinctrl 512 595
-					&pinctrl 631 909
-					&pinctrl 942 1007>;
+				/* MSCR range */
+				nxp,pins = <0   101
+					    112 190
+				/* IMCR range */
+					    512 595
+					    631 909
+					    942 1007>;
 				status = "okay";
 			};
 
