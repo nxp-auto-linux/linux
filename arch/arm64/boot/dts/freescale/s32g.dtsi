@@ -63,8 +63,10 @@
 
 				 /* MSCR 0-101 */
 				 <MSCRS_SIUL2_0 0x0 0x0 0x4009c240 0x0 0x198>,
-				 /* MSCR 112-190 */
-				 <MSCRS_SIUL2_1 0x0 0x0 0x44010400 0x0 0x13c>,
+				 /* MSCR 112-122 */
+				 <MSCRS_SIUL2_1_0 0x0 0x0 0x44010400 0x0 0x2c>,
+				 /* MSCR 144-190 */
+				 <MSCRS_SIUL2_1_1 0x0 0x0 0x44010480 0x0 0xbc>,
 
 				 /* IMCR range 512–595 */
 				 <IMCRS_SIUL2_0 0x0 0x0 0x4009ca40 0x0 0x150>,
@@ -90,15 +92,17 @@
 				compatible = "nxp,s32g-siul2-pinctrl";
 				#pinctrl-cells = <2>;
 
-				reg = <MSCRS_SIUL2_0   0 0x0 0x198>,
-				      <MSCRS_SIUL2_1   0 0x0 0x13c>,
-				      <IMCRS_SIUL2_0   0 0x0 0x150>,
-				      <IMCRS_SIUL2_1_0 0 0x0 0x45c>,
-				      <IMCRS_SIUL2_1_1 0 0x0 0x108>;
+				reg = <MSCRS_SIUL2_0    0 0x0 0x198>,
+				      <MSCRS_SIUL2_1_0  0 0x0 0x2c>,
+				      <MSCRS_SIUL2_1_1  0 0x0 0xbc>,
+				      <IMCRS_SIUL2_0    0 0x0 0x150>,
+				      <IMCRS_SIUL2_1_0  0 0x0 0x45c>,
+				      <IMCRS_SIUL2_1_1  0 0x0 0x108>;
 
 				/* MSCR range */
 				nxp,pins = <0   101
-					    112 190
+					    112 122
+					    144 190
 				/* IMCR range */
 					    512 595
 					    631 909
