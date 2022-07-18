@@ -29,7 +29,6 @@
 #include "../pinctrl-utils.h"
 #include "pinctrl-s32cc.h"
 
-#define S32CC_PINCTRL_NUM_REGIONS	5
 #define S32CC_PIN_NO_SHIFT	4
 
 #define S32CC_MSCR_SSS_MASK	GENMASK(2, 0)
@@ -87,7 +86,7 @@ struct s32cc_pinctrl_context {
 struct s32cc_pinctrl {
 	struct device *dev;
 	struct pinctrl_dev *pctl;
-	struct s32cc_pinctrl_mem_region regions[S32CC_PINCTRL_NUM_REGIONS];
+	struct s32cc_pinctrl_mem_region *regions;
 	struct s32cc_pinctrl_soc_info *info;
 	struct list_head gpio_configs;
 	/* lock for the `gpio_configs` list */
@@ -117,8 +116,9 @@ static struct s32cc_pinctrl_mem_region *
 {
 	int i;
 	struct s32cc_pinctrl *ipctl = pinctrl_dev_get_drvdata(pctldev);
+	u32 mem_regions = ipctl->info->mem_regions;
 
-	for (i = 0; i < S32CC_PINCTRL_NUM_REGIONS; ++i) {
+	for (i = 0; i < mem_regions; ++i) {
 		if (pin >= ipctl->regions[i].start_pin &&
 		    pin <= ipctl->regions[i].end_pin) {
 			return &ipctl->regions[i];
@@ -944,9 +944,11 @@ static int s32cc_pinctrl_parse_functions(struct device_node *np,
 static int s32cc_pinctrl_probe_dt(struct platform_device *pdev,
 				struct s32cc_pinctrl *ipctl)
 {
+	struct s32cc_pinctrl_soc_info *info = ipctl->info;
 	struct device_node *np = pdev->dev.of_node;
 	struct device_node *child;
-	struct s32cc_pinctrl_soc_info *info = ipctl->info;
+	struct resource *res;
+	int mem_regions;
 	u32 start, end;
 	u32 nfuncs = 0;
 	u32 i = 0;
@@ -955,7 +957,23 @@ static int s32cc_pinctrl_probe_dt(struct platform_device *pdev,
 	if (!np)
 		return -ENODEV;
 
-	for (i = 0; i < S32CC_PINCTRL_NUM_REGIONS; ++i) {
+	mem_regions = of_property_count_elems_of_size(np, S32CC_NXP_PINS,
+						      sizeof(u32));
+	if (mem_regions < 0)
+		return mem_regions;
+
+	/* The array is composed of (start, end) pairs */
+	mem_regions /= 2;
+
+	info->mem_regions = mem_regions;
+
+	ipctl->regions = devm_kzalloc(&pdev->dev,
+				      mem_regions * sizeof(*ipctl->regions),
+				      GFP_KERNEL);
+	if (!ipctl->regions)
+		return -ENOMEM;
+
+	for (i = 0; i < mem_regions; ++i) {
 		ret = of_property_read_u32_index(np, S32CC_NXP_PINS, i * 2,
 						 &start);
 		if (ret) {
@@ -972,6 +990,11 @@ static int s32cc_pinctrl_probe_dt(struct platform_device *pdev,
 
 		ipctl->regions[i].start_pin = start;
 		ipctl->regions[i].end_pin = end;
+
+		res = platform_get_resource(pdev, IORESOURCE_MEM, i);
+		ipctl->regions[i].base = devm_ioremap_resource(&pdev->dev, res);
+		if (IS_ERR(ipctl->regions[i].base))
+			return PTR_ERR(ipctl->regions[i].base);
 	}
 
 	nfuncs = of_get_child_count(np);
@@ -1007,18 +1030,17 @@ int s32cc_pinctrl_probe(struct platform_device *pdev,
 		      struct s32cc_pinctrl_soc_info *info)
 {
 	struct s32cc_pinctrl *ipctl;
-	struct resource *res;
 	int ret;
 	struct pinctrl_desc *desc;
 #ifdef CONFIG_PM_SLEEP
 	struct s32cc_pinctrl_context *saved_context;
 #endif
-	int i;
 
 	if (!info || !info->pins || !info->npins) {
 		dev_err(&pdev->dev, "wrong pinctrl info\n");
 		return -EINVAL;
 	}
+
 	info->dev = &pdev->dev;
 
 	/* Create state holders etc for this driver */
@@ -1032,13 +1054,6 @@ int s32cc_pinctrl_probe(struct platform_device *pdev,
 		return -ENOMEM;
 
 	memcpy(desc, &s32cc_pinctrl_desc, sizeof(*desc));
-
-	for (i = 0; i < S32CC_PINCTRL_NUM_REGIONS; ++i) {
-		res = platform_get_resource(pdev, IORESOURCE_MEM, i);
-		ipctl->regions[i].base = devm_ioremap_resource(&pdev->dev, res);
-		if (IS_ERR(ipctl->regions[i].base))
-			return PTR_ERR(ipctl->regions[i].base);
-	}
 
 	desc->name = dev_name(&pdev->dev);
 	desc->pins = info->pins;
