@@ -75,6 +75,7 @@ struct s32cc_pinctrl_soc_info {
 	unsigned int nfunctions;
 	unsigned int flags;
 	unsigned int grp_index;
+	unsigned int mem_regions;
 };
 
 #define S32CC_PINCTRL_PIN(pin)	PINCTRL_PIN(pin, #pin)
