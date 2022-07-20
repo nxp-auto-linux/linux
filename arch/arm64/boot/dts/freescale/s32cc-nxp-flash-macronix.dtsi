@@ -5,8 +5,6 @@
 
 &qspi {
 	macronix_memory: mx25uw51245g@0 {
-		#address-cells = <1>;
-		#size-cells = <1>;
 		compatible = "jedec,spi-nor";
 		spi-max-frequency = <200000000>;
 		spi-tx-bus-width = <8>;
