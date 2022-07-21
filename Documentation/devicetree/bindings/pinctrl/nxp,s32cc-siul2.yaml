@@ -24,10 +24,11 @@ properties:
     maxItems: 5
     description: base address and length of the PCIe controller
 
-  pins:
-    #$ref: /schemas/types.yaml#/definitions/uint32-array
+  nxp,pins:
+    $ref: /schemas/types.yaml#/definitions/uint32-array
     description:
-      The list of pin identifiers that properties in the node apply to.
+      A list composed of [start, end] pins that correspond to each of the
+      memory regions reserved.
 
   '#pinctrl-cells':
     const: 2
@@ -35,7 +36,7 @@ properties:
 required:
   - compatible
   - reg
-  - pins
+  - nxp,pins
   - '#pinctrl-cells'
 
 
@@ -60,11 +61,12 @@ examples:
         compatible = "nxp,s32g-siul2-pinctrl";
         #pinctrl-cells = <2>;
 
-        pins = <&pinctrl 0   101
-                &pinctrl 112 190
-                &pinctrl 512 595
-                &pinctrl 631 909
-                &pinctrl 942 1007>;
+        nxp,pins = <0   101
+                    112 122
+                    122 144
+                    512 595
+                    631 909
+                    942 1007>;
 
         reg = <0x4009c240 0x198>,
               <0x4009c440 0x13c>,
