@@ -65,6 +65,10 @@ properties:
     description:
       GPIO ranges that can be used as EIRQs
 
+  gpio-reserved-ranges:
+    description:
+      A list of start GPIO, number of GPIOs that are invalid if any such.
+
 patternProperties:
   "^(hog-[0-9]+|.+-hog(-[0-9]+)?)$":
     type: object
@@ -115,6 +119,7 @@ examples:
       gpio-ranges = <&pinctrl 0   0   102>,
                     /* GPIO 112-190 */
                     <&pinctrl 112 112 79>;
+      gpio-reserved-ranges = <102 10>, <123 21>;
       interrupt-controller;
       #interrupt-cells = <2>;
       interrupts = <GIC_SPI 210 IRQ_TYPE_LEVEL_HIGH>;
