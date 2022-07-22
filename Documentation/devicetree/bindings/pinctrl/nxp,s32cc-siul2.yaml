@@ -21,7 +21,7 @@ properties:
 
   reg:
     minItems: 5
-    maxItems: 5
+    maxItems: 6
     description: base address and length of the PCIe controller
 
   nxp,pins:
