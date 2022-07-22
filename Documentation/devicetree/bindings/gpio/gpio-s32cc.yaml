@@ -61,10 +61,6 @@ properties:
     description:
       Interaction with the PINCTRL subsystem
 
-  eirq-ranges:
-    description:
-      GPIO ranges that can be used as EIRQs
-
   gpio-reserved-ranges:
     description:
       A list of start GPIO, number of GPIOs that are invalid if any such.
