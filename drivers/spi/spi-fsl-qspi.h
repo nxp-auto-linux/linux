@@ -7,7 +7,7 @@
  * Copyright (C) 2018 Bootlin
  * Copyright (C) 2018 exceet electronics GmbH
  * Copyright (C) 2018 Kontron Electronics GmbH
- * Copyright 2021 NXP
+ * Copyright 2021-2022 NXP
  *
  * Transition to SPI MEM interface:
  * Authors:
@@ -250,6 +250,7 @@ struct fsl_qspi {
 
 void qspi_writel(struct fsl_qspi *q, u32 val, void __iomem *addr);
 u32 qspi_readl(struct fsl_qspi *q, void __iomem *addr);
+int is_s32g3_qspi(struct fsl_qspi *q);
 void reset_bootrom_settings(struct fsl_qspi *q);
 int enable_spi(struct fsl_qspi *q, bool force);
 int s32gen1_adjust_op_size(struct spi_mem *mem, struct spi_mem_op *op);
