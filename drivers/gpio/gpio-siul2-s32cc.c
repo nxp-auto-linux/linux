@@ -1025,20 +1025,29 @@ static int siul2_gen_names(struct device *dev, int cnt, char **names,
 static int siul2_gpio_populate_names(struct device *dev,
 				     struct siul2_gpio_dev *gpio_dev)
 {
+	struct device_node *np = dev->of_node;
 	char ch_index = 'A';
 	int num_index = 0;
+	int num_ranges;
+	u32 base_gpio;
+	u32 num_gpio;
 	char **names;
 	int ret;
+	int i, j;
 
 	names = devm_kcalloc(dev, gpio_dev->gc.ngpio, sizeof(*names),
 			     GFP_KERNEL);
-	if (!names)
+	if (!names) {
+		dev_err(dev, "Could not allocate names for GPIOs\n");
 		return -ENOMEM;
+	}
 
 	ret = siul2_gen_names(dev, gpio_dev->siul2[0].gpio_num, names,
 			      &ch_index, &num_index);
-	if (ret)
+	if (ret) {
+		dev_err(dev, "Could not set names for SIUL20 GPIOs\n");
 		return ret;
+	}
 
 	if (gpio_dev->platdata->reset_cnt)
 		num_index = 0;
@@ -1047,10 +1056,50 @@ static int siul2_gpio_populate_names(struct device *dev,
 	ret = siul2_gen_names(dev, gpio_dev->siul2[1].gpio_num,
 			      names + gpio_dev->siul2[1].gpio_base, &ch_index,
 			      &num_index);
-	if (ret)
+	if (ret) {
+		dev_err(dev, "Could not set names for SIUL21 GPIOs\n");
 		return ret;
+	}
 
 	gpio_dev->gc.names = (const char *const *)names;
+
+	/* Parse the gpio-reserved-ranges to know what GPIOs to exclude. */
+
+	num_ranges = of_property_count_u32_elems(dev->of_node,
+						 "gpio-reserved-ranges");
+
+	/* The "gpio-reserved-ranges" is optional. */
+	if (num_ranges < 0)
+		return 0;
+	num_ranges /= 2;
+
+	for (i = 0; i < num_ranges; ++i) {
+		ret = of_property_read_u32_index(np, "gpio-reserved-ranges",
+						 i * 2, &base_gpio);
+		if (ret) {
+
+			dev_err(dev, "Could not parse the start GPIO: %d\n", ret);
+			return ret;
+		}
+
+		ret = of_property_read_u32_index(np, "gpio-reserved-ranges",
+						 i * 2 + 1, &num_gpio);
+		if (ret) {
+			dev_err(dev, "Could not parse num. GPIOs: %d\n", ret);
+			return ret;
+		}
+
+		if (base_gpio + num_gpio > gpio_dev->gc.ngpio) {
+			dev_err(dev, "Reserved GPIOs outside of GPIO range\n");
+			return -EINVAL;
+		}
+
+		/* Remove names set for reserved GPIOs. */
+		for (j = base_gpio; j < base_gpio + num_gpio; ++j) {
+			devm_kfree(dev, names[j]);
+			names[j] = NULL;
+		}
+	}
 
 	return 0;
 }
