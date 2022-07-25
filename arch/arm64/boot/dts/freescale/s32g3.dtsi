@@ -180,3 +180,7 @@
 &pcie1 {
 	pcie_device_id = <0x4300>;
 };
+
+&qspi {
+	compatible = "nxp,s32g3-qspi";
+};
