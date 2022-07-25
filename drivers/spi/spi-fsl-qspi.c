@@ -104,6 +104,14 @@ static const struct fsl_qspi_devtype_data s32gen1_data = {
 	.little_endian = true,
 };
 
+static const struct fsl_qspi_devtype_data s32g3_data = {
+	.rxfifo = SZ_128,
+	.txfifo = SZ_256,
+	.ahb_buf_size = SZ_64M,
+	.quirks = 0,
+	.little_endian = true,
+};
+
 static inline int needs_swap_endian(struct fsl_qspi *q)
 {
 	return q->devtype_data->quirks & QUADSPI_QUIRK_SWAP_ENDIAN;
@@ -168,7 +176,13 @@ u32 qspi_readl(struct fsl_qspi *q, void __iomem *addr)
 
 static inline int is_s32gen1_qspi(struct fsl_qspi *q)
 {
-	return q->devtype_data == &s32gen1_data;
+	return (q->devtype_data == &s32gen1_data) ||
+		(q->devtype_data == &s32g3_data);
+}
+
+int is_s32g3_qspi(struct fsl_qspi *q)
+{
+	return q->devtype_data == &s32g3_data;
 }
 
 static irqreturn_t fsl_qspi_irq_handler(int irq, void *dev_id)
@@ -913,6 +927,7 @@ static const struct of_device_id fsl_qspi_dt_ids[] = {
 	{ .compatible = "fsl,ls2080a-qspi", .data = &ls2080a_data, },
 	{ .compatible = "nxp,s32cc-qspi", .data = &s32gen1_data, },
 	{ .compatible = "nxp,s32g-qspi", .data = &s32gen1_data, },
+	{ .compatible = "nxp,s32g3-qspi", .data = &s32g3_data, },
 	{ .compatible = "nxp,s32r45-qspi", .data = &s32gen1_data, },
 	{ /* sentinel */ }
 };

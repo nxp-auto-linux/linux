@@ -846,6 +846,10 @@ static int enable_ddr(struct fsl_qspi *q)
 	mcr |= ddr_config.mcr;
 	qspi_writel(q, mcr, base + QUADSPI_MCR);
 
+	if (is_s32g3_qspi(q))
+		ddr_config.smpr = QUADSPI_SMPR_DLLFSMPFA_NTH(3) |
+			QUADSPI_SMPR_DLLFSMPFB_NTH(3);
+
 	qspi_writel(q, ddr_config.flshcr, base + QUADSPI_FLSHCR);
 	qspi_writel(q, ddr_config.sfacr, base + QUADSPI_SFACR);
 	qspi_writel(q, ddr_config.smpr, base + QUADSPI_SMPR);
