@@ -18,6 +18,7 @@ properties:
   compatible:
     enum:
       - fsl,s32cc-dwmac
+      - nxp,s32cc-dwmac
 
   reg:
     items:
@@ -121,7 +122,7 @@ examples:
       #size-cells = <2>;
 
       gmac0: ethernet@4033c000 {
-        compatible = "fsl,s32cc-dwmac";
+        compatible = "nxp,s32cc-dwmac", "fsl,s32cc-dwmac";
         reg = <0x0 0x4033c000 0x0 0x2000>, /* gmac IP */
               <0x0 0x4007C004 0x0 0x4>;    /* S32 CTRL_STS reg */
         interrupt-parent = <&gic>;
