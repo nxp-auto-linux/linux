@@ -31,19 +31,36 @@ properties:
   interrupts:
     maxItems: 1
 
+  clocks:
+    items:
+      - description: lin clock
+      - description: ipg clock
+
+  clock-names:
+    items:
+      - const: lin
+      - const: ipg
+
 required:
   - compatible
   - reg
   - interrupts
+  - clocks
+  - clock-names
 
 unevaluatedProperties: false
 
 examples:
   - |
+    #include <dt-bindings/clock/s32cc-scmi-clock.h>
+
     serial@401c8000 {
         compatible = "nxp,s32cc-linflexuart";
         reg = <0x401C8000 0x3000>;
         interrupts = <0 82 1>;
+        clocks = <&clks S32CC_SCMI_CLK_LINFLEX_LIN>,
+                 <&clks S32CC_SCMI_CLK_LINFLEX_XBAR>;
+        clock-names = "lin", "ipg";
     };
 
   - |
@@ -51,4 +68,7 @@ examples:
         compatible = "fsl,s32v234-linflexuart";
         reg = <0x40053000 0x1000>;
         interrupts = <0 59 4>;
+        clocks = <&clks S32V234_CLK_LIN0>,
+                 <&clks S32V234_CLK_LIN0_IPG>;
+        clock-names = "lin", "ipg";
     };
