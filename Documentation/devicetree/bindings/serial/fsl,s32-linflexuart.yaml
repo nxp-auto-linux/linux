@@ -41,6 +41,16 @@ properties:
       - const: lin
       - const: ipg
 
+  dmas:
+    items:
+      - description: DMA controller phandle and request line for RX
+      - description: DMA controller phandle and request line for TX
+
+  dma-names:
+    items:
+      - const: rx
+      - const: tx
+
 required:
   - compatible
   - reg
@@ -61,6 +71,9 @@ examples:
         clocks = <&clks S32CC_SCMI_CLK_LINFLEX_LIN>,
                  <&clks S32CC_SCMI_CLK_LINFLEX_XBAR>;
         clock-names = "lin", "ipg";
+        dmas = <&edma0 0 4>,
+               <&edma0 0 3>;
+        dma-names = "rx", "tx";
     };
 
   - |
@@ -71,4 +84,7 @@ examples:
         clocks = <&clks S32V234_CLK_LIN0>,
                  <&clks S32V234_CLK_LIN0_IPG>;
         clock-names = "lin", "ipg";
+        dmas = <&edma 0 20>,
+               <&edma 0 19>;
+        dma-names = "rx", "tx";
     };
