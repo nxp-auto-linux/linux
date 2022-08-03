@@ -122,6 +122,9 @@
 
 static const struct of_device_id linflex_dt_ids[] = {
 	{
+		.compatible = "nxp,s32cc-linflexuart",
+	},
+	{
 		.compatible = "fsl,s32v234-linflexuart",
 	},
 	{ /* sentinel */ }
@@ -800,6 +803,8 @@ static int __init linflex_early_console_setup(struct earlycon_device *device,
 	return 0;
 }
 
+OF_EARLYCON_DECLARE(linflex, "nxp,s32cc-linflexuart",
+		    linflex_early_console_setup);
 OF_EARLYCON_DECLARE(linflex, "fsl,s32v234-linflexuart",
 		    linflex_early_console_setup);
 
