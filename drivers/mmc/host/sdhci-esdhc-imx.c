@@ -314,6 +314,10 @@ static struct esdhc_soc_data usdhc_imx8mm_data = {
 			| ESDHC_FLAG_STATE_LOST_IN_LPMODE,
 };
 
+static struct esdhc_soc_data usdhc_s32cc_data = {
+	.flags = ESDHC_FLAG_USDHC,
+};
+
 struct pltfm_imx_data {
 	u32 scratchpad;
 	struct pinctrl *pinctrl;
@@ -348,6 +352,7 @@ static const struct of_device_id imx_esdhc_dt_ids[] = {
 	{ .compatible = "fsl,imx7ulp-usdhc", .data = &usdhc_imx7ulp_data, },
 	{ .compatible = "fsl,imx8qxp-usdhc", .data = &usdhc_imx8qxp_data, },
 	{ .compatible = "fsl,imx8mm-usdhc", .data = &usdhc_imx8mm_data, },
+	{ .compatible = "nxp,s32cc-usdhc", .data = &usdhc_s32cc_data, },
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, imx_esdhc_dt_ids);
@@ -360,6 +365,11 @@ static inline int is_imx25_esdhc(struct pltfm_imx_data *data)
 static inline int is_imx53_esdhc(struct pltfm_imx_data *data)
 {
 	return data->socdata == &esdhc_imx53_data;
+}
+
+static inline int is_s32cc_usdhc(struct pltfm_imx_data *data)
+{
+	return data->socdata == &usdhc_s32cc_data;
 }
 
 static inline int esdhc_is_usdhc(struct pltfm_imx_data *data)
