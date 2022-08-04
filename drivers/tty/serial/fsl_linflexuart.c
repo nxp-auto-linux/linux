@@ -410,6 +410,8 @@ linflex_set_termios(struct uart_port *port, struct ktermios *termios,
 	unsigned long cr, old_cr, cr1;
 	unsigned int old_csize = old ? old->c_cflag & CSIZE : CS8;
 
+	spin_lock_irqsave(&port->lock, flags);
+
 	cr = readl(port->membase + UARTCR);
 	old_cr = cr;
 
@@ -477,8 +479,6 @@ linflex_set_termios(struct uart_port *port, struct ktermios *termios,
 	} else {
 		cr &= ~LINFLEXD_UARTCR_PCE;
 	}
-
-	spin_lock_irqsave(&port->lock, flags);
 
 	port->read_status_mask = 0;
 
