@@ -603,7 +603,7 @@ static void disable_operators(struct fsl_qspi *q,
 static int memory_enable_ddr(struct fsl_qspi *q)
 {
 	u8 wren_cfg, rdcr2_cfg, rdsr_cfg, wrcr2_cfg;
-	u8 cfg2_reg = 0x0;
+	u32 cfg2_reg = 0x0;
 	u8 status = 0;
 	u32 mcr2;
 	void __iomem *base = q->iobase;
