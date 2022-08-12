@@ -248,6 +248,8 @@ enum s32cc_pins {
 	S32R45_IMCR_Ethernet_RX_DV = 530,
 	S32R45_IMCR_Ethernet_TX_CLK = 538,
 	S32R45_IMCR_Ethernet_REF_CLK = 535,
+	/* GMAC1 */
+	S32R45_IMCR_Ethernet1_MDIO = 659,
 
 	S32R45_IMCR_SIUL_EIRQ0 =  696,
 	S32R45_IMCR_SIUL_EIRQ1 =  697,
@@ -548,6 +550,9 @@ static const struct pinctrl_pin_desc s32r45_pinctrl_pads_siul2_1[] = {
 	S32CC_PINCTRL_PIN(S32R45_IMCR_SIUL_EIRQ29),
 	S32CC_PINCTRL_PIN(S32R45_IMCR_SIUL_EIRQ30),
 	S32CC_PINCTRL_PIN(S32R45_IMCR_SIUL_EIRQ31),
+
+	/* GMAC1 */
+	S32CC_PINCTRL_PIN(S32R45_IMCR_Ethernet1_MDIO),
 };
 
 static struct s32cc_pinctrl_soc_info s32r45_pinctrl_info_0 = {
