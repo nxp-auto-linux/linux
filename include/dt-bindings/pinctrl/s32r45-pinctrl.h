@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: (GPL-2.0+ OR BSD-3-Clause) */
 /*
- * Copyright 2018-2020 NXP
+ * Copyright 2018-2021 NXP
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -246,7 +246,7 @@
 
 /* QSPI configuration */
 /* Note as-is DQS not enabled OR PAD_CTL_QSPI_A_DQS to enable */
-#define S32CC_PAD_PF13__QSPI_A_DQS        548 PAD_CTL_SRC_SIG_SEL2
+#define S32CC_PAD_PF13__QSPI_A_DQS_IN     548 PAD_CTL_SRC_SIG_SEL2
 #define S32CC_PAD_PD4__QSPI_B_DQS         558 PAD_CTL_SRC_SIG_SEL2
 
 #define S32CC_PAD_PF5__QSPI_A_DATA0_IN    540 PAD_CTL_SRC_SIG_SEL2
@@ -297,7 +297,7 @@
 #define S32CC_PAD_PD5__QSPI_B_DATA7_IN    555 PAD_CTL_SRC_SIG_SEL2
 #define S32CC_PAD_PD5__QSPI_B_DATA7_OUT   53 PAD_CTL_QSPI_B_DATA0_7
 
-#define S32CC_PAD_PG5__QSPI_A_CS1         92  (PAD_CTL_QSPI_CLK_BASE | \
+#define S32CC_PAD_PG5__QSPI_A_CS1         101  (PAD_CTL_QSPI_CLK_BASE | \
 						  PAD_CTL_QSPI_A_CS1_MUX)
 #define S32CC_PAD_PD1__QSPI_B_CS1         93  (PAD_CTL_QSPI_CLK_BASE | \
 						  PAD_CTL_QSPI_B_CS1_MUX)
@@ -312,8 +312,14 @@
 #define S32CC_PAD_PD6__QSPI_B_SCK         54  (PAD_CTL_QSPI_CLK_BASE | \
 						  PAD_CTL_QSPI_B_SCK_MUX)
 
-#define S32CC_PAD_PG2__QSPI_CK2           98  (PAD_CTL_QSPI_CLK_BASE | \
-						  PAD_CTL_QSPI_CK2_MUX)
+#define S32CC_PAD_PF13__QSPI_A_DQS_OUT    93  (PAD_CTL_SRC_SIG_SEL1 | \
+						  PAD_CTL_QSPI_A_DQS)
+#define S32CC_PAD_PG1__QSPI_A_B_SCK       97  (PAD_CTL_SRC_SIG_SEL1 | \
+						  PAD_CTL_QSPI_A_DQS)
+#define S32CC_PAD_PG2__QSPI_A_SCK2        98  (PAD_CTL_SRC_SIG_SEL1 | \
+						  PAD_CTL_QSPI_A_DQS)
+#define S32CC_PAD_PG3__QSPI_A_B_SCK2      99  (PAD_CTL_SRC_SIG_SEL1 | \
+						  PAD_CTL_QSPI_A_DQS)
 
 /* I2C configuration */
 #define S32CC_PAD_PB0__I2C0_DATA_OUT      16  PAD_CTL_I2C0_MSCR_SDA
