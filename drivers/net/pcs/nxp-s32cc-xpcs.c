@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /**
- * Copyright 2021 NXP
+ * Copyright 2021-2022 NXP
  */
 #include <linux/device.h>
 #include <linux/errno.h>
@@ -61,7 +61,8 @@
 #define   PSEQ_STATE(val)			(((val) & PSEQ_STATE_MASK) >> \
 						 PSEQ_STATE_OFF)
 #define     POWER_GOOD_STATE			0x4
-#define	VR_MII_GEN5_12G_16G_TX_GENCTRL1 0x1F8031U
+#define VR_MII_GEN5_12G_16G_TX_GENCTRL1 0x1F8031U
+#define   VBOOST_EN_0				BIT(4)
 #define   TX_CLK_RDY_0				BIT(12)
 #define	VR_MII_GEN5_12G_16G_TX_GENCTRL2 0x1F8032U
 #define	  TX_REQ_0					BIT(0)
@@ -73,6 +74,8 @@
 #define VR_MII_GEN5_12G_16G_TX_EQ_CTRL0		0x1F8036U
 #define   TX_EQ_MAIN_OFF			8
 #define   TX_EQ_MAIN_MASK			(0x3F << TX_EQ_MAIN_OFF)
+#define VR_MII_GEN5_12G_16G_TX_EQ_CTRL1		0x1F8037U
+#define   TX_EQ_OVR_RIDE			BIT(6)
 #define VR_MII_CONSUMER_10G_TX_TERM_CTRL	0x1F803CU
 #define   TX0_TERM_OFF				0
 #define   TX0_TERM_MASK				0x7
@@ -86,6 +89,7 @@
 #define     RX0_BAUD_DIV_2			0x1
 #define     RX0_BAUD_DIV_8			0x3
 #define VR_MII_GEN5_12G_16G_CDR_CTRL		0x1F8056U
+#define   CDR_SSC_EN_0				BIT(4)
 #define   VCO_LOW_FREQ_0			BIT(8)
 #define VR_MII_GEN5_12G_16G_MPLL_CMN_CTRL	0x1F8070U
 #define   MPLLB_SEL_0				BIT(4)
@@ -119,6 +123,8 @@
 #define VR_MII_GEN5_12G_MPLLB_CTRL3		0x1F8078U
 #define   MPLLB_BANDWIDTH_OFF			0x0
 #define   MPLLB_BANDWIDTH_MASK			0xFFFF
+#define VR_MII_GEN5_12G_16G_MISC_CTRL0		0x1F8090U
+#define   PLL_CTRL				BIT(15)
 #define VR_MII_GEN5_12G_16G_REF_CLK_CTRL	0x1F8091U
 #define   REF_CLK_EN				BIT(0)
 #define   REF_USE_PAD				BIT(1)
@@ -170,10 +176,44 @@ struct s32cc_xpcs {
 	struct regmap *regmap;
 	bool ext_clk;
 	bool mhz125;
-	bool pcie_shared;
+	enum pcie_xpcs_mode pcie_shared;
 };
 
 typedef bool (*xpcs_poll_func_t)(struct s32cc_xpcs *);
+
+static const struct regmap_range xpcs_wr_ranges[] = {
+	regmap_reg_range(0x1F0000, 0x1F0000),
+	regmap_reg_range(0x1F0004, 0x1F0004),
+	regmap_reg_range(0x1F8000, 0x1F8003),
+	regmap_reg_range(0x1F8005, 0x1F8005),
+	regmap_reg_range(0x1F800A, 0x1F800A),
+	regmap_reg_range(0x1F8012, 0x1F8012),
+	regmap_reg_range(0x1F8015, 0x1F8015),
+	regmap_reg_range(0x1F8030, 0x1F8037),
+	regmap_reg_range(0x1F803C, 0x1F803C),
+	regmap_reg_range(0x1F8050, 0x1F8058),
+	regmap_reg_range(0x1F805C, 0x1F805E),
+	regmap_reg_range(0x1F8064, 0x1F8064),
+	regmap_reg_range(0x1F806B, 0x1F806B),
+	regmap_reg_range(0x1F8070, 0x1F8078),
+	regmap_reg_range(0x1F8090, 0x1F8092),
+	regmap_reg_range(0x1F8096, 0x1F8096),
+	regmap_reg_range(0x1F8099, 0x1F80A2),
+	regmap_reg_range(0x1F80E1, 0x1F80E1),
+};
+
+static const struct regmap_range xpcs_rd_ranges[] = {
+	regmap_reg_range(0x1F0001, 0x1F0003),
+	regmap_reg_range(0x1F0005, 0x1F0006),
+	regmap_reg_range(0x1F000F, 0x1F000F),
+	regmap_reg_range(0x1F0708, 0x1F0710),
+	regmap_reg_range(0x1F8010, 0x1F8011),
+	regmap_reg_range(0x1F8018, 0x1F8018),
+	regmap_reg_range(0x1F8020, 0x1F8020),
+	regmap_reg_range(0x1F8040, 0x1F8040),
+	regmap_reg_range(0x1F8060, 0x1F8060),
+	regmap_reg_range(0x1F8098, 0x1F8098),
+};
 
 static int get_xpcs_id(struct s32cc_xpcs *xpcs)
 {
@@ -200,12 +240,33 @@ static void init_params(u32 reg, struct s32cc_xpcs *xpcs,
 	params->addr2 -= xpcs->params.addr2;
 }
 
+static bool xpcs_writeable_reg(struct device *dev, unsigned int reg)
+{
+	return regmap_reg_in_ranges(reg, xpcs_wr_ranges,
+				    ARRAY_SIZE(xpcs_wr_ranges));
+}
+
+static bool xpcs_readable_reg(struct device *dev, unsigned int reg)
+{
+	if (!xpcs_writeable_reg(dev, reg))
+		return regmap_reg_in_ranges(reg, xpcs_rd_ranges,
+					    ARRAY_SIZE(xpcs_rd_ranges));
+
+	return true;
+}
+
 static int xpcs_regmap_reg_read(void *context, unsigned int reg,
 				unsigned int *result)
 {
 	struct s32cc_xpcs *xpcs = context;
+	struct device *dev = get_xpcs_device(xpcs);
 	struct s32cc_xpcs_params params;
 	u32 data;
+
+	if (!xpcs_readable_reg(dev, reg)) {
+		dev_err(dev, "The register 0x%x isn't readable\n", reg);
+		return -EPERM;
+	}
 
 	init_params(reg, xpcs, &params, &data);
 
@@ -219,8 +280,14 @@ static int xpcs_regmap_reg_write(void *context, unsigned int reg,
 				 unsigned int val)
 {
 	struct s32cc_xpcs *xpcs = context;
+	struct device *dev = get_xpcs_device(xpcs);
 	struct s32cc_xpcs_params params;
 	u32 data;
+
+	if (!xpcs_writeable_reg(dev, reg)) {
+		dev_err(dev, "The register 0x%x isn't writable\n", reg);
+		return -EPERM;
+	}
 
 	init_params(reg, xpcs, &params, &data);
 
@@ -265,55 +332,6 @@ static unsigned int xpcs_read(struct s32cc_xpcs *xpcs, const char *name,
 	return val;
 }
 
-static const struct regmap_range xpcs_wr_ranges[] = {
-	regmap_reg_range(0x1F0000, 0x1F0000),
-	regmap_reg_range(0x1F0004, 0x1F0004),
-	regmap_reg_range(0x1F8000, 0x1F8003),
-	regmap_reg_range(0x1F8005, 0x1F8005),
-	regmap_reg_range(0x1F800A, 0x1F800A),
-	regmap_reg_range(0x1F8012, 0x1F8012),
-	regmap_reg_range(0x1F8015, 0x1F8015),
-	regmap_reg_range(0x1F8030, 0x1F8037),
-	regmap_reg_range(0x1F803C, 0x1F803C),
-	regmap_reg_range(0x1F8050, 0x1F8058),
-	regmap_reg_range(0x1F805C, 0x1F805E),
-	regmap_reg_range(0x1F8064, 0x1F8064),
-	regmap_reg_range(0x1F806B, 0x1F806B),
-	regmap_reg_range(0x1F8070, 0x1F8078),
-	regmap_reg_range(0x1F8090, 0x1F8092),
-	regmap_reg_range(0x1F8096, 0x1F8096),
-	regmap_reg_range(0x1F8099, 0x1F80A2),
-	regmap_reg_range(0x1F80E1, 0x1F80E1),
-};
-
-static const struct regmap_range xpcs_rd_ranges[] = {
-	regmap_reg_range(0x1F0001, 0x1F0003),
-	regmap_reg_range(0x1F0005, 0x1F0006),
-	regmap_reg_range(0x1F000F, 0x1F000F),
-	regmap_reg_range(0x1F0708, 0x1F0710),
-	regmap_reg_range(0x1F8010, 0x1F8011),
-	regmap_reg_range(0x1F8018, 0x1F8018),
-	regmap_reg_range(0x1F8020, 0x1F8020),
-	regmap_reg_range(0x1F8040, 0x1F8040),
-	regmap_reg_range(0x1F8060, 0x1F8060),
-	regmap_reg_range(0x1F8098, 0x1F8098),
-};
-
-static bool xpcs_writeable_reg(struct device *dev, unsigned int reg)
-{
-	return regmap_reg_in_ranges(reg, xpcs_wr_ranges,
-				    ARRAY_SIZE(xpcs_wr_ranges));
-}
-
-static bool xpcs_readable_reg(struct device *dev, unsigned int reg)
-{
-	if (!xpcs_writeable_reg(dev, reg))
-		return regmap_reg_in_ranges(reg, xpcs_rd_ranges,
-					    ARRAY_SIZE(xpcs_rd_ranges));
-
-	return true;
-}
-
 static const struct regmap_config xpcs_regmap_config = {
 	.reg_bits = 16,
 	.val_bits = 16,
@@ -326,7 +344,7 @@ static const struct regmap_config xpcs_regmap_config = {
 
 static int xpcs_init(struct s32cc_xpcs **xpcs, struct device *dev,
 		     unsigned char id, void __iomem *base, bool ext_clk,
-		     unsigned long rate, bool pcie_shared)
+		     unsigned long rate, enum pcie_xpcs_mode pcie_shared)
 {
 	struct s32cc_xpcs *xpcsp;
 	struct regmap_config conf;
@@ -732,15 +750,40 @@ static int xpcs_init_mpllb(struct s32cc_xpcs *xpcs)
 	return 0;
 }
 
+static void serdes_pma_high_freq_recovery(struct s32cc_xpcs *xpcs)
+{
+	/* PCS signal protection, PLL railout recovery */
+	XPCS_WRITE_BITS(xpcs, VR_MII_DBG_CTRL, SUPPRESS_LOS_DET | RX_DT_EN_CTL,
+			SUPPRESS_LOS_DET | RX_DT_EN_CTL);
+	XPCS_WRITE_BITS(xpcs, VR_MII_GEN5_12G_16G_MISC_CTRL0,
+			PLL_CTRL, PLL_CTRL);
+}
+
+static void serdes_pma_configure_tx_eq_post(struct s32cc_xpcs *xpcs)
+{
+	XPCS_WRITE_BITS(xpcs, VR_MII_GEN5_12G_16G_TX_EQ_CTRL1,
+			TX_EQ_OVR_RIDE, TX_EQ_OVR_RIDE);
+}
+
 static int xpcs_init_plls(struct s32cc_xpcs *xpcs)
 {
 	int ret;
 	struct device *dev = get_xpcs_device(xpcs);
 
-	if (!xpcs->ext_clk)
+	if (!xpcs->ext_clk) {
 		XPCS_WRITE_BITS(xpcs, VR_MII_DIG_CTRL1, BYP_PWRUP, BYP_PWRUP);
-	else if (!xpcs->pcie_shared)
+	} else if (xpcs->pcie_shared == NOT_SHARED) {
 		wait_power_good_state(xpcs);
+	} else if (xpcs->pcie_shared == PCIE_XPCS_2G5) {
+		wait_power_good_state(xpcs);
+		/* Configure equalization */
+		serdes_pma_configure_tx_eq_post(xpcs);
+		xpcs_electrical_configure(xpcs);
+
+		/* Enable receiver recover */
+		serdes_pma_high_freq_recovery(xpcs);
+		return 0;
+	}
 
 	xpcs_electrical_configure(xpcs);
 
@@ -944,6 +987,32 @@ static int xpcs_get_state(struct s32cc_xpcs *xpcs,
 	return 0;
 }
 
+static int xpcs_pre_pcie_2g5(struct s32cc_xpcs *xpcs)
+{
+	struct device *dev = get_xpcs_device(xpcs);
+	int ret;
+
+	/* Enable volatge boost */
+	XPCS_WRITE_BITS(xpcs, VR_MII_GEN5_12G_16G_TX_GENCTRL1, VBOOST_EN_0,
+			VBOOST_EN_0);
+
+	/* TX rate baud  */
+	XPCS_WRITE_BITS(xpcs, VR_MII_GEN5_12G_16G_TX_RATE_CTRL, 0x7, 0x0U);
+
+	/* Rx rate baud/2 */
+	XPCS_WRITE_BITS(xpcs, VR_MII_GEN5_12G_16G_RX_RATE_CTRL, 0x3U, 0x1U);
+
+	/* Set low-frequency operating band */
+	XPCS_WRITE_BITS(xpcs, VR_MII_GEN5_12G_16G_CDR_CTRL, CDR_SSC_EN_0,
+			VCO_LOW_FREQ_0);
+
+	ret = serdes_bifurcation_pll_transit(xpcs, XPCS_PLLB);
+	if (ret)
+		dev_err(dev, "Switch to PLLB failed\n");
+
+	return ret;
+}
+
 static int xpcs_config(struct s32cc_xpcs *xpcs,
 		       const struct phylink_link_state *state)
 {
@@ -1062,7 +1131,7 @@ static const struct s32cc_xpcs_ops s32cc_xpcs_ops = {
 	.reset_rx = xpcs_reset_rx,
 	.release = xpcs_release,
 	.has_valid_rx = xpcs_has_valid_rx,
-
+	.pre_pcie_2g5 = xpcs_pre_pcie_2g5,
 	.xpcs_get_state = xpcs_get_state,
 	.xpcs_config = xpcs_config,
 };
