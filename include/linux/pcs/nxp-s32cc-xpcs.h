@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /**
- * Copyright 2021 NXP
+ * Copyright 2021-2022 NXP
  */
 #ifndef NXP_S32CC_XPCS_H
 #define NXP_S32CC_XPCS_H
@@ -12,10 +12,16 @@
 
 struct s32cc_xpcs;
 
+enum pcie_xpcs_mode {
+	NOT_SHARED,
+	PCIE_XPCS_1G,
+	PCIE_XPCS_2G5,
+};
+
 struct s32cc_xpcs_ops {
 	int (*init)(struct s32cc_xpcs **xpcs, struct device *dev,
 		    unsigned char id, void __iomem *base, bool ext_clk,
-		    unsigned long rate, bool pcie_shared);
+		    unsigned long rate, enum pcie_xpcs_mode pcie_shared);
 	int (*power_on)(struct s32cc_xpcs *xpcs);
 	int (*config)(struct s32cc_xpcs *xpcs,
 		      const struct phylink_link_state *state);
@@ -25,6 +31,7 @@ struct s32cc_xpcs_ops {
 	int (*reset_rx)(struct s32cc_xpcs *xpcs);
 	void (*release)(struct s32cc_xpcs *xpcs);
 	bool (*has_valid_rx)(struct s32cc_xpcs *xpcs);
+	int (*pre_pcie_2g5)(struct s32cc_xpcs *xpcs);
 
 	/* These function are planned to be used directly
 	 * by phylink in newer kernels (starting from 5.10).
