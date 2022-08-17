@@ -1,0 +1,47 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+
+title: Temperature sensor driver for NXP s32cc SoCs
+
+maintainers:
+  - Andrei Cherechesu <andrei.cherechesu@nxp.com>
+
+description: |
+  Support for Temperature Monitoring Unit (TMU) found on NXP S32CC
+  SoCs. It supports reporting the immediate and average temperature
+  in a manner compatible with lm-sensors
+
+properties:
+  compatible:
+    const:
+      - nxp,s32cc-tmu
+
+  reg:
+    description:
+      Address range of the TMU registers
+
+  clocks:
+    description: |
+      One entry, the clock for the TMU device
+
+  clock-names:
+    description: tsens
+
+required:
+  - compatible
+  - reg
+  - clocks
+  - clock-names
+
+additionalProperties: false
+
+examples:
+  - |
+    tmu: tmu@400a8000 {
+      compatible = "nxp,s32cc-tmu";
+      reg = <0x0 0x400a8000 0x0 0x3000>,
+          <0x0 0x400a4200 0x0 0x1fc>;
+      status = "okay";
+    };
+...
