@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0
-/* Copyright 2017-2018 NXP */
+/* Copyright 2017-2018, 2020 NXP */
 
 #include <linux/io.h>
 #include <linux/clk.h>
@@ -388,6 +388,27 @@ static int tmu_calibrate_s32cc(struct device *dev)
 	return 0;
 }
 
+static int tmu_init_hw(struct device *dev,
+		       const struct tmu_chip *tmu_chip)
+{
+	int ret;
+
+	tmu_monitor_enable(dev, tmu_chip->enable_mask, false);
+	tmu_enable_sites(dev);
+
+	ret = tmu_calibrate_s32cc(dev);
+	if (ret) {
+		dev_err(dev, "TMU Calibration Failed\n");
+		return ret;
+	}
+
+	tmu_configure_alpf(dev, alpf_0_5);
+	tmu_measurement_interval(dev, mi_2_048s);
+	tmu_monitor_enable(dev, tmu_chip->enable_mask, true);
+
+	return 0;
+}
+
 static const struct of_device_id tmu_dt_ids[] = {
 		{ .compatible = "nxp,s32cc-tmu", .data = &s32cc_tmu, },
 		{ /* end */ }
@@ -480,14 +501,9 @@ static int tmu_probe(struct platform_device *pd)
 		device_files_created++;
 	}
 
-	tmu_monitor_enable(&pd->dev, tmu_chip->enable_mask, false);
-	tmu_enable_sites(&pd->dev);
-	if (tmu_calibrate_s32cc(&pd->dev))
+	return_code = tmu_init_hw(&pd->dev, tmu_chip);
+	if (return_code)
 		goto calibration_failed;
-
-	tmu_configure_alpf(&pd->dev, alpf_0_5);
-	tmu_measurement_interval(&pd->dev, mi_2_048s);
-	tmu_monitor_enable(&pd->dev, tmu_chip->enable_mask, true);
 
 	return 0;
 
@@ -520,10 +536,39 @@ static int tmu_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static int __maybe_unused thermal_suspend(struct device *dev)
+{
+	struct tmu_driver_data *tmu_dd = dev_get_drvdata(dev);
+
+	clk_disable_unprepare(tmu_dd->clk);
+
+	return 0;
+}
+
+static int __maybe_unused thermal_resume(struct device *dev)
+{
+	struct tmu_driver_data *tmu_dd = dev_get_drvdata(dev);
+	const struct tmu_chip *tmu_chip;
+	int ret;
+
+	tmu_chip = of_device_get_match_data(dev);
+
+	ret = clk_prepare_enable(tmu_dd->clk);
+	if (ret) {
+		dev_err(dev, "Cannot enable clock: %d\n", ret);
+		return ret;
+	}
+
+	return tmu_init_hw(dev, tmu_chip);
+}
+
+static SIMPLE_DEV_PM_OPS(thermal_pm_ops, thermal_suspend, thermal_resume);
+
 static struct platform_driver tmu_driver = {
 	.driver = {
 		.name	= DRIVER_NAME,
 		.of_match_table = tmu_dt_ids,
+		.pm = &thermal_pm_ops,
 	},
 	.probe		= tmu_probe,
 	.remove		= tmu_remove,
