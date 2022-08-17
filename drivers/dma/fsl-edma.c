@@ -698,13 +698,16 @@ static int fsl_edma_resume_early(struct device *dev)
 {
 	struct fsl_edma_engine *fsl_edma = dev_get_drvdata(dev);
 	struct fsl_edma_chan *fsl_chan;
+	struct fsl_edma_hw_tcd __iomem *hw_tcd;
 	struct edma_regs *regs = &fsl_edma->regs;
 	int i;
 
 	for (i = 0; i < fsl_edma->n_chans; i++) {
 		fsl_chan = &fsl_edma->chans[i];
+		hw_tcd = (struct fsl_edma_hw_tcd __iomem *)
+			fsl_edma->drvdata->ops->edma_get_tcd_addr(fsl_chan);
 		fsl_chan->pm_state = RUNNING;
-		edma_writew(fsl_edma, 0x0, &regs->tcd[i].csr);
+		edma_writew(fsl_edma, 0x0, &hw_tcd->csr);
 		if (fsl_chan->slave_id != 0)
 			fsl_edma_chan_mux(fsl_chan, fsl_chan->slave_id, true);
 	}
