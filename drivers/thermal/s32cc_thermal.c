@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0
-/* Copyright 2017-2018, 2020-2021 NXP */
+/* Copyright 2017-2018, 2020-2022 NXP */
 
 #include <linux/io.h>
 #include <linux/clk.h>
@@ -39,12 +39,12 @@ enum s32cc_calib_fuse {
 };
 
 union CAL_FUSE_u {
-	u32 R;
+	s32 R;
 	struct {
-		u32 CFG_DAC_TRIM0:5;
-		u32 Reserved0:1;
-		u32 CFG_DAC_TRIM1:5;
-		u32 Reserved1:21;
+		s32 CFG_DAC_TRIM0:5;
+		s32 Reserved0:1;
+		s32 CFG_DAC_TRIM1:5;
+		s32 Reserved1:21;
 	} B;
 };
 
@@ -309,7 +309,7 @@ static void tmu_enable_sites(struct device *dev)
 	writel(tmu_msr.R, tmu_dd->tmu_registers + TMU_MSR);
 }
 
-static u32 get_calib_fuse_val(struct device *dev,
+static s32 get_calib_fuse_val(struct device *dev,
 			      enum s32cc_calib_fuse fuse_type)
 {
 	struct tmu_driver_data *tmu_dd = dev_get_drvdata(dev);
@@ -329,8 +329,8 @@ static void get_calib_with_fuses(struct device *dev, u32 *calib_scfgr,
 {
 	size_t i;
 
-	u32 fuse_val_cold = get_calib_fuse_val(dev, COLD_FUSE);
-	u32 fuse_val_warm = get_calib_fuse_val(dev, WARM_FUSE);
+	s32 fuse_val_cold = get_calib_fuse_val(dev, COLD_FUSE);
+	s32 fuse_val_warm = get_calib_fuse_val(dev, WARM_FUSE);
 
 	memcpy(calib_scfgr, calib_scfgr_base, table_size);
 	for (i = 0; i < warm_size; i++)
