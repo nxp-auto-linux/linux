@@ -1323,6 +1323,9 @@ config SUN20I_GPADC
 config S32CC_ADC
 	tristate "NXP S32CC SAR-ADC driver"
 	depends on SOC_S32CC
+	select IIO_BUFFER
+	select IIO_TRIGGERED_BUFFER
+	select IIO_SYSFS_TRIGGER
 	help
 	  Say yes here to build support for S32CC platforms
 	  analog-to-digital converter.
