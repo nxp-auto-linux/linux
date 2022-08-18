@@ -101,6 +101,7 @@
 #define ADC_NSEC_PER_SEC		1000000000
 #define ADC_NUM_CAL_STEPS		14
 #define ADC_NUM_GROUPS			2
+#define ADC_RESOLUTION			12
 
 enum freq_sel {
 	ADC_BUSCLK_EQUAL,
@@ -132,6 +133,7 @@ struct s32cc_adc {
 	struct clk *clk;
 
 	u16 value;
+	u32 vref;
 	int current_channel;
 	struct s32cc_adc_feature adc_feature;
 
@@ -143,6 +145,7 @@ struct s32cc_adc {
 	.indexed = 1,						\
 	.channel = (_idx),					\
 	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW),		\
+	.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SCALE),   \
 }
 
 static const struct iio_chan_spec s32cc_adc_iio_channels[] = {
@@ -425,6 +428,11 @@ static int s32cc_read_raw(struct iio_dev *indio_dev,
 		mutex_unlock(&indio_dev->mlock);
 		return IIO_VAL_INT;
 
+	case IIO_CHAN_INFO_SCALE:
+		*val = info->vref;
+		*val2 = ADC_RESOLUTION;
+		return IIO_VAL_FRACTIONAL_LOG2;
+
 	default:
 		break;
 	}
@@ -493,6 +501,15 @@ static int s32cc_adc_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "failed getting clock, err = %ld\n",
 			PTR_ERR(info->clk));
 		return PTR_ERR(info->clk);
+	}
+
+	if (!pdev->dev.of_node)
+		return -EINVAL;
+
+	ret = of_property_read_u32(pdev->dev.of_node, "vref", &info->vref);
+	if (ret) {
+		dev_err(&pdev->dev, "no vref property in device tree\n");
+		return ret;
 	}
 
 	platform_set_drvdata(pdev, indio_dev);
