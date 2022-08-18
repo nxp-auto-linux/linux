@@ -101,6 +101,7 @@
 #define ADC_NSEC_PER_SEC		1000000000
 #define ADC_NUM_CAL_STEPS		14
 #define ADC_NUM_GROUPS			2
+#define ADC_RESOLUTION			12
 
 #define ADC_NUM_CAL_STEPS		14
 
@@ -134,6 +135,7 @@ struct s32cc_adc {
 	struct clk *clk;
 
 	u16 value;
+	u32 vref;
 	u8 current_channel;
 	struct s32cc_adc_feature adc_feature;
 
@@ -145,6 +147,7 @@ struct s32cc_adc {
 	.indexed = 1,						\
 	.channel = (_idx),					\
 	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW),		\
+	.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SCALE),   \
 }
 
 static const struct iio_chan_spec s32cc_adc_iio_channels[] = {
@@ -421,6 +424,11 @@ static int s32cc_read_raw(struct iio_dev *indio_dev,
 		mutex_unlock(&iio_dev_opaque->mlock);
 		return IIO_VAL_INT;
 
+	case IIO_CHAN_INFO_SCALE:
+		*val = info->vref;
+		*val2 = ADC_RESOLUTION;
+		return IIO_VAL_FRACTIONAL_LOG2;
+
 	default:
 		break;
 	}
@@ -499,6 +507,13 @@ static int s32cc_adc_probe(struct platform_device *pdev)
 	if (ret) {
 		dev_err(&pdev->dev,
 			"Could not prepare or enable the clock.\n");
+	}
+	if (!pdev->dev.of_node)
+		return -EINVAL;
+
+	ret = of_property_read_u32(pdev->dev.of_node, "vref", &info->vref);
+	if (ret) {
+		dev_err(&pdev->dev, "no vref property in device tree\n");
 		return ret;
 	}
 
