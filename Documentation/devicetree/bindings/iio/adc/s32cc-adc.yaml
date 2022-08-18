@@ -1,0 +1,56 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/iio/adc/s32-adc.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: NXP S32CC Analog-to-Digital Converter (SAR-ADC)
+
+maintainers:
+  - Ciprian Marian Costea <ciprianmarian.costea@nxp.com>
+
+description: |
+  SAR-ADC analog-to-digital converter for S32CC boards
+
+properties:
+  compatible:
+    enum:
+      - nxp,s32cc-adc
+
+  reg:
+    maxItems: 1
+
+  interrupts:
+    maxItems: 1
+
+  clocks:
+    description: SAR-ADC source clock (S32CC_SCMI_CLK_SAR_ADC_BUS)
+    maxItems: 1
+
+  clock-names:
+    const: adc
+
+  vref:
+    description: SAR-ADC reference voltage supply
+
+required:
+  - compatible
+  - reg
+  - interrupts
+  - clocks
+  - clock-names
+  - vref
+
+additionalProperties: false
+
+examples:
+  - |
+    adc0: adc@401f8000 {
+        compatible = "nxp,s32cc-adc";
+        reg = <0x0 0x401f8000 0x0 0x1000>;
+        interrupts = <GIC_SPI 70 IRQ_TYPE_LEVEL_HIGH>;
+        clocks = <&clks S32GEN1_SCMI_CLK_SAR_ADC_BUS>;
+        clock-names = "adc";
+        vref = <1800>;
+        status = "okay";
+    };
