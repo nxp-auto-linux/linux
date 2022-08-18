@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0+
  *
- * Copyright 2020 NXP
+ * Copyright 2020-2021 NXP
  *
  */
 
@@ -31,10 +31,16 @@
 #define DDRC_MRCTRL0_MR_TYPE_READ	0x1
 #define DDRC_MRCTRL0_MR_RANK_SHIFT	4
 #define DDRC_MRCTRL0_MR_WR_SHIFT	31
+#define DDRC_MRCTRL0_MR_WR_VAL		0x3
 #define DDRC_MRCTRL0_MR_WR_MASK		BIT(DDRC_MRCTRL0_MR_WR_SHIFT)
-#define DDRC_MRCTRL0_MR_RANK_MASK	BIT(DDRC_MRCTRL0_MR_RANK_SHIFT)
-#define OFFSET_DDRC_MRCTRL1		0x14
-#define DDRC_MRCTRL1_ADDR_SHIFT	8
+#define DDRC_MRCTRL0_MR_RANK_OFF	BIT(DDRC_MRCTRL0_MR_RANK_SHIFT)
+#define DDRC_MRCTRL0_MR_RANK_MASK	(DDRC_MRCTRL0_MR_WR_VAL \
+		<< DDRC_MRCTRL0_MR_RANK_SHIFT)
+#define OFFSET_DDRC_MRCTRL1			0x14
+#define DDRC_MRCTRL1_MR_VAL			0xff
+#define DDRC_MRCTRL1_MR_ADDR_SHIFT	8
+#define DDRC_MRCTRL1_MR_ADDR_MASK	(DDRC_MRCTRL1_MR_VAL \
+		<< DDRC_MRCTRL1_MR_ADDR_SHIFT)
 
 /* Performance monitoring registers */
 #define OFFSET_MRR_0_DATA_REG_ADDR	0x40
@@ -44,7 +50,7 @@
 #define SUCCESSIVE_READ	2
 
 /* Read lpddr4 mode register with given index */
-uint32_t read_lpddr4_MR(uint16_t MR_index,
+uint32_t read_lpddr4_mr(uint8_t MR_index,
 		void __iomem *ddrc_base, void __iomem *perf_base);
 
 /*
