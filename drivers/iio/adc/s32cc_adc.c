@@ -4,7 +4,7 @@
  * driver by Fugang Duan <B38611@freescale.com>)
  *
  * Copyright 2013 Freescale Semiconductor, Inc.
- * Copyright 2017, 2020-2021 NXP
+ * Copyright 2017, 2020-2022 NXP
  */
 
 #include <linux/module.h>
@@ -30,6 +30,8 @@
 #include <linux/iio/trigger.h>
 #include <linux/iio/triggered_buffer.h>
 #include <linux/iio/trigger_consumer.h>
+
+#define INDIO_UNINITIALIZED	0
 
 /* This will be the driver name the kernel reports */
 #define DRIVER_NAME "s32-adc"
@@ -101,7 +103,6 @@
 #define ADC_CONV_TIMEOUT		100 /* ms */
 #define ADC_CAL_TIMEOUT				100000 /* us */
 #define ADC_WAIT				2000   /* us */
-#define ADC_NSEC_PER_SEC		1000000000
 #define ADC_NUM_CAL_STEPS		14
 #define ADC_NUM_GROUPS			2
 #define ADC_RESOLUTION			12
@@ -112,6 +113,7 @@
 #define ADC_DP			2
 
 #define BUFFER_ECH_NUM_OK	2
+#define ADC_NUM_CHANNELS	8
 
 enum freq_sel {
 	ADC_BUSCLK_EQUAL,
@@ -124,6 +126,11 @@ enum average_sel {
 	ADC_SAMPLE_32,
 	ADC_SAMPLE_128,
 	ADC_SAMPLE_512,
+};
+
+enum {
+	SAR_ADC_CONTINUOUS = 0,
+	SAR_ADC_ONESHOT
 };
 
 struct s32cc_adc_feature {
@@ -145,12 +152,14 @@ struct s32cc_adc {
 	u16 value;
 	u32 vref;
 	u8 current_channel;
+	u8 channels_used;
 	int buffer_ech_num;
 	struct s32cc_adc_feature adc_feature;
 
 	struct completion completion;
 
-	u16 buffer[8];
+	u16 buffer[ADC_NUM_CHANNELS];
+	u16 buffered_chan[ADC_NUM_CHANNELS];
 };
 
 #define ADC_CHAN(_idx, _chan_type) {			\
@@ -346,52 +355,153 @@ static void s32cc_adc_hw_init(struct s32cc_adc *info)
 	s32cc_adc_sample_set(info);
 }
 
+static void s32cc_adc_read_notify(struct s32cc_adc *info)
+{
+	size_t group;
+
+	for (group = 0; group < ADC_NUM_GROUPS; group++)
+		writel(ADC_CH_MASK, info->regs + REG_ADC_CEOCFR(group));
+}
+
+static int s32cc_adc_read_data(struct s32cc_adc *info,
+			       unsigned int chan)
+{
+	u32 ceocfr_data, cdr_data;
+	int group;
+
+	group = group_idx(chan);
+	ceocfr_data = readl(info->regs + REG_ADC_CEOCFR(group));
+	if (!(ceocfr_data & ADC_EOC_CH(chan)))
+		return -EIO;
+
+	cdr_data = readl(info->regs + REG_ADC_CDR(chan));
+	if (!(cdr_data & ADC_VALID)) {
+		dev_err(info->dev, "error invalid data\n");
+		return -EIO;
+	}
+
+	return cdr_data & ADC_CDATA_MASK;
+}
+
+static void s32cc_adc_isr_buffer(struct iio_dev *indio_dev)
+{
+	struct s32cc_adc *info = iio_priv(indio_dev);
+	int i, ret;
+
+	for (i = 0; i < info->channels_used; i++) {
+		ret = s32cc_adc_read_data(info, info->buffered_chan[i]);
+		if (ret < 0) {
+			s32cc_adc_read_notify(info);
+			return;
+		}
+
+		info->buffer[i] = ret;
+	}
+
+	s32cc_adc_read_notify(info);
+	iio_push_to_buffers_with_timestamp(indio_dev,
+					   info->buffer,
+					   iio_get_time_ns(indio_dev));
+	iio_trigger_notify_done(indio_dev->trig);
+}
+
+static void s32cc_adc_isr_read_raw(struct iio_dev *indio_dev)
+{
+	struct s32cc_adc *info = iio_priv(indio_dev);
+	int ret;
+
+	ret = s32cc_adc_read_data(info, info->current_channel);
+	s32cc_adc_read_notify(info);
+	if (ret < 0)
+		return;
+
+	info->value = ret;
+	complete(&info->completion);
+}
+
 static irqreturn_t s32cc_adc_isr(int irq, void *dev_id)
 {
 	struct iio_dev *indio_dev = (struct iio_dev *)dev_id;
 	struct s32cc_adc *info = iio_priv(indio_dev);
-	int isr_data, ceocfr_data, cdr_data;
-	int group;
+	int isr_data;
 
 	isr_data = readl(info->regs + REG_ADC_ISR);
-	if (isr_data & ADC_ECH) {
-		writel(ADC_ECH, info->regs + REG_ADC_ISR);
+	if (!(isr_data & ADC_ECH))
+		return IRQ_NONE;
 
-		if (iio_buffer_enabled(indio_dev)) {
-			info->buffer_ech_num++;
-			if (info->buffer_ech_num < BUFFER_ECH_NUM_OK)
-				return IRQ_HANDLED;
-			info->buffer_ech_num = 0;
-		}
-		group = group_idx(info->current_channel);
+	if (iio_buffer_enabled(indio_dev))
+		s32cc_adc_isr_buffer(indio_dev);
+	else
+		s32cc_adc_isr_read_raw(indio_dev);
 
-		ceocfr_data = readl(info->regs + REG_ADC_CEOCFR(group));
-		if (!(ceocfr_data & ADC_EOC_CH(info->current_channel)))
-			return IRQ_HANDLED;
-
-		writel(ADC_EOC_CH(info->current_channel),
-		       info->regs + REG_ADC_CEOCFR(group));
-
-		cdr_data = readl(info->regs +
-			REG_ADC_CDR(info->current_channel));
-		if (!(cdr_data & ADC_VALID)) {
-			dev_err(info->dev, "error invalid data\n");
-			return IRQ_HANDLED;
-		}
-
-		info->value = cdr_data & ADC_CDATA_MASK;
-		if (iio_buffer_enabled(indio_dev)) {
-			info->buffer[0] = info->value;
-			iio_push_to_buffers_with_timestamp(indio_dev,
-							   info->buffer,
-							   iio_get_time_ns(indio_dev));
-			iio_trigger_notify_done(indio_dev->trig);
-		} else {
-			complete(&info->completion);
-		}
-	}
+	writel(ADC_ECH, info->regs + REG_ADC_ISR);
 
 	return IRQ_HANDLED;
+}
+
+static void s32cc_adc_chan_enable(struct s32cc_adc *info,
+				  unsigned int chan, bool enable)
+{
+	u32 ncmr_data, cimr_data;
+	int group;
+
+	group = group_idx(chan);
+	ncmr_data = readl(info->regs + REG_ADC_NCMR(group));
+	cimr_data = readl(info->regs + REG_ADC_CIMR(group));
+	if (enable) {
+		ncmr_data |= ADC_CH(chan);
+		cimr_data |= ADC_CIM(chan);
+	} else {
+		ncmr_data &= ~ADC_CH(chan);
+		cimr_data &= ~ADC_CIM(chan);
+	}
+
+	writel(ncmr_data, info->regs + REG_ADC_NCMR(group));
+	writel(cimr_data, info->regs + REG_ADC_CIMR(group));
+}
+
+static void s32cc_adc_enable(struct s32cc_adc *info, bool enable)
+{
+	u32 mcr_data;
+
+	mcr_data = readl(info->regs + REG_ADC_MCR);
+	if (enable)
+		mcr_data &= ~ADC_PWDN;
+	else
+		mcr_data |= ADC_PWDN;
+
+	writel(mcr_data, info->regs + REG_ADC_MCR);
+
+	/* Ensure there are at least three cycles between the
+	 * configuration of NCMR and the setting of NSTART
+	 */
+	if (enable)
+		ndelay(div64_u64(NSEC_PER_SEC,
+				   s32cc_adc_clk_rate(info)) * 3U);
+}
+
+static int s32cc_adc_start_conversion(struct s32cc_adc *info, int currentmode)
+{
+	u32 mcr_data;
+
+	mcr_data = readl(info->regs + REG_ADC_MCR);
+	mcr_data |= ADC_NSTART;
+	switch (currentmode) {
+	case INDIO_UNINITIALIZED:
+	case INDIO_DIRECT_MODE:
+	case INDIO_BUFFER_TRIGGERED:
+		mcr_data &= ~ADC_MODE;
+		break;
+	case INDIO_BUFFER_SOFTWARE:
+		mcr_data |= ADC_MODE;
+		break;
+	default:
+		dev_warn(info->dev, "invalid IIO mode %d\n", currentmode);
+		return -EINVAL;
+	}
+	writel(mcr_data, info->regs + REG_ADC_MCR);
+
+	return 0;
 }
 
 static int s32cc_read_raw(struct iio_dev *indio_dev,
@@ -402,82 +512,46 @@ static int s32cc_read_raw(struct iio_dev *indio_dev,
 {
 	struct s32cc_adc *info = iio_priv(indio_dev);
 	struct iio_dev_opaque *iio_dev_opaque = to_iio_dev_opaque(indio_dev);
-	int group, i;
-	int mcr_data, ncmr_data, cimr_data;
-	long ret;
+	int ret;
 
 	switch (mask) {
 	case IIO_CHAN_INFO_RAW:
 		mutex_lock(&iio_dev_opaque->mlock);
 		if (iio_buffer_enabled(indio_dev)) {
-			mutex_unlock(&iio_dev_opaque->mlock);
-			return -EBUSY;
+			ret = -EBUSY;
+			goto out_iio_chan_info_raw;
 		}
-
-		reinit_completion(&info->completion);
-
-		group = group_idx(chan->channel);
-		if (group < 0) {
-			mutex_unlock(&iio_dev_opaque->mlock);
-			return group;
-		}
-
-		for (i = 0; i < ADC_NUM_GROUPS; i++) {
-			ncmr_data = readl(info->regs + REG_ADC_NCMR(i));
-			cimr_data = readl(info->regs + REG_ADC_CIMR(i));
-
-			ncmr_data &= ~ADC_CH_MASK;
-			cimr_data &= ~ADC_CIM_MASK;
-			if (i == group) {
-				ncmr_data |= ADC_CH(chan->channel);
-				cimr_data |= ADC_CIM(chan->channel);
-			}
-
-			writel(ncmr_data, info->regs + REG_ADC_NCMR(i));
-			writel(cimr_data, info->regs + REG_ADC_CIMR(i));
-		}
-
-		mcr_data = readl(info->regs + REG_ADC_MCR);
-		mcr_data &= ~ADC_MODE;
-		mcr_data &= ~ADC_PWDN;
-		writel(mcr_data, info->regs + REG_ADC_MCR);
 
 		info->current_channel = chan->channel;
+		s32cc_adc_chan_enable(info, chan->channel, true);
+		s32cc_adc_enable(info, true);
 
-		/* Ensure there are at least three cycles between the
-		 * configuration of NCMR and the setting of NSTART
-		 */
-		ndelay(ADC_NSEC_PER_SEC / s32cc_adc_clk_rate(info) * 3);
-
-		mcr_data |= ADC_NSTART;
-		writel(mcr_data, info->regs + REG_ADC_MCR);
+		reinit_completion(&info->completion);
+		ret = s32cc_adc_start_conversion(info, iio_device_get_current_mode(indio_dev));
+		if (ret < 0)
+			goto out_iio_chan_info_raw;
 
 		ret = wait_for_completion_interruptible_timeout
 			(&info->completion,
 			msecs_to_jiffies(ADC_CONV_TIMEOUT));
 
-		ncmr_data &= ~ADC_CH(info->current_channel);
-		cimr_data &= ~ADC_CIM(info->current_channel);
-		writel(ncmr_data, info->regs + REG_ADC_NCMR(group));
-		writel(cimr_data, info->regs + REG_ADC_CIMR(group));
-
-		mcr_data = readl(info->regs + REG_ADC_MCR);
-		mcr_data |= ADC_PWDN;
-		writel(mcr_data, info->regs + REG_ADC_MCR);
+		s32cc_adc_chan_enable(info, chan->channel, false);
+		s32cc_adc_enable(info, false);
 
 		if (ret == 0) {
-			mutex_unlock(&iio_dev_opaque->mlock);
-			return -ETIMEDOUT;
+			ret = -ETIMEDOUT;
+			goto out_iio_chan_info_raw;
 		}
-		if (ret < 0) {
-			mutex_unlock(&iio_dev_opaque->mlock);
-			return ret;
-		}
+
+		if (ret < 0)
+			goto out_iio_chan_info_raw;
 
 		*val = info->value;
+		ret = IIO_VAL_INT;
 
+out_iio_chan_info_raw:
 		mutex_unlock(&iio_dev_opaque->mlock);
-		return IIO_VAL_INT;
+		return ret;
 
 	case IIO_CHAN_INFO_SCALE:
 		*val = info->vref;
@@ -529,46 +603,23 @@ static int s32cc_write_raw(struct iio_dev *indio_dev,
 static int s32cc_adc_buffer_postenable(struct iio_dev *indio_dev)
 {
 	struct s32cc_adc *info = iio_priv(indio_dev);
-	unsigned int channel;
-	int mcr_data, ncmr_data, cimr_data;
-	int group, i;
+	int current_mode = iio_device_get_current_mode(indio_dev);
+	unsigned long channel;
+	size_t pos = 0;
 
-	channel = find_first_bit(indio_dev->active_scan_mask,
-				 indio_dev->masklength);
+	info->channels_used = 0;
 
-	group = group_idx(channel);
-	if (group < 0)
-		return group;
-
-	for (i = 0; i < ADC_NUM_GROUPS; i++) {
-		ncmr_data = readl(info->regs + REG_ADC_NCMR(i));
-		cimr_data = readl(info->regs + REG_ADC_CIMR(i));
-
-		ncmr_data &= ~ADC_CH_MASK;
-		cimr_data &= ~ADC_CIM_MASK;
-		if (i == group) {
-			ncmr_data |= ADC_CH(channel);
-			cimr_data |= ADC_CIM(channel);
-		}
-
-		writel(ncmr_data, info->regs + REG_ADC_NCMR(i));
-		writel(cimr_data, info->regs + REG_ADC_CIMR(i));
+	for_each_set_bit(channel, indio_dev->active_scan_mask,
+			 ADC_NUM_CHANNELS) {
+		info->buffered_chan[pos++] = channel;
+		s32cc_adc_chan_enable(info, channel, true);
 	}
 
-	mcr_data = readl(info->regs + REG_ADC_MCR);
-	mcr_data |= ADC_MODE;
-	mcr_data &= ~ADC_PWDN;
-	writel(mcr_data, info->regs + REG_ADC_MCR);
-
-	info->current_channel = channel;
-
-	/* Ensure there are at least three cycles between the
-	 * configuration of NCMR and the setting of NSTART
-	 */
-	ndelay(ADC_NSEC_PER_SEC / s32cc_adc_clk_rate(info) * 3);
-
-	mcr_data |= ADC_NSTART;
-	writel(mcr_data, info->regs + REG_ADC_MCR);
+	info->buffer_ech_num = 0;
+	info->channels_used = pos;
+	s32cc_adc_enable(info, true);
+	if (current_mode == INDIO_BUFFER_SOFTWARE)
+		return s32cc_adc_start_conversion(info, current_mode);
 
 	return 0;
 }
@@ -577,6 +628,12 @@ static int s32cc_adc_buffer_predisable(struct iio_dev *indio_dev)
 {
 	struct s32cc_adc *info = iio_priv(indio_dev);
 	int mcr_data;
+	int i;
+
+	for (i = 0; i < ADC_NUM_GROUPS; i++) {
+		writel(0, info->regs + REG_ADC_CIMR(i));
+		writel(0, info->regs + REG_ADC_NCMR(i));
+	}
 
 	mcr_data = readl(info->regs + REG_ADC_MCR);
 	mcr_data &= ~ADC_NSTART;
@@ -586,10 +643,33 @@ static int s32cc_adc_buffer_predisable(struct iio_dev *indio_dev)
 	return 0;
 }
 
+static bool s32cc_adc_validate_scan_mask(struct iio_dev *indio_dev,
+					 const unsigned long *mask)
+{
+	/* SAR_ADC permits any combination of the
+	 * available channels to be active
+	 */
+	return true;
+}
+
+static irqreturn_t s32cc_adc_trigger_handler(int irq, void *p)
+{
+	struct iio_poll_func *pf = p;
+	struct iio_dev *indio_dev = pf->indio_dev;
+	struct s32cc_adc *info = iio_priv(indio_dev);
+	int ret;
+
+	ret = s32cc_adc_start_conversion(info, iio_device_get_current_mode(indio_dev));
+	if (ret < 0)
+		return IRQ_NONE;
+
+	return IRQ_HANDLED;
+}
+
 static const struct iio_buffer_setup_ops iio_triggered_buffer_setup_ops = {
 	.postenable = &s32cc_adc_buffer_postenable,
 	.predisable = &s32cc_adc_buffer_predisable,
-	.validate_scan_mask = &iio_validate_scan_mask_onehot,
+	.validate_scan_mask = &s32cc_adc_validate_scan_mask,
 };
 
 static const struct iio_info s32cc_adc_iio_info = {
@@ -671,16 +751,19 @@ static int s32cc_adc_probe(struct platform_device *pdev)
 	indio_dev->name = dev_name(&pdev->dev);
 	indio_dev->dev.of_node = pdev->dev.of_node;
 	indio_dev->info = &s32cc_adc_iio_info;
-	indio_dev->modes = INDIO_DIRECT_MODE;
+	indio_dev->modes = INDIO_DIRECT_MODE | INDIO_BUFFER_SOFTWARE;
 	indio_dev->channels = s32cc_adc_iio_channels;
 	indio_dev->num_channels = ARRAY_SIZE(s32cc_adc_iio_channels);
-	info->buffer_ech_num = 0;
+
+	memset(info->buffer, 0, sizeof(info->buffer));
+	memset(info->buffered_chan, 0, sizeof(info->buffered_chan));
 
 	s32cc_adc_cfg_init(info);
 	s32cc_adc_hw_init(info);
 
 	ret = devm_iio_triggered_buffer_setup(&pdev->dev, indio_dev,
-					      &iio_pollfunc_store_time, NULL,
+					      &iio_pollfunc_store_time,
+					      &s32cc_adc_trigger_handler,
 					      &iio_triggered_buffer_setup_ops);
 	if (ret < 0) {
 		dev_err(&pdev->dev, "Couldn't initialise the buffer\n");
