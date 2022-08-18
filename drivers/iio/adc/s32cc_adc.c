@@ -45,7 +45,6 @@
 
 /* Main Configuration Register field define */
 #define ADC_PWDN		BIT(0)
-#define ADC_ADCLKDIV		BIT(4)
 #define ADC_ACKO		BIT(5)
 #define ADC_ADCLKSEL		BIT(8)
 #define ADC_TSAMP_MASK		GENMASK(10, 9)
@@ -77,6 +76,7 @@
 #define ADC_CIM_MASK		GENMASK(7, 0)
 
 /* Conversion Timing Register field define */
+#define ADC_INPSAMP_MIN		8
 #define ADC_INPSAMP_MAX		0xFF
 
 /* Normal Conversion Mask Register field define */
@@ -103,7 +103,10 @@
 #define ADC_NUM_GROUPS			2
 #define ADC_RESOLUTION			12
 
-#define ADC_NUM_CAL_STEPS		14
+/* Duration of conversion phases */
+#define ADC_TPT			2
+#define ADC_CT			((ADC_RESOLUTION + 2) * 4)
+#define ADC_DP			2
 
 enum freq_sel {
 	ADC_BUSCLK_EQUAL,
@@ -147,7 +150,8 @@ struct s32cc_adc {
 	.indexed = 1,						\
 	.channel = (_idx),					\
 	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW),		\
-	.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SCALE),   \
+	.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SCALE) |	\
+				BIT(IIO_CHAN_INFO_SAMP_FREQ),	\
 }
 
 static const struct iio_chan_spec s32cc_adc_iio_channels[] = {
@@ -164,6 +168,19 @@ static const struct iio_chan_spec s32cc_adc_iio_channels[] = {
 static inline int group_idx(unsigned int channel)
 {
 	return (channel < 32) ? 0 : 1;
+}
+
+static inline unsigned long s32cc_adc_clk_rate(struct s32cc_adc *info)
+{
+	unsigned long ret = clk_get_rate(info->clk);
+	struct s32cc_adc_feature *adc_feature = &info->adc_feature;
+
+	if (adc_feature->freq_sel == ADC_BUSCLK_HALF)
+		ret >>= 1;
+	else if (adc_feature->freq_sel == ADC_BUSCLK_FOURTH)
+		ret >>= 2;
+
+	return ret;
 }
 
 static inline void s32cc_adc_cfg_init(struct s32cc_adc *info)
@@ -184,8 +201,7 @@ static inline void s32cc_adc_cfg_init(struct s32cc_adc *info)
 static void s32cc_adc_cfg_post_set(struct s32cc_adc *info)
 {
 	struct s32cc_adc_feature *adc_feature = &info->adc_feature;
-	int mcr_data = 0, ctr_data = 0;
-	int group;
+	int mcr_data = 0;
 
 	/* auto-clock-off mode enable */
 	if (adc_feature->auto_clk_off)
@@ -197,13 +213,6 @@ static void s32cc_adc_cfg_post_set(struct s32cc_adc *info)
 
 	writel(mcr_data, info->regs + REG_ADC_MCR);
 
-	/* sampling phase duration set */
-	for (group = 0; group < ADC_NUM_GROUPS; group++) {
-		ctr_data |= min(adc_feature->sampling_duration[group],
-			ADC_INPSAMP_MAX);
-		writel(ctr_data, info->regs + REG_ADC_CTR(group));
-	}
-
 	/* End of Conversion Chain interrupt enable */
 	writel(ADC_MSKECH, info->regs + REG_ADC_IMR);
 }
@@ -211,7 +220,6 @@ static void s32cc_adc_cfg_post_set(struct s32cc_adc *info)
 static void s32cc_adc_calibration(struct s32cc_adc *info)
 {
 	struct s32cc_adc_feature *adc_feature = &info->adc_feature;
-	enum freq_sel freq_sel = adc_feature->freq_sel;
 	int mcr_data, msr_data, calstat_data;
 	int step;
 	unsigned long clk_rate;
@@ -277,11 +285,21 @@ static void s32cc_adc_calibration(struct s32cc_adc *info)
 			ADC_TEST_RESULT(calstat_data));
 	}
 
+	info->adc_feature.calibration = false;
+}
+
+static void s32cc_adc_sample_set(struct s32cc_adc *info)
+{
+	struct s32cc_adc_feature *adc_feature = &info->adc_feature;
+	enum freq_sel freq_sel = adc_feature->freq_sel;
+	int mcr_data, ctr_data = 0, group;
+
+	/* configure AD_clk frequency */
+	mcr_data = readl(info->regs + REG_ADC_MCR);
 	mcr_data |= ADC_PWDN;
 	writel(mcr_data, info->regs + REG_ADC_MCR);
 
 	/* restore preferred AD_clk frequency */
-	mcr_data &= ~ADC_ADCLKSEL;
 	if (freq_sel == ADC_BUSCLK_EQUAL)
 		mcr_data |= ADC_ADCLKSEL;
 	else if (freq_sel != ADC_BUSCLK_HALF)
@@ -292,7 +310,13 @@ static void s32cc_adc_calibration(struct s32cc_adc *info)
 	mcr_data &= ~ADC_PWDN;
 
 	writel(mcr_data, info->regs + REG_ADC_MCR);
-	info->adc_feature.calibration = false;
+
+	/* sampling phase duration set */
+	for (group = 0; group < ADC_NUM_GROUPS; group++) {
+		ctr_data = min(adc_feature->sampling_duration[group],
+			ADC_INPSAMP_MAX);
+		writel(ctr_data, info->regs + REG_ADC_CTR(group));
+	}
 }
 
 static void s32cc_adc_hw_init(struct s32cc_adc *info)
@@ -302,6 +326,9 @@ static void s32cc_adc_hw_init(struct s32cc_adc *info)
 
 	/* adc calibration */
 	s32cc_adc_calibration(info);
+
+	/* sampling speed set */
+	s32cc_adc_sample_set(info);
 }
 
 static irqreturn_t s32cc_adc_isr(int irq, void *dev_id)
@@ -346,7 +373,6 @@ static int s32cc_read_raw(struct iio_dev *indio_dev,
 	struct iio_dev_opaque *iio_dev_opaque = to_iio_dev_opaque(indio_dev);
 	int group, i;
 	int mcr_data, ncmr_data, cimr_data;
-	int clk_rate;
 	long ret;
 
 	switch (mask) {
@@ -385,14 +411,7 @@ static int s32cc_read_raw(struct iio_dev *indio_dev,
 		/* Ensure there are at least three cycles between the
 		 * configuration of NCMR and the setting of NSTART
 		 */
-		clk_rate = clk_get_rate(info->clk);
-		if (!(mcr_data & ADC_ADCLKSEL)) {
-			if (mcr_data & ADC_ADCLKDIV)
-				clk_rate >>= 2;
-			else
-				clk_rate >>= 1;
-		}
-		ndelay(ADC_NSEC_PER_SEC / clk_rate * 3);
+		ndelay(ADC_NSEC_PER_SEC / s32cc_adc_clk_rate(info) * 3);
 
 		mcr_data |= ADC_NSTART;
 		writel(mcr_data, info->regs + REG_ADC_MCR);
@@ -429,6 +448,13 @@ static int s32cc_read_raw(struct iio_dev *indio_dev,
 		*val2 = ADC_RESOLUTION;
 		return IIO_VAL_FRACTIONAL_LOG2;
 
+	case IIO_CHAN_INFO_SAMP_FREQ:
+		*val = s32cc_adc_clk_rate(info) / (ADC_TPT +
+				info->adc_feature.sampling_duration[0] +
+				ADC_CT +
+				ADC_DP);
+		return IIO_VAL_INT;
+
 	default:
 		break;
 	}
@@ -442,7 +468,26 @@ static int s32cc_write_raw(struct iio_dev *indio_dev,
 			   int val2,
 			   long mask)
 {
-	return 0;
+	struct s32cc_adc *info = iio_priv(indio_dev);
+	int samp_time;
+
+	switch (mask) {
+	case IIO_CHAN_INFO_SAMP_FREQ:
+		samp_time = s32cc_adc_clk_rate(info) / val - (ADC_TPT +
+				ADC_CT +
+				ADC_DP);
+		samp_time = max(samp_time, ADC_INPSAMP_MIN);
+		samp_time = min(samp_time, ADC_INPSAMP_MAX);
+
+		info->adc_feature.sampling_duration[0] = samp_time;
+		s32cc_adc_sample_set(info);
+		return 0;
+
+	default:
+		break;
+	}
+
+	return -EINVAL;
 }
 
 static const struct iio_info s32cc_adc_iio_info = {
