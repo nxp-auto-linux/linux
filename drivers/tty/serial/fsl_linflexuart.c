@@ -6,6 +6,7 @@
  * Copyright 2017-2019 NXP
  */
 
+#include <linux/clk.h>
 #include <linux/console.h>
 #include <linux/io.h>
 #include <linux/irq.h>
@@ -119,6 +120,12 @@
 #define EARLYCON_BUFFER_INITIAL_CAP	8
 
 #define PREINIT_DELAY			2000 /* us */
+
+struct linflex_port {
+	struct uart_port	port;
+	struct clk		*clk;
+	struct clk		*clk_ipg;
+};
 
 static const struct of_device_id linflex_dt_ids[] = {
 	{
@@ -409,6 +416,7 @@ linflex_set_termios(struct uart_port *port, struct ktermios *termios,
 	unsigned long flags;
 	unsigned long cr, old_cr, cr1;
 	unsigned int old_csize = old ? old->c_cflag & CSIZE : CS8;
+	unsigned long baud, ibr, fbr, divisr, dividr;
 
 	spin_lock_irqsave(&port->lock, flags);
 
@@ -480,6 +488,9 @@ linflex_set_termios(struct uart_port *port, struct ktermios *termios,
 		cr &= ~LINFLEXD_UARTCR_PCE;
 	}
 
+	/* ask the core to calculate the divisor */
+	baud = uart_get_baud_rate(port, termios, old, 50, port->uartclk / 16);
+
 	port->read_status_mask = 0;
 
 	if (termios->c_iflag & INPCK)
@@ -504,6 +515,22 @@ linflex_set_termios(struct uart_port *port, struct ktermios *termios,
 		if (termios->c_iflag & IGNPAR)
 			port->ignore_status_mask |= LINFLEXD_UARTSR_BOF;
 	}
+
+	/* update the per-port timeout */
+	uart_update_timeout(port, termios->c_cflag, baud);
+
+	/* disable transmit and receive */
+	writel(old_cr & ~(LINFLEXD_UARTCR_RXEN | LINFLEXD_UARTCR_TXEN),
+	       port->membase + UARTCR);
+
+	divisr = port->uartclk;	//freq in Hz
+	dividr = (baud * 16);
+
+	ibr = divisr / dividr;
+	fbr = (divisr % dividr) * 16;
+
+	writel(ibr, port->membase + LINIBRR);
+	writel(fbr, port->membase + LINFBRR);
 
 	writel(cr, port->membase + UARTCR);
 
@@ -812,13 +839,16 @@ static struct uart_driver linflex_reg = {
 static int linflex_probe(struct platform_device *pdev)
 {
 	struct device_node *np = pdev->dev.of_node;
+	struct linflex_port *lfport;
 	struct uart_port *sport;
 	struct resource *res;
 	int ret;
 
-	sport = devm_kzalloc(&pdev->dev, sizeof(*sport), GFP_KERNEL);
-	if (!sport)
+	lfport = devm_kzalloc(&pdev->dev, sizeof(*lfport), GFP_KERNEL);
+	if (!lfport)
 		return -ENOMEM;
+
+	sport = &lfport->port;
 
 	ret = of_alias_get_id(np, "serial");
 	if (ret < 0) {
@@ -850,18 +880,58 @@ static int linflex_probe(struct platform_device *pdev)
 	sport->flags = UPF_BOOT_AUTOCONF;
 	sport->has_sysrq = IS_ENABLED(CONFIG_SERIAL_FSL_LINFLEXUART_CONSOLE);
 
+	lfport->clk = devm_clk_get(&pdev->dev, "lin");
+	if (IS_ERR(lfport->clk)) {
+		ret = PTR_ERR(lfport->clk);
+		dev_err(&pdev->dev, "failed to get uart clk: %d\n", ret);
+		return ret;
+	}
+
+	ret = clk_prepare_enable(lfport->clk);
+	if (ret) {
+		dev_err(&pdev->dev, "failed to enable uart clk: %d\n", ret);
+		return ret;
+	}
+
+	lfport->clk_ipg = devm_clk_get(&pdev->dev, "ipg");
+	if (IS_ERR(lfport->clk_ipg)) {
+		ret = PTR_ERR(lfport->clk_ipg);
+		dev_err(&pdev->dev, "failed to get ipg uart clk: %d\n", ret);
+		clk_disable_unprepare(lfport->clk);
+		return ret;
+	}
+
+	ret = clk_prepare_enable(lfport->clk_ipg);
+	if (ret) {
+		clk_disable_unprepare(lfport->clk);
+		dev_err(&pdev->dev, "failed to enable ipg uart clk: %d\n", ret);
+		return ret;
+	}
+
+	sport->uartclk = clk_get_rate(lfport->clk);
+
 	linflex_ports[sport->line] = sport;
 
 	platform_set_drvdata(pdev, sport);
 
-	return uart_add_one_port(&linflex_reg, sport);
+	ret = uart_add_one_port(&linflex_reg, sport);
+	if (ret) {
+		clk_disable_unprepare(lfport->clk);
+		clk_disable_unprepare(lfport->clk_ipg);
+	}
+
+	return ret;
 }
 
 static int linflex_remove(struct platform_device *pdev)
 {
-	struct uart_port *sport = platform_get_drvdata(pdev);
+	struct linflex_port *lfport = platform_get_drvdata(pdev);
+	struct uart_port *sport = &lfport->port;
 
 	uart_remove_one_port(&linflex_reg, sport);
+
+	clk_disable_unprepare(lfport->clk);
+	clk_disable_unprepare(lfport->clk_ipg);
 
 	return 0;
 }
@@ -869,16 +939,35 @@ static int linflex_remove(struct platform_device *pdev)
 #ifdef CONFIG_PM_SLEEP
 static int linflex_suspend(struct device *dev)
 {
-	struct uart_port *sport = dev_get_drvdata(dev);
+	struct linflex_port *lfport = dev_get_drvdata(dev);
+	struct uart_port *sport = &lfport->port;
 
 	uart_suspend_port(&linflex_reg, sport);
+
+	clk_disable_unprepare(lfport->clk);
+	clk_disable_unprepare(lfport->clk_ipg);
 
 	return 0;
 }
 
 static int linflex_resume(struct device *dev)
 {
-	struct uart_port *sport = dev_get_drvdata(dev);
+	struct linflex_port *lfport = dev_get_drvdata(dev);
+	struct uart_port *sport = &lfport->port;
+	int ret;
+
+	ret = clk_prepare_enable(lfport->clk);
+	if (ret) {
+		dev_err(dev, "failed to enable uart clk: %d\n", ret);
+		return ret;
+	}
+
+	ret = clk_prepare_enable(lfport->clk_ipg);
+	if (ret) {
+		clk_disable_unprepare(lfport->clk);
+		dev_err(dev, "failed to enable ipg uart clk: %d\n", ret);
+		return ret;
+	}
 
 	uart_resume_port(&linflex_reg, sport);
 
