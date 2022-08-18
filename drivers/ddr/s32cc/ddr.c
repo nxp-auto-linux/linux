@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0+
 /*
- * Copyright 2020-2021 NXP
+ * Copyright 2020-2022 NXP
  *
  */
 
@@ -17,9 +17,12 @@
 #include <linux/spinlock.h>
 #include "ddr.h"
 
+#define POLLING_NEEDED_KEY	0x1
+
 struct ddr_priv {
 	void __iomem *ddrc_base;
 	void __iomem *perf_base;
+	void __iomem *membase_reg;
 	struct device *dev;
 	struct timer_list timer;
 	bool shutdown;
@@ -130,6 +133,17 @@ static void execute_polling(struct timer_list *t)
 	}
 }
 
+static void enable_polling(struct ddr_priv *data)
+{
+	if (readl(data->membase_reg) != POLLING_NEEDED_KEY)
+		return;
+
+	data->shutdown = false;
+	/* Start the timer. */
+	timer_setup(&data->timer, execute_polling, 0);
+	reset_timer(data);
+}
+
 static void __iomem *get_perf_map_by_phandle(struct device *dev)
 {
 	struct device_node *perf_node;
@@ -154,11 +168,28 @@ static void __iomem *get_perf_map_by_phandle(struct device *dev)
 static int ddr_probe(struct platform_device *pdev)
 {
 	struct ddr_priv *data;
+	struct device_node *np;
+	struct resource res;
 	struct device *dev = &pdev->dev;
 
 	data = devm_kzalloc(dev, sizeof(*data), GFP_KERNEL);
 	if (unlikely(!data))
 		return -ENOMEM;
+
+	np = of_parse_phandle(dev->of_node, "memory-region", 0);
+	if (!np) {
+		dev_err(dev, "No 'memory_region' entry specified\n");
+		return -EINVAL;
+	}
+
+	if (of_address_to_resource(np, 0, &res)) {
+		dev_err(dev, "No memory address assigned to the region");
+		return -EINVAL;
+	}
+
+	data->membase_reg = devm_ioremap_resource(dev, &res);
+	if (IS_ERR(data->membase_reg))
+		return PTR_ERR(data->membase_reg);
 
 	data->ddrc_base = devm_platform_ioremap_resource(pdev, 0);
 	if (IS_ERR(data->ddrc_base))
@@ -166,13 +197,11 @@ static int ddr_probe(struct platform_device *pdev)
 
 	data->perf_base = get_perf_map_by_phandle(dev);
 	data->dev = dev;
-	data->shutdown = false;
 
 	spin_lock_init(&data->shutdown_access);
+	platform_set_drvdata(pdev, data);
 
-	/* Start the timer. */
-	timer_setup(&data->timer, execute_polling, 0);
-	reset_timer(data);
+	enable_polling(data);
 
 	return 0;
 }
@@ -189,6 +218,40 @@ static void ddr_remove(struct platform_device *pdev)
 	dev_info(data->dev, "device removed\n");
 }
 
+#ifdef CONFIG_PM_SLEEP
+static int s32cc_ddr_suspend(struct device *dev)
+{
+	struct ddr_priv *data = dev_get_drvdata(dev);
+	struct platform_device *pdev = container_of(dev,
+			struct platform_device, dev);
+
+	spin_lock_bh(&data->shutdown_access);
+	if (!data->shutdown)
+		cleanup_ddr_errata(data);
+	spin_unlock_bh(&data->shutdown_access);
+
+	platform_set_drvdata(pdev, data);
+
+	return 0;
+}
+
+static int s32cc_ddr_resume(struct device *dev)
+{
+	struct ddr_priv *data = dev_get_drvdata(dev);
+	struct platform_device *pdev = container_of(dev,
+			struct platform_device, dev);
+
+	enable_polling(data);
+
+	platform_set_drvdata(pdev, data);
+
+	return 0;
+}
+#endif
+
+static SIMPLE_DEV_PM_OPS(s32cc_ddr_errata_pm_ops,
+		s32cc_ddr_suspend, s32cc_ddr_resume);
+
 static const struct of_device_id s32cc_ddr_errata_dt_ids[] = {
 	{
 		.compatible = "nxp,s32cc-ddr",
@@ -200,6 +263,7 @@ static struct platform_driver s32cc_ddr_errata_driver = {
 	.driver = {
 		.name = KBUILD_MODNAME,
 		.of_match_table = s32cc_ddr_errata_dt_ids,
+		.pm = &s32cc_ddr_errata_pm_ops,
 	},
 	.probe = ddr_probe,
 	.remove_new = ddr_remove,
