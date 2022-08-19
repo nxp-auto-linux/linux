@@ -9,6 +9,7 @@
 #include <linux/of_address.h>
 #include <linux/of_device.h>
 #include <linux/platform_device.h>
+#include <soc/s32cc/revision_defs.h>
 
 /* SoC revision */
 #define SIUL2_MIDR1_OFF				(0x00000004)
@@ -43,7 +44,8 @@ static int s32cc_siul2_nvmem_read(void *context, unsigned int offset,
 	minor = midr1 & SIUL2_MIDR1_MINOR_MASK;
 
 	/* Bytes format: (MAJOR+1).MINOR.0.0 */
-	*(u32 *)val = (major + 1) << 24 | minor << 16;
+	*(u32 *)val = (major + 1) << S32CC_SOC_REV_MAJOR_SHIFT
+			| minor << S32CC_SOC_REV_MINOR_SHIFT;
 
 	return 0;
 }
