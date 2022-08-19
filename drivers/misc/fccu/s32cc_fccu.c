@@ -25,6 +25,7 @@
 #include <linux/jiffies.h>
 #include <linux/interrupt.h>
 #include <linux/of.h>
+#include <linux/slab.h>
 
 #define DRIVER_NAME "s32cc_fccu"
 #define FCCU_MINOR	1
@@ -38,7 +39,6 @@
 #define FCCU_NCFE2			0x9C
 #define FCCU_NCFS_CFG4		0x5C
 #define FCCU_NCFS_CFG5		0x60
-#define FCCU_NCF_S2			0x88
 #define FCCU_NCFK			0x90
 
 #define FCCU_CTRL_OPS_MASK			0xC0
@@ -69,6 +69,16 @@
 
 #define FCCU_CFG_DEFAULT			0x8
 
+#define FCCU_NCFS_CFGN_OFF			0x4C
+#define FCCU_NCF_EN_OFF				0x94
+#define FCCU_NCF_SN_OFF				0x80
+#define FCCU_NCF_SN_MAX_NUM			0x4
+#define FCCU_NCFS_CFGN_MAX_NUM		0x8
+#define FCCU_NCFS_CFG_SIZE			16
+#define FCCU_NCF_SN(N)				(FCCU_NCF_SN_OFF + 4 * (N))
+#define FCCU_NCF_EN(N)				(FCCU_NCF_EN_OFF + 4 * (N))
+#define FCCU_NCFS_CFGN(N)			(FCCU_NCFS_CFGN_OFF + 4 * (N))
+
 #define DIFF_MODE					1
 #define EQUAL_MODE					0
 
@@ -80,7 +90,46 @@ static struct miscdevice fccu_miscdev = {
 struct fccu_pri_data_t {
 	struct resource *res;
 	void __iomem *base;
+	u32 ncfn_mask[FCCU_NCF_SN_MAX_NUM];
+	u32 ncfs_cfgn_mask[FCCU_NCFS_CFGN_MAX_NUM];
 };
+
+static int fccu_get_ncf_reg_number(u32 val)
+{
+	int ncf_num = val / 32;
+
+	return (ncf_num < FCCU_NCF_SN_MAX_NUM) ? ncf_num : -EINVAL;
+}
+
+/* Set maximal fault masks for every NCF_Sn */
+static void set_maximal_fault_lists(struct device *dev,
+				    struct fccu_pri_data_t *priv_data,
+				    u32 *fault_list, u32 size)
+{
+	u32 i;
+	int ncf_num;
+	u32 reg_fault_pos;
+
+	for (i = 0; i < size; i++) {
+		ncf_num = fccu_get_ncf_reg_number(fault_list[i]);
+		if (ncf_num < 0) {
+			dev_err(dev, "Invalid NCF_Sn fault argument %d\n",
+				fault_list[i]);
+			continue;
+		}
+
+		reg_fault_pos = fault_list[i] % 32;
+		priv_data->ncfn_mask[ncf_num] |= BIT(reg_fault_pos);
+
+		if (reg_fault_pos < FCCU_NCFS_CFG_SIZE) {
+			priv_data->ncfs_cfgn_mask[ncf_num * 2] |=
+				BIT(reg_fault_pos * 2);
+		} else {
+			priv_data->ncfs_cfgn_mask[ncf_num * 2 + 1] |=
+				BIT((reg_fault_pos % FCCU_NCFS_CFG_SIZE) * 2);
+		}
+	}
+}
 
 static void fccu_wait_and_get_ops(void __iomem *base, u32 *ops_val_out)
 {
@@ -96,7 +145,7 @@ static void fccu_wait_and_get_ops(void __iomem *base, u32 *ops_val_out)
 		*ops_val_out = reg & FCCU_CTRL_OPS_MASK;
 }
 
-static int wait_fccu_op_success(void __iomem *base)
+static int wait_op_success(void __iomem *base)
 {
 	u32 ops_val = 0;
 
@@ -107,7 +156,7 @@ static int wait_fccu_op_success(void __iomem *base)
 	return 0;
 }
 
-static int wait_fccu_become_normal_st(void __iomem *base)
+static int wait_become_normal_st(void __iomem *base)
 {
 	u32 ops_val = 0;
 	u32 status = 0;
@@ -122,7 +171,7 @@ static int wait_fccu_become_normal_st(void __iomem *base)
 
 	__raw_writel(FCCU_CTRL_OPR_OP3, base + FCCU_CTRL);
 
-	if (wait_fccu_op_success(base) != 0)
+	if (wait_op_success(base) != 0)
 		return -1;
 
 	status = __raw_readl(base + FCCU_STAT) & FCCU_STAT_STATUS_MASK;
@@ -132,38 +181,47 @@ static int wait_fccu_become_normal_st(void __iomem *base)
 	return 0;
 }
 
-static int clear_fault_status(void __iomem *base)
+static int clear_fault_status(struct device *dev,
+			      struct fccu_pri_data_t *priv_data)
 {
+	void __iomem *base = priv_data->base;
+	u32 reg_ncf_val;
+	int i, ret;
+
 	if (IS_ERR_OR_NULL(base)) {
 		dev_err(fccu_miscdev.parent,
 			"%s, %d, invalid argument\n", __func__, __LINE__);
 		return -EINVAL;
 	}
 
-	/* Unlock FCCU */
-	__raw_writel(FCCU_TL_TRANSKEY_UNLOCK, base + FCCU_TRANS_LOCK);
+	for (i = 0; i < ARRAY_SIZE(priv_data->ncfn_mask); i++) {
+		reg_ncf_val = __raw_readl(base + FCCU_NCF_SN(i));
 
-	/* Unlock FCCU fault status source register */
-	__raw_writel(FCCU_NCFK_UNLOCK_SEQUENCE, base + FCCU_NCFK);
+		if (priv_data->ncfn_mask[i] & reg_ncf_val) {
+			/* Unlock FCCU fault status source register */
+			__raw_writel(FCCU_NCFK_UNLOCK_SEQUENCE,
+				     base + FCCU_NCFK);
 
-	/* Clear previous reset status from SWT0, SWT1, SWT2, SWT3 */
-	__raw_writel(0xFFFFFFFF, base + FCCU_NCF_S2);
+			/* Clear faults with maximal fault mask for NCF_Sn */
+			__raw_writel(priv_data->ncfn_mask[i],
+				     base + FCCU_NCF_SN(i));
 
-	if (wait_fccu_op_success(base) != 0)
-		return -1;
+			ret = wait_op_success(base);
+			if (ret)
+				return ret;
+
+			dev_info(dev, "Cleared faults from NCF_S%d\n", i);
+		}
+	}
 
 	return 0;
 }
 
-static int enable_swt_rs_chanel(struct device *dev, void __iomem *base)
+static int enable_rs_channel(struct device *dev,
+			     struct fccu_pri_data_t *priv_data)
 {
-	unsigned int *reg_val_arr = NULL;
-	unsigned int *reg_off_arr = NULL;
-	size_t size = 0;
-	int i = 0;
-	int ret = -1;
-	struct property *prop = NULL;
-	struct device_node *np = NULL;
+	void __iomem *base = priv_data->base;
+	int i = 0, ret;
 
 	if (IS_ERR_OR_NULL(base) || IS_ERR_OR_NULL(dev)) {
 		dev_err(fccu_miscdev.parent,
@@ -171,34 +229,9 @@ static int enable_swt_rs_chanel(struct device *dev, void __iomem *base)
 		return -EINVAL;
 	}
 
-	if (wait_fccu_become_normal_st(base) != 0)
+	ret = wait_become_normal_st(base);
+	if (ret)
 		return ret;
-
-	np = dev->of_node;
-	prop = of_find_property(np, "cfg_reg_off", NULL);
-
-	if (!prop) {
-		dev_err(fccu_miscdev.parent,
-			"%s, %d, can not find property\n", __func__, __LINE__);
-		return ret;
-	}
-
-	size = prop->length / sizeof(*reg_off_arr);
-
-	reg_off_arr = devm_kcalloc(dev, size, sizeof(*reg_off_arr),
-				   GFP_KERNEL);
-	if (!reg_off_arr)
-		return ret;
-
-	reg_val_arr = devm_kcalloc(dev, size, sizeof(*reg_val_arr),
-				   GFP_KERNEL);
-	if (!reg_val_arr) {
-		devm_kfree(dev, reg_off_arr);
-		return ret;
-	}
-
-	of_property_read_u32_array(np, "cfg_reg_off", reg_off_arr, size);
-	of_property_read_u32_array(np, "cfg_reg_val", reg_val_arr, size);
 
 	/* Set time out for configuration */
 	__raw_writel(FCCU_TIME_OUT, base + FCCU_CFG_TO);
@@ -208,68 +241,96 @@ static int enable_swt_rs_chanel(struct device *dev, void __iomem *base)
 	__raw_writel(FCCU_CTRLK_UNLOCK_OP1, base + FCCU_CTRLK);
 	__raw_writel(FCCU_CRTL_OPR_OP1, base + FCCU_CTRL);
 
-	if (wait_fccu_op_success(base) != 0)
-		goto out;
+	ret = wait_op_success(base);
+	if (ret)
+		return ret;
 
-	/* Setup reset channel for FCCU */
-	for (i = 0; i < size; i++)
-		__raw_writel(reg_val_arr[i], base + reg_off_arr[i]);
+	/* Setup Non-critical Fault Enable registers */
+	for (i = 0; i < ARRAY_SIZE(priv_data->ncfn_mask); i++)
+		__raw_writel(priv_data->ncfn_mask[i],
+			     base + FCCU_NCF_EN(i));
+
+	/* Setup Non-critical Fault-State Configuration registers */
+	for (i = 0; i < ARRAY_SIZE(priv_data->ncfs_cfgn_mask); i++)
+		__raw_writel(priv_data->ncfs_cfgn_mask[i],
+			     base + FCCU_NCFS_CFGN(i));
 
 	/* Put FCCU into normal state */
 	__raw_writel(FCCU_CTRLK_UNLOCK_OP2, base + FCCU_CTRLK);
 	__raw_writel(FCCU_CTRL_OPR_OP2, base + FCCU_CTRL);
 
-	if (wait_fccu_op_success(base) != 0)
-		goto out;
-
-	ret = 0;
-
-out:
-	devm_kfree(dev, reg_off_arr);
-	devm_kfree(dev, reg_val_arr);
-	return ret;
+	return wait_op_success(base);
 }
 
 static int __init fccu_probe(struct platform_device *pdev)
 {
-	int ret = -1;
 	struct fccu_pri_data_t *priv_data = NULL;
+	struct property *prop = NULL;
+	struct device *dev = &pdev->dev;
+	struct device_node *np = dev->of_node;
+	u32 *ncf_fault_arr = NULL;
+	size_t size;
+	int ret;
 
-	priv_data = devm_kzalloc(&pdev->dev, sizeof(struct fccu_pri_data_t),
+	priv_data = devm_kzalloc(dev, sizeof(struct fccu_pri_data_t),
 				 GFP_KERNEL);
 	if (!priv_data)
 		return -ENOMEM;
 
-	fccu_miscdev.parent = &pdev->dev;
+	fccu_miscdev.parent = dev;
 	priv_data->res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	priv_data->base = devm_ioremap_resource(&pdev->dev, priv_data->res);
+	priv_data->base = devm_ioremap_resource(dev, priv_data->res);
 
 	if (IS_ERR_OR_NULL(priv_data->base)) {
 		dev_err(fccu_miscdev.parent,
 			"%s, %d, invalid argument\n", __func__, __LINE__);
 		release_resource(priv_data->res);
-		devm_kfree(&pdev->dev, priv_data);
+		devm_kfree(dev, priv_data);
 		return -EINVAL;
 	}
 
 	platform_set_drvdata(pdev, priv_data);
 
-	if (clear_fault_status(priv_data->base) != 0) {
-		dev_err(fccu_miscdev.parent, "%s, %d, configuration meet timeout\n",
-			__func__, __LINE__);
-		devm_kfree(&pdev->dev, priv_data);
-		return ret;
+	prop = of_find_property(np, "nxp,ncf_fault_list", NULL);
+	if (!prop) {
+		dev_err(fccu_miscdev.parent,
+			"can not find property: 'nxp,ncf_fault_list'\n");
+		return -EINVAL;
 	}
 
-	if (enable_swt_rs_chanel(&pdev->dev, priv_data->base) != 0) {
+	size = prop->length / sizeof(*ncf_fault_arr);
+	ncf_fault_arr = kcalloc(size, sizeof(*ncf_fault_arr), GFP_KERNEL);
+	if (!ncf_fault_arr)
+		return -ENOMEM;
+
+	ret = of_property_read_u32_array(np, "nxp,ncf_fault_list",
+					 ncf_fault_arr, size);
+	if (ret) {
+		dev_err(fccu_miscdev.parent,
+			"No fault status registers offset specified\n");
+		goto out;
+	}
+
+	set_maximal_fault_lists(dev, priv_data, ncf_fault_arr, size);
+
+	ret = clear_fault_status(dev, priv_data);
+	if (ret) {
 		dev_err(fccu_miscdev.parent, "%s, %d, configuration meet timeout\n",
 			__func__, __LINE__);
-		devm_kfree(&pdev->dev, priv_data);
-		return ret;
+		goto out;
+	}
+
+	ret = enable_rs_channel(dev, priv_data);
+	if (ret) {
+		dev_err(fccu_miscdev.parent, "%s, %d, configuration meet timeout\n",
+			__func__, __LINE__);
+		goto out;
 	}
 
 	ret = misc_register(&fccu_miscdev);
 
+out:
+	kfree(ncf_fault_arr);
 	return ret;
 }
 
@@ -284,9 +345,8 @@ static int __exit fccu_remove(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
-	clear_fault_status(priv_data->base);
+	clear_fault_status(&pdev->dev, priv_data);
 	release_resource(priv_data->res);
-	devm_kfree(&pdev->dev, priv_data);
 
 	return 0;
 }
@@ -301,7 +361,7 @@ static int __maybe_unused fccu_resume(struct device *dev)
 	struct fccu_pri_data_t *priv_data = dev_get_drvdata(dev);
 	int ret;
 
-	ret = enable_swt_rs_chanel(dev, priv_data->base);
+	ret = enable_rs_channel(dev, priv_data);
 	if (ret)
 		dev_err(dev, "%s, %d, configuration meet timeout\n",
 			__func__, __LINE__);
