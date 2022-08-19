@@ -11,25 +11,22 @@ maintainers:
 
 properties:
   compatible:
-    enum:
-      - nxp,s32cc-ddr
+    const: nxp,s32cc-ddr
 
   reg:
     maxItems: 2
 
-  status:
-    enum:
-      - enabled
-      - disabled
-
   perf-phandle:
     description: phandle to the "ddr-perf" node
+
+  memory-region:
+    maxItems: 1
 
 required:
   - compatible
   - reg
-  - status
   - perf-phandle
+  - memory-region
 
 unevaluatedProperties: false
 
@@ -39,5 +36,6 @@ examples:
         compatible = "nxp,s32cc-ddr";
         reg = <0x0 0x403c0000 0x0 0x100>;
         perf-phandle = <&perf>;
+        memory-region = <&ddr_errata_reserved>;
         status = "disabled";
     };
