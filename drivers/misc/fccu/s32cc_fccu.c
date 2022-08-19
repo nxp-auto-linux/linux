@@ -2,7 +2,7 @@
 /*
  * FCCU driver for S32CC SoC
  *
- * Copyright 2018 NXP.
+ * Copyright 2018, 2021 NXP.
  *
  * Drives the Fault Collection and Control Unit.
  *
@@ -287,6 +287,26 @@ static void fccu_remove(struct platform_device *pdev)
 	devm_kfree(&pdev->dev, priv_data);
 }
 
+static int __maybe_unused fccu_suspend(struct device *dev)
+{
+	return 0;
+}
+
+static int __maybe_unused fccu_resume(struct device *dev)
+{
+	struct fccu_pri_data_t *priv_data = dev_get_drvdata(dev);
+	int ret;
+
+	ret = enable_swt_rs_chanel(dev, priv_data->base);
+	if (ret)
+		dev_err(dev, "%s, %d, configuration meet timeout\n",
+			__func__, __LINE__);
+
+	return ret;
+}
+
+static SIMPLE_DEV_PM_OPS(fccu_pm_ops, fccu_suspend, fccu_resume);
+
 static const struct of_device_id fccu_dt_ids[] = {
 	{.compatible = "nxp,s32cc-fccu",},
 	{ /* sentinel */ }
@@ -297,6 +317,7 @@ static struct platform_driver fccu_driver = {
 		.name = DRIVER_NAME,
 		.owner = THIS_MODULE,
 		.of_match_table = fccu_dt_ids,
+		.pm = &fccu_pm_ops,
 	},
 	.probe = fccu_probe,
 	.remove_new = fccu_remove,
