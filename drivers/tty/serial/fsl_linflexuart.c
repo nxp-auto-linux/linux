@@ -1306,19 +1306,17 @@ linflex_console_write(struct console *co, const char *s, unsigned int count)
 {
 	struct uart_port *sport = linflex_ports[co->index];
 	unsigned long flags;
-	int locked = 1;
 
-	if (sport->sysrq)
-		locked = 0;
-	else if (oops_in_progress)
-		locked = uart_port_trylock_irqsave(sport, &flags);
-	else
-		uart_port_lock_irqsave(sport, &flags);
-
-	linflex_string_write(sport, s, count);
-
-	if (locked)
+	if (sport->sysrq) {
+		linflex_string_write(sport, s, count);
+	} else {
+		if (oops_in_progress)
+			uart_port_trylock_irqsave(sport, &flags);
+		else
+			uart_port_lock_irqsave(sport, &flags);
+		linflex_string_write(sport, s, count);
 		uart_port_unlock_irqrestore(sport, flags);
+	}
 }
 
 /*
