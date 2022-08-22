@@ -1547,8 +1547,10 @@ static int linflex_probe(struct platform_device *pdev)
 
 	ret = uart_add_one_port(&linflex_reg, sport);
 	if (ret) {
+#if !defined(CONFIG_S32CC_EMULATOR)
 		clk_disable_unprepare(lfport->clk);
 		clk_disable_unprepare(lfport->clk_ipg);
+#endif
 		goto linflex_probe_free_dma;
 	}
 
@@ -1570,8 +1572,10 @@ static int linflex_remove(struct platform_device *pdev)
 
 	uart_remove_one_port(&linflex_reg, sport);
 
+#if !defined(CONFIG_S32CC_EMULATOR)
 	clk_disable_unprepare(lfport->clk);
 	clk_disable_unprepare(lfport->clk_ipg);
+#endif
 
 	if (lfport->dma_tx_chan)
 		dma_release_channel(lfport->dma_tx_chan);
