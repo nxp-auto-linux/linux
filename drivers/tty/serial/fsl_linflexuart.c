@@ -3,7 +3,7 @@
  * Freescale LINFlexD UART serial port driver
  *
  * Copyright 2012-2016 Freescale Semiconductor, Inc.
- * Copyright 2017-2021 NXP
+ * Copyright 2017-2022 NXP
  */
 
 #include <linux/clk.h>
@@ -1092,11 +1092,9 @@ linflex_set_termios(struct uart_port *port, struct ktermios *termios,
 	 * linflex_startup(), which is called a bit later.
 	 */
 	if (lfport->dma_rx_buf_bus && lfport->dma_rx_use &&
-	    !linflex_dma_rx(lfport)) {
-		timer_setup(&lfport->timer, linflex_timer_func, 0);
-		lfport->timer.expires = jiffies + lfport->dma_rx_timeout;
-		add_timer(&lfport->timer);
-	}
+	    !linflex_dma_rx(lfport))
+		mod_timer(&lfport->timer, jiffies + lfport->dma_rx_timeout);
+
 	if (lfport->dma_tx_use) {
 		xmit = &port->state->xmit;
 		if (uart_circ_chars_pending(xmit) < WAKEUP_CHARS)
