@@ -941,8 +941,7 @@ linflex_set_termios(struct uart_port *port, struct ktermios *termios,
 	writel(old_cr, port->membase + UARTCR);
 
 	/* Enter initialization mode by setting INIT bit */
-	cr1 = readl(port->membase + LINCR1);
-	cr1 |= LINFLEXD_LINCR1_INIT;
+	cr1 = LINFLEXD_LINCR1_INIT | LINFLEXD_LINCR1_MME;
 	writel(cr1, port->membase + LINCR1);
 
 	/* wait for init mode entry */
