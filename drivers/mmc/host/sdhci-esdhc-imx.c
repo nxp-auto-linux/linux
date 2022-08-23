@@ -1037,69 +1037,52 @@ static void esdhc_poll_rsta(struct sdhci_host *host)
 			 "Warning: Reset did not complete within 100us\n");
 }
 
-static int esdhc_send_tuning_block(struct sdhci_host *host,
-				   u32 opcode, u8 delay_cells)
-{
-	esdhc_poll_rsta(host);
-	writel(DLY_CELL_SET_PRE(delay_cells),
-	       host->ioaddr + ESDHC_TUNE_CTRL_STATUS);
-	return mmc_send_tuning(host->mmc, opcode, NULL);
-
-}
-
 static int esdhc_executing_tuning(struct sdhci_host *host, u32 opcode)
 {
-	u32 reg, value_a, value_b;
-	bool must_clr_frcsdclk = false;
+	u32 r, value_start, value_end;
 
 	esdhc_clear_bits(host, ESDHC_TUNING_CTRL, ESDHC_STD_TUNING_EN);
 	esdhc_poll_rsta(host);
 	esdhc_set_bits(host, ESDHC_MIX_CTRL,
 		       (ESDHC_MIX_CTRL_EXE_TUNE | ESDHC_MIX_CTRL_SMPCLK_SEL));
-
-	if (!(readl(host->ioaddr + ESDHC_VENDOR_SPEC)
-					& ESDHC_VENDOR_SPEC_FRC_SDCLK_ON)) {
-		esdhc_set_bits(host, ESDHC_VENDOR_SPEC,
-			       ESDHC_VENDOR_SPEC_FRC_SDCLK_ON);
-		must_clr_frcsdclk = true;
-	}
+	esdhc_set_bits(host, ESDHC_VENDOR_SPEC, ESDHC_VENDOR_SPEC_FRC_SDCLK_ON);
 
 	/* Find the start of the passing window */
-	value_a = ESDHC_TUNE_CTRL_MIN;
-	while (value_a <= ESDHC_TUNE_CTRL_MAX) {
-		if (!esdhc_send_tuning_block(host, opcode, value_a))
+	for (value_start = ESDHC_TUNE_CTRL_MIN;
+	     value_start <= ESDHC_TUNE_CTRL_MAX;
+	     value_start += ESDHC_TUNE_CTRL_STEP) {
+		writel(DLY_CELL_SET_PRE(value_start),
+		       host->ioaddr + ESDHC_TUNE_CTRL_STATUS);
+		if (!mmc_send_tuning(host->mmc, opcode, NULL))
 			break;
-		value_a += ESDHC_TUNE_CTRL_STEP;
 	}
-	if (value_a > ESDHC_TUNE_CTRL_MAX)
+	if (value_start > ESDHC_TUNE_CTRL_MAX)
 		return -EINVAL;
 
 	/* Find the end of the passing window */
-	value_b = value_a;
-	while (value_b + ESDHC_TUNE_CTRL_STEP <= ESDHC_TUNE_CTRL_MAX) {
-		if (esdhc_send_tuning_block(host, opcode,
-					    value_b + ESDHC_TUNE_CTRL_STEP))
+	for (value_end = value_start;
+	     value_end + ESDHC_TUNE_CTRL_STEP <= ESDHC_TUNE_CTRL_MAX;
+	     value_end += ESDHC_TUNE_CTRL_STEP) {
+		writel(DLY_CELL_SET_PRE((value_end + ESDHC_TUNE_CTRL_STEP)),
+		       host->ioaddr + ESDHC_TUNE_CTRL_STATUS);
+		if (mmc_send_tuning(host->mmc, opcode, NULL))
 			break;
-		value_b += ESDHC_TUNE_CTRL_STEP;
 	}
 
 	esdhc_clear_bits(host, ESDHC_MIX_CTRL, ESDHC_MIX_CTRL_EXE_TUNE);
-	if (must_clr_frcsdclk)
-		esdhc_clear_bits(host, ESDHC_VENDOR_SPEC,
-				 ESDHC_VENDOR_SPEC_FRC_SDCLK_ON);
+	esdhc_clear_bits(host, ESDHC_VENDOR_SPEC,
+			 ESDHC_VENDOR_SPEC_FRC_SDCLK_ON);
 	esdhc_poll_rsta(host);
 	esdhc_set_bits(host, ESDHC_MIX_CTRL, ESDHC_MIX_CTRL_SMPCLK_SEL);
 
 	/* According to the "Manual Tuning Procedure" chapter in the RM */
-	reg = (((((value_a + value_b) / 2) & 0xffffff00) - 0x300) | 0x33);
-	writel(reg, host->ioaddr + ESDHC_TUNE_CTRL_STATUS);
+	r = ((value_start + value_end) / 2);
+	r = ((((r << 8) & 0xffffff00) - 0x300) | 0x33);
+	writel(r, host->ioaddr + ESDHC_TUNE_CTRL_STATUS);
 
-	if (readl_poll_timeout(host->ioaddr + ESDHC_TUNE_CTRL_STATUS, reg,
-			       TUNE_CTRL_TAP_SEL(reg)
-						!= TUNE_CTRL_DLY_CELL_SET(reg),
-			       10, 100))
-		dev_warn(mmc_dev(host->mmc),
-			 "Setting delay cells did not complete within 100us\n");
+	readl_poll_timeout(host->ioaddr + ESDHC_TUNE_CTRL_STATUS, r,
+			   TUNE_CTRL_TAP_SEL(r) == TUNE_CTRL_DLY_CELL_SET(r),
+			   0, 0);
 
 	esdhc_set_bits(host, ESDHC_MIX_CTRL, ESDHC_MIX_CTRL_AUTO_TUNE_EN);
 
