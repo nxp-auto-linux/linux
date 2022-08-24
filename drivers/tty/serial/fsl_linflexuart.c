@@ -758,6 +758,7 @@ static int linflex_dma_tx_request(struct uart_port *port)
 	dma_tx_sconfig.dst_addr_width = DMA_SLAVE_BUSWIDTH_1_BYTE;
 	dma_tx_sconfig.dst_maxburst = 1;
 	dma_tx_sconfig.direction = DMA_MEM_TO_DEV;
+	dma_tx_sconfig.src_addr = 0;
 	ret = dmaengine_slave_config(sport->dma_tx_chan, &dma_tx_sconfig);
 
 	if (ret < 0) {
@@ -802,6 +803,7 @@ static int linflex_dma_rx_request(struct uart_port *port)
 	dma_rx_sconfig.src_addr_width = DMA_SLAVE_BUSWIDTH_1_BYTE;
 	dma_rx_sconfig.src_maxburst = 1;
 	dma_rx_sconfig.direction = DMA_DEV_TO_MEM;
+	dma_rx_sconfig.dst_addr = 0;
 	ret = dmaengine_slave_config(sport->dma_rx_chan, &dma_rx_sconfig);
 
 	if (ret < 0) {
