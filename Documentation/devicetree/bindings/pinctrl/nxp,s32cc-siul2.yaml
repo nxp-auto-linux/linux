@@ -15,7 +15,6 @@ properties:
   compatible:
     oneOf:
       - enum:
-          - nxp,s32cc-siul2-pinctrl
           - nxp,s32g-siul2-pinctrl
           - nxp,s32r45-siul2-pinctrl
 
@@ -57,22 +56,27 @@ additionalProperties: false
 
 examples:
   - |
+    #include <dt-bindings/memory/s32-siul2.h>
+
     pinctrl: siul2-pinctrl@4009c240 {
         compatible = "nxp,s32g-siul2-pinctrl";
         #pinctrl-cells = <2>;
 
+        reg = <MSCRS_SIUL2_0   0x198>,
+              <MSCRS_SIUL2_1_0 0x2c>,
+              <MSCRS_SIUL2_1_1 0xbc>,
+              <IMCRS_SIUL2_0   0x150>,
+              <IMCRS_SIUL2_1_0 0x45c>,
+              <IMCRS_SIUL2_1_1 0x108>;
+
+        /* MSCR range */
         nxp,pins = <0   101
                     112 122
-                    122 144
+                    144 190
+        /* IMCR range */
                     512 595
                     631 909
                     942 1007>;
-
-        reg = <0x4009c240 0x198>,
-              <0x4009c440 0x13c>,
-              <0x4009c640 0x150>,
-              <0x4009c840 0x45c>,
-              <0x4009cc40 0x108>;
 
         llce_can0_pins {
             llce_can0_grp0 {
@@ -88,4 +92,3 @@ examples:
             };
         };
     };
-
