@@ -716,7 +716,7 @@ static int hse_ahash_export(struct ahash_request *req, void *out)
 				  DMA_FROM_DEVICE);
 	if (unlikely(dma_mapping_error(alg->dev, sctx_dma))) {
 		err = -ENOMEM;
-		goto out_release_channel;
+		goto out_free_state;
 	}
 
 	rctx->srv_desc.srv_id = HSE_SRV_ID_IMPORT_EXPORT_STREAM_CTX;
