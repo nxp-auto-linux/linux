@@ -753,6 +753,7 @@ static int linflex_dma_tx_request(struct uart_port *port)
 		return -ENOMEM;
 	}
 
+	memset(&dma_tx_sconfig, 0, sizeof(dma_tx_sconfig));
 	dma_buf = port->state->xmit.buf;
 	dma_tx_sconfig.dst_addr = port->mapbase + BDRL;
 	dma_tx_sconfig.dst_addr_width = DMA_SLAVE_BUSWIDTH_1_BYTE;
@@ -797,6 +798,7 @@ static int linflex_dma_rx_request(struct uart_port *port)
 		return -ENOMEM;
 	}
 
+	memset(&dma_rx_sconfig, 0, sizeof(dma_rx_sconfig));
 	dma_rx_sconfig.src_addr = port->mapbase + BDRM;
 	dma_rx_sconfig.src_addr_width = DMA_SLAVE_BUSWIDTH_1_BYTE;
 	dma_rx_sconfig.src_maxburst = 1;
