@@ -388,6 +388,18 @@ config SOC_S32CC
 	select NXP_ERRATUM_ERR050543
 	select PHY_S32CC_SERDES
 
+menu "STM timer used as system timer"
+	config S32CC_STM_SYSTIMER
+		bool "STM used as system timer"
+	select NXP_STM_TIMER if S32CC_STM_SYSTIMER
+	config STM_CLKSRC_RATE
+		int "STM Rating for ClockSource"
+		default 460
+	config STM_CLKEVT_RATE
+		int "STM Rating for ClockEvents"
+		default 460
+endmenu
+
 if SOC_S32CC
 
 menu "S32CC execution target"
