@@ -344,6 +344,16 @@ config SOC_S32CC
 	select PHY_S32CC_SERDES
 	select RESET_SCMI_SCMI
 
+if SOC_S32CC
+menu "S32CC execution target"
+	config S32CC_EMULATOR
+		bool "S32CC Emulator"
+		help
+		  S32CC Emulator is a presilicon development solution.
+endmenu
+
+endif
+
 endif
 
 endmenu
