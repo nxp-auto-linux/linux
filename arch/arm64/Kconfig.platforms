@@ -243,6 +243,8 @@ config ARCH_ROCKCHIP
 
 config ARCH_S32
 	bool "NXP S32 SoC Family"
+	select PINCTRL
+	select ARM64_ERRATUM_1530924
 	help
 	  This enables support for the NXP S32 family of processors.
 
@@ -328,5 +330,16 @@ config ARCH_ZYNQMP
 	bool "Xilinx ZynqMP Family"
 	help
 	  This enables support for Xilinx ZynqMP Family
+
+if ARCH_S32
+
+config SOC_S32CC
+	bool "S32CC SOC"
+	default y
+	select NXP_ERRATUM_ERR050543
+	select GENERIC_PHY
+	select PHY_S32CC_SERDES
+
+endif
 
 endmenu
