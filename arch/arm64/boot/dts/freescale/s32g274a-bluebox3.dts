@@ -17,3 +17,7 @@
 &generic_timer {
 	clock-frequency = <5000000>;
 };
+
+&usdhc0 {
+	status = "okay";
+};
