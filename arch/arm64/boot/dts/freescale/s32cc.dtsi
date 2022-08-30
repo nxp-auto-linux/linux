@@ -18,6 +18,8 @@
 		serial0 = &uart0;
 		serial1 = &uart1;
 		serial2 = &uart2;
+
+		clks = &clks;
 	};
 
 	cpus {
@@ -80,7 +82,34 @@
 			     <GIC_PPI 10 IRQ_TYPE_LEVEL_LOW>;
 	};
 
+	reserved-memory  {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		scmi_shbuf: shm@d0000000 {
+			compatible = "arm,scmi-shmem";
+			reg = <0x0 0xd0000000 0x0 0x400000>;	/* 4 MB */
+			no-map;
+		};
+	};
+
 	firmware {
+		scmi: scmi {
+			compatible = "arm,scmi-smc";
+			mbox-names = "tx";
+			shmem = <&scmi_shbuf>;
+			arm,smc-id = <0xc20000fe>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "okay";
+
+			clks: protocol@14 {
+				reg = <0x14>;
+				#clock-cells = <1>;
+			};
+		};
+
 		psci {
 			compatible = "arm,psci-1.0";
 			method = "smc";
@@ -121,6 +150,18 @@
 			clocks = <&clks S32CC_SCMI_CLK_LINFLEX_LIN>,
 				 <&clks S32CC_SCMI_CLK_LINFLEX_XBAR>;
 			clock-names = "lin", "ipg";
+		};
+
+		usdhc0: mmc@402f0000 {
+			compatible = "nxp,s32cc-usdhc";
+			reg = <0x0 0x402f0000 0x0 0x1000>;
+			interrupts = <GIC_SPI 36 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&clks S32CC_SCMI_CLK_USDHC_MODULE>,
+				 <&clks S32CC_SCMI_CLK_USDHC_AHB>,
+				 <&clks S32CC_SCMI_CLK_USDHC_CORE>;
+			clock-names = "ipg", "ahb", "per";
+			bus-width = <8>;
+			status = "disabled";
 		};
 
 		gic: interrupt-controller@50800000 {
