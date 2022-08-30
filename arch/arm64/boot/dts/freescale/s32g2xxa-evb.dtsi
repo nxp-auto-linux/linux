@@ -12,3 +12,8 @@
 / {
 	model = "NXP S32G2XXX-EVB";
 };
+
+&usdhc0 {
+	no-1-8-v;
+	status = "okay";
+};
