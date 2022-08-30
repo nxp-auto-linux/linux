@@ -1,0 +1,19 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+/*
+ * Copyright 2020-2022 NXP
+ */
+
+/dts-v1/;
+#include "s32g2.dtsi"
+
+/ {
+	model = "NXP S32G274A BlueBox3";
+
+	chosen {
+		stdout-path = "serial0:115200n8";
+	};
+};
+
+&generic_timer {
+	clock-frequency = <5000000>;
+};
