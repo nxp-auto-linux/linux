@@ -1,0 +1,12 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+/*
+ * Copyright 2022 NXP
+ */
+
+/dts-v1/;
+#include "s32g3.dtsi"
+#include "s32gxxxa-evb.dtsi"
+
+/ {
+	model = "NXP S32G3XXX-EVB3";
+};
