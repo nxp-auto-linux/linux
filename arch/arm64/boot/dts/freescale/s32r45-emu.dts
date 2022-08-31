@@ -56,3 +56,11 @@
 &swt6 {
 	status = "okay";
 };
+
+&edma0 {
+	status = "okay";
+};
+
+&edma1 {
+	status = "okay";
+};
