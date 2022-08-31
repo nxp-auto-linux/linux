@@ -156,3 +156,7 @@
 		};
 	};
 };
+
+&qspi {
+	compatible = "nxp,s32g3-qspi";
+};
