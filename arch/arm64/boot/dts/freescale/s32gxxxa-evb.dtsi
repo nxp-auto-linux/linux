@@ -3,6 +3,8 @@
  * Copyright 2019-2022 NXP
  */
 
+#include "s32g-nxp-flash-macronix.dtsi"
+
 / {
 	chosen {
 		stdout-path = "serial0:115200n8";
@@ -31,5 +33,9 @@
 };
 
 &swt6 {
+	status = "okay";
+};
+
+&qspi {
 	status = "okay";
 };
