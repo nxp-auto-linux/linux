@@ -16,6 +16,11 @@
 / {
 	model = "NXP S32R458-EVB";
 
+	aliases {
+		gmac0 = &gmac0;
+		gmac1 = &gmac1;
+	};
+
 	chosen {
 		stdout-path = "serial0:115200n8";
 	};
@@ -499,6 +504,86 @@
 			bias-pull-up;
 		};
 	};
+
+	mdio3_pins: mdio3_pins {
+		mdio3_grp0 {
+			pinmux = <S32CC_PINMUX(102, FUNC1)>;
+			output-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+		};
+
+		mdio3_grp1 {
+			pinmux = <S32CC_PINMUX(103, FUNC1)>;
+			output-enable;
+			input-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+		};
+
+		mdio3_grp2 {
+			pinmux = <S32CC_PINMUX(659, FUNC2)>;
+		};
+	};
+
+	mdio2_pins: mdio2_pins {
+		mdio2_grp0 {
+			pinmux = <S32CC_PINMUX(60, FUNC1)>;
+			output-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+		};
+
+		mdio2_grp1 {
+			pinmux = <S32CC_PINMUX(61, FUNC1)>;
+			output-enable;
+			input-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+		};
+
+		mdio2_grp2 {
+			pinmux = <S32CC_PINMUX(527, FUNC2)>;
+		};
+
+	};
+
+	rgmii2_pins: rgmii2_pins {
+		rgmii2_grp0 {
+			pinmux = <S32CC_PINMUX(66, FUNC1)>;
+			output-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+			bias-pull-up;
+		};
+
+		rgmii2_grp1 {
+			pinmux = <S32CC_PINMUX(538, FUNC2)>,
+				 <S32CC_PINMUX(529, FUNC2)>,
+				 <S32CC_PINMUX(530, FUNC2)>,
+				 <S32CC_PINMUX(531, FUNC2)>,
+				 <S32CC_PINMUX(532, FUNC2)>,
+				 <S32CC_PINMUX(533, FUNC2)>,
+				 <S32CC_PINMUX(534, FUNC2)>;
+		};
+
+		rgmii2_grp2 {
+			pinmux = <S32CC_PINMUX(67, FUNC1)>,
+				 <S32CC_PINMUX(68, FUNC1)>,
+				 <S32CC_PINMUX(69, FUNC1)>,
+				 <S32CC_PINMUX(70, FUNC1)>,
+				 <S32CC_PINMUX(71, FUNC1)>;
+			output-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+		};
+
+		rgmii2_grp3 {
+			pinmux = <S32CC_PINMUX(72, FUNC0)>,
+				 <S32CC_PINMUX(73, FUNC0)>,
+				 <S32CC_PINMUX(74, FUNC0)>,
+				 <S32CC_PINMUX(75, FUNC0)>,
+				 <S32CC_PINMUX(76, FUNC0)>,
+				 <S32CC_PINMUX(77, FUNC0)>;
+			input-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+		};
+
+	};
 };
 
 &edma0 {
@@ -596,5 +681,36 @@
 	mx25uw51245g@0 {
 		spi-max-frequency = <133333333>;
 		nxp,spi-no-functional-reset;
+	};
+};
+
+&gmac0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&rgmii2_pins>, <&mdio2_pins>;
+	phy-mode = "rgmii-id";
+	phy-handle = <&gmac0_phy1>;
+	status = "okay";
+};
+
+&gmac0_mdio {
+	/* KSZ9031RNXCA on S32R-VNP-PROC */
+	gmac0_phy1: ethernet-phy@1 {
+		reg = <1>;
+	};
+};
+
+&gmac1 {
+	pinctrl-names = "default";
+	phy-mode = "sgmii";
+	status = "disabled";
+	pinctrl-0 = <&mdio3_pins>;
+	phy-handle = <&gmac1_phy1>;
+};
+
+&gmac1_mdio {
+	/* AQR107 on S32GRV-PLATEVB */
+	gmac1_phy1: ethernet-phy@1 {
+		compatible = "ethernet-phy-ieee802.3-c45";
+		reg = <1>;
 	};
 };
