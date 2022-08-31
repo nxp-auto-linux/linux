@@ -37,6 +37,14 @@
 	status = "okay";
 };
 
+&stm0 {
+	status = "okay";
+};
+
+&stm1 {
+	status = "okay";
+};
+
 &swt3 {
 	status = "okay";
 };
