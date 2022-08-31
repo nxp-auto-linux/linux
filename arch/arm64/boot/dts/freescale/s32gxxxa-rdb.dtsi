@@ -13,6 +13,21 @@
 	};
 };
 
+&gmac0 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&gmac0rgmiia_pins>, <&gmac0mdioa_pins>;
+	phy-handle = <&gmac_mdio_a_phy1>;
+	phy-mode = "rgmii-id";
+};
+
+&gmac0_mdio {
+	/* KSZ9031 GMAC */
+	gmac_mdio_a_phy1: ethernet-phy@1 {
+		reg = <1>;
+	};
+};
+
 &generic_timer {
 	clock-frequency = <5000000>;
 };
@@ -129,6 +144,65 @@
 
 &pinctrl {
 	status = "okay";
+
+	gmac0mdioa_pins: gmac0mdioa_pins {
+		gmac0mdioa_grp0 {
+			pinmux = <S32CC_PINMUX(60, FUNC1)>;
+			output-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+		};
+
+		gmac0mdioa_grp1 {
+			pinmux = <S32CC_PINMUX(61, FUNC1)>;
+			output-enable;
+			input-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+		};
+
+		gmac0mdioa_grp2 {
+			pinmux = <S32CC_PINMUX(527, FUNC2)>;
+		};
+	};
+
+	gmac0rgmiia_pins: gmac0rgmiia_pins {
+		gmac0rgmiia_grp0 {
+			pinmux = <S32CC_PINMUX(66, FUNC1)>;
+			output-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+			bias-pull-up;
+		};
+
+		gmac0rgmiia_grp1 {
+			pinmux = <S32CC_PINMUX(538, FUNC2)>,
+				 <S32CC_PINMUX(529, FUNC2)>,
+				 <S32CC_PINMUX(530, FUNC2)>,
+				 <S32CC_PINMUX(531, FUNC2)>,
+				 <S32CC_PINMUX(532, FUNC2)>,
+				 <S32CC_PINMUX(533, FUNC2)>,
+				 <S32CC_PINMUX(534, FUNC2)>;
+		};
+
+		gmac0rgmiia_grp2 {
+			pinmux = <S32CC_PINMUX(67, FUNC1)>,
+				 <S32CC_PINMUX(68, FUNC1)>,
+				 <S32CC_PINMUX(69, FUNC1)>,
+				 <S32CC_PINMUX(70, FUNC1)>,
+				 <S32CC_PINMUX(71, FUNC1)>;
+			output-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+		};
+
+		gmac0rgmiia_grp3 {
+			pinmux = <S32CC_PINMUX(72, FUNC0)>,
+				 <S32CC_PINMUX(73, FUNC0)>,
+				 <S32CC_PINMUX(74, FUNC0)>,
+				 <S32CC_PINMUX(75, FUNC0)>,
+				 <S32CC_PINMUX(76, FUNC0)>,
+				 <S32CC_PINMUX(77, FUNC0)>;
+			input-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+		};
+	};
 
 	ftm0_pins: ftm0_pins {
 		ftm0_grp0 {
