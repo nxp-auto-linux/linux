@@ -10,8 +10,10 @@
 #include <dt-bindings/clock/s32cc-scmi-clock.h>
 #include <dt-bindings/misc/s32cc-fccu.h>
 #include <dt-bindings/nvmem/s32cc-siul2-nvmem.h>
+#include <dt-bindings/phy/phy-s32cc-serdes.h>
 #include <dt-bindings/memory/s32cc-siul2.h>
 #include <dt-bindings/pinctrl/s32cc-pinfunc.h>
+#include <dt-bindings/reset/s32cc-scmi-reset.h>
 
 #define RTC_FIRC_CLKSEL		2
 #define RTC_SIRC_CLKSEL		0
@@ -32,6 +34,10 @@
 		serial2 = &uart2;
 
 		clks = &clks;
+		reset = &reset;
+
+		serdes0 = &serdes0;
+		serdes1 = &serdes1;
 
 		i2c0 = &i2c0;
 		i2c1 = &i2c1;
@@ -139,6 +145,20 @@
 			compatible = "nxp,s32cc-hse-rmem";
 			reg = <0x0 0x84000000 0x0 0x80000>;	/* 512k */
 			no-map;
+		};
+	};
+
+	clocks {
+		serdes_100_ext: serdes_100_ext {
+			compatible = "fixed-clock";
+			clock-frequency = <100000000>;
+			#clock-cells = <0>;
+		};
+
+		serdes_125_ext: serdes_125_ext {
+			compatible = "fixed-clock";
+			clock-frequency = <125000000>;
+			#clock-cells = <0>;
 		};
 	};
 
@@ -830,6 +850,46 @@
 			reg = <0x0 0x403e0000 0x0 0x100>;
 			interrupt-parent = <&gic>;
 			interrupts = <GIC_SPI 115 IRQ_TYPE_LEVEL_HIGH>; /* GIC 147 */
+		};
+
+		serdes0: serdes@40480000 {
+			#phy-cells = <3>;
+			compatible = "nxp,s32cc-serdes";
+			clocks = <&clks S32CC_SCMI_CLK_SERDES_AXI>,
+				 <&clks S32CC_SCMI_CLK_SERDES_AUX>,
+				 <&clks S32CC_SCMI_CLK_SERDES_APB>,
+				 <&clks S32CC_SCMI_CLK_SERDES_REF>;
+			clock-names = "axi", "aux", "apb", "ref";
+			resets = <&reset S32CC_SCMI_RST_SERDES0>,
+				 <&reset S32CC_SCMI_RST_PCIE0>;
+			reset-names = "serdes", "pcie";
+			fsl,sys-mode = <XPCSX2_MODE>;
+			reg = <0x0 0x40480000 0x0 0x108>,
+			      <0x0 0x40483008 0x0 0x10>,
+			      <0x0 0x40482000 0x0 0x800>,
+			      <0x0 0x40482800 0x0 0x800>;
+			reg-names = "ss_pcie", "pcie_phy", "xpcs0", "xpcs1";
+			status = "okay";
+		};
+
+		serdes1: serdes@44180000 {
+			#phy-cells = <3>;
+			compatible = "nxp,s32cc-serdes";
+			clocks = <&clks S32CC_SCMI_CLK_SERDES_AXI>,
+				 <&clks S32CC_SCMI_CLK_SERDES_AUX>,
+				 <&clks S32CC_SCMI_CLK_SERDES_APB>,
+				 <&clks S32CC_SCMI_CLK_SERDES_REF>;
+			clock-names = "axi", "aux", "apb", "ref";
+			resets = <&reset S32CC_SCMI_RST_SERDES1>,
+				 <&reset S32CC_SCMI_RST_PCIE1>;
+			reset-names = "serdes", "pcie";
+			fsl,sys-mode = <PCIE_XPCS0_MODE>;
+			reg = <0x0 0x44180000 0x0 0x108>,
+			      <0x0 0x44183008 0x0 0x10>,
+			      <0x0 0x44182000 0x0 0x800>,
+			      <0x0 0x44182800 0x0 0x800>;
+			reg-names = "ss_pcie", "pcie_phy", "xpcs0", "xpcs1";
+			status = "okay";
 		};
 
 		gic: interrupt-controller@50800000 {
