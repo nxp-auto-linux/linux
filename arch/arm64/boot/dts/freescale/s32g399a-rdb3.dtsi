@@ -24,3 +24,19 @@
 &uart1 {
 	status = "okay";
 };
+
+&swt8 {
+	status = "okay";
+};
+
+&swt9 {
+	status = "okay";
+};
+
+&swt10 {
+	status = "okay";
+};
+
+&swt11 {
+	status = "okay";
+};
