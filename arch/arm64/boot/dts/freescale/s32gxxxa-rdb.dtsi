@@ -126,6 +126,33 @@
 &pinctrl {
 	status = "okay";
 
+	ftm0_pins: ftm0_pins {
+		ftm0_grp0 {
+			pinmux = <S32CC_PINMUX(167, FUNC3)>;
+			output-enable;
+			input-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+		};
+
+		ftm0_grp1 {
+			pinmux = <S32CC_PINMUX(655, FUNC5)>;
+		};
+
+	};
+
+	ftm1_pins: ftm1_pins {
+		ftm1_grp0 {
+			pinmux = <S32CC_PINMUX(670, FUNC2)>;
+		};
+
+		ftm1_grp1 {
+			pinmux = <S32CC_PINMUX(80, FUNC3)>;
+			output-enable;
+			input-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+		};
+	};
+
 	can0_pins: can0_pins {
 		can0_grp0 {
 			pinmux = <S32CC_PINMUX(17, FUNC2)>;
@@ -476,5 +503,17 @@
 };
 
 &qspi {
+	status = "okay";
+};
+
+&pwm0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&ftm0_pins>;
+	status = "okay";
+};
+
+&pwm1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&ftm1_pins>;
 	status = "okay";
 };
