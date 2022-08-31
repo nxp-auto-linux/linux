@@ -8,6 +8,7 @@
 
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/clock/s32cc-scmi-clock.h>
+#include <dt-bindings/misc/s32cc-fccu.h>
 #include <dt-bindings/nvmem/s32cc-siul2-nvmem.h>
 #include <dt-bindings/memory/s32cc-siul2.h>
 #include <dt-bindings/pinctrl/s32cc-pinfunc.h>
@@ -794,6 +795,26 @@
 				 <&clks S32CC_SCMI_CLK_USDHC_CORE>;
 			clock-names = "ipg", "ahb", "per";
 			bus-width = <8>;
+			status = "disabled";
+		};
+
+		fccu: fccu@4030c000 {
+			compatible = "nxp,s32cc-fccu";
+			reg = <0x0 0x4030c000 0x0 0x3000>;
+			interrupts = <GIC_SPI 100 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 101 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "fccu_alarm",
+					  "fccu_misc";
+			clocks = <&clks S32CC_SCMI_CLK_FCCU_MODULE>;
+			clock-names = "fccu";
+			/* A53 NCF fault list */
+			nxp,ncf_fault_list = <0 10 35 36 37 38>;
+			nxp,ncf_actions = <S32CC_FCCU_REACTION_ALARM
+			    S32CC_FCCU_REACTION_ALARM
+			    S32CC_FCCU_REACTION_NONE
+			    S32CC_FCCU_REACTION_NONE
+			    S32CC_FCCU_REACTION_NONE
+			    S32CC_FCCU_REACTION_NONE>;
 			status = "disabled";
 		};
 
