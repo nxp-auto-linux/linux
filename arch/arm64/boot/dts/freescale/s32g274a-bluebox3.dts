@@ -23,6 +23,10 @@
 	status = "okay";
 };
 
+&fccu {
+	status = "okay";
+};
+
 &generic_timer {
 	clock-frequency = <5000000>;
 };
