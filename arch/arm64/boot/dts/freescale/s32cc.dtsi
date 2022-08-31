@@ -273,6 +273,25 @@
 			status = "disabled";
 		};
 
+		edma0: dma-controller@40144000 {
+			#dma-cells = <2>;
+			compatible = "nxp,s32cc-edma";
+			reg = <0x0 0x40144000 0x0 0x24000>,
+			      <0x0 0x4012c000 0x0 0x3000>,
+			      <0x0 0x40130000 0x0 0x3000>;
+			dma-channels = <32>;
+			interrupts = <GIC_SPI 8 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 9 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 10 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "edma-tx_0-15",
+					  "edma-tx_16-31",
+					  "edma-err";
+			clock-names = "dmamux0", "dmamux1";
+			clocks = <&clks S32CC_SCMI_CLK_EDMA_MODULE>,
+				 <&clks S32CC_SCMI_CLK_EDMA_AHB>;
+			status = "disabled";
+		};
+
 		uart0: serial@401c8000 {
 			compatible = "nxp,s32cc-linflexuart",
 				     "fsl,s32v234-linflexuart";
@@ -281,6 +300,9 @@
 			clocks = <&clks S32CC_SCMI_CLK_LINFLEX_LIN>,
 				 <&clks S32CC_SCMI_CLK_LINFLEX_XBAR>;
 			clock-names = "lin", "ipg";
+			dmas = <&edma0 0 4>,
+			       <&edma0 0 3>;
+			dma-names = "rx", "tx";
 		};
 
 		uart1: serial@401cc000 {
@@ -291,6 +313,9 @@
 			clocks = <&clks S32CC_SCMI_CLK_LINFLEX_LIN>,
 				 <&clks S32CC_SCMI_CLK_LINFLEX_XBAR>;
 			clock-names = "lin", "ipg";
+			dmas = <&edma0 0 6>,
+			       <&edma0 0 5>;
+			dma-names = "rx", "tx";
 		};
 
 		swt4: watchdog@40200000 {
@@ -349,6 +374,25 @@
 			status = "disabled";
 		};
 
+		edma1: dma-controller@40244000 {
+			#dma-cells = <2>;
+			compatible = "nxp,s32cc-edma";
+			reg = <0x0 0x40244000 0x0 0x24000>,
+			      <0x0 0x4022c000 0x0 0x3000>,
+			      <0x0 0x40230000 0x0 0x3000>;
+			dma-channels = <32>;
+			interrupts = <GIC_SPI 11 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 12 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 13 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "edma-tx_0-15",
+					  "edma-tx_16-31",
+					  "edma-err";
+			clock-names = "dmamux0", "dmamux1";
+			clocks = <&clks S32CC_SCMI_CLK_EDMA_MODULE>,
+				 <&clks S32CC_SCMI_CLK_EDMA_AHB>;
+			status = "disabled";
+		};
+
 		uart2: serial@402bc000 {
 			compatible = "nxp,s32cc-linflexuart",
 				     "fsl,s32v234-linflexuart";
@@ -357,6 +401,9 @@
 			clocks = <&clks S32CC_SCMI_CLK_LINFLEX_LIN>,
 				 <&clks S32CC_SCMI_CLK_LINFLEX_XBAR>;
 			clock-names = "lin", "ipg";
+			dmas = <&edma1 1 4>,
+			       <&edma1 1 3>;
+			dma-names = "rx", "tx";
 		};
 
 		usdhc0: mmc@402f0000 {
