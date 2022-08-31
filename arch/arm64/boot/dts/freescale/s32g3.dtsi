@@ -116,6 +116,38 @@
 	};
 
 	soc {
+		swt8: watchdog@40500000 {
+			compatible = "nxp,s32cc-wdt";
+			reg = <0x0 0x40500000 0x0 0x1000>;
+			clocks = <&clks S32CC_SCMI_CLK_SWT_COUNTER>;
+			clock-names = "swt";
+			status = "disabled";
+		};
+
+		swt9: watchdog@40504000 {
+			compatible = "nxp,s32cc-wdt";
+			reg = <0x0 0x40504000 0x0 0x1000>;
+			clocks = <&clks S32CC_SCMI_CLK_SWT_COUNTER>;
+			clock-names = "swt";
+			status = "disabled";
+		};
+
+		swt10: watchdog@40508000 {
+			compatible = "nxp,s32cc-wdt";
+			reg = <0x0 0x40508000 0x0 0x1000>;
+			clocks = <&clks S32CC_SCMI_CLK_SWT_COUNTER>;
+			clock-names = "swt";
+			status = "disabled";
+		};
+
+		swt11: watchdog@4050c000 {
+			compatible = "nxp,s32cc-wdt";
+			reg = <0x0 0x4050c000 0x0 0x1000>;
+			clocks = <&clks S32CC_SCMI_CLK_SWT_COUNTER>;
+			clock-names = "swt";
+			status = "disabled";
+		};
+
 		gic: interrupt-controller@50800000 {
 			compatible = "arm,gic-v3";
 			#interrupt-cells = <3>;
