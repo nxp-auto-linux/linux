@@ -10,6 +10,7 @@
 #include <dt-bindings/clock/s32cc-scmi-clock.h>
 #include <dt-bindings/nvmem/s32cc-siul2-nvmem.h>
 #include <dt-bindings/memory/s32cc-siul2.h>
+#include <dt-bindings/pinctrl/s32cc-pinfunc.h>
 
 #define RTC_FIRC_CLKSEL		2
 #define RTC_SIRC_CLKSEL		0
@@ -25,6 +26,8 @@
 		serial2 = &uart2;
 
 		clks = &clks;
+
+		spi6 = &qspi;
 	};
 
 	cpus {
@@ -251,6 +254,22 @@
 			reg = <0x0 0x40128000 0x0 0x3000>;
 			clocks = <&clks S32CC_SCMI_CLK_STM_MODULE>;
 			clock-names = "stm";
+			status = "disabled";
+		};
+
+		qspi: spi@40134000 {
+			compatible = "nxp,s32cc-qspi";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0x0 0x00000000 0x0 0x20000000>,
+				<0x0 0x40134000 0x0 0x1000>;
+			reg-names = "QuadSPI-memory", "QuadSPI";
+			interrupts = <GIC_SPI 32 IRQ_TYPE_LEVEL_HIGH>;
+			clock-names = "qspi_en", "qspi";
+			clocks = <&clks S32CC_SCMI_CLK_QSPI_FLASH1X>,
+				 <&clks S32CC_SCMI_CLK_QSPI_FLASH1X>;
+			spi-max-frequency = <200000000>;
+			spi-num-chipselects = <2>;
 			status = "disabled";
 		};
 
