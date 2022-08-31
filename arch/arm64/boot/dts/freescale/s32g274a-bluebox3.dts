@@ -22,6 +22,18 @@
 	status = "okay";
 };
 
+&stm0 {
+	status = "okay";
+};
+
+&stm1 {
+	status = "okay";
+};
+
+&stm2 {
+	status = "okay";
+};
+
 &swt3 {
 	status = "okay";
 };

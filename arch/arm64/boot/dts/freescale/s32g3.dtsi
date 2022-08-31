@@ -105,6 +105,38 @@
 			status = "disabled";
 		};
 
+		stm8: stm@40520000 {
+			compatible = "nxp,s32cc-stm-global";
+			reg = <0x0 0x40520000 0x0 0x3000>;
+			clocks = <&clks S32CC_SCMI_CLK_STM_MODULE>;
+			clock-names = "stm";
+			status = "disabled";
+		};
+
+		stm9: stm@40524000 {
+			compatible = "nxp,s32cc-stm-global";
+			reg = <0x0 0x40524000 0x0 0x3000>;
+			clocks = <&clks S32CC_SCMI_CLK_STM_MODULE>;
+			clock-names = "stm";
+			status = "disabled";
+		};
+
+		stm10: stm@40528000 {
+			compatible = "nxp,s32cc-stm-global";
+			reg = <0x0 0x40528000 0x0 0x3000>;
+			clocks = <&clks S32CC_SCMI_CLK_STM_MODULE>;
+			clock-names = "stm";
+			status = "disabled";
+		};
+
+		stm11: stm@4052c000 {
+			compatible = "nxp,s32cc-stm-global";
+			reg = <0x0 0x4052c000 0x0 0x3000>;
+			clocks = <&clks S32CC_SCMI_CLK_STM_MODULE>;
+			clock-names = "stm";
+			status = "disabled";
+		};
+
 		gic: interrupt-controller@50800000 {
 			compatible = "arm,gic-v3";
 			#interrupt-cells = <3>;
