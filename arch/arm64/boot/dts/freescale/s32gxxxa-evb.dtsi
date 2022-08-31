@@ -20,6 +20,24 @@
 	status = "okay";
 };
 
+&can0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&can0_pins>;
+	status = "okay";
+};
+
+&can2 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&can2_pins>;
+	status = "okay";
+};
+
+&can3 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&can3_pins>;
+	status = "okay";
+};
+
 &swt3 {
 	status = "okay";
 };
@@ -42,6 +60,64 @@
 
 &pit1 {
 	status = "okay";
+};
+
+&pinctrl {
+	status = "okay";
+
+	can0_pins: can0_pins {
+		can0_grp0 {
+			pinmux = <S32CC_PINMUX(44, FUNC1)>;
+			output-enable;
+			slew-rate = <S32CC_SLEW_150MHZ>;
+		};
+
+		can0_grp1 {
+			pinmux = <S32CC_PINMUX(43, FUNC0)>;
+			input-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+		};
+
+		can0_grp2 {
+			pinmux = <S32CC_PINMUX(513, FUNC2)>;
+		};
+	};
+
+	can2_pins: can2_pins {
+		can2_grp0 {
+			pinmux = <S32CC_PINMUX(27, FUNC2)>;
+			output-enable;
+			slew-rate = <S32CC_SLEW_150MHZ>;
+		};
+
+		can2_grp1 {
+			pinmux = <S32CC_PINMUX(28, FUNC0)>;
+			input-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+		};
+
+		can2_grp2 {
+			pinmux = <S32CC_PINMUX(632, FUNC2)>;
+		};
+	};
+
+	can3_pins: can3_pins {
+		can3_grp0 {
+			pinmux = <S32CC_PINMUX(25, FUNC2)>;
+			output-enable;
+			slew-rate = <S32CC_SLEW_150MHZ>;
+		};
+
+		can3_grp1 {
+			pinmux = <S32CC_PINMUX(26, FUNC0)>;
+			input-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+		};
+
+		can3_grp2 {
+			pinmux = <S32CC_PINMUX(633, FUNC2)>;
+		};
+	};
 };
 
 &qspi {
