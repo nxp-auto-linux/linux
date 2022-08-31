@@ -9,3 +9,105 @@
  */
 
 #include "s32cc.dtsi"
+
+/ {
+	soc {
+		siul2@4009c000 {
+			compatible = "simple-mfd";
+			status = "okay";
+			#address-cells = <2>;
+			#size-cells = <2>;
+
+			/* MIDR */
+			ranges = <MIDR_SIUL2_0 0x0 0x0 0x4009c000 0x0 0x10>,
+				 <MIDR_SIUL2_1 0x0 0x0 0x44010000 0x0 0x10>,
+
+				 /* MSCR 0-101 */
+				 <MSCRS_SIUL2_0 0x0 0x0 0x4009c240 0x0 0x198>,
+				 /* MSCR 112-122 */
+				 <MSCRS_SIUL2_1_0 0x0 0x0 0x44010400 0x0 0x2c>,
+				 /* MSCR 144-190 */
+				 <MSCRS_SIUL2_1_1 0x0 0x0 0x44010480 0x0 0xbc>,
+
+				 /* IMCR range 512–595 */
+				 <IMCRS_SIUL2_0 0x0 0x0 0x4009ca40 0x0 0x150>,
+				 /* IMCR range 631 - 909 */
+				 <IMCRS_SIUL2_1_0 0x0 0x0 0x44010c1c 0x0 0x45c>,
+				 /* IMCR range 910 - 941 (EIRQs) */
+				 <IMCRS_SIUL2_1_EIRQS 0x0 0x0 0x44011078 0x0 0x80>,
+				 /* IMCR range 942 - 1007 */
+				 <IMCRS_SIUL2_1_1 0x0 0x0 0x440110f8 0x0 0x108>,
+
+				 /* Output pads */
+				 <OPADS_SIUL2_0 0x0 0x0 0x4009d700 0x0 0x10>,
+				 <OPADS_SIUL2_1 0x0 0x0 0x44011700 0x0 0x18>,
+
+				 /* Input pads */
+				 <IPADS_SIUL2_0 0x0 0x0 0x4009d740 0x0 0x10>,
+				 <IPADS_SIUL2_1 0x0 0x0 0x44011740 0x0 0x18>,
+
+				 /* EIRQs */
+				 <EIRQS_SIUL2_1 0x0 0x0 0x44010010 0x0 0xb4>;
+
+			pinctrl: siul2-pinctrl@4009c240 {
+				compatible = "nxp,s32g-siul2-pinctrl";
+				#pinctrl-cells = <2>;
+
+				reg = <MSCRS_SIUL2_0    0 0x0 0x198>,
+				      <MSCRS_SIUL2_1_0  0 0x0 0x2c>,
+				      <MSCRS_SIUL2_1_1  0 0x0 0xbc>,
+				      <IMCRS_SIUL2_0    0 0x0 0x150>,
+				      <IMCRS_SIUL2_1_0  0 0x0 0x45c>,
+				      <IMCRS_SIUL2_1_1  0 0x0 0x108>;
+
+				/* MSCR range */
+				nxp,pins = <0   101
+					    112 122
+					    144 190
+				/* IMCR range */
+					    512 595
+					    631 909
+					    942 1007>;
+				status = "okay";
+			};
+
+			gpio: siul2-gpio@4009d700 {
+				compatible = "nxp,s32g-siul2-gpio";
+
+				reg = <OPADS_SIUL2_0        0    0x0 0x10>,
+				      <OPADS_SIUL2_1        0    0x0 0x18>,
+				      <IPADS_SIUL2_0        0    0x0 0x10>,
+				      <IPADS_SIUL2_1        0    0x0 0x18>,
+				      <EIRQS_SIUL2_1        0    0x0 0xb4>,
+				      <IMCRS_SIUL2_1_EIRQS  0    0x0 0x80>;
+				reg-names = "opads0", "opads1", "ipads0",
+					    "ipads1", "eirqs", "eirq-imcrs";
+
+				#gpio-cells = <2>;
+				gpio-controller;
+					/* GPIO 0-101 */
+				gpio-ranges = <&pinctrl 0   0   102>,
+					/* GPIO 112-190 */
+					      <&pinctrl 112 112 79>;
+				gpio-reserved-ranges = <102 10>,
+						       <123 21>;
+
+				interrupt-controller;
+				#interrupt-cells = <2>;
+				interrupts = <GIC_SPI 210 IRQ_TYPE_LEVEL_HIGH>;
+				status = "okay";
+			};
+
+			nvram1: nvram@44010000 {
+				compatible = "nxp,s32cc-siul2_1-nvmem";
+				reg = <MIDR_SIUL2_1 0x0 0x0 0x10>;
+				#address-cells = <1>;
+				#size-cells = <1>;
+				status = "okay";
+				serdes_presence: serdes_presence@0 {
+					reg = <SERDES_PRESENCE_OFFSET NVRAM_CELL_SIZE>;
+				};
+			};
+		};
+	};
+};
