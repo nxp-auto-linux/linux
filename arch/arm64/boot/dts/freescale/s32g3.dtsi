@@ -72,21 +72,55 @@
 		};
 	};
 
-	gic: interrupt-controller@50800000 {
-		compatible = "arm,gic-v3";
-		#interrupt-cells = <3>;
-		#address-cells = <2>;
-		#size-cells = <2>;
-		interrupt-controller;
-		reg = <0 0x50800000 0 0x10000>,
-			<0 0x50900000 0 0x200000>,
-			<0 0x50400000 0 0x2000>,
-			<0 0x50410000 0 0x2000>,
-			<0 0x50420000 0 0x2000>;
-		interrupts = <GIC_PPI 9 IRQ_TYPE_LEVEL_HIGH>;
+	soc {
+		swt8: watchdog@40500000 {
+			compatible = "nxp,s32cc-wdt";
+			reg = <0x0 0x40500000 0x0 0x1000>;
+			clocks = <&clks S32CC_SCMI_CLK_SWT_COUNTER>;
+			clock-names = "swt";
+			status = "disabled";
+		};
 
-		msi-controller;
-		/* GIC interrupts between 167 and 182 can be used as MBIs. */
-		mbi-ranges = <167 16>;
+		swt9: watchdog@40504000 {
+			compatible = "nxp,s32cc-wdt";
+			reg = <0x0 0x40504000 0x0 0x1000>;
+			clocks = <&clks S32CC_SCMI_CLK_SWT_COUNTER>;
+			clock-names = "swt";
+			status = "disabled";
+		};
+
+		swt10: watchdog@40508000 {
+			compatible = "nxp,s32cc-wdt";
+			reg = <0x0 0x40508000 0x0 0x1000>;
+			clocks = <&clks S32CC_SCMI_CLK_SWT_COUNTER>;
+			clock-names = "swt";
+			status = "disabled";
+		};
+
+		swt11: watchdog@4050c000 {
+			compatible = "nxp,s32cc-wdt";
+			reg = <0x0 0x4050c000 0x0 0x1000>;
+			clocks = <&clks S32CC_SCMI_CLK_SWT_COUNTER>;
+			clock-names = "swt";
+			status = "disabled";
+		};
+
+		gic: interrupt-controller@50800000 {
+			compatible = "arm,gic-v3";
+			#interrupt-cells = <3>;
+			#address-cells = <2>;
+			#size-cells = <2>;
+			interrupt-controller;
+			reg = <0 0x50800000 0 0x10000>,
+				<0 0x50900000 0 0x200000>,
+				<0 0x50400000 0 0x2000>,
+				<0 0x50410000 0 0x2000>,
+				<0 0x50420000 0 0x2000>;
+			interrupts = <GIC_PPI 9 IRQ_TYPE_LEVEL_HIGH>;
+
+			msi-controller;
+			/* GIC interrupts between 167 and 182 can be used as MBIs. */
+			mbi-ranges = <167 16>;
+		};
 	};
 };
