@@ -8,6 +8,8 @@
 
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/clock/s32cc-scmi-clock.h>
+#include <dt-bindings/nvmem/s32cc-siul2-nvmem.h>
+#include <dt-bindings/memory/s32cc-siul2.h>
 
 #define RTC_FIRC_CLKSEL		2
 #define RTC_SIRC_CLKSEL		0
@@ -148,9 +150,13 @@
 
 	soc {
 		compatible = "simple-bus";
-		#address-cells = <1>;
-		#size-cells = <1>;
-		ranges = <0 0 0 0x80000000>;
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges = <0x0 0x0 0x0 0x0 0x0 0x20000000>,
+			 <0x0 0x22C00000 0x0 0x22C00000 0x0 0x4000>,
+			 <0x0 0x40000000 0x0 0x40000000 0x0 0x14000000>,
+			 <0x48 0x0 0x48 0x0 0x8 0x0>,
+			 <0x58 0x0 0x58 0x0 0x8 0x0>;
 
 		rtc0: rtc@40060000 {
 			compatible = "nxp,s32cc-rtc";
@@ -171,6 +177,30 @@
 		ddr_gpr: ddr_gpr@4007c600 {
 			compatible = "nxp,s32cc-ddr-gpr", "syscon";
 			reg = <0x0 0x4007c600 0x0 0x20>;
+		};
+
+		siul2@4009c000 {
+			compatible = "simple-mfd";
+			#address-cells = <2>;
+			#size-cells = <2>;
+			status = "okay";
+
+			/* MIDR */
+			ranges = <MIDR_SIUL2_0 0x0 0x0 0x4009c000 0x0 0x10>;
+
+			nvram: nvram@4009c000 {
+				compatible = "nxp,s32cc-siul2_0-nvmem";
+				reg = <MIDR_SIUL2_0 0x0 0x0 0x10>;
+				#address-cells = <1>;
+				#size-cells = <1>;
+				status = "okay";
+				soc_revision: soc_revision@0 {
+					reg = <SOC_REVISION_OFFSET NVRAM_CELL_SIZE>;
+				};
+				pcie_variant: pcie_variant@4 {
+					reg = <PCIE_VARIANT_OFFSET NVRAM_CELL_SIZE>;
+				};
+			};
 		};
 
 		uart0: serial@401c8000 {
