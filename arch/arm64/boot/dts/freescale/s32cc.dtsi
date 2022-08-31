@@ -9,6 +9,9 @@
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/clock/s32cc-scmi-clock.h>
 
+#define RTC_FIRC_CLKSEL		2
+#define RTC_SIRC_CLKSEL		0
+
 / {
 	interrupt-parent = <&gic>;
 	#address-cells = <2>;
@@ -143,6 +146,22 @@
 		#address-cells = <1>;
 		#size-cells = <1>;
 		ranges = <0 0 0 0x80000000>;
+
+		rtc0: rtc@40060000 {
+			compatible = "nxp,s32cc-rtc";
+			#interrupt-cells = <3>;
+			reg = <0x0 0x40060000 0x0 0x1000>;
+			interrupts = <GIC_SPI 121 IRQ_TYPE_LEVEL_HIGH>;	// RTC irq - GIC 153
+			clocks = <&clks S32CC_SCMI_CLK_RTC_REG>,
+				 <&clks S32CC_SCMI_CLK_RTC_SIRC>,
+				 <&clks S32CC_SCMI_CLK_RTC_FIRC>;
+			clock-names = "ipg", "sirc", "firc";
+			/* Input clock selection: use the 51MHz FIRC with DIV512,
+			 * for a roll-over time of just under 13 hours.
+			 */
+			nxp,clksel = <RTC_FIRC_CLKSEL>; // 2: FIRC; 0: SIRC
+			nxp,dividers = <1 0>; // div512 enabled; div32 disabled
+		};
 
 		uart0: serial@401c8000 {
 			compatible = "nxp,s32cc-linflexuart",
