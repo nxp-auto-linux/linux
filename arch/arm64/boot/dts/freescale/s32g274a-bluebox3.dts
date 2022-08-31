@@ -67,6 +67,10 @@
 	status = "okay";
 };
 
+&pcie0 {
+	status = "okay";
+};
+
 &usdhc0 {
 	status = "okay";
 };

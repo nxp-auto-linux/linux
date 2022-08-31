@@ -11,6 +11,10 @@
 /dts-v1/;
 #include "s32g2.dtsi"
 
+/* Emulator has less than 1GB of RAM, remove reserved memory above this limit */
+/delete-node/ &pci_shared_memory0;
+/delete-node/ &pci_shared_memory1;
+
 / {
 	model = "NXP S32G274A-EMU";
 
@@ -143,4 +147,14 @@
 
 &spi5 {
 	status = "okay";
+};
+
+&pcie0 {
+	/delete-property/ shared-mem;
+	status = "disabled";
+};
+
+&pcie1 {
+	/delete-property/ shared-mem;
+	status = "disabled";
 };
