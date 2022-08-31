@@ -112,6 +112,60 @@
 	};
 };
 
+&pinctrl {
+	qspi_pins: qspi_pins {
+		qspi_grp0 {
+			pinmux = <S32CC_PINMUX(93, FUNC1)>,
+				 <S32CC_PINMUX(97, FUNC1)>,
+				 <S32CC_PINMUX(98, FUNC1)>,
+				 <S32CC_PINMUX(99, FUNC1)>;
+			output-enable;
+			input-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+			bias-pull-down;
+		};
+
+		qspi_grp1 {
+			pinmux = <S32CC_PINMUX(548, FUNC2)>,
+				 <S32CC_PINMUX(540, FUNC2)>,
+				 <S32CC_PINMUX(541, FUNC2)>,
+				 <S32CC_PINMUX(542, FUNC2)>,
+				 <S32CC_PINMUX(543, FUNC2)>,
+				 <S32CC_PINMUX(544, FUNC2)>,
+				 <S32CC_PINMUX(545, FUNC2)>,
+				 <S32CC_PINMUX(546, FUNC2)>,
+				 <S32CC_PINMUX(547, FUNC2)>;
+		};
+
+		qspi_grp2 {
+			pinmux = <S32CC_PINMUX(100, FUNC1)>,
+				 <S32CC_PINMUX(101, FUNC1)>,
+				 <S32CC_PINMUX(96, FUNC1)>;
+			output-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+		};
+
+		qspi_grp3 {
+			pinmux = <S32CC_PINMUX(85, FUNC1)>,
+				 <S32CC_PINMUX(86, FUNC1)>,
+				 <S32CC_PINMUX(87, FUNC1)>,
+				 <S32CC_PINMUX(88, FUNC1)>,
+				 <S32CC_PINMUX(89, FUNC1)>,
+				 <S32CC_PINMUX(90, FUNC1)>,
+				 <S32CC_PINMUX(91, FUNC1)>,
+				 <S32CC_PINMUX(92, FUNC1)>;
+			output-enable;
+			input-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+		};
+	};
+};
+
+&qspi {
+	pinctrl-names = "default";
+	pinctrl-0 = <&qspi_pins>;
+};
+
 &stm0 {
 	status = "okay";
 };
