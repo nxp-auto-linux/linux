@@ -13,6 +13,10 @@
 / {
 	compatible = "nxp,s32r45";
 
+	aliases {
+		can4 = &can4;
+	};
+
 	soc {
 		siul2@4009c000 {
 			compatible = "simple-mfd";
@@ -104,6 +108,62 @@
 					reg = <SERDES_PRESENCE_OFFSET NVRAM_CELL_SIZE>;
 				};
 			};
+		};
+
+		can4: flexcan@44000000 {
+			compatible = "nxp,s32cc-flexcan";
+			reg = <0x0 0x44000000 0x0 0x4000>;
+			interrupts = <GIC_SPI 192 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 193 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 194 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 195 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "state", "berr", "mb_0-7", "mb_8-127";
+			clocks = <&clks S32CC_SCMI_CLK_FLEXCAN_REG>,
+				 <&clks S32CC_SCMI_CLK_FLEXCAN_CAN>;
+			clock-names = "ipg", "per";
+			status = "disabled";
+		};
+
+		can5: flexcan@44004000 {
+			compatible = "nxp,s32cc-flexcan";
+			reg = <0x0 0x44004000 0x0 0x4000>;
+			interrupts = <GIC_SPI 196 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 197 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 198 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 199 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "state", "berr", "mb_0-7", "mb_8-127";
+			clocks = <&clks S32CC_SCMI_CLK_FLEXCAN_REG>,
+				 <&clks S32CC_SCMI_CLK_FLEXCAN_CAN>;
+			clock-names = "ipg", "per";
+			status = "disabled";
+		};
+
+		can6: flexcan@44008000 {
+			compatible = "nxp,s32cc-flexcan";
+			reg = <0x0 0x44008000 0x0 0x4000>;
+			interrupts = <GIC_SPI 200 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 201 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 202 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 203 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "state", "berr", "mb_0-7", "mb_8-127";
+			clocks = <&clks S32CC_SCMI_CLK_FLEXCAN_REG>,
+				 <&clks S32CC_SCMI_CLK_FLEXCAN_CAN>;
+			clock-names = "ipg", "per";
+			status = "disabled";
+		};
+
+		can7: flexcan@4400c000 {
+			compatible = "nxp,s32cc-flexcan";
+			reg = <0x0 0x4400c000 0x0 0x4000>;
+			interrupts = <GIC_SPI 204 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 205 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 206 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 207 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "state", "berr", "mb_0-7", "mb_8-127";
+			clocks = <&clks S32CC_SCMI_CLK_FLEXCAN_REG>,
+				 <&clks S32CC_SCMI_CLK_FLEXCAN_CAN>;
+			clock-names = "ipg", "per";
+			status = "disabled";
 		};
 	};
 };
