@@ -30,12 +30,129 @@
 	status = "okay";
 };
 
+&pinctrl {
+	status = "okay";
+
+	dspi0_pins: dspi0_pins {
+		dspi0_grp0 {
+			pinmux = <S32CC_PINMUX(13, FUNC1)>,
+				 <S32CC_PINMUX(15, FUNC1)>;
+			output-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+		};
+
+		dspi0_grp1 {
+			pinmux = <S32CC_PINMUX(14, FUNC0)>;
+			input-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+			bias-pull-up;
+		};
+
+		dspi0_grp2 {
+			pinmux = <S32CC_PINMUX(982, FUNC2)>;
+		};
+
+		dspi0_grp3 {
+			pinmux = <S32CC_PINMUX(25, FUNC5)>;
+			output-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+			bias-pull-up;
+		};
+
+		dspi0_grp4 {
+			pinmux = <S32CC_PINMUX(26, FUNC3)>;
+			output-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+			bias-pull-up;
+		};
+	};
+
+	dspi1_pins: dspi1_pins {
+		dspi1_grp0 {
+			pinmux = <S32CC_PINMUX(6, FUNC2)>;
+			output-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+		};
+
+		dspi1_grp1 {
+			pinmux = <S32CC_PINMUX(8, FUNC3)>;
+			output-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+		};
+
+		dspi1_grp2 {
+			pinmux = <S32CC_PINMUX(7, FUNC2)>;
+			output-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+			bias-pull-up;
+		};
+
+		dspi1_grp3 {
+			pinmux = <S32CC_PINMUX(68, FUNC3)>;
+			output-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+			bias-pull-up;
+		};
+
+		dspi1_grp4 {
+			pinmux = <S32CC_PINMUX(95, FUNC0)>;
+			input-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+			bias-pull-up;
+		};
+
+		dspi1_grp5 {
+			pinmux = <S32CC_PINMUX(987, FUNC2)>;
+		};
+	};
+};
+
 &pit0 {
 	status = "okay";
 };
 
 &pit1 {
 	status = "okay";
+};
+
+&spi0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&dspi0_pins>;
+	#address-cells = <1>;
+	#size-cells = <0>;
+	status = "okay";
+
+	spidev1: spidev@1 {
+		compatible = "rohm,dh2228fv";
+		spi-max-frequency = <4000000>;
+		reg = <1>;
+	};
+
+	spidev2: spidev@2 {
+		compatible = "rohm,dh2228fv";
+		spi-max-frequency = <4000000>;
+		reg = <2>;
+	};
+};
+
+&spi1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&dspi1_pins>;
+	#address-cells = <1>;
+	#size-cells = <0>;
+	status = "okay";
+
+	spidev0: spidev@0 {
+		compatible = "rohm,dh2228fv";
+		spi-max-frequency = <4000000>;
+		reg = <0>;
+	};
+
+	spidev3: spidev@3 {
+		compatible = "rohm,dh2228fv";
+		spi-max-frequency = <4000000>;
+		reg = <3>;
+	};
 };
 
 &stm0 {

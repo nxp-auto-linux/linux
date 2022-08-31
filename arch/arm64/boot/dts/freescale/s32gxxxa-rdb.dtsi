@@ -131,6 +131,98 @@
 			pinmux = <S32CC_PINMUX(633, FUNC2)>;
 		};
 	};
+
+	dspi1_pins: dspi1_pins {
+		dspi1_grp0 {
+			pinmux = <S32CC_PINMUX(6, FUNC2)>;
+			output-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+		};
+
+		dspi1_grp1 {
+			pinmux = <S32CC_PINMUX(7, FUNC2)>;
+			output-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+			bias-pull-up;
+		};
+
+		dspi1_grp2 {
+			pinmux = <S32CC_PINMUX(8, FUNC3)>;
+			output-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+		};
+
+		dspi1_grp3 {
+			pinmux = <S32CC_PINMUX(95, FUNC0)>;
+			input-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+			bias-pull-up;
+		};
+
+		dspi1_grp4 {
+			pinmux = <S32CC_PINMUX(987, FUNC2)>;
+		};
+	};
+
+	dspi1_slave_pins: dspi1_slave_pins {
+		dspi1slave_grp0 {
+			pinmux = <S32CC_PINMUX(6, FUNC2)>;
+			output-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+		};
+
+		dspi1slave_grp1 {
+			pinmux = <S32CC_PINMUX(7, FUNC2)>;
+			input-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+		};
+
+		dspi1slave_grp2 {
+			pinmux = <S32CC_PINMUX(985, FUNC2)>,
+				 <S32CC_PINMUX(986, FUNC2)>,
+				 <S32CC_PINMUX(987, FUNC2)>;
+		};
+
+		dspi1slave_grp3 {
+			pinmux = <S32CC_PINMUX(8, FUNC3)>;
+			input-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+		};
+
+		dspi1slave_grp4 {
+			pinmux = <S32CC_PINMUX(95, FUNC0)>;
+			input-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+			bias-pull-up;
+		};
+	};
+
+	dspi5_pins: dspi5_pins {
+		dspi5_grp0 {
+			pinmux = <S32CC_PINMUX(9, FUNC3)>,
+				 <S32CC_PINMUX(11, FUNC3)>;
+			output-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+		};
+
+		dspi5_grp1 {
+			pinmux = <S32CC_PINMUX(10, FUNC0)>;
+			input-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+			bias-pull-up;
+		};
+
+		dspi5_grp2 {
+			pinmux = <S32CC_PINMUX(1007, FUNC2)>;
+		};
+
+		dspi5_grp3 {
+			pinmux = <S32CC_PINMUX(12, FUNC3)>;
+			output-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+			bias-pull-up;
+		};
+	};
 };
 
 &edma0 {
@@ -139,6 +231,41 @@
 
 &edma1 {
 	status = "okay";
+};
+
+&spi1 {
+	pinctrl-0 = <&dspi1_pins>;
+	pinctrl-1 = <&dspi1_slave_pins>;
+	pinctrl-names = "default", "slave";
+	status = "okay";
+};
+
+&spi5 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&dspi5_pins>;
+	#address-cells = <1>;
+	#size-cells = <0>;
+	status = "okay";
+
+	/* 1 hardware cs and 1 gpio cs*/
+	spi-num-chipselects = <1>;
+	cs-gpios = <0>, <&gpio 30 0>;
+
+	sja1110-uc@0 {
+		compatible = "nxp,sja1110-uc";
+		spi-max-frequency = <5000000>;
+		fsl,spi-cs-sck-delay = <50>;
+		fsl,spi-sck-cs-delay = <50>;
+		reg = <0>;
+	};
+
+	sja1110-sw@1 {
+		compatible = "nxp,sja1110-switch";
+		spi-max-frequency = <5000000>;
+		fsl,spi-cs-sck-delay = <50>;
+		fsl,spi-sck-cs-delay = <50>;
+		reg = <1>;
+	};
 };
 
 &qspi {
