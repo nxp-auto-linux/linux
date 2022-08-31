@@ -12,4 +12,98 @@
 
 / {
 	compatible = "nxp,s32r45";
+
+	soc {
+		siul2@4009c000 {
+			compatible = "simple-mfd";
+			status = "okay";
+			#address-cells = <2>;
+			#size-cells = <2>;
+
+				 /* MIDR */
+			ranges = <MIDR_SIUL2_0 0 0x0 0x4009c000 0x0 0x10>,
+				 <MIDR_SIUL2_1 0 0x0 0x4403c000 0x0 0x10>,
+
+				 /* MSCR 0-101 */
+				 <MSCRS_SIUL2_0 0 0x0 0x4009c240 0x0 0x198>,
+				 /* MSCR 102-133 */
+				 <MSCRS_SIUL2_1 0 0x0 0x4403c3d8 0x0 0x80>,
+
+				 /* IMCR range 512–595 */
+				 <IMCRS_SIUL2_0 0 0x0 0x4009ca40 0x0 0x150>,
+				 /* IMCR range 603 - 695 */
+				 <IMCRS_SIUL2_1_0 0 0x0 0x4403cbac 0x0 0x174>,
+				 /* IMCR range 696 - 727 (EIRQs) */
+				 <IMCRS_SIUL2_1_EIRQS 0 0x0 0x4403cd20 0x0 0x80>,
+				 /* IMCR range 728 - 785 */
+				 <IMCRS_SIUL2_1_1 0 0x0 0x4403cda0 0x0 0xe8>,
+
+				 /* Output pads */
+				 <OPADS_SIUL2_0 0 0x0 0x4009d700 0x0 0x10>,
+				 <OPADS_SIUL2_1 0 0x0 0x4403d700 0x0 0x14>,
+
+				 /* Input pads */
+				 <IPADS_SIUL2_0 0 0x0 0x4009d740 0x0 0x10>,
+				 <IPADS_SIUL2_1 0 0x0 0x4403d740 0x0 0x14>,
+
+				/* EIRQs */
+				 <EIRQS_SIUL2_1 0 0x0 0x4403c010 0x0 0xb4>;
+
+			pinctrl: siul2-pinctrl@4009c240 {
+				compatible = "nxp,s32r45-siul2-pinctrl";
+				#pinctrl-cells = <2>;
+
+				reg = <MSCRS_SIUL2_0   0 0x0 0x198>,
+				      <MSCRS_SIUL2_1   0 0x0 0x80>,
+				      <IMCRS_SIUL2_0   0 0x0 0x150>,
+				      <IMCRS_SIUL2_1_0 0 0x0 0x174>,
+				      <IMCRS_SIUL2_1_1 0 0x0 0xe8>;
+
+				/* MSCR range */
+				nxp,pins = <0   101
+					    102 133
+				/* IMCR range */
+					    512 595
+					    603 695
+					    728 785>;
+				status = "okay";
+			};
+
+			gpio: siul2-gpio@4009d700 {
+				compatible = "nxp,s32r-siul2-gpio";
+
+				reg = <OPADS_SIUL2_0       0 0x0 0x10>,
+				      <OPADS_SIUL2_1       0 0x0 0x14>,
+				      <IPADS_SIUL2_0       0 0x0 0x10>,
+				      <IPADS_SIUL2_1       0 0x0 0x14>,
+				      <EIRQS_SIUL2_1       0 0x0 0xb4>,
+				      <IMCRS_SIUL2_1_EIRQS 0 0x0 0x80>;
+				reg-names = "opads0", "opads1", "ipads0",
+					    "ipads1", "eirqs", "eirq-imcrs";
+
+				#gpio-cells = <2>;
+				gpio-controller;
+					/* GPIO 0-101 */
+				gpio-ranges = <&pinctrl 0   0   102>,
+					/* GPIO 102-133 */
+					      <&pinctrl 102 102 32>;
+
+				interrupt-controller;
+				#interrupt-cells = <2>;
+				interrupts = <GIC_SPI 237 IRQ_TYPE_LEVEL_HIGH>;
+				status = "okay";
+			};
+
+			nvram1: nvram@4403C000 {
+				compatible = "nxp,s32cc-siul2_1-nvmem";
+				reg = <MIDR_SIUL2_1 0 0x0 0x10>;
+				#address-cells = <1>;
+				#size-cells = <1>;
+				status = "okay";
+				serdes_presence: serdes_presence@0 {
+					reg = <SERDES_PRESENCE_OFFSET NVRAM_CELL_SIZE>;
+				};
+			};
+		};
+	};
 };
