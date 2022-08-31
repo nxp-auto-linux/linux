@@ -133,6 +133,11 @@
 				reg = <0x14>;
 				#clock-cells = <1>;
 			};
+
+			reset: protocol@16 {
+				reg = <0x16>;
+				#reset-cells = <1>;
+			};
 		};
 
 		psci {
