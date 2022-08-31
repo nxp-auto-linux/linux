@@ -21,6 +21,11 @@
 	#size-cells = <2>;
 
 	aliases {
+		can0 = &can0;
+		can1 = &can1;
+		can2 = &can2;
+		can3 = &can3;
+
 		serial0 = &uart0;
 		serial1 = &uart1;
 		serial2 = &uart2;
@@ -311,6 +316,34 @@
 				     <GIC_SPI 3 IRQ_TYPE_LEVEL_HIGH>; // CPU to M7/A53 interrupt#2
 		};
 
+		can0: flexcan@401b4000 {
+			compatible = "nxp,s32cc-flexcan";
+			reg = <0x0 0x401b4000 0x0 0xa000>;
+			interrupts = <GIC_SPI 37 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 38 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 39 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 40 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "state", "berr", "mb_0-7", "mb_8-127";
+			clocks = <&clks S32CC_SCMI_CLK_FLEXCAN_REG>,
+				 <&clks S32CC_SCMI_CLK_FLEXCAN_CAN>;
+			clock-names = "ipg", "per";
+			status = "disabled";
+		};
+
+		can1: flexcan@401be000 {
+			compatible = "nxp,s32cc-flexcan";
+			reg = <0x0 0x401be000 0x0 0xa000>;
+			interrupts = <GIC_SPI 41 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 42 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 43 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 44 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "state", "berr", "mb_0-7", "mb_8-127";
+			clocks = <&clks S32CC_SCMI_CLK_FLEXCAN_REG>,
+				 <&clks S32CC_SCMI_CLK_FLEXCAN_CAN>;
+			clock-names = "ipg", "per";
+			status = "disabled";
+		};
+
 		uart0: serial@401c8000 {
 			compatible = "nxp,s32cc-linflexuart",
 				     "fsl,s32v234-linflexuart";
@@ -419,6 +452,34 @@
 			clocks = <&clks S32CC_SCMI_CLK_PIT_MODULE>;
 			clock-names = "pit";
 			cpu = <1>;
+			status = "disabled";
+		};
+
+		can2: flexcan@402a8000 {
+			compatible = "nxp,s32cc-flexcan";
+			reg = <0x0 0x402a8000 0x0 0xa000>;
+			interrupts = <GIC_SPI 45 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 46 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 47 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 48 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "state", "berr", "mb_0-7", "mb_8-127";
+			clocks = <&clks S32CC_SCMI_CLK_FLEXCAN_REG>,
+				 <&clks S32CC_SCMI_CLK_FLEXCAN_CAN>;
+			clock-names = "ipg", "per";
+			status = "disabled";
+		};
+
+		can3: flexcan@402b2000 {
+			compatible = "nxp,s32cc-flexcan";
+			reg = <0x0 0x402b2000 0x0 0xa000>;
+			interrupts = <GIC_SPI 49 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 50 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 51 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 52 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "state", "berr", "mb_0-7", "mb_8-127";
+			clocks = <&clks S32CC_SCMI_CLK_FLEXCAN_REG>,
+				 <&clks S32CC_SCMI_CLK_FLEXCAN_CAN>;
+			clock-names = "ipg", "per";
 			status = "disabled";
 		};
 
