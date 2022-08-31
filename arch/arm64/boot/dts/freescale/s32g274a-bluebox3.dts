@@ -4,6 +4,7 @@
  */
 
 /dts-v1/;
+#include <dt-bindings/gpio/gpio.h>
 #include "s32g2.dtsi"
 
 / {
@@ -24,6 +25,42 @@
 
 &generic_timer {
 	clock-frequency = <5000000>;
+};
+
+&i2c0 {
+	pinctrl-names = "default", "gpio";
+	pinctrl-0 = <&i2c0_pins>;
+	pinctrl-1 = <&i2c0_gpio_pins>;
+	scl-gpios = <&gpio 17 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
+	sda-gpios = <&gpio 16 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
+	status = "okay";
+};
+
+&i2c1 {
+	pinctrl-names = "default", "gpio";
+	pinctrl-0 = <&i2c1_pins>;
+	pinctrl-1 = <&i2c1_gpio_pins>;
+	scl-gpios = <&gpio 19 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
+	sda-gpios = <&gpio 20 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
+	status = "okay";
+};
+
+&i2c2 {
+	pinctrl-names = "default", "gpio";
+	pinctrl-0 = <&i2c2_pins>;
+	pinctrl-1 = <&i2c2_gpio_pins>;
+	scl-gpios = <&gpio 21 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
+	sda-gpios = <&gpio 22 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
+	status = "okay";
+};
+
+&i2c4 {
+	pinctrl-names = "default", "gpio";
+	pinctrl-0 = <&i2c4_pins>;
+	pinctrl-1 = <&i2c4_gpio_pins>;
+	scl-gpios = <&gpio 34 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
+	sda-gpios = <&gpio 33 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
+	status = "okay";
 };
 
 &usdhc0 {
@@ -103,6 +140,137 @@
 
 		dspi1_grp5 {
 			pinmux = <S32CC_PINMUX(987, FUNC2)>;
+		};
+	};
+
+	i2c0_pins: i2c0_pins {
+		i2c0_grp0 {
+			pinmux = <S32CC_PINMUX(16, FUNC1)>,
+				 <S32CC_PINMUX(17, FUNC1)>;
+			drive-open-drain;
+			output-enable;
+			input-enable;
+			slew-rate = <S32CC_SLEW_83MHZ>;
+		};
+
+		i2c0_grp1 {
+			pinmux = <S32CC_PINMUX(565, FUNC2)>,
+				 <S32CC_PINMUX(566, FUNC2)>;
+		};
+	};
+
+	i2c0_gpio_pins: i2c0_gpio_pins {
+		i2c0_gpio_grp0 {
+			pinmux = <S32CC_PINMUX(16, FUNC0)>,
+				 <S32CC_PINMUX(17, FUNC0)>;
+			drive-open-drain;
+			output-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+		};
+
+		i2c0_gpio_grp1 {
+			pinmux = <S32CC_PINMUX(565, FUNC0)>,
+				 <S32CC_PINMUX(566, FUNC0)>;
+		};
+	};
+
+	i2c1_pins: i2c1_pins {
+		i2c1_grp0 {
+			pinmux = <S32CC_PINMUX(19, FUNC1)>,
+				 <S32CC_PINMUX(20, FUNC1)>;
+			drive-open-drain;
+			output-enable;
+			input-enable;
+			slew-rate = <S32CC_SLEW_83MHZ>;
+		};
+
+		i2c1_grp1 {
+			pinmux = <S32CC_PINMUX(717, FUNC2)>,
+				 <S32CC_PINMUX(718, FUNC2)>;
+		};
+	};
+
+	i2c1_gpio_pins: i2c1_gpio_pins {
+		i2c1_gpio_grp0 {
+			pinmux = <S32CC_PINMUX(19, FUNC0)>,
+				 <S32CC_PINMUX(20, FUNC0)>;
+			drive-open-drain;
+			output-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+		};
+
+		i2c1_gpio_grp1 {
+			pinmux = <S32CC_PINMUX(717, FUNC0)>,
+				 <S32CC_PINMUX(718, FUNC0)>;
+		};
+	};
+
+	i2c2_pins: i2c2_pins {
+		i2c2_grp0 {
+			pinmux = <S32CC_PINMUX(21, FUNC1)>,
+				 <S32CC_PINMUX(22, FUNC1)>;
+			drive-open-drain;
+			output-enable;
+			input-enable;
+			slew-rate = <S32CC_SLEW_83MHZ>;
+		};
+
+		i2c2_grp1 {
+			pinmux = <S32CC_PINMUX(719, FUNC2)>,
+				 <S32CC_PINMUX(720, FUNC2)>;
+		};
+	};
+
+	i2c2_gpio_pins: i2c2_gpio_pins {
+		i2c2_gpio_grp0 {
+			pinmux = <S32CC_PINMUX(21, FUNC0)>,
+				 <S32CC_PINMUX(22, FUNC0)>;
+			drive-open-drain;
+			output-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+		};
+
+		i2c2_gpio_grp1 {
+			pinmux = <S32CC_PINMUX(719, FUNC0)>,
+				 <S32CC_PINMUX(720, FUNC0)>;
+		};
+	};
+
+	i2c4_pins: i2c4_pins {
+		i2c4_grp0 {
+			pinmux = <S32CC_PINMUX(33, FUNC1)>;
+			drive-open-drain;
+			output-enable;
+			input-enable;
+			slew-rate = <S32CC_SLEW_83MHZ>;
+		};
+
+		i2c4_grp1 {
+			pinmux = <S32CC_PINMUX(724, FUNC3)>,
+				 <S32CC_PINMUX(723, FUNC3)>;
+		};
+
+		i2c4_grp2 {
+			pinmux = <S32CC_PINMUX(34, FUNC2)>;
+			drive-open-drain;
+			output-enable;
+			input-enable;
+			slew-rate = <S32CC_SLEW_83MHZ>;
+		};
+	};
+
+	i2c4_gpio_pins: i2c4_gpio_pins {
+		i2c4_gpio_grp0 {
+			pinmux = <S32CC_PINMUX(33, FUNC0)>,
+				 <S32CC_PINMUX(34, FUNC0)>;
+			drive-open-drain;
+			output-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+		};
+
+		i2c4_gpio_grp1 {
+			pinmux = <S32CC_PINMUX(724, FUNC0)>,
+				 <S32CC_PINMUX(723, FUNC0)>;
 		};
 	};
 };
