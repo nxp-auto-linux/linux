@@ -10,4 +10,16 @@
 
 / {
 	compatible = "nxp,s32g2";
+
+	reserved-memory {
+		ddr_errata_reserved: ddr@85000000 {
+			reg = <0x0 0x85000000 0x0 0x1000>; /* 4 KB */
+			no-map;
+		};
+	};
+};
+
+&ddr_errata {
+	memory-region = <&ddr_errata_reserved>;
+	status = "okay";
 };
