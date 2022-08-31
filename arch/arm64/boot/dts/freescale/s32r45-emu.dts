@@ -77,6 +77,10 @@
 	status = "okay";
 };
 
+&fccu {
+	status = "okay";
+};
+
 &swt3 {
 	status = "okay";
 };
