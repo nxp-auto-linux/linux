@@ -168,6 +168,11 @@
 			nxp,dividers = <1 0>; // div512 enabled; div32 disabled
 		};
 
+		ddr_gpr: ddr_gpr@4007c600 {
+			compatible = "nxp,s32cc-ddr-gpr", "syscon";
+			reg = <0x0 0x4007c600 0x0 0x20>;
+		};
+
 		uart0: serial@401c8000 {
 			compatible = "nxp,s32cc-linflexuart",
 				     "fsl,s32v234-linflexuart";
