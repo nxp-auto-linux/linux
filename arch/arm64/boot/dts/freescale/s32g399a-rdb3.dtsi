@@ -12,3 +12,19 @@
 / {
 	model = "NXP S32G399A-RDB3";
 };
+
+&swt8 {
+	status = "okay";
+};
+
+&swt9 {
+	status = "okay";
+};
+
+&swt10 {
+	status = "okay";
+};
+
+&swt11 {
+	status = "okay";
+};
