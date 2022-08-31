@@ -10,3 +10,19 @@
 / {
 	model = "NXP S32G3XXX-EVB3";
 };
+
+&swt8 {
+	status = "okay";
+};
+
+&swt9 {
+	status = "okay";
+};
+
+&swt10 {
+	status = "okay";
+};
+
+&swt11 {
+	status = "okay";
+};
