@@ -33,6 +33,14 @@
 	clock-frequency = <5000000>;
 };
 
+&stm0 {
+	status = "okay";
+};
+
+&stm1 {
+	status = "okay";
+};
+
 &swt3 {
 	status = "okay";
 };
