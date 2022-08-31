@@ -14,6 +14,14 @@
 	};
 };
 
+&edma0 {
+	status = "okay";
+};
+
+&edma1 {
+	status = "okay";
+};
+
 &generic_timer {
 	clock-frequency = <5000000>;
 };
