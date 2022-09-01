@@ -1,0 +1,19 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+/*
+ * Device Tree file for S32G399ARDB3 Board Rev E.
+ * PFE Master/Slave mode supported
+ *
+ * Copyright 2022 NXP
+ *
+ */
+
+#include "s32g399a-rdb3.dtsi"
+#include "s32g-pfe-slave.dtsi"
+
+&pfe_aux0 {
+	status = "okay";
+};
+
+&pfesl_aux0 {
+	status = "okay";
+};

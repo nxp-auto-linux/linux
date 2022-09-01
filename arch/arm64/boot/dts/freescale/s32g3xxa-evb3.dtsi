@@ -26,3 +26,16 @@
 &swt11 {
 	status = "okay";
 };
+
+&pfe_mdio2 {
+	/* AQR113 on S32G-PROCEVB3-S */
+	pfe_mdio_a_phy8: ethernet-phy@8 {
+		compatible = "ethernet-phy-ieee802.3-c45";
+		reg = <8>;
+	};
+};
+
+&pfe_netif0 {
+	phy-mode = "sgmii";
+	phy-handle = <&pfe_mdio_a_phy8>;
+};
