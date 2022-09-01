@@ -9,8 +9,43 @@
  */
 
 #include "s32cc.dtsi"
+#include "s32g-pfe.dtsi"
 
 / {
+	reserved-memory {
+		pfe_reserved_bmu2: pfebufs@34000000 {
+			compatible = "nxp,s32g-pfe-bmu2-pool";
+			/* BMU2: 512 KB */
+			reg = <0 0x34000000 0 0x80000>;
+			no-map;
+			status = "okay";
+		};
+
+		pfe_reserved_rt: pfebufs@34080000 {
+			compatible = "nxp,s32g-pfe-rt-pool";
+			/* RT: 128 KB */
+			reg = <0 0x34080000 0 0x20000>;
+			no-map;
+			status = "okay";
+		};
+
+		pfe_reserved: pfebufs@83200000 {
+			compatible = "shared-dma-pool";
+			/* 4 MB - 128 KB */
+			reg = <0 0x83200000 0 0x3e0000>;
+			no-map;
+			status = "okay";
+		};
+
+		pfe_reserved_bdr: pfebufs@835e0000 {
+			compatible = "nxp,s32g-pfe-bdr-pool";
+			/* 128 KB */
+			reg = <0 0x835e0000 0 0x20000>;
+			status = "okay";
+		};
+		/* ends 0x83600000 */
+	};
+
 	soc {
 		siul2@4009c000 {
 			compatible = "simple-mfd";

@@ -28,6 +28,48 @@
 	};
 };
 
+&pfe {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pfe2mdiob_pins>,
+		    <&pfe2rgmiib_pins>;
+};
+
+&pfe_mdio0 {
+	/* unused */
+	status = "disabled";
+};
+
+&pfe_mdio1 {
+	/* occupied by GMAC0 */
+	status = "disabled";
+};
+
+&pfe_mdio2 {
+	/* AR8035 */
+	pfe_mdio_b_phy4: ethernet-phy@4 {
+		reg = <4>;
+	};
+	/* SJA1110's phys: 0x09-0x0e */
+};
+
+&pfe_netif0 {
+	phy-mode = "sgmii";
+	fixed-link {
+		speed = <2500>;
+		full-duplex;
+	};
+};
+
+&pfe_netif1 {
+	phy-mode = "sgmii";
+};
+
+&pfe_netif2 {
+	phy-mode = "rgmii-id";
+	phy-handle = <&pfe_mdio_b_phy4>;
+};
+
 &generic_timer {
 	clock-frequency = <5000000>;
 };
@@ -201,6 +243,65 @@
 				 <S32CC_PINMUX(77, FUNC0)>;
 			input-enable;
 			slew-rate = <S32CC_SLEW_208MHZ>;
+		};
+	};
+
+	pfe2mdiob_pins: pfe2mdiob_pins {
+		pfe2mdiob_grp0 {
+			pinmux = <S32CC_PINMUX(82, FUNC2)>;
+			output-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+		};
+
+		pfe2mdiob_grp1 {
+			pinmux = <S32CC_PINMUX(79, FUNC2)>;
+			output-enable;
+			input-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+		};
+
+		pfe2mdiob_grp2 {
+			pinmux = <S32CC_PINMUX(877, FUNC3)>;
+		};
+	};
+
+	pfe2rgmiib_pins: pfe2rgmiib_pins {
+		pfe2rgmiib_grp0 {
+			pinmux = <S32CC_PINMUX(78, FUNC2)>,
+				 <S32CC_PINMUX(144, FUNC2)>,
+				 <S32CC_PINMUX(113, FUNC2)>,
+				 <S32CC_PINMUX(114, FUNC2)>,
+				 <S32CC_PINMUX(115, FUNC2)>;
+			output-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+		};
+
+		pfe2rgmiib_grp1 {
+			pinmux = <S32CC_PINMUX(116, FUNC0)>,
+				 <S32CC_PINMUX(117, FUNC0)>,
+				 <S32CC_PINMUX(118, FUNC0)>,
+				 <S32CC_PINMUX(119, FUNC0)>,
+				 <S32CC_PINMUX(120, FUNC0)>,
+				 <S32CC_PINMUX(121, FUNC0)>;
+			input-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+		};
+
+		pfe2rgmiib_grp2 {
+			pinmux = <S32CC_PINMUX(879, FUNC3)>,
+				 <S32CC_PINMUX(885, FUNC3)>,
+				 <S32CC_PINMUX(881, FUNC3)>,
+				 <S32CC_PINMUX(882, FUNC3)>,
+				 <S32CC_PINMUX(883, FUNC3)>,
+				 <S32CC_PINMUX(884, FUNC3)>,
+				 <S32CC_PINMUX(886, FUNC3)>;
+		};
+
+		pfe2rgmiib_grp3 {
+			pinmux = <S32CC_PINMUX(122, FUNC2)>;
+			output-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+			bias-pull-up;
 		};
 	};
 

@@ -75,6 +75,58 @@
 	status = "okay";
 };
 
+&pfe {
+	status = "okay";
+	memory-region = <&pfe_reserved>;
+};
+
+&pfe_netif0 {
+	status = "okay";
+
+	fixed-link {
+		speed = <1000>;
+		full-duplex;
+	};
+};
+
+&pfe_mdio0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pfe0mdio_pins>;
+	status = "okay";
+
+	phy5: phy@5 {
+		reg = <5>;
+	};
+
+	phy6: phy@6 {
+		reg = <6>;
+	};
+
+	phy25: phy@25 {
+		reg = <25>;
+	};
+
+	phy26: phy@26 {
+		reg = <26>;
+	};
+
+	phy27: phy@27 {
+		reg = <27>;
+	};
+
+	phy28: phy@28 {
+		reg = <28>;
+	};
+
+	phy29: phy@29 {
+		reg = <29>;
+	};
+
+	phy30: phy@30 {
+		reg = <30>;
+	};
+};
+
 &usdhc0 {
 	status = "okay";
 };
@@ -283,6 +335,25 @@
 		i2c4_gpio_grp1 {
 			pinmux = <S32CC_PINMUX(724, FUNC0)>,
 				 <S32CC_PINMUX(723, FUNC0)>;
+		};
+	};
+
+	pfe0mdio_pins: pfe0mdio_pins {
+		pfe0mdio_grp0 {
+			pinmux = <S32CC_PINMUX(82, FUNC1)>;
+			output-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+		};
+
+		pfe0mdio_grp1 {
+			pinmux = <S32CC_PINMUX(79, FUNC1)>;
+			output-enable;
+			input-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+		};
+
+		pfe0mdio_grp2 {
+			pinmux = <S32CC_PINMUX(837, FUNC2)>;
 		};
 	};
 };

@@ -385,6 +385,65 @@
 		};
 	};
 
+	pfe2mdioa_pins: pfe2mdioa_pins {
+		pfe2mdioa_grp0 {
+			pinmux = <S32CC_PINMUX(82, FUNC2)>;
+			output-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+		};
+
+		pfe2mdioa_grp1 {
+			pinmux = <S32CC_PINMUX(79, FUNC2)>;
+			output-enable;
+			input-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+		};
+
+		pfe2mdioa_grp2 {
+			pinmux = <S32CC_PINMUX(877, FUNC3)>;
+		};
+	};
+
+	pfe2rgmiia_pins: pfe2rgmiia_pins {
+		pfe2rgmiia_grp0 {
+			pinmux = <S32CC_PINMUX(144, FUNC2)>,
+				 <S32CC_PINMUX(113, FUNC2)>,
+				 <S32CC_PINMUX(114, FUNC2)>,
+				 <S32CC_PINMUX(115, FUNC2)>,
+				 <S32CC_PINMUX(78, FUNC2)>;
+			output-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+		};
+
+		pfe2rgmiia_grp1 {
+			pinmux = <S32CC_PINMUX(116, FUNC0)>,
+				 <S32CC_PINMUX(117, FUNC0)>,
+				 <S32CC_PINMUX(118, FUNC0)>,
+				 <S32CC_PINMUX(119, FUNC0)>,
+				 <S32CC_PINMUX(120, FUNC0)>,
+				 <S32CC_PINMUX(121, FUNC0)>;
+			input-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+		};
+
+		pfe2rgmiia_grp2 {
+			pinmux = <S32CC_PINMUX(879, FUNC3)>,
+				 <S32CC_PINMUX(885, FUNC3)>,
+				 <S32CC_PINMUX(881, FUNC3)>,
+				 <S32CC_PINMUX(882, FUNC3)>,
+				 <S32CC_PINMUX(883, FUNC3)>,
+				 <S32CC_PINMUX(884, FUNC3)>,
+				 <S32CC_PINMUX(886, FUNC3)>;
+		};
+
+		pfe2rgmiia_grp3 {
+			pinmux = <S32CC_PINMUX(122, FUNC2)>;
+			output-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+			bias-pull-up;
+		};
+	};
+
 	gmac0mdioc_pins: gmac0mdioc_pins {
 		gmac0mdioc_grp0 {
 			pinmux = <S32CC_PINMUX(60, FUNC1)>;
@@ -433,6 +492,70 @@
 		};
 
 		gmac0rgmiic_grp3 {
+			pinmux = <S32CC_PINMUX(72, FUNC0)>,
+				 <S32CC_PINMUX(73, FUNC0)>,
+				 <S32CC_PINMUX(74, FUNC0)>,
+				 <S32CC_PINMUX(75, FUNC0)>,
+				 <S32CC_PINMUX(76, FUNC0)>,
+				 <S32CC_PINMUX(77, FUNC0)>;
+			input-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+		};
+	};
+
+	pfe1mdioc_pins: pfe1mdioc_pins {
+		pfe1mdioc_grp0 {
+			pinmux = <S32CC_PINMUX(60, FUNC2)>;
+			output-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+		};
+
+		pfe1mdioc_grp1 {
+			pinmux = <S32CC_PINMUX(61, FUNC2)>;
+			output-enable;
+			input-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+		};
+
+		pfe1mdioc_grp2 {
+			pinmux = <S32CC_PINMUX(857, FUNC2)>;
+		};
+	};
+
+	pfe1rgmiic_pins: pfe1rgmiic_pins {
+		pfe1rgmiic_grp0 {
+			pinmux = <S32CC_PINMUX(66, FUNC2)>;
+			output-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+			bias-pull-up;
+		};
+
+		pfe1rgmiic_grp1 {
+			pinmux = <S32CC_PINMUX(866, FUNC2)>,
+				 <S32CC_PINMUX(859, FUNC2)>,
+				 <S32CC_PINMUX(865, FUNC2)>,
+				 <S32CC_PINMUX(861, FUNC2)>,
+				 <S32CC_PINMUX(862, FUNC2)>,
+				 <S32CC_PINMUX(863, FUNC2)>,
+				 <S32CC_PINMUX(864, FUNC2)>;
+		};
+
+		pfe1rgmiic_grp2 {
+			pinmux = <S32CC_PINMUX(67, FUNC2)>,
+				 <S32CC_PINMUX(68, FUNC2)>,
+				 <S32CC_PINMUX(69, FUNC2)>,
+				 <S32CC_PINMUX(70, FUNC2)>;
+			output-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+		};
+
+		pfe1rgmiic_grp3 {
+			pinmux = <S32CC_PINMUX(71, FUNC3)>;
+			output-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+		};
+
+		pfe1rgmiic_grp4 {
 			pinmux = <S32CC_PINMUX(72, FUNC0)>,
 				 <S32CC_PINMUX(73, FUNC0)>,
 				 <S32CC_PINMUX(74, FUNC0)>,
@@ -550,6 +673,57 @@
 		reg = <5>;
 	};
 };
+&pfe {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pfe2mdioa_pins>, <&pfe2rgmiia_pins>;
+};
+
+&pfe_mdio0 {
+	/* used by USB ULPI */
+	status = "disabled";
+};
+
+&pfe_mdio1 {
+	/* unused */
+	status = "disabled";
+};
+
+&pfe_mdio2 {
+	/* KSZ9031RNX over SJA1105Q P3 */
+	pfe_mdio_a_phy2: ethernet-phy@2 {
+		reg = <2>;
+	};
+	/* KSZ9031RNX over SJA1105Q P4 */
+	pfe_mdio_a_phy3: ethernet-phy@3 {
+		reg = <3>;
+	};
+
+	/* TJA1102 over SJA1105Q P1 */
+	pfe_mdio_a_phy6: ethernet-phy@6 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg = <6>;
+
+		/* TJA1102 over SJA1105Q P2 */
+		pfe_mdio_a_phy7: ethernet-phy@7 {
+			reg = <7>;
+		};
+	};
+};
+
+&pfe_netif1 {
+	phy-mode = "sgmii";
+	phy-handle = <&gmac_mdio_c_phy1>;
+};
+
+&pfe_netif2 {
+	phy-mode = "rgmii";
+	fixed-link {
+		speed = <1000>;
+		full-duplex;
+	};
+};
 
 &edma0 {
 	status = "okay";
@@ -573,6 +747,70 @@
 		reg = <0>;
 		fsl,spi-cs-sck-delay = <100>;
 		fsl,spi-sck-cs-delay = <100>;
+	};
+};
+
+&spi5 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&dspi5_pins>;
+	#address-cells = <1>;
+	#size-cells = <0>;
+	status = "okay";
+
+	ethernet-switch@0 {
+		compatible = "nxp,sja1105q";
+		spi-max-frequency = <0x3D0900>;
+		spi-cpha;
+		fsl,spi-cs-sck-delay = <100>;
+		fsl,spi-sck-cs-delay = <100>;
+		reg = <0>;
+
+		dsa,member = < 0 0 >;
+
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			port@0 {
+				label = "sw0-p0";
+				phy-mode = "rgmii-id";
+				ethernet = <&pfe_netif2>;
+				reg = <0>;
+
+				fixed-link {
+					speed = <1000>;
+					full-duplex;
+				};
+			};
+
+			enet_p1@1 {
+				label = "enet_p1";
+				phy-mode = "mii";
+				phy-handle = <&pfe_mdio_a_phy6>;
+				reg = <1>;
+			};
+
+			enet_p2@2 {
+				label = "enet_p2";
+				phy-mode = "mii";
+				phy-handle = <&pfe_mdio_a_phy7>;
+				reg = <2>;
+			};
+
+			enet_p3@3 {
+				label = "enet_p3";
+				phy-mode = "rgmii-id";
+				phy-handle = <&pfe_mdio_a_phy2>;
+				reg = <3>;
+			};
+
+			enet_p4@4 {
+				label = "enet_p4";
+				phy-mode = "rgmii-id";
+				phy-handle = <&pfe_mdio_a_phy3>;
+				reg = <4>;
+			};
+		};
 	};
 };
 

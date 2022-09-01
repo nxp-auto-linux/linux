@@ -33,6 +33,10 @@
 	};
 };
 
+&pfe_reserved  {
+	status = "disabled";
+};
+
 &generic_timer {
 	clock-frequency = <5000000>;
 };
