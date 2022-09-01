@@ -3,7 +3,7 @@
  * Watchdog driver for S32CC SoC
  *
  *  Copyright (C) 2014 Freescale Semiconductor, Inc.
- *  Copyright 2017-2019 NXP.
+ *  Copyright 2017-2019, 2021-2022 NXP.
  *
  * Based on imx2_wdt.c
  * Drives the Software Watchdog Timer module
@@ -17,7 +17,6 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/moduleparam.h>
-#include <linux/of.h>
 #include <linux/platform_device.h>
 #include <linux/watchdog.h>
 #include <linux/clk.h>
@@ -26,6 +25,7 @@
 #include <linux/uaccess.h>
 #include <linux/timer.h>
 #include <linux/jiffies.h>
+#include <linux/of_device.h>
 
 #define DRIVER_NAME "s32cc-wdt"
 
@@ -45,9 +45,19 @@
 #define S32CC_WDT_DEFAULT_TIME	30
 #define S32CC_WDT_TO_MIN_COUNT	0x100
 
+enum wdt_flags {
+	S32CC_NO_CONTINUE_IN_STBY,
+	S32CC_CONTINUE_IN_STBY,
+};
+
+struct s32cc_data {
+	enum wdt_flags flags;
+};
+
 struct s32cc_wdt_device {
 	struct clk *clk;
 	void __iomem *base;
+	enum wdt_flags flags;
 	unsigned long status;
 	struct timer_list timer;	/* Pings the watchdog when closed */
 	struct watchdog_device wdog;
@@ -125,7 +135,10 @@ static inline void s32cc_wdt_setup(struct watchdog_device *wdog)
 	/* Allows watchdog timer to be stopped when device enters debug mode
 	 * or when device is in stopped mode
 	 */
-	val |= S32CC_SWT_CR_STP | S32CC_SWT_CR_FRZ;
+	if (!(wdev->flags & S32CC_CONTINUE_IN_STBY))
+		val |= S32CC_SWT_CR_STP;
+
+	val |= S32CC_SWT_CR_FRZ;
 	/* Use Fixed Service Sequence to ping the watchdog */
 	val |= S32CC_SWT_CR_FIXED_SS;
 	/* Enable the watchdog */
@@ -184,11 +197,19 @@ static int __init s32cc_wdt_probe(struct platform_device *pdev)
 	unsigned long clk_rate = 0;
 	struct s32cc_wdt_device *wdev = NULL;
 	struct watchdog_device *wdog = NULL;
+	const struct s32cc_data *data;
+
+	data = of_device_get_match_data(&pdev->dev);
 
 	wdev = devm_kzalloc(&pdev->dev, sizeof(struct s32cc_wdt_device),
 			    GFP_KERNEL);
 	if (!wdev)
 		return -ENOMEM;
+
+	if (data)
+		wdev->flags = data->flags;
+	else
+		wdev->flags = S32CC_NO_CONTINUE_IN_STBY;
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	wdev->base = devm_ioremap_resource(&pdev->dev, res);
@@ -272,8 +293,12 @@ static void s32cc_wdt_shutdown(struct platform_device *pdev)
 	}
 }
 
+static const struct s32cc_data s32cc_data = {
+	.flags = S32CC_CONTINUE_IN_STBY,
+};
+
 static const struct of_device_id s32cc_wdt_dt_ids[] = {
-	{.compatible = "nxp,s32cc-wdt",},
+	{.compatible = "nxp,s32cc-wdt", .data = &s32cc_data},
 	{ /* sentinel */ }
 };
 
