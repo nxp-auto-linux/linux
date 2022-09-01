@@ -9,6 +9,22 @@
 	chosen {
 		stdout-path = "serial0:115200n8";
 	};
+
+	usbphynop: usbphynop {
+		compatible = "usb-nop-xceiv";
+		#phy-cells = <0>;
+	};
+};
+
+&usbmisc {
+	status = "okay";
+};
+
+&usbotg {
+	pinctrl-names = "default";
+	pinctrl-0 = <&usbotg_pins>;
+	fsl,usbphy = <&usbphynop>;
+	status = "okay";
 };
 
 &generic_timer {
@@ -382,6 +398,50 @@
 		i2c4_gpio_grp1 {
 			pinmux = <S32CC_PINMUX(724, FUNC0)>,
 				 <S32CC_PINMUX(723, FUNC0)>;
+		};
+	};
+
+	usbotg_pins: usbotg_pins {
+		usbotg_grp0 {
+			pinmux = <S32CC_PINMUX(896, FUNC2)>,
+				 <S32CC_PINMUX(897, FUNC2)>,
+				 <S32CC_PINMUX(898, FUNC2)>,
+				 <S32CC_PINMUX(899, FUNC2)>,
+				 <S32CC_PINMUX(900, FUNC2)>,
+				 <S32CC_PINMUX(901, FUNC2)>,
+				 <S32CC_PINMUX(902, FUNC2)>,
+				 <S32CC_PINMUX(903, FUNC2)>,
+				 <S32CC_PINMUX(895, FUNC2)>,
+				 <S32CC_PINMUX(904, FUNC2)>,
+				 <S32CC_PINMUX(905, FUNC2)>;
+		};
+
+		usbotg_grp1 {
+			pinmux = <S32CC_PINMUX(62, FUNC1)>,
+				 <S32CC_PINMUX(63, FUNC1)>,
+				 <S32CC_PINMUX(64, FUNC1)>,
+				 <S32CC_PINMUX(65, FUNC1)>,
+				 <S32CC_PINMUX(188, FUNC1)>,
+				 <S32CC_PINMUX(189, FUNC1)>,
+				 <S32CC_PINMUX(190, FUNC1)>,
+				 <S32CC_PINMUX(112, FUNC1)>;
+			output-enable;
+			input-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+		};
+
+		usbotg_grp2 {
+			pinmux = <S32CC_PINMUX(184, FUNC0)>,
+				 <S32CC_PINMUX(185, FUNC0)>,
+				 <S32CC_PINMUX(187, FUNC0)>;
+			input-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+		};
+
+		usbotg_grp3 {
+			pinmux = <S32CC_PINMUX(186, FUNC1)>;
+			output-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
 		};
 	};
 
