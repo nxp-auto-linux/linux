@@ -157,6 +157,10 @@
 	};
 };
 
+&usbmisc {
+	compatible = "nxp,s32g3-usbmisc";
+};
+
 &pcie0 {
 	pcie_device_id = <0x4300>;
 };
