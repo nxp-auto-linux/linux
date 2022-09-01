@@ -144,6 +144,90 @@
 	};
 };
 
+&llce_dte_sram {
+	status = "okay";
+};
+
+&llce_ppe_rx_sram {
+	status = "okay";
+};
+
+&llce_ppe_tx_sram {
+	status = "okay";
+};
+
+&llce_frpe_sram {
+	status = "okay";
+};
+
+&llce_shmem {
+	status = "okay";
+};
+
+&llce_boot_status {
+	status = "okay";
+};
+
+&llce_can0 {
+	status = "okay";
+};
+
+&llce_can1 {
+	status = "okay";
+};
+
+&llce_can2 {
+	status = "okay";
+};
+
+&llce_can3 {
+	status = "okay";
+};
+
+&llce_can4 {
+	status = "okay";
+};
+
+&llce_can5 {
+	status = "okay";
+};
+
+&llce_can6 {
+	status = "okay";
+};
+
+&llce_can7 {
+	status = "okay";
+};
+
+&llce_can8 {
+	status = "okay";
+};
+
+&llce_can9 {
+	status = "okay";
+};
+
+&llce_can10 {
+	status = "okay";
+};
+
+&llce_can11 {
+	status = "okay";
+};
+
+&llce_can13 {
+	status = "okay";
+};
+
+&llce_can14 {
+	status = "okay";
+};
+
+&llce_can15 {
+	status = "okay";
+};
+
 &usdhc0 {
 	no-1-8-v;
 	status = "okay";
