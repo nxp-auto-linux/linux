@@ -26,3 +26,8 @@
 		reg = <3>;
 	};
 };
+
+&pfe_netif1 {
+	phy-mode = "sgmii";
+	phy-handle = <&gmac_mdio_a_phy3>;
+};
