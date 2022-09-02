@@ -27,9 +27,9 @@ Supported Algorithms
 --------------------
 This driver currently supports the following crypto operations:
 
-- Hashing: MD5, SHA1, SHA2
+- Hashing: SHA1, SHA2
 - Symmetric Key Ciphering: AES-CTR, AES-CBC, AES-ECB, AES-CFB
-- Message Authentication Codes: HMAC(MD5), HMAC(SHA1), HMAC(SHA2)
+- Message Authentication Codes: HMAC(SHA1), HMAC(SHA2)
 - Authenticated Encryption with Associated Data: AES-GCM
 - Hardware True Random Number Generation: PTG.3 class
 
