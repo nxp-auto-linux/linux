@@ -13,7 +13,6 @@
 #include <linux/crypto.h>
 #include <crypto/hash.h>
 #include <crypto/internal/hash.h>
-#include <crypto/md5.h>
 #include <crypto/sha.h>
 #include <crypto/scatterwalk.h>
 
@@ -1003,16 +1002,6 @@ static void hse_ahash_cra_exit(struct crypto_tfm *_tfm)
 
 static const struct hse_ahash_tpl hse_ahash_algs_tpl[] = {
 	{
-		.hash_name = "md5",
-		.hash_drv = "md5-hse",
-		.hmac_name = "hmac(md5)",
-		.hmac_drv = "hmac-md5-hse",
-		.blocksize = MD5_BLOCK_WORDS * 4,
-		.ahash_tpl.halg = {
-			.digestsize = MD5_DIGEST_SIZE,
-		},
-		.alg_type = HSE_HASH_ALGO_MD5,
-	}, {
 		.hash_name = "sha1",
 		.hash_drv = "sha1-hse",
 		.hmac_name = "hmac(sha1)",
