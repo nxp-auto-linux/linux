@@ -6,6 +6,7 @@
 // Copyright (c) 2009 Sascha Hauer, Pengutronix
 // Copyright (c) 2010-2017 Pengutronix, Marc Kleine-Budde <kernel@pengutronix.de>
 // Copyright (c) 2014 David Jander, Protonic Holland
+// Copyright 2015 NXP
 //
 // Based on code originally by Andrey Volkov <avolkov@varma-el.com>
 
@@ -460,6 +461,11 @@ static const struct flexcan_devtype_data fsl_lx2160a_r1_devtype_data = {
 		FLEXCAN_QUIRK_SUPPORT_ECC |
 		FLEXCAN_QUIRK_SUPPPORT_RX_MAILBOX |
 		FLEXCAN_QUIRK_SUPPPORT_RX_MAILBOX_RTR,
+};
+
+static const struct flexcan_devtype_data fsl_s32cc_devtype_data = {
+	.quirks = FLEXCAN_QUIRK_DISABLE_RXFG | FLEXCAN_QUIRK_ENABLE_EACEN_RRS |
+		FLEXCAN_QUIRK_DISABLE_MECR | FLEXCAN_QUIRK_USE_RX_MAILBOX,
 };
 
 static const struct can_bittiming_const flexcan_bittiming_const = {
@@ -2107,6 +2113,7 @@ static const struct of_device_id flexcan_of_match[] = {
 	{ .compatible = "fsl,vf610-flexcan", .data = &fsl_vf610_devtype_data, },
 	{ .compatible = "fsl,ls1021ar2-flexcan", .data = &fsl_ls1021a_r2_devtype_data, },
 	{ .compatible = "fsl,lx2160ar1-flexcan", .data = &fsl_lx2160a_r1_devtype_data, },
+	{ .compatible = "nxp,s32cc-flexcan", .data = &fsl_s32cc_devtype_data, },
 	{ /* sentinel */ },
 };
 MODULE_DEVICE_TABLE(of, flexcan_of_match);
