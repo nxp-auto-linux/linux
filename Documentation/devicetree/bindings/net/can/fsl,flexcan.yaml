@@ -12,6 +12,47 @@ maintainers:
 
 allOf:
   - $ref: can-controller.yaml#
+  - if:
+      properties:
+        compatible:
+          enum:
+            - nxp,s32cc-flexcan
+    then:
+      properties:
+        interrupts:
+          description: |
+            Interrupt tuple(s) for this device. If interrupt-names are
+            missing, these should specify, in order
+            for S32CC
+            1. BOFFINT | BOFFDONEINT | TWRNINT | RWRNINT;
+            2. ERRINT;
+            3. MB0-7 interrupts;
+            4. MB8-127 interrupts;
+            for all the other SoCs
+            minItems: 4
+            maxItems: 4
+        interrupt-names:
+          description: |
+            Allows the interrupt specifiers in "interrupts" to be stated
+            in any order, one for each name in here. Can contain
+            "state" - BOFFINT | BOFFDONEINT | TWRNINT | RWRNINT
+            "berr" - ERRINT
+            "mb_0-7" - MB0-7 interrupts
+            "mb_8-127" - MB8-127 interrupts
+            In case interrupt-names property is missing, then there is a
+            strict order of interrupts as specified in the DTS node.
+          items:
+            - const: state
+            - const: berr
+            - const: mb_0-7
+            - const: mb_8-127
+      required:
+        - interrupts
+    else:
+      properties:
+        interrupts:
+          minItems: 1
+          maxItems: 1
 
 properties:
   compatible:
@@ -27,6 +68,7 @@ properties:
           - fsl,vf610-flexcan
           - fsl,ls1021ar2-flexcan
           - fsl,lx2160ar1-flexcan
+          - nxp,s32cc-flexcan
       - items:
           - enum:
               - fsl,imx53-flexcan
@@ -44,10 +86,8 @@ properties:
           - const: fsl,lx2160ar1-flexcan
 
   reg:
-    maxItems: 1
-
-  interrupts:
-    maxItems: 1
+    minItems: 1
+    maxItems: 2
 
   clocks:
     maxItems: 2
@@ -89,8 +129,10 @@ properties:
     $ref: /schemas/types.yaml#/definitions/phandle-array
     items:
       - items:
-          - description: The 'gpr' is the phandle to general purpose register node.
-          - description: The 'req_gpr' is the gpr register offset of CAN stop request.
+          - description:
+              The 'gpr' is the phandle to general purpose register node.
+          - description:
+              The 'req_gpr' is the gpr register offset of CAN stop request.
             maximum: 0xff
           - description: The 'req_bit' is the bit offset of CAN stop request.
             maximum: 0x1f
@@ -131,7 +173,7 @@ required:
   - reg
   - interrupts
 
-additionalProperties: false
+unevaluatedProperties: false
 
 examples:
   - |
@@ -168,4 +210,22 @@ examples:
         fsl,stop-mode = <&gpr 0x34 28>;
         termination-gpios = <&gpio1 0 GPIO_ACTIVE_LOW>;
         termination-ohms = <120>;
+    };
+  - |
+    #include <dt-bindings/clock/s32cc-scmi-clock.h>
+    #include <dt-bindings/interrupt-controller/arm-gic.h>
+    #include <dt-bindings/interrupt-controller/irq.h>
+
+    can0: can@401b4000 {
+        compatible = "nxp,s32cc-flexcan";
+        reg = <0x0 0x401b4000 0x0 0xa000>;
+        interrupts = <GIC_SPI 37 IRQ_TYPE_LEVEL_HIGH>,
+                   <GIC_SPI 38 IRQ_TYPE_LEVEL_HIGH>,
+                   <GIC_SPI 39 IRQ_TYPE_LEVEL_HIGH>,
+                   <GIC_SPI 40 IRQ_TYPE_LEVEL_HIGH>;
+        interrupt-names = "state", "berr", "mb_0-7", "mb_8-127";
+        clocks = <&clks S32CC_SCMI_CLK_FLEXCAN_REG>,
+             <&clks S32CC_SCMI_CLK_FLEXCAN_CAN>;
+        clock-names = "ipg", "per";
+        status = "disabled";
     };
