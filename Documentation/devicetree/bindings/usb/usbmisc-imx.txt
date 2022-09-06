@@ -8,6 +8,8 @@ Required properties:
 	"fsl,imx6sx-usbmisc" for imx6sx
 	"fsl,imx7d-usbmisc" for imx7d
 	"fsl,imx7ulp-usbmisc" for imx7ulp
+	"nxp,s32g2-usbmisc" for s32g2
+	"nxp,s32g3-usbmisc" for s32g3
 - reg: Should contain registers location and length
 
 Examples:
