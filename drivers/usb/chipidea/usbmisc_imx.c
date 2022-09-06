@@ -147,6 +147,7 @@
 #define S32G_WAKEUPIS	BIT(9)
 #define S32G_WAKEUPCTRL	BIT(10)
 #define S32G_WAKEUPEN	BIT(11)
+#define S32G_UCMALLBE	BIT(15)
 
 struct usbmisc_ops {
 	/* It's called once when probe a usb device */
@@ -635,7 +636,7 @@ static int usbmisc_s32g_init(struct imx_usbmisc_data *data)
 	spin_lock_irqsave(&usbmisc->lock, flags);
 
 	reg = readl(usbmisc->base);
-	writel(reg | S32G_PWRFLTEN, usbmisc->base);
+	writel(reg | S32G_PWRFLTEN | S32G_UCMALLBE, usbmisc->base);
 
 	spin_unlock_irqrestore(&usbmisc->lock, flags);
 	usbmisc_s32g_set_wakeup(data, false);
