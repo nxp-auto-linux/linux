@@ -1,0 +1,78 @@
+# SPDX-License-Identifier: (GPL-2.0 OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/rtc/nxp,s32cc-rtc.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: NXP S32CC Real Time Clock (RTC)
+
+maintainers:
+  - Bogdan Hamciuc <bogdan.hamciuc@nxp.com>
+
+properties:
+  compatible:
+    const: nxp,s32cc-rtc
+
+  reg:
+    description:
+      The size of the memory address space of the device.
+
+  interrupts:
+    description:
+      Specifies the Real Time Clock interrupts id.
+
+  nxp,clksel:
+    $ref: /schemas/types.yaml#/definitions/uint32
+    description:
+      Input clock selector; choose between 0-SIRC and 2-FIRC
+    enum:
+      - 0  # SIRC
+      - 2  # FIRC
+
+  nxp,dividers:
+    $ref: /schemas/types.yaml#/definitions/uint32-array
+    description:
+      An array of two u32 elements, the former encoding DIV512,
+      the latter encoding DIV32. These are dividers that can be enabled
+      individually, or cascaded. Use 0 to disable the respective divider,
+      and 1 to enable it.
+
+  clocks:
+    items:
+      - description: Registers Clock
+      - description: SIRC frequency
+      - description: FIRC frequency
+
+  clock-names:
+    items:
+      - const: ipg
+      - const: sirc
+      - const: firc
+
+required:
+  - clock-names
+  - clocks
+  - compatible
+  - interrupts
+  - nxp,clksel
+  - nxp,dividers
+  - reg
+
+additionalProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/clock/s32cc-scmi-clock.h>
+    #include <dt-bindings/rtc/s32cc-rtc.h>
+
+    rtc0: rtc@40060000 {
+        compatible = "nxp,s32cc-rtc";
+        reg = <0x40060000 0x1000>;
+        interrupts = <0 121 4>;
+        clocks = <&clks S32CC_SCMI_CLK_RTC_REG>,
+                 <&clks S32CC_SCMI_CLK_RTC_SIRC>,
+                 <&clks S32CC_SCMI_CLK_RTC_FIRC>;
+        clock-names = "ipg", "sirc", "firc";
+        nxp,clksel = <S32CC_RTC_FIRC_CLKSEL>;
+        nxp,dividers = <1 0>;
+    };
