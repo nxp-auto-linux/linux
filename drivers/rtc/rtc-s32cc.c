@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright 2019-2020 NXP
+ * Copyright 2019-2021 NXP
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -57,7 +57,6 @@
  * struct rtc_s32cc_priv - RTC driver private data
  * @rtc_base: rtc base address
  * @dt_irq_id: rtc interrupt id
- * @res: rtc resource
  * @rtc_s32cc_kobj: sysfs kernel object
  * @rtc_s32cc_attr: sysfs command attributes
  * @pdev: platform device structure
@@ -69,7 +68,6 @@
 struct rtc_s32cc_priv {
 	u8 __iomem *rtc_base;
 	unsigned int dt_irq_id;
-	struct resource *res;
 	struct kobject *rtc_s32cc_kobj;
 	struct kobj_attribute rtc_s32cc_attr;
 	struct platform_device *pdev;
@@ -412,50 +410,25 @@ static int s32cc_rtc_probe(struct platform_device *pdev)
 	if (!priv)
 		return -ENOMEM;
 
-	priv->res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	if (!priv->res) {
-		dev_err(&pdev->dev, "Failed to get resource");
-		err = -ENOMEM;
-		goto err_platform_get_resource;
-	}
-
-	priv->rtc_base = devm_ioremap(&pdev->dev,
-				      priv->res->start,
-				      (priv->res->end - priv->res->start));
-	if (!priv->rtc_base) {
-		dev_err(&pdev->dev, "Failed to map IO address 0x%016llx\n",
-			priv->res->start);
-		err = -ENOMEM;
-		goto err_ioremap_nocache;
+	priv->rtc_base = devm_platform_ioremap_resource(pdev, 0);
+	if (IS_ERR(priv->rtc_base)) {
+		dev_err(&pdev->dev, "Failed to map registers\n");
+		return PTR_ERR(priv->rtc_base);
 	}
 	dev_dbg(&pdev->dev, "RTC successfully mapped to 0x%p\n",
 		priv->rtc_base);
 
-	priv->rdev = devm_rtc_device_register(&pdev->dev, "s32cc_rtc",
-					      &s32cc_rtc_ops, THIS_MODULE);
-	if (IS_ERR_OR_NULL(priv->rdev)) {
-		dev_err(&pdev->dev, "devm_rtc_device_register error %ld\n",
-			PTR_ERR(priv->rdev));
-		err = -ENXIO;
-		goto err_devm_rtc_device_register;
-	}
-
 	err = device_init_wakeup(&pdev->dev, ENABLE_WAKEUP);
 	if (err) {
 		dev_err(&pdev->dev, "device_init_wakeup err %d\n", err);
-		err = -ENXIO;
-		goto err_device_init_wakeup;
+		return -ENXIO;
 	}
 
-	if (s32cc_priv_dts_init(pdev, priv)) {
-		err = -EINVAL;
-		goto err_dts_init;
-	}
+	if (s32cc_priv_dts_init(pdev, priv))
+		return -EINVAL;
 
-	if (s32cc_rtc_init(priv)) {
-		err = -EINVAL;
-		goto err_rtc_init;
-	}
+	if (s32cc_rtc_init(priv))
+		return -EINVAL;
 
 	priv->pdev = pdev;
 	platform_set_drvdata(pdev, priv);
@@ -467,23 +440,20 @@ static int s32cc_rtc_probe(struct platform_device *pdev)
 	if (err) {
 		dev_err(&pdev->dev, "Request interrupt %d failed\n",
 			priv->dt_irq_id);
-		err = -ENXIO;
-		goto err_devm_request_irq;
+		return -ENXIO;
 	}
 
 	print_rtc(pdev);
 
-	return 0;
+	priv->rdev = devm_rtc_device_register(&pdev->dev, "s32cc_rtc",
+					      &s32cc_rtc_ops, THIS_MODULE);
+	if (IS_ERR_OR_NULL(priv->rdev)) {
+		dev_err(&pdev->dev, "devm_rtc_device_register error %ld\n",
+			PTR_ERR(priv->rdev));
+		return -ENXIO;
+	}
 
-err_devm_request_irq:
-err_rtc_init:
-err_dts_init:
-err_device_init_wakeup:
-err_devm_rtc_device_register:
-err_ioremap_nocache:
-	release_resource(priv->res);
-err_platform_get_resource:
-	return err;
+	return 0;
 }
 
 static int s32cc_rtc_remove(struct platform_device *pdev)
@@ -493,8 +463,6 @@ static int s32cc_rtc_remove(struct platform_device *pdev)
 
 	rtcc_val = ioread32(priv->rtc_base + RTCC_OFFSET);
 	iowrite32(rtcc_val & (~RTCC_CNTEN), priv->rtc_base + RTCC_OFFSET);
-
-	release_resource(priv->res);
 
 	dev_info(&pdev->dev, "Removed successfully\n");
 	return 0;
