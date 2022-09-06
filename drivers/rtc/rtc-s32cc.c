@@ -60,6 +60,9 @@ struct rtc_time_base {
 	unsigned long sec;
 	u64 cycles;
 	u64 rollovers;
+#ifdef CONFIG_PM_SLEEP
+	struct rtc_time tm;
+#endif
 };
 
 /**
@@ -175,9 +178,9 @@ static irqreturn_t s32cc_rtc_handler(int irq, void *dev)
 	return IRQ_HANDLED;
 }
 
-static int s32cc_rtc_read_time(struct device *dev, struct rtc_time *tm)
+static int __s32cc_rtc_read_time(struct rtc_s32cc_priv *priv,
+				 struct rtc_time *tm)
 {
-	struct rtc_s32cc_priv *priv = dev_get_drvdata(dev);
 	u32 rtccnt = ioread32(priv->rtc_base + RTCCNT_OFFSET);
 	u64 cycles, sec, base_cycles;
 
@@ -196,6 +199,13 @@ static int s32cc_rtc_read_time(struct device *dev, struct rtc_time *tm)
 	rtc_time64_to_tm(sec, tm);
 
 	return 0;
+}
+
+static int s32cc_rtc_read_time(struct device *dev, struct rtc_time *tm)
+{
+	struct rtc_s32cc_priv *priv = dev_get_drvdata(dev);
+
+	return __s32cc_rtc_read_time(priv, tm);
 }
 
 static int s32cc_rtc_read_alarm(struct device *dev, struct rtc_wkalrm *t)
@@ -269,9 +279,9 @@ err_sec_to_rtcval:
 	return err;
 }
 
-static int s32cc_rtc_set_time(struct device *dev, struct rtc_time *time)
+static int __s32cc_rtc_set_time(struct rtc_s32cc_priv *priv,
+				struct rtc_time *time)
 {
-	struct rtc_s32cc_priv *priv = dev_get_drvdata(dev);
 	u32 rtccnt = ioread32(priv->rtc_base + RTCCNT_OFFSET);
 
 	if (!time)
@@ -282,6 +292,13 @@ static int s32cc_rtc_set_time(struct device *dev, struct rtc_time *time)
 	priv->base.sec = rtc_tm_to_time64(time);
 
 	return 0;
+}
+
+static int s32cc_rtc_set_time(struct device *dev, struct rtc_time *time)
+{
+	struct rtc_s32cc_priv *priv = dev_get_drvdata(dev);
+
+	return __s32cc_rtc_set_time(priv, time);
 }
 
 static const struct rtc_class_ops s32cc_rtc_ops = {
@@ -592,6 +609,7 @@ static int s32cc_rtc_prepare_suspend(struct device *dev)
 	int ret = 0;
 	u32 rtcval;
 	u32 sec;
+	unsigned long base_sec;
 
 	/*
 	 * Use a local copy of the RTC control block to
@@ -608,6 +626,11 @@ static int s32cc_rtc_prepare_suspend(struct device *dev)
 	ret = get_time_left(dev, init_priv, &sec);
 	if (ret)
 		goto enable_rtc;
+
+	/* Adjust for the number of seconds we'll be asleep */
+	base_sec = rtc_tm_to_time64(&init_priv->base.tm);
+	base_sec += sec;
+	rtc_time64_to_tm(base_sec, &init_priv->base.tm);
 
 	s32cc_rtc_disable(&priv);
 
@@ -639,8 +662,14 @@ enable_rtc:
 
 static int s32cc_rtc_suspend(struct device *dev)
 {
+	struct rtc_s32cc_priv *priv = dev_get_drvdata(dev);
+
 	if (!device_may_wakeup(dev))
 		return 0;
+
+	/* Save last known timestamp before we switch clocks and reinit RTC */
+	if (__s32cc_rtc_read_time(priv, &priv->base.tm))
+		return -EINVAL;
 
 	return s32cc_rtc_prepare_suspend(dev);
 }
@@ -660,6 +689,11 @@ static int s32cc_rtc_resume(struct device *dev)
 	ret = s32cc_rtc_init(priv);
 
 	s32cc_rtc_enable(priv);
+	/* Now RTCCNT has just been reset, and is out of sync with priv->base;
+	 * reapply the saved time settings
+	 */
+	if (__s32cc_rtc_set_time(priv, &priv->base.tm))
+		return -EINVAL;
 
 	return ret;
 }
