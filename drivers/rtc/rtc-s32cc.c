@@ -95,6 +95,21 @@ static irqreturn_t rtc_handler(int irq, void *dev)
 
 static int s32cc_rtc_read_time(struct device *dev, struct rtc_time *tm)
 {
+	/* Dummy reading so we appease rtc_valid_tm(); note that this means
+	 * we won't have a monotonic timestamp, in case someone wants to use
+	 * this RTC as the system timer.
+	 */
+	static struct rtc_time stm = {
+		.tm_year = 118,	/* 2018 */
+		.tm_mon = 7,	/* August */
+		.tm_mday = 10,
+		.tm_hour = 18,
+	};
+
+	if (!tm)
+		return -EINVAL;
+	*tm = stm;
+
 	return 0;
 }
 
