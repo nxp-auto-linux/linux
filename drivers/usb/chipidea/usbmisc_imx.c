@@ -631,7 +631,8 @@ static int usbmisc_s32g_set_wakeup
 	return 0;
 }
 
-static int usbmisc_s32g_init(struct imx_usbmisc_data *data)
+static int usbmisc_s32g_init(struct imx_usbmisc_data *data,
+			     bool en_all_byte)
 {
 	struct imx_usbmisc *usbmisc = dev_get_drvdata(data->dev);
 	unsigned long flags;
@@ -640,12 +641,28 @@ static int usbmisc_s32g_init(struct imx_usbmisc_data *data)
 	spin_lock_irqsave(&usbmisc->lock, flags);
 
 	reg = readl(usbmisc->base);
-	writel(reg | S32G_PWRFLTEN | S32G_UCMALLBE, usbmisc->base);
+
+	reg |= S32G_PWRFLTEN;
+	if (en_all_byte)
+		reg |= S32G_UCMALLBE;
+
+	writel(reg, usbmisc->base);
 
 	spin_unlock_irqrestore(&usbmisc->lock, flags);
 	usbmisc_s32g_set_wakeup(data, false);
 
 	return 0;
+}
+
+static int usbmisc_s32g2_init(struct imx_usbmisc_data *data)
+{
+	/* Enable workaround for ERR050474 */
+	return usbmisc_s32g_init(data, true);
+}
+
+static int usbmisc_s32g3_init(struct imx_usbmisc_data *data)
+{
+	return usbmisc_s32g_init(data, false);
 }
 
 static int usbmisc_imx7d_set_wakeup
@@ -1042,7 +1059,13 @@ static const struct usbmisc_ops imx7ulp_usbmisc_ops = {
 };
 
 static const struct usbmisc_ops s32g2_usbmisc_ops = {
-	.init = usbmisc_s32g_init,
+	.init = usbmisc_s32g2_init,
+	.set_wakeup = usbmisc_s32g_set_wakeup,
+	.flags = REINIT_DURING_RESUME,
+};
+
+static const struct usbmisc_ops s32g3_usbmisc_ops = {
+	.init = usbmisc_s32g3_init,
 	.set_wakeup = usbmisc_s32g_set_wakeup,
 	.flags = REINIT_DURING_RESUME,
 };
@@ -1254,7 +1277,10 @@ static const struct of_device_id usbmisc_imx_dt_ids[] = {
 		.compatible = "nxp,s32g2-usbmisc",
 		.data = &s32g2_usbmisc_ops,
 	},
-
+	{
+		.compatible = "nxp,s32g3-usbmisc",
+		.data = &s32g3_usbmisc_ops,
+	},
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, usbmisc_imx_dt_ids);
