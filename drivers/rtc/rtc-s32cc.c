@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright 2019 NXP
+ * Copyright 2019-2020 NXP
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -20,6 +20,7 @@
 #include <linux/platform_device.h>
 #include <linux/of.h>
 #include <linux/rtc.h>
+#include <linux/pm_wakeup.h>
 
 #include <dt-bindings/rtc/s32cc-rtc.h>
 
@@ -312,6 +313,8 @@ static int s32cc_rtc_init(struct rtc_s32cc_priv *priv)
 	/* Make sure the clock is disabled before we configure dividers */
 	s32cc_rtc_disable(priv);
 
+	priv->rtc_hz = 0;
+
 	clksel = RTCC_CLKSEL(priv->clk_source);
 	rtcc |= clksel;
 
@@ -497,17 +500,163 @@ static int s32cc_rtc_remove(struct platform_device *pdev)
 	return 0;
 }
 
+#ifdef CONFIG_PM_SLEEP
+static void s32cc_enable_api_irq(struct device *dev, unsigned int enabled)
+{
+	struct rtc_s32cc_priv *priv = dev_get_drvdata(dev);
+	u32 api_irq = RTCC_APIEN | RTCC_APIIE;
+	u32 rtcc_val;
+
+	rtcc_val = ioread32(priv->rtc_base + RTCC_OFFSET);
+	if (enabled)
+		rtcc_val |= api_irq;
+	else
+		rtcc_val &= ~api_irq;
+	iowrite32(rtcc_val, priv->rtc_base + RTCC_OFFSET);
+}
+
+static int get_time_left(struct device *dev, struct rtc_s32cc_priv *priv,
+			 u32 *sec)
+{
+	u32 rtccnt = ioread32(priv->rtc_base + RTCCNT_OFFSET);
+	u32 rtcval = ioread32(priv->rtc_base + RTCVAL_OFFSET);
+
+	if (rtcval < rtccnt) {
+		dev_err(dev, "RTC timer expired before entering in suspend\n");
+		return -EIO;
+	}
+
+	*sec = (rtcval - rtccnt) / priv->rtc_hz;
+	return 0;
+}
+
+static int adjust_dividers(u32 sec, struct rtc_s32cc_priv *priv)
+{
+	u64 rtcval_max = (u32)(-1);
+	u64 rtcval;
+
+	priv->div32 = 0;
+	priv->div512 = 0;
+
+	rtcval = sec * priv->rtc_hz;
+	if (rtcval < rtcval_max)
+		return 0;
+
+	if (rtcval / 32 < rtcval_max) {
+		priv->div32 = 1;
+		return 0;
+	}
+
+	if (rtcval / 512 < rtcval_max) {
+		priv->div512 = 1;
+		return 0;
+	}
+
+	if (rtcval / (512 * 32) < rtcval_max) {
+		priv->div32 = 1;
+		priv->div512 = 1;
+		return 0;
+	}
+
+	return -EINVAL;
+}
+
+static int s32cc_rtc_prepare_suspend(struct device *dev)
+{
+	struct rtc_s32cc_priv *init_priv = dev_get_drvdata(dev);
+	struct rtc_s32cc_priv priv;
+	int ret = 0;
+	u32 rtcval;
+	u32 sec;
+
+	/*
+	 * Use a local copy of the RTC control block to
+	 * avoid restoring it on resume path.
+	 */
+	memcpy(&priv, init_priv, sizeof(priv));
+
+	if (priv.clk_source == S32CC_RTC_SOURCE_SIRC)
+		return 0;
+
+	/* Switch to SIRC */
+	priv.clk_source = S32CC_RTC_SOURCE_SIRC;
+
+	ret = get_time_left(dev, init_priv, &sec);
+	if (ret)
+		goto enable_rtc;
+
+	s32cc_rtc_disable(&priv);
+
+	ret = adjust_dividers(sec, &priv);
+	if (ret) {
+		dev_err(dev, "Failed to adjust RTC dividers to match a %u seconds delay\n", sec);
+		goto enable_rtc;
+	}
+
+	ret = s32cc_rtc_init(&priv);
+	if (ret)
+		goto enable_rtc;
+
+	ret = s32cc_sec_to_rtcval(&priv, sec, &rtcval);
+	if (ret) {
+		dev_warn(dev, "Alarm too far in the future\n");
+		goto enable_rtc;
+	}
+
+	s32cc_alarm_irq_enable(dev, 0);
+	s32cc_enable_api_irq(dev, 1);
+	iowrite32(rtcval, priv.rtc_base + APIVAL_OFFSET);
+	iowrite32(0, priv.rtc_base + RTCVAL_OFFSET);
+
+enable_rtc:
+	s32cc_rtc_enable(&priv);
+	return ret;
+}
+
+static int s32cc_rtc_suspend(struct device *dev)
+{
+	if (!device_may_wakeup(dev))
+		return 0;
+
+	return s32cc_rtc_prepare_suspend(dev);
+}
+
+static int s32cc_rtc_resume(struct device *dev)
+{
+	struct rtc_s32cc_priv *priv = dev_get_drvdata(dev);
+	int ret;
+
+	if (!device_may_wakeup(dev))
+		return 0;
+
+	/* Disable wake-up interrupts */
+	s32cc_enable_api_irq(dev, 0);
+
+	/* Reinitialize the driver using the initial settings */
+	ret = s32cc_rtc_init(priv);
+
+	s32cc_rtc_enable(priv);
+
+	return ret;
+}
+#endif /* CONFIG_PM_SLEEP */
+
 static const struct of_device_id s32cc_rtc_of_match[] = {
 	{.compatible = "nxp,s32cc-rtc" },
 	{ /* sentinel */ },
 };
 
+static SIMPLE_DEV_PM_OPS(s32cc_rtc_pm_ops,
+			 s32cc_rtc_suspend, s32cc_rtc_resume);
+
 static struct platform_driver s32cc_rtc_driver = {
 	.probe		= s32cc_rtc_probe,
 	.remove		= s32cc_rtc_remove,
-	.driver		= {.name = "s32cc-rtc",
-			   .of_match_table = of_match_ptr(s32cc_rtc_of_match),
-			  },
+	.driver		= {
+		.name		= "s32cc-rtc",
+		.pm		= &s32cc_rtc_pm_ops,
+		.of_match_table = of_match_ptr(s32cc_rtc_of_match),
+	},
 };
 module_platform_driver(s32cc_rtc_driver);
 
