@@ -52,9 +52,6 @@
 #define DRIVER_VERSION		"0.1"
 #define ENABLE_WAKEUP		1
 
-#define S32CC_FIRC_HZ		(48 * 1000 * 1000)
-#define S32CC_SIRC_HZ		(32 * 1000)
-
 /**
  * struct rtc_s32cc_priv - RTC driver private data
  * @rtc_base: rtc base address
@@ -79,7 +76,7 @@ struct rtc_s32cc_priv {
 	bool div512;
 	bool div32;
 	u8 clk_source;
-	unsigned long rtc_hz;
+	u32 rtc_hz;
 };
 
 static void print_rtc(struct platform_device *pdev)
@@ -256,14 +253,50 @@ static void s32cc_rtc_enable(struct rtc_s32cc_priv *priv)
 	iowrite32(rtcc, priv->rtc_base + RTCC_OFFSET);
 }
 
-static unsigned long s32cc_get_firc_hz(void)
+static int s32cc_get_firc_hz(struct platform_device *pdev,
+			     u32 *clock_frequency)
 {
-	return S32CC_FIRC_HZ;
+	struct device_node *clock_node;
+
+	if (!clock_frequency)
+		return -EINVAL;
+
+	clock_node = of_find_node_by_name(NULL, "firc");
+	if (!clock_node) {
+		dev_err(&pdev->dev, "Unable to find the clock node\n");
+		return -ENXIO;
+	}
+
+	if (of_property_read_u32(clock_node,
+				 "clock-frequency", clock_frequency)) {
+		dev_err(&pdev->dev, "Unable to read the clock frequency\n");
+		return -EINVAL;
+	}
+
+	return 0;
 }
 
-static unsigned long s32cc_get_sirc_hz(void)
+static int s32cc_get_sirc_hz(struct platform_device *pdev,
+			     u32 *clock_frequency)
 {
-	return S32CC_SIRC_HZ;
+	struct device_node *clock_node;
+
+	if (!clock_frequency)
+		return -EINVAL;
+
+	clock_node = of_find_node_by_name(NULL, "sirc");
+	if (!clock_node) {
+		dev_err(&pdev->dev, "Unable to find the clock node\n");
+		return -ENXIO;
+	}
+
+	if (of_property_read_u32(clock_node,
+				 "clock-frequency", clock_frequency)) {
+		dev_err(&pdev->dev, "Unable to read the clock frequency\n");
+		return -EINVAL;
+	}
+
+	return 0;
 }
 
 /* RTC specific initializations
@@ -274,6 +307,7 @@ static int s32cc_rtc_init(struct rtc_s32cc_priv *priv)
 {
 	u32 rtcc = 0;
 	u32 clksel;
+	int err;
 
 	/* Make sure the clock is disabled before we configure dividers */
 	s32cc_rtc_disable(priv);
@@ -284,10 +318,14 @@ static int s32cc_rtc_init(struct rtc_s32cc_priv *priv)
 	/* Precompute the base frequency of the clock */
 	switch (clksel) {
 	case RTCC_CLKSEL(S32CC_RTC_SOURCE_SIRC):
-		priv->rtc_hz = s32cc_get_sirc_hz();
+		err = s32cc_get_sirc_hz(priv->pdev, &priv->rtc_hz);
+		if (err)
+			return -EINVAL;
 		break;
 	case RTCC_CLKSEL(S32CC_RTC_SOURCE_FIRC):
-		priv->rtc_hz = s32cc_get_firc_hz();
+		err = s32cc_get_firc_hz(priv->pdev, &priv->rtc_hz);
+		if (err)
+			return -EINVAL;
 		break;
 	default:
 		return -EINVAL;
