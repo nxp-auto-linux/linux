@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright 2019-2021 NXP
+ * Copyright 2019-2022 NXP
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -21,6 +21,7 @@
 #include <linux/of.h>
 #include <linux/rtc.h>
 #include <linux/pm_wakeup.h>
+#include <linux/clk.h>
 
 #include <dt-bindings/rtc/s32cc-rtc.h>
 
@@ -78,6 +79,9 @@ struct rtc_time_base {
  * @rtc_hz: current frequency of the timer
  * @rollovers: number of counter rollovers
  * @base: time baseline in cycles + seconds
+ * @firc: reference to FIRC clock
+ * @sirc: reference to SIRC clock
+ * @ipg: reference to clock that powers the registers
  */
 struct rtc_s32cc_priv {
 	u8 __iomem *rtc_base;
@@ -89,9 +93,12 @@ struct rtc_s32cc_priv {
 	bool div512;
 	bool div32;
 	u8 clk_source;
-	u32 rtc_hz;
+	unsigned long rtc_hz;
 	u64 rollovers;
 	struct rtc_time_base base;
+	struct clk *firc;
+	struct clk *sirc;
+	struct clk *ipg;
 };
 
 static void print_rtc(struct platform_device *pdev)
@@ -325,61 +332,35 @@ static void s32cc_rtc_enable(struct rtc_s32cc_priv *priv)
 	iowrite32(rtcc, priv->rtc_base + RTCC_OFFSET);
 }
 
-static int s32cc_get_firc_hz(struct platform_device *pdev,
-			     u32 *clock_frequency)
-{
-	struct device_node *clock_node;
-
-	if (!clock_frequency)
-		return -EINVAL;
-
-	clock_node = of_find_node_by_name(NULL, "firc");
-	if (!clock_node) {
-		dev_err(&pdev->dev, "Unable to find the clock node\n");
-		return -ENXIO;
-	}
-
-	if (of_property_read_u32(clock_node,
-				 "clock-frequency", clock_frequency)) {
-		dev_err(&pdev->dev, "Unable to read the clock frequency\n");
-		return -EINVAL;
-	}
-
-	return 0;
-}
-
-static int s32cc_get_sirc_hz(struct platform_device *pdev,
-			     u32 *clock_frequency)
-{
-	struct device_node *clock_node;
-
-	if (!clock_frequency)
-		return -EINVAL;
-
-	clock_node = of_find_node_by_name(NULL, "sirc");
-	if (!clock_node) {
-		dev_err(&pdev->dev, "Unable to find the clock node\n");
-		return -ENXIO;
-	}
-
-	if (of_property_read_u32(clock_node,
-				 "clock-frequency", clock_frequency)) {
-		dev_err(&pdev->dev, "Unable to read the clock frequency\n");
-		return -EINVAL;
-	}
-
-	return 0;
-}
-
 /* RTC specific initializations
  * Note: This function will leave the clock disabled. This means APIVAL and
  *       RTCVAL will need to be configured (again) *after* this call.
  */
 static int s32cc_rtc_init(struct rtc_s32cc_priv *priv)
 {
+	struct device *dev = &priv->pdev->dev;
+	struct clk *sclk;
 	u32 rtcc = 0;
 	u32 clksel;
 	int err;
+
+	err = clk_prepare_enable(priv->ipg);
+	if (err) {
+		dev_err(dev, "Can't enable 'ipg' clock\n");
+		return err;
+	}
+
+	err = clk_prepare_enable(priv->sirc);
+	if (err) {
+		dev_err(dev, "Can't enable 'sirc' clock\n");
+		return err;
+	}
+
+	err = clk_prepare_enable(priv->firc);
+	if (err) {
+		dev_err(dev, "Can't enable 'firc' clock\n");
+		return err;
+	}
 
 	/* Make sure the clock is disabled before we configure dividers */
 	s32cc_rtc_disable(priv);
@@ -392,21 +373,21 @@ static int s32cc_rtc_init(struct rtc_s32cc_priv *priv)
 	/* Precompute the base frequency of the clock */
 	switch (clksel) {
 	case RTCC_CLKSEL(S32CC_RTC_SOURCE_SIRC):
-		err = s32cc_get_sirc_hz(priv->pdev, &priv->rtc_hz);
-		if (err)
-			return -EINVAL;
+		sclk = priv->sirc;
 		break;
 	case RTCC_CLKSEL(S32CC_RTC_SOURCE_FIRC):
-		err = s32cc_get_firc_hz(priv->pdev, &priv->rtc_hz);
-		if (err)
-			return -EINVAL;
+		sclk = priv->firc;
 		break;
 	default:
+		dev_err(dev, "Invalid clksel value: %u\n", clksel);
 		return -EINVAL;
 	}
 
-	if (!priv->rtc_hz)
+	priv->rtc_hz = clk_get_rate(sclk);
+	if (!priv->rtc_hz) {
+		dev_err(dev, "Invalid RTC frequency\n");
 		return -EINVAL;
+	}
 
 	/* Adjust frequency if dividers are enabled */
 	if (priv->div512) {
@@ -425,45 +406,60 @@ static int s32cc_rtc_init(struct rtc_s32cc_priv *priv)
 }
 
 /* Initialize priv members with values from the device-tree */
-static int s32cc_priv_dts_init(const struct platform_device *pdev,
+static int s32cc_priv_dts_init(struct platform_device *pdev,
 			       struct rtc_s32cc_priv *priv)
 {
-	struct device_node *rtc_node;
+	struct device_node *np;
+	struct device *dev = &pdev->dev;
 	u32 div[2];	/* div512 and div32 */
 	u32 clksel;
 
-	rtc_node = of_find_compatible_node(NULL, NULL, "nxp,s32cc-rtc");
-	if (!rtc_node) {
-		dev_err(&pdev->dev, "Unable to find RTC node\n");
-		return -ENXIO;
-	}
-
-	priv->dt_irq_id = of_irq_get(rtc_node, 0);
-	of_node_put(rtc_node);
-	if (priv->dt_irq_id <= 0) {
-		dev_err(&pdev->dev, "Error reading interrupt # from dts\n");
+	priv->sirc = devm_clk_get(dev, "sirc");
+	if (IS_ERR(priv->sirc)) {
+		dev_err(dev, "Failed to get 'sirc' clock\n");
 		return -EINVAL;
 	}
 
-	if (of_property_read_u32_array(rtc_node, "dividers", div,
+	priv->firc = devm_clk_get(dev, "firc");
+	if (IS_ERR(priv->firc)) {
+		dev_err(dev, "Failed to get 'firc' clock\n");
+		return -EINVAL;
+	}
+
+	priv->ipg = devm_clk_get(dev, "ipg");
+	if (IS_ERR(priv->ipg)) {
+		dev_err(dev, "Failed to get 'ipg' clock\n");
+		return -EINVAL;
+	}
+
+	priv->dt_irq_id = platform_get_irq(pdev, 0);
+	if (priv->dt_irq_id <= 0) {
+		dev_err(dev, "Error reading interrupt # from dts\n");
+		return -EINVAL;
+	}
+
+	np = dev_of_node(dev);
+
+	if (of_property_read_u32_array(np, "nxp,dividers", div,
 				       ARRAY_SIZE(div))) {
-		dev_err(&pdev->dev, "Error reading dividers configuration\n");
+		dev_err(dev, "Error reading dividers configuration\n");
 		return -EINVAL;
 	}
 	priv->div512 = !!div[0];
 	priv->div32 = !!div[1];
 
-	if (of_property_read_u32(rtc_node, "clksel", &clksel)) {
-		dev_err(&pdev->dev, "Error reading clksel configuration\n");
+	if (of_property_read_u32(np, "nxp,clksel", &clksel)) {
+		dev_err(dev, "Error reading clksel configuration\n");
 		return -EINVAL;
 	}
+
 	switch (clksel) {
 	case S32CC_RTC_SOURCE_SIRC:
 	case S32CC_RTC_SOURCE_FIRC:
 		priv->clk_source = clksel;
 		break;
 	default:
-		dev_err(&pdev->dev, "Unsupported clksel: %d\n", clksel);
+		dev_err(dev, "Unsupported clksel: %d\n", clksel);
 		return -EINVAL;
 	}
 
@@ -472,28 +468,29 @@ static int s32cc_priv_dts_init(const struct platform_device *pdev,
 
 static int s32cc_rtc_probe(struct platform_device *pdev)
 {
+	struct device *dev;
 	struct rtc_s32cc_priv *priv = NULL;
 	int err = 0;
 
-	dev_dbg(&pdev->dev, "Probing platform device: %s\n", pdev->name);
+	dev = &pdev->dev;
 
 	/* alloc pand initialize private data struct */
-	priv = devm_kzalloc(&pdev->dev, sizeof(struct rtc_s32cc_priv),
+	priv = devm_kzalloc(dev, sizeof(struct rtc_s32cc_priv),
 			    GFP_KERNEL);
 	if (!priv)
 		return -ENOMEM;
 
 	priv->rtc_base = devm_platform_ioremap_resource(pdev, 0);
 	if (IS_ERR(priv->rtc_base)) {
-		dev_err(&pdev->dev, "Failed to map registers\n");
+		dev_err(dev, "Failed to map registers\n");
 		return PTR_ERR(priv->rtc_base);
 	}
-	dev_dbg(&pdev->dev, "RTC successfully mapped to 0x%p\n",
+	dev_dbg(dev, "RTC successfully mapped to 0x%p\n",
 		priv->rtc_base);
 
-	err = device_init_wakeup(&pdev->dev, ENABLE_WAKEUP);
+	err = device_init_wakeup(dev, ENABLE_WAKEUP);
 	if (err) {
-		dev_err(&pdev->dev, "device_init_wakeup err %d\n", err);
+		dev_err(dev, "device_init_wakeup err %d\n", err);
 		return -ENXIO;
 	}
 
@@ -507,7 +504,7 @@ static int s32cc_rtc_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, priv);
 	s32cc_rtc_enable(priv);
 
-	err = devm_request_irq(&pdev->dev, priv->dt_irq_id,
+	err = devm_request_irq(dev, priv->dt_irq_id,
 			       s32cc_rtc_handler, 0, "rtc", pdev);
 
 	if (err) {
@@ -518,10 +515,10 @@ static int s32cc_rtc_probe(struct platform_device *pdev)
 
 	print_rtc(pdev);
 
-	priv->rdev = devm_rtc_device_register(&pdev->dev, "s32cc_rtc",
+	priv->rdev = devm_rtc_device_register(dev, "s32cc_rtc",
 					      &s32cc_rtc_ops, THIS_MODULE);
 	if (IS_ERR_OR_NULL(priv->rdev)) {
-		dev_err(&pdev->dev, "devm_rtc_device_register error %ld\n",
+		dev_err(dev, "devm_rtc_device_register error %ld\n",
 			PTR_ERR(priv->rdev));
 		return -ENXIO;
 	}
