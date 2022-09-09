@@ -1347,12 +1347,18 @@ static int s32gen1_pcie_dt_init(struct platform_device *pdev,
 	if (!pcie_variant_bits)
 		return 0;
 
-	dw_pcie_dbi_ro_wr_en(pcie);
+	/* Write PCI Vendor and Device ID. */
 	pcie_vendor_id |= pcie_variant_bits << PCI_DEVICE_ID_SHIFT;
-	dev_info(dev, "Setting PCI Device and Vendor IDs to 0x%x:0x%x\n",
-		     (u32)(pcie_vendor_id >> PCI_DEVICE_ID_SHIFT),
-		     (u32)(pcie_vendor_id & GENMASK(15, 0)));
+	dev_dbg(dev, "Setting PCI Device and Vendor IDs to 0x%x:0x%x\n",
+		 (u32)(pcie_vendor_id >> PCI_DEVICE_ID_SHIFT),
+		 (u32)(pcie_vendor_id & GENMASK(15, 0)));
+
+	dw_pcie_dbi_ro_wr_en(pcie);
 	dw_pcie_writel_dbi(pcie, PCI_VENDOR_ID, pcie_vendor_id);
+
+	if (pcie_vendor_id != dw_pcie_readl_dbi(pcie, PCI_VENDOR_ID))
+		dev_warn(dev, "PCI Device and Vendor IDs could not be set\n");
+
 	dw_pcie_dbi_ro_wr_dis(pcie);
 
 	return 0;
