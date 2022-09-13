@@ -356,6 +356,18 @@ menu "STM timer used as system timer"
 		default 460
 endmenu
 
+menu "PIT timer used as system timer"
+	config S32CC_PIT_SYSTIMER
+		bool "PIT used as system timer"
+	select VF_PIT_TIMER if S32CC_PIT_SYSTIMER
+	config PIT_CLKSRC_RATE
+		int "PIT Rating for ClockSource"
+		default 460
+	config PIT_CLKEVT_RATE
+		int "PIT Rating for ClockEvents"
+		default 460
+endmenu
+
 if SOC_S32CC
 menu "S32CC execution target"
 	config S32CC_EMULATOR
