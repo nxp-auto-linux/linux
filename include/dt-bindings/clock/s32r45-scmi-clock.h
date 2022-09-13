@@ -1,12 +1,14 @@
 /* SPDX-License-Identifier: BSD-3-Clause */
 /*
- * Copyright 2020-2021 NXP
+ * Copyright 2020-2022 NXP
  */
 #ifndef __DT_BINDINGS_SCMI_CLOCK_S32R45_H
 #define __DT_BINDINGS_SCMI_CLOCK_S32R45_H
 
 #include <dt-bindings/clock/s32cc-scmi-clock.h>
 
+/* LAX */
+#define S32R45_SCMI_CLK_LAX_MODULE		S32CC_PLAT_SCMI_CLK(0)
 /* GMAC1 - TS */
 #define S32R45_SCMI_CLK_GMAC1_TS		S32CC_PLAT_SCMI_CLK(4)
 /* GMAC1 - SGMII */
