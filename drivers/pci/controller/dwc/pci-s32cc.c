@@ -296,6 +296,17 @@ static const struct file_operations s32v_pcie_ep_dbgfs_fops = {
 };
 #endif /* CONFIG_PCI_S32CC_ACCESS_FROM_USER */
 
+static u8 dw_pcie_iatu_unroll_enabled(struct dw_pcie *pci)
+{
+	u32 val;
+
+	val = dw_pcie_readl_dbi(pci, PCIE_ATU_VIEWPORT);
+	if (val == 0xffffffff)
+		return 1;
+
+	return 0;
+}
+
 static void s32cc_pcie_ep_init(struct dw_pcie_ep *ep)
 {
 	struct dw_pcie *pcie = to_dw_pcie_from_ep(ep);
@@ -320,12 +331,21 @@ static void s32cc_pcie_ep_init(struct dw_pcie_ep *ep)
 		return;
 	}
 
-	dw_pcie_dbi_ro_wr_en(pcie);
+	/* The DW code sets iATU unroll enabled for RC, but not the EP.
+	 * We set it here, since we can't setup BARs otherwise.
+	 * TODO: check if this is fixed for later kernels (5.x.y)
+	 */
+	pcie->iatu_unroll_enabled = dw_pcie_iatu_unroll_enabled(pcie);
+	dev_dbg(pcie->dev, "iATU unroll: %s\n",
+		pcie->iatu_unroll_enabled ? "enabled" : "disabled");
+
+	dw_pcie_setup(pcie);
 
 	/*
 	 * Configure the class and revision for the EP device,
 	 * to enable human friendly enumeration by the RC (e.g. by lspci)
 	 */
+	dw_pcie_dbi_ro_wr_en(pcie);
 	BSET32(pcie, dbi, PCI_CLASS_REVISION,
 			((PCI_BASE_CLASS_PROCESSOR << PCI_BASE_CLASS_OFF) |
 			(PCI_SUBCLASS_OTHER << PCI_SUBCLASS_OFF)));
@@ -333,8 +353,8 @@ static void s32cc_pcie_ep_init(struct dw_pcie_ep *ep)
 #ifdef CONFIG_PCI_S32CC_INIT_EP_BARS
 
 	/* Setup BARs and inbound regions */
-	for (bar = BAR_0; (bar < PCIE_NUM_BARS) && !ret; bar++) {
-		if (s32cc_ep_bars_en[bar])
+	for (bar = BAR_0; (bar < PCIE_NUM_BARS); bar++) {
+		if (s32cc_ep_bars_en[bar]) {
 			ret = epc->ops->set_bar(epc, 0, 0,
 					&s32cc_ep_bars[bar]);
 			if (ret)
@@ -342,9 +362,6 @@ static void s32cc_pcie_ep_init(struct dw_pcie_ep *ep)
 						 __func__, bar);
 		}
 	}
-	if (ret)
-		pr_err("%s: Unable to init BAR%d\n", __func__, bar);
-
 #else
 	for (bar = BAR_0; bar <= BAR_5; bar++)
 		dw_pcie_ep_reset_bar(pcie, bar);
