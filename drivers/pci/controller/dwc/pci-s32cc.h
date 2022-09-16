@@ -2,7 +2,7 @@
 /*
  * PCIe host controller driver for NXP S32CC SoCs
  *
- * Copyright 2019-2020 NXP
+ * Copyright 2019-2021 NXP
  */
 
 #ifndef PCIE_S32CC_H
@@ -72,6 +72,7 @@ struct callback {
 
 struct s32cc_pcie {
 	bool is_endpoint;
+	bool has_msi_parent;
 	struct dw_pcie	pcie;
 
 	/* we have cfg in struct pcie_port and
