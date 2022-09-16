@@ -743,7 +743,7 @@ static void s32cc_pcie_shutdown(struct platform_device *pdev)
 		s32cc_pcie_disable_ltssm(s32cc_pp);
 	}
 
-	pm_runtime_put_sync(&pdev->dev);
+	pm_runtime_put(&pdev->dev);
 	pm_runtime_disable(&pdev->dev);
 
 	mdelay(PCIE_CX_CPL_BASE_TIMER_VALUE);
@@ -1037,6 +1037,70 @@ static int init_pcie_phy(struct s32cc_pcie *s32cc_pp)
 	return 0;
 }
 
+static int deinit_pcie_phy(struct s32cc_pcie *s32cc_pp)
+{
+	struct dw_pcie *pcie = &s32cc_pp->pcie;
+	struct device *dev = pcie->dev;
+	int ret;
+
+	if (s32cc_pp->phy0) {
+		ret = phy_power_off(s32cc_pp->phy0);
+		if (ret) {
+			dev_err(dev, "Failed to power off 'serdes_lane0' PHY\n");
+			return ret;
+		}
+
+		ret = phy_exit(s32cc_pp->phy0);
+		if (ret) {
+			dev_err(dev, "Failed to exit 'serdes_lane0' PHY\n");
+			return ret;
+		}
+	}
+
+	if (s32cc_pp->phy1) {
+		ret = phy_power_off(s32cc_pp->phy1);
+		if (ret) {
+			dev_err(dev, "Failed to power off 'serdes_lane1' PHY\n");
+			return ret;
+		}
+
+		ret = phy_exit(s32cc_pp->phy1);
+		if (ret) {
+			dev_err(dev, "Failed to exit 'serdes_lane1' PHY\n");
+			return ret;
+		}
+	}
+
+	return 0;
+}
+
+static void s32cc_pcie_pme_turnoff(struct s32cc_pcie *s32cc_pp)
+{
+	/* TODO: We may want to transition to L2 low power state here, after
+	 *	removal of power and clocks.
+	 *	This needs more investigation (see SerDes manual, chapter
+	 *	"L2 and L3 power down entry and exit conditions").
+	 *	We're able to disable and power off the PHYs from this driver,
+	 *	however clocks are controlled from the SerDes driver.
+	 *
+	 *	For now, just disable LTSSM.
+	 */
+
+	s32cc_pcie_disable_ltssm(s32cc_pp);
+}
+
+static int deinit_controller(struct s32cc_pcie *s32cc_pp)
+{
+	/* Other drivers assert controller reset, then disable phys,
+	 *	then de-assert reset and disable clocks. On our platform
+	 *	reset and clocks management is done in the SerDes driver,
+	 *	so we need to investigate how and whether we should do
+	 *	that here.
+	 */
+
+	return deinit_pcie_phy(s32cc_pp);
+}
+
 static bool pcie_link_or_timeout(struct s32cc_pcie *s32cc_pp, ktime_t timeout)
 {
 	ktime_t cur = ktime_get();
@@ -1055,6 +1119,61 @@ static int wait_phy_data_link(struct s32cc_pcie *s32cc_pp)
 	}
 
 	return 0;
+}
+
+static void s32cc_pcie_downstream_dev_to_D0(struct s32cc_pcie *s32cc_pp)
+{
+	struct dw_pcie *pcie = &s32cc_pp->pcie;
+	struct pcie_port *pp = &pcie->pp;
+	struct pci_bus *child, *root_bus = NULL;
+	struct pci_dev *pdev;
+
+	/*
+	 * link doesn't go into L2 state with some of the endpoints
+	 * if they are not in D0 state. So, we need to make sure that immediate
+	 * downstream devices are in D0 state before sending PME_TurnOff to put
+	 * link into L2 state.
+	 */
+
+	list_for_each_entry(child, &pp->bridge->bus->children, node) {
+		/* Bring downstream devices to D0 if they are not already in */
+		if (child->parent == pp->bridge->bus) {
+			root_bus = child;
+			break;
+		}
+	}
+
+	if (!root_bus) {
+		dev_err(pcie->dev, "Failed to find downstream devices\n");
+		return;
+	}
+
+	list_for_each_entry(pdev, &root_bus->devices, bus_list) {
+		if (PCI_SLOT(pdev->devfn) == 0) {
+			if (pci_set_power_state(pdev, PCI_D0))
+				dev_err(pcie->dev,
+					"Failed to transition %s to D0 state\n",
+					dev_name(&pdev->dev));
+		}
+	}
+}
+
+static int s32cc_pcie_deinit_controller(struct s32cc_pcie *s32cc_pp)
+{
+	struct dw_pcie *pcie = &s32cc_pp->pcie;
+	struct pcie_port *pp = &pcie->pp;
+
+	/* TODO: investigate if this is really necessary*/
+	s32cc_pcie_downstream_dev_to_D0(s32cc_pp);
+
+	if (!s32cc_pp->is_endpoint)
+		dw_pcie_host_deinit(pp);
+	else
+		dw_pcie_ep_exit(&pcie->ep);
+
+	s32cc_pcie_pme_turnoff(s32cc_pp);
+
+	return deinit_controller(s32cc_pp);
 }
 
 static int s32cc_pcie_init_controller(struct s32cc_pcie *s32cc_pp)
@@ -1094,6 +1213,7 @@ static int s32cc_pcie_init_controller(struct s32cc_pcie *s32cc_pp)
 static int s32cc_pcie_config_common(struct s32cc_pcie *s32cc_pp,
 					struct platform_device *pdev)
 {
+	struct device *dev = &pdev->dev;
 	struct dw_pcie *pcie = &s32cc_pp->pcie;
 	struct pcie_port *pp = &pcie->pp;
 	int ret = 0;
@@ -1156,6 +1276,15 @@ static int s32cc_pcie_config_common(struct s32cc_pcie *s32cc_pp,
 	}
 #endif /* CONFIG_PCI_S32CC_EP_MSI */
 
+	pm_runtime_enable(dev);
+
+	ret = pm_runtime_get_sync(dev);
+	if (ret < 0) {
+		dev_err(dev, "Failed to get runtime sync for PCIe dev: %d\n",
+			ret);
+		goto fail_pm_get_sync;
+	}
+
 	ret = s32cc_pcie_init_controller(s32cc_pp);
 	if (ret)
 		return ret;
@@ -1163,7 +1292,7 @@ static int s32cc_pcie_config_common(struct s32cc_pcie *s32cc_pp,
 	if (!s32cc_pp->is_endpoint) {
 		ret = s32cc_add_pcie_port(pp);
 		if (ret)
-			return ret;
+			goto fail_host_init;
 	} else {
 #ifdef CONFIG_PCI_S32CC_ACCESS_FROM_USER
 		struct dentry *pfile;
@@ -1190,12 +1319,19 @@ static int s32cc_pcie_config_common(struct s32cc_pcie *s32cc_pp,
 
 		ret = s32cc_add_pcie_ep(s32cc_pp);
 		if (ret)
-			return ret;
+			goto fail_host_init;
 	}
 
 	/* TODO: Init debugfs here */
 
-	return 0;
+	return ret;
+
+fail_host_init:
+	s32cc_pcie_deinit_controller(s32cc_pp);
+fail_pm_get_sync:
+	pm_runtime_put_sync(dev);
+	pm_runtime_disable(dev);
+	return ret;
 }
 
 static int s32cc_pcie_probe(struct platform_device *pdev)
@@ -1240,9 +1376,69 @@ static int s32cc_pcie_probe(struct platform_device *pdev)
 #endif /* CONFIG_PCI_DW_DMA */
 
 err:
+	if (ret) {
+		pm_runtime_put(dev);
+		pm_runtime_disable(dev);
+	}
+
 	dw_pcie_dbi_ro_wr_dis(pcie);
 	return ret;
 }
+
+#ifdef CONFIG_PM_SLEEP
+
+static int s32cc_pcie_suspend(struct device *dev)
+{
+	struct s32cc_pcie *s32cc_pp = dev_get_drvdata(dev);
+	struct dw_pcie *pcie = &s32cc_pp->pcie;
+
+	/* Save MSI interrupt vector */
+	s32cc_pp->msi_ctrl_int = dw_pcie_readl_dbi(pcie,
+			PORT_MSI_CTRL_INT_0_EN_OFF);
+	s32cc_pcie_downstream_dev_to_D0(s32cc_pp);
+	s32cc_pcie_pme_turnoff(s32cc_pp);
+
+	return deinit_controller(s32cc_pp);
+}
+
+static int s32cc_pcie_resume(struct device *dev)
+{
+	struct s32cc_pcie *s32cc_pp = dev_get_drvdata(dev);
+	struct dw_pcie *pcie = &s32cc_pp->pcie;
+	struct pcie_port *pp = &pcie->pp;
+	int ret = 0;
+
+	/* TODO: we should keep link state (bool) in struct s32cc_pcie
+	 *	and not do anything on resume if there was no link.
+	 *	Otherwise resuming is slow since it will get link timeouts.
+	 */
+
+	ret = s32cc_pcie_init_controller(s32cc_pp);
+	if (ret < 0)
+		return ret;
+
+	ret = s32cc_pcie_host_init(pp);
+	if (ret < 0) {
+		dev_err(dev, "Failed to init host: %d\n", ret);
+		goto fail_host_init;
+	}
+
+	/* Restore MSI interrupt vector */
+	dw_pcie_writel_dbi(pcie, PORT_MSI_CTRL_INT_0_EN_OFF,
+			   s32cc_pp->msi_ctrl_int);
+
+	return 0;
+
+fail_host_init:
+	return deinit_controller(s32cc_pp);
+}
+
+#endif
+
+static const struct dev_pm_ops s32cc_pcie_pm_ops = {
+	SET_SYSTEM_SLEEP_PM_OPS(s32cc_pcie_suspend,
+				s32cc_pcie_resume)
+};
 
 static const struct s32cc_pcie_data rc_of_data = {
 	.mode = DW_PCIE_RC_TYPE,
@@ -1264,6 +1460,7 @@ static struct platform_driver s32cc_pcie_driver = {
 		.name	= "s32cc-pcie",
 		.owner	= THIS_MODULE,
 		.of_match_table = s32cc_pcie_of_match,
+		.pm = &s32cc_pcie_pm_ops,
 	},
 	.probe = s32cc_pcie_probe,
 	.shutdown = s32cc_pcie_shutdown,
