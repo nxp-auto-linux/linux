@@ -856,40 +856,9 @@ static void disable_equalization(struct dw_pcie *pcie)
 		dw_pcie_readl_dbi(pcie, PORT_LOGIC_GEN3_EQ_CONTROL));
 }
 
-static void s32cc_pcie_change_mstr_ace_cache(struct dw_pcie *pcie, u32 arcache,
-					   u32 awcache)
+static void s32cc_pcie_reset_mstr_ace(struct dw_pcie *pcie)
 {
-	u32 val;
-
-	val = dw_pcie_readl_dbi(pcie, PORT_LOGIC_COHERENCY_CONTROL_3);
-	val &= ~(PCIE_CFG_MSTR_ARCACHE_MODE | PCIE_CFG_MSTR_AWCACHE_MODE);
-	val |= BUILD_MASK_VALUE(PCIE_CFG_MSTR_ARCACHE_MODE, 0xF) |
-		BUILD_MASK_VALUE(PCIE_CFG_MSTR_AWCACHE_MODE, 0xF);
-	dw_pcie_writel_dbi(pcie, PORT_LOGIC_COHERENCY_CONTROL_3, val);
-
-	val = dw_pcie_readl_dbi(pcie, PORT_LOGIC_COHERENCY_CONTROL_3);
-	val &= ~(PCIE_CFG_MSTR_ARCACHE_VALUE | PCIE_CFG_MSTR_AWCACHE_VALUE);
-	val |= BUILD_MASK_VALUE(PCIE_CFG_MSTR_ARCACHE_VALUE, arcache) |
-		BUILD_MASK_VALUE(PCIE_CFG_MSTR_AWCACHE_VALUE, awcache);
-	dw_pcie_writel_dbi(pcie, PORT_LOGIC_COHERENCY_CONTROL_3, val);
-}
-
-static void s32cc_pcie_change_mstr_ace_domain(struct dw_pcie *pcie, u32 ardomain,
-					    u32 awdomain)
-{
-	u32 val;
-
-	val = dw_pcie_readl_dbi(pcie, PORT_LOGIC_COHERENCY_CONTROL_3);
-	val &= ~(PCIE_CFG_MSTR_ARDOMAIN_MODE | PCIE_CFG_MSTR_AWDOMAIN_MODE);
-	val |= BUILD_MASK_VALUE(PCIE_CFG_MSTR_ARDOMAIN_MODE, 3) |
-		BUILD_MASK_VALUE(PCIE_CFG_MSTR_AWDOMAIN_MODE, 3);
-	dw_pcie_writel_dbi(pcie, PORT_LOGIC_COHERENCY_CONTROL_3, val);
-
-	val = dw_pcie_readl_dbi(pcie, PORT_LOGIC_COHERENCY_CONTROL_3);
-	val &= ~(PCIE_CFG_MSTR_ARDOMAIN_VALUE | PCIE_CFG_MSTR_AWDOMAIN_VALUE);
-	val |= BUILD_MASK_VALUE(PCIE_CFG_MSTR_ARDOMAIN_VALUE, ardomain) |
-		BUILD_MASK_VALUE(PCIE_CFG_MSTR_AWDOMAIN_VALUE, awdomain);
-	dw_pcie_writel_dbi(pcie, PORT_LOGIC_COHERENCY_CONTROL_3, val);
+	dw_pcie_writel_dbi(pcie, PORT_LOGIC_COHERENCY_CONTROL_3, 0x0);
 }
 
 static int init_pcie(struct s32cc_pcie *pci)
@@ -918,15 +887,10 @@ static int init_pcie(struct s32cc_pcie *pci)
 
 	dw_pcie_setup(pcie);
 
-	/* If the device has been marked as dma-coherent, then configure
-	 * transactions as Cacheable, Outer Shareable; else, configure them
-	 * as Non-shareable.
+	/* Make sure we use the coherency defaults (just in case the settings
+	 * have been changed from their reset values
 	 */
-	s32cc_pcie_change_mstr_ace_cache(pcie, 3, 3);
-	if (device_get_dma_attr(dev) == DEV_DMA_COHERENT)
-		s32cc_pcie_change_mstr_ace_domain(pcie, 2, 2);
-	else
-		s32cc_pcie_change_mstr_ace_domain(pcie, 0, 0);
+	s32cc_pcie_reset_mstr_ace(pcie);
 
 	/* Test value for coherency control reg */
 	dev_dbg(dev, "COHERENCY_CONTROL_3_OFF: 0x%08x\n",
