@@ -152,9 +152,12 @@ static int s32cc_ep_bars_en[] = {
 		PCIE_EP_BAR4_EN_DIS,
 		PCIE_EP_BAR5_EN_DIS
 };
-
 #endif /* CONFIG_PCI_S32CC_INIT_EP_BARS */
 /* End EP BARs defines */
+
+struct s32cc_pcie_data {
+	enum dw_pcie_device_mode mode;
+};
 
 #define xstr(s) str(s)
 #define str(s) #s
@@ -962,8 +965,17 @@ err_cfg:
 	return ret;
 }
 
+static const struct s32cc_pcie_data rc_of_data = {
+	.mode = DW_PCIE_RC_TYPE,
+};
+
+static const struct s32cc_pcie_data ep_of_data = {
+	.mode = DW_PCIE_EP_TYPE,
+};
+
 static const struct of_device_id s32cc_pcie_of_match[] = {
-	{ .compatible = "nxp,s32cc-pcie", },
+	{ .compatible = "nxp,s32cc-pcie", .data = &rc_of_data },
+	{ .compatible = "nxp,s32cc-pcie-ep", .data = &ep_of_data },
 	{},
 };
 MODULE_DEVICE_TABLE(of, s32cc_pcie_of_match);
