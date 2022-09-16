@@ -242,47 +242,6 @@ u32 dw_pcie_readl_ctrl(struct s32cc_pcie *pci, u32 reg)
 
 static struct s32cc_pcie *s32cc_pcie_ep;
 
-#ifdef CONFIG_PCI_DW_DMA
-static irqreturn_t s32cc_pcie_dma_handler(int irq, void *arg)
-{
-	struct s32cc_pcie *s32cc_pp = arg;
-	struct dw_pcie *pcie = &s32cc_pp->pcie;
-	struct dma_info *di = &s32cc_pp->dma;
-
-	u32 val_write = 0;
-	u32 val_read = 0;
-
-	val_write = dw_pcie_readl_dbi(pcie, PCIE_DMA_WRITE_INT_STATUS);
-	val_read = dw_pcie_readl_dbi(pcie, PCIE_DMA_READ_INT_STATUS);
-
-	if (val_write) {
-#ifdef CONFIG_PCI_S32CC_ACCESS_FROM_USER
-		bool signal = (di->wr_ch.status == DMA_CH_RUNNING);
-#endif
-		dw_handle_dma_irq_write(pcie, di, val_write);
-#ifdef CONFIG_PCI_S32CC_ACCESS_FROM_USER
-		if (signal && s32cc_pp->uspace.send_signal_to_user)
-			s32cc_pp->uspace.send_signal_to_user(s32cc_pp);
-#endif
-
-		if (s32cc_pp->call_back)
-			s32cc_pp->call_back(val_write);
-	}
-	if (val_read) {
-#ifdef CONFIG_PCI_S32CC_ACCESS_FROM_USER
-		bool signal = (di->rd_ch.status == DMA_CH_RUNNING);
-#endif
-		dw_handle_dma_irq_read(pcie, di, val_read);
-#ifdef CONFIG_PCI_S32CC_ACCESS_FROM_USER
-		if (signal && s32cc_pp->uspace.send_signal_to_user)
-			s32cc_pp->uspace.send_signal_to_user(s32cc_pp);
-#endif
-	}
-
-	return IRQ_HANDLED;
-}
-#endif /* CONFIG_PCI_DW_DMA */
-
 #ifdef CONFIG_PCI_S32CC_ACCESS_FROM_USER
 ssize_t s32cc_ioctl(struct file *filp, u32 cmd,
 		unsigned long data);
