@@ -2,7 +2,7 @@
 /*
  * PCIe host controller driver for NXP S32CC SoCs
  *
- * Copyright 2019-2020 NXP
+ * Copyright 2019-2021 NXP
  */
 
 #if IS_ENABLED(CONFIG_PCI_S32CC_DEBUG)
@@ -206,6 +206,14 @@ u32 dw_pcie_readl_ctrl(struct s32cc_pcie *pci, u32 reg)
 }
 
 static struct s32cc_pcie *s32cc_pcie_ep;
+
+static bool s32cc_has_msi_parent(struct dw_pcie_rp *pp)
+{
+	struct dw_pcie *pcie = to_dw_pcie_from_pp(pp);
+	struct s32cc_pcie *s32cc_pci = to_s32cc_from_dw_pcie(pcie);
+
+	return s32cc_pci->has_msi_parent;
+}
 
 /* Chained MSI interrupt service routine, for EP */
 static void dw_ep_chained_msi_isr(struct irq_desc *desc)
@@ -534,8 +542,18 @@ static struct dw_pcie_ops s32cc_pcie_ops = {
 	.write_dbi = s32cc_pcie_write,
 };
 
+static int s32cc_pcie_msi_host_init(struct dw_pcie_rp *pp)
+{
+	return 0;
+}
+
 static struct dw_pcie_host_ops s32cc_pcie_host_ops = {
 	.init = s32cc_pcie_host_init,
+};
+
+static struct dw_pcie_host_ops s32cc_pcie_host_ops2 = {
+	.init = s32cc_pcie_host_init,
+	.msi_init = s32cc_pcie_msi_host_init,
 };
 
 #define MAX_IRQ_NAME_SIZE 32
@@ -574,11 +592,13 @@ static int __init s32cc_add_dw_pcie_rp(struct dw_pcie_rp *pp,
 
 	DEBUG_FUNC;
 
-	ret = s32cc_pcie_config_irq(&pp->msi_irq[0], "msi", pdev,
-					s32cc_pcie_msi_handler, pp);
-	if (ret) {
-		dev_err(&pdev->dev, "failed to request msi irq\n");
-		return ret;
+	if (!s32cc_has_msi_parent(pp)) {
+		ret = s32cc_pcie_config_irq(&pp->msi_irq[0], "msi", pdev,
+						s32cc_pcie_msi_handler, pp);
+		if (ret) {
+			dev_err(&pdev->dev, "failed to request msi irq\n");
+			return ret;
+		}
 	}
 
 	ret = dw_pcie_host_init(pp);
@@ -725,6 +745,15 @@ static int s32cc_pcie_probe(struct platform_device *pdev)
 	dev_dbg(dev, "Configured as %s\n",
 		PCIE_EP_RC_MODE(s32cc_pp->is_endpoint));
 
+	/* If "msi-parent" property is present in device tree and the PCIe
+	 * is RC, MSIs will not be handled by iMSI-RX (default mechanism
+	 * implemented in DesignWare core).
+	 * The MSIs will be forwarded through AXI bus to the msi parent,
+	 * which should be the GIC, which will generate MSIs as SPIs.
+	 */
+	if (!s32cc_pp->is_endpoint && of_parse_phandle(np, "msi-parent", 0))
+		s32cc_pp->has_msi_parent = true;
+
 	/* Attempt to figure out whether u-boot has preconfigured PCIE; if it
 	 * did not, we will not be able to tell whether we should run as EP
 	 * (whose configuration value is the same as the reset value) or RC.
@@ -760,7 +789,10 @@ static int s32cc_pcie_probe(struct platform_device *pdev)
 	dev_info(dev, "Configuring as %s\n",
 		 PCIE_EP_RC_MODE(s32cc_pp->is_endpoint));
 
-	pp->ops = &s32cc_pcie_host_ops;
+	if (s32cc_pp->has_msi_parent)
+		pp->ops = &s32cc_pcie_host_ops2;
+	else
+		pp->ops = &s32cc_pcie_host_ops;
 
 	if (!s32cc_pp->is_endpoint) {
 		ret = s32cc_add_dw_pcie_rp(pp, pdev);
