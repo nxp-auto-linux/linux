@@ -8,7 +8,8 @@
 enum pcie_phy_mode {
 	CRNS = 0, /* Common Reference Clock, No Spread Spectrum */
 	CRSS = 1, /* Common Reference Clock, Spread Spectrum */
-	SRIS = 2  /* Separate Reference Clock, Spread Spectrum */
+	SRNS = 2, /* Separate Reference Clock, No Spread Spectrum */
+	SRIS = 3  /* Separate Reference Clock, Spread Spectrum */
 };
 
 #endif
