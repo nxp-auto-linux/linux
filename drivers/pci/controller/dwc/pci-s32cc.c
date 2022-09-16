@@ -679,6 +679,32 @@ EXPORT_SYMBOL(s32cc_get_dw_pcie);
 
 static const struct of_device_id s32cc_pcie_of_match[];
 
+static void s32cc_pcie_set_phy_mode(struct s32cc_pcie *s32cc_pp)
+{
+	struct dw_pcie *pcie = &s32cc_pp->pcie;
+	struct device *dev = pcie->dev;
+	struct device_node *np = dev->of_node;
+	const char *pcie_phy_mode = NULL;
+	int ret;
+
+	ret = of_property_read_string(np, "nxp,phy-mode", &pcie_phy_mode);
+	if (ret || !pcie_phy_mode) {
+		dev_info(dev, "Missing 'nxp,phy-mode' property, using default CRNS\n");
+		s32cc_pp->phy_mode = CRNS;
+	} else if (!strcmp(pcie_phy_mode, "crns")) {
+		s32cc_pp->phy_mode = CRNS;
+	} else if (!strcmp(pcie_phy_mode, "crss")) {
+		s32cc_pp->phy_mode = CRSS;
+	} else if (!strcmp(pcie_phy_mode, "srns")) {
+		s32cc_pp->phy_mode = SRNS;
+	} else if (!strcmp(pcie_phy_mode, "sris")) {
+		s32cc_pp->phy_mode = SRIS;
+	} else {
+		dev_warn(dev, "Unsupported 'nxp,phy-mode' specified, using default CRNS\n");
+		s32cc_pp->phy_mode = CRNS;
+	}
+}
+
 static int s32cc_pcie_dt_init(struct platform_device *pdev,
 			      struct s32cc_pcie *s32cc_pp)
 {
@@ -708,6 +734,8 @@ static int s32cc_pcie_dt_init(struct platform_device *pdev,
 		dev_err(dev, "Missing 'device_id' property\n");
 		return ret;
 	}
+
+	s32cc_pcie_set_phy_mode(s32cc_pp);
 
 	pcie->dbi_base = devm_platform_ioremap_resource_byname(pdev, "dbi");
 	if (IS_ERR(pcie->dbi_base))
@@ -787,6 +815,10 @@ static int init_pcie(struct s32cc_pcie *pci)
 	else
 		W32(pci, ctrl, PE0_GEN_CTRL_1,
 		    BUILD_MASK_VALUE(DEVICE_TYPE, PCIE_RC));
+
+	if (pci->phy_mode == SRIS)
+		BSET32(pci, ctrl, PE0_GEN_CTRL_1,
+		       SRIS_MODE_MASK);
 
 	/* Enable writing dbi registers */
 	dw_pcie_dbi_ro_wr_en(pcie);
@@ -870,6 +902,13 @@ static int init_pcie_phy(struct s32cc_pcie *s32cc_pp)
 		return ret;
 	}
 
+	ret = phy_set_mode_ext(s32cc_pp->phy0, PHY_MODE_PCIE,
+			       s32cc_pp->phy_mode);
+	if (ret) {
+		dev_err(dev, "Failed to set mode on 'serdes_lane0' PHY\n");
+		return ret;
+	}
+
 	ret = phy_power_on(s32cc_pp->phy0);
 	if (ret) {
 		dev_err(dev, "Failed to power on 'serdes_lane0' PHY\n");
@@ -887,6 +926,13 @@ static int init_pcie_phy(struct s32cc_pcie *s32cc_pp)
 	ret = phy_init(s32cc_pp->phy1);
 	if (ret) {
 		dev_err(dev, "Failed to init 'serdes_lane1' PHY\n");
+		return ret;
+	}
+
+	ret = phy_set_mode_ext(s32cc_pp->phy1, PHY_MODE_PCIE,
+			       s32cc_pp->phy_mode);
+	if (ret) {
+		dev_err(dev, "Failed to set mode on 'serdes_lane1' PHY\n");
 		return ret;
 	}
 
