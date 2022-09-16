@@ -269,8 +269,6 @@ static void s32cc_pcie_ep_init(struct dw_pcie_ep *ep)
 	struct dw_pcie *pcie = to_dw_pcie_from_ep(ep);
 	struct pci_epc *epc = ep->epc;
 	int bar, ret = 0;
-	u32 val, ctrl, num_ctrls;
-	struct dw_pcie_rp *pp = &pcie->pp;
 
 	DEBUG_FUNC;
 
@@ -289,36 +287,6 @@ static void s32cc_pcie_ep_init(struct dw_pcie_ep *ep)
 	       ((PCI_BASE_CLASS_PROCESSOR << PCI_BASE_CLASS_OFF) |
 	       (PCI_SUBCLASS_OTHER << PCI_SUBCLASS_OFF)));
 
-	if (IS_ENABLED(CONFIG_PCI_S32CC_EP_MSI)) {
-		pp->num_vectors = MSI_DEF_NUM_VECTORS;
-		ret = dw_pcie_allocate_domains(pp);
-		if (ret)
-			dev_err(pcie->dev, "Unable to setup MSI domain for EP\n");
-
-		if (pp->msi_irq)
-			irq_set_chained_handler_and_data(pp->msi_irq[0],
-							 dw_ep_chained_msi_isr, pp);
-
-		num_ctrls = pp->num_vectors / MAX_MSI_IRQS_PER_CTRL;
-
-		/* Initialize IRQ Mask array */
-		for (ctrl = 0; ctrl < num_ctrls; ctrl++) {
-			pcie->pp.irq_mask[ctrl] = ~0;
-			dw_pcie_writel_dbi(pcie, PCIE_MSI_INTR0_MASK +
-					(ctrl * MSI_REG_CTRL_BLOCK_SIZE),
-					pcie->pp.irq_mask[ctrl]);
-			dw_pcie_writel_dbi(pcie, PCIE_MSI_INTR0_ENABLE +
-					(ctrl * MSI_REG_CTRL_BLOCK_SIZE), ~0);
-		}
-
-		/* Setup interrupt pins */
-		val = dw_pcie_readl_dbi(pcie, PCI_INTERRUPT_LINE);
-		val &= 0xffff00ff;
-		val |= 0x00000100;
-		dw_pcie_writel_dbi(pcie, PCI_INTERRUPT_LINE, val);
-
-		dw_pcie_msi_init(&pcie->pp);
-	}
 	pr_debug("%s: Enable MSI/MSI-X capabilities\n", __func__);
 
 	/* Enable MSIs by setting the capability bit */
@@ -561,10 +529,13 @@ static irqreturn_t s32cc_pcie_msi_handler(int irq, void *arg)
 static int s32cc_pcie_host_init(struct dw_pcie_rp *pp)
 {
 	struct dw_pcie *pcie = to_dw_pcie_from_pp(pp);
+	int ret;
 
 	DEBUG_FUNC;
 
-	s32cc_pcie_start_link(pcie);
+	ret = s32cc_pcie_start_link(pcie);
+	if (ret)
+		return ret;
 
 	return 0;
 }
@@ -619,25 +590,16 @@ static int s32cc_pcie_config_irq(int *irq_id, char *irq_name,
 	return 0;
 }
 
-static int __init s32cc_add_dw_pcie_rp(struct dw_pcie_rp *pp,
-				       struct platform_device *pdev)
+static int __init s32cc_add_dw_pcie_rp(struct dw_pcie_rp *pp)
 {
+	struct dw_pcie *pcie = to_dw_pcie_from_pp(pp);
 	int ret;
 
 	DEBUG_FUNC;
 
-	if (!s32cc_has_msi_parent(pp)) {
-		ret = s32cc_pcie_config_irq(&pp->msi_irq[0], "msi", pdev,
-						s32cc_pcie_msi_handler, pp);
-		if (ret) {
-			dev_err(&pdev->dev, "failed to request msi irq\n");
-			return ret;
-		}
-	}
-
 	ret = dw_pcie_host_init(pp);
 	if (ret) {
-		dev_err(&pdev->dev, "failed to initialize host\n");
+		dev_err(pcie->dev, "failed to initialize host\n");
 		return ret;
 	}
 
@@ -670,34 +632,16 @@ static struct dw_pcie_ep_ops pcie_ep_ops = {
 	.raise_irq = s32cc_pcie_ep_raise_irq,
 };
 
-static int __init s32cc_add_pcie_ep(struct s32cc_pcie *s32cc_pp,
-				    struct platform_device *pdev)
+static int __init s32cc_add_pcie_ep(struct s32cc_pcie *s32cc_pp)
 {
 	int ret;
-	struct device *dev = &pdev->dev;
 	struct dw_pcie *pcie = &s32cc_pp->pcie;
 	struct dw_pcie_ep *ep = &pcie->ep;
-	struct resource *res;
+	struct device *dev = pcie->dev;
 
 	DEBUG_FUNC;
 
-	if (IS_ENABLED(CONFIG_PCI_S32CC_EP_MSI)) {
-		ret = s32cc_pcie_config_irq(&pcie->pp.msi_irq[0], "msi", pdev,
-					    s32cc_pcie_msi_handler, &pcie->pp);
-		if (ret) {
-			dev_err(&pdev->dev, "failed to request msi irq\n");
-			return ret;
-		}
-	}
-
 	ep->ops = &pcie_ep_ops;
-
-	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "addr_space");
-	if (!res)
-		return -EINVAL;
-
-	ep->phys_base = res->start;
-	ep->addr_size = resource_size(res);
 
 	ret = dw_pcie_ep_init(ep);
 	if (ret) {
@@ -718,13 +662,13 @@ static void s32cc_pcie_shutdown(struct platform_device *pdev)
 		/* bring down link, so bootloader gets clean state
 		 * in case of reboot
 		 */
-		s32cc_pcie_stop_link(&s32cc_pp->pcie);
-
-		pm_runtime_put_sync(&pdev->dev);
-		pm_runtime_disable(&pdev->dev);
-
-		mdelay(PCIE_CX_CPL_BASE_TIMER_VALUE);
+		s32cc_pcie_disable_ltssm(s32cc_pp);
 	}
+
+	pm_runtime_put_sync(&pdev->dev);
+	pm_runtime_disable(&pdev->dev);
+
+	mdelay(PCIE_CX_CPL_BASE_TIMER_VALUE);
 }
 
 struct s32cc_pcie *s32cc_get_dw_pcie(void)
@@ -744,6 +688,8 @@ static int s32cc_pcie_dt_init(struct platform_device *pdev,
 	const struct of_device_id *match;
 	const struct s32cc_pcie_data *data;
 	enum dw_pcie_device_mode mode;
+	struct dw_pcie_ep *ep = &pcie->ep;
+	struct resource *res;
 	int ret;
 
 	match = of_match_device(s32cc_pcie_of_match, dev);
@@ -782,6 +728,20 @@ static int s32cc_pcie_dt_init(struct platform_device *pdev,
 	if (IS_ERR(s32cc_pp->ctrl_base))
 		return PTR_ERR(s32cc_pp->ctrl_base);
 	dev_dbg(dev, "ctrl virt: 0x%p\n", s32cc_pp->ctrl_base);
+
+	s32cc_pp->linkspeed = (enum pcie_link_speed)of_pci_get_max_link_speed(np);
+	if (s32cc_pp->linkspeed < GEN1 || s32cc_pp->linkspeed > GEN3) {
+		dev_warn(dev, "Invalid PCIe speed; setting to GEN1\n");
+		s32cc_pp->linkspeed = GEN1;
+	}
+
+	/* This is for EP only */
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "addr_space");
+	dev_dbg(dev, "addr_space: %pR\n", res);
+	if (!res)
+		return -EINVAL;
+	ep->phys_base = res->start;
+	ep->addr_size = resource_size(res);
 
 	/* If "msi-parent" property is present in device tree and the PCIe
 	 * is RC, MSIs will not be handled by iMSI-RX (default mechanism
@@ -898,14 +858,11 @@ static int init_pcie(struct s32cc_pcie *pci)
 	return 0;
 }
 
-static int init_pcie_phy(struct s32cc_pcie *s32cc_pp, struct device *dev)
+static int init_pcie_phy(struct s32cc_pcie *s32cc_pp)
 {
+	struct dw_pcie *pcie = &s32cc_pp->pcie;
+	struct device *dev = pcie->dev;
 	int ret;
-
-	s32cc_pp->phy0 = devm_phy_get(dev, "serdes_lane0");
-	if (IS_ERR(s32cc_pp->phy0))
-		return dev_err_probe(dev, PTR_ERR(s32cc_pp->phy0),
-				"Failed to get 'serdes_lane0' PHY\n");
 
 	ret = phy_init(s32cc_pp->phy0);
 	if (ret) {
@@ -919,7 +876,13 @@ static int init_pcie_phy(struct s32cc_pcie *s32cc_pp, struct device *dev)
 		return ret;
 	}
 
-	s32cc_pp->phy1 = devm_phy_optional_get(dev, "serdes_lane1");
+	/*
+	 *	It is safe to consider that a null phy1 means phy1 uninitialized
+	 *	and non-zero initialized.
+	 *	So if phy1 is non-zero then reuse the handler.
+	 */
+	if (!s32cc_pp->phy1)
+		s32cc_pp->phy1 = devm_phy_optional_get(dev, "serdes_lane1");
 
 	ret = phy_init(s32cc_pp->phy1);
 	if (ret) {
@@ -949,38 +912,15 @@ static int wait_phy_data_link(struct s32cc_pcie *s32cc_pp)
 	return ret;
 }
 
-static int s32cc_pcie_probe(struct platform_device *pdev)
+static int s32cc_pcie_init_controller(struct s32cc_pcie *s32cc_pp)
 {
-	struct device *dev = &pdev->dev;
-	struct device_node *np = dev->of_node;
-	struct s32cc_pcie *s32cc_pp;
-	struct dw_pcie *pcie;
-	struct dw_pcie_rp *pp;
-
+	struct dw_pcie *pcie = &s32cc_pp->pcie;
+	struct dw_pcie_rp *pp = &pcie->pp;
 	int ret = 0;
-
-	DEBUG_FUNC;
-
-	s32cc_pp = devm_kzalloc(dev, sizeof(*s32cc_pp), GFP_KERNEL);
-	if (!s32cc_pp)
-		return -ENOMEM;
-
-	pcie = &s32cc_pp->pcie;
-	pp = &pcie->pp;
-#ifdef CONFIG_PCI_MSI
-	pp->num_vectors = MAX_MSI_IRQS;
-#endif
-
-	pcie->dev = dev;
-	pcie->ops = &s32cc_pcie_ops;
-
-	ret = s32cc_pcie_dt_init(pdev, s32cc_pp);
-	if (ret)
-		return ret;
 
 	s32cc_pcie_disable_ltssm(s32cc_pp);
 
-	ret = init_pcie_phy(s32cc_pp, dev);
+	ret = init_pcie_phy(s32cc_pp);
 	if (ret)
 		return ret;
 
@@ -988,25 +928,14 @@ static int s32cc_pcie_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
-	ret = wait_phy_data_link(s32cc_pp);
-	if (ret)
-		return ret;
-
-	platform_set_drvdata(pdev, s32cc_pp);
-	pm_runtime_enable(dev);
-	ret = pm_runtime_get_sync(dev);
-	if (ret < 0) {
-		dev_err(dev, "pm_runtime_get_sync failed\n");
-		goto err;
+	/* Only wait for link if RC */
+	if (!s32cc_pp->is_endpoint) {
+		ret = wait_phy_data_link(s32cc_pp);
+		if (ret)
+			return ret;
 	}
 
-	s32cc_pp->linkspeed = of_pci_get_max_link_speed(np);
-	if (s32cc_pp->linkspeed < GEN1 || s32cc_pp->linkspeed > GEN3) {
-		dev_warn(dev, "Invalid PCIe speed; setting to GEN1\n");
-		s32cc_pp->linkspeed = GEN1;
-	}
-
-	dev_info(dev, "Configuring as %s\n",
+	dev_info(pcie->dev, "Configuring as %s\n",
 		 PCIE_EP_RC_MODE(s32cc_pp->is_endpoint));
 
 	if (s32cc_pp->has_msi_parent)
@@ -1014,20 +943,126 @@ static int s32cc_pcie_probe(struct platform_device *pdev)
 	else
 		pp->ops = &s32cc_pcie_host_ops;
 
+	return 0;
+}
+
+static int s32cc_pcie_config_common(struct s32cc_pcie *s32cc_pp,
+				    struct platform_device *pdev)
+{
+	struct dw_pcie *pcie = &s32cc_pp->pcie;
+	struct dw_pcie_rp *pp = &pcie->pp;
+	u32 val, ctrl, num_ctrls;
+	int ret = 0;
+
+	/* MSI configuration, for both RC and EP */
+	if (IS_ENABLED(CONFIG_PCI_MSI)) {
+		if (!s32cc_pp->is_endpoint && !s32cc_has_msi_parent(pp)) {
+			ret = s32cc_pcie_config_irq(&pp->msi_irq[0], "msi", pdev,
+						    s32cc_pcie_msi_handler, pp);
+			if (ret) {
+				dev_err(&pdev->dev, "failed to request msi irq\n");
+				return ret;
+			}
+		}
+	}
+
+	if (IS_ENABLED(CONFIG_PCI_S32CC_EP_MSI)) {
+		if (s32cc_pp->is_endpoint) {
+			ret = s32cc_pcie_config_irq(&pcie->pp.msi_irq[0], "msi", pdev,
+						    s32cc_pcie_msi_handler, &pcie->pp);
+			if (ret) {
+				dev_err(&pdev->dev, "failed to request msi irq\n");
+				return ret;
+			}
+
+			pp->num_vectors = MSI_DEF_NUM_VECTORS;
+			ret = dw_pcie_allocate_domains(pp);
+			if (ret)
+				dev_err(pcie->dev, "Unable to setup MSI domain for EP\n");
+
+			if (pp->msi_irq)
+				irq_set_chained_handler_and_data(pp->msi_irq[0],
+								 dw_ep_chained_msi_isr,
+								 pp);
+
+			num_ctrls = pp->num_vectors / MAX_MSI_IRQS_PER_CTRL;
+
+			/* Initialize IRQ Mask array */
+			for (ctrl = 0; ctrl < num_ctrls; ctrl++) {
+				pcie->pp.irq_mask[ctrl] = ~0;
+				dw_pcie_writel_dbi(pcie, PCIE_MSI_INTR0_MASK +
+						(ctrl * MSI_REG_CTRL_BLOCK_SIZE),
+						pcie->pp.irq_mask[ctrl]);
+				dw_pcie_writel_dbi(pcie, PCIE_MSI_INTR0_ENABLE +
+						(ctrl * MSI_REG_CTRL_BLOCK_SIZE), ~0);
+			}
+
+			/* Setup interrupt pins */
+			val = dw_pcie_readl_dbi(pcie, PCI_INTERRUPT_LINE);
+			val &= 0xffff00ff;
+			val |= 0x00000100;
+			dw_pcie_writel_dbi(pcie, PCI_INTERRUPT_LINE, val);
+
+			dw_pcie_msi_init(&pcie->pp);
+		}
+	}
+
+	ret = s32cc_pcie_init_controller(s32cc_pp);
+	if (ret)
+		return ret;
+
 	if (!s32cc_pp->is_endpoint) {
-		ret = s32cc_add_dw_pcie_rp(pp, pdev);
-		if (ret < 0)
-			goto err;
+		ret = s32cc_add_dw_pcie_rp(pp);
+		if (ret)
+			return ret;
 	} else {
 		s32cc_pcie_ep = s32cc_pp;
 
-		s32cc_add_pcie_ep(s32cc_pp, pdev);
+		ret = s32cc_add_pcie_ep(s32cc_pp);
+		if (ret)
+			return ret;
+	}
+
+	return 0;
+}
+
+static int s32cc_pcie_probe(struct platform_device *pdev)
+{
+	struct device *dev = &pdev->dev;
+	struct s32cc_pcie *s32cc_pp;
+	struct dw_pcie *pcie;
+	struct phy *phy;
+	int ret = 0;
+
+	DEBUG_FUNC;
+
+	phy = devm_phy_get(dev, "serdes_lane0");
+	if (IS_ERR(phy))
+		return dev_err_probe(dev, PTR_ERR(phy),
+				"Failed to get 'serdes_lane0' PHY\n");
+
+	s32cc_pp = devm_kzalloc(dev, sizeof(*s32cc_pp), GFP_KERNEL);
+	if (!s32cc_pp)
+		return -ENOMEM;
+
+	s32cc_pp->phy0 = phy;
+	pcie = &s32cc_pp->pcie;
+	pcie->dev = dev;
+	pcie->ops = &s32cc_pcie_ops;
+
+	ret = s32cc_pcie_dt_init(pdev, s32cc_pp);
+	if (ret)
+		return ret;
+
+	platform_set_drvdata(pdev, s32cc_pp);
+
+	ret = s32cc_pcie_config_common(s32cc_pp, pdev);
+	if (ret) {
+		dev_err(dev, "failed to set common PCIe settings\n");
+		goto err;
 	}
 
 err:
-	if (ret)
-		pm_runtime_disable(dev);
-
 	dw_pcie_dbi_ro_wr_dis(pcie);
 	return ret;
 }
