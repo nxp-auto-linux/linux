@@ -962,9 +962,15 @@ static int init_pcie(struct s32cc_pcie *pci)
 
 	dw_pcie_setup(pcie);
 
-	/* Set domain to 0 and cache to 3 */
+	/* If the device has been marked as dma-coherent, then configure
+	 * transactions as Cacheable, Outer Shareable; else, configure them
+	 * as Non-shareable.
+	 */
 	s32cc_pcie_change_mstr_ace_cache(pcie, 3, 3);
-	s32cc_pcie_change_mstr_ace_domain(pcie, 0, 0);
+	if (device_get_dma_attr(dev) == DEV_DMA_COHERENT)
+		s32cc_pcie_change_mstr_ace_domain(pcie, 2, 2);
+	else
+		s32cc_pcie_change_mstr_ace_domain(pcie, 0, 0);
 
 	/* Test value for coherency control reg */
 	dev_dbg(dev, "COHERENCY_CONTROL_3_OFF: 0x%08x\n",
