@@ -65,6 +65,10 @@ struct s32cc_pcie {
 	bool has_msi_parent;
 	struct dw_pcie	pcie;
 
+#ifdef CONFIG_PM_SLEEP
+	u32 msi_ctrl_int;
+#endif
+
 	/* we have cfg in struct dw_pcie_rp and
 	 * dbi in struct dw_pcie, so define only ctrl here
 	 */
