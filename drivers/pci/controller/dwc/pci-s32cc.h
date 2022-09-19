@@ -49,6 +49,10 @@
 
 #define LTSSM_STATE_L0			0x11 /* L0 state */
 
+#define LINK_INT_CTRL_STS		0x40
+#define LINK_REQ_RST_NOT_INT_EN	BIT(1)
+#define LINK_REQ_RST_NOT_CLR	BIT(2)
+
 #define to_s32cc_from_dw_pcie(x) \
 	container_of(x, struct s32cc_pcie, pcie)
 
