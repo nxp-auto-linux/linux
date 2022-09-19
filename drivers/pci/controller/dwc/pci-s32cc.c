@@ -1704,6 +1704,8 @@ static int s32cc_pcie_suspend(struct device *dev)
 	struct s32cc_pcie *s32cc_pp = dev_get_drvdata(dev);
 	struct dw_pcie *pcie = &s32cc_pp->pcie;
 	struct pcie_port *pp = &pcie->pp;
+	struct pci_bus *bus = pp->bridge->bus;
+	struct pci_bus *root_bus;
 
 	/* Save MSI interrupt vector */
 	s32cc_pp->msi_ctrl_int = dw_pcie_readl_dbi(pcie,
@@ -1716,6 +1718,10 @@ static int s32cc_pcie_suspend(struct device *dev)
 		s32cc_pcie_disable_hot_unplug_irq(s32cc_pp);
 
 		s32cc_pcie_downstream_dev_to_D0(s32cc_pp);
+
+		root_bus = s32cc_get_child_downstream_bus(bus);
+		if (!IS_ERR(root_bus))
+			pci_walk_bus(root_bus, pci_dev_set_disconnected, NULL);
 
 		pci_stop_root_bus(pp->bridge->bus);
 		pci_remove_root_bus(pp->bridge->bus);
