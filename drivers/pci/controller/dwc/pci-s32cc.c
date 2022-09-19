@@ -1676,16 +1676,18 @@ static int s32cc_pcie_suspend(struct device *dev)
 	/* Save MSI interrupt vector */
 	s32cc_pp->msi_ctrl_int = dw_pcie_readl_dbi(pcie,
 			PORT_MSI_CTRL_INT_0_EN_OFF);
-	/* Disable Hot-Plug irq */
-	s32cc_pcie_disable_hot_plug_irq(pcie);
 
-	s32cc_pcie_downstream_dev_to_D0(s32cc_pp);
+	if (!s32cc_pp->is_endpoint) {
+		/* Disable Hot-Plug irq */
+		s32cc_pcie_disable_hot_plug_irq(pcie);
+		/* Disable Hot-Unplug irq */
+		s32cc_pcie_disable_hot_unplug_irq(s32cc_pp);
 
-	/* Disable Hot-Unplug irq */
-	s32cc_pcie_disable_hot_unplug_irq(s32cc_pp);
+		s32cc_pcie_downstream_dev_to_D0(s32cc_pp);
 
-	pci_stop_root_bus(pp->bridge->bus);
-	pci_remove_root_bus(pp->bridge->bus);
+		pci_stop_root_bus(pp->bridge->bus);
+		pci_remove_root_bus(pp->bridge->bus);
+	}
 
 	s32cc_pcie_pme_turnoff(s32cc_pp);
 
@@ -1708,29 +1710,33 @@ static int s32cc_pcie_resume(struct device *dev)
 	if (ret < 0)
 		return ret;
 
-	ret = s32cc_pcie_host_init(pp);
-	if (ret < 0) {
-		dev_err(dev, "Failed to init host: %d\n", ret);
-		goto fail_host_init;
-	}
+	if (!s32cc_pp->is_endpoint) {
+		ret = s32cc_pcie_host_init(pp);
+		if (ret < 0) {
+			dev_err(dev, "Failed to init host: %d\n", ret);
+			goto fail_host_init;
+		}
 
-	ret = pci_host_probe(pp->bridge);
-	if (ret)
-		return ret;
+		ret = pci_host_probe(pp->bridge);
+		if (ret)
+			return ret;
+	}
 
 	/* Restore MSI interrupt vector */
 	dw_pcie_writel_dbi(pcie, PORT_MSI_CTRL_INT_0_EN_OFF,
 			   s32cc_pp->msi_ctrl_int);
 
-	/* Enable Hot-Plug capability */
-	ret = s32cc_enable_hotplug_cap(pcie);
-	if (ret) {
-		dev_err(dev, "Failed to enable hotplug capability\n");
-		goto fail_host_init;
-	}
+	if (!s32cc_pp->is_endpoint) {
+		/* Enable Hot-Plug capability */
+		ret = s32cc_enable_hotplug_cap(pcie);
+		if (ret) {
+			dev_err(dev, "Failed to enable hotplug capability\n");
+			goto fail_host_init;
+		}
 
-	/* Enable Hot-Unplug irq */
-	s32cc_pcie_enable_hot_unplug_irq(s32cc_pp);
+		/* Enable Hot-Unplug irq */
+		s32cc_pcie_enable_hot_unplug_irq(s32cc_pp);
+	}
 
 	return 0;
 
