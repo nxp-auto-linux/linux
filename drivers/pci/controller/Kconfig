@@ -60,9 +60,12 @@ config PCI_S32CC
 config PCI_S32CC_INIT_EP_BARS
 	bool "Initialize BARs in EP mode for S32CC PCIe"
 	depends on PCI_S32CC
+	depends on (!PCI_EPF_TEST)
 	help
 	Initialize BARs and inbound windows in EP mode, using as base address
-	a reserved memory area defined in the device tree
+	a reserved memory area defined in the device tree.
+	It conflicts with the EPF Testing framework, as they both configure
+	EP BARs.
 
 config PCI_S32CC_EP_MSI
 	bool "Enable MSI support in EP mode for S32CC PCIe"
