@@ -26,6 +26,7 @@
 #include <linux/irqchip/chained_irq.h>
 #include <linux/phy.h>
 #include <linux/processor.h>
+#include <linux/nvmem-consumer.h>
 
 #ifdef CONFIG_PCI_S32CC_ACCESS_FROM_USER
 #include <linux/debugfs.h>
@@ -337,6 +338,39 @@ static u8 dw_pcie_iatu_unroll_enabled(struct dw_pcie *pci)
 		return 1;
 
 	return 0;
+}
+
+static int s32cc_check_serdes(struct device *dev)
+{
+	struct nvmem_cell *serdes_cell;
+	size_t read_len = 0;
+	u8 *serdes = NULL;
+	int ret = 0;
+
+	serdes_cell = devm_nvmem_cell_get(dev, "serdes_presence");
+	if (IS_ERR(serdes_cell)) {
+		dev_err(dev, "Failed to get serdes cell\n");
+		return PTR_ERR(serdes_cell);
+	}
+
+	serdes = nvmem_cell_read(serdes_cell, &read_len);
+	devm_nvmem_cell_put(dev, serdes_cell);
+	if (IS_ERR(serdes)) {
+		dev_err(dev, "Failed to read serdes cell\n");
+		return PTR_ERR(serdes);
+	} else if (read_len != SERDES_CELL_SIZE) {
+		dev_err(dev, "Invalid read size of serdes cell\n");
+		ret = -EINVAL;
+		goto out;
+	}
+
+	if (!(*serdes)) {
+		dev_err(dev, "SerDes subsystem is not present, skipping configuring PCIe\n");
+		ret = -ENODEV;
+	}
+out:
+	kfree(serdes);
+	return ret;
 }
 
 static void s32cc_pcie_ep_init(struct dw_pcie_ep *ep)
@@ -1618,7 +1652,6 @@ static int s32cc_pcie_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct s32cc_pcie *s32cc_pp;
 	struct dw_pcie *pcie;
-
 	int ret = 0;
 
 	DEBUG_FUNC;
@@ -1626,6 +1659,10 @@ static int s32cc_pcie_probe(struct platform_device *pdev)
 	s32cc_pp = devm_kzalloc(dev, sizeof(*s32cc_pp), GFP_KERNEL);
 	if (!s32cc_pp)
 		return -ENOMEM;
+
+	ret = s32cc_check_serdes(dev);
+	if (ret)
+		return ret;
 
 	pcie = &s32cc_pp->pcie;
 	pcie->dev = dev;
