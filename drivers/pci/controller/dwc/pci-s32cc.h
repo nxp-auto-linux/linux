@@ -78,11 +78,6 @@ enum pcie_link_speed {
 	GEN3 = 0x3
 };
 
-struct callback {
-	void (*call_back)(u32 arg);
-	struct list_head callback_list;
-};
-
 struct s32cc_pcie {
 	bool is_endpoint;
 	bool has_msi_parent;
@@ -106,13 +101,10 @@ struct s32cc_pcie {
 	struct dma_info	dma;
 #endif
 
-#ifdef CONFIG_PCI_S32CC_ACCESS_FROM_USER
-	struct dentry	*dir;
-	struct userspace_info uspace;
-#endif
-
-	/* TODO: change this to a list */
+	/* TODO: change call_back to a list */
 	void (*call_back)(u32 arg);
+	struct s32cc_userspace_info uinfo;
+
 	struct phy *phy0, *phy1;
 };
 
