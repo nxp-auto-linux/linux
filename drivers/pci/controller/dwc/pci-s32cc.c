@@ -349,7 +349,8 @@ static int s32cc_check_serdes(struct device *dev)
 
 	serdes_cell = devm_nvmem_cell_get(dev, "serdes_presence");
 	if (IS_ERR(serdes_cell)) {
-		dev_err(dev, "Failed to get serdes cell\n");
+		if (PTR_ERR(serdes_cell) != -EPROBE_DEFER)
+			dev_err(dev, "Failed to get serdes cell\n");
 		return PTR_ERR(serdes_cell);
 	}
 
@@ -368,6 +369,7 @@ static int s32cc_check_serdes(struct device *dev)
 		dev_err(dev, "SerDes subsystem is not present, skipping configuring PCIe\n");
 		ret = -ENODEV;
 	}
+
 out:
 	kfree(serdes);
 	return ret;
@@ -1275,22 +1277,6 @@ static int init_pcie_phy(struct s32cc_pcie *s32cc_pp)
 	struct device *dev = pcie->dev;
 	int ret;
 
-	/*
-	 *	s32cc_pp is kzalloc'ed so it is safe to consider that
-	 *	null phy0 means phy0 uninitialized and non-zero initialized.
-	 *	So if phy0 is non-zero then reuse the handler.
-	 */
-	if (!s32cc_pp->phy0) {
-		s32cc_pp->phy0 = devm_phy_get(dev, "serdes_lane0");
-		if (IS_ERR(s32cc_pp->phy0)) {
-			if (PTR_ERR(s32cc_pp->phy0) == -EPROBE_DEFER)
-				dev_dbg(dev, "Deferring init for 'serdes_lane0' PHY\n");
-			else
-				dev_err(dev, "Failed to get 'serdes_lane0' PHY\n");
-			return PTR_ERR(s32cc_pp->phy0);
-		}
-	}
-
 	ret = phy_init(s32cc_pp->phy0);
 	if (ret) {
 		dev_err(dev, "Failed to init 'serdes_lane0' PHY\n");
@@ -1652,18 +1638,28 @@ static int s32cc_pcie_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct s32cc_pcie *s32cc_pp;
 	struct dw_pcie *pcie;
+	struct phy *phy;
 	int ret = 0;
 
 	DEBUG_FUNC;
-
-	s32cc_pp = devm_kzalloc(dev, sizeof(*s32cc_pp), GFP_KERNEL);
-	if (!s32cc_pp)
-		return -ENOMEM;
 
 	ret = s32cc_check_serdes(dev);
 	if (ret)
 		return ret;
 
+	phy = devm_phy_get(dev, "serdes_lane0");
+	if (IS_ERR(phy)) {
+		if (PTR_ERR(phy) != -EPROBE_DEFER)
+			dev_err(dev, "Failed to get 'serdes_lane0' PHY\n");
+
+		return PTR_ERR(phy);
+	}
+
+	s32cc_pp = devm_kzalloc(dev, sizeof(*s32cc_pp), GFP_KERNEL);
+	if (!s32cc_pp)
+		return -ENOMEM;
+
+	s32cc_pp->phy0 = phy;
 	pcie = &s32cc_pp->pcie;
 	pcie->dev = dev;
 	pcie->ops = &s32cc_pcie_ops;
