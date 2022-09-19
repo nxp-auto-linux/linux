@@ -35,7 +35,7 @@
 #include "pci-dma-s32cc.h"
 #include "pci-ioctl-s32cc.h"
 
-struct task_struct *task;
+static struct task_struct *task;
 
 #ifdef CONFIG_PCI_DW_DMA
 
@@ -91,7 +91,8 @@ static int send_signal_to_user(struct s32cc_userspace_info *uinfo)
 	return ret;
 }
 
-int s32cc_store_pid(struct s32cc_userspace_info *uinfo, void __user *argp)
+static int s32cc_store_pid(struct s32cc_userspace_info *uinfo,
+			   void __user *argp)
 {
 	int ret = 0;
 
@@ -171,10 +172,10 @@ static ssize_t s32cc_ioctl(struct file *filp, u32 cmd,
 		return ret;
 	case SEND_MSI:
 		/* Setup MSI */
-		/* TODO: allow giving a custom MSI base address
-		 * and also trigger an MSI
+		/* TODO: allow selection of the MSI index and
+		 * also handle it on the receiver side
 		 */
-		ret = (ssize_t)s32cc_set_msi(pcie);
+		ret = s32cc_send_msi(pcie);
 		return ret;
 	case STORE_PID:
 		ret = s32cc_store_pid(uinfo, argp);
