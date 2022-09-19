@@ -397,6 +397,7 @@ static void s32cc_pcie_ep_init(struct dw_pcie_ep *ep)
 
 	dw_pcie_dbi_ro_wr_en(pcie);
 
+#ifndef CONFIG_PCI_EPF_TEST
 	/*
 	 * Configure the class and revision for the EP device,
 	 * to enable human friendly enumeration by the RC (e.g. by lspci)
@@ -404,6 +405,7 @@ static void s32cc_pcie_ep_init(struct dw_pcie_ep *ep)
 	BSET32(pcie, dbi, PCI_CLASS_REVISION,
 			((PCI_BASE_CLASS_PROCESSOR << PCI_BASE_CLASS_OFF) |
 			(PCI_SUBCLASS_OTHER << PCI_SUBCLASS_OFF)));
+#endif
 
 	pr_debug("%s: Enable MSI/MSI-X capabilities\n", __func__);
 
@@ -996,25 +998,50 @@ static int s32cc_pcie_ep_raise_irq(struct dw_pcie_ep *ep, u8 func_no,
 {
 	struct dw_pcie *pci = to_dw_pcie_from_ep(ep);
 
-	DEBUG_FUNC;
+	pr_debug_rw("%s: W32(0x%llx, 0x%x)\n", __func__, (uint64_t)(reg),
+		    (uint32_t)(write_data));
 
 	switch (type) {
 	case PCI_EPC_IRQ_LEGACY:
+		pr_debug("%s: func %d: legacy int\n", __func__, func_no);
 		return dw_pcie_ep_raise_legacy_irq(ep, func_no);
 	case PCI_EPC_IRQ_MSI:
+		pr_debug("%s: func %d: MSI %d\n", __func__, func_no,
+			 interrupt_num);
 		return dw_pcie_ep_raise_msi_irq(ep, func_no, interrupt_num);
 	case PCI_EPC_IRQ_MSIX:
+		pr_debug("%s: func %d: MSI-X %d\n", __func__, func_no,
+			 interrupt_num);
 		return dw_pcie_ep_raise_msix_irq(ep, func_no, interrupt_num);
 	default:
-		dev_err(pci->dev, "UNKNOWN IRQ type\n");
+		dev_err(pci->dev, "%s: UNKNOWN IRQ type\n", __func__);
 	}
 
 	return 0;
 }
 
-static struct dw_pcie_ep_ops pcie_ep_ops = {
+static const struct pci_epc_features s32cc_pcie_epc_features = {
+	.linkup_notifier = false,
+	.msi_capable = true,
+	.msix_capable = false,
+	.reserved_bar = BIT(BAR_1) | BIT(BAR_5),
+	.bar_fixed_64bit = BIT(BAR_0),
+	.bar_fixed_size[0] = SZ_1M,
+	.bar_fixed_size[2] = (4 * SZ_1M),
+	.bar_fixed_size[3] = SZ_64K,
+	.bar_fixed_size[4] = 256,
+};
+
+static const struct pci_epc_features*
+s32cc_pcie_ep_get_features(struct dw_pcie_ep *ep)
+{
+	return &s32cc_pcie_epc_features;
+}
+
+static struct dw_pcie_ep_ops s32cc_pcie_ep_ops = {
 	.ep_init = s32cc_pcie_ep_init,
 	.raise_irq = s32cc_pcie_ep_raise_irq,
+	.get_features = s32cc_pcie_ep_get_features,
 };
 
 static int __init s32cc_add_pcie_ep(struct s32cc_pcie *s32cc_pp)
@@ -1026,7 +1053,7 @@ static int __init s32cc_add_pcie_ep(struct s32cc_pcie *s32cc_pp)
 
 	DEBUG_FUNC;
 
-	ep->ops = &pcie_ep_ops;
+	ep->ops = &s32cc_pcie_ep_ops;
 
 	ret = dw_pcie_ep_init(ep);
 	if (ret) {
