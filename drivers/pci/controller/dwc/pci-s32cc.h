@@ -2,7 +2,7 @@
 /*
  * PCIe host controller driver for NXP S32CC SoCs
  *
- * Copyright 2019-2021 NXP
+ * Copyright 2019-2022 NXP
  */
 
 #ifndef PCIE_S32CC_H
