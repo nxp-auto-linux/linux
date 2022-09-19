@@ -56,6 +56,8 @@
 #define PE0_INT_STS				0xE8
 #define HP_INT_STS				BIT(6)
 
+#define SERDES_CELL_SIZE		4
+
 #define to_s32cc_from_dw_pcie(x) \
 	container_of(x, struct s32cc_pcie, pcie)
 
