@@ -30,13 +30,6 @@
 #include <linux/ioport.h>
 #include <soc/s32cc/revision.h>
 
-#ifdef CONFIG_PCI_S32CC_ACCESS_FROM_USER
-#include <linux/debugfs.h>
-#include <linux/fs.h>
-#include <linux/sched/signal.h>
-#include <linux/uaccess.h>
-#endif
-
 #include "pci-s32cc-regs.h"
 #include "pci-s32cc.h"
 #include "../../pci.h"
@@ -152,6 +145,13 @@ struct s32cc_pcie_ep_node {
 };
 
 #ifdef CONFIG_PCI_DW_DMA
+struct dma_info *dw_get_dma_info(struct dw_pcie *pcie)
+{
+	struct s32cc_pcie *s32cc_pp =
+		to_s32cc_from_dw_pcie(pcie);
+	return &s32cc_pp->dma;
+}
+
 static irqreturn_t s32cc_pcie_dma_handler(int irq, void *arg)
 {
 	struct s32cc_pcie *s32cc_pp = arg;
@@ -161,43 +161,41 @@ static irqreturn_t s32cc_pcie_dma_handler(int irq, void *arg)
 	u32 val_read = dw_pcie_readl_dma(di, PCIE_DMA_READ_INT_STATUS);
 
 	if (val_write) {
-#ifdef CONFIG_PCI_S32CC_ACCESS_FROM_USER
 		bool signal = (di->wr_ch.status == DMA_CH_RUNNING);
-#endif
 		dw_handle_dma_irq_write(di, val_write);
-#ifdef CONFIG_PCI_S32CC_ACCESS_FROM_USER
-		if (signal && s32cc_pp->uspace.send_signal_to_user)
-			s32cc_pp->uspace.send_signal_to_user(s32cc_pp);
-#endif
 
+		if (signal && s32cc_pp->uinfo.send_signal_to_user)
+			s32cc_pp->uinfo.send_signal_to_user(&s32cc_pp->uinfo);
 		if (s32cc_pp->call_back)
 			s32cc_pp->call_back(val_write);
 	}
 	if (val_read) {
-#ifdef CONFIG_PCI_S32CC_ACCESS_FROM_USER
 		bool signal = (di->rd_ch.status == DMA_CH_RUNNING);
-#endif
+
 		dw_handle_dma_irq_read(di, val_read);
-#ifdef CONFIG_PCI_S32CC_ACCESS_FROM_USER
-		if (signal && s32cc_pp->uspace.send_signal_to_user)
-			s32cc_pp->uspace.send_signal_to_user(s32cc_pp);
-#endif
+		if (signal && s32cc_pp->uinfo.send_signal_to_user)
+			s32cc_pp->uinfo.send_signal_to_user(&s32cc_pp->uinfo);
 	}
 
 	return IRQ_HANDLED;
 }
 #endif /* CONFIG_PCI_DW_DMA */
 
-#ifdef CONFIG_PCI_S32CC_ACCESS_FROM_USER
-ssize_t s32cc_ioctl(struct file *filp, u32 cmd,
-		unsigned long data);
+struct s32cc_userspace_info *dw_get_userspace_info(struct dw_pcie *pcie)
+{
+	struct s32cc_pcie *s32cc_pci = to_s32cc_from_dw_pcie(pcie);
 
-static const struct file_operations s32v_pcie_ep_dbgfs_fops = {
-	.owner = THIS_MODULE,
-	.open = simple_open,
-	.unlocked_ioctl = s32cc_ioctl,
-};
-#endif /* CONFIG_PCI_S32CC_ACCESS_FROM_USER */
+	return &s32cc_pci->uinfo;
+}
+
+void s32cc_register_callback(struct dw_pcie *pcie,
+			     void (*call_back)(u32 arg))
+{
+	struct s32cc_pcie *s32cc_pci = to_s32cc_from_dw_pcie(pcie);
+
+	s32cc_pci->call_back = call_back;
+}
+EXPORT_SYMBOL(s32cc_register_callback);
 
 static bool s32cc_has_msi_parent(struct pcie_port *pp)
 {
@@ -1026,6 +1024,15 @@ static struct dw_pcie_ep_ops s32cc_pcie_ep_ops = {
 	.get_features = s32cc_pcie_ep_get_features,
 };
 
+int s32cc_send_msi(struct dw_pcie *pcie)
+{
+	/* Trigger the first MSI, since all MSIs are routed through the same
+	 * physical interrupt anyway
+	 */
+	return s32cc_pcie_ep_raise_irq(&pcie->ep, 1,
+		PCI_EPC_IRQ_MSI, 1);
+}
+
 static int __init s32cc_add_pcie_ep(struct s32cc_pcie *s32cc_pp)
 {
 	int ret;
@@ -1665,10 +1672,6 @@ static int s32cc_pcie_config_common(struct s32cc_pcie *s32cc_pp,
 		if (ret)
 			goto fail_host_init;
 	} else {
-#ifdef CONFIG_PCI_S32CC_ACCESS_FROM_USER
-		struct dentry *pfile;
-#endif
-
 		s32cc_pp->call_back = NULL;
 
 #ifdef CONFIG_PCI_DW_DMA
@@ -1682,25 +1685,10 @@ static int s32cc_pcie_config_common(struct s32cc_pcie *s32cc_pp,
 		dw_pcie_dma_clear_regs(&s32cc_pp->dma);
 #endif /* CONFIG_PCI_DW_DMA */
 
-#ifdef CONFIG_PCI_S32CC_ACCESS_FROM_USER
-		s32cc_pp->uspace.user_pid = 0;
-		memset(&s32cc_pp->uspace.info, 0, sizeof(struct siginfo));
-		s32cc_pp->uspace.info.si_signo = SIGUSR1;
-		s32cc_pp->uspace.info.si_code = SI_USER;
-		s32cc_pp->uspace.info.si_int = 0;
-
-		s32cc_pp->dir = debugfs_create_dir("ep_dbgfs", NULL);
-		if (!s32cc_pp->dir)
-			dev_info(dev, "Creating debugfs dir failed\n");
-		pfile = debugfs_create_file("ep_file", 0444, s32cc_pp->dir,
-			(void *)s32cc_pp, &s32v_pcie_ep_dbgfs_fops);
-		if (!pfile)
-			dev_info(dev, "Creating debugfs failed\n");
-#endif /* CONFIG_PCI_S32CC_ACCESS_FROM_USER */
-
 		ret = s32cc_add_pcie_ep(s32cc_pp);
 		if (ret)
 			goto fail_host_init;
+		s32cc_config_user_space_data(&s32cc_pp->uinfo, pcie);
 	}
 
 	if (!s32cc_pp->is_endpoint) {
