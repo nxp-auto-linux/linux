@@ -34,15 +34,12 @@
 #include "pci-s32cc.h"
 #include "../../pci.h"
 
-#ifdef CONFIG_PCI_S32CC_DEBUG_READS
-#define dev_dbg_r dev_dbg
-#else
-#define dev_dbg_r(fmt, ...)
-#endif
 #ifdef CONFIG_PCI_S32CC_DEBUG_WRITES
 #define dev_dbg_w dev_dbg
+#define PTR_FMT "%px"
 #else
 #define dev_dbg_w(fmt, ...)
+#define PTR_FMT "%p"
 #endif
 
 #define PCIE_LINKUP_MASK	(PCIE_SS_SMLH_LINK_UP | PCIE_SS_RDLH_LINK_UP | \
@@ -94,9 +91,8 @@ static inline void s32cc_pcie_write(struct dw_pcie *pci,
 		dev_dbg_w(pci->dev, "W%d(dbi2+0x%x, 0x%x)\n",
 			(int)size * 8, (u32)(reg), (u32)(val));
 #ifdef CONFIG_PCI_DW_DMA
-	else if ((u64)base == (u64)(s32cc_pci->dma.dma_base))
-		pr_debug_w("pcie%d:%s: W%d(dma+0x%x, 0x%x)\n",
-			s32cc_pci->id, __func__,
+	else if ((uintptr_t)base == (uintptr_t)(s32cc_pci->dma.dma_base))
+		dev_dbg_w(pci->dev, "W%d(dma+0x%x, 0x%x)\n",
 			(int)size * 8, (u32)(reg), (u32)(val));
 #endif
 	else
@@ -1130,21 +1126,21 @@ static int s32cc_pcie_dt_init(struct platform_device *pdev,
 	if (IS_ERR(pcie->dbi_base))
 		return PTR_ERR(pcie->dbi_base);
 	dev_dbg(dev, "dbi: %pR\n", res);
-	dev_dbg(dev, "dbi virt: 0x%p\n", pcie->dbi_base);
+	dev_dbg(dev, "dbi virt: 0x" PTR_FMT "\n", pcie->dbi_base);
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "dbi2");
 	pcie->dbi_base2 = devm_ioremap_resource(dev, res);
 	if (IS_ERR(pcie->dbi_base2))
 		return PTR_ERR(pcie->dbi_base2);
 	dev_dbg(dev, "dbi2: %pR\n", res);
-	dev_dbg(dev, "dbi2 virt: 0x%p\n", pcie->dbi_base2);
+	dev_dbg(dev, "dbi2 virt: 0x" PTR_FMT "\n", pcie->dbi_base2);
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "atu");
 	dev_dbg(dev, "atu: %pR\n", res);
 	pcie->atu_base = devm_ioremap_resource(dev, res);
 	if (IS_ERR(pcie->atu_base))
 		return PTR_ERR(pcie->atu_base);
-	dev_dbg(dev, "atu virt: 0x%p\n", pcie->atu_base);
+	dev_dbg(dev, "atu virt: 0x" PTR_FMT "\n", pcie->atu_base);
 
 #ifdef CONFIG_PCI_DW_DMA
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "dma");
@@ -1152,7 +1148,7 @@ static int s32cc_pcie_dt_init(struct platform_device *pdev,
 	s32cc_pp->dma.dma_base = devm_ioremap_resource(dev, res);
 	if (IS_ERR(s32cc_pp->dma.dma_base))
 		return PTR_ERR(s32cc_pp->dma.dma_base);
-	dev_dbg(dev, "dma virt: 0x%llx\n", (u64)s32cc_pp->dma.dma_base);
+	dev_dbg(dev, "dma virt: 0x" PTR_FMT "\n", s32cc_pp->dma.dma_base);
 	s32cc_pp->dma.iatu_unroll_enabled = dw_pcie_iatu_unroll_enabled(pcie);
 #if defined(CONFIG_PCI_S32CC_DEBUG_WRITES)
 	s32cc_pp->dma.write_dma = s32cc_pcie_write_dma;
@@ -1164,7 +1160,7 @@ static int s32cc_pcie_dt_init(struct platform_device *pdev,
 	if (IS_ERR(s32cc_pp->ctrl_base))
 		return PTR_ERR(s32cc_pp->ctrl_base);
 	dev_dbg(dev, "ctrl: %pR\n", res);
-	dev_dbg(dev, "ctrl virt: 0x%p\n", s32cc_pp->ctrl_base);
+	dev_dbg(dev, "ctrl virt: 0x" PTR_FMT "\n", s32cc_pp->ctrl_base);
 
 	s32cc_pp->linkspeed = of_pci_get_max_link_speed(np);
 	if (s32cc_pp->linkspeed < GEN1 || s32cc_pp->linkspeed > GEN3) {
