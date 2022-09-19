@@ -118,12 +118,14 @@ struct s32cc_pcie {
 };
 
 struct s32cc_inbound_region {
+	int pcie_id; /* must match the id of a device tree pcie node */
 	u32 bar_nr;
 	u32 target_addr;
 	u32 region; /* for backwards compatibility */
 };
 
 struct s32cc_outbound_region {
+	int pcie_id; /* must match the id of a device tree pcie node */
 	u64 target_addr;
 	u64 base_addr;
 	u32 size;
