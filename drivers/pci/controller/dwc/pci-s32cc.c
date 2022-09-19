@@ -686,12 +686,12 @@ static int s32cc_pcie_start_link(struct dw_pcie *pcie)
 		ret = -EINVAL;
 	}
 
-out:
 	if (!ret) {
 		dev_info(pcie->dev, "Link up, Gen=%d\n",
 				s32cc_pcie_get_link_speed(s32cc_pp));
 	}
 
+out:
 	dw_pcie_dbi_ro_wr_dis(pcie);
 	return ret;
 }
@@ -732,8 +732,7 @@ static int s32cc_pcie_host_init(struct pcie_port *pp)
 
 	dw_pcie_setup_rc(pp);
 
-	s32cc_pcie_start_link(pcie);
-	ret = dw_pcie_wait_for_link(pcie);
+	ret = s32cc_pcie_start_link(pcie);
 	if (ret) {
 		if (!phy_validate(s32cc_pci->phy0, PHY_MODE_PCIE, 0, NULL)) {
 			dev_err(pcie->dev, "Failed to get link up with EP connected\n");
