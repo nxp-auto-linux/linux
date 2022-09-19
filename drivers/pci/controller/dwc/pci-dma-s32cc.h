@@ -4,15 +4,13 @@
  * PCIe host controller driver, customized
  * for the NXP S32CC PCIe driver
  *
- * Copyright 2017-2020 NXP
+ * Copyright 2017-2021 NXP
  */
 
 #ifndef PCIE_DMA_S32CC_H
 #define PCIE_DMA_S32CC_H
 
-#ifdef CONFIG_PCI_DW_DMA
 #include "pcie-designware.h"
-#endif
 
 #define PCIE_DMA_BASE	0x70000
 
@@ -71,6 +69,10 @@
 #define DMA_FLAG_EN_ABORT_INT		BIT(6)
 #define DMA_FLAG_EN_REMOTE_DONE_INT			BIT(7)
 #define DMA_FLAG_EN_REMOTE_ABORT_INT		BIT(8)
+
+#define NUM_DMA_RD_CHAN_MASK		0xF0000
+#define NUM_DMA_RD_CHAN_SHIFT		16
+#define NUM_DMA_WR_CHAN_MASK		0xF
 
 enum DMA_CH_FLAGS {
 	DMA_CH_STOPPED = 0,
@@ -173,6 +175,5 @@ irqreturn_t dw_handle_dma_irq_write(struct dw_pcie *pci, struct dma_info *di,
 					u32 val_write);
 irqreturn_t dw_handle_dma_irq_read(struct dw_pcie *pci, struct dma_info *di,
 					u32 val_read);
-irqreturn_t s32cc_pcie_dma_handler(int irq, void *arg);
 
 #endif  /* PCIE_DMA_S32CC_H */
