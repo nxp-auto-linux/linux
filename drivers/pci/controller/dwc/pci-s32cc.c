@@ -2,7 +2,7 @@
 /*
  * PCIe host controller driver for NXP S32CC SoCs
  *
- * Copyright 2019-2021 NXP
+ * Copyright 2019-2022 NXP
  */
 
 #ifdef CONFIG_PCI_S32CC_DEBUG
@@ -27,6 +27,7 @@
 #include <linux/phy.h>
 #include <linux/processor.h>
 #include <linux/nvmem-consumer.h>
+#include <linux/ioport.h>
 
 #ifdef CONFIG_PCI_S32CC_ACCESS_FROM_USER
 #include <linux/debugfs.h>
@@ -1169,9 +1170,46 @@ static void disable_equalization(struct dw_pcie *pcie)
 		dw_pcie_readl_dbi(pcie, PORT_LOGIC_GEN3_EQ_CONTROL));
 }
 
+static int find_first_system_ram_res(struct resource *res, void *arg)
+{
+	u64 *prev_min = arg;
+
+	if (!arg || !res)
+		return 0;
+	if (res->start < *prev_min)
+		*prev_min = res->start;
+
+	/* Continue iteration in walk_system_ram_res() */
+	return 0;
+}
+
+static u64 get_system_ram_base(void)
+{
+	u64 prev_min = GENMASK_ULL(40, 40);
+
+	walk_system_ram_res(0x0, GENMASK_ULL(40, 40) - 1, &prev_min,
+			    find_first_system_ram_res);
+	return prev_min;
+}
+
 static void s32cc_pcie_reset_mstr_ace(struct dw_pcie *pcie)
 {
+	u64 ddr_base_addr = get_system_ram_base();
+	u32 ddr_base_low = lower_32_bits(ddr_base_addr);
+	u32 ddr_base_high = upper_32_bits(ddr_base_addr);
+
 	dw_pcie_writel_dbi(pcie, PORT_LOGIC_COHERENCY_CONTROL_3, 0x0);
+	/* Transactions to peripheral targets should be non-coherent,
+	 * or Ncore might drop them. Define the start of DDR as seen by Linux
+	 * as the boundary between "memory" and "peripherals", with peripherals
+	 * being below this boundary, and memory addresses being above it.
+	 * One example where this is needed are PCIe MSIs, which use NoSnoop=0
+	 * and might end up routed to Ncore.
+	 */
+	dw_pcie_writel_dbi(pcie, PORT_LOGIC_COHERENCY_CONTROL_1,
+		(ddr_base_low & CC_1_MEMTYPE_BOUNDARY_MASK) |
+		(CC_1_MEMTYPE_LOWER_PERIPH & CC_1_MEMTYPE_VALUE_MASK));
+	dw_pcie_writel_dbi(pcie, PORT_LOGIC_COHERENCY_CONTROL_2, ddr_base_high);
 }
 
 static int init_pcie(struct s32cc_pcie *pci)
