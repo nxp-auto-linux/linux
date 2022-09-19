@@ -31,25 +31,12 @@
 #include "pci-s32cc.h"
 #include "../../pci.h"
 
-#ifdef DEBUG
-#ifdef pr_debug
-#undef pr_debug
-#define pr_debug pr_info
-#endif
-#ifdef dev_dbg
-#undef dev_dbg
-#define dev_dbg dev_info
-#endif
-#endif /* CONFIG_PCI_S32CC_DEBUG */
-
-#define DEBUG_FUNC pr_debug("%s\n", __func__)
-
-#ifdef DEBUG_WR
-#define pr_debug_rw pr_debug
-#define dev_dbg_rw dev_dbg
+#if IS_ENABLED(CONFIG_PCI_S32CC_DEBUG_WRITES)
+#define dev_dbg_w dev_dbg
+#define PTR_FMT "%px"
 #else
-#define pr_debug_rw(fmt, ...)
-#define dev_dbg_rw(fmt, ...)
+#define dev_dbg_w(fmt, ...)
+#define PTR_FMT "%p"
 #endif
 
 #define PCIE_LINKUP_MASK	(PCIE_SS_SMLH_LINK_UP | PCIE_SS_RDLH_LINK_UP | \
@@ -71,80 +58,7 @@
 #define PCI_SUBCLASS_OTHER	(0x80)
 #define PCI_SUBCLASS_OFF	16
 
-#define PCIE_NUM_BARS	6
 #define PCIE_EP_DEFAULT_BAR_SIZE	SZ_1M
-
-#ifndef CONFIG_SYS_PCI_EP_MEMORY_BASE
-/* Use the reserved memory from device tree
- * TODO: read it dynamically via fdt api
- * TODO: only one PCIe controller can be used in EP mode with
- * this enabled
- */
-#define CONFIG_SYS_PCI_EP_MEMORY_BASE 0xc0000000
-#endif /* CONFIG_SYS_PCI_EP_MEMORY_BASE */
-
-/* EP BARs */
-#define PCI_BASE_ADDRESS_MEM_NON_PREFETCH	0x00	/* non-prefetchable */
-
-#define PCIE_EP_BAR0_ADDR		CONFIG_SYS_PCI_EP_MEMORY_BASE
-#define PCIE_EP_BAR0_SIZE		SZ_1M
-#define PCIE_EP_BAR1_ADDR		(PCIE_EP_BAR0_ADDR + PCIE_EP_BAR0_SIZE)
-#define PCIE_EP_BAR1_SIZE		0
-#define PCIE_EP_BAR2_ADDR		(PCIE_EP_BAR1_ADDR + PCIE_EP_BAR1_SIZE)
-#define PCIE_EP_BAR2_SIZE		SZ_1M
-#define PCIE_EP_BAR3_ADDR		(PCIE_EP_BAR2_ADDR + PCIE_EP_BAR2_SIZE)
-#define PCIE_EP_BAR3_SIZE		0
-#define PCIE_EP_BAR4_ADDR		(PCIE_EP_BAR3_ADDR + PCIE_EP_BAR3_SIZE)
-#define PCIE_EP_BAR4_SIZE		0
-#define PCIE_EP_BAR5_ADDR		(PCIE_EP_BAR4_ADDR + PCIE_EP_BAR4_SIZE)
-#define PCIE_EP_BAR5_SIZE		0
-#define PCIE_EP_BAR0_EN_DIS		1
-#define PCIE_EP_BAR1_EN_DIS		0
-#define PCIE_EP_BAR2_EN_DIS		1
-#define PCIE_EP_BAR3_EN_DIS		1
-#define PCIE_EP_BAR4_EN_DIS		1
-#define PCIE_EP_BAR5_EN_DIS		0
-#define PCIE_EP_BAR0_INIT	(PCI_BASE_ADDRESS_SPACE_MEMORY | \
-			PCI_BASE_ADDRESS_MEM_TYPE_32 | \
-			PCI_BASE_ADDRESS_MEM_NON_PREFETCH)
-#define PCIE_EP_BAR1_INIT	(PCI_BASE_ADDRESS_SPACE_MEMORY | \
-			PCI_BASE_ADDRESS_MEM_TYPE_32 | \
-			PCI_BASE_ADDRESS_MEM_NON_PREFETCH)
-#define PCIE_EP_BAR2_INIT	(PCI_BASE_ADDRESS_SPACE_MEMORY | \
-			PCI_BASE_ADDRESS_MEM_TYPE_32 | \
-			PCI_BASE_ADDRESS_MEM_NON_PREFETCH)
-#define PCIE_EP_BAR3_INIT	(PCI_BASE_ADDRESS_SPACE_MEMORY | \
-			PCI_BASE_ADDRESS_MEM_TYPE_32 | \
-			PCI_BASE_ADDRESS_MEM_NON_PREFETCH)
-#define PCIE_EP_BAR4_INIT	(PCI_BASE_ADDRESS_SPACE_MEMORY | \
-			PCI_BASE_ADDRESS_MEM_TYPE_32 | \
-			PCI_BASE_ADDRESS_MEM_NON_PREFETCH)
-#define PCIE_EP_BAR5_INIT	0
-
-#define PCIE_EP_BAR_INIT(bar_no) \
-		{PCIE_EP_BAR ## bar_no ## _ADDR, \
-			NULL, \
-			PCIE_EP_BAR ## bar_no ## _SIZE, \
-			BAR_ ## bar_no, \
-			PCIE_EP_BAR ## bar_no ## _INIT}
-
-static struct pci_epf_bar s32cc_ep_bars[] = {
-		PCIE_EP_BAR_INIT(0),
-		PCIE_EP_BAR_INIT(1),
-		PCIE_EP_BAR_INIT(2),
-		PCIE_EP_BAR_INIT(3),
-		PCIE_EP_BAR_INIT(4),
-		PCIE_EP_BAR_INIT(5)
-};
-
-static int s32cc_ep_bars_en[] = {
-		PCIE_EP_BAR0_EN_DIS,
-		PCIE_EP_BAR1_EN_DIS,
-		PCIE_EP_BAR2_EN_DIS,
-		PCIE_EP_BAR3_EN_DIS,
-		PCIE_EP_BAR4_EN_DIS,
-		PCIE_EP_BAR5_EN_DIS
-};
 
 struct s32cc_pcie_data {
 	enum dw_pcie_device_mode mode;
@@ -153,66 +67,6 @@ struct s32cc_pcie_data {
 #define xstr(s) str(s)
 #define str(s) #s
 
-#define clrbits(type, addr, clear) \
-	write ## type(read ## type(addr) & ~(clear), (addr))
-
-#define setbits(type, addr, set) \
-	write ## type(read ## type(addr) | (set), (addr))
-
-#define clrsetbits(type, addr, clear, set) \
-	write ## type((read ## type(addr) & ~(clear)) | (set), (addr))
-
-#define W32(pci, base, reg, write_data) \
-do { \
-	pr_debug_rw("%s: W32(0x%llx, 0x%x)\n", __func__, (uint64_t)(reg), \
-		(uint32_t)(write_data)); \
-	setbits(l, (pci)->base ## _base + reg, (write_data)); \
-} while (0)
-
-#define BCLR16(pci, base, reg, mask) \
-do { \
-	pr_debug_rw("%s: BCLR16(" str(base) "+0x%x, 0x%x)\n", __func__, \
-		(u32)(reg), (u16)(mask)); \
-	clrbits(w, (pci)->base ## _base + reg, (u16)mask); \
-} while (0)
-
-#define BSET16(pci, base, reg, mask) \
-do { \
-	pr_debug_rw("%s: BSET16(" str(base) "+0x%x, 0x%x)\n", __func__, \
-		(u32)(reg), (u16)(mask)); \
-	setbits(w, (pci)->base ## _base + reg, (u16)mask); \
-} while (0)
-
-#define BCLRSET16(pci, base, reg, write_data, mask) \
-do { \
-	pr_debug_rw("%s: BCLRSET16(" str(base) "+0x%x, 0x%x, mask 0x%x)\n", __func__, \
-		(u32)(reg), (u16)(write_data), \
-		(u16)(mask)); \
-	clrsetbits(w, (pci)->base ## _base + reg, (u16)write_data, (u16)mask); \
-} while (0)
-
-#define BCLR32(pci, base, reg, mask) \
-do { \
-	pr_debug_rw("%s: BCLR32(" str(base) "+0x%x, 0x%x)\n", __func__, \
-		(u32)(reg), (u32)(mask)); \
-	clrbits(l, (pci)->base ## _base + reg, mask); \
-} while (0)
-
-#define BSET32(pci, base, reg, mask) \
-do { \
-	pr_debug_rw("%s: BSET32(" str(base) "+0x%x, 0x%x)\n", __func__, \
-		(u32)(reg), (u32)(mask)); \
-	setbits(l, (pci)->base ## _base + reg, mask); \
-} while (0)
-
-#define BCLRSET32(pci, base, reg, write_data, mask) \
-do { \
-	pr_debug_rw("%s: BCLRSET32(" str(base) "+0x%llx, 0x%x, mask 0x%x)\n", __func__, \
-		(u32)(reg), (u32)(write_data), \
-		(u32)(mask)); \
-	clrsetbits(l, (pci)->base ## _base + reg, write_data, mask); \
-} while (0)
-
 static inline void s32cc_pcie_write(struct dw_pcie *pci,
 				    void __iomem *base, u32 reg, size_t size, u32 val)
 {
@@ -220,10 +74,28 @@ static inline void s32cc_pcie_write(struct dw_pcie *pci,
 
 	struct s32cc_pcie *s32cc_pci = to_s32cc_from_dw_pcie(pci);
 
+	if (IS_ENABLED(CONFIG_PCI_S32CC_DEBUG_WRITES)) {
+		if ((uintptr_t)base == (uintptr_t)(s32cc_pci->ctrl_base))
+			dev_dbg_w(pci->dev, "W%d(ctrl+0x%x, 0x%x)\n",
+				  (int)size * 8, (u32)(reg), (u32)(val));
+		else if ((uintptr_t)base == (uintptr_t)(pci->atu_base))
+			dev_dbg_w(pci->dev, "W%d(atu+0x%x, 0x%x)\n",
+				  (int)size * 8, (u32)(reg), (u32)(val));
+		else if ((uintptr_t)base == (uintptr_t)(pci->dbi_base))
+			dev_dbg_w(pci->dev, "W%d(dbi+0x%x, 0x%x)\n",
+				  (int)size * 8, (u32)(reg), (u32)(val));
+		else if ((uintptr_t)base == (uintptr_t)(pci->dbi_base2))
+			dev_dbg_w(pci->dev, "W%d(dbi2+0x%x, 0x%x)\n",
+				  (int)size * 8, (u32)(reg), (u32)(val));
+		else
+			dev_dbg_w(pci->dev, "W%d(%lx+0x%x, 0x%x)\n",
+				  (int)size * 8, (uintptr_t)(base), (u32)(reg), (u32)(val));
+	}
+
 	ret = dw_pcie_write(base + reg, size, val);
 	if (ret)
-		dev_err(pci->dev, "(pcie%d): Write DBI address failed\n",
-			s32cc_pci->id);
+		dev_err(pci->dev, "(pcie%d): Write to address 0x%lx failed\n",
+			s32cc_pci->id, (uintptr_t)(base + reg));
 }
 
 void dw_pcie_writel_ctrl(struct s32cc_pcie *pci, u32 reg, u32 val)
@@ -300,16 +172,17 @@ out:
 
 static void s32cc_pcie_ep_init(struct dw_pcie_ep *ep)
 {
-	struct dw_pcie *pcie = to_dw_pcie_from_ep(ep);
-	struct pci_epc *epc = ep->epc;
-	int bar, ret = 0;
-
-	DEBUG_FUNC;
+	struct dw_pcie *pcie;
+	u32 tmp = 0;
+#ifndef CONFIG_PCI_EPF_TEST
+	int bar;
+#endif
 
 	if (!ep) {
 		pr_err("%s: No S32CC EP configuration found\n", __func__);
 		return;
 	}
+	pcie = to_dw_pcie_from_ep(ep);
 
 	dw_pcie_dbi_ro_wr_en(pcie);
 
@@ -317,19 +190,23 @@ static void s32cc_pcie_ep_init(struct dw_pcie_ep *ep)
 		/*
 		 * Configure the class and revision for the EP device,
 		 * to enable human friendly enumeration by the RC (e.g. by lspci)
+		 * EPF will set its own IDs.
 		 */
-		BSET32(pcie, dbi, PCI_CLASS_REVISION,
-		       ((PCI_BASE_CLASS_PROCESSOR << PCI_BASE_CLASS_OFF) |
-		       (PCI_SUBCLASS_OTHER << PCI_SUBCLASS_OFF)));
+		tmp = dw_pcie_readl_dbi(pcie, PCI_CLASS_REVISION) |
+				((PCI_BASE_CLASS_PROCESSOR << PCI_BASE_CLASS_OFF) |
+				(PCI_SUBCLASS_OTHER << PCI_SUBCLASS_OFF));
+		dw_pcie_writel_dbi(pcie, PCI_CLASS_REVISION, tmp);
 	}
 
-	pr_debug("%s: Enable MSI/MSI-X capabilities\n", __func__);
+	dev_dbg(pcie->dev, "%s: Enable MSI/MSI-X capabilities\n", __func__);
 
 	/* Enable MSIs by setting the capability bit */
-	BSET32(pcie, dbi, PCI_MSI_CAP, MSI_EN);
+	tmp = dw_pcie_readl_dbi(pcie, PCI_MSI_CAP) | MSI_EN;
+	dw_pcie_writel_dbi(pcie, PCI_MSI_CAP, tmp);
 
 	/* Enable MSI-Xs by setting the capability bit */
-	BSET32(pcie, dbi, PCI_MSIX_CAP, MSIX_EN);
+	tmp = dw_pcie_readl_dbi(pcie, PCI_MSIX_CAP) | MSIX_EN;
+	dw_pcie_writel_dbi(pcie, PCI_MSIX_CAP, tmp);
 
 	dw_pcie_dbi_ro_wr_dis(pcie);
 
@@ -339,19 +216,18 @@ static void s32cc_pcie_ep_init(struct dw_pcie_ep *ep)
 	dw_pcie_dbi_ro_wr_en(pcie);
 
 	/* CMD reg:I/O space, MEM space, and Bus Master Enable */
-	BSET32(pcie, dbi, PCI_COMMAND,
-	       PCI_COMMAND_IO | PCI_COMMAND_MEMORY | PCI_COMMAND_MASTER);
+	tmp = dw_pcie_readl_dbi(pcie, PCI_COMMAND) |
+			PCI_COMMAND_IO | PCI_COMMAND_MEMORY | PCI_COMMAND_MASTER;
+	dw_pcie_writel_dbi(pcie, PCI_COMMAND, tmp);
 
 	dw_pcie_dbi_ro_wr_dis(pcie);
 }
 
-/* Only for EP */
+/* Only for EP. Currently only one EP supported. */
 int s32cc_pcie_setup_outbound(struct s32cc_outbound_region *ptr_outb)
 {
 	int ret = 0;
 	struct pci_epc *epc;
-
-	DEBUG_FUNC;
 
 	if (!s32cc_pcie_ep) {
 		pr_err("%s: No S32CC EP configuration found\n", __func__);
@@ -361,7 +237,8 @@ int s32cc_pcie_setup_outbound(struct s32cc_outbound_region *ptr_outb)
 	epc = s32cc_pcie_ep->pcie.ep.epc;
 
 	if (!epc || !epc->ops) {
-		pr_err("Invalid S32CC EP configuration\n");
+		dev_err(s32cc_pcie_ep->pcie.dev,
+			"Invalid S32CC EP configuration\n");
 		return -ENODEV;
 	}
 
@@ -376,7 +253,7 @@ int s32cc_pcie_setup_outbound(struct s32cc_outbound_region *ptr_outb)
 }
 EXPORT_SYMBOL(s32cc_pcie_setup_outbound);
 
-/* Only for EP */
+/* Only for EP. Currently only one EP supported. */
 int s32cc_pcie_setup_inbound(struct s32cc_inbound_region *inb_str)
 {
 	int ret = 0;
@@ -386,8 +263,6 @@ int s32cc_pcie_setup_inbound(struct s32cc_inbound_region *inb_str)
 		.size = PCIE_EP_DEFAULT_BAR_SIZE
 	};
 
-	DEBUG_FUNC;
-
 	if (!s32cc_pcie_ep) {
 		pr_err("%s: No S32CC EP configuration found\n", __func__);
 		return -ENODEV;
@@ -396,7 +271,8 @@ int s32cc_pcie_setup_inbound(struct s32cc_inbound_region *inb_str)
 	epc = s32cc_pcie_ep->pcie.ep.epc;
 
 	if (!epc || !epc->ops) {
-		pr_err("Invalid S32CC EP configuration\n");
+		dev_err(s32cc_pcie_ep->pcie.dev,
+			"Invalid S32CC EP configuration\n");
 		return -ENODEV;
 	}
 
@@ -405,8 +281,9 @@ int s32cc_pcie_setup_inbound(struct s32cc_inbound_region *inb_str)
 
 	/* Setup inbound region */
 	bar_num = inb_str->bar_nr;
-	if (bar_num >= PCIE_NUM_BARS) {
-		pr_err("Invalid BAR number (%d)\n", bar_num);
+	if (bar_num >= BAR_5) {
+		dev_err(s32cc_pcie_ep->pcie.dev,
+			"Invalid BAR number (%d)\n", bar_num);
 		return -EINVAL;
 	}
 
@@ -420,12 +297,18 @@ EXPORT_SYMBOL(s32cc_pcie_setup_inbound);
 
 static void s32cc_pcie_enable_hot_unplug_irq(struct s32cc_pcie *pci)
 {
-	BSET32(pci, ctrl, LINK_INT_CTRL_STS, LINK_REQ_RST_NOT_INT_EN);
+	u32 tmp = dw_pcie_readl_ctrl(pci, LINK_INT_CTRL_STS) |
+			LINK_REQ_RST_NOT_INT_EN;
+
+	dw_pcie_writel_ctrl(pci, LINK_INT_CTRL_STS, tmp);
 }
 
 static void s32cc_pcie_disable_hot_unplug_irq(struct s32cc_pcie *pci)
 {
-	BCLR32(pci, ctrl, LINK_INT_CTRL_STS, LINK_REQ_RST_NOT_INT_EN);
+	u32 tmp = dw_pcie_readl_ctrl(pci, LINK_INT_CTRL_STS)
+			& ~(LINK_REQ_RST_NOT_INT_EN);
+
+	dw_pcie_writel_ctrl(pci, LINK_INT_CTRL_STS, tmp);
 }
 
 static void s32cc_pcie_disable_hot_plug_irq(struct dw_pcie *pcie)
@@ -454,15 +337,21 @@ static void s32cc_pcie_enable_hot_plug_irq(struct dw_pcie *pcie)
 
 static void s32cc_pcie_disable_ltssm(struct s32cc_pcie *pci)
 {
+	u32 tmp = dw_pcie_readl_ctrl(pci, PE0_GEN_CTRL_3)
+			& ~(LTSSM_EN_MASK);
+
 	dw_pcie_dbi_ro_wr_en(&pci->pcie);
-	BCLR32(pci, ctrl, PE0_GEN_CTRL_3, LTSSM_EN_MASK);
+	dw_pcie_writel_ctrl(pci, PE0_GEN_CTRL_3, tmp);
 	dw_pcie_dbi_ro_wr_dis(&pci->pcie);
 }
 
 static void s32cc_pcie_enable_ltssm(struct s32cc_pcie *pci)
 {
+	u32 tmp = dw_pcie_readl_ctrl(pci, PE0_GEN_CTRL_3) |
+				LTSSM_EN_MASK;
+
 	dw_pcie_dbi_ro_wr_en(&pci->pcie);
-	BSET32(pci, ctrl, PE0_GEN_CTRL_3, LTSSM_EN_MASK);
+	dw_pcie_writel_ctrl(pci, PE0_GEN_CTRL_3, tmp);
 	dw_pcie_dbi_ro_wr_dis(&pci->pcie);
 }
 
@@ -491,10 +380,11 @@ static int s32cc_pcie_link_is_up(struct dw_pcie *pcie)
 static int s32cc_pcie_get_link_speed(struct s32cc_pcie *s32cc_pp)
 {
 	struct dw_pcie *pcie = &s32cc_pp->pcie;
-	u32 link_sta = dw_pcie_readw_dbi(pcie, PCI_CAP_ID_EXP + PCI_EXP_LNKSTA);
+	u32 cap_offset = dw_pcie_find_capability(pcie, PCI_CAP_ID_EXP);
+	u32 link_sta = dw_pcie_readw_dbi(pcie, cap_offset + PCI_EXP_LNKSTA);
 
-	pr_debug("PCIe%d: Speed Gen%d\n", s32cc_pp->id,
-		 link_sta & PCI_EXP_LNKSTA_CLS);
+	dev_dbg(pcie->dev, "PCIe%d: Speed Gen%d\n", s32cc_pp->id,
+		link_sta & PCI_EXP_LNKSTA_CLS);
 
 	/* return link speed based on negotiated link status */
 	return link_sta & PCI_EXP_LNKSTA_CLS;
@@ -556,10 +446,8 @@ static int s32cc_enable_hotplug_cap(struct dw_pcie *pcie)
 static int s32cc_pcie_start_link(struct dw_pcie *pcie)
 {
 	struct s32cc_pcie *s32cc_pp = to_s32cc_from_dw_pcie(pcie);
-	u32 tmp;
+	u32 tmp, cap_offset;
 	int ret = 0, count;
-
-	DEBUG_FUNC;
 
 	/* Don't do anything for End Point */
 	if (s32cc_pp->is_endpoint)
@@ -570,8 +458,10 @@ static int s32cc_pcie_start_link(struct dw_pcie *pcie)
 	/* Try to (re)establish the link, starting with Gen1 */
 	s32cc_pcie_disable_ltssm(s32cc_pp);
 
-	BCLRSET16(pcie, dbi, PCI_CAP_ID_EXP + PCI_EXP_LNKCAP,
-		  PCI_EXP_LNKCAP_SLS_2_5GB, PCI_EXP_LNKCAP_SLS);
+	cap_offset = dw_pcie_find_capability(pcie, PCI_CAP_ID_EXP);
+	tmp = (dw_pcie_readl_dbi(pcie, cap_offset + PCI_EXP_LNKCAP) &
+			~(PCI_EXP_LNKCAP_SLS)) | PCI_EXP_LNKCAP_SLS_2_5GB;
+	dw_pcie_writel_dbi(pcie, cap_offset + PCI_EXP_LNKCAP, tmp);
 
 	/* Start LTSSM. */
 	s32cc_pcie_enable_ltssm(s32cc_pp);
@@ -585,9 +475,15 @@ static int s32cc_pcie_start_link(struct dw_pcie *pcie)
 		goto out;
 	}
 
-	/* Allow Gen2 or Gen3 mode after the link is up. */
-	BCLRSET16(pcie, dbi, PCI_CAP_ID_EXP + PCI_EXP_LNKCAP,
-		  s32cc_pp->linkspeed, PCI_EXP_LNKCAP_SLS);
+	/* Allow Gen2 or Gen3 mode after the link is up.
+	 * s32cc_pcie.linkspeed is one of the speeds defined in pci_regs.h:
+	 * PCI_EXP_LNKCAP_SLS_2_5GB for Gen1
+	 * PCI_EXP_LNKCAP_SLS_5_0GB for Gen2
+	 * PCI_EXP_LNKCAP_SLS_8_0GB for Gen3
+	 */
+	tmp = (dw_pcie_readl_dbi(pcie, cap_offset + PCI_EXP_LNKCAP) &
+			~(PCI_EXP_LNKCAP_SLS)) | s32cc_pp->linkspeed;
+	dw_pcie_writel_dbi(pcie, cap_offset + PCI_EXP_LNKCAP, tmp);
 
 	/*
 	 * Start Directed Speed Change so the best possible speed both link
@@ -600,8 +496,9 @@ static int s32cc_pcie_start_link(struct dw_pcie *pcie)
 	 * the speed change is initiated automatically after link up, and the
 	 * controller clears the contents of GEN2_CTRL_OFF.DIRECT_SPEED_CHANGE.
 	 */
-	BSET32(pcie, dbi, PCIE_LINK_WIDTH_SPEED_CONTROL,
-	       PORT_LOGIC_SPEED_CHANGE);
+	tmp = dw_pcie_readl_dbi(pcie, PCIE_LINK_WIDTH_SPEED_CONTROL) |
+			PORT_LOGIC_SPEED_CHANGE;
+	dw_pcie_writel_dbi(pcie, PCIE_LINK_WIDTH_SPEED_CONTROL, tmp);
 
 	count = 1000;
 	while (count--) {
@@ -644,12 +541,6 @@ static void s32cc_pcie_stop_link(struct dw_pcie *pcie)
 static irqreturn_t s32cc_pcie_msi_handler(int irq, void *arg)
 {
 	struct dw_pcie_rp *pp = arg;
-#ifdef DEBUG
-	struct dw_pcie *pcie = to_dw_pcie_from_pp(pp);
-	struct s32cc_pcie *s32cc_pci = to_s32cc_from_dw_pcie(pcie);
-
-	pr_debug("%s(pcie%d)\n", __func__, s32cc_pci->id);
-#endif
 
 	return dw_handle_msi_irq(pp);
 }
@@ -659,8 +550,6 @@ static int s32cc_pcie_host_init(struct dw_pcie_rp *pp)
 	struct dw_pcie *pcie = to_dw_pcie_from_pp(pp);
 	struct s32cc_pcie *s32cc_pci = to_s32cc_from_dw_pcie(pcie);
 	int ret;
-
-	DEBUG_FUNC;
 
 	ret = s32cc_pcie_start_link(pcie);
 	if (ret) {
@@ -698,8 +587,10 @@ static irqreturn_t s32cc_pcie_hot_unplug_irq(int irq, void *arg)
 {
 	struct s32cc_pcie *s32cc_pci = arg;
 	struct dw_pcie *pcie = &s32cc_pci->pcie;
+	u32 tmp = dw_pcie_readl_ctrl(s32cc_pci, LINK_INT_CTRL_STS) |
+				LINK_REQ_RST_NOT_CLR;
 
-	BSET32(s32cc_pci, ctrl, LINK_INT_CTRL_STS, LINK_REQ_RST_NOT_CLR);
+	dw_pcie_writel_ctrl(s32cc_pci, LINK_INT_CTRL_STS, tmp);
 
 	if (s32cc_pcie_link_is_up(pcie))
 		return IRQ_HANDLED;
@@ -748,8 +639,10 @@ out_unlock_rescan:
 static irqreturn_t s32cc_pcie_hot_plug_irq(int irq, void *arg)
 {
 	struct s32cc_pcie *s32cc_pci = arg;
+	u32 tmp = dw_pcie_readl_ctrl(s32cc_pci, PE0_INT_STS) |
+				HP_INT_STS;
 
-	BSET32(s32cc_pci, ctrl, PE0_INT_STS, HP_INT_STS);
+	dw_pcie_writel_ctrl(s32cc_pci, PE0_INT_STS, tmp);
 
 	/* if EP is not connected, we exit */
 	if (phy_validate(s32cc_pci->phy0, PHY_MODE_PCIE, 0, NULL))
@@ -803,8 +696,6 @@ static int s32cc_pcie_config_irq(int *irq_id, char *irq_name,
 				 irq_handler_t irq_handler, void *irq_arg)
 {
 	int ret = 0;
-
-	DEBUG_FUNC;
 
 	*(irq_id) = platform_get_irq_byname(pdev, irq_name);
 	if (*(irq_id) <= 0) {
@@ -867,8 +758,6 @@ static int __init s32cc_add_dw_pcie_rp(struct dw_pcie_rp *pp)
 	struct dw_pcie *pcie = to_dw_pcie_from_pp(pp);
 	int ret;
 
-	DEBUG_FUNC;
-
 	ret = dw_pcie_host_init(pp);
 	if (ret) {
 		dev_err(pcie->dev, "failed to initialize host\n");
@@ -881,22 +770,26 @@ static int __init s32cc_add_dw_pcie_rp(struct dw_pcie_rp *pp)
 static int s32cc_pcie_ep_raise_irq(struct dw_pcie_ep *ep, u8 func_no,
 				   enum pci_epc_irq_type type, u16 interrupt_num)
 {
-	struct dw_pcie *pci = to_dw_pcie_from_ep(ep);
+	struct dw_pcie *pci;
 
-	pr_debug_rw("%s: W32(0x%llx, 0x%x)\n", __func__, (uint64_t)(reg),
-		    (uint32_t)(write_data));
+	if (!ep) {
+		pr_err("%s: No S32CC EP configuration found\n", __func__);
+		return -ENODEV;
+	}
 
+	pci = to_dw_pcie_from_ep(ep);
 	switch (type) {
 	case PCI_EPC_IRQ_LEGACY:
-		pr_debug("%s: func %d: legacy int\n", __func__, func_no);
+		dev_dbg(pci->dev, "%s: func %d: legacy int\n",
+			__func__, func_no);
 		return dw_pcie_ep_raise_legacy_irq(ep, func_no);
 	case PCI_EPC_IRQ_MSI:
-		pr_debug("%s: func %d: MSI %d\n", __func__, func_no,
-			 interrupt_num);
+		dev_dbg(pci->dev, "%s: func %d: MSI %d\n",
+			__func__, func_no, interrupt_num);
 		return dw_pcie_ep_raise_msi_irq(ep, func_no, interrupt_num);
 	case PCI_EPC_IRQ_MSIX:
-		pr_debug("%s: func %d: MSI-X %d\n", __func__, func_no,
-			 interrupt_num);
+		dev_dbg(pci->dev, "%s: func %d: MSI-X %d\n",
+			__func__, func_no, interrupt_num);
 		return dw_pcie_ep_raise_msix_irq(ep, func_no, interrupt_num);
 	default:
 		dev_err(pci->dev, "%s: UNKNOWN IRQ type\n", __func__);
@@ -936,8 +829,6 @@ static int __init s32cc_add_pcie_ep(struct s32cc_pcie *s32cc_pp)
 	struct dw_pcie_ep *ep = &pcie->ep;
 	struct device *dev = pcie->dev;
 
-	DEBUG_FUNC;
-
 	ep->ops = &s32cc_pcie_ep_ops;
 
 	ret = dw_pcie_ep_init(ep);
@@ -953,8 +844,6 @@ static void s32cc_pcie_shutdown(struct platform_device *pdev)
 {
 	struct s32cc_pcie *s32cc_pp = platform_get_drvdata(pdev);
 
-	DEBUG_FUNC;
-
 	if (!s32cc_pp->is_endpoint) {
 		/* bring down link, so bootloader gets clean state
 		 * in case of reboot
@@ -967,12 +856,6 @@ static void s32cc_pcie_shutdown(struct platform_device *pdev)
 
 	mdelay(PCIE_CX_CPL_BASE_TIMER_VALUE);
 }
-
-struct s32cc_pcie *s32cc_get_dw_pcie(void)
-{
-	return s32cc_pcie_ep;
-}
-EXPORT_SYMBOL(s32cc_get_dw_pcie);
 
 static const struct of_device_id s32cc_pcie_of_match[];
 
@@ -1037,22 +920,22 @@ static int s32cc_pcie_dt_init(struct platform_device *pdev,
 	pcie->dbi_base = devm_platform_ioremap_resource_byname(pdev, "dbi");
 	if (IS_ERR(pcie->dbi_base))
 		return PTR_ERR(pcie->dbi_base);
-	dev_dbg(dev, "dbi virt: 0x%p\n", pcie->dbi_base);
+	dev_dbg(dev, "dbi virt: 0x" PTR_FMT "\n", pcie->dbi_base);
 
 	pcie->dbi_base2 = devm_platform_ioremap_resource_byname(pdev, "dbi2");
 	if (IS_ERR(pcie->dbi_base2))
 		return PTR_ERR(pcie->dbi_base2);
-	dev_dbg(dev, "dbi2 virt: 0x%p\n", pcie->dbi_base2);
+	dev_dbg(dev, "dbi2 virt: 0x" PTR_FMT "\n", pcie->dbi_base2);
 
 	pcie->atu_base = devm_platform_ioremap_resource_byname(pdev, "atu");
 	if (IS_ERR(pcie->atu_base))
 		return PTR_ERR(pcie->atu_base);
-	dev_dbg(dev, "atu virt: 0x%p\n", pcie->atu_base);
+	dev_dbg(dev, "atu virt: 0x" PTR_FMT "\n", pcie->atu_base);
 
 	s32cc_pp->ctrl_base = devm_platform_ioremap_resource_byname(pdev, "ctrl");
 	if (IS_ERR(s32cc_pp->ctrl_base))
 		return PTR_ERR(s32cc_pp->ctrl_base);
-	dev_dbg(dev, "ctrl virt: 0x%p\n", s32cc_pp->ctrl_base);
+	dev_dbg(dev, "ctrl virt: 0x" PTR_FMT "\n", s32cc_pp->ctrl_base);
 
 	s32cc_pp->linkspeed = (enum pcie_link_speed)of_pci_get_max_link_speed(np);
 	if (s32cc_pp->linkspeed < GEN1 || s32cc_pp->linkspeed > GEN3) {
@@ -1106,16 +989,21 @@ static int init_pcie(struct s32cc_pcie *pci)
 	struct device *dev = pcie->dev;
 	u32 val;
 
-	if (pci->is_endpoint)
-		W32(pci, ctrl, PE0_GEN_CTRL_1,
-		    BUILD_MASK_VALUE(DEVICE_TYPE, PCIE_EP));
-	else
-		W32(pci, ctrl, PE0_GEN_CTRL_1,
-		    BUILD_MASK_VALUE(DEVICE_TYPE, PCIE_RC));
+	if (pci->is_endpoint) {
+		val = dw_pcie_readl_ctrl(pci, PE0_GEN_CTRL_1) |
+				BUILD_MASK_VALUE(DEVICE_TYPE, PCIE_EP);
+		dw_pcie_writel_ctrl(pci, PE0_GEN_CTRL_1, val);
+	} else {
+		val = dw_pcie_readl_ctrl(pci, PE0_GEN_CTRL_1) |
+				BUILD_MASK_VALUE(DEVICE_TYPE, PCIE_RC);
+		dw_pcie_writel_ctrl(pci, PE0_GEN_CTRL_1, val);
+	}
 
-	if (pci->phy_mode == SRIS)
-		BSET32(pci, ctrl, PE0_GEN_CTRL_1,
-		       SRIS_MODE_MASK);
+	if (pci->phy_mode == SRIS) {
+		val = dw_pcie_readl_ctrl(pci, PE0_GEN_CTRL_1) |
+				SRIS_MODE_MASK;
+		dw_pcie_writel_ctrl(pci, PE0_GEN_CTRL_1, val);
+	}
 
 	/* Enable writing dbi registers */
 	dw_pcie_dbi_ro_wr_en(pcie);
@@ -1420,7 +1308,7 @@ static int s32cc_pcie_config_common(struct s32cc_pcie *s32cc_pp,
 			ret = s32cc_pcie_config_irq(&pp->msi_irq[0], "msi", pdev,
 						    s32cc_pcie_msi_handler, pp);
 			if (ret) {
-				dev_err(&pdev->dev, "failed to request msi irq\n");
+				dev_err(dev, "failed to request msi irq\n");
 				return ret;
 			}
 		}
@@ -1431,14 +1319,14 @@ static int s32cc_pcie_config_common(struct s32cc_pcie *s32cc_pp,
 			ret = s32cc_pcie_config_irq(&pcie->pp.msi_irq[0], "msi", pdev,
 						    s32cc_pcie_msi_handler, &pcie->pp);
 			if (ret) {
-				dev_err(&pdev->dev, "failed to request msi irq\n");
+				dev_err(dev, "failed to request msi irq\n");
 				return ret;
 			}
 
 			pp->num_vectors = MSI_DEF_NUM_VECTORS;
 			ret = dw_pcie_allocate_domains(pp);
 			if (ret)
-				dev_err(pcie->dev, "Unable to setup MSI domain for EP\n");
+				dev_err(dev, "Unable to setup MSI domain for EP\n");
 
 			if (pp->msi_irq)
 				irq_set_chained_handler_and_data(pp->msi_irq[0],
@@ -1522,8 +1410,6 @@ static int s32cc_pcie_probe(struct platform_device *pdev)
 	struct dw_pcie *pcie;
 	struct phy *phy;
 	int ret = 0;
-
-	DEBUG_FUNC;
 
 	ret = s32cc_check_serdes(dev);
 	if (ret)
