@@ -12,6 +12,7 @@
 #include <linux/types.h>
 #include <linux/version.h>
 #include <linux/phy/phy.h>
+#include <uapi/linux/pci_regs.h>
 #include <linux/pcie/nxp-s32cc-pcie-phy-submode.h>
 #include "pcie-designware.h"
 
@@ -27,9 +28,6 @@
 #define PCI_MSIX_CAP	0xB0
 /* MSI-X Enable bit */
 #define MSIX_EN			BIT(31)
-
-/* PCIe Capabilities ID and next pointer register */
-#define PCI_EXP_CAP_ID			0x70
 
 /* PCIe controller 0 general control 1 (PE0_GEN_CTRL_1) */
 #define PE0_GEN_CTRL_1			0x50
@@ -137,5 +135,14 @@ struct s32cc_outbound_region {
 
 void dw_pcie_writel_ctrl(struct s32cc_pcie *pci, u32 reg, u32 val);
 u32 dw_pcie_readl_ctrl(struct s32cc_pcie *pci, u32 reg);
+
+/* Get the EndPoint data (if any) for the controller with the given ID */
+struct s32cc_pcie *s32cc_get_dw_pcie(int pcie_ep_id);
+
+/* Configure Outbound window from ptr_outb for the corresponding EndPoint */
+int s32cc_pcie_setup_outbound(struct s32cc_outbound_region *ptr_outb);
+
+/* Configure Inbound window from ptr_inb for the corresponding EndPoint */
+int s32cc_pcie_setup_inbound(struct s32cc_inbound_region *ptr_inb);
 
 #endif	/*	PCIE_S32CC_H	*/
