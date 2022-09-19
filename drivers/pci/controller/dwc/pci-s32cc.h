@@ -16,6 +16,7 @@
 #include <linux/pcie/nxp-s32cc-pcie-phy-submode.h>
 
 #include "pcie-designware.h"
+#include "pci-ioctl-s32cc.h"
 #include "pci-dma-s32cc.h"
 
 #define BUILD_BIT_VALUE(field, x) (((x) & (1)) << field##_BIT)
@@ -77,14 +78,6 @@ enum pcie_link_speed {
 	GEN3 = 0x3
 };
 
-#ifdef CONFIG_PCI_S32CC_ACCESS_FROM_USER
-struct userspace_info {
-	int			user_pid;
-	struct siginfo	info;    /* signal information */
-	int (*send_signal_to_user)(struct s32v234_pcie *s32v234_pcie);
-};
-#endif
-
 struct callback {
 	void (*call_back)(u32 arg);
 	struct list_head callback_list;
@@ -121,24 +114,6 @@ struct s32cc_pcie {
 	/* TODO: change this to a list */
 	void (*call_back)(u32 arg);
 	struct phy *phy0, *phy1;
-};
-
-struct s32cc_inbound_region {
-	int pcie_id; /* must match the id of a device tree pcie node */
-	u32 bar_nr;
-	u32 target_addr;
-	u32 region; /* for backwards compatibility */
-};
-
-struct s32cc_outbound_region {
-	int pcie_id; /* must match the id of a device tree pcie node */
-	u64 target_addr;
-	u64 base_addr;
-	u32 size;
-	/* region_type - for backwards compatibility;
-	 * must be PCIE_ATU_TYPE_MEM
-	 */
-	u32 region_type;
 };
 
 void dw_pcie_writel_ctrl(struct s32cc_pcie *pci, u32 reg, u32 val);
