@@ -1127,6 +1127,19 @@ static void linflex_config_port(struct uart_port *port, int flags)
 		port->type = PORT_LINFLEXUART;
 }
 
+static int linflex_verify_port(struct uart_port *port, struct serial_struct *ser)
+{
+	if ((ser->type != PORT_UNKNOWN && ser->type != PORT_LINFLEXUART) ||
+	    port->irq != ser->irq ||
+	    ser->io_type != UPIO_MEM ||
+	    (port->uartclk / 16 != ser->baud_base) ||
+	    port->iobase != ser->port ||
+	    ser->hub6 != 0)
+		return -EINVAL;
+
+	return 0;
+}
+
 #ifdef CONFIG_CONSOLE_POLL
 static int linflex_poll_init(struct uart_port *port)
 {
@@ -1237,6 +1250,7 @@ static const struct uart_ops linflex_pops = {
 	.request_port	= linflex_request_port,
 	.release_port	= linflex_release_port,
 	.config_port	= linflex_config_port,
+	.verify_port	= linflex_verify_port,
 	.flush_buffer	= linflex_flush_buffer,
 #ifdef CONFIG_CONSOLE_POLL
 	.poll_get_char	= linflex_poll_getchar,
