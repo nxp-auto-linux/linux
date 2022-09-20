@@ -57,15 +57,12 @@ config PCI_S32CC
 	or EP mode, you should enable this.
 	Otherwise you should set it to 'no'
 
-config PCI_S32CC_INIT_EP_BARS
-	bool "Initialize BARs in EP mode for S32CC PCIe"
+config PCI_S32CC_IOCTL_LIMIT_ONE_ENDPOINT
+	bool "Limit ioctl configuration to one endpoint"
 	depends on PCI_S32CC
-	depends on (!PCI_EPF_TEST)
+	default false
 	help
-	Initialize BARs and inbound windows in EP mode, using as base address
-	a reserved memory area defined in the device tree.
-	It conflicts with the EPF Testing framework, as they both configure
-	EP BARs.
+	Use this with legacy test applications which can only handle one endpoint.
 
 config PCI_S32CC_EP_MSI
 	bool "Enable MSI support in EP mode for S32CC PCIe"
