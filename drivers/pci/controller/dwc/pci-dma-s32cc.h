@@ -57,6 +57,7 @@
 #define PCIE_DMA_CH_BASE				(0x100)
 /* This is the base register offset to be used for the unrolled layout */
 #define PCIE_DMA_CH_BASE_UNROLL			(0x200)
+#define PCIE_DMA_IATU_INBOUND_OFF		(0x100)
 
 #define PCIE_DMA_CH_CONTROL1_OFF		(0x00)
 #define PCIE_DMA_CH_CONTROL2_OFF		(0x04)
