@@ -88,6 +88,9 @@ struct pci_epc_ops {
 	void	(*stop)(struct pci_epc *epc);
 	const struct pci_epc_features* (*get_features)(struct pci_epc *epc,
 						       u8 func_no, u8 vfunc_no);
+	int	(*start_dma)(struct pci_epc *epc, u8 func_no, u8 vfunc_no,
+			bool dir, dma_addr_t src, dma_addr_t dst, u32 len,
+			struct completion *complete);
 	struct module *owner;
 };
 

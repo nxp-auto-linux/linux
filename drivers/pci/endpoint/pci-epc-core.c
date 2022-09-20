@@ -208,6 +208,44 @@ int pci_epc_start(struct pci_epc *epc)
 EXPORT_SYMBOL_GPL(pci_epc_start);
 
 /**
+ * pci_epc_start_dma() - start the DMA operation at EP side
+ * @epc: the EPC device which starts the DMA operations to the host
+ * @func_no: the endpoint function number in the EPC device
+ * @dir: direction of the DMA operations; 1 read, 0 write
+ * @src: the source address of the DMA operation
+ * @dst: the destination address of the DMA operation
+ * @len: the data size of the DMA operation
+ * @complete: the data used for signalling completion
+ *
+ * Invoke to start the DMA read or write operation
+ */
+int pci_epc_start_dma(struct pci_epc *epc, u8 func_no, u8 vfunc_no,
+		bool dir, dma_addr_t src, dma_addr_t dst, u32 len,
+		struct completion *complete)
+{
+	int ret;
+
+	if (IS_ERR_OR_NULL(epc) || func_no >= epc->max_functions)
+		return -EINVAL;
+
+	if (vfunc_no > 0 && (!epc->max_vfs || vfunc_no > epc->max_vfs[func_no]))
+		return -EINVAL;
+
+	if (IS_ERR_OR_NULL(epc->ops->start_dma)) {
+		dev_err(&epc->dev, "No single transfer DMA function configured\n");
+		return -EINVAL;
+	}
+
+	mutex_lock(&epc->lock);
+	ret = epc->ops->start_dma(epc, func_no, vfunc_no, dir,
+			src, dst, len, complete);
+	mutex_unlock(&epc->lock);
+
+	return ret;
+}
+EXPORT_SYMBOL_GPL(pci_epc_start_dma);
+
+/**
  * pci_epc_raise_irq() - interrupt the host system
  * @epc: the EPC device which has to interrupt the host
  * @func_no: the physical endpoint function number in the EPC device
