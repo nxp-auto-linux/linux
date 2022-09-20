@@ -60,6 +60,48 @@
 #define PCI_SUBCLASS_OFF	16
 
 #define PCIE_EP_DEFAULT_BAR_SIZE	SZ_1M
+#define PCI_BASE_ADDRESS_MEM_NON_PREFETCH	0x00	/* non-prefetchable */
+#define PCIE_EP_BAR_DEFAULT_INIT_FLAGS	(PCI_BASE_ADDRESS_SPACE_MEMORY | \
+			PCI_BASE_ADDRESS_MEM_TYPE_32 | \
+			PCI_BASE_ADDRESS_MEM_NON_PREFETCH)
+
+#ifdef CONFIG_PCI_S32CC_IOCTL_LIMIT_ONE_ENDPOINT
+
+#ifndef CONFIG_SYS_PCI_EP_MEMORY_BASE
+#define CONFIG_SYS_PCI_EP_MEMORY_BASE 0xc0000000
+#endif /* CONFIG_SYS_PCI_EP_MEMORY_BASE */
+
+/* EP BARs */
+
+#define PCIE_EP_BAR0_ADDR		CONFIG_SYS_PCI_EP_MEMORY_BASE
+#define PCIE_EP_BAR0_SIZE		SZ_1M
+#define PCIE_EP_BAR1_ADDR		(PCIE_EP_BAR0_ADDR + PCIE_EP_BAR0_SIZE)
+#define PCIE_EP_BAR1_SIZE		0
+#define PCIE_EP_BAR2_ADDR		(PCIE_EP_BAR1_ADDR + PCIE_EP_BAR1_SIZE)
+#define PCIE_EP_BAR2_SIZE		(4 * SZ_1M)
+#define PCIE_EP_BAR3_ADDR		(PCIE_EP_BAR2_ADDR + PCIE_EP_BAR2_SIZE)
+#define PCIE_EP_BAR3_SIZE		0
+#define PCIE_EP_BAR4_ADDR		(PCIE_EP_BAR3_ADDR + PCIE_EP_BAR3_SIZE)
+#define PCIE_EP_BAR4_SIZE		0
+#define PCIE_EP_BAR5_ADDR		(PCIE_EP_BAR4_ADDR + PCIE_EP_BAR4_SIZE)
+#define PCIE_EP_BAR5_SIZE		0
+
+#define PCIE_EP_BAR_INIT(bar_no) \
+		{PCIE_EP_BAR ## bar_no ## _ADDR, \
+			NULL, \
+			PCIE_EP_BAR ## bar_no ## _SIZE, \
+			BAR_ ## bar_no, \
+			PCIE_EP_BAR_DEFAULT_INIT_FLAGS}
+
+static struct pci_epf_bar s32cc_ep_bars[] = {
+		PCIE_EP_BAR_INIT(0),
+		PCIE_EP_BAR_INIT(1),
+		PCIE_EP_BAR_INIT(2),
+		PCIE_EP_BAR_INIT(3),
+		PCIE_EP_BAR_INIT(4),
+		PCIE_EP_BAR_INIT(5)
+};
+#endif
 
 #define PCI_DEVICE_ID_SHIFT	16
 
@@ -289,10 +331,15 @@ struct s32cc_pcie *s32cc_get_dw_pcie(int pcie_ep_id)
 
 	mutex_lock(&s32cc_pcie_ep_list_mutex);
 	list_for_each_entry(pci_node, &s32cc_pcie_ep_list, list) {
+#ifndef CONFIG_PCI_S32CC_IOCTL_LIMIT_ONE_ENDPOINT
 		if (pci_node->ep->id == pcie_ep_id) {
 			res = pci_node->ep;
 			break;
 		}
+#else
+		res = pci_node->ep;
+		break;
+#endif
 	}
 	mutex_unlock(&s32cc_pcie_ep_list_mutex);
 
@@ -338,9 +385,6 @@ static void s32cc_pcie_ep_init(struct dw_pcie_ep *ep)
 {
 	struct dw_pcie *pcie;
 	u32 tmp = 0;
-#ifndef CONFIG_PCI_EPF_TEST
-	int bar;
-#endif
 
 	if (!ep) {
 		pr_err("%s: No S32CC EP configuration found\n", __func__);
@@ -355,7 +399,6 @@ static void s32cc_pcie_ep_init(struct dw_pcie_ep *ep)
 
 	dw_pcie_dbi_ro_wr_en(pcie);
 
-#ifndef CONFIG_PCI_EPF_TEST
 	/*
 	 * Configure the class and revision for the EP device,
 	 * to enable human friendly enumeration by the RC (e.g. by lspci)
@@ -365,7 +408,6 @@ static void s32cc_pcie_ep_init(struct dw_pcie_ep *ep)
 			((PCI_BASE_CLASS_PROCESSOR << PCI_BASE_CLASS_OFF) |
 			(PCI_SUBCLASS_OTHER << PCI_SUBCLASS_OFF));
 	dw_pcie_writel_dbi(pcie, PCI_CLASS_REVISION, tmp);
-#endif
 
 	dev_dbg(pcie->dev, "%s: Enable MSI/MSI-X capabilities\n", __func__);
 
@@ -376,14 +418,6 @@ static void s32cc_pcie_ep_init(struct dw_pcie_ep *ep)
 	/* Enable MSI-Xs by setting the capability bit */
 	tmp = dw_pcie_readl_dbi(pcie, PCI_MSIX_CAP) | MSIX_EN;
 	dw_pcie_writel_dbi(pcie, PCI_MSIX_CAP, tmp);
-
-	dw_pcie_dbi_ro_wr_dis(pcie);
-
-#ifndef CONFIG_PCI_EPF_TEST
-	/* Reset the BARs if not configured later by EPF */
-	for (bar = BAR_0; bar <= BAR_5; bar++)
-		dw_pcie_ep_reset_bar(pcie, bar);
-#endif
 
 	dw_pcie_dbi_ro_wr_en(pcie);
 
@@ -407,13 +441,21 @@ int s32cc_pcie_setup_outbound(struct s32cc_outbound_region *ptr_outb)
 		return -EINVAL;
 	}
 
+#ifndef CONFIG_PCI_S32CC_IOCTL_LIMIT_ONE_ENDPOINT
 	s32cc_pcie_ep = s32cc_get_dw_pcie(ptr_outb->pcie_id);
-
 	if (IS_ERR(s32cc_pcie_ep)) {
 		pr_err("%s: No S32CC EP configuration found for PCIe%d\n",
 			__func__, ptr_outb->pcie_id);
 		return -ENODEV;
 	}
+#else
+	s32cc_pcie_ep = s32cc_get_dw_pcie(0);
+	if (IS_ERR(s32cc_pcie_ep)) {
+		pr_err("%s: No S32CC EP configuration found\n",
+			__func__);
+		return -ENODEV;
+	}
+#endif
 	dev_dbg(s32cc_pcie_ep->pcie.dev, "%s\n", __func__);
 
 	epc = s32cc_pcie_ep->pcie.ep.epc;
@@ -432,15 +474,19 @@ int s32cc_pcie_setup_outbound(struct s32cc_outbound_region *ptr_outb)
 }
 EXPORT_SYMBOL(s32cc_pcie_setup_outbound);
 
-/* Only for EP. Currently only one EP supported. */
 int s32cc_pcie_setup_inbound(struct s32cc_inbound_region *ptr_inb)
 {
 	int ret = 0;
 	struct pci_epc *epc;
 	int bar_num;
+#ifdef CONFIG_PCI_S32CC_IOCTL_LIMIT_ONE_ENDPOINT
+	int idx;
+#else
 	struct pci_epf_bar bar = {
-		.size = PCIE_EP_DEFAULT_BAR_SIZE
+		.size = PCIE_EP_DEFAULT_BAR_SIZE,
+		.flags = PCIE_EP_BAR_DEFAULT_INIT_FLAGS,
 	};
+#endif
 	struct s32cc_pcie *s32cc_pcie_ep;
 
 	if (!ptr_inb) {
@@ -448,13 +494,22 @@ int s32cc_pcie_setup_inbound(struct s32cc_inbound_region *ptr_inb)
 		return -EINVAL;
 	}
 
+#ifndef CONFIG_PCI_S32CC_IOCTL_LIMIT_ONE_ENDPOINT
 	s32cc_pcie_ep = s32cc_get_dw_pcie(ptr_inb->pcie_id);
-
 	if (IS_ERR(s32cc_pcie_ep)) {
 		pr_err("%s: No S32CC EP configuration found for PCIe%d\n",
 			__func__, ptr_inb->pcie_id);
 		return -ENODEV;
 	}
+#else
+	s32cc_pcie_ep = s32cc_get_dw_pcie(0);
+	if (IS_ERR(s32cc_pcie_ep)) {
+		pr_err("%s: No S32CC EP configuration found\n",
+			__func__);
+		return -ENODEV;
+	}
+#endif
+
 	dev_dbg(s32cc_pcie_ep->pcie.dev, "%s\n", __func__);
 
 	epc = s32cc_pcie_ep->pcie.ep.epc;
@@ -467,15 +522,44 @@ int s32cc_pcie_setup_inbound(struct s32cc_inbound_region *ptr_inb)
 
 	/* Setup inbound region */
 	bar_num = ptr_inb->bar_nr;
-	if (bar_num >= BAR_5) {
+	if (bar_num < BAR_0 || bar_num >= BAR_5) {
 		dev_err(s32cc_pcie_ep->pcie.dev,
 			"Invalid BAR number (%d)\n", bar_num);
 		return -EINVAL;
 	}
 
+#ifndef CONFIG_PCI_S32CC_IOCTL_LIMIT_ONE_ENDPOINT
 	bar.barno = bar_num;
 	bar.phys_addr = ptr_inb->target_addr;
 	ret = epc->ops->set_bar(epc, 0, 0, &bar);
+#else
+
+	s32cc_ep_bars[bar_num].phys_addr = ptr_inb->target_addr;
+	if (!s32cc_ep_bars[bar_num].size)
+		s32cc_ep_bars[bar_num].size = PCIE_EP_DEFAULT_BAR_SIZE;
+
+	/* Setup BARs and inbound regions, up to BAR4 inclusivelly */
+	for (idx = bar_num; (idx < BAR_5); idx++) {
+		if (s32cc_ep_bars[idx].size) {
+			ret = epc->ops->set_bar(epc, 0, 0,
+					&s32cc_ep_bars[idx]);
+			if (idx + 1 <= BAR_5) {
+				dma_addr_t	next_phys_addr =
+					s32cc_ep_bars[idx].phys_addr +
+					s32cc_ep_bars[idx].size;
+
+				/* shift following BARs if address spaces interfere */
+				if (next_phys_addr > s32cc_ep_bars[idx + 1].phys_addr)
+					s32cc_ep_bars[idx + 1].phys_addr = next_phys_addr;
+			}
+			if (ret) {
+				dev_err(s32cc_pcie_ep->pcie.dev,
+						"%s: Unable to init BAR%d\n",
+						__func__, idx);
+			}
+		}
+	}
+#endif
 
 	return ret;
 }
@@ -1181,7 +1265,7 @@ static int s32cc_pcie_dt_init(struct platform_device *pdev,
 	dev_dbg(dev, "ctrl: %pR\n", res);
 	dev_dbg(dev, "ctrl virt: 0x" PTR_FMT "\n", s32cc_pp->ctrl_base);
 
-	s32cc_pp->linkspeed = of_pci_get_max_link_speed(np);
+	s32cc_pp->linkspeed = (enum pcie_link_speed)of_pci_get_max_link_speed(np);
 	if (s32cc_pp->linkspeed < GEN1 || s32cc_pp->linkspeed > GEN3) {
 		dev_warn(dev, "Invalid PCIe speed; setting to GEN1\n");
 		s32cc_pp->linkspeed = GEN1;
