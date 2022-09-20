@@ -212,12 +212,8 @@ static void s32cc_pcie_ep_init(struct dw_pcie_ep *ep)
 	tmp = dw_pcie_readl_dbi(pcie, PCI_MSIX_CAP) | MSIX_EN;
 	dw_pcie_writel_dbi(pcie, PCI_MSIX_CAP, tmp);
 
-	dw_pcie_dbi_ro_wr_dis(pcie);
-
 	for (bar = BAR_0; bar <= BAR_5; bar++)
 		dw_pcie_ep_reset_bar(pcie, bar);
-
-	dw_pcie_dbi_ro_wr_en(pcie);
 
 	/* CMD reg:I/O space, MEM space, and Bus Master Enable */
 	tmp = dw_pcie_readl_dbi(pcie, PCI_COMMAND) |
@@ -457,15 +453,15 @@ static int s32cc_pcie_start_link(struct dw_pcie *pcie)
 	if (s32cc_pp->is_endpoint)
 		return 0;
 
-	dw_pcie_dbi_ro_wr_en(pcie);
-
 	/* Try to (re)establish the link, starting with Gen1 */
 	s32cc_pcie_disable_ltssm(s32cc_pp);
 
+	dw_pcie_dbi_ro_wr_en(pcie);
 	cap_offset = dw_pcie_find_capability(pcie, PCI_CAP_ID_EXP);
 	tmp = (dw_pcie_readl_dbi(pcie, cap_offset + PCI_EXP_LNKCAP) &
 			~(PCI_EXP_LNKCAP_SLS)) | PCI_EXP_LNKCAP_SLS_2_5GB;
 	dw_pcie_writel_dbi(pcie, cap_offset + PCI_EXP_LNKCAP, tmp);
+	dw_pcie_dbi_ro_wr_dis(pcie);
 
 	/* Start LTSSM. */
 	s32cc_pcie_enable_ltssm(s32cc_pp);
@@ -479,6 +475,7 @@ static int s32cc_pcie_start_link(struct dw_pcie *pcie)
 		goto out;
 	}
 
+	dw_pcie_dbi_ro_wr_en(pcie);
 	/* Allow Gen2 or Gen3 mode after the link is up.
 	 * s32cc_pcie.linkspeed is one of the speeds defined in pci_regs.h:
 	 * PCI_EXP_LNKCAP_SLS_2_5GB for Gen1
@@ -503,6 +500,7 @@ static int s32cc_pcie_start_link(struct dw_pcie *pcie)
 	tmp = dw_pcie_readl_dbi(pcie, PCIE_LINK_WIDTH_SPEED_CONTROL) |
 			PORT_LOGIC_SPEED_CHANGE;
 	dw_pcie_writel_dbi(pcie, PCIE_LINK_WIDTH_SPEED_CONTROL, tmp);
+	dw_pcie_dbi_ro_wr_dis(pcie);
 
 	count = 1000;
 	while (count--) {
@@ -527,7 +525,6 @@ static int s32cc_pcie_start_link(struct dw_pcie *pcie)
 	}
 
 out:
-	dw_pcie_dbi_ro_wr_dis(pcie);
 	return ret;
 }
 
@@ -1015,11 +1012,15 @@ static void disable_equalization(struct dw_pcie *pcie)
 {
 	u32 val;
 
+	dw_pcie_dbi_ro_wr_en(pcie);
+
 	val = dw_pcie_readl_dbi(pcie, PORT_LOGIC_GEN3_EQ_CONTROL);
 	val &= ~(PCIE_GEN3_EQ_FB_MODE | PCIE_GEN3_EQ_PSET_REQ_VEC);
 	val |= BUILD_MASK_VALUE(PCIE_GEN3_EQ_FB_MODE, 1) |
 		 BUILD_MASK_VALUE(PCIE_GEN3_EQ_PSET_REQ_VEC, 0x84);
 	dw_pcie_writel_dbi(pcie, PORT_LOGIC_GEN3_EQ_CONTROL, val);
+
+	dw_pcie_dbi_ro_wr_dis(pcie);
 
 	/* Test value */
 	dev_dbg(pcie->dev, "PCIE_PORT_LOGIC_GEN3_EQ_CONTROL: 0x%08x\n",
@@ -1054,6 +1055,7 @@ static void s32cc_pcie_reset_mstr_ace(struct dw_pcie *pcie)
 	u32 ddr_base_low = lower_32_bits(ddr_base_addr);
 	u32 ddr_base_high = upper_32_bits(ddr_base_addr);
 
+	dw_pcie_dbi_ro_wr_en(pcie);
 	dw_pcie_writel_dbi(pcie, PORT_LOGIC_COHERENCY_CONTROL_3, 0x0);
 	/* Transactions to peripheral targets should be non-coherent,
 	 * or Ncore might drop them. Define the start of DDR as seen by Linux
@@ -1066,6 +1068,7 @@ static void s32cc_pcie_reset_mstr_ace(struct dw_pcie *pcie)
 			   (ddr_base_low & CC_1_MEMTYPE_BOUNDARY_MASK) |
 			   (CC_1_MEMTYPE_LOWER_PERIPH & CC_1_MEMTYPE_VALUE_MASK));
 	dw_pcie_writel_dbi(pcie, PORT_LOGIC_COHERENCY_CONTROL_2, ddr_base_high);
+	dw_pcie_dbi_ro_wr_dis(pcie);
 }
 
 static int init_pcie(struct s32cc_pcie *pci)
@@ -1097,11 +1100,15 @@ static int init_pcie(struct s32cc_pcie *pci)
 	val = dw_pcie_readl_dbi(pcie, PCIE_LINK_WIDTH_SPEED_CONTROL);
 	val |= PORT_LOGIC_SPEED_CHANGE;
 	dw_pcie_writel_dbi(pcie, PCIE_LINK_WIDTH_SPEED_CONTROL, val);
+	dw_pcie_dbi_ro_wr_dis(pcie);
 
 	/* Disable phase 2,3 equalization */
 	disable_equalization(pcie);
 
+	/* Make sure DBI registers are R/W - see dw_pcie_setup_rc */
+	dw_pcie_dbi_ro_wr_en(pcie);
 	dw_pcie_setup(pcie);
+	dw_pcie_dbi_ro_wr_dis(pcie);
 
 	/* Make sure we use the coherency defaults (just in case the settings
 	 * have been changed from their reset values
@@ -1111,6 +1118,9 @@ static int init_pcie(struct s32cc_pcie *pci)
 	/* Test value for coherency control reg */
 	dev_dbg(dev, "COHERENCY_CONTROL_3_OFF: 0x%08x\n",
 		dw_pcie_readl_dbi(pcie, PORT_LOGIC_COHERENCY_CONTROL_3));
+
+	/* Make sure DBI registers are R/W */
+	dw_pcie_dbi_ro_wr_en(pcie);
 
 	val = dw_pcie_readl_dbi(pcie, PORT_LOGIC_PORT_FORCE_OFF);
 	val |= PCIE_DO_DESKEW_FOR_SRIS;
