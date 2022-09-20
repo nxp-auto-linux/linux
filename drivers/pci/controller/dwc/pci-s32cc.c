@@ -1099,8 +1099,8 @@ static int s32cc_pcie_ep_raise_irq(struct dw_pcie_ep *ep, u8 func_no,
 
 static const struct pci_epc_features s32cc_pcie_epc_features = {
 	.linkup_notifier = false,
-	.msi_capable = true,
-	.msix_capable = false,
+	.msi_capable = false,
+	.msix_capable = true,
 	.reserved_bar = BIT(BAR_1) | BIT(BAR_5),
 	.bar_fixed_64bit = BIT(BAR_0),
 	.bar_fixed_size[0] = SZ_1M,
