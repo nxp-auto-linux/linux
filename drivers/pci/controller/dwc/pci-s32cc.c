@@ -1190,7 +1190,7 @@ static int s32cc_pcie_dt_init(struct platform_device *pdev,
 	const struct s32cc_pcie_data *data;
 	enum dw_pcie_device_mode mode;
 	struct dw_pcie_ep *ep = &pcie->ep;
-	u32 pcie_vendor_id, pcie_variant_bits = 0;
+	u32 pcie_vendor_id = PCI_VENDOR_ID_FREESCALE, pcie_variant_bits = 0;
 	int ret;
 #ifndef CONFIG_PCI_S32CC_IOCTL_LIMIT_ONE_ENDPOINT
 	struct device_node *shmn;
@@ -1312,16 +1312,30 @@ static int s32cc_pcie_dt_init(struct platform_device *pdev,
 	if (!s32cc_pp->is_endpoint && of_parse_phandle(np, "msi-parent", 0))
 		s32cc_pp->has_msi_parent = true;
 
-	ret = s32cc_siul2_nvmem_get_pcie_dev_id(dev, "pcie_variant",
-						&pcie_variant_bits);
-	if (ret)
-		return ret;
+	ret = of_property_read_u32(np, "pcie_device_id", &pcie_variant_bits);
+	if (ret) {
+		ret = s32cc_siul2_nvmem_get_pcie_dev_id(dev, "pcie_variant",
+							&pcie_variant_bits);
+		if (ret) {
+			dev_info(dev, "Error reading SIUL2 Device ID\n");
+			return ret;
+		}
+	}
 
-	dw_pcie_dbi_ro_wr_en(pcie);
-	pcie_vendor_id = dw_pcie_readl_dbi(pcie, PCI_VENDOR_ID);
+	if (!pcie_variant_bits)
+		return 0;
+
+	/* Write PCI Vendor and Device ID. */
 	pcie_vendor_id |= pcie_variant_bits << PCI_DEVICE_ID_SHIFT;
-	dev_info(dev, "Setting PCI Device ID to: 0x%x\n", pcie_vendor_id >> 16);
+	dev_dbg(dev, "Setting PCI Device and Vendor IDs to 0x%x:0x%x\n",
+		(u32)(pcie_vendor_id >> PCI_DEVICE_ID_SHIFT),
+		(u32)(pcie_vendor_id & GENMASK(15, 0)));
+	dw_pcie_dbi_ro_wr_en(pcie);
 	dw_pcie_writel_dbi(pcie, PCI_VENDOR_ID, pcie_vendor_id);
+
+	if (pcie_vendor_id != dw_pcie_readl_dbi(pcie, PCI_VENDOR_ID))
+		dev_warn(dev, "PCI Device and Vendor IDs could not be set\n");
+
 	dw_pcie_dbi_ro_wr_dis(pcie);
 
 	return 0;
