@@ -436,6 +436,8 @@ struct fsl_qspi {
 	struct pm_qos_request pm_qos_req;
 	int selected;
 	enum spi_nor_protocol proto;
+	u32 clk_rate;
+	bool from_suspend;
 };
 
 static inline int needs_swap_endian(struct fsl_qspi *q)
@@ -1206,7 +1208,7 @@ static int fsl_qspi_default_setup(struct fsl_qspi *q)
 			return ret;
 	}
 
-	if (q->proto == SNOR_PROTO_1_1_1)
+	if (!q->from_suspend && q->proto == SNOR_PROTO_1_1_1)
 		return ret;
 
 	/* Reset the module */
@@ -1294,6 +1296,8 @@ static int fsl_qspi_default_setup(struct fsl_qspi *q)
 
 	if (!ret)
 		q->proto = SNOR_PROTO_1_1_1;
+	if (q->from_suspend)
+		q->from_suspend = false;
 
 	if (!is_s32cc_qspi(q)) {
 		/* clear all interrupt status */
@@ -1303,7 +1307,7 @@ static int fsl_qspi_default_setup(struct fsl_qspi *q)
 		qspi_writel(q, QUADSPI_RSER_TFIE, q->iobase + QUADSPI_RSER);
 	}
 
-	return 0;
+	return ret;
 }
 
 static int fsl_qspi_exec_op(struct spi_mem *mem, const struct spi_mem_op *op)
@@ -1551,6 +1555,7 @@ static int fsl_qspi_probe(struct platform_device *pdev)
 	ctlr->mem_ops = &fsl_qspi_mem_ops;
 	ctlr->mem_caps = &fsl_qspi_mem_caps;
 
+	q->from_suspend = false;
 	fsl_qspi_default_setup(q);
 
 	ctlr->dev.of_node = np;
@@ -1558,6 +1563,14 @@ static int fsl_qspi_probe(struct platform_device *pdev)
 	ret = devm_add_action_or_reset(dev, fsl_qspi_cleanup, q);
 	if (ret)
 		goto err_put_ctrl;
+
+	if (is_s32cc_qspi(q)) {
+		np = of_get_next_available_child(dev->of_node, NULL);
+
+		ret = of_property_read_u32(np, "spi-max-frequency", &q->clk_rate);
+		if (ret)
+			goto err_put_ctrl;
+	}
 
 	ret = devm_spi_register_controller(dev, ctlr);
 	if (ret)
@@ -1577,16 +1590,37 @@ err_put_ctrl:
 
 static int fsl_qspi_suspend(struct device *dev)
 {
+	struct fsl_qspi *q = dev_get_drvdata(dev);
+
+	if (is_s32cc_qspi(q))
+		fsl_qspi_clk_disable_unprep(q);
+
 	return 0;
 }
 
 static int fsl_qspi_resume(struct device *dev)
 {
 	struct fsl_qspi *q = dev_get_drvdata(dev);
+	int ret = 0;
 
+	if (is_s32cc_qspi(q)) {
+		ret = clk_set_rate(q->clk, q->clk_rate);
+		if (ret) {
+			dev_err(dev, "Failed to set clock rate\n");
+			return ret;
+		}
+
+		ret = fsl_qspi_clk_prep_enable(q);
+		if (ret) {
+			dev_err(dev, "Failed to enable clock\n");
+			return ret;
+		}
+	}
+
+	q->from_suspend = true;
 	fsl_qspi_default_setup(q);
 
-	return 0;
+	return ret;
 }
 
 static const struct of_device_id fsl_qspi_dt_ids[] = {
