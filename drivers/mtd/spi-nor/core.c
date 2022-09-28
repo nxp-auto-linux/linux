@@ -5,6 +5,7 @@
  *
  * Copyright (C) 2005, Intec Automation Inc.
  * Copyright (C) 2014, Freescale Semiconductor, Inc.
+ * Copyright 2022-2024 NXP
  */
 
 #include <linux/err.h>
@@ -3227,6 +3228,24 @@ static int spi_nor_init(struct spi_nor *nor)
 }
 
 /**
+ * spi_nor_perform_op() - Perform spimem op
+ * with regards to Octal DTR mode
+ * @nor:	pointer to 'struct spi_nor'
+ * @op:		SPI memory operation. op->data.buf must be DMA-able.
+ * @is_octal_dtr: whether Octal DTR should be used or not
+ * Return: 0 on success, -errno otherwise.
+ */
+static int spi_nor_perform_op(struct spi_nor *nor, struct spi_mem_op *op, bool is_octal_dtr)
+{
+	if (is_octal_dtr)
+		spi_nor_spimem_setup_op(nor, op, SNOR_PROTO_8_8_8_DTR);
+	else
+		spi_nor_spimem_setup_op(nor, op, nor->reg_proto);
+
+	return spi_mem_exec_op(nor->spimem, op);
+}
+
+/**
  * spi_nor_soft_reset() - Perform a software reset
  * @nor:	pointer to 'struct spi_nor'
  *
@@ -3243,27 +3262,38 @@ static int spi_nor_init(struct spi_nor *nor)
  */
 static void spi_nor_soft_reset(struct spi_nor *nor)
 {
-	struct spi_mem_op op;
-	int ret;
+	struct device_node *np = spi_nor_get_flash_node(nor);
+	enum spi_nor_cmd_ext ext  = nor->cmd_ext_type;
+	bool octal_dtr = of_property_read_bool(np, "memory-default-octal-dtr");
+	struct spi_mem_op op = (struct spi_mem_op)SPINOR_SRSTEN_OP;
+	int ret = 0;
 
-	op = (struct spi_mem_op)SPINOR_SRSTEN_OP;
+	/* Try using the inverted opcode first.
+	 * This is need to bring the device in the defalut state before the
+	 * bfpt(and therefore the extension) was parsed.
+	 */
+	if (ext == SPI_NOR_EXT_NONE)
+		nor->cmd_ext_type = SPI_NOR_EXT_INVERT;
 
-	spi_nor_spimem_setup_op(nor, &op, nor->reg_proto);
+	ret = spi_nor_perform_op(nor, &op, octal_dtr);
 
-	ret = spi_mem_exec_op(nor->spimem, &op);
 	if (ret) {
-		dev_warn(nor->dev, "Software reset failed: %d\n", ret);
-		return;
+		/* Try using the repeated opcode next */
+		dev_dbg(nor->dev,
+			"Software reset enable failed using inverted nor extension: %d\n", ret);
+		nor->cmd_ext_type = SPI_NOR_EXT_REPEAT;
+		ret = spi_nor_perform_op(nor, &op, octal_dtr);
+		if (ret) {
+			dev_warn(nor->dev, "Software reset enable failed: %d\n", ret);
+			goto out;
+		}
 	}
 
 	op = (struct spi_mem_op)SPINOR_SRST_OP;
-
-	spi_nor_spimem_setup_op(nor, &op, nor->reg_proto);
-
-	ret = spi_mem_exec_op(nor->spimem, &op);
+	ret = spi_nor_perform_op(nor, &op, octal_dtr);
 	if (ret) {
 		dev_warn(nor->dev, "Software reset failed: %d\n", ret);
-		return;
+		goto out;
 	}
 
 	/*
@@ -3272,6 +3302,10 @@ static void spi_nor_soft_reset(struct spi_nor *nor)
 	 * microseconds. So, sleep for a range of 200-400 us.
 	 */
 	usleep_range(SPI_NOR_SRST_SLEEP_MIN, SPI_NOR_SRST_SLEEP_MAX);
+
+out:
+	nor->cmd_ext_type = ext;
+	return;
 }
 
 /* mtd suspend handler */
@@ -3468,6 +3502,7 @@ int spi_nor_scan(struct spi_nor *nor, const char *name,
 	const struct flash_info *info;
 	struct device *dev = nor->dev;
 	struct mtd_info *mtd = &nor->mtd;
+	struct device_node *np = spi_nor_get_flash_node(nor);
 	int ret;
 	int i;
 
@@ -3494,9 +3529,14 @@ int spi_nor_scan(struct spi_nor *nor, const char *name,
 	if (!nor->bouncebuf)
 		return -ENOMEM;
 
-	ret = spi_nor_hw_reset(nor);
-	if (ret)
-		return ret;
+	if (of_property_read_bool(np, "force-soft-reset")) {
+		nor->flags |= SNOR_F_SOFT_RESET;
+		spi_nor_restore(nor);
+	} else {
+		ret = spi_nor_hw_reset(nor);
+		if (ret)
+			return ret;
+	}
 
 	info = spi_nor_get_flash_info(nor, name);
 	if (IS_ERR(info))
