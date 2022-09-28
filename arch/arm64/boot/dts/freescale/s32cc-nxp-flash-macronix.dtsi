@@ -10,6 +10,9 @@
 		spi-tx-bus-width = <8>;
 		spi-rx-bus-width = <8>;
 		reg = <0>;
+		force-soft-reset;
+		inverted-cmd-ext;
+		memory-default-octal-dtr;
 
 		partitions {
 			compatible = "fixed-partitions";
