@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0+ */
 /*
  * Copyright (C) 2014 Freescale Semiconductor, Inc.
+ * Copyright 2022 NXP
  */
 
 #ifndef __LINUX_MTD_SPI_NOR_H
@@ -49,6 +50,8 @@
 #define SPINOR_OP_SRSTEN	0x66	/* Software Reset Enable */
 #define SPINOR_OP_SRST		0x99	/* Software Reset */
 #define SPINOR_OP_GBULK		0x98    /* Global Block Unlock */
+#define SPINOR_OP_RDCR2		0x71	/* Read CFG Reg2 */
+#define SPINOR_OP_WRCR2		0x72	/* Write CFG Reg2 (JESD216D.01)*/
 
 /* 4-byte address opcodes - used on Spansion and some Macronix flashes. */
 #define SPINOR_OP_READ_4B	0x13	/* Read data bytes (low frequency) */
@@ -119,6 +122,10 @@
 
 /* Enhanced Volatile Configuration Register bits */
 #define EVCR_QUAD_EN_MICRON	BIT(7)	/* Micron Quad I/O */
+
+/* Configuration Register 2 bits. */
+#define CR2_STR_OPI_EN		BIT(0)	/* Octal STR */
+#define CR2_DTR_OPI_EN		BIT(1)	/* Octal DTR */
 
 /* Status Register 2 bits. */
 #define SR2_QUAD_EN_BIT1	BIT(1)
