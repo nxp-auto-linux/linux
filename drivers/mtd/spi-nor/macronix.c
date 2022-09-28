@@ -2,6 +2,7 @@
 /*
  * Copyright (C) 2005, Intec Automation Inc.
  * Copyright (C) 2014, Freescale Semiconductor, Inc.
+ * Copyright 2022 NXP
  */
 
 #include <linux/mtd/spi-nor.h>
@@ -30,6 +31,105 @@ mx25l25635_post_bfpt_fixups(struct spi_nor *nor,
 
 static struct spi_nor_fixups mx25l25635_fixups = {
 	.post_bfpt = mx25l25635_post_bfpt_fixups,
+};
+
+static int spi_nor_macronix_octal_dtr_enable(struct spi_nor *nor, bool enable)
+{
+	struct spi_mem_op op;
+	u8 buf = 0xff;
+	u8 addr_width = 4;
+	int ret;
+
+	op = (struct spi_mem_op)
+		SPI_MEM_OP(SPI_MEM_OP_CMD(SPINOR_OP_RDCR2, 1),
+			   SPI_MEM_OP_ADDR(addr_width, 0x0, 1),
+			   SPI_MEM_OP_NO_DUMMY,
+			   SPI_MEM_OP_DATA_IN(1, &buf, 1));
+
+	ret = spi_mem_exec_op(nor->spimem, &op);
+	if (ret) {
+		dev_err(nor->dev, "Failed to read CR2\n");
+		return ret;
+	}
+
+	ret = spi_nor_write_enable(nor);
+	if (ret) {
+		dev_err(nor->dev, "Failed to enable write\n");
+		return ret;
+	}
+
+	ret = spi_nor_wait_till_ready(nor);
+	if (ret)
+		return ret;
+
+	buf &= ~CR2_STR_OPI_EN;
+	buf |= CR2_DTR_OPI_EN;
+
+	op = (struct spi_mem_op)
+		SPI_MEM_OP(SPI_MEM_OP_CMD(SPINOR_OP_WRCR2, 1),
+			   SPI_MEM_OP_ADDR(addr_width, 0x0, 1),
+			   SPI_MEM_OP_NO_DUMMY,
+			   SPI_MEM_OP_DATA_OUT(1, &buf, 1));
+	ret = spi_mem_exec_op(nor->spimem, &op);
+	if (ret) {
+		dev_err(nor->dev, "Failed to enable octal DTR mode\n");
+		return ret;
+	}
+
+	return 0;
+}
+
+static void mx25uw51245g_default_init(struct spi_nor *nor)
+{
+	nor->params->octal_dtr_enable = spi_nor_macronix_octal_dtr_enable;
+}
+
+static int
+mx25uw51245g_post_bfpt_fixup(struct spi_nor *nor,
+			     const struct sfdp_parameter_header *bfpt_header,
+			     const struct sfdp_bfpt *bfpt)
+{
+	/* erase size in case it is set to 4K from BFPT */
+	nor->erase_opcode = SPINOR_OP_SE_4B;
+	nor->mtd.erasesize = nor->info->sector_size;
+
+	nor->params->hwcaps.mask |= SNOR_HWCAPS_PP_8_8_8_DTR;
+
+	spi_nor_set_pp_settings(&nor->params->page_programs[SNOR_CMD_PP_8_8_8_DTR],
+				SPINOR_OP_PP_4B, SNOR_PROTO_8_8_8_DTR);
+
+	return 0;
+}
+
+static void mx25uw51245g_post_sfdp_fixup(struct spi_nor *nor)
+{
+	/* Identify (free) samples with empty SFDP table */
+	if (nor->cmd_ext_type != SPI_NOR_EXT_NONE)
+		return;
+
+	nor->cmd_ext_type = SPI_NOR_EXT_INVERT;
+
+	/* erase size in case it is set to 4K from BFPT */
+	nor->erase_opcode = SPINOR_OP_SE_4B;
+	nor->mtd.erasesize = nor->info->sector_size;
+
+	nor->params->hwcaps.mask |= SNOR_HWCAPS_PP_8_8_8_DTR;
+
+	spi_nor_set_pp_settings(&nor->params->page_programs[SNOR_CMD_PP_8_8_8_DTR],
+				SPINOR_OP_PP_4B, SNOR_PROTO_8_8_8_DTR);
+
+	spi_nor_set_read_settings(&nor->params->reads[SNOR_CMD_READ_8_8_8_DTR],
+				  0, 20, SPINOR_OP_READ_1_4_4_DTR_4B,
+				  SNOR_PROTO_8_8_8_DTR);
+
+	nor->params->rdsr_addr_nbytes = 4;
+	nor->params->rdsr_dummy = 4;
+}
+
+static struct spi_nor_fixups mx25uw51245g_fixups = {
+	.default_init = mx25uw51245g_default_init,
+	.post_bfpt = mx25uw51245g_post_bfpt_fixup,
+	.post_sfdp = mx25uw51245g_post_sfdp_fixup,
 };
 
 static const struct flash_info macronix_parts[] = {
@@ -73,6 +173,10 @@ static const struct flash_info macronix_parts[] = {
 			      SECT_4K | SPI_NOR_DUAL_READ |
 			      SPI_NOR_QUAD_READ) },
 	{ "mx25l25655e", INFO(0xc22619, 0, 64 * 1024, 512, 0) },
+	{ "mx25uw51245g", INFO(0xc2813a, 0, 64 * 1024, 1024,
+			SPI_NOR_OCTAL_READ | SPI_NOR_4B_OPCODES |
+			SPI_NOR_OCTAL_DTR_READ | SPI_NOR_IO_MODE_EN_VOLATILE)
+		.fixups = &mx25uw51245g_fixups },
 	{ "mx66l51235f", INFO(0xc2201a, 0, 64 * 1024, 1024,
 			      SPI_NOR_DUAL_READ | SPI_NOR_QUAD_READ |
 			      SPI_NOR_4B_OPCODES) },
