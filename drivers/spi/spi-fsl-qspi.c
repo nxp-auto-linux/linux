@@ -1098,7 +1098,7 @@ static int program_dllcra(struct fsl_qspi *q, u32 dllcra)
 static int enable_octal_ddr(struct fsl_qspi *q)
 {
 	void __iomem *base = q->iobase;
-	u32 mcr, dllcr;
+	u32 mcr, dllcr, smpr;
 	int ret;
 
 	if (q->proto == SNOR_PROTO_8_8_8_DTR)
@@ -1115,9 +1115,15 @@ static int enable_octal_ddr(struct fsl_qspi *q)
 	mcr |= octal_ddr_conf.mcr;
 	qspi_writel(q, mcr, base + QUADSPI_MCR);
 
+	if (is_s32g3_qspi(q))
+		smpr = QUADSPI_SMPR_DLLFSMPFA_NTH(3) |
+			QUADSPI_SMPR_DLLFSMPFB_NTH(3);
+	else
+		smpr = octal_ddr_conf.smpr;
+
 	qspi_writel(q, octal_ddr_conf.flshcr, base + QUADSPI_FLSHCR);
 	qspi_writel(q, octal_ddr_conf.sfacr, base + QUADSPI_SFACR);
-	qspi_writel(q, octal_ddr_conf.smpr, base + QUADSPI_SMPR);
+	qspi_writel(q, smpr, base + QUADSPI_SMPR);
 	qspi_writel(q, octal_ddr_conf.dlcr, base + QUADSPI_DLCR);
 
 	qspi_writel(q, octal_ddr_conf.dlpr, base + QUADSPI_DLPR);
