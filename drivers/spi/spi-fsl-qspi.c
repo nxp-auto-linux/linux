@@ -21,6 +21,7 @@
  *
  */
 
+#include <asm/div64.h>
 #include <linux/bitops.h>
 #include <linux/cacheflush.h>
 #include <linux/clk.h>
@@ -33,6 +34,8 @@
 #include <linux/iopoll.h>
 #include <linux/jiffies.h>
 #include <linux/kernel.h>
+#include <linux/ktime.h>
+#include <linux/math64.h>
 #include <linux/module.h>
 #include <linux/mutex.h>
 #include <linux/of.h>
@@ -823,6 +826,11 @@ static u32 fsl_qspi_memsize_per_cs(struct fsl_qspi *q)
 static void fsl_qspi_read_ahb(struct fsl_qspi *q, const struct spi_mem_op *op)
 {
 	void __iomem *ahb_read_addr = q->ahb_addr;
+#ifdef DEBUG
+	struct timespec64 start, end, duration;
+	u64 mb_int, mb_frac;
+	u32 us_passed, rem;
+#endif
 
 	if (can_read_entire_ahb(q)) {
 		if (op->addr.nbytes)
@@ -832,9 +840,26 @@ static void fsl_qspi_read_ahb(struct fsl_qspi *q, const struct spi_mem_op *op)
 	dcache_inval_poc((unsigned long)ahb_read_addr,
 			 (unsigned long)ahb_read_addr + op->data.nbytes);
 
+#ifdef DEBUG
+	ktime_get_ts64(&start);
+#endif
 	memcpy_fromio(op->data.buf.in,
 		      ahb_read_addr + q->selected * fsl_qspi_memsize_per_cs(q),
 		      op->data.nbytes);
+#ifdef DEBUG
+	ktime_get_ts64(&end);
+
+	duration = timespec64_sub(end, start);
+	us_passed = duration.tv_sec * 1000000 +
+		 (duration.tv_nsec / NSEC_PER_USEC);
+
+	if (us_passed > 0) {
+		mb_int = div_u64_rem(op->data.nbytes, us_passed, &rem);
+		mb_frac = div64_u64(rem * 1000, us_passed);
+		dev_dbg(q->dev, "%u bytes read in %u us (%llu.%llu MB/s)\n",
+			op->data.nbytes, us_passed, mb_int, mb_frac);
+	}
+#endif
 }
 
 static int fsl_qspi_readl_poll_tout(struct fsl_qspi *q, void __iomem *base,
