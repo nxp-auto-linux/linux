@@ -674,13 +674,13 @@
 };
 
 &qspi {
+	compatible = "nxp,s32r45-qspi";
 	pinctrl-names = "default";
 	pinctrl-0 = <&qspi_pins>;
 	status = "okay";
 
 	mx25uw51245g@0 {
 		spi-max-frequency = <133333333>;
-		nxp,spi-no-functional-reset;
 	};
 };
 
