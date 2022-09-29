@@ -22,6 +22,9 @@ properties:
           - fsl,imx6ul-qspi
           - fsl,ls1021a-qspi
           - fsl,ls2080a-qspi
+          - nxp,s32g-qspi
+          - nxp,s32g3-qspi
+          - nxp,s32r45-qspi
       - items:
           - enum:
               - fsl,ls1043a-qspi
@@ -92,5 +95,30 @@ examples:
                 spi-rx-bus-width = <4>;
                 spi-tx-bus-width = <4>;
             };
+        };
+    };
+
+  - |
+    #include <dt-bindings/interrupt-controller/arm-gic.h>
+    #include <dt-bindings/clock/s32cc-scmi-clock.h>
+
+    soc {
+        #address-cells = <2>;
+        #size-cells = <2>;
+
+        qspi: spi@40134000 {
+            compatible = "nxp,s32g-qspi";
+            #address-cells = <1>;
+            #size-cells = <0>;
+            reg = <0x0 0x00000000 0x0 0x20000000>,
+                <0x0 0x40134000 0x0 0x1000>;
+            reg-names = "QuadSPI-memory", "QuadSPI";
+            interrupts = <GIC_SPI 32 IRQ_TYPE_LEVEL_HIGH>;
+            clock-names = "qspi_en", "qspi";
+            clocks = <&clks S32CC_SCMI_CLK_QSPI_FLASH1X>,
+                <&clks S32CC_SCMI_CLK_QSPI_FLASH1X>;
+            spi-max-frequency = <200000000>;
+            spi-num-chipselects = <2>;
+            status = "disabled";
         };
     };
