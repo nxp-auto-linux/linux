@@ -21,6 +21,8 @@
 #include <linux/of.h>
 #include <linux/rtc.h>
 
+#include <dt-bindings/rtc/s32cc-rtc.h>
+
 #define RTCSUPV_OFFSET	0x0ul
 #define RTCC_OFFSET		0x4ul
 #define RTCS_OFFSET		0x8ul
