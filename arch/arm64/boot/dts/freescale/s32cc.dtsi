@@ -3,7 +3,7 @@
  * NXP S32CC SoC family
  *
  * Copyright (c) 2021 SUSE LLC
- * Copyright 2017-2021 NXP
+ * Copyright 2017-2022 NXP
  */
 
 #include <dt-bindings/interrupt-controller/arm-gic.h>
@@ -15,9 +15,7 @@
 #include <dt-bindings/memory/s32cc-siul2.h>
 #include <dt-bindings/pinctrl/s32cc-pinfunc.h>
 #include <dt-bindings/reset/s32cc-scmi-reset.h>
-
-#define RTC_FIRC_CLKSEL		2
-#define RTC_SIRC_CLKSEL		0
+#include <dt-bindings/rtc/s32cc-rtc.h>
 
 / {
 	interrupt-parent = <&gic>;
@@ -228,7 +226,7 @@
 			/* Input clock selection: use the 51MHz FIRC with DIV512,
 			 * for a roll-over time of just under 13 hours.
 			 */
-			nxp,clksel = <RTC_FIRC_CLKSEL>; // 2: FIRC; 0: SIRC
+			nxp,clksel = <S32CC_RTC_SOURCE_FIRC>;
 			nxp,dividers = <1 0>; // div512 enabled; div32 disabled
 		};
 
