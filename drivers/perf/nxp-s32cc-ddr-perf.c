@@ -228,7 +228,7 @@ static u32 ddr_perf_read_counter(struct ddr_pmu *pmu, int counter)
 	if (counter >= NUM_COUNTERS)
 		return -ENOENT;
 
-	reg = base + COUNTER_READ + counter * 4;
+	reg = base + COUNTER_READ + counter * sizeof(u32);
 	return ioread32(reg);
 }
 
@@ -271,7 +271,7 @@ static int ddr_perf_event_init(struct perf_event *event)
 
 static void ddr_perf_counter_clear(struct ddr_pmu *pmu, int counter)
 {
-	u32 reg = counter * 4 + COUNTER_CNTL;
+	u32 reg = counter * sizeof(u32) + COUNTER_CNTL;
 	unsigned int val;
 
 	if (counter >= NUM_COUNTERS)
@@ -299,7 +299,7 @@ static bool ddr_perf_counter_disabled(struct ddr_pmu *pmu, int counter)
 	if (counter >= NUM_COUNTERS)
 		return false;
 
-	reg = pmu->base + counter * 4 + COUNTER_CNTL;
+	reg = pmu->base + counter * sizeof(u32) + COUNTER_CNTL;
 
 	val = ioread32(reg);
 	is_enabled = val & CNTL_EN;
@@ -317,7 +317,7 @@ static void ddr_perf_counter_stop(struct ddr_pmu *pmu, int counter)
 	if (counter >= NUM_COUNTERS)
 		return;
 
-	reg = pmu->base + counter * 4 + COUNTER_CNTL;
+	reg = pmu->base + counter * sizeof(u32) + COUNTER_CNTL;
 
 	/* Write 0 in CSV field and CNTR_EN */
 	val = ioread32(reg);
@@ -366,7 +366,7 @@ static void ddr_perf_counter_enable(struct ddr_pmu *pmu, unsigned int config,
 
 	counter_cp = ddr_perf_counter_cp_mask_by_event(config);
 
-	reg = counter * 4 + COUNTER_CNTL;
+	reg = counter * sizeof(u32) + COUNTER_CNTL;
 	if (enable) {
 		/*
 		 * must disable first, then enable again
@@ -519,7 +519,8 @@ static irqreturn_t ddr_perf_irq_handler(int irq, void *p)
 	struct perf_event *event;
 
 	/* If no overflow on counter0, return */
-	cntl = ioread32(pmu->base + EVENT_CYCLES_COUNTER * 4 + COUNTER_CNTL);
+	cntl = ioread32(pmu->base + EVENT_CYCLES_COUNTER * sizeof(u32) +
+			COUNTER_CNTL);
 	cntl &= CNTL_OVER;
 	if (!cntl)
 		return IRQ_NONE;
