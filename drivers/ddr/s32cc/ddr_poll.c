@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0+
 /*
- * Copyright 2020 NXP
+ * Copyright 2020,2022 NXP
  *
  */
 
@@ -16,9 +16,9 @@
  * @return - Returns 1, if the errata changes are reverted, 0 otherwise
  */
 int poll_derating_temp_errata(void __iomem *ddrc_base,
-		void __iomem *perf_base)
+			      void __iomem *perf_base)
 {
-	int nominal_temp_flag = 0;
+	uint32_t nominal_temp_flag = 0;
 	uint8_t val_1, val_2;
 	uint32_t reg, bf_val;
 
@@ -33,7 +33,7 @@ int poll_derating_temp_errata(void __iomem *ddrc_base,
 	}
 
 	if (nominal_temp_flag != REQUIRED_OK_CHECKS)
-		return 0;
+		return ERRATA_CHANGES_UNMODIFIED;
 
 	/*
 	 * Update average time interval between refreshes per rank:
@@ -41,7 +41,7 @@ int poll_derating_temp_errata(void __iomem *ddrc_base,
 	 */
 	reg = readl(ddrc_base + OFFSET_DDRC_RFSHTMG);
 	bf_val = (reg >> DDRC_RFSHTMG_VAL_SHIFT) & DDRC_RFSHTMG_VAL;
-	bf_val = bf_val << 2;
+	bf_val = bf_val << DDRC_RFSHTMG_UPDATE_SHIFT;
 	reg = (reg & ~DDRC_RFSHTMG_MASK) |
 		(bf_val << DDRC_RFSHTMG_VAL_SHIFT);
 	writel(reg, ddrc_base + OFFSET_DDRC_RFSHTMG);
@@ -53,15 +53,15 @@ int poll_derating_temp_errata(void __iomem *ddrc_base,
 	reg = readl(ddrc_base + OFFSET_DDRC_RFSHCTL3);
 	bf_val = (reg >> DDRC_RFSHCTL3_UPDATE_SHIFT) &
 		DDRC_RFSHCTL3_AUTO_REFRESH_VAL;
-	bf_val = bf_val ^ 1;
-	writel((reg & ~DDRC_RFSHCTL3_MASK) |
-			(bf_val << DDRC_RFSHCTL3_UPDATE_SHIFT),
-		   ddrc_base + OFFSET_DDRC_RFSHCTL3);
+	bf_val = bf_val ^ DDRC_RFSHCTL3_UPDATE_LEVEL_TOGGLE;
+	reg = (reg & ~DDRC_RFSHCTL3_MASK) |
+	      (bf_val << DDRC_RFSHCTL3_UPDATE_SHIFT);
+	writel(reg, ddrc_base + OFFSET_DDRC_RFSHCTL3);
 
 	/* Enable timing parameter derating: DERATEEN.DERATE_EN = 1 */
 	reg = readl(ddrc_base + OFFSET_DDRC_DERATEEN);
 	writel(reg | DDRC_DERATEEN_ENABLE, ddrc_base +
 			OFFSET_DDRC_DERATEEN);
 
-	return 1;
+	return ERRATA_CHANGES_REVERTED;
 }
