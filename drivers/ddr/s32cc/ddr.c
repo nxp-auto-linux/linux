@@ -4,6 +4,7 @@
  *
  */
 
+#include <asm/barrier.h>
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/platform_device.h>
@@ -51,42 +52,59 @@ static void cleanup_ddr_errata(struct ddr_priv *data)
 }
 
 /* Read lpddr4 mode register with given index */
-uint32_t read_lpddr4_mr(uint8_t MR_index, void __iomem *ddrc_base,
-		void __iomem *perf_base)
+uint32_t read_lpddr4_mr(uint8_t mr_index, void __iomem *ddrc_base,
+			void __iomem *perf_base)
 {
-	uint32_t reg;
+	uint32_t tmp32;
+	uint8_t succesive_reads = 0;
 
 	/* Set MRR_DDR_SEL_REG to 0x1 to enable LPDDR4 mode */
-	reg = readl(perf_base + OFFSET_MRR_0_DATA_REG_ADDR);
-	writel((reg | MRR_DDR_SEL_REG), perf_base +
+	tmp32 = readl(perf_base + OFFSET_MRR_0_DATA_REG_ADDR);
+	writel((tmp32 | MRR_0_DDR_SEL_REG_MASK), perf_base +
 			OFFSET_MRR_0_DATA_REG_ADDR);
 
 	/*
 	 * Ensure no MR transaction is in progress:
 	 * mr_wr_busy signal must be low
 	 */
-	spin_until_cond((readl(ddrc_base + OFFSET_DDRC_MRSTAT) &
-				DDRC_MRSTAT_MR_WR_FLAG) == 0);
+	do {
+		tmp32 = readl(ddrc_base + OFFSET_DDRC_MRSTAT);
+		if ((tmp32 & DDRC_MRSTAT_MR_BUSY) == DDRC_MRSTAT_MR_NOT_BUSY)
+			succesive_reads++;
+		else
+			succesive_reads = 0;
+	} while (succesive_reads != DDRC_REQUIRED_MRSTAT_READS);
 
 	/* Set MR_TYPE = 0x1 (Read) and MR_RANK = 0x1 (Rank 0) */
-	reg = readl(ddrc_base + OFFSET_DDRC_MRCTRL0);
-	reg |= DDRC_MRCTRL0_MR_TYPE_READ;
-	reg &= ~DDRC_MRCTRL0_MR_RANK_MASK;
-	writel(reg | DDRC_MRCTRL0_MR_RANK_OFF, ddrc_base + OFFSET_DDRC_MRCTRL0);
+	tmp32 = readl(ddrc_base + OFFSET_DDRC_MRCTRL0);
+	tmp32 |= DDRC_MRCTRL0_MR_TYPE_READ;
+	tmp32 = (tmp32 & ~(DDRC_MRCTRL0_RANK_ACCESS_FIELD <<
+			   DDRC_MRCTRL0_RANK_ACCESS_POS)) |
+		(DDRC_MRCTRL0_RANK_0 << DDRC_MRCTRL0_RANK_ACCESS_POS);
+	writel(tmp32, ddrc_base + OFFSET_DDRC_MRCTRL0);
 
 	/* Configure MR address: MRCTRL1[8:15] */
-	reg = readl(ddrc_base + OFFSET_DDRC_MRCTRL1);
-	reg &= ~DDRC_MRCTRL1_MR_ADDR_MASK;
-	writel(reg | (MR_index << DDRC_MRCTRL1_MR_ADDR_SHIFT),
-			ddrc_base + OFFSET_DDRC_MRCTRL1);
+	tmp32 = readl(ddrc_base + OFFSET_DDRC_MRCTRL1);
+	tmp32 = (tmp32 & ~(DDRC_MRCTRL1_MR_ADDRESS_FIELD <<
+			   DDRC_MRCTRL1_MR_ADDRESS_POS)) |
+		((uint16_t)mr_index << DDRC_MRCTRL1_MR_ADDRESS_POS);
+	writel(tmp32, ddrc_base + OFFSET_DDRC_MRCTRL1);
+
+	dsb(sy);
 
 	/* Initiate MR transaction: MR_WR = 0x1 */
-	reg = readl(ddrc_base + OFFSET_DDRC_MRCTRL0);
-	writel(reg | DDRC_MRCTRL0_MR_WR_MASK, ddrc_base + OFFSET_DDRC_MRCTRL0);
+	tmp32 = readl(ddrc_base + OFFSET_DDRC_MRCTRL0);
+	writel(tmp32 | (DDRC_MRCTRL0_WR_ENGAGE << DDRC_MRCTRL0_WR_ENGAGE_POS),
+	       ddrc_base + OFFSET_DDRC_MRCTRL0);
 
 	/* Wait until MR transaction completed */
-	spin_until_cond((readl(ddrc_base + OFFSET_DDRC_MRSTAT) &
-				DDRC_MRSTAT_MR_WR_FLAG) == 0);
+	do {
+		tmp32 = readl(ddrc_base + OFFSET_DDRC_MRSTAT);
+		if ((tmp32 & DDRC_MRSTAT_MR_BUSY) == DDRC_MRSTAT_MR_NOT_BUSY)
+			succesive_reads++;
+		else
+			succesive_reads = 0;
+	} while (succesive_reads != DDRC_REQUIRED_MRSTAT_READS);
 
 	return readl(perf_base + OFFSET_MRR_1_DATA_REG_ADDR);
 }
@@ -103,9 +121,9 @@ uint8_t read_TUF(void __iomem *ddrc_base, void __iomem *perf_base)
 	uint32_t MR4_val;
 	uint8_t MR4_die_1, MR4_die_2;
 
-	MR4_val = read_lpddr4_mr(MR4, ddrc_base, perf_base);
-	MR4_die_1 = MR4_val & 0x7;
-	MR4_die_2 = (MR4_val >> 16) & 0x7;
+	MR4_val = read_lpddr4_mr(MR4_IDX, ddrc_base, perf_base);
+	MR4_die_1 = (uint8_t)(MR4_val & MR4_MASK);
+	MR4_die_2 = (uint8_t)((MR4_val >> MR4_SHIFT) & MR4_MASK);
 
 	return MR4_die_1 > MR4_die_2 ? MR4_die_1 : MR4_die_2;
 }
