@@ -3,7 +3,7 @@
  *  Freescale FlexTimer Module (FTM) PWM Driver
  *
  *  Copyright 2012-2013 Freescale Semiconductor, Inc.
- *  Copyright 2020 NXP
+ *  Copyright 2020,2022 NXP
  */
 
 #include <linux/clk.h>
@@ -474,6 +474,7 @@ static int fsl_pwm_probe(struct platform_device *pdev)
 		fpc->ipg_clk = fpc->clk[FSL_PWM_CLK_SYS];
 
 	chip->ops = &fsl_pwm_ops;
+	chip->npwm = fpc->soc->npwm;
 
 	ret = devm_pwmchip_add(&pdev->dev, chip);
 	if (ret < 0) {
