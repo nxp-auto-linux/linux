@@ -203,7 +203,7 @@ static bool is_rx_empty(struct llce_can_dev *llce)
 }
 
 static int pop_rx_fifo(struct llce_can_dev *llce, uint32_t *index, bool *skip,
-		       struct llce_rx_can_mb **can_mb)
+		       struct llce_rx_can_mb *can_mb)
 {
 	int ret;
 	struct llce_rx_msg msg = {
@@ -212,7 +212,7 @@ static int pop_rx_fifo(struct llce_can_dev *llce, uint32_t *index, bool *skip,
 
 	ret = send_rx_msg(llce, &msg);
 
-	*can_mb = &msg.rx_pop.mb;
+	memcpy(can_mb, &msg.rx_pop.mb, sizeof(*can_mb));
 	*index = msg.rx_pop.index;
 	*skip = msg.rx_pop.skip;
 	return ret;
@@ -314,7 +314,7 @@ static int llce_rx_poll(struct napi_struct *napi, int quota)
 	struct llce_can_dev *llce = container_of(napi, struct llce_can_dev, napi);
 	struct net_device *dev = llce->can.dev;
 	int num_pkts = 0;
-	struct llce_rx_can_mb *can_mb;
+	struct llce_rx_can_mb can_mb;
 	u32 index;
 	int ret = 0;
 	bool skip = false;
@@ -330,7 +330,7 @@ static int llce_rx_poll(struct napi_struct *napi, int quota)
 		if (skip)
 			break;
 
-		process_rx_msg(llce, can_mb);
+		process_rx_msg(llce, &can_mb);
 
 		num_pkts++;
 
