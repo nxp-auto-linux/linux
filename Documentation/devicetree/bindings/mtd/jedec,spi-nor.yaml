@@ -72,6 +72,26 @@ properties:
       be used on such systems, to denote the absence of a reliable reset
       mechanism.
 
+  force-soft-reset:
+    type: boolean
+    description:
+      Some flash devices require a soft reset routine to be executed in case
+      the flash has been used before probing and left in a "wrong" state.
+
+  inverted-cmd-ext:
+    type: boolean
+    description:
+      Some flash devices have an inverted command opcode extension type. This
+      flag can be used on such systems when such information cannot be retrieved
+      otherwise in a current stage using the SPI-NOR framework.
+
+  memory-default-octal-dtr:
+    type: boolean
+    description:
+      Some flash devices are configured by default to start in Octal DTR mode.
+      This flag can be used in order to properly perform a memory soft reset
+      on these types of flash devices.
+
   label: true
 
   partitions:
