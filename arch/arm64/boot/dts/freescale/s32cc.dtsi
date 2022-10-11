@@ -854,6 +854,7 @@
 		};
 
 		gmac0: ethernet@4033c000 {
+			status = "disabled";
 			compatible = "nxp,s32cc-dwmac";
 			reg = <0x0 0x4033c000 0x0 0x2000>, /* gmac IP */
 			      <0x0 0x4007c004 0x0 0x4>;    /* S32 CTRL_STS reg */
@@ -865,6 +866,8 @@
 			phy-names = "gmac_xpcs";
 			phys = <&serdes0 PHY_TYPE_XPCS 0 0>;
 			dma-coherent;
+			snps,mtl-rx-config = <&mtl_rx_setup_gmac0>;
+			snps,mtl-tx-config = <&mtl_tx_setup_gmac0>;
 			clocks = <&clks S32CC_SCMI_CLK_GMAC0_AXI>,
 				 <&clks S32CC_SCMI_CLK_GMAC0_AXI>,
 				 <&clks S32CC_SCMI_CLK_GMAC0_TX_SGMII>,
@@ -882,6 +885,49 @@
 				      "rx_sgmii", "rx_rgmii",
 				      "rx_rmii", "rx_mii",
 				      "ptp_ref";
+
+			mtl_rx_setup_gmac0: rx-queues-config {
+				snps,rx-queues-to-use = <5>;
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				queue@0 {
+				};
+
+				queue@1 {
+				};
+
+				queue@2 {
+				};
+
+				queue@3 {
+				};
+
+				queue@4 {
+				};
+			};
+
+			mtl_tx_setup_gmac0: tx-queues-config {
+				snps,tx-queues-to-use = <5>;
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				queue@0 {
+				};
+
+				queue@1 {
+				};
+
+				queue@2 {
+				};
+
+				queue@3 {
+				};
+
+				queue@4 {
+				};
+			};
+
 			gmac0_mdio: mdio0 {
 				compatible = "snps,dwmac-mdio";
 				#address-cells = <1>;
