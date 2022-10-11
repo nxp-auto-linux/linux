@@ -186,6 +186,8 @@
 			rx-fifo-depth = <20480>;
 			phy-names = "gmac_xpcs";
 			phys = <&serdes1 PHY_TYPE_XPCS 0 0>;
+			snps,mtl-rx-config = <&mtl_rx_setup_gmac1>;
+			snps,mtl-tx-config = <&mtl_tx_setup_gmac1>;
 			clocks = <&clks S32R45_SCMI_CLK_GMAC1_AXI>,
 				 <&clks S32R45_SCMI_CLK_GMAC1_AXI>,
 				 <&clks S32R45_SCMI_CLK_GMAC1_TX_SGMII>,
@@ -203,6 +205,49 @@
 				      "rx_sgmii", "rx_rgmii",
 				      "rx_rmii", "rx_mii",
 				      "ptp_ref";
+
+			mtl_rx_setup_gmac1: rx-queues-config {
+				snps,rx-queues-to-use = <5>;
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				queue@0 {
+				};
+
+				queue@1 {
+				};
+
+				queue@2 {
+				};
+
+				queue@3 {
+				};
+
+				queue@4 {
+				};
+			};
+
+			mtl_tx_setup_gmac1: tx-queues-config {
+				snps,tx-queues-to-use = <5>;
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				queue@0 {
+				};
+
+				queue@1 {
+				};
+
+				queue@2 {
+				};
+
+				queue@3 {
+				};
+
+				queue@4 {
+				};
+			};
+
 			gmac1_mdio: mdio0 {
 				compatible = "snps,dwmac-mdio";
 				#address-cells = <1>;
