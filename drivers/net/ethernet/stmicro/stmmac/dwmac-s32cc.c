@@ -237,6 +237,33 @@ static void s32cc_fix_speed(void *priv, unsigned int speed)
 	}
 }
 
+static void s32cc_init_plat_data(struct plat_stmmacenet_data *plat_dat)
+{
+	plat_dat->safety_feat_cfg->tsoee = 1;
+	plat_dat->safety_feat_cfg->mrxpee = 1;
+	plat_dat->safety_feat_cfg->mestee = 1;
+	plat_dat->safety_feat_cfg->mrxee = 1;
+	plat_dat->safety_feat_cfg->mtxee = 1;
+	plat_dat->safety_feat_cfg->epsi = 1;
+	plat_dat->safety_feat_cfg->edpp = 1;
+	plat_dat->safety_feat_cfg->prtyen = 1;
+	plat_dat->safety_feat_cfg->tmouten = 1;
+
+	/* core feature set */
+	plat_dat->has_gmac4 = true;
+	plat_dat->pmt = 1;
+
+	plat_dat->init = s32cc_gmac_init;
+	plat_dat->exit = s32cc_gmac_exit;
+	plat_dat->fix_mac_speed = s32cc_fix_speed;
+
+	/* configure bitfield for quirks */
+	plat_dat->quirk_mask_id = 0;
+#if IS_ENABLED(CONFIG_DWMAC_S32CC_S32G274A_QUIRKS)
+	plat_dat->quirk_mask_id |= QUIRK_MASK_S32G274A;
+#endif
+}
+
 static int s32cc_configure_serdes(struct plat_stmmacenet_data *plat_dat,
 				  struct phy *serdes_phy)
 {
@@ -341,6 +368,12 @@ static int s32cc_dwmac_probe(struct platform_device *pdev)
 	plat_dat->axi = devm_kzalloc(&pdev->dev, sizeof(struct stmmac_axi),
 				     GFP_KERNEL);
 
+	plat_dat->safety_feat_cfg = devm_kzalloc(&pdev->dev,
+						 sizeof(*plat_dat->safety_feat_cfg),
+						 GFP_KERNEL);
+	if (!plat_dat->safety_feat_cfg)
+		return PTR_ERR(plat_dat->safety_feat_cfg);
+
 	if (plat_dat->phy_interface != PHY_INTERFACE_MODE_SGMII &&
 	    !phy_interface_mode_is_rgmii(plat_dat->phy_interface)) {
 		dev_err(&pdev->dev, "Not supported phy interface mode: [%s]\n",
@@ -409,20 +442,8 @@ static int s32cc_dwmac_probe(struct platform_device *pdev)
 	if (ret)
 		goto err_remove_config_dt;
 
-	/* core feature set */
-	plat_dat->has_gmac4 = true;
-	plat_dat->pmt = 1;
+	s32cc_init_plat_data(plat_dat);
 	plat_dat->tso_en = of_property_read_bool(pdev->dev.of_node, "snps,tso");
-
-	plat_dat->init = s32cc_gmac_init;
-	plat_dat->exit = s32cc_gmac_exit;
-	plat_dat->fix_mac_speed = s32cc_fix_speed;
-
-	/* configure bitfield for quirks */
-	plat_dat->quirk_mask_id = 0;
-#if IS_ENABLED(CONFIG_DWMAC_S32CC_S32G274A_QUIRKS)
-	plat_dat->quirk_mask_id |= QUIRK_MASK_S32G274A;
-#endif
 
 	ret = stmmac_dvr_probe(&pdev->dev, plat_dat, &stmmac_res);
 	if (ret)
