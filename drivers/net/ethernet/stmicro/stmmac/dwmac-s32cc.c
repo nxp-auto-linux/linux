@@ -11,6 +11,7 @@
 #include <linux/module.h>
 #include <linux/io.h>
 #include <linux/clk.h>
+#include <linux/clk-provider.h>
 #include <linux/phy.h>
 #include <linux/phylink.h>
 #include <linux/of_mdio.h>
@@ -41,6 +42,7 @@ struct s32cc_priv_data {
 	phy_interface_t intf_mode;
 	struct clk *tx_clk;
 	struct clk *rx_clk;
+	bool enable_rx;
 
 	/* Serdes */
 	int link_an;
@@ -122,8 +124,8 @@ static int s32cc_gmac_init(struct platform_device *pdev, void *priv)
 	if (gmac->rx_clk) {
 		ret = clk_prepare_enable(gmac->rx_clk);
 		if (ret) {
-			dev_err(&pdev->dev, "Can't set rx clock\n");
-			return ret;
+			dev_dbg(&pdev->dev, "Can't set rx, clock source is disabled.\n");
+			gmac->enable_rx = true;
 		}
 	}
 
@@ -175,9 +177,20 @@ static void s32cc_gmac_exit(struct platform_device *pdev, void *priv)
 static void s32cc_fix_speed(void *priv, unsigned int speed)
 {
 	struct s32cc_priv_data *gmac = priv;
+	int ret;
 
 	if (!gmac->tx_clk || !gmac->rx_clk)
 		return;
+
+	if (gmac->enable_rx) {
+		ret = clk_prepare_enable(gmac->rx_clk);
+		if (ret) {
+			dev_err(gmac->dev, "Can't set RX clock\n");
+			return;
+		}
+		dev_info(gmac->dev, "Set RX clock\n");
+		gmac->enable_rx = false;
+	}
 
 	/* SGMII mode doesn't support the clock reconfiguration */
 	if (gmac->intf_mode == PHY_INTERFACE_MODE_SGMII)
