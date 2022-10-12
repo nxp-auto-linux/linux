@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
-# Copyright 2021 NXP
+# Copyright 2021-2022 NXP
 %YAML 1.2
 ---
 $id: "http://devicetree.org/schemas/phy/nxp,s32cc-serdes.yaml#"
@@ -81,7 +81,7 @@ properties:
       - const: serdes
       - const: pcie
 
-  fsl,sys-mode:
+  nxp,sys-mode:
     $ref: /schemas/types.yaml#/definitions/uint32
     description: |
       SerDes operational mode. See above table for possible values.
@@ -107,7 +107,7 @@ required:
   - clock-names
   - resets
   - reset-names
-  - 'fsl,sys-mode'
+  - 'nxp,sys-mode'
   - reg
   - reg-names
 
@@ -131,7 +131,7 @@ examples:
         resets = <&reset S32GEN1_SCMI_RST_SERDES1>,
                  <&reset S32GEN1_SCMI_RST_PCIE1>;
         reset-names = "serdes", "pcie";
-        fsl,sys-mode = <3>;
+        nxp,sys-mode = <3>;
         reg = <0x44180000 0x108>,
               <0x44183008 0x10>,
               <0x44182000 0x800>,

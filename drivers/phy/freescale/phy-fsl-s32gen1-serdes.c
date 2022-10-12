@@ -759,7 +759,7 @@ static int ss_dt_init(struct platform_device *pdev, struct serdes *serdes)
 	struct resource *res;
 	int ret;
 
-	ret = of_property_read_u32(dev->of_node, "fsl,sys-mode",
+	ret = of_property_read_u32(dev->of_node, "nxp,sys-mode",
 				   &ctrl->ss_mode);
 	if (ret) {
 		dev_err(dev, "Failed to get SerDes subsystem mode\n");
