@@ -981,7 +981,7 @@
 			resets = <&reset S32GEN1_SCMI_RST_SERDES0>,
 				 <&reset S32GEN1_SCMI_RST_PCIE0>;
 			reset-names = "serdes", "pcie";
-			fsl,sys-mode = <XPCSX2_MODE>;
+			nxp,sys-mode = <XPCSX2_MODE>;
 			reg = <0x0 0x40480000 0x0 0x108>,
 			      <0x0 0x40483008 0x0 0x10>,
 			      <0x0 0x40482000 0x0 0x800>,
@@ -1046,7 +1046,7 @@
 			resets = <&reset S32GEN1_SCMI_RST_SERDES1>,
 				 <&reset S32GEN1_SCMI_RST_PCIE1>;
 			reset-names = "serdes", "pcie";
-			fsl,sys-mode = <PCIE_XPCS0_MODE>;
+			nxp,sys-mode = <PCIE_XPCS0_MODE>;
 			reg = <0x0 0x44180000 0x0 0x108>,
 			      <0x0 0x44183008 0x0 0x10>,
 			      <0x0 0x44182000 0x0 0x800>,
