@@ -23,3 +23,7 @@
 	memory-region = <&ddr_errata_reserved>;
 	status = "okay";
 };
+
+&nvram {
+	compatible = "nxp,s32g2-siul2_0-nvmem";
+};
