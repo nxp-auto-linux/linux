@@ -26,9 +26,16 @@
 /* SIUL2_MIDR2 masks */
 #define SIUL2_MIDR2_SERDES_MASK	BIT(15)
 
+#define SIUL2_QUIRK_MIDR1_DECREMENT_VAL	BIT(1)
+
+struct s32cc_nvmem_drvdata {
+	u32 quirks;
+};
+
 struct s32_siul2_nvmem_data {
 	struct device *dev;
 	struct nvmem_device *nvmem;
+	const struct s32cc_nvmem_drvdata *drvdata;
 	void __iomem *siul2;
 };
 
@@ -47,6 +54,34 @@ static struct nvmem_config econfig_1 = {
 	.size = 4,
 	.read_only = true,
 };
+
+static const struct s32cc_nvmem_drvdata s32cc_siul2_0_data = {
+	.quirks = 0,
+};
+
+static const struct s32cc_nvmem_drvdata s32g2_siul2_0_data = {
+	.quirks = SIUL2_QUIRK_MIDR1_DECREMENT_VAL,
+};
+
+static const struct s32cc_nvmem_drvdata s32cc_siul2_1_data = {
+	.quirks = 0,
+};
+
+static inline bool is_siul2_0_data(const struct s32cc_nvmem_drvdata *data)
+{
+	return (data == &s32cc_siul2_0_data) ||
+		(data == &s32g2_siul2_0_data);
+}
+
+static inline bool is_siul2_1_data(const struct s32cc_nvmem_drvdata *data)
+{
+	return data == &s32cc_siul2_1_data;
+}
+
+static inline int needs_minor_decrement(const struct s32cc_nvmem_drvdata *data)
+{
+	return data->quirks & SIUL2_QUIRK_MIDR1_DECREMENT_VAL;
+}
 
 static u32 get_variant_bits(u32 value)
 {
@@ -92,6 +127,9 @@ static int s32_siul2_0_nvmem_read(void *context, unsigned int offset,
 		major = (midr1 & SIUL2_MIDR1_MAJOR_MASK) >> SIUL2_MIDR1_MAJOR_SHIFT;
 		minor = midr1 & SIUL2_MIDR1_MINOR_MASK;
 
+		if (minor > 0 && needs_minor_decrement(priv->drvdata))
+			minor--;
+
 		/* Bytes format: (MAJOR+1).MINOR.0.0 */
 		*(u32 *)val = (major + 1) << S32_SOC_REV_MAJOR_SHIFT
 				| minor << S32_SOC_REV_MINOR_SHIFT;
@@ -131,8 +169,9 @@ static int s32_siul2_1_nvmem_read(void *context, unsigned int offset,
 }
 
 static const struct of_device_id s32_siul2_nvmem_match[] = {
-	{ .compatible = "nxp,s32cc-siul2_0-nvmem", },
-	{ .compatible = "nxp,s32cc-siul2_1-nvmem", },
+	{ .compatible = "nxp,s32cc-siul2_0-nvmem", .data = &s32cc_siul2_0_data },
+	{ .compatible = "nxp,s32g2-siul2_0-nvmem", .data = &s32g2_siul2_0_data },
+	{ .compatible = "nxp,s32cc-siul2_1-nvmem", .data = &s32cc_siul2_1_data },
 	{ /* sentinel */ },
 };
 MODULE_DEVICE_TABLE(of, s32_siul2_nvmem_match);
@@ -140,10 +179,19 @@ MODULE_DEVICE_TABLE(of, s32_siul2_nvmem_match);
 static int s32_siul2_nvmem_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
-	struct device_node *np = dev->of_node;
+	const struct of_device_id *of_id;
+	const struct s32cc_nvmem_drvdata *drvdata = NULL;
 	struct s32_siul2_nvmem_data *priv;
 	struct nvmem_config *econfig = NULL;
 	struct resource *res;
+
+	of_id = of_match_device(s32_siul2_nvmem_match, dev);
+	if (of_id)
+		drvdata = of_id->data;
+	if (!drvdata) {
+		dev_err(dev, "Unable to find driver data\n");
+		return -EINVAL;
+	}
 
 	priv = devm_kzalloc(dev, sizeof(struct s32_siul2_nvmem_data),
 			GFP_KERNEL);
@@ -160,10 +208,11 @@ static int s32_siul2_nvmem_probe(struct platform_device *pdev)
 	}
 
 	priv->dev = dev;
-	if (of_device_is_compatible(np, "nxp,s32cc-siul2_0-nvmem")) {
+	priv->drvdata = drvdata;
+	if (is_siul2_0_data(priv->drvdata)) {
 		econfig = &econfig_0;
 		econfig->reg_read = s32_siul2_0_nvmem_read;
-	} else if (of_device_is_compatible(np, "nxp,s32cc-siul2_1-nvmem")) {
+	} else if (is_siul2_1_data(priv->drvdata)) {
 		econfig = &econfig_1;
 		econfig->reg_read = s32_siul2_1_nvmem_read;
 	} else {
