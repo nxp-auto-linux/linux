@@ -22,6 +22,7 @@ properties:
       Each compatible string provides an interface for
       SIUL2_0 or SIUL2_1 module.
       const: nxp,s32cc-siul2_0-nvmem
+      const: nxp,s32g2-siul2_0-nvmem
       const: nxp,s32cc-siul2_1-nvmem
 
   reg:
