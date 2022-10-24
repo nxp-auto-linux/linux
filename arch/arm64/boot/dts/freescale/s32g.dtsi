@@ -48,6 +48,23 @@
 		/* ends 0x83600000 */
 	};
 
+	firmware {
+		scmi {
+			gpio_scmi: protocol@81 {
+				reg = <0x81>;
+				#gpio-cells = <2>;
+				gpio-controller;
+				#interrupt-cells = <2>;
+				interrupt-controller;
+
+				/* GPIO ranges : 0-101 & 112-190 */
+				gpio-ranges = <&pinctrl 0   0   102>,
+					      <&pinctrl 112 112 79>;
+				status = "disabled";
+			};
+		};
+	};
+
 	soc {
 		siul2@4009c000 {
 			compatible = "simple-mfd";
