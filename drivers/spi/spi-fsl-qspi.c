@@ -99,7 +99,7 @@ static const struct fsl_qspi_devtype_data ls2080a_data = {
 static const struct fsl_qspi_devtype_data s32gen1_data = {
 	.rxfifo = SZ_128,
 	.txfifo = SZ_256,
-	.ahb_buf_size = SZ_64M,
+	.ahb_buf_size = SZ_1K,
 	.quirks = 0,
 	.little_endian = true,
 };
@@ -107,7 +107,7 @@ static const struct fsl_qspi_devtype_data s32gen1_data = {
 static const struct fsl_qspi_devtype_data s32g3_data = {
 	.rxfifo = SZ_128,
 	.txfifo = SZ_256,
-	.ahb_buf_size = SZ_64M,
+	.ahb_buf_size = SZ_1K,
 	.quirks = 0,
 	.little_endian = true,
 };
@@ -761,13 +761,15 @@ static int fsl_qspi_probe(struct platform_device *pdev)
 	}
 	q->memmap_phy = res->start;
 	/* Since there are 4 cs, map size required is 4 times ahb_buf_size */
-	if (!is_s32gen1_qspi(q)) {
+	if (!is_s32gen1_qspi(q))
 		q->ahb_addr = devm_ioremap(dev, q->memmap_phy,
 				(q->devtype_data->ahb_buf_size * 4));
-		if (!q->ahb_addr) {
-			ret = -ENOMEM;
-			goto err_put_ctrl;
-		}
+	else
+		q->ahb_addr = ioremap_cache(q->memmap_phy,
+					    res->end - res->start);
+	if (!q->ahb_addr) {
+		ret = -ENOMEM;
+		goto err_put_ctrl;
 	}
 
 	/* find the clocks */
@@ -858,7 +860,7 @@ static int fsl_qspi_remove(struct platform_device *pdev)
 {
 	struct fsl_qspi *q = platform_get_drvdata(pdev);
 
-	if (q->ahb_addr)
+	if (is_s32gen1_qspi(q) && q->ahb_addr)
 		iounmap(q->ahb_addr);
 
 	/* disable the hardware */
