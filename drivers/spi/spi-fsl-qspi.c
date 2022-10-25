@@ -595,10 +595,10 @@ static int fsl_qspi_default_setup(struct fsl_qspi *q)
 	}
 
 	if (is_s32gen1_qspi(q)) {
-		qspi_writel(q, S32GEN1_QUADSPI_SFA1AD_VAL, base + QUADSPI_SFA1AD);
-		qspi_writel(q, S32GEN1_QUADSPI_SFA2AD_VAL, base + QUADSPI_SFA2AD);
-		qspi_writel(q, S32GEN1_QUADSPI_SFB1AD_VAL, base + QUADSPI_SFB1AD);
-		qspi_writel(q, S32GEN1_QUADSPI_SFB2AD_VAL, base + QUADSPI_SFB2AD);
+		qspi_writel(q, S32GEN1_QUADSPI_FLASH1_SIZE, base + QUADSPI_SFA1AD);
+		qspi_writel(q, S32GEN1_QUADSPI_FLASH2_SIZE, base + QUADSPI_SFA2AD);
+		qspi_writel(q, S32GEN1_QUADSPI_FLASH1_SIZE, base + QUADSPI_SFB1AD);
+		qspi_writel(q, S32GEN1_QUADSPI_FLASH2_SIZE, base + QUADSPI_SFB2AD);
 
 		enable_spi(q, true);
 
