@@ -128,8 +128,6 @@ struct qspi_config {
 	u32 sfacr;
 	u32 smpr;
 	u32 dlcr;
-	u32 flash1_size;
-	u32 flash2_size;
 	u32 dlpr;
 };
 
@@ -815,8 +813,6 @@ static struct qspi_config ddr_config = {
 	.dlcr = QUADSPI_DLCR_RESERVED_MASK |
 	    QUADSPI_DLCR_DLP_SEL_FA_MASK(1) |
 	    QUADSPI_DLCR_DLP_SEL_FB_MASK(1),
-	.flash1_size = 0x20000000,
-	.flash2_size = 0x20000000,
 	.dlpr = QUADSPI_DLPR_RESET_VALUE,
 };
 
@@ -867,11 +863,6 @@ static int enable_ddr(struct fsl_qspi *q)
 	qspi_writel(q, 0, base + QUADSPI_BUF0IND);
 	qspi_writel(q, 0, base + QUADSPI_BUF1IND);
 	qspi_writel(q, 0, base + QUADSPI_BUF2IND);
-
-	qspi_writel(q, ddr_config.flash1_size, base + QUADSPI_SFA1AD);
-	qspi_writel(q, ddr_config.flash2_size, base + QUADSPI_SFA2AD);
-	qspi_writel(q, ddr_config.flash1_size, base + QUADSPI_SFB1AD);
-	qspi_writel(q, ddr_config.flash2_size, base + QUADSPI_SFB2AD);
 
 	/* Enable the module */
 	mcr = qspi_readl(q, base + QUADSPI_MCR);
