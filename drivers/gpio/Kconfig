@@ -550,6 +550,16 @@ config GPIO_SAMA5D2_PIOBU
 	  The difference from regular GPIOs is that they
 	  maintain their value during backup/self-refresh.
 
+config GPIO_SCMI
+	tristate "GPIO driver controlled via SCMI interface"
+	depends on ARM_SCMI_PROTOCOL
+	help
+	  This driver provides support for GPIO that are controlled
+	  by firmware that implements the SCMI interface.
+
+	  This driver uses SCMI Message Protocol to interact with the
+	  firmware providing all the GPIO controls.
+
 config GPIO_SIFIVE
 	bool "SiFive GPIO support"
 	depends on OF_GPIO
