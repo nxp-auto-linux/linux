@@ -22,8 +22,8 @@ properties:
   compatible:
     oneOf:
       - enum:
-        - nxp,s32cc-linflexuart
-        - fsl,s32v234-linflexuart
+          - nxp,s32cc-linflexuart
+          - fsl,s32v234-linflexuart
 
   reg:
     maxItems: 1
@@ -66,6 +66,9 @@ unevaluatedProperties: false
 examples:
   - |
     #include <dt-bindings/clock/s32cc-scmi-clock.h>
+
+    #define S32V234_CLK_LIN0 131
+    #define S32V234_CLK_LIN0_IPG 132
 
     serial@401c8000 {
         compatible = "nxp,s32cc-linflexuart";

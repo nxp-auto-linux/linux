@@ -62,17 +62,20 @@ additionalProperties: false
 
 examples:
   - |
+    #include <dt-bindings/interrupt-controller/arm-gic.h>
+    #include <dt-bindings/interrupt-controller/irq.h>
     #include <dt-bindings/clock/s32cc-scmi-clock.h>
     #include <dt-bindings/rtc/s32cc-rtc.h>
 
     rtc0: rtc@40060000 {
         compatible = "nxp,s32cc-rtc";
-        reg = <0x40060000 0x1000>;
-        interrupts = <0 121 4>;
+        #interrupt-cells = <3>;
+        reg = <0x0 0x40060000 0x0 0x1000>;
+        interrupts = <GIC_SPI 121 IRQ_TYPE_LEVEL_HIGH>;
         clocks = <&clks S32CC_SCMI_CLK_RTC_REG>,
                  <&clks S32CC_SCMI_CLK_RTC_SIRC>,
                  <&clks S32CC_SCMI_CLK_RTC_FIRC>;
         clock-names = "ipg", "sirc", "firc";
-        nxp,clksel = <S32CC_RTC_FIRC_CLKSEL>;
+        nxp,clksel = <S32CC_RTC_SOURCE_FIRC>;
         nxp,dividers = <1 0>;
     };
