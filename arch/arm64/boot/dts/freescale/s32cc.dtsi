@@ -10,6 +10,7 @@
 #include <dt-bindings/clock/s32cc-scmi-clock.h>
 #include <dt-bindings/misc/s32cc-fccu.h>
 #include <dt-bindings/nvmem/s32cc-siul2-nvmem.h>
+#include <dt-bindings/perf/s32cc-scmi-perf.h>
 #include <dt-bindings/phy/phy.h>
 #include <dt-bindings/phy/phy-s32cc-serdes.h>
 #include <dt-bindings/memory/s32cc-siul2.h>
@@ -81,6 +82,7 @@
 			compatible = "arm,cortex-a53";
 			reg = <0x0>;
 			enable-method = "psci";
+			clocks = <&dfs S32CC_SCMI_PERF_A53>;
 			next-level-cache = <&cluster0_l2_cache>;
 		};
 
@@ -89,6 +91,7 @@
 			compatible = "arm,cortex-a53";
 			reg = <0x1>;
 			enable-method = "psci";
+			clocks = <&dfs S32CC_SCMI_PERF_A53>;
 			next-level-cache = <&cluster0_l2_cache>;
 		};
 
@@ -97,6 +100,7 @@
 			compatible = "arm,cortex-a53";
 			reg = <0x100>;
 			enable-method = "psci";
+			clocks = <&dfs S32CC_SCMI_PERF_A53>;
 			next-level-cache = <&cluster1_l2_cache>;
 		};
 
@@ -105,6 +109,7 @@
 			compatible = "arm,cortex-a53";
 			reg = <0x101>;
 			enable-method = "psci";
+			clocks = <&dfs S32CC_SCMI_PERF_A53>;
 			next-level-cache = <&cluster1_l2_cache>;
 		};
 
@@ -186,6 +191,11 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 			status = "okay";
+
+			dfs: protocol@13 {
+				reg = <0x13>;
+				#clock-cells = <1>;
+			};
 
 			clks: protocol@14 {
 				reg = <0x14>;
