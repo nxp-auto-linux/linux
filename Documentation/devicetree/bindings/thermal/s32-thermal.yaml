@@ -2,6 +2,9 @@
 %YAML 1.2
 ---
 
+$id: http://devicetree.org/schemas/thermal/s32-thermal.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
 title: Temperature sensor driver for NXP s32cc SoCs
 
 maintainers:
@@ -14,7 +17,7 @@ description: |
 
 properties:
   compatible:
-    const:
+    enum:
       - nxp,s32cc-tmu
 
   reg:
