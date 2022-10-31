@@ -219,6 +219,13 @@
 				reg = <0x16>;
 				#reset-cells = <1>;
 			};
+
+			pinctrl_scmi: protocol@80 {
+				reg = <0x80>;
+				#pinctrl-cells = <2>;
+
+				status = "disabled";
+			};
 		};
 
 		psci {
