@@ -776,7 +776,6 @@
 
 &usdhc0 {
 	no-1-8-v;
-	cd-gpios = <&gpio 101 GPIO_ACTIVE_LOW>;
 	pinctrl-names = "default", "state_100mhz", "state_200mhz";
 	pinctrl-0 = <&sd0_pins_default>;
 	pinctrl-1 = <&sd0_pins_100mhz>;
