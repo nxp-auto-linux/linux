@@ -214,6 +214,10 @@ examples:
         termination-ohms = <120>;
     };
   - |
+    #include <dt-bindings/clock/s32cc-scmi-clock.h>
+    #include <dt-bindings/interrupt-controller/arm-gic.h>
+    #include <dt-bindings/interrupt-controller/irq.h>
+
     can0: flexcan@401b4000 {
         compatible = "nxp,s32cc-flexcan";
         reg = <0x0 0x401b4000 0x0 0xa000>;
