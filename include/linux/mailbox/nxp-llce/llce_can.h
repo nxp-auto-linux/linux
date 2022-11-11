@@ -22,7 +22,6 @@
 #define LLCE_DCBT_DRJW_SHIFT_U8 (16U)
 #define LLCE_DCBT_DTSEG2_SHIFT_U8 (9U)
 
-#define LLCE_DEFAULTCONFIG_MAGICVALUE 0x12C0FFEE
 /**
  * Controller option used by the initialization command in order to
  * inform LLCE firmware that a specific controller shall be initialized.
@@ -212,7 +211,9 @@ enum llce_can_command_id {
 	/** Custom command to be implemented by user in FDK */
 	LLCE_CAN_CMD_CUSTOM,
 	/** The host configures multiple filters on the reception side for rxlut2 on g3.*/
-	LLCE_CAN_CMD_SETAUXFILTER
+	LLCE_CAN_CMD_SETAUXFILTER,
+	/** The host requests the addition of a new filter by specifying filter address.*/
+	LLCE_CAN_CMD_SETFILTER_AT_ADDRESS
 } __packed;
 
 /**
@@ -1033,7 +1034,7 @@ struct llce_can_init_platform_cmd {
 	u16 max_advanced_filter_count[LLCE_CAN_CONFIG_MAXCTRL_COUNT];
 	/**
 	 * INPUT: Array containing maximum number of RX message buffers
-	 * per channel, considering interrupt processing.
+	 * per output interface, considering interrupt processing.
 	 */
 	u16 max_int_mb_count[LLCE_CAN_CONFIG_MAXCTRL_COUNT];
 	/**
@@ -1044,8 +1045,8 @@ struct llce_can_init_platform_cmd {
 	 */
 	u16 max_poll_mb_count[LLCE_CAN_MAX_POLLING_CLASSES];
 	/**
-	 * INPUT: Array containing maximum number of reserved TX
-	 * confirmation buffers per channel, considering interrupt processing.
+	 * INPUT: Array containing maximum number of reserved TX confirmation
+	 * buffers per output interface, considering interrupt processing.
 	 */
 	u16 max_int_tx_ack_count[LLCE_CAN_CONFIG_MAXCTRL_COUNT];
 	/**
