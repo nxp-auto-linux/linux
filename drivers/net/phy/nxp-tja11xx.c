@@ -20,6 +20,7 @@
 #define PHY_ID_MASK			0xfffffff0
 #define PHY_ID_TJA1100			0x0180dc40
 #define PHY_ID_TJA1101			0x0180dd00
+#define PHY_ID_TJA1101B			0x0180dd02
 #define PHY_ID_TJA1102			0x0180dc80
 
 #define MII_ECTRL			17
@@ -689,6 +690,24 @@ static int tja11xx_cable_test_get_status(struct phy_device *phydev,
 
 static struct phy_driver tja11xx_driver[] = {
 	{
+		PHY_ID_MATCH_EXACT(PHY_ID_TJA1101B),
+		.name		= "NXP TJA1101B",
+		.features       = PHY_BASIC_T1_FEATURES,
+		.probe		= tja11xx_probe,
+		.soft_reset	= tja11xx_soft_reset,
+		.config_aneg	= tja11xx_config_aneg,
+		.config_init	= tja11xx_config_init,
+		.read_status	= tja11xx_read_status,
+		.get_sqi	= tja11xx_get_sqi,
+		.get_sqi_max	= tja11xx_get_sqi_max,
+		.suspend	= genphy_suspend,
+		.resume		= genphy_resume,
+		.set_loopback   = genphy_loopback,
+		/* Statistics */
+		.get_sset_count = tja11xx_get_sset_count,
+		.get_strings	= tja11xx_get_strings,
+		.get_stats	= tja11xx_get_stats,
+	}, {
 		PHY_ID_MATCH_MODEL(PHY_ID_TJA1100),
 		.name		= "NXP TJA1100",
 		.features       = PHY_BASIC_T1_FEATURES,
@@ -776,6 +795,7 @@ static struct phy_driver tja11xx_driver[] = {
 module_phy_driver(tja11xx_driver);
 
 static struct mdio_device_id __maybe_unused tja11xx_tbl[] = {
+	{ PHY_ID_MATCH_MODEL(PHY_ID_TJA1101B) },
 	{ PHY_ID_MATCH_MODEL(PHY_ID_TJA1100) },
 	{ PHY_ID_MATCH_MODEL(PHY_ID_TJA1101) },
 	{ PHY_ID_MATCH_MODEL(PHY_ID_TJA1102) },
