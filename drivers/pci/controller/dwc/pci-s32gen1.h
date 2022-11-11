@@ -14,7 +14,7 @@
 #include <linux/version.h>
 #include <linux/phy/phy.h>
 #include <uapi/linux/pci_regs.h>
-#include <linux/pcie/fsl-s32gen1-pcie-phy-submode.h>
+#include <linux/phy/fsl/fsl-s32cc-pcie-phy-submode.h>
 
 #include "pcie-designware.h"
 #include "pci-ioctl-s32.h"

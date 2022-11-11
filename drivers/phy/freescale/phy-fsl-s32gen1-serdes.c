@@ -10,13 +10,13 @@
 #include <linux/module.h>
 #include <linux/of_address.h>
 #include <linux/pcs/fsl-s32gen1-xpcs.h>
-#include <linux/pcie/fsl-s32gen1-io.h>
-#include <linux/pcie/fsl-s32gen1-pcie-phy-submode.h>
+#include <linux/phy/fsl/fsl-s32cc-pcie-phy-submode.h>
 #include <linux/phy/phy.h>
 #include <linux/platform_device.h>
 #include <linux/processor.h>
 #include <linux/reset.h>
 #include <linux/stringify.h>
+#include <soc/fsl/fsl-s32cc-io.h>
 
 #define SERDES_MAX_LANES 2U
 #define SERDES_MAX_INSTANCES 2U
