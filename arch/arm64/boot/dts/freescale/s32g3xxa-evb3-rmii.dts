@@ -1,0 +1,103 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+/*
+ * Copyright 2022 NXP
+ */
+
+/*
+ * !!! WARNING !!! REQUIRED MODIFIED HARDWARE:
+ *	S32G-PROCEVB3-S (SCH-50784)
+ *	* Enable RGMII_B
+ *		Move R555 .. R559 & R562 .. R566 from position A to B
+ *	* Make S32G399 PD_15 pin as RMII Reference Clock input
+ *		Remove R560 & R561, connect R560 middle pad to R561 B pad
+ *
+ *	ADTJA1101-RMII (SCH-30211)
+ *	* Use RGMII_RXC as 50MHz REF_CLK output
+ *		Remove R93, connect R93 B pad to TP14
+ */
+
+/dts-v1/;
+#include "s32g3xxa-evb3.dtsi"
+/ {
+	model = "NXP S32G3XXX-EVB3-PFE-RMII";
+};
+
+&usbotg {
+	/* USB transceiver USB83340 is disconnected due to HW modification */
+	status = "disabled";
+};
+
+&spi5 {
+	/* Disable SJA1105 switch */
+	status = "disabled";
+};
+
+&pfe_mdio0 {
+	status = "okay";
+
+	/* TJA1101B on S32GRV-PLATEVB ETHERNET CARD (B PORT) */
+	pfe_mdio_b_phy2: ethernet-phy@9 {
+		reg = <2>;
+	};
+};
+
+&pfe_netif2 {
+	phy-mode = "rmii";
+	phy-handle = <&pfe_mdio_b_phy2>;
+	max-speed = <100>;
+	/delete-node/ fixed-link;
+};
+
+&pfe {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pfe2mdioa_pins>, <&pfe0mdiob_pins>, <&pfe2rmiib_pins>;
+};
+
+&pinctrl {
+	pfe0mdiob_pins: pfe0mdiob_pins {
+		pfe0mdiob_grp0 {
+			pinmux = <S32CC_PINMUX(80, FUNC2)>;
+			output-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+		};
+
+		pfe0mdiob_grp1 {
+			pinmux = <S32CC_PINMUX(81, FUNC3)>;
+			drive-open-drain;
+			output-enable;
+			input-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+		};
+
+		pfe0mdiob_grp2 {
+			pinmux = <S32CC_PINMUX(837, FUNC3)>;
+		};
+	};
+
+	pfe2rmiib_pins: pfe2rmiib_pins {
+		pfe2rmiib_grp0 {
+			pinmux = <S32CC_PINMUX(185, FUNC5)>,
+			<S32CC_PINMUX(186, FUNC4)>,
+			<S32CC_PINMUX(187, FUNC2)>;
+			output-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+		};
+
+		pfe2rmiib_grp1 {
+			pinmux = <S32CC_PINMUX(63, FUNC0)>,
+			<S32CC_PINMUX(65, FUNC0)>,
+			<S32CC_PINMUX(188, FUNC0)>,
+			<S32CC_PINMUX(189, FUNC0)>;
+			input-enable;
+			slew-rate = <S32CC_SLEW_208MHZ>;
+		};
+
+		pfe2rmiib_grp2 {
+			pinmux = <S32CC_PINMUX(878, FUNC2)>,
+			<S32CC_PINMUX(885, FUNC2)>,
+			<S32CC_PINMUX(881, FUNC2)>,
+			<S32CC_PINMUX(882, FUNC2)>;
+		};
+	};
+};
