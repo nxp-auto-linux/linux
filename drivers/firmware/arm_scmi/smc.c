@@ -3,7 +3,7 @@
  * System Control and Management Interface (SCMI) Message SMC/HVC
  * Transport driver
  *
- * Copyright 2020 NXP
+ * Copyright 2020,2022 NXP
  */
 
 #include <linux/arm-smccc.h>
@@ -30,6 +30,7 @@
  * @inflight: Atomic flag to protect access to Tx/Rx shared memory area.
  *	      Used when operating in atomic mode.
  * @func_id: smc/hvc call function id
+ * @node: Linked list pointers
  */
 
 struct scmi_smc {
@@ -37,10 +38,14 @@ struct scmi_smc {
 	struct scmi_shared_mem __iomem *shmem;
 	/* Protect access to shmem area */
 	struct mutex shmem_lock;
+	struct list_head node;
 #define INFLIGHT_NONE	MSG_TOKEN_MAX
 	atomic_t inflight;
 	u32 func_id;
 };
+
+static LIST_HEAD(scmi_smc_devices);
+static DEFINE_MUTEX(smc_devices_lock);
 
 static irqreturn_t smc_msg_done_isr(int irq, void *data)
 {
@@ -97,6 +102,74 @@ static inline void smc_channel_lock_release(struct scmi_smc *scmi_info)
 		mutex_unlock(&scmi_info->shmem_lock);
 }
 
+static struct scmi_smc *create_scmi_smc_dev(struct scmi_chan_info *cinfo,
+					    struct device *dev)
+{
+	struct device *cdev = cinfo->dev;
+	struct scmi_smc *scmi_info;
+	u32 func_id;
+	int ret, irq;
+
+	scmi_info = devm_kzalloc(dev, sizeof(*scmi_info), GFP_KERNEL);
+	if (!scmi_info)
+		return ERR_PTR(-ENOMEM);
+
+	ret = of_property_read_u32(dev->of_node, "arm,smc-id", &func_id);
+	if (ret < 0)
+		return ERR_PTR(ret);
+
+	/*
+	 * If there is an interrupt named "a2p", then the service and
+	 * completion of a message is signaled by an interrupt rather than by
+	 * the return of the SMC call.
+	 */
+	irq = of_irq_get_byname(cdev->of_node, "a2p");
+	if (irq > 0) {
+		ret = devm_request_irq(dev, irq, smc_msg_done_isr,
+				       IRQF_NO_SUSPEND,
+				       dev_name(dev), scmi_info);
+		if (ret) {
+			dev_err(dev, "failed to setup SCMI smc irq\n");
+			return ERR_PTR(ret);
+		}
+	} else {
+		cinfo->no_completion_irq = true;
+	}
+
+	scmi_info->func_id = func_id;
+	scmi_info->cinfo = cinfo;
+	smc_channel_lock_init(scmi_info);
+	cinfo->transport_info = scmi_info;
+
+	return scmi_info;
+}
+
+static struct scmi_smc *get_scmi_smc_dev(struct scmi_chan_info *cinfo,
+					 struct device *dev)
+{
+	struct scmi_smc *smc_dev = NULL;
+	bool found = false;
+
+	mutex_lock(&smc_devices_lock);
+	list_for_each_entry(smc_dev, &scmi_smc_devices, node) {
+		if (smc_dev->cinfo == cinfo) {
+			found = true;
+			break;
+		}
+	}
+
+	if (found)
+		goto release_lock;
+
+	smc_dev = create_scmi_smc_dev(cinfo, dev);
+	if (!IS_ERR(smc_dev))
+		list_add(&smc_dev->node, &scmi_smc_devices);
+
+release_lock:
+	mutex_unlock(&smc_devices_lock);
+	return smc_dev;
+}
+
 static int smc_chan_setup(struct scmi_chan_info *cinfo, struct device *dev,
 			  bool tx)
 {
@@ -105,15 +178,14 @@ static int smc_chan_setup(struct scmi_chan_info *cinfo, struct device *dev,
 	resource_size_t size;
 	struct resource res;
 	struct device_node *np;
-	u32 func_id;
-	int ret, irq;
+	int ret;
 
 	if (!tx)
 		return -ENODEV;
 
-	scmi_info = devm_kzalloc(dev, sizeof(*scmi_info), GFP_KERNEL);
-	if (!scmi_info)
-		return -ENOMEM;
+	scmi_info = get_scmi_smc_dev(cinfo, dev);
+	if (IS_ERR(scmi_info))
+		return PTR_ERR(scmi_info);
 
 	np = of_parse_phandle(cdev->of_node, "shmem", 0);
 	if (!of_device_is_compatible(np, "arm,scmi-shmem")) {
@@ -134,33 +206,6 @@ static int smc_chan_setup(struct scmi_chan_info *cinfo, struct device *dev,
 		dev_err(dev, "failed to ioremap SCMI Tx shared memory\n");
 		return -EADDRNOTAVAIL;
 	}
-
-	ret = of_property_read_u32(dev->of_node, "arm,smc-id", &func_id);
-	if (ret < 0)
-		return ret;
-
-	/*
-	 * If there is an interrupt named "a2p", then the service and
-	 * completion of a message is signaled by an interrupt rather than by
-	 * the return of the SMC call.
-	 */
-	irq = of_irq_get_byname(cdev->of_node, "a2p");
-	if (irq > 0) {
-		ret = devm_request_irq(dev, irq, smc_msg_done_isr,
-				       IRQF_NO_SUSPEND,
-				       dev_name(dev), scmi_info);
-		if (ret) {
-			dev_err(dev, "failed to setup SCMI smc irq\n");
-			return ret;
-		}
-	} else {
-		cinfo->no_completion_irq = true;
-	}
-
-	scmi_info->func_id = func_id;
-	scmi_info->cinfo = cinfo;
-	smc_channel_lock_init(scmi_info);
-	cinfo->transport_info = scmi_info;
 
 	return 0;
 }
