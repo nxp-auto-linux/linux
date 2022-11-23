@@ -304,6 +304,7 @@ void scmi_rx_callback(struct scmi_chan_info *cinfo, u32 msg_hdr, void *priv);
 /* shmem related declarations */
 struct scmi_shared_mem;
 
+bool shmem_is_free(struct scmi_shared_mem __iomem *shmem);
 void shmem_tx_prepare(struct scmi_shared_mem __iomem *shmem,
 		      struct scmi_xfer *xfer, struct scmi_chan_info *cinfo);
 u32 shmem_read_header(struct scmi_shared_mem __iomem *shmem);
