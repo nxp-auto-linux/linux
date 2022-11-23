@@ -32,6 +32,12 @@ struct scmi_shared_mem {
 	u8 msg_payload[];
 };
 
+bool shmem_is_free(struct scmi_shared_mem __iomem *shmem)
+{
+	return ioread32(&shmem->channel_status) &
+	    SCMI_SHMEM_CHAN_STAT_CHANNEL_FREE;
+}
+
 void shmem_tx_prepare(struct scmi_shared_mem __iomem *shmem,
 		      struct scmi_xfer *xfer, struct scmi_chan_info *cinfo)
 {
@@ -52,18 +58,15 @@ void shmem_tx_prepare(struct scmi_shared_mem __iomem *shmem,
 	 * due to a misbehaving SCMI firmware.
 	 */
 	stop = ktime_add_ms(ktime_get(), 2 * cinfo->rx_timeout_ms);
-	spin_until_cond((ioread32(&shmem->channel_status) &
-			 SCMI_SHMEM_CHAN_STAT_CHANNEL_FREE) ||
+	spin_until_cond(shmem_is_free(shmem) ||
 			 ktime_after(ktime_get(), stop));
-	if (!(ioread32(&shmem->channel_status) &
-	      SCMI_SHMEM_CHAN_STAT_CHANNEL_FREE)) {
+	if (!shmem_is_free(shmem)) {
 		WARN_ON_ONCE(1);
 		dev_err(cinfo->dev,
 			"Timeout waiting for a free TX channel !\n");
 		return;
 	}
 
-	/* Mark channel busy + clear error */
 	iowrite32(0x0, &shmem->channel_status);
 	iowrite32(xfer->hdr.poll_completion ? 0 : SCMI_SHMEM_FLAG_INTR_ENABLED,
 		  &shmem->flags);
