@@ -24,24 +24,31 @@
  * struct scmi_smc - Structure representing a SCMI smc transport
  *
  * @cinfo: SCMI channel info
+ * @notif_cinfo: SCMI notification channel info
  * @shmem: Transmit/Receive shared memory area
+ * @notif_shmem: Notification shared memory area
  * @shmem_lock: Lock to protect access to Tx/Rx shared memory area.
  *		Used when NOT operating in atomic mode.
  * @inflight: Atomic flag to protect access to Tx/Rx shared memory area.
  *	      Used when operating in atomic mode.
  * @func_id: smc/hvc call function id
  * @node: Linked list pointers
+ * @tx_no_completion_irq: Tx channel has no completion interrupt
+ *                        mechanism for synchronous commands.
  */
 
 struct scmi_smc {
 	struct scmi_chan_info *cinfo;
+	struct scmi_chan_info *notif_cinfo;
 	struct scmi_shared_mem __iomem *shmem;
+	struct scmi_shared_mem __iomem *notif_shmem;
 	/* Protect access to shmem area */
 	struct mutex shmem_lock;
 	struct list_head node;
 #define INFLIGHT_NONE	MSG_TOKEN_MAX
 	atomic_t inflight;
 	u32 func_id;
+	bool tx_no_completion_irq;
 };
 
 static LIST_HEAD(scmi_smc_devices);
@@ -53,6 +60,16 @@ static irqreturn_t smc_msg_done_isr(int irq, void *data)
 
 	scmi_rx_callback(scmi_info->cinfo,
 			 shmem_read_header(scmi_info->shmem), NULL);
+
+	return IRQ_HANDLED;
+}
+
+static irqreturn_t smc_platform_notif_isr(int irq, void *data)
+{
+	struct scmi_smc *scmi_info = data;
+
+	scmi_rx_callback(scmi_info->notif_cinfo,
+			 shmem_read_header(scmi_info->notif_shmem), NULL);
 
 	return IRQ_HANDLED;
 }
@@ -102,10 +119,9 @@ static inline void smc_channel_lock_release(struct scmi_smc *scmi_info)
 		mutex_unlock(&scmi_info->shmem_lock);
 }
 
-static struct scmi_smc *create_scmi_smc_dev(struct scmi_chan_info *cinfo,
+static struct scmi_smc *create_scmi_smc_dev(struct device *cdev,
 					    struct device *dev)
 {
-	struct device *cdev = cinfo->dev;
 	struct scmi_smc *scmi_info;
 	u32 func_id;
 	int ret, irq;
@@ -133,13 +149,22 @@ static struct scmi_smc *create_scmi_smc_dev(struct scmi_chan_info *cinfo,
 			return ERR_PTR(ret);
 		}
 	} else {
-		cinfo->no_completion_irq = true;
+		scmi_info->tx_no_completion_irq = true;
+	}
+
+	irq = of_irq_get_byname(cdev->of_node, "p2a_notif");
+	if (irq > 0) {
+		ret = devm_request_irq(dev, irq, smc_platform_notif_isr,
+				       IRQF_NO_SUSPEND,
+				       dev_name(dev), scmi_info);
+		if (ret) {
+			dev_err(dev, "failed to setup SCMI smc notification irq\n");
+			return ERR_PTR(ret);
+		}
 	}
 
 	scmi_info->func_id = func_id;
-	scmi_info->cinfo = cinfo;
 	smc_channel_lock_init(scmi_info);
-	cinfo->transport_info = scmi_info;
 
 	return scmi_info;
 }
@@ -152,7 +177,7 @@ static struct scmi_smc *get_scmi_smc_dev(struct scmi_chan_info *cinfo,
 
 	mutex_lock(&smc_devices_lock);
 	list_for_each_entry(smc_dev, &scmi_smc_devices, node) {
-		if (smc_dev->cinfo == cinfo) {
+		if (smc_dev->cinfo->dev == cinfo->dev) {
 			found = true;
 			break;
 		}
@@ -161,7 +186,7 @@ static struct scmi_smc *get_scmi_smc_dev(struct scmi_chan_info *cinfo,
 	if (found)
 		goto release_lock;
 
-	smc_dev = create_scmi_smc_dev(cinfo, dev);
+	smc_dev = create_scmi_smc_dev(cinfo->dev, dev);
 	if (!IS_ERR(smc_dev))
 		list_add(&smc_dev->node, &scmi_smc_devices);
 
@@ -178,16 +203,21 @@ static int smc_chan_setup(struct scmi_chan_info *cinfo, struct device *dev,
 	resource_size_t size;
 	struct resource res;
 	struct device_node *np;
-	int ret;
+	int ret, shmem_idx;
+	const char *ch_name = tx ? "tx" : "rx";
+	struct scmi_shared_mem __iomem **shmem;
 
-	if (!tx)
-		return -ENODEV;
+	shmem_idx = of_property_match_string(cdev->of_node,
+					     "mbox-names",
+					     ch_name);
+	if (shmem_idx < 0)
+		return -ENXIO;
 
 	scmi_info = get_scmi_smc_dev(cinfo, dev);
 	if (IS_ERR(scmi_info))
 		return PTR_ERR(scmi_info);
 
-	np = of_parse_phandle(cdev->of_node, "shmem", 0);
+	np = of_parse_phandle(cdev->of_node, "shmem", shmem_idx);
 	if (!of_device_is_compatible(np, "arm,scmi-shmem")) {
 		of_node_put(np);
 		return -ENXIO;
@@ -196,16 +226,31 @@ static int smc_chan_setup(struct scmi_chan_info *cinfo, struct device *dev,
 	ret = of_address_to_resource(np, 0, &res);
 	of_node_put(np);
 	if (ret) {
-		dev_err(cdev, "failed to get SCMI Tx shared memory\n");
+		dev_err(cdev, "failed to get SCMI %s shared memory\n", ch_name);
 		return ret;
 	}
 
+	if (tx)
+		shmem = &scmi_info->shmem;
+	else
+		shmem = &scmi_info->notif_shmem;
+
 	size = resource_size(&res);
-	scmi_info->shmem = devm_ioremap(dev, res.start, size);
-	if (!scmi_info->shmem) {
-		dev_err(dev, "failed to ioremap SCMI Tx shared memory\n");
+	*shmem = devm_ioremap(dev, res.start, size);
+	if (!*shmem) {
+		dev_err(dev, "failed to ioremap SCMI %s shared memory\n",
+			ch_name);
 		return -EADDRNOTAVAIL;
 	}
+
+	if (tx) {
+		scmi_info->cinfo = cinfo;
+		cinfo->no_completion_irq = scmi_info->tx_no_completion_irq;
+	} else {
+		scmi_info->notif_cinfo = cinfo;
+	}
+
+	cinfo->transport_info = scmi_info;
 
 	return 0;
 }
@@ -263,6 +308,14 @@ static void smc_mark_txdone(struct scmi_chan_info *cinfo, int ret)
 	smc_channel_lock_release(scmi_info);
 }
 
+static void smc_fetch_notification(struct scmi_chan_info *cinfo,
+				   size_t max_len, struct scmi_xfer *xfer)
+{
+	struct scmi_smc *scmi_info = cinfo->transport_info;
+
+	shmem_fetch_notification(scmi_info->notif_shmem, max_len, xfer);
+}
+
 static const struct scmi_transport_ops scmi_smc_ops = {
 	.chan_available = smc_chan_available,
 	.chan_setup = smc_chan_setup,
@@ -270,6 +323,7 @@ static const struct scmi_transport_ops scmi_smc_ops = {
 	.send_message = smc_send_message,
 	.mark_txdone = smc_mark_txdone,
 	.fetch_response = smc_fetch_response,
+	.fetch_notification = smc_fetch_notification,
 };
 
 const struct scmi_desc scmi_smc_desc = {
