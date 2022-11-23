@@ -29,6 +29,12 @@ struct scmi_shared_mem {
 	u8 msg_payload[];
 };
 
+bool shmem_is_free(struct scmi_shared_mem __iomem *shmem)
+{
+	return ioread32(&shmem->channel_status) &
+	    SCMI_SHMEM_CHAN_STAT_CHANNEL_FREE;
+}
+
 void shmem_tx_prepare(struct scmi_shared_mem __iomem *shmem,
 		      struct scmi_xfer *xfer)
 {
@@ -38,8 +44,7 @@ void shmem_tx_prepare(struct scmi_shared_mem __iomem *shmem,
 	 * until it releases the shared memory, otherwise we may endup
 	 * overwriting its response with new message payload or vice-versa
 	 */
-	spin_until_cond(ioread32(&shmem->channel_status) &
-			SCMI_SHMEM_CHAN_STAT_CHANNEL_FREE);
+	spin_until_cond(shmem_is_free(shmem));
 	/* Mark channel busy + clear error */
 	iowrite32(0x0, &shmem->channel_status);
 	iowrite32(xfer->hdr.poll_completion ? 0 : SCMI_SHMEM_FLAG_INTR_ENABLED,
