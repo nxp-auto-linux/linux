@@ -6,6 +6,7 @@
  * Copyright 2017-2022 NXP
  */
 
+#include <linux/circ_buf.h>
 #include <linux/clk.h>
 #include <linux/console.h>
 #include <linux/dma-mapping.h>
@@ -177,7 +178,7 @@ struct linflex_port {
 	dma_cookie_t		dma_tx_cookie;
 	dma_cookie_t		dma_rx_cookie;
 	unsigned char		*dma_tx_buf_virt;
-	unsigned char		*dma_rx_buf_virt;
+	struct circ_buf		dma_rx_ring_buf;
 	unsigned int		dma_tx_bytes;
 	int			dma_tx_in_progress;
 	int			dma_rx_in_progress;
@@ -214,32 +215,58 @@ to_linflex_port(struct uart_port *uart)
 	return container_of(uart, struct linflex_port, port);
 }
 
-static void linflex_copy_rx_to_tty(struct linflex_port *lfport,
-				   struct tty_port *tty, int count)
+static void linflex_copy_rx_to_tty(struct linflex_port *lfport)
 {
-	int copied;
+	struct circ_buf *ring_buf = &lfport->dma_rx_ring_buf;
+	struct tty_port *port = &lfport->port.state->port;
+	struct dma_tx_state state;
+	size_t count, received = 0;
+	int copied = 0;
+	int new_head;
 
-	lfport->port.icount.rx += count;
-
-	if (!tty) {
+	if (!port) {
 		dev_err(lfport->port.dev, "No tty port\n");
 		return;
 	}
 
+	dmaengine_tx_status(lfport->dma_rx_chan, lfport->dma_rx_cookie, &state);
+	new_head = FSL_UART_RX_DMA_BUFFER_SIZE - state.residue;
+	if (ring_buf->head == new_head)
+		return;
+
+	ring_buf->head = new_head;
 	dma_sync_single_for_cpu(lfport->port.dev, lfport->dma_rx_buf_bus,
 				FSL_UART_RX_DMA_BUFFER_SIZE, DMA_FROM_DEVICE);
-	copied = tty_insert_flip_string(tty,
-					((unsigned char *)(lfport->dma_rx_buf_virt)),
-					count);
 
-	if (copied != count) {
-		WARN_ON(1);
-		dev_err(lfport->port.dev, "RxData copy to tty layer failed\n");
+	if (ring_buf->head > FSL_UART_RX_DMA_BUFFER_SIZE)
+		dev_err_once(lfport->port.dev,
+			     "Circular buffer head bigger than the buffer size\n");
+
+	if (ring_buf->head < ring_buf->tail) {
+		count = FSL_UART_RX_DMA_BUFFER_SIZE - ring_buf->tail;
+		received += count;
+		copied += tty_insert_flip_string(port, ring_buf->buf + ring_buf->tail, count);
+		ring_buf->tail = 0;
+		lfport->port.icount.rx += count;
 	}
+
+	if (ring_buf->head > ring_buf->tail) {
+		count = ring_buf->head - ring_buf->tail;
+		received += count;
+		copied += tty_insert_flip_string(port, ring_buf->buf + ring_buf->tail, count);
+		if (ring_buf->head >= FSL_UART_RX_DMA_BUFFER_SIZE)
+			ring_buf->head = 0;
+		ring_buf->tail = ring_buf->head;
+		lfport->port.icount.rx += count;
+	}
+
+	if (copied != received)
+		dev_err_once(lfport->port.dev, "RxData copy to tty layer failed\n");
 
 	dma_sync_single_for_device(lfport->port.dev, lfport->dma_rx_buf_bus,
 				   FSL_UART_RX_DMA_BUFFER_SIZE,
 				   DMA_FROM_DEVICE);
+	tty_flip_buffer_push(port);
 }
 
 static void linflex_enable_dma_rx(struct uart_port *port)
@@ -327,8 +354,6 @@ static void linflex_stop_tx(struct uart_port *port)
 static void linflex_stop_rx(struct uart_port *port)
 {
 	unsigned long ier;
-	unsigned int count;
-	struct dma_tx_state state;
 	struct linflex_port *lfport = to_linflex_port(port);
 
 	if (!lfport->dma_rx_use) {
@@ -343,14 +368,12 @@ static void linflex_stop_rx(struct uart_port *port)
 
 	del_timer(&lfport->timer);
 	dmaengine_pause(lfport->dma_rx_chan);
-	dmaengine_tx_status(lfport->dma_rx_chan,
-			    lfport->dma_rx_cookie, &state);
+	linflex_copy_rx_to_tty(lfport);
+	lfport->dma_rx_ring_buf.head = 0;
+	lfport->dma_rx_ring_buf.tail = 0;
 	dmaengine_terminate_all(lfport->dma_rx_chan);
-	count = FSL_UART_RX_DMA_BUFFER_SIZE - state.residue;
 
 	lfport->dma_rx_in_progress = 0;
-	linflex_copy_rx_to_tty(lfport, &port->state->port, count);
-	tty_flip_buffer_push(&port->state->port);
 }
 
 static void linflex_put_char(struct uart_port *sport, unsigned char c)
@@ -476,11 +499,12 @@ static int linflex_dma_rx(struct linflex_port *lfport)
 	dma_sync_single_for_device(lfport->port.dev, lfport->dma_rx_buf_bus,
 				   FSL_UART_RX_DMA_BUFFER_SIZE,
 				   DMA_FROM_DEVICE);
-	lfport->dma_rx_desc = dmaengine_prep_slave_single(lfport->dma_rx_chan,
-							  lfport->dma_rx_buf_bus,
-							  FSL_UART_RX_DMA_BUFFER_SIZE,
-							  DMA_DEV_TO_MEM, DMA_PREP_INTERRUPT |
-							  DMA_CTRL_ACK);
+	lfport->dma_rx_desc =
+		dmaengine_prep_dma_cyclic(lfport->dma_rx_chan,
+					  lfport->dma_rx_buf_bus,
+					  FSL_UART_RX_DMA_BUFFER_SIZE,
+					  FSL_UART_RX_DMA_BUFFER_SIZE / 2,
+					  DMA_DEV_TO_MEM, DMA_PREP_INTERRUPT);
 
 	if (!lfport->dma_rx_desc) {
 		dev_err(lfport->port.dev, "Not able to get desc for rx\n");
@@ -499,20 +523,15 @@ static int linflex_dma_rx(struct linflex_port *lfport)
 static void linflex_dma_rx_complete(void *arg)
 {
 	struct linflex_port *lfport = arg;
-	struct tty_port *port = &lfport->port.state->port;
 	unsigned long flags;
 
 	del_timer(&lfport->timer);
 
 	spin_lock_irqsave(&lfport->port.lock, flags);
 
-	lfport->dma_rx_in_progress = 0;
-	linflex_copy_rx_to_tty(lfport, port, FSL_UART_RX_DMA_BUFFER_SIZE);
-	tty_flip_buffer_push(port);
-	linflex_dma_rx(lfport);
+	linflex_copy_rx_to_tty(lfport);
 
 	spin_unlock_irqrestore(&lfport->port.lock, flags);
-
 	mod_timer(&lfport->timer, jiffies + lfport->dma_rx_timeout);
 }
 
@@ -522,8 +541,8 @@ static void linflex_timer_func(struct timer_list *t)
 	unsigned long flags;
 
 	spin_lock_irqsave(&lfport->port.lock, flags);
-	linflex_stop_rx(&lfport->port);
-	linflex_dma_rx(lfport);
+
+	linflex_copy_rx_to_tty(lfport);
 
 	spin_unlock_irqrestore(&lfport->port.lock, flags);
 	mod_timer(&lfport->timer, jiffies + lfport->dma_rx_timeout);
@@ -779,7 +798,7 @@ static int linflex_dma_rx_request(struct uart_port *port)
 	struct linflex_port *lfport = to_linflex_port(port);
 	struct dma_slave_config dma_rx_sconfig;
 	dma_addr_t dma_bus;
-	unsigned char *dma_buf;
+	char *dma_buf;
 	int ret;
 
 	dma_buf = devm_kzalloc(port->dev, FSL_UART_RX_DMA_BUFFER_SIZE,
@@ -811,7 +830,9 @@ static int linflex_dma_rx_request(struct uart_port *port)
 		return ret;
 	}
 
-	lfport->dma_rx_buf_virt = dma_buf;
+	lfport->dma_rx_ring_buf.buf = dma_buf;
+	lfport->dma_rx_ring_buf.head = 0;
+	lfport->dma_rx_ring_buf.tail = 0;
 	lfport->dma_rx_buf_bus = dma_bus;
 	lfport->dma_rx_in_progress = 0;
 
@@ -835,10 +856,12 @@ static void linflex_dma_rx_free(struct uart_port *port)
 
 	dma_unmap_single(lfport->port.dev, lfport->dma_rx_buf_bus,
 			 FSL_UART_RX_DMA_BUFFER_SIZE, DMA_FROM_DEVICE);
-	devm_kfree(lfport->port.dev, lfport->dma_rx_buf_virt);
+	devm_kfree(lfport->port.dev, lfport->dma_rx_ring_buf.buf);
 
 	lfport->dma_rx_buf_bus = 0;
-	lfport->dma_rx_buf_virt = NULL;
+	lfport->dma_rx_ring_buf.buf = NULL;
+	lfport->dma_rx_ring_buf.head = 0;
+	lfport->dma_rx_ring_buf.tail = 0;
 }
 
 static int linflex_startup(struct uart_port *port)
