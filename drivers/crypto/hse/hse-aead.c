@@ -235,7 +235,7 @@ static int hse_aead_crypt(struct aead_request *req,
 		goto err_unmap_buf;
 	}
 
-	/* prepare HSE service descriptor */
+	memzero_explicit(&rctx->srv_desc, sizeof(rctx->srv_desc));
 	rctx->srv_desc.srv_id = HSE_SRV_ID_AEAD;
 	rctx->srv_desc.aead_req.access_mode = HSE_ACCESS_MODE_ONE_PASS;
 	rctx->srv_desc.aead_req.auth_cipher_mode = alg->auth_mode;
@@ -306,6 +306,7 @@ static int hse_aead_setkey(struct crypto_aead *tfm, const u8 *key,
 				   DMA_TO_DEVICE);
 	tctx->keylen = keylen;
 
+	memzero_explicit(&tctx->keyinf, sizeof(tctx->keyinf));
 	tctx->keyinf.key_flags = HSE_KF_USAGE_ENCRYPT | HSE_KF_USAGE_DECRYPT;
 	tctx->keyinf.key_bit_len = keylen * BITS_PER_BYTE;
 	tctx->keyinf.key_type = alg->key_type;
@@ -313,6 +314,7 @@ static int hse_aead_setkey(struct crypto_aead *tfm, const u8 *key,
 	dma_sync_single_for_device(alg->dev, tctx->keyinf_dma,
 				   sizeof(tctx->keyinf), DMA_TO_DEVICE);
 
+	memzero_explicit(&tctx->srv_desc, sizeof(tctx->srv_desc));
 	tctx->srv_desc.srv_id = HSE_SRV_ID_IMPORT_KEY;
 	tctx->srv_desc.import_key_req.key_handle = tctx->key_slot->handle;
 	tctx->srv_desc.import_key_req.key_info = tctx->keyinf_dma;
