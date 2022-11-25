@@ -599,6 +599,7 @@ struct hse_standby_prepare_srv {
  * @rng_req: RNG service request
  * @ctx_impex_req: import/export streaming context request
  * @standby_req: prepare for stand-by mode request
+ * @max_desc: used for forward compatibility with firmware
  */
 struct hse_srv_desc {
 	u32 srv_id;
@@ -613,6 +614,7 @@ struct hse_srv_desc {
 		struct hse_rng_srv rng_req;
 		struct hse_ctx_impex_srv ctx_impex_req;
 		struct hse_standby_prepare_srv standby_req;
+		u8 max_desc[HSE_SRV_DESC_MAX_SIZE - 8];
 	};
 } __packed;
 
