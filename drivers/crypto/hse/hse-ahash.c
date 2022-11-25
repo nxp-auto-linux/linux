@@ -231,6 +231,8 @@ static int hse_ahash_init(struct ahash_request *req)
 	rctx->cache_idx = 0;
 	rctx->streaming_mode = false;
 
+	memzero_explicit(&rctx->srv_desc, sizeof(rctx->srv_desc));
+
 	err = hse_channel_acquire(alg->dev, HSE_CH_TYPE_STREAM, &rctx->channel,
 				  &rctx->stream);
 
@@ -626,6 +628,7 @@ static int hse_ahash_digest(struct ahash_request *req)
 	dma_sync_single_for_device(alg->dev, rctx->buf_dma, req->nbytes,
 				   DMA_TO_DEVICE);
 
+	memzero_explicit(&rctx->srv_desc, sizeof(rctx->srv_desc));
 	rctx->srv_desc.srv_id = alg->srv_id;
 
 	switch (alg->srv_id) {
@@ -790,6 +793,7 @@ static int hse_ahash_import(struct ahash_request *req, const void *in)
 		goto err_release_channel;
 	}
 
+	memzero_explicit(&rctx->srv_desc, sizeof(rctx->srv_desc));
 	rctx->srv_desc.srv_id = HSE_SRV_ID_IMPORT_EXPORT_STREAM_CTX;
 	rctx->srv_desc.ctx_impex_req.operation = HSE_IMPORT_STREAMING_CONTEXT;
 	rctx->srv_desc.ctx_impex_req.stream_id = rctx->stream;
@@ -859,8 +863,8 @@ static int hse_ahash_setkey(struct crypto_ahash *tfm, const u8 *key,
 		dma_sync_single_for_device(alg->dev, tctx->keylen_dma,
 					   sizeof(tctx->keylen), DMA_TO_DEVICE);
 
+		memzero_explicit(&tctx->srv_desc, sizeof(tctx->srv_desc));
 		tctx->srv_desc.srv_id = HSE_SRV_ID_HASH;
-
 		tctx->srv_desc.hash_req.access_mode = HSE_ACCESS_MODE_ONE_PASS;
 		tctx->srv_desc.hash_req.hash_algo = alg->alg_type;
 		tctx->srv_desc.hash_req.sgt_opt = HSE_SGT_OPT_NONE;
@@ -891,6 +895,7 @@ static int hse_ahash_setkey(struct crypto_ahash *tfm, const u8 *key,
 					   tctx->keylen, DMA_TO_DEVICE);
 	}
 
+	memzero_explicit(&tctx->keyinf, sizeof(tctx->keyinf));
 	tctx->keyinf.key_flags = HSE_KF_USAGE_SIGN;
 	tctx->keyinf.key_bit_len = tctx->keylen * BITS_PER_BYTE;
 	tctx->keyinf.key_type = HSE_KEY_TYPE_HMAC;
@@ -898,6 +903,7 @@ static int hse_ahash_setkey(struct crypto_ahash *tfm, const u8 *key,
 	dma_sync_single_for_device(alg->dev, tctx->keyinf_dma,
 				   sizeof(tctx->keyinf), DMA_TO_DEVICE);
 
+	memzero_explicit(&tctx->srv_desc, sizeof(tctx->srv_desc));
 	tctx->srv_desc.srv_id = HSE_SRV_ID_IMPORT_KEY;
 	tctx->srv_desc.import_key_req.key_handle = tctx->key_slot->handle;
 	tctx->srv_desc.import_key_req.key_info = tctx->keyinf_dma;
