@@ -104,6 +104,7 @@ static int hse_check_fw_version(struct device *dev)
 	if (unlikely(dma_mapping_error(dev, firmware_version_dma)))
 		return -ENOMEM;
 
+	memzero_explicit(&srv_desc, sizeof(srv_desc));
 	srv_desc.srv_id = HSE_SRV_ID_GET_ATTR;
 	srv_desc.get_attr_req.attr_id = HSE_FW_VERSION_ATTR_ID;
 	srv_desc.get_attr_req.attr_len = sizeof(drv->firmware_version);
@@ -928,6 +929,7 @@ static int hse_pm_suspend(struct device *dev)
 	hse_mu_irq_enable(drv->mu, HSE_INT_RESPONSE, BIT(HSE_CHANNEL_ADM));
 
 	/* prepare firmware for stand-by */
+	memzero_explicit(&srv_desc, sizeof(srv_desc));
 	srv_desc.srv_id = HSE_SRV_ID_PREPARE_FOR_STANDBY;
 	err = hse_srv_req_sync(dev, HSE_CHANNEL_ADM, &srv_desc);
 
