@@ -160,9 +160,15 @@
 			no-map;
 		};
 
-		scmi_shbuf: shm@d0000000 {
+		scmi_tx_buf: shm@d0000000 {
 			compatible = "arm,scmi-shmem";
-			reg = <0x0 0xd0000000 0x0 0x400000>;	/* 4 MB */
+			reg = <0x0 0xd0000000 0x0 0x80>;
+			no-map;
+		};
+
+		scmi_rx_buf: shm@d0000080 {
+			compatible = "arm,scmi-shmem";
+			reg = <0x0 0xd0000080 0x0 0x80>;
 			no-map;
 		};
 
@@ -190,12 +196,14 @@
 	firmware {
 		scmi: scmi {
 			compatible = "arm,scmi-smc";
-			mbox-names = "tx";
-			shmem = <&scmi_shbuf>;
+			mbox-names = "tx", "rx";
+			shmem = <&scmi_tx_buf>, <&scmi_rx_buf>;
 			arm,smc-id = <0xc20000fe>;
 			#address-cells = <1>;
 			#size-cells = <0>;
 			status = "okay";
+			interrupts = <GIC_SPI 300 IRQ_TYPE_EDGE_RISING>;
+			interrupt-names = "p2a_notif";
 
 			dfs: protocol@13 {
 				reg = <0x13>;
