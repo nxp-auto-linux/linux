@@ -19,4 +19,13 @@ config S32_ARM_SCMI_NVMEM
 
 	  Say N if you are unsure.
 
+config S32_ARM_SCMI_GPIO
+	bool
+	depends on SOC_S32CC
+	default y
+	help
+	  Adds S32 common chassis platforms GPIO extension over SCMI.
+
+	  Say N if you are unsure.
+
 endmenu
