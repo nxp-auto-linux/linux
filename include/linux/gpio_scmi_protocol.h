@@ -1,0 +1,54 @@
+/* SPDX-License-Identifier: (GPL-2.0+ OR BSD-3-Clause) */
+/*
+ * SCMI GPIO Protocol
+ *
+ * Copyright 2022-2023 NXP
+ */
+#ifndef __GPIO_SCMI_PROTOCOL_H
+#define __GPIO_SCMI_PROTOCOL_H
+
+/*
+ * SCMI GPIO protocol
+ */
+#define SCMI_PROTOCOL_ID_GPIO		U32_C(0x81)
+
+/*
+ * SCMI GPIO protocol version
+ */
+#define SCMI_PROTOCOL_VERSION_GPIO	U32_C(0x10000)
+
+/* Number of GPIO pins per SCMI_GPIO_DESCRIBE slot */
+#define SCMI_GPIO_PINS_PER_SLOT		U32_C(32)
+
+/*
+ * SCMI GPIO commands
+ */
+#define SCMI_GPIO_DESCRIBE		U32_C(0x3)
+#define SCMI_GPIO_REQUEST		U32_C(0x4)
+#define SCMI_GPIO_FREE			U32_C(0x5)
+#define SCMI_GPIO_SET_VALUE		U32_C(0x6)
+#define SCMI_GPIO_GET_VALUE		U32_C(0x7)
+#define SCMI_GPIO_GET_IRQ		U32_C(0x8)
+#define SCMI_GPIO_IRQ_ENABLE		U32_C(0x9)
+#define SCMI_GPIO_IRQ_DISABLE		U32_C(0xa)
+#define SCMI_GPIO_IRQ_MASK		U32_C(0xb)
+#define SCMI_GPIO_IRQ_UNMASK		U32_C(0xc)
+#define SCMI_GPIO_GET_DIRECTION		U32_C(0xd)
+#define SCMI_GPIO_ACK_IRQ		U32_C(0xFF)
+
+/* GPIO direction flags */
+#define SCMI_GPIO_DIR_OUT		U32_C(0)
+#define SCMI_GPIO_DIR_IN		U32_C(1)
+
+/* Notifications */
+#define SCMI_GPIO_IRQ_NOTIFICATION	U32_C(0x0)
+
+/* EIRQ type flags */
+#define SCMI_GPIO_EIRQ_TYPE_EDGE_RISING		U32_C(1)
+#define SCMI_GPIO_EIRQ_TYPE_EDGE_FALLING	U32_C(2)
+#define SCMI_GPIO_EIRQ_TYPE_BOTH		(SCMI_GPIO_EIRQ_TYPE_EDGE_RISING | \
+						 SCMI_GPIO_EIRQ_TYPE_EDGE_FALLING)
+#define SCMI_GPIO_EIRQ_TYPE_LEVEL_HIGH		U32_C(4)
+#define SCMI_GPIO_EIRQ_TYPE_LEVEL_LOW		U32_C(8)
+
+#endif /* __GPIO_SCMI_PROTOCOL_H */
