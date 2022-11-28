@@ -333,12 +333,13 @@ static int siul2_gpio_dir_out(struct gpio_chip *chip, unsigned int gpio,
 	int ret = 0;
 	struct siul2_gpio_dev *gpio_dev;
 
+	gpio_dev = to_siul2_gpio_dev(chip);
+	siul2_gpio_set_val(chip, gpio, val);
+
 	ret = pinctrl_gpio_direction_output(siul2_gpio_to_pin(chip, gpio));
 	if (ret)
 		return ret;
 
-	gpio_dev = to_siul2_gpio_dev(chip);
-	siul2_gpio_set_val(chip, gpio, val);
 	gpio_set_direction(gpio_dev, gpio, OUT);
 
 	return ret;
