@@ -218,7 +218,7 @@ static inline void gpio_set_direction(struct siul2_gpio_dev *dev, int gpio,
 }
 
 static inline enum gpio_dir gpio_get_direction(struct siul2_gpio_dev *dev,
-							int gpio)
+					       unsigned int gpio)
 {
 	return test_bit(gpio, dev->pin_dir_bitmap) ? OUT : IN;
 }
@@ -241,6 +241,17 @@ static int siul2_gpio_dir_in(struct gpio_chip *chip, unsigned int gpio)
 	gpio_set_direction(gpio_dev, gpio, IN);
 
 	return ret;
+}
+
+static int siul2_gpio_get_dir(struct gpio_chip *chip, unsigned int gpio)
+{
+	struct siul2_gpio_dev *gpio_dev = to_siul2_gpio_dev(chip);
+	enum gpio_dir dir = gpio_get_direction(gpio_dev, gpio);
+
+	if (dir == IN)
+		return GPIO_LINE_DIRECTION_IN;
+
+	return GPIO_LINE_DIRECTION_OUT;
 }
 
 static int siul2_irq_gpio_index(const struct siul2_device_data *platdata,
@@ -1195,6 +1206,7 @@ static int siul2_gpio_probe(struct platform_device *pdev)
 	gc->free = siul2_gpio_free;
 	gc->direction_output = siul2_gpio_dir_out;
 	gc->direction_input = siul2_gpio_dir_in;
+	gc->get_direction = siul2_gpio_get_dir;
 	gc->owner = THIS_MODULE;
 
 	girq = &gc->irq;
