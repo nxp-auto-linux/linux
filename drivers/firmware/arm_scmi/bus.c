@@ -120,11 +120,35 @@ static void scmi_dev_remove(struct device *dev)
 		scmi_drv->remove(scmi_dev);
 }
 
+static int scmi_dev_suspend(struct device *dev, pm_message_t state)
+{
+	struct scmi_driver *scmi_drv = to_scmi_driver(dev->driver);
+	struct scmi_device *scmi_dev = to_scmi_dev(dev);
+
+	if (scmi_drv->suspend)
+		return scmi_drv->suspend(scmi_dev, state);
+
+	return 0;
+}
+
+static int scmi_dev_resume(struct device *dev)
+{
+	struct scmi_driver *scmi_drv = to_scmi_driver(dev->driver);
+	struct scmi_device *scmi_dev = to_scmi_dev(dev);
+
+	if (scmi_drv->resume)
+		return scmi_drv->resume(scmi_dev);
+
+	return 0;
+}
+
 static struct bus_type scmi_bus_type = {
 	.name =	"scmi_protocol",
 	.match = scmi_dev_match,
 	.probe = scmi_dev_probe,
 	.remove = scmi_dev_remove,
+	.suspend = scmi_dev_suspend,
+	.resume = scmi_dev_resume,
 };
 
 int scmi_driver_register(struct scmi_driver *driver, struct module *owner,

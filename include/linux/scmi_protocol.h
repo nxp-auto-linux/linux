@@ -678,6 +678,8 @@ struct scmi_driver {
 	const char *name;
 	int (*probe)(struct scmi_device *sdev);
 	void (*remove)(struct scmi_device *sdev);
+	int (*suspend)(struct scmi_device *sdev, pm_message_t state);
+	int (*resume)(struct scmi_device *sdev);
 	const struct scmi_device_id *id_table;
 
 	struct device_driver driver;
