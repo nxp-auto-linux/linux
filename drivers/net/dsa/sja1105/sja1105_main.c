@@ -2592,7 +2592,7 @@ static int sja1105_build_vlan_table(struct sja1105_private *priv, bool notify)
 	if (!new_vlan)
 		return -ENOMEM;
 
-	table = &priv->static_config.tables[BLK_IDX_VLAN_LOOKUP];
+	table = &priv->static_config.tables[BLK_IDX_RETAGGING];
 	new_retagging = kcalloc(SJA1105_MAX_RETAGGING_COUNT,
 				table->ops->unpacked_entry_size, GFP_KERNEL);
 	if (!new_retagging) {
