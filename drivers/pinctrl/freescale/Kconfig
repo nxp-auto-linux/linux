@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-only
-# Copyright 2018 NXP
+# Copyright 2018, 2022-2023 NXP
 
 config PINCTRL_IMX
 	tristate
@@ -206,3 +206,12 @@ config PINCTRL_S32CC
 	  Say Y here to enable S32CC family pin controller
 	  The S32CC core is shared between the S32R45 and S32G
 	  pinctrl drivers.
+
+config PINCTRL_SCMI
+	tristate "Pinctrl driver over SCMI"
+	depends on ARM_SCMI_PROTOCOL
+	help
+	  This driver provides pinctrl support for firmwares
+	  that implement it. Communication with the firmware
+	  will occur over SCMI.
+
