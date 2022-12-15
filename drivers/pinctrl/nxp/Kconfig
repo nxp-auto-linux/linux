@@ -6,3 +6,11 @@ config PINCTRL_S32CC
 	select GENERIC_PINMUX_FUNCTIONS
 	select GENERIC_PINCONF
 	select REGMAP_MMIO
+
+config PINCTRL_SCMI
+	tristate "Pinctrl driver over SCMI"
+	depends on ARM_SCMI_PROTOCOL
+	help
+	  This driver provides pinctrl support for firmwares
+	  that implement it. Communication with the firmware
+	  will occur over SCMI.
