@@ -71,6 +71,7 @@ config ARM_SCMI_DEBUG_COUNTERS
 
 source "drivers/firmware/arm_scmi/transports/Kconfig"
 source "drivers/firmware/arm_scmi/vendors/imx/Kconfig"
+source "drivers/firmware/arm_scmi/vendors/s32/Kconfig"
 
 endif #ARM_SCMI_PROTOCOL
 

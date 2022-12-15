@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: GPL-2.0-only
+menu "ARM SCMI NXP S32 Vendor Protocols"
+
+config S32_ARM_SCMI_PINCTRL
+	bool
+	depends on SOC_S32CC
+	default y
+	help
+	  Adds S32 common chassis platforms pinctrl extension over SCMI.
+
+	  Say N if you are unsure.
+
+endmenu
