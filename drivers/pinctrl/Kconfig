@@ -476,7 +476,7 @@ config PINCTRL_ROCKCHIP
 
 config PINCTRL_SCMI
 	tristate "Pinctrl driver using SCMI protocol interface"
-	depends on ARM_SCMI_PROTOCOL || COMPILE_TEST
+	depends on (ARM_SCMI_PROTOCOL && !SOC_S32CC) || COMPILE_TEST
 	select PINMUX
 	select GENERIC_PINCONF
 	help
