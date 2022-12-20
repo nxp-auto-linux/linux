@@ -83,7 +83,7 @@
 			};
 
 			gpio: siul2-gpio@4009d700 {
-				compatible = "nxp,s32r-siul2-gpio";
+				compatible = "nxp,s32r-siul2-gpio", "nxp,s32cc-siul2-gpio";
 
 				reg = <OPADS_SIUL2_0       0 0x0 0x10>,
 				      <OPADS_SIUL2_1       0 0x0 0x14>,
