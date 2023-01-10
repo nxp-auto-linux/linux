@@ -18,6 +18,7 @@ properties:
   compatible:
     items:
       - enum:
+          - nxp,s32cc-siul2-gpio
           - nxp,s32g-siul2-gpio
           - nxp,s32r-siul2-gpio
 
