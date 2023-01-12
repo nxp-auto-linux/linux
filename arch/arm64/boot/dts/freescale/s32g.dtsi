@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright 2019-2022 NXP
+ * Copyright 2019-2023 NXP
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -14,6 +14,7 @@
 #include <dt-bindings/clock/s32g-scmi-clock.h>
 #include <dt-bindings/reset/s32g-scmi-reset.h>
 #include <dt-bindings/net/s32g-pfe.h>
+#include <dt-bindings/mux/nxp-s32g-can-ts.h>
 
 / {
 	reserved-memory {
@@ -1006,5 +1007,15 @@
 };
 
 &stm1 {
+	status = "okay";
+};
+
+/* Used for FlexCAN and LLCE CAN timestamping */
+&stm7 {
+	status = "okay";
+};
+
+&can_ts_ctrl {
+	idle-states = <S32G_CAN_TS_STM7>;
 	status = "okay";
 };
