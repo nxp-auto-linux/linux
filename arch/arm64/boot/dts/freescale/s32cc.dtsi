@@ -244,6 +244,21 @@
 			nxp,dividers = <1 0>; // div512 enabled; div32 disabled
 		};
 
+		src: syscon@4007c000 {
+			compatible = "syscon", "simple-mfd";
+			reg = <0x0 0x4007c000 0x0 0x100>;
+			#address-cells = <1>;
+			#size-cells = <1>;
+			ranges = <0x0 0x0 0x4007c000 0x100>;
+
+			can_ts_ctrl: mux-controller@f0 {
+				compatible = "mmio-mux";
+				reg = <0xf0 0x4>;
+				mux-reg-masks = <0xf0 0x7>;
+				status = "disabled";
+			};
+		};
+
 		ddr_gpr: ddr_gpr@4007c600 {
 			compatible = "nxp,s32cc-ddr-gpr", "syscon";
 			reg = <0x0 0x4007c600 0x0 0x20>;
