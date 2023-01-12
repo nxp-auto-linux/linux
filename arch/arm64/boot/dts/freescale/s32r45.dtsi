@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright 2017-2022 NXP
+ * Copyright 2017-2023 NXP
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -242,4 +242,8 @@
 				<0 0 0 3 &gic 0 0 0 215 4>,
 				<0 0 0 4 &gic 0 0 0 216 4>;
 	msi-parent = <&gic>;
+};
+
+&tmu {
+	compatible = "nxp,s32r45-tmu";
 };

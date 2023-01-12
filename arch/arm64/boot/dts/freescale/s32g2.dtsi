@@ -2,7 +2,7 @@
 /*
  * Device Tree file for S32G274ARDB Board.
  *
- * Copyright 2021-2022 NXP
+ * Copyright 2021-2023 NXP
  *
  */
 
@@ -28,4 +28,8 @@
 
 &nvram {
 	compatible = "nxp,s32g2-siul2_0-nvmem";
+};
+
+&tmu {
+	compatible = "nxp,s32g2-tmu";
 };

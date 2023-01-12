@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0
-/* Copyright 2017-2018,2020-2022 NXP */
+/* Copyright 2017-2018,2020-2023 NXP */
 
 #include <linux/io.h>
 #include <linux/clk.h>
@@ -14,25 +14,12 @@
 #include <linux/platform_device.h>
 
 #define DRIVER_NAME "s32tmu"
-
 #include "s32gen1_thermal.h"
 
 #define TMU_SITE(n)			(1 << n)
-#define CALIB_POINTS		4
 #define NO_INTERF_FILES		4
 
-/* The hard-coded vectors are required to calibrate the thermal
- * monitoring unit. They were determined by experiments in a
- * thermally controlled environment and are specific to each
- * revision of the SoC.
- */
-static const uint32_t rev2_calib_scfgr[] = {
-	0x2C, 0x59, 0xC6, 0x167
-};
-
-static const uint32_t rev2_calib_trcr[] = {
-	0xE9, 0x101, 0x13A, 0x18E
-};
+#define KELVIN_TO_CELSIUS_OFFSET	273
 
 enum s32_calib_fuse {
 	COLD_FUSE,
@@ -77,20 +64,57 @@ union TMU_TCFGR_GEN1_u {
 };
 
 struct fsl_tmu_chip {
-	bool	 has_clk;
-	bool	 has_fuse;
+	bool  has_fuse;
 	uint32_t enable_mask;
-	int		 sites;
-	int16_t	 offset_to_celsius;
+	int sites;
+	/* The hard-coded vectors are required to calibrate the thermal
+	 * monitoring unit. They were determined by experiments in a
+	 * thermally controlled environment and are specific to each
+	 * revision of the SoC.
+	 */
+	u32 *calib_scfgr;
+	u32 *calib_trcr;
+
+	u8 calib_points_num;
+	u32 *warm_idxes;
+	u32 *cold_idxes;
+	u8 trim_idxes_num;
 };
 
-static struct fsl_tmu_chip gen1_tmu = {
-	.has_clk = false,
+static struct fsl_tmu_chip s32g2_tmu = {
 	.has_fuse = true,
 	.enable_mask = 0x2,
 	.sites = 3,
-	/* For gen1, the TMU offers the value in Kelvin. 0 Celsius dgr. = 273K */
-	.offset_to_celsius = 273,
+	.calib_scfgr = (u32 []){0x2C, 0x59, 0xC6, 0x167},
+	.calib_trcr = (u32 []){0xE9, 0x101, 0x13A, 0x18E},
+	.calib_points_num = 4,
+	.warm_idxes = (u32 []){3},
+	.cold_idxes = (u32 []){0},
+	.trim_idxes_num = 1,
+};
+
+static struct fsl_tmu_chip s32g3_tmu = {
+	.has_fuse = true,
+	.enable_mask = 0x2,
+	.sites = 3,
+	.calib_scfgr = (u32 []){0x1F, 0x28, 0x53, 0xA2, 0x162, 0x16C},
+	.calib_trcr = (u32 []){0xE4, 0xE9, 0x100, 0x12A, 0x18E, 0x193},
+	.calib_points_num = 6,
+	.warm_idxes = (u32 []){4, 5},
+	.cold_idxes = (u32 []){0, 1},
+	.trim_idxes_num = 2,
+};
+
+static struct fsl_tmu_chip s32r45_tmu = {
+	.has_fuse = true,
+	.enable_mask = 0x2,
+	.sites = 3,
+	.calib_scfgr = (u32 []){0x20, 0x29, 0x4E, 0xA3, 0x195, 0x19F},
+	.calib_trcr = (u32 []){0xE4, 0xE9, 0xFD, 0x12A, 0x1A7, 0x1AC},
+	.calib_points_num = 6,
+	.warm_idxes = (u32 []){4, 5},
+	.cold_idxes = (u32 []){0, 1},
+	.trim_idxes_num = 2,
 };
 
 enum measurement_interval_t {
@@ -119,7 +143,7 @@ enum alpf_t {
 	alpf_0_125 };
 
 struct tmu_driver_data {
-	struct clk *clk;
+	struct clk *clk_mod, *clk_reg;
 	void __iomem *tmu_registers;
 	void __iomem *fuse_base;
 	struct device *hwmon_device;
@@ -337,53 +361,40 @@ static s32 get_calib_fuse_val(struct device *dev,
 	return calib_fuse.B.CFG_DAC_TRIM0;
 }
 
-static void get_calib_with_fuses(struct device *dev,
-		uint32_t *calib_scfgr, uint32_t *calib_trcr,
-		const uint32_t *calib_scfgr_base,
-		const uint32_t *calib_trcr_base,
-		const uint32_t *warm_idxes, const uint32_t *cold_idxes,
-		size_t warm_size, size_t cold_size, size_t table_size)
+static void update_calib_table_with_fuses(struct device *dev)
 {
+	const struct fsl_tmu_chip *tmu_chip =
+		of_device_get_match_data(dev);
+	u32 *calib_scfgr = tmu_chip->calib_scfgr;
+	const u32 *warm_idxes = tmu_chip->warm_idxes;
+	const u32 *cold_idxes = tmu_chip->cold_idxes;
+	size_t trim_idxes_num = tmu_chip->trim_idxes_num;
 	size_t i;
 
 	s32 fuse_val_cold = get_calib_fuse_val(dev, COLD_FUSE);
 	s32 fuse_val_warm = get_calib_fuse_val(dev, WARM_FUSE);
 
-	memcpy(calib_scfgr, calib_scfgr_base, table_size);
-	for (i = 0; i < warm_size; i++)
+	for (i = 0; i < trim_idxes_num; i++)
 		calib_scfgr[warm_idxes[i]] += fuse_val_warm;
-	for (i = 0; i < cold_size; i++)
+	for (i = 0; i < trim_idxes_num; i++)
 		calib_scfgr[cold_idxes[i]] += fuse_val_cold;
-
-	memcpy(calib_trcr, calib_trcr_base, table_size);
-}
-
-static void get_calib_table(struct device *dev,
-		uint32_t *calib_scfgr, uint32_t *calib_trcr)
-{
-	const static u32 warm_idxes[] = {3};
-	const static u32 cold_idxes[] = {0};
-
-	get_calib_with_fuses(dev,
-			     calib_scfgr, calib_trcr,
-			     rev2_calib_scfgr, rev2_calib_trcr,
-			     warm_idxes, cold_idxes,
-			     ARRAY_SIZE(warm_idxes), ARRAY_SIZE(cold_idxes),
-			     sizeof(rev2_calib_scfgr));
 }
 
 static int tmu_calibrate_s32gen1(struct device *dev)
 {
 	struct tmu_driver_data *tmu_dd = dev_get_drvdata(dev);
+	const struct fsl_tmu_chip *tmu_chip =
+		of_device_get_match_data(dev);
+	const u32 *calib_scfgr = tmu_chip->calib_scfgr;
+	const u32 *calib_trcr = tmu_chip->calib_trcr;
+	size_t calib_points_num = tmu_chip->calib_points_num;
 	union TMU_TCFGR_GEN1_u tmu_tcfgr;
 	union TMU_SCFGR_u tmu_scfgr;
 	union TMU_TRCR_u tmu_trcr;
 	union TMU_CMCFG_u tmu_cmcfg;
 	int i;
-	u32 calib_scfgr[CALIB_POINTS];
-	u32 calib_trcr[CALIB_POINTS];
 
-	get_calib_table(dev, calib_scfgr, calib_trcr);
+	update_calib_table_with_fuses(dev);
 
 	/* These values do look like magic numbers because
 	 * they really are. They have been experimentally determined
@@ -402,7 +413,7 @@ static int tmu_calibrate_s32gen1(struct device *dev)
 	tmu_tcfgr.R = readl(tmu_dd->tmu_registers + TMU_TCFGR);
 	tmu_scfgr.R = readl(tmu_dd->tmu_registers + TMU_SCFGR);
 
-	for (i = 0; i < CALIB_POINTS; i++) {
+	for (i = 0; i < calib_points_num; i++) {
 		tmu_trcr.R	= readl(tmu_dd->tmu_registers + TMU_TRCR(i));
 		tmu_tcfgr.B.CAL_PT = i;
 		tmu_scfgr.B.SENSOR = calib_scfgr[i];
@@ -438,116 +449,148 @@ static int tmu_init_hw(struct device *dev,
 	return 0;
 }
 
+static int tmu_clk_prep_enable(struct tmu_driver_data *tmu_dd)
+{
+	int ret;
+
+	ret = clk_prepare_enable(tmu_dd->clk_mod);
+	if (ret)
+		return ret;
+
+	ret = clk_prepare_enable(tmu_dd->clk_reg);
+	if (ret)
+		return ret;
+
+	return ret;
+}
+
+static void tmu_clk_disable_unprep(struct tmu_driver_data *tmu_dd)
+{
+	clk_disable_unprepare(tmu_dd->clk_mod);
+	clk_disable_unprepare(tmu_dd->clk_reg);
+}
+
 static const struct of_device_id tmu_dt_ids[] = {
-		{ .compatible = "nxp,s32cc-tmu", .data = &gen1_tmu, },
+		{ .compatible = "nxp,s32g2-tmu", .data = &s32g2_tmu, },
+		{ .compatible = "nxp,s32g3-tmu", .data = &s32g3_tmu, },
+		{ .compatible = "nxp,s32r45-tmu", .data = &s32r45_tmu, },
 		{ /* end */ }
 	};
 MODULE_DEVICE_TABLE(of, tmu_dt_ids);
 
 static int tmu_probe(struct platform_device *pd)
 {
+	struct device *dev = &pd->dev;
 	const struct of_device_id *of_matched_dt_id;
 	struct tmu_driver_data *tmu_dd;
 	struct resource *tmu_resource;
 	struct resource *fuse_resource;
 	int device_files_created = 0;
-	int return_code = 0;
+	int ret;
 	int i;
 	const struct fsl_tmu_chip *tmu_chip;
 
-	of_matched_dt_id = of_match_device(tmu_dt_ids, &pd->dev);
+	of_matched_dt_id = of_match_device(tmu_dt_ids, dev);
 	if (!of_matched_dt_id) {
-		dev_err(&pd->dev, "Cannot find a compatible device.\n");
+		dev_err(dev, "Cannot find a compatible device.\n");
 		return -ENODEV;
 	}
 
-	tmu_chip = of_device_get_match_data(&pd->dev);
+	tmu_chip = of_device_get_match_data(dev);
 
-	tmu_dd = devm_kzalloc(&pd->dev, sizeof(struct tmu_driver_data),
+	tmu_dd = devm_kzalloc(dev, sizeof(struct tmu_driver_data),
 			      GFP_KERNEL);
 	if (!tmu_dd)
 		return -ENOMEM;
-	dev_set_drvdata(&pd->dev, tmu_dd);
+	dev_set_drvdata(dev, tmu_dd);
 
 	tmu_resource = platform_get_resource(pd, IORESOURCE_MEM, 0);
 	if (!tmu_resource) {
-		dev_err(&pd->dev, "Cannot obtain TMU resource.\n");
+		dev_err(dev, "Cannot obtain TMU resource.\n");
 		return -ENODEV;
 	}
 
-	tmu_dd->tmu_registers = devm_ioremap_resource(&pd->dev, tmu_resource);
+	tmu_dd->tmu_registers = devm_ioremap_resource(dev, tmu_resource);
 	if (IS_ERR(tmu_dd->tmu_registers)) {
-		dev_err(&pd->dev, "Cannot map TMU registers.\n");
+		dev_err(dev, "Cannot map TMU registers.\n");
 		return PTR_ERR(tmu_dd->tmu_registers);
 	}
 
 	if (tmu_chip->has_fuse) {
 		fuse_resource = platform_get_resource(pd, IORESOURCE_MEM, 1);
 		if (!fuse_resource) {
-			dev_err(&pd->dev, "Cannot obtain TMU fuse resource.\n");
+			dev_err(dev, "Cannot obtain TMU fuse resource.\n");
 			return -ENODEV;
 		}
 
 		tmu_dd->fuse_base =
-			devm_ioremap_resource(&pd->dev, fuse_resource);
+			devm_ioremap_resource(dev, fuse_resource);
 		if (IS_ERR(tmu_dd->fuse_base)) {
-			dev_err(&pd->dev, "Cannot map TMU fuse base.\n");
+			dev_err(dev, "Cannot map TMU fuse base.\n");
 			return PTR_ERR(tmu_dd->fuse_base);
 		}
 	}
 
-	if (tmu_chip->has_clk) {
-		tmu_dd->clk = devm_clk_get(&pd->dev, "tsens");
-		if (IS_ERR(tmu_dd->clk)) {
-			dev_err(&pd->dev, "Cannot obtain clock: %d\n",
-					return_code);
-			return PTR_ERR(tmu_dd->clk);
-		}
-
-		return_code = clk_prepare_enable(tmu_dd->clk);
-		if (return_code) {
-			dev_err(&pd->dev, "Cannot enable clock: %d\n",
-					return_code);
-			return return_code;
-		}
+	tmu_dd->clk_mod = devm_clk_get(dev, "tmu_module");
+	if (IS_ERR(tmu_dd->clk_mod)) {
+		dev_err(dev, "Cannot obtain 'tmu_module' clock: %ld\n",
+			PTR_ERR(tmu_dd->clk_mod));
+		return PTR_ERR(tmu_dd->clk_mod);
 	}
 
-	tmu_dd->temp_offset = tmu_chip->offset_to_celsius;
+	tmu_dd->clk_reg = devm_clk_get(dev, "tmu_reg");
+	if (IS_ERR(tmu_dd->clk_reg)) {
+		dev_err(dev, "Cannot obtain 'tmu_reg' clock: %ld\n",
+			PTR_ERR(tmu_dd->clk_reg));
+		return PTR_ERR(tmu_dd->clk_reg);
+	}
+
+	ret = tmu_clk_prep_enable(tmu_dd);
+	if (ret) {
+		dev_err(dev, "Cannot enable clock: %d\n", ret);
+		return ret;
+	}
+
+	tmu_dd->temp_offset = KELVIN_TO_CELSIUS_OFFSET;
+	ret = tmu_init_hw(dev, tmu_chip);
+	if (ret)
+		goto calibration_failed;
 
 	tmu_dd->hwmon_device =
 		hwmon_device_register_with_info(
-			&pd->dev, DRIVER_NAME, tmu_dd, NULL, NULL);
+			dev, DRIVER_NAME, tmu_dd, NULL, NULL);
 	if (IS_ERR(tmu_dd->hwmon_device)) {
-		return_code = PTR_ERR(tmu_dd->hwmon_device);
-		dev_err(&pd->dev, "Cannot register hwmon device: %d\n",
-			return_code);
+		ret = PTR_ERR(tmu_dd->hwmon_device);
+		dev_err(dev, "Cannot register hwmon device: %d\n", ret);
+		goto hwmon_register_failed;
+	}
+
+	if (ARRAY_SIZE(dev_attrs) < tmu_chip->sites * NO_INTERF_FILES) {
+		dev_err(dev, "Number of sysfs files does not map to device_attribute\n");
 		goto hwmon_register_failed;
 	}
 
 	for (i = 0; i < (tmu_chip->sites * NO_INTERF_FILES); i++) {
-		return_code = device_create_file(tmu_dd->hwmon_device,
-						 &dev_attrs[i]);
-		if (return_code)
-			goto device_create_file_failed;
+		ret = device_create_file(tmu_dd->hwmon_device, &dev_attrs[i]);
+		if (ret)
+			break;
 		device_files_created++;
 	}
 
-	return_code = tmu_init_hw(&pd->dev, tmu_chip);
-	if (return_code)
-		goto calibration_failed;
+	if (ret) {
+		for (i = 0; i < device_files_created; i++)
+			device_remove_file(tmu_dd->hwmon_device, &dev_attrs[i]);
+		hwmon_device_unregister(tmu_dd->hwmon_device);
+		goto hwmon_register_failed;
+	}
 
 	return 0;
 
-calibration_failed:
-device_create_file_failed:
-	for (i = 0; i < device_files_created; i++)
-		device_remove_file(tmu_dd->hwmon_device, &dev_attrs[i]);
-	hwmon_device_unregister(tmu_dd->hwmon_device);
 hwmon_register_failed:
-	if (tmu_chip->has_clk)
-		clk_disable_unprepare(tmu_dd->clk);
+calibration_failed:
+	tmu_clk_disable_unprep(tmu_dd);
 
-	return return_code;
+	return ret;
 }
 
 static int tmu_remove(struct platform_device *pdev)
@@ -561,8 +604,7 @@ static int tmu_remove(struct platform_device *pdev)
 		device_remove_file(tmu_dd->hwmon_device, &dev_attrs[i]);
 
 	hwmon_device_unregister(tmu_dd->hwmon_device);
-	if (tmu_chip->has_clk)
-		clk_disable_unprepare(tmu_dd->clk);
+	tmu_clk_disable_unprep(tmu_dd);
 
 	return 0;
 }
@@ -571,7 +613,7 @@ static int __maybe_unused thermal_suspend(struct device *dev)
 {
 	struct tmu_driver_data *tmu_dd = dev_get_drvdata(dev);
 
-	clk_disable_unprepare(tmu_dd->clk);
+	tmu_clk_disable_unprep(tmu_dd);
 
 	return 0;
 }
@@ -584,7 +626,7 @@ static int __maybe_unused thermal_resume(struct device *dev)
 
 	tmu_chip = of_device_get_match_data(dev);
 
-	ret = clk_prepare_enable(tmu_dd->clk);
+	ret = tmu_clk_prep_enable(tmu_dd);
 	if (ret) {
 		dev_err(dev, "Cannot enable clock: %d\n", ret);
 		return ret;
