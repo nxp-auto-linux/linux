@@ -18,10 +18,20 @@ properties:
   compatible:
     enum:
       - nxp,s32cc-tmu
+      - nxp,s32g2-tmu
+      - nxp,s32g3-tmu
+      - nxp,s32r45-tmu
 
   reg:
     description:
       Address range of the TMU registers
+
+  clocks:
+    description: |
+      The clock for the TMU device
+
+  clock-names:
+    description: tmu_module, tmu_reg
 
 required:
   - compatible
@@ -31,9 +41,14 @@ additionalProperties: false
 
 examples:
   - |
-    tmu: tmu@400A8000 {
-      compatible = "nxp,s32cc-tmu";
-      reg = <0x400A8000 0x3000>,
-            <0x400A4200 0x1FC>;
+    #include <dt-bindings/clock/s32cc-scmi-clock.h>
+
+    tmu: tmu@400a8000 {
+      compatible = "nxp,s32g2-tmu";
+      reg = <0x0 0x400a8000 0x0 0x3000>,
+          <0x0 0x400a4200 0x0 0x1fc>;
+      clocks = <&clks S32CC_SCMI_CLK_TMU_MODULE>,
+          <&clks S32CC_SCMI_CLK_TMU_REG>;
+      clock-names = "tmu_module", "tmu_reg";
       status = "okay";
     };
