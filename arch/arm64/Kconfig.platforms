@@ -24,6 +24,8 @@ choice
 		select COMMON_CLK_SCMI
 		select RESET_SCMI_SCMI
 		select GENERIC_PHY
+		select MULTIPLEXER
+		select MUX_MMIO
 		select PHY_S32GEN1_SERDES
 endchoice
 
