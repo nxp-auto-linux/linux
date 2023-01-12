@@ -14,6 +14,7 @@ properties:
     oneOf:
       - enum:
           - nxp,s32cc-stm-global
+          - nxp,s32cc-stm-ts
 
   reg:
     maxItems: 1
@@ -47,7 +48,7 @@ examples:
   - |
     #include <dt-bindings/clock/s32gen1-scmi-clock.h>
 
-    stm0: stm@4000D000{
+    stm0: stm@4000d000{
         compatible = "nxp,s32cc-stm-global";
         reg = <0x4000D000 0x1000>;
         interrupts= <0 24 4>;
