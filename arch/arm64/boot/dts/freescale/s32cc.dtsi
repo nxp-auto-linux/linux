@@ -331,6 +331,7 @@
 			reg = <0x0 0x40124000 0x0 0x3000>;
 			clocks = <&clks S32CC_SCMI_CLK_STM_MODULE>;
 			clock-names = "stm";
+			nxp,prescaler = <256>;
 			status = "disabled";
 		};
 
