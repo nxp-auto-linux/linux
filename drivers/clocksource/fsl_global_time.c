@@ -31,7 +31,13 @@
 #define INPUT_LEN			2
 #define OUTPUT_LEN			11
 
+enum stm_count_init {
+	COUNT_ON_INIT,
+	NO_COUNT_ON_INIT,
+};
+
 struct stm_driver {
+	enum stm_count_init init;
 	void __iomem *base;
 };
 
@@ -48,6 +54,13 @@ static ssize_t get_init(struct device *dev, struct device_attribute *attr,
 	return snprintf(buf, INPUT_LEN, "%d\n", initialized);
 }
 
+static void stm_init_counter(struct stm_driver *drv)
+{
+	writel(0, drv->base + STM_CNT);
+	writel(STM_CR_CPS | STM_CR_FRZ | STM_CR_TEN,
+	       drv->base + STM_CR);
+}
+
 static ssize_t set_init(struct device *dev, struct device_attribute *attr,
 			const char *buf, size_t count)
 {
@@ -61,9 +74,7 @@ static ssize_t set_init(struct device *dev, struct device_attribute *attr,
 		return count;
 	}
 	if (should_init) {
-		writel(0, drv->base + STM_CNT);
-		writel(STM_CR_CPS | STM_CR_FRZ | STM_CR_TEN,
-		       drv->base + STM_CR);
+		stm_init_counter(drv);
 	} else {
 		writel(0, drv->base + STM_CR);
 	}
@@ -124,12 +135,29 @@ static int devm_clk_prepare_enable(struct device *dev, struct clk *clk)
 					clk);
 }
 
+static const struct of_device_id global_timer_dt_ids[] = {
+	{
+		.compatible = "nxp,s32cc-stm-global",
+		.data = (void *)NO_COUNT_ON_INIT,
+	},
+	{
+		.compatible = "nxp,s32cc-stm-ts",
+		.data = (void *)COUNT_ON_INIT,
+	},
+	{ /* sentinel */ }
+};
+
 static int global_timer_probe(struct platform_device *pdev)
 {
+	const struct of_device_id *match;
 	struct device *dev = &pdev->dev;
 	struct stm_driver *drv;
 	struct clk *clock;
 	int rc;
+
+	match = of_match_node(global_timer_dt_ids, pdev->dev.of_node);
+	if (!match)
+		return -EINVAL;
 
 	drv = devm_kzalloc(dev, sizeof(*drv), GFP_KERNEL);
 	if (!drv)
@@ -153,6 +181,10 @@ static int global_timer_probe(struct platform_device *pdev)
 		return PTR_ERR(drv->base);
 	}
 
+	drv->init = (enum stm_count_init)match->data;
+	if (drv->init == COUNT_ON_INIT)
+		stm_init_counter(drv);
+
 	rc = init_sysfs_interface(dev);
 	if (rc) {
 		dev_err(dev, "Failed initiating sysfs interface\n");
@@ -169,13 +201,6 @@ static int global_timer_remove(struct platform_device *pdev)
 
 	return 0;
 }
-
-static const struct of_device_id global_timer_dt_ids[] = {
-	{
-		.compatible = "nxp,s32cc-stm-global",
-	},
-	{ /* sentinel */ }
-};
 
 static struct platform_driver global_time_driver = {
 	.probe	= global_timer_probe,
