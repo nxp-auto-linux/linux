@@ -678,7 +678,7 @@
 		};
 
 		stm7: stm@40228000 {
-			compatible = "nxp,s32cc-stm-global";
+			compatible = "nxp,s32cc-stm-ts";
 			reg = <0x0 0x40228000 0x0 0x3000>;
 			clocks = <&clks S32CC_SCMI_CLK_STM_MODULE>;
 			clock-names = "stm";
