@@ -7,7 +7,7 @@
  * Copyright (C) 2018 Bootlin
  * Copyright (C) 2018 exceet electronics GmbH
  * Copyright (C) 2018 Kontron Electronics GmbH
- * Copyright 2021-2022 NXP
+ * Copyright 2021-2023 NXP
  *
  * Transition to SPI MEM interface:
  * Authors:
@@ -294,6 +294,8 @@ struct fsl_qspi_devtype_data {
 	unsigned int ahb_buf_size;
 	unsigned int quirks;
 	bool little_endian;
+	u32 flash1_size;
+	u32 flash2_size;
 };
 
 static const struct fsl_qspi_devtype_data vybrid_data = {
@@ -360,6 +362,8 @@ static const struct fsl_qspi_devtype_data s32cc_data = {
 	.quirks = QUADSPI_QUIRK_USE_TDH_SETTING | QUADSPI_QUIRK_HAS_DLL |
 	    QUADSPI_QUIRK_OCTAL_SUPPORT | QUADSPI_QUIRK_READ_ENTIRE_AHB,
 	.little_endian = true,
+	.flash1_size = 0x20000000,
+	.flash2_size = 0x20000000,
 };
 
 static const struct fsl_qspi_devtype_data s32g3_data = {
@@ -370,6 +374,8 @@ static const struct fsl_qspi_devtype_data s32g3_data = {
 	.quirks = QUADSPI_QUIRK_USE_TDH_SETTING | QUADSPI_QUIRK_HAS_DLL |
 	    QUADSPI_QUIRK_OCTAL_SUPPORT | QUADSPI_QUIRK_READ_ENTIRE_AHB,
 	.little_endian = true,
+	.flash1_size = 0x20000000,
+	.flash2_size = 0x20000000,
 };
 
 static const struct fsl_qspi_devtype_data s32r45_data = {
@@ -381,6 +387,8 @@ static const struct fsl_qspi_devtype_data s32r45_data = {
 	    QUADSPI_QUIRK_OCTAL_SUPPORT | QUADSPI_QUIRK_READ_ENTIRE_AHB |
 	    QUADSPI_QUIRK_LOW_FREQ_DELAY_CHAIN,
 	.little_endian = true,
+	.flash1_size = 0x20000000,
+	.flash2_size = 0x20000000,
 };
 
 struct qspi_config {
@@ -390,8 +398,6 @@ struct qspi_config {
 	u32 sfacr;
 	u32 smpr;
 	u32 dlcr;
-	u32 flash1_size;
-	u32 flash2_size;
 	u32 dlpr;
 };
 
@@ -419,8 +425,6 @@ static const struct qspi_config octal_ddr_conf = {
 	.dlcr = QUADSPI_DLCR_RESERVED_MASK |
 	    QUADSPI_DLCR_DLP_SEL_FA(1) |
 	    QUADSPI_DLCR_DLP_SEL_FB(1),
-	.flash1_size = 0x20000000,
-	.flash2_size = 0x20000000,
 	.dlpr = QUADSPI_DLPR_RESET_VALUE,
 };
 
@@ -1135,11 +1139,6 @@ static int enable_octal_ddr(struct fsl_qspi *q)
 		    (q->devtype_data->rxfifo << QUADSPI_BUF3CR_ADATSZ_SHIFT),
 		    base + QUADSPI_BUF3CR);
 
-	qspi_writel(q, octal_ddr_conf.flash1_size, base + QUADSPI_SFA1AD);
-	qspi_writel(q, octal_ddr_conf.flash2_size, base + QUADSPI_SFA2AD);
-	qspi_writel(q, octal_ddr_conf.flash1_size, base + QUADSPI_SFB1AD);
-	qspi_writel(q, octal_ddr_conf.flash2_size, base + QUADSPI_SFB2AD);
-
 	/* Enable the module */
 	mcr = qspi_readl(q, base + QUADSPI_MCR);
 	mcr &= ~QUADSPI_MCR_MDIS_MASK;
@@ -1270,14 +1269,21 @@ static int fsl_qspi_default_setup(struct fsl_qspi *q)
 	 * We use ahb_buf_size for each chip and set SFA1AD, SFA2AD, SFB1AD,
 	 * SFB2AD accordingly.
 	 */
-	qspi_writel(q, q->devtype_data->ahb_buf_size + addr_offset,
-		    base + QUADSPI_SFA1AD);
-	qspi_writel(q, q->devtype_data->ahb_buf_size * 2 + addr_offset,
-		    base + QUADSPI_SFA2AD);
-	qspi_writel(q, q->devtype_data->ahb_buf_size * 3 + addr_offset,
-		    base + QUADSPI_SFB1AD);
-	qspi_writel(q, q->devtype_data->ahb_buf_size * 4 + addr_offset,
-		    base + QUADSPI_SFB2AD);
+	if (!is_s32cc_qspi(q)) {
+		qspi_writel(q, q->devtype_data->ahb_buf_size + addr_offset,
+			    base + QUADSPI_SFA1AD);
+		qspi_writel(q, q->devtype_data->ahb_buf_size * 2 + addr_offset,
+			    base + QUADSPI_SFA2AD);
+		qspi_writel(q, q->devtype_data->ahb_buf_size * 3 + addr_offset,
+			    base + QUADSPI_SFB1AD);
+		qspi_writel(q, q->devtype_data->ahb_buf_size * 4 + addr_offset,
+			    base + QUADSPI_SFB2AD);
+	} else {
+		qspi_writel(q, q->devtype_data->flash1_size, base + QUADSPI_SFA1AD);
+		qspi_writel(q, q->devtype_data->flash2_size, base + QUADSPI_SFA2AD);
+		qspi_writel(q, q->devtype_data->flash1_size, base + QUADSPI_SFB1AD);
+		qspi_writel(q, q->devtype_data->flash2_size, base + QUADSPI_SFB2AD);
+	}
 
 	q->selected = -1;
 
