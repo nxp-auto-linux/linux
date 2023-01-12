@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright 2016 Freescale Semiconductor, Inc.
- * Copyright 2018,2021 NXP
+ * Copyright 2018,2021-2023 NXP
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -344,8 +344,8 @@ static int __init fsl_stm_timer_probe(struct platform_device *pdev)
 
 	of_property_read_u32(np, "cpu", &cpu);
 	if (cpu >= num_possible_cpus()) {
-		pr_err("%s: please specify a cpu number between 0 and %d.\n",
-		       STM_TIMER_NAME, num_possible_cpus() - 1);
+		dev_err(dev, "please specify a cpu number between 0 and %d.\n",
+			num_possible_cpus() - 1);
 		return -EINVAL;
 	}
 
