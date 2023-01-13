@@ -341,6 +341,7 @@ config SOC_S32CC
 	select GENERIC_PHY
 	select MAILBOX
 	select MULTIPLEXER
+	select NXP_GLOBAL_TIME_STM
 	select MUX_MMIO
 	select NXP_ERRATUM_ERR050543
 	select PHY_S32CC_SERDES
