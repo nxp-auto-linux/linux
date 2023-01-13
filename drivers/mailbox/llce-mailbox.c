@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0+ OR BSD-3-Clause
 /*
- * Copyright 2020-2022 NXP
+ * Copyright 2020-2023 NXP
  */
 #include <dt-bindings/mailbox/nxp-llce-mb.h>
 #include <linux/can/dev.h>
@@ -1382,6 +1382,9 @@ static int process_pop_logger(struct mbox_chan *chan, struct llce_rx_msg *msg)
 	struct llce_mb *mb = priv->mb;
 	struct llce_can_mb *frame;
 	bool pop;
+
+	/* Logger works with long MBs only */
+	msg->rx_pop.mb.is_long = true;
 
 	/* Use a stashed frame */
 	pop = pop_llce_logger_data(chan, &frame, &mb_index);
