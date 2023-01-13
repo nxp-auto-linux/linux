@@ -104,7 +104,8 @@
 				 <EIRQS_SIUL2_1 0x0 0x0 0x44010010 0x0 0xb4>;
 
 			pinctrl: siul2-pinctrl@4009c240 {
-				compatible = "nxp,s32g-siul2-pinctrl";
+				compatible = "nxp,s32g-siul2-pinctrl",
+					     "nxp,s32cc-siul2-pinctrl";
 				#pinctrl-cells = <2>;
 
 				reg = <MSCRS_SIUL2_0    0 0x0 0x198>,
