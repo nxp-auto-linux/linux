@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0+ OR BSD-3-Clause
-/* Copyright 2020-2022 NXP */
+/* Copyright 2020-2023 NXP */
 #include <linux/can/dev.h>
 #include <linux/can/dev/llce_can_common.h>
 #include <linux/clk.h>
@@ -124,7 +124,8 @@ static int llce_can_init(struct llce_can *llce)
 		.cmd_id = LLCE_CAN_CMD_INIT,
 		.cmd_list.init = {
 			.ctrl_config = LLCE_CAN_CONTROLLERCONFIG_CTRL_EN
-			    | LLCE_CAN_CONTROLLERCONFIG_ABR_EN,
+			    | LLCE_CAN_CONTROLLERCONFIG_ABR_EN
+			    | LLCE_CAN_CONTROLLERCONFIG_TST_END,
 			.tx_mb_count = LLCE_CAN_MAX_TX_MB,
 		},
 	};
