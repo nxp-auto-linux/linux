@@ -3,7 +3,7 @@
  * NXP S32CC SoC family
  *
  * Copyright (c) 2021 SUSE LLC
- * Copyright 2017-2022 NXP
+ * Copyright 2017-2023 NXP
  */
 
 #include <dt-bindings/interrupt-controller/arm-gic.h>
@@ -277,6 +277,9 @@
 			compatible = "nxp,s32cc-tmu";
 			reg = <0x0 0x400a8000 0x0 0x3000>,
 				<0x0 0x400a4200 0x0 0x1fc>;
+			clocks = <&clks S32CC_SCMI_CLK_TMU_MODULE
+				&clks S32CC_SCMI_CLK_TMU_REG>;
+			clock-names = "tmu_module", "tmu_reg";
 			status = "okay";
 		};
 
