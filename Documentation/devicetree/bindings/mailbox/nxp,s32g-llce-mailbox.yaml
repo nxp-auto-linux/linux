@@ -86,6 +86,16 @@ properties:
   clocks:
     description: LLCE system clock
 
+  nxp,hif-id:
+    description:
+      The ID of the host interface used during communication with the firmware. 0 will be used
+      in case this property is missing.
+    enum: [ 0, 1 ]
+
+  nxp,multi-hif:
+    description:
+      Switch to a multi-host configuration where Linux can configure up to 8 FIFOs.
+
 required:
   - compatible
   - '#mbox-cells'
@@ -144,6 +154,7 @@ examples:
             "txack_fifo_0_7",
             "txack_fifo_8_15",
             "logger_rx";
+        nxp,hif-id = <1>;
         status = "okay";
       };
     };
