@@ -27,6 +27,10 @@
 
 #include "mailbox.h"
 
+#define MAX_FILTER_PER_CHAN		(16u)
+#define FIFO_MB_PER_CHAN		(100u)
+#define MAX_CONFIRM_BUF_PER_CHAN	(16u)
+
 #define LLCE_FIFO_SIZE			0x400
 #define LLCE_RXMBEXTENSION_OFFSET	0x8F0U
 
@@ -69,6 +73,8 @@
 
 #define LLCE_LOGGING		(4)
 
+#define UNINITIALIZED_FIFO		(U32_MAX)
+
 struct llce_icsr {
 	u8 icsr0_num;
 	u8 icsr8_num;
@@ -106,7 +112,11 @@ struct llce_mb {
 	void __iomem *sema42;
 	struct clk *clk;
 	struct device *dev;
-	DECLARE_BITMAP(chans_map, LLCE_NFIFO_WITH_IRQ);
+	/*
+	 * Mapping between BCANs and FIFOs where
+	 * index = BCAN id, value = FIFO id
+	 */
+	unsigned int chans_map[LLCE_CAN_CONFIG_MAXCTRL_COUNT];
 	struct llce_fifoirq logger_irq;
 	bool suspended;
 	bool fw_logger_support;
@@ -1763,30 +1773,97 @@ static int execute_hif_cmd(struct llce_mb *mb,
 	return 0;
 }
 
+static unsigned long get_fifo_mask(u32 hif, bool multihost)
+{
+	/* All 16 FIFOs available */
+	if (!multihost)
+		return GENMASK(15, 0);
+
+	/* 0-7 FIFOs are reserved for HIF0 */
+	if (hif == 1)
+		return GENMASK(15, 8);
+
+	/* 8-15 FIFOs are reserved for HIF1 */
+	return GENMASK(7, 0);
+}
+
+static unsigned long get_next_free_fifo(unsigned long *availability,
+					u32 hif, bool multihost)
+{
+	unsigned long index;
+
+	if (!*availability)
+		*availability = get_fifo_mask(hif, multihost);
+
+	index = find_last_bit(availability, LLCE_NFIFO_WITH_IRQ);
+	*availability &= ~BIT(index);
+
+	return index;
+}
+
 static int llce_init_chan_map(struct device *dev, struct llce_mb *mb)
 {
 	const char *node_name;
 	struct device_node *child;
-	unsigned long id;
+	struct device_node *node = dev->of_node;
+	unsigned long fifo_availability = 0;
+	unsigned long fifo_id, ctrl_id;
+	u8 fifos_refcnt[LLCE_NFIFO_WITH_IRQ];
+	bool shared_fifo = false;
+	size_t i;
 	int ret;
 
-	for_each_child_of_node(dev->of_node->parent, child) {
+	for (ctrl_id = 0; ctrl_id < ARRAY_SIZE(mb->chans_map); ctrl_id++)
+		mb->chans_map[ctrl_id] = UNINITIALIZED_FIFO;
+
+	memset(&fifos_refcnt, 0, sizeof(fifos_refcnt));
+
+	for_each_child_of_node(node->parent, child) {
 		if (!(of_device_is_compatible(child, LLCE_CAN_COMPATIBLE) &&
 		      of_device_is_available(child)))
 			continue;
 
 		node_name = child->name;
-		ret = get_llce_can_id(node_name, &id);
+		ret = get_llce_can_id(node_name, &ctrl_id);
 		if (ret) {
 			dev_err(dev, "Failed to get ID of the node: %s\n",
 				node_name);
 			return ret;
 		}
 
-		if (id >= LLCE_NFIFO_WITH_IRQ)
+		if (ctrl_id >= LLCE_CAN_CONFIG_MAXCTRL_COUNT) {
+			dev_info(dev, "Ignoring controller %s\n", node_name);
 			continue;
+		}
 
-		set_bit(id, mb->chans_map);
+		fifo_id = get_next_free_fifo(&fifo_availability, LLCE_CAN_HIF0,
+					     false);
+		if (fifo_id >= LLCE_NFIFO_WITH_IRQ) {
+			dev_err(dev, "Failed to identify set of FIFOs for BCAN %lu\n",
+				ctrl_id);
+			return -EINVAL;
+		}
+
+		mb->chans_map[ctrl_id] = fifo_id;
+
+		/* Detect shared FIFOs */
+		fifos_refcnt[fifo_id]++;
+		if (fifos_refcnt[fifo_id] > 1)
+			shared_fifo = true;
+	}
+
+	if (shared_fifo) {
+		dev_warn(dev, "Interfaces that use shared TX/RX FIFOs:");
+		for (i = 0; i < ARRAY_SIZE(mb->chans_map); i++) {
+			fifo_id = mb->chans_map[i];
+
+			if (fifo_id >= sizeof(fifos_refcnt))
+				continue;
+
+			if (fifos_refcnt[fifo_id] > 1)
+				dev_warn(dev, "\tLLCE CAN %lu uses shared FIFOs: %lu\n",
+					 i, fifo_id);
+		}
 	}
 
 	return 0;
@@ -1795,7 +1872,7 @@ static int llce_init_chan_map(struct device *dev, struct llce_mb *mb)
 static int llce_platform_init(struct device *dev, struct llce_mb *mb)
 {
 	struct llce_can_init_platform_cmd *pcmd;
-	unsigned long id;
+	unsigned long ctrl_id, fifo_id;
 
 	struct llce_can_command cmd = {
 		.cmd_id = LLCE_CAN_CMD_INIT_PLATFORM,
@@ -1828,13 +1905,22 @@ static int llce_platform_init(struct device *dev, struct llce_mb *mb)
 	memset(&pcmd->max_int_mb_count, 0, sizeof(pcmd->max_int_mb_count));
 	memset(&pcmd->max_poll_mb_count, 0, sizeof(pcmd->max_poll_mb_count));
 
-	for_each_set_bit(id, mb->chans_map, LLCE_NFIFO_WITH_IRQ) {
-		pcmd->ctrl_init_status[id] = INITIALIZED;
-		pcmd->max_regular_filter_count[id] = 16;
-		pcmd->max_advanced_filter_count[id] = 16;
-		pcmd->max_int_mb_count[id] = 100;
-		pcmd->max_int_tx_ack_count[id] = 16;
-		pcmd->can_error_reporting.bus_off_err[id] = NOTIF_FIFO0;
+	for (ctrl_id = 0; ctrl_id < ARRAY_SIZE(mb->chans_map); ctrl_id++) {
+		fifo_id = mb->chans_map[ctrl_id];
+
+		/* Not initialized */
+		if (fifo_id == UNINITIALIZED_FIFO)
+			continue;
+
+		/* Per controller settings */
+		pcmd->ctrl_init_status[ctrl_id] = INITIALIZED;
+		pcmd->max_regular_filter_count[ctrl_id] = MAX_FILTER_PER_CHAN;
+		pcmd->max_advanced_filter_count[ctrl_id] = MAX_FILTER_PER_CHAN;
+		pcmd->can_error_reporting.bus_off_err[ctrl_id] = NOTIF_FIFO0;
+
+		/* Per FIFO settings */
+		pcmd->max_int_mb_count[fifo_id] += FIFO_MB_PER_CHAN;
+		pcmd->max_int_tx_ack_count[fifo_id] += MAX_CONFIRM_BUF_PER_CHAN;
 	}
 
 	return execute_hif_cmd(mb, &cmd);
