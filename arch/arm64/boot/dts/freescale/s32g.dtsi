@@ -1694,6 +1694,10 @@
 	};
 };
 
+&ocotp {
+	compatible = "nxp,s32g-ocotp";
+};
+
 &qspi {
 	compatible = "nxp,s32g-qspi";
 };
