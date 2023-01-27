@@ -12,6 +12,7 @@
 #include <linux/of_address.h>
 #include <linux/mfd/syscon.h>
 #include <linux/platform_device.h>
+#include <soc/s32cc/fuse.h>
 #include "s32cc_thermal.h"
 
 #define DRIVER_NAME "s32cctmu"
@@ -19,21 +20,6 @@
 #define NO_INTERF_FILES		4
 
 #define KELVIN_TO_CELSIUS_OFFSET	273
-
-enum s32cc_calib_fuse {
-	COLD_FUSE,
-	WARM_FUSE
-};
-
-union CAL_FUSE_u {
-	s32 R;
-	struct {
-		s32 CFG_DAC_TRIM0:5;
-		s32 Reserved0:1;
-		s32 CFG_DAC_TRIM1:5;
-		s32 Reserved1:21;
-	} B;
-};
 
 union TMU_TCFGR_S32CC_u  {
 	u32 R;
@@ -44,7 +30,6 @@ union TMU_TCFGR_S32CC_u  {
 };
 
 struct tmu_chip {
-	bool	 has_fuse;
 	u32 enable_mask;
 	int		 sites;
 	/* The hard-coded vectors are required to calibrate the thermal
@@ -62,7 +47,6 @@ struct tmu_chip {
 };
 
 static struct tmu_chip s32g2_tmu = {
-	.has_fuse = true,
 	.enable_mask = 0x2,
 	.sites = 3,
 	.calib_scfgr = (u32 []){0x2C, 0x59, 0xC6, 0x167},
@@ -74,7 +58,6 @@ static struct tmu_chip s32g2_tmu = {
 };
 
 static struct tmu_chip s32g3_tmu = {
-	.has_fuse = true,
 	.enable_mask = 0x2,
 	.sites = 3,
 	.calib_scfgr = (u32 []){0x1F, 0x28, 0x53, 0xA2, 0x162, 0x16C},
@@ -86,7 +69,6 @@ static struct tmu_chip s32g3_tmu = {
 };
 
 static struct tmu_chip s32r45_tmu = {
-	.has_fuse = true,
 	.enable_mask = 0x2,
 	.sites = 3,
 	.calib_scfgr = (u32 []){0x20, 0x29, 0x4E, 0xA3, 0x195, 0x19F},
@@ -125,7 +107,7 @@ enum alpf_t {
 struct tmu_driver_data {
 	struct clk *clk_mod, *clk_reg;
 	void __iomem *tmu_registers;
-	void __iomem *fuse_base;
+	union s32cc_tmu_fuse tmu_fuse_val;
 	struct device *hwmon_device;
 	s16 temp_offset;
 };
@@ -333,35 +315,44 @@ static void tmu_enable_sites(struct device *dev)
 	writel(tmu_msr.R, tmu_dd->tmu_registers + TMU_MSR);
 }
 
-static s32 get_calib_fuse_val(struct device *dev,
-			      enum s32cc_calib_fuse fuse_type)
+static int get_calib_fuse_val(struct device *dev)
 {
 	struct tmu_driver_data *tmu_dd = dev_get_drvdata(dev);
-	union CAL_FUSE_u calib_fuse;
+	int ret;
 
-	calib_fuse.R = readl(tmu_dd->fuse_base + CAL_FUSE);
-	if (fuse_type == COLD_FUSE)
-		return calib_fuse.B.CFG_DAC_TRIM1;
-	return calib_fuse.B.CFG_DAC_TRIM0;
+	ret = s32cc_ocotp_nvmem_get_tmu_fuse(dev, "tmu_fuse_val",
+					     &tmu_dd->tmu_fuse_val);
+	if (ret) {
+		dev_err(dev, "Error reading fuse values\n");
+		return -EINVAL;
+	}
+
+	return 0;
 }
 
-static void update_calib_table_with_fuses(struct device *dev)
+static int update_calib_table_with_fuses(struct device *dev)
 {
+	struct tmu_driver_data *tmu_dd = dev_get_drvdata(dev);
 	const struct tmu_chip *tmu_chip =
 		of_device_get_match_data(dev);
 	u32 *calib_scfgr = tmu_chip->calib_scfgr;
+	union s32cc_tmu_fuse tmu_fuse_val;
 	const u32 *warm_idxes = tmu_chip->warm_idxes;
 	const u32 *cold_idxes = tmu_chip->cold_idxes;
 	size_t trim_idxes_num = tmu_chip->trim_idxes_num;
 	size_t i;
 
-	s32 fuse_val_cold = get_calib_fuse_val(dev, COLD_FUSE);
-	s32 fuse_val_warm = get_calib_fuse_val(dev, WARM_FUSE);
+	if (get_calib_fuse_val(dev))
+		return -EINVAL;
+
+	tmu_fuse_val = tmu_dd->tmu_fuse_val;
 
 	for (i = 0; i < trim_idxes_num; i++)
-		calib_scfgr[warm_idxes[i]] += fuse_val_warm;
+		calib_scfgr[warm_idxes[i]] += tmu_fuse_val.B.CFG_DAC_TRIM0;
 	for (i = 0; i < trim_idxes_num; i++)
-		calib_scfgr[cold_idxes[i]] += fuse_val_cold;
+		calib_scfgr[cold_idxes[i]] += tmu_fuse_val.B.CFG_DAC_TRIM1;
+
+	return 0;
 }
 
 static int tmu_calibrate_s32cc(struct device *dev)
@@ -378,7 +369,10 @@ static int tmu_calibrate_s32cc(struct device *dev)
 	union TMU_CMCFG_u tmu_cmcfg;
 	int i;
 
-	update_calib_table_with_fuses(dev);
+	if (update_calib_table_with_fuses(dev)) {
+		dev_err(dev, "Cannot update calibration table\n");
+		return -EINVAL;
+	}
 
 	/* These values do look like magic numbers because
 	 * they really are. They have been experimentally determined
@@ -468,7 +462,6 @@ static int tmu_probe(struct platform_device *pd)
 	const struct tmu_chip *tmu_chip;
 	struct tmu_driver_data *tmu_dd;
 	struct resource *tmu_resource;
-	struct resource *fuse_resource;
 	int device_files_created = 0;
 	int ret;
 	int i;
@@ -497,21 +490,6 @@ static int tmu_probe(struct platform_device *pd)
 	if (IS_ERR(tmu_dd->tmu_registers)) {
 		dev_err(dev, "Cannot map TMU registers.\n");
 		return PTR_ERR(tmu_dd->tmu_registers);
-	}
-
-	if (tmu_chip->has_fuse) {
-		fuse_resource = platform_get_resource(pd, IORESOURCE_MEM, 1);
-		if (!fuse_resource) {
-			dev_err(dev, "Cannot obtain TMU fuse resource.\n");
-			return -ENODEV;
-		}
-
-		tmu_dd->fuse_base =
-			devm_ioremap_resource(dev, fuse_resource);
-		if (IS_ERR(tmu_dd->fuse_base)) {
-			dev_err(dev, "Cannot map TMU fuse base.\n");
-			return PTR_ERR(tmu_dd->fuse_base);
-		}
 	}
 
 	tmu_dd->clk_mod = devm_clk_get(dev, "tmu_module");
