@@ -288,6 +288,10 @@
 	msi-parent = <&gic>;
 };
 
+&ocotp {
+	compatible = "nxp,s32r45-ocotp";
+};
+
 &tmu {
 	compatible = "nxp,s32r45-tmu";
 };
