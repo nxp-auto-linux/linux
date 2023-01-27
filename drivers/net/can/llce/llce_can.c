@@ -93,21 +93,31 @@ static struct device *llce_can_chan_dev(struct mbox_chan *conf_chan)
 }
 
 static int send_cmd_msg(struct mbox_chan *conf_chan,
-			struct llce_can_command *cmd)
+			struct llce_config_msg *msg)
 {
 	struct device *dev = llce_can_chan_dev(conf_chan);
 	struct mbox_client *cl = conf_chan->cl;
 	struct llce_can *can = container_of(cl, struct llce_can, config_client);
 	int ret;
 
-	ret = mbox_send_message(conf_chan, cmd);
+	ret = mbox_send_message(conf_chan, msg);
 	if (ret < 0)
 		return ret;
 
 	wait_for_completion(&can->config_done);
-	if (cmd->return_value != LLCE_FW_SUCCESS) {
-		dev_err(dev, "LLCE FW error %d\n", cmd->return_value);
-		return -EIO;
+	switch (msg->cmd) {
+	case LLCE_EXECUTE_FW_CMD:
+		if (msg->fw_cmd.return_value != LLCE_FW_SUCCESS) {
+			dev_err(dev, "LLCE FW error %d\n",
+				msg->fw_cmd.return_value);
+			return -EIO;
+		}
+
+		break;
+	default:
+		dev_err(dev, "Unknown command for CAN cfg channel %u\n",
+			msg->cmd);
+		return -EINVAL;
 	}
 
 	return 0;
@@ -120,13 +130,16 @@ static int llce_can_init(struct llce_can *llce)
 	struct llce_can_dev *llce_dev = &llce->common;
 	struct can_priv *can = &llce_dev->can;
 	u32 ctrl_config = 0;
-	struct llce_can_command cmd = {
-		.cmd_id = LLCE_CAN_CMD_INIT,
-		.cmd_list.init = {
-			.ctrl_config = LLCE_CAN_CONTROLLERCONFIG_CTRL_EN
-			    | LLCE_CAN_CONTROLLERCONFIG_ABR_EN
-			    | LLCE_CAN_CONTROLLERCONFIG_TST_END,
-			.tx_mb_count = LLCE_CAN_MAX_TX_MB,
+	struct llce_config_msg msg = {
+		.cmd = LLCE_EXECUTE_FW_CMD,
+		.fw_cmd = {
+			.cmd_id = LLCE_CAN_CMD_INIT,
+			.cmd_list.init = {
+				.ctrl_config = LLCE_CAN_CONTROLLERCONFIG_CTRL_EN
+				    | LLCE_CAN_CONTROLLERCONFIG_ABR_EN
+				    | LLCE_CAN_CONTROLLERCONFIG_TST_END,
+				.tx_mb_count = LLCE_CAN_MAX_TX_MB,
+			},
 		},
 	};
 	int ret;
@@ -139,9 +152,9 @@ static int llce_can_init(struct llce_can *llce)
 	if (can->ctrlmode & CAN_CTRLMODE_LISTENONLY)
 		ctrl_config |= LLCE_CAN_CONTROLLERCONFIG_LOM_EN;
 
-	cmd.cmd_list.init.ctrl_config |= ctrl_config;
+	msg.fw_cmd.cmd_list.init.ctrl_config |= ctrl_config;
 
-	ret = send_cmd_msg(conf_chan, &cmd);
+	ret = send_cmd_msg(conf_chan, &msg);
 	if (ret) {
 		dev_err(dev, "Failed to init LLCE CAN\n");
 		return ret;
@@ -154,14 +167,17 @@ static int llce_can_deinit(struct llce_can *llce)
 {
 	struct mbox_chan *conf_chan = llce->config;
 	struct device *dev = llce_can_chan_dev(conf_chan);
-	struct llce_can_command cmd = {
-		.cmd_id = LLCE_CAN_CMD_DEINIT,
+	struct llce_config_msg msg = {
+		.cmd = LLCE_EXECUTE_FW_CMD,
+		.fw_cmd = {
+			.cmd_id = LLCE_CAN_CMD_DEINIT,
+		},
 	};
 	int ret;
 
-	ret = send_cmd_msg(conf_chan, &cmd);
+	ret = send_cmd_msg(conf_chan, &msg);
 	if (ret) {
-		dev_err(dev, "Failed to deinit LLCE CAN\n");
+		dev_err(dev, "Failed to deinitialize LLCE CAN\n");
 		return ret;
 	}
 
@@ -210,18 +226,21 @@ static int llce_can_remove_filter(struct llce_can *llce, int filter)
 {
 	struct device *dev = llce->config_client.dev;
 	struct mbox_chan *conf_chan = llce->config;
-	struct llce_can_command cmd;
+	struct llce_config_msg msg;
 	int ret;
 
 	if (filter == -EINVAL)
 		return 0;
 
-	cmd = (struct llce_can_command) {
-		.cmd_id = LLCE_CAN_CMD_REMOVE_FILTER,
-		.cmd_list.change_filter.filter_addr = filter,
+	msg = (struct llce_config_msg) {
+		.cmd = LLCE_EXECUTE_FW_CMD,
+		.fw_cmd = {
+			.cmd_id = LLCE_CAN_CMD_REMOVE_FILTER,
+			.cmd_list.change_filter.filter_addr = filter,
+		},
 	};
 
-	ret = send_cmd_msg(conf_chan, &cmd);
+	ret = send_cmd_msg(conf_chan, &msg);
 	if (ret)
 		dev_err(dev, "Failed to remove filter %d\n", filter);
 
@@ -252,19 +271,22 @@ static int llce_can_set_filter_status(struct llce_can *llce, int filter,
 {
 	struct device *dev = llce->config_client.dev;
 	struct mbox_chan *conf_chan = llce->config;
-	struct llce_can_command cmd;
+	struct llce_config_msg msg;
 	int ret;
 
 	if (filter == -EINVAL)
 		return 0;
 
-	cmd = (struct llce_can_command) {
-		.cmd_id = LLCE_CAN_CMD_SETFILTERENABLESTATUS,
-		.cmd_list.change_filter.filter_addr = filter,
-		.cmd_list.change_filter.filter_enabled = !!enabled,
+	msg = (struct llce_config_msg) {
+		.cmd = LLCE_EXECUTE_FW_CMD,
+		.fw_cmd = {
+			.cmd_id = LLCE_CAN_CMD_SETFILTERENABLESTATUS,
+			.cmd_list.change_filter.filter_addr = filter,
+			.cmd_list.change_filter.filter_enabled = !!enabled,
+		},
 	};
 
-	ret = send_cmd_msg(conf_chan, &cmd);
+	ret = send_cmd_msg(conf_chan, &msg);
 	if (ret)
 		dev_err(dev, "Failed to set filter status\n");
 
@@ -305,30 +327,37 @@ static void set_rx_filter(struct llce_can_rx_filter *rx_filter, u8 intf,
 	};
 }
 
-static void set_basic_filter(struct llce_can_command *cmd, u8 intf, bool canfd)
+static void set_basic_filter(struct llce_config_msg *msg, u8 intf, bool canfd)
 {
-	*cmd = (struct llce_can_command) {
-		.cmd_id = LLCE_CAN_CMD_SETFILTER,
-		.cmd_list.set_filter = {
-			.rx_filters_count = 1,
-		},
+	*msg = (struct llce_config_msg) {
+		.cmd = LLCE_EXECUTE_FW_CMD,
+		.fw_cmd = {
+			.cmd_id = LLCE_CAN_CMD_SETFILTER,
+			.cmd_list.set_filter = {
+				.rx_filters_count = 1,
+			},
+		}
 	};
 
-	set_rx_filter(&cmd->cmd_list.set_filter.rx_filters[0], intf, canfd);
+	set_rx_filter(&msg->fw_cmd.cmd_list.set_filter.rx_filters[0],
+		      intf, canfd);
 }
 
-static void set_advanced_filter(struct llce_can_command *cmd, u8 intf)
+static void set_advanced_filter(struct llce_config_msg *msg, u8 intf)
 {
 	struct llce_can_advanced_filter *afilt;
 
-	*cmd = (struct llce_can_command) {
-		.cmd_id = LLCE_CAN_CMD_SETADVANCEDFILTER,
-		.cmd_list.set_advanced_filter = {
-			.rx_filters_count = 1,
-		},
+	*msg = (struct llce_config_msg) {
+		.cmd = LLCE_EXECUTE_FW_CMD,
+		.fw_cmd = {
+			.cmd_id = LLCE_CAN_CMD_SETADVANCEDFILTER,
+			.cmd_list.set_advanced_filter = {
+				.rx_filters_count = 1,
+			},
+		}
 	};
 
-	afilt = &cmd->cmd_list.set_advanced_filter.advanced_filters[0];
+	afilt = &msg->fw_cmd.cmd_list.set_advanced_filter.advanced_filters[0];
 	afilt->llce_can_Advanced_feature = (struct llce_can_advanced_feature) {
 		.can_authentication_feature = LLCE_AF_AUTHENTICATION_DISABLED,
 		.can_custom_processing = LLCE_AF_CUSTOMPROCESSING_DISABLED,
@@ -348,21 +377,21 @@ static int can_add_open_filter(struct net_device *dev)
 	struct llce_chan_priv *priv = conf_chan->con_priv;
 	struct llce_can_advanced_filter *afilt;
 	struct llce_can_rx_filter *filt;
-	struct llce_can_command cmd;
+	struct llce_config_msg msg;
 	bool canfd = is_canfd_dev(&llce->common.can);
 	int ret;
 
 	if (llce->filter_setup_done)
 		return llce_can_configure_filter(llce, true);
 
-	set_basic_filter(&cmd, priv->index, canfd);
+	set_basic_filter(&msg, priv->index, canfd);
 
-	ret = send_cmd_msg(conf_chan, &cmd);
+	ret = send_cmd_msg(conf_chan, &msg);
 	if (ret) {
 		netdev_err(dev, "Failed to set basic RX filter\n");
 		return ret;
 	}
-	filt = &cmd.cmd_list.set_filter.rx_filters[0];
+	filt = &msg.fw_cmd.cmd_list.set_filter.rx_filters[0];
 	llce->basic_filter_addr = filt->filter_addr;
 
 	if (!canfd) {
@@ -374,8 +403,8 @@ static int can_add_open_filter(struct net_device *dev)
 		return 0;
 	}
 
-	set_advanced_filter(&cmd, priv->index);
-	ret = send_cmd_msg(conf_chan, &cmd);
+	set_advanced_filter(&msg, priv->index);
+	ret = send_cmd_msg(conf_chan, &msg);
 	if (ret) {
 		netdev_info(dev, "Advanced RX filter not added. Logging feature not available.\n");
 		llce->advanced_filter_addr = -EINVAL;
@@ -388,7 +417,7 @@ static int can_add_open_filter(struct net_device *dev)
 		 */
 		return 0;
 	}
-	afilt = &cmd.cmd_list.set_advanced_filter.advanced_filters[0];
+	afilt = &msg.fw_cmd.cmd_list.set_advanced_filter.advanced_filters[0];
 	llce->advanced_filter_addr = afilt->llce_can_Rx_filter.filter_addr;
 
 	llce->filter_setup_done = true;
@@ -408,17 +437,20 @@ static bool state_transition(struct mbox_chan *conf_chan,
 {
 	int ret;
 	struct device *dev = llce_can_chan_dev(conf_chan);
-	struct llce_can_command get_cmd = {
-		.cmd_id = LLCE_CAN_CMD_GETCONTROLLERMODE,
+	struct llce_config_msg msg = {
+		.cmd = LLCE_EXECUTE_FW_CMD,
+		.fw_cmd = {
+			.cmd_id = LLCE_CAN_CMD_GETCONTROLLERMODE,
+		},
 	};
 
-	ret = send_cmd_msg(conf_chan, &get_cmd);
+	ret = send_cmd_msg(conf_chan, &msg);
 	if (ret) {
 		dev_err(dev, "Failed to get controller's state\n");
 		return false;
 	}
 
-	return (get_cmd.cmd_list.get_controller_mode.controller_state == state);
+	return (msg.fw_cmd.cmd_list.get_controller_mode.controller_state == state);
 }
 
 static bool state_transition_timeout(struct mbox_chan *conf_chan,
@@ -437,11 +469,14 @@ static int set_controller_mode(struct mbox_chan *conf_chan,
 	struct device *dev = llce_can_chan_dev(conf_chan);
 	const char *mode_str;
 	enum llce_can_ctrl_state exp_state;
-	struct llce_can_command set_cmd = {
-		.cmd_id = LLCE_CAN_CMD_SETCONTROLLERMODE,
-		.cmd_list.set_controller_mode = {
-			.transition = mode,
-		},
+	struct llce_config_msg set_cmd = {
+		.cmd = LLCE_EXECUTE_FW_CMD,
+		.fw_cmd = {
+			.cmd_id = LLCE_CAN_CMD_SETCONTROLLERMODE,
+			.cmd_list.set_controller_mode = {
+				.transition = mode,
+			},
+		}
 	};
 	int ret;
 
@@ -523,33 +558,43 @@ static int llce_set_data_bittiming(struct net_device *dev)
 	struct llce_can_controller_fd_config *controller_fd;
 	const struct can_bittiming *dbt = &can->data_bittiming;
 	const struct can_bittiming *bt = &can->bittiming;
-	struct llce_can_command cmd = {
-		.cmd_id = LLCE_CAN_CMD_SETBAUDRATE,
-		.cmd_list.set_baudrate = {
-			.nominal_baudrate_config = get_cbt(bt),
-			.controller_fd = {
-				.fd_enable = is_canfd_dev(can),
-				.data_baudrate_config = get_cbt(dbt),
-				.controller_tx_bit_rate_switch = true,
-				.trcv_delay_comp_enable = true,
-				.trcv_delay_meas_enable = true,
-				.trcv_delay_comp_offset = get_tdc_off(dbt),
+	u8 fd_enable = is_canfd_dev(can) ? 1u : 0u;
+	u32 tdc_offset = get_tdc_off(dbt);
+	struct llce_config_msg msg = {
+		.cmd = LLCE_EXECUTE_FW_CMD,
+		.fw_cmd = {
+			.cmd_id = LLCE_CAN_CMD_SETBAUDRATE,
+			.cmd_list.set_baudrate = {
+				.nominal_baudrate_config = get_cbt(bt),
+				.controller_fd = {
+					.fd_enable = fd_enable,
+					.data_baudrate_config = get_cbt(dbt),
+					.controller_tx_bit_rate_switch = true,
+					.trcv_delay_comp_enable = true,
+					.trcv_delay_meas_enable = true,
+					.trcv_delay_comp_offset = tdc_offset,
+				},
 			},
 		},
 	};
 
-	if (is_canfd_dev(can) && bt->brp != dbt->brp) {
+	if (tdc_offset > U8_MAX) {
+		netdev_err(dev, "Transceiver Delay Compensation Offset exceeds its max allowed value\n");
+		return -EINVAL;
+	}
+
+	if (fd_enable && bt->brp != dbt->brp) {
 		netdev_err(dev, "Different values for nominal and data prescalers\n");
 		return -EINVAL;
 	}
 
-	controller_fd = &cmd.cmd_list.set_baudrate.controller_fd;
+	controller_fd = &msg.fw_cmd.cmd_list.set_baudrate.controller_fd;
 
 	/* Disable delay compensation in loopback mode */
 	if (can->ctrlmode & CAN_CTRLMODE_LOOPBACK)
 		controller_fd->trcv_delay_comp_enable = false;
 
-	ret = send_cmd_msg(llce->config, &cmd);
+	ret = send_cmd_msg(llce->config, &msg);
 	if (ret) {
 		netdev_err(dev, "Failed to set bit timing\n");
 		return ret;
