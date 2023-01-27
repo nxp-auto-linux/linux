@@ -10,6 +10,7 @@
 #include <dt-bindings/clock/s32cc-scmi-clock.h>
 #include <dt-bindings/misc/s32cc-fccu.h>
 #include <dt-bindings/nvmem/s32cc-siul2-nvmem.h>
+#include <dt-bindings/nvmem/s32cc-ocotp-nvmem.h>
 #include <dt-bindings/perf/s32cc-scmi-perf.h>
 #include <dt-bindings/phy/phy.h>
 #include <dt-bindings/phy/phy-s32cc-serdes.h>
@@ -288,13 +289,24 @@
 			};
 		};
 
+		ocotp: ocotp@400a4000 {
+			reg = <0x0 0x400a4000 0x0 0x400>;
+			#address-cells = <1>;
+			#size-cells = <1>;
+			status = "okay";
+			tmu_fuse_val: tmu_fuse_val@298 {
+				reg = <TMU_FUSE_OFFSET OCOTP_CELL_SIZE>;
+			};
+		};
+
 		tmu: tmu@400a8000 {
 			compatible = "nxp,s32cc-tmu";
-			reg = <0x0 0x400a8000 0x0 0x3000>,
-				<0x0 0x400a4200 0x0 0x1fc>;
+			reg = <0x0 0x400a8000 0x0 0x3000>;
 			clocks = <&clks S32CC_SCMI_CLK_TMU_MODULE>,
 				<&clks S32CC_SCMI_CLK_TMU_REG>;
 			clock-names = "tmu_module", "tmu_reg";
+			nvmem-cell-names = "tmu_fuse_val";
+			nvmem-cells = <&tmu_fuse_val>;
 			status = "okay";
 		};
 
