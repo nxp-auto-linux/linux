@@ -81,5 +81,7 @@ obj-$(CONFIG_NVMEM_ZYNQMP)		+= nvmem_zynqmp_nvmem.o
 nvmem_zynqmp_nvmem-y			:= zynqmp_nvmem.o
 obj-$(CONFIG_NVMEM_QORIQ_EFUSE)		+= nvmem-qoriq-efuse.o
 nvmem-qoriq-efuse-y			:= qoriq-efuse.o
+obj-$(CONFIG_NVMEM_S32CC_OCOTP) += nvmem-s32cc-ocotp-nvmem.o
+nvmem-s32cc-ocotp-nvmem-y		:= s32cc-ocotp-nvmem.o
 obj-$(CONFIG_NVMEM_S32CC_SIUL2)	+= nvmem_s32cc_siul2_nvmem.o
 nvmem_s32cc_siul2_nvmem-y		:= s32cc_siul2_nvmem.o
