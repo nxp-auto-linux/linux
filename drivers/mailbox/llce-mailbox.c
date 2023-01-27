@@ -505,6 +505,23 @@ release_lock:
 	return ret;
 }
 
+static int process_config_msg(struct mbox_chan *chan,
+			      struct llce_config_msg *msg)
+{
+	struct llce_chan_priv *priv = chan->con_priv;
+	struct llce_mb *mb = priv->mb;
+	struct device *dev = mb->controller.dev;
+
+	switch (msg->cmd) {
+	case LLCE_EXECUTE_FW_CMD:
+		return execute_config_cmd(chan, &msg->fw_cmd);
+	default:
+		dev_err(dev, "Failed to interpret config cmd=%u\n",
+			msg->cmd);
+		return -EINVAL;
+	}
+}
+
 static bool is_blrin_full(struct mbox_chan *chan)
 {
 	void __iomem *blrin = get_blrin_fifo(chan);
@@ -624,7 +641,7 @@ static int llce_mb_send_data(struct mbox_chan *chan, void *data)
 	WARN_ON(mb->suspended);
 
 	if (is_config_chan(priv->type))
-		return execute_config_cmd(chan, data);
+		return process_config_msg(chan, data);
 
 	if (is_tx_chan(priv->type))
 		return send_can_msg(chan, data);
