@@ -71,6 +71,17 @@ struct llce_rx_msg {
 	};
 };
 
+enum llce_config_cmd {
+	LLCE_EXECUTE_FW_CMD = 0x99,
+};
+
+struct llce_config_msg {
+	enum llce_config_cmd cmd;
+	union {
+		struct llce_can_command fw_cmd;
+	};
+};
+
 struct llce_logger_msg {
 	struct llce_can_mb *frame;
 	u8 hw_ctrl;
