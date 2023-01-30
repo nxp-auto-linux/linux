@@ -34,11 +34,22 @@ properties:
   clock-names:
     description: tmu_module, tmu_reg
 
+  nvmem-cells:
+    maxItems: 1
+    description:
+      phandle to the temperature calibration fuse cells
+
+  nvmem-cell-names:
+    maxItems: 1
+    const: tmu_fuse_val
+
 required:
   - compatible
   - reg
   - clocks
   - clock-names
+  - nvmem-cells
+  - nvmem-cell-names
 
 additionalProperties: false
 
@@ -48,11 +59,12 @@ examples:
 
     tmu: tmu@400a8000 {
       compatible = "nxp,s32g2-tmu";
-      reg = <0x0 0x400a8000 0x0 0x3000>,
-          <0x0 0x400a4200 0x0 0x1fc>;
+      reg = <0x0 0x400a8000 0x0 0x3000>;
       clocks = <&clks S32CC_SCMI_CLK_TMU_MODULE>,
           <&clks S32CC_SCMI_CLK_TMU_REG>;
       clock-names = "tmu_module", "tmu_reg";
+      nvmem-cell-names = "tmu_fuse_val";
+      nvmem-cells = <&tmu_fuse_val>;
       status = "okay";
     };
 ...
