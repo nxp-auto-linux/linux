@@ -129,7 +129,7 @@ struct llce_mb_desc {
 	void (*shutdown)(struct mbox_chan *chan);
 };
 
-struct llce_logger_data {
+struct llce_rx_data {
 	bool has_leftover;
 	struct llce_can_mb *frame;
 	u32 index;
@@ -865,7 +865,7 @@ static int llce_logger_startup(struct mbox_chan *chan)
 {
 	struct llce_chan_priv *priv = chan->con_priv;
 	struct llce_mb *mb = priv->mb;
-	struct llce_logger_data *data;
+	struct llce_rx_data *data;
 	unsigned long flags;
 	int ret = 0;
 
@@ -877,7 +877,7 @@ static int llce_logger_startup(struct mbox_chan *chan)
 	priv->state = LLCE_REGISTERED_CHAN;
 
 	/* Make room for POP leftovers */
-	priv->data = kmalloc(sizeof(struct llce_logger_data), GFP_KERNEL);
+	priv->data = kmalloc(sizeof(*data), GFP_KERNEL);
 	if (!priv->data)
 		ret = -ENOMEM;
 
@@ -1233,7 +1233,7 @@ static void llce_process_rxin(struct llce_mb *mb, u8 index)
 static bool has_leftovers(struct mbox_chan *chan)
 {
 	struct llce_chan_priv *priv = chan->con_priv;
-	struct llce_logger_data *data = priv->data;
+	struct llce_rx_data *data = priv->data;
 	unsigned long flags;
 	bool ret;
 
@@ -1248,7 +1248,7 @@ static void push_llce_logger_data(struct mbox_chan *chan, struct llce_can_mb *fr
 				  uint32_t index)
 {
 	struct llce_chan_priv *priv = chan->con_priv;
-	struct llce_logger_data *data = priv->data;
+	struct llce_rx_data *data = priv->data;
 	unsigned long flags;
 
 	spin_lock_irqsave(&priv->lock, flags);
@@ -1267,7 +1267,7 @@ static bool pop_llce_logger_data(struct mbox_chan *chan, struct llce_can_mb **fr
 				 uint32_t *index)
 {
 	struct llce_chan_priv *priv = chan->con_priv;
-	struct llce_logger_data *data = priv->data;
+	struct llce_rx_data *data = priv->data;
 	unsigned long flags;
 	bool ret;
 
