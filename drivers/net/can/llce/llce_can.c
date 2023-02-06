@@ -28,7 +28,6 @@
 
 #define LLCE_CAN_MAX_TX_MB		16U
 
-#define LLCE_CAN_MAX_IF			16U
 
 struct llce_can {
 	struct llce_can_dev common; /* Must be the first member */
@@ -49,7 +48,7 @@ struct llce_can {
 
 /* Used to protect access to llce_can_interfaces[i] */
 static DEFINE_MUTEX(llce_can_interfaces_lock);
-static struct llce_can *llce_can_interfaces[LLCE_CAN_MAX_IF];
+static struct llce_can *llce_can_interfaces[LLCE_CAN_CONFIG_MAXCTRL_COUNT];
 
 static const struct can_bittiming_const llce_can_bittiming = {
 	.name = LLCE_CAN_DRV_NAME,
@@ -188,7 +187,7 @@ static int llce_can_interfaces_set(struct llce_can *llce)
 {
 	int id = llce->common.id;
 
-	if (id >= LLCE_CAN_MAX_IF)
+	if (id >= LLCE_CAN_CONFIG_MAXCTRL_COUNT)
 		return -EINVAL;
 
 	mutex_lock(&llce_can_interfaces_lock);
@@ -202,7 +201,7 @@ static struct llce_can *llce_can_interfaces_get_unsafe(int id)
 {
 	struct llce_can *llce;
 
-	if (id >= LLCE_CAN_MAX_IF)
+	if (id >= LLCE_CAN_CONFIG_MAXCTRL_COUNT)
 		return NULL;
 
 	llce = llce_can_interfaces[id];
@@ -214,7 +213,7 @@ static void llce_can_interfaces_cleanup(struct llce_can *llce)
 {
 	int id = llce->common.id;
 
-	if (id >= LLCE_CAN_MAX_IF)
+	if (id >= LLCE_CAN_CONFIG_MAXCTRL_COUNT)
 		return;
 
 	mutex_lock(&llce_can_interfaces_lock);
@@ -616,7 +615,7 @@ static int llce_can_device_event(struct notifier_block *nb,
 	if (!strstr(dev->name, "llcelogger"))
 		goto llce_can_event_out;
 
-	if (common->id >= LLCE_CAN_MAX_IF)
+	if (common->id >= LLCE_CAN_CONFIG_MAXCTRL_COUNT)
 		goto llce_can_event_out;
 
 	mutex_lock(&llce_can_interfaces_lock);
@@ -962,7 +961,7 @@ static int llce_can_probe(struct platform_device *pdev)
 	ret = llce_can_interfaces_set(llce);
 	if (ret) {
 		dev_err(dev, "LLCE interface ID %d equal or greather than %d\n",
-			LLCE_CAN_MAX_IF, common->id);
+			LLCE_CAN_CONFIG_MAXCTRL_COUNT, common->id);
 		goto free_conf_chan;
 	}
 
