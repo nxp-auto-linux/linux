@@ -325,6 +325,11 @@ static void __iomem *get_host_txack(struct llce_mb *mb, unsigned int host_index)
 	return get_txack_by_index(mb, 18);
 }
 
+static unsigned int get_ctrl_fifo(struct llce_mb *mb, unsigned int ctrl_id)
+{
+	return mb->chans_map[ctrl_id];
+}
+
 static void __iomem *get_txack_fifo(struct mbox_chan *chan)
 {
 	struct llce_chan_priv *priv = chan->con_priv;
@@ -505,6 +510,28 @@ release_lock:
 	return ret;
 }
 
+static int process_get_fifo_index(struct mbox_chan *chan,
+				  struct llce_config_msg *msg)
+{
+	struct llce_chan_priv *priv = chan->con_priv;
+	struct llce_mb *mb = priv->mb;
+	struct device *dev = mb->controller.dev;
+	unsigned int fifo_id;
+
+	fifo_id = get_ctrl_fifo(mb, priv->index);
+	if (fifo_id >= LLCE_NFIFO_WITH_IRQ) {
+		dev_err(dev, "Invalid FIFO id: %u\n", fifo_id);
+		return -EINVAL;
+	}
+
+	msg->fifo.index = fifo_id;
+
+	/* No actual FW command executed */
+	priv->last_msg = NULL;
+
+	return 0;
+}
+
 static int process_config_msg(struct mbox_chan *chan,
 			      struct llce_config_msg *msg)
 {
@@ -515,6 +542,8 @@ static int process_config_msg(struct mbox_chan *chan,
 	switch (msg->cmd) {
 	case LLCE_EXECUTE_FW_CMD:
 		return execute_config_cmd(chan, &msg->fw_cmd);
+	case LLCE_GET_FIFO_INDEX:
+		return process_get_fifo_index(chan, msg);
 	default:
 		dev_err(dev, "Failed to interpret config cmd=%u\n",
 			msg->cmd);
@@ -975,6 +1004,13 @@ static bool llce_mb_last_tx_done(struct mbox_chan *chan)
 
 	if (!is_config_chan(priv->type))
 		return false;
+
+	/* Non-firmware commands */
+	if (!priv->last_msg) {
+		/* Unblock the caller */
+		llce_mbox_chan_received_data(chan, NULL);
+		return true;
+	}
 
 	txack = get_host_txack(mb, LLCE_CAN_HIF0);
 	sh_cmd = &mb->sh_mem->can_cmd[LLCE_CAN_HIF0];
