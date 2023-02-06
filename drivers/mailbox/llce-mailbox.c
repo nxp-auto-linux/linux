@@ -1372,6 +1372,7 @@ static int process_pop_rxout(struct mbox_chan *chan, struct llce_rx_msg *msg)
 	unsigned int chan_index;
 	u32 rx_mb, rx_short_mb;
 	u16 filter_id;
+	u8 mb_type;
 
 	/* Get RX mailbox */
 	rx_mb = readl(pop0) & LLCE_CAN_CONFIG_FIFO_FIXED_MASK;
@@ -1379,8 +1380,9 @@ static int process_pop_rxout(struct mbox_chan *chan, struct llce_rx_msg *msg)
 	filter_id = sh_mem->can_rx_mb_desc[rx_mb].filter_id;
 
 	chan_index = get_channel_offset(S32G_LLCE_CAN_RX_MB, priv->index);
+	mb_type = llce_filter_get_mb_type(filter_id);
 
-	if (filter_id == USE_LONG_MB) {
+	if (mb_type == USE_LONG_MB) {
 		msg->rx_pop.mb.data.longm = &sh_mem->can_mb[rx_mb];
 		msg->rx_pop.mb.is_long = true;
 	} else {
