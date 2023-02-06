@@ -328,10 +328,16 @@ static int llce_can_configure_filter(struct llce_can *llce, bool ifup)
 						 ifup);
 }
 
-static void set_rx_filter(struct llce_can_rx_filter *rx_filter, u8 intf,
+static void set_rx_filter(struct llce_can_rx_filter *rx_filter, u8 fifo,
+			  u8 hw_ctrl,
 			  bool canfd)
 {
 	enum llce_can_rx_mb_length len;
+	u16 filter = 0;
+
+	/* Encode HW ctrl & MB type into filter id */
+	llce_filter_set_hwctrl(&filter, hw_ctrl);
+	llce_filter_set_mb_type(&filter, canfd);
 
 	if (canfd)
 		len = USE_LONG_MB;
@@ -341,16 +347,16 @@ static void set_rx_filter(struct llce_can_rx_filter *rx_filter, u8 intf,
 	*rx_filter = (struct llce_can_rx_filter) {
 		.id_mask = 0,
 		.message_id = 0,
-		/* Use packet type as filter id */
-		.filter_id = len,
+		.filter_id = filter,
 		.mb_count = LLCE_CAN_MAX_TX_MB,
 		.entry_type = LLCE_CAN_ENTRY_CFG_MASKED,
 		.filter_mb_length = len,
-		.rx_dest_interface = intf,
+		.rx_dest_interface = fifo,
 	};
 }
 
-static void set_basic_filter(struct llce_config_msg *msg, u8 intf, bool canfd)
+static void set_basic_filter(struct llce_config_msg *msg, u8 fifo,
+			     u8 hw_ctrl, bool canfd)
 {
 	*msg = (struct llce_config_msg) {
 		.cmd = LLCE_EXECUTE_FW_CMD,
@@ -363,10 +369,11 @@ static void set_basic_filter(struct llce_config_msg *msg, u8 intf, bool canfd)
 	};
 
 	set_rx_filter(&msg->fw_cmd.cmd_list.set_filter.rx_filters[0],
-		      intf, canfd);
+		      fifo, hw_ctrl, canfd);
 }
 
-static void set_advanced_filter(struct llce_config_msg *msg, u8 intf)
+static void set_advanced_filter(struct llce_config_msg *msg,
+				u8 fifo, u8 hw_ctrl)
 {
 	struct llce_can_advanced_filter *afilt;
 
@@ -390,24 +397,27 @@ static void set_advanced_filter(struct llce_config_msg *msg, u8 intf)
 		.can2eth_routing_table_idx = (u8)0x0U,
 	};
 
-	set_rx_filter(&afilt->llce_can_Rx_filter, intf, true);
+	set_rx_filter(&afilt->llce_can_Rx_filter, fifo, hw_ctrl, true);
 }
 
 static int can_add_open_filter(struct net_device *dev)
 {
 	struct llce_can *llce = netdev_priv(dev);
 	struct mbox_chan *conf_chan = llce->config;
-	struct llce_chan_priv *priv = conf_chan->con_priv;
 	struct llce_can_advanced_filter *afilt;
 	struct llce_can_rx_filter *filt;
 	struct llce_config_msg msg;
 	bool canfd = is_canfd_dev(&llce->common.can);
+	int id = llce->common.id;
 	int ret;
+
+	if (id < 0 || id > LLCE_CAN_CONFIG_MAXCTRL_COUNT)
+		return -EINVAL;
 
 	if (llce->filter_setup_done)
 		return llce_can_configure_filter(llce, true);
 
-	set_basic_filter(&msg, priv->index, canfd);
+	set_basic_filter(&msg, llce->fifo, id, canfd);
 
 	ret = send_cmd_msg(conf_chan, &msg);
 	if (ret) {
@@ -426,7 +436,7 @@ static int can_add_open_filter(struct net_device *dev)
 		return 0;
 	}
 
-	set_advanced_filter(&msg, priv->index);
+	set_advanced_filter(&msg, llce->fifo, id);
 	ret = send_cmd_msg(conf_chan, &msg);
 	if (ret) {
 		netdev_info(dev, "Advanced RX filter not added. Logging feature not available.\n");
