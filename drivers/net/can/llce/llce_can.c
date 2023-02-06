@@ -44,6 +44,8 @@ struct llce_can {
 
 	bool filter_setup_done;
 	bool logger_iface_up;
+
+	u8 fifo;
 };
 
 /* Used to protect access to llce_can_interfaces[i] */
@@ -113,11 +115,33 @@ static int send_cmd_msg(struct mbox_chan *conf_chan,
 		}
 
 		break;
+	case LLCE_GET_FIFO_INDEX:
+		break;
 	default:
 		dev_err(dev, "Unknown command for CAN cfg channel %u\n",
 			msg->cmd);
 		return -EINVAL;
 	}
+
+	return 0;
+}
+
+static int llce_get_fifo(struct llce_can *llce)
+{
+	struct mbox_chan *conf_chan = llce->config;
+	struct device *dev = llce_can_chan_dev(conf_chan);
+	struct llce_config_msg msg = {
+		.cmd = LLCE_GET_FIFO_INDEX,
+	};
+	int ret;
+
+	ret = send_cmd_msg(conf_chan, &msg);
+	if (ret) {
+		dev_err(dev, "Failed to get the FIFO index\n");
+		return ret;
+	}
+
+	llce->fifo = msg.fifo.index;
 
 	return 0;
 }
@@ -687,6 +711,10 @@ static int llce_can_open(struct net_device *dev)
 		return -EINVAL;
 
 	ret = open_candev(dev);
+	if (ret)
+		return ret;
+
+	ret = llce_get_fifo(llce);
 	if (ret)
 		return ret;
 
