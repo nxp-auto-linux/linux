@@ -152,6 +152,7 @@ struct shared_rxout_data {
 };
 
 struct shared_txack_data {
+	struct llce_mb *mb;
 	void __iomem *txack;
 	bool enable;
 };
@@ -770,19 +771,33 @@ static enum llce_sema42_gate get_sema42_gate(u8 fifo)
 	return sema4_ier[fifo][LLCE_CAN_HIF0];
 }
 
+static void ctrl_fifo_irq_with_lock(struct llce_mb *mb, void __iomem *fifo,
+				    enum llce_sema42_gate gate, bool enable)
+{
+	llce_sema42_lock(mb->sema42, gate, LLCE_HOST_CORE_SEMA42_DOMAIN);
+
+	if (enable)
+		enable_fifo_irq(fifo);
+	else
+		disable_fifo_irq(fifo);
+
+	llce_sema42_unlock(mb->sema42, gate);
+}
+
+static void ctrl_txack_irq_with_lock(struct llce_mb *mb, void __iomem *txack,
+				     bool enable)
+{
+	enum llce_sema42_gate gate = get_sema42_gate(LLCE_FIFO_TXACK_INDEX);
+
+	ctrl_fifo_irq_with_lock(mb, txack, gate, enable);
+}
+
 static void ctrl_rxout_irq_with_lock(struct llce_mb *mb, void __iomem *rxout,
 				     bool enable)
 {
 	enum llce_sema42_gate gate = get_sema42_gate(LLCE_FIFO_RXOUT_INDEX);
 
-	llce_sema42_lock(mb->sema42, gate, LLCE_HOST_CORE_SEMA42_DOMAIN);
-
-	if (enable)
-		enable_fifo_irq(rxout);
-	else
-		disable_fifo_irq(rxout);
-
-	llce_sema42_unlock(mb->sema42, gate);
+	ctrl_fifo_irq_with_lock(mb, rxout, gate, enable);
 }
 
 static void disable_rxout_irq(struct llce_mb *mb, void __iomem *rxout)
@@ -896,10 +911,7 @@ static void control_shared_txack_cb(void *data)
 {
 	struct shared_txack_data *ack = (struct shared_txack_data *)data;
 
-	if (ack->enable)
-		enable_fifo_irq(ack->txack);
-	else
-		disable_fifo_irq(ack->txack);
+	ctrl_txack_irq_with_lock(ack->mb, ack->txack, ack->enable);
 }
 
 static u8 *get_shared_irq_counter(struct fifos_ref_cnt *ref_cnt, bool rxout,
@@ -1029,12 +1041,13 @@ static int llce_tx_startup(struct mbox_chan *chan)
 {
 	unsigned int txack_id;
 	void __iomem *txack = get_txack_fifo(chan, &txack_id);
+	struct llce_chan_priv *priv = chan->con_priv;
+	struct llce_mb *mb = priv->mb;
 	struct shared_txack_data en_irq_data = {
+		.mb = mb,
 		.txack = txack,
 		.enable = true,
 	};
-	struct llce_chan_priv *priv = chan->con_priv;
-	struct llce_mb *mb = priv->mb;
 	unsigned long flags;
 
 	request_llce_pair_irq(mb, &mb->txack_irqs);
@@ -1061,6 +1074,7 @@ static void llce_tx_shutdown(struct mbox_chan *chan)
 	struct device *dev = mb->controller.dev;
 	void __iomem *txack = get_txack_fifo(chan, &txack_id);
 	struct shared_txack_data dis_irq_data = {
+		.mb = mb,
 		.txack = txack,
 		.enable = false,
 	};
