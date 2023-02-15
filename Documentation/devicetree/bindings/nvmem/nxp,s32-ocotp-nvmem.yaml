@@ -1,0 +1,59 @@
+# SPDX-License-Identifier: (GPL-2.0 or BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/nvmem/nxp,s32-ocotp-nvmem.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: NXP S32 OCOTP NVMEM driver
+
+maintainers:
+  - Ciprian Costea <ciprianmarian.costea@nxp.com>
+
+description: |
+  The drivers provides an interface to access One Time
+  Programmable memory pages, such as TMU fuse values.
+
+allOf:
+  - $ref: "nvmem.yaml#"
+
+properties:
+  compatible:
+    description: |-
+      Each compatible string provides an interface for
+      OCOTP module.
+      const: nxp,s32g-ocotp
+      const: nxp,s32r45-ocotp
+
+  reg:
+    description:
+      Address and Size of the fuse bank to be read.
+    maxItems: 1
+
+  '#address-cells':
+    const: 1
+
+  '#size-cells':
+    const: 1
+
+required:
+  - compatible
+  - reg
+  - '#address-cells'
+  - '#size-cells'
+
+unevaluatedProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/nvmem/s32-ocotp-nvmem.h>
+
+    ocotp: ocotp@400a4000 {
+      compatible = "nxp,s32g-ocotp";
+      reg = <0x0 0x400a4000 0x0 0x400>;
+      #address-cells = <1>;
+      #size-cells = <1>;
+      status = "okay";
+      tmu_fuse_val: tmu_fuse_val@298 {
+              reg = <TMU_FUSE_OFFSET OCOTP_CELL_SIZE>;
+      };
+    };
