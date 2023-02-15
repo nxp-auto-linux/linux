@@ -992,6 +992,10 @@
 	msi-parent = <&gic>;
 };
 
+&ocotp {
+	compatible = "nxp,s32g-ocotp";
+};
+
 &qspi {
 	pinctrl-names = "default";
 	pinctrl-0 = <&qspi_pins>;

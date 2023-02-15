@@ -191,6 +191,17 @@ config UNIPHIER_EFUSE
 	  This driver can also be built as a module. If so, the module
 	  will be called nvmem-uniphier-efuse.
 
+config NVMEM_S32_OCOTP
+	bool "S32 SoC OCOTP support"
+	depends on SOC_S32GEN1
+	default y
+	help
+	  This is a driver for the 'OCOTP' peripheral available on S32
+	  platforms.
+
+	  If you say Y here, you will get support for the One Time
+	  Programmable memory pages.
+
 config NVMEM_VF610_OCOTP
 	tristate "VF610 SoC OCOTP support"
 	depends on SOC_VF610 || COMPILE_TEST
