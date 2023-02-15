@@ -1,39 +1,14 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright 2021-2022 NXP
+ * Copyright 2021-2023 NXP
  *
  */
 
 #ifndef __SOC_S32_REVISION_H__
 #define __SOC_S32_REVISION_H__
 
-#include <linux/nvmem-consumer.h>
 #include <soc/s32/revision_defs.h>
-
-static inline char *read_nvmem_cell(struct device *dev,
-				    const char *cname)
-{
-	struct nvmem_cell *cell;
-	ssize_t len;
-	char *buf;
-
-	cell = nvmem_cell_get(dev, cname);
-	if (IS_ERR(cell))
-		return ERR_PTR(-EINVAL);
-
-	buf = nvmem_cell_read(cell, &len);
-	nvmem_cell_put(cell);
-
-	if (IS_ERR(buf))
-		return buf;
-
-	if (len != sizeof(u32)) {
-		kfree(buf);
-		return ERR_PTR(-EOPNOTSUPP);
-	}
-
-	return buf;
-}
+#include <soc/s32/nvmem_common.h>
 
 static inline int s32_siul2_nvmem_get_soc_revision(struct device *dev,
 						   const char *cname,
