@@ -2319,8 +2319,31 @@ static void print_fw_version(struct llce_mb *mb,
 			     struct llce_fw_version *ver)
 {
 	struct device *dev = mb->controller.dev;
+	unsigned char *ver_str = ver->version_string;
+	size_t extra_pos, max_size = sizeof(ver->version_string);
+	size_t ver_len = strnlen((const char *)ver_str, max_size);
+	unsigned char *extra = NULL, *ptr;
 
-	dev_info(dev, "LLCE firmware version: %s\n", ver->version_string);
+	/* Just to be sure */
+	ver_str[max_size - 1] = 0;
+
+	extra_pos = ver_len + 1;
+	if (extra_pos < max_size && isprint(ver_str[extra_pos])) {
+		extra = &ver_str[extra_pos];
+		ptr = extra;
+
+		/* Version's extra tokens are separated by '\0' */
+		while (*ptr && (ptr + 2 < ver_str + max_size)) {
+			if (!*(ptr + 1) && isprint(*(ptr + 2)))
+				*(ptr + 1) = '|';
+			ptr++;
+		}
+	}
+
+	if (extra)
+		dev_info(dev, "LLCE firmware version: %s [%s]\n", ver_str, extra);
+	else
+		dev_info(dev, "LLCE firmware version: %s\n", ver_str);
 }
 
 static int init_core_clock(struct device *dev, struct clk **clk)
