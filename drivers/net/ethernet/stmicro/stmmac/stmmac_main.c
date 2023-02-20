@@ -898,7 +898,8 @@ static int stmmac_init_ptp(struct stmmac_priv *priv)
 	if (priv->plat->ptp_clk_freq_config)
 		priv->plat->ptp_clk_freq_config(priv);
 
-	ret = stmmac_init_tstamp_counter(priv, STMMAC_HWTS_ACTIVE);
+	ret = stmmac_init_tstamp_counter(priv, STMMAC_HWTS_ACTIVE |
+			(priv->plat->ext_sys_time ? PTP_TCR_ESTI : 0));
 	if (ret)
 		return ret;
 
