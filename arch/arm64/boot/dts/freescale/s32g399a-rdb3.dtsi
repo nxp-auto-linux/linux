@@ -2,7 +2,7 @@
 /*
  * Device Tree file for S32G399ARDB3 Board Rev E.
  *
- * Copyright 2022 NXP
+ * Copyright 2022-2023 NXP
  */
 
 /dts-v1/;
@@ -20,6 +20,14 @@
 		#address-cells = <1>;
 		#size-cells = <0>;
 		reg = <8>;
+	};
+};
+
+&i2c4 {
+	ina231@40 {
+		compatible = "ti,ina231";
+		reg = <0x40>;
+		shunt-resistor = <1000>;
 	};
 };
 
