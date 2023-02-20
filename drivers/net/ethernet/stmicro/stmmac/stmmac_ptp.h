@@ -62,6 +62,8 @@
 #define	PTP_TCR_SNAPTYPSEL_1	BIT(16)
 /* Enable MAC address for PTP Frame Filtering */
 #define	PTP_TCR_TSENMACADDR	BIT(18)
+/* Enable MAC external system time input */
+#define	PTP_TCR_ESTI		BIT(20)
 
 /* SSIR defines */
 #define	PTP_SSIR_SSINC_MASK		0xff

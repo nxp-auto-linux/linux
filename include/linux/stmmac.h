@@ -276,5 +276,6 @@ struct plat_stmmacenet_data {
 	bool use_phy_wol;
 	bool sph_disable;
 	u32 quirk_mask_id;
+	bool ext_sys_time;
 };
 #endif
