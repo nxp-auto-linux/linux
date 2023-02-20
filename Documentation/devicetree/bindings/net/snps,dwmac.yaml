@@ -283,6 +283,12 @@ properties:
       is supported. For example, this is used in case of SGMII and
       MAC2MAC connection.
 
+  snps,ext_sys_time:
+    type: boolean
+    description:
+       When set, the MAC uses the external 64-bit reference System
+       Time input.
+
   mdio:
     type: object
     description:
