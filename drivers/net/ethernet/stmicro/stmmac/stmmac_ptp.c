@@ -28,6 +28,10 @@ static int stmmac_adjust_freq(struct ptp_clock_info *ptp, long scaled_ppm)
 	unsigned long flags;
 	u32 addend;
 
+	/* Adjusting freq not possible when using external TS clock. */
+	if (priv->plat->ext_sys_time)
+		return -EPERM;
+
 	addend = adjust_by_scaled_ppm(priv->default_addend, scaled_ppm);
 
 	write_lock_irqsave(&priv->ptp_lock, flags);
@@ -55,6 +59,10 @@ static int stmmac_adjust_time(struct ptp_clock_info *ptp, s64 delta)
 	int neg_adj = 0;
 	bool xmac, est_rst = false;
 	int ret;
+
+	/* Adjusting systime not possible when using external TS clock. */
+	if (priv->plat->ext_sys_time)
+		return -EPERM;
 
 	xmac = priv->plat->has_gmac4 || priv->plat->has_xgmac;
 
@@ -152,6 +160,10 @@ static int stmmac_set_time(struct ptp_clock_info *ptp,
 	struct stmmac_priv *priv =
 	    container_of(ptp, struct stmmac_priv, ptp_clock_ops);
 	unsigned long flags;
+
+	/* Setting systime not possible when using external TS clock. */
+	if (priv->plat->ext_sys_time)
+		return -EPERM;
 
 	write_lock_irqsave(&priv->ptp_lock, flags);
 	stmmac_init_systime(priv, priv->ptpaddr, ts->tv_sec, ts->tv_nsec);
