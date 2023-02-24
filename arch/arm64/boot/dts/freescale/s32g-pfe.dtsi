@@ -89,7 +89,7 @@
 				nxp,pfeng-if-name = "pfe0";
 				fsl,pfeng-if-name = "pfe0";
 				nxp,pfeng-hif-channels = <PFE_HIF_CHANNEL_0>;
-				nxp,pfeng-emac-id = <PFE_EMAC_0>;
+				nxp,pfeng-linked-phyif = <PFE_PHYIF_EMAC_0>;
 				clocks = <&clks S32G_SCMI_CLK_PFE0_TX_SGMII>,
 					 <&clks S32G_SCMI_CLK_PFE0_TX_RGMII>,
 					 <&clks S32G_SCMI_CLK_PFE0_TX_RMII>,
@@ -113,7 +113,7 @@
 				nxp,pfeng-if-name = "pfe1";
 				fsl,pfeng-if-name = "pfe1";
 				nxp,pfeng-hif-channels = <PFE_HIF_CHANNEL_1>;
-				nxp,pfeng-emac-id = <PFE_EMAC_1>;
+				nxp,pfeng-linked-phyif = <PFE_PHYIF_EMAC_1>;
 				clocks = <&clks S32G_SCMI_CLK_PFE1_TX_SGMII>,
 					 <&clks S32G_SCMI_CLK_PFE1_TX_RGMII>,
 					 <&clks S32G_SCMI_CLK_PFE1_TX_RMII>,
@@ -137,7 +137,7 @@
 				nxp,pfeng-if-name = "pfe2";
 				fsl,pfeng-if-name = "pfe2";
 				nxp,pfeng-hif-channels = <PFE_HIF_CHANNEL_2>;
-				nxp,pfeng-emac-id = <PFE_EMAC_2>;
+				nxp,pfeng-linked-phyif = <PFE_PHYIF_EMAC_2>;
 				clocks = <&clks S32G_SCMI_CLK_PFE2_TX_SGMII>,
 					 <&clks S32G_SCMI_CLK_PFE2_TX_RGMII>,
 					 <&clks S32G_SCMI_CLK_PFE2_TX_RMII>,

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright 2022 NXP
+ * Copyright 2022-2023 NXP
  *
  * Net devices mapping:
  *   pfe0sl: to EMAC_0
@@ -43,7 +43,7 @@
 				nxp,pfeng-if-name = "pfe0sl";
 				fsl,pfeng-if-name = "pfe0sl";
 				nxp,pfeng-hif-channels = <PFE_HIF_CHANNEL_3>;
-				nxp,pfeng-emac-id = <PFE_EMAC_0>;
+				nxp,pfeng-linked-phyif = <PFE_PHYIF_EMAC_0>;
 			};
 
 			/* Network interface 'pfe1sl' */
@@ -55,7 +55,7 @@
 				nxp,pfeng-if-name = "pfe1sl";
 				fsl,pfeng-if-name = "pfe1sl";
 				nxp,pfeng-hif-channels = <PFE_HIF_CHANNEL_3>;
-				nxp,pfeng-emac-id = <PFE_EMAC_1>;
+				nxp,pfeng-linked-phyif = <PFE_PHYIF_EMAC_1>;
 			};
 
 			/* Network interface 'pfe2sl' */
@@ -67,7 +67,7 @@
 				nxp,pfeng-if-name = "pfe2sl";
 				fsl,pfeng-if-name = "pfe2sl";
 				nxp,pfeng-hif-channels = <PFE_HIF_CHANNEL_3>;
-				nxp,pfeng-emac-id = <PFE_EMAC_2>;
+				nxp,pfeng-linked-phyif = <PFE_PHYIF_EMAC_2>;
 			};
 
 			/* Network interface 'aux0sl' */
