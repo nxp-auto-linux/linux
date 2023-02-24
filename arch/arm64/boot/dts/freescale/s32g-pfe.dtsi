@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright 2022 NXP
+ * Copyright 2022-2023 NXP
  *
  */
 
@@ -53,9 +53,6 @@
 			nxp,fw-util-name = "s32g_pfe_util.fw";
 			nvmem-cells = <&soc_revision>;
 			nvmem-cell-names = "soc_revision";
-			nxp,pfeng-hif-channels = <PFE_HIF_CHANNEL_0>,
-						 <PFE_HIF_CHANNEL_1>,
-						 <PFE_HIF_CHANNEL_2>;
 			nxp,pfeng-ihc-channel = <PFE_HIF_CHANNEL_0>;
 			status = "disabled";
 
