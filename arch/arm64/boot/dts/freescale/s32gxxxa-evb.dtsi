@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /*
- * Copyright 2019-2022 NXP
+ * Copyright 2019-2023 NXP
  */
 #include <dt-bindings/gpio/gpio.h>
 #include "s32g-nxp-flash-macronix.dtsi"
@@ -973,7 +973,7 @@
 };
 
 &gmac0_mdio {
-	/* AQR107 on S32RGV-VNP-PLAT */
+	/* AQR107 on S32GRV-VNP-PLAT */
 	gmac_mdio_c_phy1: ethernet-phy@1 {
 		compatible = "ethernet-phy-ieee802.3-c45";
 		reg = <1>;
@@ -982,7 +982,7 @@
 	gmac0_mdio_c_phy4: ethernet-phy@4 {
 		reg = <4>;
 	};
-	/* KSZ9031RNX on S32RGV-VNP-PLAT */
+	/* KSZ9031RNX on S32GRV-VNP-PLAT */
 	gmac_mdio_c_phy5: ethernet-phy@5 {
 		status = "disabled"; /* blocked by USB by default */
 		reg = <5>;
