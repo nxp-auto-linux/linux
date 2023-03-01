@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /*
- * Copyright 2022 NXP
+ * Device Tree file for S32G-PROCEVB3 with S32G3 + S32GRV-VNP-PLAT boards
+ * PFE Master/Slave mode supported
+ *
+ * Copyright 2022-2023 NXP
  */
 
 #include "s32g3xxa-evb3.dtsi"
