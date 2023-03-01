@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /*
- * Device Tree file for S32G-VNP-PROC + S32RGV-VNP-PLAT boards
+ * Device Tree file for S32G-VNP-PROC + S32GRV-VNP-PLAT boards
  *
- * Copyright 2021-2022 NXP
+ * Copyright 2021-2023 NXP
  */
 
 #include "s32g2xxa-evb.dtsi"
