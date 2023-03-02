@@ -7,6 +7,7 @@
  *   pfe1sl: to EMAC_1
  *   pfe2sl: to EMAC_2
  *   aux0sl: to CLASS
+ *   hif0sl: to HIF_0
  */
 
 #include <dt-bindings/clock/s32g-scmi-clock.h>
@@ -76,6 +77,17 @@
 				nxp,pfeng-if-name = "aux0sl";
 				nxp,pfeng-hif-channels = <PFE_HIF_CHANNEL_3>;
 				nxp,pfeng-netif-mode-aux;
+			};
+
+			/* Network interface 'hif0sl' */
+			pfesl_hif0: ethernet@104 {
+				compatible = "nxp,s32g-pfe-netif";
+				status = "disabled";
+				reg = <104>;
+				local-mac-address = [ 00 04 9F BE FF F0 ];
+				nxp,pfeng-if-name = "hif0sl";
+				nxp,pfeng-hif-channels = <PFE_HIF_CHANNEL_3>;
+				nxp,pfeng-linked-phyif = <PFE_PHYIF_HIF_0>;
 			};
 		};
 	};

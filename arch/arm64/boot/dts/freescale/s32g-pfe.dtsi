@@ -161,6 +161,17 @@
 							 <PFE_HIF_CHANNEL_2>;
 				nxp,pfeng-netif-mode-aux;
 			};
+
+			/* Network interface 'hif3' */
+			pfe_hif3: ethernet@14 {
+				compatible = "nxp,s32g-pfe-netif";
+				status = "disabled";
+				reg = <14>;
+				local-mac-address = [ 00 04 9F BE EF F0 ];
+				nxp,pfeng-if-name = "hif3";
+				nxp,pfeng-hif-channels = <PFE_HIF_CHANNEL_0>;
+				nxp,pfeng-linked-phyif = <PFE_PHYIF_HIF_3>;
+			};
 		};
 	};
 };
