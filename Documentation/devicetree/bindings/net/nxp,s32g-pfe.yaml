@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
-# Copyright 2022 NXP
+# Copyright 2022-2023 NXP
 %YAML 1.2
 ---
 $id: "http://devicetree.org/schemas/net/nxp,s32g-pfe.yaml#"
@@ -88,6 +88,7 @@ properties:
     maxItems: 1
 
   memory-region:
+    maxItems: 4
     items:
       - description: The BMU2 buffer pool, must be in the range 0x00020000 - 0xbfffffff
       - description: RT region
@@ -95,6 +96,7 @@ properties:
       - description: Buffer descriptor rings
 
   memory-region-names:
+    maxItems: 4
     items:
       - const: pfe-bmu2-pool
       - const: pfe-rt-pool
@@ -115,25 +117,29 @@ properties:
       firmware search path containing the firmware image used when
       initializing PFE UTIL hardware. Optional.
 
-  nxp,pfeng-hif-channels:
+  nxp,pfeng-emac-ts-ext-modes:
     $ref: /schemas/types.yaml#/definitions/uint32-array
     description: |
-      The set of managed HIF channels. Any combination of standard
-      HIF channel can be used. HIF_NCPY is not supported.
-    minItems: 1
-    maxItems: 4
-    items:
-      minimum: 0
-      maximum: 3
+      The set of PFE_EMACs required to work in external timestamping
+      mode. The combination of external TS support is limited,
+      check S32G Reference Manual for detailed info.
+    maxItems: 3
+    contains:
+      enum:
+        - PFE_PHYIF_EMAC_0
+        - PFE_PHYIF_EMAC_1
+        - PFE_PHYIF_EMAC_2
 
   nxp,pfeng-ihc-channel:
     $ref: /schemas/types.yaml#/definitions/uint32
     description: |
       The HIF channel number used for IHC transport.
-      The outgoing channel, must be one from set
-      specified in nxp,pfeng-hif-channels.
-    minimum: 0
-    maximum: 3
+    maxItems: 1
+      enum:
+        - PFE_PHYIF_HIF_0
+        - PFE_PHYIF_HIF_1
+        - PFE_PHYIF_HIF_2
+        - PFE_PHYIF_HIF_3
 
 
   nxp,pfeng-master-channel:
@@ -143,8 +149,13 @@ properties:
       The destination channel used by Master for
       receiving IHC messages. Here can also be used
       the HIF_NCPY channel.
-    minimum: 0
-    maximum: 4
+    maxItems: 1
+      enum:
+        - PFE_PHYIF_HIF_0
+        - PFE_PHYIF_HIF_1
+        - PFE_PHYIF_HIF_2
+        - PFE_PHYIF_HIF_3
+        - PFE_PHYIF_HIF_NOCPY
 
   phys:
     maxItems: 3
@@ -197,13 +208,30 @@ properties:
           HIF channel can be used. HIF_NOCPY is not supported.
         minItems: 1
         maxItems: 4
-        items:
-          minimum: 0
-          maximum: 3
+          enum:
+            - PFE_PHYIF_HIF_0
+            - PFE_PHYIF_HIF_1
+            - PFE_PHYIF_HIF_2
+            - PFE_PHYIF_HIF_3
       nxp,pfeng-emac-id:
-        $ref: /schemas/types.yaml#/definitions/uint32-array
+        $ref: /schemas/types.yaml#/definitions/uint32
         description: |
-          The linked PFE_EMAC port.
+          The linked PFE_EMAC port. Use nxp,pfeng-linked-phyif instead.
+        deprecated: true
+      nxp,pfeng-linked-phyif:
+        $ref: /schemas/types.yaml#/definitions/uint32
+        description: |
+          The linked PFE physical port.
+        maxItems: 1
+          enum:
+            - PFE_PHYIF_EMAC_0
+            - PFE_PHYIF_EMAC_1
+            - PFE_PHYIF_EMAC_2
+            - PFE_PHYIF_HIF_NOCPY
+            - PFE_PHYIF_HIF_0
+            - PFE_PHYIF_HIF_1
+            - PFE_PHYIF_HIF_2
+            - PFE_PHYIF_HIF_3
       nxp,pfeng-netif-mode-aux:
         $ref: /schemas/types.yaml#/definitions/flag
         description: |
@@ -221,6 +249,8 @@ required:
   - ethernet
 
 additionalProperties: false
+
+unevaluatedProperties: false
 
 allOf:
   - if:
