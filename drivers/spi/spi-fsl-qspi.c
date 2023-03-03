@@ -7,7 +7,7 @@
  * Copyright (C) 2018 Bootlin
  * Copyright (C) 2018 exceet electronics GmbH
  * Copyright (C) 2018 Kontron Electronics GmbH
- * Copyright 2021-2022 NXP
+ * Copyright 2021-2023 NXP
  *
  * Transition to SPI MEM interface:
  * Authors:
@@ -829,17 +829,15 @@ static int fsl_qspi_probe(struct platform_device *pdev)
 
 		q->no_functional_reset = of_property_read_bool(np,
 				"nxp,spi-no-functional-reset");
+
+		ret = fsl_qspi_clk_setup(q, q->clk_rate);
+		if (ret)
+			goto err_destroy_mutex;
 	}
 
 	ret = devm_spi_register_controller(dev, ctlr);
 	if (ret)
 		goto err_destroy_mutex;
-
-	if (is_s32gen1_qspi(q)) {
-		ret = fsl_qspi_clk_setup(q, q->clk_rate);
-		if (ret)
-			goto err_destroy_mutex;
-	}
 
 	return 0;
 
