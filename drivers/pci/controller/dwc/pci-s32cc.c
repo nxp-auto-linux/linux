@@ -2,7 +2,7 @@
 /*
  * PCIe host controller driver for NXP S32CC SoCs
  *
- * Copyright 2019-2022 NXP
+ * Copyright 2019-2023 NXP
  */
 
 #ifdef CONFIG_PCI_S32CC_DEBUG
@@ -1316,7 +1316,8 @@ static int s32cc_pcie_dt_init(struct platform_device *pdev,
 		ret = s32cc_siul2_nvmem_get_pcie_dev_id(dev, "pcie_variant",
 							&pcie_variant_bits);
 		if (ret) {
-			dev_info(dev, "Error reading SIUL2 Device ID\n");
+			if (ret != -EPROBE_DEFER)
+				dev_info(dev, "Error reading SIUL2 Device ID\n");
 			return ret;
 		}
 	}
