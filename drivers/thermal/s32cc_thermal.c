@@ -319,22 +319,7 @@ static void tmu_enable_sites(struct device *dev)
 	writel(tmu_msr.R, tmu_dd->tmu_registers + TMU_MSR);
 }
 
-static int get_calib_fuse_val(struct device *dev)
-{
-	struct tmu_driver_data *tmu_dd = dev_get_drvdata(dev);
-	int ret;
-
-	ret = s32cc_ocotp_nvmem_get_tmu_fuse(dev, "tmu_fuse_val",
-					     &tmu_dd->tmu_fuse_val);
-	if (ret) {
-		dev_err(dev, "Error reading fuse values\n");
-		return -EINVAL;
-	}
-
-	return 0;
-}
-
-static int update_calib_table_with_fuses(struct device *dev)
+static void update_calib_table_with_fuses(struct device *dev)
 {
 	struct tmu_driver_data *tmu_dd = dev_get_drvdata(dev);
 	const struct tmu_chip *tmu_chip =
@@ -346,20 +331,15 @@ static int update_calib_table_with_fuses(struct device *dev)
 	size_t trim_idxes_num = tmu_chip->trim_idxes_num;
 	size_t i;
 
-	if (get_calib_fuse_val(dev))
-		return -EINVAL;
-
 	tmu_fuse_val = tmu_dd->tmu_fuse_val;
 
 	for (i = 0; i < trim_idxes_num; i++)
 		calib_scfgr[warm_idxes[i]] += tmu_fuse_val.B.CFG_DAC_TRIM0;
 	for (i = 0; i < trim_idxes_num; i++)
 		calib_scfgr[cold_idxes[i]] += tmu_fuse_val.B.CFG_DAC_TRIM1;
-
-	return 0;
 }
 
-static int tmu_calibrate_s32cc(struct device *dev)
+static void tmu_calibrate_s32cc(struct device *dev)
 {
 	struct tmu_driver_data *tmu_dd = dev_get_drvdata(dev);
 	const struct tmu_chip *tmu_chip =
@@ -373,10 +353,7 @@ static int tmu_calibrate_s32cc(struct device *dev)
 	union TMU_CMCFG_u tmu_cmcfg;
 	int i;
 
-	if (update_calib_table_with_fuses(dev)) {
-		dev_err(dev, "Cannot update calibration table\n");
-		return -EINVAL;
-	}
+	update_calib_table_with_fuses(dev);
 
 	/* These values do look like magic numbers because
 	 * they really are. They have been experimentally determined
@@ -405,29 +382,19 @@ static int tmu_calibrate_s32cc(struct device *dev)
 		writel(tmu_scfgr.R, tmu_dd->tmu_registers + TMU_SCFGR);
 		writel(tmu_trcr.R, tmu_dd->tmu_registers + TMU_TRCR(i));
 	}
-
-	return 0;
 }
 
-static int tmu_init_hw(struct device *dev,
-		       const struct tmu_chip *tmu_chip)
+static void tmu_init_hw(struct device *dev,
+			const struct tmu_chip *tmu_chip)
 {
-	int ret;
-
 	tmu_monitor_enable(dev, tmu_chip->enable_mask, false);
 	tmu_enable_sites(dev);
 
-	ret = tmu_calibrate_s32cc(dev);
-	if (ret) {
-		dev_err(dev, "TMU Calibration Failed\n");
-		return ret;
-	}
+	tmu_calibrate_s32cc(dev);
 
 	tmu_configure_alpf(dev, alpf_0_5);
 	tmu_measurement_interval(dev, mi_2_048s);
 	tmu_monitor_enable(dev, tmu_chip->enable_mask, true);
-
-	return 0;
 }
 
 static int tmu_clk_prep_enable(struct tmu_driver_data *tmu_dd)
@@ -487,6 +454,15 @@ static int tmu_probe(struct platform_device *pd)
 	tmu_dd->trange_max = tmu_chip->trange_max;
 	dev_set_drvdata(dev, tmu_dd);
 
+	ret = s32cc_ocotp_nvmem_get_tmu_fuse(dev, "tmu_fuse_val",
+					     &tmu_dd->tmu_fuse_val);
+	if (ret) {
+		if (ret != -EPROBE_DEFER)
+			dev_err(dev, "Error reading fuse values\n");
+
+		return ret;
+	}
+
 	tmu_resource = platform_get_resource(pd, IORESOURCE_MEM, 0);
 	if (!tmu_resource) {
 		dev_err(dev, "Cannot obtain TMU resource.\n");
@@ -520,9 +496,7 @@ static int tmu_probe(struct platform_device *pd)
 	}
 
 	tmu_dd->temp_offset = KELVIN_TO_CELSIUS_OFFSET;
-	ret = tmu_init_hw(dev, tmu_chip);
-	if (ret)
-		goto calibration_failed;
+	tmu_init_hw(dev, tmu_chip);
 
 	tmu_dd->hwmon_device =
 		hwmon_device_register_with_info(dev, DRIVER_NAME,
@@ -554,7 +528,6 @@ static int tmu_probe(struct platform_device *pd)
 	return 0;
 
 hwmon_register_failed:
-calibration_failed:
 	tmu_clk_disable_unprep(tmu_dd);
 
 	return ret;
@@ -589,7 +562,7 @@ static int __maybe_unused thermal_resume(struct device *dev)
 {
 	struct tmu_driver_data *tmu_dd = dev_get_drvdata(dev);
 	const struct tmu_chip *tmu_chip;
-	int ret;
+	int ret = 0;
 
 	tmu_chip = of_device_get_match_data(dev);
 
@@ -599,7 +572,9 @@ static int __maybe_unused thermal_resume(struct device *dev)
 		return ret;
 	}
 
-	return tmu_init_hw(dev, tmu_chip);
+	tmu_init_hw(dev, tmu_chip);
+
+	return ret;
 }
 
 static SIMPLE_DEV_PM_OPS(thermal_pm_ops, thermal_suspend, thermal_resume);
