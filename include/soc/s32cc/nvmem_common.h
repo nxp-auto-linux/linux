@@ -14,8 +14,12 @@ static inline char *read_nvmem_cell(struct device *dev,
 	char *buf;
 
 	cell = nvmem_cell_get(dev, cname);
-	if (IS_ERR(cell))
+	if (IS_ERR(cell)) {
+		if (PTR_ERR(cell) == -EPROBE_DEFER)
+			return ERR_PTR(-EPROBE_DEFER);
+
 		return ERR_PTR(-EINVAL);
+	}
 
 	buf = nvmem_cell_read(cell, &len);
 	nvmem_cell_put(cell);
