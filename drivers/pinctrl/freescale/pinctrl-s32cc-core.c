@@ -2,7 +2,7 @@
  * Core driver for the S32 pin controller
  *
  * Copyright 2015-2016 Freescale Semiconductor, Inc.
- * Copyright 2017-2022 NXP
+ * Copyright 2017-2023 NXP
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -924,6 +924,10 @@ static int s32_pinctrl_parse_functions(struct device_node *np,
 			func->num_groups * sizeof(char *), GFP_KERNEL);
 
 	for_each_child_of_node(np, child) {
+		if (info->grp_index >= info->ngroups) {
+			dev_err(info->dev, "Invalid grp_index: %d\n", info->grp_index);
+			return -EINVAL;
+		}
 		func->groups[i] = child->name;
 		grp = &info->groups[info->grp_index++];
 		s32_pinctrl_parse_groups(child, grp, info, i++);
