@@ -64,6 +64,9 @@ struct fsl_tmu_chip {
 	u32 *warm_idxes;
 	u32 *cold_idxes;
 	u8 trim_idxes_num;
+
+	s16 trange_min;
+	s16 trange_max;
 };
 
 static struct fsl_tmu_chip s32g2_tmu = {
@@ -75,6 +78,8 @@ static struct fsl_tmu_chip s32g2_tmu = {
 	.warm_idxes = (u32 []){3},
 	.cold_idxes = (u32 []){0},
 	.trim_idxes_num = 1,
+	.trange_min = -40,
+	.trange_max = 125,
 };
 
 static struct fsl_tmu_chip s32g3_tmu = {
@@ -86,6 +91,8 @@ static struct fsl_tmu_chip s32g3_tmu = {
 	.warm_idxes = (u32 []){4, 5},
 	.cold_idxes = (u32 []){0, 1},
 	.trim_idxes_num = 2,
+	.trange_min = -45,
+	.trange_max = 130,
 };
 
 static struct fsl_tmu_chip s32r45_tmu = {
@@ -97,6 +104,8 @@ static struct fsl_tmu_chip s32r45_tmu = {
 	.warm_idxes = (u32 []){4, 5},
 	.cold_idxes = (u32 []){0, 1},
 	.trim_idxes_num = 2,
+	.trange_min = -45,
+	.trange_max = 155,
 };
 
 enum measurement_interval_t {
@@ -130,6 +139,8 @@ struct tmu_driver_data {
 	union s32_tmu_fuse tmu_fuse_val;
 	struct device *hwmon_device;
 	int16_t temp_offset;
+	s16 trange_min;
+	s16 trange_max;
 };
 
 static int get_site_idx_from_label(const char *label)
@@ -152,23 +163,16 @@ static int get_site_idx_from_label(const char *label)
 			!strncmp(label, "temp6_input", cmp_size))
 		return 2;
 
-	return -1;
+	return -EINVAL;
 }
 
-static inline int is_out_of_range(int8_t temperature)
+static inline int is_out_of_range(struct tmu_driver_data *tmu_dd,
+				  s16 temp)
 {
-	return (temperature < -40 || temperature > 125);
+	return (temp < tmu_dd->trange_min ||
+		temp > tmu_dd->trange_max);
 }
 
-/* 8 bit TEMP field of the RITSR and RATSR registers should be interpreted
- * as a signed integer when the temperature is below 25 degrees
- * Celsius and as an unsigned integer when the temperature is above 25
- * degrees. The fact that the sensor reading range is -40 to 125 degrees
- * allows us to simply cast to an int8_t, since within this range
- * interpreting the field as a signed integer always leads to the
- * correct result. If the value would ever fall outside this range,
- * the `Valid` bit of the registers would be cleared by hardware.
- */
 static int tmu_immediate_temperature(struct device *dev,
 				     s16 *immediate_temperature,
 				     bool *point5, int site)
@@ -181,10 +185,10 @@ static int tmu_immediate_temperature(struct device *dev,
 		*immediate_temperature = (int16_t)tmu_ritsr.B.TEMP;
 		*immediate_temperature -= tmu_dd->temp_offset;
 		*point5 = (bool)tmu_ritsr.B.TP5;
-		return is_out_of_range(*immediate_temperature);
+		return is_out_of_range(tmu_dd, *immediate_temperature);
 	}
 
-	return -1;
+	return -EBUSY;
 }
 
 static int tmu_average_temperature(struct device *dev,
@@ -197,10 +201,10 @@ static int tmu_average_temperature(struct device *dev,
 	if (likely(tmu_ratsr.B.V == 0x1)) {
 		*average_temperature = (int16_t)tmu_ratsr.B.TEMP;
 		*average_temperature -= tmu_dd->temp_offset;
-		return is_out_of_range(*average_temperature);
+		return is_out_of_range(tmu_dd, *average_temperature);
 	}
 
-	return -1;
+	return -EBUSY;
 }
 
 static ssize_t tmu_show_immediate_label(struct device *dev,
@@ -209,7 +213,7 @@ static ssize_t tmu_show_immediate_label(struct device *dev,
 	int site;
 
 	site = get_site_idx_from_label(attr->attr.name);
-	if (site == -1)
+	if (site == -EINVAL)
 		return snprintf(buffer, PAGE_SIZE, "Invalid site\n");
 	return snprintf(buffer, PAGE_SIZE,
 			"Immediate temperature for site %d\n", site);
@@ -223,7 +227,7 @@ static ssize_t tmu_show_immediate(struct device *dev,
 	int site;
 
 	site = get_site_idx_from_label(attr->attr.name);
-	if (site == -1)
+	if (site == -EINVAL)
 		return snprintf(buffer, PAGE_SIZE, "Invalid site\n");
 	if (tmu_immediate_temperature(dev, &immediate_temperature, &point5, site))
 		return snprintf(buffer, PAGE_SIZE,
@@ -239,7 +243,7 @@ static ssize_t tmu_show_average_label(struct device *dev,
 	int site;
 
 	site = get_site_idx_from_label(attr->attr.name);
-	if (site == -1)
+	if (site == -EINVAL)
 		return snprintf(buffer, PAGE_SIZE, "Invalid site\n");
 	return snprintf(buffer, PAGE_SIZE,
 			"Average temperature for site %d\n", site);
@@ -252,7 +256,7 @@ static ssize_t tmu_show_average(struct device *dev,
 	int site;
 
 	site = get_site_idx_from_label(attr->attr.name);
-	if (site == -1)
+	if (site == -EINVAL)
 		return snprintf(buffer, PAGE_SIZE, "Invalid site\n");
 	if (tmu_average_temperature(dev, &average_temperature, site))
 		return snprintf(buffer, PAGE_SIZE,
@@ -462,6 +466,9 @@ static int tmu_probe(struct platform_device *pd)
 			      GFP_KERNEL);
 	if (!tmu_dd)
 		return -ENOMEM;
+
+	tmu_dd->trange_min = tmu_chip->trange_min;
+	tmu_dd->trange_max = tmu_chip->trange_max;
 	dev_set_drvdata(dev, tmu_dd);
 
 	ret = s32_ocotp_nvmem_get_tmu_fuse(dev, "tmu_fuse_val",
