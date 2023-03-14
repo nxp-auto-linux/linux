@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /*
- * Copyright 2022 NXP
+ * Copyright 2022-2023 NXP
  */
 
 &qspi {
@@ -36,12 +36,12 @@
 
 			kernel@1f0000 {
 				label = "Kernel";
-				reg = <0x1f0000 0xe00000>;
+				reg = <0x1f0000 0xed0000>;
 			};
 
 			dtb@ff0000 {
 				label = "DTB";
-				reg = <0xff0000 0x100000>;
+				reg = <0x10c0000 0x30000>;
 			};
 
 			rootfs@10f0000 {
