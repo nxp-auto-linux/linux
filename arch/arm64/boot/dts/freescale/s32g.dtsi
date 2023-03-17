@@ -267,6 +267,7 @@
 					"txack_fifo_0_7",
 					"txack_fifo_8_15",
 					"logger_rx";
+				nxp,hif-id = <0>;
 				status = "okay";
 			};
 
