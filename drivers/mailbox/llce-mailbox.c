@@ -126,6 +126,8 @@ struct llce_mb {
 	unsigned int chans_map[LLCE_CAN_CONFIG_MAXCTRL_COUNT];
 	struct fifos_ref_cnt fifos_irq_ref_cnt;
 	struct llce_fifoirq logger_irq;
+	u32 hif_id;
+	bool multihif;
 	bool suspended;
 	bool fw_logger_support;
 };
@@ -313,17 +315,17 @@ static void __iomem *get_rxout_by_index(struct llce_mb *mb, unsigned int index)
 	return get_fifo_by_index(mb->rxout_fifo, LLCE_NRXOUT_FIFOS, index);
 }
 
-static void __iomem *get_host_rxin(struct llce_mb *mb, unsigned int host_index)
+static void __iomem *get_host_rxin(struct llce_mb *mb)
 {
-	if (host_index == LLCE_CAN_HIF0)
+	if (mb->hif_id == LLCE_CAN_HIF0)
 		return get_rxin_by_index(mb, 16);
 
 	return get_rxin_by_index(mb, 18);
 }
 
-static void __iomem *get_host_notif(struct llce_mb *mb, unsigned int host_index)
+static void __iomem *get_host_notif(struct llce_mb *mb)
 {
-	if (host_index == LLCE_CAN_HIF0)
+	if (mb->hif_id == LLCE_CAN_HIF0)
 		return get_rxin_by_index(mb, 0);
 
 	return get_rxin_by_index(mb, 8);
@@ -339,9 +341,9 @@ static void __iomem *get_logger_out(struct llce_mb *mb)
 	return get_rxout_by_index(mb, LLCE_CAN_LOGGER_OUT_FIFO);
 }
 
-static void __iomem *get_host_txack(struct llce_mb *mb, unsigned int host_index)
+static void __iomem *get_host_txack(struct llce_mb *mb)
 {
-	if (host_index == LLCE_CAN_HIF0)
+	if (mb->hif_id == LLCE_CAN_HIF0)
 		return get_txack_by_index(mb, 17);
 
 	return get_txack_by_index(mb, 18);
@@ -360,7 +362,7 @@ static void __iomem *get_txack_fifo(struct mbox_chan *chan,
 	unsigned int fifo_id;
 
 	if (priv->type == S32G_LLCE_HIF_CONF_MB)
-		return get_host_txack(mb, LLCE_CAN_HIF0);
+		return get_host_txack(mb);
 
 	fifo_id = get_ctrl_fifo(mb, priv->index);
 
@@ -520,9 +522,9 @@ static int execute_config_cmd(struct mbox_chan *chan,
 	unsigned long flags;
 	int ret = 0;
 
-	txack = get_host_txack(mb, LLCE_CAN_HIF0);
+	txack = get_host_txack(mb);
 
-	sh_cmd = &mb->sh_mem->can_cmd[LLCE_CAN_HIF0];
+	sh_cmd = &mb->sh_mem->can_cmd[mb->hif_id];
 	push0 = LLCE_FIFO_PUSH0(txack);
 
 	spin_lock_irqsave(&mb->txack_lock, flags);
@@ -756,7 +758,7 @@ static void disable_fifo_irq(void __iomem *fifo)
 	writel(ier_val, ier);
 }
 
-static enum llce_sema42_gate get_sema42_gate(u8 fifo)
+static enum llce_sema42_gate get_sema42_gate(u8 fifo, u32 host)
 {
 	/**
 	 * Semaphore used to protect acces to TXACK and RXOUT between LLCE and
@@ -768,7 +770,7 @@ static enum llce_sema42_gate get_sema42_gate(u8 fifo)
 		{LLCE_SEMA42_GATE22, LLCE_SEMA42_GATE23}
 	};
 
-	return sema4_ier[fifo][LLCE_CAN_HIF0];
+	return sema4_ier[fifo][host];
 }
 
 static void ctrl_fifo_irq_with_lock(struct llce_mb *mb, void __iomem *fifo,
@@ -787,7 +789,8 @@ static void ctrl_fifo_irq_with_lock(struct llce_mb *mb, void __iomem *fifo,
 static void ctrl_txack_irq_with_lock(struct llce_mb *mb, void __iomem *txack,
 				     bool enable)
 {
-	enum llce_sema42_gate gate = get_sema42_gate(LLCE_FIFO_TXACK_INDEX);
+	enum llce_sema42_gate gate = get_sema42_gate(LLCE_FIFO_TXACK_INDEX,
+						     mb->hif_id);
 
 	ctrl_fifo_irq_with_lock(mb, txack, gate, enable);
 }
@@ -795,7 +798,8 @@ static void ctrl_txack_irq_with_lock(struct llce_mb *mb, void __iomem *txack,
 static void ctrl_rxout_irq_with_lock(struct llce_mb *mb, void __iomem *rxout,
 				     bool enable)
 {
-	enum llce_sema42_gate gate = get_sema42_gate(LLCE_FIFO_RXOUT_INDEX);
+	enum llce_sema42_gate gate = get_sema42_gate(LLCE_FIFO_RXOUT_INDEX,
+						     mb->hif_id);
 
 	ctrl_fifo_irq_with_lock(mb, rxout, gate, enable);
 }
@@ -852,13 +856,17 @@ static int request_llce_pair_irq(struct llce_mb *mb, struct llce_pair_irq *pair)
 {
 	int ret;
 
-	ret = request_llce_irq(mb, &pair->irq0);
-	if (ret)
-		return ret;
+	if (!mb->multihif || (mb->multihif && mb->hif_id == LLCE_CAN_HIF0)) {
+		ret = request_llce_irq(mb, &pair->irq0);
+		if (ret)
+			return ret;
+	}
 
-	ret = request_llce_irq(mb, &pair->irq8);
-	if (ret)
-		return ret;
+	if (!mb->multihif || (mb->multihif && mb->hif_id == LLCE_CAN_HIF1)) {
+		ret = request_llce_irq(mb, &pair->irq8);
+		if (ret)
+			return ret;
+	}
 
 	return 0;
 }
@@ -1028,7 +1036,7 @@ static void llce_rx_shutdown(struct mbox_chan *chan)
 
 static void enable_bus_off_irq(struct llce_mb *mb)
 {
-	void __iomem *rxin = get_host_notif(mb, LLCE_CAN_HIF0);
+	void __iomem *rxin = get_host_notif(mb);
 	void __iomem *ier = LLCE_FIFO_IER(rxin);
 	u32 ier_val;
 
@@ -1188,8 +1196,8 @@ static bool llce_mb_last_tx_done(struct mbox_chan *chan)
 		return true;
 	}
 
-	txack = get_host_txack(mb, LLCE_CAN_HIF0);
-	sh_cmd = &mb->sh_mem->can_cmd[LLCE_CAN_HIF0];
+	txack = get_host_txack(mb);
+	sh_cmd = &mb->sh_mem->can_cmd[mb->hif_id];
 
 	spin_lock_irqsave(&mb->txack_lock, flags);
 
@@ -1436,7 +1444,7 @@ static void llce_process_rxin(struct llce_mb *mb, u8 index)
 		/* Get notification mailbox */
 		rxin_id = readl(pop0) & LLCE_CAN_CONFIG_FIFO_FIXED_MASK;
 		table = &sh_mem->can_notification_table;
-		notif = &table->can_notif0_table[LLCE_CAN_HIF0][rxin_id];
+		notif = &table->can_notif0_table[mb->hif_id][rxin_id];
 		list = &notif->notif_list;
 
 		switch (notif->notif_id) {
@@ -1584,7 +1592,7 @@ static int pop_rxout_frame(struct llce_mb *mb, void __iomem *rxout,
 
 static void release_rxout_index(struct llce_mb *mb, u32 index)
 {
-	void __iomem *host_rxin = get_host_rxin(mb, LLCE_CAN_HIF0);
+	void __iomem *host_rxin = get_host_rxin(mb);
 	void __iomem *host_push0 = LLCE_FIFO_PUSH0(host_rxin);
 
 	writel(index, host_push0);
@@ -2066,7 +2074,7 @@ static struct mbox_chan *get_hif_cfg_chan(struct llce_mb *mb)
 	unsigned int chan_index;
 
 	chan_index = get_channel_offset(S32G_LLCE_HIF_CONF_MB,
-					LLCE_CAN_HIF0);
+					mb->hif_id);
 	return &ctrl->chans[chan_index];
 }
 
@@ -2076,7 +2084,7 @@ static int init_hif_config_chan(struct llce_mb *mb)
 	int ret;
 
 	ret = init_chan_priv(chan, mb, S32G_LLCE_HIF_CONF_MB,
-			     LLCE_CAN_HIF0);
+			     mb->hif_id);
 	if (ret)
 		return ret;
 
@@ -2157,7 +2165,21 @@ static int llce_init_chan_map(struct device *dev, struct llce_mb *mb)
 	u8 fifos_refcnt[LLCE_NFIFO_WITH_IRQ];
 	bool shared_fifo = false;
 	size_t i;
+	u32 hif_id = 0;
 	int ret;
+
+	mb->multihif = of_property_read_bool(node, "nxp,multi-hif");
+
+	ret = of_property_read_u32(node, "nxp,hif-id", &hif_id);
+	if (ret)
+		hif_id = LLCE_CAN_HIF0;
+
+	if (hif_id != LLCE_CAN_HIF0 && hif_id != LLCE_CAN_HIF1) {
+		dev_err(dev, "Unknown HIF id %u\n", hif_id);
+		return -EINVAL;
+	}
+
+	mb->hif_id = hif_id;
 
 	for (ctrl_id = 0; ctrl_id < ARRAY_SIZE(mb->chans_map); ctrl_id++)
 		mb->chans_map[ctrl_id] = UNINITIALIZED_FIFO;
@@ -2182,8 +2204,8 @@ static int llce_init_chan_map(struct device *dev, struct llce_mb *mb)
 			continue;
 		}
 
-		fifo_id = get_next_free_fifo(&fifo_availability, LLCE_CAN_HIF0,
-					     false);
+		fifo_id = get_next_free_fifo(&fifo_availability, mb->hif_id,
+					     mb->multihif);
 		if (fifo_id >= LLCE_NFIFO_WITH_IRQ) {
 			dev_err(dev, "Failed to identify set of FIFOs for BCAN %lu\n",
 				ctrl_id);
