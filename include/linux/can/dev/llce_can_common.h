@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0+ OR BSD-3-Clause */
-/* Copyright 2021-2022 NXP */
+/* Copyright 2021-2023 NXP */
 
 #ifndef LLCE_CAN_COMMON_H
 #define LLCE_CAN_COMMON_H
@@ -23,7 +23,7 @@ struct llce_can_dev {
 	u64 *stats;
 	atomic_t rx_processing;
 
-	int id;
+	unsigned int id;
 };
 
 static inline bool is_llce_rx_busy(struct llce_can_dev *dev)
