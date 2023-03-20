@@ -1594,7 +1594,7 @@ static void push_rxout_and_notif(struct llce_mb *mb, u8 hw_ctrl,
 	struct mbox_chan *chan;
 	unsigned int chan_index;
 	struct llce_rx_msg notif_msg = {
-		.error = 0,
+		.error = LLCE_FW_SUCCESS,
 		.cmd = LLCE_RX_NOTIF,
 	};
 
@@ -1688,7 +1688,7 @@ static void send_llce_logger_notif(struct llce_mb *mb, u32 hw_ctrl,
 	struct mbox_chan *chan;
 	unsigned int chan_index;
 	struct llce_rx_msg msg = {
-		.error = 0,
+		.error = LLCE_FW_SUCCESS,
 		.cmd = LLCE_RX_NOTIF,
 	};
 	struct llce_rx_can_mb can_mb = {
