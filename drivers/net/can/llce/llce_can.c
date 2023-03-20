@@ -209,7 +209,7 @@ static int llce_can_deinit(struct llce_can *llce)
 
 static int llce_can_interfaces_set(struct llce_can *llce)
 {
-	int id = llce->common.id;
+	unsigned int id = llce->common.id;
 
 	if (id >= LLCE_CAN_CONFIG_MAXCTRL_COUNT)
 		return -EINVAL;
@@ -221,7 +221,7 @@ static int llce_can_interfaces_set(struct llce_can *llce)
 	return 0;
 }
 
-static struct llce_can *llce_can_interfaces_get_unsafe(int id)
+static struct llce_can *llce_can_interfaces_get_unsafe(unsigned int id)
 {
 	struct llce_can *llce;
 
@@ -235,7 +235,7 @@ static struct llce_can *llce_can_interfaces_get_unsafe(int id)
 
 static void llce_can_interfaces_cleanup(struct llce_can *llce)
 {
-	int id = llce->common.id;
+	unsigned int id = llce->common.id;
 
 	if (id >= LLCE_CAN_CONFIG_MAXCTRL_COUNT)
 		return;
@@ -408,10 +408,10 @@ static int can_add_open_filter(struct net_device *dev)
 	struct llce_can_rx_filter *filt;
 	struct llce_config_msg msg;
 	bool canfd = is_canfd_dev(&llce->common.can);
-	int id = llce->common.id;
+	unsigned int id = llce->common.id;
 	int ret;
 
-	if (id < 0 || id > LLCE_CAN_CONFIG_MAXCTRL_COUNT)
+	if (id > LLCE_CAN_CONFIG_MAXCTRL_COUNT)
 		return -EINVAL;
 
 	if (llce->filter_setup_done)
@@ -998,7 +998,7 @@ static int llce_can_probe(struct platform_device *pdev)
 	llce->filter_setup_done = false;
 	ret = llce_can_interfaces_set(llce);
 	if (ret) {
-		dev_err(dev, "LLCE interface ID %d equal or greather than %d\n",
+		dev_err(dev, "LLCE interface ID %d equal or greather than %u\n",
 			LLCE_CAN_CONFIG_MAXCTRL_COUNT, common->id);
 		goto free_conf_chan;
 	}
