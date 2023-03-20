@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0+ OR BSD-3-Clause
-/* Copyright 2021-2022 NXP */
+/* Copyright 2021-2023 NXP */
 #include <linux/can/dev.h>
 #include <linux/can/dev/llce_can_common.h>
 #include <linux/ctype.h>
@@ -184,6 +184,7 @@ static int send_rx_msg(struct llce_can_dev *llce, struct llce_rx_msg *msg)
 int enable_llce_rx_notif(struct llce_can_dev *llce)
 {
 	struct llce_rx_msg msg = {
+		.error = LLCE_FW_SUCCESS,
 		.cmd = LLCE_ENABLE_RX_NOTIF,
 	};
 
@@ -194,6 +195,7 @@ EXPORT_SYMBOL(enable_llce_rx_notif);
 static bool is_rx_empty(struct llce_can_dev *llce)
 {
 	struct llce_rx_msg msg = {
+		.error = LLCE_FW_SUCCESS,
 		.cmd = LLCE_IS_RX_EMPTY,
 	};
 
@@ -208,6 +210,7 @@ static int pop_rx_fifo(struct llce_can_dev *llce, uint32_t *index, bool *skip,
 {
 	int ret;
 	struct llce_rx_msg msg = {
+		.error = LLCE_FW_SUCCESS,
 		.cmd = LLCE_POP_RX,
 	};
 
@@ -222,6 +225,7 @@ static int pop_rx_fifo(struct llce_can_dev *llce, uint32_t *index, bool *skip,
 static int release_rx_index(struct llce_can_dev *llce, uint32_t index)
 {
 	struct llce_rx_msg msg = {
+		.error = LLCE_FW_SUCCESS,
 		.cmd = LLCE_RELEASE_RX_INDEX,
 		.rx_release = {
 			.index = index,
@@ -457,7 +461,7 @@ static void llce_rx_notif_callback(struct mbox_client *cl, void *msg)
 						 rx_client);
 
 	/* This is executed in IRQ context */
-	if (rx_msg->error)
+	if (rx_msg->error != LLCE_FW_SUCCESS)
 		process_llce_can_error(llce, rx_msg->error, LLCE_RX);
 
 	if (rx_msg->cmd == LLCE_RX_NOTIF) {
