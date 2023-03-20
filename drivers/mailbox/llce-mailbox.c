@@ -1458,7 +1458,7 @@ static bool has_leftovers(struct mbox_chan *chan)
 }
 
 static void push_llce_rx_data(struct mbox_chan *chan, struct llce_rx_can_mb *mb,
-			      uint32_t index)
+			      u32 index)
 {
 	struct llce_chan_priv *priv = chan->con_priv;
 	struct llce_rx_data *data = priv->data;
@@ -1477,7 +1477,7 @@ static void push_llce_rx_data(struct mbox_chan *chan, struct llce_rx_can_mb *mb,
 }
 
 static bool pop_chan_rx_data(struct mbox_chan *chan, struct llce_rx_can_mb *mb,
-			     uint32_t *index)
+			     u32 *index)
 {
 	struct llce_chan_priv *priv = chan->con_priv;
 	struct llce_rx_data *data = priv->data;
@@ -1567,7 +1567,7 @@ static int pop_rxout_frame(struct llce_mb *mb, void __iomem *rxout,
 	return 0;
 }
 
-static void release_rxout_index(struct llce_mb *mb, uint32_t index)
+static void release_rxout_index(struct llce_mb *mb, u32 index)
 {
 	void __iomem *host_rxin = get_host_rxin(mb, LLCE_CAN_HIF0);
 	void __iomem *host_push0 = LLCE_FIFO_PUSH0(host_rxin);
@@ -1636,12 +1636,12 @@ static int process_pop_rxout(struct mbox_chan *chan, struct llce_rx_msg *msg)
 	return ret;
 }
 
-static u32 *get_ctrl_extension(struct llce_mb *mb)
+static u32 __iomem *get_ctrl_extension(struct llce_mb *mb)
 {
-	return (uint32_t *)(mb->status + LLCE_RXMBEXTENSION_OFFSET);
+	return (u32 *)(mb->status + LLCE_RXMBEXTENSION_OFFSET);
 }
 
-static uint8_t get_hwctrl(struct llce_mb *mb, uint32_t frame_id)
+static u8 get_hwctrl(struct llce_mb *mb, u32 frame_id)
 {
 	u32 *ctrl_extensions = get_ctrl_extension(mb);
 
@@ -1662,7 +1662,7 @@ static void pop_logger_frame(struct llce_mb *mb, struct llce_can_mb **frame,
 	*hw_ctrl = get_hwctrl(mb, *index);
 }
 
-static void release_logger_index(struct llce_mb *mb, uint32_t index)
+static void release_logger_index(struct llce_mb *mb, u32 index)
 {
 	void __iomem *in_fifo = get_logger_in(mb);
 	void __iomem *push0 = LLCE_FIFO_PUSH0(in_fifo);
