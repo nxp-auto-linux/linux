@@ -109,7 +109,7 @@ struct llce_mb {
 	spinlock_t txack_lock;
 
 	struct llce_can_shared_memory *sh_mem;
-	void __iomem *status;
+	void *status;
 	void __iomem *rxout_fifo;
 	void __iomem *rxin_fifo;
 	void __iomem *txack_fifo;
@@ -1259,7 +1259,8 @@ static int map_sram_node(struct device *dev, const char *name,
 
 static int map_llce_status(struct llce_mb *mb)
 {
-	return map_sram_node(mb->dev, LLCE_STATUS_REG_NAME, &mb->status);
+	return map_sram_node(mb->dev, LLCE_STATUS_REG_NAME,
+			     (void __iomem **)&mb->status);
 }
 
 static int map_llce_shmem(struct llce_mb *mb)
@@ -1636,7 +1637,7 @@ static int process_pop_rxout(struct mbox_chan *chan, struct llce_rx_msg *msg)
 	return ret;
 }
 
-static u32 __iomem *get_ctrl_extension(struct llce_mb *mb)
+static u32 *get_ctrl_extension(struct llce_mb *mb)
 {
 	return (u32 *)(mb->status + LLCE_RXMBEXTENSION_OFFSET);
 }
