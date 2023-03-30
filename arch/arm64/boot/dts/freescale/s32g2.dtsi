@@ -28,6 +28,12 @@
 	compatible = "nxp,s32g2-siul2_0-nvmem";
 };
 
+&qspi {
+	pinctrl-names = "default";
+	pinctrl-0 = <&qspi_pins_200mhz_fast_sre>;
+	status = "okay";
+};
+
 &tmu {
 	compatible = "nxp,s32g2-tmu";
 };
