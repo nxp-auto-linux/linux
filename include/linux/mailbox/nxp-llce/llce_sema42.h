@@ -1,10 +1,9 @@
 /* SPDX-License-Identifier: GPL-2.0+ */
-/* Copyright 2020-2022 NXP */
+/* Copyright 2020-2023 NXP */
 #ifndef LLCE_SEMA42_H
 #define LLCE_SEMA42_H
 
 #include <linux/io.h>
-
 #define LLCE_SEMA42_GR_GTFSM_0 0x0U
 #define LLCE_SEMA42_GR_GTFSM_1 0x1U
 #define LLCE_SEMA42_GR_GTFSM_2 0x2U
@@ -53,7 +52,7 @@ enum llce_sema42_gate {
 	LLCE_SEMA42_GATE24 = 24UL, /** Sema42 Gate */
 	LLCE_SEMA42_GATE25 = 25UL, /** Sema42 Gate */
 	LLCE_SEMA42_GATE26 = 26UL, /** Sema42 Gate */
-	LLCE_SEMA42_GATE27 = 27UL, /** Sema42 Gate */
+	LLCE_SEMA42_GATE27 = 27UL, /** Sema42 Gate */ /*free*/
 	LLCE_SEMA42_GATE28 = 28UL, /** Sema42 Gate */
 	LLCE_SEMA42_GATE29 = 29UL, /** Sema42 Gate */
 	LLCE_SEMA42_GATE30 = 30UL, /** Sema42 Gate */
