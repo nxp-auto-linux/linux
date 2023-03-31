@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0+ */
-/* Copyright 2020-2022 NXP */
+/* Copyright 2020-2023 NXP */
 #ifndef LLCE_FW_INTERFACE_H
 #define LLCE_FW_INTERFACE_H
 
@@ -7,7 +7,8 @@
 
 /**
  * CAN firmware notification categories.
- * Contains the notification categories of the values returned by the LLCE Firmware.
+ * Contains the notification categories of the values returned by the
+ * LLCE Firmware.
  * @see enum llce_fw_return
  **/
 enum llce_fw_notification_category {
@@ -41,7 +42,10 @@ enum llce_fw_return {
 	LLCE_ERROR_SW_FIFO_FULL,
 	/** CAN firmware error: Message buffer is not available. */
 	LLCE_ERROR_MB_NOTAVAILABLE,
-	/** CAN firmware error: Short Message buffer is configured but a long frame is received. */
+	/**
+	 * CAN firmware error: Short Message buffer is configured but a
+	 * long frame is received.
+	 */
 	LLCE_ERROR_SHORT_MB_NOTAVAILABLE,
 	/**
 	 * CAN firmware error: CAN protocol error due to inability to get
@@ -105,19 +109,22 @@ enum llce_fw_return {
 	 */
 	LLCE_ERROR_BCAN_DPBIT0ERR,
 	/**
-	 * CAN firmware error: DPSTFERR indicates that a stuffing error has
-	 * been detected by the receiver node in the data phase of a CAN-FD frame.
+	 * CAN firmware error: DPSTFERR indicates that a stuffing error
+	 * has been detected by the receiver node in the data phase of a CAN-FD
+	 * frame.
 	 */
 	LLCE_ERROR_BCAN_DPSTFERR,
 	/**
 	 * CAN firmware error: DPFRMERR indicates that a form error has
-	 * been detected by the receiver node in the data phase of a CAN-FD frame
+	 * been detected by the receiver node in the data phase of a CAN-FD
+	 * frame
 	 * - a fixed-form bit field contains at least one illegal bit.
 	 */
 	LLCE_ERROR_BCAN_DPFRMERR,
 	/**
-	 * CAN firmware error: DPCRCERR indicates that a CRC error has been
-	 * detected by the receiver node in the data phase of a CAN-FD frame
+	 * CAN firmware error: DPCRCERR indicates that a CRC error has
+	 * been detected by the receiver node in the data phase of a CAN-FD
+	 * frame
 	 */
 	LLCE_ERROR_BCAN_DPCRCERR,
 	/**
@@ -396,14 +403,24 @@ enum llce_fw_return {
 	 * state after the automatic recovery procedure
 	 */
 	LLCE_NOTIF_BUSOFF_DONE,
-	/** CAN firmware error: TXWRN is set when the Tx error counter ECR[TEC] reached 96. */
+	/**
+	 * CAN firmware error: TXWRN is set when the Tx error counter
+	 * ECR[TEC] reached 96.
+	 */
 	LLCE_ERROR_BCAN_TXWRN,
-	/** CAN firmware error: RXWRN is set when the Rx error counter ECR[REC] reached 96. */
+	/**
+	 * CAN firmware error: RXWRN is set when the Rx error counter
+	 * ECR[REC] reached 96.
+	 */
 	LLCE_ERROR_BCAN_RXWRN,
-	/** CAN firmware error: PASSERR is set when BCAN enters Passive state. */
+	/**
+	 * CAN firmware error: PASSERR is set when BCAN enters Passive
+	 * state.
+	 */
 	LLCE_ERROR_BCAN_PASSERR,
 	/**
-	 * Number of enum elements. It must be kept as the last member of the list.
+	 * Number of enum elements. It must be kept as the last member
+	 * of the list.
 	 */
 	LLCE_FW_RETURNTYPE_COUNT
 
@@ -440,36 +457,38 @@ struct llce_mgr_status {
 } __aligned(4) __packed;
 
 /**
- * Helper function that returns the category of a value returned by the LLCE FW.
+ * Helper function that returns the category of a value returned by
+ * the LLCE FW.
  * Determines the category of a value returned by the LLCE Firmware.
- * It can take as input errors, notifications and status values (see enum llce_fw_return).
- * It will return the category that value belongs to.
- * @param[in] notification_code CAN error, notification or status values as they are reported by
- * the LLCE firmware.
+ * It can take as input errors, notifications and status values (see
+ * enum llce_fw_return). It will return the category that value belongs to.
+ * @param[in] notification_code CAN error, notification or status values as they
+ * are reported by the LLCE firmware.
  * @return CAN firmware notification category.
  */
 static inline enum llce_fw_notification_category
-llce_get_notification_category(enum llce_fw_return e_notification_code)
+llce_get_notification_category(enum llce_fw_return notification_code)
 {
 	enum llce_fw_notification_category notif_category;
 
-	switch (e_notification_code) {
+	switch (notification_code) {
 	case LLCE_ERROR_BUSOFF:
 	case LLCE_NOTIF_BUSOFF_AUTO_RECOVERY_PENDING:
 	case LLCE_NOTIF_BUSOFF_DONE:
-	 notif_category = LLCE_NOTIFCAT_BUSOFF;
+		notif_category = LLCE_NOTIFCAT_BUSOFF;
 		break;
 
-	/* Treat all the cases leading to DATA_LOST which should be reported to the host
+	/* Treat all the cases leading to DATA_LOST which should be reported to
+	 * the host
 	 */
 	case LLCE_ERROR_RXOUT_FIFO_FULL:
 	case LLCE_ERROR_MB_NOTAVAILABLE:
 	case LLCE_ERROR_BCAN_RXFIFO_OVERRUN:
-	 notif_category = LLCE_NOTIFCAT_DATA_LOST;
+		notif_category = LLCE_NOTIFCAT_DATA_LOST;
 		break;
 
-	/* Can protocol errors
-	 */
+		/* Can protocol errors
+		 */
 	case LLCE_ERROR_BCAN_TDCFAIL:
 	case LLCE_ERROR_BCAN_ACKERR:
 	case LLCE_ERROR_BCAN_CRCERR:
@@ -488,16 +507,17 @@ llce_get_notification_category(enum llce_fw_return e_notification_code)
 	case LLCE_ERROR_BCAN_FRZ_ENTER:
 	case LLCE_ERROR_BCAN_LPM_EXIT:
 	case LLCE_ERROR_BCAN_SRT_ENTER:
-	 notif_category = LLCE_NOTIFCAT_CAN_PROTOCOL;
+		notif_category = LLCE_NOTIFCAT_CAN_PROTOCOL;
 		break;
 	case LLCE_ERROR_BCAN_TXWRN:
 	case LLCE_ERROR_BCAN_RXWRN:
 	case LLCE_ERROR_BCAN_PASSERR:
-	 notif_category = LLCE_NOTIFCAT_CAN_PROTOCOL_CRITICAL_STATE;
+		notif_category = LLCE_NOTIFCAT_CAN_PROTOCOL_CRITICAL_STATE;
 		break;
 
-	/* Initialization errors. This category contains errors caused by bad usage or a
-	 * malicious host (eg initialization errors, bad cmd parameters, invalid indexes etc).
+	/* Initialization errors. This category contains errors caused by bad
+	 * usage or a malicious host (eg initialization errors, bad cmd
+	 * parameters, invalid indexes etc).
 	 */
 	case LLCE_ERROR_COMMAND_NOTSUPPORTED:
 	case LLCE_ERROR_COMMAND_NOTACCEPTED:
@@ -508,19 +528,19 @@ llce_get_notification_category(enum llce_fw_return e_notification_code)
 	case LLCE_ERROR_CMD_PROCESSING:
 	case LLCE_ERROR_TXACK_NOT_READ:
 	case LLCE_ERROR_COMMAND_DEINIT_NOTSTOP:
-	 notif_category = LLCE_NOTIFCAT_CONFIGURATION;
+		notif_category = LLCE_NOTIFCAT_CONFIGURATION;
 		break;
 
-	/* Values that are neither errors nor notifications.
-	 */
+		/* Values that are neither errors nor notifications.
+		 */
 	case LLCE_FW_SUCCESS:
 	case LLCE_FW_ERROR:
 	case LLCE_FW_NOTRUN:
-	 notif_category = LLCE_NOTIFCAT_FW_STATUS;
+		notif_category = LLCE_NOTIFCAT_FW_STATUS;
 		break;
 
 	default:
-	 notif_category = LLCE_NOTIFCAT_INTERNAL;
+		notif_category = LLCE_NOTIFCAT_INTERNAL;
 		break;
 	}
 
