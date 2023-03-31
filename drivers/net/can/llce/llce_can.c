@@ -388,7 +388,7 @@ static void set_advanced_filter(struct llce_config_msg *msg,
 	};
 
 	afilt = &msg->fw_cmd.cmd_list.set_advanced_filter.advanced_filters[0];
-	afilt->llce_can_Advanced_feature = (struct llce_can_advanced_feature) {
+	afilt->llce_can_advanced_feature = (struct llce_can_advanced_feature) {
 		.can_authentication_feature = LLCE_AF_AUTHENTICATION_DISABLED,
 		.can_custom_processing = LLCE_AF_CUSTOMPROCESSING_DISABLED,
 		.can_logging_feature = LLCE_AF_LOGGING_ENABLED,

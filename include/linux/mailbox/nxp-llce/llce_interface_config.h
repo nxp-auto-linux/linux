@@ -1,7 +1,10 @@
 /* SPDX-License-Identifier: GPL-2.0+ */
-/* Copyright 2020-2022 NXP */
+/* Copyright 2020-2023 NXP */
 #ifndef LLCE_INTERFACE_CONFIG_H
 #define LLCE_INTERFACE_CONFIG_H
+
+#include "llce_fw_interface.h"
+#include "llce_sema42.h"
 
 /* LLCE configuration parameters.
  */
@@ -23,51 +26,51 @@
 #define LLCE_CAN_CONFIG_NOTIF_TABLE_SIZE 17U
 /**
  * Maximum buffer size used to store the CAN FD frame payload.
- * See Llce_can_Mb_type
+ * See llce_can_Mb_type
  */
 #define LLCE_CAN_CONFIG_PAYLOAD_MAX_SIZE 64U
 /**
  * Maximum buffer size used to store the short CAN FD frame payload.
- * See Llce_can_Short_mb_type
+ * See llce_can_Short_mb_type
  */
 #define LLCE_CAN_CONFIG_SHORT_PAYLOAD_MAX_SIZE 8U
 /**
  * Maximum number of hardware controllers usable inside LLCE.
- * See Llce_can_Init_cmd_type
+ * See llce_can_Init_cmd_type
  */
 #define LLCE_CAN_CONFIG_MAXCTRL_COUNT 16U
 /**
  * Maximum number of polling classes usable inside LLCE.
  * A polling class is used to tie together multiple filters which
  * report the received frames in polling.
- * See Llce_can_Init_cmd_type
+ * See llce_can_Init_cmd_type
  */
 #define LLCE_CAN_MAX_POLLING_CLASSES 6U
 
 /**
  * Maximum number of transmission message buffers.
- * See Llce_can_Tx_mb_descriptor_type
+ * See llce_can_Tx_mb_descriptor_type
  */
 #define LLCE_CAN_CONFIG_MAXTXMB 256U
 /**
  * Maximum number of 64B reception message buffers.
  * Note: 32 from those are reserved
  * for internal usage and are not available to the host.
- * See Llce_can_Rx_mb_descriptor_type
+ * See llce_can_Rx_mb_descriptor_type
  */
 #define LLCE_CAN_CONFIG_MAXRXMB 1732U
 
 /**
  * Maximum number of 8B reception message buffers.
  * for internal usage and are not available to the host.
- * See Llce_can_Rx_mb_descriptor_type
+ * See llce_can_Rx_mb_descriptor_type
  */
 #define LLCE_CAN_CONFIG_MAX_SHORTRXMB 2396U
 
 /**
  * Number of AF descriptors reserved for each
  * internal path within LLCE frame routing
-*/
+ */
 #define LLCE_CAN_CONFIG_MAXAFRXMB 256U
 #define LLCE_CAN_CONFIG_MAXAFTXMB 256U
 #define LLCE_CAN_CONFIG_MAXAFFRMB 256U
@@ -76,7 +79,7 @@
  * Maximum number of standard filters which can be configured using
  * using a single command. Multiple commands can be executed when more filters
  * are needed.
- * See Llce_can_Receive_filter_type
+ * See llce_can_Receive_filter_type
  */
 #define LLCE_CAN_CONFIG_MAX_FILTERS_COUNT (20U)
 /**
@@ -94,7 +97,7 @@
  * Maximum number of advanced filters which can be configured using a
  * single command. Multiple commands can be executed when more filters are
  * needed.
- * See Llce_can_Advanced_filter_type
+ * See llce_can_Advanced_filter_type
  */
 #define LLCE_CAN_CONFIG_ADVANCED_FILTERS_COUNT 8U
 /**
