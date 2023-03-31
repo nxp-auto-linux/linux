@@ -1,11 +1,11 @@
 /* SPDX-License-Identifier: GPL-2.0+ */
-/* Copyright 2020-2022 NXP */
+/* Copyright 2020-2023 NXP */
 #ifndef LLCE_CAN_H
 #define LLCE_CAN_H
 
 #include <linux/types.h>
-#include "llce_fw_version.h"
 #include "llce_fw_interface.h"
+#include "llce_fw_version.h"
 #include "llce_interface_config.h"
 
 /**
@@ -52,7 +52,9 @@
 #define LLCE_CAN_CONTROLLERCONFIG_LPB_EN (0x00200000U)
 /** CAN controller option used to enable self-reception mode. */
 #define LLCE_CAN_CONTROLLERCONFIG_SRX_EN (0x00400000U)
-/** CAN controller option used to enable automatic bus-off recovery. */
+/**
+ * CAN controller option used to enable automatic bus-off recovery.
+ */
 #define LLCE_CAN_CONTROLLERCONFIG_ABR_EN (0x00000001U)
 /** CAN controller option used to enable TX FIFO mode. */
 #define LLCE_CAN_CONTROLLERCONFIG_TXFIFO_EN (0x00000002U)
@@ -171,7 +173,10 @@ enum llce_can_command_id {
 	LLCE_CAN_CMD_GETSTATUS,
 	/** The host configures multiple filters on the reception side.*/
 	LLCE_CAN_CMD_SETFILTER,
-	/** The host configures multiple advanced feature filters on reception side*/
+	/**
+	 * The host configures multiple advanced feature filters on
+	 * reception side
+	 */
 	LLCE_CAN_CMD_SETADVANCEDFILTER,
 	/** The host enables/disables the already set filter. */
 	LLCE_CAN_CMD_SETFILTERENABLESTATUS,
@@ -210,10 +215,23 @@ enum llce_can_command_id {
 	LLCE_CAN_CMD_ABORT_MB,
 	/** Custom command to be implemented by user in FDK */
 	LLCE_CAN_CMD_CUSTOM,
-	/** The host configures multiple filters on the reception side for rxlut2 on g3.*/
+	/**
+	 * The host configures multiple filters on the reception side
+	 * for rxlut2 on g3.
+	 */
 	LLCE_CAN_CMD_SETAUXFILTER,
-	/** The host requests the addition of a new filter by specifying filter address.*/
-	LLCE_CAN_CMD_SETFILTER_AT_ADDRESS
+	/**
+	 * The host requests the addition of a new filter by specifying
+	 * filter address.
+	 */
+	LLCE_CAN_CMD_SETFILTER_AT_ADDRESS,
+	/**
+	 * The host enables or disables a channel in a routing multicast
+	 * configuration.
+	 */
+	LLCE_CAN_CMD_SETCHANNELROUTINGOUTPUTSTATE,
+	/** The host enables or disables can2eth processing entirely.*/
+	LLCE_CAN_CMD_SETCAN2ETHSTATE
 } __packed;
 
 /**
@@ -454,6 +472,12 @@ enum llce_can_rx_mb_length {
 	/** Opt for 8 bytes MB size accepted by a filter */
 	USE_SHORT_MB,
 } __packed;
+
+/**
+ * Generic binary type
+ * Logical binary type. Redefined for consistency.
+ **/
+enum llce_can_binary_value { LLCE_FALSE = 0, LLCE_TRUE } __packed;
 
 /*
  * These structure must be kept as they are because BCAN is
@@ -787,11 +811,11 @@ struct llce_can_rx_filter {
 /**
  * Filter element settings for Rx_lut2.
  * It is used to define a specific filter.Current filtering process supposes to
- * accept a frame if its frame ID match the filter ID masked with the mask
- * value. At the end of filtering process an internal filter ID is mapped to
- * the accepted frame in order to track it later by the host software.
- * A maximum number of frames accepted by a specific filter can be managed
- * by LLCE at each point in time.
+ * accept a frame if its frame ID matches the filter ID masked with the mask
+ * value. At the end of the filtering process, an internal filter ID is mapped
+ * to the accepted frame in order to track it later by the host software. A
+ * maximum number of frames accepted by a specific filter can be managed by LLCE
+ * at each point in time.
  **/
 struct llce_can_aux_filter {
 	/**
@@ -834,15 +858,16 @@ struct llce_can_set_filter_cmd {
 
 /**
  * Set filter command.
- * It is sent by the host to LLCE in order to configure one or more auxiliary reception
- * filters inside LLCE.
+ * It is sent by the host to LLCE in order to configure one or more auxiliary
+ * reception filters inside LLCE.
  **/
 struct llce_can_set_aux_filter_cmd {
 	/**
 	 * INPUT: Array containing configuration for reception
 	 * filters.
 	 */
-	struct llce_can_aux_filter rx_aux_filters[LLCE_CAN_CONFIG_MAX_FILTERS_COUNT];
+	struct llce_can_aux_filter
+		rx_aux_filters[LLCE_CAN_CONFIG_MAX_FILTERS_COUNT];
 	/** INPUT: Number of configured filters. */
 	u16 rx_aux_filters_count;
 } __aligned(4) __packed;
@@ -855,7 +880,14 @@ struct llce_can_set_aux_filter_cmd {
  * channels.
  **/
 struct llce_can_can2can_routing_table {
-	/** INPUT: Special option for advanced routing.*/
+	/**
+	 * INPUT: Special options for advanced routing. See
+	 * LLCE_CAN_ROUTING_OPTION_DEFAULT_CONFIG
+	 * LLCE_CAN_ROUTING_NOCHANGE
+	 * LLCE_CAN_ROUTING_CAN
+	 * LLCE_CAN_ROUTING_CANFD
+	 * LLCE_CAN_ROUTING_ID_REMAPPING_EN
+	 */
 	u32 can2can_routing_options;
 	/** INPUT: Can Id Remap Value.*/
 	u32 can_id_remap_value;
@@ -875,11 +907,16 @@ struct llce_can_can2can_routing_table {
  * routing.
  **/
 struct llce_can_can2eth_routing_table {
-	/** INPUT: Base address of the buffer area for this destination */
+	/**
+	 * INPUT: Base address of the buffer area for this destination
+	 */
 	u32 pcan2eth_buff_addr;
 	/** INPUT: Size of each buffer for this destination */
 	u16 can2eth_buff_size;
-	/** INPUT: Number of buffers of size can2eth_buff_size for this destination */
+	/**
+	 * INPUT: Number of buffers of size can2eth_buff_size for this
+	 * destination
+	 */
 	u8 can2eth_buff_count;
 	/** INPUT: Type of encapsulation */
 	enum llce_can_eth_encapsulation_format format;
@@ -895,7 +932,10 @@ struct llce_can_can2eth_routing_table {
 	u16 can2eth_dst_port;
 	/** INPUT: Source port (UDP only) */
 	u16 can2eth_src_port;
-	/** INPUT: Ethernet physical interface (bit list) - see LLCE_CAN2ETH_PFE_* */
+	/**
+	 * INPUT: Ethernet physical interface (bit list) - see
+	 * LLCE_CAN2ETH_PFE_*
+	 */
 	u8 can2eth_phy_if_list;
 } __aligned(4) __packed;
 
@@ -959,7 +999,7 @@ struct llce_can_advanced_filter {
 	/** INPUT: Standard filter configuration. */
 	struct llce_can_rx_filter llce_can_Rx_filter;
 	/** INPUT: Can advanced features used by the filter. */
-	struct llce_can_advanced_feature llce_can_Advanced_feature;
+	struct llce_can_advanced_feature llce_can_advanced_feature;
 } __aligned(4) __packed;
 
 /**
@@ -972,7 +1012,7 @@ struct llce_can_set_advanced_filter_cmd {
 	 * more filters.
 	 */
 	struct llce_can_advanced_filter
-	 advanced_filters[LLCE_CAN_CONFIG_ADVANCED_FILTERS_COUNT];
+		advanced_filters[LLCE_CAN_CONFIG_ADVANCED_FILTERS_COUNT];
 	/** INPUT: Number of configured filters. */
 	u16 rx_filters_count;
 } __aligned(4) __packed;
@@ -997,7 +1037,8 @@ struct llce_can_error_category {
 	/** Internal errors, like timeouts. */
 	enum llce_can_error_processing internal_err;
 	/** Bus_off processing is selectable per channel */
-	enum llce_can_error_processing bus_off_err[LLCE_CAN_CONFIG_MAXCTRL_COUNT];
+	enum llce_can_error_processing
+		bus_off_err[LLCE_CAN_CONFIG_MAXCTRL_COUNT];
 	/** Passive state + TX/RX WRN. */
 	enum llce_can_error_processing can_protocol_warn;
 } __aligned(4) __packed;
@@ -1045,8 +1086,9 @@ struct llce_can_init_platform_cmd {
 	 */
 	u16 max_poll_mb_count[LLCE_CAN_MAX_POLLING_CLASSES];
 	/**
-	 * INPUT: Array containing maximum number of reserved TX confirmation
-	 * buffers per output interface, considering interrupt processing.
+	 * INPUT: Array containing maximum number of reserved TX
+	 * confirmation buffers per output interface, considering interrupt
+	 * processing.
 	 */
 	u16 max_int_tx_ack_count[LLCE_CAN_CONFIG_MAXCTRL_COUNT];
 	/**
@@ -1098,11 +1140,15 @@ struct llce_can_init_cmd {
 struct llce_can_init_pfe_cmd {
 	/** OUTPUT: Address of the PFE RX Ring in LLCE memory */
 	u32 p_rx_ring;
-	/** OUTPUT: Address of the PFE RX Writeback Ring in LLCE memory */
+	/**
+	 * OUTPUT: Address of the PFE RX Writeback Ring in LLCE memory
+	 */
 	u32 p_rx_wb_ring;
 	/** OUTPUT: Address of the PFE TX Ring in LLCE memory */
 	u32 p_tx_ring;
-	/** OUTPUT: Address of the PFE TX Writeback Ring in LLCE memory */
+	/**
+	 * OUTPUT: Address of the PFE TX Writeback Ring in LLCE memory
+	 */
 	u32 p_tx_wb_ring;
 	/** INPUT: Pointer to the buffers used for RX */
 	u32 p_rx_buffers;
@@ -1142,7 +1188,10 @@ struct llce_can_change_filter {
 	 * removed/disabled/enabled.
 	 */
 	u16 filter_addr;
-	/** INPUT: State of the filter when using Set_filter_enable_status command */
+	/**
+	 * INPUT: State of the filter when using Set_filter_enable_status
+	 * command
+	 */
 	u8 filter_enabled;
 } __aligned(4) __packed;
 
@@ -1234,10 +1283,14 @@ union llce_can_command_list {
 	/** Pointer to argument for custom command */
 	u32 p_custom_cmd_arg;
 	/**
-	 * Command for configuring custom filters for a specific CAN controller
-	 * in order to deliver frames to the host.
+	 * Command for configuring custom filters for a specific CAN
+	 * controller in order to deliver frames to the host.
 	 */
 	struct llce_can_set_aux_filter_cmd set_aux_filter;
+	/**
+	 * Generic argument for binary values
+	 */
+	enum llce_can_binary_value binary_value;
 } __aligned(4) __packed;
 
 /**
@@ -1351,14 +1404,14 @@ struct llce_can_notification_table {
 	 */
 	struct llce_can_notification
 		can_notif0_table[LLCE_CAN_CONFIG_HIF_COUNT]
-				 [LLCE_CAN_CONFIG_NOTIF_TABLE_SIZE];
+				[LLCE_CAN_CONFIG_NOTIF_TABLE_SIZE];
 	/**
 	 * OUTPUT: Table used to report notifications in polling mode.
 	 * See also struct llce_can_notification
 	 */
 	struct llce_can_notification
 		can_notif1_table[LLCE_CAN_CONFIG_HIF_COUNT]
-				 [LLCE_CAN_CONFIG_NOTIF_TABLE_SIZE];
+				[LLCE_CAN_CONFIG_NOTIF_TABLE_SIZE];
 } __aligned(4) __packed;
 
 /**
@@ -1367,23 +1420,28 @@ struct llce_can_notification_table {
  **/
 struct llce_can_shared_memory {
 	/** Receive message buffer descriptors. */
-	struct llce_can_rx_mb_desc
-		can_rx_mb_desc[LLCE_CAN_CONFIG_MAXRXMB +
-			       LLCE_CAN_CONFIG_MAX_SHORTRXMB];
+	struct llce_can_rx_mb_desc can_rx_mb_desc[LLCE_CAN_CONFIG_MAXRXMB +
+						  LLCE_CAN_CONFIG_MAX_SHORTRXMB];
 	/** Transmit message buffer descriptors. */
 	struct llce_can_tx_mb_desc can_tx_mb_desc[LLCE_CAN_CONFIG_MAXTXMB];
-	/** Shared memory used to store the LONG CAN message buffers (64B). */
+	/**
+	 * Shared memory used to store the LONG CAN message buffers
+	 * (64B).
+	 */
 	struct llce_can_mb can_mb[LLCE_CAN_CONFIG_MAXRXMB +
-				LLCE_CAN_CONFIG_MAXTXMB +
-				LLCE_CAN_CONFIG_MAXAFFRMB];
+				  LLCE_CAN_CONFIG_MAXTXMB +
+				  LLCE_CAN_CONFIG_MAXAFFRMB];
 
-	/** Shared memory used to store the SHORT CAN message buffers (8B). */
+	/**
+	 * Shared memory used to store the SHORT CAN message buffers
+	 * (8B).
+	 */
 	struct llce_can_short_mb can_short_mb[LLCE_CAN_CONFIG_MAX_SHORTRXMB];
 
 	/** Shared memory used to send commands from Host to LLCE . */
 	struct llce_can_command can_cmd[LLCE_CAN_CONFIG_HIF_COUNT];
 	/**
- * Shared memory used to store notifications from LLCE to host.
+	 * Shared memory used to store notifications from LLCE to host.
 	 */
 	struct llce_can_notification_table can_notification_table;
 	/**
