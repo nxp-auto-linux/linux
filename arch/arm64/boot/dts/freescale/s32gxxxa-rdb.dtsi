@@ -2,7 +2,7 @@
 /*
  * Device Tree file for S32G274ARDB Board.
  *
- * Copyright 2019-2022 NXP
+ * Copyright 2019-2023 NXP
  *
  */
 
@@ -146,6 +146,10 @@
 };
 
 &usdhc0 {
+	pinctrl-names = "default", "state_100mhz", "state_200mhz";
+	pinctrl-0 = <&sd0_pins_default>;
+	pinctrl-1 = <&sd0_pins_100mhz>;
+	pinctrl-2 = <&sd0_pins_200mhz>;
 	status = "okay";
 	no-1-8-v;
 };
@@ -286,46 +290,45 @@
 		dspi1_grp0 {
 			pinmux = <S32CC_PINMUX(6, FUNC2)>;
 			output-enable;
-			slew-rate = <S32CC_SLEW_208MHZ>;
+			slew-rate = <S32CC_SLEW_150MHZ>;
 		};
 
 		dspi1_grp1 {
 			pinmux = <S32CC_PINMUX(7, FUNC2)>;
 			output-enable;
-			slew-rate = <S32CC_SLEW_208MHZ>;
+			slew-rate = <S32CC_SLEW_150MHZ>;
 			bias-pull-up;
 		};
 
 		dspi1_grp2 {
 			pinmux = <S32CC_PINMUX(8, FUNC3)>;
 			output-enable;
-			slew-rate = <S32CC_SLEW_208MHZ>;
+			slew-rate = <S32CC_SLEW_150MHZ>;
 		};
 
 		dspi1_grp3 {
 			pinmux = <S32CC_PINMUX(95, FUNC0)>;
 			input-enable;
-			slew-rate = <S32CC_SLEW_208MHZ>;
+			slew-rate = <S32CC_SLEW_150MHZ>;
 			bias-pull-up;
 		};
 
 		dspi1_grp4 {
 			pinmux = <S32CC_PINMUX(987, FUNC2)>;
 		};
-
 	};
 
 	dspi1_slave_pins: dspi1_slave_pins {
 		dspi1slave_grp0 {
 			pinmux = <S32CC_PINMUX(6, FUNC2)>;
 			output-enable;
-			slew-rate = <S32CC_SLEW_208MHZ>;
+			slew-rate = <S32CC_SLEW_150MHZ>;
 		};
 
 		dspi1slave_grp1 {
 			pinmux = <S32CC_PINMUX(7, FUNC2)>;
 			input-enable;
-			slew-rate = <S32CC_SLEW_208MHZ>;
+			slew-rate = <S32CC_SLEW_150MHZ>;
 		};
 
 		dspi1slave_grp2 {
@@ -337,16 +340,15 @@
 		dspi1slave_grp3 {
 			pinmux = <S32CC_PINMUX(8, FUNC3)>;
 			input-enable;
-			slew-rate = <S32CC_SLEW_208MHZ>;
+			slew-rate = <S32CC_SLEW_150MHZ>;
 		};
 
 		dspi1slave_grp4 {
 			pinmux = <S32CC_PINMUX(95, FUNC0)>;
 			input-enable;
-			slew-rate = <S32CC_SLEW_208MHZ>;
+			slew-rate = <S32CC_SLEW_150MHZ>;
 			bias-pull-up;
 		};
-
 	};
 
 	dspi5_pins: dspi5_pins {
@@ -354,13 +356,13 @@
 			pinmux = <S32CC_PINMUX(9, FUNC3)>,
 				 <S32CC_PINMUX(11, FUNC3)>;
 			output-enable;
-			slew-rate = <S32CC_SLEW_208MHZ>;
+			slew-rate = <S32CC_SLEW_150MHZ>;
 		};
 
 		dspi5_grp1 {
 			pinmux = <S32CC_PINMUX(10, FUNC0)>;
 			input-enable;
-			slew-rate = <S32CC_SLEW_208MHZ>;
+			slew-rate = <S32CC_SLEW_150MHZ>;
 			bias-pull-up;
 		};
 
@@ -371,10 +373,9 @@
 		dspi5_grp3 {
 			pinmux = <S32CC_PINMUX(12, FUNC3)>;
 			output-enable;
-			slew-rate = <S32CC_SLEW_208MHZ>;
+			slew-rate = <S32CC_SLEW_150MHZ>;
 			bias-pull-up;
 		};
-
 	};
 
 	i2c0_pins: i2c0_pins {
@@ -383,7 +384,7 @@
 			drive-open-drain;
 			output-enable;
 			input-enable;
-			slew-rate = <S32CC_SLEW_208MHZ>;
+			slew-rate = <S32CC_SLEW_133MHZ>;
 		};
 
 		i2c0_grp1 {
@@ -396,9 +397,8 @@
 			drive-open-drain;
 			output-enable;
 			input-enable;
-			slew-rate = <S32CC_SLEW_208MHZ>;
+			slew-rate = <S32CC_SLEW_133MHZ>;
 		};
-
 	};
 
 	i2c0_gpio_pins: i2c0_gpio_pins {
@@ -414,7 +414,6 @@
 			pinmux = <S32CC_PINMUX(565, FUNC0)>,
 				 <S32CC_PINMUX(566, FUNC0)>;
 		};
-
 	};
 
 	i2c2_pins: i2c2_pins {
@@ -424,14 +423,13 @@
 			drive-open-drain;
 			output-enable;
 			input-enable;
-			slew-rate = <S32CC_SLEW_83MHZ>;
+			slew-rate = <S32CC_SLEW_133MHZ>;
 		};
 
 		i2c2_grp1 {
 			pinmux = <S32CC_PINMUX(719, FUNC2)>,
 				 <S32CC_PINMUX(720, FUNC2)>;
 		};
-
 	};
 
 	i2c2_gpio_pins: i2c2_gpio_pins {
@@ -447,7 +445,6 @@
 			output-enable;
 			slew-rate = <S32CC_SLEW_208MHZ>;
 		};
-
 	};
 
 	i2c4_pins: i2c4_pins {
@@ -456,7 +453,7 @@
 			drive-open-drain;
 			output-enable;
 			input-enable;
-			slew-rate = <S32CC_SLEW_83MHZ>;
+			slew-rate = <S32CC_SLEW_133MHZ>;
 		};
 
 		i2c4_grp1 {
@@ -469,9 +466,8 @@
 			drive-open-drain;
 			output-enable;
 			input-enable;
-			slew-rate = <S32CC_SLEW_83MHZ>;
+			slew-rate = <S32CC_SLEW_133MHZ>;
 		};
-
 	};
 
 	i2c4_gpio_pins: i2c4_gpio_pins {
@@ -487,7 +483,6 @@
 			pinmux = <S32CC_PINMUX(724, FUNC0)>,
 				 <S32CC_PINMUX(723, FUNC0)>;
 		};
-
 	};
 
 	usbotg_pins: usbotg_pins {
@@ -759,10 +754,6 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&usbotg_pins>;
 	fsl,usbphy = <&usbphynop>;
-	status = "okay";
-};
-
-&qspi {
 	status = "okay";
 };
 
