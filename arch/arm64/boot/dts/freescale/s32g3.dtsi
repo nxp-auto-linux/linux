@@ -187,6 +187,9 @@
 
 &qspi {
 	compatible = "nxp,s32g3-qspi";
+	pinctrl-names = "default";
+	pinctrl-0 = <&qspi_pins_200mhz_slow_sre>;
+	status = "okay";
 };
 
 &tmu {
