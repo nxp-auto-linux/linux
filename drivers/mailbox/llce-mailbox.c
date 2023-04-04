@@ -176,13 +176,23 @@ static int process_logger_cmd(struct mbox_chan *chan, struct llce_rx_msg *msg);
 static bool config_platform = true;
 module_param(config_platform, bool, 0660);
 
-const struct llce_error *get_llce_errors(size_t *n_elems);
-
 static const char * const llce_modules[] = {
 	LLCE_MODULE_ENTRY(LLCE_TX),
 	LLCE_MODULE_ENTRY(LLCE_RX),
 	LLCE_MODULE_ENTRY(LLCE_DTE),
 	LLCE_MODULE_ENTRY(LLCE_FRPE),
+	LLCE_MODULE_ENTRY(LLCE_CAN2CAN_TX),
+	LLCE_MODULE_ENTRY(LLCE_CAN2CAN_RX),
+	LLCE_MODULE_ENTRY(LLCE_CAN2CAN_FRPE),
+	LLCE_MODULE_ENTRY(LLCE_AF_ETH_TX),
+	LLCE_MODULE_ENTRY(LLCE_AF_ETH_RX),
+	LLCE_MODULE_ENTRY(LLCE_AF_ETH_FRPE),
+	LLCE_MODULE_ENTRY(LLCE_AF_HSE_TX),
+	LLCE_MODULE_ENTRY(LLCE_AF_HSE_RX),
+	LLCE_MODULE_ENTRY(LLCE_AF_HSE_FRPE),
+	LLCE_MODULE_ENTRY(LLCE_AF_TX),
+	LLCE_MODULE_ENTRY(LLCE_AF_RX),
+	LLCE_MODULE_ENTRY(LLCE_AF_FRPE),
 };
 
 static const struct llce_mb_desc mb_map[] = {
@@ -1406,8 +1416,16 @@ static void process_channel_err(struct llce_mb *mb,
 
 	switch (module_id) {
 	case LLCE_TX:
+	case LLCE_CAN2CAN_TX:
+	case LLCE_AF_ETH_TX:
+	case LLCE_AF_HSE_TX:
+	case LLCE_AF_TX:
 		return process_chan_err(mb, S32G_LLCE_CAN_TX_MB, error);
 	case LLCE_RX:
+	case LLCE_CAN2CAN_RX:
+	case LLCE_AF_ETH_RX:
+	case LLCE_AF_HSE_RX:
+	case LLCE_AF_RX:
 		return process_chan_err(mb, S32G_LLCE_CAN_RX_MB, error);
 	default:
 		net_warn_ratelimited("%s: Error module:%s Error:%d HW module:%d\n",
