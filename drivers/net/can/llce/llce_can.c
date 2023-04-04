@@ -393,8 +393,8 @@ static void set_advanced_filter(struct llce_config_msg *msg,
 		.can_custom_processing = LLCE_AF_CUSTOMPROCESSING_DISABLED,
 		.can_logging_feature = LLCE_AF_LOGGING_ENABLED,
 		.host_receive = LLCE_AF_HOSTRECEIVE_ENABLED,
-		.can2can_routing_table_idx = (u8)0x0U,
-		.can2eth_routing_table_idx = (u8)0x0U,
+		.can2can_routing_table_idx = LLCE_CAN_ADVANCED_FILTER_NOT_USED,
+		.can2eth_routing_table_idx = LLCE_CAN_ADVANCED_FILTER_NOT_USED,
 	};
 
 	set_rx_filter(&afilt->llce_can_Rx_filter, fifo, hw_ctrl, true);
