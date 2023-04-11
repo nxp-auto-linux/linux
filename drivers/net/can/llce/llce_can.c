@@ -546,18 +546,30 @@ static int stop_llce_can(struct llce_can *llce)
 	return set_controller_mode(llce->config, LLCE_CAN_T_STOP);
 }
 
-static u32 get_ntseg1(const struct can_bittiming *bt)
+static int get_ntseg1(const struct can_bittiming *bt, u32 *tseg1)
 {
-	return bt->prop_seg + bt->phase_seg1 - 1;
+	if (!bt->prop_seg && !bt->phase_seg1)
+		return -EINVAL;
+
+	*tseg1 = bt->prop_seg + bt->phase_seg1 - 1;
+	return 0;
 }
 
-static u32 get_cbt(const struct can_bittiming *bt)
+static int get_cbt(const struct can_bittiming *bt, u32 *cbt)
 {
+	int ret;
 	u32 val, ntseg1, ntseg2, presdiv, nrjw;
+
+	if (!bt->brp || !bt->sjw || !bt->phase_seg2)
+		return -EINVAL;
 
 	presdiv = bt->brp - 1;
 	nrjw = bt->sjw - 1;
-	ntseg1 = get_ntseg1(bt);
+
+	ret = get_ntseg1(bt, &ntseg1);
+	if (ret)
+		return ret;
+
 	ntseg2 = bt->phase_seg2 - 1;
 
 	val = presdiv << LLCE_CBT_PRESDIV_OFFSET;
@@ -565,13 +577,34 @@ static u32 get_cbt(const struct can_bittiming *bt)
 	val |= ntseg2 << LLCE_CBT_TSEG2_OFFSET;
 	val |= ntseg1 << LLCE_CBT_TSEG1_OFFSET;
 
-	return val;
+	*cbt = val;
+	return 0;
 }
 
-static u32 get_tdc_off(const struct can_bittiming *bt)
+static int get_tdc_off(const struct can_bittiming *bt, u32 *tdc_off)
 {
-	/* Based on CiA 601-3 v. 1.0.0 */
-	return bt->brp * (get_ntseg1(bt) + 2) - 1;
+	int ret;
+	u32 tseg1, tsegsum, prod;
+
+	ret = get_ntseg1(bt, &tseg1);
+	if (ret)
+		return ret;
+
+	/**
+	 * Based on CiA 601-3 v. 1.0.0
+	 * tdc = bt->brp * (tseg1 + 2) - 1
+	 */
+	if (unlikely(check_add_overflow(tseg1, 2u, &tsegsum)))
+		return -E2BIG;
+
+	if (unlikely(check_mul_overflow(bt->brp, tsegsum, &prod)))
+		return -E2BIG;
+
+	if (!prod)
+		return -E2BIG;
+
+	*tdc_off = prod - 1;
+	return 0;
 }
 
 static bool is_canfd_dev(struct can_priv *can)
@@ -584,7 +617,6 @@ static bool is_canfd_dev(struct can_priv *can)
 
 static int llce_set_data_bittiming(struct net_device *dev)
 {
-	int ret;
 	struct llce_can *llce = netdev_priv(dev);
 	struct llce_can_dev *llce_dev = &llce->common;
 	struct can_priv *can = &llce_dev->can;
@@ -592,29 +624,59 @@ static int llce_set_data_bittiming(struct net_device *dev)
 	const struct can_bittiming *dbt = &can->data_bittiming;
 	const struct can_bittiming *bt = &can->bittiming;
 	u8 fd_enable = is_canfd_dev(can) ? 1u : 0u;
-	u32 tdc_offset = get_tdc_off(dbt);
+	struct llce_can_set_baudrate_cmd *baudrate_cmd;
 	struct llce_config_msg msg = {
 		.cmd = LLCE_EXECUTE_FW_CMD,
 		.fw_cmd = {
 			.cmd_id = LLCE_CAN_CMD_SETBAUDRATE,
 			.cmd_list.set_baudrate = {
-				.nominal_baudrate_config = get_cbt(bt),
+				/* It will be overwritten below */
+				.nominal_baudrate_config = 0,
 				.controller_fd = {
 					.fd_enable = fd_enable,
-					.data_baudrate_config = get_cbt(dbt),
+					/* It will be overwritten below */
+					.data_baudrate_config = 0,
 					.controller_tx_bit_rate_switch = true,
 					.trcv_delay_comp_enable = true,
 					.trcv_delay_meas_enable = true,
-					.trcv_delay_comp_offset = tdc_offset,
+					/* It will be overwritten below */
+					.trcv_delay_comp_offset = 0,
 				},
 			},
 		},
 	};
+	u32 n_baudrate, d_baudrate, tdc_offset;
+	int ret;
+
+	baudrate_cmd = &msg.fw_cmd.cmd.cmd_list.set_baudrate;
+
+	ret = get_cbt(bt, &n_baudrate);
+	if (ret) {
+		netdev_err(dev, "Failed to compute the nominal baudrate\n");
+		return ret;
+	}
+
+	ret = get_cbt(dbt, &d_baudrate);
+	if (ret) {
+		netdev_err(dev, "Failed to compute the data baudrate\n");
+		return ret;
+	}
+
+	ret = get_tdc_off(dbt, &tdc_offset);
+	if (ret) {
+		netdev_err(dev, "Failed to determine Transceiver Delay Compensation Offset\n");
+		return ret;
+	}
 
 	if (tdc_offset > U8_MAX) {
-		netdev_err(dev, "Transceiver Delay Compensation Offset exceeds its max allowed value\n");
+		netdev_err(dev, "Transceiver Delay Compensation Offset exceeds its max allowed value 0x%x\n",
+			   tdc_offset);
 		return -EINVAL;
 	}
+
+	baudrate_cmd->nominal_baudrate_config = n_baudrate;
+	baudrate_cmd->controller_fd.data_baudrate_config = d_baudrate;
+	baudrate_cmd->controller_fd.trcv_delay_comp_offset = tdc_offset;
 
 	if (fd_enable && bt->brp != dbt->brp) {
 		netdev_err(dev, "Different values for nominal and data prescalers\n");
