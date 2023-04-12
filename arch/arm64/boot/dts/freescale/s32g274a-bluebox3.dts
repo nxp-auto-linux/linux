@@ -499,6 +499,20 @@
 	};
 };
 
+&qspi {
+	/delete-node/ mx25uw51245g@0;
+
+	mt35xu512aba@0 {
+		address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "jedec,spi-nor";
+		spi-max-frequency = <133333333>;
+		spi-tx-bus-width = <8>;
+		spi-rx-bus-width = <8>;
+		reg = <0>;
+	};
+};
+
 &stm0 {
 	status = "okay";
 };
