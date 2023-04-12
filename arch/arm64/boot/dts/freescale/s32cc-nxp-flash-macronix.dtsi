@@ -19,6 +19,17 @@
 			#address-cells = <1>;
 			#size-cells = <1>;
 
+			/*
+			 * By default, the QSPI Flash memory erase sector
+			 * size will try to be set to 4KB, in accordance with
+			 * the setting of CONFIG_MTD_SPI_NOR_USE_4K_SECTORS config.
+			 * This means that the following QSPI partitions
+			 * sizes should be 4KB aligned.
+			 * In case filesystems which require larger erase
+			 * sector sizes are required, such as UBIFS, the
+			 * above mentioned config should be disabled,
+			 * which would lead to a 64KB erase sector size usage.
+			 */
 			flashimage@0 {
 				label = "Flash-Image";
 				reg = <0x0 0x4000000>;
