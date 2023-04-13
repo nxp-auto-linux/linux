@@ -891,22 +891,19 @@ static int llce_hif_startup(struct mbox_chan *chan)
 	return 0;
 }
 
-static int init_pop_data(struct llce_chan_priv *priv)
+static struct llce_rx_data *alloc_pop_data(void)
 {
-	struct llce_rx_data *data;
-	int ret = 0;
+	struct llce_rx_data *ret;
 
-	priv->data = NULL;
-
-	/* Make room for POP leftovers */
-	data = kmalloc(sizeof(*data), GFP_KERNEL);
-	if (!data)
-		return -ENOMEM;
-
-	data->has_leftover = false;
-	priv->data = data;
+	ret = kmalloc(sizeof(*ret), GFP_KERNEL);
 
 	return ret;
+}
+
+static void init_pop_data(struct llce_chan_priv *priv, struct llce_rx_data *data)
+{
+	data->has_leftover = false;
+	priv->data = data;
 }
 
 static void release_pop_data(struct llce_chan_priv *priv)
@@ -990,6 +987,7 @@ static void disable_shared_irq(struct device *dev,
 static int llce_rx_startup(struct mbox_chan *chan)
 {
 	struct llce_chan_priv *priv = chan->con_priv;
+	struct llce_rx_data *data;
 	struct llce_mb *mb = priv->mb;
 	unsigned int rxout_id;
 	void __iomem *rxout = get_rxout_fifo(chan, &rxout_id);
@@ -999,24 +997,26 @@ static int llce_rx_startup(struct mbox_chan *chan)
 		.enable = true,
 	};
 	unsigned long flags;
-	int ret;
 
 	request_llce_pair_irq(mb, &mb->rxout_irqs);
+
+	data = alloc_pop_data();
+	if (!data)
+		return -ENOMEM;
 
 	/* State change must go under the lock protection */
 	spin_lock_irqsave(&priv->lock, flags);
 
-	ret = init_pop_data(priv);
-	if (!ret) {
-		priv->state = LLCE_REGISTERED_CHAN;
+	init_pop_data(priv, data);
+	priv->state = LLCE_REGISTERED_CHAN;
 
-		enable_shared_irq(&mb->fifos_irq_ref_cnt, true,
-				  rxout_id, control_shared_rxout_cb,
-				  &en_irq_data);
-	}
+	enable_shared_irq(&mb->fifos_irq_ref_cnt, true,
+			  rxout_id, control_shared_rxout_cb,
+			  &en_irq_data);
 
 	spin_unlock_irqrestore(&priv->lock, flags);
-	return ret;
+
+	return 0;
 }
 
 static void llce_rx_shutdown(struct mbox_chan *chan)
@@ -1111,6 +1111,7 @@ static void llce_tx_shutdown(struct mbox_chan *chan)
 static int llce_logger_startup(struct mbox_chan *chan)
 {
 	struct llce_chan_priv *priv = chan->con_priv;
+	struct llce_rx_data *data;
 	struct llce_mb *mb = priv->mb;
 	unsigned long flags;
 	int ret = 0;
@@ -1119,10 +1120,14 @@ static int llce_logger_startup(struct mbox_chan *chan)
 	if (ret)
 		return ret;
 
+	data = alloc_pop_data();
+	if (!data)
+		return -ENOMEM;
+
 	spin_lock_irqsave(&priv->lock, flags);
 	priv->state = LLCE_REGISTERED_CHAN;
 
-	ret = init_pop_data(priv);
+	init_pop_data(priv, data);
 
 	spin_unlock_irqrestore(&priv->lock, flags);
 
