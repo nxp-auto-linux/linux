@@ -13,3 +13,11 @@
 &pfesl_aux0 {
 	status = "okay";
 };
+
+&pfe_hif3 {
+	status = "okay";
+};
+
+&pfesl_hif0 {
+	status = "okay";
+};
