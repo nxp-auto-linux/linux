@@ -28,11 +28,10 @@
 			interrupts = <GIC_SPI 190 IRQ_TYPE_EDGE_RISING>,
 				     <GIC_SPI 191 IRQ_TYPE_EDGE_RISING>,
 				     <GIC_SPI 192 IRQ_TYPE_EDGE_RISING>,
-				     <GIC_SPI 193 IRQ_TYPE_EDGE_RISING>,
 				     <GIC_SPI 194 IRQ_TYPE_EDGE_RISING>,
 				     <GIC_SPI 196 IRQ_TYPE_EDGE_RISING>,
 				     <GIC_SPI 197 IRQ_TYPE_EDGE_RISING>;
-			interrupt-names = "hif0", "hif1", "hif2", "hif3",
+			interrupt-names = "hif0", "hif1", "hif2",
 					  "bmu", "upegpt", "safety";
 			resets = <&reset S32CC_SCMI_RST_PART2>;
 			reset-names = "pfe_part";
