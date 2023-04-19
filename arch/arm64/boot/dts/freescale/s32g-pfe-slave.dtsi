@@ -15,7 +15,7 @@
 
 / {
 	soc {
-		pfe_slave: pfe_slave@46000020 {
+		pfe_slave: pfe_slave@46000000 {
 			compatible = "nxp,s32g-pfe-slave";
 			reg = <0x0 0x46000000 0x0 0x1000000>,
 			      <0x0 0x4007ca00 0x0 0x100>;
