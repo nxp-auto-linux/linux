@@ -6,7 +6,7 @@
 // Copyright (c) 2009 Sascha Hauer, Pengutronix
 // Copyright (c) 2010-2017 Pengutronix, Marc Kleine-Budde <kernel@pengutronix.de>
 // Copyright (c) 2014 David Jander, Protonic Holland
-// Copyright 2015,2019-2022 NXP
+// Copyright 2015,2019-2023 NXP
 //
 // Based on code originally by Andrey Volkov <avolkov@varma-el.com>
 
@@ -2083,6 +2083,27 @@ static const struct platform_device_id flexcan_id_table[] = {
 };
 MODULE_DEVICE_TABLE(platform, flexcan_id_table);
 
+static unsigned long get_per_clk_rate(struct clk *clk)
+{
+	unsigned long rate;
+	int err;
+
+	rate = clk_get_rate(clk);
+	if (rate)
+		return rate;
+
+	/* Just in case this clock is disabled by default */
+	err = clk_prepare_enable(clk);
+	if (err)
+		return 0;
+
+	rate = clk_get_rate(clk);
+
+	clk_disable_unprepare(clk);
+
+	return rate;
+}
+
 static int flexcan_probe(struct platform_device *pdev)
 {
 	const struct of_device_id *of_id;
@@ -2092,6 +2113,7 @@ static int flexcan_probe(struct platform_device *pdev)
 	struct regulator *reg_xceiver;
 	struct clk *clk_ipg = NULL, *clk_per = NULL;
 	struct flexcan_regs __iomem *regs;
+	unsigned long freq;
 	int err, n_irqs, *irq_nos, i;
 	u8 clk_src = 1;
 	u32 clock_freq = 0;
@@ -2124,7 +2146,14 @@ static int flexcan_probe(struct platform_device *pdev)
 			dev_err(&pdev->dev, "no per clock defined\n");
 			return PTR_ERR(clk_per);
 		}
-		clock_freq = clk_get_rate(clk_per);
+		freq = get_per_clk_rate(clk_per);
+		if (freq > U32_MAX) {
+			dev_err(&pdev->dev, "%lu Hz exceeds the max allowed value for the CAN clock\n",
+				freq);
+			return -EINVAL;
+		}
+
+		clock_freq = freq;
 	}
 
 	regs = devm_platform_ioremap_resource(pdev, 0);
