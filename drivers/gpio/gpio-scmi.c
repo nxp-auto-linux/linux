@@ -90,7 +90,9 @@ static int scmi_gpio_init_valid_mask(struct gpio_chip *gc,
 		return -EINVAL;
 	}
 
-	memcpy(valid_mask, mask, sizeof(*mask) * slots);
+	memcpy(valid_mask, mask,
+	       SCMI_GPIO_PINS_PER_SLOT / BITS_PER_BYTE * slots);
+
 	return 0;
 }
 
