@@ -12,8 +12,17 @@ menuconfig CAN_LLCE
 
 if CAN_LLCE
 
+config CAN_LLCE_CORE
+	bool
+	help
+	  This driver is used on S32G2 and S32G3 platforms to manage the
+	  filters for the incoming messages that can be offloaded in hardware
+	  and the traffic routed between the LLCE CAN interfaces. Filter
+	  configuration and routing control can be perfomed through procfs files.
+
 config CAN_LLCE_CONTROLLER
 	tristate "LLCE CAN"
+	select CAN_LLCE_CORE
 	depends on m
 	help
 	  Driver for CAN interface of the NXP LLCE accelerator. The CAN
@@ -24,6 +33,7 @@ config CAN_LLCE_CONTROLLER
 
 config CAN_LLCE_LOGGER
 	tristate "LLCE CAN Logger"
+	select CAN_LLCE_CORE
 	depends on m
 	help
 	  This driver is used on S32G2/S32G3 to log CAN messages received from
