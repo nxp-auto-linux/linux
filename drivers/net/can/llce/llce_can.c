@@ -19,15 +19,13 @@
 #define CHAN_TIMEOUT			10
 #define LLCE_STATE_TRANSITION_NS	(500 * NSEC_PER_MSEC)
 #define LLCE_CAN_DRV_NAME		"llce_can"
-#define LLCE_CAN_NETDEV_IF_NAME		"llcecan"
 
 #define LLCE_CBT_PRESDIV_OFFSET		23U
 #define LLCE_CBT_RJW_OFFSET		16U
 #define LLCE_CBT_TSEG2_OFFSET		9U
 #define LLCE_CBT_TSEG1_OFFSET		0U
 
-#define LLCE_CAN_MAX_TX_MB		16U
-
+#define LLCE_CAN_MAX_TX_MB		(16U)
 
 struct llce_can {
 	struct llce_can_dev common; /* Must be the first member */
@@ -38,12 +36,6 @@ struct llce_can {
 	struct mbox_chan *config, *tx;
 
 	struct clk *clk;
-
-	int basic_filter_addr;
-	int advanced_filter_addr;
-
-	bool filter_setup_done;
-	bool logger_iface_up;
 
 	u8 fifo;
 };
@@ -86,66 +78,6 @@ static void config_rx_callback(struct mbox_client *cl, void *msg)
 	complete(&llce->config_done);
 }
 
-static struct device *llce_can_chan_dev(struct mbox_chan *conf_chan)
-{
-	struct mbox_client *cl = conf_chan->cl;
-
-	return cl->dev;
-}
-
-static int send_cmd_msg(struct mbox_chan *conf_chan,
-			struct llce_config_msg *msg)
-{
-	struct device *dev = llce_can_chan_dev(conf_chan);
-	struct mbox_client *cl = conf_chan->cl;
-	struct llce_can *can = container_of(cl, struct llce_can, config_client);
-	int ret;
-
-	ret = mbox_send_message(conf_chan, msg);
-	if (ret < 0)
-		return ret;
-
-	wait_for_completion(&can->config_done);
-	switch (msg->cmd) {
-	case LLCE_EXECUTE_FW_CMD:
-		if (msg->fw_cmd.return_value != LLCE_FW_SUCCESS) {
-			dev_err(dev, "LLCE FW error %d\n",
-				msg->fw_cmd.return_value);
-			return -EIO;
-		}
-
-		break;
-	case LLCE_GET_FIFO_INDEX:
-		break;
-	default:
-		dev_err(dev, "Unknown command for CAN cfg channel %u\n",
-			msg->cmd);
-		return -EINVAL;
-	}
-
-	return 0;
-}
-
-static int llce_get_fifo(struct llce_can *llce)
-{
-	struct mbox_chan *conf_chan = llce->config;
-	struct device *dev = llce_can_chan_dev(conf_chan);
-	struct llce_config_msg msg = {
-		.cmd = LLCE_GET_FIFO_INDEX,
-	};
-	int ret;
-
-	ret = send_cmd_msg(conf_chan, &msg);
-	if (ret) {
-		dev_err(dev, "Failed to get the FIFO index\n");
-		return ret;
-	}
-
-	llce->fifo = msg.fifo.index;
-
-	return 0;
-}
-
 static int llce_can_init(struct llce_can *llce)
 {
 	struct mbox_chan *conf_chan = llce->config;
@@ -156,12 +88,15 @@ static int llce_can_init(struct llce_can *llce)
 	struct llce_config_msg msg = {
 		.cmd = LLCE_EXECUTE_FW_CMD,
 		.fw_cmd = {
-			.cmd_id = LLCE_CAN_CMD_INIT,
-			.cmd_list.init = {
-				.ctrl_config = LLCE_CAN_CONTROLLERCONFIG_CTRL_EN
-				    | LLCE_CAN_CONTROLLERCONFIG_ABR_EN
-				    | LLCE_CAN_CONTROLLERCONFIG_TST_END,
-				.tx_mb_count = LLCE_CAN_MAX_TX_MB,
+			.hw_ctrl = LLCE_HW_CTRL_FROM_CHAN_IDX,
+			.cmd = {
+				.cmd_id = LLCE_CAN_CMD_INIT,
+				.cmd_list.init = {
+					.ctrl_config = LLCE_CAN_CONTROLLERCONFIG_CTRL_EN
+					    | LLCE_CAN_CONTROLLERCONFIG_ABR_EN
+					    | LLCE_CAN_CONTROLLERCONFIG_TST_END,
+					.tx_mb_count = LLCE_CAN_MAX_TX_MB,
+				},
 			},
 		},
 	};
@@ -175,9 +110,9 @@ static int llce_can_init(struct llce_can *llce)
 	if (can->ctrlmode & CAN_CTRLMODE_LISTENONLY)
 		ctrl_config |= LLCE_CAN_CONTROLLERCONFIG_LOM_EN;
 
-	msg.fw_cmd.cmd_list.init.ctrl_config |= ctrl_config;
+	msg.fw_cmd.cmd.cmd_list.init.ctrl_config |= ctrl_config;
 
-	ret = send_cmd_msg(conf_chan, &msg);
+	ret = llce_send_config_cmd(conf_chan, &msg, &llce->config_done);
 	if (ret) {
 		dev_err(dev, "Failed to init LLCE CAN\n");
 		return ret;
@@ -193,12 +128,15 @@ static int llce_can_deinit(struct llce_can *llce)
 	struct llce_config_msg msg = {
 		.cmd = LLCE_EXECUTE_FW_CMD,
 		.fw_cmd = {
-			.cmd_id = LLCE_CAN_CMD_DEINIT,
+			.hw_ctrl = LLCE_HW_CTRL_FROM_CHAN_IDX,
+			.cmd = {
+				.cmd_id = LLCE_CAN_CMD_DEINIT,
+			},
 		},
 	};
 	int ret;
 
-	ret = send_cmd_msg(conf_chan, &msg);
+	ret = llce_send_config_cmd(conf_chan, &msg, &llce->config_done);
 	if (ret) {
 		dev_err(dev, "Failed to deinitialize LLCE CAN\n");
 		return ret;
@@ -221,269 +159,30 @@ static int llce_can_interfaces_set(struct llce_can *llce)
 	return 0;
 }
 
-static struct llce_can *llce_can_interfaces_get_unsafe(unsigned int id)
-{
-	struct llce_can *llce;
-
-	if (id >= LLCE_CAN_CONFIG_MAXCTRL_COUNT)
-		return NULL;
-
-	llce = llce_can_interfaces[id];
-
-	return llce;
-}
-
-static void llce_can_interfaces_cleanup(struct llce_can *llce)
-{
-	unsigned int id = llce->common.id;
-
-	if (id >= LLCE_CAN_CONFIG_MAXCTRL_COUNT)
-		return;
-
-	mutex_lock(&llce_can_interfaces_lock);
-	llce_can_interfaces[id] = NULL;
-	mutex_unlock(&llce_can_interfaces_lock);
-}
-
-static int llce_can_remove_filter(struct llce_can *llce, int filter)
-{
-	struct device *dev = llce->config_client.dev;
-	struct mbox_chan *conf_chan = llce->config;
-	struct llce_config_msg msg;
-	int ret;
-
-	if (filter == -EINVAL)
-		return 0;
-
-	msg = (struct llce_config_msg) {
-		.cmd = LLCE_EXECUTE_FW_CMD,
-		.fw_cmd = {
-			.cmd_id = LLCE_CAN_CMD_REMOVE_FILTER,
-			.cmd_list.change_filter.filter_addr = filter,
-		},
-	};
-
-	ret = send_cmd_msg(conf_chan, &msg);
-	if (ret)
-		dev_err(dev, "Failed to remove filter %d\n", filter);
-
-	return ret;
-}
-
-static void llce_can_cleanup_filters(struct llce_can *llce)
-{
-	if (!llce->filter_setup_done)
-		return;
-
-	/* The return value is ignored on purpose.
-	 * We should try to remove all the filters.
-	 */
-	if (llce->basic_filter_addr != -EINVAL) {
-		llce_can_remove_filter(llce, llce->basic_filter_addr);
-		llce->basic_filter_addr = -EINVAL;
-	}
-	if (llce->advanced_filter_addr != -EINVAL) {
-		llce_can_remove_filter(llce, llce->advanced_filter_addr);
-		llce->advanced_filter_addr = -EINVAL;
-	}
-	llce->filter_setup_done = false;
-}
-
-static int llce_can_set_filter_status(struct llce_can *llce, int filter,
-				      bool enabled)
-{
-	struct device *dev = llce->config_client.dev;
-	struct mbox_chan *conf_chan = llce->config;
-	struct llce_config_msg msg;
-	int ret;
-
-	if (filter == -EINVAL)
-		return 0;
-
-	msg = (struct llce_config_msg) {
-		.cmd = LLCE_EXECUTE_FW_CMD,
-		.fw_cmd = {
-			.cmd_id = LLCE_CAN_CMD_SETFILTERENABLESTATUS,
-			.cmd_list.change_filter.filter_addr = filter,
-			.cmd_list.change_filter.filter_enabled = !!enabled,
-		},
-	};
-
-	ret = send_cmd_msg(conf_chan, &msg);
-	if (ret)
-		dev_err(dev, "Failed to set filter status\n");
-
-	return ret;
-}
-
-static int llce_can_configure_filter(struct llce_can *llce, bool ifup)
-{
-	if (llce->logger_iface_up)
-		return llce_can_set_filter_status(llce,
-						 llce->advanced_filter_addr,
-						 ifup);
-	else
-		return llce_can_set_filter_status(llce,
-						 llce->basic_filter_addr,
-						 ifup);
-}
-
-static void set_rx_filter(struct llce_can_rx_filter *rx_filter, u8 fifo,
-			  u8 hw_ctrl,
-			  bool canfd)
-{
-	enum llce_can_rx_mb_length len;
-	u16 filter = 0;
-
-	/* Encode HW ctrl & MB type into filter id */
-	llce_filter_set_hwctrl(&filter, hw_ctrl);
-	llce_filter_set_mb_type(&filter, canfd);
-
-	if (canfd)
-		len = USE_LONG_MB;
-	else
-		len = USE_SHORT_MB;
-
-	*rx_filter = (struct llce_can_rx_filter) {
-		.id_mask = 0,
-		.message_id = 0,
-		.filter_id = filter,
-		.mb_count = LLCE_CAN_MAX_TX_MB,
-		.entry_type = LLCE_CAN_ENTRY_CFG_MASKED,
-		.filter_mb_length = len,
-		.rx_dest_interface = fifo,
-	};
-}
-
-static void set_basic_filter(struct llce_config_msg *msg, u8 fifo,
-			     u8 hw_ctrl, bool canfd)
-{
-	*msg = (struct llce_config_msg) {
-		.cmd = LLCE_EXECUTE_FW_CMD,
-		.fw_cmd = {
-			.cmd_id = LLCE_CAN_CMD_SETFILTER,
-			.cmd_list.set_filter = {
-				.rx_filters_count = 1,
-			},
-		}
-	};
-
-	set_rx_filter(&msg->fw_cmd.cmd_list.set_filter.rx_filters[0],
-		      fifo, hw_ctrl, canfd);
-}
-
-static void set_advanced_filter(struct llce_config_msg *msg,
-				u8 fifo, u8 hw_ctrl)
-{
-	struct llce_can_advanced_filter *afilt;
-
-	*msg = (struct llce_config_msg) {
-		.cmd = LLCE_EXECUTE_FW_CMD,
-		.fw_cmd = {
-			.cmd_id = LLCE_CAN_CMD_SETADVANCEDFILTER,
-			.cmd_list.set_advanced_filter = {
-				.rx_filters_count = 1,
-			},
-		}
-	};
-
-	afilt = &msg->fw_cmd.cmd_list.set_advanced_filter.advanced_filters[0];
-	afilt->llce_can_advanced_feature = (struct llce_can_advanced_feature) {
-		.can_authentication_feature = LLCE_AF_AUTHENTICATION_DISABLED,
-		.can_custom_processing = LLCE_AF_CUSTOMPROCESSING_DISABLED,
-		.can_logging_feature = LLCE_AF_LOGGING_ENABLED,
-		.host_receive = LLCE_AF_HOSTRECEIVE_ENABLED,
-		.can2can_routing_table_idx = LLCE_CAN_ADVANCED_FILTER_NOT_USED,
-		.can2eth_routing_table_idx = LLCE_CAN_ADVANCED_FILTER_NOT_USED,
-	};
-
-	set_rx_filter(&afilt->llce_can_Rx_filter, fifo, hw_ctrl, true);
-}
-
-static int can_add_open_filter(struct net_device *dev)
-{
-	struct llce_can *llce = netdev_priv(dev);
-	struct mbox_chan *conf_chan = llce->config;
-	struct llce_can_advanced_filter *afilt;
-	struct llce_can_rx_filter *filt;
-	struct llce_config_msg msg;
-	bool canfd = is_canfd_dev(&llce->common.can);
-	unsigned int id = llce->common.id;
-	int ret;
-
-	if (id > LLCE_CAN_CONFIG_MAXCTRL_COUNT)
-		return -EINVAL;
-
-	if (llce->filter_setup_done)
-		return llce_can_configure_filter(llce, true);
-
-	set_basic_filter(&msg, llce->fifo, id, canfd);
-
-	ret = send_cmd_msg(conf_chan, &msg);
-	if (ret) {
-		netdev_err(dev, "Failed to set basic RX filter\n");
-		return ret;
-	}
-	filt = &msg.fw_cmd.cmd_list.set_filter.rx_filters[0];
-	llce->basic_filter_addr = filt->filter_addr;
-
-	if (!canfd) {
-		/* Logging is not supported if the interface is not in CAN FD
-		 * mode.
-		 */
-		llce->advanced_filter_addr = -EINVAL;
-		llce->filter_setup_done = true;
-		return 0;
-	}
-
-	set_advanced_filter(&msg, llce->fifo, id);
-	ret = send_cmd_msg(conf_chan, &msg);
-	if (ret) {
-		netdev_info(dev, "Advanced RX filter not added. Logging feature not available.\n");
-		llce->advanced_filter_addr = -EINVAL;
-		llce->filter_setup_done = true;
-		/* Return 0 on purpose.
-		 * Adding an advanced filter with logging enabled will fail if
-		 * the firmware does not support logging or if the firmware does
-		 * not have enough filters assigned to the current interface,
-		 * which is not the case.
-		 */
-		return 0;
-	}
-	afilt = &msg.fw_cmd.cmd_list.set_advanced_filter.advanced_filters[0];
-	llce->advanced_filter_addr = afilt->llce_can_Rx_filter.filter_addr;
-
-	llce->filter_setup_done = true;
-
-	if (llce->logger_iface_up)
-		return llce_can_set_filter_status(llce,
-						  llce->basic_filter_addr,
-						  false);
-	else
-		return llce_can_set_filter_status(llce,
-						  llce->advanced_filter_addr,
-						  false);
-}
-
 static bool state_transition(struct mbox_chan *conf_chan,
 			     enum llce_can_ctrl_state state)
 {
 	int ret;
 	struct device *dev = llce_can_chan_dev(conf_chan);
+	struct mbox_client *cl = conf_chan->cl;
+	struct llce_can *llce = container_of(cl, struct llce_can, config_client);
 	struct llce_config_msg msg = {
 		.cmd = LLCE_EXECUTE_FW_CMD,
 		.fw_cmd = {
-			.cmd_id = LLCE_CAN_CMD_GETCONTROLLERMODE,
+			.hw_ctrl = LLCE_HW_CTRL_FROM_CHAN_IDX,
+			.cmd = {
+				.cmd_id = LLCE_CAN_CMD_GETCONTROLLERMODE,
+			},
 		},
 	};
 
-	ret = send_cmd_msg(conf_chan, &msg);
+	ret = llce_send_config_cmd(conf_chan, &msg, &llce->config_done);
 	if (ret) {
 		dev_err(dev, "Failed to get controller's state\n");
 		return false;
 	}
 
-	return (msg.fw_cmd.cmd_list.get_controller_mode.controller_state == state);
+	return (msg.fw_cmd.cmd.cmd_list.get_controller_mode.controller_state == state);
 }
 
 static bool state_transition_timeout(struct mbox_chan *conf_chan,
@@ -500,14 +199,19 @@ static int set_controller_mode(struct mbox_chan *conf_chan,
 {
 	ktime_t timeout = ktime_add_ns(ktime_get(), LLCE_STATE_TRANSITION_NS);
 	struct device *dev = llce_can_chan_dev(conf_chan);
+	struct mbox_client *cl = conf_chan->cl;
+	struct llce_can *llce = container_of(cl, struct llce_can, config_client);
 	const char *mode_str;
 	enum llce_can_ctrl_state exp_state;
 	struct llce_config_msg set_cmd = {
 		.cmd = LLCE_EXECUTE_FW_CMD,
 		.fw_cmd = {
-			.cmd_id = LLCE_CAN_CMD_SETCONTROLLERMODE,
-			.cmd_list.set_controller_mode = {
-				.transition = mode,
+			.hw_ctrl = LLCE_HW_CTRL_FROM_CHAN_IDX,
+			.cmd = {
+				.cmd_id = LLCE_CAN_CMD_SETCONTROLLERMODE,
+				.cmd_list.set_controller_mode = {
+					.transition = mode,
+				},
 			},
 		}
 	};
@@ -521,7 +225,7 @@ static int set_controller_mode(struct mbox_chan *conf_chan,
 		exp_state = LLCE_CAN_STARTED;
 	}
 
-	ret = send_cmd_msg(conf_chan, &set_cmd);
+	ret = llce_send_config_cmd(conf_chan, &set_cmd, &llce->config_done);
 	if (ret) {
 		dev_err(dev, "Failed to send %s command\n", mode_str);
 		return ret;
@@ -628,19 +332,22 @@ static int llce_set_data_bittiming(struct net_device *dev)
 	struct llce_config_msg msg = {
 		.cmd = LLCE_EXECUTE_FW_CMD,
 		.fw_cmd = {
-			.cmd_id = LLCE_CAN_CMD_SETBAUDRATE,
-			.cmd_list.set_baudrate = {
-				/* It will be overwritten below */
-				.nominal_baudrate_config = 0,
-				.controller_fd = {
-					.fd_enable = fd_enable,
+			.hw_ctrl = LLCE_HW_CTRL_FROM_CHAN_IDX,
+			.cmd = {
+				.cmd_id = LLCE_CAN_CMD_SETBAUDRATE,
+				.cmd_list.set_baudrate = {
 					/* It will be overwritten below */
-					.data_baudrate_config = 0,
-					.controller_tx_bit_rate_switch = true,
-					.trcv_delay_comp_enable = true,
-					.trcv_delay_meas_enable = true,
-					/* It will be overwritten below */
-					.trcv_delay_comp_offset = 0,
+					.nominal_baudrate_config = 0,
+					.controller_fd = {
+						.fd_enable = fd_enable,
+						/* It will be overwritten below */
+						.data_baudrate_config = 0,
+						.controller_tx_bit_rate_switch = true,
+						.trcv_delay_comp_enable = true,
+						.trcv_delay_meas_enable = true,
+						/* It will be overwritten below */
+						.trcv_delay_comp_offset = 0,
+					},
 				},
 			},
 		},
@@ -683,13 +390,13 @@ static int llce_set_data_bittiming(struct net_device *dev)
 		return -EINVAL;
 	}
 
-	controller_fd = &msg.fw_cmd.cmd_list.set_baudrate.controller_fd;
+	controller_fd = &msg.fw_cmd.cmd.cmd_list.set_baudrate.controller_fd;
 
 	/* Disable delay compensation in loopback mode */
 	if (can->ctrlmode & CAN_CTRLMODE_LOOPBACK)
 		controller_fd->trcv_delay_comp_enable = false;
 
-	ret = send_cmd_msg(llce->config, &msg);
+	ret = llce_send_config_cmd(llce->config, &msg, &llce->config_done);
 	if (ret) {
 		netdev_err(dev, "Failed to set bit timing\n");
 		return ret;
@@ -697,80 +404,6 @@ static int llce_set_data_bittiming(struct net_device *dev)
 
 	return 0;
 }
-
-static int llce_can_device_event(struct notifier_block *nb,
-				 unsigned long action, void *data)
-{
-	struct net_device *dev = netdev_notifier_info_to_dev(data);
-	struct llce_can_dev *common = netdev_priv(dev);
-	bool adv_filter_en, base_filter_en;
-	struct net_device *llce_can_netdev;
-	struct llce_can *llce;
-	int ret;
-
-	if (!strstr(dev->name, "llcelogger"))
-		goto llce_can_event_out;
-
-	if (common->id >= LLCE_CAN_CONFIG_MAXCTRL_COUNT)
-		goto llce_can_event_out;
-
-	mutex_lock(&llce_can_interfaces_lock);
-	llce = llce_can_interfaces_get_unsafe(common->id);
-
-	if (!llce)
-		goto llce_can_event_out_unlock;
-
-	if (!is_canfd_dev(&llce->common.can)) {
-		goto llce_can_event_out_unlock;
-	}
-
-	switch (action) {
-	case NETDEV_DOWN:
-		llce->logger_iface_up = false;
-		break;
-	case NETDEV_UP:
-		llce->logger_iface_up = true;
-		break;
-	}
-
-	if (!llce->filter_setup_done)
-		goto llce_can_event_out_unlock;
-
-	if (!(common->can.dev->flags & IFF_UP))
-		goto llce_can_event_out_unlock;
-
-	if (llce->logger_iface_up) {
-		adv_filter_en = true;
-		base_filter_en = false;
-	} else {
-		adv_filter_en = false;
-		base_filter_en = true;
-	}
-
-	llce_can_netdev = llce->common.can.dev;
-
-	ret = llce_can_set_filter_status(llce, llce->basic_filter_addr,
-					 base_filter_en);
-	if (ret)
-		netdev_err(llce_can_netdev,
-			   "Failed to set basic filter status when %s goes %s\n",
-			   dev->name, llce->logger_iface_up ? "up" : "down");
-	ret = llce_can_set_filter_status(llce, llce->advanced_filter_addr,
-					 adv_filter_en);
-	if (ret)
-		netdev_err(llce_can_netdev,
-			   "Failed to set advanced filter status when %s goes %s\n",
-			   dev->name, llce->logger_iface_up ? "up" : "down");
-
-llce_can_event_out_unlock:
-	mutex_unlock(&llce_can_interfaces_lock);
-llce_can_event_out:
-	return NOTIFY_DONE;
-}
-
-static struct notifier_block llce_can_notifier = {
-	.notifier_call = llce_can_device_event,
-};
 
 static int llce_can_open(struct net_device *dev)
 {
@@ -786,17 +419,9 @@ static int llce_can_open(struct net_device *dev)
 	if (ret)
 		return ret;
 
-	ret = llce_get_fifo(llce);
-	if (ret)
-		return ret;
-
 	ret = llce_can_init(llce);
 	if (ret)
 		goto close_dev;
-
-	ret = can_add_open_filter(dev);
-	if (ret)
-		goto can_deinit;
 
 	ret = llce_set_data_bittiming(dev);
 	if (ret)
@@ -855,8 +480,6 @@ static int llce_can_close(struct net_device *dev)
 	struct llce_can_dev *common = &llce->common;
 	int ret, ret1;
 
-	llce_can_configure_filter(llce, false);
-	llce_can_cleanup_filters(llce);
 	netif_stop_queue(dev);
 
 	ret = stop_llce_can(llce);
@@ -1057,7 +680,6 @@ static int llce_can_probe(struct platform_device *pdev)
 
 	enable_llce_napi(common);
 
-	llce->filter_setup_done = false;
 	ret = llce_can_interfaces_set(llce);
 	if (ret) {
 		dev_err(dev, "LLCE interface ID %d equal or greather than %u\n",
@@ -1086,9 +708,6 @@ static int llce_can_remove(struct platform_device *pdev)
 	struct net_device *netdev = platform_get_drvdata(pdev);
 	struct llce_can *llce = netdev_priv(netdev);
 	struct llce_can_dev *common = &llce->common;
-
-	llce_can_interfaces_cleanup(llce);
-	llce_can_cleanup_filters(llce);
 
 	unregister_candev(netdev);
 	netif_napi_del(&common->napi);
@@ -1156,14 +775,11 @@ static struct platform_driver llce_can_driver = {
 
 static __init int llce_can_drv_init(void)
 {
-	register_netdevice_notifier(&llce_can_notifier);
-
 	return platform_driver_register(&llce_can_driver);
 }
 
 static void __exit llce_can_drv_exit(void)
 {
-	unregister_netdevice_notifier(&llce_can_notifier);
 	platform_driver_unregister(&llce_can_driver);
 }
 

@@ -611,3 +611,40 @@ void free_llce_netdev(struct llce_can_dev *dev)
 }
 EXPORT_SYMBOL(free_llce_netdev);
 
+int llce_send_config_cmd(struct mbox_chan *conf_chan,
+			 struct llce_config_msg *msg,
+			 struct completion *config_done)
+{
+	struct device *dev = llce_can_chan_dev(conf_chan);
+	enum llce_fw_return cmd_ret;
+	int ret;
+
+	ret = mbox_send_message(conf_chan, msg);
+	if (ret < 0)
+		return ret;
+
+	wait_for_completion(config_done);
+	switch (msg->cmd) {
+	case LLCE_EXECUTE_FW_CMD:
+		cmd_ret = msg->fw_cmd.cmd.return_value;
+		if (cmd_ret == LLCE_ERROR_COMMAND_NOTSUPPORTED)
+			return -EOPNOTSUPP;
+
+		if (cmd_ret != LLCE_FW_SUCCESS) {
+			dev_err(dev, "LLCE FW error %d\n",
+				msg->fw_cmd.cmd.return_value);
+			return -EIO;
+		}
+
+		break;
+	case LLCE_GET_FIFO_INDEX:
+		break;
+	default:
+		dev_err(dev, "Unknown command for CAN cfg channel %u\n",
+			msg->cmd);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL(llce_send_config_cmd);
