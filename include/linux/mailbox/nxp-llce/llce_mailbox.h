@@ -12,6 +12,8 @@
 #define LLCE_FILTER_HW_CTRL_SHIFT	8
 #define LLCE_FILTER_HW_CTRL_MASK	((u16)GENMASK(15, LLCE_FILTER_HW_CTRL_SHIFT))
 
+#define LLCE_HW_CTRL_FROM_CHAN_IDX	(0xffu)
+
 struct llce_mb;
 
 enum llce_chan_state {
@@ -84,10 +86,14 @@ enum llce_config_cmd {
 struct llce_config_msg {
 	enum llce_config_cmd cmd;
 	union {
-		struct llce_can_command fw_cmd;
 		struct {
-			u8 index;
-		} fifo;
+			struct llce_can_command cmd;
+			u8 hw_ctrl;
+		} fw_cmd;
+		struct {
+			u8 hw_ctrl;
+			u8 fifo;
+		} fifo_cmd;
 	};
 };
 
