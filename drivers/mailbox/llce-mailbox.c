@@ -227,6 +227,10 @@ static const struct llce_mb_desc mb_map[] = {
 		.name = "CAN Logger Config",
 		.nchan = 16,
 	},
+	[S32G_LLCE_CAN_CORE_CONFIG_MB] = {
+		.name = "CAN Core Config",
+		.nchan = 1,
+	},
 };
 
 static const struct llce_icsr icsrs[] = {
@@ -421,10 +425,16 @@ static void __iomem *get_blrin_fifo(struct mbox_chan *chan)
 				 priv->index);
 }
 
+static bool is_can_core_config_chan(unsigned int chan_type)
+{
+	return chan_type == S32G_LLCE_CAN_CORE_CONFIG_MB;
+}
+
 static bool is_config_chan(unsigned int chan_type)
 {
 	return chan_type == S32G_LLCE_CAN_CONF_MB ||
-		chan_type == S32G_LLCE_HIF_CONF_MB;
+		chan_type == S32G_LLCE_HIF_CONF_MB ||
+		is_can_core_config_chan(chan_type);
 }
 
 static bool is_rx_chan(unsigned int chan_type)
@@ -522,7 +532,8 @@ static struct mbox_chan *llce_mb_xlate(struct mbox_controller *mbox,
 }
 
 static int execute_config_cmd(struct mbox_chan *chan,
-			      struct llce_can_command *cmd)
+			      struct llce_can_command *cmd,
+			      u8 hw_ctrl)
 {
 	struct llce_chan_priv *priv = chan->con_priv;
 	struct llce_mb *mb = priv->mb;
@@ -531,6 +542,9 @@ static int execute_config_cmd(struct mbox_chan *chan,
 	void __iomem *txack, *push0;
 	unsigned long flags;
 	int ret = 0;
+
+	if (hw_ctrl != LLCE_HW_CTRL_FROM_CHAN_IDX)
+		idx = hw_ctrl;
 
 	txack = get_host_txack(mb);
 
@@ -564,13 +578,13 @@ static int process_get_fifo_index(struct mbox_chan *chan,
 	struct device *dev = mb->controller.dev;
 	unsigned int fifo_id;
 
-	fifo_id = get_ctrl_fifo(mb, priv->index);
+	fifo_id = get_ctrl_fifo(mb, msg->fifo_cmd.hw_ctrl);
 	if (fifo_id >= LLCE_NFIFO_WITH_IRQ) {
 		dev_err(dev, "Invalid FIFO id: %u\n", fifo_id);
 		return -EINVAL;
 	}
 
-	msg->fifo.index = fifo_id;
+	msg->fifo_cmd.fifo = fifo_id;
 
 	/* No actual FW command executed */
 	priv->last_msg = NULL;
@@ -587,7 +601,8 @@ static int process_config_msg(struct mbox_chan *chan,
 
 	switch (msg->cmd) {
 	case LLCE_EXECUTE_FW_CMD:
-		return execute_config_cmd(chan, &msg->fw_cmd);
+		return execute_config_cmd(chan, &msg->fw_cmd.cmd,
+					  msg->fw_cmd.hw_ctrl);
 	case LLCE_GET_FIFO_INDEX:
 		return process_get_fifo_index(chan, msg);
 	default:
@@ -2132,7 +2147,7 @@ static int execute_hif_cmd(struct llce_mb *mb,
 
 	chan = get_hif_cfg_chan(mb);
 
-	ret = execute_config_cmd(chan, cmd);
+	ret = execute_config_cmd(chan, cmd, LLCE_HW_CTRL_FROM_CHAN_IDX);
 	if (ret) {
 		dev_err(dev, "Failed to send command\n");
 		return ret;
