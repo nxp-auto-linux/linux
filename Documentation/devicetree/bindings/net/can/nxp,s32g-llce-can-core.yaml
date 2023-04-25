@@ -1,0 +1,42 @@
+# SPDX-License-Identifier: (GPL-2.0-only or BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/net/can/nxp,s32g-llce-can-core.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: LLCE CAN Core module
+
+maintainers:
+  - Ghennadi Procopciuc <ghennadi.procopciuc@nxp.com>
+
+description: |
+  This driver includes common functionalities for the LLCE CAN controller interfaces.
+
+properties:
+  compatible:
+    const: nxp,s32g-llce-can-core
+
+  mbox-names:
+    items:
+      - const: config
+
+  mboxes:
+    description: |
+      Configuration channel.
+
+required:
+  - compatible
+  - mboxes
+  - mbox-names
+
+additionalProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/mailbox/nxp-llce-mb.h>
+    llce_can_core: llce_can_core {
+        compatible = "nxp,s32g-llce-can-core";
+        mboxes = <&llce_mb S32G_LLCE_CAN_CORE_CONFIG_MB 0>;
+        mbox-names = "config";
+        status = "okay";
+    };
