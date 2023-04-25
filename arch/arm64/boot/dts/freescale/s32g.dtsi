@@ -271,6 +271,13 @@
 				status = "okay";
 			};
 
+			llce_can_core: llce_can_core {
+				compatible = "nxp,s32g-llce-can-core";
+				mboxes = <&llce_mb S32G_LLCE_CAN_CORE_CONFIG_MB 0>;
+				mbox-names = "config";
+				status = "okay";
+			};
+
 			llce_can_logger0: llce_can_logger0 {
 				compatible = "nxp,s32g-llce-can-logger";
 				mboxes = <&llce_mb S32G_LLCE_CAN_LOGGER_CONFIG_MB 0>,
