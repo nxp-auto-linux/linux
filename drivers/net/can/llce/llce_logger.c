@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0+ OR BSD-3-Clause
-/* Copyright 2020-2022 NXP
+/* Copyright 2020-2023 NXP
  *
  * Driver for the NXP Semiconductors LLCE engine logging of CAN messages.
  * The LLCE can be found on S32G2/S32G3.
@@ -17,7 +17,6 @@
 #include <linux/moduleparam.h>
 #include <linux/platform_device.h>
 
-#define LLCE_LOGGER_NETDEV_IF_NAME	"llcelogger"
 
 struct llce_logger {
 	struct llce_can_dev common; /* Must be the first member */
