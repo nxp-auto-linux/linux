@@ -15,8 +15,6 @@
 
 #include <linux/sort.h>
 
-#include <linux/pinctrl/pinconf-generic.h>
-
 #include "common.h"
 #include "notify.h"
 
@@ -125,6 +123,19 @@ static int compare_configs(const void *a, const void *b)
 	return pb - pa;
 }
 
+static void set_boolean_value(struct scmi_pinctrl_pinconf *pcf,
+			      enum pin_config_param param,
+			      bool enable)
+{
+
+	if (param >= BITS_PER_BYTE * sizeof(pcf->boolean_values))
+		return;
+
+	pcf->boolean_values &= ~BIT(param);
+	if (enable)
+		pcf->boolean_values |= BIT(param);
+}
+
 int scmi_pinctrl_create_pcf(unsigned long *configs,
 			    unsigned int num_configs,
 			    struct scmi_pinctrl_pinconf *pcf)
@@ -166,8 +177,7 @@ int scmi_pinctrl_create_pcf(unsigned long *configs,
 			}
 			pcf->multi_bit_values[multi_bit_idx++] = arg;
 		} else {
-			pcf->boolean_values &= ~BIT(param);
-			pcf->boolean_values |= (arg << param);
+			set_boolean_value(pcf, param, !!arg);
 		}
 	}
 
@@ -188,6 +198,126 @@ int scmi_pinctrl_convert_from_pcf(unsigned long **configs,
 			cfg = PIN_CONF_PACKED(bit,
 					      pcf->boolean_values & BIT(bit));
 		(*configs)[index++] = cfg;
+	}
+
+	return 0;
+}
+
+bool scmi_pinctrl_are_pcfs_equal(struct scmi_pinctrl_pinconf *pcfa,
+				 struct scmi_pinctrl_pinconf *pcfb)
+{
+	if (pcfa->mask != pcfb->mask)
+		return false;
+
+	if (pcfa->boolean_values != pcfb->boolean_values)
+		return false;
+
+	return !memcmp(pcfa->multi_bit_values, pcfb->multi_bit_values,
+		       scmi_pinctrl_mb_configs_size(pcfa->mask));
+}
+
+unsigned int scmi_pinctrl_hash_pcf(struct scmi_pinctrl_pinconf *pcf)
+{
+	unsigned int hash = 0, i;
+
+	hash |= pcf->mask ^ pcf->boolean_values;
+	for (i = 0; i < scmi_pinctrl_count_mb_configs(pcf->mask); i++)
+		hash ^= pcf->multi_bit_values[i];
+
+	return hash;
+}
+
+static unsigned int scmi_pinctrl_get_mb_index(struct scmi_pinctrl_pinconf *pcf,
+					      enum pin_config_param param)
+{
+	/* The index is represented by the number of set bits, in positions
+	 * that correspond to multi_bit_values, that occur before(MSB to LSB)
+	 * the one at the position corresponding to param.
+	 */
+	uint32_t higher_bits;
+	u8 max_pos;
+
+	max_pos = sizeof(pcf->mask) * BITS_PER_BYTE - 1;
+	if (param + 1 > max_pos)
+		return 0;
+
+	higher_bits = pcf->mask & GENMASK(max_pos, param + 1);
+	higher_bits &= SCMI_PINCTRL_MULTI_BIT_CFGS;
+
+	return hweight32(higher_bits);
+}
+
+int scmi_pinctrl_add_mb_to_pcf(struct device *dev,
+			       gfp_t flags,
+			       struct scmi_pinctrl_pinconf *pcf,
+			       enum pin_config_param param,
+			       u32 value)
+{
+	u32 *temp, count = scmi_pinctrl_count_mb_configs(pcf->mask);
+	unsigned int index = scmi_pinctrl_get_mb_index(pcf, param);
+
+	temp = devm_krealloc(dev, pcf->multi_bit_values,
+			     (count + 1) * sizeof(*pcf->multi_bit_values),
+			     flags);
+	if (!temp)
+		return -ENOMEM;
+
+	memmove(temp + index + 1, temp + index,
+		(count - index) * sizeof(*temp));
+	temp[index] = value;
+	pcf->multi_bit_values = temp;
+
+	return 0;
+}
+
+int scmi_pinctrl_add_pcf(struct device *dev,
+			 gfp_t flags,
+			 struct scmi_pinctrl_pinconf *res,
+			 struct scmi_pinctrl_pinconf *src,
+			 bool override)
+{
+	unsigned long mask = src->mask, b;
+	unsigned int index, mb_index = 0;
+	enum pin_config_param p;
+	u32 *temp, v;
+	int ret;
+
+	if (override) {
+		res->mask = src->mask;
+		res->boolean_values = src->boolean_values;
+		temp = devm_krealloc(dev,
+				     res->multi_bit_values,
+				     scmi_pinctrl_mb_configs_size(src->mask),
+				     flags);
+		if (!temp)
+			return -ENOMEM;
+
+		res->multi_bit_values = temp;
+
+		memcpy(res->multi_bit_values, src->multi_bit_values,
+		       scmi_pinctrl_mb_configs_size(src->mask));
+
+		return 0;
+	}
+
+	for_each_set_bit(b, &mask, sizeof(src->mask) * BITS_PER_BYTE) {
+		p = (enum pin_config_param)b;
+		if (!is_multi_bit_value(p)) {
+			res->mask |= BIT(b);
+			set_boolean_value(res, p,
+					  !!(src->boolean_values & BIT(b)));
+		} else if (res->mask & BIT(b)) {
+			index = scmi_pinctrl_get_mb_index(res, p);
+			res->multi_bit_values[index] =
+				src->multi_bit_values[mb_index++];
+		} else {
+			res->mask |= BIT(b);
+			v = src->multi_bit_values[mb_index++];
+			ret = scmi_pinctrl_add_mb_to_pcf(dev, flags, res, p, v);
+
+			if (ret)
+				return ret;
+		}
 	}
 
 	return 0;
@@ -359,30 +489,25 @@ scmi_pinctrl_protocol_pinmux_set(const struct scmi_protocol_handle *ph,
 	return ret;
 }
 
-static u32 scmi_pinctrl_count_mb_configs(u32 mask)
-{
-	return hweight32(mask & SCMI_PINCTRL_MULTI_BIT_CFGS);
-}
-
 static int
 scmi_pinctrl_add_multi_bit_values(const struct scmi_protocol_handle *ph,
 				  struct scmi_pinctrl_pinconf *pcf,
 				  struct scmi_msg_resp_pinctrl_pcf_get *rv)
 {
-	unsigned int bit = sizeof(pcf->mask) * BITS_PER_BYTE - 1;
+	unsigned int b = sizeof(pcf->mask) * BITS_PER_BYTE - 1;
 	unsigned int mb_idx = 0;
 	u32 v;
 
 	do {
-		if (!(pcf->mask & BIT(bit)))
+		if (!(pcf->mask & BIT(b)))
 			continue;
 
-		if (!is_multi_bit_value((enum pin_config_param)bit))
+		if (!is_multi_bit_value((enum pin_config_param)b))
 			continue;
 
 		v = le32_to_cpu(rv->multi_bit_values[mb_idx]);
 		pcf->multi_bit_values[mb_idx++] = v;
-	} while (bit-- != 0);
+	} while (b-- != 0);
 
 	return 0;
 }
