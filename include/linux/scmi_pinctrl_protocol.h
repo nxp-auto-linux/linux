@@ -9,6 +9,7 @@
 
 #include <linux/types.h>
 #include <linux/scmi_protocol.h>
+#include <linux/pinctrl/pinconf-generic.h>
 
 /*
  * SCMI Pinctrl Protocol
@@ -68,6 +69,17 @@ struct scmi_pinctrl_proto_ops {
 	u16 (*get_num_ranges)(const struct scmi_protocol_handle *ph);
 };
 
+static inline u32 scmi_pinctrl_count_mb_configs(u32 mask)
+{
+	return hweight32(mask & SCMI_PINCTRL_MULTI_BIT_CFGS);
+}
+
+static inline size_t scmi_pinctrl_mb_configs_size(u32 mask)
+{
+	return hweight32(mask & SCMI_PINCTRL_MULTI_BIT_CFGS) *
+	       sizeof_field(struct scmi_pinctrl_pinconf, multi_bit_values);
+}
+
 int scmi_pinctrl_create_pcf(unsigned long *configs,
 			    unsigned int num_configs,
 			    struct scmi_pinctrl_pinconf *pcf);
@@ -75,5 +87,18 @@ int scmi_pinctrl_convert_from_pcf(unsigned long **configs,
 				  struct scmi_pinctrl_pinconf *pcf);
 unsigned int scmi_pinctrl_count_multi_bit_values(unsigned long *configs,
 						 unsigned int num_configs);
+bool scmi_pinctrl_are_pcfs_equal(struct scmi_pinctrl_pinconf *pcfa,
+				 struct scmi_pinctrl_pinconf *pcfb);
+unsigned int scmi_pinctrl_hash_pcf(struct scmi_pinctrl_pinconf *pcf);
+int scmi_pinctrl_add_mb_to_pcf(struct device *dev,
+			       gfp_t flags,
+			       struct scmi_pinctrl_pinconf *pcf,
+			       enum pin_config_param param,
+			       u32 value);
+int scmi_pinctrl_add_pcf(struct device *dev,
+			 gfp_t flags,
+			 struct scmi_pinctrl_pinconf *res,
+			 struct scmi_pinctrl_pinconf *src,
+			 bool override);
 
 #endif /* SCMI_PINCTRL_PROTOCOL_H defined */
