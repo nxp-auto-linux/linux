@@ -598,7 +598,6 @@ static int scmi_pinctrl_pmx_gpio_request_enable(struct pinctrl_dev *pctldev,
 				   GFP_KERNEL);
 	if (!gpio_config) {
 		ret = -ENOMEM;
-		dev_err(pctldev->dev, "Error allocating gpio_config!\n");
 		goto err;
 	}
 	gpio_config->id = offset;
@@ -1148,10 +1147,9 @@ static int scmi_pinctrl_probe(struct scmi_device *sdev)
 
 	desc->npins = pin_count;
 	pin_desc = devm_kcalloc(dev, pin_count, sizeof(*pin_desc), GFP_KERNEL);
-	if (!pin_desc) {
-		dev_err(dev, "Could not allocate memory for pinctrl_desc!\n");
+	if (!pin_desc)
 		return -ENOMEM;
-	}
+
 	desc->pins = pin_desc;
 
 	for (i = 0; i < priv->num_ranges; ++i) {
