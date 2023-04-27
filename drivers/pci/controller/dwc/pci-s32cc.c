@@ -187,50 +187,6 @@ struct dma_info *dw_get_dma_info(struct dw_pcie *pcie)
 		to_s32cc_from_dw_pcie(pcie);
 	return &s32cc_pp->dma;
 }
-
-static irqreturn_t s32cc_pcie_dma_handler(int irq, void *arg)
-{
-	struct s32cc_pcie *s32cc_pp = arg;
-	struct dma_info *di = &s32cc_pp->dma;
-	u32 dma_error = DMA_ERR_NONE;
-
-	u32 val_write = dw_pcie_readl_dma(di, PCIE_DMA_WRITE_INT_STATUS);
-	u32 val_read = dw_pcie_readl_dma(di, PCIE_DMA_READ_INT_STATUS);
-
-	if (val_write) {
-		bool signal = (di->wr_ch.status == DMA_CH_RUNNING);
-
-		dma_error = dw_handle_dma_irq_write(di, val_write);
-		if (dma_error != DMA_ERR_NONE)
-			dev_info(s32cc_pp->pcie.dev, "dma write error 0x%0x.\n",
-					dma_error);
-#ifdef CONFIG_PCI_EPF_TEST
-		else if (di->complete)
-			complete(di->complete);
-#endif
-
-		if (signal && s32cc_pp->uinfo.send_signal_to_user)
-			s32cc_pp->uinfo.send_signal_to_user(&s32cc_pp->uinfo);
-		if (s32cc_pp->call_back)
-			s32cc_pp->call_back(val_write);
-	}
-	if (val_read) {
-		bool signal = (di->rd_ch.status == DMA_CH_RUNNING);
-
-		dma_error = dw_handle_dma_irq_read(di, val_read);
-		if (dma_error != DMA_ERR_NONE)
-			dev_info(s32cc_pp->pcie.dev, "dma read error 0x%0x.\n",
-					dma_error);
-#ifdef CONFIG_PCI_EPF_TEST
-		else if (di->complete)
-			complete(di->complete);
-#endif
-		if (signal && s32cc_pp->uinfo.send_signal_to_user)
-			s32cc_pp->uinfo.send_signal_to_user(&s32cc_pp->uinfo);
-	}
-
-	return IRQ_HANDLED;
-}
 #endif /* CONFIG_PCI_DW_DMA */
 
 struct s32cc_userspace_info *dw_get_userspace_info(struct dw_pcie *pcie)
@@ -239,15 +195,6 @@ struct s32cc_userspace_info *dw_get_userspace_info(struct dw_pcie *pcie)
 
 	return &s32cc_pci->uinfo;
 }
-
-void s32cc_register_callback(struct dw_pcie *pcie,
-			     void (*call_back)(u32 arg))
-{
-	struct s32cc_pcie *s32cc_pci = to_s32cc_from_dw_pcie(pcie);
-
-	s32cc_pci->call_back = call_back;
-}
-EXPORT_SYMBOL(s32cc_register_callback);
 
 static bool s32cc_has_msi_parent(struct pcie_port *pp)
 {
@@ -1817,17 +1764,16 @@ static int s32cc_pcie_config_common(struct s32cc_pcie *s32cc_pp,
 		if (ret)
 			goto fail_host_init;
 	} else {
-		s32cc_pp->call_back = NULL;
 
 #ifdef CONFIG_PCI_DW_DMA
+		s32cc_config_dma_data(&s32cc_pp->dma, pcie);
 		ret = s32cc_pcie_config_irq(&s32cc_pp->dma_irq,
 				"dma", pdev,
-				s32cc_pcie_dma_handler, s32cc_pp);
+				s32cc_pcie_dma_handler, pcie);
 		if (ret) {
 			dev_err(dev, "failed to request dma irq\n");
 			goto fail_host_init;
 		}
-		dw_pcie_dma_clear_regs(&s32cc_pp->dma);
 #endif /* CONFIG_PCI_DW_DMA */
 
 		ret = s32cc_add_pcie_ep(s32cc_pp);

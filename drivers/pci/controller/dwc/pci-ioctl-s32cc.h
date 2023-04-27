@@ -58,8 +58,6 @@ struct s32cc_bar {
 	u32 addr;
 };
 
-struct s32cc_userspace_info;
-
 struct s32cc_userspace_info {
 	struct dentry		*dir;
 	int		user_pid;
@@ -81,8 +79,5 @@ int s32cc_pcie_setup_outbound(struct s32cc_outbound_region *outbStr);
 int s32cc_pcie_setup_inbound(struct s32cc_inbound_region *inbStr);
 
 int s32cc_send_msi(struct dw_pcie *pcie);
-
-void s32cc_register_callback(struct dw_pcie *pcie,
-	void (*call_back)(u32 arg));
 
 #endif /* PCI_IOCTL_S32CC_H */

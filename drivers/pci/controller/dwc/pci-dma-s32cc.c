@@ -9,11 +9,12 @@
 
 #include <linux/iopoll.h>
 #include "pci-dma-s32cc.h"
+#include "pci-ioctl-s32cc.h"
 
 /* Reset timeout */
 #define DMA_RESET_TIMEOUT_MS	1000
 #define DMA_RESET_TIMEOUT_US	(DMA_RESET_TIMEOUT_MS * USEC_PER_MSEC)
-#define DMA_RESET_WAIT_US		100
+#define DMA_RESET_WAIT_US	100
 
 /* Error flags for channel 0 */
 #define PCIE_DMA_APP_ERR_CH0			BIT(0)
@@ -29,7 +30,7 @@
 #define PCIE_DONE_INT_CLEAR_MASK		GENMASK(7, 0)
 
 u32 dw_pcie_read_dma(struct dma_info *di,
-			u32 reg, size_t size)
+		u32 reg, size_t size)
 {
 	int ret;
 	u32 val;
@@ -45,7 +46,7 @@ u32 dw_pcie_read_dma(struct dma_info *di,
 }
 
 void dw_pcie_write_dma(struct dma_info *di,
-			u32 reg, size_t size, u32 val)
+		u32 reg, size_t size, u32 val)
 {
 	int ret;
 
@@ -60,7 +61,7 @@ void dw_pcie_write_dma(struct dma_info *di,
 }
 
 static inline u32 dw_pcie_get_dma_channel_base(struct dma_info *di,
-	u8 ch_nr, u8 dir)
+		u8 ch_nr, u8 dir)
 {
 	if (di->iatu_unroll_enabled)
 		return PCIE_DMA_CH_BASE_UNROLL * (ch_nr + 1) +
@@ -304,7 +305,7 @@ void dw_pcie_dma_clear_regs(struct dma_info *di)
 }
 
 int dw_pcie_dma_single_rw(struct dma_info *di,
-	struct dma_data_elem *dma_single_rw)
+		struct dma_data_elem *dma_single_rw)
 {
 	u32 flags;
 	struct dma_ch_info *ptr_ch;
@@ -397,7 +398,7 @@ int dw_pcie_dma_single_rw(struct dma_info *di,
 }
 
 static void dw_pcie_dma_check_errors(struct dma_info *di,
-	u32 direction, u32 *error)
+		u32 direction, u32 *error)
 {
 	u32 val = 0;
 	*error = DMA_ERR_NONE;
@@ -431,7 +432,7 @@ static void dw_pcie_dma_check_errors(struct dma_info *di,
 /* Generic int handlers for DMA read and write (separate).
  * They should be called from the platform specific interrupt handler.
  */
-u32 dw_handle_dma_irq_write(struct dma_info *di, u32 val_write)
+static u32 dw_handle_dma_irq_write(struct dma_info *di, u32 val_write)
 {
 	u32 err_type = DMA_ERR_NONE;
 
@@ -461,17 +462,12 @@ u32 dw_handle_dma_irq_write(struct dma_info *di, u32 val_write)
 				PCIE_ABORT_INT_CLEAR_MASK |
 				PCIE_DONE_INT_CLEAR_MASK);
 		}
-
-#ifdef DMA_PTR_FUNC
-		if (di->ptr_func)
-			di->ptr_func(err_type);
-#endif /* DMA_PTR_FUNC */
 	}
 
 	return err_type;
 }
 
-u32 dw_handle_dma_irq_read(struct dma_info *di, u32 val_read)
+static u32 dw_handle_dma_irq_read(struct dma_info *di, u32 val_read)
 {
 	u32 err_type = DMA_ERR_NONE;
 
@@ -501,14 +497,72 @@ u32 dw_handle_dma_irq_read(struct dma_info *di, u32 val_read)
 				PCIE_ABORT_INT_CLEAR_MASK |
 				PCIE_DONE_INT_CLEAR_MASK);
 		}
-
-#ifdef DMA_PTR_FUNC
-		if (di->ptr_func)
-			di->ptr_func(err_type);
-#endif /* DMA_PTR_FUNC */
 	}
 
 	return err_type;
+}
+
+void s32cc_register_callback(struct dw_pcie *pcie,
+		void (*call_back)(u32 arg))
+{
+	struct dma_info *di = dw_get_dma_info(pcie);
+
+	di->call_back = call_back;
+}
+
+irqreturn_t s32cc_pcie_dma_handler(int irq, void *arg)
+{
+	struct dw_pcie *pcie = arg;
+	struct dma_info *di = dw_get_dma_info(pcie);
+	struct s32cc_userspace_info *uinfo =
+			dw_get_userspace_info(pcie);
+	u32 dma_error = DMA_ERR_NONE;
+	bool signal;
+
+	u32 val_write = dw_pcie_readl_dma(di, PCIE_DMA_WRITE_INT_STATUS);
+	u32 val_read = dw_pcie_readl_dma(di, PCIE_DMA_READ_INT_STATUS);
+
+	if (val_write) {
+		signal = (di->wr_ch.status == DMA_CH_RUNNING);
+
+		dma_error = dw_handle_dma_irq_write(di, val_write);
+		if (dma_error != DMA_ERR_NONE)
+			dev_info(pcie->dev, "dma write error 0x%0x.\n",
+					dma_error);
+#ifdef CONFIG_PCI_EPF_TEST
+		else if (di->complete)
+			complete(di->complete);
+#endif
+
+		if (signal && uinfo->send_signal_to_user)
+			uinfo->send_signal_to_user(uinfo);
+		if (di->call_back)
+			di->call_back(val_write);
+	}
+	if (val_read) {
+		signal = (di->rd_ch.status == DMA_CH_RUNNING);
+
+		dma_error = dw_handle_dma_irq_read(di, val_read);
+		if (dma_error != DMA_ERR_NONE)
+			dev_info(pcie->dev, "dma read error 0x%0x.\n",
+					dma_error);
+#ifdef CONFIG_PCI_EPF_TEST
+		else if (di->complete)
+			complete(di->complete);
+#endif
+		if (signal && uinfo->send_signal_to_user)
+			uinfo->send_signal_to_user(uinfo);
+	}
+
+	return IRQ_HANDLED;
+}
+
+void s32cc_config_dma_data(struct dma_info *di, struct dw_pcie *pcie)
+{
+	if (di) {
+		di->call_back = NULL;
+		dw_pcie_dma_clear_regs(di);
+	}
 }
 
 #ifdef CONFIG_PCI_EPF_TEST
