@@ -59,7 +59,15 @@
 #define PE0_INT_STS				0xE8
 #define HP_INT_STS				BIT(6)
 
+#define PCI_BASE_CLASS_OFF	24
+#define PCI_SUBCLASS_OTHER	(0x80)
+#define PCI_SUBCLASS_OFF	16
+
+#define PCI_DEVICE_ID_SHIFT	16
+
 #define SERDES_CELL_SIZE		4
+
+#define PCIE_EP_RC_MODE(ep_mode) ((ep_mode) ? "EndPoint" : "RootComplex")
 
 #define to_s32cc_from_dw_pcie(x) \
 	container_of(x, struct s32cc_pcie, pcie)
@@ -78,6 +86,10 @@ enum pcie_link_speed {
 	GEN1 = 0x1,
 	GEN2 = 0x2,
 	GEN3 = 0x3
+};
+
+struct s32cc_pcie_data {
+	enum dw_pcie_device_mode mode;
 };
 
 struct s32cc_pcie {
@@ -124,4 +136,20 @@ int s32cc_pcie_setup_outbound(struct s32cc_outbound_region *ptr_outb);
 /* Configure Inbound window from ptr_inb for the corresponding EndPoint */
 int s32cc_pcie_setup_inbound(struct s32cc_inbound_region *ptr_inb);
 
+u8 dw_pcie_iatu_unroll_enabled(struct dw_pcie *pci);
+int s32cc_check_serdes(struct device *dev);
+int s32cc_pcie_dt_init_common(struct platform_device *pdev,
+				struct s32cc_pcie *s32cc_pp);
+int s32cc_pcie_config_common(struct s32cc_pcie *s32cc_pp,
+					struct platform_device *pdev);
+int s32cc_pcie_config_irq(int *irq_id, char *irq_name,
+		struct platform_device *pdev,
+		irq_handler_t irq_handler, void *irq_arg);
+int deinit_controller(struct s32cc_pcie *s32cc_pp);
+void s32cc_pcie_shutdown(struct platform_device *pdev);
+
+#ifdef CONFIG_PM_SLEEP
+int s32cc_pcie_suspend(struct device *dev);
+int s32cc_pcie_resume(struct device *dev);
+#endif
 #endif	/*	PCIE_S32CC_H	*/
