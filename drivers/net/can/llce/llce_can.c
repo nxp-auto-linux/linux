@@ -319,14 +319,63 @@ static bool is_canfd_dev(struct can_priv *can)
 	return false;
 }
 
+static int init_baudrate_configs(struct net_device *dev,
+				 u32 *n_baudrate, u32 *d_baudrate,
+				 u32 *tdc_offset)
+{
+	struct llce_can *llce = netdev_priv(dev);
+	struct llce_can_dev *llce_dev = &llce->common;
+	struct can_priv *can = &llce_dev->can;
+	const struct can_bittiming *dbt = &can->data_bittiming;
+	const struct can_bittiming *bt = &can->bittiming;
+	bool fd = is_canfd_dev(can);
+	int ret;
+
+	*n_baudrate = 0u;
+	*d_baudrate = 0u;
+	*tdc_offset = 0u;
+
+	ret = get_cbt(bt, n_baudrate);
+	if (ret) {
+		netdev_err(dev, "Failed to compute the nominal baudrate\n");
+		return ret;
+	}
+
+	if (!fd)
+		return 0;
+
+	if (bt->brp != dbt->brp) {
+		netdev_err(dev, "Different values for nominal and data prescalers\n");
+		return -EINVAL;
+	}
+
+	ret = get_cbt(dbt, d_baudrate);
+	if (ret) {
+		netdev_err(dev, "Failed to compute the data baudrate\n");
+		return ret;
+	}
+
+	ret = get_tdc_off(dbt, tdc_offset);
+	if (ret) {
+		netdev_err(dev, "Failed to determine Transceiver Delay Compensation Offset\n");
+		return ret;
+	}
+
+	if (*tdc_offset > U8_MAX) {
+		netdev_err(dev, "Transceiver Delay Compensation Offset exceeds its max allowed value 0x%x\n",
+			   *tdc_offset);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
 static int llce_set_data_bittiming(struct net_device *dev)
 {
 	struct llce_can *llce = netdev_priv(dev);
 	struct llce_can_dev *llce_dev = &llce->common;
 	struct can_priv *can = &llce_dev->can;
 	struct llce_can_controller_fd_config *controller_fd;
-	const struct can_bittiming *dbt = &can->data_bittiming;
-	const struct can_bittiming *bt = &can->bittiming;
 	u8 fd_enable = is_canfd_dev(can) ? 1u : 0u;
 	struct llce_can_set_baudrate_cmd *baudrate_cmd;
 	struct llce_config_msg msg = {
@@ -355,42 +404,19 @@ static int llce_set_data_bittiming(struct net_device *dev)
 	u32 n_baudrate, d_baudrate, tdc_offset;
 	int ret;
 
+	ret = init_baudrate_configs(dev, &n_baudrate,
+				    &d_baudrate, &tdc_offset);
+	if (ret) {
+		netdev_err(dev, "Failed to initialize baudrate settings\n");
+		return ret;
+	}
+
 	baudrate_cmd = &msg.fw_cmd.cmd.cmd_list.set_baudrate;
-
-	ret = get_cbt(bt, &n_baudrate);
-	if (ret) {
-		netdev_err(dev, "Failed to compute the nominal baudrate\n");
-		return ret;
-	}
-
-	ret = get_cbt(dbt, &d_baudrate);
-	if (ret) {
-		netdev_err(dev, "Failed to compute the data baudrate\n");
-		return ret;
-	}
-
-	ret = get_tdc_off(dbt, &tdc_offset);
-	if (ret) {
-		netdev_err(dev, "Failed to determine Transceiver Delay Compensation Offset\n");
-		return ret;
-	}
-
-	if (tdc_offset > U8_MAX) {
-		netdev_err(dev, "Transceiver Delay Compensation Offset exceeds its max allowed value 0x%x\n",
-			   tdc_offset);
-		return -EINVAL;
-	}
+	controller_fd = &baudrate_cmd->controller_fd;
 
 	baudrate_cmd->nominal_baudrate_config = n_baudrate;
-	baudrate_cmd->controller_fd.data_baudrate_config = d_baudrate;
-	baudrate_cmd->controller_fd.trcv_delay_comp_offset = tdc_offset;
-
-	if (fd_enable && bt->brp != dbt->brp) {
-		netdev_err(dev, "Different values for nominal and data prescalers\n");
-		return -EINVAL;
-	}
-
-	controller_fd = &msg.fw_cmd.cmd.cmd_list.set_baudrate.controller_fd;
+	controller_fd->data_baudrate_config = d_baudrate;
+	controller_fd->trcv_delay_comp_offset = tdc_offset;
 
 	/* Disable delay compensation in loopback mode */
 	if (can->ctrlmode & CAN_CTRLMODE_LOOPBACK)
