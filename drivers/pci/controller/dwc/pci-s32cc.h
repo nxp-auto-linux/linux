@@ -103,8 +103,6 @@ struct s32cc_pcie {
 	struct dma_info	dma;
 #endif
 
-	/* TODO: change call_back to a list */
-	void (*call_back)(u32 arg);
 	struct s32cc_userspace_info uinfo;
 
 	struct phy *phy0, *phy1;
