@@ -707,25 +707,11 @@ int s32cc_pcie_dt_init_common(struct platform_device *pdev,
 	struct dw_pcie *pcie = &s32cc_pp->pcie;
 	struct resource *res;
 	const char *pcie_phy_mode;
-	const struct of_device_id *match;
-	const struct s32cc_pcie_data *data;
-	enum dw_pcie_device_mode mode;
 	u32 pcie_vendor_id = PCI_VENDOR_ID_FREESCALE, pcie_variant_bits = 0;
 	int ret;
 #ifndef CONFIG_PCI_S32CC_IOCTL_LIMIT_ONE_ENDPOINT
 	struct device_node *shmn;
 #endif
-
-	match = of_match_device(s32cc_pcie_of_match, dev);
-	if (!match)
-		return -EINVAL;
-
-	data = match->data;
-	mode = data->mode;
-
-	s32cc_pp->is_endpoint = (mode == DW_PCIE_EP_TYPE);
-	dev_info(dev, "Configured as %s\n",
-		 PCIE_EP_RC_MODE(s32cc_pp->is_endpoint));
 
 	ret = of_property_read_u32(np, "device_id", &s32cc_pp->id);
 	if (ret) {
@@ -795,7 +781,6 @@ int s32cc_pcie_dt_init_common(struct platform_device *pdev,
 		s32cc_pp->linkspeed = GEN1;
 	}
 
-#ifndef CONFIG_PCI_S32CC_IOCTL_LIMIT_ONE_ENDPOINT
 	/* Reserved memory */
 	/* Get pointer to shared mem region device node from "memory-region" phandle.
 	 * Don't throw errors if not available, just warn and go on without.
@@ -813,7 +798,6 @@ int s32cc_pcie_dt_init_common(struct platform_device *pdev,
 	} else {
 		dev_warn(dev, "No shared-mem node\n");
 	}
-#endif
 
 	/* If "msi-parent" property is present in device tree and the PCIe
 	 * is RC, MSIs will not be handled by iMSI-RX (default mechanism
@@ -1322,12 +1306,19 @@ static int s32cc_pcie_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct s32cc_pcie *s32cc_pp;
 	struct dw_pcie *pcie;
+	const struct of_device_id *match;
+	const struct s32cc_pcie_data *data;
+	enum dw_pcie_device_mode mode;
 
 	int ret = 0;
 
 	ret = s32cc_check_serdes(dev);
 	if (ret)
 		return ret;
+
+	match = of_match_device(s32cc_pcie_of_match, dev);
+	if (!match)
+		return -EINVAL;
 
 	s32cc_pp = devm_kzalloc(dev, sizeof(*s32cc_pp), GFP_KERNEL);
 	if (!s32cc_pp)
@@ -1338,6 +1329,12 @@ static int s32cc_pcie_probe(struct platform_device *pdev)
 	pcie->ops = &s32cc_pcie_ops;
 
 	platform_set_drvdata(pdev, s32cc_pp);
+
+	data = match->data;
+	mode = data->mode;
+	s32cc_pp->is_endpoint = (mode == DW_PCIE_EP_TYPE);
+	dev_info(dev, "Configuring as %s\n",
+		 PCIE_EP_RC_MODE(s32cc_pp->is_endpoint));
 
 	ret = s32cc_pcie_dt_init_common(pdev, s32cc_pp);
 	if (ret)
