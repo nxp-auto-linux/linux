@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * PCIe End Point controller driver for NXP S32CC SoCs
+ * PCIe EndPoint controller driver for NXP S32CC SoCs
  *
  * Copyright 2023 NXP
  */
 
-#ifdef CONFIG_PCI_S32CC_DEBUG
+#if (IS_ENABLED(CONFIG_PCI_S32CC_DEBUG))
 #ifndef DEBUG
 #define DEBUG
 #endif
@@ -29,7 +29,6 @@
 #include <linux/ioport.h>
 #include <soc/s32cc/revision.h>
 
-#include "pci-s32cc-regs.h"
 #include "pci-s32cc.h"
 
 #define PCIE_EP_DEFAULT_BAR_SIZE	SZ_1M
@@ -38,7 +37,12 @@
 			PCI_BASE_ADDRESS_MEM_TYPE_32 | \
 			PCI_BASE_ADDRESS_MEM_NON_PREFETCH)
 
+#define PCI_INTERRUPT_PINS_MASK		0xffff00ff
+#define PCI_INTERRUPT_PINS_VAL		0x00000100
+
+/* List for EndPoint devices to allow accessing them from user space (by ioctls) */
 static LIST_HEAD(s32cc_pcie_ep_list);
+/* Mutex for the End Point list, for safe management of the probed EndPoints */
 static DEFINE_MUTEX(s32cc_pcie_ep_list_mutex);
 
 struct s32cc_pcie_ep_node {
@@ -53,19 +57,19 @@ static const struct pci_epc_features s32cc_pcie_epc_features = {
 	.msix_capable = true,
 	.reserved_bar = BIT(BAR_1) | BIT(BAR_5),
 	.bar_fixed_64bit = BIT(BAR_0),
-	.bar_fixed_size[0] = (2 * SZ_1M),
+	.bar_fixed_size[0] = SZ_2M,
 	.bar_fixed_size[2] = SZ_1M,
 	.bar_fixed_size[3] = SZ_64K,
 	.bar_fixed_size[4] = 256,
 };
 
-static const struct pci_epc_features*
+static const struct pci_epc_features *
 s32cc_pcie_ep_get_features(struct dw_pcie_ep *ep)
 {
 	return &s32cc_pcie_epc_features;
 }
 
-#ifdef CONFIG_PCI_S32CC_EP_MSI
+#if (IS_ENABLED(CONFIG_PCI_S32CC_EP_MSI))
 /* Chained MSI interrupt service routine, for EP */
 static void dw_ep_chained_msi_isr(struct irq_desc *desc)
 {
@@ -86,12 +90,12 @@ static void dw_ep_chained_msi_isr(struct irq_desc *desc)
  */
 struct s32cc_pcie *s32cc_get_dw_pcie(int pcie_ep_id)
 {
-	struct s32cc_pcie_ep_node *pci_node;
+	struct s32cc_pcie_ep_node *pci_node, *n;
 	struct s32cc_pcie *res = ERR_PTR(-ENODEV);
 
 	mutex_lock(&s32cc_pcie_ep_list_mutex);
-	list_for_each_entry(pci_node, &s32cc_pcie_ep_list, list) {
-#ifndef CONFIG_PCI_S32CC_IOCTL_LIMIT_ONE_ENDPOINT
+	list_for_each_entry_safe(pci_node, n, &s32cc_pcie_ep_list, list) {
+#if (!IS_ENABLED(CONFIG_PCI_S32CC_IOCTL_LIMIT_ONE_ENDPOINT))
 		if (pci_node->ep->id == pcie_ep_id) {
 			res = pci_node->ep;
 			break;
@@ -111,14 +115,14 @@ EXPORT_SYMBOL(s32cc_get_dw_pcie);
 /* Return the array of BAR configuration for the EP with the given PCIe ID,
  * as specified in the device tree
  */
-struct pci_epf_bar *s32cc_get_bars(int pcie_ep_id)
+static struct pci_epf_bar *s32cc_get_bars(int pcie_ep_id)
 {
 	struct s32cc_pcie_ep_node *pci_node;
 	struct pci_epf_bar  *res = ERR_PTR(-ENODEV);
 
 	mutex_lock(&s32cc_pcie_ep_list_mutex);
 	list_for_each_entry(pci_node, &s32cc_pcie_ep_list, list) {
-#ifndef CONFIG_PCI_S32CC_IOCTL_LIMIT_ONE_ENDPOINT
+#if (!IS_ENABLED(CONFIG_PCI_S32CC_IOCTL_LIMIT_ONE_ENDPOINT))
 		if (pci_node->ep->id == pcie_ep_id) {
 			res = pci_node->ep_bars;
 			break;
@@ -133,7 +137,6 @@ struct pci_epf_bar *s32cc_get_bars(int pcie_ep_id)
 
 	return res;
 }
-EXPORT_SYMBOL(s32cc_get_bars);
 
 static int s32cc_add_pcie_ep_to_list(struct s32cc_pcie *s32cc_ep)
 {
@@ -156,10 +159,10 @@ static int s32cc_add_pcie_ep_to_list(struct s32cc_pcie *s32cc_ep)
 
 static void s32cc_del_pcie_ep_from_list(int pcie_id)
 {
-	struct s32cc_pcie_ep_node *ep_entry;
+	struct s32cc_pcie_ep_node *ep_entry, *n;
 
 	mutex_lock(&s32cc_pcie_ep_list_mutex);
-	list_for_each_entry(ep_entry, &s32cc_pcie_ep_list, list) {
+	list_for_each_entry_safe(ep_entry, n, &s32cc_pcie_ep_list, list) {
 		if (ep_entry->ep->id == pcie_id) {
 			list_del(&ep_entry->list);
 			kfree(ep_entry);
@@ -224,7 +227,6 @@ static void s32cc_pcie_ep_init(struct dw_pcie_ep *ep)
 	dw_pcie_dbi_ro_wr_dis(pcie);
 }
 
-/* Only for EP. Currently only one EP supported. */
 int s32cc_pcie_setup_outbound(struct s32cc_outbound_region *ptr_outb)
 {
 	int ret = 0;
@@ -239,6 +241,7 @@ int s32cc_pcie_setup_outbound(struct s32cc_outbound_region *ptr_outb)
 #if (!IS_ENABLED(CONFIG_PCI_S32CC_IOCTL_LIMIT_ONE_ENDPOINT))
 	s32cc_pcie_ep = s32cc_get_dw_pcie(ptr_outb->pcie_id);
 #else
+	/* No ID is needed in this case; use 0 to satisfy the API */
 	s32cc_pcie_ep = s32cc_get_dw_pcie(0);
 #endif
 	if (IS_ERR(s32cc_pcie_ep)) {
@@ -248,7 +251,6 @@ int s32cc_pcie_setup_outbound(struct s32cc_outbound_region *ptr_outb)
 	}
 
 	epc = s32cc_pcie_ep->pcie.ep.epc;
-
 	if (!epc || !epc->ops) {
 		dev_err(s32cc_pcie_ep->pcie.dev,
 			"Invalid S32CC EP configuration\n");
@@ -283,6 +285,7 @@ int s32cc_pcie_setup_inbound(struct s32cc_inbound_region *ptr_inb)
 	s32cc_pcie_ep = s32cc_get_dw_pcie(ptr_inb->pcie_id);
 	s32cc_ep_bars = s32cc_get_bars(ptr_inb->pcie_id);
 #else
+	/* In this case we don't need the ID, so use 0 to comply with the API */
 	s32cc_pcie_ep = s32cc_get_dw_pcie(0);
 	s32cc_ep_bars = s32cc_get_bars(0);
 #endif
@@ -325,7 +328,7 @@ int s32cc_pcie_setup_inbound(struct s32cc_inbound_region *ptr_inb)
 		/* EPC features takes precedence over existing info
 		 * in BARs array
 		 */
-		if (epc_features->bar_fixed_64bit & (1 << idx)) {
+		if (epc_features->bar_fixed_64bit & BIT(idx)) {
 			epf_bar->flags &= ~PCI_BASE_ADDRESS_MEM_TYPE_MASK;
 			epf_bar->flags |= PCI_BASE_ADDRESS_MEM_TYPE_64;
 		}
@@ -335,7 +338,7 @@ int s32cc_pcie_setup_inbound(struct s32cc_inbound_region *ptr_inb)
 		epf_bar->barno = idx;
 		add = (epf_bar->flags & PCI_BASE_ADDRESS_MEM_TYPE_64) ? 2 : 1;
 
-		if (!!(epc_features->reserved_bar & (1 << idx)) ||
+		if (!!(epc_features->reserved_bar & BIT(idx)) ||
 		    !epf_bar->size) {
 			epf_bar->size = 0;
 			continue;
@@ -387,15 +390,28 @@ static int s32cc_pcie_ep_raise_irq(struct dw_pcie_ep *ep, u8 func_no,
 		dev_err(pci->dev, "%s: UNKNOWN IRQ type\n", __func__);
 	}
 
-	return 0;
+	return -EINVAL;
 }
+
+#if (IS_ENABLED(CONFIG_PCI_EPF_TEST))
+static int s32cc_pcie_ep_start_dma(struct dw_pcie_ep *ep, bool read,
+				 dma_addr_t src, dma_addr_t dst, u32 len,
+				 struct completion *complete)
+{
+	if (IS_ENABLED(CONFIG_PCI_DW_DMA))
+		return dw_pcie_ep_start_dma(ep, read, src, dst, len, complete);
+
+	pr_info("%s: DMA not enabled\n", __func__);
+	return -EINVAL;
+}
+#endif
 
 static struct dw_pcie_ep_ops s32cc_pcie_ep_ops = {
 	.ep_init = s32cc_pcie_ep_init,
 	.raise_irq = s32cc_pcie_ep_raise_irq,
 	.get_features = s32cc_pcie_ep_get_features,
-#if (defined(CONFIG_PCI_DW_DMA) && defined(CONFIG_PCI_EPF_TEST))
-	.start_dma = dw_pcie_ep_start_dma,
+#if (IS_ENABLED(CONFIG_PCI_EPF_TEST))
+	.start_dma = s32cc_pcie_ep_start_dma,
 #endif
 };
 
@@ -469,14 +485,13 @@ static int s32cc_pcie_config_ep(struct s32cc_pcie *s32cc_pp,
 	if (ret)
 		return ret;
 
-#ifdef CONFIG_PCI_S32CC_EP_MSI
-	struct dw_pcie *pcie = &s32cc_pp->pcie;
+#if (IS_ENABLED(CONFIG_PCI_S32CC_EP_MSI))
 	u32 val, ctrl, num_ctrls;
 	struct pcie_port *pp = &pcie->pp;
 #endif
 
 /* MSI configuration for EP */
-#ifdef CONFIG_PCI_S32CC_EP_MSI
+#if (IS_ENABLED(CONFIG_PCI_S32CC_EP_MSI))
 	ret = s32cc_pcie_config_irq(&pcie->pp.msi_irq, "msi", pdev,
 		s32cc_pcie_msi_handler, &pcie->pp);
 	if (ret) {
@@ -507,32 +522,30 @@ static int s32cc_pcie_config_ep(struct s32cc_pcie *s32cc_pp,
 
 	/* Setup interrupt pins */
 	val = dw_pcie_readl_dbi(pcie, PCI_INTERRUPT_LINE);
-	val &= 0xffff00ff;
-	val |= 0x00000100;
+	val &= PCI_INTERRUPT_PINS_MASK;
+	val |= PCI_INTERRUPT_PINS_VAL;
 	dw_pcie_writel_dbi(pcie, PCI_INTERRUPT_LINE, val);
 
 	dw_pcie_msi_init(&pcie->pp);
 
 #endif /* CONFIG_PCI_S32CC_EP_MSI */
 
-#ifdef CONFIG_PCI_DW_DMA
-	s32cc_config_dma_data(&s32cc_pp->dma, pcie);
-	ret = s32cc_pcie_config_irq(&s32cc_pp->dma_irq,
-		"dma", pdev,
-		s32cc_pcie_dma_handler, pcie);
-	if (ret) {
-		dev_err(dev, "failed to request dma irq\n");
-		goto fail_ep_init;
+	if (IS_ENABLED(CONFIG_PCI_DW_DMA)) {
+		s32cc_config_dma_data(&s32cc_pp->dma, pcie);
+		ret = s32cc_pcie_config_irq(&s32cc_pp->dma_irq,
+			"dma", pdev,
+			s32cc_pcie_dma_handler, pcie);
+		if (ret) {
+			dev_err(dev, "failed to request dma irq\n");
+			goto fail_ep_init;
+		}
 	}
-#endif /* CONFIG_PCI_DW_DMA */
 
 	ret = s32cc_add_pcie_ep(s32cc_pp);
 	if (ret)
 		goto fail_ep_init;
 
 	s32cc_config_user_space_data(&s32cc_pp->uinfo, pcie);
-
-	/* TODO: Init debugfs here */
 
 	return ret;
 
@@ -543,7 +556,13 @@ fail_ep_init:
 	return ret;
 }
 
-extern struct dw_pcie_ops s32cc_pcie_ops;
+static struct dw_pcie_ops s32cc_pcie_ops = {
+	.link_up = s32cc_pcie_link_is_up,
+	.start_link = s32cc_pcie_start_link,
+	.stop_link = s32cc_pcie_stop_link,
+	.write_dbi = s32cc_pcie_write,
+};
+
 static const struct of_device_id s32cc_pcie_of_match_ep[];
 
 static int s32cc_pcie_probe(struct platform_device *pdev)
@@ -553,8 +572,6 @@ static int s32cc_pcie_probe(struct platform_device *pdev)
 	struct dw_pcie *pcie;
 	const struct of_device_id *match;
 	const struct s32cc_pcie_data *data;
-	enum dw_pcie_device_mode mode;
-
 	int ret = 0;
 
 	ret = s32cc_check_serdes(dev);
@@ -576,11 +593,7 @@ static int s32cc_pcie_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, s32cc_pp);
 
 	data = match->data;
-	mode = data->mode;
-
-	s32cc_pp->is_endpoint = (mode == DW_PCIE_EP_TYPE);
-	dev_info(dev, "Configuring as %s\n",
-		 PCIE_EP_RC_MODE(s32cc_pp->is_endpoint));
+	s32cc_pp->mode = data->mode;
 
 	ret = s32cc_pcie_dt_init_ep(pdev, s32cc_pp);
 	if (ret)
@@ -594,13 +607,13 @@ static int s32cc_pcie_probe(struct platform_device *pdev)
 
 	/* Configure BARs, if necessary. Only warn if it fails. */
 	if (s32cc_pp->auto_config_bars) {
-		bool result = -1;
+		int result = -EINVAL;
 		int bar = 0;
 
 		if (s32cc_pp->shared_mem.start > 0 &&
 		    s32cc_pp->shared_mem.end > 0) {
 			struct s32cc_inbound_region ptr_inb = {
-#ifndef CONFIG_PCI_S32CC_IOCTL_LIMIT_ONE_ENDPOINT
+#if (!IS_ENABLED(CONFIG_PCI_S32CC_IOCTL_LIMIT_ONE_ENDPOINT))
 				s32cc_pp->id,
 #endif
 				bar,
@@ -612,7 +625,7 @@ static int s32cc_pcie_probe(struct platform_device *pdev)
 				/* Verify BARs fit the reserved region */
 				struct pci_epf_bar *epf_bar, *s32cc_ep_bars =
 					s32cc_get_bars(s32cc_pp->id);
-				u32 sum = 0;
+				size_t sum = 0;
 
 				/* s32cc_ep_bars was checked in
 				 * s32cc_pcie_setup_inbound
@@ -624,7 +637,7 @@ static int s32cc_pcie_probe(struct platform_device *pdev)
 				if (sum > (s32cc_pp->shared_mem.end -
 				    s32cc_pp->shared_mem.start)) {
 					dev_warn(dev, "EP BARs too large\n");
-					result = -1;
+					result = -EINVAL;
 				}
 			}
 		}
@@ -636,11 +649,10 @@ err:
 	if (ret)
 		platform_set_drvdata(pdev, NULL);
 
-	dw_pcie_dbi_ro_wr_dis(pcie);
 	return ret;
 }
 
-#ifdef CONFIG_PM_SLEEP
+#if (IS_ENABLED(CONFIG_PM_SLEEP))
 static const struct dev_pm_ops s32cc_pcie_pm_ops = {
 	SET_SYSTEM_SLEEP_PM_OPS(s32cc_pcie_suspend,
 				s32cc_pcie_resume)
@@ -662,7 +674,7 @@ static struct platform_driver s32cc_pcie_driver_ep = {
 		.name	= "s32cc-pcie-ep",
 		.owner	= THIS_MODULE,
 		.of_match_table = s32cc_pcie_of_match_ep,
-#ifdef CONFIG_PM_SLEEP
+#if (IS_ENABLED(CONFIG_PM_SLEEP))
 		.pm = &s32cc_pcie_pm_ops,
 #endif
 	},
@@ -673,5 +685,5 @@ static struct platform_driver s32cc_pcie_driver_ep = {
 module_platform_driver(s32cc_pcie_driver_ep);
 
 MODULE_AUTHOR("Ionut Vicovan <Ionut.Vicovan@nxp.com>");
-MODULE_DESCRIPTION("NXP S32CC PCIe End Point controller driver");
+MODULE_DESCRIPTION("NXP S32CC PCIe EndPoint controller driver");
 MODULE_LICENSE("GPL v2");
