@@ -4,7 +4,7 @@
  * PCIe host controller driver, customized
  * for the NXP S32CC PCIe driver
  *
- * Copyright 2017-2022 NXP
+ * Copyright 2017-2023 NXP
  */
 
 #include <linux/iopoll.h>
@@ -529,7 +529,7 @@ irqreturn_t s32cc_pcie_dma_handler(int irq, void *arg)
 		if (dma_error != DMA_ERR_NONE)
 			dev_info(pcie->dev, "dma write error 0x%0x.\n",
 					dma_error);
-#ifdef CONFIG_PCI_EPF_TEST
+#if (IS_ENABLED(CONFIG_PCI_EPF_TEST))
 		else if (di->complete)
 			complete(di->complete);
 #endif
@@ -546,7 +546,7 @@ irqreturn_t s32cc_pcie_dma_handler(int irq, void *arg)
 		if (dma_error != DMA_ERR_NONE)
 			dev_info(pcie->dev, "dma read error 0x%0x.\n",
 					dma_error);
-#ifdef CONFIG_PCI_EPF_TEST
+#if (IS_ENABLED(CONFIG_PCI_EPF_TEST))
 		else if (di->complete)
 			complete(di->complete);
 #endif
@@ -565,7 +565,7 @@ void s32cc_config_dma_data(struct dma_info *di, struct dw_pcie *pcie)
 	}
 }
 
-#ifdef CONFIG_PCI_EPF_TEST
+#if (IS_ENABLED(CONFIG_PCI_EPF_TEST))
 int dw_pcie_ep_start_dma(struct dw_pcie_ep *ep, bool read,
 				 dma_addr_t src, dma_addr_t dst, u32 len,
 				 struct completion *complete)

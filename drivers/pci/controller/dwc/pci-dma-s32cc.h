@@ -4,16 +4,14 @@
  * PCIe host controller driver, customized
  * for the NXP S32CC PCIe driver
  *
- * Copyright 2017-2022 NXP
+ * Copyright 2017-2023 NXP
  */
 
 #ifndef PCIE_DMA_S32CC_H
 #define PCIE_DMA_S32CC_H
 
-#ifdef CONFIG_PCI_DW_DMA
-
 #include "pcie-designware.h"
-#ifdef CONFIG_PCI_EPF_TEST
+#if (IS_ENABLED(CONFIG_PCI_EPF_TEST))
 #include <linux/completion.h>
 #endif
 
@@ -143,7 +141,7 @@ struct dma_info {
 
 	struct dma_ch_info	wr_ch;
 	struct dma_ch_info	rd_ch;
-#ifdef CONFIG_PCI_EPF_TEST
+#if (IS_ENABLED(CONFIG_PCI_EPF_TEST))
 	struct completion *complete;
 #endif
 	void (*call_back)(u32 arg);
@@ -170,7 +168,6 @@ int dw_pcie_dma_read_en(struct dma_info *di);
 int dw_pcie_dma_write_soft_reset(struct dma_info *di);
 int dw_pcie_dma_read_soft_reset(struct dma_info *di);
 
-struct dma_info *dw_get_dma_info(struct dw_pcie *pcie);
 irqreturn_t s32cc_pcie_dma_handler(int irq, void *arg);
 
 static inline int dw_pcie_dma_get_nr_chan(struct dma_info *di)
@@ -196,7 +193,7 @@ int dw_pcie_dma_single_rw(struct dma_info *di,
 void s32cc_register_callback(struct dw_pcie *pcie,
 	void (*call_back)(u32 arg));
 
-#if (defined(CONFIG_PCI_EPF_TEST))
+#if (IS_ENABLED(CONFIG_PCI_EPF_TEST))
 /**
  * dw_pcie_ep_start_dma - Start DMA on S32CC PCIE EP.
  * @ep: the EP start the DMA transmission.
@@ -210,5 +207,4 @@ int dw_pcie_ep_start_dma(struct dw_pcie_ep *ep, bool dir,
 				 struct completion *complete);
 #endif
 
-#endif	/* CONFIG_PCI_DW_DMA */
 #endif  /* PCIE_DMA_S32CC_H */
