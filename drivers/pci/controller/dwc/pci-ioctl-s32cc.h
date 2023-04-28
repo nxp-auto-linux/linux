@@ -33,9 +33,9 @@ struct s32cc_inbound_region {
 #ifndef CONFIG_PCI_S32CC_IOCTL_LIMIT_ONE_ENDPOINT
 	int pcie_id; /* must match the id of a device tree pcie node */
 #endif
-	u32 bar_nr;
+	u32 bar_nr; /* for backwards compatibility; should be 0 */
 	u32 target_addr;
-	u32 region; /* for backwards compatibility */
+	u32 region; /* for backwards compatibility; not used */
 };
 
 struct s32cc_outbound_region {

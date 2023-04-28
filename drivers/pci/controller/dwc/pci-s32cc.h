@@ -119,9 +119,8 @@ struct s32cc_pcie {
 
 	struct phy *phy0, *phy1;
 
-#ifndef CONFIG_PCI_S32CC_IOCTL_LIMIT_ONE_ENDPOINT
 	struct resource shared_mem;
-#endif
+	bool auto_config_bars;
 };
 
 void dw_pcie_writel_ctrl(struct s32cc_pcie *pci, u32 reg, u32 val);
