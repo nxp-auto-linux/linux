@@ -6,7 +6,7 @@
  *		http://www.kosagi.com
  *
  * Copyright (C) 2014-2015 Freescale Semiconductor, Inc. All Rights Reserved.
- * Copyright 2017-2022 NXP
+ * Copyright 2017-2023 NXP
  */
 
 #include <linux/debugfs.h>
@@ -21,37 +21,61 @@ static struct task_struct *task;
 #define PCIE_BAR_ADDRESS_MASK	GENMASK(31, 4)
 #define PCIE_BAR_MASK			GENMASK(31, 0)
 
-#ifdef CONFIG_PCI_DW_DMA
-
 static int s32cc_send_dma_errors(struct dma_info *di, void __user *argp)
 {
-	int ret = 0;
-	u32 dma_errors;
+	if (IS_ENABLED(CONFIG_PCI_DW_DMA)) {
+		u32 dma_errors;
 
-	if (!argp)
-		return -EFAULT;
+		if (!argp)
+			return -EFAULT;
 
-	dma_errors = ((di->wr_ch.errors) << 16) | di->rd_ch.errors;
+		dma_errors = ((di->wr_ch.errors) << 16) | di->rd_ch.errors;
 
-	if (copy_to_user((unsigned int *)argp, &dma_errors, sizeof(u32)))
-		return -EFAULT;
-	return ret;
+		if (copy_to_user(argp, &dma_errors, sizeof(u32)))
+			return -EFAULT;
+		return 0;
+	}
+
+	pr_info("%s: DMA not enabled\n", __func__);
+	return -EINVAL;
 }
 
 static int s32cc_send_dma_single(struct dma_info *di, void __user *argp)
 {
-	struct dma_data_elem dma_elem_local;
+	if (IS_ENABLED(CONFIG_PCI_DW_DMA)) {
+		struct dma_data_elem dma_elem_local;
 
-	if (!argp)
-		return -EFAULT;
+		if (!argp)
+			return -EFAULT;
 
-	if (copy_from_user(&dma_elem_local, argp,
-			sizeof(struct dma_data_elem)))
-		return -EFAULT;
+		if (copy_from_user(&dma_elem_local, argp,
+				sizeof(struct dma_data_elem)))
+			return -EFAULT;
 
-	return dw_pcie_dma_single_rw(di, &dma_elem_local);
+		return dw_pcie_dma_single_rw(di, &dma_elem_local);
+	}
+
+	pr_info("%s: DMA not enabled\n", __func__);
+	return -EINVAL;
 }
-#endif /* CONFIG_PCI_DW_DMA */
+
+static int s32cc_dma_write_soft_reset(struct dma_info *di)
+{
+	if (IS_ENABLED(CONFIG_PCI_DW_DMA))
+		return dw_pcie_dma_write_soft_reset(di);
+
+	pr_info("%s: DMA not enabled\n", __func__);
+	return -EINVAL;
+}
+
+static int s32cc_dma_read_soft_reset(struct dma_info *di)
+{
+	if (IS_ENABLED(CONFIG_PCI_DW_DMA))
+		return dw_pcie_dma_read_soft_reset(di);
+
+	pr_info("%s: DMA not enabled\n", __func__);
+	return -EINVAL;
+}
 
 static int send_signal_to_user(struct s32cc_userspace_info *uinfo)
 {
@@ -131,9 +155,8 @@ static ssize_t s32cc_ioctl(struct file *filp, u32 cmd,
 	void __user *argp = (void __user *)data;
 	struct dw_pcie *pcie = (struct dw_pcie *)(filp->private_data);
 	struct s32cc_userspace_info *uinfo = dw_get_userspace_info(pcie);
-#ifdef CONFIG_PCI_DW_DMA
 	struct dma_info *di = dw_get_dma_info(pcie);
-#endif
+
 	struct s32cc_inbound_region	inbStr;
 	struct s32cc_outbound_region	outbStr;
 
@@ -167,7 +190,6 @@ static ssize_t s32cc_ioctl(struct file *filp, u32 cmd,
 	case SEND_SIGNAL:
 		ret = send_signal_to_user(uinfo);
 		return ret;
-#ifdef CONFIG_PCI_DW_DMA
 	case SEND_SINGLE_DMA:
 		ret = s32cc_send_dma_single(di, argp);
 		return ret;
@@ -175,12 +197,12 @@ static ssize_t s32cc_ioctl(struct file *filp, u32 cmd,
 		ret = s32cc_send_dma_errors(di, argp);
 		return ret;
 	case RESET_DMA_WRITE:
-		dw_pcie_dma_write_soft_reset(di);
+		ret = s32cc_dma_write_soft_reset(di);
 		return ret;
 	case RESET_DMA_READ:
-		dw_pcie_dma_read_soft_reset(di);
+		ret = s32cc_dma_read_soft_reset(di);
 		return ret;
-#endif
+
 	default:
 		return -EINVAL;
 	}

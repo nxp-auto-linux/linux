@@ -65,22 +65,13 @@
 
 #define PCI_DEVICE_ID_SHIFT	16
 
-#define SERDES_CELL_SIZE		4
-
-#define PCIE_EP_RC_MODE(ep_mode) ((ep_mode) ? "EndPoint" : "RootComplex")
+#define SERDES_CELL_SIZE	4
 
 #define to_s32cc_from_dw_pcie(x) \
 	container_of(x, struct s32cc_pcie, pcie)
 
-#ifdef CONFIG_PCI_DW_DMA
 #define to_s32cc_from_dma_info(x) \
 		container_of(x, struct s32cc_pcie, dma)
-#endif
-
-enum pcie_dev_type {
-	PCIE_EP = 0x0,
-	PCIE_RC = 0x4
-};
 
 enum pcie_link_speed {
 	GEN1 = 0x1,
@@ -93,11 +84,10 @@ struct s32cc_pcie_data {
 };
 
 struct s32cc_pcie {
-	bool is_endpoint;
-	bool has_msi_parent;
 	struct dw_pcie	pcie;
 
-#ifdef CONFIG_PM_SLEEP
+	bool has_msi_parent;
+#if (IS_ENABLED(CONFIG_PM_SLEEP))
 	u32 msi_ctrl_int;
 #endif
 
@@ -106,15 +96,16 @@ struct s32cc_pcie {
 	 */
 	void __iomem *ctrl_base;
 
+	enum dw_pcie_device_mode mode;
 	int id;
 	enum pcie_phy_mode phy_mode;
 	enum pcie_link_speed linkspeed;
 
-#ifdef CONFIG_PCI_DW_DMA
+	/* eDMA related */
 	int dma_irq;
 	struct dma_info	dma;
-#endif
 
+	/* For interaction with the user space */
 	struct s32cc_userspace_info uinfo;
 
 	struct phy *phy0, *phy1;
@@ -122,6 +113,24 @@ struct s32cc_pcie {
 	struct resource shared_mem;
 	bool auto_config_bars;
 };
+
+static inline
+bool is_s32cc_pcie_rc(enum dw_pcie_device_mode mode)
+{
+	return mode == DW_PCIE_RC_TYPE;
+}
+
+static inline
+bool is_s32cc_pcie_ep(enum dw_pcie_device_mode mode)
+{
+	return mode == DW_PCIE_EP_TYPE;
+}
+
+static inline
+const char *s32cc_pcie_ep_rc_mode_str(enum dw_pcie_device_mode mode)
+{
+	return is_s32cc_pcie_rc(mode) ? "RootComplex" : "EndPoint";
+}
 
 void dw_pcie_writel_ctrl(struct s32cc_pcie *pci, u32 reg, u32 val);
 u32 dw_pcie_readl_ctrl(struct s32cc_pcie *pci, u32 reg);
@@ -147,7 +156,13 @@ int s32cc_pcie_config_irq(int *irq_id, char *irq_name,
 int deinit_controller(struct s32cc_pcie *s32cc_pp);
 void s32cc_pcie_shutdown(struct platform_device *pdev);
 
-#ifdef CONFIG_PM_SLEEP
+int s32cc_pcie_link_is_up(struct dw_pcie *pcie);
+int s32cc_pcie_start_link(struct dw_pcie *pcie);
+void s32cc_pcie_stop_link(struct dw_pcie *pcie);
+void s32cc_pcie_write(struct dw_pcie *pci,
+		void __iomem *base, u32 reg, size_t size, u32 val);
+
+#if (IS_ENABLED(CONFIG_PM_SLEEP))
 int s32cc_pcie_suspend(struct device *dev);
 int s32cc_pcie_resume(struct device *dev);
 #endif
