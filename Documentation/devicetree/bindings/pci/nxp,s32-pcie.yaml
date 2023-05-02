@@ -8,10 +8,14 @@ title: NXP S32CC PCIe interface
 
 maintainers:
   - Bogdan Hamciuc <bogdan.hamciuc@nxp.com>
+  - Ionut Vicovan <ionut.vicovan@nxp.com>
 
 description: |
-  This PCIe host controller is based on the Synopsys DesignWare PCIe IP
-  and thus inherits all the common properties defined in designware-pcie.txt.
+  This PCIe controller is based on the Synopsys DesignWare PCIe IP.
+  S32 Common Chassis platform has two PCIe controllers, which can be
+  configured as either Root Complex or End Point.
+  Each of the controller nodes needs to be referenced by an alias in
+  'aliases' section.
 
 properties:
   compatible:
@@ -82,10 +86,35 @@ properties:
       phandle to the SerDes presence field cells from MIDR2 register
       from SIUL2_1 module
 
+  device_id:
+     description: |
+       id of the PCIe controller; used to identify it, apart from the base address
+
+  num-lanes:
+     description: |
+       max bus width (1 or 2); it is the number of physical lanes
+
+  num-lanes:
+     description: |
+       max link speed; normaly Gen3, but can be enforced to a lower value
+       in case of special limitations
+
+  phy-names:
+    description: |
+       list of the PCIe PHYs assigned to the SerDes lanes of a particular
+       controller; they are usually set internally via SerDes fixups
+    items:
+      - serdes_lane0
+      - serdes_lane1
+
   shared-mem:
     description: |
       reference to a reserved-memory node which has compatible property set
       to "nxp,s32cc-shm"
+
+  auto-config-bars:
+    description:  |
+      autoconfigure BARs for EndPoint mode, based on information from shared-mem.
 
 required:
   - compatible
@@ -95,6 +124,9 @@ required:
   - interrupt-names
   - ranges
   - nxp,phy-mode
+  - phy-names
+  - nvmem-cell-names
+  - nvmem-cells
 
 additionalProperties: true
 
@@ -157,10 +189,6 @@ examples:
                 <0 0 0 3 &gic 0 0 0 130 4>,
                 <0 0 0 4 &gic 0 0 0 131 4>;
           /* msi-parent = <&gic>; */
-
-          /* EP mode only */
-          num-ib-windows = <6>;
-          num-ob-windows = <6>;
 
           status = "disabled";
         };
