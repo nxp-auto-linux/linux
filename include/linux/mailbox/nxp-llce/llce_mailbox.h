@@ -82,6 +82,7 @@ struct llce_rx_msg {
 
 enum llce_config_cmd {
 	LLCE_EXECUTE_FW_CMD = 0x99,
+	LLCE_EXECUTE_FW_HIF_CMD,
 	LLCE_GET_FIFO_INDEX,
 };
 
