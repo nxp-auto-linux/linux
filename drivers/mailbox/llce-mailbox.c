@@ -1405,27 +1405,44 @@ static void process_chan_err(struct llce_mb *mb, u32 chan_type,
 			     struct llce_can_channel_error_notif *error)
 {
 	unsigned int chan_index;
+	enum llce_can_module module_id;
+	enum llce_fw_return fw_error;
 	struct mbox_controller *ctrl = &mb->controller;
-	void *notif;
+	struct device *dev = ctrl->dev;
 	struct llce_rx_msg rx_notif;
 	struct llce_tx_notif tx_notif;
+	struct mbox_chan *chan;
+	void *notif;
+
+	fw_error = error->error_info.error_code;
+	module_id = error->error_info.module_id;
 
 	chan_index = get_channel_offset(chan_type, error->hw_ctrl);
+	chan = &ctrl->chans[chan_index];
+
+	if (!is_chan_registered(chan)) {
+		net_err_ratelimited("%s: Received error %u on '%s' %u channel (module %s)\n",
+				    dev_name(dev),
+				    fw_error, get_channel_type_name(chan_type),
+				    error->hw_ctrl,
+				    get_module_name(module_id));
+		return;
+	}
 
 	if (is_tx_chan(chan_type)) {
-		tx_notif.error = error->error_info.error_code;
+		tx_notif.error = fw_error;
 
 		/* Release the channel if an error occurred */
-		mbox_chan_txdone(&ctrl->chans[chan_index], 0);
+		mbox_chan_txdone(chan, 0);
 		notif = &tx_notif;
 	} else {
 		rx_notif.cmd = LLCE_ERROR;
-		rx_notif.error = error->error_info.error_code;
+		rx_notif.error = fw_error;
 
 		notif = &rx_notif;
 	}
 
-	llce_mbox_chan_received_data(&ctrl->chans[chan_index], notif);
+	llce_mbox_chan_received_data(chan, notif);
 }
 
 static void process_channel_err(struct llce_mb *mb,
