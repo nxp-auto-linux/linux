@@ -168,6 +168,7 @@ static int llce_logger_startup(struct mbox_chan *chan);
 static void llce_logger_shutdown(struct mbox_chan *chan);
 static int process_rx_cmd(struct mbox_chan *chan, struct llce_rx_msg *msg);
 static int process_logger_cmd(struct mbox_chan *chan, struct llce_rx_msg *msg);
+static int submit_hif_cmd(struct llce_mb *mb, struct llce_can_command *cmd);
 
 /**
  * Platform configuration can be skipped for cases when the HIF is completely
@@ -600,6 +601,12 @@ static int process_config_msg(struct mbox_chan *chan,
 	struct device *dev = mb->controller.dev;
 
 	switch (msg->cmd) {
+	case LLCE_EXECUTE_FW_HIF_CMD:
+		if (!is_can_core_config_chan(priv->type))
+			return -EPERM;
+
+		priv->last_msg = &msg->fw_cmd.cmd;
+		return submit_hif_cmd(mb, &msg->fw_cmd.cmd);
 	case LLCE_EXECUTE_FW_CMD:
 		return execute_config_cmd(chan, &msg->fw_cmd.cmd,
 					  msg->fw_cmd.hw_ctrl);
@@ -2153,13 +2160,11 @@ static void deinit_hif_config_chan(struct llce_mb *mb)
 	deinit_chan_priv(chan);
 }
 
-static int execute_hif_cmd(struct llce_mb *mb,
-			   struct llce_can_command *cmd)
+static int submit_hif_cmd(struct llce_mb *mb, struct llce_can_command *cmd)
 {
 	struct mbox_controller *ctrl = &mb->controller;
 	struct device *dev = ctrl->dev;
 	static struct mbox_chan *chan;
-	int retries = 10;
 	int ret;
 
 	chan = get_hif_cfg_chan(mb);
@@ -2169,6 +2174,23 @@ static int execute_hif_cmd(struct llce_mb *mb,
 		dev_err(dev, "Failed to send command\n");
 		return ret;
 	}
+
+	return ret;
+}
+
+static int execute_hif_cmd(struct llce_mb *mb, struct llce_can_command *cmd)
+{
+	struct mbox_controller *ctrl = &mb->controller;
+	struct device *dev = ctrl->dev;
+	static struct mbox_chan *chan;
+	unsigned char retries = 10;
+	int ret;
+
+	ret = submit_hif_cmd(mb, cmd);
+	if (ret)
+		return ret;
+
+	chan = get_hif_cfg_chan(mb);
 
 	/* Wait for command completion */
 	while (!llce_mb_last_tx_done(chan) && retries--)
