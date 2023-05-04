@@ -70,7 +70,7 @@ struct scmi_pin_function {
 };
 
 struct scmi_msg_pinctrl_pmx_set {
-	u8 num_pins;
+	__le32 num_pins;
 	struct scmi_pin_function settings[];
 };
 
