@@ -25,7 +25,7 @@
 #define LLCE_CBT_TSEG2_OFFSET		9U
 #define LLCE_CBT_TSEG1_OFFSET		0U
 
-#define LLCE_CAN_MAX_TX_MB		(16U)
+#define LLCE_CAN_MAX_TX_MB		(10U)
 
 struct llce_can {
 	struct llce_can_dev common; /* Must be the first member */
