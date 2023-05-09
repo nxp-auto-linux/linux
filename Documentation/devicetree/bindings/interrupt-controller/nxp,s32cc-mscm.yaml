@@ -35,20 +35,20 @@ examples:
     #include <dt-bindings/interrupt-controller/arm-gic.h>
     #include <dt-bindings/interrupt-controller/irq.h>
 
-	mscm0: mscm@40198000 {
-			compatible = "nxp,s32cc-mscm";
-			reg = <0x0 0x40198000 0x0 0x1000>;
-			/* CPU2CPU interrupts */
-			interrupts = <GIC_SPI 1 IRQ_TYPE_LEVEL_HIGH>,
-						 <GIC_SPI 2 IRQ_TYPE_LEVEL_HIGH>,
-						 <GIC_SPI 3 IRQ_TYPE_LEVEL_HIGH>,
-						 <GIC_SPI 22 IRQ_TYPE_LEVEL_HIGH>,
-						 <GIC_SPI 23 IRQ_TYPE_LEVEL_HIGH>,
-						 <GIC_SPI 68 IRQ_TYPE_LEVEL_HIGH>,
-						 <GIC_SPI 69 IRQ_TYPE_LEVEL_HIGH>,
-						 <GIC_SPI 164 IRQ_TYPE_LEVEL_HIGH>,
-						 <GIC_SPI 165 IRQ_TYPE_LEVEL_HIGH>,
-						 <GIC_SPI 166 IRQ_TYPE_LEVEL_HIGH>,
-						 <GIC_SPI 167 IRQ_TYPE_LEVEL_HIGH>,
-						 <GIC_SPI 168 IRQ_TYPE_LEVEL_HIGH>;
-		};
+    mscm0: mscm@40198000 {
+      compatible = "nxp,s32cc-mscm";
+      reg = <0x0 0x40198000 0x0 0x1000>;
+      /* CPU2CPU interrupts */
+      interrupts = <GIC_SPI 1 IRQ_TYPE_LEVEL_HIGH>,
+            <GIC_SPI 2 IRQ_TYPE_LEVEL_HIGH>,
+            <GIC_SPI 3 IRQ_TYPE_LEVEL_HIGH>,
+            <GIC_SPI 22 IRQ_TYPE_LEVEL_HIGH>,
+            <GIC_SPI 23 IRQ_TYPE_LEVEL_HIGH>,
+            <GIC_SPI 68 IRQ_TYPE_LEVEL_HIGH>,
+            <GIC_SPI 69 IRQ_TYPE_LEVEL_HIGH>,
+            <GIC_SPI 164 IRQ_TYPE_LEVEL_HIGH>,
+            <GIC_SPI 165 IRQ_TYPE_LEVEL_HIGH>,
+            <GIC_SPI 166 IRQ_TYPE_LEVEL_HIGH>,
+            <GIC_SPI 167 IRQ_TYPE_LEVEL_HIGH>,
+            <GIC_SPI 168 IRQ_TYPE_LEVEL_HIGH>;
+    };
