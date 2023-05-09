@@ -173,19 +173,19 @@ examples:
           #address-cells = <1>;
           #size-cells = <0>;
 
-          queue@0 {
+          queue0 {
           };
 
-          queue@1 {
+          queue1 {
           };
 
-          queue@2 {
+          queue2 {
           };
 
-          queue@3 {
+          queue3 {
           };
 
-          queue@4 {
+          queue4 {
           };
         };
 
@@ -194,19 +194,19 @@ examples:
           #address-cells = <1>;
           #size-cells = <0>;
 
-          queue@0 {
+          queue0 {
           };
 
-          queue@1 {
+          queue1 {
           };
 
-          queue@2 {
+          queue2 {
           };
 
-          queue@3 {
+          queue3 {
           };
 
-          queue@4 {
+          queue4 {
           };
         };
 

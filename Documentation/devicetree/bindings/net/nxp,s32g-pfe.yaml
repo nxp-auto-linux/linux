@@ -88,7 +88,7 @@ properties:
     maxItems: 1
 
   memory-region:
-    maxItems: 4
+    minItems: 1
     items:
       - description: The BMU2 buffer pool, must be in the range 0x00020000 - 0xbfffffff
       - description: RT region
@@ -96,7 +96,7 @@ properties:
       - description: Buffer descriptor rings
 
   memory-region-names:
-    maxItems: 4
+    minItems: 1
     items:
       - const: pfe-bmu2-pool
       - const: pfe-rt-pool
@@ -134,13 +134,12 @@ properties:
     $ref: /schemas/types.yaml#/definitions/uint32
     description: |
       The HIF channel number used for IHC transport.
-    maxItems: 1
+    contains:
       enum:
         - PFE_PHYIF_HIF_0
         - PFE_PHYIF_HIF_1
         - PFE_PHYIF_HIF_2
         - PFE_PHYIF_HIF_3
-
 
   nxp,pfeng-master-channel:
     $ref: /schemas/types.yaml#/definitions/uint32
@@ -149,7 +148,7 @@ properties:
       The destination channel used by Master for
       receiving IHC messages. Here can also be used
       the HIF_NCPY channel.
-    maxItems: 1
+    contains:
       enum:
         - PFE_PHYIF_HIF_0
         - PFE_PHYIF_HIF_1
@@ -183,7 +182,6 @@ properties:
       reg:
         maxItems: 1
         description: The index of embedded MDIO bus.
-      unevaluatedProperties: false
 
   # ethernet
   ethernet:
@@ -208,6 +206,7 @@ properties:
           HIF channel can be used. HIF_NOCPY is not supported.
         minItems: 1
         maxItems: 4
+        contains:
           enum:
             - PFE_PHYIF_HIF_0
             - PFE_PHYIF_HIF_1
@@ -222,7 +221,7 @@ properties:
         $ref: /schemas/types.yaml#/definitions/uint32
         description: |
           The linked PFE physical port.
-        maxItems: 1
+        contains:
           enum:
             - PFE_PHYIF_EMAC_0
             - PFE_PHYIF_EMAC_1
@@ -236,7 +235,6 @@ properties:
         $ref: /schemas/types.yaml#/definitions/flag
         description: |
           If present, the netdevice is used in AUX mode.
-      unevaluatedProperties: false
 
 required:
   - compatible
@@ -247,8 +245,6 @@ required:
   - '#address-cells'
   - '#size-cells'
   - ethernet
-
-additionalProperties: false
 
 unevaluatedProperties: false
 
