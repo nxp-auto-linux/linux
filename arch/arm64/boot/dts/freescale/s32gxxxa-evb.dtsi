@@ -709,12 +709,6 @@
 	status = "okay";
 };
 
-&qspi {
-	mx25uw51245g@0 {
-		spi-max-frequency = <133333333>;
-	};
-};
-
 &llce_dte_sram {
 	status = "okay";
 };
