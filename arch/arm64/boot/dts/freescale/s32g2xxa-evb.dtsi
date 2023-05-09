@@ -13,6 +13,12 @@
 	model = "NXP S32G2XXX-EVB";
 };
 
+&qspi {
+	mx25uw51245g@0 {
+		spi-max-frequency = <166666666>;
+	};
+};
+
 &usdhc0 {
 	no-1-8-v;
 	status = "okay";
