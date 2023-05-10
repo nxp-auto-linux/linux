@@ -489,6 +489,104 @@ static int get_hw_ctrl(struct net_device *netdev, u8 *hw_ctrl)
 	return 0;
 }
 
+static int register_can_dest(struct llce_can_core *can_core,
+			     struct can_destination **dest)
+{
+	*dest = kmalloc(sizeof(**dest), GFP_KERNEL);
+	if (!*dest)
+		return -ENOMEM;
+
+	mutex_lock(&can_core->can_dest_lock);
+	list_add_tail(&(*dest)->link, &can_core->can_dest_list);
+	mutex_unlock(&can_core->can_dest_lock);
+
+	return 0;
+}
+
+static void release_can_dest(struct can_destination *dest)
+{
+	list_del(&dest->link);
+
+	kfree(dest);
+}
+
+static void release_all_can_dest(struct llce_can_core *can_core)
+{
+	struct can_destination *dest, *next;
+
+	mutex_lock(&can_core->can_dest_lock);
+	list_for_each_entry_safe(dest, next, &can_core->can_dest_list, link)
+		release_can_dest(dest);
+	mutex_unlock(&can_core->can_dest_lock);
+}
+
+static int add_fw_destination(struct llce_can_core *can_core,
+			      struct can_af_dest_rules *dest,
+			      u8 *dest_id)
+{
+	struct device *dev = get_can_core_dev(can_core);
+	struct mbox_chan *conf_chan = can_core->config;
+	struct llce_can_create_af_destination *af_dest;
+	struct llce_config_msg msg = {
+		.cmd = LLCE_EXECUTE_FW_HIF_CMD,
+		.fw_cmd = {
+			.cmd = {
+				.cmd_id = LLCE_CAN_CMD_CREATE_AF_DESTINATION,
+			}
+		},
+	};
+	int ret;
+
+	if (!dest)
+		return -EINVAL;
+
+	af_dest = &msg.fw_cmd.cmd.cmd_list.create_af_dest;
+	af_dest->rule = *dest;
+
+	ret = llce_send_config_cmd(conf_chan, &msg, &can_core->config_cmd_done);
+	if (ret) {
+		dev_err(dev, "Failed to add a new destination\n");
+		return ret;
+	}
+
+	*dest = af_dest->rule;
+	*dest_id = af_dest->idx;
+
+	return 0;
+}
+
+int llce_add_can_dest(struct llce_can_core *can_core,
+		      struct llce_can_can2can_routing_table *can_dest,
+		      u8 *dest_id)
+{
+	int ret;
+	struct can_destination *dest;
+
+	struct can_af_dest_rules af_dest = {
+		.af_dest = {
+			.can2can = *can_dest,
+		},
+		.af_dest_id = CAN_AF_CAN2CAN,
+	};
+
+	ret = register_can_dest(can_core, &dest);
+	if (ret)
+		return ret;
+
+	ret = add_fw_destination(can_core, &af_dest, &dest->id);
+	if (ret)
+		goto release_dest;
+
+	dest->dest = af_dest.af_dest.can2can;
+	*dest_id = dest->id;
+
+release_dest:
+	if (ret)
+		release_can_dest(dest);
+
+	return ret;
+}
+
 static int llce_can_event(struct llce_can_core *can_core, unsigned long action,
 			  struct net_device *netdev)
 {
@@ -670,6 +768,9 @@ static void init_hw_fifo(struct llce_can_core *can_core)
 	size_t i;
 
 	INIT_LIST_HEAD(&can_core->filters_list);
+	INIT_LIST_HEAD(&can_core->can_dest_list);
+
+	mutex_init(&can_core->can_dest_lock);
 
 	for (i = 0; i < ARRAY_SIZE(can_core->ctrls); i++)
 		init_ctrl_meta(&can_core->ctrls[i]);
@@ -714,6 +815,8 @@ static int llce_can_core_remove(struct platform_device *pdev)
 
 	for (hw_ctrl = 0; hw_ctrl < ARRAY_SIZE(can_core->ctrls); hw_ctrl++)
 		release_host_rx_filters(can_core, hw_ctrl);
+
+	release_all_can_dest(can_core);
 
 	release_config_mailbox(can_core);
 
