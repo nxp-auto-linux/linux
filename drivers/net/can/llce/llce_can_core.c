@@ -799,9 +799,19 @@ static int llce_can_core_probe(struct platform_device *pdev)
 
 	ret = register_netdevice_notifier(&can_core->notifier);
 	if (ret) {
-		release_config_mailbox(can_core);
 		dev_err(dev, "Failed to register the notifier\n");
+		goto release_channel;
 	}
+
+	ret = llce_create_debugfs(&can_core->debugfs);
+	if (ret) {
+		dev_err(dev, "Failed to create debugfs files\n");
+		unregister_netdevice_notifier(&can_core->notifier);
+	}
+
+release_channel:
+	if (ret)
+		release_config_mailbox(can_core);
 
 	return ret;
 }
@@ -810,6 +820,8 @@ static int llce_can_core_remove(struct platform_device *pdev)
 {
 	struct llce_can_core *can_core = platform_get_drvdata(pdev);
 	u8 hw_ctrl;
+
+	llce_remove_debugs(&can_core->debugfs);
 
 	unregister_netdevice_notifier(&can_core->notifier);
 
