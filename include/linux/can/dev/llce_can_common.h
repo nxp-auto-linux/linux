@@ -4,6 +4,7 @@
 #ifndef LLCE_CAN_COMMON_H
 #define LLCE_CAN_COMMON_H
 
+#include <linux/can/dev.h>
 #include <linux/ctype.h>
 #include <linux/device.h>
 #include <linux/mailbox/nxp-llce/llce_can.h>
