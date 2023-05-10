@@ -219,7 +219,7 @@ static int register_ctrl_filter(struct llce_can_core *can_core,
 	if (!sfilter)
 		return -ENOMEM;
 
-	list_add(&sfilter->link, &can_core->filters_list);
+	list_add_tail(&sfilter->link, &can_core->filters_list);
 
 	if (ofilter)
 		*ofilter = sfilter;
@@ -806,7 +806,7 @@ static int __maybe_unused llce_can_core_resume(struct device *device)
 	struct filter_state *filter;
 	int ret;
 
-	list_for_each_entry_reverse(filter, &can_core->filters_list, link) {
+	list_for_each_entry(filter, &can_core->filters_list, link) {
 		ret = restore_fw_filter(can_core, filter);
 		if (ret)
 			return ret;
