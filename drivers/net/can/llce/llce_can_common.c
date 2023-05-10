@@ -626,6 +626,7 @@ int llce_send_config_cmd(struct mbox_chan *conf_chan,
 	wait_for_completion(config_done);
 	switch (msg->cmd) {
 	case LLCE_EXECUTE_FW_CMD:
+	case LLCE_EXECUTE_FW_HIF_CMD:
 		cmd_ret = msg->fw_cmd.cmd.return_value;
 		if (cmd_ret == LLCE_ERROR_COMMAND_NOTSUPPORTED)
 			return -EOPNOTSUPP;
