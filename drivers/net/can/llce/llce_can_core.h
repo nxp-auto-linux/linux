@@ -10,6 +10,8 @@
 #include <linux/notifier.h>
 #include <linux/types.h>
 
+#include "llce_can_core_debugfs.h"
+
 struct filter_state {
 	bool enabled;
 	bool advanced;
@@ -42,6 +44,7 @@ struct llce_can_core {
 	struct list_head can_dest_list;
 	/* Protects can_dest_list */
 	struct mutex can_dest_lock;
+	struct llce_can_core_debugfs debugfs;
 	struct mbox_chan *config;
 };
 
@@ -52,4 +55,7 @@ static inline struct device *get_can_core_dev(struct llce_can_core *can_core)
 	return llce_can_chan_dev(conf_chan);
 }
 
+int llce_add_can_dest(struct llce_can_core *can_core,
+		      struct llce_can_can2can_routing_table *can_dest,
+		      u8 *dest_id);
 #endif
