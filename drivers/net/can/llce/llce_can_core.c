@@ -215,11 +215,9 @@ static int register_ctrl_filter(struct llce_can_core *can_core,
 {
 	struct filter_state *sfilter;
 
-	sfilter = kmalloc(sizeof(*sfilter), GFP_KERNEL);
+	sfilter = kmemdup(filter, sizeof(*sfilter), GFP_KERNEL);
 	if (!sfilter)
 		return -ENOMEM;
-
-	*sfilter = *filter;
 
 	list_add(&sfilter->link, &can_core->filters_list);
 
