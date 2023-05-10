@@ -20,6 +20,12 @@ struct filter_state {
 	struct list_head link;
 };
 
+struct can_destination {
+	struct llce_can_can2can_routing_table dest;
+	struct list_head link;
+	u8 id;
+};
+
 struct can_ctrl_state {
 	struct filter_state *base_filter;
 	struct filter_state *logging_filter;
@@ -33,6 +39,9 @@ struct llce_can_core {
 	struct completion config_cmd_done;
 	struct mbox_client config_client;
 	struct list_head filters_list;
+	struct list_head can_dest_list;
+	/* Protects can_dest_list */
+	struct mutex can_dest_lock;
 	struct mbox_chan *config;
 };
 
