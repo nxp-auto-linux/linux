@@ -19,6 +19,7 @@ struct filter_state {
 		struct llce_can_rx_filter base;
 		struct llce_can_advanced_filter advanced;
 	} f;
+	u8 hw_ctrl;
 	struct list_head link;
 };
 
