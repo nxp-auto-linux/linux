@@ -305,6 +305,83 @@ static int set_status_fw_filter(struct llce_can_core *can_core,
 	return ret;
 }
 
+static struct filter_state *get_filter_nolock(struct llce_can_core *can_core,
+					      u16 filter_addr)
+{
+	struct filter_state *filter, *next;
+	u16 addr;
+	int ret;
+
+	list_for_each_entry_safe(filter, next, &can_core->filters_list, link) {
+		ret = get_filter_addr(filter, &addr);
+		if (ret)
+			continue;
+
+		if (addr != filter_addr)
+			continue;
+
+		return filter;
+	}
+
+	return NULL;
+}
+
+int llce_set_filter_status(struct llce_can_core *can_core, u16 filter_addr,
+			   bool enabled)
+{
+	struct filter_state *filter;
+	int ret;
+
+	mutex_lock(&can_core->filters_lock);
+
+	filter = get_filter_nolock(can_core, filter_addr);
+	if (!filter) {
+		ret = -EBADSLT;
+		goto unlock;
+	}
+
+	/* Nothing to do */
+	if (filter->enabled == enabled) {
+		ret = 0;
+		goto unlock;
+	}
+
+	ret = set_status_fw_filter(can_core, filter->hw_ctrl, filter, enabled);
+
+unlock:
+	mutex_unlock(&can_core->filters_lock);
+	return ret;
+}
+
+int llce_add_can_filter(struct llce_can_core *can_core, u8 hw_ctrl,
+			struct filter_state *filter)
+{
+	int ret;
+	u16 filter_addr;
+	bool enabled = filter->enabled;
+	struct device *dev = get_can_core_dev(can_core);
+	struct filter_state *ofilter;
+
+	ret = add_fw_filter(can_core, hw_ctrl, filter, true, &ofilter);
+	if (ret)
+		return ret;
+
+	if (enabled)
+		return 0;
+
+	ret = set_status_fw_filter(can_core, hw_ctrl, ofilter, false);
+	if (ret) {
+		ofilter->enabled = true;
+		(void)get_filter_addr(ofilter, &filter_addr);
+		dev_err(dev, "Failed change the state of the filter 0x%x for ctrl %x\n",
+			filter_addr, hw_ctrl);
+
+		return ret;
+	}
+
+	return ret;
+}
+
 static int remove_fw_filter(struct llce_can_core *can_core,
 			    u8 hw_ctrl, struct filter_state *filter,
 			    bool take_lock)
@@ -348,6 +425,56 @@ static int remove_fw_filter(struct llce_can_core *can_core,
 
 	if (take_lock)
 		mutex_unlock(&can_core->filters_lock);
+
+	return ret;
+}
+
+int llce_remove_filter(struct llce_can_core *can_core, u16 filter_addr)
+{
+	u16 base_addr, logging_addr;
+	bool has_base_addr, has_logging_addr;
+	struct filter_state *filter;
+	struct can_ctrl_state *ctrl;
+	int ret;
+
+	mutex_lock(&can_core->filters_lock);
+
+	filter = get_filter_nolock(can_core, filter_addr);
+	if (!filter) {
+		ret = -EBADSLT;
+		goto unlock;
+	}
+
+	ctrl = get_ctrl_state(can_core, filter->hw_ctrl);
+	if (!ctrl) {
+		ret = -EINVAL;
+		goto unlock;
+	}
+
+	ret = get_filter_addr(ctrl->base_filter, &base_addr);
+	if (ret)
+		has_base_addr = false;
+	else
+		has_base_addr = true;
+
+	ret = get_filter_addr(ctrl->logging_filter, &logging_addr);
+	if (ret)
+		has_logging_addr = false;
+	else
+		has_logging_addr = true;
+
+	ret = remove_fw_filter(can_core, filter->hw_ctrl, filter, false);
+	if (ret)
+		goto unlock;
+
+	if (has_base_addr && base_addr == filter_addr)
+		ctrl->base_filter = NULL;
+
+	if (has_logging_addr && logging_addr == filter_addr)
+		ctrl->logging_filter = NULL;
+
+unlock:
+	mutex_unlock(&can_core->filters_lock);
 
 	return ret;
 }
@@ -538,12 +665,11 @@ static int add_fw_destination(struct llce_can_core *can_core,
 	return 0;
 }
 
-int llce_add_can_dest(struct llce_can_core *can_core,
-		      struct llce_can_can2can_routing_table *can_dest,
-		      u8 *dest_id)
+static int add_fw_can2can_dest(struct llce_can_core *can_core,
+			       struct llce_can_can2can_routing_table *can_dest,
+			       u8 *dest_id)
 {
 	int ret;
-	struct can_destination *dest;
 
 	struct can_af_dest_rules af_dest = {
 		.af_dest = {
@@ -552,16 +678,30 @@ int llce_add_can_dest(struct llce_can_core *can_core,
 		.af_dest_id = CAN_AF_CAN2CAN,
 	};
 
+	ret = add_fw_destination(can_core, &af_dest, dest_id);
+
+	*can_dest = af_dest.af_dest.can2can;
+
+	return ret;
+}
+
+int llce_add_can_dest(struct llce_can_core *can_core,
+		      struct llce_can_can2can_routing_table *can_dest,
+		      u8 *dest_id)
+{
+	int ret;
+	struct can_destination *dest;
+
 	ret = register_can_dest(can_core, &dest);
 	if (ret)
 		return ret;
 
-	ret = add_fw_destination(can_core, &af_dest, &dest->id);
+	ret = add_fw_can2can_dest(can_core, can_dest, dest_id);
 	if (ret)
 		goto release_dest;
 
-	dest->dest = af_dest.af_dest.can2can;
-	*dest_id = dest->id;
+	dest->dest = *can_dest;
+	dest->id = *dest_id;
 
 release_dest:
 	if (ret) {
@@ -868,19 +1008,57 @@ static int restore_fw_filter(struct llce_can_core *can_core,
 	return ret;
 }
 
+static void update_filters_can2can_dest(struct llce_can_core *can_core,
+					u8 old_dest, u8 new_dest)
+{
+	struct filter_state *filter;
+	struct llce_can_advanced_feature *adv_opts;
+
+	mutex_lock(&can_core->filters_lock);
+	list_for_each_entry(filter, &can_core->filters_list, link) {
+		if (!filter->advanced)
+			continue;
+
+		adv_opts = &filter->f.advanced.llce_can_advanced_feature;
+		if (adv_opts->can2can_routing_table_idx == old_dest)
+			adv_opts->can2can_routing_table_idx = new_dest;
+	}
+	mutex_unlock(&can_core->filters_lock);
+}
+
 static int __maybe_unused llce_can_core_resume(struct device *device)
 {
 	struct llce_can_core *can_core = dev_get_drvdata(device);
 	struct filter_state *filter;
-	int ret;
+	struct can_destination *dest;
+	u8 old_dest_id;
+	int ret = 0;
+
+	mutex_lock(&can_core->can_dest_lock);
+	list_for_each_entry(dest, &can_core->can_dest_list, link) {
+		old_dest_id = dest->id;
+
+		ret = add_fw_can2can_dest(can_core, &dest->dest, &dest->id);
+		if (ret)
+			break;
+
+		if (old_dest_id != dest->id)
+			update_filters_can2can_dest(can_core, old_dest_id,
+						    dest->id);
+	}
+	mutex_unlock(&can_core->can_dest_lock);
+	if (ret)
+		return ret;
 
 	mutex_lock(&can_core->filters_lock);
 	list_for_each_entry(filter, &can_core->filters_list, link) {
 		ret = restore_fw_filter(can_core, filter);
 		if (ret)
-			return ret;
+			break;
 	}
 	mutex_unlock(&can_core->filters_lock);
+	if (ret)
+		return ret;
 
 	return 0;
 }
