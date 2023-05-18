@@ -55,6 +55,29 @@ static inline struct device *get_can_core_dev(struct llce_can_core *can_core)
 	return llce_can_chan_dev(conf_chan);
 }
 
+static inline struct llce_can_rx_filter *
+get_base_filter(struct filter_state *filter)
+{
+	if (filter->advanced)
+		return &filter->f.advanced.llce_can_Rx_filter;
+
+	return &filter->f.base;
+}
+
+static inline int get_filter_addr(struct filter_state *filter, u16 *addr)
+{
+	struct llce_can_rx_filter *rx_filter;
+
+	if (!filter)
+		return -EINVAL;
+
+	rx_filter = get_base_filter(filter);
+
+	*addr = rx_filter->filter_addr;
+
+	return 0;
+}
+
 int llce_add_can_dest(struct llce_can_core *can_core,
 		      struct llce_can_can2can_routing_table *can_dest,
 		      u8 *dest_id);

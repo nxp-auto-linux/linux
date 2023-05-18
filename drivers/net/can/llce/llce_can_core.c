@@ -13,29 +13,9 @@
 
 #define INVALID_HW_FIFO			(0xFFU)
 
-static int get_filter_id(struct filter_state *filter, u16 *id)
-{
-	if (!filter)
-		return -EINVAL;
-
-	if (filter->advanced) {
-		*id = filter->f.advanced.llce_can_Rx_filter.filter_addr;
-		return 0;
-	}
-
-	*id = filter->f.base.filter_addr;
-
-	return 0;
-}
-
 static void set_filter_fifo(struct filter_state *filter, u8 fifo)
 {
-	struct llce_can_rx_filter *rx_filter;
-
-	if (filter->advanced)
-		rx_filter = &filter->f.advanced.llce_can_Rx_filter;
-	else
-		rx_filter = &filter->f.base;
+	struct llce_can_rx_filter *rx_filter = get_base_filter(filter);
 
 	rx_filter->rx_dest_interface = fifo;
 }
@@ -292,7 +272,7 @@ static int set_status_fw_filter(struct llce_can_core *can_core,
 				u8 hw_ctrl, struct filter_state *filter,
 				bool enable)
 {
-	u16 filter_id;
+	u16 filter_addr;
 	struct device *dev = get_can_core_dev(can_core);
 	struct mbox_chan *conf_chan = can_core->config;
 	struct llce_config_msg msg = {
@@ -313,18 +293,18 @@ static int set_status_fw_filter(struct llce_can_core *can_core,
 		return -EINVAL;
 	}
 
-	ret = get_filter_id(filter, &filter_id);
+	ret = get_filter_addr(filter, &filter_addr);
 	if (ret) {
 		dev_err(dev, "Failed to get filter's id\n");
 		return ret;
 	}
 
-	msg.fw_cmd.cmd.cmd_list.change_filter.filter_addr = filter_id;
+	msg.fw_cmd.cmd.cmd_list.change_filter.filter_addr = filter_addr;
 
 	ret = llce_send_config_cmd(conf_chan, &msg, &can_core->config_cmd_done);
 	if (ret) {
 		dev_err(dev, "Failed to change the status of %u filter of the controller %u\n",
-			filter_id, hw_ctrl);
+			filter_addr, hw_ctrl);
 		return ret;
 	}
 
@@ -336,7 +316,7 @@ static int set_status_fw_filter(struct llce_can_core *can_core,
 static int remove_fw_filter(struct llce_can_core *can_core,
 			    u8 hw_ctrl, struct filter_state *filter)
 {
-	u16 filter_id;
+	u16 filter_addr;
 	struct device *dev = get_can_core_dev(can_core);
 	struct mbox_chan *conf_chan = can_core->config;
 	struct llce_config_msg msg = {
@@ -353,18 +333,18 @@ static int remove_fw_filter(struct llce_can_core *can_core,
 	if (!filter)
 		return -EINVAL;
 
-	ret = get_filter_id(filter, &filter_id);
+	ret = get_filter_addr(filter, &filter_addr);
 	if (ret) {
 		dev_err(dev, "Failed to get filter's id for remove op\n");
 		return ret;
 	}
 
-	msg.fw_cmd.cmd.cmd_list.change_filter.filter_addr = filter_id;
+	msg.fw_cmd.cmd.cmd_list.change_filter.filter_addr = filter_addr;
 
 	ret = llce_send_config_cmd(conf_chan, &msg, &can_core->config_cmd_done);
 	if (ret) {
 		dev_err(dev, "Failed to remove filter %u of the controller %u\n",
-			filter_id, hw_ctrl);
+			filter_addr, hw_ctrl);
 		return ret;
 	}
 
@@ -626,7 +606,7 @@ static int change_rx_logging_filter(struct llce_can_core *can_core, u8 hw_ctrl,
 	struct can_ctrl_state *ctrl_state;
 	struct device *dev = get_can_core_dev(can_core);
 	struct filter_state *en_filter, *dis_filter;
-	u16 filter_id = 0;
+	u16 filter_addr = 0;
 	int ret;
 
 	ctrl_state = get_ctrl_state(can_core, hw_ctrl);
@@ -655,17 +635,17 @@ static int change_rx_logging_filter(struct llce_can_core *can_core, u8 hw_ctrl,
 
 	ret = set_status_fw_filter(can_core, hw_ctrl, en_filter, true);
 	if (ret) {
-		(void)get_filter_id(en_filter, &filter_id);
+		(void)get_filter_addr(en_filter, &filter_addr);
 		dev_err(dev, "Failed to enable filter %u for controller %u\n",
-			filter_id, hw_ctrl);
+			filter_addr, hw_ctrl);
 		return ret;
 	}
 
 	ret = set_status_fw_filter(can_core, hw_ctrl, dis_filter, false);
 	if (ret) {
-		(void)get_filter_id(dis_filter, &filter_id);
+		(void)get_filter_addr(dis_filter, &filter_addr);
 		dev_err(dev, "Failed to disable filter %u for controller %u\n",
-			filter_id, hw_ctrl);
+			filter_addr, hw_ctrl);
 		return ret;
 	}
 
@@ -848,7 +828,7 @@ static int restore_fw_filter(struct llce_can_core *can_core,
 {
 	struct device *dev = get_can_core_dev(can_core);
 	bool enabled;
-	u16 filter_id = 0;
+	u16 filter_addr = 0;
 	int ret;
 	u8 hw_ctrl;
 
@@ -859,9 +839,9 @@ static int restore_fw_filter(struct llce_can_core *can_core,
 	/* This will enable the filter by default */
 	ret = add_fw_filter(can_core, hw_ctrl, filter, false, NULL);
 	if (ret) {
-		(void)get_filter_id(filter, &filter_id);
+		(void)get_filter_addr(filter, &filter_addr);
 		dev_err(dev, "Failed to add filter 0x%x for ctrl %x\n",
-			filter_id, hw_ctrl);
+			filter_addr, hw_ctrl);
 
 		return ret;
 	}
@@ -871,9 +851,9 @@ static int restore_fw_filter(struct llce_can_core *can_core,
 
 	ret = set_status_fw_filter(can_core, hw_ctrl, filter, false);
 	if (ret) {
-		(void)get_filter_id(filter, &filter_id);
+		(void)get_filter_addr(filter, &filter_addr);
 		dev_err(dev, "Failed change the state of the filter 0x%x for ctrl %x\n",
-			filter_id, hw_ctrl);
+			filter_addr, hw_ctrl);
 
 		return ret;
 	}
