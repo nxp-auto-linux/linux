@@ -84,4 +84,13 @@ static inline int get_filter_addr(struct filter_state *filter, u16 *addr)
 int llce_add_can_dest(struct llce_can_core *can_core,
 		      struct llce_can_can2can_routing_table *can_dest,
 		      u8 *dest_id);
+
+int llce_add_can_filter(struct llce_can_core *can_core, u8 hw_ctrl,
+			struct filter_state *filter);
+
+int llce_set_filter_status(struct llce_can_core *can_core, u16 filter_addr,
+			   bool enabled);
+
+int llce_remove_filter(struct llce_can_core *can_core, u16 filter_addr);
+
 #endif
