@@ -153,7 +153,9 @@ static int register_ctrl_filter(struct llce_can_core *can_core,
 	if (!sfilter)
 		return -ENOMEM;
 
+	mutex_lock(&can_core->filters_lock);
 	list_add_tail(&sfilter->link, &can_core->filters_list);
+	mutex_unlock(&can_core->filters_lock);
 
 	if (ofilter)
 		*ofilter = sfilter;
@@ -161,7 +163,7 @@ static int register_ctrl_filter(struct llce_can_core *can_core,
 	return 0;
 }
 
-static void release_ctrl_filter(struct filter_state *filter)
+static void release_ctrl_filter_nolock(struct filter_state *filter)
 {
 	list_del(&filter->link);
 
@@ -304,7 +306,8 @@ static int set_status_fw_filter(struct llce_can_core *can_core,
 }
 
 static int remove_fw_filter(struct llce_can_core *can_core,
-			    u8 hw_ctrl, struct filter_state *filter)
+			    u8 hw_ctrl, struct filter_state *filter,
+			    bool take_lock)
 {
 	u16 filter_addr;
 	struct device *dev = get_can_core_dev(can_core);
@@ -338,7 +341,13 @@ static int remove_fw_filter(struct llce_can_core *can_core,
 		return ret;
 	}
 
-	release_ctrl_filter(filter);
+	if (take_lock)
+		mutex_lock(&can_core->filters_lock);
+
+	release_ctrl_filter_nolock(filter);
+
+	if (take_lock)
+		mutex_unlock(&can_core->filters_lock);
 
 	return ret;
 }
@@ -399,10 +408,12 @@ static int add_host_rx_filters(struct llce_can_core *can_core, u8 hw_ctrl,
 
 remove_adv_filter:
 	if (ret)
-		(void)remove_fw_filter(can_core, hw_ctrl, ctrl->logging_filter);
+		(void)remove_fw_filter(can_core, hw_ctrl,
+				       ctrl->logging_filter, true);
 remove_base_filter:
 	if (ret)
-		(void)remove_fw_filter(can_core, hw_ctrl, ctrl->base_filter);
+		(void)remove_fw_filter(can_core, hw_ctrl,
+				       ctrl->base_filter, true);
 
 	return ret;
 }
@@ -427,12 +438,14 @@ static void release_host_rx_filters(struct llce_can_core *can_core, u8 hw_ctrl)
 	if (!ctrl_state)
 		return;
 
+	mutex_lock(&can_core->filters_lock);
 	list_for_each_entry_safe(filter, next, &can_core->filters_list, link) {
 		if (filter->hw_ctrl != hw_ctrl)
 			continue;
 
-		release_ctrl_filter(filter);
+		release_ctrl_filter_nolock(filter);
 	}
+	mutex_unlock(&can_core->filters_lock);
 
 	init_ctrl_meta(ctrl_state);
 }
@@ -473,7 +486,7 @@ static int register_can_dest(struct llce_can_core *can_core,
 	return 0;
 }
 
-static void release_can_dest(struct can_destination *dest)
+static void release_can_dest_nolock(struct can_destination *dest)
 {
 	list_del(&dest->link);
 
@@ -486,7 +499,7 @@ static void release_all_can_dest(struct llce_can_core *can_core)
 
 	mutex_lock(&can_core->can_dest_lock);
 	list_for_each_entry_safe(dest, next, &can_core->can_dest_list, link)
-		release_can_dest(dest);
+		release_can_dest_nolock(dest);
 	mutex_unlock(&can_core->can_dest_lock);
 }
 
@@ -551,8 +564,11 @@ int llce_add_can_dest(struct llce_can_core *can_core,
 	*dest_id = dest->id;
 
 release_dest:
-	if (ret)
-		release_can_dest(dest);
+	if (ret) {
+		mutex_lock(&can_core->can_dest_lock);
+		release_can_dest_nolock(dest);
+		mutex_unlock(&can_core->can_dest_lock);
+	}
 
 	return ret;
 }
@@ -741,6 +757,7 @@ static void init_hw_fifo(struct llce_can_core *can_core)
 	INIT_LIST_HEAD(&can_core->can_dest_list);
 
 	mutex_init(&can_core->can_dest_lock);
+	mutex_init(&can_core->filters_lock);
 
 	for (i = 0; i < ARRAY_SIZE(can_core->ctrls); i++)
 		init_ctrl_meta(&can_core->ctrls[i]);
@@ -857,11 +874,13 @@ static int __maybe_unused llce_can_core_resume(struct device *device)
 	struct filter_state *filter;
 	int ret;
 
+	mutex_lock(&can_core->filters_lock);
 	list_for_each_entry(filter, &can_core->filters_list, link) {
 		ret = restore_fw_filter(can_core, filter);
 		if (ret)
 			return ret;
 	}
+	mutex_unlock(&can_core->filters_lock);
 
 	return 0;
 }
