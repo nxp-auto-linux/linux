@@ -42,6 +42,8 @@ struct llce_can_core {
 	struct completion config_cmd_done;
 	struct mbox_client config_client;
 	struct list_head filters_list;
+	/* Protects filters_list */
+	struct mutex filters_lock;
 	struct list_head can_dest_list;
 	/* Protects can_dest_list */
 	struct mutex can_dest_lock;
