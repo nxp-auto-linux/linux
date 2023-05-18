@@ -20,18 +20,6 @@ static void set_filter_fifo(struct filter_state *filter, u8 fifo)
 	rx_filter->rx_dest_interface = fifo;
 }
 
-static u8 get_filter_hwctrl(struct filter_state *filter)
-{
-	struct llce_can_rx_filter *rx_filter;
-
-	if (filter->advanced)
-		rx_filter = &filter->f.advanced.llce_can_Rx_filter;
-	else
-		rx_filter = &filter->f.base;
-
-	return llce_filter_get_hw_ctrl(rx_filter->filter_id);
-}
-
 static struct can_ctrl_state *get_ctrl_state(struct llce_can_core *can_core,
 					     u8 hw_ctrl)
 {
@@ -228,6 +216,8 @@ static int add_fw_filter(struct llce_can_core *can_core,
 	ret = init_ctrl_fifo(can_core, hw_ctrl);
 	if (ret)
 		return ret;
+
+	filter->hw_ctrl = hw_ctrl;
 
 	set_filter_fifo(filter, ctrl->fifo);
 
@@ -438,7 +428,7 @@ static void release_host_rx_filters(struct llce_can_core *can_core, u8 hw_ctrl)
 		return;
 
 	list_for_each_entry_safe(filter, next, &can_core->filters_list, link) {
-		if (get_filter_hwctrl(filter) != hw_ctrl)
+		if (filter->hw_ctrl != hw_ctrl)
 			continue;
 
 		release_ctrl_filter(filter);
@@ -832,7 +822,7 @@ static int restore_fw_filter(struct llce_can_core *can_core,
 	int ret;
 	u8 hw_ctrl;
 
-	hw_ctrl = get_filter_hwctrl(filter);
+	hw_ctrl = filter->hw_ctrl;
 
 	enabled = filter->enabled;
 
