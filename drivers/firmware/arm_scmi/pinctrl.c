@@ -70,7 +70,7 @@ struct scmi_pin_function {
 };
 
 struct scmi_msg_pinctrl_pmx_set {
-	__le32 num_pins;
+	__le32 no_pins;
 	struct scmi_pin_function settings[];
 };
 
@@ -480,7 +480,7 @@ end:
 }
 
 static int scmi_pinctrl_pinmux_set_chunk(const struct scmi_protocol_handle *ph,
-					 u32 num_pins,
+					 u32 no_pins,
 					 const struct scmi_pinctrl_pin_function *pf)
 {
 	struct scmi_msg_pinctrl_pmx_set *params;
@@ -489,11 +489,11 @@ static int scmi_pinctrl_pinmux_set_chunk(const struct scmi_protocol_handle *ph,
 	size_t tx_size;
 	int ret;
 
-	if (num_pins > U8_MAX)
+	if (no_pins > U8_MAX)
 		return -EINVAL;
 
 	tx_size = sizeof(*params) +
-		  num_pins * sizeof(params->settings[0]);
+		  no_pins * sizeof(params->settings[0]);
 
 	ret = ph->xops->xfer_get_init(ph, PINCTRL_PINMUX_SET, tx_size, 0, &t);
 	if (ret) {
@@ -502,9 +502,9 @@ static int scmi_pinctrl_pinmux_set_chunk(const struct scmi_protocol_handle *ph,
 	}
 
 	params = t->tx.buf;
-	params->num_pins = (u8)num_pins;
+	params->no_pins = cpu_to_le32(no_pins);
 
-	for (i = 0; i < num_pins; ++i) {
+	for (i = 0; i < no_pins; ++i) {
 		params->settings[i].pin = cpu_to_le16(pf[i].pin);
 		params->settings[i].function = cpu_to_le16(pf[i].function);
 	}
