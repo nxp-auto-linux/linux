@@ -2,6 +2,7 @@
 menuconfig CAN_LLCE
 	select NXP_LLCE_MBOX
 	select LLCE_CORE
+	select NET_DEVLINK
 	depends on CAN_DEV && m
 	bool "NXP LLCE CAN support"
 	help
