@@ -118,6 +118,12 @@ struct stmmac_axi {
 	bool axi_rb;
 };
 
+struct stmmac_axi4_ace_ctrl {
+	u32 tx_ar_reg;
+	u32 rx_aw_reg;
+	u32 txrx_awar_reg;
+};
+
 #define EST_GCL		1024
 struct stmmac_est {
 	struct mutex lock;
@@ -250,6 +256,7 @@ struct plat_stmmacenet_data {
 	struct reset_control *stmmac_rst;
 	struct reset_control *stmmac_ahb_rst;
 	struct stmmac_axi *axi;
+	struct stmmac_axi4_ace_ctrl *axi4_ace_ctrl;
 	int has_gmac4;
 	bool has_sun8i;
 	bool tso_en;
