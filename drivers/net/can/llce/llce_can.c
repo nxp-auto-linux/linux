@@ -15,6 +15,7 @@
 #include <linux/platform_device.h>
 #include <linux/processor.h>
 #include <linux/stringify.h>
+#include <net/devlink.h>
 
 /* 10 ms timeout on all channels */
 #define CHAN_TIMEOUT			10
@@ -28,6 +29,11 @@
 
 #define LLCE_CAN_MAX_TX_MB		(10U)
 
+struct llce_can_dl_params {
+	struct llce_can *llce;
+	bool self_recv;
+};
+
 struct llce_can {
 	struct llce_can_dev common; /* Must be the first member */
 
@@ -38,7 +44,17 @@ struct llce_can {
 
 	struct clk *clk;
 
+	struct llce_can_dl_params *dl_params;
+
 	u8 fifo;
+};
+
+enum llce_can_devlink_param_id {
+	LLCE_CAN_DL_PARAM_BASE_ID = DEVLINK_PARAM_GENERIC_ID_MAX,
+	LLCE_CAN_DL_SELF_RECV_ID,
+};
+
+static const struct devlink_ops llce_can_dl_ops = {
 };
 
 static const struct can_bittiming_const llce_can_bittiming = {
@@ -99,10 +115,11 @@ static int llce_can_init(struct llce_can *llce)
 	};
 	int ret;
 
-	if (can->ctrlmode & CAN_CTRLMODE_LOOPBACK) {
+	if (can->ctrlmode & CAN_CTRLMODE_LOOPBACK)
 		ctrl_config |= LLCE_CAN_CONTROLLERCONFIG_LPB_EN;
+
+	if (llce->dl_params->self_recv)
 		ctrl_config |= LLCE_CAN_CONTROLLERCONFIG_SRX_EN;
-	}
 
 	if (can->ctrlmode & CAN_CTRLMODE_LISTENONLY)
 		ctrl_config |= LLCE_CAN_CONTROLLERCONFIG_LOM_EN;
@@ -651,6 +668,79 @@ static int llce_init_can_priv(struct llce_can *llce, struct device *dev)
 	return 0;
 }
 
+static int llce_can_dl_get_self_recv(struct devlink *dl, u32 id,
+				     struct devlink_param_gset_ctx *ctx)
+{
+	struct llce_can_dl_params *llce_can_dl;
+
+	llce_can_dl = devlink_priv(dl);
+	ctx->val.vbool = llce_can_dl->self_recv;
+
+	return 0;
+}
+
+static int llce_can_dl_set_self_recv(struct devlink *dl, u32 id,
+				     struct devlink_param_gset_ctx *ctx)
+{
+	struct llce_can_dl_params *llce_can_dl;
+
+	llce_can_dl = devlink_priv(dl);
+	llce_can_dl->self_recv = ctx->val.vbool;
+
+	return 0;
+}
+
+static const struct devlink_param llce_can_devlink_params[] = {
+	DEVLINK_PARAM_DRIVER(LLCE_CAN_DL_SELF_RECV_ID,
+			     "self-recv", DEVLINK_PARAM_TYPE_BOOL,
+			     BIT(DEVLINK_PARAM_CMODE_RUNTIME),
+			     llce_can_dl_get_self_recv,
+			     llce_can_dl_set_self_recv,
+			     NULL),
+};
+
+static int register_devlink_params(struct llce_can *llce, struct device *dev)
+{
+	struct llce_can_dl_params *llce_can_dl;
+	struct devlink *devlink;
+	int ret;
+
+	devlink = devlink_alloc(&llce_can_dl_ops, sizeof(*llce_can_dl),
+				dev);
+	if (!devlink)
+		return -ENOMEM;
+
+	ret = devlink_params_register(devlink, llce_can_devlink_params,
+				      ARRAY_SIZE(llce_can_devlink_params));
+	if (ret) {
+		dev_err(dev, "devlink params register failed with error %d",
+			ret);
+		devlink_free(devlink);
+		return ret;
+	}
+
+	llce_can_dl = devlink_priv(devlink);
+
+	llce->dl_params = llce_can_dl;
+	llce_can_dl->llce = llce;
+
+	devlink_register(devlink);
+
+	return 0;
+}
+
+static void unregister_devlink_params(struct llce_can *llce)
+{
+	struct devlink *devlink;
+
+	devlink = priv_to_devlink(llce->dl_params);
+
+	devlink_unregister(devlink);
+	devlink_params_unregister(devlink, llce_can_devlink_params,
+				  ARRAY_SIZE(llce_can_devlink_params));
+	devlink_free(devlink);
+}
+
 static int llce_can_probe(struct platform_device *pdev)
 {
 	int ret;
@@ -665,6 +755,7 @@ static int llce_can_probe(struct platform_device *pdev)
 		return common ? PTR_ERR(common) : -EINVAL;
 
 	llce = container_of(common, struct llce_can, common);
+
 	netdev = common->can.dev;
 
 	platform_set_drvdata(pdev, netdev);
@@ -674,13 +765,17 @@ static int llce_can_probe(struct platform_device *pdev)
 
 	init_completion(&llce->config_done);
 
-	ret = llce_init_can_priv(llce, dev);
+	ret = register_devlink_params(llce, dev);
 	if (ret)
 		goto free_mem;
 
+	ret = llce_init_can_priv(llce, dev);
+	if (ret)
+		goto unreg_devlink;
+
 	ret = init_llce_chans(llce, dev);
 	if (ret)
-		goto free_mem;
+		goto unreg_devlink;
 
 	enable_llce_napi(common);
 
@@ -693,6 +788,9 @@ static int llce_can_probe(struct platform_device *pdev)
 free_conf_chan:
 	if (ret)
 		mbox_free_channel(llce->config);
+unreg_devlink:
+	if (ret)
+		unregister_devlink_params(llce);
 free_mem:
 	if (ret)
 		free_llce_netdev(common);
@@ -711,6 +809,7 @@ static void llce_can_remove(struct platform_device *pdev)
 
 	clk_disable_unprepare(llce->clk);
 	mbox_free_channel(llce->config);
+	unregister_devlink_params(llce);
 	free_candev(netdev);
 }
 
