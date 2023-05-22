@@ -408,10 +408,6 @@ static int s32cc_dwmac_probe(struct platform_device *pdev)
 
 	plat_dat->bsp_priv = gmac;
 
-	/* Enable AXI fixup call */
-	plat_dat->axi = devm_kzalloc(&pdev->dev, sizeof(struct stmmac_axi),
-				     GFP_KERNEL);
-
 	plat_dat->safety_feat_cfg = devm_kzalloc(&pdev->dev,
 						 sizeof(*plat_dat->safety_feat_cfg),
 						 GFP_KERNEL);
