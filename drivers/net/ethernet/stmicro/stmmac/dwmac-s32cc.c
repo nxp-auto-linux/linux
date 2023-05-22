@@ -2,21 +2,21 @@
 /*
  * dwmac-s32cc.c - S32CC GMAC glue layer
  *
- * Copyright 2019-2020, 2022 NXP
+ * Copyright 2019-2020, 2022-2023 NXP
  *
  */
 
-#include <linux/device.h>
-#include <linux/ethtool.h>
-#include <linux/module.h>
-#include <linux/io.h>
 #include <linux/clk.h>
 #include <linux/clk-provider.h>
+#include <linux/device.h>
+#include <linux/ethtool.h>
+#include <linux/io.h>
+#include <linux/module.h>
+#include <linux/of_mdio.h>
+#include <linux/of_address.h>
 #include <linux/phy.h>
 #include <linux/phylink.h>
-#include <linux/of_mdio.h>
 #include <linux/platform_device.h>
-#include <linux/of.h>
 #include <linux/stmmac.h>
 
 /* S32CC Serdes */
@@ -30,10 +30,16 @@
 #define GMAC_TX_RATE_2M5	2500000		/* 2.5MHz */
 
 /* S32CC SRC register for phyif selection */
+#define PHY_INTF_SEL_MII        0x00
 #define PHY_INTF_SEL_SGMII      0x01
 #define PHY_INTF_SEL_RGMII      0x02
 #define PHY_INTF_SEL_RMII       0x08
-#define PHY_INTF_SEL_MII        0x00
+
+/* AXI4 ACE control settings */
+#define ACE_DOMAIN_SIGNAL	0x2
+#define ACE_CACHE_SIGNAL	0xf
+#define ACE_CONTROL_SIGNALS	((ACE_DOMAIN_SIGNAL << 4) | ACE_CACHE_SIGNAL)
+#define ACE_PROTECTION		0x2
 
 #define S32CC_DUMMY_XPCS_ID		0x7996ced0
 #define S32CC_DUMMY_XPCS_MASK		0xffffffff
@@ -250,6 +256,31 @@ static void s32cc_fix_speed(void *priv, unsigned int speed)
 	}
 }
 
+static int s32cc_config_cache_coherency(struct platform_device *pdev,
+					struct plat_stmmacenet_data *plat_dat)
+{
+	plat_dat->axi4_ace_ctrl =
+		devm_kzalloc(&pdev->dev,
+			     sizeof(struct stmmac_axi4_ace_ctrl),
+			     GFP_KERNEL);
+
+	if (!plat_dat->axi4_ace_ctrl)
+		return -ENOMEM;
+
+	plat_dat->axi4_ace_ctrl->tx_ar_reg = (ACE_CONTROL_SIGNALS << 16)
+		| (ACE_CONTROL_SIGNALS << 8) | ACE_CONTROL_SIGNALS;
+
+	plat_dat->axi4_ace_ctrl->rx_aw_reg = (ACE_CONTROL_SIGNALS << 24)
+		| (ACE_CONTROL_SIGNALS << 16) | (ACE_CONTROL_SIGNALS << 8)
+		| ACE_CONTROL_SIGNALS;
+
+	plat_dat->axi4_ace_ctrl->txrx_awar_reg = (ACE_PROTECTION << 20)
+		| (ACE_PROTECTION << 16) | (ACE_CONTROL_SIGNALS << 8)
+		| ACE_CONTROL_SIGNALS;
+
+	return 0;
+}
+
 static void s32cc_init_plat_data(struct plat_stmmacenet_data *plat_dat)
 {
 	plat_dat->safety_feat_cfg->tsoee = 1;
@@ -423,10 +454,11 @@ static int s32cc_dwmac_probe(struct platform_device *pdev)
 	if (plat_dat->bus_id < 0)
 		plat_dat->bus_id = 0;
 
-	ret = dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(32));
-	if (ret) {
-		dev_err(&pdev->dev, "System does not support DMA, aborting\n");
-		goto err_remove_config_dt;
+	/* DMA cache coherency settings. */
+	if (of_dma_is_coherent(pdev->dev.of_node)) {
+		ret = s32cc_config_cache_coherency(pdev, plat_dat);
+		if (ret)
+			goto err_remove_config_dt;
 	}
 
 	if (plat_dat->phy_interface == PHY_INTERFACE_MODE_SGMII) {
