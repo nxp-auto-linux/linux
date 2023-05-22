@@ -58,7 +58,7 @@ config DWMAC_GENERIC
 	  data for setup.
 
 config DWMAC_S32CC
-	tristate "S32CC GMAC support"
+	tristate "NXP S32CC GMAC support"
 	default ARCH_S32
 	depends on OF && (ARCH_S32 || COMPILE_TEST) && SOC_S32CC
 	select MFD_SYSCON

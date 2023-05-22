@@ -173,32 +173,30 @@ static int s32cc_gmac_init(struct platform_device *pdev, void *priv)
 	/* set interface mode */
 	if (gmac->ctrl_sts) {
 		switch (gmac->intf_mode) {
-		default:
-			dev_info(&pdev->dev, "unsupported mode %d, set the default phy mode.\n",
-				 gmac->intf_mode);
-			fallthrough;
 		case PHY_INTERFACE_MODE_SGMII:
-			dev_info(&pdev->dev, "phy mode set to SGMII\n");
 			intf_sel = PHY_INTF_SEL_SGMII;
 			break;
 		case PHY_INTERFACE_MODE_RGMII:
 		case PHY_INTERFACE_MODE_RGMII_ID:
 		case PHY_INTERFACE_MODE_RGMII_TXID:
 		case PHY_INTERFACE_MODE_RGMII_RXID:
-			dev_info(&pdev->dev, "phy mode set to RGMII\n");
 			intf_sel = PHY_INTF_SEL_RGMII;
 			break;
 		case PHY_INTERFACE_MODE_RMII:
-			dev_info(&pdev->dev, "phy mode set to RMII\n");
 			intf_sel = PHY_INTF_SEL_RMII;
 			break;
 		case PHY_INTERFACE_MODE_MII:
-			dev_info(&pdev->dev, "phy mode set to MII\n");
 			intf_sel = PHY_INTF_SEL_MII;
 			break;
+		default:
+			dev_err(&pdev->dev, "Unsupported PHY interface: %s\n",
+				phy_modes(gmac->intf_mode));
+			return -EINVAL;
 		}
 
 		writel(intf_sel, gmac->ctrl_sts);
+
+		dev_dbg(&pdev->dev, "PHY mode set to %s\n", phy_modes(gmac->intf_mode));
 	}
 
 	return 0;
@@ -437,11 +435,14 @@ static int s32cc_dwmac_probe(struct platform_device *pdev)
 		tx_clk = "tx_rmii";
 		rx_clk = "rx_rmii";
 		break;
-	default:
 	case PHY_INTERFACE_MODE_MII:
 		tx_clk = "tx_mii";
 		rx_clk = "rx_mii";
 		break;
+	default:
+		dev_err(&pdev->dev, "Not supported phy interface mode: [%s]\n",
+			phy_modes(plat_dat->phy_interface));
+		return -EINVAL;
 	};
 
 	gmac->intf_mode = plat_dat->phy_interface;
