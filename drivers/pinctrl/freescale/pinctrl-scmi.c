@@ -2,6 +2,8 @@
 /*
  *  Copyright 2022-2023 NXP
  */
+#include "asm-generic/errno.h"
+#include "linux/overflow.h"
 #include <linux/err.h>
 #include <linux/module.h>
 #include <linux/scmi_protocol.h>
@@ -65,6 +67,17 @@ struct scmi_pinctrl_desc {
 	struct scmi_pinctrl_pin_group *groups;
 };
 
+
+/**
+ * struct scmi_pinctrl_pm_pin: holds suspend/resume information for a pin.
+ * @function: the function of a pin
+ * @function_initialized: is the function field valid
+ */
+struct scmi_pinctrl_pm_pin {
+	u16 function;
+	bool function_initialized;
+};
+
 /**
  * struct scmi_pinctrl_priv - private internal data for the pinctrl_dev
  * @pctldev: a reference to the registered pinctrl device
@@ -76,16 +89,18 @@ struct scmi_pinctrl_desc {
  *		configuring it as a GPIO.
  * @gpios_list_lock: lock protecting the gpios_list
  * @num_ranges: the number of pin_ranges elements
+ * @pins_lock: lock for accessing the pins
  */
 struct scmi_pinctrl_priv {
 	struct pinctrl_dev *pctldev;
 	const struct scmi_pinctrl_proto_ops *pinctrl_ops;
-	struct scmi_pinctrl_pin_range *pin_ranges;
+	const struct scmi_pinctrl_pin_range *pin_ranges;
 	struct scmi_protocol_handle *ph;
 	struct scmi_pinctrl_desc desc;
 	struct list_head gpios_list;
 	struct mutex gpios_list_lock;
 	u16 num_ranges;
+	struct mutex pins_lock;
 };
 
 /**
@@ -103,6 +118,35 @@ struct scmi_pinctrl_gpio_config {
 	unsigned long *configs;
 };
 
+static int scmi_pinctrl_pin_to_pindesc_index(struct pinctrl_dev *pctldev,
+					     u16 pin,
+					     u16 *index)
+{
+	struct scmi_pinctrl_priv *priv = pinctrl_dev_get_drvdata(pctldev);
+	u16 start, end;
+	int i;
+
+	*index = 0;
+
+	for (i = 0; i < priv->num_ranges; i++) {
+		start = priv->pin_ranges[i].start;
+		end = start + priv->pin_ranges[i].no_pins;
+
+		if (pin >= start && pin < end) {
+			if (check_add_overflow(*index, (u16)(pin - start),
+					       index))
+				return -EINVAL;
+			return 0;
+		}
+
+		if (check_add_overflow(*index, priv->pin_ranges[i].no_pins,
+				       index))
+			return -EINVAL;
+	}
+
+	return -EINVAL;
+}
+
 static u32 get_pin_no(u32 pinmux)
 {
 	return pinmux >> SCMI_PINCTRL_PIN_NO_SHIFT;
@@ -111,6 +155,29 @@ static u32 get_pin_no(u32 pinmux)
 static u32 get_pin_func(u32 pinmux)
 {
 	return pinmux & GENMASK(3, 0);
+}
+
+static int scmi_pinctrl_save_pin_function(struct pinctrl_dev *pctldev, u16 pin,
+					  u16 func)
+{
+	struct scmi_pinctrl_priv *priv = pinctrl_dev_get_drvdata(pctldev);
+	struct scmi_pinctrl_pm_pin *pm_pin = NULL;
+	u16 index;
+	int ret;
+
+	ret = scmi_pinctrl_pin_to_pindesc_index(pctldev, pin, &index);
+	if (ret)
+		return ret;
+
+	mutex_lock(&priv->pins_lock);
+
+	pm_pin = pctldev->desc->pins[index].drv_data;
+	pm_pin->function = func;
+	pm_pin->function_initialized = true;
+
+	mutex_unlock(&priv->pins_lock);
+
+	return 0;
 }
 
 static int scmi_pinctrl_get_groups_count(struct pinctrl_dev *pctldev)
@@ -290,6 +357,11 @@ static int scmi_pinctrl_pmx_set(struct pinctrl_dev *pctldev,
 		}
 		pf[i].pin = grp->pin_ids[i];
 		pf[i].function = grp->pin_funcs[i];
+
+		ret = scmi_pinctrl_save_pin_function(pctldev, pf[i].pin,
+						     pf[i].function);
+		if (ret)
+			break;
 	}
 
 	if (ret)
@@ -378,6 +450,11 @@ static int scmi_pinctrl_pmx_gpio_request_enable(struct pinctrl_dev *pctldev,
 		goto err_free_pcf;
 	}
 
+	ret = scmi_pinctrl_save_pin_function(pctldev, offset,
+					     SCMI_PINCTRL_GPIO_FUNC);
+	if (ret)
+		goto err_free_configs;
+
 	pf.pin = offset;
 	pf.function = SCMI_PINCTRL_GPIO_FUNC;
 	ret = priv->pinctrl_ops->pinmux_set(priv->ph, 1, &pf);
@@ -387,6 +464,7 @@ static int scmi_pinctrl_pmx_gpio_request_enable(struct pinctrl_dev *pctldev,
 	}
 
 	save_gpio_config(priv, gpio_config);
+
 	return 0;
 
 err_free_configs:
@@ -424,6 +502,13 @@ static void scmi_pinctrl_pmx_gpio_disable_free(struct pinctrl_dev *pctldev,
 
 	if (!gpio_config)
 		return;
+
+	ret = scmi_pinctrl_save_pin_function(pctldev, offset,
+					     gpio_config->func);
+	if (ret) {
+		save_gpio_config(priv, gpio_config);
+		return;
+	}
 
 	pf.pin = offset;
 	pf.function = gpio_config->func;
@@ -839,6 +924,8 @@ static int scmi_pinctrl_probe(struct scmi_device *sdev)
 	unsigned int pin_count = 0, i, j, pin = 0, pin_id;
 	const struct scmi_pinctrl_proto_ops *pinctrl_ops;
 	const struct scmi_handle *handle = sdev->handle;
+	struct scmi_pinctrl_pin_range *ranges;
+	struct scmi_pinctrl_pm_pin *pm_pin;
 	struct pinctrl_pin_desc *pin_desc;
 	struct scmi_protocol_handle *ph;
 	struct scmi_pinctrl_priv *priv;
@@ -873,22 +960,22 @@ static int scmi_pinctrl_probe(struct scmi_device *sdev)
 	priv->ph = ph;
 
 	priv->num_ranges = priv->pinctrl_ops->get_num_ranges(ph);
-	priv->pin_ranges = devm_kmalloc(dev,
-					(sizeof(*priv->pin_ranges) *
-					 priv->num_ranges),
-				   GFP_KERNEL);
-	if (!priv->pin_ranges)
+	ranges = devm_kmalloc(dev, sizeof(*ranges) * priv->num_ranges, GFP_KERNEL);
+	if (!ranges)
 		return -ENOMEM;
 
-	ret = priv->pinctrl_ops->describe(ph, priv->pin_ranges);
+	ret = priv->pinctrl_ops->describe(ph, ranges);
 	if (ret)
 		return ret;
+
+	priv->pin_ranges = ranges;
 
 	for (i = 0; i < priv->num_ranges; ++i)
 		pin_count += priv->pin_ranges[i].no_pins;
 
 	INIT_LIST_HEAD(&priv->gpios_list);
 	mutex_init(&priv->gpios_list_lock);
+	mutex_init(&priv->pins_lock);
 
 	desc->npins = pin_count;
 	pin_desc = devm_kcalloc(dev, pin_count, sizeof(*pin_desc), GFP_KERNEL);
@@ -903,13 +990,17 @@ static int scmi_pinctrl_probe(struct scmi_device *sdev)
 			pin_id = priv->pin_ranges[i].start + j;
 			pin_name = devm_kasprintf(dev, GFP_KERNEL, "PIN_%d",
 						  pin_id);
-			if (!pin_name) {
-				dev_err(dev, "Failed to allocate pin_name!\n");
+			if (!pin_name)
 				return -ENOMEM;
-			}
+
+			pm_pin = devm_kmalloc(dev, sizeof(*pm_pin), GFP_KERNEL);
+			if (!pm_pin)
+				return -ENOMEM;
+			pm_pin->function_initialized = false;
 
 			pin_desc[pin].number = pin_id;
-			pin_desc[pin++].name = pin_name;
+			pin_desc[pin].name = pin_name;
+			pin_desc[pin++].drv_data = pm_pin;
 		}
 	}
 
