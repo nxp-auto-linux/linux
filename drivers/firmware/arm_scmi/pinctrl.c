@@ -89,8 +89,12 @@ struct scmi_msg_resp_pinctrl_pcf_get {
 	__le32 multi_bit_values[];
 };
 
-struct scmi_msg_pinctrl_pcf_set {
-	__le16 pin;
+struct scmi_msg_pinctrl_pcf_set_pins {
+	__le32 no_pins;
+	__le16 pins[];
+};
+
+struct scmi_msg_pinctrl_pcf_set_pcf {
 	__le32 mask;
 	__le32 boolean_values;
 	__le32 multi_bit_values[];
@@ -475,9 +479,9 @@ end:
 	return ret;
 }
 
-static int _scmi_pinctrl_pinmux_set(const struct scmi_protocol_handle *ph,
-				    u16 no_pins,
-				    const struct scmi_pinctrl_pin_function *pf)
+static int scmi_pinctrl_pinmux_set_chunk(const struct scmi_protocol_handle *ph,
+					 u32 num_pins,
+					 const struct scmi_pinctrl_pin_function *pf)
 {
 	struct scmi_msg_pinctrl_pmx_set *params;
 	struct scmi_xfer *t;
@@ -485,11 +489,11 @@ static int _scmi_pinctrl_pinmux_set(const struct scmi_protocol_handle *ph,
 	size_t tx_size;
 	int ret;
 
-	if (no_pins > U8_MAX)
+	if (num_pins > U8_MAX)
 		return -EINVAL;
 
 	tx_size = sizeof(*params) +
-		  no_pins * sizeof(params->settings[0]);
+		  num_pins * sizeof(params->settings[0]);
 
 	ret = ph->xops->xfer_get_init(ph, PINCTRL_PINMUX_SET, tx_size, 0, &t);
 	if (ret) {
@@ -498,9 +502,9 @@ static int _scmi_pinctrl_pinmux_set(const struct scmi_protocol_handle *ph,
 	}
 
 	params = t->tx.buf;
-	params->num_pins = (u8)no_pins;
+	params->num_pins = (u8)num_pins;
 
-	for (i = 0; i < no_pins; ++i) {
+	for (i = 0; i < num_pins; ++i) {
 		params->settings[i].pin = cpu_to_le16(pf[i].pin);
 		params->settings[i].function = cpu_to_le16(pf[i].function);
 	}
@@ -527,7 +531,8 @@ scmi_pinctrl_protocol_pinmux_set(const struct scmi_protocol_handle *ph,
 	int ret = 0;
 
 	for (i = 0; i < no_pins / PINMUX_MAX_PINS; ++i) {
-		ret = _scmi_pinctrl_pinmux_set(ph, PINMUX_MAX_PINS, pf + off);
+		ret = scmi_pinctrl_pinmux_set_chunk(ph, PINMUX_MAX_PINS,
+						    pf + off);
 		if (ret)
 			return ret;
 
@@ -535,8 +540,9 @@ scmi_pinctrl_protocol_pinmux_set(const struct scmi_protocol_handle *ph,
 	}
 
 	if (no_pins % PINMUX_MAX_PINS != 0)
-		ret = _scmi_pinctrl_pinmux_set(ph, no_pins % PINMUX_MAX_PINS,
-					       pf + off);
+		ret = scmi_pinctrl_pinmux_set_chunk(ph,
+						    no_pins % PINMUX_MAX_PINS,
+						    pf + off);
 
 	return ret;
 }
@@ -609,16 +615,18 @@ err:
 }
 
 static int
-scmi_pinctrl_protocol_pinconf_set(const struct scmi_protocol_handle *ph,
-				  u16 pin,
-				  struct scmi_pinctrl_pinconf *pcf,
-				  bool override)
+scmi_pinctrl_pinconf_set_chunk(const struct scmi_protocol_handle *ph,
+			       u32 no_pins,
+			       u16 *pins,
+			       struct scmi_pinctrl_pinconf *pcf,
+			       bool override)
 {
-	struct scmi_msg_pinctrl_pcf_set *params;
+	u32 multi_bit_count = scmi_pinctrl_count_mb_configs(pcf->mask);
+	struct scmi_msg_pinctrl_pcf_set_pcf *param_pcf;
+	struct scmi_msg_pinctrl_pcf_set_pins *param_pins;
 	struct scmi_xfer *t;
 	int ret, i = 0;
 	u8 msg_id;
-	u8 multi_bit_count;
 	size_t tx_size;
 
 	if (override)
@@ -626,9 +634,25 @@ scmi_pinctrl_protocol_pinconf_set(const struct scmi_protocol_handle *ph,
 	else
 		msg_id = PINCTRL_PINCONF_SET_APPEND;
 
-	multi_bit_count = scmi_pinctrl_count_mb_configs(pcf->mask);
-	tx_size = sizeof(struct scmi_msg_pinctrl_pcf_set);
-	tx_size += sizeof(__le32) * multi_bit_count;
+	tx_size = sizeof(struct scmi_msg_pinctrl_pcf_set_pcf);
+	if (check_add_overflow(tx_size,
+			       scmi_pinctrl_mb_configs_size(pcf->mask),
+			       &tx_size)) {
+		dev_err(ph->dev, "Error computing tx_size!\n");
+		return -EINVAL;
+	}
+
+	if (check_add_overflow(tx_size,
+			       sizeof(struct scmi_msg_pinctrl_pcf_set_pins),
+			       &tx_size)) {
+		dev_err(ph->dev, "Error computing tx_size!\n");
+		return -EINVAL;
+	}
+
+	if (check_add_overflow(tx_size, sizeof(__le16) * no_pins, &tx_size)) {
+		dev_err(ph->dev, "Error computing tx_size!\n");
+		return -EINVAL;
+	}
 
 	ret = ph->xops->xfer_get_init(ph, msg_id, tx_size, 0, &t);
 	if (ret) {
@@ -636,13 +660,17 @@ scmi_pinctrl_protocol_pinconf_set(const struct scmi_protocol_handle *ph,
 		return -EOPNOTSUPP;
 	}
 
-	params = t->tx.buf;
-	params->pin = cpu_to_le16(pin);
-	params->mask = cpu_to_le32(pcf->mask);
-	params->boolean_values = cpu_to_le32(pcf->boolean_values);
+	param_pins = t->tx.buf;
+	param_pins->no_pins = cpu_to_le32(no_pins);
+	for (i = 0; i < no_pins; i++)
+		param_pins->pins[i] = cpu_to_le16(pins[i]);
+
+	param_pcf = (void *)(param_pins->pins + i);
+	param_pcf->mask = cpu_to_le32(pcf->mask);
+	param_pcf->boolean_values = cpu_to_le32(pcf->boolean_values);
 
 	for (i = 0; i < multi_bit_count; ++i)
-		params->multi_bit_values[i] =
+		param_pcf->multi_bit_values[i] =
 			cpu_to_le32(pcf->multi_bit_values[i]);
 
 	ret = ph->xops->do_xfer(ph, t);
@@ -650,6 +678,47 @@ scmi_pinctrl_protocol_pinconf_set(const struct scmi_protocol_handle *ph,
 		dev_err(ph->dev, "Error setting pinconf!\n");
 
 	ph->xops->xfer_put(ph, t);
+
+	return ret;
+
+}
+
+static int
+scmi_pinctrl_protocol_pinconf_set(const struct scmi_protocol_handle *ph,
+				  struct scmi_pinctrl_pin_list *pins,
+				  struct scmi_pinctrl_pinconf *pcf,
+				  bool override)
+{
+	struct scmi_pinctrl_pin_list_elem *it;
+	u16 pins_array[PINMUX_MAX_PINS];
+	u32 no_pins = 0;
+	int ret = 0;
+
+	memset(pins_array, 0, sizeof(pins_array));
+
+	list_for_each_entry(it, &pins->list, list) {
+		if (no_pins == PINMUX_MAX_PINS) {
+			ret = scmi_pinctrl_pinconf_set_chunk(ph,
+							     PINMUX_MAX_PINS,
+							     pins_array, pcf,
+							     override);
+			if (ret)
+				return ret;
+
+			no_pins = 0;
+		}
+
+		pins_array[no_pins++] = it->pin;
+	}
+
+	if (no_pins) {
+		ret = scmi_pinctrl_pinconf_set_chunk(ph,
+						     no_pins,
+						     pins_array, pcf,
+						     override);
+		if (ret)
+			return ret;
+	}
 
 	return ret;
 }
