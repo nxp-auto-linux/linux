@@ -1174,6 +1174,79 @@ static int scmi_pinctrl_probe(struct scmi_device *sdev)
 	return 0;
 }
 
+static int scmi_pinctrl_resume(struct scmi_device *sdev)
+{
+	struct scmi_pinctrl_priv *priv = dev_get_drvdata(&sdev->dev);
+	struct pinctrl_dev *pctldev = priv->pctldev;
+	struct scmi_pinctrl_pin_list_elem *list_pin;
+	unsigned int it, i, count = 0, index = 0;
+	struct scmi_pinctrl_pin_function *pf;
+	struct scmi_pinctrl_pm_conf *pm_pcf;
+	struct scmi_pinctrl_pm_pin *pm_pin;
+	struct scmi_pinctrl_pinconf *pcf;
+	int ret = 0;
+	u16 pin;
+
+	mutex_lock(&priv->pins_lock);
+
+	for (i = 0; i < priv->pctldev->desc->npins; i++) {
+		pm_pin = priv->pctldev->desc->pins[i].drv_data;
+		if (pm_pin->function_initialized)
+			count++;
+	}
+
+	if (count > U16_MAX) {
+		dev_err(pctldev->dev, "Too many pins to resume: %d!\n", count);
+		goto unlock_pins;
+	}
+
+	pf = kmalloc(sizeof(*pf) * count, GFP_KERNEL);
+	if (!pf) {
+		ret = -ENOMEM;
+		goto unlock_pins;
+	}
+
+	for (i = 0; i < priv->pctldev->desc->npins; i++) {
+		pm_pin = priv->pctldev->desc->pins[i].drv_data;
+		if (!pm_pin->function_initialized)
+			continue;
+		pf[index].pin = priv->pctldev->desc->pins[i].number;
+		pf[index++].function = pm_pin->function;
+	}
+
+	ret = priv->pinctrl_ops->pinmux_set(priv->ph, count, pf);
+	if (ret) {
+		dev_err(pctldev->dev, "Error resuming pinmux: %d!\n", ret);
+		goto free_pf;
+	}
+
+	mutex_lock(&priv->pm_info.pcfs_lock);
+	hash_for_each(priv->pm_info.pcfs, it, pm_pcf, node) {
+		pcf = &pm_pcf->key;
+
+		list_for_each_entry(list_pin, &pm_pcf->list.list, list) {
+			pin = list_pin->pin;
+
+			ret = priv->pinctrl_ops->pinconf_set(priv->ph, pin, pcf,
+							     true);
+			if (ret) {
+				dev_err(pctldev->dev,
+					"Error resuming pinconf: %d!\n",
+					ret);
+				break;
+			}
+		}
+	}
+
+	mutex_unlock(&priv->pm_info.pcfs_lock);
+free_pf:
+	kfree(pf);
+unlock_pins:
+	mutex_unlock(&priv->pins_lock);
+
+	return ret;
+}
+
 static const struct scmi_device_id scmi_id_table[] = {
 	{ SCMI_PROTOCOL_ID_PINCTRL, "pinctrl" },
 	{ },
@@ -1183,6 +1256,7 @@ MODULE_DEVICE_TABLE(scmi, scmi_id_table);
 static struct scmi_driver scmi_pinctrl_driver = {
 	.name = "scmi-pinctrl",
 	.probe = scmi_pinctrl_probe,
+	.resume = scmi_pinctrl_resume,
 	.id_table = scmi_id_table,
 };
 module_scmi_driver(scmi_pinctrl_driver);
