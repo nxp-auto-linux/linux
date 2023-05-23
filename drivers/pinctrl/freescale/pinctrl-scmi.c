@@ -11,6 +11,7 @@
 #include <linux/slab.h>
 #include <linux/of.h>
 #include <linux/of_device.h>
+#include <linux/hashtable.h>
 #include <linux/pinctrl/machine.h>
 #include <linux/pinctrl/pinconf.h>
 #include <linux/pinctrl/pinconf-generic.h>
@@ -25,6 +26,8 @@
 
 #define SCMI_PINCTRL_PIN_NO_SHIFT	4
 #define SCMI_PINCTRL_GPIO_FUNC		0
+
+#define SCMI_PINCTRL_HASHTABLE_SIZE	7
 
 /**
  * struct scmi_pinctrl_pin_group - describes a pin group
@@ -67,15 +70,40 @@ struct scmi_pinctrl_desc {
 	struct scmi_pinctrl_pin_group *groups;
 };
 
+/**
+ * struct scmi_pinctrl_pm_conf - hash node for with a pin's pinconf
+ *				 as the key
+ * @pcf: the current pinconf of the pins
+ * @node: used by the hashtable
+ */
+struct scmi_pinctrl_pm_conf {
+	struct scmi_pinctrl_pinconf key;
+	struct hlist_node node;
+	struct scmi_pinctrl_pin_list list;
+};
 
 /**
  * struct scmi_pinctrl_pm_pin: holds suspend/resume information for a pin.
  * @function: the function of a pin
  * @function_initialized: is the function field valid
+ * @pcf: the current pinconf configuration of a pin
+ * @pcf_initialized: is the pcf field valid
  */
 struct scmi_pinctrl_pm_pin {
 	u16 function;
+	struct scmi_pinctrl_pinconf pcf;
 	bool function_initialized;
+	bool pcf_initialized;
+};
+
+/**
+ * struct scmi_pinctrl_pm - holds necessary information for resuming after STR.
+ * @pcfs: hashtable equivalent to (pcf, u16 *pins_w_that_pcf)
+ * @pcfs_lock: lock for accessing the pcfs hashtable
+ */
+struct scmi_pinctrl_pm {
+	DECLARE_HASHTABLE(pcfs, SCMI_PINCTRL_HASHTABLE_SIZE);
+	struct mutex pcfs_lock;
 };
 
 /**
@@ -89,6 +117,7 @@ struct scmi_pinctrl_pm_pin {
  *		configuring it as a GPIO.
  * @gpios_list_lock: lock protecting the gpios_list
  * @num_ranges: the number of pin_ranges elements
+ * @pm_info: information needed for suspend/resume
  * @pins_lock: lock for accessing the pins
  */
 struct scmi_pinctrl_priv {
@@ -100,6 +129,7 @@ struct scmi_pinctrl_priv {
 	struct list_head gpios_list;
 	struct mutex gpios_list_lock;
 	u16 num_ranges;
+	struct scmi_pinctrl_pm pm_info;
 	struct mutex pins_lock;
 };
 
@@ -117,6 +147,13 @@ struct scmi_pinctrl_gpio_config {
 	unsigned int num_configs;
 	unsigned long *configs;
 };
+
+static int scmi_pinctrl_pinconf_common_set(struct pinctrl_dev *pctldev,
+					   unsigned int *pins,
+					   unsigned int no_pins,
+					   unsigned long *configs,
+					   unsigned int num_configs,
+					   bool override);
 
 static int scmi_pinctrl_pin_to_pindesc_index(struct pinctrl_dev *pctldev,
 					     u16 pin,
@@ -178,6 +215,160 @@ static int scmi_pinctrl_save_pin_function(struct pinctrl_dev *pctldev, u16 pin,
 	mutex_unlock(&priv->pins_lock);
 
 	return 0;
+}
+
+static void *scmi_pinctrl_get_pcf(struct pinctrl_dev *pctldev,
+				  struct scmi_pinctrl_pinconf *pcf)
+{
+	struct scmi_pinctrl_priv *priv = pinctrl_dev_get_drvdata(pctldev);
+	struct scmi_pinctrl_pm_conf *temp, *ret;
+	unsigned int hash = scmi_pinctrl_hash_pcf(pcf);
+
+	ret = NULL;
+	hash_for_each_possible(priv->pm_info.pcfs, temp, node, hash) {
+		if (scmi_pinctrl_are_pcfs_equal(&temp->key, pcf)) {
+			ret = temp;
+			break;
+		}
+	}
+
+	return ret;
+}
+
+static void scmi_pinctrl_store_pcf(struct pinctrl_dev *pctldev,
+				  struct scmi_pinctrl_pinconf *pcf, void *data)
+{
+	struct scmi_pinctrl_priv *priv = pinctrl_dev_get_drvdata(pctldev);
+	struct scmi_pinctrl_pm_conf *pm_pcf = data;
+
+	hash_add(priv->pm_info.pcfs, &pm_pcf->node,
+		 scmi_pinctrl_hash_pcf(pcf));
+}
+
+static int scmi_pinctrl_allocate_pcf(struct pinctrl_dev *pctldev,
+				     struct scmi_pinctrl_pm_pin *pm_pin,
+				     struct scmi_pinctrl_pm_conf **pm_pcf)
+{
+	struct scmi_pinctrl_pm_conf *tmp_pm_pcf;
+
+	tmp_pm_pcf = devm_kmalloc(pctldev->dev, sizeof(*tmp_pm_pcf),
+				  GFP_KERNEL);
+	if (!tmp_pm_pcf)
+		return -ENOMEM;
+
+	tmp_pm_pcf->key = pm_pin->pcf;
+	tmp_pm_pcf->key.multi_bit_values =
+		devm_kmemdup(pctldev->dev, pm_pin->pcf.multi_bit_values,
+			     scmi_pinctrl_mb_configs_size(tmp_pm_pcf->key.mask),
+			     GFP_KERNEL);
+	if (!tmp_pm_pcf->key.multi_bit_values) {
+		devm_kfree(pctldev->dev, tmp_pm_pcf);
+		return -ENOMEM;
+	}
+
+	scmi_pinctrl_pin_list_init(&tmp_pm_pcf->list);
+	*pm_pcf = tmp_pm_pcf;
+
+	return 0;
+}
+
+/* Must be called with pins and pcfs locks acquired. */
+static int scmi_pinctrl_populate_new_config(struct pinctrl_dev *pctldev,
+					    u16 pin,
+					    struct scmi_pinctrl_pm_pin *pm_pin,
+					    struct scmi_pinctrl_pinconf *pcf,
+					    bool override)
+{
+	struct scmi_pinctrl_pm_conf *pm_pcf = NULL;
+	struct scmi_pinctrl_pin_list_elem *p;
+	bool new_config = false;
+	int ret;
+
+	p = devm_kmalloc(pctldev->dev, sizeof(*p), GFP_KERNEL);
+	if (!p)
+		return -ENOMEM;
+
+	ret = scmi_pinctrl_add_pcf(pctldev->dev, GFP_KERNEL, &pm_pin->pcf, pcf,
+				   override);
+	if (ret)
+		goto err_free;
+
+	pm_pcf = scmi_pinctrl_get_pcf(pctldev, &pm_pin->pcf);
+	if (!pm_pcf) {
+		ret = scmi_pinctrl_allocate_pcf(pctldev, pm_pin, &pm_pcf);
+		if (ret)
+			goto err_free;
+
+		new_config = true;
+	}
+
+	p->pin = pin;
+	ret = scmi_pinctrl_pin_list_add_pin(&pm_pcf->list, p);
+	if (ret)
+		goto err_free;
+
+	pm_pin->pcf_initialized = true;
+
+	if (new_config)
+		scmi_pinctrl_store_pcf(pctldev, &pm_pcf->key, pm_pcf);
+
+	return 0;
+
+err_free:
+	devm_kfree(pctldev->dev, p);
+
+	return ret;
+}
+
+static int scmi_pinctrl_update_pcf(struct pinctrl_dev *pctldev, u16 pin,
+				   struct scmi_pinctrl_pinconf *pcf,
+				   bool override)
+{
+	struct scmi_pinctrl_priv *priv = pinctrl_dev_get_drvdata(pctldev);
+	struct scmi_pinctrl_pm *pm = &priv->pm_info;
+	struct scmi_pinctrl_pm_conf *pm_pcf = NULL;
+	struct scmi_pinctrl_pm_pin *pm_pin = NULL;
+	struct scmi_pinctrl_pin_list_elem *p;
+	int ret = 0;
+	u16 index;
+
+	ret = scmi_pinctrl_pin_to_pindesc_index(pctldev, pin, &index);
+	if (ret)
+		return ret;
+
+	mutex_lock(&priv->pins_lock);
+	mutex_lock(&pm->pcfs_lock);
+
+	pm_pin = pctldev->desc->pins[index].drv_data;
+
+	if (!pm_pin->pcf_initialized)
+		goto populate_new_config;
+
+	if (scmi_pinctrl_are_pcfs_equal(&pm_pin->pcf, pcf))
+		goto unlock;
+
+	pm_pcf = scmi_pinctrl_get_pcf(pctldev, &pm_pin->pcf);
+	if (!pm_pcf) {
+		dev_err(pctldev->dev, "Could not find pcf: %X for pin: %d\n",
+			pm_pin->pcf.mask, pin);
+		ret = -EINVAL;
+		goto unlock;
+	}
+
+	p = scmi_pinctrl_pin_list_remove_pin(&pm_pcf->list, pin);
+	if (!p)
+		goto unlock;
+	devm_kfree(pctldev->dev, p);
+
+populate_new_config:
+	ret = scmi_pinctrl_populate_new_config(pctldev, pin, pm_pin, pcf,
+					       override);
+
+unlock:
+	mutex_unlock(&pm->pcfs_lock);
+	mutex_unlock(&priv->pins_lock);
+
+	return ret;
 }
 
 static int scmi_pinctrl_get_groups_count(struct pinctrl_dev *pctldev)
@@ -484,8 +675,6 @@ static void scmi_pinctrl_pmx_gpio_disable_free(struct pinctrl_dev *pctldev,
 	struct scmi_pinctrl_priv *priv = pinctrl_dev_get_drvdata(pctldev);
 	struct scmi_pinctrl_gpio_config *gpio_config, *tmp;
 	struct scmi_pinctrl_pin_function pf;
-	struct scmi_pinctrl_pinconf pcf;
-	unsigned int no_mb_cfgs;
 	int ret;
 
 	if (offset > U16_MAX)
@@ -519,32 +708,13 @@ static void scmi_pinctrl_pmx_gpio_disable_free(struct pinctrl_dev *pctldev,
 		return;
 	}
 
-	no_mb_cfgs =
-		scmi_pinctrl_count_multi_bit_values(gpio_config->configs,
-						    gpio_config->num_configs);
-
-	pcf.multi_bit_values = devm_kmalloc(pctldev->dev,
-					    (no_mb_cfgs *
-					     sizeof(*pcf.multi_bit_values)),
-					    GFP_KERNEL);
-	if (!pcf.multi_bit_values)
-		goto err_free;
-
-	ret = scmi_pinctrl_create_pcf(gpio_config->configs,
-				      gpio_config->num_configs,
-				      &pcf);
-	if (ret) {
-		dev_err(pctldev->dev, "Failed to convert pinconf setting!\n");
-		goto err_pcf;
-	}
-
-	ret = priv->pinctrl_ops->pinconf_set(priv->ph, offset, &pcf, true);
+	ret = scmi_pinctrl_pinconf_common_set(pctldev, &offset, 1,
+					      gpio_config->configs,
+					      gpio_config->num_configs,
+					      true);
 	if (ret)
 		dev_err(pctldev->dev, "Failed to set pinconf values!\n");
 
-err_pcf:
-	devm_kfree(pctldev->dev, pcf.multi_bit_values);
-err_free:
 	kfree(gpio_config->configs);
 	devm_kfree(pctldev->dev, gpio_config);
 }
@@ -553,8 +723,6 @@ static int scmi_pinctrl_pmx_gpio_set_direction(struct pinctrl_dev *pctldev,
 					       struct pinctrl_gpio_range *range,
 					       unsigned int offset, bool input)
 {
-	struct scmi_pinctrl_priv *priv = pinctrl_dev_get_drvdata(pctldev);
-	struct scmi_pinctrl_pinconf pcf;
 	unsigned long configs[] = {
 		/* We always have the input buffer enabled, even if
 		 * we have an output GPIO. This way we can read the
@@ -564,38 +732,16 @@ static int scmi_pinctrl_pmx_gpio_set_direction(struct pinctrl_dev *pctldev,
 		pinconf_to_config_packed(PIN_CONFIG_INPUT_ENABLE, 1),
 		pinconf_to_config_packed(PIN_CONFIG_OUTPUT_ENABLE, !input)
 	};
-	unsigned int no_mb_cfgs;
 	int ret;
 
 	if (offset > U16_MAX)
 		return -EINVAL;
 
-	no_mb_cfgs =
-		scmi_pinctrl_count_multi_bit_values(configs,
-						    ARRAY_SIZE(configs));
-
-	pcf.multi_bit_values = devm_kmalloc(pctldev->dev,
-					    (no_mb_cfgs *
-					     sizeof(*pcf.multi_bit_values)),
-					    GFP_KERNEL);
-	if (!pcf.multi_bit_values) {
-		ret = -ENOMEM;
-		goto err;
-	}
-
-	ret = scmi_pinctrl_create_pcf(configs, ARRAY_SIZE(configs), &pcf);
-	if (ret) {
-		dev_err(pctldev->dev, "Error converting to pcf!\n");
-		goto err_pcf;
-	}
-
-	ret = priv->pinctrl_ops->pinconf_set(priv->ph, offset, &pcf, false);
+	ret = scmi_pinctrl_pinconf_common_set(pctldev, &offset, 1, configs,
+					      ARRAY_SIZE(configs), false);
 	if (ret)
 		dev_err(pctldev->dev, "Error setting pinconf!\n");
 
-err_pcf:
-	devm_kfree(pctldev->dev, pcf.multi_bit_values);
-err:
 	return ret;
 }
 
@@ -693,18 +839,21 @@ err:
 	return ret;
 }
 
-static int scmi_pinctrl_pinconf_set(struct pinctrl_dev *pctldev,
-				    unsigned int offset,
-				    unsigned long *configs,
-				    unsigned int num_configs)
+static int scmi_pinctrl_pinconf_common_set(struct pinctrl_dev *pctldev,
+					   unsigned int *pins,
+					   unsigned int no_pins,
+					   unsigned long *configs,
+					   unsigned int num_configs,
+					   bool override)
 {
 	struct scmi_pinctrl_priv *priv = pinctrl_dev_get_drvdata(pctldev);
 	struct scmi_pinctrl_pinconf pcf;
 	unsigned int no_mb_cfgs;
-	int ret = -EINVAL;
+	int ret = -EINVAL, i;
 
-	if (offset > U16_MAX)
-		goto err;
+	for (i = 0; i < no_pins; i++)
+		if (pins[i] > U16_MAX)
+			goto err;
 
 	no_mb_cfgs =
 		scmi_pinctrl_count_multi_bit_values(configs, num_configs);
@@ -724,14 +873,40 @@ static int scmi_pinctrl_pinconf_set(struct pinctrl_dev *pctldev,
 		goto err_free;
 	}
 
-	ret = priv->pinctrl_ops->pinconf_set(priv->ph, offset, &pcf, false);
-	if (ret)
-		dev_err(pctldev->dev, "Error setting pinconf!\n");
+	for (i = 0; i < no_pins; i++) {
+		ret = scmi_pinctrl_update_pcf(pctldev, pins[i], &pcf, override);
+		if (ret) {
+			dev_err(pctldev->dev,
+				"Error saving pinconf for pin: %d!\n",
+				pins[i]);
+			break;
+		}
+
+		ret = priv->pinctrl_ops->pinconf_set(priv->ph, pins[i], &pcf,
+						     override);
+		if (ret) {
+			dev_err(pctldev->dev, "Error setting pinconf!\n");
+			break;
+		}
+	}
 
 err_free:
 	devm_kfree(pctldev->dev, pcf.multi_bit_values);
 err:
 	return ret;
+}
+
+static int scmi_pinctrl_pinconf_set(struct pinctrl_dev *pctldev,
+				    unsigned int offset,
+				    unsigned long *configs,
+				    unsigned int num_configs)
+{
+	if (offset > U16_MAX)
+		return -EINVAL;
+
+	return scmi_pinctrl_pinconf_common_set(pctldev, &offset, 1, configs,
+					       num_configs,
+					       false);
 }
 
 static int scmi_pinctrl_pconf_group_set(struct pinctrl_dev *pctldev,
@@ -741,44 +916,13 @@ static int scmi_pinctrl_pconf_group_set(struct pinctrl_dev *pctldev,
 {
 	struct scmi_pinctrl_priv *priv = pinctrl_dev_get_drvdata(pctldev);
 	struct scmi_pinctrl_desc *desc = &priv->desc;
-	struct scmi_pinctrl_pinconf pcf;
-	unsigned int offset, no_mb_cfgs;
-	int ret, i;
 
-	no_mb_cfgs =
-		scmi_pinctrl_count_multi_bit_values(configs, num_configs);
-
-	pcf.multi_bit_values = devm_kmalloc(pctldev->dev,
-					    (no_mb_cfgs *
-					     sizeof(*pcf.multi_bit_values)),
-					    GFP_KERNEL);
-	if (!pcf.multi_bit_values) {
-		ret = -ENOMEM;
-		goto err;
-	}
-
-	ret = scmi_pinctrl_create_pcf(configs, num_configs, &pcf);
-	if (ret) {
-		dev_err(pctldev->dev, "Error converting to pcf!\n");
-		goto err_pcf;
-	}
-
-	for (i = 0; i < desc->groups[group].npins; ++i) {
-		offset = desc->groups[group].pin_ids[i];
-		if (offset > U16_MAX)
-			break;
-
-		ret = priv->pinctrl_ops->pinconf_set(priv->ph, offset, &pcf, true);
-		if (ret) {
-			dev_err(pctldev->dev, "Error setting pinconf!\n");
-			break;
-		}
-	}
-
-err_pcf:
-	devm_kfree(pctldev->dev, pcf.multi_bit_values);
-err:
-	return ret;
+	return scmi_pinctrl_pinconf_common_set(pctldev,
+					       desc->groups[group].pin_ids,
+					       desc->groups[group].npins,
+					       configs,
+					       num_configs,
+					       true);
 }
 
 static const struct pinconf_ops scmi_pinctrl_pinconf_ops = {
@@ -976,6 +1120,8 @@ static int scmi_pinctrl_probe(struct scmi_device *sdev)
 	INIT_LIST_HEAD(&priv->gpios_list);
 	mutex_init(&priv->gpios_list_lock);
 	mutex_init(&priv->pins_lock);
+	mutex_init(&priv->pm_info.pcfs_lock);
+	hash_init(priv->pm_info.pcfs);
 
 	desc->npins = pin_count;
 	pin_desc = devm_kcalloc(dev, pin_count, sizeof(*pin_desc), GFP_KERNEL);
@@ -996,6 +1142,7 @@ static int scmi_pinctrl_probe(struct scmi_device *sdev)
 			pm_pin = devm_kmalloc(dev, sizeof(*pm_pin), GFP_KERNEL);
 			if (!pm_pin)
 				return -ENOMEM;
+			pm_pin->pcf_initialized = false;
 			pm_pin->function_initialized = false;
 
 			pin_desc[pin].number = pin_id;
