@@ -101,6 +101,58 @@ static bool is_multi_bit_value(enum pin_config_param p)
 	return !!(SCMI_PINCTRL_MULTI_BIT_CFGS & BIT(p));
 }
 
+void scmi_pinctrl_pin_list_init(struct scmi_pinctrl_pin_list *list)
+{
+	INIT_LIST_HEAD(&list->list);
+}
+
+static int scmi_pinctrl_pin_list_pin_index(struct scmi_pinctrl_pin_list *list,
+					   u16 pin)
+{
+	struct scmi_pinctrl_pin_list_elem *it;
+	u32 index = 0;
+
+	list_for_each_entry(it, &list->list, list) {
+		if (pin == it->pin)
+			return index;
+
+		if (index == S32_MAX)
+			return -EINVAL;
+		index++;
+	}
+
+	return -EINVAL;
+}
+
+struct scmi_pinctrl_pin_list_elem *
+	scmi_pinctrl_pin_list_remove_pin(struct scmi_pinctrl_pin_list *list,
+					 u16 pin)
+{
+	struct scmi_pinctrl_pin_list_elem *it, *tmp;
+
+	list_for_each_entry_safe(it, tmp, &list->list, list) {
+		if (it->pin == pin) {
+			list_del(&it->list);
+			return it;
+		}
+	}
+
+	return NULL;
+}
+
+int scmi_pinctrl_pin_list_add_pin(struct scmi_pinctrl_pin_list *list,
+				  struct scmi_pinctrl_pin_list_elem *p)
+{
+	if (scmi_pinctrl_pin_list_pin_index(list, p->pin) >= 0) {
+		pr_err("Pin: %d already present!\n", p->pin);
+		return -EINVAL;
+	}
+
+	list_add(&p->list, &list->list);
+
+	return 0;
+}
+
 unsigned int scmi_pinctrl_count_multi_bit_values(unsigned long *configs,
 						 unsigned int num_configs)
 {
