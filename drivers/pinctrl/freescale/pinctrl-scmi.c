@@ -847,9 +847,14 @@ static int scmi_pinctrl_pinconf_common_set(struct pinctrl_dev *pctldev,
 					   bool override)
 {
 	struct scmi_pinctrl_priv *priv = pinctrl_dev_get_drvdata(pctldev);
+	struct scmi_pinctrl_pin_list tmp_list;
+	struct scmi_pinctrl_pin_list_elem *tmp_pins;
 	struct scmi_pinctrl_pinconf pcf;
 	unsigned int no_mb_cfgs;
 	int ret = -EINVAL, i;
+	u16 pin;
+
+	scmi_pinctrl_pin_list_init(&tmp_list);
 
 	for (i = 0; i < no_pins; i++)
 		if (pins[i] > U16_MAX)
@@ -873,8 +878,17 @@ static int scmi_pinctrl_pinconf_common_set(struct pinctrl_dev *pctldev,
 		goto err_free;
 	}
 
+	tmp_pins = devm_kmalloc(pctldev->dev, no_pins * sizeof(*tmp_pins),
+				  GFP_KERNEL);
+	if (!tmp_pins) {
+		ret = -ENOMEM;
+		goto err_free;
+	}
+
 	for (i = 0; i < no_pins; i++) {
-		ret = scmi_pinctrl_update_pcf(pctldev, pins[i], &pcf, override);
+		pin = pins[i];
+
+		ret = scmi_pinctrl_update_pcf(pctldev, pin, &pcf, override);
 		if (ret) {
 			dev_err(pctldev->dev,
 				"Error saving pinconf for pin: %d!\n",
@@ -882,14 +896,23 @@ static int scmi_pinctrl_pinconf_common_set(struct pinctrl_dev *pctldev,
 			break;
 		}
 
-		ret = priv->pinctrl_ops->pinconf_set(priv->ph, pins[i], &pcf,
-						     override);
-		if (ret) {
-			dev_err(pctldev->dev, "Error setting pinconf!\n");
+		tmp_pins[i].pin = pin;
+		ret = scmi_pinctrl_pin_list_add_pin(&tmp_list,
+						    &tmp_pins[i]);
+		if (ret)
 			break;
-		}
 	}
 
+	if (ret)
+		goto err_tmp;
+
+	ret = priv->pinctrl_ops->pinconf_set(priv->ph, &tmp_list, &pcf,
+					     override);
+	if (ret)
+		dev_err(pctldev->dev, "Error setting pinconf!\n");
+
+err_tmp:
+	devm_kfree(pctldev->dev, tmp_pins);
 err_free:
 	devm_kfree(pctldev->dev, pcf.multi_bit_values);
 err:
@@ -1178,14 +1201,12 @@ static int scmi_pinctrl_resume(struct scmi_device *sdev)
 {
 	struct scmi_pinctrl_priv *priv = dev_get_drvdata(&sdev->dev);
 	struct pinctrl_dev *pctldev = priv->pctldev;
-	struct scmi_pinctrl_pin_list_elem *list_pin;
 	unsigned int it, i, count = 0, index = 0;
 	struct scmi_pinctrl_pin_function *pf;
 	struct scmi_pinctrl_pm_conf *pm_pcf;
 	struct scmi_pinctrl_pm_pin *pm_pin;
 	struct scmi_pinctrl_pinconf *pcf;
 	int ret = 0;
-	u16 pin;
 
 	mutex_lock(&priv->pins_lock);
 
@@ -1224,17 +1245,13 @@ static int scmi_pinctrl_resume(struct scmi_device *sdev)
 	hash_for_each(priv->pm_info.pcfs, it, pm_pcf, node) {
 		pcf = &pm_pcf->key;
 
-		list_for_each_entry(list_pin, &pm_pcf->list.list, list) {
-			pin = list_pin->pin;
-
-			ret = priv->pinctrl_ops->pinconf_set(priv->ph, pin, pcf,
-							     true);
-			if (ret) {
-				dev_err(pctldev->dev,
-					"Error resuming pinconf: %d!\n",
-					ret);
-				break;
-			}
+		ret = priv->pinctrl_ops->pinconf_set(priv->ph, &pm_pcf->list,
+						     pcf, true);
+		if (ret) {
+			dev_err(pctldev->dev,
+				"Error resuming pinconf: %d!\n",
+				ret);
+			break;
 		}
 	}
 
