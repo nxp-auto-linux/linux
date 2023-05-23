@@ -74,8 +74,10 @@ struct scmi_pinctrl_proto_ops {
 			  const struct scmi_pinctrl_pin_function *pf);
 	int (*pinconf_get)(const struct scmi_protocol_handle *ph, u16 pin,
 			   struct scmi_pinctrl_pinconf *pcf);
-	int (*pinconf_set)(const struct scmi_protocol_handle *ph, u16 pin,
-			   struct scmi_pinctrl_pinconf *pcf, bool override);
+	int (*pinconf_set)(const struct scmi_protocol_handle *ph,
+			   struct scmi_pinctrl_pin_list *pins,
+			   struct scmi_pinctrl_pinconf *pcf,
+			   bool override);
 	u16 (*get_num_ranges)(const struct scmi_protocol_handle *ph);
 };
 
