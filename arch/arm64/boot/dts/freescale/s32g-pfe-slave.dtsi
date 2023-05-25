@@ -14,6 +14,16 @@
 #include <dt-bindings/net/s32g-pfe.h>
 
 / {
+	reserved-memory {
+		 pfesl_reserved_bdr: pfebufs@83600000 {
+			compatible = "nxp,s32g-pfe-bdr-pool";
+			/* 64 KB */
+			reg = <0 0x83600000 0 0x10000>;
+			status = "okay";
+		};
+		/* ends 0x83610000 */
+	};
+
 	soc {
 		pfe_slave: pfe_slave@46000000 {
 			compatible = "nxp,s32g-pfe-slave";
@@ -30,7 +40,8 @@
 				 <&clks S32G_SCMI_CLK_PFE_TS>;
 			clock-names = "pfe_sys", "pfe_pe", "pfe_ts";
 			dma-coherent;
-			nxp,pfeng-hif-channels = <PFE_HIF_CHANNEL_3>;
+			memory-region = <&pfesl_reserved_bdr>;
+			memory-region-names = "pfe-bdr-pool";
 			nxp,pfeng-ihc-channel = <PFE_HIF_CHANNEL_3>;
 			nxp,pfeng-master-channel = <PFE_HIF_CHANNEL_0>;
 			status = "okay";
