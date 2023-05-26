@@ -1045,10 +1045,6 @@
 
 			shared-mem = <&pci_shared_memory0>;
 
-			/* EP mode only */
-			num-ib-windows = <6>;
-			num-ob-windows = <6>;
-
 			nvmem-cell-names = "serdes_presence", "pcie_dev_id";
 			nvmem-cells = <&serdes_presence>, <&pcie_dev_id>;
 
@@ -1110,10 +1106,6 @@
 			bus-range = <0x0 0xff>;
 
 			shared-mem = <&pci_shared_memory1>;
-
-			/* EP mode only */
-			num-ib-windows = <6>;
-			num-ob-windows = <6>;
 
 			nvmem-cell-names = "serdes_presence", "pcie_dev_id";
 			nvmem-cells = <&serdes_presence>, <&pcie_dev_id>;
