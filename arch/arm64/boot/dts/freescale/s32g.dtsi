@@ -12,6 +12,7 @@
 #include "s32g-pfe.dtsi"
 #include <dt-bindings/mailbox/nxp-llce-mb.h>
 #include <dt-bindings/mux/nxp-s32g-can-ts.h>
+#include <dt-bindings/nvmem/s32cc-scmi-nvmem.h>
 
 / {
 	reserved-memory {
@@ -61,6 +62,73 @@
 				gpio-ranges = <&pinctrl 0   0   102>,
 					      <&pinctrl 112 112 79>;
 				status = "disabled";
+			};
+
+			nvmem_scmi: protocol@82 {
+				reg = <0x82>;
+				#address-cells = <1>;
+				#size-cells = <1>;
+				status = "okay";
+
+				nvmem-cells = <&scmi_soc_letter>, <&scmi_part_no>,
+					      <&scmi_soc_major>, <&scmi_soc_minor>,
+					      <&scmi_core_max_freq>,
+					      <&scmi_pcie_dev_id>,
+					      <&scmi_serdes_presence>,
+					      <&scmi_soc_subminor>,
+					      <&scmi_reset_cause>;
+				nvmem-cell-names = "soc_letter", "part_no",
+						   "soc_major", "soc_minor",
+						   "core_max_freq",
+						   "pcie_dev_id",
+						   "serdes_presence",
+						   "soc_subminor",
+						   "reset_cause";
+
+				scmi_soc_letter: soc_letter@0 {
+					reg = <S32CC_SCMI_NVMEM_SOC_LETTER
+						S32CC_SCMI_NVMEM_CELL_SIZE>;
+				};
+
+				scmi_part_no: part_no@1 {
+					reg = <S32CC_SCMI_NVMEM_SOC_PART_NO
+						S32CC_SCMI_NVMEM_CELL_SIZE>;
+				};
+
+				scmi_soc_major: soc_major@2 {
+					reg = <S32CC_SCMI_NVMEM_SOC_MAJOR
+						S32CC_SCMI_NVMEM_CELL_SIZE>;
+				};
+
+				scmi_soc_minor: soc_minor@3 {
+					reg = <S32CC_SCMI_NVMEM_SOC_MINOR
+						S32CC_SCMI_NVMEM_CELL_SIZE>;
+				};
+
+				scmi_core_max_freq: core_max_freq@4 {
+					reg = <S32CC_SCMI_NVMEM_CORE_MAX_FREQ
+						S32CC_SCMI_NVMEM_CELL_SIZE>;
+				};
+
+				scmi_pcie_dev_id: pcie_dev_id@5 {
+					reg = <S32CC_SCMI_NVMEM_PCIE_DEV_ID
+						S32CC_SCMI_NVMEM_CELL_SIZE>;
+				};
+
+				scmi_serdes_presence: serdes_presence@6 {
+					reg = <S32CC_SCMI_NVMEM_SERDES_PRESENCE
+						S32CC_SCMI_NVMEM_CELL_SIZE>;
+				};
+
+				scmi_soc_subminor: soc_subminor@7 {
+					reg = <S32CC_SCMI_NVMEM_SOC_SUBMINOR
+						S32CC_SCMI_NVMEM_CELL_SIZE>;
+				};
+
+				scmi_reset_cause: reset_cause@8 {
+					reg = <S32CC_SCMI_NVMEM_RESET_CAUSE
+						S32CC_SCMI_NVMEM_CELL_SIZE>;
+				};
 			};
 		};
 	};
