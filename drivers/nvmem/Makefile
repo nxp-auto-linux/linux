@@ -89,3 +89,5 @@ obj-$(CONFIG_NVMEM_S32CC_OCOTP) += nvmem-s32cc-ocotp-nvmem.o
 nvmem-s32cc-ocotp-nvmem-y		:= s32cc-ocotp-nvmem.o
 obj-$(CONFIG_NVMEM_S32CC_SIUL2)	+= nvmem_s32cc_siul2_nvmem.o
 nvmem_s32cc_siul2_nvmem-y		:= s32cc_siul2_nvmem.o
+obj-$(CONFIG_NVMEM_SCMI)	+= nvmem-scmi-nvmem.o
+nvmem-scmi-nvmem-y		:= nvmem-scmi.o
