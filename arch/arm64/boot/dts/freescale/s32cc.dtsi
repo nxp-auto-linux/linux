@@ -295,11 +295,14 @@
 				#address-cells = <1>;
 				#size-cells = <1>;
 				status = "okay";
-				soc_revision: soc_revision@0 {
-					reg = <SOC_REVISION_OFFSET NVRAM_CELL_SIZE>;
+				soc_major: soc_major@0 {
+					reg = <SOC_MAJOR_OFFSET NVRAM_CELL_SIZE>;
 				};
-				pcie_variant: pcie_variant@4 {
-					reg = <PCIE_VARIANT_OFFSET NVRAM_CELL_SIZE>;
+				soc_minor: soc_minor@1 {
+					reg = <SOC_MINOR_OFFSET NVRAM_CELL_SIZE>;
+				};
+				pcie_dev_id: pcie_dev_id@2 {
+					reg = <PCIE_DEV_ID_OFFSET NVRAM_CELL_SIZE>;
 				};
 			};
 		};
@@ -1067,8 +1070,8 @@
 			num-ib-windows = <6>;
 			num-ob-windows = <6>;
 
-			nvmem-cell-names = "serdes_presence", "pcie_variant";
-			nvmem-cells = <&serdes_presence>, <&pcie_variant>;
+			nvmem-cell-names = "serdes_presence", "pcie_dev_id";
+			nvmem-cells = <&serdes_presence>, <&pcie_dev_id>;
 
 			status = "disabled";
 		};
@@ -1133,8 +1136,8 @@
 			num-ib-windows = <6>;
 			num-ob-windows = <6>;
 
-			nvmem-cell-names = "serdes_presence", "pcie_variant";
-			nvmem-cells = <&serdes_presence>, <&pcie_variant>;
+			nvmem-cell-names = "serdes_presence", "pcie_dev_id";
+			nvmem-cells = <&serdes_presence>, <&pcie_dev_id>;
 
 			status = "disabled";
 		};

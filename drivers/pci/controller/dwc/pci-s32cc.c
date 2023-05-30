@@ -1313,11 +1313,10 @@ static int s32cc_pcie_dt_init(struct platform_device *pdev,
 
 	ret = of_property_read_u32(np, "pcie_device_id", &pcie_variant_bits);
 	if (ret) {
-		ret = s32cc_siul2_nvmem_get_pcie_dev_id(dev, "pcie_variant",
-							&pcie_variant_bits);
+		ret = s32cc_nvmem_get_pcie_dev_id(dev, &pcie_variant_bits);
 		if (ret) {
 			if (ret != -EPROBE_DEFER)
-				dev_info(dev, "Error reading SIUL2 Device ID\n");
+				dev_info(dev, "Error reading PCIe Device ID from NVMEM\n");
 			return ret;
 		}
 	}
