@@ -50,8 +50,6 @@
 					      "pfe-shared-pool", "pfe-bdr-pool";
 			nxp,fw-class-name = "s32g_pfe_class.fw";
 			nxp,fw-util-name = "s32g_pfe_util.fw";
-			nvmem-cells = <&soc_revision>;
-			nvmem-cell-names = "soc_revision";
 			nxp,pfeng-ihc-channel = <PFE_HIF_CHANNEL_0>;
 			status = "disabled";
 
