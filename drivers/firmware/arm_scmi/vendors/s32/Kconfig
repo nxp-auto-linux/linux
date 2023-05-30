@@ -10,4 +10,13 @@ config S32_ARM_SCMI_PINCTRL
 
 	  Say N if you are unsure.
 
+config S32_ARM_SCMI_NVMEM
+	bool
+	depends on SOC_S32CC
+	default y
+	help
+	  Adds S32 common chassis platforms nvmem extension over SCMI.
+
+	  Say N if you are unsure.
+
 endmenu
