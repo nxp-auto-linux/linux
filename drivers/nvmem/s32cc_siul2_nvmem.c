@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0+
 /*
- * Copyright 2021-2022 NXP
+ * Copyright 2021-2023 NXP
  */
 
 #include <linux/module.h>
@@ -122,28 +122,36 @@ static int s32cc_siul2_0_nvmem_read(void *context, unsigned int offset,
 	if (bytes != NVRAM_CELL_SIZE)
 		return -EOPNOTSUPP;
 
-	if (offset == SOC_REVISION_OFFSET) {
+	if (offset == SOC_MAJOR_OFFSET) {
 		midr1 = ioread32(priv->siul2 + SIUL2_MIDR1_OFF);
 		major = (midr1 & SIUL2_MIDR1_MAJOR_MASK) >> SIUL2_MIDR1_MAJOR_SHIFT;
+
+		/* Bytes format: 0.0.0.MAJOR */
+		*(u32 *)val = major + 1;
+
+		return 0;
+	}
+
+	if (offset == SOC_MINOR_OFFSET) {
+		midr1 = ioread32(priv->siul2 + SIUL2_MIDR1_OFF);
 		minor = midr1 & SIUL2_MIDR1_MINOR_MASK;
 
 		if (minor > 0 && needs_minor_decrement(priv->drvdata))
 			minor--;
 
-		/* Bytes format: (MAJOR+1).MINOR.0.0 */
-		*(u32 *)val = (major + 1) << S32CC_SOC_REV_MAJOR_SHIFT
-				| minor << S32CC_SOC_REV_MINOR_SHIFT;
+		/* Bytes format: 0.0.0.MINOR */
+		*(u32 *)val = minor;
 
 		return 0;
 	}
 
-	if (offset == PCIE_VARIANT_OFFSET) {
+	if (offset == PCIE_DEV_ID_OFFSET) {
 		midr1 = ioread32(priv->siul2 + SIUL2_MIDR1_OFF);
 		part_no = (midr1 & SIUL2_MIDR1_PART_NO_MASK) >> SIUL2_MIDR1_PART_NO_SHIFT;
 		pcie_variant_bits = get_variant_bits(part_no);
 
 		/* Bytes format: 0.0.0.PCIE_VARIANT */
-		*(u32 *)val = pcie_variant_bits << S32CC_PCIE_DEV_VARIANT;
+		*(u32 *)val = pcie_variant_bits;
 
 		return 0;
 	}
