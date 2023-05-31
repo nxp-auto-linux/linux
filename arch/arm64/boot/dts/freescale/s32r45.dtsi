@@ -343,6 +343,14 @@
 	compatible = "nxp,s32r45-tmu";
 };
 
+&stm0 {
+	status = "okay";
+};
+
+&stm1 {
+	status = "okay";
+};
+
 /* Used for FlexCAN timestamping */
 &stm7 {
 	status = "okay";
