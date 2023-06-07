@@ -5,7 +5,7 @@
  * derived from the OF-version.
  *
  * Copyright (c) 2010 Pengutronix e.K.
- * Copyright 2020-2022 NXP
+ * Copyright 2020-2023 NXP
  *   Author: Wolfram Sang <kernel@pengutronix.de>
  */
 
@@ -1653,7 +1653,6 @@ static int sdhci_esdhc_imx_probe(struct platform_device *pdev)
 	}
 
 	pltfm_host->clk = imx_data->clk_per;
-	pltfm_host->clock = clk_get_rate(pltfm_host->clk);
 	err = clk_prepare_enable(imx_data->clk_per);
 	if (err)
 		goto free_sdhci;
@@ -1663,6 +1662,8 @@ static int sdhci_esdhc_imx_probe(struct platform_device *pdev)
 	err = clk_prepare_enable(imx_data->clk_ahb);
 	if (err)
 		goto disable_ipg_clk;
+
+	pltfm_host->clock = clk_get_rate(pltfm_host->clk);
 
 	if (!is_s32gen1_usdhc(imx_data)) {
 		imx_data->pinctrl = devm_pinctrl_get(&pdev->dev);
