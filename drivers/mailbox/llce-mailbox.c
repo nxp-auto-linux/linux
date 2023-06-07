@@ -99,6 +99,14 @@ struct fifos_ref_cnt {
 	spinlock_t lock;
 };
 
+struct llce_chan_params {
+	unsigned int fifo;
+	u16 max_regular_filters;
+	u16 max_adv_filters;
+	u16 max_rx_mb;
+	u16 max_tx_ack;
+};
+
 struct llce_mb {
 	struct mbox_controller controller;
 	struct llce_pair_irq rxin_irqs;
@@ -119,11 +127,7 @@ struct llce_mb {
 	void __iomem *sema42;
 	struct clk *clk;
 	struct device *dev;
-	/*
-	 * Mapping between BCANs and FIFOs where
-	 * index = BCAN id, value = FIFO id
-	 */
-	unsigned int chans_map[LLCE_CAN_CONFIG_MAXCTRL_COUNT];
+	struct llce_chan_params chans_params[LLCE_CAN_CONFIG_MAXCTRL_COUNT];
 	struct fifos_ref_cnt fifos_irq_ref_cnt;
 	struct llce_fifoirq logger_irq;
 	u32 hif_id;
@@ -366,7 +370,7 @@ static void __iomem *get_host_txack(struct llce_mb *mb)
 
 static unsigned int get_ctrl_fifo(struct llce_mb *mb, unsigned int ctrl_id)
 {
-	return mb->chans_map[ctrl_id];
+	return mb->chans_params[ctrl_id].fifo;
 }
 
 static void __iomem *get_txack_fifo(struct mbox_chan *chan,
@@ -2232,6 +2236,74 @@ static unsigned long get_next_free_fifo(unsigned long *availability,
 	return index;
 }
 
+static void init_chans_params(struct llce_mb *mb)
+{
+	unsigned long ctrl_id;
+
+	for (ctrl_id = 0; ctrl_id < ARRAY_SIZE(mb->chans_params); ctrl_id++) {
+		mb->chans_params[ctrl_id] = (struct llce_chan_params) {
+			.fifo = UNINITIALIZED_FIFO,
+			.max_regular_filters = MAX_FILTER_PER_CHAN,
+			.max_adv_filters = MAX_FILTER_PER_CHAN,
+			.max_rx_mb = FIFO_MB_PER_CHAN,
+			.max_tx_ack = MAX_CONFIRM_BUF_PER_CHAN,
+		};
+	}
+}
+
+static int of_read_adv_ctrl_options(struct device *dev,
+				    struct device_node *np,
+				    struct llce_chan_params *params)
+{
+	int ret;
+	size_t i;
+	u32 val;
+	struct {
+		const char *name;
+		u16 *value;
+	} props[] = {
+		{
+			.name = "nxp,max_regular_filters",
+			.value = &params->max_regular_filters
+		},
+		{
+			.name = "nxp,max_adv_filters",
+			.value = &params->max_adv_filters,
+		},
+		{
+			.name = "nxp,max_rx_mb",
+			.value = &params->max_rx_mb,
+		},
+		{
+			.name = "nxp,max_tx_ack",
+			.value = &params->max_tx_ack,
+		},
+	};
+
+	for (i = 0; i < ARRAY_SIZE(props); i++) {
+		ret = of_property_read_u32(np, props[i].name, &val);
+		if (!ret) {
+			if (val > U16_MAX)
+				return -E2BIG;
+
+			*props[i].value = val;
+			dev_dbg(dev, "%s:%s = %u\n", of_node_full_name(np),
+				props[i].name, *props[i].value);
+			continue;
+		}
+
+		/* The property does not exist */
+		if (ret == -EINVAL)
+			continue;
+
+		dev_err(dev, "Failed to parse property %s of the node %s\n",
+			props[i].name, of_node_full_name(np));
+		return ret;
+	}
+
+	return 0;
+}
+
 static int llce_init_chan_map(struct device *dev, struct llce_mb *mb)
 {
 	const char *node_name;
@@ -2258,8 +2330,7 @@ static int llce_init_chan_map(struct device *dev, struct llce_mb *mb)
 
 	mb->hif_id = hif_id;
 
-	for (ctrl_id = 0; ctrl_id < ARRAY_SIZE(mb->chans_map); ctrl_id++)
-		mb->chans_map[ctrl_id] = UNINITIALIZED_FIFO;
+	init_chans_params(mb);
 
 	memset(&fifos_refcnt, 0, sizeof(fifos_refcnt));
 
@@ -2289,18 +2360,23 @@ static int llce_init_chan_map(struct device *dev, struct llce_mb *mb)
 			return -EINVAL;
 		}
 
-		mb->chans_map[ctrl_id] = fifo_id;
+		mb->chans_params[ctrl_id].fifo = fifo_id;
 
 		/* Detect shared FIFOs */
 		fifos_refcnt[fifo_id]++;
 		if (fifos_refcnt[fifo_id] > 1)
 			shared_fifo = true;
+
+		ret = of_read_adv_ctrl_options(dev, child,
+					       &mb->chans_params[ctrl_id]);
+		if (ret)
+			return ret;
 	}
 
 	if (shared_fifo) {
 		dev_warn(dev, "Interfaces that use shared TX/RX FIFOs:");
-		for (i = 0; i < ARRAY_SIZE(mb->chans_map); i++) {
-			fifo_id = mb->chans_map[i];
+		for (i = 0; i < ARRAY_SIZE(mb->chans_params); i++) {
+			fifo_id = mb->chans_params[i].fifo;
 
 			if (fifo_id >= sizeof(fifos_refcnt))
 				continue;
@@ -2317,6 +2393,7 @@ static int llce_init_chan_map(struct device *dev, struct llce_mb *mb)
 static int llce_platform_init(struct device *dev, struct llce_mb *mb)
 {
 	struct llce_can_init_platform_cmd *pcmd;
+	struct llce_chan_params *chan_params;
 	unsigned long ctrl_id, fifo_id;
 
 	struct llce_can_command cmd = {
@@ -2350,8 +2427,9 @@ static int llce_platform_init(struct device *dev, struct llce_mb *mb)
 	memset(&pcmd->max_int_mb_count, 0, sizeof(pcmd->max_int_mb_count));
 	memset(&pcmd->max_poll_mb_count, 0, sizeof(pcmd->max_poll_mb_count));
 
-	for (ctrl_id = 0; ctrl_id < ARRAY_SIZE(mb->chans_map); ctrl_id++) {
-		fifo_id = mb->chans_map[ctrl_id];
+	for (ctrl_id = 0; ctrl_id < ARRAY_SIZE(mb->chans_params); ctrl_id++) {
+		chan_params = &mb->chans_params[ctrl_id];
+		fifo_id = chan_params->fifo;
 
 		/* Not initialized */
 		if (fifo_id == UNINITIALIZED_FIFO)
@@ -2359,13 +2437,22 @@ static int llce_platform_init(struct device *dev, struct llce_mb *mb)
 
 		/* Per controller settings */
 		pcmd->ctrl_init_status[ctrl_id] = INITIALIZED;
-		pcmd->max_regular_filter_count[ctrl_id] = MAX_FILTER_PER_CHAN;
-		pcmd->max_advanced_filter_count[ctrl_id] = MAX_FILTER_PER_CHAN;
+		pcmd->max_regular_filter_count[ctrl_id] =
+		    chan_params->max_regular_filters;
+		pcmd->max_advanced_filter_count[ctrl_id] =
+		    chan_params->max_adv_filters;
 		pcmd->can_error_reporting.bus_off_err[ctrl_id] = NOTIF_FIFO0;
 
 		/* Per FIFO settings */
-		pcmd->max_int_mb_count[fifo_id] += FIFO_MB_PER_CHAN;
-		pcmd->max_int_tx_ack_count[fifo_id] += MAX_CONFIRM_BUF_PER_CHAN;
+		if (check_add_overflow(pcmd->max_int_mb_count[fifo_id],
+				       chan_params->max_rx_mb,
+				       &pcmd->max_int_mb_count[fifo_id]))
+			return -EOVERFLOW;
+
+		if (check_add_overflow(pcmd->max_int_tx_ack_count[fifo_id],
+				       chan_params->max_tx_ack,
+				       &pcmd->max_int_tx_ack_count[fifo_id]))
+			return -EOVERFLOW;
 	}
 
 	return execute_hif_cmd(mb, &cmd);
