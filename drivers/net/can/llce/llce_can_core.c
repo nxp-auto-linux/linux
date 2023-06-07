@@ -713,13 +713,45 @@ release_dest:
 	return ret;
 }
 
+static int init_device_link(struct llce_can_core *can_core,
+			    struct net_device *netdev,
+			    u8 hw_ctrl,
+			    bool logging)
+{
+	struct can_ctrl_state *ctrl_state;
+	struct device *consumer, *supplier;
+	struct device_link **link;
+
+	ctrl_state = get_ctrl_state(can_core, hw_ctrl);
+	if (!ctrl_state)
+		return -EINVAL;
+
+	if (logging)
+		link = &ctrl_state->logger_link;
+	else
+		link = &ctrl_state->can_link;
+
+	if (*link)
+		return 0;
+
+	consumer = get_can_core_dev(can_core);
+	supplier = &netdev->dev;
+
+	*link = device_link_add(consumer, supplier,
+				DL_FLAG_AUTOREMOVE_CONSUMER);
+	if (!link)
+		return -EINVAL;
+
+	return 0;
+}
+
 static int llce_can_event(struct llce_can_core *can_core, unsigned long action,
 			  struct net_device *netdev)
 {
 	struct can_priv *priv = safe_candev_priv(netdev);
 	int ret = 0;
 	u8 hw_ctrl;
-	bool fd;
+	bool fd, handled = true;
 
 	if (!priv)
 		return NOTIFY_BAD;
@@ -737,8 +769,12 @@ static int llce_can_event(struct llce_can_core *can_core, unsigned long action,
 		release_host_rx_filters(can_core, hw_ctrl);
 		break;
 	default:
+		handled = false;
 		break;
 	};
+
+	if (handled && init_device_link(can_core, netdev, hw_ctrl, false))
+		return NOTIFY_BAD;
 
 	if (ret)
 		return NOTIFY_BAD;
@@ -805,6 +841,7 @@ static int llce_logger_event(struct llce_can_core *can_core,
 			     struct net_device *netdev)
 {
 	int ret;
+	bool handled = true;
 	u8 hw_ctrl;
 
 	ret = get_hw_ctrl(netdev, &hw_ctrl);
@@ -819,8 +856,12 @@ static int llce_logger_event(struct llce_can_core *can_core,
 		ret = change_rx_logging_filter(can_core, hw_ctrl, false);
 		break;
 	default:
+		handled = false;
 		break;
 	}
+
+	if (handled && init_device_link(can_core, netdev, hw_ctrl, true))
+		return NOTIFY_BAD;
 
 	if (ret)
 		return NOTIFY_BAD;
