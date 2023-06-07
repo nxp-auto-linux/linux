@@ -26,10 +26,9 @@
 #define LLCE_CBT_TSEG2_OFFSET		9U
 #define LLCE_CBT_TSEG1_OFFSET		0U
 
-#define LLCE_CAN_MAX_TX_MB		(10U)
-
 struct llce_can_dl_params {
 	struct llce_can *llce;
+	u8 host_rx_mb;
 	bool self_recv;
 };
 
@@ -51,6 +50,7 @@ struct llce_can {
 enum llce_can_devlink_param_id {
 	LLCE_CAN_DL_PARAM_BASE_ID = DEVLINK_PARAM_GENERIC_ID_MAX,
 	LLCE_CAN_DL_SELF_RECV_ID,
+	LLCE_CAN_DL_HOST_RX_MB_ID,
 };
 
 static const struct devlink_ops llce_can_dl_ops = {
@@ -111,7 +111,7 @@ static int llce_can_init(struct llce_can *llce)
 					.ctrl_config = LLCE_CAN_CONTROLLERCONFIG_CTRL_EN
 					    | LLCE_CAN_CONTROLLERCONFIG_ABR_EN
 					    | LLCE_CAN_CONTROLLERCONFIG_TST_END,
-					.tx_mb_count = LLCE_CAN_MAX_TX_MB,
+					.tx_mb_count = llce->dl_params->host_rx_mb,
 				},
 			},
 		},
@@ -712,6 +712,28 @@ static int llce_can_dl_set_self_recv(struct devlink *dl, u32 id,
 	return 0;
 }
 
+static int llce_can_dl_get_host_rx_mb(struct devlink *dl, u32 id,
+				      struct devlink_param_gset_ctx *ctx)
+{
+	struct llce_can_dl_params *llce_can_dl;
+
+	llce_can_dl = devlink_priv(dl);
+	ctx->val.vu8 = llce_can_dl->host_rx_mb;
+
+	return 0;
+}
+
+static int llce_can_dl_set_host_rx_mb(struct devlink *dl, u32 id,
+				      struct devlink_param_gset_ctx *ctx)
+{
+	struct llce_can_dl_params *llce_can_dl;
+
+	llce_can_dl = devlink_priv(dl);
+	llce_can_dl->host_rx_mb = ctx->val.vu8;
+
+	return 0;
+}
+
 static const struct devlink_param llce_can_devlink_params[] = {
 	DEVLINK_PARAM_DRIVER(LLCE_CAN_DL_SELF_RECV_ID,
 			     "self-recv", DEVLINK_PARAM_TYPE_BOOL,
@@ -719,7 +741,21 @@ static const struct devlink_param llce_can_devlink_params[] = {
 			     llce_can_dl_get_self_recv,
 			     llce_can_dl_set_self_recv,
 			     NULL),
+	DEVLINK_PARAM_DRIVER(LLCE_CAN_DL_HOST_RX_MB_ID,
+			     "host-rx-mb", DEVLINK_PARAM_TYPE_U8,
+			     BIT(DEVLINK_PARAM_CMODE_RUNTIME),
+			     llce_can_dl_get_host_rx_mb,
+			     llce_can_dl_set_host_rx_mb,
+			     NULL),
 };
+
+static void init_llce_can_dl_params(struct llce_can_dl_params *llce_can_dl)
+{
+	*llce_can_dl = (struct llce_can_dl_params){
+		.self_recv = false,
+		.host_rx_mb = 10,
+	};
+}
 
 static int register_devlink_params(struct llce_can *llce, struct device *dev)
 {
@@ -744,6 +780,8 @@ static int register_devlink_params(struct llce_can *llce, struct device *dev)
 	devlink_params_publish(devlink);
 
 	llce_can_dl = devlink_priv(devlink);
+
+	init_llce_can_dl_params(llce_can_dl);
 
 	llce->dl_params = llce_can_dl;
 	llce_can_dl->llce = llce;
