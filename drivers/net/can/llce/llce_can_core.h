@@ -32,6 +32,8 @@ struct can_destination {
 struct can_ctrl_state {
 	struct filter_state *base_filter;
 	struct filter_state *logging_filter;
+	struct device_link *can_link;
+	struct device_link *logger_link;
 	bool logging;
 	u8 fifo;
 };
