@@ -61,6 +61,30 @@ properties:
     description:
       A pinctrl state named "default" must be defined.
 
+  nxp,max_regular_filters:
+    $ref: /schemas/types.yaml#/definitions/uint32
+    description:
+      Maximum number of regular filters.
+    default: 16
+
+  nxp,max_adv_filters:
+    $ref: /schemas/types.yaml#/definitions/uint32
+    description:
+      Maximum number of advanced filters.
+    default: 16
+
+  nxp,max_rx_mb:
+    $ref: /schemas/types.yaml#/definitions/uint32
+    description:
+      Maximum number of RX message buffers.
+    default: 100
+
+  nxp,max_tx_ack:
+    $ref: /schemas/types.yaml#/definitions/uint32
+    description:
+      Maximum number of reserved TX confirmation buffers
+    default: 16
+
 required:
   - compatible
   - mboxes
