@@ -26,9 +26,10 @@ properties:
       - enum:
           - nxp,s32g-pfe
           - nxp,s32g-pfe-slave
-    description:
-      The single instance driver (aka standalone driver mode) and the Master
-      driver require "nxp,s32g-pfe", the Slave driver requires "nxp,s32g-pfe-slave".
+          - nxp,s32g-pfe-bdr-pool
+      - description: The single instance driver (aka standalone driver mode) or Master driver
+      - description: The Slave driver
+      - description: Reserved memory for BDR pool
 
   reg:
     items:
