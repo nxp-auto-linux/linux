@@ -802,6 +802,24 @@
 		};
 
 	};
+
+	uart0_pins: uart0_pins {
+		uart0_pins_grp0 {
+			pinmux = <S32CC_PINMUX(41, FUNC1)>;
+			output-enable;
+			slew-rate = <S32CC_SLEW_133MHZ>;
+		};
+
+		uart0_pins_grp1 {
+			pinmux = <S32CC_PINMUX(42, FUNC0)>;
+			input-enable;
+			slew-rate = <S32CC_SLEW_133MHZ>;
+		};
+
+		uart0_pins_grp2 {
+			pinmux = <S32CC_PINMUX(512, FUNC2)>;
+		};
+	};
 };
 
 &edma0 {
@@ -1008,3 +1026,8 @@
 	status = "okay";
 };
 
+&uart0 {
+	pinctrl-0 = <&uart0_pins>;
+	pinctrl-names = "default";
+	status = "okay";
+};
