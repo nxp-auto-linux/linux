@@ -627,6 +627,24 @@
 			pinmux = <S32CC_PINMUX(669, FUNC2)>;
 		};
 	};
+
+	uart0_pins: uart0_pins {
+		uart0_pins_grp0 {
+			pinmux = <S32CC_PINMUX(41, FUNC1)>;
+			output-enable;
+			slew-rate = <S32CC_GPIO_3V3_SLEW_50MHZ>;
+		};
+
+		uart0_pins_grp1 {
+			pinmux = <S32CC_PINMUX(42, FUNC0)>;
+			input-enable;
+			slew-rate = <S32CC_GPIO_3V3_SLEW_50MHZ>;
+		};
+
+		uart0_pins_grp2 {
+			pinmux = <S32CC_PINMUX(512, FUNC2)>;
+		};
+	};
 };
 
 &spi1 {
@@ -940,5 +958,11 @@
 &pwm1 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&ftm1_pins>;
+	status = "okay";
+};
+
+&uart0 {
+	pinctrl-0 = <&uart0_pins>;
+	pinctrl-names = "default";
 	status = "okay";
 };
