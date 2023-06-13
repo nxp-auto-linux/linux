@@ -1451,4 +1451,5 @@ static char *can_filters_set_status_readme = "\n"
 "An example showing its use:\n"
 "    echo 513 > " STS_FILTER_CMD_PATH(FILTERS_ADDR_FLD) "\n"
 "    echo enabled > " STS_FILTER_CMD_PATH(FILTERS_STATUS_FLD) "\n"
+"    echo 1 > " STS_FILTER_CMD_PATH(EXECUTE_FILE) "\n"
 "\n";
