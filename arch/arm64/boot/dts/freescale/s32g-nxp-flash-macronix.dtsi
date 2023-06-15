@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: (GPL-2.0+ OR BSD-3-Clause)
 /*
- * Copyright 2022 NXP
+ * Copyright 2022-2023 NXP
  */
 
 #include "s32cc-nxp-flash-macronix.dtsi"
 
 &macronix_memory {
 	partitions {
-		pfe@3000000 {
+		pfe@30a0000 {
 			label = "PFE-Firmware";
-			reg = <0x3000000 0x1000000>;
+			reg = <0x30a0000 0xf60000>;
 		};
 	};
 };
