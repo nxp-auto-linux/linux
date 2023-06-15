@@ -23,27 +23,27 @@
 
 			boot@0 {
 				label = "FIP";
-				reg = <0x0 0x1e0000>;
+				reg = <0x0 0x280000>;
 			};
 
-			boot-env@1e0000 {
+			boot-env@280000 {
 				label = "U-Boot-Env";
-				reg = <0x1e0000 0x10000>;
+				reg = <0x280000 0x10000>;
 			};
 
-			kernel@1f0000 {
+			kernel@290000 {
 				label = "Kernel";
-				reg = <0x1f0000 0xed0000>;
+				reg = <0x290000 0xed0000>;
 			};
 
-			dtb@ff0000 {
+			dtb@1160000 {
 				label = "DTB";
-				reg = <0x10c0000 0x30000>;
+				reg = <0x1160000 0x30000>;
 			};
 
-			rootfs@10f0000 {
+			rootfs@1190000 {
 				label = "Rootfs";
-				reg = <0x10f0000 0x1f10000>;
+				reg = <0x1190000 0x1f10000>;
 			};
 		};
 	};
