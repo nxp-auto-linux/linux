@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0+ OR BSD-3-Clause
-/* Copyright 2020-2021 NXP */
+/* Copyright 2020-2021, 2023 NXP */
 #include <linux/clk.h>
 #include <linux/firmware.h>
 #include <linux/genalloc.h>
@@ -435,11 +435,11 @@ static int __maybe_unused llce_core_resume(struct device *dev)
 	if (!load_fw)
 		return 0;
 
-	init_sram_nodes(core);
-
 	ret = init_core_clock(dev, core);
 	if (ret)
 		return ret;
+
+	init_sram_nodes(core);
 
 	return start_llce_cores(dev, core);
 }
