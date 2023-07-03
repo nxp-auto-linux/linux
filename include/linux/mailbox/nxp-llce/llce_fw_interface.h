@@ -418,6 +418,8 @@ enum llce_fw_return {
 	 * state.
 	 */
 	LLCE_ERROR_BCAN_PASSERR,
+	/** CAN firmware notification: BCAN exits Passive state. */
+	LLCE_NOTIF_BCAN_EXIT_PASSIVE_STATE,
 	/**
 	 * Number of enum elements. It must be kept as the last member
 	 * of the list.
@@ -454,6 +456,21 @@ struct llce_mgr_status {
 	/** OUTPUT: LLCE FW version structure. */
 	struct llce_fw_version llce_fw_version;
 
+} __aligned(4) __packed;
+
+/**
+ * Structure for the timestamps of cores 1, 2, and 3
+ * Structure contains the timestamps for the cores 1, 2, and 3 and shall be
+ * read by host in order to verify if a crash, or high delay has occurred or
+ * not.
+ **/
+struct llce_mgr_time_stamp_cores {
+	/** Timestamp for Core 1. */
+	u32 time_stamp_core1;
+	/** Timestamp for Core 2. */
+	u32 time_stamp_core2;
+	/** Timestamp for Core 3. */
+	u32 time_stamp_core3;
 } __aligned(4) __packed;
 
 /**
@@ -507,6 +524,7 @@ llce_get_notification_category(enum llce_fw_return notification_code)
 	case LLCE_ERROR_BCAN_FRZ_ENTER:
 	case LLCE_ERROR_BCAN_LPM_EXIT:
 	case LLCE_ERROR_BCAN_SRT_ENTER:
+	case LLCE_NOTIF_BCAN_EXIT_PASSIVE_STATE:
 		notif_category = LLCE_NOTIFCAT_CAN_PROTOCOL;
 		break;
 	case LLCE_ERROR_BCAN_TXWRN:
