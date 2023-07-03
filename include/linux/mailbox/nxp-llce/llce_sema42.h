@@ -4,22 +4,22 @@
 #define LLCE_SEMA42_H
 
 #include <linux/io.h>
-#define LLCE_SEMA42_GR_GTFSM_0 0x0U
-#define LLCE_SEMA42_GR_GTFSM_1 0x1U
-#define LLCE_SEMA42_GR_GTFSM_2 0x2U
-#define LLCE_SEMA42_GR_GTFSM_3 0x3U
-#define LLCE_SEMA42_GR_GTFSM_4 0x4U
-#define LLCE_SEMA42_GR_GTFSM_5 0x5U
-#define LLCE_SEMA42_GR_GTFSM_6 0x6U
-#define LLCE_SEMA42_GR_GTFSM_7 0x7U
-#define LLCE_SEMA42_GR_GTFSM_8 0x8U
-#define LLCE_SEMA42_GR_GTFSM_9 0x9U
-#define LLCE_SEMA42_GR_GTFSM_10 0xAU
-#define LLCE_SEMA42_GR_GTFSM_11 0xBU
-#define LLCE_SEMA42_GR_GTFSM_12 0xCU
-#define LLCE_SEMA42_GR_GTFSM_13 0xDU
-#define LLCE_SEMA42_GR_GTFSM_14 0xEU
-#define LLCE_SEMA42_GR_GTFSM_15 0xFU
+#define LLCE_SEMA42_GR_GTFSM_0 (0x0U)
+#define LLCE_SEMA42_GR_GTFSM_1 (0x1U)
+#define LLCE_SEMA42_GR_GTFSM_2 (0x2U)
+#define LLCE_SEMA42_GR_GTFSM_3 (0x3U)
+#define LLCE_SEMA42_GR_GTFSM_4 (0x4U)
+#define LLCE_SEMA42_GR_GTFSM_5 (0x5U)
+#define LLCE_SEMA42_GR_GTFSM_6 (0x6U)
+#define LLCE_SEMA42_GR_GTFSM_7 (0x7U)
+#define LLCE_SEMA42_GR_GTFSM_8 (0x8U)
+#define LLCE_SEMA42_GR_GTFSM_9 (0x9U)
+#define LLCE_SEMA42_GR_GTFSM_10 (0xAU)
+#define LLCE_SEMA42_GR_GTFSM_11 (0xBU)
+#define LLCE_SEMA42_GR_GTFSM_12 (0xCU)
+#define LLCE_SEMA42_GR_GTFSM_13 (0xDU)
+#define LLCE_SEMA42_GR_GTFSM_14 (0xEU)
+#define LLCE_SEMA42_GR_GTFSM_15 (0xFU)
 
 /**
  * Gate numbers used by sema42 module to lock and unlock gates.
@@ -52,8 +52,8 @@ enum llce_sema42_gate {
 	LLCE_SEMA42_GATE24 = 24UL, /** Sema42 Gate */
 	LLCE_SEMA42_GATE25 = 25UL, /** Sema42 Gate */
 	LLCE_SEMA42_GATE26 = 26UL, /** Sema42 Gate */
-	LLCE_SEMA42_GATE27 = 27UL, /** Sema42 Gate */ /*free*/
-	LLCE_SEMA42_GATE28 = 28UL, /** Sema42 Gate */
+	LLCE_SEMA42_GATE27 = 27UL, /** Sema42 Gate */
+	LLCE_SEMA42_GATE28 = 28UL, /** Sema42 Gate */ /*free*/
 	LLCE_SEMA42_GATE29 = 29UL, /** Sema42 Gate */
 	LLCE_SEMA42_GATE30 = 30UL, /** Sema42 Gate */
 	LLCE_SEMA42_GATE31 = 31UL, /** Sema42 Gate */
