@@ -119,16 +119,16 @@
 #define LLCE_CAN_MB_PRECALC_LEN_SHIFT (24U)
 
 /** Constant used to identify a reserved mask id. */
-#define LLCE_CAN_FULLCAN_MASK 0xFFFFFFFFU
+#define LLCE_CAN_FULLCAN_MASK (0xFFFFFFFFU)
 
-#define LLCE_CAN2ETH_PFE_EMAC0 0x01U
-#define LLCE_CAN2ETH_PFE_EMAC1 0x02U
-#define LLCE_CAN2ETH_PFE_EMAC2 0x04U
-#define LLCE_CAN2ETH_PFE_HIF0 0x08U
-#define LLCE_CAN2ETH_PFE_HIF1 0x10U
-#define LLCE_CAN2ETH_PFE_HIF2 0x20U
-#define LLCE_CAN2ETH_PFE_HIF3 0x40U
-#define LLCE_CAN2ETH_PFE_HIFNOCPY 0x80U
+#define LLCE_CAN2ETH_PFE_EMAC0 (0x01U)
+#define LLCE_CAN2ETH_PFE_EMAC1 (0x02U)
+#define LLCE_CAN2ETH_PFE_EMAC2 (0x04U)
+#define LLCE_CAN2ETH_PFE_HIF0 (0x08U)
+#define LLCE_CAN2ETH_PFE_HIF1 (0x10U)
+#define LLCE_CAN2ETH_PFE_HIF2 (0x20U)
+#define LLCE_CAN2ETH_PFE_HIF3 (0x40U)
+#define LLCE_CAN2ETH_PFE_HIFNOCPY (0x80U)
 
 /**
  * Notification IDs used to interface with LLCE.
@@ -231,7 +231,12 @@ enum llce_can_command_id {
 	 */
 	LLCE_CAN_CMD_SETCHANNELROUTINGOUTPUTSTATE,
 	/** The host enables or disables can2eth processing entirely.*/
-	LLCE_CAN_CMD_SETCAN2ETHSTATE
+	LLCE_CAN_CMD_SETCAN2ETHSTATE,
+	/**
+	 * The host enables or disables eth2can processing for a
+	 * format.
+	 */
+	LLCE_CAN_CMD_SETETH2CANFORMATSTATE
 } __packed;
 
 /**
@@ -415,7 +420,12 @@ enum llce_can_eth_encapsulation_format {
 	/** IEEE1722-2016 AVPT time-synchronous CAN regular format */
 	LLCE_AF_CAN2AVTP_TSCF_FULL,
 	/** UDP format */
-	LLCE_AF_CAN2UDP
+	LLCE_AF_CAN2UDP,
+	/** UDP format, type B */
+	LLCE_AF_CAN2UDP_B,
+	/** Placeholder for maximum value */
+	LLCE_AF_CAN2ETH_FORMAT_MAX
+
 } __packed;
 /**
  * Initialization status of the controllers.
@@ -997,7 +1007,7 @@ struct llce_can_advanced_feature {
  **/
 struct llce_can_advanced_filter {
 	/** INPUT: Standard filter configuration. */
-	struct llce_can_rx_filter llce_can_Rx_filter;
+	struct llce_can_rx_filter llce_can_rx_filter;
 	/** INPUT: Can advanced features used by the filter. */
 	struct llce_can_advanced_feature llce_can_advanced_feature;
 } __aligned(4) __packed;
@@ -1189,8 +1199,8 @@ struct llce_can_change_filter {
 	 */
 	u16 filter_addr;
 	/**
-	 * INPUT: State of the filter when using Set_filter_enable_status
-	 * command
+	 * INPUT: Request new state (0 - disable filter / 1 - enable
+	 * filter) of the filter when using Set_filter_enable_status command.
 	 */
 	u8 filter_enabled;
 } __aligned(4) __packed;
@@ -1221,6 +1231,18 @@ struct llce_can_abort_mb_cmd {
 	u8 aborted_frame_cnt;
 	/** INPUT: Specifies the type of AbortMB command. */
 	enum llce_can_abort_mb abort_mb_type;
+} __aligned(4) __packed;
+
+/**
+ * Set eth2can decapsulation state.
+ * It is sent by the host to LLCE in order to turn on or off decapsulation
+ * for a given format.
+ **/
+struct llce_can_set_eth2can_format_state_cmd {
+	/** INPUT: Encapsulation format */
+	enum llce_can_eth_encapsulation_format format;
+	/** INPUT: State to set */
+	enum llce_can_binary_value state;
 } __aligned(4) __packed;
 
 /**
@@ -1291,6 +1313,10 @@ union llce_can_command_list {
 	 * Generic argument for binary values
 	 */
 	enum llce_can_binary_value binary_value;
+	/**
+	 * Command for turning eth2can on or off for a certain format
+	 */
+	struct llce_can_set_eth2can_format_state_cmd Set_eth2can_format_state;
 } __aligned(4) __packed;
 
 /**

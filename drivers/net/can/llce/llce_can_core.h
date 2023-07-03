@@ -64,7 +64,7 @@ static inline struct llce_can_rx_filter *
 get_base_filter(struct filter_state *filter)
 {
 	if (filter->advanced)
-		return &filter->f.advanced.llce_can_Rx_filter;
+		return &filter->f.advanced.llce_can_rx_filter;
 
 	return &filter->f.base;
 }
