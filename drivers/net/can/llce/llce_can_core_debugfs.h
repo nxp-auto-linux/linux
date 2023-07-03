@@ -63,6 +63,18 @@ struct llce_can_core_debugfs {
 	struct dentry *root_dir;
 };
 
+#ifdef CONFIG_DEBUG_FS
 int llce_create_debugfs(struct llce_can_core_debugfs *root);
 void llce_remove_debugs(struct llce_can_core_debugfs *root);
+#else
+static inline int llce_create_debugfs(struct llce_can_core_debugfs *root)
+{
+	return 0;
+}
+
+static inline void llce_remove_debugs(struct llce_can_core_debugfs *root)
+{
+}
+#endif
+
 #endif
