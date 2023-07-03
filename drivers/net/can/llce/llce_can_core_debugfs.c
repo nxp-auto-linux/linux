@@ -773,7 +773,7 @@ static void debugfs2filter(struct llce_can_filters_debugfs *filters_dfs,
 	filter->enabled = get_selected_id(&filters_dfs->status);
 
 	adv_opts = &filter->f.advanced.llce_can_advanced_feature;
-	base_opts = &filter->f.advanced.llce_can_Rx_filter;
+	base_opts = &filter->f.advanced.llce_can_rx_filter;
 
 	/* Non-string/non-enum options */
 	*base_opts = filters_dfs->base_opts;
@@ -795,7 +795,7 @@ static void debugfs2filter(struct llce_can_filters_debugfs *filters_dfs,
 		filter->advanced = true;
 	} else {
 		filter->advanced = false;
-		memmove(&filter->f.base, &filter->f.advanced.llce_can_Rx_filter,
+		memmove(&filter->f.base, &filter->f.advanced.llce_can_rx_filter,
 			sizeof(filter->f.base));
 	}
 }
