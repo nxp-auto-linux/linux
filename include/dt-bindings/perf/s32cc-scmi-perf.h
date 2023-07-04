@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: BSD-3-Clause */
 /*
- * Copyright 2022 NXP
+ * Copyright 2022-2023 NXP
  */
 #ifndef __DT_BINDINGS_SCMI_PERF_S32CC_H
 #define __DT_BINDINGS_SCMI_PERF_S32CC_H
