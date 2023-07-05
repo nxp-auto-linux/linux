@@ -47,12 +47,12 @@ struct scmi_pinctrl_pin_group {
  * struct scmi_pinctrl_func - describes a function pinmux functions
  * @name: the name of this specific function
  * @groups: corresponding pin groups
- * @num_groups: the number of groups
+ * @no_groups: the number of groups
  */
 struct scmi_pinctrl_func {
 	const char *name;
 	const char **groups;
-	unsigned int num_groups;
+	unsigned int no_groups;
 };
 
 /**
@@ -116,7 +116,7 @@ struct scmi_pinctrl_pm {
  * @gpios_list: a list with the previous values of a pin before
  *		configuring it as a GPIO.
  * @gpios_list_lock: lock protecting the gpios_list
- * @num_ranges: the number of pin_ranges elements
+ * @no_ranges: the number of pin_ranges elements
  * @pm_info: information needed for suspend/resume
  * @pins_lock: lock for accessing the pins
  */
@@ -128,7 +128,7 @@ struct scmi_pinctrl_priv {
 	struct scmi_pinctrl_desc desc;
 	struct list_head gpios_list;
 	struct mutex gpios_list_lock;
-	u16 num_ranges;
+	u16 no_ranges;
 	struct scmi_pinctrl_pm pm_info;
 	struct mutex pins_lock;
 };
@@ -137,14 +137,14 @@ struct scmi_pinctrl_priv {
  * struct scmi_pinctrl_gpio_config
  * @id: the pin/gpio id (they are the same)
  * @func: the previous function for the pin
- * @num_configs: the number of entries in the configs array
+ * @no_configs: the number of entries in the configs array
  * @configs: the previous pin_configs set
  */
 struct scmi_pinctrl_gpio_config {
 	struct list_head list;
 	unsigned int id;
 	u16 func;
-	unsigned int num_configs;
+	unsigned int no_configs;
 	unsigned long *configs;
 };
 
@@ -152,7 +152,7 @@ static int scmi_pinctrl_pinconf_common_set(struct pinctrl_dev *pctldev,
 					   unsigned int *pins,
 					   unsigned int no_pins,
 					   unsigned long *configs,
-					   unsigned int num_configs,
+					   unsigned int no_configs,
 					   bool override);
 
 static int scmi_pinctrl_pin_to_pindesc_index(struct pinctrl_dev *pctldev,
@@ -165,7 +165,7 @@ static int scmi_pinctrl_pin_to_pindesc_index(struct pinctrl_dev *pctldev,
 
 	*index = 0;
 
-	for (i = 0; i < priv->num_ranges; i++) {
+	for (i = 0; i < priv->no_ranges; i++) {
 		start = priv->pin_ranges[i].start;
 		end = start + priv->pin_ranges[i].no_pins;
 
@@ -404,7 +404,7 @@ static int scmi_pinctrl_dt_group_node_to_map(struct pinctrl_dev *pctldev,
 					     struct device_node *np,
 					     struct pinctrl_map **map,
 					     unsigned int *reserved_maps,
-					     unsigned int *num_maps,
+					     unsigned int *no_maps,
 					     const char *func_name)
 {
 	struct scmi_pinctrl_priv *priv = pinctrl_dev_get_drvdata(pctldev);
@@ -436,19 +436,19 @@ static int scmi_pinctrl_dt_group_node_to_map(struct pinctrl_dev *pctldev,
 	if (n_cfgs)
 		reserve++;
 
-	ret = pinctrl_utils_reserve_map(pctldev, map, reserved_maps, num_maps,
+	ret = pinctrl_utils_reserve_map(pctldev, map, reserved_maps, no_maps,
 					reserve);
 	if (ret < 0)
 		goto free_cfgs;
 
-	ret = pinctrl_utils_add_map_mux(pctldev, map, reserved_maps, num_maps,
+	ret = pinctrl_utils_add_map_mux(pctldev, map, reserved_maps, no_maps,
 					np->name, func_name);
 	if (ret < 0)
 		goto free_cfgs;
 
 	if (n_cfgs) {
 		ret = pinctrl_utils_add_map_configs(pctldev, map, reserved_maps,
-						    num_maps, np->name, cfgs, n_cfgs,
+						    no_maps, np->name, cfgs, n_cfgs,
 						    PIN_MAP_TYPE_CONFIGS_GROUP);
 		if (ret < 0)
 			goto free_cfgs;
@@ -462,7 +462,7 @@ free_cfgs:
 static int scmi_pinctrl_dt_node_to_map(struct pinctrl_dev *pctldev,
 				       struct device_node *np_config,
 				       struct pinctrl_map **map,
-				       unsigned int *num_maps)
+				       unsigned int *no_maps)
 {
 	unsigned int reserved_maps;
 	struct device_node *np;
@@ -470,21 +470,21 @@ static int scmi_pinctrl_dt_node_to_map(struct pinctrl_dev *pctldev,
 
 	reserved_maps = 0;
 	*map = NULL;
-	*num_maps = 0;
+	*no_maps = 0;
 
 	for_each_available_child_of_node(np_config, np) {
 		ret = scmi_pinctrl_dt_group_node_to_map(pctldev,
 							np,
 							map,
 							&reserved_maps,
-							num_maps,
+							no_maps,
 							np_config->name);
 		if (ret < 0)
 			break;
 	}
 
 	if (ret)
-		pinctrl_utils_free_map(pctldev, *map, *num_maps);
+		pinctrl_utils_free_map(pctldev, *map, *no_maps);
 
 	return ret;
 }
@@ -515,11 +515,11 @@ static const char *scmi_pinctrl_pmx_get_func_name(struct pinctrl_dev *pctldev,
 static int scmi_pinctrl_pmx_get_groups(struct pinctrl_dev *pctldev,
 				       unsigned int selector,
 				       const char * const **groups,
-				       unsigned int * const num_groups)
+				       unsigned int * const no_groups)
 {
 	struct scmi_pinctrl_priv *priv = pinctrl_dev_get_drvdata(pctldev);
 
-	*num_groups = priv->desc.functions[selector].num_groups;
+	*no_groups = priv->desc.functions[selector].no_groups;
 	*groups = priv->desc.functions[selector].groups;
 
 	return 0;
@@ -709,7 +709,7 @@ static void scmi_pinctrl_pmx_gpio_disable_free(struct pinctrl_dev *pctldev,
 
 	ret = scmi_pinctrl_pinconf_common_set(pctldev, &offset, 1,
 					      gpio_config->configs,
-					      gpio_config->num_configs,
+					      gpio_config->no_configs,
 					      true);
 	if (ret)
 		dev_err(pctldev->dev, "Failed to set pinconf values!\n");
@@ -842,7 +842,7 @@ static int scmi_pinctrl_pinconf_common_set(struct pinctrl_dev *pctldev,
 					   unsigned int *pins,
 					   unsigned int no_pins,
 					   unsigned long *configs,
-					   unsigned int num_configs,
+					   unsigned int no_configs,
 					   bool override)
 {
 	struct scmi_pinctrl_priv *priv = pinctrl_dev_get_drvdata(pctldev);
@@ -860,7 +860,7 @@ static int scmi_pinctrl_pinconf_common_set(struct pinctrl_dev *pctldev,
 			goto err;
 
 	no_mb_cfgs =
-		scmi_pinctrl_count_multi_bit_values(configs, num_configs);
+		scmi_pinctrl_count_multi_bit_values(configs, no_configs);
 
 	pcf.multi_bit_values = devm_kmalloc(pctldev->dev,
 					    (no_mb_cfgs *
@@ -871,7 +871,7 @@ static int scmi_pinctrl_pinconf_common_set(struct pinctrl_dev *pctldev,
 		goto err;
 	}
 
-	ret = scmi_pinctrl_create_pcf(configs, num_configs, &pcf);
+	ret = scmi_pinctrl_create_pcf(configs, no_configs, &pcf);
 	if (ret) {
 		dev_err(pctldev->dev, "Error converting to pcf!\n");
 		goto err_free;
@@ -921,20 +921,20 @@ err:
 static int scmi_pinctrl_pinconf_set(struct pinctrl_dev *pctldev,
 				    unsigned int offset,
 				    unsigned long *configs,
-				    unsigned int num_configs)
+				    unsigned int no_configs)
 {
 	if (offset > U16_MAX)
 		return -EINVAL;
 
 	return scmi_pinctrl_pinconf_common_set(pctldev, &offset, 1, configs,
-					       num_configs,
+					       no_configs,
 					       false);
 }
 
 static int scmi_pinctrl_pconf_group_set(struct pinctrl_dev *pctldev,
 					unsigned int group,
 					unsigned long *configs,
-					unsigned int num_configs)
+					unsigned int no_configs)
 {
 	struct scmi_pinctrl_priv *priv = pinctrl_dev_get_drvdata(pctldev);
 	struct scmi_pinctrl_desc *desc = &priv->desc;
@@ -943,7 +943,7 @@ static int scmi_pinctrl_pconf_group_set(struct pinctrl_dev *pctldev,
 					       desc->groups[group].pin_ids,
 					       desc->groups[group].npins,
 					       configs,
-					       num_configs,
+					       no_configs,
 					       true);
 }
 
@@ -1025,13 +1025,13 @@ static int scmi_pinctrl_parse_functions(struct scmi_device *sdev,
 
 	/* Initialise function */
 	func->name = np->name;
-	func->num_groups = of_get_child_count(np);
-	if (!func->num_groups) {
+	func->no_groups = of_get_child_count(np);
+	if (!func->no_groups) {
 		dev_err(dev, "no groups defined in %s\n", np->full_name);
 		return -EINVAL;
 	}
 	func->groups = devm_kzalloc(dev,
-				    func->num_groups * sizeof(char *),
+				    func->no_groups * sizeof(char *),
 				    GFP_KERNEL);
 
 	for_each_child_of_node(np, child) {
@@ -1125,8 +1125,8 @@ static int scmi_pinctrl_probe(struct scmi_device *sdev)
 	priv->pinctrl_ops = pinctrl_ops;
 	priv->ph = ph;
 
-	priv->num_ranges = priv->pinctrl_ops->get_num_ranges(ph);
-	ranges = devm_kmalloc(dev, sizeof(*ranges) * priv->num_ranges, GFP_KERNEL);
+	priv->no_ranges = priv->pinctrl_ops->get_no_ranges(ph);
+	ranges = devm_kmalloc(dev, sizeof(*ranges) * priv->no_ranges, GFP_KERNEL);
 	if (!ranges)
 		return -ENOMEM;
 
@@ -1136,7 +1136,7 @@ static int scmi_pinctrl_probe(struct scmi_device *sdev)
 
 	priv->pin_ranges = ranges;
 
-	for (i = 0; i < priv->num_ranges; ++i)
+	for (i = 0; i < priv->no_ranges; ++i)
 		pin_count += priv->pin_ranges[i].no_pins;
 
 	INIT_LIST_HEAD(&priv->gpios_list);
@@ -1152,7 +1152,7 @@ static int scmi_pinctrl_probe(struct scmi_device *sdev)
 
 	desc->pins = pin_desc;
 
-	for (i = 0; i < priv->num_ranges; ++i) {
+	for (i = 0; i < priv->no_ranges; ++i) {
 		for (j = 0; j < priv->pin_ranges[i].no_pins; ++j) {
 			pin_id = priv->pin_ranges[i].start + j;
 			pin_name = devm_kasprintf(dev, GFP_KERNEL, "PIN_%d",
