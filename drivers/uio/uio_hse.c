@@ -5,7 +5,7 @@
  * This file contains the user-space I/O support for the Hardware Security
  * Engine user space driver. Used by the HSE user space library - libhse.
  *
- * Copyright 2021-2022 NXP
+ * Copyright 2021-2023 NXP
  */
 
 #include <linux/kernel.h>
@@ -17,6 +17,9 @@
 #include <linux/uio_driver.h>
 #include <linux/of.h>
 #include <linux/of_reserved_mem.h>
+
+#define DRIVER_NAME       "hse-uio"
+#define DRIVER_VERSION    "2.0"
 
 #define HSE_REGS_NAME       "hse-" CONFIG_UIO_NXP_HSE_MU "-regs"
 #define HSE_DESC_NAME       "hse-" CONFIG_UIO_NXP_HSE_MU "-desc"
@@ -65,14 +68,21 @@ enum hse_irq_type {
 
 /**
  * struct hse_uio_intl - driver internal shared memory layout
- * @ready[n]: reply ready on channel n
- * @reply[n]: service response on channel n
- * @event: HSE system event mask
+ * @channel_ready[n]: reply ready on channel n
+ * @channel_reply[n]: response on channel n
+ * @event: HSE firmware system event mask
+ * @setup_done: initialization sequence done flag
+ * @channel_busy[n]: service channel busy flag
+ * @channel_res[n]: channel currently reserved
  */
 struct hse_uio_intl {
-	u8 ready[HSE_NUM_CHANNELS];
-	u32 reply[HSE_NUM_CHANNELS];
+	u8 channel_ready[HSE_NUM_CHANNELS];
+	u32 channel_reply[HSE_NUM_CHANNELS];
 	u32 event;
+	bool setup_done;
+	u8 reserved[3];
+	bool channel_busy[HSE_NUM_CHANNELS];
+	bool channel_res[HSE_NUM_CHANNELS];
 } __packed;
 
 /**
@@ -120,7 +130,7 @@ struct hse_mu_regs {
  * struct hse_uio_drvdata - HSE UIO driver private data
  * @dev: HSE UIO device
  * @info: UIO device info
- * @refcnt: open/close reference counter
+ * @refcnt: open instances reference counter
  * @regs: MU register space base virtual address
  * @desc: service descriptor space base virtual address
  * @intl: driver internal shared memory base address
@@ -129,7 +139,7 @@ struct hse_mu_regs {
 struct hse_uio_drvdata {
 	struct device *dev;
 	struct uio_info info;
-	refcount_t refcnt;
+	atomic_t inst_refcnt;
 	struct hse_mu_regs __iomem *regs;
 	void __iomem *desc;
 	struct hse_uio_intl *intl;
@@ -402,19 +412,19 @@ static int hse_uio_msg_recv(struct device *dev, u8 channel, u32 *msg)
  * @info: UIO device info
  * @inode: inode, not used
  *
- * Protects against multiple driver instances using UIO support.
+ * Enables RX interrupts if there is at least one libhse instance active.
  */
 static int hse_uio_open(struct uio_info *info, struct inode *inode)
 {
 	struct hse_uio_drvdata *drv = info->priv;
 
-	if (!refcount_dec_if_one(&drv->refcnt)) {
-		dev_err(drv->dev, "device %s already in use\n", info->name);
+	if (!atomic_read(&drv->inst_refcnt))
+		hse_uio_irqcontrol(&drv->info, HSE_UIO_ENABLE_RX_IRQ_CMD);
 
-		return -EBUSY;
-	}
+	atomic_inc(&drv->inst_refcnt);
 
-	dev_info(drv->dev, "device %s open\n", info->name);
+	dev_info(drv->dev, "device %s v%s open, instances: %d\n",
+		 info->name, info->version, atomic_read(&drv->inst_refcnt));
 
 	return 0;
 }
@@ -424,15 +434,17 @@ static int hse_uio_open(struct uio_info *info, struct inode *inode)
  * @info: UIO device info
  * @inode: inode, not used
  *
- * Protects against multiple driver instances using UIO support.
+ * Disables RX interrupts if there are no libhse instances active.
  */
 static int hse_uio_release(struct uio_info *info, struct inode *inode)
 {
 	struct hse_uio_drvdata *drv = info->priv;
 
-	refcount_set(&drv->refcnt, 1);
+	if (atomic_dec_and_test(&drv->inst_refcnt))
+		hse_uio_irqcontrol(&drv->info, HSE_UIO_DISABLE_RX_IRQ_CMD);
 
-	dev_info(drv->dev, "device %s released\n", info->name);
+	dev_info(drv->dev, "device %s v%s released, instances: %d\n",
+		 info->name, info->version, atomic_read(&drv->inst_refcnt));
 
 	return 0;
 }
@@ -453,8 +465,8 @@ static irqreturn_t hse_uio_rx_dispatcher(int irq, void *dev)
 		/* handle reply */
 		err = hse_uio_msg_recv(dev, channel, &srv_rsp);
 		if (likely(!err)) {
-			drv->intl->reply[channel] = srv_rsp;
-			drv->intl->ready[channel] = 1;
+			drv->intl->channel_reply[channel] = srv_rsp;
+			drv->intl->channel_ready[channel] = 1;
 
 			/* notify upper layer */
 			uio_event_notify(&drv->info);
@@ -509,6 +521,8 @@ static int hse_uio_probe(struct platform_device *pdev)
 	struct resource *res;
 	struct device_node *rmem_node;
 	struct reserved_mem *rmem;
+	unsigned long intl_page;
+	unsigned int channel;
 	int irq, err;
 	u16 status;
 
@@ -529,7 +543,7 @@ static int hse_uio_probe(struct platform_device *pdev)
 	/* check firmware status */
 	status = hse_uio_check_status(dev);
 	if (unlikely(!status)) {
-		dev_warn(dev, "firmware not found\n");
+		dev_warn(dev, "firmware not found or MU interface inactive\n");
 		return -ENODEV;
 	}
 
@@ -539,8 +553,8 @@ static int hse_uio_probe(struct platform_device *pdev)
 	drv->info.mem[HSE_UIO_MAP_REGS].size = resource_size(res);
 	drv->info.mem[HSE_UIO_MAP_REGS].memtype = UIO_MEM_PHYS;
 
-	drv->info.version = "1.0";
-	drv->info.name = "hse-uio";
+	drv->info.version = DRIVER_VERSION;
+	drv->info.name = DRIVER_NAME;
 
 	drv->info.open = hse_uio_open;
 	drv->info.release = hse_uio_release;
@@ -564,9 +578,10 @@ static int hse_uio_probe(struct platform_device *pdev)
 	drv->info.mem[HSE_UIO_MAP_DESC].memtype = UIO_MEM_PHYS;
 
 	/* alloc internal shared memory */
-	drv->intl = (void *)devm_get_free_pages(dev, GFP_KERNEL | __GFP_ZERO, 0);
-	if (unlikely(!drv->intl))
+	intl_page = devm_get_free_pages(dev, GFP_KERNEL | __GFP_ZERO, 0);
+	if (unlikely(!intl_page))
 		return -ENOMEM;
+	drv->intl = (void *)intl_page;
 
 	/* expose driver internal memory to upper layer */
 	drv->info.mem[HSE_UIO_MAP_INTL].name = "hse-driver-internal";
@@ -595,7 +610,8 @@ static int hse_uio_probe(struct platform_device *pdev)
 	drv->info.mem[HSE_UIO_MAP_RMEM].size = rmem->size;
 	drv->info.mem[HSE_UIO_MAP_RMEM].memtype = UIO_MEM_PHYS;
 
-	refcount_set(&drv->refcnt, 1);
+	/* initialize reference counter and lock */
+	atomic_set(&drv->inst_refcnt, 0);
 	spin_lock_init(&drv->reg_lock);
 
 	/* disable all interrupt sources */
@@ -628,8 +644,19 @@ static int hse_uio_probe(struct platform_device *pdev)
 		return err;
 	}
 
-	/* enable RX and system event notifications */
-	hse_uio_irqcontrol(&drv->info, HSE_UIO_ENABLE_ALL_IRQ_CMD);
+	/* reset channels to initial state */
+	for (channel = 0; channel < HSE_NUM_CHANNELS; channel++) {
+		drv->intl->channel_ready[channel] = 0;
+		drv->intl->channel_reply[channel] = 0;
+		drv->intl->channel_busy[channel] = false;
+		drv->intl->channel_res[channel] = false;
+	}
+	drv->intl->setup_done = false;
+	drv->intl->event = 0;
+	drv->intl->channel_res[0] = true; /* restrict channel zero */
+
+	/* enable system event notifications */
+	hse_uio_irqcontrol(&drv->info, HSE_UIO_ENABLE_EVT_IRQ_CMD);
 
 	dev_info(dev, "successfully registered device\n");
 
@@ -640,6 +667,10 @@ static int hse_uio_remove(struct platform_device *pdev)
 {
 	struct hse_uio_drvdata *drv = platform_get_drvdata(pdev);
 
+	/* disable all firmware notifications */
+	hse_uio_irqcontrol(&drv->info, HSE_UIO_DISABLE_ALL_IRQ_CMD);
+
+	/* unregister device */
 	uio_unregister_device(&drv->info);
 
 	return 0;
@@ -655,7 +686,7 @@ MODULE_DEVICE_TABLE(of, hse_uio_of_match);
 
 static struct platform_driver hse_uio_driver = {
 	.driver = {
-		.name = "hse-uio",
+		.name = DRIVER_NAME,
 		.of_match_table	= hse_uio_of_match,
 	},
 	.probe = hse_uio_probe,
