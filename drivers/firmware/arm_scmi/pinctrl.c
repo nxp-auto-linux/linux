@@ -38,7 +38,12 @@ struct scmi_msg_resp_pinctrl_attributes {
 	__le16 num_ranges;
 };
 
+struct scmi_msg_pinctrl_describe {
+	__le32 range_index;
+};
+
 struct scmi_msg_resp_pinctrl_describe {
+	__le32 no_ranges;
 	struct {
 		__le16 start;
 		__le16 no_pins;
@@ -396,31 +401,42 @@ static int scmi_pinctrl_protocol_describe(const struct scmi_protocol_handle *ph,
 					  struct scmi_pinctrl_pin_range *rv)
 {
 	struct scmi_msg_resp_pinctrl_describe *ranges;
+	struct scmi_msg_pinctrl_describe *params;
+	uint32_t range_index = 0, i, tmp_idx;
 	struct scmi_pinctrl_info *pinfo;
 	struct scmi_xfer *t;
-	int ret, i;
+	int ret;
 
 	pinfo = ph->get_priv(ph);
 	if (!pinfo)
 		return -ENODEV;
 
-	ret = ph->xops->xfer_get_init(ph, PINCTRL_DESCRIBE, 0, 0, &t);
+	ret = ph->xops->xfer_get_init(ph, PINCTRL_DESCRIBE, sizeof(*params), 0,
+				      &t);
 	if (ret) {
 		dev_err(ph->dev, "Error initializing xfer!\n");
 		return ret;
 	}
 
+	params = t->tx.buf;
 	ranges = t->rx.buf;
 
-	ret = ph->xops->do_xfer(ph, t);
-	if (ret) {
-		dev_err(ph->dev, "Transfer error!\n");
-		goto done;
-	}
+	while (range_index < pinfo->num_ranges) {
+		params->range_index = cpu_to_le32(range_index);
+		ret = ph->xops->do_xfer(ph, t);
+		if (ret) {
+			dev_err(ph->dev, "Transfer error!\n");
+			goto done;
+		}
 
-	for (i = 0; i < pinfo->num_ranges; ++i) {
-		rv[i].start = le16_to_cpu(ranges->range[i].start);
-		rv[i].no_pins = le16_to_cpu(ranges->range[i].no_pins);
+		for (i = 0; i < le32_to_cpu(ranges->no_ranges); i++) {
+			tmp_idx = i + range_index;
+			rv[tmp_idx].start = le16_to_cpu(ranges->range[i].start);
+			rv[tmp_idx].no_pins = le16_to_cpu(ranges->range[i].no_pins);
+		}
+
+		range_index += le32_to_cpu(ranges->no_ranges);
+		ph->xops->reset_rx_to_maxsz(ph, t);
 	}
 
 done:
