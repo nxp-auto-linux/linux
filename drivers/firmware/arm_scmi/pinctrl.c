@@ -18,18 +18,7 @@
 #include "common.h"
 #include "notify.h"
 
-/*
- * Remaining message size is 100. The longer messages that use a variable
- * number of pins are PINMUX_SET and PICONF_SET_*.
- *
- * PINMUX_SET would allow for maximum (100 - 4) / 4 = 24
- * PINCONF_SET_* would allow for maximum (100 - 4 - 4 - 4 - 8 * 4) / 2 = 28
- *
- * Because of ALB-10137 we cannot use the maximum size. Switch to 23
- * until it's fixed.
- *
- */
-#define PINMUX_MAX_PINS 23
+#define PINMUX_MAX_PINS 24
 
 /*
  * SCMI Pinctrl commands
