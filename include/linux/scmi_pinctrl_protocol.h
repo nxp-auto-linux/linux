@@ -78,7 +78,7 @@ struct scmi_pinctrl_proto_ops {
 			   struct scmi_pinctrl_pin_list *pins,
 			   struct scmi_pinctrl_pinconf *pcf,
 			   bool override);
-	u16 (*get_num_ranges)(const struct scmi_protocol_handle *ph);
+	u16 (*get_no_ranges)(const struct scmi_protocol_handle *ph);
 };
 
 static inline u32 scmi_pinctrl_count_mb_configs(u32 mask)

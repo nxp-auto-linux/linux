@@ -31,11 +31,11 @@ enum scmi_pinctrl_protocol_cmd {
 	PINCTRL_PINCONF_SET_OVERRIDE = 0x7,
 	PINCTRL_PINCONF_SET_APPEND = 0x8,
 
-	PINCTRL_NUM_COMMANDS
+	PINCTRL_NO_COMMANDS
 };
 
 struct scmi_msg_resp_pinctrl_attributes {
-	__le16 num_ranges;
+	__le16 no_ranges;
 };
 
 struct scmi_msg_pinctrl_describe {
@@ -70,7 +70,7 @@ struct scmi_msg_pinctrl_pmx_set {
 
 struct scmi_pinctrl_info {
 	u32 version;
-	u16 num_ranges;
+	u16 no_ranges;
 };
 
 struct scmi_msg_pinctrl_pcf_get {
@@ -152,11 +152,11 @@ int scmi_pinctrl_pin_list_add_pin(struct scmi_pinctrl_pin_list *list,
 }
 
 unsigned int scmi_pinctrl_count_multi_bit_values(unsigned long *configs,
-						 unsigned int num_configs)
+						 unsigned int no_configs)
 {
 	unsigned int i, count = 0;
 
-	for (i = 0; i < num_configs; ++i)
+	for (i = 0; i < no_configs; ++i)
 		if (is_multi_bit_value(pinconf_to_config_param(configs[i])))
 			++count;
 
@@ -187,7 +187,7 @@ static void set_boolean_value(struct scmi_pinctrl_pinconf *pcf,
 }
 
 int scmi_pinctrl_create_pcf(unsigned long *configs,
-			    unsigned int num_configs,
+			    unsigned int no_configs,
 			    struct scmi_pinctrl_pinconf *pcf)
 {
 	unsigned int i, multi_bit_idx = 0;
@@ -207,9 +207,9 @@ int scmi_pinctrl_create_pcf(unsigned long *configs,
 	 * the protocol specification.
 	 */
 
-	sort(configs, num_configs, sizeof(*configs), compare_configs, NULL);
+	sort(configs, no_configs, sizeof(*configs), compare_configs, NULL);
 
-	for (i = 0; i < num_configs; ++i) {
+	for (i = 0; i < no_configs; ++i) {
 		param = pinconf_to_config_param(configs[i]);
 		arg = pinconf_to_config_argument(configs[i]);
 
@@ -391,7 +391,7 @@ static int scmi_pinctrl_attributes_get(const struct scmi_protocol_handle *ph,
 
 	ret = ph->xops->do_xfer(ph, t);
 	if (!ret)
-		pinfo->num_ranges = le16_to_cpu(attr->num_ranges);
+		pinfo->no_ranges = le16_to_cpu(attr->no_ranges);
 	ph->xops->xfer_put(ph, t);
 
 	return ret;
@@ -421,7 +421,7 @@ static int scmi_pinctrl_protocol_describe(const struct scmi_protocol_handle *ph,
 	params = t->tx.buf;
 	ranges = t->rx.buf;
 
-	while (range_index < pinfo->num_ranges) {
+	while (range_index < pinfo->no_ranges) {
 		params->range_index = cpu_to_le32(range_index);
 		ret = ph->xops->do_xfer(ph, t);
 		if (ret) {
@@ -729,11 +729,11 @@ scmi_pinctrl_protocol_pinconf_set(const struct scmi_protocol_handle *ph,
 }
 
 static u16
-scmi_pinctrl_protocol_get_num_ranges(const struct scmi_protocol_handle *ph)
+scmi_pinctrl_protocol_get_no_ranges(const struct scmi_protocol_handle *ph)
 {
 	struct scmi_pinctrl_info *pinfo = ph->get_priv(ph);
 
-	return pinfo->num_ranges;
+	return pinfo->no_ranges;
 }
 
 static int scmi_pinctrl_protocol_init(const struct scmi_protocol_handle *ph)
@@ -775,7 +775,7 @@ static const struct scmi_pinctrl_proto_ops pinctrl_proto_ops = {
 	.pinmux_set = scmi_pinctrl_protocol_pinmux_set,
 	.pinconf_get = scmi_pinctrl_protocol_pinconf_get,
 	.pinconf_set = scmi_pinctrl_protocol_pinconf_set,
-	.get_num_ranges = scmi_pinctrl_protocol_get_num_ranges,
+	.get_no_ranges = scmi_pinctrl_protocol_get_no_ranges,
 };
 
 static const struct scmi_protocol scmi_pinctrl = {
