@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: BSD-3-Clause */
 /*
- * Copyright 2020-2021 NXP
+ * Copyright 2021-2023 NXP
  */
 #ifndef __DT_BINDINGS_SCMI_CLOCK_S32R45_H
 #define __DT_BINDINGS_SCMI_CLOCK_S32R45_H
