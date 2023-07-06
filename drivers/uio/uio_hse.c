@@ -584,6 +584,7 @@ static int hse_uio_probe(struct platform_device *pdev)
 	rmem = of_reserved_mem_lookup(rmem_node);
 	if (!rmem) {
 		dev_err(dev, "reserved memory-region lookup failed\n");
+		of_node_put(rmem_node);
 		return -ENXIO;
 	}
 	of_node_put(rmem_node);
