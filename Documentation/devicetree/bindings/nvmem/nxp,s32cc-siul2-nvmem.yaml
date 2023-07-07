@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: (GPL-2.0 or BSD-2-Clause)
 %YAML 1.2
 ---
-$id: http://devicetree.org/schemas/nvmem/nxp,s32-siul2-nvmem.yaml#
+$id: http://devicetree.org/schemas/nvmem/nxp,s32cc-siul2-nvmem.yaml#
 $schema: http://devicetree.org/meta-schemas/core.yaml#
 
 title: NXP S32CC SIUL2 NVMEM driver
@@ -54,10 +54,13 @@ examples:
       #address-cells = <1>;
       #size-cells = <1>;
       status = "okay";
-      soc_revision: soc_revision@0 {
-              reg = <SOC_REVISION_OFFSET NVRAM_CELL_SIZE>;
+      soc_major: soc_major@0 {
+        reg = <SOC_MAJOR_OFFSET NVRAM_CELL_SIZE>;
       };
-      pcie_variant: pcie_variant@4 {
-              reg = <PCIE_VARIANT_OFFSET NVRAM_CELL_SIZE>;
+      soc_minor: soc_minor@1 {
+        reg = <SOC_MINOR_OFFSET NVRAM_CELL_SIZE>;
+      };
+      pcie_dev_id: pcie_dev_id@2 {
+        reg = <PCIE_DEV_ID_OFFSET NVRAM_CELL_SIZE>;
       };
     };
