@@ -43,12 +43,12 @@ additionalProperties: false
 
 examples:
   - |
-    #include <dt-bindings/clock/s32gen1-scmi-clock.h>
+    #include <dt-bindings/clock/s32cc-scmi-clock.h>
 
     watchdog@40200000 {
         compatible = "nxp,s32cc-wdt";
         reg = <0x40200000 0x1000>;
-        clocks = <&clks S32GEN1_SCMI_CLK_SWT_COUNTER>;
+        clocks = <&clks S32CC_SCMI_CLK_SWT_COUNTER>;
         clock-names = "swt";
         status = "disabled";
     };

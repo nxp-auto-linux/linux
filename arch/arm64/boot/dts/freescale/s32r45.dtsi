@@ -129,8 +129,8 @@
 				     <GIC_SPI 194 IRQ_TYPE_LEVEL_HIGH>,
 				     <GIC_SPI 195 IRQ_TYPE_LEVEL_HIGH>;
 			interrupt-names = "state", "berr", "mb_0-7", "mb_8-127";
-			clocks = <&clks S32GEN1_SCMI_CLK_FLEXCAN_REG>,
-				 <&clks S32GEN1_SCMI_CLK_FLEXCAN_CAN>;
+			clocks = <&clks S32CC_SCMI_CLK_FLEXCAN_REG>,
+				 <&clks S32CC_SCMI_CLK_FLEXCAN_CAN>;
 			clock-names = "ipg", "per";
 			status = "disabled";
 		};
@@ -143,8 +143,8 @@
 				     <GIC_SPI 198 IRQ_TYPE_LEVEL_HIGH>,
 				     <GIC_SPI 199 IRQ_TYPE_LEVEL_HIGH>;
 			interrupt-names = "state", "berr", "mb_0-7", "mb_8-127";
-			clocks = <&clks S32GEN1_SCMI_CLK_FLEXCAN_REG>,
-				 <&clks S32GEN1_SCMI_CLK_FLEXCAN_CAN>;
+			clocks = <&clks S32CC_SCMI_CLK_FLEXCAN_REG>,
+				 <&clks S32CC_SCMI_CLK_FLEXCAN_CAN>;
 			clock-names = "ipg", "per";
 			status = "disabled";
 		};
@@ -157,8 +157,8 @@
 				     <GIC_SPI 202 IRQ_TYPE_LEVEL_HIGH>,
 				     <GIC_SPI 203 IRQ_TYPE_LEVEL_HIGH>;
 			interrupt-names = "state", "berr", "mb_0-7", "mb_8-127";
-			clocks = <&clks S32GEN1_SCMI_CLK_FLEXCAN_REG>,
-				 <&clks S32GEN1_SCMI_CLK_FLEXCAN_CAN>;
+			clocks = <&clks S32CC_SCMI_CLK_FLEXCAN_REG>,
+				 <&clks S32CC_SCMI_CLK_FLEXCAN_CAN>;
 			clock-names = "ipg", "per";
 			status = "disabled";
 		};
@@ -171,8 +171,8 @@
 				     <GIC_SPI 206 IRQ_TYPE_LEVEL_HIGH>,
 				     <GIC_SPI 207 IRQ_TYPE_LEVEL_HIGH>;
 			interrupt-names = "state", "berr", "mb_0-7", "mb_8-127";
-			clocks = <&clks S32GEN1_SCMI_CLK_FLEXCAN_REG>,
-				 <&clks S32GEN1_SCMI_CLK_FLEXCAN_CAN>;
+			clocks = <&clks S32CC_SCMI_CLK_FLEXCAN_REG>,
+				 <&clks S32CC_SCMI_CLK_FLEXCAN_CAN>;
 			clock-names = "ipg", "per";
 			status = "disabled";
 		};

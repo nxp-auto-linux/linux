@@ -45,13 +45,13 @@ unevaluatedProperties: false
 
 examples:
   - |
-    #include <dt-bindings/clock/s32gen1-scmi-clock.h>
+    #include <dt-bindings/clock/s32cc-scmi-clock.h>
 
     stm0: stm@4011C000{
         compatible = "nxp,s32cc-stm";
         reg = <0x4011C000 0x3000>;
         interrupts= <0 24 4>;
-        clocks = <&clks S32GEN1_SCMI_CLK_STM_MODULE>;
+        clocks = <&clks S32CC_SCMI_CLK_STM_MODULE>;
         clock-names = "stm";
         cpu = <2>;
     };

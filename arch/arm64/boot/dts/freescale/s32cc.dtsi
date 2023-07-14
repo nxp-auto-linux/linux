@@ -9,7 +9,7 @@
 
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/clock/s32gen1-clock.h>
-#include <dt-bindings/clock/s32gen1-scmi-clock.h>
+#include <dt-bindings/clock/s32cc-scmi-clock.h>
 #include <dt-bindings/misc/s32-fccu.h>
 #include <dt-bindings/nvmem/s32-siul2-nvmem.h>
 #include <dt-bindings/nvmem/s32-ocotp-nvmem.h>
@@ -236,9 +236,9 @@
 			#interrupt-cells = <3>;
 			reg = <0x0 0x40060000 0x0 0x1000>;
 			interrupts = <GIC_SPI 121 IRQ_TYPE_LEVEL_HIGH>;	// RTC irq - GIC 153
-			clocks = <&clks S32GEN1_SCMI_CLK_RTC_REG>,
-				 <&clks S32GEN1_SCMI_CLK_RTC_SIRC>,
-				 <&clks S32GEN1_SCMI_CLK_RTC_FIRC>;
+			clocks = <&clks S32CC_SCMI_CLK_RTC_REG>,
+				 <&clks S32CC_SCMI_CLK_RTC_SIRC>,
+				 <&clks S32CC_SCMI_CLK_RTC_FIRC>;
 			clock-names = "ipg", "sirc", "firc";
 			/* Input clock selection: use the 48MHz FIRC with DIV512,
 			 * for a roll-over time of just under 13 hours.
@@ -304,8 +304,8 @@
 		tmu: tmu@400a8000 {
 			compatible = "nxp,s32cc-tmu";
 			reg = <0x0 0x400a8000 0x0 0x3000>;
-			clocks = <&clks S32GEN1_SCMI_CLK_TMU_MODULE>,
-				 <&clks S32GEN1_SCMI_CLK_TMU_REG>;
+			clocks = <&clks S32CC_SCMI_CLK_TMU_MODULE>,
+				 <&clks S32CC_SCMI_CLK_TMU_REG>;
 			clock-names = "tmu_module", "tmu_reg";
 			nvmem-cell-names = "tmu_fuse_val";
 			nvmem-cells = <&tmu_fuse_val>;
@@ -315,7 +315,7 @@
 		swt3: watchdog@4010c000 {
 			compatible = "nxp,s32cc-wdt";
 			reg = <0x0 0x4010c000 0x0 0x1000>;
-			clocks = <&clks S32GEN1_SCMI_CLK_SWT_COUNTER>;
+			clocks = <&clks S32CC_SCMI_CLK_SWT_COUNTER>;
 			clock-names = "swt";
 			status = "disabled";
 		};
@@ -324,7 +324,7 @@
 			compatible = "nxp,s32cc-stm";
 			reg = <0x0 0x4011c000 0x0 0x3000>;
 			interrupts = <GIC_SPI 24 IRQ_TYPE_LEVEL_HIGH>;
-			clocks = <&clks S32GEN1_SCMI_CLK_STM_MODULE>;
+			clocks = <&clks S32CC_SCMI_CLK_STM_MODULE>;
 			clock-names = "stm";
 			cpu = <2>;
 			status = "disabled";
@@ -334,7 +334,7 @@
 			compatible = "nxp,s32cc-stm";
 			reg = <0x0 0x40120000 0x0 0x3000>;
 			interrupts = <GIC_SPI 25 IRQ_TYPE_LEVEL_HIGH>;
-			clocks = <&clks S32GEN1_SCMI_CLK_STM_MODULE>;
+			clocks = <&clks S32CC_SCMI_CLK_STM_MODULE>;
 			clock-names = "stm";
 			cpu = <3>;
 			status = "disabled";
@@ -343,7 +343,7 @@
 		stm2: stm@40124000 {
 			compatible = "nxp,s32cc-stm-global";
 			reg = <0x0 0x40124000 0x0 0x3000>;
-			clocks = <&clks S32GEN1_SCMI_CLK_STM_MODULE>;
+			clocks = <&clks S32CC_SCMI_CLK_STM_MODULE>;
 			clock-names = "stm";
 			nxp,prescaler = <256>;
 			status = "disabled";
@@ -352,7 +352,7 @@
 		stm3: stm@40128000 {
 			compatible = "nxp,s32cc-stm-global";
 			reg = <0x0 0x40128000 0x0 0x3000>;
-			clocks = <&clks S32GEN1_SCMI_CLK_STM_MODULE>;
+			clocks = <&clks S32CC_SCMI_CLK_STM_MODULE>;
 			clock-names = "stm";
 			status = "disabled";
 		};
@@ -366,8 +366,8 @@
 			reg-names = "QuadSPI-memory", "QuadSPI";
 			interrupts = <GIC_SPI 32 IRQ_TYPE_LEVEL_HIGH>;
 			clock-names = "qspi_en", "qspi";
-			clocks = <&clks S32GEN1_SCMI_CLK_QSPI_FLASH1X>,
-				 <&clks S32GEN1_SCMI_CLK_QSPI_FLASH1X>;
+			clocks = <&clks S32CC_SCMI_CLK_QSPI_FLASH1X>,
+				 <&clks S32CC_SCMI_CLK_QSPI_FLASH1X>;
 			spi-max-frequency = <200000000>;
 			spi-num-chipselects = <2>;
 			status = "disabled";
@@ -387,8 +387,8 @@
 					  "edma-tx_16-31",
 					  "edma-err";
 			clock-names = "dmamux0", "dmamux1";
-			clocks = <&clks S32GEN1_SCMI_CLK_EDMA_MODULE>,
-				 <&clks S32GEN1_SCMI_CLK_EDMA_AHB>;
+			clocks = <&clks S32CC_SCMI_CLK_EDMA_MODULE>,
+				 <&clks S32CC_SCMI_CLK_EDMA_AHB>;
 			status = "disabled";
 		};
 
@@ -396,7 +396,7 @@
 			compatible = "nxp,s32cc-pit";
 			reg = <0x0 0x40188000 0x0 0x3000>;
 			interrupts = <GIC_SPI 53 IRQ_TYPE_LEVEL_HIGH>;
-			clocks = <&clks S32GEN1_SCMI_CLK_PIT_MODULE>;
+			clocks = <&clks S32CC_SCMI_CLK_PIT_MODULE>;
 			clock-names = "pit";
 			cpu = <0>;
 			status = "disabled";
@@ -421,8 +421,8 @@
 				     <GIC_SPI 39 IRQ_TYPE_LEVEL_HIGH>,
 				     <GIC_SPI 40 IRQ_TYPE_LEVEL_HIGH>;
 			interrupt-names = "state", "berr", "mb_0-7", "mb_8-127";
-			clocks = <&clks S32GEN1_SCMI_CLK_FLEXCAN_REG>,
-				 <&clks S32GEN1_SCMI_CLK_FLEXCAN_CAN>;
+			clocks = <&clks S32CC_SCMI_CLK_FLEXCAN_REG>,
+				 <&clks S32CC_SCMI_CLK_FLEXCAN_CAN>;
 			clock-names = "ipg", "per";
 			status = "disabled";
 		};
@@ -435,8 +435,8 @@
 				     <GIC_SPI 43 IRQ_TYPE_LEVEL_HIGH>,
 				     <GIC_SPI 44 IRQ_TYPE_LEVEL_HIGH>;
 			interrupt-names = "state", "berr", "mb_0-7", "mb_8-127";
-			clocks = <&clks S32GEN1_SCMI_CLK_FLEXCAN_REG>,
-				 <&clks S32GEN1_SCMI_CLK_FLEXCAN_CAN>;
+			clocks = <&clks S32CC_SCMI_CLK_FLEXCAN_REG>,
+				 <&clks S32CC_SCMI_CLK_FLEXCAN_CAN>;
 			clock-names = "ipg", "per";
 			status = "disabled";
 		};
@@ -445,8 +445,8 @@
 			compatible = "nxp,s32cc-linflexuart";
 			reg = <0x0 0x401c8000 0x0 0x3000>;
 			interrupts = <GIC_SPI 82 IRQ_TYPE_EDGE_RISING>;
-			clocks = <&clks S32GEN1_SCMI_CLK_LINFLEX_LIN>,
-				 <&clks S32GEN1_SCMI_CLK_LINFLEX_XBAR>;
+			clocks = <&clks S32CC_SCMI_CLK_LINFLEX_LIN>,
+				 <&clks S32CC_SCMI_CLK_LINFLEX_XBAR>;
 			clock-names = "lin", "ipg";
 			dmas = <&edma0 0 4>,
 			       <&edma0 0 3>;
@@ -457,8 +457,8 @@
 			compatible = "nxp,s32cc-linflexuart";
 			reg = <0x0 0x401cc000 0x0 0x3000>;
 			interrupts = <GIC_SPI 83 IRQ_TYPE_EDGE_RISING>;
-			clocks = <&clks S32GEN1_SCMI_CLK_LINFLEX_LIN>,
-				 <&clks S32GEN1_SCMI_CLK_LINFLEX_XBAR>;
+			clocks = <&clks S32CC_SCMI_CLK_LINFLEX_LIN>,
+				 <&clks S32CC_SCMI_CLK_LINFLEX_XBAR>;
 			clock-names = "lin", "ipg";
 			dmas = <&edma0 0 6>,
 			       <&edma0 0 5>;
@@ -469,7 +469,7 @@
 			compatible = "nxp,s32cc-dspi";
 			reg = <0x0 0x401d4000 0x0 0x1000>;
 			interrupts = <GIC_SPI 85 IRQ_TYPE_LEVEL_HIGH>;
-			clocks = <&clks S32GEN1_SCMI_CLK_SPI_MODULE>;
+			clocks = <&clks S32CC_SCMI_CLK_SPI_MODULE>;
 			clock-names = "dspi";
 			spi-num-chipselects = <8>;
 			bus-num = <0>;
@@ -485,7 +485,7 @@
 			compatible = "nxp,s32cc-dspi";
 			reg = <0x0 0x401d8000 0x0 0x1000>;
 			interrupts = <GIC_SPI 86 IRQ_TYPE_LEVEL_HIGH>;
-			clocks = <&clks S32GEN1_SCMI_CLK_SPI_MODULE>;
+			clocks = <&clks S32CC_SCMI_CLK_SPI_MODULE>;
 			clock-names = "dspi";
 			spi-num-chipselects = <5>;
 			bus-num = <1>;
@@ -501,7 +501,7 @@
 			compatible = "nxp,s32cc-dspi";
 			reg = <0x0 0x401dc000 0x0 0x1000>;
 			interrupts = <GIC_SPI 87 IRQ_TYPE_LEVEL_HIGH>;
-			clocks = <&clks S32GEN1_SCMI_CLK_SPI_MODULE>;
+			clocks = <&clks S32CC_SCMI_CLK_SPI_MODULE>;
 			clock-names = "dspi";
 			spi-num-chipselects = <5>;
 			bus-num = <2>;
@@ -517,7 +517,7 @@
 			compatible = "nxp,s32cc-i2c";
 			reg = <0x0 0x401e4000 0x0 0x1000>;
 			interrupts = <GIC_SPI 92 IRQ_TYPE_LEVEL_HIGH>;
-			clocks = <&clks S32GEN1_SCMI_CLK_I2C_REG>;
+			clocks = <&clks S32CC_SCMI_CLK_I2C_REG>;
 			clock-names = "ipg";
 			dmas = <&edma0 0 16>,
 			       <&edma0 0 17>;
@@ -531,7 +531,7 @@
 			compatible = "nxp,s32cc-i2c";
 			reg = <0x0 0x401e8000 0x0 0x1000>;
 			interrupts = <GIC_SPI 93 IRQ_TYPE_LEVEL_HIGH>;
-			clocks = <&clks S32GEN1_SCMI_CLK_I2C_REG>;
+			clocks = <&clks S32CC_SCMI_CLK_I2C_REG>;
 			clock-names = "ipg";
 			dmas = <&edma0 0 18>,
 			       <&edma0 0 19>;
@@ -545,7 +545,7 @@
 			compatible = "nxp,s32cc-i2c";
 			reg = <0x0 0x401ec000 0x0 0x1000>;
 			interrupts = <GIC_SPI 94 IRQ_TYPE_LEVEL_HIGH>;
-			clocks = <&clks S32GEN1_SCMI_CLK_I2C_REG>;
+			clocks = <&clks S32CC_SCMI_CLK_I2C_REG>;
 			clock-names = "ipg";
 			dmas = <&edma1 1 16>,
 			       <&edma1 1 17>;
@@ -561,10 +561,10 @@
 			reg = <0x0 0x401f4000 0x0 0x1000>;
 			clock-names = "ftm_sys", "ftm_ext",
 				      "ftm_fix", "ftm_cnt_clk_en";
-			clocks = <&clks S32GEN1_SCMI_CLK_FTM0_SYS>,
-				 <&clks S32GEN1_SCMI_CLK_FTM0_EXT>,
-				 <&clks S32GEN1_SCMI_CLK_FTM0_SYS>,
-				 <&clks S32GEN1_SCMI_CLK_FTM0_SYS>;
+			clocks = <&clks S32CC_SCMI_CLK_FTM0_SYS>,
+				 <&clks S32CC_SCMI_CLK_FTM0_EXT>,
+				 <&clks S32CC_SCMI_CLK_FTM0_SYS>,
+				 <&clks S32CC_SCMI_CLK_FTM0_SYS>;
 			status = "disabled";
 		};
 
@@ -572,7 +572,7 @@
 			compatible = "nxp,s32cc-adc";
 			reg = <0x0 0x401f8000 0x0 0x1000>;
 			interrupts = <GIC_SPI 70 IRQ_TYPE_LEVEL_HIGH>;
-			clocks = <&clks S32GEN1_SCMI_CLK_SAR_ADC_BUS>;
+			clocks = <&clks S32CC_SCMI_CLK_SAR_ADC_BUS>;
 			clock-names = "adc";
 			vref = <1800>;
 			status = "okay";
@@ -581,7 +581,7 @@
 		swt4: watchdog@40200000 {
 			compatible = "nxp,s32cc-wdt";
 			reg = <0x0 0x40200000 0x0 0x1000>;
-			clocks = <&clks S32GEN1_SCMI_CLK_SWT_COUNTER>;
+			clocks = <&clks S32CC_SCMI_CLK_SWT_COUNTER>;
 			clock-names = "swt";
 			status = "disabled";
 		};
@@ -589,7 +589,7 @@
 		swt5: watchdog@40204000 {
 			compatible = "nxp,s32cc-wdt";
 			reg = <0x0 0x40204000 0x0 0x1000>;
-			clocks = <&clks S32GEN1_SCMI_CLK_SWT_COUNTER>;
+			clocks = <&clks S32CC_SCMI_CLK_SWT_COUNTER>;
 			clock-names = "swt";
 			status = "disabled";
 		};
@@ -597,7 +597,7 @@
 		swt6: watchdog@40208000 {
 			compatible = "nxp,s32cc-wdt";
 			reg = <0x0 0x40208000 0x0 0x1000>;
-			clocks = <&clks S32GEN1_SCMI_CLK_SWT_COUNTER>;
+			clocks = <&clks S32CC_SCMI_CLK_SWT_COUNTER>;
 			clock-names = "swt";
 			status = "disabled";
 		};
@@ -670,7 +670,7 @@
 		stm4: stm@4021c000 {
 			compatible = "nxp,s32cc-stm-global";
 			reg = <0x0 0x4021c000 0x0 0x3000>;
-			clocks = <&clks S32GEN1_SCMI_CLK_STM_MODULE>;
+			clocks = <&clks S32CC_SCMI_CLK_STM_MODULE>;
 			clock-names = "stm";
 			status = "disabled";
 		};
@@ -678,7 +678,7 @@
 		stm5: stm@40220000 {
 			compatible = "nxp,s32cc-stm-global";
 			reg = <0x0 0x40220000 0x0 0x3000>;
-			clocks = <&clks S32GEN1_SCMI_CLK_STM_MODULE>;
+			clocks = <&clks S32CC_SCMI_CLK_STM_MODULE>;
 			clock-names = "stm";
 			status = "disabled";
 		};
@@ -686,7 +686,7 @@
 		stm6: stm@40224000 {
 			compatible = "nxp,s32cc-stm-global";
 			reg = <0x0 0x40224000 0x0 0x3000>;
-			clocks = <&clks S32GEN1_SCMI_CLK_STM_MODULE>;
+			clocks = <&clks S32CC_SCMI_CLK_STM_MODULE>;
 			clock-names = "stm";
 			status = "disabled";
 		};
@@ -694,7 +694,7 @@
 		stm7: stm@40228000 {
 			compatible = "nxp,s32cc-stm-ts";
 			reg = <0x0 0x40228000 0x0 0x3000>;
-			clocks = <&clks S32GEN1_SCMI_CLK_STM_MODULE>;
+			clocks = <&clks S32CC_SCMI_CLK_STM_MODULE>;
 			clock-names = "stm";
 			status = "disabled";
 		};
@@ -713,8 +713,8 @@
 					  "edma-tx_16-31",
 					  "edma-err";
 			clock-names = "dmamux0", "dmamux1";
-			clocks = <&clks S32GEN1_SCMI_CLK_EDMA_MODULE>,
-				 <&clks S32GEN1_SCMI_CLK_EDMA_AHB>;
+			clocks = <&clks S32CC_SCMI_CLK_EDMA_MODULE>,
+				 <&clks S32CC_SCMI_CLK_EDMA_AHB>;
 			status = "disabled";
 		};
 
@@ -723,7 +723,7 @@
 			reg = <0x0 0x40288000 0x0 0x3000>;
 			interrupts = <GIC_SPI 54 IRQ_TYPE_LEVEL_HIGH>;
 			cpu = <1>;
-			clocks = <&clks S32GEN1_SCMI_CLK_PIT_MODULE>;
+			clocks = <&clks S32CC_SCMI_CLK_PIT_MODULE>;
 			clock-names = "pit";
 			status = "disabled";
 		};
@@ -736,8 +736,8 @@
 				     <GIC_SPI 47 IRQ_TYPE_LEVEL_HIGH>,
 				     <GIC_SPI 48 IRQ_TYPE_LEVEL_HIGH>;
 			interrupt-names = "state", "berr", "mb_0-7", "mb_8-127";
-			clocks = <&clks S32GEN1_SCMI_CLK_FLEXCAN_REG>,
-				 <&clks S32GEN1_SCMI_CLK_FLEXCAN_CAN>;
+			clocks = <&clks S32CC_SCMI_CLK_FLEXCAN_REG>,
+				 <&clks S32CC_SCMI_CLK_FLEXCAN_CAN>;
 			clock-names = "ipg", "per";
 			status = "disabled";
 		};
@@ -750,8 +750,8 @@
 				     <GIC_SPI 51 IRQ_TYPE_LEVEL_HIGH>,
 				     <GIC_SPI 52 IRQ_TYPE_LEVEL_HIGH>;
 			interrupt-names = "state", "berr", "mb_0-7", "mb_8-127";
-			clocks = <&clks S32GEN1_SCMI_CLK_FLEXCAN_REG>,
-				 <&clks S32GEN1_SCMI_CLK_FLEXCAN_CAN>;
+			clocks = <&clks S32CC_SCMI_CLK_FLEXCAN_REG>,
+				 <&clks S32CC_SCMI_CLK_FLEXCAN_CAN>;
 			clock-names = "ipg", "per";
 			status = "disabled";
 		};
@@ -760,8 +760,8 @@
 			compatible = "nxp,s32cc-linflexuart";
 			reg = <0x0 0x402bc000 0x0 0x3000>;
 			interrupts = <GIC_SPI 84 IRQ_TYPE_EDGE_RISING>;
-			clocks = <&clks S32GEN1_SCMI_CLK_LINFLEX_LIN>,
-				 <&clks S32GEN1_SCMI_CLK_LINFLEX_XBAR>;
+			clocks = <&clks S32CC_SCMI_CLK_LINFLEX_LIN>,
+				 <&clks S32CC_SCMI_CLK_LINFLEX_XBAR>;
 			clock-names = "lin", "ipg";
 			dmas = <&edma1 1 4>,
 			       <&edma1 1 3>;
@@ -772,7 +772,7 @@
 			compatible = "nxp,s32cc-dspi";
 			reg = <0x0 0x402c8000 0x0 0x1000>;
 			interrupts = <GIC_SPI 88 IRQ_TYPE_LEVEL_HIGH>;
-			clocks = <&clks S32GEN1_SCMI_CLK_SPI_MODULE>;
+			clocks = <&clks S32CC_SCMI_CLK_SPI_MODULE>;
 			clock-names = "dspi";
 			spi-num-chipselects = <5>;
 			bus-num = <3>;
@@ -788,7 +788,7 @@
 			compatible = "nxp,s32cc-dspi";
 			reg = <0x0 0x402cc000 0x0 0x1000>;
 			interrupts = <GIC_SPI 89 IRQ_TYPE_LEVEL_HIGH>;
-			clocks = <&clks S32GEN1_SCMI_CLK_SPI_MODULE>;
+			clocks = <&clks S32CC_SCMI_CLK_SPI_MODULE>;
 			clock-names = "dspi";
 			spi-num-chipselects = <5>;
 			bus-num = <4>;
@@ -804,7 +804,7 @@
 			compatible = "nxp,s32cc-dspi";
 			reg = <0x0 0x402d0000 0x0 0x1000>;
 			interrupts = <GIC_SPI 90 IRQ_TYPE_LEVEL_HIGH>;
-			clocks = <&clks S32GEN1_SCMI_CLK_SPI_MODULE>;
+			clocks = <&clks S32CC_SCMI_CLK_SPI_MODULE>;
 			clock-names = "dspi";
 			spi-num-chipselects = <5>;
 			bus-num = <5>;
@@ -820,7 +820,7 @@
 			compatible = "nxp,s32cc-i2c";
 			reg = <0x0 0x402d8000 0x0 0x1000>;
 			interrupts = <GIC_SPI 95 IRQ_TYPE_LEVEL_HIGH>;
-			clocks = <&clks S32GEN1_SCMI_CLK_I2C_REG>;
+			clocks = <&clks S32CC_SCMI_CLK_I2C_REG>;
 			clock-names = "ipg";
 			dmas = <&edma1 1 18>,
 			       <&edma1 1 19>;
@@ -834,7 +834,7 @@
 			compatible = "nxp,s32cc-i2c";
 			reg = <0x0 0x402dc000 0x0 0x1000>;
 			interrupts = <GIC_SPI 96 IRQ_TYPE_LEVEL_HIGH>;
-			clocks = <&clks S32GEN1_SCMI_CLK_I2C_REG>;
+			clocks = <&clks S32CC_SCMI_CLK_I2C_REG>;
 			clock-names = "ipg";
 			dmas = <&edma1 1 20>,
 			       <&edma1 1 21>;
@@ -850,10 +850,10 @@
 			reg = <0x0 0x402e4000 0x0 0x1000>;
 			clock-names = "ftm_sys", "ftm_ext",
 				      "ftm_fix", "ftm_cnt_clk_en";
-			clocks = <&clks S32GEN1_SCMI_CLK_FTM1_SYS>,
-				 <&clks S32GEN1_SCMI_CLK_FTM1_EXT>,
-				 <&clks S32GEN1_SCMI_CLK_FTM1_SYS>,
-				 <&clks S32GEN1_SCMI_CLK_FTM1_SYS>;
+			clocks = <&clks S32CC_SCMI_CLK_FTM1_SYS>,
+				 <&clks S32CC_SCMI_CLK_FTM1_EXT>,
+				 <&clks S32CC_SCMI_CLK_FTM1_SYS>,
+				 <&clks S32CC_SCMI_CLK_FTM1_SYS>;
 			status = "disabled";
 		};
 
@@ -861,7 +861,7 @@
 			compatible = "nxp,s32cc-adc";
 			reg = <0x0 0x402e8000 0x0 0x1000>;
 			interrupts = <GIC_SPI 71 IRQ_TYPE_LEVEL_HIGH>;
-			clocks = <&clks S32GEN1_SCMI_CLK_SAR_ADC_BUS>;
+			clocks = <&clks S32CC_SCMI_CLK_SAR_ADC_BUS>;
 			clock-names = "adc";
 			vref = <1800>;
 			status = "okay";
@@ -871,9 +871,9 @@
 			compatible = "nxp,s32cc-usdhc";
 			reg = <0x0 0x402f0000 0x0 0x1000>;
 			interrupts = <GIC_SPI 36 IRQ_TYPE_LEVEL_HIGH>;
-			clocks = <&clks S32GEN1_SCMI_CLK_USDHC_MODULE>,
-				 <&clks S32GEN1_SCMI_CLK_USDHC_AHB>,
-				 <&clks S32GEN1_SCMI_CLK_USDHC_CORE>;
+			clocks = <&clks S32CC_SCMI_CLK_USDHC_MODULE>,
+				 <&clks S32CC_SCMI_CLK_USDHC_AHB>,
+				 <&clks S32CC_SCMI_CLK_USDHC_CORE>;
 			clock-names = "ipg", "ahb", "per";
 			bus-width = <8>;
 			status = "disabled";
@@ -886,7 +886,7 @@
 				     <GIC_SPI 101 IRQ_TYPE_LEVEL_HIGH>;
 			interrupt-names = "fccu_alarm",
 					  "fccu_misc";
-			clocks = <&clks S32GEN1_SCMI_CLK_FCCU_MODULE>;
+			clocks = <&clks S32CC_SCMI_CLK_FCCU_MODULE>;
 			clock-names = "fccu";
 			/* A53 NCF fault list */
 			nxp,ncf_fault_list = <0 10 35 36 37 38>;
@@ -911,17 +911,17 @@
 			phy-names = "gmac_xpcs";
 			phys = <&serdes0 PHY_TYPE_XPCS 0 0>;
 			dma-coherent;
-			clocks = <&clks S32GEN1_SCMI_CLK_GMAC0_AXI>,
-				 <&clks S32GEN1_SCMI_CLK_GMAC0_AXI>,
-				 <&clks S32GEN1_SCMI_CLK_GMAC0_TX_SGMII>,
-				 <&clks S32GEN1_SCMI_CLK_GMAC0_TX_RGMII>,
-				 <&clks S32GEN1_SCMI_CLK_GMAC0_TX_RMII>,
-				 <&clks S32GEN1_SCMI_CLK_GMAC0_TX_MII>,
-				 <&clks S32GEN1_SCMI_CLK_GMAC0_RX_SGMII>,
-				 <&clks S32GEN1_SCMI_CLK_GMAC0_RX_RGMII>,
-				 <&clks S32GEN1_SCMI_CLK_GMAC0_RX_RMII>,
-				 <&clks S32GEN1_SCMI_CLK_GMAC0_RX_MII>,
-				 <&clks S32GEN1_SCMI_CLK_GMAC0_TS>;
+			clocks = <&clks S32CC_SCMI_CLK_GMAC0_AXI>,
+				 <&clks S32CC_SCMI_CLK_GMAC0_AXI>,
+				 <&clks S32CC_SCMI_CLK_GMAC0_TX_SGMII>,
+				 <&clks S32CC_SCMI_CLK_GMAC0_TX_RGMII>,
+				 <&clks S32CC_SCMI_CLK_GMAC0_TX_RMII>,
+				 <&clks S32CC_SCMI_CLK_GMAC0_TX_MII>,
+				 <&clks S32CC_SCMI_CLK_GMAC0_RX_SGMII>,
+				 <&clks S32CC_SCMI_CLK_GMAC0_RX_RGMII>,
+				 <&clks S32CC_SCMI_CLK_GMAC0_RX_RMII>,
+				 <&clks S32CC_SCMI_CLK_GMAC0_RX_MII>,
+				 <&clks S32CC_SCMI_CLK_GMAC0_TS>;
 			clock-names = "stmmaceth", "pclk",
 				      "tx_sgmii", "tx_rgmii",
 				      "tx_rmii", "tx_mii",
@@ -1016,10 +1016,10 @@
 		serdes0: serdes@40480000 {
 			#phy-cells = <3>;
 			compatible = "nxp,s32cc-serdes";
-			clocks = <&clks S32GEN1_SCMI_CLK_SERDES_AXI>,
-				 <&clks S32GEN1_SCMI_CLK_SERDES_AUX>,
-				 <&clks S32GEN1_SCMI_CLK_SERDES_APB>,
-				 <&clks S32GEN1_SCMI_CLK_SERDES_REF>;
+			clocks = <&clks S32CC_SCMI_CLK_SERDES_AXI>,
+				 <&clks S32CC_SCMI_CLK_SERDES_AUX>,
+				 <&clks S32CC_SCMI_CLK_SERDES_APB>,
+				 <&clks S32CC_SCMI_CLK_SERDES_REF>;
 			clock-names = "axi", "aux", "apb", "ref";
 			resets = <&reset S32CC_SCMI_RST_SERDES0>,
 				 <&reset S32CC_SCMI_RST_PCIE0>;
@@ -1081,10 +1081,10 @@
 		serdes1: serdes@44180000 {
 			#phy-cells = <3>;
 			compatible = "nxp,s32cc-serdes";
-			clocks = <&clks S32GEN1_SCMI_CLK_SERDES_AXI>,
-				 <&clks S32GEN1_SCMI_CLK_SERDES_AUX>,
-				 <&clks S32GEN1_SCMI_CLK_SERDES_APB>,
-				 <&clks S32GEN1_SCMI_CLK_SERDES_REF>;
+			clocks = <&clks S32CC_SCMI_CLK_SERDES_AXI>,
+				 <&clks S32CC_SCMI_CLK_SERDES_AUX>,
+				 <&clks S32CC_SCMI_CLK_SERDES_APB>,
+				 <&clks S32CC_SCMI_CLK_SERDES_REF>;
 			clock-names = "axi", "aux", "apb", "ref";
 			resets = <&reset S32CC_SCMI_RST_SERDES1>,
 				 <&reset S32CC_SCMI_RST_PCIE1>;

@@ -71,7 +71,7 @@ examples:
     #include <dt-bindings/interrupt-controller/irq.h>
     #include <dt-bindings/misc/s32-fccu.h>
 
-    #define S32GEN1_SCMI_CLK_FCCU_MODULE
+    #define S32CC_SCMI_CLK_FCCU_MODULE
     fccu: fccu@4030c000 {
       compatible = "nxp,s32cc-fccu";
       reg = <0x4030c000 0x3000>;
@@ -79,7 +79,7 @@ examples:
                    <GIC_SPI 101 IRQ_TYPE_LEVEL_HIGH>;
       interrupt-names = "fccu_alarm",
                         "fccu_misc";
-      clocks = <&clks S32GEN1_SCMI_CLK_FCCU_MODULE>;
+      clocks = <&clks S32CC_SCMI_CLK_FCCU_MODULE>;
       clock-names = "fccu";
       /* A53 NCF fault list */
       nxp,ncf_fault_list = <0 10 35 36 37 38>;

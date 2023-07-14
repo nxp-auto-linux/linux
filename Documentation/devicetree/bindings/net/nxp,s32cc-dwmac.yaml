@@ -122,16 +122,16 @@ examples:
     #include <dt-bindings/interrupt-controller/arm-gic.h>
     #include <dt-bindings/interrupt-controller/irq.h>
     #include <dt-bindings/phy/phy.h>
-    #define S32GEN1_SCMI_CLK_GMAC0_AXI
-    #define S32GEN1_SCMI_CLK_GMAC0_TX_SGMII
-    #define S32GEN1_SCMI_CLK_GMAC0_TX_RGMII
-    #define S32GEN1_SCMI_CLK_GMAC0_TX_RMII
-    #define S32GEN1_SCMI_CLK_GMAC0_TX_MII
-    #define S32GEN1_SCMI_CLK_GMAC0_RX_SGMII
-    #define S32GEN1_SCMI_CLK_GMAC0_RX_RGMII
-    #define S32GEN1_SCMI_CLK_GMAC0_RX_RMII
-    #define S32GEN1_SCMI_CLK_GMAC0_RX_MII
-    #define S32GEN1_SCMI_CLK_GMAC0_TS
+    #define S32CC_SCMI_CLK_GMAC0_AXI
+    #define S32CC_SCMI_CLK_GMAC0_TX_SGMII
+    #define S32CC_SCMI_CLK_GMAC0_TX_RGMII
+    #define S32CC_SCMI_CLK_GMAC0_TX_RMII
+    #define S32CC_SCMI_CLK_GMAC0_TX_MII
+    #define S32CC_SCMI_CLK_GMAC0_RX_SGMII
+    #define S32CC_SCMI_CLK_GMAC0_RX_RGMII
+    #define S32CC_SCMI_CLK_GMAC0_RX_RMII
+    #define S32CC_SCMI_CLK_GMAC0_RX_MII
+    #define S32CC_SCMI_CLK_GMAC0_TS
     bus {
       #address-cells = <2>;
       #size-cells = <2>;
@@ -148,17 +148,17 @@ examples:
         phy-names = "gmac_xpcs";
         phys = <&serdes0 PHY_TYPE_XPCS 0 0>;
         dma-coherent;
-        clocks = <&clks S32GEN1_SCMI_CLK_GMAC0_AXI>,
-           <&clks S32GEN1_SCMI_CLK_GMAC0_AXI>,
-           <&clks S32GEN1_SCMI_CLK_GMAC0_TX_SGMII>,
-           <&clks S32GEN1_SCMI_CLK_GMAC0_TX_RGMII>,
-           <&clks S32GEN1_SCMI_CLK_GMAC0_TX_RMII>,
-           <&clks S32GEN1_SCMI_CLK_GMAC0_TX_MII>,
-           <&clks S32GEN1_SCMI_CLK_GMAC0_RX_SGMII>,
-           <&clks S32GEN1_SCMI_CLK_GMAC0_RX_RGMII>,
-           <&clks S32GEN1_SCMI_CLK_GMAC0_RX_RMII>,
-           <&clks S32GEN1_SCMI_CLK_GMAC0_RX_MII>,
-           <&clks S32GEN1_SCMI_CLK_GMAC0_TS>;
+        clocks = <&clks S32CC_SCMI_CLK_GMAC0_AXI>,
+           <&clks S32CC_SCMI_CLK_GMAC0_AXI>,
+           <&clks S32CC_SCMI_CLK_GMAC0_TX_SGMII>,
+           <&clks S32CC_SCMI_CLK_GMAC0_TX_RGMII>,
+           <&clks S32CC_SCMI_CLK_GMAC0_TX_RMII>,
+           <&clks S32CC_SCMI_CLK_GMAC0_TX_MII>,
+           <&clks S32CC_SCMI_CLK_GMAC0_RX_SGMII>,
+           <&clks S32CC_SCMI_CLK_GMAC0_RX_RGMII>,
+           <&clks S32CC_SCMI_CLK_GMAC0_RX_RMII>,
+           <&clks S32CC_SCMI_CLK_GMAC0_RX_MII>,
+           <&clks S32CC_SCMI_CLK_GMAC0_TS>;
         clock-names = "stmmaceth", "pclk",
                 "tx_sgmii", "tx_rgmii",
                 "tx_rmii", "tx_mii",

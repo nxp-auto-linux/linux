@@ -64,16 +64,16 @@ examples:
   - |
     #define RTC_FIRC_CLKSEL	2
     #define RTC_SIRC_CLKSEL	0
-    #define S32GEN1_SCMI_CLK_RTC_REG
-    #define S32GEN1_SCMI_CLK_RTC_SIRC
-    #define S32GEN1_SCMI_CLK_RTC_FIRC
+    #define S32CC_SCMI_CLK_RTC_REG
+    #define S32CC_SCMI_CLK_RTC_SIRC
+    #define S32CC_SCMI_CLK_RTC_FIRC
     rtc0: rtc@40060000 {
         compatible = "nxp,s32cc-rtc";
         reg = <0x40060000 0x1000>;
         interrupts = <0 121 4>;
-        clocks = <&clks S32GEN1_SCMI_CLK_RTC_REG>,
-                 <&clks S32GEN1_SCMI_CLK_RTC_SIRC>,
-                 <&clks S32GEN1_SCMI_CLK_RTC_FIRC>;
+        clocks = <&clks S32CC_SCMI_CLK_RTC_REG>,
+                 <&clks S32CC_SCMI_CLK_RTC_SIRC>,
+                 <&clks S32CC_SCMI_CLK_RTC_FIRC>;
         clock-names = "ipg", "sirc", "firc";
         nxp,clksel = <RTC_FIRC_CLKSEL>;
         nxp,dividers = <1 0>;
