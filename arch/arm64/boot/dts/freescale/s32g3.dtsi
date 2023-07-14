@@ -80,7 +80,7 @@
 		swt8: watchdog@40500000 {
 			compatible = "nxp,s32cc-wdt";
 			reg = <0x0 0x40500000 0x0 0x1000>;
-			clocks = <&clks S32GEN1_SCMI_CLK_SWT_COUNTER>;
+			clocks = <&clks S32CC_SCMI_CLK_SWT_COUNTER>;
 			clock-names = "swt";
 			status = "disabled";
 		};
@@ -88,7 +88,7 @@
 		swt9: watchdog@40504000 {
 			compatible = "nxp,s32cc-wdt";
 			reg = <0x0 0x40504000 0x0 0x1000>;
-			clocks = <&clks S32GEN1_SCMI_CLK_SWT_COUNTER>;
+			clocks = <&clks S32CC_SCMI_CLK_SWT_COUNTER>;
 			clock-names = "swt";
 			status = "disabled";
 		};
@@ -96,7 +96,7 @@
 		swt10: watchdog@40508000 {
 			compatible = "nxp,s32cc-wdt";
 			reg = <0x0 0x40508000 0x0 0x1000>;
-			clocks = <&clks S32GEN1_SCMI_CLK_SWT_COUNTER>;
+			clocks = <&clks S32CC_SCMI_CLK_SWT_COUNTER>;
 			clock-names = "swt";
 			status = "disabled";
 		};
@@ -104,7 +104,7 @@
 		swt11: watchdog@4050c000 {
 			compatible = "nxp,s32cc-wdt";
 			reg = <0x0 0x4050c000 0x0 0x1000>;
-			clocks = <&clks S32GEN1_SCMI_CLK_SWT_COUNTER>;
+			clocks = <&clks S32CC_SCMI_CLK_SWT_COUNTER>;
 			clock-names = "swt";
 			status = "disabled";
 		};
@@ -112,7 +112,7 @@
 		stm8: stm@40520000 {
 			compatible = "nxp,s32cc-stm-global";
 			reg = <0x0 0x40520000 0x0 0x3000>;
-			clocks = <&clks S32GEN1_SCMI_CLK_STM_MODULE>;
+			clocks = <&clks S32CC_SCMI_CLK_STM_MODULE>;
 			clock-names = "stm";
 			status = "disabled";
 		};
@@ -120,7 +120,7 @@
 		stm9: stm@40524000 {
 			compatible = "nxp,s32cc-stm-global";
 			reg = <0x0 0x40524000 0x0 0x3000>;
-			clocks = <&clks S32GEN1_SCMI_CLK_STM_MODULE>;
+			clocks = <&clks S32CC_SCMI_CLK_STM_MODULE>;
 			clock-names = "stm";
 			status = "disabled";
 		};
@@ -128,7 +128,7 @@
 		stm10: stm@40528000 {
 			compatible = "nxp,s32cc-stm-global";
 			reg = <0x0 0x40528000 0x0 0x3000>;
-			clocks = <&clks S32GEN1_SCMI_CLK_STM_MODULE>;
+			clocks = <&clks S32CC_SCMI_CLK_STM_MODULE>;
 			clock-names = "stm";
 			status = "disabled";
 		};
@@ -136,7 +136,7 @@
 		stm11: stm@4052c000 {
 			compatible = "nxp,s32cc-stm-global";
 			reg = <0x0 0x4052c000 0x0 0x3000>;
-			clocks = <&clks S32GEN1_SCMI_CLK_STM_MODULE>;
+			clocks = <&clks S32CC_SCMI_CLK_STM_MODULE>;
 			clock-names = "stm";
 			status = "disabled";
 		};
