@@ -33,7 +33,7 @@
 				     <GIC_SPI 197 IRQ_TYPE_EDGE_RISING>;
 			interrupt-names = "hif0", "hif1", "hif2",
 					  "bmu", "upegpt", "safety";
-			resets = <&reset S32GEN1_SCMI_RST_PART2>;
+			resets = <&reset S32CC_SCMI_RST_PART2>;
 			reset-names = "pfe_part";
 			clocks = <&clks S32G_SCMI_CLK_PFE_AXI>,
 				 <&clks S32G_SCMI_CLK_PFE_PE>,
