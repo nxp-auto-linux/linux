@@ -116,7 +116,7 @@ additionalProperties: false
 examples:
   - |
       #include <dt-bindings/clock/s32gen1-scmi-clock.h>
-      #include <dt-bindings/reset/s32gen1-scmi-reset.h>
+      #include <dt-bindings/reset/s32cc-scmi-reset.h>
       #include <dt-bindings/phy/phy.h>
 
       serdes1: serdes@44180000 {
@@ -128,8 +128,8 @@ examples:
            <&clks S32GEN1_SCMI_CLK_SERDES_REF>,
            <&serdes_125_ext>;
         clock-names = "axi", "aux", "apb", "ref", "ext";
-        resets = <&reset S32GEN1_SCMI_RST_SERDES1>,
-                 <&reset S32GEN1_SCMI_RST_PCIE1>;
+        resets = <&reset S32CC_SCMI_RST_SERDES1>,
+                 <&reset S32CC_SCMI_RST_PCIE1>;
         reset-names = "serdes", "pcie";
         nxp,sys-mode = <3>;
         reg = <0x44180000 0x108>,

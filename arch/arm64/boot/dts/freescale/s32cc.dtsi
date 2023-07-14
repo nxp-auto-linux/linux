@@ -16,7 +16,7 @@
 #include <dt-bindings/perf/s32gen1-scmi-perf.h>
 #include <dt-bindings/phy/phy-s32gen1-serdes.h>
 #include <dt-bindings/phy/phy.h>
-#include <dt-bindings/reset/s32gen1-scmi-reset.h>
+#include <dt-bindings/reset/s32cc-scmi-reset.h>
 #include <dt-bindings/memory/s32-siul2.h>
 #include <dt-bindings/pinctrl/s32cc-pinfunc.h>
 
@@ -1021,8 +1021,8 @@
 				 <&clks S32GEN1_SCMI_CLK_SERDES_APB>,
 				 <&clks S32GEN1_SCMI_CLK_SERDES_REF>;
 			clock-names = "axi", "aux", "apb", "ref";
-			resets = <&reset S32GEN1_SCMI_RST_SERDES0>,
-				 <&reset S32GEN1_SCMI_RST_PCIE0>;
+			resets = <&reset S32CC_SCMI_RST_SERDES0>,
+				 <&reset S32CC_SCMI_RST_PCIE0>;
 			reset-names = "serdes", "pcie";
 			nxp,sys-mode = <XPCSX2_MODE>;
 			reg = <0x0 0x40480000 0x0 0x108>,
@@ -1086,8 +1086,8 @@
 				 <&clks S32GEN1_SCMI_CLK_SERDES_APB>,
 				 <&clks S32GEN1_SCMI_CLK_SERDES_REF>;
 			clock-names = "axi", "aux", "apb", "ref";
-			resets = <&reset S32GEN1_SCMI_RST_SERDES1>,
-				 <&reset S32GEN1_SCMI_RST_PCIE1>;
+			resets = <&reset S32CC_SCMI_RST_SERDES1>,
+				 <&reset S32CC_SCMI_RST_PCIE1>;
 			reset-names = "serdes", "pcie";
 			nxp,sys-mode = <PCIE_XPCS0_MODE>;
 			reg = <0x0 0x44180000 0x0 0x108>,
