@@ -1917,8 +1917,7 @@ static int s32cc_pcie_suspend(struct device *dev)
 	struct s32cc_pcie *s32cc_pp = dev_get_drvdata(dev);
 	struct dw_pcie *pcie = &s32cc_pp->pcie;
 	struct pcie_port *pp = &pcie->pp;
-	struct pci_bus *bus = pp->bridge->bus;
-	struct pci_bus *root_bus;
+	struct pci_bus *bus, *root_bus;
 
 	dev_dbg(pcie->dev, "%s\n", __func__);
 
@@ -1934,12 +1933,13 @@ static int s32cc_pcie_suspend(struct device *dev)
 
 		s32cc_pcie_downstream_dev_to_D0(s32cc_pp);
 
+		bus = pp->bridge->bus;
 		root_bus = s32cc_get_child_downstream_bus(bus);
 		if (!IS_ERR(root_bus))
 			pci_walk_bus(root_bus, pci_dev_set_disconnected, NULL);
 
-		pci_stop_root_bus(pp->bridge->bus);
-		pci_remove_root_bus(pp->bridge->bus);
+		pci_stop_root_bus(bus);
+		pci_remove_root_bus(bus);
 	}
 
 	s32cc_pcie_pme_turnoff(s32cc_pp);
