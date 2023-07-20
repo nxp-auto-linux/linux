@@ -48,6 +48,7 @@ properties:
       - const: blrout_fifo
       - const: txack_fifo
       - const: sema42
+      - const: core2core
 
   reg:
     items:
@@ -58,9 +59,11 @@ properties:
       - description: Address and Size of the BLROUT fifo memory region
       - description: Address and Size of the TXACK fifo memory region
       - description: Address and Size of the SEMA42 region
+      - description: Address and Size of the CORE2CORE region
 
   interrupt-names:
     items:
+      - const: linflex_irq
       - const: rxin_fifo_0_7
       - const: rxin_fifo_8_15
       - const: rxout_fifo_0_7
@@ -71,6 +74,7 @@ properties:
 
   interrupts:
     items:
+      - description: Shared interrupt line for LIN channels
       - description: Shared interrupt line for RXIN 0-7 fifos
       - description: Shared interrupt line for RXIN 8-15 fifos
       - description: Shared interrupt line for RXOUT 0-7 fifos
@@ -102,6 +106,7 @@ required:
   - reg-names
   - reg
   - interrupt-names
+  - interrupt-controller
   - interrupts
   - clock-names
   - clocks
@@ -139,6 +144,8 @@ examples:
 
         memory-region = <&llce_shmem>;
         memory-region-names = "shmem";
+        interrupt-controller;
+        #interrupt-cells = <1>;
         interrupts = <0 174 IRQ_TYPE_LEVEL_HIGH>,
             <0 175 IRQ_TYPE_LEVEL_HIGH>,
             <0 176 IRQ_TYPE_LEVEL_HIGH>,
