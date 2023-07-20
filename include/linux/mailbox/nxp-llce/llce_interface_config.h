@@ -131,8 +131,6 @@
 
 /* LIN defines
  */
-/** Maximum buffer size used to store the LIN frame payload */
-#define LLCE_LIN_CONFIG_PAYLOAD_MAX_SIZE (8U)
 /** Maximum number of LIN transmission buffers */
 #define LLCE_LIN_CONFIG_MAXTXBUFF (64U)
 /** Maximum number of LIN reception buffers */
