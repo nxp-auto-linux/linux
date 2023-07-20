@@ -12,6 +12,11 @@ description: |
   frames. See chapter 47 ("LINFlexD") in the reference manual
   https://www.nxp.com/webapp/Download?colCode=S32V234RM.
 
+  Linflex modules tied to LLCE work only in interrupt mode. Moreover,
+  the channels share the same interrupt so LLCE mailbox is used as the
+  interrupt parent. The nodes should be defined as a child of LLCE node
+  (see llce_uart0 as an example).
+
 maintainers:
   - Chester Lin <clin@suse.com>
 
@@ -29,6 +34,15 @@ properties:
     maxItems: 1
 
   interrupts:
+    maxItems: 1
+
+  interrupts-extended:
+    description:
+      In LLCE LIN case, the same interrupt is used for all LIN
+      channels and LLCE mailbox is the interrupt controller which
+      will handle it. Each Linflex node should specify as interrupt,
+      a unique number between 0 and max LLCE LIN channels (see llce_uart0
+      as an example).
     maxItems: 1
 
   clocks:
@@ -67,9 +81,6 @@ examples:
   - |
     #include <dt-bindings/clock/s32cc-scmi-clock.h>
 
-    #define S32V234_CLK_LIN0 131
-    #define S32V234_CLK_LIN0_IPG 132
-
     serial@401c8000 {
         compatible = "nxp,s32cc-linflexuart";
         reg = <0x401C8000 0x3000>;
@@ -83,6 +94,9 @@ examples:
     };
 
   - |
+    #define S32V234_CLK_LIN0 131
+    #define S32V234_CLK_LIN0_IPG 132
+
     serial@40053000 {
         compatible = "fsl,s32v234-linflexuart";
         reg = <0x40053000 0x1000>;
@@ -93,4 +107,21 @@ examples:
         dmas = <&edma 0 20>,
                <&edma 0 19>;
         dma-names = "rx", "tx";
+    };
+
+  - |
+    #include <dt-bindings/clock/s32cc-scmi-clock.h>
+
+    #define LLCE_MB_LINFLEXD_IRQ_0 0x0
+
+    llce_uart0: serial@43c08000 {
+       compatible = "nxp,s32cc-linflexuart";
+       reg = <0x7 0x0 0x0 0x400>;
+       reg-names = "llce_uart_base";
+       clocks = <&clks S32CC_SCMI_CLK_LINFLEX_LIN>,
+                    <&clks S32CC_SCMI_CLK_LINFLEX_XBAR>;
+       clock-names = "lin", "ipg";
+       pinctrl-0 = <&llce_uart0_pins>;
+       pinctrl-names = "default";
+       interrupts-extended = <&llce_mb LLCE_MB_LINFLEXD_IRQ_0>;
     };
