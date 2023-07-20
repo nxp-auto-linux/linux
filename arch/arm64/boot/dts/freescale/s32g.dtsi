@@ -15,6 +15,13 @@
 #include <dt-bindings/nvmem/s32cc-scmi-nvmem.h>
 
 / {
+	aliases {
+		serial3 = &llce_uart0;
+		serial4 = &llce_uart1;
+		serial5 = &llce_uart2;
+		serial6 = &llce_uart3;
+	};
+
 	reserved-memory {
 		pfe_reserved_bmu2: pfebufs@34000000 {
 			compatible = "nxp,s32g-pfe-bmu2-pool";
@@ -692,6 +699,58 @@
 				pinctrl-0 = <&llce_can15_pins>;
 				status = "disabled";
 			};
+
+			llce_uart0: serial@43c08000 {
+				compatible = "nxp,s32cc-linflexuart";
+				reg = <0x7 0x0 0x0 0x400>;
+				reg-names = "llce_uart_base";
+				clocks = <&clks S32CC_SCMI_CLK_LINFLEX_LIN>,
+					 <&clks S32CC_SCMI_CLK_LINFLEX_XBAR>;
+				clock-names = "lin", "ipg";
+				pinctrl-0 = <&llce_uart0_pins>;
+				pinctrl-names = "default";
+				interrupts-extended = <&llce_mb LLCE_MB_LINFLEXD_IRQ_0>;
+				status = "disabled";
+			};
+
+			llce_uart1: serial@43c080400 {
+				compatible = "nxp,s32cc-linflexuart";
+				reg = <0x8 0x0 0x0 0x400>;
+				reg-names = "llce_uart_base";
+				clocks = <&clks S32CC_SCMI_CLK_LINFLEX_LIN>,
+					 <&clks S32CC_SCMI_CLK_LINFLEX_XBAR>;
+				clock-names = "lin", "ipg";
+				pinctrl-0 = <&llce_uart1_pins>;
+				pinctrl-names = "default";
+				interrupts-extended = <&llce_mb LLCE_MB_LINFLEXD_IRQ_1>;
+				status = "disabled";
+			};
+
+			llce_uart2: serial@43c08800 {
+				compatible = "nxp,s32cc-linflexuart";
+				reg = <0x9 0x0 0x0 0x400>;
+				reg-names = "llce_uart_base";
+				clocks = <&clks S32CC_SCMI_CLK_LINFLEX_LIN>,
+					 <&clks S32CC_SCMI_CLK_LINFLEX_XBAR>;
+				clock-names = "lin", "ipg";
+				pinctrl-0 = <&llce_uart2_pins>;
+				pinctrl-names = "default";
+				interrupts-extended = <&llce_mb LLCE_MB_LINFLEXD_IRQ_2>;
+				status = "disabled";
+			};
+
+			llce_uart3: serial@43c08c00 {
+				compatible = "nxp,s32cc-linflexuart";
+				reg = <0x10 0x0 0x0 0x400>;
+				reg-names = "llce_uart_base";
+				clocks = <&clks S32CC_SCMI_CLK_LINFLEX_LIN>,
+					 <&clks S32CC_SCMI_CLK_LINFLEX_XBAR>;
+				clock-names = "lin", "ipg";
+				pinctrl-0 = <&llce_uart3_pins>;
+				pinctrl-names = "default";
+				interrupts-extended = <&llce_mb LLCE_MB_LINFLEXD_IRQ_3>;
+				status = "disabled";
+			};
 		};
 
 		usbmisc: usbmisc@44064200 {
@@ -1006,6 +1065,78 @@
 			pinmux = <S32CC_PINMUX(173, FUNC1)>;
 			output-enable;
 			slew-rate = <S32CC_SLEW_208MHZ>;
+		};
+	};
+
+	llce_uart0_pins: llce_uart0_pins {
+		llce_uart0_pins_grp0 {
+			pinmux = <S32CC_PINMUX(175, FUNC1)>;
+			output-enable;
+			slew-rate = <S32CC_SLEW_133MHZ>;
+		};
+
+		llce_uart0_pins_grp1 {
+			pinmux = <S32CC_PINMUX(176, FUNC0)>;
+			input-enable;
+			slew-rate = <S32CC_SLEW_133MHZ>;
+		};
+
+		llce_uart0_pins_grp2 {
+			pinmux = <S32CC_PINMUX(790, FUNC2)>;
+		};
+	};
+
+	llce_uart1_pins: llce_uart1_pins {
+		llce_uart1_pins_grp0 {
+			pinmux = <S32CC_PINMUX(40, FUNC1)>;
+			output-enable;
+			slew-rate = <S32CC_SLEW_133MHZ>;
+		};
+
+		llce_uart1_pins_grp1 {
+			pinmux = <S32CC_PINMUX(36, FUNC0)>;
+			input-enable;
+			slew-rate = <S32CC_SLEW_133MHZ>;
+		};
+
+		llce_uart1_pins_grp2 {
+			pinmux = <S32CC_PINMUX(791, FUNC2)>;
+		};
+	};
+
+	llce_uart2_pins: llce_uart2_pins {
+		llce_uart2_pins_grp0 {
+			pinmux = <S32CC_PINMUX(37, FUNC1)>;
+			output-enable;
+			slew-rate = <S32CC_SLEW_133MHZ>;
+		};
+
+		llce_uart2_pins_grp1 {
+			pinmux = <S32CC_PINMUX(38, FUNC0)>;
+			input-enable;
+			slew-rate = <S32CC_SLEW_133MHZ>;
+		};
+
+		llce_uart2_pins_grp2 {
+			pinmux = <S32CC_PINMUX(792, FUNC2)>;
+		};
+	};
+
+	llce_uart3_pins: llce_uart3_pins {
+		llce_uart3_pins_grp0 {
+			pinmux = <S32CC_PINMUX(39, FUNC1)>;
+			output-enable;
+			slew-rate = <S32CC_SLEW_133MHZ>;
+		};
+
+		llce_uart3_pins_grp1 {
+			pinmux = <S32CC_PINMUX(183, FUNC0)>;
+			input-enable;
+			slew-rate = <S32CC_SLEW_133MHZ>;
+		};
+
+		llce_uart3_pins_grp2 {
+			pinmux = <S32CC_PINMUX(793, FUNC2)>;
 		};
 	};
 
