@@ -151,7 +151,7 @@
 
 #define DRIVER_NAME	"fsl-linflexuart"
 #define DEV_NAME	"ttyLF"
-#define UART_NR		4
+#define UART_NR		7
 
 #define EARLYCON_BUFFER_INITIAL_CAP	8
 
