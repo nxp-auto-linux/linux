@@ -9,10 +9,13 @@
 #include <linux/genalloc.h>
 #include <linux/interrupt.h>
 #include <linux/io.h>
+#include <linux/iopoll.h>
 #include <linux/kernel.h>
 #include <linux/mailbox/nxp-llce/llce_can.h>
 #include <linux/mailbox/nxp-llce/llce_core.h>
+#include <linux/mailbox/nxp-llce/llce_interface_core2core.h>
 #include <linux/mailbox/nxp-llce/llce_interface_fifo.h>
+#include <linux/mailbox/nxp-llce/llce_interface_lin.h>
 #include <linux/mailbox/nxp-llce/llce_mailbox.h>
 #include <linux/mailbox/nxp-llce/llce_sema42.h>
 #include <linux/mailbox_client.h>
@@ -75,6 +78,13 @@
 
 #define UNINITIALIZED_FIFO		(U32_MAX)
 
+#define LIN_MEM_OFFSET		(0x3C800U)
+
+#define LLCE_LINFLEX_NR		(4)
+#define LLCE_LIN_CHANNEL0	(0)
+
+#define LLCE_DELAY_US		(1000)
+
 struct llce_icsr {
 	u8 icsr0_num;
 	u8 icsr8_num;
@@ -115,8 +125,11 @@ struct llce_mb {
 
 	/* spinlock used to protect the execution of the config commands. */
 	spinlock_t txack_lock;
+	/* spinlock used to protect linflex interrupts related registers. */
+	spinlock_t lin_lock;
 
 	struct llce_can_shared_memory *can_sh_mem;
+	struct llce_lin_shared_memory __iomem *lin_sh_mem;
 	void __iomem *status;
 	void __iomem *rxout_fifo;
 	void __iomem *rxin_fifo;
@@ -125,6 +138,7 @@ struct llce_mb {
 	void __iomem *blrin_fifo;
 	void __iomem *icsr;
 	void __iomem *sema42;
+	void __iomem *core2core;
 	struct clk *clk;
 	struct device *dev;
 	struct llce_chan_params chans_params[LLCE_CAN_CONFIG_MAXCTRL_COUNT];
@@ -237,6 +251,11 @@ static const struct llce_mb_desc mb_map[] = {
 		.nchan = 1,
 	},
 };
+
+static inline void __iomem *llce_get_lin_shmem_addr(void __iomem *shmem)
+{
+	return shmem + LIN_MEM_OFFSET;
+}
 
 static const struct llce_icsr icsrs[] = {
 	[LLCE_CAN_ICSR_RXIN_INDEX] = {
@@ -1330,6 +1349,8 @@ static int map_llce_shmem(struct llce_mb *mb)
 		return ret;
 
 	mb->can_sh_mem = (struct llce_can_shared_memory *)shmem;
+	mb->lin_sh_mem = (struct llce_lin_shared_memory __iomem *)
+			 llce_get_lin_shmem_addr(shmem);
 	mb->status = llce_get_status_regs_addr(shmem);
 
 	return 0;
@@ -2018,6 +2039,127 @@ static irqreturn_t llce_logger_rx_irq(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
+/* Disable interrupts from tx core to host core for a specific channel.*/
+static void host2tx_disable_interrupt(struct llce_mb *mb, u32 hw_ctrl)
+{
+	void __iomem *hintc2er = LLCE_CORE2CORE_HINTC2ER(mb->core2core);
+	u32 hintc2er_val;
+	unsigned long flags;
+
+	spin_lock_irqsave(&mb->lin_lock, flags);
+
+	hintc2er_val = readl(hintc2er);
+	writel(hintc2er_val & (~(BIT(hw_ctrl))), hintc2er);
+
+	spin_unlock_irqrestore(&mb->lin_lock, flags);
+}
+
+/* Clear existing interrupts from tx core for a specific channel.*/
+static void host2tx_clear_interrupt(struct llce_mb *mb, u32 hw_ctrl)
+{
+	void __iomem *hintc2r = LLCE_CORE2CORE_HINTC2R(mb->core2core);
+	u32 hintc2r_val;
+	unsigned long flags;
+
+	spin_lock_irqsave(&mb->lin_lock, flags);
+
+	hintc2r_val = readl(hintc2r);
+	writel(hintc2r_val | BIT(hw_ctrl), hintc2r);
+
+	spin_unlock_irqrestore(&mb->lin_lock, flags);
+}
+
+static void host2tx_assert_interrupt(struct llce_mb *mb, u32 hw_ctrl)
+{
+	void __iomem *c2inthr = LLCE_CORE2CORE_C2INTHR(mb->core2core);
+	u32 c2inthr_val;
+	unsigned long flags;
+
+	spin_lock_irqsave(&mb->lin_lock, flags);
+
+	c2inthr_val = readl(c2inthr);
+	writel(c2inthr_val | BIT(hw_ctrl), c2inthr);
+
+	spin_unlock_irqrestore(&mb->lin_lock, flags);
+}
+
+static u32 host2tx_get_interrupts_status(struct llce_mb *mb)
+{
+	void __iomem *c2inthr = LLCE_CORE2CORE_C2INTHR(mb->core2core);
+	u32 c2inthr_val;
+	unsigned long flags;
+
+	spin_lock_irqsave(&mb->lin_lock, flags);
+	c2inthr_val = readl(c2inthr);
+	spin_unlock_irqrestore(&mb->lin_lock, flags);
+
+	return c2inthr_val;
+}
+
+static enum llce_lin_return get_config_lin_cmd_status(struct llce_mb *mb, u8 hw_ctrl)
+{
+	struct llce_lin_command sh_cmd;
+
+	memcpy_fromio(&sh_cmd, &mb->lin_sh_mem->lin_cmd[hw_ctrl],
+		      sizeof(sh_cmd));
+
+	return sh_cmd.return_value;
+}
+
+static int lin_init(struct llce_mb *mb)
+{
+	struct llce_lin_command cmd = {
+		.cmd_id = LLCE_LIN_CMD_ENABLEINTRFORWARD,
+		.return_value = LLCE_LIN_SUCCESS,
+	};
+	struct mbox_controller *ctrl = &mb->controller;
+	struct device *dev = ctrl->dev;
+	u8 retries = 10, hw_ctrl = LLCE_LIN_CHANNEL0;
+	int ret;
+	u32 val, i;
+	struct llce_lin_command __iomem *sh_cmd =
+		&mb->lin_sh_mem->lin_cmd[hw_ctrl];
+
+	/* Disable and clear interrupts for LIN channels. */
+	for (i = 0; i < LLCE_LINFLEX_NR; i++) {
+		host2tx_disable_interrupt(mb, i);
+		host2tx_clear_interrupt(mb, i);
+	}
+
+	/* Enable interrupt forwarding.
+	 * LLCE_LIN_CMD_ENABLEINTRFORWARD enables interrupt
+	 * forwarding for all LIN Channels.
+	 */
+	memcpy_toio(sh_cmd, &cmd, sizeof(cmd));
+
+	/* Trigger an interrupt using CORE2CORE module
+	 * on the corresponding bit of the command.
+	 */
+	host2tx_assert_interrupt(mb, hw_ctrl);
+
+	/* Wait for command completion.
+	 * The command is completed when core 2 clears interrupt bit
+	 * for LIN channel 0.
+	 */
+	ret = readx_poll_timeout(host2tx_get_interrupts_status, mb, val,
+				 !(val & BIT(hw_ctrl)),
+				 LLCE_DELAY_US, LLCE_DELAY_US * retries);
+
+	if (ret < 0) {
+		dev_err(dev, "LLCE LIN interrupt forwarding timeout\n");
+		return ret;
+	}
+
+	/* Check command status. */
+	if (get_config_lin_cmd_status(mb, hw_ctrl) != LLCE_LIN_SUCCESS) {
+		dev_err(dev, "LLCE LIN interrupt forwarding failed error = %d\n",
+			cmd.return_value);
+		return -EIO;
+	}
+
+	return 0;
+}
+
 static int init_llce_irq_resources(struct platform_device *pdev,
 				   struct llce_mb *mb)
 {
@@ -2102,6 +2244,7 @@ static int init_llce_mem_resources(struct platform_device *pdev,
 		{ .res_name = "rxin_fifo", .vaddr = &mb->rxin_fifo, },
 		{ .res_name = "icsr", .vaddr = &mb->icsr, },
 		{ .res_name = "sema42", .vaddr = &mb->sema42, },
+		{ .res_name = "core2core", .vaddr = &mb->core2core, },
 	};
 
 	for (i = 0; i < ARRAY_SIZE(resources); i++) {
@@ -2572,6 +2715,7 @@ static int llce_mb_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	spin_lock_init(&mb->txack_lock);
+	spin_lock_init(&mb->lin_lock);
 	spin_lock_init(&mb->fifos_irq_ref_cnt.lock);
 
 	ctrl = &mb->controller;
