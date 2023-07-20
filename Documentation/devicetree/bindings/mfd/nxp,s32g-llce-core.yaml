@@ -61,7 +61,7 @@ properties:
     minItems: 7
     maxItems: 7
     description:
-      LLCE FIFOs registers ranges
+      LLCE FIFOs, LIN and CORE2CORE registers ranges
 
   '#address-cells':
     const: 2
@@ -82,6 +82,9 @@ patternProperties:
     type: object
 
   '^llce_can_logger[0-9]+.*':
+    type: object
+
+  '^llce_uart[0-3]+.*':
     type: object
 
 required:
@@ -133,8 +136,18 @@ examples:
                 <0x4 0 0x0 0x43B08000 0x0 0x6000>,
                 /* Tx_Ack_FIFO */
                 <0x5 0 0x0 0x43B10000 0x0 0x8000>,
-                /* LLCE SEMA42 */
-                <0x6 0 0x0 0x43c20000 0x0 0x44>;
+                /* LLCE SEMA42*/
+                <0x6 0 0x0 0x43c20000 0x0 0x44>,
+                /* LLCE UART0 */
+                <0x7 0 0x0 0x43c08000 0x0 0x400>,
+                /* LLCE UART1 */
+                <0x8 0 0x0 0x43c08400 0x0 0x400>,
+                /* LLCE UART2 */
+                <0x9 0 0x0 0x43c08800 0x0 0x400>,
+                /* LLCE UART3 */
+                <0x10 0 0x0 0x43c08C00 0x0 0x400>,
+                /* LLCE CORE2CORE */
+                <0x11 0 0x0 0x43c26000 0x0 0x70>;
             #address-cells = <2>;
             #size-cells = <2>;
             #interrupt-cells = <3>;
