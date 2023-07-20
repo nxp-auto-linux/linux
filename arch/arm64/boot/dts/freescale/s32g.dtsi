@@ -328,14 +328,18 @@
 				clock-names = "llce_sys";
 				memory-region = <&llce_shmem>;
 				memory-region-names = "shmem";
-				interrupts = <GIC_SPI 174 IRQ_TYPE_LEVEL_HIGH>,
+				interrupt-controller;
+				#interrupt-cells = <1>;
+				interrupts = <GIC_SPI 172 IRQ_TYPE_LEVEL_HIGH>,
+					<GIC_SPI 174 IRQ_TYPE_LEVEL_HIGH>,
 					<GIC_SPI 175 IRQ_TYPE_LEVEL_HIGH>,
 					<GIC_SPI 176 IRQ_TYPE_LEVEL_HIGH>,
 					<GIC_SPI 177 IRQ_TYPE_LEVEL_HIGH>,
 					<GIC_SPI 182 IRQ_TYPE_LEVEL_HIGH>,
 					<GIC_SPI 183 IRQ_TYPE_LEVEL_HIGH>,
 					<GIC_SPI 184 IRQ_TYPE_LEVEL_HIGH>;
-				interrupt-names = "rxin_fifo_0_7",
+				interrupt-names = "linflex_irq",
+					"rxin_fifo_0_7",
 					"rxin_fifo_8_15",
 					"rxout_fifo_0_7",
 					"rxout_fifo_8_15",

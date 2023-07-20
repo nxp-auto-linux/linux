@@ -10,6 +10,7 @@
 #include <linux/interrupt.h>
 #include <linux/io.h>
 #include <linux/iopoll.h>
+#include <linux/irqdomain.h>
 #include <linux/kernel.h>
 #include <linux/mailbox/nxp-llce/llce_can.h>
 #include <linux/mailbox/nxp-llce/llce_core.h>
@@ -147,7 +148,10 @@ struct llce_mb {
 	u32 hif_id;
 	bool multihif;
 	bool suspended;
+	bool lin_irq_enabled;
 	bool fw_logger_support;
+	struct irq_chip irq_chip;
+	struct irq_domain *domain;
 };
 
 struct llce_mb_desc {
@@ -2039,6 +2043,21 @@ static irqreturn_t llce_logger_rx_irq(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
+/* Enable interrupts from tx core to host core for a specific channel.*/
+static void host2tx_enable_interrupt(struct llce_mb *mb, u32 hw_ctrl)
+{
+	void __iomem *hintc2er = LLCE_CORE2CORE_HINTC2ER(mb->core2core);
+	u32 hintc2er_val;
+	unsigned long flags;
+
+	spin_lock_irqsave(&mb->lin_lock, flags);
+
+	hintc2er_val = readl(hintc2er);
+	writel(hintc2er_val | BIT(hw_ctrl), hintc2er);
+
+	spin_unlock_irqrestore(&mb->lin_lock, flags);
+}
+
 /* Disable interrupts from tx core to host core for a specific channel.*/
 static void host2tx_disable_interrupt(struct llce_mb *mb, u32 hw_ctrl)
 {
@@ -2120,6 +2139,10 @@ static int lin_init(struct llce_mb *mb)
 	struct llce_lin_command __iomem *sh_cmd =
 		&mb->lin_sh_mem->lin_cmd[hw_ctrl];
 
+	/* Interrupt forwarding should be enabled only once. */
+	if (mb->lin_irq_enabled)
+		return 0;
+
 	/* Disable and clear interrupts for LIN channels. */
 	for (i = 0; i < LLCE_LINFLEX_NR; i++) {
 		host2tx_disable_interrupt(mb, i);
@@ -2157,7 +2180,117 @@ static int lin_init(struct llce_mb *mb)
 		return -EIO;
 	}
 
+	mb->lin_irq_enabled = true;
+
 	return 0;
+}
+
+static irqreturn_t llce_mb_lin_handler(int irq, void *data)
+{
+	struct llce_mb *mb = data;
+	u32 i;
+	unsigned int virq;
+	irqreturn_t ret = IRQ_NONE;
+
+	for (i = 0; i < LLCE_LINFLEX_NR; i++) {
+		virq = irq_find_mapping(mb->domain, i);
+		if (!virq)
+			continue;
+
+		generic_handle_irq(virq);
+		host2tx_clear_interrupt(mb, i);
+		ret |= IRQ_HANDLED;
+	}
+
+	return ret;
+}
+
+static void llce_mb_irq_mask(struct irq_data *data)
+{
+	struct llce_mb *mb = data->chip_data;
+	u8 hw_ctrl = (u8) data->hwirq;
+
+	host2tx_disable_interrupt(mb, hw_ctrl);
+	host2tx_clear_interrupt(mb, hw_ctrl);
+}
+
+static void llce_mb_irq_unmask(struct irq_data *data)
+{
+	struct llce_mb *mb = data->chip_data;
+	u8 hw_ctrl = (u8)data->hwirq;
+
+	host2tx_enable_interrupt(mb, hw_ctrl);
+}
+
+static struct irq_chip llce_mb_irq_chip = {
+	.name = "llce",
+	.irq_mask = llce_mb_irq_mask,
+	.irq_unmask = llce_mb_irq_unmask,
+};
+
+static int llce_mb_irq_map(struct irq_domain *d,
+			 unsigned int irq,
+			 irq_hw_number_t hw)
+{
+	struct llce_mb *mb = d->host_data;
+	int ret;
+
+	ret = lin_init(mb);
+	if (ret)
+		return ret;
+
+	irq_set_chip_and_handler(irq, &llce_mb_irq_chip, handle_simple_irq);
+	irq_set_chip_data(irq, mb);
+	irq_set_noprobe(irq);
+
+	return 0;
+}
+
+static const struct irq_domain_ops llce_mb_irq_ops = {
+	.map = llce_mb_irq_map,
+	.xlate = irq_domain_xlate_onecell,
+};
+
+static int init_llce_lin_irq(struct platform_device *pdev,
+				   struct llce_mb *mb)
+{
+	struct device *dev = &pdev->dev;
+	struct device_node *np = dev->of_node;
+	int irq, ret;
+
+	if (!of_find_property(np, "interrupt-controller", NULL)) {
+		dev_err(dev, "Not an interrupt-controller\n");
+		return -ENXIO;
+	}
+
+	irq = platform_get_irq_byname(pdev, "linflex_irq");
+	if (irq < 0) {
+		dev_err(dev, "linflex_irq not found\n");
+		return irq;
+	}
+
+	mb->domain = irq_domain_add_linear(dev->of_node, LLCE_LINFLEX_NR,
+			&llce_mb_irq_ops, mb);
+
+	if (!mb->domain) {
+		dev_err(dev, "Failed to add irq_domain\n");
+		return -ENOMEM;
+	}
+
+	ret = devm_request_irq(dev, irq, llce_mb_lin_handler, 0,
+			       "llce_mb", (void *)mb);
+	if (ret) {
+		dev_err(dev, "Failed to request interrupt err = %d\n", ret);
+		irq_domain_remove(mb->domain);
+		return ret;
+	}
+
+	return 0;
+}
+
+static void deinit_llce_lin_irq(struct llce_mb *mb)
+{
+	irq_domain_remove(mb->domain);
 }
 
 static int init_llce_irq_resources(struct platform_device *pdev,
@@ -2752,10 +2885,14 @@ static int llce_mb_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
+	ret = init_llce_lin_irq(pdev, mb);
+	if (ret)
+		return ret;
+
 	ret = init_hif_config_chan(mb);
 	if (ret) {
 		dev_err(dev, "Failed to initialize HIF config channel\n");
-		return ret;
+		goto lin_irq_deinit;
 	}
 
 	ret = init_core_clock(dev, &mb->clk);
@@ -2796,6 +2933,10 @@ disable_clk:
 hif_deinit:
 	if (ret)
 		deinit_hif_config_chan(mb);
+
+lin_irq_deinit:
+	if (ret)
+		deinit_llce_lin_irq(mb);
 
 	return ret;
 }
@@ -2848,6 +2989,14 @@ static int __maybe_unused llce_mb_resume(struct device *dev)
 	ret = llce_platform_init(dev, mb);
 	if (ret)
 		dev_err(dev, "Failed to initialize platform\n");
+
+	/* Force lin intterupt forwarding again. */
+	if (mb->lin_irq_enabled) {
+		mb->lin_irq_enabled = false;
+		ret = lin_init(mb);
+		if (ret)
+			return ret;
+	}
 
 	mb->suspended = false;
 
