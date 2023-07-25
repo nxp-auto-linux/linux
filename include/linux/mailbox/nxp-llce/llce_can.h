@@ -121,14 +121,15 @@
 /** Constant used to identify a reserved mask id. */
 #define LLCE_CAN_FULLCAN_MASK (0xFFFFFFFFU)
 
-#define LLCE_CAN2ETH_PFE_EMAC0 (0x01U)
-#define LLCE_CAN2ETH_PFE_EMAC1 (0x02U)
-#define LLCE_CAN2ETH_PFE_EMAC2 (0x04U)
-#define LLCE_CAN2ETH_PFE_HIF0 (0x08U)
-#define LLCE_CAN2ETH_PFE_HIF1 (0x10U)
-#define LLCE_CAN2ETH_PFE_HIF2 (0x20U)
-#define LLCE_CAN2ETH_PFE_HIF3 (0x40U)
-#define LLCE_CAN2ETH_PFE_HIFNOCPY (0x80U)
+#define LLCE_CAN2ETH_PFE_EMAC0 (0x0001U)
+#define LLCE_CAN2ETH_PFE_EMAC1 (0x0002U)
+#define LLCE_CAN2ETH_PFE_EMAC2 (0x0004U)
+#define LLCE_CAN2ETH_PFE_HIF0 (0x0008U)
+#define LLCE_CAN2ETH_PFE_HIF1 (0x0010U)
+#define LLCE_CAN2ETH_PFE_HIF2 (0x0020U)
+#define LLCE_CAN2ETH_PFE_HIF3 (0x0040U)
+#define LLCE_CAN2ETH_PFE_HIFNOCPY (0x0080U)
+#define LLCE_CAN2ETH_PFE_AUX (0x0100U)
 
 /**
  * Notification IDs used to interface with LLCE.
@@ -200,6 +201,11 @@ enum llce_can_command_id {
 	LLCE_CAN_CMD_INIT_PFE,
 	/**
 	 * Host request for platform initialization regarding
+	 * CAN2ETH-ETH2CAN use case using ring buffers generated on host side.
+	 */
+	LLCE_CAN_CMD_INIT_PFE_EXT_RING_BUF,
+	/**
+	 * Host request for platform initialization regarding
 	 * HSE bridge use case.
 	 */
 	LLCE_CAN_CMD_INIT_HSE,
@@ -236,7 +242,12 @@ enum llce_can_command_id {
 	 * The host enables or disables eth2can processing for a
 	 * format.
 	 */
-	LLCE_CAN_CMD_SETETH2CANFORMATSTATE
+	LLCE_CAN_CMD_SETETH2CANFORMATSTATE,
+	/**
+	 * The host requests the addition of a new advanced filter by
+	 * specifying filter address.
+	 */
+	LLCE_CAN_CMD_SETADVANCEDFILTER_AT_ADDRESS
 } __packed;
 
 /**
@@ -946,7 +957,7 @@ struct llce_can_can2eth_routing_table {
 	 * INPUT: Ethernet physical interface (bit list) - see
 	 * LLCE_CAN2ETH_PFE_*
 	 */
-	u8 can2eth_phy_if_list;
+	u16 can2eth_phy_if_list;
 } __aligned(4) __packed;
 
 /**
@@ -1171,6 +1182,37 @@ struct llce_can_init_pfe_cmd {
 } __aligned(4) __packed;
 
 /**
+ * LLCE-PFE Configurable Ring Initialization command.
+ * It is sent by the host to LLCE in order to activate the LLCE-PFE interface,
+ * use the addresses of the relevant data structures provided by the host.
+ * @note Use u32 instead of void*, for portability
+ **/
+struct llce_can_init_pfe_with_extern_ring_cmd {
+	/** INPUT: Address of the PFE RX Ring in LLCE memory */
+	u32 p_rx_ring;
+	/** INPUT: Address of the PFE RX Writeback Ring in LLCE memory */
+	u32 p_rx_wb_ring;
+	/** INPUT: Address of the PFE TX Ring in LLCE memory */
+	u32 p_tx_ring;
+	/** INPUT: Address of the PFE TX Writeback Ring in LLCE memory */
+	u32 p_tx_wb_ring;
+	/** INPUT: Pointer to the buffers used for RX */
+	u32 p_rx_buffers;
+	/** INPUT: Ring size of the PFE Rx Ring */
+	u32 ring_size;
+	/** INPUT: Pointer to the header */
+	u32 p_header;
+	/** INPUT: Size of the buffers used for RX */
+	u16 rx_buf_size;
+	/** INPUT: Number of buffers used for RX */
+	u8 rx_buf_count;
+	/** INPUT: Size of the header */
+	u8 header_size;
+	/** INPUT: Index of the PFE HIF to use in LLCE */
+	u8 hif;
+} __aligned(4) __packed;
+
+/**
  * Get status command.
  * It is sent by the host to LLCE in order to get the content of all status
  * registers of a specific CAN controller. This command makes only a read
@@ -1295,6 +1337,11 @@ union llce_can_command_list {
 	 * buffer locations
 	 */
 	struct llce_can_init_pfe_cmd init_pfe;
+	/**
+	 * Command for initializing the LLCE-PFE interface using user's
+	 * ring buffer input
+	 */
+	struct llce_can_init_pfe_with_extern_ring_cmd init_pfe_with_extern_ring;
 	/** Command for creating a destination for AF */
 	struct llce_can_create_af_destination create_af_dest;
 	/**
@@ -1477,6 +1524,44 @@ struct llce_can_shared_memory {
 	 */
 	struct llce_can_tx2host_ack_info
 		can_tx_ack_info[LLCE_CAN_CONFIG_MAX_TXACKINFO];
+} __aligned(4) __packed;
+
+struct llce_can_rx_tx_count {
+	/** Shows the number of CAN frames received by each controller */
+	u32 general_rx_count;
+	/**
+	 * Shows the number of CAN frames sent by each controller and
+	 * acknowledged on the bus
+	 */
+	u32 general_tx_count;
+	/**
+	 * All CAN frames received by the controller from other
+	 * controllers via CAN
+	 */
+	u32 can2can_in_count;
+	/**
+	 * All CAN frames sent by the controller to other controller via
+	 * CAN
+	 */
+	u32 can2can_out_count;
+	/**
+	 * All CAN frames received by controller to be encapsulated in
+	 * Ethernet format and sent to PFE for transmission over ethernet
+	 */
+	u32 can2eth_count;
+	/**
+	 * All Ethernet frames transferred from PFE to LLCE controller
+	 * for decoding and transmission over CAN
+	 */
+	u32 eth2can_count;
+	/** Reserved for future use */
+	u32 reserved_count1;
+	/** Reserved for future use */
+	u32 reserved_count2;
+	/** Reserved for future use */
+	u32 reserved_count3;
+	/** Reserved for future use */
+	u32 reserved_count4;
 } __aligned(4) __packed;
 
 #endif /*LLCE_CAN_H*/
