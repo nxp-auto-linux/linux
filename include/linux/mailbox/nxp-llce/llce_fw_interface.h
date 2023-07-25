@@ -28,19 +28,31 @@ enum llce_fw_notification_category {
  * channel related and other are platform related.
  **/
 enum llce_fw_return {
-	/** CAN firmware error: TXACK FIFO is full. */
+	/** CAN firmware error: BOTH SW AND HW TXACK FIFOS are full. */
 	LLCE_ERROR_TXACK_FIFO_FULL = 1U,
-	/** CAN firmware error: RXOUT FIFO is full. */
+	/** CAN firmware error: RXOUT SW FIFO is full. */
 	LLCE_ERROR_RXOUT_FIFO_FULL,
-	/** CAN firmware error: HW FIFO inside LLCE is empty. */
-	LLCE_ERROR_HW_FIFO_EMPTY,
-	/** CAN firmware error: HW FIFO inside LLCE is full. */
+	/** CAN firmware error: Reserved for future use. */
+	LLCE_ERROR_CODE_RESERVED_0,
+	/**
+	 * CAN firmware error: The system lost indexes or HW FIFO was
+	 * not cleared and it is full.
+	 */
 	LLCE_ERROR_HW_FIFO_FULL,
-	/** CAN firmware error: SW FIFO inside LLCE is empty. */
+	/**
+	 * CAN firmware error: There was an attempt to perform a pop
+	 * operation on an empty SW FIFO.
+	 */
 	LLCE_ERROR_SW_FIFO_EMPTY,
-	/** CAN firmware error: SW FIFO inside LLCE is full. */
+	/**
+	 * CAN firmware error: There was an attempt to perform a push
+	 * operation on a full SW FIFO.
+	 */
 	LLCE_ERROR_SW_FIFO_FULL,
-	/** CAN firmware error: Message buffer is not available. */
+	/**
+	 * CAN firmware error: The maximum hardware object count on the
+	 * reception side was reached.
+	 */
 	LLCE_ERROR_MB_NOTAVAILABLE,
 	/**
 	 * CAN firmware error: Short Message buffer is configured but a
@@ -48,18 +60,15 @@ enum llce_fw_return {
 	 */
 	LLCE_ERROR_SHORT_MB_NOTAVAILABLE,
 	/**
-	 * CAN firmware error: CAN protocol error due to inability to get
-	 * out from the freeze mode.
+	 * CAN firmware error: Reserved for future use.
 	 */
 	LLCE_ERROR_BCAN_FRZ_EXIT,
 	/**
-	 * CAN firmware error: CAN protocol error due to inability to
-	 * synchronize on the bus.
+	 * CAN firmware error: Reserved for future use.
 	 */
 	LLCE_ERROR_BCAN_SYNC,
 	/**
-	 * CAN firmware error: CAN protocol error due to inability to
-	 * enter in freeze mode.
+	 * CAN firmware error: Reserved for future use.
 	 */
 	LLCE_ERROR_BCAN_FRZ_ENTER,
 	/**
@@ -73,7 +82,8 @@ enum llce_fw_return {
 	 */
 	LLCE_ERROR_BCAN_SRT_ENTER,
 	/**
-	 * CAN firmware error: unknown CAN protocol error
+	 * CAN firmware error: An error callback was called, but no error
+	 * code matches : unknown CAN protocol error
 	 */
 	LLCE_ERROR_BCAN_UNKNOWN_ERROR,
 	/**
@@ -153,60 +163,90 @@ enum llce_fw_return {
 	 * exceeded after the frame was received
 	 */
 	LLCE_ERROR_DATA_LOST,
-	/** CAN firmware error: TXLUT accelerator is full. */
+	/**
+	 * CAN firmware error: The number of Message Buffers available
+	 *  for transmission arbitration was exceeded or the status register
+	 * indicates that the TXLUT accelerator is full.
+	 */
 	LLCE_ERROR_TXLUT_FULL,
-	/** CAN firmware error: Error during command processing. */
+	/**
+	 * CAN firmware error: A command with an unknown id was issued
+	 *  or the current host tried to overlap the other host's resources at
+	 * initialization.
+	 */
 	LLCE_ERROR_CMD_PROCESSING,
-	/** CAN firmware error: Error regarding RXLUT hardware. */
-	LLCE_ERROR_RXLUT_SLOW_SEARCH,
-	/** CAN firmware error: Error regarding RXLUT hardware. */
+	/** CAN firmware error: Reserved for future use. */
+	LLCE_ERROR_CODE_RESERVED_1,
+	/**
+	 * CAN firmware error: Indicates hardware malfunction when
+	 * trying to perform a read or write operation on RXLUT registers.
+	 */
 	LLCE_ERROR_RXLUT_ACCESS_MODE,
-	/** CAN firmware error: Error regarding RXLUT hardware. */
+	/**
+	 * CAN firmware error: Indicates hardware malfunction when
+	 * trying to perform a read or write operation on RXLUT registers.
+	 */
 	LLCE_ERROR_RXLUT_SEARCH_MODE,
-	/** CAN firmware error: Error regarding RXLUT hardware. */
+	/**
+	 * CAN firmware error: Indicates hardware malfunction when
+	 * trying to perform a read on RXLUT registers and no value was obtained
+	 * within a configured timeout.
+	 */
 	LLCE_ERROR_RXLUT_SLOW_OPERATION,
-	/** CAN firmware error: Error regarding RXLUT hardware. */
+	/**
+	 * CAN firmware error: Indicates hardware malfunction when
+	 *  trying to perform a read on the RXLUT status register during search
+	 * operation and no value was obtained within a configured timeout.
+	 */
 	LLCE_ERROR_RXLUT_INCOMPLETE_OP,
-	/** CAN firmware error: Error regarding RXLUT hardware. */
+	/**
+	 * CAN firmware error: Indicates hardware malfunction when
+	 * trying to perform a read on the RXLUT status register during flush
+	 * operation and no value was obtained within a configured timeout.
+	 */
 	LLCE_ERROR_RXLUT_OPERATING_MODE,
-	/** CAN firmware error: Error regarding RXLUT hardware. */
+	/**
+	 * CAN firmware error: Failed to configure the filter entry
+	 * address and issue write command.
+	 */
 	LLCE_ERROR_RXLUT_INIT_SLOW_OP,
-	/** CAN firmware error: Error regarding RXLUT hardware. */
-	LLCE_ERROR_RXLUT_DEINIT_SLOW_OP,
-	/** CAN firmware error: Error regarding RXLUT hardware. */
-	LLCE_ERROR_RXLUT_INIT_OPERATING_MODE,
-	/** CAN firmware error: Error regarding RXLUT hardware. */
-	LLCE_ERROR_RXLUT_DEINIT_OPERATING_MODE1,
-	/** CAN firmware error: Error regarding RXLUT hardware. */
-	LLCE_ERROR_RXLUT_DEINIT_OPERATING_MODE2,
-	/** CAN firmware error: Error regarding bus off event. */
-	LLCE_ERROR_HARDWARE_BUSOFF,
-	/** CAN firmware error: Controller is not ready. */
+	/** CAN firmware error: Reserved for future use. */
+	LLCE_ERROR_CODE_RESERVED_2,
+	/** CAN firmware error: Reserved for future use. */
+	LLCE_ERROR_CODE_RESERVED_3,
+	/** CAN firmware error: Reserved for future use. */
+	LLCE_ERROR_CODE_RESERVED_4,
+	/** CAN firmware error: Reserved for future use. */
+	LLCE_ERROR_CODE_RESERVED_5,
+	/** CAN firmware error: Reserved for future use. */
+	LLCE_ERROR_CODE_RESERVED_6,
+	/**
+	 * CAN firmware error: Controller is not started or bus-off
+	 * event has occurred.
+	 */
 	LLCE_ERROR_CTRL_NOT_READY,
 	/**
-	 * CAN firmware error: Error regarding bus off.
+	 * CAN firmware error: A bus off event was triggered.
 	 * This notification is skipped in case of auto-recovery.
 	 */
 	LLCE_ERROR_BUSOFF,
-	/** CAN firmware error: Logging fifo is full. */
+	/** CAN firmware error: Logging FIFO is full. */
 	LLCE_ERROR_FIFO_LOG_FULL,
 	/**
-	 * CAN firmware error: Error reported due to CAN2CAN routing
-	 * error.
+	 * CAN firmware error: Reserved for future use.
 	 */
-	LLCE_ERROR_CAN2CAN,
+	LLCE_ERROR_CODE_RESERVED_7,
 	/**
-	 * CAN firmware error: Error reported due to wrong command
-	 * parameters received from host.
+	 * CAN firmware error: Reserved for future use.
 	 */
-	LLCE_ERROR_COMMAND_PARAM,
+	LLCE_ERROR_CODE_RESERVED_8,
 	/**
 	 * CAN firmware error: Error reported due to the rx core not
 	 * responding.
 	 */
 	LLCE_ERROR_COMMAND_RXPPE_NORESPONSE,
 	/**
-	 * CAN firmware error: Error reported due to the AF core not
+	 * CAN firmware error: Error reported due to frpe core not
 	 * responding.
 	 */
 	LLCE_ERROR_COMMAND_AF_NORESPONSE,
@@ -247,28 +287,26 @@ enum llce_fw_return {
 	 * command parameters are invalid.
 	 */
 	LLCE_ERROR_COMMAND_INVALID_PARAMS,
-	/** CAN firmware error: Controller is not started. */
-	LLCE_ERROR_CTRL_NOT_STARTED,
+	/** CAN firmware error: Reserved for future use. */
+	LLCE_ERROR_CODE_RESERVED_9,
 	/**
 	 * CAN firmware error: Reports frame accepted, but not delivered
 	 * to host because of filters misconfiguration.
 	 */
 	LLCE_ERROR_FRAME_NOT_DELIVERED,
 	/**
-	 * CAN firmware error: Reports frame accepted, but not delivered
-	 * to AF destination because of full fifo.
+	 * CAN firmware error: Reserved for future use.
 	 */
-	LLCE_ERROR_FRAME_NOT_DELIVERED_TO_AF,
+	LLCE_ERROR_CODE_RESERVED_10,
 	/**
 	 * CAN firmware error: Reports frame accepted, but not delivered
-	 * to host due to lack of descriptors in sw fifo.
+	 * to host due to lack of descriptors in software FIFO.
 	 */
 	LLCE_ERROR_FRAME_NOT_DELIVERED_TO_HOST,
 	/**
-	 * CAN firmware error: Reports detection of lost indexes in
-	 * RX-DTE subsystem.
+	 * CAN firmware error: Reserved for future use.
 	 */
-	LLCE_ERROR_LOST_INDEXES,
+	LLCE_ERROR_CODE_RESERVED_12,
 	/**
 	 * CAN firmware error: Error reported because there are no
 	 * filters available to be set for a specific controller.
@@ -289,47 +327,54 @@ enum llce_fw_return {
 	LLCE_ERROR_FILTERS_RANGE_EMPTY,
 	/** CAN firmware error: There are no free exact match filters. */
 	LLCE_ERROR_FILTERS_EM_EMPTY,
-	/** CAN firmware error: The index return by host is not valid. */
+	/**
+	 * CAN firmware error: The index returned by host is not valid,
+	 * possibly a duplicate index.
+	 */
 	LLCE_ERROR_IDX_NOT_VALID_HOST,
 	/**
-	 * CAN firmware error: The index return by logging is not valid.
+	 * CAN firmware error: The index returned by logging is not
+	 * valid, the associated destination didn't match.
 	 */
 	LLCE_ERROR_IDX_NOT_VALID_LOG,
 	/**
-	 * CAN firmware error: The host core which sent a free RX
-	 * descriptor index to LLLCE is invalid.
+	 * CAN firmware error: Reserved for future use.
 	 */
-	LLCE_ERROR_INVALID_HOST_CORE,
+	LLCE_ERROR_CODE_RESERVED_13,
 	/**
-	 * CAN firmware error: Reports frame accepted, but not delivered
-	 * to HSE because of full fifo.
+	 * CAN firmware error: Reserved for future use.
+	 * to HSE because of full FIFO.
 	 */
-	LLCE_ERROR_RXFRAME_NOT_DELIVERED_TO_HSE,
+	LLCE_ERROR_CODE_RESERVED_14,
 	/**
-	 * CAN firmware error: TX frame was not delivered to HSE because
-	 * of full fifo.
+	 * CAN firmware error: Reserved for future use.
 	 */
-	LLCE_ERROR_TXFRAME_NOT_DELIVERED_TO_HSE,
+	LLCE_ERROR_CODE_RESERVED_15,
 	/**
 	 * CAN firmware error: Rx frame was dropped because it is not
 	 * authentic.
 	 */
 	LLCE_ERROR_RXFRAME_AUTH_ERROR,
 	/**
-	 * CAN firmware error: core received an invalid request from
+	 * CAN firmware error: Reserved for future use.
 	 * TX core.
 	 */
-	LLCE_ERROR_INVALID_REQUEST_FROM_TX,
+	LLCE_ERROR_CODE_RESERVED_16,
 	/**
-	 * CAN firmware error: core received an invalid request from
-	 * RX core.
+	 * CAN firmware error: Reserved for future use.
 	 */
-	LLCE_ERROR_INVALID_REQUEST_FROM_RX,
+	LLCE_ERROR_CODE_RESERVED_17,
 	/** CAN firmware error: RX Software FIFO is empty. */
 	LLCE_ERROR_RX_SW_FIFO_EMPTY,
-	/** AF error : error communicating with PFE */
+	/**
+	 * AF error : error communicating with PFE due to PFE internal
+	 * error
+	 */
 	LLCE_ERROR_PFEIF,
-	/** AF error : error communicating with HSE */
+	/**
+	 * AF error : error communicating with HSE due to HSE internal
+	 * error
+	 */
 	LLCE_ERROR_HSEIF,
 	/**
 	 * Generic firmware code: Command was executed successfully by
@@ -337,8 +382,8 @@ enum llce_fw_return {
 	 */
 	LLCE_FW_SUCCESS,
 	/**
-	 * Generic firmware error: During command execution it was
-	 * detected an error condition.
+	 * Generic firmware error: During command execution
+	 * an error condition was detected.
 	 */
 	LLCE_FW_ERROR,
 	/**
@@ -357,14 +402,18 @@ enum llce_fw_return {
 	 */
 	LLCE_ERROR_INTERNALDESC_NOT_DELIVERED,
 	/**
-	 * CAN firmware error: Internal Descriptor is not available.
+	 * CAN firmware error: Internal Descriptor is not available
+	 * because the internal LLCE software FIFO is empty.
 	 */
 	LLCE_ERROR_INTERNALDESC_NOTAVAIL,
 	/**
 	 * CAN firmware error: Internal Descriptor software FIFO is full.
 	 */
 	LLCE_ERROR_INTERNALDESC_FIFO_FULL,
-	/** CAN firmware error: Message Buffer is not available. */
+	/**
+	 * CAN firmware error: Message Buffer is not available.
+	 * the internal message buffer software FIFO is empty.
+	 */
 	LLCE_ERROR_MB_NOTAVAIL,
 	/** CAN firmware error: Message Buffer software FIFO is full. */
 	LLCE_ERROR_MB_FIFO_FULL,
@@ -373,13 +422,25 @@ enum llce_fw_return {
 	 * AF is reached.
 	 */
 	LLCE_ERROR_NO_MB_AVAILABLE,
-	/** CAN firmware error: Unknown source of the request. */
+	/**
+	 * CAN firmware error: The source of the request did not match
+	 * any of the LLCE cores ids.
+	 */
 	LLCE_ERROR_UNKNOWN_SRC,
-	/** CAN firmware error: Unknown destination of the request. */
+	/**
+	 * CAN firmware error: Unknown destination of the request : it's
+	 * neither a CAN or ETHERNET channel, nor the host.
+	 */
 	LLCE_ERROR_UNKNOWN_DEST,
-	/** CAN firmware error: Unknown request. */
+	/**
+	 * CAN firmware error: Unknown request in intercore
+	 * communication.
+	 */
 	LLCE_ERROR_UNKNOWN_REQUEST,
-	/** CAN firmware error: Conversion error for CAN2CAN. */
+	/**
+	 * CAN firmware error: Issued for frames with DLC greater than 8
+	 * where destination is not FD .
+	 */
 	LLCE_ERROR_CONVERSION,
 	/**
 	 * CAN firmware error: AbortMB request failed due to no pending
@@ -391,13 +452,15 @@ enum llce_fw_return {
 	 * or busoff event.
 	 */
 	LLCE_ERROR_INDEX_NOT_RECOVERED,
-	/** CAN firmware error: Controller is in reset pending state. */
+	/**
+	 * CAN firmware error: The controller did not exit from freeze
+	 * mode within a configured timeout.
+	 */
 	LLCE_ERROR_RESET_PENDING,
 	/**
-	 * CAN firmware notification: BCAN is in automatic buss off
-	 * recovery from busoff state.
+	 * CAN firmware notification: Reserved for future use.
 	 */
-	LLCE_NOTIF_BUSOFF_AUTO_RECOVERY_PENDING,
+	LLCE_ERROR_CODE_RESERVED_18,
 	/**
 	 * CAN firmware notification: BCAN is ready to leave bus-off
 	 * state after the automatic recovery procedure
@@ -490,7 +553,6 @@ llce_get_notification_category(enum llce_fw_return notification_code)
 
 	switch (notification_code) {
 	case LLCE_ERROR_BUSOFF:
-	case LLCE_NOTIF_BUSOFF_AUTO_RECOVERY_PENDING:
 	case LLCE_NOTIF_BUSOFF_DONE:
 		notif_category = LLCE_NOTIFCAT_BUSOFF;
 		break;
