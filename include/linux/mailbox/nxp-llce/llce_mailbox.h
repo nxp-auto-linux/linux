@@ -88,6 +88,7 @@ enum llce_config_cmd {
 
 enum llce_sw_config_cmd {
 	LLCE_GET_FIFO_INDEX,
+	LLCE_GET_CAN_STATS,
 };
 
 struct llce_config_msg {
@@ -104,6 +105,9 @@ struct llce_config_msg {
 					u8 hw_ctrl;
 					u8 fifo;
 				} fifo_cmd;
+				struct {
+					struct llce_can_rx_tx_count stats;
+				} stats_cmd;
 			};
 		} sw_cmd;
 	};
