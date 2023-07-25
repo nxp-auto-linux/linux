@@ -83,6 +83,10 @@ struct llce_rx_msg {
 enum llce_config_cmd {
 	LLCE_EXECUTE_FW_CMD = 0x99,
 	LLCE_EXECUTE_FW_HIF_CMD,
+	LLCE_EXECUTE_SW_CMD,
+};
+
+enum llce_sw_config_cmd {
 	LLCE_GET_FIFO_INDEX,
 };
 
@@ -94,9 +98,14 @@ struct llce_config_msg {
 			u8 hw_ctrl;
 		} fw_cmd;
 		struct {
-			u8 hw_ctrl;
-			u8 fifo;
-		} fifo_cmd;
+			enum llce_sw_config_cmd cmd;
+			union {
+				struct {
+					u8 hw_ctrl;
+					u8 fifo;
+				} fifo_cmd;
+			};
+		} sw_cmd;
 	};
 };
 

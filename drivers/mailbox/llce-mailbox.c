@@ -606,18 +606,26 @@ static int process_get_fifo_index(struct mbox_chan *chan,
 	struct device *dev = mb->controller.dev;
 	unsigned int fifo_id;
 
-	fifo_id = get_ctrl_fifo(mb, msg->fifo_cmd.hw_ctrl);
+	fifo_id = get_ctrl_fifo(mb, msg->sw_cmd.fifo_cmd.hw_ctrl);
 	if (fifo_id >= LLCE_NFIFO_WITH_IRQ) {
 		dev_err(dev, "Invalid FIFO id: %u\n", fifo_id);
 		return -EINVAL;
 	}
 
-	msg->fifo_cmd.fifo = fifo_id;
+	msg->sw_cmd.fifo_cmd.fifo = fifo_id;
 
 	/* No actual FW command executed */
 	priv->last_msg = NULL;
 
 	return 0;
+}
+
+static int execute_sw_cmd(struct mbox_chan *chan, struct llce_config_msg *msg)
+{
+	if (msg->sw_cmd.cmd == LLCE_GET_FIFO_INDEX)
+		return process_get_fifo_index(chan, msg);
+
+	return -EINVAL;
 }
 
 static int process_config_msg(struct mbox_chan *chan,
@@ -637,8 +645,8 @@ static int process_config_msg(struct mbox_chan *chan,
 	case LLCE_EXECUTE_FW_CMD:
 		return execute_config_cmd(chan, &msg->fw_cmd.cmd,
 					  msg->fw_cmd.hw_ctrl);
-	case LLCE_GET_FIFO_INDEX:
-		return process_get_fifo_index(chan, msg);
+	case LLCE_EXECUTE_SW_CMD:
+		return execute_sw_cmd(chan, msg);
 	default:
 		dev_err(dev, "Failed to interpret config cmd=%u\n",
 			msg->cmd);
