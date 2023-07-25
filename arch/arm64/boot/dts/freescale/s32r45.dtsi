@@ -43,14 +43,63 @@
 				 /* MSCR 102-133 */
 				 <MSCRS_SIUL2_1 0 0x0 0x4403c3d8 0x0 0x80>,
 
-				 /* IMCR range 512–595 */
-				 <IMCRS_SIUL2_0 0 0x0 0x4009ca40 0x0 0x150>,
-				 /* IMCR range 603 - 695 */
-				 <IMCRS_SIUL2_1_0 0 0x0 0x4403cbac 0x0 0x174>,
+				 /* IMCR range 512-513 */
+				 <IMCRS_SIUL2_0_0 0 0x0 0x4009ca40 0x0 0x8>,
+				 /* IMCR range 515-573 */
+				 <IMCRS_SIUL2_0_1 0 0x0 0x4009ca4c 0x0 0xec>,
+				 /* IMCR range 580-595 */
+				 <IMCRS_SIUL2_0_2 0 0x0 0x4009cb50 0x0 0x40>,
+
+				 /* IMCR range 603-603 */
+				 <IMCRS_SIUL2_1_0 0 0x0 0x4403cbac 0x0 0x4>,
+				 /* IMCR range 605-606 */
+				 <IMCRS_SIUL2_1_1 0 0x0 0x4403cbb4 0x0 0x8>,
+				 /* IMCR range 608-612 */
+				 <IMCRS_SIUL2_1_2 0 0x0 0x4403cbc0 0x0 0x14>,
+				 /* IMCR range 615-617 */
+				 <IMCRS_SIUL2_1_3 0 0x0 0x4403cbdc 0x0 0xc>,
+				 /* IMCR range 619-619 */
+				 <IMCRS_SIUL2_1_4 0 0x0 0x4403cbec 0x0 0x4>,
+				 /* IMCR range 622-623 */
+				 <IMCRS_SIUL2_1_5 0 0x0 0x4403cbf8 0x0 0x8>,
+				 /* IMCR range 626-626 */
+				 <IMCRS_SIUL2_1_6 0 0x0 0x4403cc08 0x0 0x4>,
+				 /* IMCR range 632-633 */
+				 <IMCRS_SIUL2_1_7 0 0x0 0x4403cc20 0x0 0x8>,
+				 /* IMCR range 635-636 */
+				 <IMCRS_SIUL2_1_8 0 0x0 0x4403cc2c 0x0 0x8>,
+				 /* IMCR range 643-643 */
+				 <IMCRS_SIUL2_1_9 0 0x0 0x4403cc4c 0x0 0x4>,
+				 /* IMCR range 646-647 */
+				 <IMCRS_SIUL2_1_10 0 0x0 0x4403cc58 0x0 0x8>,
+				 /* IMCR range 649-649 */
+				 <IMCRS_SIUL2_1_11 0 0x0 0x4403cc64 0x0 0x4>,
+				 /* IMCR range 651-651 */
+				 <IMCRS_SIUL2_1_12 0 0x0 0x4403cc6c 0x0 0x4>,
+				 /* IMCR range 654-655 */
+				 <IMCRS_SIUL2_1_13 0 0x0 0x4403cc78 0x0 0x8>,
+				 /* IMCR range 657-669 */
+				 <IMCRS_SIUL2_1_14 0 0x0 0x4403cc84 0x0 0x34>,
+				 /* IMCR range 672-674 */
+				 <IMCRS_SIUL2_1_15 0 0x0 0x4403ccc0 0x0 0xc>,
+				 /* IMCR range 681-681 */
+				 <IMCRS_SIUL2_1_16 0 0x0 0x4403cce4 0x0 0x4>,
+				 /* IMCR range 685-685 */
+				 <IMCRS_SIUL2_1_17 0 0x0 0x4403ccf4 0x0 0x4>,
+				 /* IMCR range 694-695 */
+				 <IMCRS_SIUL2_1_18 0 0x0 0x4403cd18 0x0 0x8>,
 				 /* IMCR range 696 - 727 (EIRQs) */
 				 <IMCRS_SIUL2_1_EIRQS 0 0x0 0x4403cd20 0x0 0x80>,
-				 /* IMCR range 728 - 785 */
-				 <IMCRS_SIUL2_1_1 0 0x0 0x4403cda0 0x0 0xe8>,
+				 /* IMCR range 728-731 */
+				 <IMCRS_SIUL2_1_19 0 0x0 0x4403cda0 0x0 0x10>,
+				 /* IMCR range 749-751 */
+				 <IMCRS_SIUL2_1_21 0 0x0 0x4403cdf4 0x0 0xc>,
+				 /* IMCR range 754-760 */
+				 <IMCRS_SIUL2_1_22 0 0x0 0x4403ce08 0x0 0x1c>,
+				 /* IMCR range 771-774 */
+				 <IMCRS_SIUL2_1_23 0 0x0 0x4403ce4c 0x0 0x10>,
+				 /* IMCR range 777-785 */
+				 <IMCRS_SIUL2_1_24 0 0x0 0x4403ce64 0x0 0x24>,
 
 				 /* Output pads */
 				 <OPADS_SIUL2_0 0 0x0 0x4009d700 0x0 0x10>,
@@ -68,19 +117,100 @@
 					     "nxp,s32cc-siul2-pinctrl";
 				#pinctrl-cells = <2>;
 
-				reg = <MSCRS_SIUL2_0   0 0x0 0x198>,
-				      <MSCRS_SIUL2_1   0 0x0 0x80>,
-				      <IMCRS_SIUL2_0   0 0x0 0x150>,
-				      <IMCRS_SIUL2_1_0 0 0x0 0x174>,
-				      <IMCRS_SIUL2_1_1 0 0x0 0xe8>;
+				reg =
+				      /* MSCR 0-101 */
+				      <MSCRS_SIUL2_0 0 0x0 0x198>,
+
+				      /* MSCR 102-133 */
+				      <MSCRS_SIUL2_1 0 0x0 0x80>,
+
+				      /* IMCR range 512-513 */
+				      <IMCRS_SIUL2_0_0 0 0x0 0x8>,
+				      /* IMCR range 515-573 */
+				      <IMCRS_SIUL2_0_1 0 0x0 0xec>,
+				      /* IMCR range 580-595 */
+				      <IMCRS_SIUL2_0_2 0 0x0 0x40>,
+
+				      /* IMCR range 603-603 */
+				      <IMCRS_SIUL2_1_0 0 0x0 0x4>,
+				      /* IMCR range 605-606 */
+				      <IMCRS_SIUL2_1_1 0 0x0 0x8>,
+				      /* IMCR range 608-612 */
+				      <IMCRS_SIUL2_1_2 0 0x0 0x14>,
+				      /* IMCR range 615-617 */
+				      <IMCRS_SIUL2_1_3 0 0x0 0xc>,
+				      /* IMCR range 619-619 */
+				      <IMCRS_SIUL2_1_4 0 0x0 0x4>,
+				      /* IMCR range 622-623 */
+				      <IMCRS_SIUL2_1_5 0 0x0 0x8>,
+				      /* IMCR range 626-626 */
+				      <IMCRS_SIUL2_1_6 0 0x0 0x4>,
+				      /* IMCR range 632-633 */
+				      <IMCRS_SIUL2_1_7 0 0x0 0x8>,
+				      /* IMCR range 635-636 */
+				      <IMCRS_SIUL2_1_8 0 0x0 0x8>,
+				      /* IMCR range 643-643 */
+				      <IMCRS_SIUL2_1_9 0 0x0 0x4>,
+				      /* IMCR range 646-647 */
+				      <IMCRS_SIUL2_1_10 0 0x0 0x8>,
+				      /* IMCR range 649-649 */
+				      <IMCRS_SIUL2_1_11 0 0x0 0x4>,
+				      /* IMCR range 651-651 */
+				      <IMCRS_SIUL2_1_12 0 0x0 0x4>,
+				      /* IMCR range 654-655 */
+				      <IMCRS_SIUL2_1_13 0 0x0 0x8>,
+				      /* IMCR range 657-669 */
+				      <IMCRS_SIUL2_1_14 0 0x0 0x34>,
+				      /* IMCR range 672-674 */
+				      <IMCRS_SIUL2_1_15 0 0x0 0xc>,
+				      /* IMCR range 681-681 */
+				      <IMCRS_SIUL2_1_16 0 0x0 0x4>,
+				      /* IMCR range 685-685 */
+				      <IMCRS_SIUL2_1_17 0 0x0 0x4>,
+				      /* IMCR range 694-695 */
+				      <IMCRS_SIUL2_1_18 0 0x0 0x8>,
+				      /* IMCR range 728-731 */
+				      <IMCRS_SIUL2_1_19 0 0x0 0x10>,
+				      /* IMCR range 749-751 */
+				      <IMCRS_SIUL2_1_21 0 0x0 0xc>,
+				      /* IMCR range 754-760 */
+				      <IMCRS_SIUL2_1_22 0 0x0 0x1c>,
+				      /* IMCR range 771-774 */
+				      <IMCRS_SIUL2_1_23 0 0x0 0x10>,
+				      /* IMCR range 777-785 */
+				      <IMCRS_SIUL2_1_24 0 0x0 0x24>;
 
 				/* MSCR range */
 				nxp,pins = <0   101
 					    102 133
 				/* IMCR range */
-					    512 595
-					    603 695
-					    728 785>;
+					    512 513
+					    515 573
+					    580 595
+					    603 603
+					    605 606
+					    608 612
+					    615 617
+					    619 619
+					    622 623
+					    626 626
+					    632 633
+					    635 636
+					    643 643
+					    646 647
+					    649 649
+					    651 651
+					    654 655
+					    657 669
+					    672 674
+					    681 681
+					    685 685
+					    694 695
+					    728 731
+					    749 751
+					    754 760
+					    771 774
+					    777 785>;
 				status = "okay";
 			};
 
