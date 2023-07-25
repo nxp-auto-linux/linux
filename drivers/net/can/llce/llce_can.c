@@ -4,6 +4,7 @@
 #include <linux/can/dev/llce_can_common.h>
 #include <linux/clk.h>
 #include <linux/ctype.h>
+#include <linux/ethtool.h>
 #include <linux/kernel.h>
 #include <linux/mailbox/nxp-llce/llce_can.h>
 #include <linux/mailbox/nxp-llce/llce_mailbox.h>
@@ -43,6 +44,8 @@ struct llce_can {
 	struct clk *clk;
 
 	struct llce_can_dl_params *dl_params;
+
+	const struct ethtool_ops *common_ethtool_ops;
 
 	u8 fifo;
 };
@@ -92,6 +95,34 @@ static void config_rx_callback(struct mbox_client *cl, void *msg)
 					     config_client);
 
 	complete(&llce->config_done);
+}
+
+static int llce_get_can_stats(struct llce_can *llce,
+			      struct llce_can_rx_tx_count *stats)
+{
+	struct mbox_chan *conf_chan = llce->config;
+	struct device *dev = llce_can_chan_dev(conf_chan);
+	struct llce_can_rx_tx_count *cmd_stats;
+	struct llce_config_msg msg = {
+		.cmd = LLCE_EXECUTE_SW_CMD,
+		.sw_cmd = {
+			.cmd = LLCE_GET_CAN_STATS,
+		},
+	};
+	int ret;
+
+	cmd_stats = &msg.sw_cmd.stats_cmd.stats;
+	memset(cmd_stats, 0, sizeof(*cmd_stats));
+
+	ret = llce_send_config_cmd(conf_chan, &msg, &llce->config_done);
+	if (ret) {
+		dev_err(dev, "Failed to get CAN stats: %d\n", ret);
+		return ret;
+	}
+
+	*stats = *cmd_stats;
+
+	return 0;
 }
 
 static int llce_can_init(struct llce_can *llce)
@@ -809,6 +840,90 @@ static void unregister_devlink_params(struct llce_can *llce)
 	devlink_free(devlink);
 }
 
+static const char can_stats_names[][ETH_GSTRING_LEN] = {
+	"general_rx",
+	"general_tx",
+	"can2can_in",
+	"can2can_out",
+	"can2eth",
+	"eth2can",
+};
+
+static size_t stats2array(struct llce_can_rx_tx_count *stats, u64 *data)
+{
+	u64 order[] = {
+		stats->general_rx_count,
+		stats->general_tx_count,
+		stats->can2can_in_count,
+		stats->can2can_out_count,
+		stats->can2eth_count,
+		stats->eth2can_count,
+	};
+
+	memcpy(data, order, sizeof(order));
+
+	return ARRAY_SIZE(order);
+}
+
+static void get_can_ethtool_stats(struct net_device *dev,
+				  struct ethtool_stats *stats,
+				  u64 *data)
+{
+	struct llce_can *llce = netdev_priv(dev);
+	const struct ethtool_ops *common_ops;
+	struct llce_can_rx_tx_count llce_stats;
+	size_t n_stats;
+	int ret;
+
+	memset(&llce_stats, 0, sizeof(llce_stats));
+	ret = llce_get_can_stats(llce, &llce_stats);
+	if (ret)
+		netdev_err(dev, "Failed to get CAN stats\n");
+
+	n_stats = stats2array(&llce_stats, data);
+	common_ops = llce->common_ethtool_ops;
+
+	common_ops->get_ethtool_stats(dev, stats, data + n_stats);
+}
+
+static void get_can_strings(struct net_device *dev, u32 stringset, u8 *buf)
+{
+	struct llce_can *llce = netdev_priv(dev);
+	const struct ethtool_ops *common_ops;
+
+	common_ops = llce->common_ethtool_ops;
+
+	memcpy(buf, can_stats_names, sizeof(can_stats_names));
+	buf += sizeof(can_stats_names);
+
+	common_ops->get_strings(dev, stringset, buf);
+}
+
+static int get_can_sset_count(struct net_device *dev, int sset)
+{
+	struct llce_can *llce = netdev_priv(dev);
+	const struct ethtool_ops *common_ops;
+	size_t n_stats = ARRAY_SIZE(can_stats_names);
+	int n_common_stats;
+
+	if (sset != ETH_SS_STATS)
+		return -EOPNOTSUPP;
+
+	common_ops = llce->common_ethtool_ops;
+
+	n_common_stats = common_ops->get_sset_count(dev, sset);
+	if (n_common_stats < 0)
+		return n_common_stats;
+
+	return n_common_stats + n_stats;
+}
+
+static const struct ethtool_ops llce_can_ethtool_ops = {
+	.get_ethtool_stats = get_can_ethtool_stats,
+	.get_strings = get_can_strings,
+	.get_sset_count = get_can_sset_count,
+};
+
 static int llce_can_probe(struct platform_device *pdev)
 {
 	int ret;
@@ -825,6 +940,10 @@ static int llce_can_probe(struct platform_device *pdev)
 	llce = container_of(common, struct llce_can, common);
 
 	netdev = common->can.dev;
+
+	/* Add a decorator over the common ethtool ops */
+	llce->common_ethtool_ops = netdev->ethtool_ops;
+	netdev->ethtool_ops = &llce_can_ethtool_ops;
 
 	platform_set_drvdata(pdev, netdev);
 

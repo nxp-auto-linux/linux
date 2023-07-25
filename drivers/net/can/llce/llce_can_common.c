@@ -547,7 +547,7 @@ static int get_sset_count(struct net_device *dev, int sset)
 	return count;
 }
 
-static const struct ethtool_ops llce_can_ethtool_ops = {
+static const struct ethtool_ops llce_can_common_ethtool_ops = {
 	.get_ethtool_stats = get_ethtool_stats,
 	.get_strings = get_strings,
 	.get_sset_count = get_sset_count,
@@ -591,7 +591,7 @@ struct llce_can_dev *init_llce_can_dev(struct device *dev, size_t priv_size,
 
 	init_llce_rx_client(llce, dev);
 
-	netdev->ethtool_ops = &llce_can_ethtool_ops;
+	netdev->ethtool_ops = &llce_can_common_ethtool_ops;
 
 free_mem:
 	if (ret) {

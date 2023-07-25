@@ -80,6 +80,7 @@
 #define UNINITIALIZED_FIFO		(U32_MAX)
 
 #define LIN_MEM_OFFSET		(0x3C800U)
+#define CAN_RX_TX_STATS_OFFSET	(0x4FD50)
 
 #define LLCE_LINFLEX_NR		(4)
 #define LLCE_LIN_CHANNEL0	(0)
@@ -140,6 +141,7 @@ struct llce_mb {
 	void __iomem *icsr;
 	void __iomem *sema42;
 	void __iomem *core2core;
+	struct llce_can_rx_tx_count __iomem *can_stats;
 	struct clk *clk;
 	struct device *dev;
 	struct llce_chan_params chans_params[LLCE_CAN_CONFIG_MAXCTRL_COUNT];
@@ -259,6 +261,11 @@ static const struct llce_mb_desc mb_map[] = {
 static inline void __iomem *llce_get_lin_shmem_addr(void __iomem *shmem)
 {
 	return shmem + LIN_MEM_OFFSET;
+}
+
+static inline void __iomem *llce_get_rx_tx_stats_addr(void __iomem *shmem)
+{
+	return shmem + CAN_RX_TX_STATS_OFFSET;
 }
 
 static const struct llce_icsr icsrs[] = {
@@ -620,12 +627,39 @@ static int process_get_fifo_index(struct mbox_chan *chan,
 	return 0;
 }
 
+static int process_get_can_stats(struct mbox_chan *chan,
+				 struct llce_config_msg *msg)
+{
+	struct llce_chan_priv *priv = chan->con_priv;
+	struct llce_mb *mb = priv->mb;
+	unsigned int hw_ctrl = priv->index;
+
+	memcpy_fromio(&msg->sw_cmd.stats_cmd.stats,
+		      &mb->can_stats[hw_ctrl],
+		      sizeof(msg->sw_cmd.stats_cmd.stats));
+
+	/* No actual FW command executed */
+	priv->last_msg = NULL;
+
+	return 0;
+}
+
 static int execute_sw_cmd(struct mbox_chan *chan, struct llce_config_msg *msg)
 {
-	if (msg->sw_cmd.cmd == LLCE_GET_FIFO_INDEX)
-		return process_get_fifo_index(chan, msg);
+	struct llce_chan_priv *priv = chan->con_priv;
+	struct llce_mb *mb = priv->mb;
+	struct device *dev = mb->controller.dev;
 
-	return -EINVAL;
+	switch (msg->sw_cmd.cmd) {
+	case LLCE_GET_FIFO_INDEX:
+		return process_get_fifo_index(chan, msg);
+	case LLCE_GET_CAN_STATS:
+		return process_get_can_stats(chan, msg);
+	default:
+		dev_err(dev, "Failed to interpret sw cmd=%u\n",
+			msg->sw_cmd.cmd);
+		return -EINVAL;
+	}
 }
 
 static int process_config_msg(struct mbox_chan *chan,
@@ -1364,6 +1398,7 @@ static int map_llce_shmem(struct llce_mb *mb)
 	mb->lin_sh_mem = (struct llce_lin_shared_memory __iomem *)
 			 llce_get_lin_shmem_addr(shmem);
 	mb->status = llce_get_status_regs_addr(shmem);
+	mb->can_stats = llce_get_rx_tx_stats_addr(shmem);
 
 	return 0;
 }
