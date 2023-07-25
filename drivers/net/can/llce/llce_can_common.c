@@ -636,7 +636,7 @@ int llce_send_config_cmd(struct mbox_chan *conf_chan,
 		}
 
 		break;
-	case LLCE_GET_FIFO_INDEX:
+	case LLCE_EXECUTE_SW_CMD:
 		break;
 	default:
 		dev_err(dev, "Unknown command for CAN cfg channel %u\n",
