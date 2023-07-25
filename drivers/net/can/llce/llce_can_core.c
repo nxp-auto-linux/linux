@@ -34,9 +34,12 @@ static int llce_get_fifo(struct llce_can_core *can_core, u8 hw_ctrl, u8 *fifo)
 	struct mbox_chan *conf_chan = can_core->config;
 	struct device *dev = get_can_core_dev(can_core);
 	struct llce_config_msg msg = {
-		.cmd = LLCE_GET_FIFO_INDEX,
-		.fifo_cmd = {
-			.hw_ctrl = hw_ctrl,
+		.cmd = LLCE_EXECUTE_SW_CMD,
+		.sw_cmd = {
+			.cmd = LLCE_GET_FIFO_INDEX,
+			.fifo_cmd = {
+				.hw_ctrl = hw_ctrl,
+			},
 		},
 	};
 	int ret;
@@ -47,7 +50,7 @@ static int llce_get_fifo(struct llce_can_core *can_core, u8 hw_ctrl, u8 *fifo)
 		return ret;
 	}
 
-	*fifo = msg.fifo_cmd.fifo;
+	*fifo = msg.sw_cmd.fifo_cmd.fifo;
 
 	return 0;
 }
