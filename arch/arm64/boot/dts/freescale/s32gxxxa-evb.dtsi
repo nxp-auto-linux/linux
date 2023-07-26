@@ -747,10 +747,6 @@
 	status = "okay";
 };
 
-&llce_boot_status {
-	status = "okay";
-};
-
 &llce_can1 {
 	status = "okay";
 };
