@@ -6,6 +6,7 @@
 #include <linux/genalloc.h>
 #include <linux/kernel.h>
 #include <linux/mailbox/nxp-llce/llce_fw_interface.h>
+#include <linux/mailbox/nxp-llce/llce_core.h>
 #include <linux/module.h>
 #include <linux/moduleparam.h>
 #include <linux/of_address.h>
@@ -19,7 +20,7 @@
 #define LLCE_CORE2_TS		"core2_ts"
 #define LLCE_CORE3_TS		"core3_ts"
 
-#define LLCE_STATUS_REGION	"status"
+#define LLCE_SHMEM_REGION	"shmem"
 #define LLCE_SYSRSTR		0x0
 #define LLCE_SYSRSTR_RST0	BIT(0)
 #define LLCE_SYSRSTR_RST1	BIT(1)
@@ -35,7 +36,6 @@
 #define LLCE_MGR_TX_BOOT_END			(0x00000F00U)
 #define LLCE_MGR_FRPE_BOOT_END			(0x0000F000U)
 #define LLCE_MGR_BOOT_END_ALL_CORES_MASK	(0x0000FFFFU)
-#define STATUS_REGS_OFFSET			(0x8A0U)
 #define CORES_TS_OFFSET				(0x13FD0)
 
 struct sram_node {
@@ -155,6 +155,20 @@ static struct sram_node *get_core_sram(struct llce_core *core, const char *name)
 	return NULL;
 }
 
+static void __iomem *get_status_regs(struct llce_core *core)
+{
+	struct device *dev = core->dev;
+	struct sram_node *shmem = get_core_sram(core, LLCE_SHMEM_REGION);
+
+	if (!shmem) {
+		dev_err(dev, "Memory region %s not found\n",
+			LLCE_SHMEM_REGION);
+		return NULL;
+	}
+
+	return llce_get_status_regs_addr(shmem->addr);
+}
+
 static int llce_load_fw_images(struct device *dev, struct llce_core *core)
 {
 	int i, ret;
@@ -228,42 +242,46 @@ static void reset_llce_cores(void __iomem *sysctrl_base)
 	writel(0x0, sysctrl_base + LLCE_SYSRSTR);
 }
 
-static bool llce_boot_end(struct device *dev, void *status_reg, bool verbose)
+static bool llce_boot_end(struct device *dev, void __iomem *status_reg,
+			  bool verbose)
 {
-	struct llce_mgr_status *mgr_status = status_reg;
+	struct llce_mgr_status mgr_status;
 
-	if (mgr_status->tx_boot_status != LLCE_FW_SUCCESS) {
+	memcpy_fromio(&mgr_status, status_reg, sizeof(mgr_status));
+
+	if (mgr_status.tx_boot_status != LLCE_FW_SUCCESS) {
 		if (verbose)
 			dev_err(dev, "TX boot failed with status: %d\n",
-				mgr_status->tx_boot_status);
+				mgr_status.tx_boot_status);
 		return false;
 	}
 
-	if (mgr_status->rx_boot_status != LLCE_FW_SUCCESS) {
+	if (mgr_status.rx_boot_status != LLCE_FW_SUCCESS) {
 		if (verbose)
 			dev_err(dev, "RX boot failed with status: %d\n",
-				mgr_status->rx_boot_status);
+				mgr_status.rx_boot_status);
 		return false;
 	}
 
-	if (mgr_status->dte_boot_status != LLCE_FW_SUCCESS) {
+	if (mgr_status.dte_boot_status != LLCE_FW_SUCCESS) {
 		if (verbose)
 			dev_err(dev, "DTE boot failed with status: %d\n",
-				mgr_status->dte_boot_status);
+				mgr_status.dte_boot_status);
 		return false;
 	}
 
-	if (mgr_status->frpe_boot_status != LLCE_FW_SUCCESS) {
+	if (mgr_status.frpe_boot_status != LLCE_FW_SUCCESS) {
 		if (verbose)
 			dev_err(dev, "FRPE boot failed with status: %d\n",
-				mgr_status->frpe_boot_status);
+				mgr_status.frpe_boot_status);
 		return false;
 	}
 
 	return true;
 }
 
-static bool llce_boot_end_or_timeout(struct device *dev, void *status_reg,
+static bool llce_boot_end_or_timeout(struct device *dev,
+				     void __iomem *status_reg,
 				     ktime_t timeout)
 {
 	ktime_t cur = ktime_get();
@@ -273,7 +291,7 @@ static bool llce_boot_end_or_timeout(struct device *dev, void *status_reg,
 }
 
 static int llce_cores_kickoff(struct device *dev, void __iomem *sysctrl_base,
-			      void *status_reg)
+			      void __iomem *status_reg)
 {
 	ktime_t timeout = ktime_add_ns(ktime_get(), LLCE_BOOT_POLL_NS);
 	u32 mask = LLCE_SYSRSTR_RST0 | LLCE_SYSRSTR_RST1 |
@@ -317,21 +335,17 @@ static void deinit_core_clock(struct llce_core *core)
 
 static int start_llce_cores(struct device *dev, struct llce_core *core)
 {
+	void __iomem *status = get_status_regs(core);
 	int ret;
-	struct sram_node *status = get_core_sram(core, LLCE_STATUS_REGION);
 
-	if (!status) {
-		dev_err(dev, "Memory region %s not found\n",
-			LLCE_STATUS_REGION);
+	if (!status)
 		return -EINVAL;
-	}
 
 	reset_llce_cores(core->sysctrl_base);
 
 	llce_flush_fw(core);
 
-	ret = llce_cores_kickoff(dev, core->sysctrl_base,
-				 status->addr + STATUS_REGS_OFFSET);
+	ret = llce_cores_kickoff(dev, core->sysctrl_base, status);
 	if (ret) {
 		dev_err(dev, "Failed to start LLCE cores\n");
 		return ret;
@@ -370,18 +384,17 @@ static int init_debugfs_files(struct llce_core *core)
 {
 	struct llce_mgr_time_stamp_cores __iomem *ts;
 	struct device *dev = core->dev;
-	struct sram_node *status;
-	void __iomem *cores_ts;
+	void __iomem *cores_ts, *status;
 	struct dentry *file;
 
 	if (!IS_ENABLED(CONFIG_DEBUG_FS))
 		return 0;
 
-	status = get_core_sram(core, LLCE_STATUS_REGION);
+	status = get_status_regs(core);
 	if (!status)
 		return -EINVAL;
 
-	cores_ts = status->addr + CORES_TS_OFFSET;
+	cores_ts = status + CORES_TS_OFFSET;
 	ts = cores_ts;
 
 	core->debugfs_root = debugfs_create_dir(LLCE_CORE_DIR, NULL);
