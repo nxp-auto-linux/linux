@@ -11,6 +11,7 @@
 #include <linux/io.h>
 #include <linux/kernel.h>
 #include <linux/mailbox/nxp-llce/llce_can.h>
+#include <linux/mailbox/nxp-llce/llce_core.h>
 #include <linux/mailbox/nxp-llce/llce_interface_fifo.h>
 #include <linux/mailbox/nxp-llce/llce_mailbox.h>
 #include <linux/mailbox/nxp-llce/llce_sema42.h>
@@ -60,7 +61,6 @@
 
 #define LLCE_CAN_COMPATIBLE		"nxp,s32g-llce-can"
 #define LLCE_SHMEM_REG_NAME		"shmem"
-#define LLCE_STATUS_REG_NAME		"status"
 
 #define LLCE_MODULE_ENTRY(MODULE) \
 	[MODULE - LLCE_TX] = __stringify_1(MODULE)
@@ -116,8 +116,8 @@ struct llce_mb {
 	/* spinlock used to protect the execution of the config commands. */
 	spinlock_t txack_lock;
 
-	struct llce_can_shared_memory *sh_mem;
-	void *status;
+	struct llce_can_shared_memory *can_sh_mem;
+	void __iomem *status;
 	void __iomem *rxout_fifo;
 	void __iomem *rxin_fifo;
 	void __iomem *txack_fifo;
@@ -543,7 +543,7 @@ static int execute_config_cmd(struct mbox_chan *chan,
 	struct llce_chan_priv *priv = chan->con_priv;
 	struct llce_mb *mb = priv->mb;
 	unsigned int idx = priv->index;
-	struct llce_can_command *sh_cmd;
+	struct llce_can_command __iomem *sh_cmd;
 	void __iomem *txack, *push0;
 	unsigned long flags;
 	int ret = 0;
@@ -553,7 +553,7 @@ static int execute_config_cmd(struct mbox_chan *chan,
 
 	txack = get_host_txack(mb);
 
-	sh_cmd = &mb->sh_mem->can_cmd[mb->hif_id];
+	sh_cmd = &mb->can_sh_mem->can_cmd[mb->hif_id];
 	push0 = LLCE_FIFO_PUSH0(txack);
 
 	spin_lock_irqsave(&mb->txack_lock, flags);
@@ -657,7 +657,7 @@ static int send_can_msg(struct mbox_chan *chan, struct llce_tx_msg *msg)
 	void __iomem *pop0 = LLCE_FIFO_POP0(blrout);
 	void __iomem *blrin = get_blrin_fifo(chan);
 	void __iomem *push0 = LLCE_FIFO_PUSH0(blrin);
-	struct llce_can_shared_memory *sh_cmd = mb->sh_mem;
+	struct llce_can_shared_memory *sh_cmd = mb->can_sh_mem;
 	unsigned int ack_interface, chan_idx = priv->index;
 	struct canfd_frame *cf = msg->cf;
 	u32 mb_index;
@@ -1238,7 +1238,7 @@ static bool llce_mb_last_tx_done(struct mbox_chan *chan)
 	}
 
 	txack = get_host_txack(mb);
-	sh_cmd = &mb->sh_mem->can_cmd[mb->hif_id];
+	sh_cmd = &mb->can_sh_mem->can_cmd[mb->hif_id];
 
 	spin_lock_irqsave(&mb->txack_lock, flags);
 
@@ -1320,16 +1320,19 @@ static int map_sram_node(struct device *dev, const char *name,
 	return 0;
 }
 
-static int map_llce_status(struct llce_mb *mb)
-{
-	return map_sram_node(mb->dev, LLCE_STATUS_REG_NAME,
-			     (void __iomem **)&mb->status);
-}
-
 static int map_llce_shmem(struct llce_mb *mb)
 {
-	return map_sram_node(mb->dev, LLCE_SHMEM_REG_NAME,
-			     (void __iomem **)&mb->sh_mem);
+	void __iomem *shmem;
+	int ret;
+
+	ret = map_sram_node(mb->dev, LLCE_SHMEM_REG_NAME, &shmem);
+	if (ret < 0)
+		return ret;
+
+	mb->can_sh_mem = (struct llce_can_shared_memory *)shmem;
+	mb->status = llce_get_status_regs_addr(shmem);
+
+	return 0;
 }
 
 static void __iomem *get_icsr_addr(struct llce_mb *mb, u32 icsr_id)
@@ -1387,7 +1390,7 @@ static void llce_process_tx_ack(struct llce_mb *mb, u8 index)
 	void __iomem *status1 = LLCE_FIFO_STATUS1(tx_ack);
 	void __iomem *pop0 = LLCE_FIFO_POP0(tx_ack);
 	struct mbox_controller *ctrl = &mb->controller;
-	struct llce_can_shared_memory *sh_mem = mb->sh_mem;
+	struct llce_can_shared_memory *can_sh_mem = mb->can_sh_mem;
 	struct llce_can_tx2host_ack_info *info;
 	struct llce_tx_notif notif;
 	u32 ack_id;
@@ -1397,7 +1400,7 @@ static void llce_process_tx_ack(struct llce_mb *mb, u8 index)
 		/* Get ACK mailbox */
 		ack_id = readl(pop0) & LLCE_CAN_CONFIG_FIFO_FIXED_MASK;
 
-		info = &sh_mem->can_tx_ack_info[ack_id];
+		info = &can_sh_mem->can_tx_ack_info[ack_id];
 		chan_index = get_channel_offset(S32G_LLCE_CAN_TX_MB,
 						info->frame_tag1);
 		notif.error = 0;
@@ -1499,7 +1502,7 @@ static void llce_process_rxin(struct llce_mb *mb, u8 index)
 	void __iomem *rxin = get_rxin_by_index(mb, index);
 	void __iomem *status1 = LLCE_FIFO_STATUS1(rxin);
 	void __iomem *pop0 = LLCE_FIFO_POP0(rxin);
-	struct llce_can_shared_memory *sh_mem = mb->sh_mem;
+	struct llce_can_shared_memory *can_sh_mem = mb->can_sh_mem;
 	struct llce_can_notification_table *table;
 	struct llce_can_notification *notif;
 	union llce_can_notification_list *list;
@@ -1509,7 +1512,7 @@ static void llce_process_rxin(struct llce_mb *mb, u8 index)
 	while (!(readl(status1) & LLCE_FIFO_FEMTYD)) {
 		/* Get notification mailbox */
 		rxin_id = readl(pop0) & LLCE_CAN_CONFIG_FIFO_FIXED_MASK;
-		table = &sh_mem->can_notification_table;
+		table = &can_sh_mem->can_notification_table;
 		notif = &table->can_notif0_table[mb->hif_id][rxin_id];
 		list = &notif->notif_list;
 
@@ -1623,7 +1626,7 @@ static int pop_rxout_frame(struct llce_mb *mb, void __iomem *rxout,
 {
 	void __iomem *pop0 = LLCE_FIFO_POP0(rxout);
 	struct device *dev = mb->controller.dev;
-	struct llce_can_shared_memory *sh_mem = mb->sh_mem;
+	struct llce_can_shared_memory *can_sh_mem = mb->can_sh_mem;
 	u32 rx_mb, rx_short_mb;
 	u16 filter_id;
 	u8 mb_type;
@@ -1631,13 +1634,13 @@ static int pop_rxout_frame(struct llce_mb *mb, void __iomem *rxout,
 	/* Get RX mailbox */
 	rx_mb = readl(pop0) & LLCE_CAN_CONFIG_FIFO_FIXED_MASK;
 
-	filter_id = sh_mem->can_rx_mb_desc[rx_mb].filter_id;
+	filter_id = can_sh_mem->can_rx_mb_desc[rx_mb].filter_id;
 
 	mb_type = llce_filter_get_mb_type(filter_id);
 	*hw_ctrl = llce_filter_get_hw_ctrl(filter_id);
 
 	if (mb_type == USE_LONG_MB) {
-		msg->rx_pop.mb.data.longm = &sh_mem->can_mb[rx_mb];
+		msg->rx_pop.mb.data.longm = &can_sh_mem->can_mb[rx_mb];
 		msg->rx_pop.mb.is_long = true;
 	} else {
 		if (rx_mb < LLCE_CAN_CONFIG_MAXRXMB) {
@@ -1646,7 +1649,7 @@ static int pop_rxout_frame(struct llce_mb *mb, void __iomem *rxout,
 		}
 
 		rx_short_mb = rx_mb - LLCE_CAN_CONFIG_MAXRXMB;
-		msg->rx_pop.mb.data.shortm = &sh_mem->can_short_mb[rx_short_mb];
+		msg->rx_pop.mb.data.shortm = &can_sh_mem->can_short_mb[rx_short_mb];
 		msg->rx_pop.mb.is_long = false;
 	}
 
@@ -1741,13 +1744,13 @@ static u8 get_hwctrl(struct llce_mb *mb, u32 frame_id)
 static void pop_logger_frame(struct llce_mb *mb, struct llce_can_mb **frame,
 			     u32 *index, u32 *hw_ctrl)
 {
-	struct llce_can_shared_memory *sh_mem = mb->sh_mem;
+	struct llce_can_shared_memory *can_sh_mem = mb->can_sh_mem;
 	void __iomem *out_fifo = get_logger_out(mb);
 	void __iomem *pop0 = LLCE_FIFO_POP0(out_fifo);
 
 	*index = readl(pop0) & LLCE_CAN_CONFIG_FIFO_FIXED_MASK;
 
-	*frame = &sh_mem->can_mb[*index];
+	*frame = &can_sh_mem->can_mb[*index];
 	*hw_ctrl = get_hwctrl(mb, *index);
 }
 
@@ -2598,10 +2601,6 @@ static int llce_mb_probe(struct platform_device *pdev)
 		return ret;
 
 	ret = init_llce_irq_resources(pdev, mb);
-	if (ret)
-		return ret;
-
-	ret = map_llce_status(mb);
 	if (ret)
 		return ret;
 
