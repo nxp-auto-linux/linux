@@ -255,12 +255,7 @@
 
 		llce_shmem: llce_shmem@43800000 {
 			compatible = "mmio-sram";
-			reg = <0x0 0x43800000 0x0 0x3c000>;
-		};
-
-		llce_boot_status: llce_boot_status@4383c000 {
-			compatible = "mmio-sram";
-			reg = <0x0 0x4383c000 0x0 0x14000>;
+			reg = <0x0 0x43800000 0x0 0x50000>;
 		};
 
 		llce: llce@43a00000 {
@@ -287,9 +282,9 @@
 				"ppe_tx.bin", "frpe.bin";
 			memory-region = <&llce_dte_sram>, <&llce_ppe_rx_sram>,
 				<&llce_ppe_tx_sram>, <&llce_frpe_sram>,
-				<&llce_shmem>, <&llce_boot_status>;
+				<&llce_shmem>;
 			memory-region-names = "dte.bin", "ppe_rx.bin",
-				"ppe_tx.bin", "frpe.bin", "shmem", "status";
+				"ppe_tx.bin", "frpe.bin", "shmem";
 			/* LLCE system control registers */
 			reg = <0x0 0x43ff8000 0x0 0x4000>;
 			reg-names = "sysctrl";
@@ -319,8 +314,8 @@
 					"sema42";
 				clocks = <&clks S32G_SCMI_CLK_LLCE_SYS>;
 				clock-names = "llce_sys";
-				memory-region = <&llce_shmem>, <&llce_boot_status>;
-				memory-region-names = "shmem", "status";
+				memory-region = <&llce_shmem>;
+				memory-region-names = "shmem";
 				interrupts = <GIC_SPI 174 IRQ_TYPE_LEVEL_HIGH>,
 					<GIC_SPI 175 IRQ_TYPE_LEVEL_HIGH>,
 					<GIC_SPI 176 IRQ_TYPE_LEVEL_HIGH>,
