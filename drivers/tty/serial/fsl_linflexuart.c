@@ -3,7 +3,7 @@
  * Freescale LINFlexD UART serial port driver
  *
  * Copyright 2012-2016 Freescale Semiconductor, Inc.
- * Copyright 2017-2022 NXP
+ * Copyright 2017-2023 NXP
  */
 
 #include <linux/circ_buf.h>
@@ -396,8 +396,7 @@ static void linflex_put_char(struct uart_port *sport, unsigned char c)
 	}
 
 	if (!lfport->dma_tx_use)
-		writel(status | LINFLEXD_UARTSR_DTFTFF,
-		       sport->membase + UARTSR);
+		writel(LINFLEXD_UARTSR_DTFTFF, sport->membase + UARTSR);
 }
 
 static inline void linflex_transmit_buffer(struct uart_port *sport)
@@ -621,7 +620,8 @@ static irqreturn_t linflex_rxint(int irq, void *dev_id)
 				sport->icount.parity++;
 		}
 
-		writel(status, sport->membase + UARTSR);
+
+		writel(~LINFLEXD_UARTSR_DTFTFF, sport->membase + UARTSR);
 		status = readl(sport->membase + UARTSR);
 
 		if (brk) {
@@ -1248,9 +1248,8 @@ static int linflex_poll_getchar(struct uart_port *port)
 			;
 	}
 
-	writel((readl(port->membase + UARTSR) |
-				LINFLEXD_UARTSR_DRFRFE),
-				port->membase + UARTSR);
+	writel(LINFLEXD_UARTSR_DRFRFE | LINFLEXD_UARTSR_RMB,
+	       port->membase + UARTSR);
 
 	ret = readb(port->membase + BDRM);
 
@@ -1307,9 +1306,7 @@ static void linflex_console_putchar(struct uart_port *port, int ch)
 				!= LINFLEXD_UARTSR_DTFTFF)
 			;
 
-		writel((readl(port->membase + UARTSR) |
-					LINFLEXD_UARTSR_DTFTFF),
-					port->membase + UARTSR);
+		writel(LINFLEXD_UARTSR_DTFTFF, port->membase + UARTSR);
 	}
 }
 
