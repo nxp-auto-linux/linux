@@ -33,8 +33,8 @@ properties:
     minItems: 6
     description: |
       A set of phandles to memory regions corresponding to the firmware
-      components and a link to the region where the firmware load status
-      can be read.
+      components and a link to the shared memory area used by host and
+      LLCE firmware.
 
   memory-region-names:
     items:
@@ -43,7 +43,6 @@ properties:
       - const: ppe_tx.bin
       - const: frpe.bin
       - const: shmem
-      - const: status
 
   reg-names:
     const: sysctrl
@@ -116,10 +115,10 @@ examples:
                 "ppe_tx.bin", "frpe.bin";
             memory-region = <&llce0_sram>, <&llce1_sram>,
                             <&llce2_sram>, <&llce3_sram>,
-                            <&llce_shmem>, <&llce_boot_status>;
+                            <&llce_shmem>;
             memory-region-names = "dte.bin", "ppe_rx.bin",
                                   "ppe_tx.bin", "frpe.bin",
-                                  "shmem", "status";
+                                  "shmem";
             reg = <0x6 0 0x0 0xc>;
             reg-names = "sysctrl";
             /* RX-IN_FIFO */
