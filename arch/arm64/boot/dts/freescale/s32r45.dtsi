@@ -333,6 +333,26 @@
 				 <S32CC_PINMUX(523, FUNC2)>;
 		};
 	};
+
+	thermal-zones {
+		a53_cores {
+			polling-delay-passive = <1000>;
+			polling-delay = <5000>;
+			thermal-sensors = <&tmu 0>;
+		};
+
+		radar_lax {
+			polling-delay-passive = <1000>;
+			polling-delay = <5000>;
+			thermal-sensors = <&tmu 1>;
+		};
+
+		analog_ips {
+			polling-delay-passive = <1000>;
+			polling-delay = <5000>;
+			thermal-sensors = <&tmu 2>;
+		};
+	};
 };
 
 &ocotp {
@@ -340,7 +360,13 @@
 };
 
 &tmu {
-	compatible = "nxp,s32r45-tmu";
+	fsl,tmu-range = <0xe4 0xe9 0xfd 0x12a 0x1a7 0x1ac>;
+	fsl,tmu-calibration = <0 0x20  0x7c0
+			       1 0x29  0x7c0
+			       2 0x4e  0x0
+			       3 0xa3  0x0
+			       4 0x195 0x1f
+			       5 0x19f 0x1f>;
 };
 
 &stm0 {
