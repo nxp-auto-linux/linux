@@ -319,12 +319,13 @@
 
 		tmu: tmu@400a8000 {
 			compatible = "nxp,s32cc-tmu";
+			#thermal-sensor-cells = <1>;
 			reg = <0x0 0x400a8000 0x0 0x3000>;
-			clocks = <&clks S32CC_SCMI_CLK_TMU_MODULE>,
-				<&clks S32CC_SCMI_CLK_TMU_REG>;
-			clock-names = "tmu_module", "tmu_reg";
+			clocks = <&clks S32CC_SCMI_CLK_TMU_MODULE>;
 			nvmem-cell-names = "tmu_fuse_val";
 			nvmem-cells = <&tmu_fuse_val>;
+			interrupts = <GIC_SPI 120 IRQ_TYPE_LEVEL_HIGH>;
+			little-endian;
 			status = "okay";
 		};
 
