@@ -58,8 +58,8 @@ enum llce_rx_cmd {
 
 struct llce_rx_can_mb {
 	union {
-		struct llce_can_short_mb *shortm;
-		struct llce_can_mb *longm;
+		struct llce_can_short_mb shortm;
+		struct llce_can_mb longm;
 	} data;
 	bool is_long;
 };
