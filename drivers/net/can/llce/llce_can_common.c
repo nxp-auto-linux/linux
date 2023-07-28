@@ -256,15 +256,15 @@ static void process_rx_msg(struct llce_can_dev *llce,
 	u8 len, *payload;
 
 	if (can_mb->is_long) {
-		word0 = can_mb->data.longm->word0;
-		word1 = can_mb->data.longm->word1;
-		payload = &can_mb->data.longm->payload[0];
-		timestamp = can_mb->data.longm->timestamp;
+		word0 = can_mb->data.longm.word0;
+		word1 = can_mb->data.longm.word1;
+		payload = &can_mb->data.longm.payload[0];
+		timestamp = can_mb->data.longm.timestamp;
 	} else {
-		word0 = can_mb->data.shortm->word0;
-		word1 = can_mb->data.shortm->word1;
-		payload = &can_mb->data.shortm->payload[0];
-		timestamp = can_mb->data.shortm->timestamp;
+		word0 = can_mb->data.shortm.word0;
+		word1 = can_mb->data.shortm.word1;
+		payload = &can_mb->data.shortm.payload[0];
+		timestamp = can_mb->data.shortm.timestamp;
 	}
 
 	unpack_word0(word0, &rtr, &ide, &std_id, &ext_id);
