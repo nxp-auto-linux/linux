@@ -4,6 +4,7 @@
  *
  */
 
+#include <linux/slab.h>
 #include <linux/nvmem-consumer.h>
 
 static inline char *read_nvmem_cell(struct device *dev,
