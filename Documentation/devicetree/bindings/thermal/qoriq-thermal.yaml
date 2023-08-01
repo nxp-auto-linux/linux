@@ -21,6 +21,7 @@ properties:
     enum:
       - fsl,qoriq-tmu
       - fsl,imx8mq-tmu
+      - nxp,s32cc-tmu
 
   reg:
     maxItems: 1
@@ -42,10 +43,12 @@ properties:
       specified by the SoC reference manual. The first cell of each pair
       is the value to be written to TTCFGR, and the second is the value
       to be written to TSCFGR.
-    items:
-      items:
-        - description: value for TTCFGR
-        - description: value for TSCFGR
+
+      On S32CC SoCs, this represents a list of 3-tuples where each tuple
+      contains the value written in TTCFGR, the second is the value for
+      TSCFGR and the last means an adjustment mask. This mask will be
+      applied to the nvmem cell referenced via nvmem-cells to obtain an
+      adjustment value for calibration points.
     minItems: 1
     maxItems: 64
 
@@ -61,6 +64,15 @@ properties:
   "#thermal-sensor-cells":
     const: 1
 
+  nvmem-cells:
+    maxItems: 1
+    description:
+      phandle to the temperature calibration fuse cells
+
+  nvmem-cell-names:
+    items:
+      - const: tmu_fuse_val
+
 required:
   - compatible
   - reg
@@ -68,6 +80,30 @@ required:
   - fsl,tmu-range
   - fsl,tmu-calibration
   - '#thermal-sensor-cells'
+
+allOf:
+  - if:
+      properties:
+        compatible:
+          const: nxp,s32cc-tmu
+    then:
+      properties:
+        fsl,tmu-calibration:
+          items:
+            items:
+              - description: value for TTCFGR
+              - description: value for TSCFGR
+              - description: nvmem cell mask
+      required:
+        - nvmem-cell-names
+        - nvmem-cells
+    else:
+      properties:
+        fsl,tmu-calibration:
+          items:
+            items:
+              - description: value for TTCFGR
+              - description: value for TSCFGR
 
 additionalProperties: false
 
@@ -112,3 +148,24 @@ examples:
                               <0x00030001 0x0000001d>;
         #thermal-sensor-cells = <1>;
     };
+
+  - |
+    #include <dt-bindings/interrupt-controller/arm-gic.h>
+    #include <dt-bindings/clock/s32cc-scmi-clock.h>
+
+    tmu@400a8000 {
+        compatible = "nxp,s32cc-tmu";
+        reg = <0x0 0x400a8000 0x0 0x3000>;
+        clocks = <&clks S32CC_SCMI_CLK_TMU_MODULE>;
+        nvmem-cell-names = "tmu_fuse_val";
+        nvmem-cells = <&tmu_fuse_val>;
+        fsl,tmu-range = <0xe9 0x101 0x13a 0x18e>;
+        fsl,tmu-calibration = <0 0x2c  0x7c0>,
+                              <1 0x59  0x0>,
+                              <2 0xc6  0x0>,
+                              <3 0x167 0x1f>;
+        interrupts = <GIC_SPI 120 IRQ_TYPE_LEVEL_HIGH>;
+        #thermal-sensor-cells = <1>;
+        status = "okay";
+    };
+
