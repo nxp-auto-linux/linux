@@ -36,9 +36,6 @@
 #define VEND1_PHY_IRQ_STATUS		0x80A2
 #define PHY_IRQ_LINK_EVENT		BIT(1)
 
-#define VEND1_ALWAYS_ACCESSIBLE		0x801F
-#define ALWAYS_ACCESSIBLE_FUSA_PASS	BIT(4)
-
 #define VEND1_PHY_CONTROL		0x8100
 #define PHY_CONFIG_EN			BIT(14)
 #define PHY_START_OP			BIT(0)
@@ -940,22 +937,11 @@ static int nxp_c45_soft_reset(struct phy_device *phydev)
 	if (ret)
 		return ret;
 
-	ret = phy_read_mmd_poll_timeout(phydev, MDIO_MMD_VEND1,
-					VEND1_DEVICE_CONTROL, ret,
-					!(ret & DEVICE_CONTROL_RESET), 20000,
-					240000, false);
-	if (ret)
-		return ret;
-
-	ret = phy_read_mmd_poll_timeout(phydev, MDIO_MMD_VEND1,
-					VEND1_ALWAYS_ACCESSIBLE, ret,
-					ret & ALWAYS_ACCESSIBLE_FUSA_PASS,
-					10000, 100000, false);
-	if (ret)
-		return ret;
-
-	return phy_write_mmd(phydev, MDIO_MMD_VEND1, VEND1_ALWAYS_ACCESSIBLE,
-			     ALWAYS_ACCESSIBLE_FUSA_PASS);
+	return phy_read_mmd_poll_timeout(phydev, MDIO_MMD_VEND1,
+					 VEND1_DEVICE_CONTROL, ret,
+					 !(ret & DEVICE_CONTROL_RESET), 
+					 20 * USEC_PER_MSEC,
+					 240 * USEC_PER_MSEC, false);
 }
 
 static int nxp_c45_cable_test_start(struct phy_device *phydev)
