@@ -24,6 +24,7 @@
 #define VEND1_MACSEC_BASE		0x9000
 
 #define MACSEC_CFG			0x0000
+#define MACSEC_CFG_EXTSCS		BIT(26)
 #define MACSEC_CFG_BYPASS		BIT(1)
 #define MACSEC_CFG_S0I			BIT(0)
 
@@ -172,7 +173,14 @@
 #define TJA11XX_TLV_TX_NEEDED_HEADROOM	(32)
 #define TJA11XX_TLV_NEEDED_TAILROOM	(0)
 
+#define MACSEC_TLV_CP			BIT(0)
+#define MACSEC_TLV_SC_ID_OFF		(2)
+
 #define ETH_P_TJA11XX_TLV		(0x4e58)
+
+static bool macsec_extscs;
+module_param(macsec_extscs, bool, 0);
+MODULE_PARM_DESC(macsec_extscs, "Select the TX SC using TLV header information. PTP frames encryption cannot work when this feature is enabled");
 
 enum nxp_c45_sa_type {
 	TX_SA,
@@ -1561,8 +1569,12 @@ struct tja11xx_tlv_header {
 static int nxp_c45_mdo_insert_tx_tag(struct phy_device *phydev,
 				     struct sk_buff *skb)
 {
+	struct nxp_c45_phy *priv = phydev->priv;
 	struct tja11xx_tlv_header *tlv;
+	struct nxp_c45_secy *phy_secy;
+	struct metadata_dst *md_dst;
 	struct ethhdr *eth;
+	sci_t sci;
 
 	eth = eth_hdr(skb);
 	tlv = skb_push(skb, TJA11XX_TLV_TX_NEEDED_HEADROOM);
@@ -1572,6 +1584,19 @@ static int nxp_c45_mdo_insert_tx_tag(struct phy_device *phydev,
 	tlv->subtype = 1;
 	tlv->len = sizeof(tlv->payload);
 	memset(tlv->payload, 0, sizeof(tlv->payload));
+
+	if (!macsec_extscs)
+		return 0;
+
+	/* md_dst should be always set if MACsec is offloaded. */
+	md_dst = skb_metadata_dst(skb);
+	sci = md_dst->u.macsec_info.sci;
+	phy_secy = nxp_c45_find_secy(&priv->macsec->secy_list, sci);
+	if (IS_ERR(phy_secy))
+		return PTR_ERR(phy_secy);
+
+	tlv->payload[3] = phy_secy->secy_id << MACSEC_TLV_SC_ID_OFF |
+		MACSEC_TLV_CP;
 
 	return 0;
 }
@@ -1646,6 +1671,12 @@ int nxp_c45_macsec_config_init(struct phy_device *phydev)
 		return ret;
 
 	ret = nxp_c45_macsec_write(phydev, MACSEC_UPFR0R, MACSEC_UPFR_EN);
+	if (ret)
+		return ret;
+
+	if (macsec_extscs)
+		ret = nxp_c45_macsec_write(phydev, MACSEC_CFG,
+					   MACSEC_CFG_EXTSCS);
 
 	return ret;
 }
