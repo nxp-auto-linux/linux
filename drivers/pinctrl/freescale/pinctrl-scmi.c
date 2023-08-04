@@ -659,7 +659,7 @@ static int scmi_pinctrl_pmx_gpio_request_enable(struct pinctrl_dev *pctldev,
 	return 0;
 
 err_free_configs:
-	kfree(gpio_config->configs);
+	devm_kfree(pctldev->dev, gpio_config->configs);
 err_free_pcf:
 	devm_kfree(pctldev->dev, pcf.multi_bit_values);
 err_free:
@@ -715,7 +715,7 @@ static void scmi_pinctrl_pmx_gpio_disable_free(struct pinctrl_dev *pctldev,
 	if (ret)
 		dev_err(pctldev->dev, "Failed to set pinconf values!\n");
 
-	kfree(gpio_config->configs);
+	devm_kfree(pctldev->dev, gpio_config->configs);
 	devm_kfree(pctldev->dev, gpio_config);
 }
 
