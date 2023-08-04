@@ -638,7 +638,7 @@ static int scmi_pinctrl_pmx_gpio_request_enable(struct pinctrl_dev *pctldev,
 					    &pcf);
 	if (ret) {
 		dev_err(pctldev->dev, "Error converting from pcf!\n");
-		goto err_free_pcf;
+		goto err_free_configs;
 	}
 
 	ret = scmi_pinctrl_save_pin_function(pctldev, offset,
@@ -651,13 +651,16 @@ static int scmi_pinctrl_pmx_gpio_request_enable(struct pinctrl_dev *pctldev,
 	ret = priv->pinctrl_ops->pinmux_set(priv->ph, 1, &pf);
 	if (ret) {
 		dev_err(pctldev->dev, "Error configuring the GPIO!\n");
-		goto err_free_configs;
+		goto err_restore_function;
 	}
 
 	save_gpio_config(priv, gpio_config);
 
 	return 0;
 
+err_restore_function:
+	(void)scmi_pinctrl_save_pin_function(pctldev, offset,
+					     gpio_config->func);
 err_free_configs:
 	devm_kfree(pctldev->dev, gpio_config->configs);
 err_free_pcf:
