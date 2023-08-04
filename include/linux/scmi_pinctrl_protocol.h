@@ -101,7 +101,7 @@ int scmi_pinctrl_pin_list_add_pin(struct scmi_pinctrl_pin_list *list,
 int scmi_pinctrl_create_pcf(unsigned long *configs,
 			    unsigned int num_configs,
 			    struct scmi_pinctrl_pinconf *pcf);
-int scmi_pinctrl_convert_from_pcf(unsigned long **configs,
+int scmi_pinctrl_convert_from_pcf(unsigned long *configs,
 				  struct scmi_pinctrl_pinconf *pcf);
 unsigned int scmi_pinctrl_count_multi_bit_values(unsigned long *configs,
 						 unsigned int num_configs);
