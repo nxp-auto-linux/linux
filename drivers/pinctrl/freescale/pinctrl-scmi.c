@@ -624,8 +624,9 @@ static int scmi_pinctrl_pmx_gpio_request_enable(struct pinctrl_dev *pctldev,
 		goto err_free_pcf;
 	}
 
+	gpio_config->no_configs = hweight32(pcf.mask);
 	gpio_config->configs = devm_kmalloc(pctldev->dev,
-					    (hweight32(pcf.mask) *
+					    (gpio_config->no_configs *
 					     sizeof(*gpio_config->configs)),
 					    GFP_KERNEL);
 	if (!gpio_config->configs) {
