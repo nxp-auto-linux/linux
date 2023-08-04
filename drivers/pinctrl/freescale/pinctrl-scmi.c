@@ -675,6 +675,7 @@ static void scmi_pinctrl_pmx_gpio_disable_free(struct pinctrl_dev *pctldev,
 	struct scmi_pinctrl_priv *priv = pinctrl_dev_get_drvdata(pctldev);
 	struct scmi_pinctrl_gpio_config *gpio_config, *tmp;
 	struct scmi_pinctrl_pin_function pf;
+	bool found = false;
 	int ret;
 
 	if (offset > U16_MAX)
@@ -684,13 +685,17 @@ static void scmi_pinctrl_pmx_gpio_disable_free(struct pinctrl_dev *pctldev,
 	list_for_each_entry_safe(gpio_config, tmp, &priv->gpios_list, list) {
 		if (gpio_config->id == offset) {
 			list_del(&gpio_config->list);
+			found = true;
 			break;
 		}
 	}
 	mutex_unlock(&priv->gpios_list_lock);
 
-	if (!gpio_config)
+	if (!found) {
+		dev_err(pctldev->dev, "Error finding gpio config for pin: %d\n",
+			offset);
 		return;
+	}
 
 	ret = scmi_pinctrl_save_pin_function(pctldev, offset,
 					     gpio_config->func);
