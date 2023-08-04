@@ -234,20 +234,19 @@ int scmi_pinctrl_create_pcf(unsigned long *configs,
 	return ret;
 }
 
-int scmi_pinctrl_convert_from_pcf(unsigned long **configs,
+int scmi_pinctrl_convert_from_pcf(unsigned long *configs,
 				  struct scmi_pinctrl_pinconf *pcf)
 {
-	unsigned int index = 0, m_idx = 0;
-	unsigned long bit, mask = pcf->mask, cfg;
+	unsigned int index = 0, m_idx = 0, value;
+	unsigned long bit, mask = pcf->mask;
 
 	for_each_set_bit(bit, &mask, sizeof(pcf->mask) * BITS_PER_BYTE) {
 		if (is_multi_bit_value((enum pin_config_param)bit))
-			cfg = PIN_CONF_PACKED(bit,
-					      pcf->multi_bit_values[m_idx++]);
+			value = pcf->multi_bit_values[m_idx++];
 		else
-			cfg = PIN_CONF_PACKED(bit,
-					      pcf->boolean_values & BIT(bit));
-		(*configs)[index++] = cfg;
+			value = !!(pcf->boolean_values & BIT(bit));
+
+		configs[index++] = PIN_CONF_PACKED(bit, value);
 	}
 
 	return 0;
