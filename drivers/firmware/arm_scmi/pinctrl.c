@@ -552,9 +552,9 @@ scmi_pinctrl_protocol_pinmux_set(const struct scmi_protocol_handle *ph,
 }
 
 static int
-scmi_pinctrl_add_multi_bit_values(const struct scmi_protocol_handle *ph,
-				  struct scmi_pinctrl_pinconf *pcf,
-				  struct scmi_msg_resp_pinctrl_pcf_get *rv)
+scmi_pinctrl_add_le32_multi_bit_values(const struct scmi_protocol_handle *ph,
+				       struct scmi_pinctrl_pinconf *pcf,
+				       struct scmi_msg_resp_pinctrl_pcf_get *rv)
 {
 	unsigned int b = sizeof(pcf->mask) * BITS_PER_BYTE - 1;
 	unsigned int mb_idx = 0;
@@ -611,7 +611,7 @@ scmi_pinctrl_protocol_pinconf_get(const struct scmi_protocol_handle *ph,
 	pcf->mask = le32_to_cpu(rv->mask);
 	pcf->boolean_values = le32_to_cpu(rv->boolean_values);
 
-	ret = scmi_pinctrl_add_multi_bit_values(ph, pcf, rv);
+	ret = scmi_pinctrl_add_le32_multi_bit_values(ph, pcf, rv);
 err:
 	ph->xops->xfer_put(ph, t);
 
