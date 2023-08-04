@@ -633,7 +633,7 @@ static int scmi_pinctrl_pmx_gpio_request_enable(struct pinctrl_dev *pctldev,
 		goto err_free_pcf;
 	}
 
-	ret = scmi_pinctrl_convert_from_pcf(&gpio_config->configs,
+	ret = scmi_pinctrl_convert_from_pcf(gpio_config->configs,
 					    &pcf);
 	if (ret) {
 		dev_err(pctldev->dev, "Error converting from pcf!\n");
@@ -811,7 +811,7 @@ static int scmi_pinctrl_pinconf_get(struct pinctrl_dev *pctldev,
 		goto err_pcf;
 	}
 
-	ret = scmi_pinctrl_convert_from_pcf(&configs, &pcf);
+	ret = scmi_pinctrl_convert_from_pcf(configs, &pcf);
 	if (ret) {
 		dev_err(pctldev->dev, "Error converting pcf!\n");
 		goto err_cfgs;
