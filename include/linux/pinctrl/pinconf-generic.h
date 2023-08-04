@@ -141,7 +141,7 @@ enum pin_config_param {
 /*
  * Helpful configuration macro to be used in tables etc.
  */
-#define PIN_CONF_PACKED(p, a) ((a << 8) | ((unsigned long) p & 0xffUL))
+#define PIN_CONF_PACKED(p, a) (((a) << 8) | ((unsigned long) (p) & 0xffUL))
 
 /*
  * The following inlines stuffs a configuration parameter and data value
