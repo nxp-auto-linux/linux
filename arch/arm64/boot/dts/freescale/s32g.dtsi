@@ -291,7 +291,15 @@
 				/* LLCE UART3 */
 				<0x10 0 0x0 0x43c08C00 0x0 0x400>,
 				/* LLCE CORE2CORE */
-				<0x11 0 0x0 0x43c26000 0x0 0x70>;
+				<0x11 0 0x0 0x43c26000 0x0 0x70>,
+				/* LLCE LPSPI0 */
+				<0x12 0 0x0 0x43c00000 0x0 0x1000>,
+				/* LLCE LPSPI1 */
+				<0x13 0 0x0 0x43c01000 0x0 0x1000>,
+				/* LLCE LPSPI2 */
+				<0x14 0 0x0 0x43c02000 0x0 0x1000>,
+				/* LLCE LPSPI3 */
+				<0x15 0 0x0 0x43c03000 0x0 0x1000>;
 
 			clocks = <&clks S32G_SCMI_CLK_LLCE_SYS>;
 			clock-names = "llce_sys";
@@ -337,7 +345,8 @@
 				memory-region-names = "shmem";
 				interrupt-controller;
 				#interrupt-cells = <1>;
-				interrupts = <GIC_SPI 172 IRQ_TYPE_LEVEL_HIGH>,
+				interrupts = <GIC_SPI 171 IRQ_TYPE_LEVEL_HIGH>,
+					<GIC_SPI 172 IRQ_TYPE_LEVEL_HIGH>,
 					<GIC_SPI 174 IRQ_TYPE_LEVEL_HIGH>,
 					<GIC_SPI 175 IRQ_TYPE_LEVEL_HIGH>,
 					<GIC_SPI 176 IRQ_TYPE_LEVEL_HIGH>,
@@ -345,7 +354,8 @@
 					<GIC_SPI 182 IRQ_TYPE_LEVEL_HIGH>,
 					<GIC_SPI 183 IRQ_TYPE_LEVEL_HIGH>,
 					<GIC_SPI 184 IRQ_TYPE_LEVEL_HIGH>;
-				interrupt-names = "linflex_irq",
+				interrupt-names = "lpspi_irq",
+					"linflex_irq",
 					"rxin_fifo_0_7",
 					"rxin_fifo_8_15",
 					"rxout_fifo_0_7",
