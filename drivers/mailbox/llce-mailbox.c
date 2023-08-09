@@ -154,6 +154,7 @@ struct llce_mb {
 	bool fw_logger_support;
 	struct irq_chip irq_chip;
 	struct irq_domain *domain;
+	raw_spinlock_t wa_lock;
 };
 
 struct llce_mb_desc {
@@ -2269,6 +2270,7 @@ static irqreturn_t llce_mb_lin_handler(int irq, void *data)
 	struct llce_mb *mb = data;
 	u32 i;
 	unsigned int virq;
+	unsigned long wa_lock_flags;
 	irqreturn_t ret = IRQ_NONE;
 
 	for (i = 0; i < LLCE_LINFLEX_NR; i++) {
@@ -2276,8 +2278,9 @@ static irqreturn_t llce_mb_lin_handler(int irq, void *data)
 		if (!virq)
 			continue;
 
+		raw_spin_lock_irqsave(&mb->wa_lock, wa_lock_flags);
 		generic_handle_irq(virq);
-		host2tx_clear_interrupt(mb, i);
+		raw_spin_unlock_irqrestore(&mb->wa_lock, wa_lock_flags);
 		ret |= IRQ_HANDLED;
 	}
 
@@ -2929,6 +2932,7 @@ static int llce_mb_probe(struct platform_device *pdev)
 	spin_lock_init(&mb->txack_lock);
 	spin_lock_init(&mb->lin_lock);
 	spin_lock_init(&mb->fifos_irq_ref_cnt.lock);
+	raw_spin_lock_init(&mb->wa_lock);
 
 	ctrl = &mb->controller;
 	ctrl->txdone_irq = false;
