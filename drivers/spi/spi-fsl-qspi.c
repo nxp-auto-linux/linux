@@ -995,7 +995,7 @@ static void dllcra_bypass(struct fsl_qspi *q, u32 dllmask)
 	qspi_writel(q, dllcra, base + QUADSPI_DLLCRA);
 
 	while (!(qspi_readl(q, base + QUADSPI_DLLSR) &
-		 QUADSPI_DLLSR_DLLA_LOCK))
+		 QUADSPI_DLLSR_SLVA_LOCK))
 		;
 
 	dllcra &= ~QUADSPI_DLLCR_SLV_UPD_EN;
