@@ -2157,13 +2157,11 @@ static void host2tx_disable_interrupt(struct llce_mb *mb, u32 hw_ctrl)
 static void host2tx_clear_interrupt(struct llce_mb *mb, u32 hw_ctrl)
 {
 	void __iomem *hintc2r = LLCE_CORE2CORE_HINTC2R(mb->core2core);
-	u32 hintc2r_val;
 	unsigned long flags;
 
 	spin_lock_irqsave(&mb->lin_lock, flags);
 
-	hintc2r_val = readl(hintc2r);
-	writel(hintc2r_val | BIT(hw_ctrl), hintc2r);
+	writel(BIT(hw_ctrl), hintc2r);
 
 	spin_unlock_irqrestore(&mb->lin_lock, flags);
 }
@@ -2268,12 +2266,16 @@ static int lin_init(struct llce_mb *mb)
 static irqreturn_t llce_mb_lin_handler(int irq, void *data)
 {
 	struct llce_mb *mb = data;
-	u32 i;
+	void __iomem *hintc2r = LLCE_CORE2CORE_HINTC2R(mb->core2core);
+	u32 i, hintc2r_val;
 	unsigned int virq;
 	unsigned long wa_lock_flags;
 	irqreturn_t ret = IRQ_NONE;
 
+	hintc2r_val = readl(hintc2r);
 	for (i = 0; i < LLCE_LINFLEX_NR; i++) {
+		if (!(hintc2r_val & BIT(i)))
+			continue;
 		virq = irq_find_mapping(mb->domain, i);
 		if (!virq)
 			continue;
@@ -2321,7 +2323,7 @@ static int llce_mb_irq_map(struct irq_domain *d,
 	if (ret)
 		return ret;
 
-	irq_set_chip_and_handler(irq, &llce_mb_irq_chip, handle_simple_irq);
+	irq_set_chip_and_handler(irq, &llce_mb_irq_chip, handle_level_irq);
 	irq_set_chip_data(irq, mb);
 	irq_set_noprobe(irq);
 
