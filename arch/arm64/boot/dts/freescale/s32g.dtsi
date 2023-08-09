@@ -1114,7 +1114,7 @@
 		};
 
 		llce_uart1_pins_grp1 {
-			pinmux = <S32CC_PINMUX(36, FUNC0)>;
+			pinmux = <S32CC_PINMUX(36, FUNC4)>;
 			input-enable;
 			slew-rate = <S32CC_SLEW_133MHZ>;
 		};
@@ -1132,7 +1132,7 @@
 		};
 
 		llce_uart2_pins_grp1 {
-			pinmux = <S32CC_PINMUX(38, FUNC0)>;
+			pinmux = <S32CC_PINMUX(38, FUNC2)>;
 			input-enable;
 			slew-rate = <S32CC_SLEW_133MHZ>;
 		};
@@ -1150,7 +1150,7 @@
 		};
 
 		llce_uart3_pins_grp1 {
-			pinmux = <S32CC_PINMUX(183, FUNC0)>;
+			pinmux = <S32CC_PINMUX(183, FUNC2)>;
 			input-enable;
 			slew-rate = <S32CC_SLEW_133MHZ>;
 		};
