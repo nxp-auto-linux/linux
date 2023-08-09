@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0+
 /*
- * Copyright 2020-2022 NXP
+ * Copyright 2020-2023 NXP
  */
 #include <linux/io.h>
 #include <linux/mtd/spi-nor.h>
@@ -687,7 +687,7 @@ static void dllcra_bypass(struct fsl_qspi *q, u32 dllmask)
 	qspi_writel(q, dllcra, base + QUADSPI_DLLCRA);
 
 	while (!(qspi_readl(q, base + QUADSPI_DLLSR) &
-		 QUADSPI_DLLSR_DLLA_LOCK_MASK))
+		 QUADSPI_DLLSR_SLVA_LOCK_MASK))
 		;
 
 	dllcra &= ~QUADSPI_DLLCR_SLV_UPD_EN_MASK;
