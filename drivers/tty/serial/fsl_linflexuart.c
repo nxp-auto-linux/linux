@@ -610,42 +610,44 @@ static irqreturn_t linflex_rxint(int irq, void *dev_id)
 	struct tty_port *port = &sport->state->port;
 	unsigned long status;
 	unsigned char rx;
-	bool brk;
+	int sysrq;
 
-	status = readl(sport->membase + UARTSR);
+	while (true) {
+		status = readl(sport->membase + UARTSR);
+		if (!(status & LINFLEXD_UARTSR_RMB))
+			break;
 
-	while (status & LINFLEXD_UARTSR_RMB) {
 		rx = readb(sport->membase + BDRM);
-		brk = false;
+		writel(~(u32)LINFLEXD_UARTSR_DTFTFF, sport->membase + UARTSR);
+
 		flg = TTY_NORMAL;
 		sport->icount.rx++;
 
-		if (status & (LINFLEXD_UARTSR_BOF | LINFLEXD_UARTSR_FEF |
-				LINFLEXD_UARTSR_PE)) {
+		if (unlikely(status & (LINFLEXD_UARTSR_BOF |
+				LINFLEXD_UARTSR_FEF |
+				LINFLEXD_UARTSR_PE))) {
 			if (status & LINFLEXD_UARTSR_BOF)
 				sport->icount.overrun++;
 			if (status & LINFLEXD_UARTSR_FEF) {
 				if (!rx) {
-					brk = true;
 					sport->icount.brk++;
-				} else
+					if (uart_handle_break(sport))
+						continue;
+				} else {
+					flg = TTY_FRAME;
 					sport->icount.frame++;
+				}
 			}
-			if (status & LINFLEXD_UARTSR_PE)
+			if (status & LINFLEXD_UARTSR_PE) {
+				flg = TTY_PARITY;
 				sport->icount.parity++;
+			}
 		}
 
-
-		writel(~(u32)LINFLEXD_UARTSR_DTFTFF, sport->membase + UARTSR);
-		status = readl(sport->membase + UARTSR);
-
-		if (brk) {
-			uart_handle_break(sport);
-		} else {
-			if (uart_handle_sysrq_char(sport, (unsigned char)rx))
-				continue;
-			tty_insert_flip_char(port, rx, flg);
-		}
+		sysrq = uart_handle_sysrq_char(sport, (unsigned char)rx);
+		if (!sysrq)
+			uart_insert_char(sport, status,
+					 LINFLEXD_UARTSR_BOF, rx, flg);
 	}
 
 	tty_flip_buffer_push(port);
@@ -657,7 +659,8 @@ static irqreturn_t linflex_int(int irq, void *dev_id)
 {
 	struct linflex_port *lfport = dev_id;
 	struct uart_port *sport = &lfport->port;
-	unsigned long flags, status;
+	unsigned long flags;
+	u32 status;
 
 	uart_port_lock_irqsave(sport, &flags);
 
