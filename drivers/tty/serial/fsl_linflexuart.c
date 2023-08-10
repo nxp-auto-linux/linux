@@ -24,7 +24,7 @@
 #include <linux/jiffies.h>
 #include <linux/kgdb.h>
 #include <linux/delay.h>
-
+#include <linux/iopoll.h>
 /* All registers are 32-bit width */
 
 #define LINCR1	0x0000	/* LIN control register				*/
@@ -188,6 +188,7 @@ struct linflex_port {
 	bool			poll_in_use;
 #endif
 	atomic_t		sending;
+	unsigned int		character_delay;
 };
 
 static const struct of_device_id linflex_dt_ids[] = {
@@ -614,7 +615,13 @@ static irqreturn_t linflex_rxint(int irq, void *dev_id)
 	int sysrq;
 
 	while (true) {
-		status = readl(sport->membase + UARTSR);
+		/* Wait for one more character to be received to avoid
+		 * buffer overflow.
+		 */
+		readl_poll_timeout_atomic(sport->membase + UARTSR, status,
+				status & LINFLEXD_UARTSR_RMB,
+				lfport->character_delay / 8,
+				lfport->character_delay);
 		if (!(status & LINFLEXD_UARTSR_RMB))
 			break;
 
@@ -661,20 +668,34 @@ static irqreturn_t linflex_int(int irq, void *dev_id)
 	struct linflex_port *lfport = dev_id;
 	struct uart_port *sport = &lfport->port;
 	unsigned long flags;
-	u32 status;
+	u32 status, ier, old_ier;
+	bool breakcond;
 
 	spin_lock_irqsave(&sport->lock, flags);
 
+	/* Disable transmission/reception IRQs. */
+	old_ier = readl(sport->membase + LINIER);
+	ier = old_ier & (~(LINFLEXD_LINIER_DRIE | LINFLEXD_LINIER_DTIE));
+	writel(ier, sport->membase + LINIER);
+
 	while (true) {
 		status = readl(sport->membase + UARTSR);
+		breakcond = true;
 
-		if (status & LINFLEXD_UARTSR_DRFRFE && !lfport->dma_rx_use)
+		if (status & LINFLEXD_UARTSR_DRFRFE && !lfport->dma_rx_use) {
 			linflex_rxint(irq, dev_id);
-		else if (status & LINFLEXD_UARTSR_DTFTFF && !lfport->dma_tx_use)
+			breakcond = false;
+		}
+		if (status & LINFLEXD_UARTSR_DTFTFF && !lfport->dma_tx_use) {
 			linflex_txint(irq, dev_id);
-		else
+			breakcond = false;
+		}
+		if (breakcond)
 			break;
 	}
+
+	/* Enable transmission/reception IRQs. */
+	writel(old_ier, sport->membase + LINIER);
 
 	spin_unlock_irqrestore(&sport->lock, flags);
 	return IRQ_HANDLED;
@@ -914,8 +935,9 @@ static int linflex_startup(struct uart_port *port)
 	spin_unlock_irqrestore(&port->lock, flags);
 
 	if (!lfport->dma_rx_use || !lfport->dma_tx_use) {
-		ret = devm_request_irq(port->dev, port->irq, linflex_int, 0,
-				       DRIVER_NAME, lfport);
+		ret = devm_request_threaded_irq(port->dev, port->irq, NULL,
+						linflex_int, IRQF_ONESHOT,
+						DRIVER_NAME, lfport);
 	}
 	return ret;
 }
@@ -956,6 +978,29 @@ linflex_ldiv_multiplier(struct uart_port *port)
 	return mul;
 }
 #endif
+
+static inline void set_character_delay(struct uart_port *port,
+		struct ktermios *termios)
+{
+	struct linflex_port *lfport = to_linflex_port(port);
+	speed_t speed = tty_termios_baud_rate(termios);
+	unsigned int bits;
+
+	/* We always have 1 start bit and 1 stop bit. */
+	bits = tty_get_char_size(termios->c_cflag) + 2;
+
+	/* Check if we have 2 stop bits. */
+	if (termios->c_cflag & CSTOPB)
+		bits++;
+	/* Parity bit. */
+	if (termios->c_cflag & PARENB)
+		bits++;
+
+	/* Compute actual byte transmission duration.
+	 * The formula used is (1s / baudrate) * bits_per_character.
+	 */
+	lfport->character_delay = DIV_ROUND_UP(USEC_PER_SEC * bits, speed);
+}
 
 static void
 linflex_set_termios(struct uart_port *port, struct ktermios *termios,
@@ -1073,6 +1118,7 @@ linflex_set_termios(struct uart_port *port, struct ktermios *termios,
 	/* ask the core to calculate the divisor */
 	baud = uart_get_baud_rate(port, termios, old, 50, port->uartclk / 16);
 #endif
+	set_character_delay(port, termios);
 
 	port->read_status_mask = 0;
 
