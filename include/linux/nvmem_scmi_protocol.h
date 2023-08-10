@@ -25,10 +25,14 @@
  *
  * @nvmem_read_cell: Read a NVMEM cell with a given offset and size, as defined
  * in the DT bindings for the NVMEM provider device.
+ * @nvmem_write_cell: Write a NVMEM cell with a given offset and size, as
+ * defined in the DT bindings for the NVMEM provider device.
  */
 struct scmi_nvmem_proto_ops {
 	int (*nvmem_read_cell)(const struct scmi_protocol_handle *ph,
 			       u32 offset, u32 bytes, u32 *value);
+	int (*nvmem_write_cell)(const struct scmi_protocol_handle *ph,
+				u32 offset, u32 bytes, u32 value);
 };
 
 #endif /* NVMEM_SCMI_PROTOCOL_H */
