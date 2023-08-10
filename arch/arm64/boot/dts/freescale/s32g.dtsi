@@ -84,14 +84,16 @@
 					      <&scmi_pcie_dev_id>,
 					      <&scmi_serdes_presence>,
 					      <&scmi_soc_subminor>,
-					      <&scmi_reset_cause>;
+					      <&scmi_reset_cause>,
+					      <&scmi_lockstep_enabled>;
 				nvmem-cell-names = "soc_letter", "part_no",
 						   "soc_major", "soc_minor",
 						   "core_max_freq",
 						   "pcie_dev_id",
 						   "serdes_presence",
 						   "soc_subminor",
-						   "reset_cause";
+						   "reset_cause",
+						   "lockstep_enabled";
 
 				scmi_soc_letter: soc_letter@0 {
 					reg = <S32CC_SCMI_NVMEM_SOC_LETTER
@@ -135,6 +137,11 @@
 
 				scmi_reset_cause: reset_cause@8 {
 					reg = <S32CC_SCMI_NVMEM_RESET_CAUSE
+						S32CC_SCMI_NVMEM_CELL_SIZE>;
+				};
+
+				scmi_lockstep_enabled: lockstep_enabled@9 {
+					reg = <S32CC_SCMI_NVMEM_LOCKSTEP_ENABLED
 						S32CC_SCMI_NVMEM_CELL_SIZE>;
 				};
 			};
