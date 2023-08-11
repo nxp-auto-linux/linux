@@ -257,6 +257,26 @@
 			};
 		};
 	};
+
+	thermal-zones {
+		a53_cores {
+			polling-delay-passive = <1000>;
+			polling-delay = <5000>;
+			thermal-sensors = <&tmu 0>;
+		};
+
+		radar_lax {
+			polling-delay-passive = <1000>;
+			polling-delay = <5000>;
+			thermal-sensors = <&tmu 1>;
+		};
+
+		analog_ips {
+			polling-delay-passive = <1000>;
+			polling-delay = <5000>;
+			thermal-sensors = <&tmu 2>;
+		};
+	};
 };
 
 &ddr_errata {
@@ -331,26 +351,6 @@
 				 <S32CC_PINMUX(521, FUNC2)>,
 				 <S32CC_PINMUX(522, FUNC2)>,
 				 <S32CC_PINMUX(523, FUNC2)>;
-		};
-	};
-
-	thermal-zones {
-		a53_cores {
-			polling-delay-passive = <1000>;
-			polling-delay = <5000>;
-			thermal-sensors = <&tmu 0>;
-		};
-
-		radar_lax {
-			polling-delay-passive = <1000>;
-			polling-delay = <5000>;
-			thermal-sensors = <&tmu 1>;
-		};
-
-		analog_ips {
-			polling-delay-passive = <1000>;
-			polling-delay = <5000>;
-			thermal-sensors = <&tmu 2>;
 		};
 	};
 };
