@@ -272,6 +272,14 @@ config SC27XX_EFUSE
 	  This driver can also be built as a module. If so, the module
 	  will be called nvmem-sc27xx-efuse.
 
+config NVMEM_S32CC_GPR
+	bool "S32CC GPR NVMEM support"
+	help
+	  This is a driver to read/write hardware-related control data within
+	  S32CC GPRs for the S32CC SoCs, through the Linux NVMEM Framework.
+	  The GPR control registers group is comprised of: SRC, CM7_GPR,
+	  A53_GPR, SERDES_GPR, DDR_GPR, SRC_GPR and Boot_CC.
+
 config NVMEM_S32CC_SIUL2
 	bool "S32CC SIUL2 nvmem support: SoC revision"
 	help
