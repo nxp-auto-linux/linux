@@ -9,6 +9,7 @@
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/clock/s32cc-scmi-clock.h>
 #include <dt-bindings/misc/s32cc-fccu.h>
+#include <dt-bindings/nvmem/s32cc-gpr-nvmem.h>
 #include <dt-bindings/nvmem/s32cc-siul2-nvmem.h>
 #include <dt-bindings/nvmem/s32cc-ocotp-nvmem.h>
 #include <dt-bindings/perf/s32cc-scmi-perf.h>
@@ -226,6 +227,19 @@
 		ddr_gpr: ddr_gpr@4007c600 {
 			compatible = "nxp,s32cc-ddr-gpr", "syscon";
 			reg = <0x0 0x4007c600 0x0 0x20>;
+		};
+
+		gpr: gpr@4007c000 {
+			compatible = "nxp,s32cc-gpr-nvmem";
+			reg = <0x0 0x4007c000 0x0 0x3000>;
+			#address-cells = <1>;
+			#size-cells = <1>;
+			status = "okay";
+
+			ddr_pmu_irq: ddr_pmu_irq@0 {
+				reg = <S32CC_GPR_DDR_PMU_IRQ_OFFSET
+					S32CC_GPR_CELL_SIZE>;
+			};
 		};
 
 		siul2@4009c000 {
