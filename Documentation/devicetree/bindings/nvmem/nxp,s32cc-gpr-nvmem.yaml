@@ -1,0 +1,57 @@
+# SPDX-License-Identifier: (GPL-2.0 or BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/nvmem/nxp,s32cc-gpr-nvmem.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: NXP S32CC GPR NVMEM driver
+
+maintainers:
+  - Andrei Cherechesu <andrei.cherechesu@nxp.com>
+
+description: |
+  This is a driver to read/write hardware-related control data within
+  S32CC GPRs for the S32CC SoCs, through the Linux NVMEM Framework.
+  The GPR control registers group is comprised of: SRC, CM7_GPR, A53_GPR,
+  SERDES_GPR, DDR_GPR, SRC_GPR and Boot_CC.
+
+allOf:
+  - $ref: "nvmem.yaml#"
+
+properties:
+  compatible:
+    const: nxp,s32cc-gpr-nvmem
+
+  reg:
+    description:
+      Address and size of the GPRs MMIO region.
+
+  '#address-cells':
+    const: 1
+
+  '#size-cells':
+    const: 1
+
+required:
+  - compatible
+  - reg
+  - '#address-cells'
+  - '#size-cells'
+
+unevaluatedProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/nvmem/s32cc-gpr-nvmem.h>
+
+    gpr: gpr@4007c000 {
+      compatible = "nxp,s32cc-gpr-nvmem";
+      reg = <0x0 0x4007c000 0x0 0x3000>;
+      #address-cells = <1>;
+      #size-cells = <1>;
+      status = "okay";
+
+      ddr_pmu_irq: ddr_pmu_irq@0 {
+        reg = <S32CC_GPR_DDR_PMU_IRQ_OFFSET S32CC_GPR_CELL_SIZE>;
+      };
+    };
