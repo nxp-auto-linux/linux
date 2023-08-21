@@ -21,4 +21,9 @@
 #define LLCE_MB_LINFLEXD_IRQ_2		0x2
 #define LLCE_MB_LINFLEXD_IRQ_3		0x3
 
+#define LLCE_MB_LPSPI_IRQ_0		0x4
+#define LLCE_MB_LPSPI_IRQ_1		0x5
+#define LLCE_MB_LPSPI_IRQ_2		0x6
+#define LLCE_MB_LPSPI_IRQ_3		0x7
+
 #endif
