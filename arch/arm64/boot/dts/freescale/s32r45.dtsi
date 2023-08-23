@@ -375,8 +375,7 @@
 
 		gmac1: ethernet@44010000 {
 			compatible = "nxp,s32cc-dwmac";
-			reg = <0x0 0x44010000 0x0 0x2000>, /* gmac IP */
-			      <0x0 0x4007ca00 0x0 0x4>;    /* S32 CTRL_STS reg */
+			reg = <0x0 0x44010000 0x0 0x2000>; /* gmac IP */
 			dma-coherent;
 			interrupt-parent = <&gic>;
 			interrupts = <GIC_SPI 220 IRQ_TYPE_LEVEL_HIGH>;
@@ -404,6 +403,8 @@
 				      "rx_sgmii", "rx_rgmii",
 				      "rx_rmii", "rx_mii",
 				      "ptp_ref";
+			nvmem-cell-names = "gmac_phy_intf_sel";
+			nvmem-cells = <&gmac1_phy_intf_sel>;
 
 			mtl_rx_setup_gmac1: rx-queues-config {
 				snps,rx-queues-to-use = <5>;
