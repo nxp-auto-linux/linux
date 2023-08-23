@@ -29,8 +29,8 @@ properties:
       - const: frpe.bin
 
   memory-region:
-    maxItems: 6
-    minItems: 6
+    maxItems: 5
+    minItems: 5
     description: |
       A set of phandles to memory regions corresponding to the firmware
       components and a link to the shared memory area used by host and
@@ -58,8 +58,8 @@ properties:
     description: LLCE system clock
 
   ranges:
-    minItems: 7
-    maxItems: 7
+    minItems: 12
+    maxItems: 12
     description:
       LLCE FIFOs, LIN and CORE2CORE registers ranges
 
