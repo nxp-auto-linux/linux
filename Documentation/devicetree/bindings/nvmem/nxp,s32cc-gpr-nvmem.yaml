@@ -54,4 +54,7 @@ examples:
       ddr_pmu_irq: ddr_pmu_irq@0 {
         reg = <S32CC_GPR_DDR_PMU_IRQ_OFFSET S32CC_GPR_CELL_SIZE>;
       };
+      gmac0_phy_intf_sel: gmac0_phy_intf_sel@1 {
+        reg = <S32CC_GPR_GMAC0_PHY_INTF_SEL_OFFSET S32CC_GPR_CELL_SIZE>;
+      };
     };
