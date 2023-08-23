@@ -10,7 +10,12 @@
 #include <linux/platform_device.h>
 #include <dt-bindings/nvmem/s32cc-gpr-nvmem.h>
 
+#define SRC_0_OFF			0x0
 #define DDR_GPR_OFF			0x600
+
+#define SRC_0_GMAC_0_CTRL_STS_OFF	0x4
+#define SRC_0_GMAC_0_CTRL_STS_SHIFT	0
+#define SRC_0_GMAC_0_CTRL_STS_MASK	GENMASK(3, SRC_0_GMAC_0_CTRL_STS_SHIFT)
 
 #define DDR_GPR_CONFIG_0_OFF		0x0
 #define DDR_GPR_CONFIG_0_PERF_CNT_SHIFT	31
@@ -62,6 +67,14 @@ static int s32cc_gpr_nvmem_write(void *context, unsigned int offset,
 		addr = priv->gpr_base + DDR_GPR_OFF + DDR_GPR_CONFIG_0_OFF;
 		shift = DDR_GPR_CONFIG_0_PERF_CNT_SHIFT;
 		mask = DDR_GPR_CONFIG_0_PERF_CNT_MASK;
+
+		return s32cc_gpr_nvmem_write_reg32(addr, shift, mask, value);
+	}
+
+	if (offset == S32CC_GPR_GMAC0_PHY_INTF_SEL_OFFSET) {
+		addr = priv->gpr_base + SRC_0_OFF + SRC_0_GMAC_0_CTRL_STS_OFF;
+		shift = SRC_0_GMAC_0_CTRL_STS_SHIFT;
+		mask = SRC_0_GMAC_0_CTRL_STS_MASK;
 
 		return s32cc_gpr_nvmem_write_reg32(addr, shift, mask, value);
 	}
