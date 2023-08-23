@@ -71,9 +71,14 @@ properties:
 required:
   - compatible
   - reg
-  - interrupts
   - clocks
   - clock-names
+
+oneOf:
+  - required:
+      - interrupts
+  - required:
+      - interrupts-extended
 
 unevaluatedProperties: false
 
