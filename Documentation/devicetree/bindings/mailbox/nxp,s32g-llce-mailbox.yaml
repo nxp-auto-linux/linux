@@ -32,8 +32,7 @@ properties:
   memory-region:
     description:
       A set of phandles to memory regions corresponding to LLCE shared memory region.
-    maxItems: 2
-    minItems: 2
+    maxItems: 1
 
   memory-region-names:
     items:
@@ -72,6 +71,11 @@ properties:
       - const: txack_fifo_8_15
       - const: logger_rx
 
+  interrupt-controller: true
+
+  '#interrupt-cells':
+    const: 1
+
   interrupts:
     items:
       - description: Shared interrupt line for LIN channels
@@ -90,6 +94,7 @@ properties:
     description: LLCE system clock
 
   nxp,hif-id:
+    $ref: /schemas/types.yaml#/definitions/uint32
     description:
       The ID of the host interface used during communication with the firmware. 0 will be used
       in case this property is missing.
@@ -98,6 +103,7 @@ properties:
   nxp,multi-hif:
     description:
       Switch to a multi-host configuration where Linux can configure up to 8 FIFOs.
+    type: boolean
 
 required:
   - compatible
@@ -131,14 +137,16 @@ examples:
             <0x3 0x0 0x0 0x6000>,
             <0x4 0x0 0x0 0x6000>,
             <0x5 0x0 0x0 0x8000>,
-            <0x6 0x0 0x0 0x44>;
+            <0x6 0x0 0x0 0x44>,
+            <0x11 0x0 0x0 0x70>;
         reg-names = "rxin_fifo",
             "rxout_fifo",
             "icsr",
             "blrin_fifo",
             "blrout_fifo",
             "txack_fifo",
-            "sema42";
+            "sema42",
+            "core2core";
         clocks = <&clks S32G_SCMI_CLK_LLCE_SYS>;
         clock-names = "llce_sys";
 
@@ -146,20 +154,22 @@ examples:
         memory-region-names = "shmem";
         interrupt-controller;
         #interrupt-cells = <1>;
-        interrupts = <0 174 IRQ_TYPE_LEVEL_HIGH>,
+        interrupts = <0 172 IRQ_TYPE_LEVEL_HIGH>,
+            <0 174 IRQ_TYPE_LEVEL_HIGH>,
             <0 175 IRQ_TYPE_LEVEL_HIGH>,
             <0 176 IRQ_TYPE_LEVEL_HIGH>,
             <0 177 IRQ_TYPE_LEVEL_HIGH>,
             <0 182 IRQ_TYPE_LEVEL_HIGH>,
             <0 183 IRQ_TYPE_LEVEL_HIGH>,
             <0 184 IRQ_TYPE_LEVEL_HIGH>;
-        interrupt-names = "rxin_fifo_0_7",
-            "rxin_fifo_8_15",
-            "rxout_fifo_0_7",
-            "rxout_fifo_8_15",
-            "txack_fifo_0_7",
-            "txack_fifo_8_15",
-            "logger_rx";
+        interrupt-names = "linflex_irq",
+          "rxin_fifo_0_7",
+          "rxin_fifo_8_15",
+          "rxout_fifo_0_7",
+          "rxout_fifo_8_15",
+          "txack_fifo_0_7",
+          "txack_fifo_8_15",
+          "logger_rx";
         nxp,hif-id = <1>;
         status = "okay";
       };
