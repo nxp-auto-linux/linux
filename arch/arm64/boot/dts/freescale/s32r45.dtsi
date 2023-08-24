@@ -11,6 +11,7 @@
 #include "s32cc.dtsi"
 #include <dt-bindings/clock/s32r45-scmi-clock.h>
 #include <dt-bindings/mux/nxp-s32r45-can-ts.h>
+#include <dt-bindings/nvmem/s32r45-gpr-nvmem.h>
 #include <dt-bindings/thermal/thermal.h>
 
 / {
@@ -603,4 +604,11 @@
 
 &can_ts_ctrl {
 	idle-states = <S32R45_CAN_TS_STM7>;
+};
+
+&gpr {
+	gmac1_phy_intf_sel: gmac1_phy_intf_sel@100 {
+		reg = <S32R45_GPR_GMAC1_PHY_INTF_SEL_OFFSET
+			S32R45_GPR_CELL_SIZE>;
+	};
 };
