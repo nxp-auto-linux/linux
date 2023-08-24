@@ -25,7 +25,7 @@ choice
 		select RESET_SCMI_SCMI
 		select GENERIC_PHY
 		select MULTIPLEXER
-		select NXP_GLOBAL_TIME_STM
+		select FSL_GLOBAL_TIME_STM
 		select MUX_MMIO
 		select PHY_S32GEN1_SERDES
 endchoice
