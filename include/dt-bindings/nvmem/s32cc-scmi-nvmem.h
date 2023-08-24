@@ -17,8 +17,9 @@
 #define S32CC_SCMI_NVMEM_RESET_CAUSE			0x8
 #define S32CC_SCMI_NVMEM_LOCKSTEP_ENABLED               0x9
 #define S32CC_SCMI_NVMEM_DDR_PMU_IRQ                    0xA
+#define S32CC_SCMI_NVMEM_GMAC0_PHY_INTF_SEL             0xB
 
-#define S32CC_SCMI_NVMEM_MAX				0xB
+#define S32CC_SCMI_NVMEM_MAX				0xC
 
 #define S32CC_SCMI_NVMEM_CELL_SIZE			0x4
 
