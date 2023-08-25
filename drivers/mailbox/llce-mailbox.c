@@ -2289,7 +2289,7 @@ static irqreturn_t llce_mb_lin_handler(int irq, void *data)
 	return ret;
 }
 
-static void llce_mb_irq_mask(struct irq_data *data)
+static void llce_mb_lin_irq_mask(struct irq_data *data)
 {
 	struct llce_mb *mb = data->chip_data;
 	u8 hw_ctrl = (u8) data->hwirq;
@@ -2298,7 +2298,7 @@ static void llce_mb_irq_mask(struct irq_data *data)
 	host2tx_clear_interrupt(mb, hw_ctrl);
 }
 
-static void llce_mb_irq_unmask(struct irq_data *data)
+static void llce_mb_lin_irq_unmask(struct irq_data *data)
 {
 	struct llce_mb *mb = data->chip_data;
 	u8 hw_ctrl = (u8)data->hwirq;
@@ -2306,10 +2306,10 @@ static void llce_mb_irq_unmask(struct irq_data *data)
 	host2tx_enable_interrupt(mb, hw_ctrl);
 }
 
-static struct irq_chip llce_mb_irq_chip = {
+static struct irq_chip llce_mb_lin_irq_chip = {
 	.name = "llce",
-	.irq_mask = llce_mb_irq_mask,
-	.irq_unmask = llce_mb_irq_unmask,
+	.irq_mask = llce_mb_lin_irq_mask,
+	.irq_unmask = llce_mb_lin_irq_unmask,
 };
 
 static int llce_mb_irq_map(struct irq_domain *d,
@@ -2323,7 +2323,7 @@ static int llce_mb_irq_map(struct irq_domain *d,
 	if (ret)
 		return ret;
 
-	irq_set_chip_and_handler(irq, &llce_mb_irq_chip, handle_level_irq);
+	irq_set_chip_and_handler(irq, &llce_mb_lin_irq_chip, handle_level_irq);
 	irq_set_chip_data(irq, mb);
 	irq_set_noprobe(irq);
 
@@ -2335,54 +2335,36 @@ static const struct irq_domain_ops llce_mb_irq_ops = {
 	.xlate = irq_domain_xlate_onecell,
 };
 
-static int init_llce_lin_irq(struct platform_device *pdev,
-				   struct llce_mb *mb)
+static int init_llce_irq(struct platform_device *pdev,
+				   struct llce_mb *mb, const char *irq_name,
+				   irq_handler_t handler)
 {
 	struct device *dev = &pdev->dev;
-	struct device_node *np = dev->of_node;
-	int irq, ret;
+	int irq;
 
-	if (!of_find_property(np, "interrupt-controller", NULL)) {
-		dev_err(dev, "Not an interrupt-controller\n");
-		return -ENXIO;
-	}
-
-	irq = platform_get_irq_byname(pdev, "linflex_irq");
+	irq = platform_get_irq_byname(pdev, irq_name);
 	if (irq < 0) {
-		dev_err(dev, "linflex_irq not found\n");
+		dev_err(dev, "%s not found\n", irq_name);
 		return irq;
 	}
 
-	mb->domain = irq_domain_add_linear(dev->of_node, LLCE_LINFLEX_NR,
-			&llce_mb_irq_ops, mb);
-
-	if (!mb->domain) {
-		dev_err(dev, "Failed to add irq_domain\n");
-		return -ENOMEM;
-	}
-
-	ret = devm_request_irq(dev, irq, llce_mb_lin_handler, 0,
-			       "llce_mb", (void *)mb);
-	if (ret) {
-		dev_err(dev, "Failed to request interrupt err = %d\n", ret);
-		irq_domain_remove(mb->domain);
-		return ret;
-	}
-
-	return 0;
+	return devm_request_irq(dev, irq, handler, 0,
+			       irq_name, (void *)mb);
 }
 
-static void deinit_llce_lin_irq(struct llce_mb *mb)
+static void deinit_llce_interrupt_ctrl(struct llce_mb *mb)
 {
-	irq_domain_remove(mb->domain);
+	if (mb->domain)
+		irq_domain_remove(mb->domain);
 }
 
 static int init_llce_irq_resources(struct platform_device *pdev,
 				   struct llce_mb *mb)
 {
-	int irq;
+	int irq, ret;
 	size_t i;
 	struct device *dev = &pdev->dev;
+	struct device_node *np = dev->of_node;
 	struct llce_fifoirq *fifo_irq;
 	struct {
 		const char *name;
@@ -2426,6 +2408,16 @@ static int init_llce_irq_resources(struct platform_device *pdev,
 		},
 	};
 
+	struct {
+		const char *name;
+		irq_handler_t handler;
+	} resources_ic[] = {
+		{
+			.name = "linflex_irq",
+			.handler = llce_mb_lin_handler,
+		},
+	};
+
 	for (i = 0; i < ARRAY_SIZE(resources); i++) {
 		irq = platform_get_irq_byname(pdev, resources[i].name);
 		if (irq < 0) {
@@ -2438,6 +2430,30 @@ static int init_llce_irq_resources(struct platform_device *pdev,
 		fifo_irq->name = resources[i].name;
 		fifo_irq->handler = resources[i].handler;
 		fifo_irq->num = irq;
+	}
+
+	if (!of_find_property(np, "interrupt-controller", NULL)) {
+		dev_err(dev, "Not an interrupt-controller\n");
+		return -ENXIO;
+	}
+
+	mb->domain = irq_domain_add_linear(np, LLCE_LINFLEX_NR,
+					   &llce_mb_irq_ops, mb);
+
+	if (!mb->domain) {
+		dev_err(dev, "Failed to add irq_domain\n");
+		return -ENOMEM;
+	}
+
+	for (i = 0; i < ARRAY_SIZE(resources_ic); i++) {
+		ret = init_llce_irq(pdev, mb, resources_ic[i].name,
+					 resources_ic[i].handler);
+		if (ret) {
+			dev_err(dev, "Failed to request interrupt err = %d\n",
+				ret);
+			irq_domain_remove(mb->domain);
+			return ret;
+		}
 	}
 
 	return 0;
@@ -2968,16 +2984,12 @@ static int llce_mb_probe(struct platform_device *pdev)
 
 	ret = map_llce_shmem(mb);
 	if (ret)
-		return ret;
-
-	ret = init_llce_lin_irq(pdev, mb);
-	if (ret)
-		return ret;
+		goto interrupt_ctrl_deinit;
 
 	ret = init_hif_config_chan(mb);
 	if (ret) {
 		dev_err(dev, "Failed to initialize HIF config channel\n");
-		goto lin_irq_deinit;
+		goto interrupt_ctrl_deinit;
 	}
 
 	ret = init_core_clock(dev, &mb->clk);
@@ -3019,9 +3031,9 @@ hif_deinit:
 	if (ret)
 		deinit_hif_config_chan(mb);
 
-lin_irq_deinit:
+interrupt_ctrl_deinit:
 	if (ret)
-		deinit_llce_lin_irq(mb);
+		deinit_llce_interrupt_ctrl(mb);
 
 	return ret;
 }
@@ -3040,6 +3052,7 @@ static int llce_mb_remove(struct platform_device *pdev)
 
 	deinit_core_clock(mb->clk);
 	deinit_hif_config_chan(mb);
+	deinit_llce_interrupt_ctrl(mb);
 
 	return 0;
 }
