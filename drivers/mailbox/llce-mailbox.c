@@ -90,6 +90,18 @@
 #define LLCE_LPSPI_NR		(4)
 #define LLCE_LPSPI_CHANNEL0	(0)
 
+/* LLCE Mailbox is an interrupt controller for LPSPI and LinflexD.
+ * First LLCE_LINFLEX_NR interrupts are used for LinflexD instances
+ * and next LLCE_LPSPI_NR interrupts are used for LPSPI instances.
+ */
+/* Get LinflexD/LPSPI instance corresponding to hw_irq. */
+#define LLCE_IRQ_TO_LIN_HWCTRL(hw_irq)		(hw_irq)
+#define LLCE_IRQ_TO_LPSPI_HWCTRL(hw_irq)	((hw_irq) - LLCE_LINFLEX_NR)
+
+/* Get hw_irq corresponding to LinflexD/LPSPI instance. */
+#define LLCE_LIN_HWTCRL_TO_IRQ(hw_irq)		(hw_irq)
+#define LLCE_LPSPI_HWCTRL_TO_IRQ(hw_irq)	((hw_irq) + LLCE_LINFLEX_NR)
+
 struct llce_icsr {
 	u8 icsr0_num;
 	u8 icsr8_num;
@@ -2282,7 +2294,7 @@ static irqreturn_t llce_mb_lin_handler(int irq, void *data)
 	for (i = 0; i < LLCE_LINFLEX_NR; i++) {
 		if (!(hintc2r_val & BIT(i)))
 			continue;
-		virq = irq_find_mapping(mb->domain, i);
+		virq = irq_find_mapping(mb->domain, LLCE_LIN_HWTCRL_TO_IRQ(i));
 		if (!virq)
 			continue;
 
@@ -2298,7 +2310,7 @@ static irqreturn_t llce_mb_lin_handler(int irq, void *data)
 static void llce_mb_lin_irq_mask(struct irq_data *data)
 {
 	struct llce_mb *mb = data->chip_data;
-	u8 hw_ctrl = (u8) data->hwirq;
+	u8 hw_ctrl = (u8)LLCE_IRQ_TO_LIN_HWCTRL(data->hwirq);
 
 	host2tx_disable_interrupt(mb, hw_ctrl);
 	host2tx_clear_interrupt(mb, hw_ctrl);
@@ -2307,7 +2319,7 @@ static void llce_mb_lin_irq_mask(struct irq_data *data)
 static void llce_mb_lin_irq_unmask(struct irq_data *data)
 {
 	struct llce_mb *mb = data->chip_data;
-	u8 hw_ctrl = (u8)data->hwirq;
+	u8 hw_ctrl = (u8)LLCE_IRQ_TO_LIN_HWCTRL(data->hwirq);
 
 	host2tx_enable_interrupt(mb, hw_ctrl);
 }
@@ -2430,18 +2442,89 @@ static int lpspi_init(struct llce_mb *mb)
 	return 0;
 }
 
+static irqreturn_t llce_mb_lspi_handler(int irq, void *data)
+{
+	struct llce_mb *mb = data;
+	void __iomem *hintc1r = LLCE_CORE2CORE_HINTC1R(mb->core2core);
+	u32 i, hintc1r_val;
+	unsigned int virq;
+	unsigned long wa_lock_flags;
+	irqreturn_t ret = IRQ_NONE;
+
+	hintc1r_val = readl(hintc1r);
+	for (i = 0; i < LLCE_LPSPI_NR; i++) {
+		if (!(hintc1r_val & BIT(i)))
+			continue;
+		virq = irq_find_mapping(mb->domain, LLCE_LPSPI_HWCTRL_TO_IRQ(i));
+		if (!virq)
+			continue;
+
+		raw_spin_lock_irqsave(&mb->wa_lock, wa_lock_flags);
+		generic_handle_irq(virq);
+		raw_spin_unlock_irqrestore(&mb->wa_lock, wa_lock_flags);
+		ret |= IRQ_HANDLED;
+	}
+
+	return ret;
+}
+
+static void llce_mb_lpspi_irq_mask(struct irq_data *data)
+{
+	struct llce_mb *mb = data->chip_data;
+	u8 hw_ctrl = (u8)LLCE_IRQ_TO_LPSPI_HWCTRL(data->hwirq);
+
+	rx2host_disable_interrupt(mb, hw_ctrl);
+	rx2host_clear_interrupt(mb, hw_ctrl);
+}
+
+static void llce_mb_lpspi_irq_unmask(struct irq_data *data)
+{
+	struct llce_mb *mb = data->chip_data;
+	u8 hw_ctrl = (u8)LLCE_IRQ_TO_LPSPI_HWCTRL(data->hwirq);
+
+	rx2host_enable_interrupt(mb, hw_ctrl);
+}
+
+static struct irq_chip llce_mb_lpspi_irq_chip = {
+	.name = "llce",
+	.irq_mask = llce_mb_lpspi_irq_mask,
+	.irq_unmask = llce_mb_lpspi_irq_unmask,
+};
+
+static inline bool is_lin_irq(unsigned int hw_irq)
+{
+	return hw_irq < LLCE_LINFLEX_NR;
+}
+static inline bool is_lpspi_irq(unsigned int hw_irq)
+{
+	return hw_irq >= LLCE_LINFLEX_NR &&
+		hw_irq  < LLCE_LINFLEX_NR + LLCE_LPSPI_NR;
+}
+
 static int llce_mb_irq_map(struct irq_domain *d,
 			 unsigned int irq,
-			 irq_hw_number_t hw)
+			 irq_hw_number_t hw_irq)
 {
 	struct llce_mb *mb = d->host_data;
 	int ret;
 
-	ret = lin_init(mb);
-	if (ret)
-		return ret;
+	if (is_lin_irq(hw_irq)) {
+		ret = lin_init(mb);
+		if (ret)
+			return ret;
+		irq_set_chip_and_handler(irq, &llce_mb_lin_irq_chip,
+					 handle_level_irq);
+	} else if (is_lpspi_irq(hw_irq)) {
+		ret = lpspi_init(mb);
+		if (ret)
+			return ret;
+		irq_set_chip_and_handler(irq, &llce_mb_lpspi_irq_chip,
+					 handle_level_irq);
 
-	irq_set_chip_and_handler(irq, &llce_mb_lin_irq_chip, handle_level_irq);
+	} else
+		/* Should not be get here. */
+		return -EINVAL;
+
 	irq_set_chip_data(irq, mb);
 	irq_set_noprobe(irq);
 
@@ -2534,6 +2617,10 @@ static int init_llce_irq_resources(struct platform_device *pdev,
 			.name = "linflex_irq",
 			.handler = llce_mb_lin_handler,
 		},
+		{
+			.name = "lpspi_irq",
+			.handler = llce_mb_lspi_handler,
+		},
 	};
 
 	for (i = 0; i < ARRAY_SIZE(resources); i++) {
@@ -2555,7 +2642,7 @@ static int init_llce_irq_resources(struct platform_device *pdev,
 		return -ENXIO;
 	}
 
-	mb->domain = irq_domain_add_linear(np, LLCE_LINFLEX_NR,
+	mb->domain = irq_domain_add_linear(np, LLCE_LINFLEX_NR + LLCE_LPSPI_NR,
 					   &llce_mb_irq_ops, mb);
 
 	if (!mb->domain) {
@@ -3210,6 +3297,14 @@ static int __maybe_unused llce_mb_resume(struct device *dev)
 	if (mb->lin_irq_enabled) {
 		mb->lin_irq_enabled = false;
 		ret = lin_init(mb);
+		if (ret)
+			return ret;
+	}
+
+	/* Force lpspi intterupt forwarding again. */
+	if (mb->lpspi_irq_enabled) {
+		mb->lpspi_irq_enabled = false;
+		ret = lpspi_init(mb);
 		if (ret)
 			return ret;
 	}
