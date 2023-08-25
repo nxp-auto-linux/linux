@@ -1772,13 +1772,13 @@ static int s32cc_pcie_config_common(struct s32cc_pcie *s32cc_pp,
 
 		num_ctrls = pp->num_vectors / MAX_MSI_IRQS_PER_CTRL;
 
-		/* Initialize IRQ Status array */
+		/* Initialize IRQ Mask array */
 		for (ctrl = 0; ctrl < num_ctrls; ctrl++) {
+			pcie->pp.irq_mask[ctrl] = ~0;
 			dw_pcie_writel_dbi(pcie, PCIE_MSI_INTR0_MASK +
-					(ctrl * MSI_REG_CTRL_BLOCK_SIZE), ~0);
+					(ctrl * MSI_REG_CTRL_BLOCK_SIZE), pcie->pp.irq_mask[ctrl]);
 			dw_pcie_writel_dbi(pcie, PCIE_MSI_INTR0_ENABLE +
 					(ctrl * MSI_REG_CTRL_BLOCK_SIZE), ~0);
-			pcie->pp.irq_status[ctrl] = 0;
 		}
 
 		/* Setup interrupt pins */
