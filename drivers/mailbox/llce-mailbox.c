@@ -87,6 +87,9 @@
 
 #define LLCE_DELAY_US		(1000)
 
+#define LLCE_LPSPI_NR		(4)
+#define LLCE_LPSPI_CHANNEL0	(0)
+
 struct llce_icsr {
 	u8 icsr0_num;
 	u8 icsr8_num;
@@ -129,6 +132,8 @@ struct llce_mb {
 	spinlock_t txack_lock;
 	/* spinlock used to protect linflex interrupts related registers. */
 	spinlock_t lin_lock;
+	/* spinlock used to protect lpspi interrupts related registers. */
+	spinlock_t lpspi_lock;
 
 	struct llce_can_shared_memory __iomem *can_sh_mem;
 	struct llce_lin_shared_memory __iomem *lin_sh_mem;
@@ -151,6 +156,7 @@ struct llce_mb {
 	bool multihif;
 	bool suspended;
 	bool lin_irq_enabled;
+	bool lpspi_irq_enabled;
 	bool fw_logger_support;
 	struct irq_chip irq_chip;
 	struct irq_domain *domain;
@@ -2312,6 +2318,118 @@ static struct irq_chip llce_mb_lin_irq_chip = {
 	.irq_unmask = llce_mb_lin_irq_unmask,
 };
 
+/* Enable interrupts from rx core to host core for a specific channel.*/
+static void rx2host_enable_interrupt(struct llce_mb *mb, u32 hw_ctrl)
+{
+	void __iomem *hintc1er = LLCE_CORE2CORE_HINTC1ER(mb->core2core);
+	u32 hintc1er_val;
+	unsigned long flags;
+
+	spin_lock_irqsave(&mb->lpspi_lock, flags);
+
+	hintc1er_val = readl(hintc1er);
+	writel(hintc1er_val | BIT(hw_ctrl), hintc1er);
+
+	spin_unlock_irqrestore(&mb->lpspi_lock, flags);
+}
+
+/* Disable interrupts from rx core to host core for a specific channel.*/
+static void rx2host_disable_interrupt(struct llce_mb *mb, u32 hw_ctrl)
+{
+	void __iomem *hintc1er = LLCE_CORE2CORE_HINTC1ER(mb->core2core);
+	u32 hintc1er_val;
+	unsigned long flags;
+
+	spin_lock_irqsave(&mb->lpspi_lock, flags);
+
+	hintc1er_val = readl(hintc1er);
+	writel(hintc1er_val & (~(BIT(hw_ctrl))), hintc1er);
+
+	spin_unlock_irqrestore(&mb->lpspi_lock, flags);
+}
+
+/* Clear existing interrupts from rx core for a specific channel.*/
+static void rx2host_clear_interrupt(struct llce_mb *mb, u32 hw_ctrl)
+{
+	void __iomem *hintc1r = LLCE_CORE2CORE_HINTC1R(mb->core2core);
+	unsigned long flags;
+
+	spin_lock_irqsave(&mb->lpspi_lock, flags);
+
+	writel(BIT(hw_ctrl), hintc1r);
+
+	spin_unlock_irqrestore(&mb->lpspi_lock, flags);
+}
+
+static void rx2host_assert_interrupt(struct llce_mb *mb, u32 hw_ctrl)
+{
+	void __iomem *c1inthr = LLCE_CORE2CORE_C1INTHR(mb->core2core);
+	u32 c1inthr_val;
+	unsigned long flags;
+
+	spin_lock_irqsave(&mb->lpspi_lock, flags);
+
+	c1inthr_val = readl(c1inthr);
+	writel(c1inthr_val | BIT(hw_ctrl), c1inthr);
+
+	spin_unlock_irqrestore(&mb->lpspi_lock, flags);
+}
+
+static u32 rx2host_get_interrupts_status(struct llce_mb *mb)
+{
+	void __iomem *c1inthr = LLCE_CORE2CORE_C1INTHR(mb->core2core);
+	u32 c1inthr_val;
+	unsigned long flags;
+
+	spin_lock_irqsave(&mb->lpspi_lock, flags);
+	c1inthr_val = readl(c1inthr);
+	spin_unlock_irqrestore(&mb->lpspi_lock, flags);
+
+	return c1inthr_val;
+}
+
+static int lpspi_init(struct llce_mb *mb)
+{
+	struct mbox_controller *ctrl = &mb->controller;
+	struct device *dev = ctrl->dev;
+	u8 retries = 10, hw_ctrl = LLCE_LPSPI_CHANNEL0;
+	int ret;
+	u32 val, i;
+
+	/* Interrupt forwarding should be enabled only once. */
+	if (mb->lpspi_irq_enabled)
+		return 0;
+
+	/* Enable interrupts for LPSI channels. */
+	for (i = 0; i < LLCE_LPSPI_NR; i++) {
+		rx2host_disable_interrupt(mb, i);
+		rx2host_clear_interrupt(mb, i);
+		rx2host_enable_interrupt(mb, i);
+	}
+
+	/* Trigger an interrupt using CORE2CORE module
+	 * on the corresponding bit of the command.
+	 */
+	rx2host_assert_interrupt(mb, hw_ctrl);
+
+	/* Wait for command completion.
+	 * The command is completed when core 1 clears interrupt bit
+	 * for LPSPI interface 0.
+	 */
+	ret = readx_poll_timeout(rx2host_get_interrupts_status, mb, val,
+				 !(val & BIT(hw_ctrl)),
+				 LLCE_DELAY_US, LLCE_DELAY_US * retries);
+
+	if (ret < 0) {
+		dev_err(dev, "LLCE LPSPI interrupt forwarding timeout\n");
+		return ret;
+	}
+
+	mb->lpspi_irq_enabled = true;
+
+	return 0;
+}
+
 static int llce_mb_irq_map(struct irq_domain *d,
 			 unsigned int irq,
 			 irq_hw_number_t hw)
@@ -2447,7 +2565,7 @@ static int init_llce_irq_resources(struct platform_device *pdev,
 
 	for (i = 0; i < ARRAY_SIZE(resources_ic); i++) {
 		ret = init_llce_irq(pdev, mb, resources_ic[i].name,
-					 resources_ic[i].handler);
+				    resources_ic[i].handler);
 		if (ret) {
 			dev_err(dev, "Failed to request interrupt err = %d\n",
 				ret);
