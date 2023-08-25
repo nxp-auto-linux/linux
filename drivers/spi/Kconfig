@@ -378,7 +378,7 @@ config SPI_FSI
 
 config SPI_FSL_LPSPI
 	tristate "Freescale i.MX LPSPI controller"
-	depends on ARCH_MXC || COMPILE_TEST
+	depends on ARCH_MXC || ARCH_S32 || COMPILE_TEST
 	help
 	  This enables Freescale i.MX LPSPI controllers in master mode.
 
