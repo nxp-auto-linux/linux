@@ -120,6 +120,9 @@ struct fsl_lpspi_data {
 	bool usedma;
 	struct completion dma_rx_completion;
 	struct completion dma_tx_completion;
+
+	struct pinctrl		*pinctrl;
+	struct pinctrl_state	*pinctrl_slave;
 };
 
 static const struct of_device_id fsl_lpspi_dt_ids[] = {
@@ -820,6 +823,34 @@ static int fsl_lpspi_init_rpm(struct fsl_lpspi_data *fsl_lpspi)
 	return 0;
 }
 
+static void fsl_lpspi_set_target_pinctrl(struct device *dev)
+{
+	struct spi_controller *controller = dev_get_drvdata(dev);
+	struct fsl_lpspi_data *fsl_lpspi;
+	int ret;
+
+	fsl_lpspi = spi_controller_get_devdata(controller);
+
+	fsl_lpspi->pinctrl = devm_pinctrl_get(dev);
+	if (IS_ERR(fsl_lpspi->pinctrl)) {
+		dev_warn(dev, "no pinctrl info found: %ld\n",
+			 PTR_ERR(fsl_lpspi->pinctrl));
+		fsl_lpspi->pinctrl = NULL;
+		return;
+	}
+
+	fsl_lpspi->pinctrl_slave = pinctrl_lookup_state(fsl_lpspi->pinctrl,
+						   "slave");
+	if (!IS_ERR(fsl_lpspi->pinctrl_slave)) {
+		ret = pinctrl_select_state(fsl_lpspi->pinctrl,
+					   fsl_lpspi->pinctrl_slave);
+		if (ret < 0)
+			dev_err(dev, "failed to switch to slave pinctrl: %d\n",
+				ret);
+	} else
+		fsl_lpspi->pinctrl_slave = NULL;
+}
+
 static int fsl_lpspi_probe(struct platform_device *pdev)
 {
 	struct fsl_lpspi_data *fsl_lpspi;
@@ -905,6 +936,9 @@ static int fsl_lpspi_probe(struct platform_device *pdev)
 			num_cs = 1;
 	}
 
+	if (is_target)
+		fsl_lpspi_set_target_pinctrl(&pdev->dev);
+
 	controller->bits_per_word_mask = SPI_BPW_RANGE_MASK(8, 32);
 	controller->transfer_one = fsl_lpspi_transfer_one;
 	controller->prepare_transfer_hardware = lpspi_prepare_xfer_hardware;
@@ -972,7 +1006,11 @@ static int __maybe_unused fsl_lpspi_suspend(struct device *dev)
 
 static int __maybe_unused fsl_lpspi_resume(struct device *dev)
 {
+	struct spi_controller *controller = dev_get_drvdata(dev);
+	struct fsl_lpspi_data *fsl_lpspi;
 	int ret;
+
+	fsl_lpspi = spi_controller_get_devdata(controller);
 
 	ret = pm_runtime_force_resume(dev);
 	if (ret) {
@@ -980,8 +1018,15 @@ static int __maybe_unused fsl_lpspi_resume(struct device *dev)
 		return ret;
 	}
 
-	pinctrl_pm_select_default_state(dev);
+	if (fsl_lpspi->pinctrl && fsl_lpspi->pinctrl_slave)
+		ret = pinctrl_select_state(fsl_lpspi->pinctrl,
+				     fsl_lpspi->pinctrl_slave);
+	else
+		ret = pinctrl_pm_select_default_state(dev);
 
+	if (ret < 0)
+		dev_err(dev, "failed to apply pinctrl during resume: %d\n",
+			ret);
 	return 0;
 }
 
