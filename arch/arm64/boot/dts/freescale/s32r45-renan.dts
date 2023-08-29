@@ -15,11 +15,6 @@
 / {
     model = "NovTech Renan";
 
-    aliases {
-        gmac0 = &gmac0;
-        gmac1 = &gmac1;
-    };
-
     chosen {
         stdout-path = "serial0:115200n8";
     };
