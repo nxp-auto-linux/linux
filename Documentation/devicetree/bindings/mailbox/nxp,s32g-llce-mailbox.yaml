@@ -62,6 +62,7 @@ properties:
 
   interrupt-names:
     items:
+      - const: lpspi_irq
       - const: linflex_irq
       - const: rxin_fifo_0_7
       - const: rxin_fifo_8_15
@@ -78,6 +79,7 @@ properties:
 
   interrupts:
     items:
+      - description: Shared interrupt line for LPSPI channels
       - description: Shared interrupt line for LIN channels
       - description: Shared interrupt line for RXIN 0-7 fifos
       - description: Shared interrupt line for RXIN 8-15 fifos
@@ -154,7 +156,8 @@ examples:
         memory-region-names = "shmem";
         interrupt-controller;
         #interrupt-cells = <1>;
-        interrupts = <0 172 IRQ_TYPE_LEVEL_HIGH>,
+        interrupts = <0 171 IRQ_TYPE_LEVEL_HIGH>,
+            <0 172 IRQ_TYPE_LEVEL_HIGH>,
             <0 174 IRQ_TYPE_LEVEL_HIGH>,
             <0 175 IRQ_TYPE_LEVEL_HIGH>,
             <0 176 IRQ_TYPE_LEVEL_HIGH>,
@@ -162,7 +165,8 @@ examples:
             <0 182 IRQ_TYPE_LEVEL_HIGH>,
             <0 183 IRQ_TYPE_LEVEL_HIGH>,
             <0 184 IRQ_TYPE_LEVEL_HIGH>;
-        interrupt-names = "linflex_irq",
+        interrupt-names = "lpspi_irq",
+          "linflex_irq",
           "rxin_fifo_0_7",
           "rxin_fifo_8_15",
           "rxout_fifo_0_7",
