@@ -58,8 +58,8 @@ properties:
     description: LLCE system clock
 
   ranges:
-    minItems: 12
-    maxItems: 12
+    minItems: 16
+    maxItems: 16
     description:
       LLCE FIFOs, LIN and CORE2CORE registers ranges
 
@@ -147,8 +147,16 @@ examples:
                 /* LLCE UART3 */
                 <0x10 0 0x0 0x43c08C00 0x0 0x400>,
                 /* LLCE CORE2CORE */
-                <0x11 0 0x0 0x43c26000 0x0 0x70>;
-            #address-cells = <2>;
+                <0x11 0 0x0 0x43c26000 0x0 0x70>,
+                /* LLCE LPSPI0 */
+                <0x12 0 0x0 0x43c00000 0x0 0x1000>,
+                /* LLCE LPSPI1 */
+                <0x13 0 0x0 0x43c01000 0x0 0x1000>,
+                /* LLCE LPSPI2 */
+                <0x14 0 0x0 0x43c02000 0x0 0x1000>,
+                /* LLCE LPSPI3 */
+                <0x15 0 0x0 0x43c03000 0x0 0x1000>;
+                            #address-cells = <2>;
             #size-cells = <2>;
             #interrupt-cells = <3>;
             status = "okay";
