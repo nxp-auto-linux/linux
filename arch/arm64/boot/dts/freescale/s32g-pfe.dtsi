@@ -11,9 +11,9 @@
 
 / {
 	aliases {
-		pfe0 = &pfe_netif0;
-		pfe1 = &pfe_netif1;
-		pfe2 = &pfe_netif2;
+		ethernet1 = &pfe_netif0;
+		ethernet2 = &pfe_netif1;
+		ethernet3 = &pfe_netif2;
 	};
 
 	soc {
