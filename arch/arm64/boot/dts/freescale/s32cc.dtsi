@@ -41,7 +41,7 @@
 		clks = &clks;
 		reset = &reset;
 
-		gmac0 = &gmac0;
+		ethernet0 = &gmac0;
 
 		pci0 = &pcie0;
 		pci1 = &pcie1;
