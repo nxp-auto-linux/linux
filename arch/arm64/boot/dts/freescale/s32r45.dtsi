@@ -17,6 +17,7 @@
 
 	aliases {
 		can4 = &can4;
+		ehthernet1 = &gmac1;
 	};
 
 	reserved-memory {
