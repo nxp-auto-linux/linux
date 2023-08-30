@@ -247,7 +247,9 @@ enum llce_can_command_id {
 	 * The host requests the addition of a new advanced filter by
 	 * specifying filter address.
 	 */
-	LLCE_CAN_CMD_SETADVANCEDFILTER_AT_ADDRESS
+	LLCE_CAN_CMD_SETADVANCEDFILTER_AT_ADDRESS,
+	/** The host enables or disables can2pcie processing entirely.*/
+	LLCE_CAN_CMD_SETCAN2PCIESTATE
 } __packed;
 
 /**
@@ -414,7 +416,9 @@ enum llce_af_rule_id {
 	/** Destination rule type used for can2can use case. */
 	CAN_AF_CAN2CAN = 0U,
 	/** Destination rule type used for can2eth use case. */
-	CAN_AF_CAN2ETH
+	CAN_AF_CAN2ETH,
+	/** Destination rule type used for can2pcie use case. */
+	CAN_AF_CAN2PCIE
 } __packed;
 
 /**
@@ -961,6 +965,34 @@ struct llce_can_can2eth_routing_table {
 } __aligned(4) __packed;
 
 /**
+ * Data structure type containing CAN to PCIe destination rule
+ * configuration.
+ * It is used to define a specific destination rule for can2pcie routing.
+ **/
+struct llce_can_can2pcie_routing_table {
+	/** INPUT: Base address of the buffer area on the RC side*/
+	u64 can2pcie_rc_buff_addr;
+	/**
+	 * INPUT: Base address of the local buffer area for this
+	 * destination
+	 */
+	u32 pcan2pcie_buff_addr;
+	/** INPUT: Size of each buffer for this destination */
+	u16 can2pcie_buff_size;
+	/**
+	 * INPUT: Number of buffers of size can2pcie_buff_size for this
+	 * destination
+	 */
+	u8 can2pcie_buff_count;
+	/** INPUT: PCIe controller used */
+	u8 can2pcie_controller;
+	/** INPUT: PCIe DMA channel used */
+	u8 can2pcie_dma_channel;
+	/** INPUT: MSI to trigger on transmission; 0xFF to disable */
+	u8 can2pcie_msi_id;
+} __aligned(4) __packed;
+
+/**
  * Data structure type representing  destination rule used by Advanced
  * Features(AF)
  * Used to hold a generic type of AF destination rule
@@ -976,6 +1008,8 @@ struct can_af_dest_rules {
 		struct llce_can_can2can_routing_table can2can;
 		/** INPUT: Destination rule for can2eth use case.*/
 		struct llce_can_can2eth_routing_table can2eth;
+		/** INPUT: Destination rule for can2pcie use case.*/
+		struct llce_can_can2pcie_routing_table can2pcie;
 	} af_dest;
 	/** INPUT: Destination rule type.*/
 	enum llce_af_rule_id af_dest_id;
@@ -1007,6 +1041,11 @@ struct llce_can_advanced_feature {
 	 * See struct llce_can_can2eth_routing_table
 	 */
 	u8 can2eth_routing_table_idx;
+	/**
+	 * INPUT: Other destination routing table index.
+	 * Reference to a routing table rule.
+	 */
+	u8 other_routing_table_idx;
 } __aligned(4) __packed;
 
 /**
