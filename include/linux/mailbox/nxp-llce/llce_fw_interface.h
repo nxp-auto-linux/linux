@@ -484,6 +484,11 @@ enum llce_fw_return {
 	/** CAN firmware notification: BCAN exits Passive state. */
 	LLCE_NOTIF_BCAN_EXIT_PASSIVE_STATE,
 	/**
+	 * CAN firmware notification: There was an attempt to perform
+	 * routing to a disabled destination.
+	 */
+	LLCE_ERROR_ROUTINGCHANNEL_DISABLED,
+	/**
 	 * Number of enum elements. It must be kept as the last member
 	 * of the list.
 	 */
