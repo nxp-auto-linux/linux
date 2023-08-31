@@ -37,7 +37,7 @@
 #define MAX_CONFIRM_BUF_PER_CHAN	(16u)
 
 #define LLCE_FIFO_SIZE			0x400
-#define LLCE_RXMBEXTENSION_OFFSET	0x8F0U
+#define LLCE_RXMBEXTENSION_OFFSET	0x3C8F0U
 
 #define LLCE_NFIFO_WITH_IRQ		16
 #define LLCE_RXIN_N_FIFO		20
@@ -1853,7 +1853,7 @@ static int process_pop_rxout(struct mbox_chan *chan, struct llce_rx_msg *msg)
 
 static u32 __iomem *get_ctrl_extension(struct llce_mb *mb)
 {
-	return mb->status + LLCE_RXMBEXTENSION_OFFSET;
+	return (void __iomem *)mb->can_sh_mem + LLCE_RXMBEXTENSION_OFFSET;
 }
 
 static u8 get_hwctrl(struct llce_mb *mb, u32 frame_id)
