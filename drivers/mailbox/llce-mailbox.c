@@ -1846,7 +1846,7 @@ static u8 get_hwctrl(struct llce_mb *mb, u32 frame_id)
 	    HWCTRL_MBEXTENSION_MASK;
 }
 
-static void pop_logger_frame(struct llce_mb *mb, struct llce_can_mb **frame,
+static void pop_logger_frame(struct llce_mb *mb, struct llce_can_mb *frame,
 			     u32 *index, u32 *hw_ctrl)
 {
 	struct llce_can_shared_memory __iomem *can_sh_mem = mb->can_sh_mem;
@@ -1902,7 +1902,7 @@ static int process_pop_logger(struct mbox_chan *chan, struct llce_rx_msg *msg)
 	u32 hw_ctrl, mb_index;
 	struct llce_chan_priv *priv = chan->con_priv;
 	struct llce_mb *mb = priv->mb;
-	struct llce_can_mb *frame;
+	struct llce_can_mb frame;
 	struct llce_rx_can_mb can_mb;
 	bool pop;
 
@@ -1924,12 +1924,12 @@ static int process_pop_logger(struct mbox_chan *chan, struct llce_rx_msg *msg)
 	/* Skip the frame as it's not for this channel */
 	if (hw_ctrl != priv->index) {
 		msg->rx_pop.skip = true;
-		send_llce_logger_notif(mb, hw_ctrl, frame, mb_index);
+		send_llce_logger_notif(mb, hw_ctrl, &frame, mb_index);
 		return 0;
 	}
 
 	msg->rx_pop.skip = false;
-	msg->rx_pop.mb.data.longm = *frame;
+	msg->rx_pop.mb.data.longm = frame;
 	msg->rx_pop.index = mb_index;
 
 	return 0;
@@ -2108,7 +2108,7 @@ static irqreturn_t llce_logger_rx_irq(int irq, void *data)
 	struct llce_mb *mb = data;
 	void __iomem *icsr_addr = get_logger_icsr(mb);
 	u32 icsr, mb_index, hw_ctrl;
-	struct llce_can_mb *frame;
+	struct llce_can_mb frame;
 
 	icsr = readl(icsr_addr);
 	if (!(icsr & LLCE_LOGGER_ICSR_IRQ))
@@ -2118,7 +2118,7 @@ static irqreturn_t llce_logger_rx_irq(int irq, void *data)
 
 	pop_logger_frame(mb, &frame, &mb_index, &hw_ctrl);
 
-	send_llce_logger_notif(mb, hw_ctrl, frame, mb_index);
+	send_llce_logger_notif(mb, hw_ctrl, &frame, mb_index);
 
 	return IRQ_HANDLED;
 }
