@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0+
 //
 // Copyright 2013 Freescale Semiconductor, Inc.
-// Copyright 2020-2022 NXP
+// Copyright 2020-2023 NXP
 //
 // Freescale DSPI driver
 // This file contains a driver for the Freescale DSPI
@@ -115,6 +115,9 @@
 
 #define SPI_25MHZ					25000000
 
+/* The maximum that edma can transfer once.*/
+#define SPI_DMA_BUFFER_SIZE	(GENMASK(14, 0) * DMA_SLAVE_BUSWIDTH_4_BYTES)
+
 struct chip_data {
 	u32			ctar_val;
 };
@@ -224,6 +227,7 @@ struct fsl_dspi_dma {
 	dma_addr_t				rx_dma_phys;
 	struct completion			cmd_rx_complete;
 	struct dma_async_tx_descriptor		*rx_desc;
+	unsigned int				dma_bufsize;
 };
 
 struct fsl_dspi {
@@ -492,7 +496,13 @@ static int dspi_dma_xfer(struct fsl_dspi *dspi)
 	struct spi_message *message = dspi->cur_msg;
 	struct device *dev = &dspi->pdev->dev;
 	int ret = 0;
+	int max_words_per_buffer = dspi->dma->dma_bufsize /
+				   DMA_SLAVE_BUSWIDTH_4_BYTES;
 
+	if (spi_controller_is_slave(dspi->ctlr) &&
+			dspi->len / dspi->oper_word_size > max_words_per_buffer)
+		dev_warn(dev, "Current message has more than %d words. Underrun may occur.\n",
+				max_words_per_buffer);
 	/*
 	 * dspi->len gets decremented by dspi_pop_tx_pushr in
 	 * dspi_next_xfer_dma_submit
@@ -502,8 +512,8 @@ static int dspi_dma_xfer(struct fsl_dspi *dspi)
 		dspi_setup_accel(dspi);
 
 		dspi->words_in_flight = dspi->len / dspi->oper_word_size;
-		if (dspi->words_in_flight > dspi->devtype_data->fifo_size)
-			dspi->words_in_flight = dspi->devtype_data->fifo_size;
+		if (dspi->words_in_flight > max_words_per_buffer)
+			dspi->words_in_flight = max_words_per_buffer;
 
 		message->actual_length += dspi->words_in_flight *
 					  dspi->oper_word_size;
@@ -520,7 +530,7 @@ static int dspi_dma_xfer(struct fsl_dspi *dspi)
 
 static int dspi_request_dma(struct fsl_dspi *dspi, phys_addr_t phy_addr)
 {
-	int dma_bufsize = dspi->devtype_data->fifo_size * 2;
+	unsigned int dma_bufsize = SPI_DMA_BUFFER_SIZE;
 	struct device *dev = &dspi->pdev->dev;
 	struct dma_slave_config cfg;
 	struct fsl_dspi_dma *dma;
@@ -584,6 +594,7 @@ static int dspi_request_dma(struct fsl_dspi *dspi, phys_addr_t phy_addr)
 		goto err_slave_config;
 	}
 
+	dma->dma_bufsize = dma_bufsize;
 	dspi->dma = dma;
 	init_completion(&dma->cmd_tx_complete);
 	init_completion(&dma->cmd_rx_complete);
@@ -609,20 +620,19 @@ err_tx_channel:
 
 static void dspi_release_dma(struct fsl_dspi *dspi)
 {
-	int dma_bufsize = dspi->devtype_data->fifo_size * 2;
 	struct fsl_dspi_dma *dma = dspi->dma;
 
 	if (!dma)
 		return;
 
 	if (dma->chan_tx) {
-		dma_free_coherent(dma->chan_tx->device->dev, dma_bufsize,
+		dma_free_coherent(dma->chan_tx->device->dev, dma->dma_bufsize,
 				  dma->tx_dma_buf, dma->tx_dma_phys);
 		dma_release_channel(dma->chan_tx);
 	}
 
 	if (dma->chan_rx) {
-		dma_free_coherent(dma->chan_rx->device->dev, dma_bufsize,
+		dma_free_coherent(dma->chan_rx->device->dev, dma->dma_bufsize,
 				  dma->rx_dma_buf, dma->rx_dma_phys);
 		dma_release_channel(dma->chan_rx);
 	}
