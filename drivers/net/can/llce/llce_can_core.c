@@ -110,6 +110,7 @@ static void adv_filter_basic_init(struct llce_can_advanced_filter *afilt,
 		.host_receive = LLCE_AF_HOSTRECEIVE_ENABLED,
 		.can2can_routing_table_idx = LLCE_CAN_ADVANCED_FILTER_NOT_USED,
 		.can2eth_routing_table_idx = LLCE_CAN_ADVANCED_FILTER_NOT_USED,
+		.other_routing_table_idx = LLCE_CAN_ADVANCED_FILTER_NOT_USED,
 	};
 
 	base_filter_init(&afilt->llce_can_rx_filter, hw_ctrl, fd);
