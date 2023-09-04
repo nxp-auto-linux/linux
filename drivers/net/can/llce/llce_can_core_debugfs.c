@@ -761,6 +761,10 @@ static bool is_advanced_filter(struct llce_can_advanced_feature *opts)
 	    LLCE_CAN_ADVANCED_FILTER_NOT_USED)
 		return true;
 
+	if (opts->other_routing_table_idx !=
+	    LLCE_CAN_ADVANCED_FILTER_NOT_USED)
+		return true;
+
 	return false;
 }
 
@@ -1114,6 +1118,8 @@ static int create_rx_filter_files(struct device *dev,
 			  &can_filters->adv_opts.can2can_routing_table_idx);
 
 	can_filters->adv_opts.can2eth_routing_table_idx =
+	    LLCE_CAN_ADVANCED_FILTER_NOT_USED;
+	can_filters->adv_opts.other_routing_table_idx =
 	    LLCE_CAN_ADVANCED_FILTER_NOT_USED;
 
 	for (i = 0; i < ARRAY_SIZE(choices); i++) {
