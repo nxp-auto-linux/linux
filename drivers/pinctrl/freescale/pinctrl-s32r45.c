@@ -3,7 +3,7 @@
  * s32r45 pinctrl driver based on imx pinmux and pinconf core
  *
  * Copyright 2015-2016 Freescale Semiconductor, Inc.
- * Copyright 2017-2018 NXP
+ * Copyright 2017-2018, 2023 NXP
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -250,6 +250,13 @@ enum s32cc_pins {
 	S32R45_IMCR_Ethernet_REF_CLK = 535,
 	/* GMAC1 */
 	S32R45_IMCR_Ethernet1_MDIO = 659,
+	S32R45_IMCR_Ethernet1_TX_I = 660,
+	S32R45_IMCR_Ethernet1_RX_ER = 662,
+	S32R45_IMCR_Ethernet1_RX_DV_I = 663,
+	S32R45_IMCR_Ethernet1_RXD_I0 = 664,
+	S32R45_IMCR_Ethernet1_RXD_I1 = 665,
+	S32R45_IMCR_Ethernet1_RXD_I2 = 666,
+	S32R45_IMCR_Ethernet1_RXD_I3 = 667,
 
 	S32R45_IMCR_SIUL_EIRQ0 =  696,
 	S32R45_IMCR_SIUL_EIRQ1 =  697,
@@ -555,6 +562,13 @@ static const struct pinctrl_pin_desc s32r45_pinctrl_pads_siul2[] = {
 
 	/* GMAC1 */
 	S32CC_PINCTRL_PIN(S32R45_IMCR_Ethernet1_MDIO),
+	S32CC_PINCTRL_PIN(S32R45_IMCR_Ethernet1_TX_I),
+	S32CC_PINCTRL_PIN(S32R45_IMCR_Ethernet1_RX_ER),
+	S32CC_PINCTRL_PIN(S32R45_IMCR_Ethernet1_RX_DV_I),
+	S32CC_PINCTRL_PIN(S32R45_IMCR_Ethernet1_RXD_I0),
+	S32CC_PINCTRL_PIN(S32R45_IMCR_Ethernet1_RXD_I1),
+	S32CC_PINCTRL_PIN(S32R45_IMCR_Ethernet1_RXD_I2),
+	S32CC_PINCTRL_PIN(S32R45_IMCR_Ethernet1_RXD_I3),
 };
 
 static struct s32cc_pinctrl_soc_info s32r45_pinctrl_info = {
