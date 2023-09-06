@@ -958,6 +958,7 @@ static void stmmac_validate(struct phylink_config *config,
 	phylink_set(mac_supported, 10baseT_Full);
 	phylink_set(mac_supported, 100baseT_Half);
 	phylink_set(mac_supported, 100baseT_Full);
+	phylink_set(mac_supported, 100baseT1_Full);
 	phylink_set(mac_supported, 1000baseT_Half);
 	phylink_set(mac_supported, 1000baseT_Full);
 	phylink_set(mac_supported, 1000baseKX_Full);
