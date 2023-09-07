@@ -605,7 +605,7 @@
 &gmac0 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&rgmii2_pins>, <&mdio2_pins>;
-	phy-mode = "rgmii";
+	phy-mode = "rgmii-id";
 	phy-handle = <&tja1101_phy0>;
 	status = "okay";
 };
@@ -621,7 +621,7 @@
 
 &gmac1 {
 	pinctrl-names = "default";
-	phy-mode = "rgmii";
+	phy-mode = "rgmii-id";
 	status = "okay";
 	pinctrl-0 = <&rgmii3_pins>;
 	phy-handle = <&gmac1_phy1>;
