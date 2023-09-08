@@ -17,6 +17,7 @@ properties:
     enum:
       - fsl,imx7ulp-spi
       - fsl,imx8qxp-spi
+      - nxp,s32g-lpspi
 
   reg:
     maxItems: 1
@@ -41,12 +42,35 @@ properties:
       this property to re-config the chipselect value in the LPSPI driver.
     type: boolean
 
+  pinctrl-0:
+    description:
+      A phandle to the default pinctrl state.
+
+  pinctrl-1:
+    description:
+      A phandle to the slave pinctrl state if the default state is used for the
+      master.
+
+  pinctrl-names:
+    items:
+      - const: default
+      - const: slave
+    description:
+      A pinctrl state named "default" will be applied if defined. Pinctrl
+      state named "slave" will be applied if defined and if the controller
+      is configured as slave.
+
 required:
   - compatible
   - reg
-  - interrupts
   - clocks
   - clock-names
+
+oneOf:
+  - required:
+      - interrupts
+  - required:
+      - interrupts-extended
 
 unevaluatedProperties: false
 
@@ -65,4 +89,19 @@ examples:
         clock-names = "per", "ipg";
         spi-slave;
         fsl,spi-only-use-cs1-sel;
+    };
+  - |
+    #include <dt-bindings/clock/s32g-scmi-clock.h>
+    #include <dt-bindings/mailbox/nxp-llce-mb.h>
+
+    llce_spi2: spi@43c02000 {
+        compatible = "nxp,s32g-lpspi";
+        reg = <0x14 0x0 0x0 0x1000>;
+        clocks = <&clks S32G_SCMI_CLK_LLCE_PER>,
+                 <&clks S32G_SCMI_CLK_LLCE_SYS>;
+        clock-names = "per", "ipg";
+        pinctrl-0 = <&lpspi2_pins>;
+        pinctrl-1 = <&lpspi2_pins_slave>;
+        pinctrl-names = "default", "slave";
+        interrupts-extended = <&llce_mb LLCE_MB_LPSPI_IRQ_2>;
     };
