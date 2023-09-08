@@ -18,11 +18,13 @@ properties:
       - enum:
           - fsl,imx7ulp-spi
           - fsl,imx8qxp-spi
+          - nxp,s32g-lpspi
       - items:
           - enum:
               - fsl,imx8ulp-spi
               - fsl,imx93-spi
           - const: fsl,imx7ulp-spi
+          - const: nxp,s32g-lpspi
   reg:
     maxItems: 1
 
@@ -66,12 +68,26 @@ properties:
   power-domains:
     maxItems: 1
 
+  pinctrl-0:
+    description:
+      A phandle to the default pinctrl state.
+
+  pinctrl-names:
+    const: default
+    description:
+      A pinctrl state named "default" must be defined.
+
 required:
   - compatible
   - reg
-  - interrupts
   - clocks
   - clock-names
+
+oneOf:
+  - required:
+      - interrupts
+  - required:
+      - interrupts-extended
 
 unevaluatedProperties: false
 
@@ -91,4 +107,22 @@ examples:
         spi-slave;
         fsl,spi-only-use-cs1-sel;
         num-cs = <2>;
+    };
+  - |
+    #include <dt-bindings/clock/s32g-scmi-clock.h>
+    #include <dt-bindings/mailbox/nxp-llce-mb.h>
+    bus {
+      #address-cells = <2>;
+      #size-cells = <2>;
+
+      llce_spi2: spi@43c02000 {
+          compatible = "nxp,s32g-lpspi";
+          reg = <0x14 0x0 0x0 0x1000>;
+          clocks = <&clks S32G_SCMI_CLK_LLCE_PER>,
+                   <&clks S32G_SCMI_CLK_LLCE_SYS>;
+          clock-names = "per", "ipg";
+          pinctrl-0 = <&lpspi2_pins>;
+          pinctrl-names = "default";
+          interrupts-extended = <&llce_mb LLCE_MB_LPSPI_IRQ_2>;
+      };
     };
