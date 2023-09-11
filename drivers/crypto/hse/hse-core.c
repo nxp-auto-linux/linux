@@ -4,7 +4,7 @@
  *
  * This file contains the device driver core for the HSE cryptographic engine.
  *
- * Copyright 2019-2022 NXP
+ * Copyright 2019-2023 NXP
  */
 
 #include <linux/kernel.h>
@@ -806,9 +806,10 @@ static int hse_probe(struct platform_device *pdev)
 	status = hse_mu_check_status(drv->mu);
 	if (!likely(status & HSE_STATUS_INIT_OK)) {
 		if (IS_ENABLED(CONFIG_CRYPTO_DEV_NXP_HSE_MU0))
-			dev_warn(dev, "firmware not found\n");
+			dev_err(dev, "firmware not found\n");
 		else
-			dev_warn(dev, "MU interface not active\n");
+			dev_err(dev, "interface %s not active\n",
+				CONFIG_CRYPTO_DEV_NXP_HSE_MU);
 		return -ENODEV;
 	}
 
