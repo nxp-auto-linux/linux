@@ -5,7 +5,7 @@
  * This file contains the implementation of the hash algorithms and hash-based
  * message authentication codes supported for hardware offloading via HSE.
  *
- * Copyright 2019-2022 NXP
+ * Copyright 2019-2023 NXP
  */
 
 #include <linux/kernel.h>
@@ -82,14 +82,14 @@ struct hse_ahash_tfm_ctx {
 
 /**
  * struct hse_ahash_state - crypto request state
- * @sctx: streaming mode hardware state context
  * @cache: block-sized cache for small input fragments
+ * @sctx: streaming mode hardware state context
  * @cache_idx: current written byte index in the cache
  * @streaming_mode: request in HSE streaming mode
  */
 struct hse_ahash_state {
-	u8 sctx[HSE_MAX_CTX_SIZE];
 	u8 cache[HSE_AHASH_MAX_BLOCK_SIZE];
+	u8 sctx[HSE_MAX_CTX_SIZE];
 	u8 cache_idx;
 	bool streaming_mode;
 };
