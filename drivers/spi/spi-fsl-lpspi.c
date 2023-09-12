@@ -73,7 +73,9 @@
 #define DER_TDDE	BIT(0)
 #define CFGR1_PCSCFG	BIT(27)
 #define CFGR1_PINCFG	(BIT(24)|BIT(25))
-#define CFGR1_PCSPOL	BIT(8)
+#define CFGR1_PCSPOL_OFFSET	8
+#define CFGR1_PCSPOL_MASK	GENMASK(11, 8)
+#define CFGR1_PCSPOL		BIT(CFGR1_PCSPOL_OFFSET)
 #define CFGR1_NOSTALL	BIT(3)
 #define CFGR1_HOST	BIT(0)
 #define FSR_TXCOUNT	(0xFF)
@@ -389,6 +391,7 @@ static int fsl_lpspi_dma_configure(struct spi_controller *controller)
 
 static int fsl_lpspi_config(struct fsl_lpspi_data *fsl_lpspi)
 {
+	struct spi_controller *controller = dev_get_drvdata(fsl_lpspi->dev);
 	u32 temp;
 	int ret;
 
@@ -404,8 +407,16 @@ static int fsl_lpspi_config(struct fsl_lpspi_data *fsl_lpspi)
 		temp = CFGR1_HOST;
 	else
 		temp = CFGR1_PINCFG;
-	if (fsl_lpspi->config.mode & SPI_CS_HIGH)
-		temp |= CFGR1_PCSPOL;
+
+	if (fsl_lpspi->config.mode & SPI_CS_HIGH) {
+		if (controller->num_chipselect > 1)
+			temp |= ((BIT(fsl_lpspi->config.chip_select) <<
+					CFGR1_PCSPOL_OFFSET) &
+					CFGR1_PCSPOL_MASK);
+		else
+			temp |= CFGR1_PCSPOL;
+	}
+
 	writel(temp, fsl_lpspi->base + IMX7ULP_CFGR1);
 
 	temp = readl(fsl_lpspi->base + IMX7ULP_CR);
