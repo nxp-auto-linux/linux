@@ -54,6 +54,8 @@
 #define IMX7ULP_RDR	0x74
 
 /* General control register field define */
+#define PARAM_PCSNUM_MASK	GENMASK(19, 16)
+#define PARAM_PCSNUM_OFFSET	16
 #define CR_RRF		BIT(9)
 #define CR_RTF		BIT(8)
 #define CR_RST		BIT(1)
@@ -851,13 +853,37 @@ static void fsl_lpspi_set_target_pinctrl(struct device *dev)
 		fsl_lpspi->pinctrl_slave = NULL;
 }
 
+static u16 fsl_lpspi_get_num_cs(struct platform_device *pdev, u32 param)
+{
+	u16 num_cs = 0, max_num_cs = 0;
+	bool param_pcsnum =
+		of_device_is_compatible(pdev->dev.of_node, "fsl,imx93-spi") ||
+		of_device_is_compatible(pdev->dev.of_node, "nxp,s32g-lpspi");
+
+	if (param_pcsnum)
+		max_num_cs = (param & PARAM_PCSNUM_MASK) >>
+			PARAM_PCSNUM_OFFSET;
+
+	if (!of_property_read_u16((&pdev->dev)->of_node, "num-cs",
+				 &num_cs)) {
+		if (!param_pcsnum)
+			return num_cs;
+		return min(num_cs, max_num_cs);
+	}
+
+	if (param_pcsnum)
+		return max_num_cs;
+
+	return 1;
+}
+
 static int fsl_lpspi_probe(struct platform_device *pdev)
 {
 	struct fsl_lpspi_data *fsl_lpspi;
 	struct spi_controller *controller;
 	struct resource *res;
 	int ret, irq;
-	u32 num_cs;
+	u16 num_cs;
 	u32 temp;
 	bool is_target;
 
@@ -928,13 +954,8 @@ static int fsl_lpspi_probe(struct platform_device *pdev)
 	temp = readl(fsl_lpspi->base + IMX7ULP_PARAM);
 	fsl_lpspi->txfifosize = 1 << (temp & 0x0f);
 	fsl_lpspi->rxfifosize = 1 << ((temp >> 8) & 0x0f);
-	if (of_property_read_u32((&pdev->dev)->of_node, "num-cs",
-				 &num_cs)) {
-		if (of_device_is_compatible(pdev->dev.of_node, "fsl,imx93-spi"))
-			num_cs = ((temp >> 16) & 0xf);
-		else
-			num_cs = 1;
-	}
+
+	num_cs = fsl_lpspi_get_num_cs(pdev, temp);
 
 	if (is_target)
 		fsl_lpspi_set_target_pinctrl(&pdev->dev);
