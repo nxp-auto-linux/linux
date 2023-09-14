@@ -217,3 +217,7 @@
 			       4 0x162 0x1f
 			       5 0x16c 0x1f>;
 };
+
+&llce_spi2 {
+	nxp,reset-at-underrun;
+};
