@@ -42,6 +42,13 @@ properties:
       this property to re-config the chipselect value in the LPSPI driver.
     type: boolean
 
+  nxp,reset-at-underrun:
+    description:
+        In S32G3 case, TX FIFO pointers are corrupted when a transmit FIFO
+        underrun occurs in slave mode (ERR051588). The workaround is to reset
+        the TX FIFO before writing any new data.
+    type: boolean
+
   pinctrl-0:
     description:
       A phandle to the default pinctrl state.
