@@ -61,6 +61,7 @@
 #define CR_RST		BIT(1)
 #define CR_MEN		BIT(0)
 #define SR_MBF		BIT(24)
+#define SR_TEF		BIT(11)
 #define SR_TCF		BIT(10)
 #define SR_FCF		BIT(9)
 #define SR_RDF		BIT(1)
@@ -106,6 +107,7 @@ struct fsl_lpspi_data {
 	bool is_target;
 	bool is_only_cs1;
 	bool is_first_byte;
+	bool reset_at_underrun;
 
 	void *rx_buf;
 	const void *tx_buf;
@@ -760,14 +762,26 @@ static irqreturn_t fsl_lpspi_isr(int irq, void *dev_id)
 {
 	u32 temp_SR, temp_IER;
 	struct fsl_lpspi_data *fsl_lpspi = dev_id;
+	bool underrun = false;
 
 	temp_IER = readl(fsl_lpspi->base + IMX7ULP_IER);
 	fsl_lpspi_intctrl(fsl_lpspi, 0);
-	temp_SR = readl(fsl_lpspi->base + IMX7ULP_SR);
 
 	fsl_lpspi_read_rx_fifo(fsl_lpspi);
 
-	if ((temp_SR & SR_TDF) && (temp_IER & IER_TDIE)) {
+	temp_SR = readl(fsl_lpspi->base + IMX7ULP_SR);
+	if (fsl_lpspi->reset_at_underrun && (temp_SR & SR_TEF)) {
+		dev_err(fsl_lpspi->dev,
+			"Transmit FIFO underrun has occurred. Reset TX FIFO.");
+		/* Reset TX FIFO. */
+		writel(CR_RTF | CR_MEN, fsl_lpspi->base + IMX7ULP_CR);
+
+		/* W1C for all flags in SR */
+		writel(SR_CLEAR_MASK, fsl_lpspi->base + IMX7ULP_SR);
+		underrun = true;
+	}
+
+	if (underrun || ((temp_SR & SR_TDF) && (temp_IER & IER_TDIE))) {
 		fsl_lpspi_write_tx_fifo(fsl_lpspi);
 		return IRQ_HANDLED;
 	}
@@ -994,6 +1008,10 @@ static int fsl_lpspi_probe(struct platform_device *pdev)
 		 * to prevent the unexpected LPSPI module IRQ events.
 		 */
 		disable_irq(irq);
+
+	fsl_lpspi->reset_at_underrun = is_target &&
+		of_property_read_bool((&pdev->dev)->of_node,
+				      "nxp,reset-at-underrun");
 
 	ret = devm_spi_register_controller(&pdev->dev, controller);
 	if (ret < 0) {
