@@ -68,6 +68,13 @@ properties:
   power-domains:
     maxItems: 1
 
+  nxp,reset-at-underrun:
+    description:
+      In S32G3 case, TX FIFO pointers are corrupted when a transmit FIFO
+      underrun occurs in target mode (ERR051588). The workaround is to reset
+      the TX FIFO before writing any new data.
+    type: boolean
+
   pinctrl-0:
     description:
       A phandle to the default pinctrl state.
