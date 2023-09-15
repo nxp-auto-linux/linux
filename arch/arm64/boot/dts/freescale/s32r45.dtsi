@@ -252,7 +252,7 @@
 			pinmux = <S32CC_PINMUX(46, FUNC1)>,
 				 <S32CC_PINMUX(56, FUNC1)>;
 			output-enable;
-			slew-rate = <S32CC_SLEW_150MHZ>;
+			slew-rate = <S32CC_FAST_SLEW_150MHZ>;
 			bias-pull-down;
 		};
 
@@ -268,14 +268,14 @@
 				 <S32CC_PINMUX(55, FUNC1)>;
 			output-enable;
 			input-enable;
-			slew-rate = <S32CC_SLEW_150MHZ>;
+			slew-rate = <S32CC_FAST_SLEW_150MHZ>;
 			bias-pull-up;
 		};
 
 		sd0_default_grp2 {
 			pinmux = <S32CC_PINMUX(57, FUNC1)>;
 			output-enable;
-			slew-rate = <S32CC_SLEW_150MHZ>;
+			slew-rate = <S32CC_FAST_SLEW_150MHZ>;
 		};
 
 		sd0_default_grp3 {
