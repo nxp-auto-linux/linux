@@ -785,24 +785,6 @@
 
 	};
 
-	gmacrgmiia_pins: gmacrgmiia_pins {
-		gmacrgmiia_grp0 {
-			pinmux = <S32CC_PINMUX(113, FUNC0)>,
-				 <S32CC_PINMUX(114, FUNC0)>,
-				 <S32CC_PINMUX(115, FUNC0)>,
-				 <S32CC_PINMUX(116, FUNC0)>,
-				 <S32CC_PINMUX(117, FUNC0)>,
-				 <S32CC_PINMUX(118, FUNC0)>,
-				 <S32CC_PINMUX(119, FUNC0)>,
-				 <S32CC_PINMUX(120, FUNC0)>,
-				 <S32CC_PINMUX(121, FUNC0)>,
-				 <S32CC_PINMUX(122, FUNC0)>,
-				 <S32CC_PINMUX(144, FUNC0)>;
-			slew-rate = <S32CC_SLEW_208MHZ>;
-		};
-
-	};
-
 	uart0_pins: uart0_pins {
 		uart0_pins_grp0 {
 			pinmux = <S32CC_PINMUX(41, FUNC1)>;
