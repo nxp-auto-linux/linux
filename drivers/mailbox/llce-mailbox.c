@@ -529,6 +529,7 @@ static int init_chan_priv(struct mbox_chan *chan, struct llce_mb *mb,
 static void deinit_chan_priv(struct mbox_chan *chan)
 {
 	kfree(chan->con_priv);
+	chan->con_priv = NULL;
 }
 
 static struct mbox_chan *llce_mb_xlate(struct mbox_controller *mbox,
