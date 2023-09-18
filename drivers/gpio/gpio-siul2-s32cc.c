@@ -154,6 +154,7 @@ struct siul2_gpio_dev {
 
 	/* Mutual access to SIUL2 registers. */
 	spinlock_t lock;
+	raw_spinlock_t wa_lock;
 };
 
 /* We will use the following variable names:
@@ -410,6 +411,7 @@ static irqreturn_t siul2_gpio_irq_handler(int irq, void *data)
 	u32 disr0_val;
 	unsigned long disr0_val_long;
 	irqreturn_t ret = IRQ_NONE;
+	unsigned long wa_lock_flags;
 	int i;
 
 	/* Go through the entire GPIO bank and handle all interrupts */
@@ -444,7 +446,9 @@ static irqreturn_t siul2_gpio_irq_handler(int irq, void *data)
 		 */
 		regmap_write(gpio_dev->irqmap, SIUL2_DISR0, BIT(eirq));
 
+		raw_spin_lock_irqsave(&gpio_dev->wa_lock, wa_lock_flags);
 		generic_handle_irq(child_irq);
+		raw_spin_unlock_irqrestore(&gpio_dev->wa_lock, wa_lock_flags);
 
 		ret |= IRQ_HANDLED;
 	}
@@ -1141,6 +1145,7 @@ static int siul2_gpio_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, gpio_dev);
 
 	spin_lock_init(&gpio_dev->lock);
+	raw_spin_lock_init(&gpio_dev->wa_lock);
 
 	for (i = 0; i < ARRAY_SIZE(gpio_dev->siul2); ++i) {
 		err = siul2_get_gpio_pinspec(pdev, &pinspec, i);
