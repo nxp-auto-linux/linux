@@ -3,7 +3,7 @@
  * SIUL2 GPIO support.
  *
  * Copyright (c) 2016 Freescale Semiconductor, Inc.
- * Copyright 2019-2022 NXP
+ * Copyright 2019-2023 NXP
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 or
@@ -887,7 +887,7 @@ static int siul2_irq_setup(struct platform_device *pdev,
 	 * interrupt line.
 	 */
 	ret = devm_request_irq(&pdev->dev, irq, siul2_gpio_irq_handler,
-			       IRQF_SHARED | IRQF_NO_THREAD,
+			       IRQF_SHARED,
 			       dev_name(&pdev->dev), gpio_dev);
 	if (ret) {
 		dev_err(&pdev->dev, "failed to request interrupt\n");
