@@ -4,7 +4,7 @@
  *
  * Copyright (C) 1999-2003 Russell King
  * Copyright (C) 2012 ARM Ltd.
- * Copyright 2022 NXP
+ * Copyright 2022-2023 NXP
  */
 #ifndef __ASM_TLBFLUSH_H
 #define __ASM_TLBFLUSH_H
@@ -69,9 +69,13 @@
 #define __tlbi_vale1is(ADDR, ...)	S32CC_TLBI_ALT(vale1is, ADDR)
 #define __tlbi_vmalle1()		__TLBI_0(vmalle1, 0)
 #define __tlbi_vmalle1is()		__TLBI_0(vmalle1is, 0)
+#define __tlbi_alle1is()		__TLBI_0(alle1is, 0)
+#define __tlbi_vmalls12e1()		__TLBI_0(vmalls12e1, 0)
+#define __tlbi_vmalls12e1is()		__TLBI_0(vmalls12e1is, 0)
 #define __tlbi_aside1is(ASID)		__TLBI_1(aside1is, ASID)
 #define __tlbi_rvale1is(ADDR)		__TLBI_1(rvale1is, ADDR)
 #define __tlbi_rvae1is(ADDR)		__TLBI_1(rvae1is, ADDR)
+#define __tlbi_ipas2e1is(ADDR)		__TLBI_1(ipas2e1is, ADDR)
 
 #define __tlbi(op, ...) __tlbi_##op(__VA_ARGS__)
 
