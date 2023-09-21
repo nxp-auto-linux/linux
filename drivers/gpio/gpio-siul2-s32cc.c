@@ -931,16 +931,13 @@ static int siul2_gpio_get(struct gpio_chip *chip, unsigned int offset)
 {
 	struct siul2_gpio_dev *gpio_dev = to_siul2_gpio_dev(chip);
 	unsigned int mask, pad, reg_offset, data = 0;
-	enum gpio_dir dir;
 	struct regmap *regmap;
-
-	dir = gpio_get_direction(gpio_dev, offset);
 
 	mask = siul2_pin2mask(offset);
 	pad = siul2_pin2pad(offset);
 
 	reg_offset = siul2_get_pad_offset(pad);
-	regmap = siul2_offset_to_regmap(gpio_dev, offset, (dir == IN));
+	regmap = siul2_offset_to_regmap(gpio_dev, offset, true);
 	if (!regmap)
 		return -EINVAL;
 
