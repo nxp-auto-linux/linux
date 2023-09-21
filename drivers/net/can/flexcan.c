@@ -471,8 +471,8 @@ static const struct flexcan_devtype_data fsl_lx2160a_r1_devtype_data = {
 
 static struct flexcan_devtype_data fsl_s32gen1_devtype_data = {
 	.quirks = FLEXCAN_QUIRK_DISABLE_RXFG | FLEXCAN_QUIRK_ENABLE_EACEN_RRS |
-		FLEXCAN_QUIRK_DISABLE_MECR | FLEXCAN_QUIRK_USE_OFF_TIMESTAMP |
-		FLEXCAN_QUIRK_SETUP_STOP_MODE,
+		FLEXCAN_QUIRK_DISABLE_MECR | FLEXCAN_QUIRK_SUPPORT_ECC |
+		FLEXCAN_QUIRK_USE_OFF_TIMESTAMP | FLEXCAN_QUIRK_SETUP_STOP_MODE,
 	.n_irqs = ARRAY_SIZE(s32gen1_flexcan_irqs),
 	.irqs = s32gen1_flexcan_irqs,
 };
