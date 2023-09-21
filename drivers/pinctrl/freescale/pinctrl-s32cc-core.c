@@ -582,6 +582,10 @@ static int s32cc_get_pin_conf(struct s32cc_pinctrl *ipctl,
 		*config |= S32CC_MSCR_ODE;
 		*mask |= S32CC_MSCR_ODE;
 		break;
+	case PIN_CONFIG_DRIVE_PUSH_PULL:
+		*config &= ~S32CC_MSCR_ODE;
+		*mask |= S32CC_MSCR_ODE;
+		break;
 	case PIN_CONFIG_OUTPUT_ENABLE:
 		if (arg)
 			*config |= S32CC_MSCR_OBE;
