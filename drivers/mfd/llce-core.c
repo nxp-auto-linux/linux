@@ -36,7 +36,7 @@
 #define LLCE_MGR_TX_BOOT_END			(0x00000F00U)
 #define LLCE_MGR_FRPE_BOOT_END			(0x0000F000U)
 #define LLCE_MGR_BOOT_END_ALL_CORES_MASK	(0x0000FFFFU)
-#define CORES_TS_OFFSET				(0x13FD0)
+#define CORES_TS_OFFSET				(0x4FFD0U)
 
 struct sram_node {
 	const char *name;
@@ -167,6 +167,20 @@ static void __iomem *get_status_regs(struct llce_core *core)
 	}
 
 	return llce_get_status_regs_addr(shmem->addr);
+}
+
+static void __iomem *get_core_ts_regs(struct llce_core *core)
+{
+	struct device *dev = core->dev;
+	struct sram_node *shmem = get_core_sram(core, LLCE_SHMEM_REGION);
+
+	if (!shmem) {
+		dev_err(dev, "Memory region %s not found\n",
+			LLCE_SHMEM_REGION);
+		return NULL;
+	}
+
+	return shmem->addr + CORES_TS_OFFSET;
 }
 
 static int llce_load_fw_images(struct device *dev, struct llce_core *core)
@@ -384,17 +398,18 @@ static int init_debugfs_files(struct llce_core *core)
 {
 	struct llce_mgr_time_stamp_cores __iomem *ts;
 	struct device *dev = core->dev;
-	void __iomem *cores_ts, *status;
+	void __iomem *cores_ts;
 	struct dentry *file;
 
 	if (!IS_ENABLED(CONFIG_DEBUG_FS))
 		return 0;
 
-	status = get_status_regs(core);
-	if (!status)
+	cores_ts = get_core_ts_regs(core);
+	if (!cores_ts) {
+		dev_err(dev, "Failed to get cores TS registers\n");
 		return -EINVAL;
+	}
 
-	cores_ts = status + CORES_TS_OFFSET;
 	ts = cores_ts;
 
 	core->debugfs_root = debugfs_create_dir(LLCE_CORE_DIR, NULL);
