@@ -908,18 +908,14 @@ static void s32cc_calib(struct qoriq_tmu_data *data)
 static int s32cc_get_calib_value(struct qoriq_tmu_data *data,
 				 u32 *fuse_val)
 {
-	char *buf = NULL;
+	int ret;
 
-	buf = read_nvmem_cell(data->dev, "tmu_fuse_val");
-	if (IS_ERR(buf)) {
-		if (PTR_ERR(buf) != -EPROBE_DEFER)
+	ret = read_nvmem_cell(data->dev, "tmu_fuse_val", fuse_val);
+	if (ret) {
+		if (ret != -EPROBE_DEFER)
 			dev_err(data->dev, "Error reading fuse values\n");
-		return PTR_ERR(buf);
+		return ret;
 	}
-
-	*fuse_val = *(u32 *)buf;
-
-	kfree(buf);
 
 	return 0;
 }
