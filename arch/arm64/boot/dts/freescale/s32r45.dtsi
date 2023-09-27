@@ -608,6 +608,7 @@
 };
 
 &gpr {
+	compatible = "nxp,s32r45-gpr-nvmem";
 	gmac1_phy_intf_sel: gmac1_phy_intf_sel@100 {
 		reg = <S32R45_GPR_GMAC1_PHY_INTF_SEL_OFFSET
 			S32R45_GPR_CELL_SIZE>;
