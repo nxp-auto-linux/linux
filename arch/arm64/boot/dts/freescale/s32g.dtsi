@@ -13,6 +13,7 @@
 #include <dt-bindings/mailbox/nxp-llce-mb.h>
 #include <dt-bindings/mux/nxp-s32g-can-ts.h>
 #include <dt-bindings/nvmem/s32cc-scmi-nvmem.h>
+#include <dt-bindings/nvmem/s32g-gpr-nvmem.h>
 #include <dt-bindings/thermal/thermal.h>
 
 / {
@@ -1752,4 +1753,24 @@
 
 &gpr {
 	compatible = "nxp,s32g-gpr-nvmem";
+	pfe_emacs_intf_sel: pfe_emacs_intf_sel@80 {
+		reg = <S32G_GPR_PFE_EMACS_INTF_SEL_OFFSET
+			S32G_GPR_CELL_SIZE>;
+	};
+	pfe_coh_en: pfe_coh_en@81 {
+		reg = <S32G_GPR_PFE_COH_EN_OFFSET
+			S32G_GPR_CELL_SIZE>;
+	};
+	pfe_pwr_ctrl: pfe_pwr_ctrl@82 {
+		reg = <S32G_GPR_PFE_PWR_CTRL_OFFSET
+			S32G_GPR_CELL_SIZE>;
+	};
+	pfe_emacs_genctrl1: pfe_emacs_genctrl1@83 {
+		reg = <S32G_GPR_PFE_EMACS_GENCTRL1_OFFSET
+			S32G_GPR_CELL_SIZE>;
+	};
+	pfe_genctrl3: pfe_genctrl3@84 {
+		reg = <S32G_GPR_PFE_GENCTRL3_OFFSET
+			S32G_GPR_CELL_SIZE>;
+	};
 };
