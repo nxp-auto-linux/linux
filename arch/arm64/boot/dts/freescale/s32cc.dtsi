@@ -51,6 +51,12 @@
 		i2c3 = &i2c3;
 		i2c4 = &i2c4;
 
+		spi0 = &spi0;
+		spi1 = &spi1;
+		spi2 = &spi2;
+		spi3 = &spi3;
+		spi4 = &spi4;
+		spi5 = &spi5;
 		spi6 = &qspi;
 	};
 
