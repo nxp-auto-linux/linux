@@ -87,7 +87,12 @@
 					      <&scmi_reset_cause>,
 					      <&scmi_lockstep_enabled>,
 					      <&scmi_ddr_pmu_irq>,
-					      <&scmi_gmac0_phy_intf_sel>;
+					      <&scmi_gmac0_phy_intf_sel>,
+					      <&scmi_pfe_emacs_intf_sel>,
+					      <&scmi_pfe_coh_en>,
+					      <&scmi_pfe_pwr_ctrl>,
+					      <&scmi_pfe_emacs_genctrl1>,
+					      <&scmi_pfe_genctrl3>;
 				nvmem-cell-names = "soc_letter", "part_no",
 						   "soc_major", "soc_minor",
 						   "core_max_freq",
@@ -97,7 +102,12 @@
 						   "reset_cause",
 						   "lockstep_enabled",
 						   "ddr_pmu_irq",
-						   "gmac_phy_intf_sel";
+						   "gmac_phy_intf_sel",
+						   "pfe_emacs_intf_sel",
+						   "pfe_coh_en",
+						   "pfe_pwr_ctrl",
+						   "pfe_emacs_genctrl1",
+						   "pfe_genctrl3";
 
 				scmi_soc_letter: soc_letter@0 {
 					reg = <S32CC_SCMI_NVMEM_SOC_LETTER
@@ -156,6 +166,31 @@
 
 				scmi_gmac0_phy_intf_sel: gmac0_phy_intf_sel@b {
 					reg = <S32CC_SCMI_NVMEM_GMAC0_PHY_INTF_SEL
+						S32CC_SCMI_NVMEM_CELL_SIZE>;
+				};
+
+				scmi_pfe_emacs_intf_sel: pfe_emacs_intf_sel@c {
+					reg = <S32CC_SCMI_NVMEM_PFE_EMACS_INTF_SEL
+						S32CC_SCMI_NVMEM_CELL_SIZE>;
+				};
+
+				scmi_pfe_coh_en: pfe_coh_en@d {
+					reg = <S32CC_SCMI_NVMEM_PFE_COH_EN
+						S32CC_SCMI_NVMEM_CELL_SIZE>;
+				};
+
+				scmi_pfe_pwr_ctrl: pfe_pwr_ctrl@e {
+					reg = <S32CC_SCMI_NVMEM_PFE_PWR_CTRL
+						S32CC_SCMI_NVMEM_CELL_SIZE>;
+				};
+
+				scmi_pfe_emacs_genctrl1: pfe_emacs_genctrl1@f {
+					reg = <S32CC_SCMI_NVMEM_PFE_EMACS_GENCTRL1
+						S32CC_SCMI_NVMEM_CELL_SIZE>;
+				};
+
+				scmi_pfe_genctrl3: pfe_genctrl3@10 {
+					reg = <S32CC_SCMI_NVMEM_PFE_GENCTRL3
 						S32CC_SCMI_NVMEM_CELL_SIZE>;
 				};
 			};
