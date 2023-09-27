@@ -7,7 +7,6 @@
 #include <dt-bindings/clock/s32g-scmi-clock.h>
 #include <dt-bindings/reset/s32g-scmi-reset.h>
 #include <dt-bindings/net/s32g-pfe.h>
-#include <dt-bindings/nvmem/s32cc-siul2-nvmem.h>
 
 / {
 	aliases {
@@ -39,6 +38,10 @@
 				 <&clks S32G_SCMI_CLK_PFE_PE>,
 				 <&clks S32G_SCMI_CLK_PFE_TS>;
 			clock-names = "pfe_sys", "pfe_pe", "pfe_ts";
+			nvmem-cells = <&pfe_emacs_intf_sel>, <&pfe_coh_en>,
+				<&pfe_pwr_ctrl>, <&pfe_genctrl3>;
+			nvmem-cell-names = "pfe_emacs_intf_sel", "pfe_coh_en",
+					   "pfe_pwr_ctrl", "pfe_genctrl3";
 			phys = <&serdes1 PHY_TYPE_XPCS 0 0>,
 				 <&serdes1 PHY_TYPE_XPCS 1 1>,
 				 <&serdes0 PHY_TYPE_XPCS 1 1>;
