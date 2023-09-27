@@ -14,42 +14,36 @@ static inline
 int s32cc_nvmem_get_soc_revision(struct device *dev,
 				 struct s32cc_soc_rev *soc_rev)
 {
-	char *buf_major = NULL, *buf_minor = NULL;
+	u32 major, minor;
+	int ret;
 
 	if (!soc_rev)
 		return -EINVAL;
 
-	buf_major = read_nvmem_cell(dev, "soc_major");
-	if (IS_ERR(buf_major))
-		return PTR_ERR(buf_major);
+	ret = read_nvmem_cell(dev, "soc_major", &major);
+	if (ret)
+		return ret;
 
-	buf_minor = read_nvmem_cell(dev, "soc_minor");
-	if (IS_ERR(buf_minor)) {
-		kfree(buf_major);
-		return PTR_ERR(buf_minor);
-	}
+	ret = read_nvmem_cell(dev, "soc_minor", &minor);
+	if (ret)
+		return ret;
 
-	soc_rev->minor = *(u32 *)buf_minor;
-	soc_rev->major = *(u32 *)buf_major;
+	if (major > U8_MAX || minor > U8_MAX)
+		return -EOVERFLOW;
 
-	kfree(buf_major);
-	kfree(buf_minor);
+	soc_rev->minor = minor;
+	soc_rev->major = major;
+
 	return 0;
 }
 
 static inline
 int s32cc_nvmem_get_pcie_dev_id(struct device *dev, u32 *pcie_variant_bits)
 {
-	char *buf;
+	if (!pcie_variant_bits)
+		return -EINVAL;
 
-	buf = read_nvmem_cell(dev, "pcie_dev_id");
-	if (IS_ERR(buf))
-		return PTR_ERR(buf);
-
-	*pcie_variant_bits = *(u32 *)buf;
-
-	kfree(buf);
-	return 0;
+	return read_nvmem_cell(dev, "pcie_dev_id", pcie_variant_bits);
 }
 
 #endif /* __SOC_S32CC_REVISION_H__*/
