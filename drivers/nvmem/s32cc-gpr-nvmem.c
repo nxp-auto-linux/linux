@@ -10,6 +10,7 @@
 #include <linux/of_device.h>
 #include <linux/platform_device.h>
 #include <dt-bindings/nvmem/s32cc-gpr-nvmem.h>
+#include <dt-bindings/nvmem/s32g-gpr-nvmem.h>
 #include <dt-bindings/nvmem/s32r45-gpr-nvmem.h>
 
 #define SRC_0_OFF			0x0
@@ -29,12 +30,45 @@
 #define SRC_1_GMAC_1_CTRL_STS_PHY_INTF_MASK	\
 	GENMASK(3, SRC_1_GMAC_1_CTRL_STS_PHY_INTF_SHIFT)
 
+#define SRC_1_PFE_COH_EN		0x0
+#define SRC_1_PFE_COH_EN_SHIFT		0
+#define SRC_1_PFE_COH_EN_MASK		GENMASK(5, SRC_1_PFE_COH_EN_SHIFT)
+
+#define SRC_1_PFE_EMACS_INTF_SEL	0x4
+#define SRC_1_PFE_EMACS_INTF_SEL_SHIFT	0
+#define SRC_1_PFE_EMACS_INTF_SEL_MASK	\
+	GENMASK(11, SRC_1_PFE_EMACS_INTF_SEL_SHIFT)
+
+#define SRC_1_PFE_PWR_CTRL		0x20
+#define SRC_1_PFE_PWR_CTRL_SHIFT	0
+#define SRC_1_PFE_PWR_CTRL_MASK		GENMASK(8, SRC_1_PFE_PWR_CTRL_SHIFT)
+
+#define SRC_1_PFE_EMACS_GENCTRL1	0xE4
+#define SRC_1_PFE_EMACS_GENCTRL1_SHIFT	0
+#define SRC_1_PFE_EMACS_GENCTRL1_MASK	\
+	GENMASK(2, SRC_1_PFE_EMACS_GENCTRL1_SHIFT)
+
+#define SRC_1_PFE_GENCTRL3		0xEC
+#define SRC_1_PFE_GENCTRL3_SHIFT	16
+#define SRC_1_PFE_GENCTRL3_MASK		BIT(SRC_1_PFE_GENCTRL3_SHIFT)
+
 struct s32cc_gpr_nvmem_priv {
 	struct device *dev;
 	void __iomem *gpr_base;
 	struct nvmem_config *config;
 	struct nvmem_device *nvmem;
 };
+
+static int s32cc_gpr_nvmem_read_reg32(void __iomem *addr, u32 shift, u32 mask,
+				      u32 *value)
+{
+	u32 reg;
+
+	reg = ioread32(addr);
+	*value = (reg & mask) >> shift;
+
+	return 0;
+}
 
 static int s32cc_gpr_nvmem_write_reg32(void __iomem *addr, u32 shift, u32 mask,
 				       u32 value)
@@ -51,19 +85,55 @@ static int s32cc_gpr_nvmem_write_reg32(void __iomem *addr, u32 shift, u32 mask,
 static int s32cc_gpr_nvmem_read(void *context, unsigned int offset,
 				void *val, size_t bytes)
 {
-	return -EOPNOTSUPP;
+	return -EINVAL;
 }
 
 static int s32g_gpr_nvmem_read(void *context, unsigned int offset,
 			       void *val, size_t bytes)
 {
-	return -EOPNOTSUPP;
+	struct s32cc_gpr_nvmem_priv *priv = context;
+	u32 value, shift, mask;
+	void __iomem *addr;
+	int ret;
+	bool found = false;
+
+	if (bytes != S32G_GPR_CELL_SIZE)
+		return -EINVAL;
+
+	dev_dbg(priv->dev, "offset: %u, bytes: %lu\n", offset, bytes);
+
+	if (offset == S32G_GPR_PFE_COH_EN_OFFSET) {
+		found = true;
+		addr = priv->gpr_base + SRC_1_OFF + SRC_1_PFE_COH_EN;
+		shift = SRC_1_PFE_COH_EN_SHIFT;
+		mask = SRC_1_PFE_COH_EN_MASK;
+
+		ret = s32cc_gpr_nvmem_read_reg32(addr, shift, mask, &value);
+	}
+
+	if (offset == S32G_GPR_PFE_GENCTRL3_OFFSET) {
+		found = true;
+		addr = priv->gpr_base + SRC_1_OFF + SRC_1_PFE_GENCTRL3;
+		shift = SRC_1_PFE_GENCTRL3_SHIFT;
+		mask = SRC_1_PFE_GENCTRL3_MASK;
+
+		ret = s32cc_gpr_nvmem_read_reg32(addr, shift, mask, &value);
+	}
+
+	if (!found)
+		return s32cc_gpr_nvmem_read(context, offset, val, bytes);
+
+	if (ret)
+		return ret;
+
+	*(u32 *)val = value;
+	return 0;
 }
 
 static int s32r45_gpr_nvmem_read(void *context, unsigned int offset,
 				 void *val, size_t bytes)
 {
-	return -EOPNOTSUPP;
+	return s32cc_gpr_nvmem_read(context, offset, val, bytes);
 }
 
 static int s32cc_gpr_nvmem_write(void *context, unsigned int offset,
@@ -105,7 +175,59 @@ static int s32cc_gpr_nvmem_write(void *context, unsigned int offset,
 static int s32g_gpr_nvmem_write(void *context, unsigned int offset, void *val,
 				size_t bytes)
 {
-	return -EOPNOTSUPP;
+	struct s32cc_gpr_nvmem_priv *priv = context;
+	u32 value, shift, mask;
+	void __iomem *addr;
+
+	if (bytes != S32G_GPR_CELL_SIZE)
+		return -EINVAL;
+
+	value = *(u32 *)val;
+
+	dev_dbg(priv->dev, "offset: %u, value: %u, bytes: %lu\n", offset,
+		value, bytes);
+
+	if (offset == S32G_GPR_PFE_EMACS_INTF_SEL_OFFSET) {
+		addr = priv->gpr_base + SRC_1_OFF + SRC_1_PFE_EMACS_INTF_SEL;
+		shift = SRC_1_PFE_EMACS_INTF_SEL_SHIFT;
+		mask = SRC_1_PFE_EMACS_INTF_SEL_MASK;
+
+		return s32cc_gpr_nvmem_write_reg32(addr, shift, mask, value);
+	}
+
+	if (offset == S32G_GPR_PFE_COH_EN_OFFSET) {
+		addr = priv->gpr_base + SRC_1_OFF + SRC_1_PFE_COH_EN;
+		shift = SRC_1_PFE_COH_EN_SHIFT;
+		mask = SRC_1_PFE_COH_EN_MASK;
+
+		return s32cc_gpr_nvmem_write_reg32(addr, shift, mask, value);
+	}
+
+	if (offset == S32G_GPR_PFE_PWR_CTRL_OFFSET) {
+		addr = priv->gpr_base + SRC_1_OFF + SRC_1_PFE_PWR_CTRL;
+		shift = SRC_1_PFE_PWR_CTRL_SHIFT;
+		mask = SRC_1_PFE_PWR_CTRL_MASK;
+
+		return s32cc_gpr_nvmem_write_reg32(addr, shift, mask, value);
+	}
+
+	if (offset == S32G_GPR_PFE_EMACS_GENCTRL1_OFFSET) {
+		addr = priv->gpr_base + SRC_1_OFF + SRC_1_PFE_EMACS_GENCTRL1;
+		shift = SRC_1_PFE_EMACS_GENCTRL1_SHIFT;
+		mask = SRC_1_PFE_EMACS_GENCTRL1_MASK;
+
+		return s32cc_gpr_nvmem_write_reg32(addr, shift, mask, value);
+	}
+
+	if (offset == S32G_GPR_PFE_GENCTRL3_OFFSET) {
+		addr = priv->gpr_base + SRC_1_OFF + SRC_1_PFE_GENCTRL3;
+		shift = SRC_1_PFE_GENCTRL3_SHIFT;
+		mask = SRC_1_PFE_GENCTRL3_MASK;
+
+		return s32cc_gpr_nvmem_write_reg32(addr, shift, mask, value);
+	}
+
+	return s32cc_gpr_nvmem_write(context, offset, val, bytes);
 }
 
 static int s32r45_gpr_nvmem_write(void *context, unsigned int offset,
