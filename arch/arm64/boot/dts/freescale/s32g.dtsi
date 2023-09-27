@@ -1749,3 +1749,7 @@
 	idle-states = <S32G_CAN_TS_STM7>;
 	status = "okay";
 };
+
+&gpr {
+	compatible = "nxp,s32g-gpr-nvmem";
+};

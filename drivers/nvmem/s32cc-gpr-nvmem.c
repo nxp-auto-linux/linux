@@ -7,6 +7,7 @@
 #include <linux/module.h>
 #include <linux/nvmem-provider.h>
 #include <linux/of.h>
+#include <linux/of_device.h>
 #include <linux/platform_device.h>
 #include <dt-bindings/nvmem/s32cc-gpr-nvmem.h>
 #include <dt-bindings/nvmem/s32r45-gpr-nvmem.h>
@@ -53,6 +54,18 @@ static int s32cc_gpr_nvmem_read(void *context, unsigned int offset,
 	return -EOPNOTSUPP;
 }
 
+static int s32g_gpr_nvmem_read(void *context, unsigned int offset,
+			       void *val, size_t bytes)
+{
+	return -EOPNOTSUPP;
+}
+
+static int s32r45_gpr_nvmem_read(void *context, unsigned int offset,
+				 void *val, size_t bytes)
+{
+	return -EOPNOTSUPP;
+}
+
 static int s32cc_gpr_nvmem_write(void *context, unsigned int offset,
 				 void *val, size_t bytes)
 {
@@ -86,6 +99,30 @@ static int s32cc_gpr_nvmem_write(void *context, unsigned int offset,
 		return s32cc_gpr_nvmem_write_reg32(addr, shift, mask, value);
 	}
 
+	return -EINVAL;
+}
+
+static int s32g_gpr_nvmem_write(void *context, unsigned int offset, void *val,
+				size_t bytes)
+{
+	return -EOPNOTSUPP;
+}
+
+static int s32r45_gpr_nvmem_write(void *context, unsigned int offset,
+				  void *val, size_t bytes)
+{
+	struct s32cc_gpr_nvmem_priv *priv = context;
+	u32 value, shift, mask;
+	void __iomem *addr;
+
+	if (bytes != S32R45_GPR_CELL_SIZE)
+		return -EINVAL;
+
+	value = *(u32 *)val;
+
+	dev_dbg(priv->dev, "offset: %u, value: %u, bytes: %lu\n", offset,
+		value, bytes);
+
 	if (offset == S32R45_GPR_GMAC1_PHY_INTF_SEL_OFFSET) {
 		addr = priv->gpr_base + SRC_1_OFF + SRC_1_GMAC_1_CTRL_STS_OFF;
 		shift = SRC_1_GMAC_1_CTRL_STS_PHY_INTF_SHIFT;
@@ -94,7 +131,7 @@ static int s32cc_gpr_nvmem_write(void *context, unsigned int offset,
 		return s32cc_gpr_nvmem_write_reg32(addr, shift, mask, value);
 	}
 
-	return -EINVAL;
+	return s32cc_gpr_nvmem_write(context, offset, val, bytes);
 }
 
 static struct nvmem_config s32cc_gpr_nvmem_config = {
@@ -102,15 +139,28 @@ static struct nvmem_config s32cc_gpr_nvmem_config = {
 	.read_only = false,
 	.word_size = 1,
 	.size = 4,
-	.reg_read = s32cc_gpr_nvmem_read,
-	.reg_write = s32cc_gpr_nvmem_write,
 };
+
+static const struct of_device_id s32cc_gpr_nvmem_match[] = {
+	{ .compatible = "nxp,s32cc-gpr-nvmem", },
+	{ .compatible = "nxp,s32g-gpr-nvmem", },
+	{ .compatible = "nxp,s32r45-gpr-nvmem", },
+	{ /* sentinel */ },
+};
+MODULE_DEVICE_TABLE(of, s32cc_gpr_nvmem_match);
 
 static int s32cc_gpr_nvmem_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
+	const struct of_device_id *of_id;
 	struct s32cc_gpr_nvmem_priv *priv;
 	struct resource *res;
+
+	of_id = of_match_device(s32cc_gpr_nvmem_match, dev);
+	if (!of_id) {
+		dev_err(dev, "Unable to find device tree match\n");
+		return -EINVAL;
+	}
 
 	priv = devm_kzalloc(dev, sizeof(*priv), GFP_KERNEL);
 	if (!priv)
@@ -133,15 +183,23 @@ static int s32cc_gpr_nvmem_probe(struct platform_device *pdev)
 
 	priv->dev = dev;
 	priv->config = &s32cc_gpr_nvmem_config;
+	if (!strcmp(of_id->compatible, "nxp,s32g-gpr-nvmem")) {
+		priv->config->reg_read = s32g_gpr_nvmem_read;
+		priv->config->reg_write = s32g_gpr_nvmem_write;
+	} else if (!strcmp(of_id->compatible, "nxp,s32r45-gpr-nvmem")) {
+		priv->config->reg_read = s32r45_gpr_nvmem_read;
+		priv->config->reg_write = s32r45_gpr_nvmem_write;
+	} else if (!strcmp(of_id->compatible, "nxp,s32cc-gpr-nvmem")) {
+		priv->config->reg_read = s32cc_gpr_nvmem_read;
+		priv->config->reg_write = s32cc_gpr_nvmem_write;
+	} else {
+		return -ENODEV;
+	}
+
 	priv->nvmem = devm_nvmem_register(dev, &s32cc_gpr_nvmem_config);
 
 	return PTR_ERR_OR_ZERO(priv->nvmem);
 }
-
-static const struct of_device_id s32cc_gpr_nvmem_match[] = {
-	{ .compatible = "nxp,s32cc-gpr-nvmem", },
-	{ /* sentinel */ },
-};
 
 static struct platform_driver s32cc_gpr_nvmem_driver = {
 	.probe = s32cc_gpr_nvmem_probe,
