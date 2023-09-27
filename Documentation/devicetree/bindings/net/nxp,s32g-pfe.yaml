@@ -157,6 +157,20 @@ properties:
         - PFE_PHYIF_HIF_3
         - PFE_PHYIF_HIF_NOCPY
 
+  nvmem-cells:
+    minItems: 5
+    description:
+      Reference to the NVMEM nodes used for accessing GPRs for PFE
+      configuration.
+
+  nvmem-cell-names:
+    items:
+      - const: "pfe_emacs_intf_sel"
+      - const: "pfe_coh_en"
+      - const: "pfe_pwr_ctrl"
+      - const: "pfe_emacs_genctrl1"
+      - const: "pfe_genctrl3"
+
   phys:
     maxItems: 3
 
