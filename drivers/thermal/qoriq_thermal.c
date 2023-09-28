@@ -35,6 +35,7 @@
 #define TMTMIR_DEFAULT	0x0000000f
 
 #define REGS_V2_TMSR	0x008	/* monitor site register */
+#define TMSR_SITES	GENMASK(2, 0)
 
 #define REGS_V2_TMTMIR	0x00c	/* Temperature measurement interval Register */
 
@@ -260,7 +261,6 @@ static void qoriq_tmu_init_device(struct qoriq_tmu_data *data)
 		regmap_write(data->regmap, REGS_TMTMIR, TMTMIR_DEFAULT);
 	} else {
 		regmap_write(data->regmap, REGS_V2_TMTMIR, TMTMIR_DEFAULT);
-		regmap_write(data->regmap, REGS_V2_TEUMR(0), TEUMR0_V2);
 	}
 }
 
@@ -334,7 +334,8 @@ static void qoriq_tmu_action(void *p)
 
 static int qoriq_init_and_calib(struct qoriq_tmu_data *data)
 {
-	qoriq_tmu_init_device(data);	/* TMU initialization */
+	if (data->ver != TMU_VER1)
+		regmap_write(data->regmap, REGS_V2_TEUMR(0), TEUMR0_V2);
 
 	return qoriq_tmu_calibration(data->dev, data);	/* TMU calibration */
 }
@@ -470,9 +471,6 @@ static void s32cc_calib(struct qoriq_tmu_data *data)
 	struct s32cc_plat_data *plat_data = data->plat_data;
 	u32 i;
 
-	/* Disable monitoring */
-	regmap_update_bits(data->regmap, REGS_TMR, TMR_ME, 0);
-
 	regmap_update_bits(data->regmap, REGS_V2_TCMCFG,
 			   GENMASK(31, 8), S32CC_TCMCFG);
 
@@ -595,6 +593,8 @@ static int qoriq_tmu_probe(struct platform_device *pdev)
 		return ret;
 	}
 	data->ver = (ver >> 8) & 0xff;
+
+	qoriq_tmu_init_device(data);	/* TMU initialization */
 
 	ret = match_data->init_and_calib(data);
 	if (ret < 0)
