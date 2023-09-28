@@ -280,6 +280,9 @@ static void qoriq_tmu_init_device(struct qoriq_tmu_data *data)
 	/* Disable interrupt, using polling instead */
 	regmap_write(data->regmap, REGS_TIER, TIER_DISABLE);
 
+	/* Disable the module */
+	regmap_write(data->regmap, REGS_TMR, TMR_DISABLE);
+
 	/* Set update_interval */
 
 	if (data->ver == TMU_VER1) {
@@ -288,9 +291,6 @@ static void qoriq_tmu_init_device(struct qoriq_tmu_data *data)
 		regmap_write(data->regmap, REGS_V2_TMTMIR, TMTMIR_DEFAULT);
 		regmap_write(data->regmap, REGS_V2_TEUMR(0), TEUMR0_V2);
 	}
-
-	/* Disable monitoring */
-	regmap_write(data->regmap, REGS_TMR, TMR_DISABLE);
 }
 
 static const struct regmap_range qoriq_yes_ranges[] = {
