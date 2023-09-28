@@ -81,6 +81,7 @@ struct qoriq_tmu_data {
 	struct device *dev;
 	u32 sites;
 	void *plat_data;
+	u8 sites_max;
 };
 
 struct s32cc_plat_data {
@@ -158,7 +159,7 @@ static int qoriq_tmu_register_tmu_zone(struct device *dev,
 {
 	int id, sites = 0;
 
-	for (id = 0; id < SITES_MAX; id++) {
+	for (id = 0; id < qdata->sites_max; id++) {
 		struct thermal_zone_device *tzd;
 		struct qoriq_sensor *sensor = &qdata->sensor[id];
 		int ret;
@@ -302,18 +303,21 @@ struct qoirq_tmu_data {
 	const struct regmap_access_table *ro_table;
 	const struct regmap_access_table *rw_table;
 	int (*init_and_calib)(struct qoriq_tmu_data *);
+	u8 sites_max;
 };
 
 static const struct qoirq_tmu_data qoriq_data = {
 	.ro_table = &qoriq_rd_table,
 	.rw_table = &qoriq_wr_table,
 	.init_and_calib = qoriq_init_and_calib,
+	.sites_max = SITES_MAX,
 };
 
 static const struct qoirq_tmu_data s32cc_data = {
 	.ro_table = &s32cc_ro_table,
 	.rw_table = &s32cc_rw_table,
 	.init_and_calib = s32cc_init_and_calib,
+	.sites_max = 3,
 };
 
 static void qoriq_tmu_action(void *p)
@@ -546,6 +550,11 @@ static int qoriq_tmu_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	data->dev = dev;
+	data->sites_max = match_data->sites_max;
+	if (data->sites_max > SITES_MAX) {
+		dev_warn(dev, "driver supports maximum %d sites\n", SITES_MAX);
+		data->sites_max = SITES_MAX;
+	}
 
 	base = devm_platform_ioremap_resource(pdev, 0);
 	ret = PTR_ERR_OR_ZERO(base);
