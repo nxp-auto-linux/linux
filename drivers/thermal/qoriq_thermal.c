@@ -20,12 +20,6 @@
 #include "thermal_hwmon.h"
 
 #define SITES_MAX		16
-#define TMR_DISABLE		0x0
-#define TMR_ME			0x80000000
-#define TMR_ALPF		0x0c000000
-#define TMR_ALPF_V2		0x03000000
-#define TMTMIR_DEFAULT	0x0000000f
-#define TIER_DISABLE	0x0
 #define TEUMR0_V2		0x51009c00
 #define TMSARA_V2		0xe
 #define TMU_VER1		0x1
@@ -35,6 +29,7 @@
 #define TMR_DISABLE	0x0
 #define TMR_ME		0x80000000
 #define TMR_ALPF	0x0c000000
+#define TMR_ALPF_V2	0x03000000
 
 #define REGS_TMTMIR	0x008	/* Temperature measurement interval Register */
 #define TMTMIR_DEFAULT	0x0000000f
