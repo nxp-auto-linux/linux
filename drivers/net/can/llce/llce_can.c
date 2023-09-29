@@ -873,9 +873,8 @@ static int llce_init_can_priv(struct llce_can *llce, struct device *dev)
 	can->data_bittiming_const = &llce_can_data_bittiming;
 	can->do_set_mode = &llce_can_set_mode;
 	can->ctrlmode_supported = CAN_CTRLMODE_FD |
-		CAN_CTRLMODE_FD_NON_ISO |
-		CAN_CTRLMODE_LOOPBACK |
-		CAN_CTRLMODE_LISTENONLY;
+		CAN_CTRLMODE_FD_NON_ISO | CAN_CTRLMODE_LOOPBACK |
+		CAN_CTRLMODE_BERR_REPORTING | CAN_CTRLMODE_LISTENONLY;
 
 	return 0;
 }
