@@ -371,17 +371,22 @@ void process_llce_can_error(struct llce_can_dev *llce,
 			    enum llce_can_module module)
 {
 	struct can_frame *cf;
+	struct can_priv can = llce->can;
 	struct can_device_stats *can_stats = &llce->can.can_stats;
 	struct net_device_stats *net_stats = &llce->can.dev->stats;
-	struct sk_buff *skb = alloc_can_err_skb(llce->can.dev, &cf);
 	struct net_device *dev = llce->can.dev;
+	struct sk_buff *skb;
 
+	llce->stats[error - LLCE_ERROR_TXACK_FIFO_FULL]++;
+
+	if (!(can.ctrlmode & CAN_CTRLMODE_BERR_REPORTING))
+		return;
+
+	skb = alloc_can_err_skb(llce->can.dev, &cf);
 	if (!skb) {
 		netdev_dbg(llce->can.dev, "Could not allocate error frame\n");
 		return;
 	}
-
-	llce->stats[error - LLCE_ERROR_TXACK_FIFO_FULL]++;
 
 	if (module == LLCE_TX)
 		net_stats->tx_errors++;
