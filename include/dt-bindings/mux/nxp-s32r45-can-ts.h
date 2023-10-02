@@ -2,7 +2,7 @@
 /*
  * Copyright 2023 NXP
  *
- * This header provides constants for CAN timesptamp sources for NXP S32R45 SoCs
+ * This header provides constants for CAN timestamp sources for NXP S32R45 SoCs
  */
 #ifndef _DT_BINDINGS_MUX_NXP_S32R45_CAN_TS
 #define _DT_BINDINGS_MUX_NXP_S32R45_CAN_TS
