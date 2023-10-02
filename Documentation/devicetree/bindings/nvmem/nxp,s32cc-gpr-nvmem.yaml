@@ -20,7 +20,11 @@ allOf:
 
 properties:
   compatible:
-    const: nxp,s32cc-gpr-nvmem
+    items:
+      - enum:
+        - nxp,s32g-gpr-nvmem
+        - nxp,s32r45-gpr-nvmem
+        - nxp,s32cc-gpr-nvmem
 
   reg:
     description:
