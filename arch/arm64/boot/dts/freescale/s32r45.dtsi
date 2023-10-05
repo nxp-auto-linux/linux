@@ -11,6 +11,7 @@
 #include "s32cc.dtsi"
 #include <dt-bindings/clock/s32r45-scmi-clock.h>
 #include <dt-bindings/mux/nxp-s32r45-can-ts.h>
+#include <dt-bindings/thermal/thermal.h>
 
 / {
 	compatible = "nxp,s32r45";
@@ -471,6 +472,14 @@
 					temperature = <100000>;
 					hysteresis = <2000>;
 					type = "critical";
+				};
+			};
+
+			cooling-maps {
+				map0 {
+					trip = <&cpu_alert0>;
+					cooling-device =
+					<&cpu0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
 				};
 			};
 		};
