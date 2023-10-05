@@ -27,6 +27,9 @@ properties:
     maxItems: 1
 
   interrupts:
+    description: |
+      TMU can monitor only one thermal zone using interrupts. For the rest of
+      them, polling should be enabled.
     maxItems: 1
 
   fsl,tmu-range:
