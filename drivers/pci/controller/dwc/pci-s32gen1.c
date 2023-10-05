@@ -40,10 +40,7 @@
 #define PTR_FMT "%p"
 #endif
 
-#define PCIE_LINKUP_MASK	(PCIE_SS_SMLH_LINK_UP | PCIE_SS_RDLH_LINK_UP | \
-			PCIE_SS_SMLH_LTSSM_STATE)
-#define PCIE_LINKUP_EXPECT	(PCIE_SS_SMLH_LINK_UP | PCIE_SS_RDLH_LINK_UP | \
-			PCIE_SS_SMLH_LTSSM_STATE_VALUE(LTSSM_STATE_L0))
+#define PCIE_LINKUP	(PCIE_SS_SMLH_LINK_UP | PCIE_SS_RDLH_LINK_UP)
 
 /* Default timeout (ms) */
 #define PCIE_CX_CPL_BASE_TIMER_VALUE	100
@@ -650,7 +647,18 @@ static bool has_data_phy_link(struct s32gen1_pcie *s32_pp)
 {
 	u32 val = dw_pcie_readl_ctrl(s32_pp, PCIE_SS_PE0_LINK_DBG_2);
 
-	return (val & PCIE_LINKUP_MASK) == PCIE_LINKUP_EXPECT;
+	if ((val & PCIE_LINKUP) == PCIE_LINKUP) {
+		switch (val & PCIE_SS_SMLH_LTSSM_STATE) {
+		case LTSSM_STATE_L0:
+		case LTSSM_STATE_L0S:
+		case LTSSM_STATE_L1_IDLE:
+			return true;
+		default:
+			return false;
+		}
+	}
+
+	return false;
 }
 
 static int s32gen1_pcie_link_is_up(struct dw_pcie *pcie)

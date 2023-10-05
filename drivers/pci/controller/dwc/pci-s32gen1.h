@@ -2,7 +2,7 @@
 /*
  * PCIe host controller driver for Freescale S32Gen1 SoCs
  *
- * Copyright 2020-2022 NXP
+ * Copyright 2020-2023 NXP
  */
 
 #ifndef PCIE_S32GEN1_H
@@ -50,6 +50,8 @@
 #define LTSSM_EN_MASK			0x1
 
 #define LTSSM_STATE_L0			0x11 /* L0 state */
+#define LTSSM_STATE_L0S			0x12 /* L0S state */
+#define LTSSM_STATE_L1_IDLE		0x14 /* L1_IDLE state */
 
 #define LINK_INT_CTRL_STS		0x40
 #define LINK_REQ_RST_NOT_INT_EN	BIT(1)
