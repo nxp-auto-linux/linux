@@ -927,9 +927,24 @@
 		};
 
 		a53_cores {
-			polling-delay-passive = <1000>;
-			polling-delay = <5000>;
+			/* Monitorization is done using IRQ. */
+			polling-delay-passive = <0>;
+			polling-delay = <0>;
 			thermal-sensors = <&tmu 1>;
+
+			trips {
+				cpu_alert0: cpu-alert {
+					temperature = <80000>;
+					hysteresis = <2000>;
+					type = "passive";
+				};
+
+				cpu-crit {
+					temperature = <100000>;
+					hysteresis = <2000>;
+					type = "critical";
+				};
+			};
 		};
 
 		llce {
