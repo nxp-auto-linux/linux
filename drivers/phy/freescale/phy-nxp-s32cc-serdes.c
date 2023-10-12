@@ -2,7 +2,7 @@
 /**
  * SERDES driver for S32CC SoCs
  *
- * Copyright 2021-2022 NXP
+ * Copyright 2021-2023 NXP
  */
 #include <dt-bindings/phy/phy.h>
 #include <linux/clk.h>
@@ -141,6 +141,8 @@ struct serdes {
 	struct phy *phys[SERDES_MAX_LANES];
 	u8 lanes_status;
 };
+
+static int lane_id_to_xpcs_id(unsigned int mode, int lane_id);
 
 static void mark_configured_lane(struct serdes *serdes, u32 lane)
 {
@@ -518,21 +520,25 @@ static void xpcs_phy_release(struct phy *p)
 {
 	struct serdes *serdes = phy_get_drvdata(p);
 	struct xpcs_ctrl *xpcs = &serdes->xpcs;
-	int id = p->id;
+	int xpcs_id;
 
-	xpcs->ops->release(xpcs->phys[id]);
-	xpcs->phys[id] = NULL;
+	xpcs_id = lane_id_to_xpcs_id(serdes->ctrl.ss_mode, p->id);
+	xpcs->ops->release(xpcs->phys[xpcs_id]);
+	xpcs->phys[xpcs_id] = NULL;
 }
 
 static int serdes_phy_init(struct phy *p)
 {
 	struct serdes *serdes = phy_get_drvdata(p);
+	int xpcs_id;
 
 	if (p->attrs.mode == PHY_MODE_PCIE)
 		return 0;
 
-	if (p->attrs.mode == PHY_MODE_ETHERNET)
-		return xpcs_phy_init(serdes, p->id);
+	if (p->attrs.mode == PHY_MODE_ETHERNET) {
+		xpcs_id = lane_id_to_xpcs_id(serdes->ctrl.ss_mode, p->id);
+		return xpcs_phy_init(serdes, xpcs_id);
+	}
 
 	return -EINVAL;
 }
@@ -584,12 +590,15 @@ static void serdes_phy_release(struct phy *p)
 static int serdes_phy_power_on(struct phy *p)
 {
 	struct serdes *serdes = phy_get_drvdata(p);
+	int xpcs_id;
 
 	if (p->attrs.mode == PHY_MODE_PCIE)
 		return pcie_phy_power_on(serdes, p->id);
 
-	if (p->attrs.mode == PHY_MODE_ETHERNET)
-		return xpcs_phy_power_on(serdes, p->id);
+	if (p->attrs.mode == PHY_MODE_ETHERNET) {
+		xpcs_id = lane_id_to_xpcs_id(serdes->ctrl.ss_mode, p->id);
+		return xpcs_phy_power_on(serdes, xpcs_id);
+	}
 
 	return 0;
 }
@@ -603,8 +612,11 @@ struct s32cc_xpcs *s32cc_phy2xpcs(struct phy *phy)
 {
 	struct serdes *serdes = phy_get_drvdata(phy);
 	struct xpcs_ctrl *xpcs = &serdes->xpcs;
+	int xpcs_id;
 
-	return xpcs->phys[phy->id];
+	xpcs_id = lane_id_to_xpcs_id(serdes->ctrl.ss_mode, phy->id);
+
+	return xpcs->phys[xpcs_id];
 }
 EXPORT_SYMBOL_GPL(s32cc_phy2xpcs);
 
@@ -613,9 +625,11 @@ static int xpcs_phy_configure(struct phy *phy, struct phylink_link_state *state)
 	struct serdes *serdes = phy_get_drvdata(phy);
 	struct xpcs_ctrl *xpcs = &serdes->xpcs;
 	struct device *dev = serdes->dev;
+	int xpcs_id;
 	int ret;
 
-	ret = xpcs->ops->config(xpcs->phys[phy->id], NULL);
+	xpcs_id = lane_id_to_xpcs_id(serdes->ctrl.ss_mode, phy->id);
+	ret = xpcs->ops->config(xpcs->phys[xpcs_id], NULL);
 	if (ret) {
 		dev_err(dev, "Failed to configure XPCS\n");
 		return ret;
@@ -681,6 +695,13 @@ static const struct serdes_conf serdes_mux_table[] = {
 	/* Demo mode 5 (Mode 2, where XPCS runs @2G5) */
 	{ .lanes = { [0] = PCIE_LANE(0), [1] = XPCS_LANE(1), }, },
 };
+
+static int lane_id_to_xpcs_id(unsigned int mode, int lane_id)
+{
+	int xpcs_id = serdes_mux_table[mode].lanes[lane_id].instance;
+
+	return xpcs_id;
+}
 
 static int mode_to_pcs_lane(int mode, int pcs_instance)
 {
