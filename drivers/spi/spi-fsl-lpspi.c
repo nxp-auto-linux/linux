@@ -61,10 +61,12 @@
 #define SR_MBF		BIT(24)
 #define SR_TCF		BIT(10)
 #define SR_FCF		BIT(9)
+#define SR_WCF		BIT(8)
 #define SR_RDF		BIT(1)
 #define SR_TDF		BIT(0)
 #define IER_TCIE	BIT(10)
 #define IER_FCIE	BIT(9)
+#define IER_WCIE	BIT(8)
 #define IER_RDIE	BIT(1)
 #define IER_TDIE	BIT(0)
 #define DER_RDDE	BIT(1)
@@ -99,7 +101,7 @@ struct fsl_lpspi_data {
 	struct clk *clk_per;
 	bool is_slave;
 	bool is_only_cs1;
-	bool is_first_byte;
+	bool reset_at_underrun;
 
 	void *rx_buf;
 	const void *tx_buf;
@@ -107,6 +109,7 @@ struct fsl_lpspi_data {
 	void (*rx)(struct fsl_lpspi_data *);
 
 	u32 remain;
+	u32 remain_rx;
 	u8 watermark;
 	u8 txfifosize;
 	u8 rxfifosize;
@@ -120,6 +123,13 @@ struct fsl_lpspi_data {
 	bool usedma;
 	struct completion dma_rx_completion;
 	struct completion dma_tx_completion;
+
+	struct pinctrl		*pinctrl;
+	struct pinctrl_state	*pinctrl_slave;
+
+	struct spi_transfer	*t;
+	bool			last;
+	bool			cs_asserted;
 };
 
 static const struct of_device_id fsl_lpspi_dt_ids[] = {
@@ -137,6 +147,7 @@ static void fsl_lpspi_buf_rx_##type(struct fsl_lpspi_data *fsl_lpspi)	\
 		*(type *)fsl_lpspi->rx_buf = val;			\
 		fsl_lpspi->rx_buf += sizeof(type);                      \
 	}								\
+	fsl_lpspi->remain_rx -= sizeof(type);				\
 }
 
 #define LPSPI_BUF_TX(type)						\
@@ -150,6 +161,7 @@ static void fsl_lpspi_buf_tx_##type(struct fsl_lpspi_data *fsl_lpspi)	\
 	}								\
 									\
 	fsl_lpspi->remain -= sizeof(type);				\
+	fsl_lpspi->remain_rx += sizeof(type);				\
 	writel(val, fsl_lpspi->base + IMX7ULP_TDR);			\
 }
 
@@ -235,20 +247,33 @@ static void fsl_lpspi_write_tx_fifo(struct fsl_lpspi_data *fsl_lpspi)
 	}
 
 	if (txfifo_cnt < fsl_lpspi->txfifosize) {
-		if (!fsl_lpspi->is_slave) {
+		if (!fsl_lpspi->is_target) {
+			fsl_lpspi->cs_asserted = true;
 			temp = readl(fsl_lpspi->base + IMX7ULP_TCR);
-			temp &= ~TCR_CONTC;
-			writel(temp, fsl_lpspi->base + IMX7ULP_TCR);
+			if (fsl_lpspi->last) {
+				if (!fsl_lpspi->t->cs_change) {
+					fsl_lpspi->cs_asserted = false;
+					temp &= ~TCR_CONTC;
+					writel(temp, fsl_lpspi->base + IMX7ULP_TCR);
+				}
+			} else {
+				if (fsl_lpspi->t->cs_change) {
+					temp &= ~TCR_CONTC;
+					fsl_lpspi->cs_asserted = false;
+					writel(temp, fsl_lpspi->base + IMX7ULP_TCR);
+				}
+			}
 		}
 
-		fsl_lpspi_intctrl(fsl_lpspi, IER_FCIE);
+		fsl_lpspi_intctrl(fsl_lpspi, IER_FCIE | IER_WCIE);
 	} else
 		fsl_lpspi_intctrl(fsl_lpspi, IER_TDIE);
 }
 
 static void fsl_lpspi_read_rx_fifo(struct fsl_lpspi_data *fsl_lpspi)
 {
-	while (!(readl(fsl_lpspi->base + IMX7ULP_RSR) & RSR_RXEMPTY))
+	while (fsl_lpspi->remain_rx &&
+			!(readl(fsl_lpspi->base + IMX7ULP_RSR) & RSR_RXEMPTY))
 		fsl_lpspi->rx(fsl_lpspi);
 }
 
@@ -268,9 +293,7 @@ static void fsl_lpspi_set_cmd(struct fsl_lpspi_data *fsl_lpspi)
 		 */
 		if (!fsl_lpspi->usedma) {
 			temp |= TCR_CONT;
-			if (fsl_lpspi->is_first_byte)
-				temp &= ~TCR_CONTC;
-			else
+			if (fsl_lpspi->cs_asserted)
 				temp |= TCR_CONTC;
 		}
 	}
@@ -375,30 +398,57 @@ static int fsl_lpspi_dma_configure(struct spi_controller *controller)
 	return 0;
 }
 
-static int fsl_lpspi_config(struct fsl_lpspi_data *fsl_lpspi)
+static int fsl_lpspi_config(struct fsl_lpspi_data *fsl_lpspi, bool change_config)
 {
+	struct spi_controller *controller = dev_get_drvdata(fsl_lpspi->dev);
 	u32 temp;
 	int ret;
+	bool no_pin_swap = false;
 
-	if (!fsl_lpspi->is_slave) {
+	fsl_lpspi_set_watermark(fsl_lpspi);
+
+	/* Changing speed or CFRG1 should be done only when the module is
+	 * disabled. If nothing is really changed, avoid this step, since
+	 * disabling the module will deassert CS.
+	 */
+	if (!change_config)
+		goto lpspi_enable_module;
+
+	/* Disable the module since this is a requirement for the next
+	 * changes.
+	 */
+	writel(0, fsl_lpspi->base + IMX7ULP_CR);
+
+	if (!fsl_lpspi->is_target) {
 		ret = fsl_lpspi_set_bitrate(fsl_lpspi);
 		if (ret)
 			return ret;
 	}
 
-	fsl_lpspi_set_watermark(fsl_lpspi);
+	if (!fsl_lpspi->is_target)
+		temp = CFGR1_HOST;
+	else {
+		no_pin_swap = of_property_read_bool(fsl_lpspi->dev->of_node,
+				"nxp,lpspi-slave-no-pin-swap");
+		temp = no_pin_swap ? CFGR1_PINCFG_NO_SWAP : CFGR1_PINCFG_SWAP;
+	}
 
-	if (!fsl_lpspi->is_slave)
-		temp = CFGR1_MASTER;
-	else
-		temp = CFGR1_PINCFG;
-	if (fsl_lpspi->config.mode & SPI_CS_HIGH)
-		temp |= CFGR1_PCSPOL;
+	if (fsl_lpspi->config.mode & SPI_CS_HIGH) {
+		if (controller->num_chipselect > 1)
+			temp |= ((BIT(fsl_lpspi->config.chip_select) <<
+					CFGR1_PCSPOL_OFFSET) &
+					CFGR1_PCSPOL_MASK);
+		else
+			temp |= CFGR1_PCSPOL;
+	}
+
 	writel(temp, fsl_lpspi->base + IMX7ULP_CFGR1);
 
-	temp = readl(fsl_lpspi->base + IMX7ULP_CR);
-	temp |= CR_RRF | CR_RTF | CR_MEN;
-	writel(temp, fsl_lpspi->base + IMX7ULP_CR);
+lpspi_enable_module:
+	if (change_config || !fsl_lpspi->cs_asserted) {
+		temp = CR_RRF | CR_RTF | CR_MEN;
+		writel(temp, fsl_lpspi->base + IMX7ULP_CR);
+	}
 
 	temp = 0;
 	if (fsl_lpspi->usedma)
@@ -414,9 +464,18 @@ static int fsl_lpspi_setup_transfer(struct spi_controller *controller,
 {
 	struct fsl_lpspi_data *fsl_lpspi =
 				spi_controller_get_devdata(spi->controller);
+	bool change_config = false;
 
 	if (t == NULL)
 		return -EINVAL;
+
+	if (fsl_lpspi->config.speed_hz != t->speed_hz ||
+			fsl_lpspi->config.mode != spi->mode)
+		change_config = true;
+
+	if (!fsl_lpspi->is_only_cs1 &&
+			fsl_lpspi->config.chip_select != spi->chip_select)
+		change_config = true;
 
 	fsl_lpspi->config.mode = spi->mode;
 	fsl_lpspi->config.bpw = t->bits_per_word;
@@ -428,6 +487,7 @@ static int fsl_lpspi_setup_transfer(struct spi_controller *controller,
 
 	if (!fsl_lpspi->config.speed_hz)
 		fsl_lpspi->config.speed_hz = spi->max_speed_hz;
+
 	if (!fsl_lpspi->config.bpw)
 		fsl_lpspi->config.bpw = spi->bits_per_word;
 
@@ -453,7 +513,7 @@ static int fsl_lpspi_setup_transfer(struct spi_controller *controller,
 	else
 		fsl_lpspi->usedma = false;
 
-	return fsl_lpspi_config(fsl_lpspi);
+	return fsl_lpspi_config(fsl_lpspi, change_config);
 }
 
 static int fsl_lpspi_slave_abort(struct spi_controller *controller)
@@ -493,7 +553,7 @@ static int fsl_lpspi_wait_for_completion(struct spi_controller *controller)
 	return 0;
 }
 
-static int fsl_lpspi_reset(struct fsl_lpspi_data *fsl_lpspi)
+static int fsl_lpspi_reset(struct fsl_lpspi_data *fsl_lpspi, bool disable)
 {
 	u32 temp;
 
@@ -507,7 +567,11 @@ static int fsl_lpspi_reset(struct fsl_lpspi_data *fsl_lpspi)
 	writel(temp, fsl_lpspi->base + IMX7ULP_SR);
 
 	/* Clear FIFO and disable module */
-	temp = CR_RRF | CR_RTF;
+	if (disable)
+		temp = CR_RRF | CR_RTF;
+	else
+		temp = CR_RRF | CR_RTF | CR_MEN;
+
 	writel(temp, fsl_lpspi->base + IMX7ULP_CR);
 
 	return 0;
@@ -595,7 +659,7 @@ static int fsl_lpspi_dma_transfer(struct spi_controller *controller,
 			dev_err(fsl_lpspi->dev, "I/O Error in DMA TX\n");
 			dmaengine_terminate_all(controller->dma_tx);
 			dmaengine_terminate_all(controller->dma_rx);
-			fsl_lpspi_reset(fsl_lpspi);
+			fsl_lpspi_reset(fsl_lpspi, true);
 			return -ETIMEDOUT;
 		}
 
@@ -605,7 +669,7 @@ static int fsl_lpspi_dma_transfer(struct spi_controller *controller,
 			dev_err(fsl_lpspi->dev, "I/O Error in DMA RX\n");
 			dmaengine_terminate_all(controller->dma_tx);
 			dmaengine_terminate_all(controller->dma_rx);
-			fsl_lpspi_reset(fsl_lpspi);
+			fsl_lpspi_reset(fsl_lpspi, true);
 			return -ETIMEDOUT;
 		}
 	} else {
@@ -615,7 +679,7 @@ static int fsl_lpspi_dma_transfer(struct spi_controller *controller,
 				"I/O Error in DMA TX interrupted\n");
 			dmaengine_terminate_all(controller->dma_tx);
 			dmaengine_terminate_all(controller->dma_rx);
-			fsl_lpspi_reset(fsl_lpspi);
+			fsl_lpspi_reset(fsl_lpspi, true);
 			return -EINTR;
 		}
 
@@ -625,12 +689,12 @@ static int fsl_lpspi_dma_transfer(struct spi_controller *controller,
 				"I/O Error in DMA RX interrupted\n");
 			dmaengine_terminate_all(controller->dma_tx);
 			dmaengine_terminate_all(controller->dma_rx);
-			fsl_lpspi_reset(fsl_lpspi);
+			fsl_lpspi_reset(fsl_lpspi, true);
 			return -EINTR;
 		}
 	}
 
-	fsl_lpspi_reset(fsl_lpspi);
+	fsl_lpspi_reset(fsl_lpspi, true);
 
 	return 0;
 }
@@ -693,6 +757,7 @@ static int fsl_lpspi_pio_transfer(struct spi_controller *controller,
 	fsl_lpspi->tx_buf = t->tx_buf;
 	fsl_lpspi->rx_buf = t->rx_buf;
 	fsl_lpspi->remain = t->len;
+	fsl_lpspi->remain_rx = 0;
 
 	reinit_completion(&fsl_lpspi->xfer_done);
 	fsl_lpspi->slave_aborted = false;
@@ -703,7 +768,7 @@ static int fsl_lpspi_pio_transfer(struct spi_controller *controller,
 	if (ret)
 		return ret;
 
-	fsl_lpspi_reset(fsl_lpspi);
+	fsl_lpspi_reset(fsl_lpspi, !fsl_lpspi->cs_asserted);
 
 	return 0;
 }
@@ -716,13 +781,14 @@ static int fsl_lpspi_transfer_one(struct spi_controller *controller,
 					spi_controller_get_devdata(controller);
 	int ret;
 
-	fsl_lpspi->is_first_byte = true;
+	fsl_lpspi->t = t;
+	fsl_lpspi->last = spi_transfer_is_last(controller, t);
+
 	ret = fsl_lpspi_setup_transfer(controller, spi, t);
 	if (ret < 0)
 		return ret;
 
 	fsl_lpspi_set_cmd(fsl_lpspi);
-	fsl_lpspi->is_first_byte = false;
 
 	if (fsl_lpspi->usedma)
 		ret = fsl_lpspi_dma_transfer(controller, fsl_lpspi, t);
@@ -740,6 +806,9 @@ static irqreturn_t fsl_lpspi_isr(int irq, void *dev_id)
 	struct fsl_lpspi_data *fsl_lpspi = dev_id;
 
 	temp_IER = readl(fsl_lpspi->base + IMX7ULP_IER);
+	if (!temp_IER)
+		return IRQ_HANDLED;
+
 	fsl_lpspi_intctrl(fsl_lpspi, 0);
 	temp_SR = readl(fsl_lpspi->base + IMX7ULP_SR);
 
@@ -750,15 +819,12 @@ static irqreturn_t fsl_lpspi_isr(int irq, void *dev_id)
 		return IRQ_HANDLED;
 	}
 
-	if (temp_SR & SR_MBF ||
-	    readl(fsl_lpspi->base + IMX7ULP_FSR) & FSR_TXCOUNT) {
-		writel(SR_FCF, fsl_lpspi->base + IMX7ULP_SR);
-		fsl_lpspi_intctrl(fsl_lpspi, IER_FCIE);
+	if (fsl_lpspi->remain_rx > 0) {
+		writel((SR_FCF | SR_WCF) & temp_SR, fsl_lpspi->base + IMX7ULP_SR);
+		fsl_lpspi_intctrl(fsl_lpspi, IER_FCIE | IER_WCIE | (temp_IER & IER_TDIE));
 		return IRQ_HANDLED;
-	}
-
-	if (temp_SR & SR_FCF && (temp_IER & IER_FCIE)) {
-		writel(SR_FCF, fsl_lpspi->base + IMX7ULP_SR);
+	} else {
+		writel(SR_WCF | SR_FCF | SR_TCF, fsl_lpspi->base + IMX7ULP_SR);
 		complete(&fsl_lpspi->xfer_done);
 		return IRQ_HANDLED;
 	}
@@ -840,6 +906,7 @@ static int fsl_lpspi_probe(struct platform_device *pdev)
 	fsl_lpspi->is_slave = is_slave;
 	fsl_lpspi->is_only_cs1 = of_property_read_bool((&pdev->dev)->of_node,
 						"fsl,spi-only-use-cs1-sel");
+	fsl_lpspi->cs_asserted = false;
 
 	controller->bits_per_word_mask = SPI_BPW_RANGE_MASK(8, 32);
 	controller->transfer_one = fsl_lpspi_transfer_one;
