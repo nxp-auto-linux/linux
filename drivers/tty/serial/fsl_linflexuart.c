@@ -1099,8 +1099,12 @@ linflex_set_termios(struct uart_port *port, struct ktermios *termios,
 	writel(gcr, port->membase + GCR);
 
 	/* parity must be enabled when CS7 to match 8-bits format */
-	if ((termios->c_cflag & CSIZE) == CS7)
+	if ((termios->c_cflag & CSIZE) == CS7) {
+		if (!(termios->c_cflag & PARENB))
+			dev_warn(port->dev,
+			 "CS7 is supported only with parenb flag\n");
 		termios->c_cflag |= PARENB;
+	}
 
 	if ((termios->c_cflag & PARENB)) {
 		cr |= LINFLEXD_UARTCR_PCE;
