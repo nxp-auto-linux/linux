@@ -468,14 +468,19 @@ static int set_controller_mode(struct mbox_chan *conf_chan,
 	return 0;
 }
 
-static int start_llce_can(struct llce_can *llce)
-{
-	return set_controller_mode(llce->config, LLCE_CAN_T_START);
-}
-
 static int stop_llce_can(struct llce_can *llce)
 {
 	return set_controller_mode(llce->config, LLCE_CAN_T_STOP);
+}
+
+static int start_llce_can(struct llce_can *llce)
+{
+	int ret = set_controller_mode(llce->config, LLCE_CAN_T_START);
+
+	if (ret)
+		stop_llce_can(llce);
+
+	return ret;
 }
 
 static u32 get_ntseg1(const struct can_bittiming *bt)
