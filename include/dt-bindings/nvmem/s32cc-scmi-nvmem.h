@@ -148,7 +148,16 @@
  */
 #define S32CC_SCMI_NVMEM_DDR_RET_CTRL                   0x11
 
-#define S32CC_SCMI_NVMEM_MAX				0x12
+/*
+ * Commands: Write
+ * Register(s): DDR_GPR - DDR_Config_0[14]
+ * Description: Writes a 1-bit value to the mentioned register, for enabling/
+   disabling the Memory Data retention while in Standby mode
+   (0 -> disabled, 1 -> enabled).
+ */
+#define S32CC_SCMI_NVMEM_DDR_MEM_RET			0x12
+
+#define S32CC_SCMI_NVMEM_MAX				0x13
 
 #define S32CC_SCMI_NVMEM_CELL_SIZE			0x4
 
