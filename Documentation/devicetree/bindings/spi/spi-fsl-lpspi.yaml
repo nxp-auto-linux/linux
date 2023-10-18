@@ -44,9 +44,16 @@ properties:
 
   nxp,reset-at-underrun:
     description:
-        In S32G3 case, TX FIFO pointers are corrupted when a transmit FIFO
-        underrun occurs in slave mode (ERR051588). The workaround is to reset
-        the TX FIFO before writing any new data.
+      In S32G3 case, TX FIFO pointers are corrupted when a transmit FIFO
+      underrun occurs in slave mode (ERR051588). The workaround is to reset
+      the TX FIFO before writing any new data.
+    type: boolean
+
+  nxp,lpspi-slave-no-pin-swap:
+    description:
+      This property is relevant for LPSPI target mode. When set, SIN is used
+      for input data and SOUT is used for output data. Otherwise, SOUT is used
+      for input data and SIN is used for output data.
     type: boolean
 
   pinctrl-0:
@@ -111,4 +118,5 @@ examples:
         pinctrl-1 = <&lpspi2_pins_slave>;
         pinctrl-names = "default", "slave";
         interrupts-extended = <&llce_mb LLCE_MB_LPSPI_IRQ_2>;
+        nxp,lpspi-slave-no-pin-swap;
     };
