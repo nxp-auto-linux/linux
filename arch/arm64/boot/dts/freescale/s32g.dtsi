@@ -941,6 +941,7 @@
 				status = "disabled";
 				#address-cells = <1>;
 				#size-cells = <0>;
+				nxp,lpspi-slave-no-pin-swap;
 				spidev5: spidev@0 {
 					compatible = "rohm,dh2228fv";
 					spi-max-frequency = <4000000>;
