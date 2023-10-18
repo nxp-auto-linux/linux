@@ -140,7 +140,15 @@
  */
 #define S32CC_SCMI_NVMEM_PFE_GENCTRL3                   0x10
 
-#define S32CC_SCMI_NVMEM_MAX				0x11
+/*
+ * Commands: Write
+ * Register(s): DDR_GPR - DDR_RET_CONTROL[0]
+ * Description: Writes a 1-bit value to the mentioned register, for enabling/
+   disabling the DDR IO retention (0 -> enabled, 1 -> disabled).
+ */
+#define S32CC_SCMI_NVMEM_DDR_RET_CTRL                   0x11
+
+#define S32CC_SCMI_NVMEM_MAX				0x12
 
 #define S32CC_SCMI_NVMEM_CELL_SIZE			0x4
 
