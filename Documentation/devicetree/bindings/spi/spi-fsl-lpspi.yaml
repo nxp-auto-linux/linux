@@ -75,6 +75,13 @@ properties:
       the TX FIFO before writing any new data.
     type: boolean
 
+  nxp,lpspi-slave-no-pin-swap:
+    description:
+      This property is relevant for LPSPI target mode. When set, SIN is used
+      for input data and SOUT is used for output data. Otherwise, SOUT is used
+      for input data and SIN is used for output data.
+    type: boolean
+
   pinctrl-0:
     description:
       A phandle to the default pinctrl state.
@@ -131,5 +138,6 @@ examples:
           pinctrl-0 = <&lpspi2_pins>;
           pinctrl-names = "default";
           interrupts-extended = <&llce_mb LLCE_MB_LPSPI_IRQ_2>;
+          nxp,lpspi-slave-no-pin-swap;
       };
     };
