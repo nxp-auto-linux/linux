@@ -73,7 +73,8 @@
 #define DER_RDDE	BIT(1)
 #define DER_TDDE	BIT(0)
 #define CFGR1_PCSCFG	BIT(27)
-#define CFGR1_PINCFG	(BIT(24)|BIT(25))
+#define CFGR1_PINCFG_SWAP	(BIT(24)|BIT(25))
+#define CFGR1_PINCFG_NO_SWAP	0
 #define CFGR1_PCSPOL_OFFSET	8
 #define CFGR1_PCSPOL_MASK	GENMASK(11, 8)
 #define CFGR1_PCSPOL		BIT(CFGR1_PCSPOL_OFFSET)
@@ -398,6 +399,7 @@ static int fsl_lpspi_config(struct fsl_lpspi_data *fsl_lpspi)
 	struct spi_controller *controller = dev_get_drvdata(fsl_lpspi->dev);
 	u32 temp;
 	int ret;
+	bool no_pin_swap = false;
 
 	if (!fsl_lpspi->is_target) {
 		ret = fsl_lpspi_set_bitrate(fsl_lpspi);
@@ -409,8 +411,11 @@ static int fsl_lpspi_config(struct fsl_lpspi_data *fsl_lpspi)
 
 	if (!fsl_lpspi->is_target)
 		temp = CFGR1_HOST;
-	else
-		temp = CFGR1_PINCFG;
+	else {
+		no_pin_swap = of_property_read_bool(fsl_lpspi->dev->of_node,
+				"nxp,lpspi-slave-no-pin-swap");
+		temp = no_pin_swap ? CFGR1_PINCFG_NO_SWAP : CFGR1_PINCFG_SWAP;
+	}
 
 	if (fsl_lpspi->config.mode & SPI_CS_HIGH) {
 		if (controller->num_chipselect > 1)
