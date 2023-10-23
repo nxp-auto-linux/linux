@@ -781,15 +781,16 @@ static netdev_tx_t llce_can_start_xmit(struct sk_buff *skb,
 		return NETDEV_TX_OK;
 
 	netif_stop_queue(dev);
+	/* Put the skb on can loopback stack */
+	can_put_echo_skb(skb, dev, 0);
 
 	ret = mbox_send_message(llce->tx, &msg);
 	if (ret < 0) {
+		can_free_echo_skb(dev, 0);
 		netdev_err(dev, "Failed to send CAN frame\n");
 		return NETDEV_TX_BUSY;
 	}
 
-	/* Put the skb on can loopback stack */
-	can_put_echo_skb(skb, dev, 0);
 
 	return NETDEV_TX_OK;
 }
