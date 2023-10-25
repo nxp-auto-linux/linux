@@ -191,14 +191,9 @@ static const struct iio_chan_spec s32cc_adc_iio_channels[] = {
 	IIO_CHAN_SOFT_TIMESTAMP(32),
 };
 
-static inline int group_idx(int channel)
+static inline int group_idx(unsigned int channel)
 {
-	if (channel >= 0 && channel <= 7)
-		return 0;
-	if (channel >= 32 && channel <= 38)
-		return 1;
-
-	return -ECHRNG;
+	return (channel < 32) ? 0 : 1;
 }
 
 static inline unsigned long s32cc_adc_clk_rate(struct s32cc_adc *info)
@@ -491,11 +486,6 @@ static int s32cc_read_raw(struct iio_dev *indio_dev,
 		reinit_completion(&info->completion);
 
 		group = group_idx(chan->channel);
-		if (group < 0) {
-			mutex_unlock(&indio_dev->mlock);
-			return group;
-		}
-
 		s32cc_adc_configure_read(info, chan->channel, group,
 					 SAR_ADC_ONESHOT, &ncmr_data,
 					 &cimr_data);
@@ -590,9 +580,6 @@ static int s32cc_adc_buffer_postenable(struct iio_dev *indio_dev)
 
 		info->buffered_chan[pos++] = channel;
 		group = group_idx(channel);
-		if (group < 0)
-			return group;
-
 		s32cc_adc_configure_read(info, channel, group,
 					 SAR_ADC_CONTINUOUS, &ncmr_data,
 					 &cimr_data);
