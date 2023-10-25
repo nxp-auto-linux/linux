@@ -232,7 +232,7 @@ static inline void s32cc_adc_cfg_init(struct s32cc_adc *info)
 static void s32cc_adc_cfg_post_set(struct s32cc_adc *info)
 {
 	struct s32cc_adc_feature *adc_feature = &info->adc_feature;
-	int mcr_data = 0, imr_data = 0;
+	int mcr_data = 0;
 
 	/* auto-clock-off mode enable */
 	if (adc_feature->auto_clk_off)
@@ -245,8 +245,7 @@ static void s32cc_adc_cfg_post_set(struct s32cc_adc *info)
 	writel(mcr_data, info->regs + REG_ADC_MCR);
 
 	/* End of Conversion Chain interrupt enable */
-	imr_data |= ADC_MSKECH;
-	writel(imr_data, info->regs + REG_ADC_IMR);
+	writel(ADC_MSKECH, info->regs + REG_ADC_IMR);
 }
 
 static void s32cc_adc_calibration(struct s32cc_adc *info)
