@@ -4,7 +4,7 @@
  * driver by Fugang Duan <B38611@freescale.com>)
  *
  * Copyright 2013 Freescale Semiconductor, Inc.
- * Copyright 2017, 2020-2022 NXP
+ * Copyright 2017, 2020-2023 NXP
  */
 
 #include <linux/module.h>
@@ -67,7 +67,6 @@
 
 /* Interrupt Status Register field define */
 #define ADC_ECH			0x01
-#define ADC_EOC			0x02
 
 /* Channel Pending Register field define */
 #define ADC_EOC_CH(c)		(1 << (c) % 32)
@@ -394,8 +393,7 @@ static irqreturn_t s32cc_adc_isr(int irq, void *dev_id)
 
 	isr_data = readl(info->regs + REG_ADC_ISR);
 	if (isr_data & ADC_ECH) {
-		writel(ADC_ECH | ADC_EOC,
-		       info->regs + REG_ADC_ISR);
+		writel(ADC_ECH, info->regs + REG_ADC_ISR);
 
 		if (iio_buffer_enabled(indio_dev)) {
 			info->buffer_ech_num++;
