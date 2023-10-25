@@ -114,9 +114,6 @@
 
 #define BUFFER_ECH_NUM_OK	2
 #define ADC_NUM_CHANNELS	8
-#define CHANNEL_UNASSIGNED		-2
-#define ADC_DATA_READ_ERROR		-1
-#define ADC_DATA_READ_SUCCESS	0
 
 enum freq_sel {
 	ADC_BUSCLK_EQUAL,
@@ -358,6 +355,14 @@ static void s32cc_adc_hw_init(struct s32cc_adc *info)
 	s32cc_adc_sample_set(info);
 }
 
+static void s32cc_adc_read_notify(struct s32cc_adc *info)
+{
+	int group;
+
+	for (group = 0; group < ADC_NUM_GROUPS; group++)
+		writel(ADC_CH_MASK, info->regs + REG_ADC_CEOCFR(group));
+}
+
 static int s32cc_adc_read_data(struct s32cc_adc *info,
 			       unsigned int chan)
 {
@@ -366,55 +371,74 @@ static int s32cc_adc_read_data(struct s32cc_adc *info,
 	group = group_idx(chan);
 	ceocfr_data = readl(info->regs + REG_ADC_CEOCFR(group));
 	if (!(ceocfr_data & ADC_EOC_CH(chan)))
-		return ADC_DATA_READ_ERROR;
-
-	writel(ADC_EOC_CH(chan), info->regs + REG_ADC_CEOCFR(group));
+		return -EIO;
 
 	cdr_data = readl(info->regs + REG_ADC_CDR(chan));
 	if (!(cdr_data & ADC_VALID)) {
 		dev_err(info->dev, "error invalid data\n");
-		return ADC_DATA_READ_ERROR;
+		return -EIO;
 	}
 
-	info->value = cdr_data & ADC_CDATA_MASK;
-	return ADC_DATA_READ_SUCCESS;
+	return cdr_data & ADC_CDATA_MASK;
+}
+
+static void s32cc_adc_isr_buffer(struct iio_dev *indio_dev)
+{
+	struct s32cc_adc *info = iio_priv(indio_dev);
+	int i, ret;
+
+	info->buffer_ech_num++;
+	if (info->buffer_ech_num < BUFFER_ECH_NUM_OK)
+		return;
+
+	info->buffer_ech_num = 0;
+	for (i = 0; i < info->channels_used; i++) {
+		ret = s32cc_adc_read_data(info, info->buffered_chan[i]);
+		if (ret < 0) {
+			s32cc_adc_read_notify(info);
+			return;
+		}
+
+		info->buffer[i] = ret;
+	}
+
+	s32cc_adc_read_notify(info);
+	iio_push_to_buffers_with_timestamp(indio_dev,
+					   info->buffer,
+					   iio_get_time_ns(indio_dev));
+	iio_trigger_notify_done(indio_dev->trig);
+}
+
+static void s32cc_adc_isr_read_raw(struct iio_dev *indio_dev)
+{
+	struct s32cc_adc *info = iio_priv(indio_dev);
+	int ret;
+
+	ret = s32cc_adc_read_data(info, info->current_channel);
+	s32cc_adc_read_notify(info);
+	if (ret < 0)
+		return;
+
+	info->value = ret;
+	complete(&info->completion);
 }
 
 static irqreturn_t s32cc_adc_isr(int irq, void *dev_id)
 {
 	struct iio_dev *indio_dev = (struct iio_dev *)dev_id;
 	struct s32cc_adc *info = iio_priv(indio_dev);
-	int isr_data, i;
+	int isr_data;
 
 	isr_data = readl(info->regs + REG_ADC_ISR);
-	if (isr_data & ADC_ECH) {
-		writel(ADC_ECH, info->regs + REG_ADC_ISR);
+	if (!(isr_data & ADC_ECH))
+		return IRQ_NONE;
 
-		if (iio_buffer_enabled(indio_dev)) {
-			info->buffer_ech_num++;
-			if (info->buffer_ech_num < BUFFER_ECH_NUM_OK)
-				return IRQ_HANDLED;
-			info->buffer_ech_num = 0;
+	if (iio_buffer_enabled(indio_dev))
+		s32cc_adc_isr_buffer(indio_dev);
+	else
+		s32cc_adc_isr_read_raw(indio_dev);
 
-			for (i = 0; i < info->channels_used; i++) {
-				if (s32cc_adc_read_data(info,
-							info->buffered_chan[i]) ==
-							ADC_DATA_READ_ERROR)
-					return IRQ_HANDLED;
-				info->buffer[i] = info->value;
-			}
-
-			iio_push_to_buffers_with_timestamp(indio_dev,
-							   info->buffer,
-							   iio_get_time_ns(indio_dev));
-			iio_trigger_notify_done(indio_dev->trig);
-		} else {
-			if (s32cc_adc_read_data(info, info->current_channel) ==
-					ADC_DATA_READ_ERROR)
-				return IRQ_HANDLED;
-			complete(&info->completion);
-		}
-	}
+	writel(ADC_ECH, info->regs + REG_ADC_ISR);
 
 	return IRQ_HANDLED;
 }
