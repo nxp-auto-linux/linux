@@ -387,9 +387,11 @@ static void s32cc_adc_isr_buffer(struct iio_dev *indio_dev)
 	struct s32cc_adc *info = iio_priv(indio_dev);
 	int i, ret;
 
-	info->buffer_ech_num++;
-	if (info->buffer_ech_num < BUFFER_ECH_NUM_OK)
-		return;
+	if (indio_dev->currentmode == INDIO_BUFFER_SOFTWARE) {
+		info->buffer_ech_num++;
+		if (info->buffer_ech_num < BUFFER_ECH_NUM_OK)
+			return;
+	}
 
 	info->buffer_ech_num = 0;
 	for (i = 0; i < info->channels_used; i++) {
@@ -406,7 +408,8 @@ static void s32cc_adc_isr_buffer(struct iio_dev *indio_dev)
 	iio_push_to_buffers_with_timestamp(indio_dev,
 					   info->buffer,
 					   iio_get_time_ns(indio_dev));
-	iio_trigger_notify_done(indio_dev->trig);
+	if (indio_dev->currentmode == INDIO_BUFFER_TRIGGERED)
+		iio_trigger_notify_done(indio_dev->trig);
 }
 
 static void s32cc_adc_isr_read_raw(struct iio_dev *indio_dev)
@@ -492,9 +495,10 @@ static int s32cc_adc_start_conversion(struct s32cc_adc *info, int currentmode)
 	switch (currentmode) {
 	case INDIO_UNINITIALIZED:
 	case INDIO_DIRECT_MODE:
+	case INDIO_BUFFER_TRIGGERED:
 		mcr_data &= ~ADC_MODE;
 		break;
-	case INDIO_BUFFER_TRIGGERED:
+	case INDIO_BUFFER_SOFTWARE:
 		mcr_data |= ADC_MODE;
 		break;
 	default:
@@ -616,7 +620,11 @@ static int s32cc_adc_buffer_postenable(struct iio_dev *indio_dev)
 	info->buffer_ech_num = 0;
 	info->channels_used = pos;
 	s32cc_adc_enable(info, true);
-	return s32cc_adc_start_conversion(info, indio_dev->currentmode);
+	if (indio_dev->currentmode == INDIO_BUFFER_SOFTWARE)
+		return s32cc_adc_start_conversion(info,
+						  indio_dev->currentmode);
+
+	return 0;
 }
 
 static int s32cc_adc_buffer_predisable(struct iio_dev *indio_dev)
@@ -645,6 +653,20 @@ static bool s32cc_adc_validate_scan_mask(struct iio_dev *indio_dev,
 	 * available channels to be active
 	 */
 	return true;
+}
+
+static irqreturn_t s32cc_adc_trigger_handler(int irq, void *p)
+{
+	struct iio_poll_func *pf = p;
+	struct iio_dev *indio_dev = pf->indio_dev;
+	struct s32cc_adc *info = iio_priv(indio_dev);
+	int ret;
+
+	ret = s32cc_adc_start_conversion(info, indio_dev->currentmode);
+	if (ret < 0)
+		return IRQ_NONE;
+
+	return IRQ_HANDLED;
 }
 
 static const struct iio_buffer_setup_ops iio_triggered_buffer_setup_ops = {
@@ -723,7 +745,7 @@ static int s32cc_adc_probe(struct platform_device *pdev)
 	indio_dev->name = dev_name(&pdev->dev);
 	indio_dev->dev.of_node = pdev->dev.of_node;
 	indio_dev->info = &s32cc_adc_iio_info;
-	indio_dev->modes = INDIO_DIRECT_MODE;
+	indio_dev->modes = INDIO_DIRECT_MODE | INDIO_BUFFER_SOFTWARE;
 	indio_dev->channels = s32cc_adc_iio_channels;
 	indio_dev->num_channels = ARRAY_SIZE(s32cc_adc_iio_channels);
 
@@ -741,7 +763,8 @@ static int s32cc_adc_probe(struct platform_device *pdev)
 	s32cc_adc_hw_init(info);
 
 	ret = devm_iio_triggered_buffer_setup(&pdev->dev, indio_dev,
-					      &iio_pollfunc_store_time, NULL,
+					      &iio_pollfunc_store_time,
+					      &s32cc_adc_trigger_handler,
 					      &iio_triggered_buffer_setup_ops);
 	if (ret < 0) {
 		dev_err(&pdev->dev, "Couldn't initialise the buffer\n");
