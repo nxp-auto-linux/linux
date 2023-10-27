@@ -212,6 +212,10 @@
 	status = "okay";
 };
 
+&llce_can12 {
+	status = "okay";
+};
+
 &llce_can13 {
 	status = "okay";
 };
@@ -390,33 +394,6 @@
 			output-enable;
 			slew-rate = <S32CC_FAST_SLEW_166MHZ>;
 			bias-pull-up;
-		};
-	};
-
-	ftm0_pins: ftm0_pins {
-		ftm0_grp0 {
-			pinmux = <S32CC_PINMUX(167, FUNC3)>;
-			output-enable;
-			input-enable;
-			slew-rate = <S32CC_GPIO_3V3_SLEW_50MHZ>;
-		};
-
-		ftm0_grp1 {
-			pinmux = <S32CC_PINMUX(655, FUNC5)>;
-		};
-
-	};
-
-	ftm1_pins: ftm1_pins {
-		ftm1_grp0 {
-			pinmux = <S32CC_PINMUX(670, FUNC2)>;
-		};
-
-		ftm1_grp1 {
-			pinmux = <S32CC_PINMUX(80, FUNC3)>;
-			output-enable;
-			input-enable;
-			slew-rate = <S32CC_FAST_SLEW_208MHZ>;
 		};
 	};
 
@@ -1014,14 +991,3 @@
 	status = "okay";
 };
 
-&pwm0 {
-	pinctrl-names = "default";
-	pinctrl-0 = <&ftm0_pins>;
-	status = "okay";
-};
-
-&pwm1 {
-	pinctrl-names = "default";
-	pinctrl-0 = <&ftm1_pins>;
-	status = "okay";
-};
