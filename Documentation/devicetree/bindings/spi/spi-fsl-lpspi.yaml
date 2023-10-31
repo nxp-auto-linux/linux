@@ -60,19 +60,10 @@ properties:
     description:
       A phandle to the default pinctrl state.
 
-  pinctrl-1:
-    description:
-      A phandle to the slave pinctrl state if the default state is used for the
-      master.
-
   pinctrl-names:
-    items:
-      - const: default
-      - const: slave
+    const: default
     description:
-      A pinctrl state named "default" will be applied if defined. Pinctrl
-      state named "slave" will be applied if defined and if the controller
-      is configured as slave.
+      A pinctrl state named "default" must be defined.
 
 required:
   - compatible
@@ -115,8 +106,7 @@ examples:
                  <&clks S32G_SCMI_CLK_LLCE_SYS>;
         clock-names = "per", "ipg";
         pinctrl-0 = <&lpspi2_pins>;
-        pinctrl-1 = <&lpspi2_pins_slave>;
-        pinctrl-names = "default", "slave";
+        pinctrl-names = "default";
         interrupts-extended = <&llce_mb LLCE_MB_LPSPI_IRQ_2>;
         nxp,lpspi-slave-no-pin-swap;
     };
