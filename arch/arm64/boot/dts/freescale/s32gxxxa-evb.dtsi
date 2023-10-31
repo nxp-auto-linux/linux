@@ -183,6 +183,7 @@
 		dspi1_grp0 {
 			pinmux = <S32CC_PINMUX(7, FUNC2)>;
 			output-enable;
+			input-enable;
 			slew-rate = <S32CC_GPIO_3V3_SLEW_50MHZ>;
 			bias-pull-up;
 		};
@@ -196,6 +197,7 @@
 		dspi1_grp2 {
 			pinmux = <S32CC_PINMUX(8, FUNC3)>;
 			output-enable;
+			input-enable;
 			slew-rate = <S32CC_GPIO_3V3_SLEW_50MHZ>;
 		};
 
@@ -207,40 +209,9 @@
 		};
 
 		dspi1_grp4 {
-			pinmux = <S32CC_PINMUX(987, FUNC2)>;
-		};
-	};
-
-	dspi1slave_pins: dspi1slave_pins {
-		dspi1slave_grp0 {
-			pinmux = <S32CC_PINMUX(6, FUNC2)>;
-			output-enable;
-			slew-rate = <S32CC_GPIO_3V3_SLEW_50MHZ>;
-		};
-
-		dspi1slave_grp1 {
-			pinmux = <S32CC_PINMUX(7, FUNC2)>;
-			input-enable;
-			slew-rate = <S32CC_GPIO_3V3_SLEW_50MHZ>;
-		};
-
-		dspi1slave_grp2 {
 			pinmux = <S32CC_PINMUX(985, FUNC2)>,
 				 <S32CC_PINMUX(986, FUNC2)>,
 				 <S32CC_PINMUX(987, FUNC2)>;
-		};
-
-		dspi1slave_grp3 {
-			pinmux = <S32CC_PINMUX(8, FUNC3)>;
-			input-enable;
-			slew-rate = <S32CC_GPIO_3V3_SLEW_50MHZ>;
-		};
-
-		dspi1slave_grp4 {
-			pinmux = <S32CC_PINMUX(95, FUNC0)>;
-			input-enable;
-			slew-rate = <S32CC_GPIO_3V3_SLEW_50MHZ>;
-			bias-pull-up;
 		};
 	};
 
@@ -903,8 +874,7 @@
 
 &spi1 {
 	pinctrl-0 = <&dspi1_pins>;
-	pinctrl-1 = <&dspi1slave_pins>;
-	pinctrl-names = "default", "slave";
+	pinctrl-names = "default";
 	#address-cells = <1>;
 	#size-cells = <0>;
 	status = "okay";
