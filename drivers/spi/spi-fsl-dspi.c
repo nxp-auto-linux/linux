@@ -264,9 +264,6 @@ struct fsl_dspi {
 	int					pushr_cmd;
 	int					pushr_tx;
 
-	struct pinctrl			*pinctrl_dspi;
-	struct pinctrl_state	*pinctrl_slave;
-
 	void (*host_to_dev)(struct fsl_dspi *dspi, u32 *txdata);
 	void (*dev_to_host)(struct fsl_dspi *dspi, u32 rxdata);
 };
@@ -1238,11 +1235,7 @@ static int dspi_resume(struct device *dev)
 	struct fsl_dspi *dspi = dev_get_drvdata(dev);
 	int ret;
 
-	if (dspi->ctlr->slave)
-		pinctrl_select_state(dspi->pinctrl_dspi,
-				     dspi->pinctrl_slave);
-	else
-		pinctrl_pm_select_default_state(dev);
+	pinctrl_pm_select_default_state(dev);
 
 	ret = clk_prepare_enable(dspi->clk);
 	if (ret)
@@ -1370,29 +1363,6 @@ static const struct regmap_config dspi_regmap_config[] = {
 		.max_register	= 0x2,
 	},
 };
-
-static void dspi_set_pinctrl(struct device *dev)
-{
-	struct fsl_dspi *dspi = dev_get_drvdata(dev);
-	int ret;
-
-	dspi->pinctrl_dspi = devm_pinctrl_get(dev);
-	if (IS_ERR(dspi->pinctrl_dspi)) {
-		dev_warn(dev, "no pinctrl info found: %ld\n",
-			 PTR_ERR(dspi->pinctrl_dspi));
-		return;
-	}
-
-	dspi->pinctrl_slave = pinctrl_lookup_state(dspi->pinctrl_dspi,
-						   "slave");
-	if (!IS_ERR(dspi->pinctrl_slave)) {
-		ret = pinctrl_select_state(dspi->pinctrl_dspi,
-					   dspi->pinctrl_slave);
-		if (ret < 0)
-			dev_err(dev, "failed to switch to slave pinctrl: %d\n",
-				ret);
-	}
-}
 
 static int dspi_init(struct fsl_dspi *dspi)
 {
@@ -1581,9 +1551,6 @@ static int dspi_probe(struct platform_device *pdev)
 			goto out_ctlr_put;
 		}
 	}
-
-	if (ctlr->slave)
-		dspi_set_pinctrl(&pdev->dev);
 
 	dspi->clk = devm_clk_get(&pdev->dev, "dspi");
 	if (IS_ERR(dspi->clk)) {
