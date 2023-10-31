@@ -482,18 +482,22 @@
 		};
 
 		dspi5_grp2 {
-			pinmux = <S32CC_PINMUX(750, FUNC4)>;
+			pinmux = <S32CC_PINMUX(749, FUNC2)>,
+				 <S32CC_PINMUX(750, FUNC4)>,
+				 <S32CC_PINMUX(751, FUNC3)>;
 		};
 
 		dspi5_grp3 {
 			pinmux = <S32CC_PINMUX(128, FUNC1)>;
 			output-enable;
+			input-enable;
 			slew-rate = <S32CC_GPIO_3V3_SLEW_50MHZ>;
 		};
 
 		dspi5_grp4 {
 			pinmux = <S32CC_PINMUX(131, FUNC2)>;
 			output-enable;
+			input-enable;
 			slew-rate = <S32CC_GPIO_3V3_SLEW_50MHZ>;
 			bias-pull-up;
 		};
