@@ -48,6 +48,7 @@ properties:
       - const: txack_fifo
       - const: sema42
       - const: core2core
+      - const: system_control
 
   reg:
     items:
@@ -59,6 +60,7 @@ properties:
       - description: Address and Size of the TXACK fifo memory region
       - description: Address and Size of the SEMA42 region
       - description: Address and Size of the CORE2CORE region
+      - description: Address and Size of the System control memory region
 
   interrupt-names:
     items:
@@ -140,7 +142,8 @@ examples:
             <0x4 0x0 0x0 0x6000>,
             <0x5 0x0 0x0 0x8000>,
             <0x6 0x0 0x0 0x44>,
-            <0x11 0x0 0x0 0x70>;
+            <0x11 0x0 0x0 0x70>,
+            <0x16 0x0 0x0 0x20>;
         reg-names = "rxin_fifo",
             "rxout_fifo",
             "icsr",
@@ -148,7 +151,8 @@ examples:
             "blrout_fifo",
             "txack_fifo",
             "sema42",
-            "core2core";
+            "core2core",
+            "system_control";
         clocks = <&clks S32G_SCMI_CLK_LLCE_SYS>;
         clock-names = "llce_sys";
 
