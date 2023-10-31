@@ -935,8 +935,7 @@
 					<&clks S32G_SCMI_CLK_LLCE_SYS>;
 				clock-names = "per", "ipg";
 				pinctrl-0 = <&lpspi2_pins>;
-				pinctrl-1 = <&lpspi2_pins_slave>;
-				pinctrl-names = "default", "slave";
+				pinctrl-names = "default";
 				interrupts-extended = <&llce_mb LLCE_MB_LPSPI_IRQ_2>;
 				status = "disabled";
 				#address-cells = <1>;
@@ -1387,6 +1386,7 @@
 		lpspi2_grp0 {
 			pinmux = <S32CC_PINMUX(30, FUNC2)>;
 			output-enable;
+			input-enable;
 			slew-rate = <S32CC_GPIO_3V3_SLEW_50MHZ>;
 			bias-pull-up;
 		};
@@ -1400,6 +1400,7 @@
 		lpspi2_grp2 {
 			pinmux = <S32CC_PINMUX(27, FUNC4)>;
 			output-enable;
+			input-enable;
 			slew-rate = <S32CC_GPIO_3V3_SLEW_50MHZ>;
 		};
 
@@ -1411,37 +1412,6 @@
 		};
 
 		lpspi2_grp4 {
-			pinmux = <S32CC_PINMUX(817, FUNC2)>;
-		};
-	};
-
-	lpspi2_pins_slave: lpspi2slave_pins {
-		lpspi2slave_grp0 {
-			pinmux = <S32CC_PINMUX(30, FUNC2)>;
-			input-enable;
-			slew-rate = <S32CC_GPIO_3V3_SLEW_50MHZ>;
-		};
-
-		lpspi2slave_grp1 {
-			pinmux = <S32CC_PINMUX(29, FUNC4)>;
-			output-enable;
-			slew-rate = <S32CC_GPIO_3V3_SLEW_50MHZ>;
-		};
-
-		lpspi2slave_grp2 {
-			pinmux = <S32CC_PINMUX(27, FUNC4)>;
-			input-enable;
-			slew-rate = <S32CC_GPIO_3V3_SLEW_50MHZ>;
-		};
-
-		lpspi2slave_grp3 {
-			pinmux = <S32CC_PINMUX(28, FUNC0)>;
-			input-enable;
-			slew-rate = <S32CC_GPIO_3V3_SLEW_50MHZ>;
-			bias-pull-up;
-		};
-
-		lpspi2slave_grp4 {
 			pinmux = <S32CC_PINMUX(811, FUNC2)>,
 				 <S32CC_PINMUX(816, FUNC2)>,
 				 <S32CC_PINMUX(817, FUNC2)>;
