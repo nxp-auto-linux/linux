@@ -32,6 +32,8 @@
 
 #include "mailbox.h"
 
+#define LLCE_SYSRSTR			0x0
+
 #define MAX_FILTER_PER_CHAN		(16u)
 #define FIFO_MB_PER_CHAN		(100u)
 #define MAX_CONFIRM_BUF_PER_CHAN	(16u)
@@ -158,6 +160,7 @@ struct llce_mb {
 	void __iomem *icsr;
 	void __iomem *sema42;
 	void __iomem *core2core;
+	void __iomem *system_ctrl;
 	struct llce_can_rx_tx_count __iomem *can_stats;
 	struct clk *clk;
 	struct device *dev;
@@ -2684,6 +2687,7 @@ static int init_llce_mem_resources(struct platform_device *pdev,
 		{ .res_name = "icsr", .vaddr = &mb->icsr, },
 		{ .res_name = "sema42", .vaddr = &mb->sema42, },
 		{ .res_name = "core2core", .vaddr = &mb->core2core, },
+		{ .res_name = "system_control", .vaddr = &mb->system_ctrl, },
 	};
 
 	for (i = 0; i < ARRAY_SIZE(resources); i++) {
@@ -3148,6 +3152,7 @@ static int llce_mb_probe(struct platform_device *pdev)
 	struct llce_mb *mb;
 	struct device *dev = &pdev->dev;
 	int ret;
+	u32 sysrstr;
 
 	mb = devm_kzalloc(&pdev->dev, sizeof(*mb), GFP_KERNEL);
 	if (!mb)
@@ -3201,6 +3206,14 @@ static int llce_mb_probe(struct platform_device *pdev)
 	ret = init_core_clock(dev, &mb->clk);
 	if (ret)
 		goto hif_deinit;
+
+	sysrstr = readl(mb->system_ctrl + LLCE_SYSRSTR);
+	/* If LLCE modules are under reset, the firmware was not loaded. */
+	if (!sysrstr) {
+		dev_err(dev, "LLCE modules are under reset. Is the LLCE firmware loaded?\n");
+		ret = -EACCES;
+		goto hif_deinit;
+	}
 
 	ret = get_fw_version(mb, &ver);
 	if (ret) {
