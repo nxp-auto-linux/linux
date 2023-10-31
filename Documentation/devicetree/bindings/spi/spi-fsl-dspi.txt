@@ -18,11 +18,7 @@ Required properties:
 - clocks: from common clock binding: handle to dspi clock.
 - clock-names: from common clock binding: Shall be "dspi".
 - pinctrl-0: pin control group to be used for this controller.
-- pinctrl-1: pin control group to be used for this controller in slave mode.
-- pinctrl-names: must contain a "default" entry. "slave" entry will be applied
-			if the controller is in slave mode. If "slave" entry isn't
-			defined, the default pinctrl will be added no matter how the
-			controller is configured.
+- pinctrl-names: must contain a "default" entry.
 - spi-num-chipselects : the number of the chipselect signals.
 
 Optional property:
