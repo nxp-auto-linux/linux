@@ -486,6 +486,7 @@ static int dest_list_seq_show(struct seq_file *seq, void *v)
 {
 	const struct can_destination *can_dest;
 	struct llce_can_core *can_core = seq->private;
+	struct llce_can_word0 word0;
 	u8 idx;
 
 	can_dest = list_entry(v, struct can_destination, link);
@@ -497,9 +498,10 @@ static int dest_list_seq_show(struct seq_file *seq, void *v)
 		return 0;
 	}
 
+	word0 = llce_can_unpack_word0(can_dest->dest.can_id_remap_value);
 	seq_printf(seq, "%3hhu   0x%08x   0x%08x", can_dest->id,
 		   can_dest->dest.can2can_routing_options,
-		   can_dest->dest.can_id_remap_value);
+		   word0.id);
 
 	for (idx = 0; idx < can_dest->dest.dest_hw_ch_list_count; idx++)
 		seq_printf(seq, " %hhu", can_dest->dest.dest_hw_ch_list[idx]);
@@ -597,7 +599,7 @@ static int filters_list_seq_show(struct seq_file *seq, void *v)
 	seq_printf(seq, "%7u ", filter->hw_ctrl);
 	seq_printf(seq, "%8s ", status);
 	seq_printf(seq, " 0x%08x ", base->id_mask);
-	seq_printf(seq, "0x%08x ", base->message_id);
+	seq_printf(seq, "0x%08x ", base->message_id & ~LLCE_CAN_MB_IDE);
 	seq_printf(seq, "0x%04x ", base->filter_id);
 	seq_printf(seq, "  0x%04x ", base->mb_count);
 	seq_printf(seq, "%5u ", base->filter_addr);
@@ -768,6 +770,11 @@ static bool is_advanced_filter(struct llce_can_advanced_feature *opts)
 	return false;
 }
 
+static inline bool is_can_extended_id(u32 message_id)
+{
+	return message_id > CAN_SFF_MASK;
+}
+
 static void debugfs2filter(struct llce_can_filters_debugfs *filters_dfs,
 			   struct filter_state *filter)
 {
@@ -786,6 +793,8 @@ static void debugfs2filter(struct llce_can_filters_debugfs *filters_dfs,
 	/* Basic enum options */
 	base_opts->entry_type = get_selected_id(&filters_dfs->entry);
 	base_opts->filter_mb_length = get_selected_id(&filters_dfs->mb_type);
+	if (is_can_extended_id(base_opts->message_id))
+		base_opts->message_id |= LLCE_CAN_MB_IDE;
 
 	/* Advanced enum options */
 	adv_opts->can_authentication_feature =
@@ -899,6 +908,7 @@ static int can_add_dest_func(void *data, u64 val)
 	struct llce_can_core_debugfs *core_debugfs;
 	struct llce_can_core *can_core;
 	struct device *dev;
+	struct llce_can_word0 word0;
 	int ret;
 
 	can_dest = container_of(blk, struct llce_can_dest_debugfs, add_exec);
@@ -907,9 +917,15 @@ static int can_add_dest_func(void *data, u64 val)
 	can_core = get_can_core(core_debugfs);
 	dev = get_llce_dbgfs_device(core_debugfs);
 
+	word0 = (struct llce_can_word0) {
+		.id = can_dest->can_id_remap,
+		.rtr = 0,
+		.ide = is_can_extended_id(can_dest->can_id_remap),
+	};
+
 	route_dest = (struct llce_can_can2can_routing_table) {
 		.can2can_routing_options = can_dest->routing_opts,
-		.can_id_remap_value = can_dest->can_id_remap,
+		.can_id_remap_value = llce_can_pack_word0(&word0),
 		.dest_hw_ch_list_count = can_dest->ch_list.n_elements,
 	};
 
@@ -1303,7 +1319,12 @@ static char *can_dest_add_cmd_readme = "\n"
 ": " DEST_ROUTING_OPS_FLD " : u32Can2CanRoutingOptions            :\n"
 ": " DEST_CAN_ID_REMAP_FLD " : u32CanIdRemapValue                  :\n"
 ": " DEST_CH_LIST_FLD "      : u8DestHwChList, u8DestHwChListCount :\n"
-":..............:.....................................:\n";
+":..............:.....................................:\n"
+"\n"
+"NOTE:\n"
+"    LLCE Firmware expects u32CanIdRemapValue to be sent in WORD0 format.\n"
+"    Linux takes care of converting '" DEST_CAN_ID_REMAP_FLD "' into the requested\n"
+"    format so the user should write the remap ID value, without any changes applied.\n";
 
 static char *can_filters_readme = "\n"
 "The LLCE CAN filters are used to direct incoming CAN frames. This traffic\n"
@@ -1435,7 +1456,11 @@ static char *can_filters_add_readme = "\n"
 "      operation will fail if the target interface is not under Linux control\n"
 "      or is not initialized.\n"
 "   2. Llce_Can_ReceiveFilterType.u8RxDestInterface field is populated by the\n"
-"      driver based on HW FIFO mapping on controllers.\n";
+"      driver based on HW FIFO mapping on controllers.\n"
+"   3. LLCE Firmware expects a value of uMessageId in which bit 30 (IDE) is set\n"
+"      if an extended ID is used. The IDE bit enablement is handled by the Linux\n"
+"      LLCE drivers, so " FILTERS_MSG_ID_FLD " should contain the message ID, without any\n"
+"      changes applied.\n";
 
 static char *can_filters_remove_readme = "\n"
 "This command folder should be used to remove an LLCE CAN filter that was added\n"
