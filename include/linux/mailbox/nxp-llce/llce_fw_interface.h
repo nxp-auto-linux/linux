@@ -489,6 +489,15 @@ enum llce_fw_return {
 	 */
 	LLCE_ERROR_ROUTINGCHANNEL_DISABLED,
 	/**
+	 * CAN firmware notification: Shutdown request received from
+	 * host.
+	 */
+	LLCE_SHUTDOWN_REQUESTED,
+	/**
+	 * CAN firmware notification: Core has entered shutdown state.
+	 */
+	LLCE_SHUTDOWN_ENTERED,
+	/**
 	 * Number of enum elements. It must be kept as the last member
 	 * of the list.
 	 */
