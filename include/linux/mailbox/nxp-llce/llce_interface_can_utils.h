@@ -19,7 +19,6 @@
 #define LLCE_CAN_MB_FDF_UNPACKED (0x00000001U)
 /** Frame ESI field mask unpacked. */
 #define LLCE_CAN_MB_ESI_UNPACKED (0x00000001U)
-
 /**
  * word0 of a CAN frame.
  * It contains the message ID and related configurations.
@@ -99,28 +98,29 @@ struct llce_can_word1 {
  * format.
  * This is a helper function abstracts the CAN frame
  * layout away from the user when building a CAN frame.
- * @param word0* - pointer to struct holding fields of word0 part from CAN
+ * @param llce_word0* - pointer to struct holding fields of word0 part from CAN
  * frame. The result is to be copied into word0 field of llce_can_mb_type
  * struct.
  */
-static inline u32 llce_can_pack_word0(const struct llce_can_word0 *word0)
+static inline u32 llce_can_pack_word0(const struct llce_can_word0 *llce_word0)
 {
 	u32 word0_temp = 0U;
 
-	word0_temp |= ((word0->rtr & LLCE_CAN_MB_RTR_UNPACKED)
-		       << LLCE_CAN_MB_RTR_SHIFT);
-	word0_temp |= ((word0->ide & LLCE_CAN_MB_IDE_UNPACKED)
-		       << LLCE_CAN_MB_IDE_SHIFT);
+	word0_temp |= ((llce_word0->rtr & LLCE_CAN_MB_RTR_UNPACKED)
+			   << LLCE_CAN_MB_RTR_SHIFT);
+	word0_temp |= ((llce_word0->ide & LLCE_CAN_MB_IDE_UNPACKED)
+			   << LLCE_CAN_MB_IDE_SHIFT);
 	if (LLCE_CAN_MB_IDE_UNPACKED ==
-	    (word0->ide & LLCE_CAN_MB_IDE_UNPACKED)) {
+	    (llce_word0->ide & LLCE_CAN_MB_IDE_UNPACKED)) {
 		/* Extended Id
 		 */
-		word0_temp |= (word0->id & LLCE_CAN_MB_ID_MASK);
+		word0_temp |= (llce_word0->id & LLCE_CAN_MB_ID_MASK);
 	} else {
 		/* Standard Id
 		 */
-		word0_temp |= ((word0->id & LLCE_CAN_MB_IDSTD_MASK_UNPACKED)
-			       << LLCE_CAN_MB_IDSTD_SHIFT);
+		word0_temp |=
+			((llce_word0->id & LLCE_CAN_MB_IDSTD_MASK_UNPACKED)
+			 << LLCE_CAN_MB_IDSTD_SHIFT);
 	}
 
 	return word0_temp;
@@ -131,21 +131,21 @@ static inline u32 llce_can_pack_word0(const struct llce_can_word0 *word0)
  * format.
  * This is a helper function abstracts the CAN frame
  * layout away from the user when building a CAN frame.
- * @param word1* - pointer to struct holding fields of word1 part from CAN
+ * @param llce_word1* - pointer to struct holding fields of word1 part from CAN
  * frame. The result is to be copied into word1 field of llce_can_mb_type
  * struct.
  */
-static inline u32 llce_can_pack_word1(const struct llce_can_word1 *word1)
+static inline u32 llce_can_pack_word1(const struct llce_can_word1 *llce_word1)
 {
 	u32 word1_temp = 0U;
 
-	word1_temp |= ((word1->brs & LLCE_CAN_MB_BRS_UNPACKED)
+	word1_temp |= ((llce_word1->brs & LLCE_CAN_MB_BRS_UNPACKED)
 		       << LLCE_CAN_MB_BRS_SHIFT);
-	word1_temp |= ((word1->fdf & LLCE_CAN_MB_FDF_UNPACKED)
+	word1_temp |= ((llce_word1->fdf & LLCE_CAN_MB_FDF_UNPACKED)
 		       << LLCE_CAN_MB_FDF_SHIFT);
-	word1_temp |= ((word1->esi & LLCE_CAN_MB_ESI_UNPACKED)
+	word1_temp |= ((llce_word1->esi & LLCE_CAN_MB_ESI_UNPACKED)
 		       << LLCE_CAN_MB_ESI_SHIFT);
-	word1_temp |= (word1->dlc & LLCE_CAN_MB_DLC_MASK);
+	word1_temp |= (llce_word1->dlc & LLCE_CAN_MB_DLC_MASK);
 
 	return word1_temp;
 }
@@ -155,7 +155,7 @@ static inline u32 llce_can_pack_word1(const struct llce_can_word1 *word1)
  * struct.
  * This is a helper function which extracts the fields of
  * word0 from a CAN frame and populates the fields of struct llce_can_word0.
- * @param word0	 - word0 part of CAN frame with fields that match CAN layout.
+ * @param word0 - word0 part of CAN frame with fields that match CAN layout.
  * The input parameter is word0 field of llce_can_mb_type struct.
  */
 static inline struct llce_can_word0 llce_can_unpack_word0(u32 word0)
@@ -186,7 +186,7 @@ static inline struct llce_can_word0 llce_can_unpack_word0(u32 word0)
  * struct.
  * This is a helper function which extracts the fields of
  * word1 from a CAN frame and populates the fields of struct llce_can_word1.
- * @param word1	 - word1 part of CAN frame with fields that match CAN layout.
+ * @param word1 - word1 part of CAN frame with fields that match CAN layout.
  * The input parameter is word1 field of llce_can_mb_type struct.
  */
 static inline struct llce_can_word1 llce_can_unpack_word1(u32 word1)
@@ -225,8 +225,8 @@ ones
  */
 static inline void
 llce_can_get_mb_data(struct llce_can_shared_memory *p_can_shared_memory,
-		     u16 rx_mb_desc_idx, u32 *word0, u32 *word1, u8 **payload,
-		     u32 *timestamp)
+		     u16 rx_mb_desc_idx, u32 *word0, u32 *word1,
+		     u8 **payload, u32 *timestamp)
 {
 	/* Decide whether it's a 64B frame or a 8B frame (Short frame)
 	 */
@@ -235,24 +235,23 @@ llce_can_get_mb_data(struct llce_can_shared_memory *p_can_shared_memory,
 		*word1 = p_can_shared_memory->can_mb[rx_mb_desc_idx].word1;
 		*payload = (u8 *)p_can_shared_memory->can_mb[rx_mb_desc_idx]
 				   .payload;
-		*timestamp =
-			p_can_shared_memory->can_mb[rx_mb_desc_idx].timestamp;
+		*timestamp = p_can_shared_memory->can_mb[rx_mb_desc_idx].timestamp;
 	} else {
 		*word0 = p_can_shared_memory
-				 ->can_short_mb[rx_mb_desc_idx -
-					    LLCE_CAN_CONFIG_MAXRXMB]
-				 .word0;
+				     ->can_short_mb[rx_mb_desc_idx -
+						    LLCE_CAN_CONFIG_MAXRXMB]
+				     .word0;
 		*word1 = p_can_shared_memory
-				 ->can_short_mb[rx_mb_desc_idx -
-					    LLCE_CAN_CONFIG_MAXRXMB]
-				 .word1;
+				     ->can_short_mb[rx_mb_desc_idx -
+						    LLCE_CAN_CONFIG_MAXRXMB]
+				     .word1;
 		*payload = (u8 *)p_can_shared_memory
 				   ->can_short_mb[rx_mb_desc_idx -
-					      LLCE_CAN_CONFIG_MAXRXMB]
+						  LLCE_CAN_CONFIG_MAXRXMB]
 				   .payload;
 		*timestamp = p_can_shared_memory
 				     ->can_short_mb[rx_mb_desc_idx -
-						LLCE_CAN_CONFIG_MAXRXMB]
+						    LLCE_CAN_CONFIG_MAXRXMB]
 				     .timestamp;
 	}
 }
