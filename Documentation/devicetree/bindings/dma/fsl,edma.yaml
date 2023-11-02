@@ -334,3 +334,29 @@ examples:
                       <&pd IMX_SC_R_DMA_3_CH6>,
                       <&pd IMX_SC_R_DMA_3_CH7>;
     };
+
+  - |
+    #include <dt-bindings/clock/s32cc-scmi-clock.h>
+    #include <dt-bindings/interrupt-controller/arm-gic.h>
+    bus {
+      #address-cells = <2>;
+      #size-cells = <2>;
+
+      dma-controller@40144000 {
+          #dma-cells = <2>;
+          compatible = "nxp,s32g2-edma";
+          reg = <0x0 0x40144000 0x0 0x24000>,
+                <0x0 0x4012c000 0x0 0x3000>,
+                <0x0 0x40130000 0x0 0x3000>;
+          dma-channels = <32>;
+          interrupts = <GIC_SPI 8 IRQ_TYPE_LEVEL_HIGH>,
+                       <GIC_SPI 9 IRQ_TYPE_LEVEL_HIGH>,
+                       <GIC_SPI 10 IRQ_TYPE_LEVEL_HIGH>;
+          interrupt-names = "tx-0-15",
+                            "tx-16-31",
+                            "err";
+          clocks = <&clks S32CC_SCMI_CLK_EDMA_MODULE>,
+                   <&clks S32CC_SCMI_CLK_EDMA_AHB>;
+          clock-names = "dmamux0", "dmamux1";
+      };
+    };
