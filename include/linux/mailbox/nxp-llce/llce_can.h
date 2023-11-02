@@ -249,7 +249,12 @@ enum llce_can_command_id {
 	 */
 	LLCE_CAN_CMD_SETADVANCEDFILTER_AT_ADDRESS,
 	/** The host enables or disables can2pcie processing entirely.*/
-	LLCE_CAN_CMD_SETCAN2PCIESTATE
+	LLCE_CAN_CMD_SETCAN2PCIESTATE,
+	/**
+	 * The host requests all LLCE cores to execute WFI and shut
+	 * down.
+	 */
+	LLCE_CAN_CMD_SHUTDOWN
 } __packed;
 
 /**
@@ -418,7 +423,9 @@ enum llce_af_rule_id {
 	/** Destination rule type used for can2eth use case. */
 	CAN_AF_CAN2ETH,
 	/** Destination rule type used for can2pcie use case. */
-	CAN_AF_CAN2PCIE
+	CAN_AF_CAN2PCIE,
+	/** Destination rule type used for can2hse use case. */
+	CAN_AF_CAN2HSE
 } __packed;
 
 /**
@@ -993,6 +1000,16 @@ struct llce_can_can2pcie_routing_table {
 } __aligned(4) __packed;
 
 /**
+ * Data structure type containing CAN to HSE destination rule
+ * configuration.
+ * It is used to define a specific destination rule for can2hse routing.
+ **/
+struct llce_can_can2hse_routing_table {
+	/** INPUT: Key handle required to compute key on HSE side */
+	u32 can2hse_key_handle;
+} __aligned(4) __packed;
+
+/**
  * Data structure type representing  destination rule used by Advanced
  * Features(AF)
  * Used to hold a generic type of AF destination rule
@@ -1010,6 +1027,8 @@ struct can_af_dest_rules {
 		struct llce_can_can2eth_routing_table can2eth;
 		/** INPUT: Destination rule for can2pcie use case.*/
 		struct llce_can_can2pcie_routing_table can2pcie;
+		/** INPUT: Destination rule for can2hse use case.*/
+		struct llce_can_can2hse_routing_table can2hse;
 	} af_dest;
 	/** INPUT: Destination rule type.*/
 	enum llce_af_rule_id af_dest_id;

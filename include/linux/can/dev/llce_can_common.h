@@ -8,6 +8,7 @@
 #include <linux/ctype.h>
 #include <linux/device.h>
 #include <linux/mailbox/nxp-llce/llce_can.h>
+#include <linux/mailbox/nxp-llce/llce_interface_can_utils.h>
 #include <linux/mailbox/nxp-llce/llce_mailbox.h>
 #include <linux/mailbox_client.h>
 #include <linux/mailbox_controller.h>
