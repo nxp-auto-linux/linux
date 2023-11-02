@@ -25,6 +25,7 @@ properties:
           - fsl,imx8qm-edma
           - fsl,imx93-edma3
           - fsl,imx93-edma4
+          - nxp,s32cc-edma
       - items:
           - const: fsl,ls1028a-edma
           - const: fsl,vf610-edma
@@ -149,6 +150,35 @@ allOf:
         dma-channels:
           const: 32
 
+  - if:
+      properties:
+        compatible:
+          contains:
+            const: nxp,s32cc-edma
+    then:
+      properties:
+        clocks:
+          minItems: 2
+        clock-names:
+          items:
+            - const: dmamux0
+            - const: dmamux1
+        interrupts:
+          minItems: 3
+          maxItems: 3
+        interrupt-names:
+          items:
+            - const: edma-tx_0-15
+            - const: edma-tx_16-31
+            - const: edma-err
+        reg:
+          minItems: 3
+          maxItems: 3
+        "#dma-cells":
+          const: 2
+        dma-channels:
+          const: 32
+
 unevaluatedProperties: false
 
 examples:
@@ -244,4 +274,30 @@ examples:
                    <GIC_SPI 125 IRQ_TYPE_LEVEL_HIGH>;
         clocks = <&clk IMX93_CLK_EDMA1_GATE>;
         clock-names = "dma";
+    };
+
+  - |
+    #include <dt-bindings/clock/s32cc-scmi-clock.h>
+    #include <dt-bindings/interrupt-controller/arm-gic.h>
+    bus {
+      #address-cells = <2>;
+      #size-cells = <2>;
+
+      dma-controller@44000000 {
+          #dma-cells = <2>;
+          compatible = "nxp,s32cc-edma";
+          reg = <0x0 0x40144000 0x0 0x24000>,
+                <0x0 0x4012c000 0x0 0x3000>,
+                <0x0 0x40130000 0x0 0x3000>;
+          dma-channels = <32>;
+          interrupts = <GIC_SPI 8 IRQ_TYPE_LEVEL_HIGH>,
+                       <GIC_SPI 9 IRQ_TYPE_LEVEL_HIGH>,
+                       <GIC_SPI 10 IRQ_TYPE_LEVEL_HIGH>;
+          interrupt-names = "edma-tx_0-15",
+                            "edma-tx_16-31",
+                            "edma-err";
+          clock-names = "dmamux0", "dmamux1";
+          clocks = <&clks S32CC_SCMI_CLK_EDMA_MODULE>,
+                   <&clks S32CC_SCMI_CLK_EDMA_AHB>;
+      };
     };
