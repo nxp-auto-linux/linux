@@ -1141,14 +1141,14 @@ struct llce_can_init_platform_cmd {
 	/**
 	 * INPUT: Array containing maximum number of regular filters per
 	 * channel.
-	 * See LLCE_CAN_CONTROLLERCONFIG_CTRL_EN_U32 as a
+	 * See LLCE_CAN_CONTROLLERCONFIG_CTRL_EN as a
 	 * controller option example
 	 */
 	u16 max_regular_filter_count[LLCE_CAN_CONFIG_MAXCTRL_COUNT];
 	/**
 	 * INPUT: Array containing maximum number of advanced filters
 	 * per channel.
-	 * See LLCE_CAN_CONTROLLERCONFIG_CTRL_EN_U32 as a
+	 * See LLCE_CAN_CONTROLLERCONFIG_CTRL_EN as a
 	 * controller option example
 	 */
 	u16 max_advanced_filter_count[LLCE_CAN_CONFIG_MAXCTRL_COUNT];
@@ -1198,7 +1198,7 @@ struct llce_can_init_platform_cmd {
 struct llce_can_init_cmd {
 	/**
 	 * INPUT: Configuration options for a hardware CAN controller.
-	 * See LLCE_CAN_CONTROLLERCONFIG_CTRL_EN_U32 as a
+	 * See LLCE_CAN_CONTROLLERCONFIG_CTRL_EN as a
 	 * controller  option example
 	 */
 	u32 ctrl_config;
