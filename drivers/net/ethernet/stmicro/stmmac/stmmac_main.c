@@ -3377,6 +3377,11 @@ static int stmmac_hw_setup(struct net_device *dev, bool ptp_register)
 			netdev_warn(priv->dev,
 				    "failed to enable PTP reference clock: %pe\n",
 				    ERR_PTR(ret));
+
+		priv->plat->clk_ptp_rate = clk_get_rate(priv->plat->clk_ptp_ref);
+		if (!priv->plat->clk_ptp_rate)
+			netdev_warn(priv->dev,
+				    "PTP reference clock rate: 0\n");
 	}
 
 	ret = stmmac_init_ptp(priv);
