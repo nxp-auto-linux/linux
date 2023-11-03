@@ -649,9 +649,6 @@ static int fsl_edma_probe(struct platform_device *pdev)
 
 		fsl_chan->pdev = pdev;
 		vchan_init(&fsl_chan->vchan, &fsl_edma->dma_dev);
-
-		edma_write_tcdreg(fsl_chan, 0, csr);
-		fsl_edma_chan_mux(fsl_chan, 0, false);
 	}
 
 	ret = fsl_edma->drvdata->setup_irq(pdev, fsl_edma);
@@ -708,6 +705,19 @@ static int fsl_edma_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev,
 			"Can't register Freescale eDMA engine. (%d)\n", ret);
 		return ret;
+	}
+
+	for (i = 0; i < fsl_edma->n_chans; i++) {
+		struct fsl_edma_chan *fsl_chan = &fsl_edma->chans[i];
+
+		if (fsl_edma->chan_masked & BIT(i))
+			continue;
+
+		edma_write_tcdreg(fsl_chan, 0, csr);
+		fsl_edma_chan_mux(fsl_chan, 0, false);
+		if (!(drvdata->flags & FSL_EDMA_DRV_SPLIT_REG))
+			edma_writel_chreg(fsl_chan, EDMA_V3_CH_INT_INT,
+					  ch_int);
 	}
 
 	ret = of_dma_controller_register(np,
