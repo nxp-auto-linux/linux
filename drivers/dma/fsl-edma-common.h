@@ -72,6 +72,8 @@
 
 #define EDMA_V3_CH_ES_ERR	BIT(31)
 
+#define EDMA_V3_CH_INT_INT	BIT(0)
+
 #define EDMA_V3_MP_CSR			(0x00)
 #define EDMA_V3_MP_ES			(0x04)
 #define EDMA_V3_MP_INT			(0x08)
