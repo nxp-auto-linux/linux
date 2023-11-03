@@ -3,14 +3,16 @@
  * drivers/dma/fsl-edma.c
  *
  * Copyright 2013-2014 Freescale Semiconductor, Inc.
+ * Copyright 2017-2018, 2020-2021 NXP
  *
  * Driver for the Freescale eDMA engine with flexible channel multiplexing
  * capability for DMA request sources. The eDMA block can be found on some
- * Vybrid and Layerscape SoCs.
+ * Vybrid, Layerscape and S32CC SoCs.
  */
 
 #include <dt-bindings/dma/fsl-edma.h>
 #include <linux/bitfield.h>
+#include <linux/bitops.h>
 #include <linux/module.h>
 #include <linux/interrupt.h>
 #include <linux/clk.h>
@@ -63,6 +65,61 @@ static irqreturn_t fsl_edma3_tx_handler(int irq, void *dev_id)
 	edma_writel_chreg(fsl_chan, 1, ch_int);
 
 	fsl_edma_tx_chan_handler(fsl_chan);
+
+	return IRQ_HANDLED;
+}
+
+static irqreturn_t fsl_edma3_or_tx_handler(int irq, void *dev_id)
+{
+	struct fsl_edma_engine *fsl_edma = dev_id;
+	unsigned long mask, int_status, offset, end;
+
+	if (irq == fsl_edma->txirq) {
+		mask = GENMASK(15, 0);
+		offset = 0;
+		end = 16;
+	} else if (irq == fsl_edma->txirq_16_31) {
+		mask = GENMASK(31, 16);
+		offset = 16;
+		end = 32;
+	} else {
+		return IRQ_NONE;
+	}
+
+	int_status = edma_readl(fsl_edma, fsl_edma->membase + EDMA_V3_MP_INT);
+	int_status &= mask;
+	if (!int_status)
+		return IRQ_NONE;
+
+	for_each_set_bit_from(offset, &int_status, end) {
+		struct fsl_edma_chan *chan = &fsl_edma->chans[offset];
+
+		fsl_edma3_tx_handler(irq, chan);
+	}
+
+	return IRQ_HANDLED;
+}
+
+static irqreturn_t fsl_edma3_or_err_handler(int irq, void *dev_id)
+{
+	struct fsl_edma_engine *fsl_edma = dev_id;
+	unsigned int err, ch, ch_es;
+
+	err = edma_readl(fsl_edma, fsl_edma->membase + EDMA_V3_MP_ES);
+	if (!(err & EDMA_V3_MP_ES_VLD))
+		return IRQ_NONE;
+
+	for (ch = 0; ch < fsl_edma->n_chans; ch++) {
+		struct fsl_edma_chan *chan = &fsl_edma->chans[ch];
+
+		ch_es = edma_readl_chreg(chan, ch_es);
+		if (!(ch_es & EDMA_V3_CH_ES_ERR))
+			continue;
+
+		fsl_edma_disable_request(chan);
+		edma_writel_chreg(chan, EDMA_V3_CH_ES_ERR, ch_es);
+		fsl_edma->chans[ch].status = DMA_ERROR;
+	}
 
 	return IRQ_HANDLED;
 }
@@ -253,6 +310,50 @@ static int fsl_edma3_irq_init(struct platform_device *pdev, struct fsl_edma_engi
 	return 0;
 }
 
+static int fsl_edma3_or_irq_init(struct platform_device *pdev,
+				 struct fsl_edma_engine *fsl_edma)
+{
+	int ret;
+
+	fsl_edma->txirq = platform_get_irq_byname(pdev, "edma-tx_0-15");
+	if (fsl_edma->txirq < 0)
+		return fsl_edma->txirq;
+
+	fsl_edma->txirq_16_31 = platform_get_irq_byname(pdev, "edma-tx_16-31");
+	if (fsl_edma->txirq_16_31 < 0)
+		return fsl_edma->txirq_16_31;
+
+	fsl_edma->errirq = platform_get_irq_byname(pdev, "edma-err");
+	if (fsl_edma->errirq < 0)
+		return fsl_edma->errirq;
+
+	ret = devm_request_irq(&pdev->dev, fsl_edma->txirq,
+			       fsl_edma3_or_tx_handler, 0, "eDMA tx0_15",
+			       fsl_edma);
+	if (ret) {
+		dev_err(&pdev->dev, "Can't register eDMA tx0_15 IRQ.\n");
+		return ret;
+	}
+
+	ret = devm_request_irq(&pdev->dev, fsl_edma->txirq_16_31,
+			       fsl_edma3_or_tx_handler, 0, "eDMA tx16_31",
+			       fsl_edma);
+	if (ret) {
+		dev_err(&pdev->dev, "Can't register eDMA tx16_31 IRQ.\n");
+		return ret;
+	}
+
+	ret = devm_request_irq(&pdev->dev, fsl_edma->errirq,
+			       fsl_edma3_or_err_handler, 0, "eDMA err",
+			       fsl_edma);
+	if (ret) {
+		dev_err(&pdev->dev, "Can't register eDMA err IRQ.\n");
+		return ret;
+	}
+
+	return 0;
+}
+
 static int
 fsl_edma2_irq_init(struct platform_device *pdev,
 		   struct fsl_edma_engine *fsl_edma)
@@ -367,6 +468,14 @@ static struct fsl_edma_drvdata imx93_data4 = {
 	.setup_irq = fsl_edma3_irq_init,
 };
 
+static struct fsl_edma_drvdata s32cc_data = {
+	.dmamuxs = DMAMUX_NR,
+	.chreg_space_sz = EDMA_TCD,
+	.chreg_off = 0x4000,
+	.flags = FSL_EDMA_DRV_EDMA3 | FSL_EDMA_DRV_REVERSED_CHANNEL_MUX,
+	.setup_irq = fsl_edma3_or_irq_init,
+};
+
 static const struct of_device_id fsl_edma_dt_ids[] = {
 	{ .compatible = "fsl,vf610-edma", .data = &vf610_data},
 	{ .compatible = "fsl,ls1028a-edma", .data = &ls1028a_data},
@@ -375,6 +484,7 @@ static const struct of_device_id fsl_edma_dt_ids[] = {
 	{ .compatible = "fsl,imx8qm-adma", .data = &imx8qm_audio_data},
 	{ .compatible = "fsl,imx93-edma3", .data = &imx93_data3},
 	{ .compatible = "fsl,imx93-edma4", .data = &imx93_data4},
+	{ .compatible = "nxp,s32cc-edma", .data = &s32cc_data},
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, fsl_edma_dt_ids);
@@ -489,10 +599,6 @@ static int fsl_edma_probe(struct platform_device *pdev)
 	for (i = 0; i < fsl_edma->drvdata->dmamuxs; i++) {
 		char clkname[32];
 
-		/* eDMAv3 mux register move to TCD area if ch_mux exist */
-		if (drvdata->flags & FSL_EDMA_DRV_SPLIT_REG)
-			break;
-
 		fsl_edma->muxbase[i] = devm_platform_ioremap_resource(pdev,
 								      1 + i);
 		if (IS_ERR(fsl_edma->muxbase[i])) {
@@ -605,7 +711,7 @@ static int fsl_edma_probe(struct platform_device *pdev)
 	}
 
 	ret = of_dma_controller_register(np,
-			drvdata->flags & FSL_EDMA_DRV_SPLIT_REG ? fsl_edma3_xlate : fsl_edma_xlate,
+			!drvdata->dmamuxs ? fsl_edma3_xlate : fsl_edma_xlate,
 			fsl_edma);
 	if (ret) {
 		dev_err(&pdev->dev,
@@ -617,6 +723,9 @@ static int fsl_edma_probe(struct platform_device *pdev)
 	/* enable round robin arbitration */
 	if (!(drvdata->flags & FSL_EDMA_DRV_SPLIT_REG))
 		edma_writel(fsl_edma, EDMA_CR_ERGA | EDMA_CR_ERCA, regs->cr);
+	else
+		edma_writel(fsl_edma, EDMA_CR_ERCA,
+			    fsl_edma->membase + EDMA_V3_MP_CSR);
 
 	return 0;
 }
@@ -680,6 +789,9 @@ static int fsl_edma_resume_early(struct device *dev)
 
 	if (!(fsl_edma->drvdata->flags & FSL_EDMA_DRV_SPLIT_REG))
 		edma_writel(fsl_edma, EDMA_CR_ERGA | EDMA_CR_ERCA, regs->cr);
+	else
+		edma_writel(fsl_edma, EDMA_CR_ERCA,
+			    fsl_edma->membase + EDMA_V3_MP_CSR);
 
 	return 0;
 }

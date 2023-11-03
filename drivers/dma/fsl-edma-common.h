@@ -2,7 +2,7 @@
 /*
  * Copyright 2013-2014 Freescale Semiconductor, Inc.
  * Copyright 2018 Angelo Dureghello <angelo@sysam.it>
- * Copyright 2023 NXP
+ * Copyright 2017-2018, 2020-2021, 2023 NXP
  */
 #ifndef _FSL_EDMA_COMMON_H_
 #define _FSL_EDMA_COMMON_H_
@@ -69,6 +69,14 @@
 #define EDMA_V3_CH_CSR_EEI         BIT(2)
 #define EDMA_V3_CH_CSR_DONE        BIT(30)
 #define EDMA_V3_CH_CSR_ACTIVE      BIT(31)
+
+#define EDMA_V3_CH_ES_ERR	BIT(31)
+
+#define EDMA_V3_MP_CSR			(0x00)
+#define EDMA_V3_MP_ES			(0x04)
+#define EDMA_V3_MP_INT			(0x08)
+
+#define EDMA_V3_MP_ES_VLD		BIT(31)
 
 enum fsl_edma_pm_state {
 	RUNNING = 0,
@@ -224,6 +232,7 @@ struct fsl_edma_engine {
 	const struct fsl_edma_drvdata *drvdata;
 	u32			n_chans;
 	int			txirq;
+	int			txirq_16_31;
 	int			errirq;
 	bool			big_endian;
 	struct edma_regs	regs;
