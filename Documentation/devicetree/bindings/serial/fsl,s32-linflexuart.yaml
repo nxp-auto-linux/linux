@@ -48,3 +48,11 @@ examples:
         reg = <0x40053000 0x1000>;
         interrupts = <0 59 4>;
     };
+
+  - |
+    serial@401c8000 {
+        compatible = "nxp,s32g2-linflexuart",
+                     "fsl,s32v234-linflexuart";
+        reg = <0x401C8000 0x3000>;
+        interrupts = <0 82 1>;
+    };
