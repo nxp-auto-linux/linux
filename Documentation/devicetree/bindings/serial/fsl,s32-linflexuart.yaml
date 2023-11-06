@@ -21,10 +21,11 @@ allOf:
 properties:
   compatible:
     oneOf:
-      - const: fsl,s32v234-linflexuart
       - items:
-          - const: nxp,s32g2-linflexuart
-          - const: fsl,s32v234-linflexuart
+          - enum:
+              - nxp,s32g2-linflexuart
+              - fsl,s32v234-linflexuart
+              - nxp,s32cc-linflexuart
 
   reg:
     maxItems: 1
@@ -45,4 +46,11 @@ examples:
         compatible = "fsl,s32v234-linflexuart";
         reg = <0x40053000 0x1000>;
         interrupts = <0 59 4>;
+    };
+
+  - |
+    serial@401c8000 {
+        compatible = "nxp,s32cc-linflexuart";
+        reg = <0x401C8000 0x3000>;
+        interrupts = <0 82 1>;
     };
