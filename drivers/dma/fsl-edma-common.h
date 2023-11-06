@@ -77,8 +77,10 @@
 #define EDMA_V3_MP_CSR			(0x00)
 #define EDMA_V3_MP_ES			(0x04)
 #define EDMA_V3_MP_INT			(0x08)
+#define EDMA_V3_MP_HRS			(0x0C)
 
 #define EDMA_V3_MP_ES_VLD		BIT(31)
+#define EDMA_V3_MP_HRS_CH(ch)		BIT(ch)
 
 enum fsl_edma_pm_state {
 	RUNNING = 0,
