@@ -2,6 +2,7 @@
 /*
  * Copyright 2013-2014 Freescale Semiconductor, Inc.
  * Copyright 2018 Angelo Dureghello <angelo@sysam.it>
+ * Copyright 2023 NXP
  */
 #ifndef _FSL_EDMA_COMMON_H_
 #define _FSL_EDMA_COMMON_H_
@@ -70,6 +71,9 @@
 #define EDMA_V3_CH_CSR_ACTIVE      BIT(31)
 #define EDMA_V3_CH_ES_ERR          BIT(31)
 #define EDMA_V3_MP_ES_VLD          BIT(31)
+
+#define EDMA_V3_MP_HRS		(0x0C)
+#define EDMA_V3_MP_HRS_CH(ch)	BIT(ch)
 
 enum fsl_edma_pm_state {
 	RUNNING = 0,
