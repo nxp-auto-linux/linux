@@ -2,7 +2,7 @@
 //
 // Copyright (c) 2013-2014 Freescale Semiconductor, Inc
 // Copyright (c) 2017 Sysam, Angelo Dureghello  <angelo@sysam.it>
-// Copyright 2023 NXP
+// Copyright 2020, 2023 NXP
 
 #include <linux/dmapool.h>
 #include <linux/module.h>
@@ -129,10 +129,17 @@ static void fsl_edma_enable_request(struct fsl_edma_chan *fsl_chan)
 
 static void fsl_edma3_disable_request(struct fsl_edma_chan *fsl_chan)
 {
+	struct fsl_edma_engine *fsl_edma = fsl_chan->edma;
 	u32 val = edma_readl_chreg(fsl_chan, ch_csr);
+	u32 ch = fsl_chan->vchan.chan.chan_id;
 	u32 flags;
 
 	flags = fsl_edma_drvflags(fsl_chan);
+
+	/* Make sure there is no hardware request in progress. */
+	while (edma_readl(fsl_edma, fsl_edma->membase + EDMA_V3_MP_HRS) &
+	       EDMA_V3_MP_HRS_CH(ch))
+		;
 
 	if (flags & FSL_EDMA_DRV_HAS_CHMUX)
 		edma_writel_chreg(fsl_chan, 0, ch_mux);
