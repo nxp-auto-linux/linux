@@ -22,6 +22,7 @@ properties:
   reg:
     items:
       - description: Main GMAC registers
+      - description: S32CC GMAC_0_CTRL_STS register
 
   dma-coherent:
     description:
@@ -147,7 +148,8 @@ examples:
 
       gmac0: ethernet@4033c000 {
         compatible = "nxp,s32cc-dwmac";
-        reg = <0x0 0x4033c000 0x0 0x2000>; /* gmac IP */
+        reg = <0x0 0x4033c000 0x0 0x2000>, /* gmac IP */
+              <0x0 0x4007c004 0x0 0x4>;    /* GMAC_0_CTRL_STS */
         interrupt-parent = <&gic>;
         interrupts = <GIC_SPI 57 IRQ_TYPE_LEVEL_HIGH>;
         interrupt-names = "macirq";
