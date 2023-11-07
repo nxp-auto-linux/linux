@@ -283,9 +283,14 @@ static void fsl_lpspi_read_rx_fifo(struct fsl_lpspi_data *fsl_lpspi)
 		fsl_lpspi->rx(fsl_lpspi);
 }
 
-static void fsl_lpspi_set_cmd(struct fsl_lpspi_data *fsl_lpspi)
+static void fsl_lpspi_set_cmd(struct spi_device *spi, struct fsl_lpspi_data *fsl_lpspi)
 {
 	u32 temp = 0;
+
+	if (spi->mode & SPI_CPOL)
+		temp |= TCR_CPOL;
+	if (spi->mode & SPI_CPHA)
+		temp |= TCR_CPHA;
 
 	temp |= fsl_lpspi->config.bpw - 1;
 	temp |= (fsl_lpspi->config.mode & 0x3) << 30;
@@ -354,7 +359,7 @@ static int fsl_lpspi_set_bitrate(struct fsl_lpspi_data *fsl_lpspi)
 	if (scldiv >= 256)
 		return -EINVAL;
 
-	writel(scldiv | (scldiv << 8) | ((scldiv >> 1) << 16),
+	writel(scldiv | (scldiv << 8) | ((scldiv >> 1) << 16) | ((scldiv >> 1) << 24),
 					fsl_lpspi->base + IMX7ULP_CCR);
 
 	dev_dbg(fsl_lpspi->dev, "perclk=%d, speed=%d, prescale=%d, scldiv=%d\n",
@@ -797,7 +802,7 @@ static int fsl_lpspi_transfer_one(struct spi_controller *controller,
 	if (ret < 0)
 		return ret;
 
-	fsl_lpspi_set_cmd(fsl_lpspi);
+	fsl_lpspi_set_cmd(spi, fsl_lpspi);
 
 	if (fsl_lpspi->usedma)
 		ret = fsl_lpspi_dma_transfer(controller, fsl_lpspi, t);
