@@ -46,11 +46,13 @@
 #define S32CC_DUMMY_XPCS_MASK		0xffffffff
 
 struct s32cc_priv_data {
+	void __iomem *ctrl_sts;
 	struct device *dev;
 	phy_interface_t intf_mode;
 	struct clk *tx_clk;
 	struct clk *rx_clk;
 	bool enable_rx;
+	bool use_nvmem;
 
 	/* Serdes */
 	int link_an;
@@ -172,9 +174,13 @@ static int s32cc_gmac_write_phy_intf_select(struct s32cc_priv_data *gmac)
 		return -EINVAL;
 	}
 
-	ret = write_nvmem_cell(gmac->dev, "gmac_phy_intf_sel", intf_sel);
-	if (ret)
-		return ret;
+	if (gmac->use_nvmem) {
+		ret = write_nvmem_cell(gmac->dev, "gmac_phy_intf_sel", intf_sel);
+		if (ret)
+			return ret;
+	} else {
+		writel(intf_sel, gmac->ctrl_sts);
+	}
 
 	dev_dbg(gmac->dev, "PHY mode set to %s\n", phy_modes(gmac->intf_mode));
 
@@ -378,9 +384,11 @@ static int s32cc_dwmac_probe(struct platform_device *pdev)
 	struct stmmac_priv *priv;
 	struct stmmac_resources stmmac_res;
 	struct s32cc_priv_data *gmac;
+	struct resource *res;
 	const char *tx_clk, *rx_clk;
 	struct phy *serdes_phy = NULL;
 	struct nvmem_cell *cell;
+	bool use_nvmem;
 	int ret;
 
 	if (device_get_phy_mode(&pdev->dev) == PHY_INTERFACE_MODE_SGMII) {
@@ -395,10 +403,16 @@ static int s32cc_dwmac_probe(struct platform_device *pdev)
 
 	/* Check if NVMEM for PHY Interface Mode selection is available */
 	cell = nvmem_cell_get(&pdev->dev, "gmac_phy_intf_sel");
-	if (IS_ERR(cell))
-		return PTR_ERR(cell);
+	if (IS_ERR(cell)) {
+		if (PTR_ERR(cell) == -EPROBE_DEFER)
+			return PTR_ERR(cell);
 
-	nvmem_cell_put(cell);
+		dev_info(&pdev->dev, "No NVMEM for GPRs available, mapping them as resource\n");
+		use_nvmem = false;
+	} else {
+		use_nvmem = true;
+		nvmem_cell_put(cell);
+	}
 
 	ret = stmmac_get_platform_resources(pdev, &stmmac_res);
 	if (ret)
@@ -410,6 +424,17 @@ static int s32cc_dwmac_probe(struct platform_device *pdev)
 	}
 
 	gmac->dev = &pdev->dev;
+	gmac->use_nvmem = use_nvmem;
+
+	/* S32G control reg */
+	if (!gmac->use_nvmem) {
+		res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+		gmac->ctrl_sts = devm_ioremap_resource(&pdev->dev, res);
+		if (IS_ERR_OR_NULL(gmac->ctrl_sts)) {
+			dev_err(&pdev->dev, "S32CC config region is missing\n");
+			return PTR_ERR(gmac->ctrl_sts);
+		}
+	}
 
 	plat_dat = stmmac_probe_config_dt(pdev, stmmac_res.mac);
 	if (IS_ERR(plat_dat))
