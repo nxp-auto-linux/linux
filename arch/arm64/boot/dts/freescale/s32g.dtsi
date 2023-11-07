@@ -949,8 +949,6 @@
 					compatible = "rohm,dh2228fv";
 					spi-max-frequency = <4000000>;
 					reg = <0>;
-					fsl,spi-cs-sck-delay = <100>;
-					fsl,spi-sck-cs-delay = <100>;
 				};
 			};
 
