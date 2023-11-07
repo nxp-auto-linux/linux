@@ -52,6 +52,7 @@
 #define ESDHC_DEBUG_SEL_ASYNC_FIFO_STATE	7
 
 #define ESDHC_SYS_CTRL			0x2c
+#define SYS_CTRL_FIFO			BIT(22)
 #define SYS_CTRL_RSTA			BIT(24)
 
 #define ESDHC_WTMK_LVL			0x44
@@ -1027,35 +1028,51 @@ static int usdhc_execute_tuning(struct mmc_host *mmc, u32 opcode)
 	return sdhci_execute_tuning(mmc, opcode);
 }
 
-static void esdhc_poll_rsta(struct sdhci_host *host)
+static void esdhc_poll_sys_ctrl_field(struct sdhci_host *host, u32 field)
 {
+	int ret;
 	u32 reg;
 
-	esdhc_set_bits(host, ESDHC_SYS_CTRL, SYS_CTRL_RSTA);
-	if (readl_poll_timeout(host->ioaddr + ESDHC_SYS_CTRL, reg,
-			       !(reg & SYS_CTRL_RSTA), 10, 100))
+	esdhc_set_bits(host, ESDHC_SYS_CTRL, field);
+	ret = readl_poll_timeout(host->ioaddr + ESDHC_SYS_CTRL, reg,
+				 !(reg & field), 10, 100);
+	if (ret)
 		dev_warn(mmc_dev(host->mmc),
-			 "Warning: Reset did not complete within 100us\n");
+			 "Warning: Reset did not complete within 100us, status: %d\n", ret);
+}
+
+static void esdhc_cfg_delay_chain(struct sdhci_host *host, u32 val)
+{
+	esdhc_poll_sys_ctrl_field(host, SYS_CTRL_RSTA);
+	writel(DLY_CELL_SET_PRE(val),
+	       host->ioaddr + ESDHC_TUNE_CTRL_STATUS);
+	esdhc_poll_sys_ctrl_field(host, SYS_CTRL_FIFO);
 }
 
 static int esdhc_executing_tuning(struct sdhci_host *host, u32 opcode)
 {
 	u32 r, value_start, value_end;
+	bool tuning_failed_before = false;
 
 	esdhc_clear_bits(host, ESDHC_TUNING_CTRL, ESDHC_STD_TUNING_EN);
-	esdhc_poll_rsta(host);
+	esdhc_clear_bits(host, ESDHC_VENDOR_SPEC, ESDHC_VENDOR_SPEC_FRC_SDCLK_ON);
+	esdhc_clear_bits(host, ESDHC_MIX_CTRL, ESDHC_MIX_CTRL_FBCLK_SEL);
 	esdhc_set_bits(host, ESDHC_MIX_CTRL,
 		       (ESDHC_MIX_CTRL_EXE_TUNE | ESDHC_MIX_CTRL_SMPCLK_SEL));
-	esdhc_set_bits(host, ESDHC_VENDOR_SPEC, ESDHC_VENDOR_SPEC_FRC_SDCLK_ON);
 
-	/* Find the start of the passing window */
+	/* Find the start of the passing window
+	 * Passing window should not start from value 0.
+	 */
 	for (value_start = ESDHC_TUNE_CTRL_MIN;
 	     value_start <= ESDHC_TUNE_CTRL_MAX;
 	     value_start += ESDHC_TUNE_CTRL_STEP) {
-		writel(DLY_CELL_SET_PRE(value_start),
-		       host->ioaddr + ESDHC_TUNE_CTRL_STATUS);
-		if (!mmc_send_tuning(host->mmc, opcode, NULL))
-			break;
+		esdhc_cfg_delay_chain(host, value_start);
+		if (!mmc_send_tuning(host->mmc, opcode, NULL)) {
+			if (tuning_failed_before)
+				break;
+		} else {
+			tuning_failed_before = true;
+		}
 	}
 	if (value_start > ESDHC_TUNE_CTRL_MAX)
 		return -EINVAL;
@@ -1064,21 +1081,26 @@ static int esdhc_executing_tuning(struct sdhci_host *host, u32 opcode)
 	for (value_end = value_start;
 	     value_end + ESDHC_TUNE_CTRL_STEP <= ESDHC_TUNE_CTRL_MAX;
 	     value_end += ESDHC_TUNE_CTRL_STEP) {
-		writel(DLY_CELL_SET_PRE((value_end + ESDHC_TUNE_CTRL_STEP)),
-		       host->ioaddr + ESDHC_TUNE_CTRL_STATUS);
+		esdhc_cfg_delay_chain(host, value_end + ESDHC_TUNE_CTRL_STEP);
 		if (mmc_send_tuning(host->mmc, opcode, NULL))
 			break;
 	}
 
 	esdhc_clear_bits(host, ESDHC_MIX_CTRL, ESDHC_MIX_CTRL_EXE_TUNE);
-	esdhc_clear_bits(host, ESDHC_VENDOR_SPEC,
-			 ESDHC_VENDOR_SPEC_FRC_SDCLK_ON);
-	esdhc_poll_rsta(host);
+	esdhc_poll_sys_ctrl_field(host, SYS_CTRL_RSTA);
 	esdhc_set_bits(host, ESDHC_MIX_CTRL, ESDHC_MIX_CTRL_SMPCLK_SEL);
 
 	/* According to the "Manual Tuning Procedure" chapter in the RM */
 	r = ((value_start + value_end) / 2);
-	r = ((((r << 8) & 0xffffff00) - 0x300) | 0x33);
+	r = ((r << 8) & 0xffffff00);
+	if (r < 0x300) {
+		dev_warn(mmc_dev(host->mmc),
+			 "Passing tuning window: [%u - %u] is too small\n",
+			 value_start, value_end);
+		return -EINVAL;
+	}
+
+	r = ((r - 0x300) | 0x33);
 	writel(r, host->ioaddr + ESDHC_TUNE_CTRL_STATUS);
 
 	readl_poll_timeout(host->ioaddr + ESDHC_TUNE_CTRL_STATUS, r,
