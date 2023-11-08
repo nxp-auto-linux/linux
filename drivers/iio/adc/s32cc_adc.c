@@ -49,48 +49,46 @@
 #define REG_ADC_CALSTAT		0x39c
 
 /* Main Configuration Register field define */
-#define ADC_PWDN			0x01
-#define ADC_ACKO			0x20
-#define ADC_ADCLKSEL		0x100
-#define ADC_TSAMP_MASK		0x600
-#define ADC_NRSMPL_32		0X800
-#define ADC_NRSMPL_128		0X1000
-#define ADC_NRSMPL_512		0X1800
-#define ADC_NRSMPL_MASK		0x1800
-#define ADC_AVGEN			0x2000
-#define ADC_CALSTART		0x4000
-#define ADC_NSTART			0x1000000
-#define ADC_MODE			0x20000000
-#define ADC_OWREN			0x80000000
+#define ADC_PWDN		BIT(0)
+#define ADC_ACKO		BIT(5)
+#define ADC_ADCLKSEL		BIT(8)
+#define ADC_TSAMP_MASK		GENMASK(10, 9)
+#define ADC_NRSMPL_32		BIT(11)
+#define ADC_NRSMPL_128		BIT(12)
+#define ADC_NRSMPL_512		GENMASK(12, 11)
+#define ADC_NRSMPL_MASK		GENMASK(12, 11)
+#define ADC_AVGEN		BIT(13)
+#define ADC_CALSTART		BIT(14)
+#define ADC_NSTART		BIT(24)
+#define ADC_MODE		BIT(29)
+#define ADC_OWREN		BIT(31)
 
 /* Main Status Register field define */
 #define ADC_CALBUSY		BIT(29)
 #define ADC_CALFAIL		BIT(30)
 
 /* Interrupt Status Register field define */
-#define ADC_ECH			0x01
+#define ADC_ECH			BIT(1)
 
 /* Channel Pending Register field define */
-#define ADC_EOC_CH(c)		(1 << (c) % 32)
+#define ADC_EOC_CH(c)		BIT((c) % 32)
 
-/* Interrupt Mask Register field define */
-#define ADC_MSKECH			0x01
 
 /* Channel Interrupt Mask Register field define */
-#define ADC_CIM(c)			(1 << (c) % 32)
-#define ADC_CIM_MASK		0xFF
+#define ADC_CIM(c)		BIT((c) % 32)
+#define ADC_CIM_MASK		GENMASK(7, 0)
 
 /* Conversion Timing Register field define */
 #define ADC_INPSAMP_MIN		8
 #define ADC_INPSAMP_MAX		0xFF
 
 /* Normal Conversion Mask Register field define */
-#define ADC_CH(c)			(1 << (c) % 32)
-#define ADC_CH_MASK			0xFF
+#define ADC_CH(c)			BIT((c) % 32)
+#define ADC_CH_MASK			GENMASK(7, 0)
 
 /* Channel Data Register field define */
-#define ADC_CDATA_MASK		0xFFF
-#define ADC_VALID			0x80000
+#define ADC_CDATA_MASK			GENMASK(11, 0)
+#define ADC_VALID			BIT(19)
 
 /* Calibration Status Register field define */
 #define ADC_TEST_RESULT(x)		((x) >> 16)
@@ -238,7 +236,7 @@ static void s32cc_adc_cfg_post_set(struct s32cc_adc *info)
 	writel(mcr_data, info->regs + REG_ADC_MCR);
 
 	/* End of Conversion Chain interrupt enable */
-	writel(ADC_MSKECH, info->regs + REG_ADC_IMR);
+	writel(ADC_ECH, info->regs + REG_ADC_IMR);
 }
 
 static void s32cc_adc_calibration(struct s32cc_adc *info)
@@ -366,7 +364,8 @@ static void s32cc_adc_read_notify(struct s32cc_adc *info)
 static int s32cc_adc_read_data(struct s32cc_adc *info,
 			       unsigned int chan)
 {
-	int group, ceocfr_data, cdr_data;
+	u32 ceocfr_data, cdr_data;
+	int group;
 
 	group = group_idx(chan);
 	ceocfr_data = readl(info->regs + REG_ADC_CEOCFR(group));
@@ -449,8 +448,8 @@ static irqreturn_t s32cc_adc_isr(int irq, void *dev_id)
 static void s32cc_adc_chan_enable(struct s32cc_adc *info,
 				  unsigned int chan, bool enable)
 {
+	u32 ncmr_data, cimr_data;
 	int group;
-	int ncmr_data, cimr_data;
 
 	group = group_idx(chan);
 	ncmr_data = readl(info->regs + REG_ADC_NCMR(group));
@@ -469,7 +468,7 @@ static void s32cc_adc_chan_enable(struct s32cc_adc *info,
 
 static void s32cc_adc_enable(struct s32cc_adc *info, bool enable)
 {
-	int mcr_data;
+	u32 mcr_data;
 
 	mcr_data = readl(info->regs + REG_ADC_MCR);
 	if (enable)
@@ -483,12 +482,13 @@ static void s32cc_adc_enable(struct s32cc_adc *info, bool enable)
 	 * configuration of NCMR and the setting of NSTART
 	 */
 	if (enable)
-		ndelay(NSEC_PER_SEC / s32cc_adc_clk_rate(info) * 3);
+		ndelay(div64_u64(NSEC_PER_SEC,
+				 s32cc_adc_clk_rate(info)) * 3U);
 }
 
 static int s32cc_adc_start_conversion(struct s32cc_adc *info, int currentmode)
 {
-	int mcr_data;
+	u32 mcr_data;
 
 	mcr_data = readl(info->regs + REG_ADC_MCR);
 	mcr_data |= ADC_NSTART;
@@ -608,8 +608,7 @@ static int s32cc_write_raw(struct iio_dev *indio_dev,
 static int s32cc_adc_buffer_postenable(struct iio_dev *indio_dev)
 {
 	struct s32cc_adc *info = iio_priv(indio_dev);
-	unsigned int channel;
-	int pos = 0;
+	unsigned int channel, pos = 0;
 
 	for_each_set_bit(channel, indio_dev->active_scan_mask,
 			 ADC_NUM_CHANNELS) {
