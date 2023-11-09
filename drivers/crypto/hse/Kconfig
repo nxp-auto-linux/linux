@@ -92,7 +92,7 @@ config CRYPTO_DEV_NXP_HSE_AES_KEY_GROUP_SIZE
 	int "Number of key slots in the AES 256-bit Key Group"
 	depends on CRYPTO_DEV_NXP_HSE
 	range 0 255
-	default "6" if CRYPTO_DEV_NXP_HSE_SKCIPHER || CRYPTO_DEV_NXP_HSE_AEAD
+	default "4" if CRYPTO_DEV_NXP_HSE_SKCIPHER || CRYPTO_DEV_NXP_HSE_AEAD
 	default "0"
 	help
 	  Number of key slots available in the 256-bit AES Key Group.
@@ -116,7 +116,7 @@ config CRYPTO_DEV_NXP_HSE_HMAC_KEY_GROUP_SIZE
 	int "Number of key slots in the HMAC 1024-bit Key Group"
 	depends on CRYPTO_DEV_NXP_HSE
 	range 0 255
-	default "6" if CRYPTO_DEV_NXP_HSE_AHASH
+	default "4" if CRYPTO_DEV_NXP_HSE_AHASH
 	default "0"
 	help
 	  Number of key slots available in the HMAC 1024-bit Key Group.
