@@ -19,11 +19,6 @@
 	};
 };
 
-&usdhc0 {
-	no-1-8-v;
-	status = "okay";
-};
-
 &pfe_mdio2 {
 	/* AQR107 on S32G-PROCEVB-S */
 	pfe_mdio_a_phy4: ethernet-phy@4 {
