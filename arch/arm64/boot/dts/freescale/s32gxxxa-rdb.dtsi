@@ -151,7 +151,6 @@
 	pinctrl-1 = <&sd0_pins_100mhz>;
 	pinctrl-2 = <&sd0_pins_200mhz>;
 	status = "okay";
-	no-1-8-v;
 };
 
 &can0 {

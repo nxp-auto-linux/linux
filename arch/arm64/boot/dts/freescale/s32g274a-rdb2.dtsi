@@ -2,7 +2,7 @@
 /*
  * Device Tree file for S32G274ARDB Board Rev C.
  *
- * Copyright 2020-2022 NXP
+ * Copyright 2020-2023 NXP
  *
  */
 
@@ -14,6 +14,14 @@
 };
 
 &usdhc0 {
+	/* Remove no-1-8-v to enable higher speed modes for SD card.
+	 * However, this is not enough to enable HS400 or HS200 modes for eMMC.
+	 * In this case, the position of the resistor R797 must be changed
+	 * from A to B before removing the property.
+	 * If the property is removed without changing the resistor position,
+	 * HS*00 may be enabled, but the interface might be unstable because of
+	 * the wrong VCCQ voltage applied to the eMMC.
+	 */
 	no-1-8-v;
 };
 
