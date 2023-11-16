@@ -1171,7 +1171,7 @@ static int scmi_pinctrl_probe(struct scmi_device *sdev)
 			if (!pin_name)
 				return -ENOMEM;
 
-			pm_pin = devm_kmalloc(dev, sizeof(*pm_pin), GFP_KERNEL);
+			pm_pin = devm_kzalloc(dev, sizeof(*pm_pin), GFP_KERNEL);
 			if (!pm_pin)
 				return -ENOMEM;
 			pm_pin->pcf_initialized = false;
