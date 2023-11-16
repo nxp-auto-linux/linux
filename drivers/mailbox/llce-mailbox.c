@@ -576,11 +576,6 @@ static struct mbox_chan *llce_mb_xlate(struct mbox_controller *mbox,
 	}
 
 	off = get_channel_offset(type, index);
-	if (off >= mbox->num_chans) {
-		dev_err(dev, "Out of bounds access\n");
-		return ERR_PTR(-EINVAL);
-	}
-
 	chan = &mbox->chans[off];
 	ret = init_chan_priv(chan, mb, type, index);
 	if (ret)
@@ -1307,8 +1302,13 @@ static void llce_mbox_chan_received_data(struct mbox_chan *chan, void *msg)
 	struct llce_chan_priv *priv = chan->con_priv;
 
 	if (!is_chan_registered(chan)) {
-		dev_err(chan->mbox->dev, "Received a message on an unregistered channel (type: %s, index: %u)\n",
-			get_channel_type_name(priv->type), priv->index);
+		if (!priv)
+			dev_err(chan->mbox->dev,
+				"Received a message on an unregistered channel\n");
+		else
+			dev_err(chan->mbox->dev,
+				"Received a message on an unregistered channel (type: %s, index: %u)\n",
+				get_channel_type_name(priv->type), priv->index);
 		return;
 	}
 
@@ -1497,6 +1497,7 @@ static void llce_process_tx_ack(struct llce_mb *mb, u8 index)
 	struct llce_can_shared_memory __iomem *can_sh_mem = mb->can_sh_mem;
 	struct llce_can_tx2host_ack_info __iomem *info;
 	struct llce_tx_notif notif;
+	struct device *dev = mb->controller.dev;
 	u32 ack_id;
 	u16 frame_tag1;
 	unsigned int chan_index;
@@ -1508,15 +1509,30 @@ static void llce_process_tx_ack(struct llce_mb *mb, u8 index)
 		info = &can_sh_mem->can_tx_ack_info[ack_id];
 		memcpy_fromio(&frame_tag1, &info->frame_tag1,
 			      sizeof(frame_tag1));
+
+		if (frame_tag1 >= get_channels_for_type(S32G_LLCE_CAN_TX_MB)) {
+			dev_err(dev,
+				"%u exceeds the number of allocated channels for type : %d\n",
+				frame_tag1, S32G_LLCE_CAN_TX_MB);
+			continue;
+		}
+
 		chan_index = get_channel_offset(S32G_LLCE_CAN_TX_MB,
 						frame_tag1);
+		if (!is_chan_registered(&ctrl->chans[chan_index])) {
+			dev_err(dev,
+				"Received a TX ACK message on an unregistered channel (type: %s, index: %u)\n",
+				get_channel_type_name(S32G_LLCE_CAN_TX_MB),
+				frame_tag1);
+			continue;
+		}
 		notif.error = 0;
 		memcpy_fromio(&notif.tx_timestamp,
 			      &info->tx_timestamp,
 			      sizeof(notif.tx_timestamp));
 
 		/* Notify the client and send the timestamp */
-		llce_mbox_chan_received_data(&ctrl->chans[chan_index], &notif);
+		mbox_chan_received_data(&ctrl->chans[chan_index], &notif);
 		mbox_chan_txdone(&ctrl->chans[chan_index], 0);
 	}
 
@@ -1569,7 +1585,7 @@ static void process_chan_err(struct llce_mb *mb, u32 chan_type,
 		notif = &rx_notif;
 	}
 
-	llce_mbox_chan_received_data(chan, notif);
+	mbox_chan_received_data(chan, notif);
 }
 
 static void process_channel_err(struct llce_mb *mb,
@@ -1813,7 +1829,7 @@ static void push_rxout_and_notif(struct llce_mb *mb, u8 hw_ctrl,
 	if (chan->con_priv && is_chan_registered(chan)) {
 		push_llce_rx_data(chan, &msg->rx_pop.mb,
 				  msg->rx_pop.index);
-		llce_mbox_chan_received_data(chan, &notif_msg);
+		mbox_chan_received_data(chan, &notif_msg);
 	} else {
 		/* Release the index if there are no clients to process it */
 		release_rxout_index(mb, msg->rx_pop.index);
@@ -1911,7 +1927,7 @@ static void send_llce_logger_notif(struct llce_mb *mb, u32 hw_ctrl,
 	chan = &ctrl->chans[chan_index];
 	if (chan->con_priv && is_chan_registered(chan)) {
 		push_llce_rx_data(chan, &can_mb, mb_index);
-		llce_mbox_chan_received_data(chan, &msg);
+		mbox_chan_received_data(chan, &msg);
 	} else {
 		/* Release the index if there are no clients to process it */
 		release_logger_index(mb, mb_index);
