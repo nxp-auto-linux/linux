@@ -2835,7 +2835,7 @@ static unsigned long get_next_free_fifo(unsigned long *availability,
 	if (!*availability)
 		*availability = get_fifo_mask(hif, multihost);
 
-	index = find_last_bit(availability, LLCE_NFIFO_WITH_IRQ);
+	index = find_first_bit(availability, LLCE_NFIFO_WITH_IRQ);
 	*availability &= ~BIT(index);
 
 	return index;
