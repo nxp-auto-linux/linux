@@ -2463,6 +2463,7 @@ static void gpio_desc_to_lineinfo(struct gpio_desc *desc,
 	struct gpio_chip *gc = desc->gdev->chip;
 	bool ok_for_pinctrl;
 	unsigned long flags;
+	int ret;
 
 	memset(info, 0, sizeof(*info));
 	info->offset = gpio_chip_hwgpio(desc);
@@ -2482,14 +2483,21 @@ static void gpio_desc_to_lineinfo(struct gpio_desc *desc,
 	if (desc->name)
 		strscpy(info->name, desc->name, sizeof(info->name));
 
-	if (desc->label)
-		strscpy(info->consumer, desc->label, sizeof(info->consumer));
-
 	/*
 	 * Userspace only need to know that the kernel is using this GPIO so
 	 * it can't use it.
 	 */
 	info->flags = 0;
+
+	if (desc->label)
+		strscpy(info->consumer, desc->label, sizeof(info->consumer));
+	else {
+		ret = pinctrl_gpio_get_mux_owner(info->offset, info->consumer,
+						 sizeof(info->consumer));
+		if (!ret)
+			info->flags |= GPIO_V2_LINE_FLAG_USED;
+	}
+
 	if (test_bit(FLAG_REQUESTED, &desc->flags) ||
 	    test_bit(FLAG_IS_HOGGED, &desc->flags) ||
 	    test_bit(FLAG_USED_AS_IRQ, &desc->flags) ||
