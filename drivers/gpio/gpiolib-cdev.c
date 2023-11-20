@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0
+// Copyright 2023-2025 NXP
 
 #include <linux/anon_inodes.h>
 #include <linux/atomic.h>
@@ -2370,6 +2371,7 @@ static int gpio_desc_to_lineinfo(struct gpio_desc *desc,
 {
 	unsigned long dflags;
 	const char *label;
+	int ret;
 
 	memset(info, 0, sizeof(*info));
 
@@ -2378,6 +2380,10 @@ static int gpio_desc_to_lineinfo(struct gpio_desc *desc,
 		return -ENODEV;
 
 	info->offset = gpio_chip_hwgpio(desc);
+
+	ret = pinctrl_gpio_get_mux_owner(guard.gc, info->offset,
+					 info->consumer,
+					 sizeof(info->consumer));
 
 	if (desc->name)
 		strscpy(info->name, desc->name, sizeof(info->name));
@@ -2389,6 +2395,8 @@ static int gpio_desc_to_lineinfo(struct gpio_desc *desc,
 		if (label && test_bit(FLAG_REQUESTED, &dflags))
 			strscpy(info->consumer, label,
 				sizeof(info->consumer));
+		else if (!ret)
+			info->flags |= GPIO_V2_LINE_FLAG_USED;
 	}
 
 	/*
