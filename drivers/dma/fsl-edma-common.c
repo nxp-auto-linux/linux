@@ -2,7 +2,7 @@
 //
 // Copyright (c) 2013-2014 Freescale Semiconductor, Inc
 // Copyright (c) 2017 Sysam, Angelo Dureghello  <angelo@sysam.it>
-// Copyright 2020 NXP
+// Copyright 2020,2023 NXP
 
 #include <linux/dmapool.h>
 #include <linux/module.h>
@@ -467,16 +467,32 @@ err:
 	return NULL;
 }
 
+static int fsl_edma_align_bit(struct device *dev,
+			      unsigned long reg_window_size)
+{
+	if (!reg_window_size)
+		return 0;
+
+	if ((reg_window_size - 1) & reg_window_size) {
+		dev_err(dev, "Port window range not power of two.\n");
+		return -EINVAL;
+	}
+
+	return ffs(reg_window_size) - 1;
+}
+
 struct dma_async_tx_descriptor *fsl_edma_prep_dma_cyclic(
 		struct dma_chan *chan, dma_addr_t dma_addr, size_t buf_len,
 		size_t period_len, enum dma_transfer_direction direction,
 		unsigned long flags)
 {
 	struct fsl_edma_chan *fsl_chan = to_fsl_edma_chan(chan);
-	struct fsl_edma_desc *fsl_desc;
-	dma_addr_t dma_buf_next;
-	int sg_len, i;
+	struct dma_slave_config *cfg = &fsl_chan->cfg;
 	u32 src_addr, dst_addr, last_sg, nbytes;
+	struct fsl_edma_desc *fsl_desc;
+	unsigned long reg_window_size;
+	int sg_len, i, align_bit;
+	dma_addr_t dma_buf_next;
 	u16 soff, doff, iter;
 
 	if (!is_slave_direction(direction))
@@ -486,24 +502,45 @@ struct dma_async_tx_descriptor *fsl_edma_prep_dma_cyclic(
 		return NULL;
 
 	sg_len = buf_len / period_len;
+
+	dma_buf_next = dma_addr;
+	if (direction == DMA_MEM_TO_DEV) {
+		reg_window_size = cfg->dst_addr_width *
+			cfg->dst_port_window_size;
+		align_bit = fsl_edma_align_bit(chan->device->dev,
+					       reg_window_size);
+		if (align_bit < 0)
+			return NULL;
+
+		fsl_chan->attr = fsl_edma_get_tcd_attr(cfg->dst_addr_width);
+		fsl_chan->attr |= EDMA_TCD_ATTR_DMOD(align_bit);
+		nbytes = cfg->dst_addr_width * cfg->dst_maxburst;
+	} else {
+		reg_window_size = cfg->src_addr_width *
+			cfg->src_port_window_size;
+		align_bit = fsl_edma_align_bit(chan->device->dev,
+					       reg_window_size);
+		if (align_bit < 0)
+			return NULL;
+
+		fsl_chan->attr = fsl_edma_get_tcd_attr(cfg->src_addr_width);
+		fsl_chan->attr |= EDMA_TCD_ATTR_SMOD(align_bit);
+		nbytes = cfg->src_addr_width * cfg->src_maxburst;
+	}
+
+	if (!dmaengine_check_align(align_bit, fsl_chan->dma_dev_addr, 0,
+				   reg_window_size)) {
+		dev_err(chan->device->dev, "%s address not aligned to %lu\n",
+			direction == DMA_MEM_TO_DEV ? "dst" : "src",
+			BIT(align_bit));
+		return NULL;
+	}
+
 	fsl_desc = fsl_edma_alloc_desc(fsl_chan, sg_len);
 	if (!fsl_desc)
 		return NULL;
 	fsl_desc->iscyclic = true;
 	fsl_desc->dirn = direction;
-
-	dma_buf_next = dma_addr;
-	if (direction == DMA_MEM_TO_DEV) {
-		fsl_chan->attr =
-			fsl_edma_get_tcd_attr(fsl_chan->cfg.dst_addr_width);
-		nbytes = fsl_chan->cfg.dst_addr_width *
-			fsl_chan->cfg.dst_maxburst;
-	} else {
-		fsl_chan->attr =
-			fsl_edma_get_tcd_attr(fsl_chan->cfg.src_addr_width);
-		nbytes = fsl_chan->cfg.src_addr_width *
-			fsl_chan->cfg.src_maxburst;
-	}
 
 	iter = period_len / nbytes;
 
@@ -517,13 +554,15 @@ struct dma_async_tx_descriptor *fsl_edma_prep_dma_cyclic(
 		if (direction == DMA_MEM_TO_DEV) {
 			src_addr = dma_buf_next;
 			dst_addr = fsl_chan->dma_dev_addr;
-			soff = fsl_chan->cfg.dst_addr_width;
-			doff = 0;
+			soff = cfg->dst_addr_width;
+			doff = cfg->dst_port_window_size ?
+				cfg->dst_addr_width : 0;
 		} else {
 			src_addr = fsl_chan->dma_dev_addr;
 			dst_addr = dma_buf_next;
-			soff = 0;
-			doff = fsl_chan->cfg.src_addr_width;
+			soff = cfg->src_port_window_size ?
+				cfg->src_addr_width : 0;
+			doff = cfg->src_addr_width;
 		}
 
 		fsl_edma_fill_tcd(fsl_desc->tcd[i].vtcd, src_addr, dst_addr,
