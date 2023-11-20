@@ -33,6 +33,12 @@ properties:
   vref:
     description: SAR-ADC reference voltage supply
 
+  dmas:
+    maxItems: 1
+
+  dma-names:
+    const: rx
+
 required:
   - compatible
   - reg
@@ -40,6 +46,8 @@ required:
   - clocks
   - clock-names
   - vref
+  - dmas
+  - dma-names
 
 additionalProperties: false
 
@@ -55,6 +63,8 @@ examples:
         interrupts = <GIC_SPI 70 IRQ_TYPE_LEVEL_HIGH>;
         clocks = <&clks S32CC_SCMI_CLK_SAR_ADC_BUS>;
         clock-names = "adc";
+        dmas = <&edma0 0 32>;
+        dma-names = "rx";
         vref = <1800>;
         status = "okay";
     };
