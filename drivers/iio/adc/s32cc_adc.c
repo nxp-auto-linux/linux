@@ -826,13 +826,34 @@ static int s32cc_adc_buffer_predisable(struct iio_dev *indio_dev)
 	return 0;
 }
 
-static bool s32cc_adc_validate_scan_mask(struct iio_dev *indio_dev,
-					 const unsigned long *mask)
+static int s32cc_adc_preenable(struct iio_dev *indio_dev)
 {
+	unsigned long first_bit, set_bits = *indio_dev->active_scan_mask;
+
 	/* SAR_ADC permits any combination of the
-	 * available channels to be active
+	 * available channels in software triggered mode.
 	 */
-	return true;
+	if (indio_dev->currentmode == INDIO_BUFFER_TRIGGERED)
+		return 0;
+
+	first_bit = find_first_bit(indio_dev->active_scan_mask,
+				   ADC_NUM_CHANNELS);
+	/* Assumption: 8 bits max */
+	set_bits = (set_bits >> first_bit) & GENMASK(7, 0);
+	switch (set_bits) {
+	case BIT(0):
+		/* one bit */
+	case GENMASK(1, 0):
+		/* two bits */
+	case GENMASK(3, 0):
+		/* four consecutive bits */
+	case GENMASK(7, 0):
+		/* eight consecutive bits */
+		return 0;
+	default:
+		dev_err(&indio_dev->dev, "Invalid active scan mask\n");
+		return -EINVAL;
+	}
 }
 
 static irqreturn_t s32cc_adc_trigger_handler(int irq, void *p)
@@ -850,9 +871,9 @@ static irqreturn_t s32cc_adc_trigger_handler(int irq, void *p)
 }
 
 static const struct iio_buffer_setup_ops iio_triggered_buffer_setup_ops = {
+	.preenable = s32cc_adc_preenable,
 	.postenable = &s32cc_adc_buffer_postenable,
 	.predisable = &s32cc_adc_buffer_predisable,
-	.validate_scan_mask = &s32cc_adc_validate_scan_mask,
 };
 
 static const struct iio_info s32cc_adc_iio_info = {
