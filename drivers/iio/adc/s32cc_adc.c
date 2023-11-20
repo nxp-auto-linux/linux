@@ -160,7 +160,6 @@ struct s32cc_adc {
 	u32 vref;
 	int current_channel;
 	int channels_used;
-	int buffer_ech_num;
 	struct s32cc_adc_feature adc_feature;
 
 	struct completion completion;
@@ -423,13 +422,6 @@ static void s32cc_adc_isr_buffer(struct iio_dev *indio_dev)
 	struct s32cc_adc *info = iio_priv(indio_dev);
 	int i, ret;
 
-	if (indio_dev->currentmode == INDIO_BUFFER_SOFTWARE) {
-		info->buffer_ech_num++;
-		if (info->buffer_ech_num < BUFFER_ECH_NUM_OK)
-			return;
-	}
-
-	info->buffer_ech_num = 0;
 	for (i = 0; i < info->channels_used; i++) {
 		ret = s32cc_adc_read_data(info, info->buffered_chan[i]);
 		if (ret < 0) {
@@ -444,8 +436,7 @@ static void s32cc_adc_isr_buffer(struct iio_dev *indio_dev)
 	iio_push_to_buffers_with_timestamp(indio_dev,
 					   info->buffer,
 					   iio_get_time_ns(indio_dev));
-	if (indio_dev->currentmode == INDIO_BUFFER_TRIGGERED)
-		iio_trigger_notify_done(indio_dev->trig);
+	iio_trigger_notify_done(indio_dev->trig);
 }
 
 static void s32cc_adc_isr_read_raw(struct iio_dev *indio_dev)
@@ -784,7 +775,6 @@ static int s32cc_adc_buffer_postenable(struct iio_dev *indio_dev)
 	int ret;
 
 	info->channels_used = 0;
-	info->buffer_ech_num = 0;
 
 	for_each_set_bit(channel, indio_dev->active_scan_mask,
 			 ADC_NUM_CHANNELS) {
