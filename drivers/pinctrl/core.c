@@ -787,6 +787,44 @@ bool pinctrl_gpio_can_use_line(struct gpio_chip *gc, unsigned int offset)
 }
 EXPORT_SYMBOL_GPL(pinctrl_gpio_can_use_line);
 
+int pinctrl_gpio_get_mux_owner(struct gpio_chip *gc, unsigned int offset,
+			       char *buffer, unsigned long size)
+{
+	struct pinctrl_gpio_range *range;
+	struct pinctrl_dev *pctldev;
+	const struct pin_desc *pd;
+	const char *owner = NULL;
+	int pin, ret = -EINVAL;
+
+	if (pinctrl_get_device_gpio_range(gc, offset, &pctldev, &range))
+		return ret;
+
+	mutex_lock(&pctldev->mutex);
+	pin = gpio_to_pin(range, gc, offset);
+	pd = pin_desc_get(pctldev, pin);
+	if (!pd)
+		goto err;
+
+	if (pd->gpio_owner) {
+		owner = pd->gpio_owner;
+		ret = 0;
+		goto err;
+	}
+
+	if (pd->mux_owner) {
+		owner = pd->mux_owner;
+		ret = 0;
+		goto err;
+	}
+
+err:
+	if (!ret)
+		strscpy(buffer, owner, size);
+	mutex_unlock(&pctldev->mutex);
+
+	return ret;
+}
+
 /**
  * pinctrl_gpio_request() - request a single pin to be used as GPIO
  * @gc: GPIO chip structure from the GPIO subsystem
