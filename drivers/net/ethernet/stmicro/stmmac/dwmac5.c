@@ -525,6 +525,10 @@ int dwmac5_flex_pps_config(void __iomem *ioaddr, int index,
 	u32 val = readl(ioaddr + MAC_PPS_CONTROL);
 	u64 period;
 
+#if IS_ENABLED(CONFIG_DWMAC_S32CC)
+	u64 sys_time_sec;
+#endif
+
 	if (!cfg->available)
 		return -EINVAL;
 	if (tnsec & TRGTBUSY0)
@@ -545,10 +549,21 @@ int dwmac5_flex_pps_config(void __iomem *ioaddr, int index,
 	val |= PPSEN0;
 	writel(val, ioaddr + MAC_PPS_CONTROL);
 
-	writel(cfg->start.tv_sec, ioaddr + MAC_PPSx_TARGET_TIME_SEC(index));
-
 	if (!(systime_flags & PTP_TCR_TSCTRLSSR))
 		cfg->start.tv_nsec = (cfg->start.tv_nsec * 1000) / 465;
+
+#if IS_ENABLED(CONFIG_DWMAC_S32CC)
+	sys_time_sec = readl(ioaddr + PTP_STSR);
+
+	/* Not checking the nsec for when system and target time are very close. */
+	if (sys_time_sec > (cfg->start.tv_sec + 1)) {
+		pr_err("%s: ERROR system time different than target time.\n",
+		       __func__);
+		return -EINVAL;
+	}
+#endif
+
+	writel(cfg->start.tv_sec, ioaddr + MAC_PPSx_TARGET_TIME_SEC(index));
 	writel(cfg->start.tv_nsec, ioaddr + MAC_PPSx_TARGET_TIME_NSEC(index));
 
 	period = cfg->period.tv_sec * 1000000000;
