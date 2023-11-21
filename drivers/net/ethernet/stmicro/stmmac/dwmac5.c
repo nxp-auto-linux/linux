@@ -521,6 +521,8 @@ int dwmac5_flex_pps_config(void __iomem *ioaddr, int index,
 			   struct stmmac_pps_cfg *cfg, bool enable,
 			   u32 sub_second_inc, u32 systime_flags)
 {
+	struct stmmac_priv *priv =
+		container_of(cfg, struct stmmac_priv, pps[STMMAC_PPS_MAX]);
 	u32 tnsec = readl(ioaddr + MAC_PPSx_TARGET_TIME_NSEC(index));
 	u32 val = readl(ioaddr + MAC_PPS_CONTROL);
 	u64 period;
@@ -545,10 +547,20 @@ int dwmac5_flex_pps_config(void __iomem *ioaddr, int index,
 	val |= PPSEN0;
 	writel(val, ioaddr + MAC_PPS_CONTROL);
 
-	writel(cfg->start.tv_sec, ioaddr + MAC_PPSx_TARGET_TIME_SEC(index));
-
 	if (!(systime_flags & PTP_TCR_TSCTRLSSR))
 		cfg->start.tv_nsec = (cfg->start.tv_nsec * 1000) / 465;
+
+	/* NXP Errata E50595 requires reading systime sec and nsec before target set */
+	if (priv->plat->flags & STMMAC_FLAG_HAS_S32CC) {
+		/* Target time should not be programmed with past system time.*/
+		if (readl(ioaddr + PTP_STSR) > (cfg->start.tv_sec + 1)) {
+			pr_err("%s: ERROR system time different than target time.\n",
+			       __func__);
+			return -EINVAL;
+		}
+	}
+
+	writel(cfg->start.tv_sec, ioaddr + MAC_PPSx_TARGET_TIME_SEC(index));
 	writel(cfg->start.tv_nsec, ioaddr + MAC_PPSx_TARGET_TIME_NSEC(index));
 
 	period = cfg->period.tv_sec * 1000000000;
