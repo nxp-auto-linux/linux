@@ -158,8 +158,8 @@ struct s32cc_adc {
 
 	u16 value;
 	u32 vref;
-	int current_channel;
-	int channels_used;
+	u8 current_channel;
+	u8 channels_used;
 	struct s32cc_adc_feature adc_feature;
 
 	struct completion completion;
