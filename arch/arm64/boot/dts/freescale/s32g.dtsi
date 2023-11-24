@@ -1338,7 +1338,7 @@
 		};
 
 		llce_uart1_pins_grp1 {
-			pinmux = <S32CC_PINMUX(36, FUNC4)>;
+			pinmux = <S32CC_PINMUX(36, FUNC0)>;
 			input-enable;
 			slew-rate = <S32CC_GPIO_3V3_SLEW_50MHZ>;
 		};
@@ -1356,7 +1356,7 @@
 		};
 
 		llce_uart2_pins_grp1 {
-			pinmux = <S32CC_PINMUX(38, FUNC2)>;
+			pinmux = <S32CC_PINMUX(38, FUNC0)>;
 			input-enable;
 			slew-rate = <S32CC_GPIO_3V3_SLEW_50MHZ>;
 		};
@@ -1374,7 +1374,7 @@
 		};
 
 		llce_uart3_pins_grp1 {
-			pinmux = <S32CC_PINMUX(183, FUNC2)>;
+			pinmux = <S32CC_PINMUX(183, FUNC0)>;
 			input-enable;
 			slew-rate = <S32CC_GPIO_3V3_SLEW_50MHZ>;
 		};
