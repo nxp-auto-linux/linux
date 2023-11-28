@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0+
 /*
- * Copyright 2020-2022 NXP
+ * Copyright 2020-2023 NXP
  *
  */
 
@@ -51,12 +51,12 @@ static void cleanup_ddr_errata(struct ddr_priv *data)
 	del_timer(&data->timer);
 }
 
-/* Read lpddr4 mode register with given index */
-uint32_t read_lpddr4_mr(uint8_t mr_index, void __iomem *ddrc_base,
-			void __iomem *perf_base)
+/* Read lpddr4 mode register with given rank and index */
+u32 read_lpddr4_mr(u8 mr_rank, u8 mr_index, void __iomem *ddrc_base,
+		   void __iomem *perf_base)
 {
-	uint32_t tmp32;
-	uint8_t succesive_reads = 0;
+	u32 tmp32;
+	u8 succesive_reads = 0;
 
 	/* Set MRR_DDR_SEL_REG to 0x1 to enable LPDDR4 mode */
 	tmp32 = readl(perf_base + OFFSET_MRR_0_DATA_REG_ADDR);
@@ -75,12 +75,12 @@ uint32_t read_lpddr4_mr(uint8_t mr_index, void __iomem *ddrc_base,
 			succesive_reads = 0;
 	} while (succesive_reads != DDRC_REQUIRED_MRSTAT_READS);
 
-	/* Set MR_TYPE = 0x1 (Read) and MR_RANK = 0x1 (Rank 0) */
+	/* Set MR_TYPE = 0x1 (Read) and MR_RANK = desired rank */
 	tmp32 = readl(ddrc_base + OFFSET_DDRC_MRCTRL0);
 	tmp32 |= DDRC_MRCTRL0_MR_TYPE_READ;
 	tmp32 = (tmp32 & ~(DDRC_MRCTRL0_RANK_ACCESS_FIELD <<
 			   DDRC_MRCTRL0_RANK_ACCESS_POS)) |
-		(DDRC_MRCTRL0_RANK_0 << DDRC_MRCTRL0_RANK_ACCESS_POS);
+		(mr_rank << DDRC_MRCTRL0_RANK_ACCESS_POS);
 	writel(tmp32, ddrc_base + OFFSET_DDRC_MRCTRL0);
 
 	/* Configure MR address: MRCTRL1[8:15] */
@@ -111,21 +111,26 @@ uint32_t read_lpddr4_mr(uint8_t mr_index, void __iomem *ddrc_base,
 
 /*
  * Read Temperature Update Flag from lpddr4 MR4 register.
- * This method actually reads the first 3 bits of MR4 (MR4[2:0])
- * instead of the TUF flag.
- * The return value is being used in order to determine if the
- * timing parameters need to be adjusted or not.
  */
-uint8_t read_TUF(void __iomem *ddrc_base, void __iomem *perf_base)
+u8 read_TUF(void __iomem *ddrc_base, void __iomem *perf_base)
 {
-	uint32_t MR4_val;
-	uint8_t MR4_die_1, MR4_die_2;
+	u32 mr4_val, derateen;
+	u16 mr4_die_1;
+	u8 derate_byte;
 
-	MR4_val = read_lpddr4_mr(MR4_IDX, ddrc_base, perf_base);
-	MR4_die_1 = (uint8_t)(MR4_val & MR4_MASK);
-	MR4_die_2 = (uint8_t)((MR4_val >> MR4_SHIFT) & MR4_MASK);
+	mr4_val = read_lpddr4_mr(DDRC_MRCTRL0_RANK_0, MR4_IDX, ddrc_base,
+				 perf_base);
+	mr4_die_1 = (u16)(mr4_val & MR4_MASK);
 
-	return MR4_die_1 > MR4_die_2 ? MR4_die_1 : MR4_die_2;
+	/* Check which byte of the MRR data is used for derating */
+	derateen = readl(ddrc_base + OFFSET_DDRC_DERATEEN);
+	derate_byte = (derateen >> DDRC_DERATEEN_DERATE_BYTE_SHIFT) &
+		       DDRC_DERATEEN_DERATE_BYTE_MASK;
+
+	if (derate_byte == DDRC_DERATE_BYTE_1)
+		mr4_die_1 = mr4_die_1 >> BYTE_SHIFT;
+
+	return (u8)(mr4_die_1 & REF_RATE_MASK);
 }
 
 static void execute_polling(struct timer_list *t)
