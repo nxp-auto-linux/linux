@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0+
  *
- * Copyright 2020-2022 NXP
+ * Copyright 2020-2023 NXP
  *
  */
 
@@ -9,14 +9,18 @@
 
 /* ERR050543 related defines */
 #define MR4_IDX			4
-#define MR4_MASK		0x7U
-#define MR4_SHIFT		16
+#define MR4_MASK		0xFFU
+#define REF_RATE_MASK		0x7U
+#define BYTE_SHIFT		8
 #define TUF_THRESHOLD		3
 #define REQUIRED_OK_CHECKS	3
 
 /* DDRC Related */
 #define OFFSET_DDRC_DERATEEN		0x20
 #define DDRC_DERATEEN_ENABLE		0x1
+#define DDRC_DERATEEN_DERATE_BYTE_SHIFT	4
+#define DDRC_DERATEEN_DERATE_BYTE_MASK	0xfU
+#define DDRC_DERATE_BYTE_1		0x1U
 #define OFFSET_DDRC_RFSHTMG		0x64
 #define DDRC_RFSHTMG_VAL_SHIFT		16
 #define DDRC_RFSHTMG_VAL		0xfff
@@ -69,9 +73,9 @@
 #define ERRATA_CHANGES_REVERTED		1
 #define ERRATA_CHANGES_UNMODIFIED	0
 
-/* Read lpddr4 mode register with given index */
-uint32_t read_lpddr4_mr(uint8_t MR_index,
-		void __iomem *ddrc_base, void __iomem *perf_base);
+/* Read lpddr4 mode register with given rank and index */
+u32 read_lpddr4_mr(u8 mr_rank, u8 mr_index, void __iomem *ddrc_base,
+		   void __iomem *perf_base);
 
 /*
  * Read Temperature Update Flag from lpddr4 MR4 register.
@@ -81,7 +85,7 @@ uint32_t read_lpddr4_mr(uint8_t MR_index,
  * timing parameters need to be adjusted or not.
  */
 uint8_t read_TUF(void __iomem *ddrc_base,
-		void __iomem *perf_base);
+		 void __iomem *perf_base);
 
 /*
  * Periodically read Temperature Update Flag in MR4 and undo changes made by
@@ -91,6 +95,6 @@ uint8_t read_TUF(void __iomem *ddrc_base,
  * parameters
  */
 int poll_derating_temp_errata(void __iomem *ddrc_base,
-		void __iomem *perf_base);
+			      void __iomem *perf_base);
 
 #endif /* _NXP_DDR_ERR050543_H */
