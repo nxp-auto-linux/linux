@@ -67,6 +67,10 @@ static int enetc_setup_mac_address(struct device_node *np, struct enetc_pf *pf,
 
 	enetc_set_si_hw_addr(pf, si, mac_addr);
 
+	/* si == 0 is PF */
+	if (!si)
+		memcpy(pf->mac_addr_base, mac_addr, ETH_ALEN);
+
 	return 0;
 }
 
@@ -80,9 +84,23 @@ int enetc_setup_mac_addresses(struct device_node *np, struct enetc_pf *pf)
 		return err;
 
 	for (i = 0; i < pf->total_vfs; i++) {
-		err = enetc_setup_mac_address(NULL, pf, i + 1);
-		if (err)
-			return err;
+		if (is_enetc_rev1(pf->si)) {
+			err = enetc_setup_mac_address(NULL, pf, i + 1);
+			if (err)
+				return err;
+		} else {
+			u8 mac_addr[ETH_ALEN];
+
+			memcpy(mac_addr, pf->mac_addr_base, ETH_ALEN);
+			eth_addr_add(mac_addr, i + 1);
+			if (!is_valid_ether_addr(mac_addr)) {
+				eth_random_addr(mac_addr);
+				dev_info(&pf->si->pdev->dev,
+					 "SI%d: Invalid MAC addr, using %pM\n",
+					 i + 1, mac_addr);
+			}
+			enetc_set_si_hw_addr(pf, i + 1, mac_addr);
+		}
 	}
 
 	return 0;
