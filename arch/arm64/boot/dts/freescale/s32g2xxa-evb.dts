@@ -12,10 +12,6 @@
 	model = "NXP S32G2 Evaluation Board (S32G-VNP-EVB)";
 	compatible = "nxp,s32g274a-evb", "nxp,s32g2";
 
-	aliases {
-		serial0 = &uart0;
-	};
-
 	chosen {
 		stdout-path = "serial0:115200n8";
 	};
