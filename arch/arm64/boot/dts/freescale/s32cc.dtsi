@@ -3,7 +3,7 @@
  * NXP S32G2 SoC family
  *
  * Copyright (c) 2021 SUSE LLC
- * Copyright (c) 2017-2023 NXP
+ * Copyright 2017-2023 NXP
  */
 
 #include <dt-bindings/interrupt-controller/arm-gic.h>
