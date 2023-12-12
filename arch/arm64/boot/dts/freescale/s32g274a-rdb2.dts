@@ -12,11 +12,6 @@
 	model = "NXP S32G2 Reference Design Board 2 (S32G-VNP-RDB2)";
 	compatible = "nxp,s32g274a-rdb2", "nxp,s32g2";
 
-	aliases {
-		serial0 = &uart0;
-		serial1 = &uart1;
-	};
-
 	chosen {
 		stdout-path = "serial0:115200n8";
 	};
