@@ -1,0 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0-or-later OR MIT
+/*
+ * Device Tree file for S32G3-VNP-PROC + S32GRV-VNP-PLAT boards
+ *
+ * Copyright 2021-2023 NXP
+ */
+
+#include "s32g3xxa-evb3.dtsi"
