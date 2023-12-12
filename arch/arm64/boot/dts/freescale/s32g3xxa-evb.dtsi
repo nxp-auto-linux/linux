@@ -1,0 +1,20 @@
+// SPDX-License-Identifier: GPL-2.0-or-later OR MIT
+/*
+ * Copyright (c) 2021 SUSE LLC
+ * Copyright 2019-2021 NXP
+ */
+
+/dts-v1/;
+
+#include "s32g3.dtsi"
+#include "s32gxxxa-evb.dtsi"
+
+/ {
+	model = "NXP S32G3 Evaluation Board (S32G3-VNP-EVB)";
+	compatible = "nxp,s32g399-evb", "nxp,s32g3";
+};
+
+/* UART (J58) to Micro USB port */
+&uart0 {
+	status = "okay";
+};
