@@ -1,0 +1,19 @@
+// SPDX-License-Identifier: GPL-2.0-or-later OR MIT
+/*
+ * Copyright 2019-2021 NXP
+ */
+
+/dts-v1/;
+
+#include "s32g2.dtsi"
+#include "s32gxxxa-evb.dtsi"
+
+/ {
+	model = "NXP S32G2 Evaluation Board (S32G-VNP-EVB3)";
+	compatible = "nxp,s32g274a-evb3", "nxp,s32g2";
+};
+
+/* UART (J58) to Micro USB port */
+&uart0 {
+	status = "okay";
+};
