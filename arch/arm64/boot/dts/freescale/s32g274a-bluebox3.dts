@@ -18,6 +18,20 @@
 	clock-frequency = <5000000>;
 };
 
+&qspi {
+	/delete-node/ mx25uw51245g@0;
+
+	mt35xu512aba@0 {
+		address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "jedec,spi-nor";
+		spi-max-frequency = <133333333>;
+		spi-tx-bus-width = <8>;
+		spi-rx-bus-width = <8>;
+		reg = <0>;
+	};
+};
+
 &usdhc0 {
 	pinctrl-names = "default", "state_100mhz", "state_200mhz";
 	/* By default, sd0 pins are able to work at 100Mhz and 200Mhz */
