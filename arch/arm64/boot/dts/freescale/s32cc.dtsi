@@ -9,6 +9,7 @@
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/clock/s32cc-scmi-clock.h>
 #include <dt-bindings/memory/s32cc-siul2.h>
+#include <dt-bindings/pinctrl/s32cc-pinfunc.h>
 
 / {
 	interrupt-parent = <&gic>;
@@ -153,9 +154,11 @@
 
 		usdhc0: mmc@402f0000 {
 			compatible = "nxp,s32g2-usdhc";
-			reg = <0x402f0000 0x1000>;
+			reg = <0x0 0x402f0000 0x0 0x1000>;
 			interrupts = <GIC_SPI 36 IRQ_TYPE_LEVEL_HIGH>;
-			clocks = <&clks 32>, <&clks 31>, <&clks 33>;
+			clocks = <&clks S32CC_SCMI_CLK_USDHC_MODULE>,
+				 <&clks S32CC_SCMI_CLK_USDHC_AHB>,
+				 <&clks S32CC_SCMI_CLK_USDHC_CORE>;
 			clock-names = "ipg", "ahb", "per";
 			bus-width = <8>;
 			status = "disabled";
