@@ -11,3 +11,10 @@
 / {
 	model = "NXP S32R458-EVB";
 };
+
+&usdhc0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&sd0_pins_default>;
+	no-1-8-v;
+	status = "okay";
+};
