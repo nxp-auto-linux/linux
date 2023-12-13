@@ -1,0 +1,19 @@
+// SPDX-License-Identifier: GPL-2.0-or-later OR MIT
+/*
+ * Copyright 2021-2023 NXP
+ */
+
+/dts-v1/;
+#include "s32g3.dtsi"
+
+/ {
+	model = "Emulator for NXP S32G399A";
+
+	chosen {
+		stdout-path = "serial1:115200n8";
+	};
+};
+
+&timer {
+	clock-frequency = <5000000>;
+};
