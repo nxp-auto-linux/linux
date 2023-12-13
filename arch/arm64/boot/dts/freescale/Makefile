@@ -286,6 +286,7 @@ dtb-$(CONFIG_ARCH_MXC) += imx8mm-phygate-tauri-l-rs232-rs485.dtb
 dtb-$(CONFIG_ARCH_S32) += s32g2xxa-evb.dtb
 dtb-$(CONFIG_ARCH_S32) += s32g2xxa-evb3.dtb
 dtb-$(CONFIG_ARCH_S32) += s32g274a-emu.dtb
+dtb-$(CONFIG_ARCH_S32) += s32g274a-bluebox3.dtb
 dtb-$(CONFIG_ARCH_S32) += s32g3xxa-evb.dtb
 dtb-$(CONFIG_ARCH_S32) += s32g3xxa-evb3.dtb
 dtb-$(CONFIG_ARCH_S32) += s32g399a-emu.dtb
