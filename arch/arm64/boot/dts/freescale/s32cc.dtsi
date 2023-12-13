@@ -7,6 +7,7 @@
  */
 
 #include <dt-bindings/interrupt-controller/arm-gic.h>
+#include <dt-bindings/clock/s32cc-scmi-clock.h>
 
 / {
 	interrupt-parent = <&gic>;
@@ -107,6 +108,9 @@
 				     "fsl,s32v234-linflexuart";
 			reg = <0x401c8000 0x3000>;
 			interrupts = <GIC_SPI 82 IRQ_TYPE_EDGE_RISING>;
+			clocks = <&clks S32CC_SCMI_CLK_LINFLEX_LIN>,
+				 <&clks S32CC_SCMI_CLK_LINFLEX_XBAR>;
+			clock-names = "lin", "ipg";
 			status = "disabled";
 		};
 
@@ -115,6 +119,9 @@
 				     "fsl,s32v234-linflexuart";
 			reg = <0x401cc000 0x3000>;
 			interrupts = <GIC_SPI 83 IRQ_TYPE_EDGE_RISING>;
+			clocks = <&clks S32CC_SCMI_CLK_LINFLEX_LIN>,
+				 <&clks S32CC_SCMI_CLK_LINFLEX_XBAR>;
+			clock-names = "lin", "ipg";
 			status = "disabled";
 		};
 
@@ -123,6 +130,9 @@
 				     "fsl,s32v234-linflexuart";
 			reg = <0x402bc000 0x3000>;
 			interrupts = <GIC_SPI 84 IRQ_TYPE_EDGE_RISING>;
+			clocks = <&clks S32CC_SCMI_CLK_LINFLEX_LIN>,
+				 <&clks S32CC_SCMI_CLK_LINFLEX_XBAR>;
+			clock-names = "lin", "ipg";
 			status = "disabled";
 		};
 
