@@ -1,0 +1,64 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+/*
+ * Copyright 2022-2023 NXP
+ */
+
+&qspi {
+	macronix_memory: mx25uw51245g@0 {
+		compatible = "jedec,spi-nor";
+		spi-max-frequency = <200000000>;
+		spi-tx-bus-width = <8>;
+		spi-rx-bus-width = <8>;
+		reg = <0>;
+		force-soft-reset;
+		inverted-cmd-ext;
+		memory-default-octal-dtr;
+
+		partitions {
+			compatible = "fixed-partitions";
+			#address-cells = <1>;
+			#size-cells = <1>;
+
+			/*
+			 * By default, the QSPI Flash memory erase sector
+			 * size will try to be set to 4KB, in accordance with
+			 * the setting of CONFIG_MTD_SPI_NOR_USE_4K_SECTORS config.
+			 * This means that the following QSPI partitions
+			 * sizes should be 4KB aligned.
+			 * In case filesystems which require larger erase
+			 * sector sizes are required, such as UBIFS, the
+			 * above mentioned config should be disabled,
+			 * which would lead to a 64KB erase sector size usage.
+			 */
+			flashimage@0 {
+				label = "Flash-Image";
+				reg = <0x0 0x4000000>;
+			};
+
+			boot@0 {
+				label = "FIP";
+				reg = <0x0 0x280000>;
+			};
+
+			boot-env@280000 {
+				label = "U-Boot-Env";
+				reg = <0x280000 0x10000>;
+			};
+
+			kernel@290000 {
+				label = "Kernel";
+				reg = <0x290000 0xed0000>;
+			};
+
+			dtb@1160000 {
+				label = "DTB";
+				reg = <0x1160000 0x30000>;
+			};
+
+			rootfs@1190000 {
+				label = "Rootfs";
+				reg = <0x1190000 0x1f10000>;
+			};
+		};
+	};
+};
