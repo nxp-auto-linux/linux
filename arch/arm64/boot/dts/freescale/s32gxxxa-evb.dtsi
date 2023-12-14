@@ -323,6 +323,75 @@
 				 <S32CC_PINMUX(723, FUNC0)>;
 		};
 	};
+
+	ftm0_pins: ftm0_pins {
+		ftm0_grp0 {
+			pinmux = <S32CC_PINMUX(657, FUNC2)>;
+		};
+
+		ftm0_grp1 {
+			pinmux = <S32CC_PINMUX(18, FUNC2)>,
+				 <S32CC_PINMUX(180, FUNC2)>;
+			output-enable;
+			input-enable;
+			slew-rate = <S32CC_GPIO_3V3_SLEW_50MHZ>;
+		};
+
+		ftm0_grp2 {
+			pinmux = <S32CC_PINMUX(177, FUNC3)>,
+				 <S32CC_PINMUX(181, FUNC3)>;
+			output-enable;
+			input-enable;
+			slew-rate = <S32CC_GPIO_3V3_SLEW_50MHZ>;
+		};
+
+		ftm0_grp3 {
+			pinmux = <S32CC_PINMUX(656, FUNC4)>;
+		};
+
+		ftm0_grp4 {
+			pinmux = <S32CC_PINMUX(658, FUNC5)>;
+		};
+
+		ftm0_grp5 {
+			pinmux = <S32CC_PINMUX(659, FUNC6)>;
+		};
+	};
+
+	ftm1_pins: ftm1_pins {
+		ftm1_grp0 {
+			pinmux = <S32CC_PINMUX(29, FUNC3)>;
+			output-enable;
+			input-enable;
+			slew-rate = <S32CC_GPIO_3V3_SLEW_50MHZ>;
+		};
+
+		ftm1_grp1 {
+			pinmux = <S32CC_PINMUX(667, FUNC4)>;
+		};
+
+		ftm1_grp2 {
+			pinmux = <S32CC_PINMUX(668, FUNC3)>;
+		};
+
+		ftm1_grp3 {
+			pinmux = <S32CC_PINMUX(31, FUNC4)>;
+			output-enable;
+			input-enable;
+			slew-rate = <S32CC_GPIO_3V3_SLEW_50MHZ>;
+		};
+
+		ftm1_grp4 {
+			pinmux = <S32CC_PINMUX(32, FUNC2)>;
+			output-enable;
+			input-enable;
+			slew-rate = <S32CC_GPIO_3V3_SLEW_50MHZ>;
+		};
+
+		ftm1_grp5 {
+			pinmux = <S32CC_PINMUX(669, FUNC2)>;
+		};
+	};
 };
 
 &spi1 {
@@ -374,5 +443,17 @@
 	pinctrl-1 = <&i2c4_gpio_pins>;
 	scl-gpios = <&gpio 34 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
 	sda-gpios = <&gpio 33 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
+	status = "okay";
+};
+
+&pwm0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&ftm0_pins>;
+	status = "okay";
+};
+
+&pwm1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&ftm1_pins>;
 	status = "okay";
 };
