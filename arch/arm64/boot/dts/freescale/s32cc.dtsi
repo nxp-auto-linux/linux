@@ -223,6 +223,16 @@
 			status = "okay";
 		};
 
+		pit0: pit@40188000 {
+			compatible = "nxp,s32cc-pit";
+			reg = <0x0 0x40188000 0x0 0x3000>;
+			interrupts = <GIC_SPI 53 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&clks S32CC_SCMI_CLK_PIT_MODULE>;
+			clock-names = "pit";
+			cpu = <0>;
+			status = "disabled";
+		};
+
 		uart0: serial@401c8000 {
 			compatible = "nxp,s32cc-linflexuart",
 				     "fsl,s32v234-linflexuart";
@@ -324,6 +334,16 @@
 			clocks = <&clks S32CC_SCMI_CLK_EDMA_MODULE>,
 				 <&clks S32CC_SCMI_CLK_EDMA_AHB>;
 			status = "okay";
+		};
+
+		pit1: pit@40288000 {
+			compatible = "nxp,s32cc-pit";
+			reg = <0x0 0x40288000 0x0 0x3000>;
+			interrupts = <GIC_SPI 54 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&clks S32CC_SCMI_CLK_PIT_MODULE>;
+			clock-names = "pit";
+			cpu = <1>;
+			status = "disabled";
 		};
 
 		uart2: serial@402bc000 {
