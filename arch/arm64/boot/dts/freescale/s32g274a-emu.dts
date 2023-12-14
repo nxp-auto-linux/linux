@@ -24,6 +24,21 @@
 	};
 };
 
+&uart0 {
+	/delete-property/ dmas;
+	/delete-property/ dma-names;
+};
+
+&uart1 {
+	/delete-property/ dmas;
+	/delete-property/ dma-names;
+};
+
+&uart2 {
+	/delete-property/ dmas;
+	/delete-property/ dma-names;
+};
+
 &timer {
 	clock-frequency = <5000000>;
 };
