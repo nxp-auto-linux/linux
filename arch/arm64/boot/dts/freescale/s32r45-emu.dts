@@ -28,6 +28,30 @@
 	clock-frequency = <5000000>;
 };
 
+&spi0 {
+	status = "okay";
+};
+
+&spi1 {
+	status = "okay";
+};
+
+&spi2 {
+	status = "okay";
+};
+
+&spi3 {
+	status = "okay";
+};
+
+&spi4 {
+	status = "okay";
+};
+
+&spi5 {
+	status = "okay";
+};
+
 &usdhc0 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&sd0_pins_default>;
