@@ -35,6 +35,11 @@
 	status = "okay";
 };
 
+&pfe_netif1 {
+	phy-mode = "sgmii";
+	phy-handle = <&gmac_mdio_a_phy8>;
+};
+
 &swt8 {
 	status = "okay";
 };

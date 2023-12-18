@@ -38,6 +38,11 @@
 	};
 };
 
+&pfe_netif1 {
+	phy-mode = "sgmii";
+	phy-handle = <&gmac_mdio_a_phy3>;
+};
+
 &usdhc0 {
 	/* Remove no-1-8-v to enable higher speed modes for SD card.
 	 * However, this is not enough to enable HS400 or HS200 modes for eMMC.
