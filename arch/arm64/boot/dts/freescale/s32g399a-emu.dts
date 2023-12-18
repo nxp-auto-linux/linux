@@ -6,6 +6,10 @@
 /dts-v1/;
 #include "s32g3.dtsi"
 
+/* Emulator has 1GB of RAM, remove reserved memory above this limit */
+/delete-node/ &pci_shared_memory0;
+/delete-node/ &pci_shared_memory1;
+
 / {
 	model = "Emulator for NXP S32G399A";
 
@@ -40,4 +44,14 @@
 	pinctrl-2 = <&sd0_pins_200mhz>;
 	no-1-8-v;
 	status = "okay";
+};
+
+&pcie0 {
+	/delete-property/ shared-mem;
+	status = "disabled";
+};
+
+&pcie1 {
+	/delete-property/ shared-mem;
+	status = "disabled";
 };
