@@ -15,6 +15,16 @@
 	compatible = "nxp,s32g399a-rdb3", "nxp,s32g3";
 };
 
+&gmac0_mdio {
+	/* AQR113C */
+	gmac_mdio_a_phy8: ethernet-phy@3 {
+		compatible = "ethernet-phy-ieee802.3-c45";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg = <8>;
+	};
+};
+
 /* UART (J2) to Micro USB port */
 &uart0 {
 	status = "okay";

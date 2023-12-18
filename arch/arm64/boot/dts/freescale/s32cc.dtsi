@@ -10,6 +10,7 @@
 #include <dt-bindings/clock/s32cc-scmi-clock.h>
 #include <dt-bindings/memory/s32cc-siul2.h>
 #include <dt-bindings/misc/s32cc-fccu.h>
+#include <dt-bindings/phy/phy.h>
 #include <dt-bindings/phy/phy-s32cc-serdes.h>
 #include <dt-bindings/pinctrl/s32cc-pinfunc.h>
 #include <dt-bindings/reset/s32cc-scmi-reset.h>
@@ -32,6 +33,8 @@
 		serial0 = &uart0;
 		serial1 = &uart1;
 		serial2 = &uart2;
+
+		ethernet0 = &gmac0;
 
 		pci0 = &pcie0;
 		pci1 = &pcie1;
@@ -796,6 +799,88 @@
 			    S32CC_FCCU_REACTION_NONE
 			    S32CC_FCCU_REACTION_NONE>;
 			status = "disabled";
+		};
+
+		gmac0: ethernet@4033c000 {
+			compatible = "nxp,s32cc-dwmac";
+			reg = <0x0 0x4033c000 0x0 0x2000>, /* gmac IP */
+			      <0x0 0x4007c004 0x0 0x4>;    /* GMAC_0_CTRL_STS */
+			interrupt-parent = <&gic>;
+			interrupts = <GIC_SPI 57 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "macirq";
+			tx-fifo-depth = <20480>;
+			rx-fifo-depth = <20480>;
+			phy-names = "gmac_xpcs";
+			phys = <&serdes0 PHY_TYPE_XPCS 0 0>;
+			dma-coherent;
+			snps,mtl-rx-config = <&mtl_rx_setup_gmac0>;
+			snps,mtl-tx-config = <&mtl_tx_setup_gmac0>;
+			clocks = <&clks S32CC_SCMI_CLK_GMAC0_AXI>,
+				 <&clks S32CC_SCMI_CLK_GMAC0_AXI>,
+				 <&clks S32CC_SCMI_CLK_GMAC0_TX_SGMII>,
+				 <&clks S32CC_SCMI_CLK_GMAC0_TX_RGMII>,
+				 <&clks S32CC_SCMI_CLK_GMAC0_TX_RMII>,
+				 <&clks S32CC_SCMI_CLK_GMAC0_TX_MII>,
+				 <&clks S32CC_SCMI_CLK_GMAC0_RX_SGMII>,
+				 <&clks S32CC_SCMI_CLK_GMAC0_RX_RGMII>,
+				 <&clks S32CC_SCMI_CLK_GMAC0_RX_RMII>,
+				 <&clks S32CC_SCMI_CLK_GMAC0_RX_MII>,
+				 <&clks S32CC_SCMI_CLK_GMAC0_TS>;
+			clock-names = "stmmaceth", "pclk",
+				      "tx_sgmii", "tx_rgmii",
+				      "tx_rmii", "tx_mii",
+				      "rx_sgmii", "rx_rgmii",
+				      "rx_rmii", "rx_mii",
+				      "ptp_ref";
+			status = "disabled";
+
+			mtl_rx_setup_gmac0: rx-queues-config {
+				snps,rx-queues-to-use = <5>;
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				queue@0 {
+				};
+
+				queue@1 {
+				};
+
+				queue@2 {
+				};
+
+				queue@3 {
+				};
+
+				queue@4 {
+				};
+			};
+
+			mtl_tx_setup_gmac0: tx-queues-config {
+				snps,tx-queues-to-use = <5>;
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				queue@0 {
+				};
+
+				queue@1 {
+				};
+
+				queue@2 {
+				};
+
+				queue@3 {
+				};
+
+				queue@4 {
+				};
+			};
+
+			gmac0_mdio: mdio0 {
+				compatible = "snps,dwmac-mdio";
+				#address-cells = <1>;
+				#size-cells = <0>;
+			};
 		};
 
 		ddr_errata: ddr_errata@403c0000 {
