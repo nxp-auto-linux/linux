@@ -46,6 +46,10 @@
 	status = "okay";
 };
 
+&pfe_reserved  {
+	status = "disabled";
+};
+
 &pcie0 {
 	/delete-property/ shared-mem;
 	status = "disabled";
