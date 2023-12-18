@@ -47,6 +47,10 @@
 	clock-frequency = <5000000>;
 };
 
+&pfe_reserved  {
+	status = "disabled";
+};
+
 &usdhc0 {
 	pinctrl-names = "default", "state_100mhz", "state_200mhz";
 	pinctrl-0 = <&sd0_pins_default>;
