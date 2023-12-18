@@ -296,6 +296,10 @@
 	};
 };
 
+&fccu {
+	status = "okay";
+};
+
 &i2c0 {
 	pinctrl-names = "default", "gpio";
 	pinctrl-0 = <&i2c0_pins>;
