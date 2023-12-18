@@ -192,6 +192,10 @@
 				<0 0x50410000 0 0x2000>,
 				<0 0x50420000 0 0x2000>;
 			interrupts = <GIC_PPI 9 IRQ_TYPE_LEVEL_HIGH>;
+
+			msi-controller;
+			/* GIC interrupts between 167 and 182 can be used as MBIs. */
+			mbi-ranges = <167 16>;
 		};
 	};
 };
@@ -210,6 +214,14 @@
 				<GIC_SPI 166 IRQ_TYPE_LEVEL_HIGH>,
 				<GIC_SPI 167 IRQ_TYPE_LEVEL_HIGH>,
 				<GIC_SPI 168 IRQ_TYPE_LEVEL_HIGH>;
+};
+
+&pcie0 {
+	pcie_device_id = <0x4300>;
+};
+
+&pcie1 {
+	pcie_device_id = <0x4300>;
 };
 
 &qspi {
