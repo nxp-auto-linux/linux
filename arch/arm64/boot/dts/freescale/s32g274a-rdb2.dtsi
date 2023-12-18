@@ -24,6 +24,20 @@
 	status = "okay";
 };
 
+&gmac0_mdio {
+	/* AQR107 */
+	gmac_mdio_a_phy3: ethernet-phy@3 {
+		compatible = "ethernet-phy-ieee802.3-c45";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		/*
+		 * Warning: from board rev D it is subject
+		 * for eth fixup: addr changed to 0x8
+		 */
+		reg = <3>;
+	};
+};
+
 &usdhc0 {
 	/* Remove no-1-8-v to enable higher speed modes for SD card.
 	 * However, this is not enough to enable HS400 or HS200 modes for eMMC.
