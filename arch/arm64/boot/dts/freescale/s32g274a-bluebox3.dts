@@ -19,6 +19,10 @@
 	clock-frequency = <5000000>;
 };
 
+&pcie0 {
+	status = "okay";
+};
+
 &qspi {
 	/delete-node/ mx25uw51245g@0;
 
