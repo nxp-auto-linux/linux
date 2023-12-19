@@ -39,6 +39,7 @@
 			compatible = "arm,cortex-a53";
 			reg = <0x0>;
 			enable-method = "psci";
+			clocks = <&dfs S32CC_SCMI_PERF_A53>;
 			next-level-cache = <&cluster0_l2>;
 		};
 
@@ -47,6 +48,7 @@
 			compatible = "arm,cortex-a53";
 			reg = <0x1>;
 			enable-method = "psci";
+			clocks = <&dfs S32CC_SCMI_PERF_A53>;
 			next-level-cache = <&cluster0_l2>;
 		};
 
@@ -55,6 +57,7 @@
 			compatible = "arm,cortex-a53";
 			reg = <0x100>;
 			enable-method = "psci";
+			clocks = <&dfs S32CC_SCMI_PERF_A53>;
 			next-level-cache = <&cluster1_l2>;
 		};
 
@@ -63,6 +66,7 @@
 			compatible = "arm,cortex-a53";
 			reg = <0x101>;
 			enable-method = "psci";
+			clocks = <&dfs S32CC_SCMI_PERF_A53>;
 			next-level-cache = <&cluster1_l2>;
 		};
 	};
