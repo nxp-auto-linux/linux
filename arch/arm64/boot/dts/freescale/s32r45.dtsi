@@ -503,6 +503,10 @@
 	status = "okay";
 };
 
+&ocotp {
+	compatible = "nxp,s32r45-ocotp";
+};
+
 &ddr_errata {
 	memory-region = <&ddr_errata_reserved>;
 	status = "okay";
