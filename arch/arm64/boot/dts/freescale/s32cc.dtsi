@@ -11,6 +11,7 @@
 #include <dt-bindings/memory/s32cc-siul2.h>
 #include <dt-bindings/misc/s32cc-fccu.h>
 #include <dt-bindings/nvmem/s32cc-siul2-nvmem.h>
+#include <dt-bindings/nvmem/s32cc-ocotp-nvmem.h>
 #include <dt-bindings/phy/phy.h>
 #include <dt-bindings/phy/phy-s32cc-serdes.h>
 #include <dt-bindings/pinctrl/s32cc-pinfunc.h>
@@ -222,6 +223,16 @@
 				pcie_dev_id: pcie_dev_id@2 {
 					reg = <PCIE_DEV_ID_OFFSET NVRAM_CELL_SIZE>;
 				};
+			};
+		};
+
+		ocotp: ocotp@400a4000 {
+			reg = <0x0 0x400a4000 0x0 0x400>;
+			#address-cells = <1>;
+			#size-cells = <1>;
+			status = "okay";
+			tmu_fuse_val: tmu_fuse_val@298 {
+				reg = <TMU_FUSE_OFFSET OCOTP_CELL_SIZE>;
 			};
 		};
 
