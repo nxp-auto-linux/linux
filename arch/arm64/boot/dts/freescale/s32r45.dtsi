@@ -6,6 +6,7 @@
 /dts-v1/;
 #include "s32cc.dtsi"
 #include <dt-bindings/clock/s32r45-scmi-clock.h>
+#include <dt-bindings/mux/nxp-s32r45-can-ts.h>
 
 / {
 	compatible = "nxp,s32r45";
@@ -539,4 +540,13 @@
 				<0 0 0 3 &gic 0 0 0 215 4>,
 				<0 0 0 4 &gic 0 0 0 216 4>;
 	msi-parent = <&gic>;
+};
+
+/* Used for FlexCAN timestamping */
+&stm7 {
+	status = "okay";
+};
+
+&can_ts_ctrl {
+	idle-states = <S32R45_CAN_TS_STM7>;
 };
