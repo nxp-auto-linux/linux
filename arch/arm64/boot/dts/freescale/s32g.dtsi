@@ -6,6 +6,7 @@
 #include "s32cc.dtsi"
 #include "s32g-pfe.dtsi"
 #include <dt-bindings/mailbox/nxp-llce-mb.h>
+#include <dt-bindings/mux/nxp-s32g-can-ts.h>
 #include <dt-bindings/nvmem/s32cc-scmi-nvmem.h>
 
 / {
@@ -1367,5 +1368,15 @@
 };
 
 &stm1 {
+	status = "okay";
+};
+
+/* Used for FlexCAN and LLCE CAN timestamping */
+&stm7 {
+	status = "okay";
+};
+
+&can_ts_ctrl {
+	idle-states = <S32G_CAN_TS_STM7>;
 	status = "okay";
 };
