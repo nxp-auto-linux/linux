@@ -1358,6 +1358,10 @@
 	compatible = "nxp,s32g-qspi";
 };
 
+&ocotp {
+	compatible = "nxp,s32g-ocotp";
+};
+
 &stm0 {
 	status = "okay";
 };
