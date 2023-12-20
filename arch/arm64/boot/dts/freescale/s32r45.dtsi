@@ -53,6 +53,7 @@
 			enable-method = "psci";
 			clocks = <&dfs S32CC_SCMI_PERF_A53>;
 			next-level-cache = <&cluster0_l2>;
+			#cooling-cells = <2>;
 		};
 
 		cpu1: cpu@1 {
@@ -62,6 +63,7 @@
 			enable-method = "psci";
 			clocks = <&dfs S32CC_SCMI_PERF_A53>;
 			next-level-cache = <&cluster0_l2>;
+			#cooling-cells = <2>;
 		};
 
 		cpu2: cpu@100 {
@@ -71,6 +73,7 @@
 			enable-method = "psci";
 			clocks = <&dfs S32CC_SCMI_PERF_A53>;
 			next-level-cache = <&cluster1_l2>;
+			#cooling-cells = <2>;
 		};
 
 		cpu3: cpu@101 {
@@ -80,6 +83,7 @@
 			enable-method = "psci";
 			clocks = <&dfs S32CC_SCMI_PERF_A53>;
 			next-level-cache = <&cluster1_l2>;
+			#cooling-cells = <2>;
 		};
 	};
 
