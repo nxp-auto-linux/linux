@@ -990,6 +990,9 @@ static int nxp_c45_mdo_add_secy(struct macsec_context *ctx)
 	bool can_rx_sc0_impl;
 	int idx;
 
+	if (!ctx->prepare)
+		return 0;
+
 	phydev_dbg(phydev, "add SecY SCI %016llx\n",
 		   sci_to_cpu(ctx->secy->sci));
 
@@ -1058,6 +1061,9 @@ static int nxp_c45_mdo_upd_secy(struct macsec_context *ctx)
 	struct nxp_c45_sa next_sa;
 	bool can_rx_sc0_impl;
 
+	if (!ctx->prepare)
+		return 0;
+
 	phydev_dbg(phydev, "update SecY SCI %016llx\n",
 		   sci_to_cpu(ctx->secy->sci));
 
@@ -1097,6 +1103,9 @@ static int nxp_c45_mdo_del_secy(struct macsec_context *ctx)
 	struct nxp_c45_secy *phy_secy;
 	struct nxp_c45_sa next_sa;
 
+	if (!ctx->prepare)
+		return 0;
+
 	phydev_dbg(phydev, "delete SecY SCI %016llx\n",
 		   sci_to_cpu(ctx->secy->sci));
 
@@ -1131,6 +1140,9 @@ static int nxp_c45_mdo_add_rxsc(struct macsec_context *ctx)
 	struct nxp_c45_phy *priv = phydev->priv;
 	struct nxp_c45_secy *phy_secy;
 
+	if (!ctx->prepare)
+		return 0;
+
 	phydev_dbg(phydev, "add RX SC SCI %016llx %s\n",
 		   sci_to_cpu(ctx->rx_sc->sci),
 		   ctx->rx_sc->active ? "enabled" : "disabled");
@@ -1161,6 +1173,9 @@ static int nxp_c45_mdo_upd_rxsc(struct macsec_context *ctx)
 	struct nxp_c45_phy *priv = phydev->priv;
 	struct nxp_c45_secy *phy_secy;
 
+	if (!ctx->prepare)
+		return 0;
+
 	phydev_dbg(phydev, "update RX SC SCI %016llx %s\n",
 		   sci_to_cpu(ctx->rx_sc->sci),
 		   ctx->rx_sc->active ? "enabled" : "disabled");
@@ -1180,6 +1195,9 @@ static int nxp_c45_mdo_del_rxsc(struct macsec_context *ctx)
 	struct phy_device *phydev = ctx->phydev;
 	struct nxp_c45_phy *priv = phydev->priv;
 	struct nxp_c45_secy *phy_secy;
+
+	if (!ctx->prepare)
+		return 0;
 
 	phydev_dbg(phydev, "delete RX SC SCI %016llx %s\n",
 		   sci_to_cpu(ctx->rx_sc->sci),
@@ -1204,6 +1222,9 @@ static int nxp_c45_mdo_add_rxsa(struct macsec_context *ctx)
 	struct nxp_c45_secy *phy_secy;
 	u8 an = ctx->sa.assoc_num;
 	struct nxp_c45_sa *sa;
+
+	if (!ctx->prepare)
+		return 0;
 
 	phydev_dbg(phydev, "add RX SA %u %s to RX SC SCI %016llx\n",
 		   an, rx_sa->active ? "enabled" : "disabled",
@@ -1235,6 +1256,9 @@ static int nxp_c45_mdo_upd_rxsa(struct macsec_context *ctx)
 	u8 an = ctx->sa.assoc_num;
 	struct nxp_c45_sa *sa;
 
+	if (!ctx->prepare)
+		return 0;
+
 	phydev_dbg(phydev, "update RX SA %u %s to RX SC SCI %016llx\n",
 		   an, rx_sa->active ? "enabled" : "disabled",
 		   sci_to_cpu(rx_sa->sc->sci));
@@ -1264,6 +1288,9 @@ static int nxp_c45_mdo_del_rxsa(struct macsec_context *ctx)
 	struct nxp_c45_secy *phy_secy;
 	u8 an = ctx->sa.assoc_num;
 	struct nxp_c45_sa *sa;
+
+	if (!ctx->prepare)
+		return 0;
 
 	phydev_dbg(phydev, "delete RX SA %u %s to RX SC SCI %016llx\n",
 		   an, rx_sa->active ? "enabled" : "disabled",
@@ -1295,6 +1322,9 @@ static int nxp_c45_mdo_add_txsa(struct macsec_context *ctx)
 	u8 an = ctx->sa.assoc_num;
 	struct nxp_c45_sa *sa;
 
+	if (!ctx->prepare)
+		return 0;
+
 	phydev_dbg(phydev, "add TX SA %u %s to TX SC %016llx\n",
 		   an, ctx->sa.tx_sa->active ? "enabled" : "disabled",
 		   sci_to_cpu(ctx->secy->sci));
@@ -1325,6 +1355,9 @@ static int nxp_c45_mdo_upd_txsa(struct macsec_context *ctx)
 	u8 an = ctx->sa.assoc_num;
 	struct nxp_c45_sa *sa;
 
+	if (!ctx->prepare)
+		return 0;
+
 	phydev_dbg(phydev, "update TX SA %u %s to TX SC %016llx\n",
 		   an, ctx->sa.tx_sa->active ? "enabled" : "disabled",
 		   sci_to_cpu(ctx->secy->sci));
@@ -1354,6 +1387,9 @@ static int nxp_c45_mdo_del_txsa(struct macsec_context *ctx)
 	u8 an = ctx->sa.assoc_num;
 	struct nxp_c45_sa *sa;
 
+	if (!ctx->prepare)
+		return 0;
+
 	phydev_dbg(phydev, "delete TX SA %u %s to TX SC %016llx\n",
 		   an, ctx->sa.tx_sa->active ? "enabled" : "disabled",
 		   sci_to_cpu(ctx->secy->sci));
@@ -1382,6 +1418,9 @@ static int nxp_c45_mdo_get_dev_stats(struct macsec_context *ctx)
 	struct nxp_c45_phy *priv = phydev->priv;
 	struct macsec_dev_stats  *dev_stats;
 	struct nxp_c45_secy *phy_secy;
+
+	if (!ctx->prepare)
+		return 0;
 
 	phy_secy = nxp_c45_find_secy(&priv->macsec->secy_list, ctx->secy->sci);
 	if (IS_ERR(phy_secy))
@@ -1426,6 +1465,9 @@ static int nxp_c45_mdo_get_tx_sc_stats(struct macsec_context *ctx)
 	struct nxp_c45_secy *phy_secy;
 	struct nxp_c45_sa *pos, *tmp;
 
+	if (!ctx->prepare)
+		return 0;
+
 	phy_secy = nxp_c45_find_secy(&priv->macsec->secy_list, ctx->secy->sci);
 	if (IS_ERR(phy_secy))
 		return PTR_ERR(phy_secy);
@@ -1460,6 +1502,9 @@ static int nxp_c45_mdo_get_tx_sa_stats(struct macsec_context *ctx)
 	u8 an = ctx->sa.assoc_num;
 	struct nxp_c45_sa *sa;
 
+	if (!ctx->prepare)
+		return 0;
+
 	phy_secy = nxp_c45_find_secy(&priv->macsec->secy_list, ctx->secy->sci);
 	if (IS_ERR(phy_secy))
 		return PTR_ERR(phy_secy);
@@ -1485,6 +1530,9 @@ static int nxp_c45_mdo_get_rx_sc_stats(struct macsec_context *ctx)
 	struct nxp_c45_sa *pos, *tmp;
 	u32 reg = 0;
 	int i;
+
+	if (!ctx->prepare)
+		return 0;
 
 	phy_secy = nxp_c45_find_secy(&priv->macsec->secy_list, ctx->secy->sci);
 	if (IS_ERR(phy_secy))
@@ -1538,6 +1586,9 @@ static int nxp_c45_mdo_get_rx_sa_stats(struct macsec_context *ctx)
 	struct nxp_c45_secy *phy_secy;
 	u8 an = ctx->sa.assoc_num;
 	struct nxp_c45_sa *sa;
+
+	if (!ctx->prepare)
+		return 0;
 
 	phy_secy = nxp_c45_find_secy(&priv->macsec->secy_list, ctx->secy->sci);
 	if (IS_ERR(phy_secy))
