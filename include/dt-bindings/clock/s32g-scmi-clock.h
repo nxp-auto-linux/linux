@@ -8,6 +8,9 @@
 
 #include <dt-bindings/clock/s32cc-scmi-clock.h>
 
+/* USB */
+#define S32G_SCMI_CLK_USB_MEM			S32CC_PLAT_SCMI_CLK(0)
+#define S32G_SCMI_CLK_USB_LOW			S32CC_PLAT_SCMI_CLK(1)
 /* PFE 0 */
 /* SGMII RX: PFE_MAC_0_RX_CLK -> SERDES_1_LANE_0_CDR_CLK */
 #define S32G_SCMI_CLK_PFE0_RX_SGMII		S32CC_PLAT_SCMI_CLK(2)
