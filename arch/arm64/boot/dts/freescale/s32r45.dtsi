@@ -608,3 +608,7 @@
 &can_ts_ctrl {
 	idle-states = <S32R45_CAN_TS_STM7>;
 };
+
+&gpr {
+	compatible = "nxp,s32r45-gpr-nvmem";
+};
