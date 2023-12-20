@@ -921,6 +921,8 @@
 				      "rx_sgmii", "rx_rgmii",
 				      "rx_rmii", "rx_mii",
 				      "ptp_ref";
+			nvmem-cell-names = "gmac_phy_intf_sel";
+			nvmem-cells = <&gmac0_phy_intf_sel>;
 			status = "disabled";
 
 			mtl_rx_setup_gmac0: rx-queues-config {
