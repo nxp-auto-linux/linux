@@ -91,7 +91,15 @@
  */
 #define S32CC_SCMI_NVMEM_DDR_PMU_IRQ		(0xA)
 
-#define S32CC_SCMI_NVMEM_MAX				(0xB)
+/*
+ * Commands: Write
+ * Register(s): SRC_0 - GMAC_0_CTRL_STS[3:0]
+ * Description: Writes a 4-bit value to the mentioned register, which selects
+   the GMAC0 PHY Interface Mode (e.g.: RGMII -> 0b0010).
+ */
+#define S32CC_SCMI_NVMEM_GMAC0_PHY_INTF_SEL	(0xB)
+
+#define S32CC_SCMI_NVMEM_MAX				(0xC)
 
 #define S32CC_SCMI_NVMEM_CELL_SIZE			(0x4)
 
