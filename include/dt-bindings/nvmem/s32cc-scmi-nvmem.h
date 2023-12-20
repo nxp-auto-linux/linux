@@ -83,7 +83,15 @@
  */
 #define S32CC_SCMI_NVMEM_LOCKSTEP_ENABLED	(0x9)
 
-#define S32CC_SCMI_NVMEM_MAX				(0xA)
+/*
+ * Commands: Write
+ * Register(s): DDR_GPR - DDR_Config_0[31]
+ * Description: Writes 0/1 to the mentioned register, which disables/enables
+   the DDR PMU (Monitor Counter Full) IRQ.
+ */
+#define S32CC_SCMI_NVMEM_DDR_PMU_IRQ		(0xA)
+
+#define S32CC_SCMI_NVMEM_MAX				(0xB)
 
 #define S32CC_SCMI_NVMEM_CELL_SIZE			(0x4)
 
