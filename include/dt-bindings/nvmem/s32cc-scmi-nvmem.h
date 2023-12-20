@@ -75,7 +75,15 @@
  */
 #define S32CC_SCMI_NVMEM_RESET_CAUSE		(0x8)
 
-#define S32CC_SCMI_NVMEM_MAX				(0x9)
+/*
+ * Commands: Read
+ * Register(s): A53_GPR - GPR06[0]
+ * Description: Returns the value of the lockstep enable bit for the A53
+   clusters (lockstep disabled -> 0, lockstep enabled -> 1).
+ */
+#define S32CC_SCMI_NVMEM_LOCKSTEP_ENABLED	(0x9)
+
+#define S32CC_SCMI_NVMEM_MAX				(0xA)
 
 #define S32CC_SCMI_NVMEM_CELL_SIZE			(0x4)
 
