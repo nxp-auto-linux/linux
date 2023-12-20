@@ -99,7 +99,48 @@
  */
 #define S32CC_SCMI_NVMEM_GMAC0_PHY_INTF_SEL	(0xB)
 
-#define S32CC_SCMI_NVMEM_MAX				(0xC)
+/*
+ * Commands: Write
+ * Register(s): SRC_1 - PFE_EMACX_INTF_SEL[11:0]
+ * Description: Writes a 12-bit value to the mentioned register, which selects
+   the PFE EMACs PHY Interface Mode, 4 bits for each EMAC.
+ */
+#define S32CC_SCMI_NVMEM_PFE_EMACS_INTF_SEL	(0xC)
+
+/*
+ * Commands: Read/Write
+ * Register(s): SRC_1 - PFE_COH_EN[5:0]
+ * Description: Reads or Writes a 6-bit value from/to the mentioned register,
+   which selects the PFE Coherency Mode. Values explained in the SoC Reference
+   Manual.
+ */
+#define S32CC_SCMI_NVMEM_PFE_COH_EN			(0xD)
+
+/*
+ * Commands: Write
+ * Register(s): SRC_1 - PFE_PWR_CTRL[8:0]
+ * Description: Writes a 9-bit value to the mentioned register, which drives
+   the PFE Subsystem signals. Values explained in the SoC Reference Manual.
+ */
+#define S32CC_SCMI_NVMEM_PFE_PWR_CTRL		(0xE)
+
+/*
+ * Commands: Write
+ * Register(s): SRC_1 - GENCTRL1[2:0]
+ * Description: Writes a 3-bit value to the mentioned register, where each bit
+   selects if corresponding EMAC runs or not in SGMII mode.
+ */
+#define S32CC_SCMI_NVMEM_PFE_EMACS_GENCTRL1	(0xF)
+
+/*
+ * Commands: Read/Write
+ * Register(s): SRC_1 - GENCTRL3[16]
+ * Descripition: Reads/Writes a 1-bit value from/to the mentioned register, only
+   used for communication between PFE Master and Slave instances.
+ */
+#define S32CC_SCMI_NVMEM_PFE_GENCTRL3		(0x10)
+
+#define S32CC_SCMI_NVMEM_MAX				(0x11)
 
 #define S32CC_SCMI_NVMEM_CELL_SIZE			(0x4)
 
