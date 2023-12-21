@@ -250,6 +250,13 @@ enum s32_pins {
 	S32R45_IMCR_Ethernet_REF_CLK = 535,
 	/* GMAC1 */
 	S32R45_IMCR_Ethernet1_MDIO = 659,
+	S32R45_IMCR_Ethernet1_TX_I = 660,
+	S32R45_IMCR_Ethernet1_RX_ER = 662,
+	S32R45_IMCR_Ethernet1_RX_DV_I = 663,
+	S32R45_IMCR_Ethernet1_RXD_I0 = 664,
+	S32R45_IMCR_Ethernet1_RXD_I1 = 665,
+	S32R45_IMCR_Ethernet1_RXD_I2 = 666,
+	S32R45_IMCR_Ethernet1_RXD_I3 = 667,
 
 	S32R45_IMCR_SIUL_EIRQ0 =  696,
 	S32R45_IMCR_SIUL_EIRQ1 =  697,
@@ -555,6 +562,13 @@ static const struct pinctrl_pin_desc s32r45_pinctrl_pads_siul2[] = {
 
 	/* GMAC1 */
 	S32_PINCTRL_PIN(S32R45_IMCR_Ethernet1_MDIO),
+	S32_PINCTRL_PIN(S32R45_IMCR_Ethernet1_TX_I),
+	S32_PINCTRL_PIN(S32R45_IMCR_Ethernet1_RX_ER),
+	S32_PINCTRL_PIN(S32R45_IMCR_Ethernet1_RX_DV_I),
+	S32_PINCTRL_PIN(S32R45_IMCR_Ethernet1_RXD_I0),
+	S32_PINCTRL_PIN(S32R45_IMCR_Ethernet1_RXD_I1),
+	S32_PINCTRL_PIN(S32R45_IMCR_Ethernet1_RXD_I2),
+	S32_PINCTRL_PIN(S32R45_IMCR_Ethernet1_RXD_I3),
 };
 
 static const struct s32_pin_range s32_pin_ranges_siul2[] = {
