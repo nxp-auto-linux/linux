@@ -986,6 +986,8 @@
 			reg = <0x0 0x403e0000 0x0 0x100>;
 			interrupt-parent = <&gic>;
 			interrupts = <GIC_SPI 115 IRQ_TYPE_LEVEL_HIGH>; /* GIC 147 */
+			nvmem-cells = <&ddr_pmu_irq>;
+			nvmem-cell-names = "ddr_pmu_irq";
 		};
 
 		pcie0: pcie@40400000 {
