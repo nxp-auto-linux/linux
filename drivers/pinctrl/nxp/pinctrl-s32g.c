@@ -1,10 +1,15 @@
-// SPDX-License-Identifier: GPL-2.0-or-later
+// SPDX-License-Identifier: (GPL-2.0+ OR BSD-3-Clause)
 /*
  * NXP S32G pinctrl driver
  *
  * Copyright 2015-2016 Freescale Semiconductor, Inc.
- * Copyright 2017-2018, 2020-2022 NXP
+ * Copyright 2017-2018, 2020-2023 NXP
  * Copyright (C) 2022 SUSE LLC
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
  */
 
 #include <linux/err.h>
@@ -730,7 +735,7 @@ static const struct s32_pinctrl_soc_data s32_pinctrl_data = {
 
 static const struct of_device_id s32_pinctrl_of_match[] = {
 	{
-		.compatible = "nxp,s32g2-siul2-pinctrl",
+		.compatible = "nxp,s32g-siul2-pinctrl",
 		.data = &s32_pinctrl_data,
 	},
 	{ /* sentinel */ }
@@ -761,6 +766,6 @@ static struct platform_driver s32g_pinctrl_driver = {
 };
 builtin_platform_driver(s32g_pinctrl_driver);
 
-MODULE_AUTHOR("Matthew Nunez <matthew.nunez@nxp.com>");
+MODULE_AUTHOR("NXP");
 MODULE_DESCRIPTION("NXP S32G pinctrl driver");
 MODULE_LICENSE("GPL");
