@@ -816,6 +816,10 @@ static int s32_pinctrl_parse_functions(struct device_node *np,
 		return -ENOMEM;
 
 	for_each_child_of_node(np, child) {
+		if (info->grp_index >= info->ngroups) {
+			dev_err(info->dev, "Invalid grp_index: %d\n", info->grp_index);
+			return -EINVAL;
+		}
 		groups[i] = child->name;
 		grp = &info->groups[info->grp_index++];
 		ret = s32_pinctrl_parse_groups(child, grp, info);
