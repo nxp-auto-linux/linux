@@ -2,6 +2,7 @@
 /*
  * Copyright 2013-2014 Freescale Semiconductor, Inc.
  * Copyright 2018 Angelo Dureghello <angelo@sysam.it>
+ * Copyright 2023 NXP
  */
 #ifndef _FSL_EDMA_COMMON_H_
 #define _FSL_EDMA_COMMON_H_
@@ -188,6 +189,7 @@ struct fsl_edma_desc {
 #define FSL_EDMA_DRV_CLEAR_DONE_E_SG	BIT(13)
 /* Need clean CHn_CSR DONE before enable TCD's MAJORELINK */
 #define FSL_EDMA_DRV_CLEAR_DONE_E_LINK	BIT(14)
+#define FSL_EDMA_DRV_REVERSED_CHANNEL_MUX	BIT(15)
 
 #define FSL_EDMA_DRV_EDMA3	(FSL_EDMA_DRV_SPLIT_REG |	\
 				 FSL_EDMA_DRV_BUS_8BYTE |	\
