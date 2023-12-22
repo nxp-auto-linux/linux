@@ -441,16 +441,16 @@ static int s32_pmx_gpio_set_direction(struct pinctrl_dev *pctldev,
 				      unsigned int offset,
 				      bool input)
 {
-	unsigned int config;
+	/* Always enable IBE for GPIOs. This allows us to read the
+	 * actual line value and compare it with the one set.
+	 */
+	unsigned int config = S32_MSCR_IBE;
 	unsigned int mask = S32_MSCR_IBE | S32_MSCR_OBE;
 
-	if (input) {
-		/* Disable output buffer and enable input buffer */
-		config = S32_MSCR_IBE;
-	} else {
-		/* Disable input buffer and enable output buffer */
-		config = S32_MSCR_OBE;
-	}
+
+	/* Enable output buffer */
+	if (!input)
+		config |= S32_MSCR_OBE;
 
 	return s32_regmap_update(pctldev, offset, mask, config);
 }
