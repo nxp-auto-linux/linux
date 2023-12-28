@@ -465,22 +465,6 @@ static const struct pinmux_ops s32_pmx_ops = {
 	.gpio_set_direction = s32_pmx_gpio_set_direction,
 };
 
-/* Set the reserved elements as -1 */
-static const int support_slew[] = {208, -1, -1, -1, 166, 150, 133, 83};
-
-static int s32_get_slew_regval(int arg)
-{
-	unsigned int i;
-
-	/* Translate a real slew rate (MHz) to a register value */
-	for (i = 0; i < ARRAY_SIZE(support_slew); i++) {
-		if (arg == support_slew[i])
-			return i;
-	}
-
-	return -EINVAL;
-}
-
 static inline void s32_pin_set_pull(enum pin_config_param param,
 				   unsigned int *mask, unsigned int *config)
 {
@@ -508,7 +492,6 @@ static int s32_parse_pincfg(unsigned long pincfg, unsigned int *mask,
 {
 	enum pin_config_param param;
 	u32 arg;
-	int ret;
 
 	param = pinconf_to_config_param(pincfg);
 	arg = pinconf_to_config_argument(pincfg);
@@ -540,10 +523,7 @@ static int s32_parse_pincfg(unsigned long pincfg, unsigned int *mask,
 		*mask |= S32_MSCR_IBE;
 		break;
 	case PIN_CONFIG_SLEW_RATE:
-		ret = s32_get_slew_regval(arg);
-		if (ret < 0)
-			return ret;
-		*config |= S32_MSCR_SRE((u32)ret);
+		*config |= S32_MSCR_SRE(arg);
 		*mask |= S32_MSCR_SRE(~0);
 		break;
 	case PIN_CONFIG_BIAS_DISABLE:
