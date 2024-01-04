@@ -3,7 +3,7 @@
  * SIUL2 GPIO support.
  *
  * Copyright (c) 2016 Freescale Semiconductor, Inc.
- * Copyright 2019-2023 NXP
+ * Copyright 2019-2024 NXP
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 or
@@ -1176,7 +1176,7 @@ static int siul2_gpio_probe(struct platform_device *pdev)
 		gpio_dev->siul2[i].gpio_num = pinspec.args[2];
 	}
 
-	gc->base = -1;
+	gc->base = 0;
 
 	/* In some cases, there is a gap between SIUL20 and SIUL21 GPIOS. */
 	gc->ngpio = gpio_dev->siul2[1].gpio_base + gpio_dev->siul2[1].gpio_num;
