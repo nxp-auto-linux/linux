@@ -222,6 +222,7 @@ static void linflex_copy_rx_to_tty(struct linflex_port *lfport)
 	struct circ_buf *ring_buf = &lfport->dma_rx_ring_buf;
 	struct tty_port *port = &lfport->port.state->port;
 	struct dma_tx_state state;
+	enum dma_status dmastat;
 	size_t count, received = 0;
 	int copied = 0;
 	int new_head;
@@ -231,7 +232,12 @@ static void linflex_copy_rx_to_tty(struct linflex_port *lfport)
 		return;
 	}
 
-	dmaengine_tx_status(lfport->dma_rx_chan, lfport->dma_rx_cookie, &state);
+	dmastat = dmaengine_tx_status(lfport->dma_rx_chan, lfport->dma_rx_cookie, &state);
+	if (dmastat == DMA_ERROR) {
+		dev_err(lfport->port.dev, "Rx DMA transfer failed!\n");
+		return;
+	}
+
 	new_head = FSL_UART_RX_DMA_BUFFER_SIZE - state.residue;
 	if (ring_buf->head == new_head)
 		return;
