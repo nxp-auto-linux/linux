@@ -1,6 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0+ OR BSD-3-Clause */
+/* SPDX-License-Identifier: GPL-2.0-only OR BSD-3-Clause */
 /*
- * Copyright 2023 NXP
+ * Copyright 2023-2024 NXP
  */
 
 #ifndef S32CC_SCMI_NVMEM_H
@@ -11,28 +11,28 @@
  * Register(s): SIUL2_0 - MIDR1[31:26]
  * Description: Returns the ASCII code for the SoC Letter (e.g. 'G' -> 71).
  */
-#define S32CC_SCMI_NVMEM_SOC_LETTER			0x0
+#define S32CC_SCMI_NVMEM_SOC_LETTER			(0x0)
 
 /*
  * Commands: Read
  * Register(s): SIUL2_0 - MIDR1[25:16]
  * Description: Returns the SoC Part Number (e.g.: 399).
  */
-#define S32CC_SCMI_NVMEM_SOC_PART_NO			0x1
+#define S32CC_SCMI_NVMEM_SOC_PART_NO		(0x1)
 
 /*
  * Commands: Read
  * Register(s): SIUL2_0 - MIDR1[7:4]
  * Description: Returns the MAJOR field of the SoC Revision (e.g.: 1).
  */
-#define S32CC_SCMI_NVMEM_SOC_MAJOR			0x2
+#define S32CC_SCMI_NVMEM_SOC_MAJOR			(0x2)
 
 /*
  * Commands: Read
  * Register(s): SIUL2_0 - MIDR1[3:0]
  * Description: Returns the MINOR field of the SoC Revision (e.g.: 1).
  */
-#define S32CC_SCMI_NVMEM_SOC_MINOR			0x3
+#define S32CC_SCMI_NVMEM_SOC_MINOR			(0x3)
 
 /*
  * Commands: Read
@@ -40,7 +40,7 @@
  * Description: Returns the FREQUENCY field from the reg, translated according
    to the SoC's Reference Manual (e.g.: 1000MHz -> 0b1011).
  */
-#define S32CC_SCMI_NVMEM_CORE_MAX_FREQ			0x4
+#define S32CC_SCMI_NVMEM_CORE_MAX_FREQ		(0x4)
 
 /*
  * Commands: Read
@@ -48,7 +48,7 @@
  * Description: Returns the PCIe Device ID based on the SoC Part Number (e.g.:
    for S32G399 -> 0x0).
  */
-#define S32CC_SCMI_NVMEM_PCIE_DEV_ID			0x5
+#define S32CC_SCMI_NVMEM_PCIE_DEV_ID		(0x5)
 
 /*
  * Commands: Read
@@ -56,7 +56,7 @@
  * Description: Returns the SerDes presence (SerDes not present -> 0,
    SerDes present -> 1).
  */
-#define S32CC_SCMI_NVMEM_SERDES_PRESENCE		0x6
+#define S32CC_SCMI_NVMEM_SERDES_PRESENCE	(0x6)
 
 /*
  * Commands: Read
@@ -64,7 +64,7 @@
  * Description: Returns the SUBMINOR field of the SoC Revision, if applicable
    (e.g.: 0).
  */
-#define S32CC_SCMI_NVMEM_SOC_SUBMINOR			0x7
+#define S32CC_SCMI_NVMEM_SOC_SUBMINOR		(0x7)
 
 /*
  * Commands: Read
@@ -73,7 +73,7 @@
    mentioned registers, and also clears it by writing a non-zero value to
    MC_RGM - DES[31:0].
  */
-#define S32CC_SCMI_NVMEM_RESET_CAUSE			0x8
+#define S32CC_SCMI_NVMEM_RESET_CAUSE		(0x8)
 
 /*
  * Commands: Read
@@ -81,7 +81,7 @@
  * Description: Returns the value of the lockstep enable bit for the A53
    clusters (lockstep disabled -> 0, lockstep enabled -> 1).
  */
-#define S32CC_SCMI_NVMEM_LOCKSTEP_ENABLED		0x9
+#define S32CC_SCMI_NVMEM_LOCKSTEP_ENABLED	(0x9)
 
 /*
  * Commands: Write
@@ -89,7 +89,7 @@
  * Description: Writes 0/1 to the mentioned register, which disables/enables
    the DDR PMU (Monitor Counter Full) IRQ.
  */
-#define S32CC_SCMI_NVMEM_DDR_PMU_IRQ                    0xA
+#define S32CC_SCMI_NVMEM_DDR_PMU_IRQ		(0xA)
 
 /*
  * Commands: Write
@@ -97,7 +97,7 @@
  * Description: Writes a 4-bit value to the mentioned register, which selects
    the GMAC0 PHY Interface Mode (e.g.: RGMII -> 0b0010).
  */
-#define S32CC_SCMI_NVMEM_GMAC0_PHY_INTF_SEL             0xB
+#define S32CC_SCMI_NVMEM_GMAC0_PHY_INTF_SEL	(0xB)
 
 /*
  * Commands: Write
@@ -105,7 +105,7 @@
  * Description: Writes a 12-bit value to the mentioned register, which selects
    the PFE EMACs PHY Interface Mode, 4 bits for each EMAC.
  */
-#define S32CC_SCMI_NVMEM_PFE_EMACS_INTF_SEL             0xC
+#define S32CC_SCMI_NVMEM_PFE_EMACS_INTF_SEL	(0xC)
 
 /*
  * Commands: Read/Write
@@ -114,7 +114,7 @@
    which selects the PFE Coherency Mode. Values explained in the SoC Reference
    Manual.
  */
-#define S32CC_SCMI_NVMEM_PFE_COH_EN                     0xD
+#define S32CC_SCMI_NVMEM_PFE_COH_EN			(0xD)
 
 /*
  * Commands: Write
@@ -122,7 +122,7 @@
  * Description: Writes a 9-bit value to the mentioned register, which drives
    the PFE Subsystem signals. Values explained in the SoC Reference Manual.
  */
-#define S32CC_SCMI_NVMEM_PFE_PWR_CTRL                   0xE
+#define S32CC_SCMI_NVMEM_PFE_PWR_CTRL		(0xE)
 
 /*
  * Commands: Write
@@ -130,7 +130,7 @@
  * Description: Writes a 3-bit value to the mentioned register, where each bit
    selects if corresponding EMAC runs or not in SGMII mode.
  */
-#define S32CC_SCMI_NVMEM_PFE_EMACS_GENCTRL1             0xF
+#define S32CC_SCMI_NVMEM_PFE_EMACS_GENCTRL1	(0xF)
 
 /*
  * Commands: Read/Write
@@ -138,7 +138,7 @@
  * Descripition: Reads/Writes a 1-bit value from/to the mentioned register, only
    used for communication between PFE Master and Slave instances.
  */
-#define S32CC_SCMI_NVMEM_PFE_GENCTRL3                   0x10
+#define S32CC_SCMI_NVMEM_PFE_GENCTRL3		(0x10)
 
 /*
  * Commands: Write
@@ -146,7 +146,7 @@
  * Description: Writes a 1-bit value to the mentioned register, for enabling/
    disabling the DDR IO retention (0 -> enabled, 1 -> disabled).
  */
-#define S32CC_SCMI_NVMEM_DDR_RET_CTRL                   0x11
+#define S32CC_SCMI_NVMEM_DDR_RET_CTRL		(0x11)
 
 /*
  * Commands: Write
@@ -155,10 +155,10 @@
    disabling the Memory Data retention while in Standby mode
    (0 -> disabled, 1 -> enabled).
  */
-#define S32CC_SCMI_NVMEM_DDR_MEM_RET			0x12
+#define S32CC_SCMI_NVMEM_DDR_MEM_RET		(0x12)
 
-#define S32CC_SCMI_NVMEM_MAX				0x13
+#define S32CC_SCMI_NVMEM_MAX				(0x13)
 
-#define S32CC_SCMI_NVMEM_CELL_SIZE			0x4
+#define S32CC_SCMI_NVMEM_CELL_SIZE			(0x4)
 
 #endif

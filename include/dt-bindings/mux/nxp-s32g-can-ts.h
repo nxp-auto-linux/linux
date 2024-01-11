@@ -1,9 +1,10 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0-only OR BSD-3-Clause */
 /*
- * Copyright 2023 NXP
+ * Copyright 2023-2024 NXP
  *
  * This header provides constants for CAN timestamp sources for NXP S32G SoCs
  */
+
 #ifndef _DT_BINDINGS_MUX_NXP_S32G_CAN_TS
 #define _DT_BINDINGS_MUX_NXP_S32G_CAN_TS
 
