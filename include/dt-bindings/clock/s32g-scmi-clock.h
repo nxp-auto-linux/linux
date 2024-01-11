@@ -1,7 +1,8 @@
 /* SPDX-License-Identifier: BSD-3-Clause */
 /*
- * Copyright 2020-2021, 2023 NXP
+ * Copyright 2020-2021, 2023-2024 NXP
  */
+
 #ifndef __DT_BINDINGS_SCMI_CLOCK_S32G_H
 #define __DT_BINDINGS_SCMI_CLOCK_S32G_H
 
@@ -10,7 +11,6 @@
 /* USB */
 #define S32G_SCMI_CLK_USB_MEM			S32CC_PLAT_SCMI_CLK(0)
 #define S32G_SCMI_CLK_USB_LOW			S32CC_PLAT_SCMI_CLK(1)
-
 /* PFE 0 */
 /* SGMII RX: PFE_MAC_0_RX_CLK -> SERDES_1_LANE_0_CDR_CLK */
 #define S32G_SCMI_CLK_PFE0_RX_SGMII		S32CC_PLAT_SCMI_CLK(2)
@@ -70,4 +70,4 @@
 #error Please increase the value of S32CC_SCMI_CLK_MAX_ID
 #endif
 
-#endif
+#endif /* __DT_BINDINGS_SCMI_CLOCK_S32G_H */

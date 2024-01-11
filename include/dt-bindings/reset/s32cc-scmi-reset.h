@@ -1,7 +1,8 @@
-/* SPDX-License-Identifier: BSD-3-Clause */
+/* SPDX-License-Identifier: GPL-2.0-only OR BSD-3-Clause */
 /*
- * Copyright 2021, 2023 NXP
+ * Copyright 2021, 2023-2024 NXP
  */
+
 #ifndef __DT_BINDINGS_S32CC_SCMI_RESET_H
 #define __DT_BINDINGS_S32CC_SCMI_RESET_H
 
@@ -29,5 +30,4 @@
 #define S32CC_SCMI_PLAT_RST_BASE_ID	S32CC_SCMI_RST(16)
 #define S32CC_SCMI_RST_MAX_ID		S32CC_PLAT_SCMI_RST(7)
 
-#endif
-
+#endif /* __DT_BINDINGS_S32CC_SCMI_RESET_H */

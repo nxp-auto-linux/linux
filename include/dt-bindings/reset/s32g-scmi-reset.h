@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: BSD-3-Clause */
 /*
- * Copyright 2021, 2023 NXP
+ * Copyright 2021, 2023-2024 NXP
  */
 #ifndef __DT_BINDINGS_S32G_SCMI_RESET_H
 #define __DT_BINDINGS_S32G_SCMI_RESET_H
@@ -16,4 +16,3 @@
 #endif
 
 #endif
-
