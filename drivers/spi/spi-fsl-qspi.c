@@ -7,7 +7,7 @@
  * Copyright (C) 2018 Bootlin
  * Copyright (C) 2018 exceet electronics GmbH
  * Copyright (C) 2018 Kontron Electronics GmbH
- * Copyright 2021-2023 NXP
+ * Copyright 2021-2024 NXP
  *
  * Transition to SPI MEM interface:
  * Authors:
@@ -59,6 +59,7 @@
 /* Registers used by the driver */
 #define QUADSPI_MCR			0x00
 #define QUADSPI_MCR_DQS_EXTERNAL	(0x3 << 24)
+#define QUADSPI_MCR_DQS_INT_PAD		(0x1 << 24)
 #define QUADSPI_MCR_RESERVED_MASK	GENMASK(19, 16)
 #define QUADSPI_MCR_ISD3FB		BIT(19)
 #define QUADSPI_MCR_ISD2FB		BIT(18)
@@ -287,6 +288,11 @@
  */
 #define QUADSPI_QUIRK_LOW_FREQ_DELAY_CHAIN	BIT(9)
 
+/*
+ * Selects internal pad loopback for SDR operations
+ */
+#define QUADSPI_QUIRK_INT_LOOPBACK_SDR		BIT(10)
+
 struct fsl_qspi_devtype_data {
 	unsigned int rxfifo;
 	unsigned int txfifo;
@@ -360,7 +366,8 @@ static const struct fsl_qspi_devtype_data s32cc_data = {
 	.invalid_mstrid = QUADSPI_BUFXCR_INVALID_MSTRID,
 	.ahb_buf_size = SZ_1K,
 	.quirks = QUADSPI_QUIRK_USE_TDH_SETTING | QUADSPI_QUIRK_HAS_DLL |
-	    QUADSPI_QUIRK_OCTAL_SUPPORT | QUADSPI_QUIRK_READ_ENTIRE_AHB,
+	    QUADSPI_QUIRK_OCTAL_SUPPORT | QUADSPI_QUIRK_READ_ENTIRE_AHB |
+	    QUADSPI_QUIRK_INT_LOOPBACK_SDR,
 	.little_endian = true,
 	.flash1_size = 0x20000000,
 	.flash2_size = 0x20000000,
@@ -372,7 +379,8 @@ static const struct fsl_qspi_devtype_data s32g3_data = {
 	.invalid_mstrid = QUADSPI_BUFXCR_INVALID_MSTRID,
 	.ahb_buf_size = SZ_1K,
 	.quirks = QUADSPI_QUIRK_USE_TDH_SETTING | QUADSPI_QUIRK_HAS_DLL |
-	    QUADSPI_QUIRK_OCTAL_SUPPORT | QUADSPI_QUIRK_READ_ENTIRE_AHB,
+	    QUADSPI_QUIRK_OCTAL_SUPPORT | QUADSPI_QUIRK_READ_ENTIRE_AHB |
+	    QUADSPI_QUIRK_INT_LOOPBACK_SDR,
 	.little_endian = true,
 	.flash1_size = 0x20000000,
 	.flash2_size = 0x20000000,
@@ -385,7 +393,7 @@ static const struct fsl_qspi_devtype_data s32r45_data = {
 	.ahb_buf_size = SZ_1K,
 	.quirks = QUADSPI_QUIRK_USE_TDH_SETTING | QUADSPI_QUIRK_HAS_DLL |
 	    QUADSPI_QUIRK_OCTAL_SUPPORT | QUADSPI_QUIRK_READ_ENTIRE_AHB |
-	    QUADSPI_QUIRK_LOW_FREQ_DELAY_CHAIN,
+	    QUADSPI_QUIRK_LOW_FREQ_DELAY_CHAIN | QUADSPI_QUIRK_INT_LOOPBACK_SDR,
 	.little_endian = true,
 	.flash1_size = 0x20000000,
 	.flash2_size = 0x20000000,
@@ -493,6 +501,11 @@ static inline int can_read_entire_ahb(struct fsl_qspi *q)
 static inline int low_freq_chain(struct fsl_qspi *q)
 {
 	return q->devtype_data->quirks & QUADSPI_QUIRK_LOW_FREQ_DELAY_CHAIN;
+}
+
+static inline int sdr_internal_loopback(struct fsl_qspi *q)
+{
+	return q->devtype_data->quirks & QUADSPI_QUIRK_INT_LOOPBACK_SDR;
 }
 
 /*
@@ -1289,6 +1302,10 @@ static int fsl_qspi_default_setup(struct fsl_qspi *q)
 
 	/* Enable the module */
 	reg = QUADSPI_MCR_RESERVED_MASK | QUADSPI_MCR_END_CFG_MASK;
+
+	if (sdr_internal_loopback(q))
+		reg |= QUADSPI_MCR_DQS_INT_PAD;
+
 	if (has_dll(q)) {
 		reg |= QUADSPI_MCR_DQS_EN;
 		qspi_writel(q, 0, base + QUADSPI_SFACR);
