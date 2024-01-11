@@ -1,7 +1,8 @@
-/* SPDX-License-Identifier: GPL-2.0+ */
+/* SPDX-License-Identifier: GPL-2.0-only OR BSD-3-Clause */
 /*
- * Copyright 2023 NXP
+ * Copyright 2023-2024 NXP
  */
+
 #ifndef S32G_GPR_NVMEM_H
 #define S32G_GPR_NVMEM_H
 

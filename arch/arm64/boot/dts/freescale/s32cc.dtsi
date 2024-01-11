@@ -3,7 +3,7 @@
  * NXP S32CC SoC family
  *
  * Copyright (c) 2021 SUSE LLC
- * Copyright 2017-2023 NXP
+ * Copyright 2017-2024 NXP
  */
 
 #include <dt-bindings/interrupt-controller/arm-gic.h>
@@ -344,8 +344,8 @@
 			reg-names = "QuadSPI-memory", "QuadSPI";
 			interrupts = <GIC_SPI 32 IRQ_TYPE_LEVEL_HIGH>;
 			clock-names = "qspi_en", "qspi";
-			clocks = <&clks S32CC_SCMI_CLK_QSPI_FLASH1X>,
-				 <&clks S32CC_SCMI_CLK_QSPI_FLASH1X>;
+			clocks = <&clks S32CC_SCMI_CLK_QUADSPI_FLASH1X>,
+				 <&clks S32CC_SCMI_CLK_QUADSPI_FLASH1X>;
 			spi-max-frequency = <200000000>;
 			spi-num-chipselects = <2>;
 			status = "disabled";
