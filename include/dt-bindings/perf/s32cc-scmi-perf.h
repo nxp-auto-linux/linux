@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only OR BSD-3-Clause */
 /*
- * Copyright 2022 NXP
+ * Copyright 2022-2024 NXP
  */
 
 #ifndef __DT_BINDINGS_SCMI_PERF_S32CC_H
