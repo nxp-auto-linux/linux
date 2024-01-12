@@ -1,28 +1,15 @@
 // SPDX-License-Identifier: (GPL-2.0+ OR BSD-3-Clause)
 /*
- * NXP S32G pinctrl driver
+ * NXP S32G pinctrl definitions
  *
  * Copyright 2015-2016 Freescale Semiconductor, Inc.
- * Copyright 2017-2023 NXP
+ * Copyright 2017-2024 NXP
  * Copyright (C) 2022 SUSE LLC
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
  */
-
-#include <linux/err.h>
-#include <linux/init.h>
-#include <linux/io.h>
-#include <linux/module.h>
-#include <linux/of.h>
-#include <linux/platform_device.h>
-#include <linux/pinctrl/pinctrl.h>
 
 #include "pinctrl-s32.h"
 
-enum s32_pins {
+enum s32g_pins {
 	S32G_MSCR_PA_00 =  0,
 	S32G_MSCR_PA_01 =  1,
 	S32G_MSCR_PA_02 =  2,
@@ -753,7 +740,7 @@ static const struct pinctrl_pin_desc s32_pinctrl_pads_siul2[] = {
 	S32_PINCTRL_PIN(S32G_IMCR_SIUL_EIRQ31),
 };
 
-static const struct s32_pin_range s32_pin_ranges_siul2[] = {
+static const struct s32_pin_range s32g_pin_ranges_siul2[] = {
 	/* MSCR pin ID ranges */
 	S32_PIN_RANGE(0, 101),
 	S32_PIN_RANGE(112, 122),
@@ -791,46 +778,9 @@ static const struct s32_pin_range s32_pin_ranges_siul2[] = {
 	S32_PIN_RANGE(1005, 1007),
 };
 
-static const struct s32_pinctrl_soc_data s32_pinctrl_data = {
+static const struct s32_pinctrl_soc_data s32g_pinctrl_data = {
 	.pins = s32_pinctrl_pads_siul2,
 	.npins = ARRAY_SIZE(s32_pinctrl_pads_siul2),
-	.mem_pin_ranges = s32_pin_ranges_siul2,
-	.mem_regions = ARRAY_SIZE(s32_pin_ranges_siul2),
+	.mem_pin_ranges = s32g_pin_ranges_siul2,
+	.mem_regions = ARRAY_SIZE(s32g_pin_ranges_siul2),
 };
-
-static const struct of_device_id s32_pinctrl_of_match[] = {
-	{
-		.compatible = "nxp,s32g-siul2-pinctrl",
-		.data = &s32_pinctrl_data,
-	},
-	{ /* sentinel */ }
-};
-MODULE_DEVICE_TABLE(of, s32_pinctrl_of_match);
-
-static int s32g_pinctrl_probe(struct platform_device *pdev)
-{
-	const struct s32_pinctrl_soc_data *soc_data;
-
-	soc_data = of_device_get_match_data(&pdev->dev);
-
-	return s32_pinctrl_probe(pdev, soc_data);
-}
-
-static const struct dev_pm_ops s32g_pinctrl_pm_ops = {
-	LATE_SYSTEM_SLEEP_PM_OPS(s32_pinctrl_suspend, s32_pinctrl_resume)
-};
-
-static struct platform_driver s32g_pinctrl_driver = {
-	.driver = {
-		.name = "s32g-siul2-pinctrl",
-		.of_match_table = s32_pinctrl_of_match,
-		.pm = pm_sleep_ptr(&s32g_pinctrl_pm_ops),
-		.suppress_bind_attrs = true,
-	},
-	.probe = s32g_pinctrl_probe,
-};
-builtin_platform_driver(s32g_pinctrl_driver);
-
-MODULE_AUTHOR("NXP");
-MODULE_DESCRIPTION("NXP S32G pinctrl driver");
-MODULE_LICENSE("GPL");
