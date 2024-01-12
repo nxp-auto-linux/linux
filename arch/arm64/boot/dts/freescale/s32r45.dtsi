@@ -505,15 +505,31 @@
 		};
 
 		radar_lax {
-			polling-delay-passive = <1000>;
-			polling-delay = <5000>;
+			polling-delay-passive = <60000>;
+			polling-delay = <60000>;
 			thermal-sensors = <&tmu 1>;
+
+			trips {
+				radar_lax_alert0: trip-point0 {
+					temperature = <80000>;
+					hysteresis = <2000>;
+					type = "hot";
+				};
+			};
 		};
 
 		analog_ips {
-			polling-delay-passive = <1000>;
-			polling-delay = <5000>;
+			polling-delay-passive = <60000>;
+			polling-delay = <60000>;
 			thermal-sensors = <&tmu 2>;
+
+			trips {
+				analog_ips_alert0: trip-point0 {
+					temperature = <80000>;
+					hysteresis = <2000>;
+					type = "hot";
+				};
+			};
 		};
 	};
 };

@@ -1015,9 +1015,17 @@
 
 	thermal-zones {
 		ddr_sram {
-			polling-delay-passive = <1000>;
-			polling-delay = <5000>;
+			polling-delay-passive = <60000>;
+			polling-delay = <60000>;
 			thermal-sensors = <&tmu 0>;
+
+			trips {
+				ddr_sram_alert0: trip-point0 {
+					temperature = <80000>;
+					hysteresis = <2000>;
+					type = "hot";
+				};
+			};
 		};
 
 		a53_cores {
@@ -1050,9 +1058,17 @@
 		};
 
 		llce {
-			polling-delay-passive = <1000>;
-			polling-delay = <5000>;
+			polling-delay-passive = <60000>;
+			polling-delay = <60000>;
 			thermal-sensors = <&tmu 2>;
+
+			trips {
+				llce_alert0: trip-point0 {
+					temperature = <80000>;
+					hysteresis = <2000>;
+					type = "hot";
+				};
+			};
 		};
 	};
 };
