@@ -3,7 +3,7 @@
  * Core driver for the S32 CC (Common Chassis) pin controller
  *
  * Copyright 2015-2016 Freescale Semiconductor, Inc.
- * Copyright 2017-2023 NXP
+ * Copyright 2017-2024 NXP
  * Copyright (C) 2022 SUSE LLC
  *
  * This program is free software; you can redistribute it and/or modify
@@ -31,7 +31,8 @@
 #include "../core.h"
 #include "../pinconf.h"
 #include "../pinctrl-utils.h"
-#include "pinctrl-s32.h"
+#include "pinctrl-s32g.h"
+#include "pinctrl-s32r45.h"
 
 #define S32_PIN_ID_SHIFT	4
 #define S32_PIN_ID_MASK		GENMASK(31, S32_PIN_ID_SHIFT)
@@ -819,6 +820,13 @@ static int s32_pinctrl_parse_functions(struct device_node *np,
 	return 0;
 }
 
+static const struct of_device_id s32_pinctrl_of_match[] = {
+	{ .compatible = "nxp,s32g-siul2-pinctrl", .data = &s32g_pinctrl_data },
+	{ .compatible = "nxp,s32r45-siul2-pinctrl", .data = &s32r45_pinctrl_data },
+	{ /* sentinel */ }
+};
+MODULE_DEVICE_TABLE(of, s32_pinctrl_of_match);
+
 static int s32_pinctrl_probe_dt(struct platform_device *pdev,
 				struct s32_pinctrl *ipctl)
 {
@@ -902,9 +910,9 @@ static int s32_pinctrl_probe_dt(struct platform_device *pdev,
 	return 0;
 }
 
-int s32_pinctrl_probe(struct platform_device *pdev,
-		      const struct s32_pinctrl_soc_data *soc_data)
+static int s32_pinctrl_probe(struct platform_device *pdev)
 {
+	const struct s32_pinctrl_soc_data *soc_data;
 	struct s32_pinctrl *ipctl;
 	int ret;
 	struct pinctrl_desc *s32_pinctrl_desc;
@@ -913,6 +921,7 @@ int s32_pinctrl_probe(struct platform_device *pdev,
 	struct s32_pinctrl_context *saved_context;
 #endif
 
+	soc_data = of_device_get_match_data(&pdev->dev);
 	if (!soc_data || !soc_data->pins || !soc_data->npins) {
 		dev_err(&pdev->dev, "wrong pinctrl info\n");
 		return -EINVAL;
@@ -976,3 +985,23 @@ int s32_pinctrl_probe(struct platform_device *pdev,
 
 	return 0;
 }
+
+static const struct dev_pm_ops s32_pinctrl_pm_ops = {
+	LATE_SYSTEM_SLEEP_PM_OPS(s32_pinctrl_suspend, s32_pinctrl_resume)
+};
+
+static struct platform_driver s32cc_pinctrl_driver = {
+	.driver = {
+		.name = "s32cc-siul2-pinctrl",
+		.of_match_table = s32_pinctrl_of_match,
+		.pm = pm_sleep_ptr(&s32_pinctrl_pm_ops),
+		.suppress_bind_attrs = true,
+	},
+	.probe = s32_pinctrl_probe,
+};
+
+builtin_platform_driver(s32cc_pinctrl_driver);
+
+MODULE_AUTHOR("NXP");
+MODULE_DESCRIPTION("NXP S32CC pinctrl driver");
+MODULE_LICENSE("GPL");
