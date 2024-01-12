@@ -1,5 +1,3 @@
 # SPDX-License-Identifier: GPL-2.0
 # NXP pin control
-obj-$(CONFIG_PINCTRL_S32CC)	+= pinctrl-s32cc.o
-obj-$(CONFIG_PINCTRL_S32CC)	+= pinctrl-s32g.o
-obj-$(CONFIG_PINCTRL_S32CC)	+= pinctrl-s32r45.o
+obj-$(CONFIG_PINCTRL_S32CC)	:= pinctrl-s32cc.o
