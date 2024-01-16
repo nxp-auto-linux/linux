@@ -115,8 +115,8 @@ examples:
             reg-names = "QuadSPI-memory", "QuadSPI";
             interrupts = <GIC_SPI 32 IRQ_TYPE_LEVEL_HIGH>;
             clock-names = "qspi_en", "qspi";
-            clocks = <&clks S32CC_SCMI_CLK_QSPI_FLASH1X>,
-                <&clks S32CC_SCMI_CLK_QSPI_FLASH1X>;
+            clocks = <&clks S32CC_SCMI_CLK_QUADSPI_FLASH1X>,
+                <&clks S32CC_SCMI_CLK_QUADSPI_FLASH1X>;
             spi-max-frequency = <200000000>;
             spi-num-chipselects = <2>;
             status = "disabled";
