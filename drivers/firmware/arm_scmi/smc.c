@@ -3,7 +3,7 @@
  * System Control and Management Interface (SCMI) Message SMC/HVC
  * Transport driver
  *
- * Copyright 2020,2022-2023 NXP
+ * Copyright 2020,2022-2024 NXP
  */
 
 #include <linux/arm-smccc.h>
@@ -144,7 +144,7 @@ static inline void smc_channel_lock_release(struct scmi_smc *scmi_info)
 }
 
 static struct scmi_smc *create_scmi_smc_dev(struct device *cdev,
-					    struct device *dev)
+					    struct device *dev, bool tx)
 {
 	struct scmi_smc *scmi_info;
 	u32 func_id;
@@ -175,14 +175,17 @@ static struct scmi_smc *create_scmi_smc_dev(struct device *cdev,
 		scmi_info->tx_no_completion_irq = true;
 	}
 
-	irq = of_irq_get_byname(cdev->of_node, "p2a_notif");
-	if (irq > 0) {
-		ret = devm_request_irq(dev, irq, smc_platform_notif_isr,
-				       IRQF_NO_SUSPEND,
-				       dev_name(dev), scmi_info);
-		if (ret) {
-			dev_err(dev, "failed to setup SCMI smc notification irq\n");
-			return ERR_PTR(ret);
+	if (!tx) {
+		/* p2a_notif is used only by RX channels */
+		irq = of_irq_get_byname(cdev->of_node, "p2a_notif");
+		if (irq > 0) {
+			ret = devm_request_irq(dev, irq, smc_platform_notif_isr,
+						IRQF_NO_SUSPEND,
+						dev_name(dev), scmi_info);
+			if (ret) {
+				dev_err(dev, "failed to setup SCMI smc notification irq\n");
+				return ERR_PTR(ret);
+			}
 		}
 	}
 
@@ -193,7 +196,7 @@ static struct scmi_smc *create_scmi_smc_dev(struct device *cdev,
 }
 
 static struct scmi_smc *get_scmi_smc_dev(struct scmi_chan_info *cinfo,
-					 struct device *dev)
+					 struct device *dev, bool tx)
 {
 	struct scmi_smc *smc_dev = NULL;
 	bool found = false;
@@ -209,7 +212,7 @@ static struct scmi_smc *get_scmi_smc_dev(struct scmi_chan_info *cinfo,
 	if (found)
 		goto release_lock;
 
-	smc_dev = create_scmi_smc_dev(cinfo->dev, dev);
+	smc_dev = create_scmi_smc_dev(cinfo->dev, dev, tx);
 	if (!IS_ERR(smc_dev))
 		list_add(&smc_dev->node, &scmi_smc_devices);
 
@@ -236,7 +239,7 @@ static int smc_chan_setup(struct scmi_chan_info *cinfo, struct device *dev,
 	if (shmem_idx < 0)
 		return -ENXIO;
 
-	scmi_info = get_scmi_smc_dev(cinfo, dev);
+	scmi_info = get_scmi_smc_dev(cinfo, dev, tx);
 	if (IS_ERR(scmi_info))
 		return PTR_ERR(scmi_info);
 
