@@ -6,7 +6,7 @@
 // Copyright (c) 2009 Sascha Hauer, Pengutronix
 // Copyright (c) 2010-2017 Pengutronix, Marc Kleine-Budde <kernel@pengutronix.de>
 // Copyright (c) 2014 David Jander, Protonic Holland
-// Copyright 2015, 2024 NXP
+// Copyright 2015, 2019-2022, 2024 NXP
 //
 // Based on code originally by Andrey Volkov <avolkov@varma-el.com>
 
@@ -421,10 +421,15 @@ static const struct flexcan_devtype_data fsl_s32cc_devtype_data = {
 		FLEXCAN_QUIRK_DISABLE_MECR | FLEXCAN_QUIRK_BROKEN_PERR_STATE |
 		FLEXCAN_QUIRK_USE_RX_MAILBOX | FLEXCAN_QUIRK_SUPPORT_FD |
 		FLEXCAN_QUIRK_SUPPORT_ECC | FLEXCAN_QUIRK_SUPPORT_RX_MAILBOX |
-		FLEXCAN_QUIRK_SUPPORT_RX_MAILBOX_RTR,
+		FLEXCAN_QUIRK_SUPPORT_RX_MAILBOX_RTR | FLEXCAN_S32CC_BITTIMING,
 	.n_irqs = ARRAY_SIZE(s32cc_flexcan_irqs),
 	.irqs = s32cc_flexcan_irqs,
 };
+
+static int is_s32cc_bittiming(struct flexcan_priv *data)
+{
+	return data->devtype_data.quirks & FLEXCAN_S32CC_BITTIMING;
+}
 
 static const struct can_bittiming_const flexcan_bittiming_const = {
 	.name = DRV_NAME,
@@ -457,6 +462,42 @@ static const struct can_bittiming_const flexcan_fd_data_bittiming_const = {
 	.tseg2_min = 2,
 	.tseg2_max = 8,
 	.sjw_max = 4,
+	.brp_min = 1,
+	.brp_max = 1024,
+	.brp_inc = 1,
+};
+
+static const struct can_bittiming_const s32cc_flexcan_bittiming_const = {
+	.name = DRV_NAME,
+	.tseg1_min = 2,
+	.tseg1_max = 16,
+	.tseg2_min = 2,
+	.tseg2_max = 8,
+	.sjw_max = 4,
+	.brp_min = 1,
+	.brp_max = 256,
+	.brp_inc = 1,
+};
+
+static const struct can_bittiming_const s32cc_flexcan_fd_bittiming_const = {
+	.name = DRV_NAME,
+	.tseg1_min = 2,
+	.tseg1_max = 96,
+	.tseg2_min = 2,
+	.tseg2_max = 32,
+	.sjw_max = 32,
+	.brp_min = 1,
+	.brp_max = 1024,
+	.brp_inc = 1,
+};
+
+static const struct can_bittiming_const s32cc_flexcan_fd_data_bittiming_const = {
+	.name = DRV_NAME,
+	.tseg1_min = 2,
+	.tseg1_max = 39,
+	.tseg2_min = 2,
+	.tseg2_max = 8,
+	.sjw_max = 8,
 	.brp_min = 1,
 	.brp_max = 1024,
 	.brp_inc = 1,
@@ -2286,11 +2327,20 @@ static int flexcan_probe(struct platform_device *pdev)
 	if (priv->devtype_data.quirks & FLEXCAN_QUIRK_SUPPORT_FD) {
 		priv->can.ctrlmode_supported |= CAN_CTRLMODE_FD |
 			CAN_CTRLMODE_FD_NON_ISO;
-		priv->can.bittiming_const = &flexcan_fd_bittiming_const;
-		priv->can.data_bittiming_const =
-			&flexcan_fd_data_bittiming_const;
+		if (is_s32cc_bittiming(priv)) {
+			priv->can.bittiming_const = &s32cc_flexcan_fd_bittiming_const;
+			priv->can.data_bittiming_const =
+				&s32cc_flexcan_fd_data_bittiming_const;
+		} else {
+			priv->can.bittiming_const = &flexcan_fd_bittiming_const;
+			priv->can.data_bittiming_const =
+				&flexcan_fd_data_bittiming_const;
+		}
 	} else {
-		priv->can.bittiming_const = &flexcan_bittiming_const;
+		if (is_s32cc_bittiming(priv))
+			priv->can.bittiming_const = &s32cc_flexcan_bittiming_const;
+		else
+			priv->can.bittiming_const = &flexcan_bittiming_const;
 	}
 
 	pm_runtime_get_noresume(&pdev->dev);
