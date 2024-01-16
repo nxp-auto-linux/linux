@@ -6,6 +6,7 @@
  * Copyright (c) 2010-2017 Pengutronix, Marc Kleine-Budde <kernel@pengutronix.de>
  * Copyright (c) 2014 David Jander, Protonic Holland
  * Copyright (C) 2022 Amarula Solutions, Dario Binacchi <dario.binacchi@amarulasolutions.com>
+ * Copyright 2022, 2024 NXP
  *
  * Based on code originally by Andrey Volkov <avolkov@varma-el.com>
  *
@@ -74,6 +75,8 @@
  * both need to have an interrupt handler registered.
  */
 #define FLEXCAN_QUIRK_SECONDARY_MB_IRQ	BIT(18)
+/* S32 platforms have different bittiming */
+#define FLEXCAN_S32_BITTIMING		BIT(19)
 
 struct flexcan_devtype_data {
 	u32 quirks;		/* quirks needed for different IP cores */
