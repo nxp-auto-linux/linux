@@ -6,6 +6,7 @@
  * Copyright (c) 2010-2017 Pengutronix, Marc Kleine-Budde <kernel@pengutronix.de>
  * Copyright (c) 2014 David Jander, Protonic Holland
  * Copyright (C) 2022 Amarula Solutions, Dario Binacchi <dario.binacchi@amarulasolutions.com>
+ * Copyright 2024 NXP
  *
  * Based on code originally by Andrey Volkov <avolkov@varma-el.com>
  *
@@ -58,8 +59,6 @@
 #define FLEXCAN_QUIRK_SUPPORT_ECC BIT(10)
 /* Setup stop mode with SCU firmware to support wakeup */
 #define FLEXCAN_QUIRK_SETUP_STOP_MODE_SCFW BIT(11)
-/* Setup 3 separate interrupts, main, boff and err */
-#define FLEXCAN_QUIRK_NR_IRQ_3 BIT(12)
 /* Setup 16 mailboxes */
 #define FLEXCAN_QUIRK_NR_MB_16 BIT(13)
 /* Device supports RX via mailboxes */
@@ -69,8 +68,21 @@
 /* Device supports RX via FIFO */
 #define FLEXCAN_QUIRK_SUPPORT_RX_FIFO BIT(16)
 
+/* Flags identifying interrupt handlers associated to each IRQ number */
+#define FLEXCAN_HANDLER_STATE	BIT(0) /* Bus Off, Tx Warning, Rx Warning */
+#define FLEXCAN_HANDLER_BERR	BIT(1) /* Bus Error */
+/* Message Buffer transmission or reception */
+#define FLEXCAN_HANDLER_MB		BIT(2)
+
+struct flexcan_irq {
+	char *name;
+	u8 handler_mask;
+};
+
 struct flexcan_devtype_data {
 	u32 quirks;		/* quirks needed for different IP cores */
+	int n_irqs;
+	struct flexcan_irq *irqs;
 };
 
 struct flexcan_stop_mode {
@@ -103,15 +115,23 @@ struct flexcan_priv {
 	struct regulator *reg_xceiver;
 	struct flexcan_stop_mode stm;
 
-	int irq_boff;
-	int irq_err;
-
 	/* IPC handle when setup stop mode by System Controller firmware(scfw) */
 	struct imx_sc_ipc *sc_ipc_handle;
 
 	/* Read and Write APIs */
 	u32 (*read)(void __iomem *addr);
 	void (*write)(u32 val, void __iomem *addr);
+
+	int *irq_nos;
+	/* Ensure that reading the Free Running Timer following a state change
+	 * or error interrupt in order to fill the timestamp of an error frame
+	 * will not result in unlocking a MB before its contents are read.
+	 */
+	spinlock_t timer_access;
+	/* Ensure that a state change caused by the error passive state
+	 * quirk will not result in usage of an oudated state.
+	 */
+	spinlock_t state_access;
 };
 
 extern const struct ethtool_ops flexcan_ethtool_ops;
