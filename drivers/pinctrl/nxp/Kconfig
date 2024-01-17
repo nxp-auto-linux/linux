@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0-only
 config PINCTRL_S32CC
-	bool "Driver for the NXP S32CC family pin controller"
+	tristate "Driver for the NXP S32CC family pin controller"
 	depends on ARCH_S32 && OF
 	select GENERIC_PINCTRL_GROUPS
 	select GENERIC_PINMUX_FUNCTIONS
