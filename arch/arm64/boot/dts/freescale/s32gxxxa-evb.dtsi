@@ -687,7 +687,7 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 
-			port@0 {
+			sw0_p0: port@0 {
 				label = "sw0-p0";
 				phy-mode = "rgmii-id";
 				ethernet = <&pfe_netif2>;
@@ -699,28 +699,28 @@
 				};
 			};
 
-			enet_p1@1 {
+			enet_p1: enet_p1@1 {
 				label = "enet_p1";
 				phy-mode = "mii";
 				phy-handle = <&pfe_mdio_a_phy6>;
 				reg = <1>;
 			};
 
-			enet_p2@2 {
+			enet_p2: enet_p2@2 {
 				label = "enet_p2";
 				phy-mode = "mii";
 				phy-handle = <&pfe_mdio_a_phy7>;
 				reg = <2>;
 			};
 
-			enet_p3@3 {
+			enet_p3: enet_p3@3 {
 				label = "enet_p3";
 				phy-mode = "rgmii-id";
 				phy-handle = <&pfe_mdio_a_phy2>;
 				reg = <3>;
 			};
 
-			enet_p4@4 {
+			enet_p4: enet_p4@4 {
 				label = "enet_p4";
 				phy-mode = "rgmii-id";
 				phy-handle = <&pfe_mdio_a_phy3>;

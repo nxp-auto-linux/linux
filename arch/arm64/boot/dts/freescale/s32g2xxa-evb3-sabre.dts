@@ -1,0 +1,239 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+/*
+ * Copyright 2024 NXP
+ *
+ * Device tree for S32G2 EVB3 with PFE0 routed to SJA1105 and PFE2 routed to
+ * J93.
+ * Required hardware changes for S32G-PROCEVB3-S (SCH-50784):
+ * - Jumper J169 must be configured as 4-6 and 3-5 (interrupts requirement)
+ * - Resistors R[555, 566] must be moved to postion B
+ * Required hardware changes for S32GRV-PLATEVB (SCH-30081):
+ * - J91 must be closed (interrupts requirement)
+ */
+/dts-v1/;
+
+#include <dt-bindings/interrupt-controller/irq.h>
+#include "s32g2xxa-evb3.dtsi"
+
+/ {
+	model = "NXP S32G2XXX-EVB3 SABRE";
+};
+
+&can2 {
+	/* Conflict with PB 11 - PHY IRQ */
+	status = "disabled";
+};
+
+&usbotg {
+	/* Conflict with PFE2 */
+	status = "disabled";
+};
+
+&usbmisc {
+	/* Conflict with PFE2 */
+	status = "disabled";
+};
+
+&pfe {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pfe0_mdioa_pins>, <&pfe0_rgmiia_pins>,
+		<&pfe2_mdiob_pins>, <&pfe2_rgmiib_pins>;
+};
+
+&pfe_netif0 {
+	phy-mode = "rgmii";
+	status = "okay";
+
+	/delete-node/ phy-handle;
+
+	fixed-link {
+		speed = <1000>;
+		full-duplex;
+	};
+};
+
+&pfe_netif2 {
+	phy-mode = "rgmii-id";
+	phy-handle = <&pfe2_mdiob_phy1>;
+
+	/delete-node/ fixed-link;
+};
+
+&pfe_mdio0 {
+	status = "okay";
+
+	/* KSZ9031RNX over SJA1105Q P3 */
+	pfe0_mdio_a_phy2: ethernet-phy@2 {
+		reg = <2>;
+	};
+	/* KSZ9031RNX over SJA1105Q P4 */
+	pfe0_mdio_a_phy3: ethernet-phy@3 {
+		reg = <3>;
+	};
+
+	/* TJA1102 over SJA1105Q P1 */
+	pfe0_mdio_a_phy6: ethernet-phy@6 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg = <6>;
+
+		/* TJA1102 over SJA1105Q P2 */
+		pfe0_mdio_a_phy7: ethernet-phy@7 {
+			reg = <7>;
+		};
+	};
+};
+
+&pfe_mdio2 {
+	status = "okay";
+
+	/* Change PHY address in case of mismatch at probing. */
+	pfe2_mdiob_phy1: ethernet-phy@1 {
+		interrupt-parent = <&gpio>;
+		interrupts = <27 IRQ_TYPE_EDGE_FALLING>;
+		reg = <1>;
+	};
+};
+
+&pinctrl {
+	pfe0_mdioa_pins: pfe0_mdioa_pins {
+		pfe0_mdioa_grp0 {
+			pinmux = <S32CC_PINMUX(79, FUNC1)>;
+			drive-open-drain;
+			output-enable;
+			input-enable;
+			slew-rate = <S32CC_FAST_SLEW_166MHZ>;
+		};
+
+		pfe0_mdioa_grp1 {
+			pinmux = <S32CC_PINMUX(82, FUNC1)>;
+			output-enable;
+			slew-rate = <S32CC_FAST_SLEW_166MHZ>;
+		};
+
+		pfe0_mdioa_grp2 {
+			pinmux = <S32CC_PINMUX(837, FUNC2)>;
+		};
+
+	};
+
+	pfe0_rgmiia_pins: pfe0_rgmiia_pins {
+		pfe0_rgmiia_grp0 {
+			pinmux = <S32CC_PINMUX(78, FUNC1)>,
+				 <S32CC_PINMUX(113, FUNC1)>,
+				 <S32CC_PINMUX(114, FUNC1)>,
+				 <S32CC_PINMUX(115, FUNC1)>,
+				 <S32CC_PINMUX(144, FUNC1)>;
+			output-enable;
+			slew-rate = <S32CC_FAST_SLEW_166MHZ>;
+		};
+
+		pfe0_rgmiia_grp1 {
+			pinmux = <S32CC_PINMUX(116, FUNC0)>,
+				 <S32CC_PINMUX(117, FUNC0)>,
+				 <S32CC_PINMUX(118, FUNC0)>,
+				 <S32CC_PINMUX(119, FUNC0)>,
+				 <S32CC_PINMUX(120, FUNC0)>,
+				 <S32CC_PINMUX(121, FUNC0)>;
+			input-enable;
+			slew-rate = <S32CC_FAST_SLEW_166MHZ>;
+		};
+
+		pfe0_rgmiia_grp2 {
+			pinmux = <S32CC_PINMUX(122, FUNC1)>;
+			output-enable;
+			slew-rate = <S32CC_FAST_SLEW_166MHZ>;
+			bias-pull-up;
+		};
+
+		pfe0_rgmiia_grp3 {
+			pinmux = <S32CC_PINMUX(839, FUNC2)>,
+				 <S32CC_PINMUX(845, FUNC2)>,
+				 <S32CC_PINMUX(841, FUNC2)>,
+				 <S32CC_PINMUX(842, FUNC2)>,
+				 <S32CC_PINMUX(843, FUNC2)>,
+				 <S32CC_PINMUX(844, FUNC2)>;
+		};
+
+	};
+
+	pfe2_mdiob_pins: pfe2_mdio_pins {
+		pfe2_mdiob_grp0 {
+			pinmux = <S32CC_PINMUX(80, FUNC1)>;
+			output-enable;
+			slew-rate = <S32CC_FAST_SLEW_166MHZ>;
+		};
+
+		pfe2_mdiob_grp1 {
+			pinmux = <S32CC_PINMUX(81, FUNC2)>;
+			drive-open-drain;
+			output-enable;
+			input-enable;
+			slew-rate = <S32CC_FAST_SLEW_166MHZ>;
+		};
+
+		pfe2_mdiob_grp2 {
+			pinmux = <S32CC_PINMUX(877, FUNC2)>;
+		};
+	};
+
+	pfe2_rgmiib_pins: pfe2_rgmiib_pins {
+		pfe2_rgmiib_grp0 {
+			pinmux = <S32CC_PINMUX(185, FUNC5)>,
+			<S32CC_PINMUX(186, FUNC4)>,
+			<S32CC_PINMUX(187, FUNC2)>,
+			<S32CC_PINMUX(62, FUNC4)>,
+			<S32CC_PINMUX(63, FUNC5)>;
+			output-enable;
+			slew-rate = <S32CC_FAST_SLEW_166MHZ>;
+		};
+
+		pfe2_rgmiib_grp1 {
+			pinmux = <S32CC_PINMUX(64, FUNC0)>,
+			<S32CC_PINMUX(65, FUNC0)>,
+			<S32CC_PINMUX(188, FUNC0)>,
+			<S32CC_PINMUX(189, FUNC0)>,
+			<S32CC_PINMUX(190, FUNC0)>,
+			<S32CC_PINMUX(112, FUNC0)>;
+			input-enable;
+			slew-rate = <S32CC_FAST_SLEW_166MHZ>;
+		};
+
+		pfe2_rgmiib_grp2 {
+			pinmux = <S32CC_PINMUX(879, FUNC2)>,
+			<S32CC_PINMUX(881, FUNC2)>,
+			<S32CC_PINMUX(882, FUNC2)>,
+			<S32CC_PINMUX(883, FUNC2)>,
+			<S32CC_PINMUX(884, FUNC2)>,
+			<S32CC_PINMUX(885, FUNC2)>,
+			<S32CC_PINMUX(886, FUNC2)>;
+		};
+
+		pfe2_rgmiib_grp3 {
+			pinmux = <S32CC_PINMUX(184, FUNC5)>;
+			output-enable;
+			slew-rate = <S32CC_FAST_SLEW_166MHZ>;
+		};
+	};
+};
+
+&sw0_p0 {
+	ethernet = <&pfe_netif0>;
+};
+
+&enet_p1 {
+	phy-handle = <&pfe0_mdio_a_phy6>;
+};
+
+&enet_p2 {
+	phy-handle = <&pfe0_mdio_a_phy7>;
+};
+
+&enet_p3 {
+	phy-handle = <&pfe0_mdio_a_phy2>;
+};
+
+&enet_p4 {
+	phy-handle = <&pfe0_mdio_a_phy3>;
+};
