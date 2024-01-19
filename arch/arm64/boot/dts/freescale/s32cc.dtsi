@@ -604,9 +604,9 @@
 				      <0x0 0x22c00000 0x0 0x1000>;
 				reg-names = "hse-mu0b-regs",
 					    "hse-mu0b-desc";
-				interrupts = <GIC_SPI 103 IRQ_TYPE_EDGE_RISING>, /* GIC 135 */
-					     <GIC_SPI 104 IRQ_TYPE_EDGE_RISING>, /* GIC 136 */
-					     <GIC_SPI 105 IRQ_TYPE_EDGE_RISING>; /* GIC 137 */
+				interrupts = <GIC_SPI 103 IRQ_TYPE_LEVEL_HIGH>, /* GIC 135 */
+					     <GIC_SPI 104 IRQ_TYPE_LEVEL_HIGH>, /* GIC 136 */
+					     <GIC_SPI 105 IRQ_TYPE_LEVEL_HIGH>; /* GIC 137 */
 				interrupt-names = "hse-mu0b-ack",
 						  "hse-mu0b-rx",
 						  "hse-mu0b-err";
@@ -618,9 +618,9 @@
 				      <0x0 0x22c01000 0x0 0x1000>;
 				reg-names = "hse-mu1b-regs",
 					    "hse-mu1b-desc";
-				interrupts = <GIC_SPI 106 IRQ_TYPE_EDGE_RISING>, /* GIC 138 */
-					     <GIC_SPI 107 IRQ_TYPE_EDGE_RISING>, /* GIC 139 */
-					     <GIC_SPI 108 IRQ_TYPE_EDGE_RISING>; /* GIC 140 */
+				interrupts = <GIC_SPI 106 IRQ_TYPE_LEVEL_HIGH>, /* GIC 138 */
+					     <GIC_SPI 107 IRQ_TYPE_LEVEL_HIGH>, /* GIC 139 */
+					     <GIC_SPI 108 IRQ_TYPE_LEVEL_HIGH>; /* GIC 140 */
 				interrupt-names = "hse-mu1b-ack",
 						  "hse-mu1b-rx",
 						  "hse-mu1b-err";
@@ -632,9 +632,9 @@
 				      <0x0 0x22c02000 0x0 0x1000>;
 				reg-names = "hse-mu2b-regs",
 					    "hse-mu2b-desc";
-				interrupts = <GIC_SPI 109 IRQ_TYPE_EDGE_RISING>, /* GIC 141 */
-					     <GIC_SPI 110 IRQ_TYPE_EDGE_RISING>, /* GIC 142 */
-					     <GIC_SPI 111 IRQ_TYPE_EDGE_RISING>; /* GIC 143 */
+				interrupts = <GIC_SPI 109 IRQ_TYPE_LEVEL_HIGH>, /* GIC 141 */
+					     <GIC_SPI 110 IRQ_TYPE_LEVEL_HIGH>, /* GIC 142 */
+					     <GIC_SPI 111 IRQ_TYPE_LEVEL_HIGH>; /* GIC 143 */
 				interrupt-names = "hse-mu2b-ack",
 						  "hse-mu2b-rx",
 						  "hse-mu2b-err";
@@ -646,9 +646,9 @@
 				      <0x0 0x22c03000 0x0 0x1000>;
 				reg-names = "hse-mu3b-regs",
 					    "hse-mu3b-desc";
-				interrupts = <GIC_SPI 112 IRQ_TYPE_EDGE_RISING>, /* GIC 144 */
-					     <GIC_SPI 113 IRQ_TYPE_EDGE_RISING>, /* GIC 145 */
-					     <GIC_SPI 114 IRQ_TYPE_EDGE_RISING>; /* GIC 146 */
+				interrupts = <GIC_SPI 112 IRQ_TYPE_LEVEL_HIGH>, /* GIC 144 */
+					     <GIC_SPI 113 IRQ_TYPE_LEVEL_HIGH>, /* GIC 145 */
+					     <GIC_SPI 114 IRQ_TYPE_LEVEL_HIGH>; /* GIC 146 */
 				interrupt-names = "hse-mu3b-ack",
 						  "hse-mu3b-rx",
 						  "hse-mu3b-err";
