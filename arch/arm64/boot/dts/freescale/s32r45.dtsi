@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later OR MIT
 /*
- * Copyright 2017-2022 NXP
+ * Copyright 2017-2022, 2024 NXP
  */
 
 /dts-v1/;
@@ -182,8 +182,7 @@
 				 <EIRQS_SIUL2_1 0 0x0 0x4403c010 0x0 0xb4>;
 
 			pinctrl: siul2-pinctrl@4009c240 {
-				compatible = "nxp,s32r45-siul2-pinctrl",
-					     "nxp,s32cc-siul2-pinctrl";
+				compatible = "nxp,s32r45-siul2-pinctrl";
 				#pinctrl-cells = <2>;
 
 				reg =
