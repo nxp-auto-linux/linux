@@ -47,10 +47,12 @@
 /* Default timeout (ms) */
 #define PCIE_CX_CPL_BASE_TIMER_VALUE	100
 
-/* PHY link timeout */
-#define PCIE_LINK_TIMEOUT_MS		1000
+/* Use 200ms for PHY link timeout (slightly larger than 100ms, which PCIe standard requests
+ * to wait "before sending a Configuration Request to the device")
+ */
+#define PCIE_LINK_TIMEOUT_MS		200
 #define PCIE_LINK_TIMEOUT_US		(PCIE_LINK_TIMEOUT_MS * USEC_PER_MSEC)
-#define PCIE_LINK_WAIT_US		100
+#define PCIE_LINK_WAIT_US		1000
 
 enum pcie_dev_type_val {
 	PCIE_EP_VAL = 0x0,
@@ -278,13 +280,6 @@ int s32cc_pcie_link_is_up(struct dw_pcie *pcie)
 	return has_data_phy_link(s32cc_pp);
 }
 
-static bool speed_change_completed(struct dw_pcie *pcie)
-{
-	u32 ctrl = dw_pcie_readl_dbi(pcie, PCIE_LINK_WIDTH_SPEED_CONTROL);
-
-	return !(ctrl & PORT_LOGIC_SPEED_CHANGE);
-}
-
 static int s32cc_pcie_get_link_speed(struct dw_pcie *pcie)
 {
 	u32 cap_offset = dw_pcie_find_capability(pcie, PCI_CAP_ID_EXP);
@@ -359,7 +354,6 @@ int s32cc_pcie_start_link(struct dw_pcie *pcie)
 {
 	struct s32cc_pcie *s32cc_pp = to_s32cc_from_dw_pcie(pcie);
 	u32 tmp, cap_offset;
-	bool speed_set;
 	int ret = 0;
 
 	/* Don't do anything if not Root Complex */
@@ -382,7 +376,7 @@ int s32cc_pcie_start_link(struct dw_pcie *pcie)
 
 	if (ret) {
 		/* We do not exit with error if link up was unsuccessful
-		 * Endpoint may be connected.
+		 * EndPoint may be connected.
 		 */
 		ret = 0;
 		goto out;
@@ -410,28 +404,33 @@ int s32cc_pcie_start_link(struct dw_pcie *pcie)
 	 * the speed change is initiated automatically after link up, and the
 	 * controller clears the contents of GEN2_CTRL_OFF.DIRECT_SPEED_CHANGE.
 	 */
-	tmp = dw_pcie_readl_dbi(pcie, PCIE_LINK_WIDTH_SPEED_CONTROL) |
-			PORT_LOGIC_SPEED_CHANGE;
-	dw_pcie_writel_dbi(pcie, PCIE_LINK_WIDTH_SPEED_CONTROL, tmp);
+	tmp = dw_pcie_readl_dbi(pcie, PCIE_LINK_WIDTH_SPEED_CONTROL);
+	/* Deassert and re-assert GEN2_CTRL_OFF.DIRECT_SPEED_CHANGE, as per S32G3 SerDes
+	 * manual rev. 2.0
+	 */
+	dw_pcie_writel_dbi(pcie, PCIE_LINK_WIDTH_SPEED_CONTROL,
+			   tmp & (~(u32)PORT_LOGIC_SPEED_CHANGE));
+	dw_pcie_writel_dbi(pcie, PCIE_LINK_WIDTH_SPEED_CONTROL,
+			   tmp | PORT_LOGIC_SPEED_CHANGE);
 	dw_pcie_dbi_ro_wr_dis(pcie);
 
-	ret = read_poll_timeout(speed_change_completed, speed_set,
-				speed_set, PCIE_LINK_WAIT_US,
-				PCIE_LINK_TIMEOUT_US, 0, pcie);
+	tmp = dw_pcie_readl_dbi(pcie, PCIE_LINK_WIDTH_SPEED_CONTROL);
+	ret = read_poll_timeout(dw_pcie_readl_dbi, tmp,
+				!(tmp & PORT_LOGIC_SPEED_CHANGE),
+				PCIE_LINK_WAIT_US,
+				PCIE_LINK_TIMEOUT_US, false,
+				pcie, PCIE_LINK_WIDTH_SPEED_CONTROL);
+
+	if (ret)
+		dev_info(pcie->dev, "Speed change timeout\n");
 
 	/* Make sure link training is finished as well! */
-	if (!ret) {
-		ret = dw_pcie_wait_for_link(pcie);
-	} else {
-		dev_err(pcie->dev, "Speed change timeout\n");
-		ret = -EINVAL;
-	}
+	ret = dw_pcie_wait_for_link(pcie);
 
 	if (!ret)
 		dev_info(pcie->dev, "X%d, Gen%d\n",
 			 s32cc_pcie_get_link_width(pcie),
 			 s32cc_pcie_get_link_speed(pcie));
-
 out:
 	return ret;
 }
@@ -1143,17 +1142,22 @@ static int wait_phy_data_link(struct s32cc_pcie *s32cc_pp)
 
 static void s32cc_pcie_downstream_dev_to_D0(struct s32cc_pcie *s32cc_pp)
 {
-	struct dw_pcie *pcie = &s32cc_pp->pcie;
-	struct pcie_port *pp = &pcie->pp;
+	struct dw_pcie *pcie = NULL;
+	struct pcie_port *pp = NULL;
 	struct pci_bus *root_bus = NULL;
 	struct pci_dev *pdev;
 
+	if (s32cc_pp)
+		pcie = &s32cc_pp->pcie;
+	if (pcie)
+		pp = &pcie->pp;
+
 	/* Check if we did manage to initialize the host */
-	if (IS_ERR(pp) || IS_ERR(pp->bridge) || IS_ERR(pp->bridge->bus))
+	if (!pp || IS_ERR(pp) || IS_ERR(pp->bridge) || IS_ERR(pp->bridge->bus))
 		return;
 
 	/*
-	 * link doesn't go into L2 state with some of the endpoints
+	 * link doesn't go into L2 state with some of the EndPoints
 	 * if they are not in D0 state. So, we need to make sure that immediate
 	 * downstream devices are in D0 state before sending PME_TurnOff to put
 	 * link into L2 state.
@@ -1177,16 +1181,24 @@ static void s32cc_pcie_downstream_dev_to_D0(struct s32cc_pcie *s32cc_pp)
 
 static int s32cc_pcie_deinit_controller_host(struct s32cc_pcie *s32cc_pp)
 {
-	struct dw_pcie *pcie = &s32cc_pp->pcie;
-	struct pcie_port *pp = &pcie->pp;
+	struct dw_pcie *pcie = NULL;
+	struct pcie_port *pp = NULL;
 
-	/* TODO: investigate if this is really necessary*/
-	s32cc_pcie_downstream_dev_to_D0(s32cc_pp);
+	if (s32cc_pp) {
+		pcie = &s32cc_pp->pcie;
 
-	if (is_s32cc_pcie_rc(s32cc_pp->mode))
-		dw_pcie_host_deinit(pp);
+		/* TODO: investigate if this is really necessary*/
+		s32cc_pcie_downstream_dev_to_D0(s32cc_pp);
 
-	return deinit_controller(s32cc_pp);
+		if (pcie)
+			pp = &pcie->pp;
+		if (pp)
+			dw_pcie_host_deinit(pp);
+
+		return deinit_controller(s32cc_pp);
+	}
+
+	return 0;
 }
 
 static int s32cc_pcie_init_controller(struct s32cc_pcie *s32cc_pp)
@@ -1321,7 +1333,6 @@ static int s32cc_pcie_probe(struct platform_device *pdev)
 	struct dw_pcie *pcie;
 	const struct of_device_id *match;
 	const struct s32cc_pcie_data *data;
-
 	int ret = 0;
 
 	ret = s32cc_check_serdes(dev);
