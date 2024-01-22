@@ -41,14 +41,15 @@
 #define PTR_FMT "%px"
 #endif
 
-#define PCIE_LINKUP	(PCIE_SS_SMLH_LINK_UP | PCIE_SS_RDLH_LINK_UP)
+#define PCIE_LINKUP			(BIT(PCIE_SS_SMLH_LINK_UP_BIT) | \
+					BIT(PCIE_SS_RDLH_LINK_UP_BIT))
 
 /* Default timeout (ms) */
 #define PCIE_CX_CPL_BASE_TIMER_VALUE	100
 
 /* PHY link timeout */
-#define PCIE_LINK_TIMEOUT_MS	1000
-#define PCIE_LINK_TIMEOUT_US	(PCIE_LINK_TIMEOUT_MS * USEC_PER_MSEC)
+#define PCIE_LINK_TIMEOUT_MS		1000
+#define PCIE_LINK_TIMEOUT_US		(PCIE_LINK_TIMEOUT_MS * USEC_PER_MSEC)
 #define PCIE_LINK_WAIT_US		100
 
 enum pcie_dev_type_val {
@@ -204,8 +205,9 @@ static void s32cc_pcie_disable_hot_plug_irq(struct dw_pcie *pcie)
 
 	dw_pcie_dbi_ro_wr_en(pcie);
 	reg = dw_pcie_readl_dbi(pcie, PCIE_SLOT_CONTROL_SLOT_STATUS);
-	reg &= ~(PCIE_CAP_PRESENCE_DETECT_CHANGE_EN | PCIE_CAP_HOT_PLUG_INT_EN |
-			PCIE_CAP_DLL_STATE_CHANGED_EN);
+	reg &= ~(BIT(PCIE_CAP_PRESENCE_DETECT_CHANGE_EN_BIT) |
+		BIT(PCIE_CAP_HOT_PLUG_INT_EN_BIT) |
+		BIT(PCIE_CAP_DLL_STATE_CHANGED_EN_BIT));
 	dw_pcie_writel_dbi(pcie, PCIE_SLOT_CONTROL_SLOT_STATUS, reg);
 	dw_pcie_dbi_ro_wr_dis(pcie);
 }
@@ -216,8 +218,9 @@ static void s32cc_pcie_enable_hot_plug_irq(struct dw_pcie *pcie)
 
 	dw_pcie_dbi_ro_wr_en(pcie);
 	reg = dw_pcie_readl_dbi(pcie, PCIE_SLOT_CONTROL_SLOT_STATUS);
-	reg |= (PCIE_CAP_PRESENCE_DETECT_CHANGE_EN | PCIE_CAP_HOT_PLUG_INT_EN |
-			PCIE_CAP_DLL_STATE_CHANGED_EN);
+	reg |= (BIT(PCIE_CAP_PRESENCE_DETECT_CHANGE_EN_BIT) |
+		BIT(PCIE_CAP_HOT_PLUG_INT_EN_BIT) |
+		BIT(PCIE_CAP_DLL_STATE_CHANGED_EN_BIT));
 	dw_pcie_writel_dbi(pcie, PCIE_SLOT_CONTROL_SLOT_STATUS, reg);
 	dw_pcie_dbi_ro_wr_dis(pcie);
 }
@@ -252,7 +255,7 @@ static bool has_data_phy_link(struct s32cc_pcie *s32cc_pp)
 	u32 val = dw_pcie_readl_ctrl(s32cc_pp, PCIE_SS_PE0_LINK_DBG_2);
 
 	if ((val & PCIE_LINKUP) == PCIE_LINKUP) {
-		switch (val & PCIE_SS_SMLH_LTSSM_STATE) {
+		switch (val & GET_MASK_VALUE(PCIE_SS_SMLH_LTSSM_STATE)) {
 		case LTSSM_STATE_L0:
 		case LTSSM_STATE_L0S:
 		case LTSSM_STATE_L1_IDLE:
@@ -849,9 +852,10 @@ static void disable_equalization(struct dw_pcie *pcie)
 	dw_pcie_dbi_ro_wr_en(pcie);
 
 	val = dw_pcie_readl_dbi(pcie, PORT_LOGIC_GEN3_EQ_CONTROL);
-	val &= ~(PCIE_GEN3_EQ_FB_MODE | PCIE_GEN3_EQ_PSET_REQ_VEC);
+	val &= ~(GET_MASK_VALUE(PCIE_GEN3_EQ_FB_MODE) |
+		GET_MASK_VALUE(PCIE_GEN3_EQ_PSET_REQ_VEC));
 	val |= BUILD_MASK_VALUE(PCIE_GEN3_EQ_FB_MODE, 1) |
-		 BUILD_MASK_VALUE(PCIE_GEN3_EQ_PSET_REQ_VEC, 0x84);
+		BUILD_MASK_VALUE(PCIE_GEN3_EQ_PSET_REQ_VEC, 0x84);
 	dw_pcie_writel_dbi(pcie, PORT_LOGIC_GEN3_EQ_CONTROL, val);
 
 	dw_pcie_dbi_ro_wr_dis(pcie);
@@ -956,7 +960,7 @@ static int init_pcie(struct s32cc_pcie *s32cc_pp)
 	dw_pcie_dbi_ro_wr_en(pcie);
 
 	val = dw_pcie_readl_dbi(pcie, PORT_LOGIC_PORT_FORCE_OFF);
-	val |= PCIE_DO_DESKEW_FOR_SRIS;
+	val |= BIT(PCIE_DO_DESKEW_FOR_SRIS_BIT);
 	dw_pcie_writel_dbi(pcie, PORT_LOGIC_PORT_FORCE_OFF, val);
 
 	if (is_s32cc_pcie_rc(s32cc_pp->mode)) {
@@ -964,9 +968,10 @@ static int init_pcie(struct s32cc_pcie *s32cc_pp)
 		 * relaxed ordering.
 		 */
 		val = dw_pcie_readl_dbi(pcie, CAP_DEVICE_CONTROL_DEVICE_STATUS);
-		val &= ~(CAP_EN_REL_ORDER | CAP_MAX_PAYLOAD_SIZE_CS |
-			 CAP_MAX_READ_REQ_SIZE);
-		val |= CAP_EN_REL_ORDER |
+		val &= ~(BIT(CAP_EN_REL_ORDER_BIT) |
+			GET_MASK_VALUE(CAP_MAX_PAYLOAD_SIZE_CS) |
+			GET_MASK_VALUE(CAP_MAX_READ_REQ_SIZE));
+		val |= BIT(CAP_EN_REL_ORDER_BIT) |
 			BUILD_MASK_VALUE(CAP_MAX_PAYLOAD_SIZE_CS, 1) |
 			BUILD_MASK_VALUE(CAP_MAX_READ_REQ_SIZE, 1),
 		dw_pcie_writel_dbi(pcie, CAP_DEVICE_CONTROL_DEVICE_STATUS, val);
@@ -975,8 +980,9 @@ static int init_pcie(struct s32cc_pcie *s32cc_pp)
 		 * Parity error, Serr and disable INTx generation
 		 */
 		dw_pcie_writel_dbi(pcie, PCIE_CTRL_TYPE1_STATUS_COMMAND_REG,
-				   PCIE_SERREN | PCIE_PERREN | PCIE_INT_EN |
-				   PCIE_IO_EN | PCIE_MSE | PCIE_BME);
+				   BIT(PCIE_SERREN_BIT) | BIT(PCIE_PERREN_BIT) |
+				   BIT(PCIE_INT_EN_BIT) | BIT(PCIE_IO_EN_BIT) |
+				   BIT(PCIE_MSE_BIT) | BIT(PCIE_BME_BIT));
 		/* Test value */
 		dev_dbg(dev, "PCIE_CTRL_TYPE1_STATUS_COMMAND_REG reg: 0x%08x\n",
 			dw_pcie_readl_dbi(pcie,
@@ -984,10 +990,10 @@ static int init_pcie(struct s32cc_pcie *s32cc_pp)
 
 		/* Enable errors */
 		val = dw_pcie_readl_dbi(pcie, CAP_DEVICE_CONTROL_DEVICE_STATUS);
-		val |=  CAP_CORR_ERR_REPORT_EN |
-			CAP_NON_FATAL_ERR_REPORT_EN |
-			CAP_FATAL_ERR_REPORT_EN |
-			CAP_UNSUPPORT_REQ_REP_EN;
+		val |=  BIT(CAP_CORR_ERR_REPORT_EN_BIT) |
+			BIT(CAP_NON_FATAL_ERR_REPORT_EN_BIT) |
+			BIT(CAP_FATAL_ERR_REPORT_EN_BIT) |
+			BIT(CAP_UNSUPPORT_REQ_REP_EN_BIT);
 		dw_pcie_writel_dbi(pcie, CAP_DEVICE_CONTROL_DEVICE_STATUS, val);
 	}
 
