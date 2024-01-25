@@ -1774,7 +1774,7 @@ static struct irq_domain *gpiochip_simple_create_domain(struct gpio_chip *gc)
 	struct irq_domain *domain;
 
 	domain = irq_domain_create_simple(fwnode, gc->ngpio, gc->irq.first,
-					  &gpiochip_domain_ops, gc);
+					  gc->irq.domain_ops ?: &gpiochip_domain_ops, gc);
 	if (!domain)
 		return ERR_PTR(-EINVAL);
 
