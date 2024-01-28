@@ -898,32 +898,13 @@
 			interrupt-parent = <&gic>;
 			interrupts = <GIC_SPI 57 IRQ_TYPE_LEVEL_HIGH>;
 			interrupt-names = "macirq";
-			tx-fifo-depth = <20480>;
-			rx-fifo-depth = <20480>;
-			phy-names = "gmac_xpcs";
-			phys = <&serdes0 PHY_TYPE_XPCS 0 0>;
-			dma-coherent;
 			snps,mtl-rx-config = <&mtl_rx_setup_gmac0>;
 			snps,mtl-tx-config = <&mtl_tx_setup_gmac0>;
 			clocks = <&clks S32CC_SCMI_CLK_GMAC0_AXI>,
-				 <&clks S32CC_SCMI_CLK_GMAC0_AXI>,
-				 <&clks S32CC_SCMI_CLK_GMAC0_TX_SGMII>,
 				 <&clks S32CC_SCMI_CLK_GMAC0_TX_RGMII>,
-				 <&clks S32CC_SCMI_CLK_GMAC0_TX_RMII>,
-				 <&clks S32CC_SCMI_CLK_GMAC0_TX_MII>,
-				 <&clks S32CC_SCMI_CLK_GMAC0_RX_SGMII>,
 				 <&clks S32CC_SCMI_CLK_GMAC0_RX_RGMII>,
-				 <&clks S32CC_SCMI_CLK_GMAC0_RX_RMII>,
-				 <&clks S32CC_SCMI_CLK_GMAC0_RX_MII>,
 				 <&clks S32CC_SCMI_CLK_GMAC0_TS>;
-			clock-names = "stmmaceth", "pclk",
-				      "tx_sgmii", "tx_rgmii",
-				      "tx_rmii", "tx_mii",
-				      "rx_sgmii", "rx_rgmii",
-				      "rx_rmii", "rx_mii",
-				      "ptp_ref";
-			nvmem-cell-names = "gmac_phy_intf_sel";
-			nvmem-cells = <&gmac0_phy_intf_sel>;
+			clock-names = "stmmaceth", "tx", "rx", "ptp_ref";
 			status = "disabled";
 
 			mtl_rx_setup_gmac0: rx-queues-config {
@@ -933,16 +914,12 @@
 
 				queue@0 {
 				};
-
 				queue@1 {
 				};
-
 				queue@2 {
 				};
-
 				queue@3 {
 				};
-
 				queue@4 {
 				};
 			};
@@ -954,16 +931,12 @@
 
 				queue@0 {
 				};
-
 				queue@1 {
 				};
-
 				queue@2 {
 				};
-
 				queue@3 {
 				};
-
 				queue@4 {
 				};
 			};
