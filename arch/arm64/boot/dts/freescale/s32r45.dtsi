@@ -429,6 +429,8 @@
 				 <&clks S32R45_SCMI_CLK_GMAC1_TS>;
 			clock-names = "stmmaceth", "tx", "rx", "ptp_ref";
 			status = "disabled";
+			nvmem-cell-names = "gmac_phy_intf_sel";
+			nvmem-cells = <&gmac1_phy_intf_sel>;
 
 			mtl_rx_setup_gmac1: rx-queues-config {
 				snps,rx-queues-to-use = <5>;
