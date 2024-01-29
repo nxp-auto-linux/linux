@@ -5,7 +5,7 @@
  * derived from the OF-version.
  *
  * Copyright (c) 2010 Pengutronix e.K.
- * Copyright 2020 NXP
+ * Copyright 2020-2021, 2023-2024 NXP
  *   Author: Wolfram Sang <kernel@pengutronix.de>
  */
 
@@ -205,6 +205,9 @@
 /* The IP does not have GPIO CD wake capabilities */
 #define ESDHC_FLAG_SKIP_CD_WAKE		BIT(18)
 
+/* Host controller does not support SDR104 mode */
+#define ESDHC_FLAG_BROKEN_SDR104	BIT(19)
+
 enum wp_types {
 	ESDHC_WP_NONE,		/* no WP, neither controller nor gpio */
 	ESDHC_WP_CONTROLLER,	/* mmc controller internal WP */
@@ -304,7 +307,7 @@ static struct esdhc_soc_data usdhc_s32g2_data = {
 			| ESDHC_FLAG_HAVE_CAP1 | ESDHC_FLAG_HS200
 			| ESDHC_FLAG_HS400 | ESDHC_FLAG_HS400_ES
 			| ESDHC_FLAG_SKIP_ERR004536 | ESDHC_FLAG_SKIP_CD_WAKE
-			| ESDHC_FLAG_CQHCI,
+			| ESDHC_FLAG_CQHCI | ESDHC_FLAG_BROKEN_SDR104,
 	.quirks = SDHCI_QUIRK_NO_LED,
 };
 
@@ -554,6 +557,13 @@ static u32 esdhc_readl_le(struct sdhci_host *host, int reg)
 				val &= ~(SDHCI_SUPPORT_SDR50 | SDHCI_SUPPORT_DDR50);
 			if (IS_ERR_OR_NULL(imx_data->pins_200mhz))
 				val &= ~(SDHCI_SUPPORT_SDR104 | SDHCI_SUPPORT_HS400);
+
+			/*
+			 * Do not advertise faster UHS SDR104 mode if the
+			 * controller does not support it.
+			 */
+			if (imx_data->socdata->flags & ESDHC_FLAG_BROKEN_SDR104)
+				val &= ~SDHCI_SUPPORT_SDR104;
 		}
 	}
 
