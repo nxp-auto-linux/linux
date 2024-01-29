@@ -5,7 +5,7 @@
  * derived from the OF-version.
  *
  * Copyright (c) 2010 Pengutronix e.K.
- * Copyright 2020-2021, 2023 NXP
+ * Copyright 2020-2021, 2023-2024 NXP
  *   Author: Wolfram Sang <kernel@pengutronix.de>
  */
 
@@ -207,6 +207,9 @@
  */
 #define ESDHC_FLAG_BROKEN_AUTO_CMD23	BIT(16)
 
+/* Host controller does not support SDR104 mode */
+#define ESDHC_FLAG_BROKEN_SDR104	BIT(17)
+
 enum wp_types {
 	ESDHC_WP_NONE,		/* no WP, neither controller nor gpio */
 	ESDHC_WP_CONTROLLER,	/* mmc controller internal WP */
@@ -328,7 +331,8 @@ static struct esdhc_soc_data usdhc_s32cc_data = {
 			| ESDHC_FLAG_HS400
 			| ESDHC_FLAG_HS400_ES
 			| ESDHC_FLAG_MAN_TUNING
-			| ESDHC_FLAG_CQHCI,
+			| ESDHC_FLAG_CQHCI
+			| ESDHC_FLAG_BROKEN_SDR104,
 };
 
 struct pltfm_imx_data {
@@ -533,6 +537,13 @@ static u32 esdhc_readl_le(struct sdhci_host *host, int reg)
 				val &= ~(SDHCI_SUPPORT_SDR50 | SDHCI_SUPPORT_DDR50);
 			if (IS_ERR_OR_NULL(imx_data->pins_200mhz))
 				val &= ~(SDHCI_SUPPORT_SDR104 | SDHCI_SUPPORT_HS400);
+
+			/*
+			 * Do not advertise faster UHS SDR104 mode if the
+			 * controller does not support it.
+			 */
+			if (imx_data->socdata->flags & ESDHC_FLAG_BROKEN_SDR104)
+				val &= ~SDHCI_SUPPORT_SDR104;
 		}
 	}
 
