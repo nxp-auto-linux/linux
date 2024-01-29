@@ -9,6 +9,7 @@
 #include <dt-bindings/mux/nxp-s32r45-can-ts.h>
 #include <dt-bindings/nvmem/s32r45-gpr-nvmem.h>
 #include <dt-bindings/thermal/thermal.h>
+#include <dt-bindings/thermal/qoriq_thermal.h>
 
 / {
 	compatible = "nxp,s32r45";
@@ -479,7 +480,7 @@
 			/* Monitorization is done using IRQ. */
 			polling-delay-passive = <0>;
 			polling-delay = <0>;
-			thermal-sensors = <&tmu 0>;
+			thermal-sensors = <&tmu QORIQ_SENSOR_0_IMMEDIATE_TEMP>;
 
 			trips {
 				cpu_alert0: cpu-alert {
@@ -507,7 +508,7 @@
 		radar_lax {
 			polling-delay-passive = <60000>;
 			polling-delay = <60000>;
-			thermal-sensors = <&tmu 1>;
+			thermal-sensors = <&tmu QORIQ_SENSOR_1_IMMEDIATE_TEMP>;
 
 			trips {
 				radar_lax_alert0: trip-point0 {
@@ -521,10 +522,52 @@
 		analog_ips {
 			polling-delay-passive = <60000>;
 			polling-delay = <60000>;
-			thermal-sensors = <&tmu 2>;
+			thermal-sensors = <&tmu QORIQ_SENSOR_2_IMMEDIATE_TEMP>;
 
 			trips {
 				analog_ips_alert0: trip-point0 {
+					temperature = <80000>;
+					hysteresis = <2000>;
+					type = "hot";
+				};
+			};
+		};
+
+		a53_cores_avg {
+			polling-delay-passive = <60000>;
+			polling-delay = <60000>;
+			thermal-sensors = <&tmu QORIQ_SENSOR_0_AVERAGE_TEMP>;
+
+			trips {
+				a53_cores_avg_alert0: trip-point0 {
+					temperature = <80000>;
+					hysteresis = <2000>;
+					type = "hot";
+				};
+			};
+		};
+
+		radar_lax_avg {
+			polling-delay-passive = <60000>;
+			polling-delay = <60000>;
+			thermal-sensors = <&tmu QORIQ_SENSOR_1_AVERAGE_TEMP>;
+
+			trips {
+				radar_lax_avg_alert0: trip-point0 {
+					temperature = <80000>;
+					hysteresis = <2000>;
+					type = "hot";
+				};
+			};
+		};
+
+		analog_ips_avg {
+			polling-delay-passive = <60000>;
+			polling-delay = <60000>;
+			thermal-sensors = <&tmu QORIQ_SENSOR_2_AVERAGE_TEMP>;
+
+			trips {
+				analog_ips_avg_alert0: trip-point0 {
 					temperature = <80000>;
 					hysteresis = <2000>;
 					type = "hot";
