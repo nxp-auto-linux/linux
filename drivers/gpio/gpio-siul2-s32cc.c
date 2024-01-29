@@ -3,7 +3,7 @@
  * SIUL2 GPIO support.
  *
  * Copyright (c) 2016 Freescale Semiconductor, Inc.
- * Copyright 2018-2023 NXP
+ * Copyright 2018-2024 NXP
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 or
@@ -477,6 +477,8 @@ static void siul2_gpio_irq_unmask(struct irq_data *data)
 		return;
 	}
 
+	gpiochip_enable_irq(gc, gpio);
+
 	/* Disable interrupt */
 	regmap_update_bits(gpio_dev->irqmap, SIUL2_DIRER0, mask, 0);
 
@@ -539,14 +541,18 @@ static void siul2_gpio_irq_mask(struct irq_data *data)
 		     0);
 
 	siul2_gpio_free(gc, gpio);
+
+	gpiochip_disable_irq(gc, gpio);
 }
 
-static struct irq_chip siul2_gpio_irq_chip = {
+static const struct irq_chip siul2_gpio_irq_chip = {
 	.name			= "siul2-gpio",
 	.irq_ack		= siul2_gpio_irq_mask,
 	.irq_mask		= siul2_gpio_irq_mask,
 	.irq_unmask		= siul2_gpio_irq_unmask,
 	.irq_set_type		= siul2_gpio_irq_set_type,
+	.flags			= IRQCHIP_IMMUTABLE,
+	GPIOCHIP_IRQ_RESOURCE_HELPERS,
 };
 
 static const struct regmap_config siul2_regmap_conf = {
@@ -1196,7 +1202,7 @@ static int siul2_gpio_probe(struct platform_device *pdev)
 	gc->owner = THIS_MODULE;
 
 	girq = &gc->irq;
-	girq->chip = &siul2_gpio_irq_chip;
+	gpio_irq_chip_set_chip(girq, &siul2_gpio_irq_chip);
 	girq->parent_handler = NULL;
 	girq->num_parents = 0;
 	girq->parents = NULL;
