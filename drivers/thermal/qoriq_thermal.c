@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
 //
 // Copyright 2016 Freescale Semiconductor, Inc.
-// Copyright 2023 NXP
+// Copyright 2023-2024 NXP
 
 #include <linux/clk.h>
 #include <linux/err.h>
@@ -116,7 +116,6 @@
  */
 struct qoriq_sensor {
 	int				id;
-	struct qoriq_tmu_data		*qdata;
 	struct thermal_zone_device	*tzd;
 	bool				polling;
 };
@@ -165,7 +164,7 @@ static inline u32 tmu_get_sites_mask(struct qoriq_tmu_data *qdata)
 	return GENMASK(qdata->sites_max - 1, 0);
 }
 
-static void tmu_set_site_monitoring(struct qoriq_tmu_data *qdata, u32 sites, u32 tier)
+static void tmu_set_site_monitoring(struct qoriq_tmu_data *qdata, u32 sites)
 {
 	/* Disable monitoring. */
 	regmap_update_bits(qdata->regmap, REGS_TMR, TMR_ME, TMR_IDLE);
@@ -239,7 +238,7 @@ static int tmu_get_temp(void *p, int *temp)
 		regmap_write(qdata->regmap, REGS_TMLTITR, 0);
 
 		tmu_set_site_monitoring(qdata, BIT(qsensor->id) |
-					BIT(qdata->monitored_irq_site), 0);
+					BIT(qdata->monitored_irq_site));
 		/* Give TMU some time to read the temperature for
 		 * the current sensor since the monitoring for it
 		 * was just started.
@@ -275,7 +274,7 @@ tmu_get_temp_out:
 		/* Enable back the interrupts and monitor only
 		 * monitored_irq_site.
 		 */
-		tmu_set_site_monitoring(qdata, BIT(qdata->monitored_irq_site), tier);
+		tmu_set_site_monitoring(qdata, BIT(qdata->monitored_irq_site));
 		/* Enable interrupts and thresholds back. */
 		regmap_write(qdata->regmap, REGS_TMHTITR, high);
 		regmap_write(qdata->regmap, REGS_TMLTITR, low);
@@ -365,12 +364,11 @@ static void tmu_set_thresholds(struct qoriq_tmu_data *qdata, int low,
 static int tmu_set_trips(void *data, int low, int high)
 {
 	struct qoriq_sensor *sensor = data;
-	struct qoriq_tmu_data *qdata;
+	struct qoriq_tmu_data *qdata = qoriq_sensor_to_data(sensor);
 
 	if (!sensor)
 		return -EINVAL;
 
-	qdata = sensor->qdata;
 	/* The first time it is called is during
 	 * devm_thermal_zone_of_sensor_register. At this point, tzd will be
 	 * NULL.
@@ -493,7 +491,6 @@ static int qoriq_tmu_register_tmu_zone(struct platform_device *pdev,
 		int ret;
 
 		sensor->id = id;
-		sensor->qdata = qdata;
 
 		tzd = devm_thermal_zone_of_sensor_register(dev, id,
 							   sensor,
