@@ -98,7 +98,6 @@
 #define REGS_TRITSR(n)	(0x100 + 16 * (n)) /* Immediate Temperature
 					    * Site Register
 					    */
-
 #define TRITSR_V	BIT(31)
 #define TRITSR_TP5	BIT(9)
 
@@ -135,7 +134,11 @@
  * Thermal zone data
  */
 struct qoriq_sensor {
+	/* Two types of ids are used. id is the hardware sensor id, while
+	 * virt_id is the id used in device tree.
+	 */
 	int				id;
+	int				virt_id;
 	struct thermal_zone_device	*tzd;
 	bool				polling;
 };
@@ -145,7 +148,7 @@ struct qoriq_tmu_data {
 	u32 ttrcr[NUM_TTRCR_MAX];
 	struct regmap *regmap;
 	struct clk *clk;
-	struct qoriq_sensor	sensor[SITES_MAX];
+	struct qoriq_sensor	sensor[SITES_MAX * 2];
 	struct device *dev;
 	u32 sites;
 	void *plat_data;
@@ -172,9 +175,22 @@ struct s32cc_plat_data {
 static int qoriq_init_and_calib(struct qoriq_tmu_data *data);
 static int s32cc_init_and_calib(struct qoriq_tmu_data *data);
 
+static inline bool tmu_is_average_sensor(struct qoriq_sensor *qsensor)
+{
+	return qsensor->id != qsensor->virt_id;
+}
+
+/* If the sensor measures the immediate temperature, id and virt_id
+ * have the same value. In average temperature case, id = virt_id - SITES_MAX.
+ */
+static inline int tmu_virt_to_hw_sensor_id(int id)
+{
+	return id >= SITES_MAX ? id - SITES_MAX : id;
+}
+
 static struct qoriq_tmu_data *qoriq_sensor_to_data(struct qoriq_sensor *s)
 {
-	return container_of(s, struct qoriq_tmu_data, sensor[s->id]);
+	return container_of(s, struct qoriq_tmu_data, sensor[s->virt_id]);
 }
 
 static inline u32 tmu_get_sites_mask(struct qoriq_tmu_data *qdata)
@@ -201,7 +217,9 @@ static int tmu_get_temp(struct thermal_zone_device *tz, int *temp)
 	struct qoriq_tmu_data *qdata = qoriq_sensor_to_data(qsensor);
 	u32 val, delay;
 	bool not_monitored, take_lock;
+	bool average_sensor = tmu_is_average_sensor(qsensor);
 	int ret = 0;
+	unsigned int reg_addr;
 
 	not_monitored = qsensor->polling &&
 		(qdata->monitored_irq_site != TMU_INVALID_SITE);
@@ -261,8 +279,12 @@ static int tmu_get_temp(struct thermal_zone_device *tz, int *temp)
 		delay = qdata->read_delay * 2;
 		usleep_range(delay, delay + 1000);
 	}
+
+	/* Figure out which temperature is requested, average or immediate. */
+	reg_addr = average_sensor ?
+		REGS_TRATSR(qsensor->id) : REGS_TRITSR(qsensor->id);
 	if (regmap_read_poll_timeout(qdata->regmap,
-				     REGS_TRITSR(qsensor->id),
+				     reg_addr,
 				     val,
 				     val & TRITSR_V,
 				     USEC_PER_MSEC,
@@ -275,7 +297,7 @@ static int tmu_get_temp(struct thermal_zone_device *tz, int *temp)
 	if (qdata->ver == TMU_VER1) {
 		*temp = (val & GENMASK(7, 0)) * MILLIDEGREE_PER_DEGREE;
 	} else {
-		if (val & TRITSR_TP5)
+		if (!average_sensor && (val & TRITSR_TP5))
 			*temp = milli_kelvin_to_millicelsius((val & GENMASK(8, 0)) *
 							     MILLIDEGREE_PER_DEGREE + 500);
 		else
@@ -476,12 +498,20 @@ static int qoriq_tmu_register_tmu_zone(struct platform_device *pdev,
 	struct device *dev = qdata->dev;
 	int id, sites = 0;
 
-	for (id = 0; id < qdata->sites_max; id++) {
+	/* IDs from 0 to SITES_MAX - 1 will be used for the immediate
+	 * temperature and the rest of them for the average temperature.
+	 * Eg: sensor[0] -> immediate temperature for site 0
+	 *     sensor[SITES_MAX] -> average temperature for site 0
+	 * Both sensor[0] and sensor[SITES_MAX] will have the same
+	 * id but different virt_id.
+	 */
+	for (id = 0; id < SITES_MAX * 2; id++) {
 		struct thermal_zone_device *tzd;
 		struct qoriq_sensor *sensor = &qdata->sensor[id];
 		int ret;
 
-		sensor->id = id;
+		sensor->virt_id = id;
+		sensor->id = tmu_virt_to_hw_sensor_id(id);
 
 		tzd = devm_thermal_of_zone_register(dev, id,
 						    sensor,
@@ -499,9 +529,9 @@ static int qoriq_tmu_register_tmu_zone(struct platform_device *pdev,
 		sensor->polling = !!tzd->polling_delay_jiffies;
 
 		if (qdata->ver == TMU_VER1)
-			sites |= 0x1 << (15 - id);
+			sites |= 0x1 << (15 - sensor->id);
 		else
-			sites |= 0x1 << id;
+			sites |= 0x1 << sensor->id;
 
 		if (!sensor->polling) {
 			if (qdata->ver == TMU_VER1) {
