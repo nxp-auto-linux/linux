@@ -19,6 +19,7 @@
 #include <dt-bindings/pinctrl/s32cc-pinfunc.h>
 #include <dt-bindings/reset/s32cc-scmi-reset.h>
 #include <dt-bindings/rtc/s32cc-rtc.h>
+#include <dt-bindings/thermal/qoriq_thermal.h>
 
 / {
 	interrupt-parent = <&gic>;
@@ -293,6 +294,7 @@
 			nvmem-cells = <&tmu_fuse_val>;
 			interrupts = <GIC_SPI 120 IRQ_TYPE_LEVEL_HIGH>;
 			little-endian;
+			tmu-alpf = <QORIQ_TMR_ALPF_0_125>;
 			status = "okay";
 		};
 
