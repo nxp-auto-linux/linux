@@ -61,6 +61,14 @@ properties:
       the default is big endian.
     type: boolean
 
+  tmu-alpf:
+    description: |
+      It is used by the TMU for the average temperature computation.
+      If present, it will replace the ALPF default value used in the driver
+      (0.125). The average temperature is calculated using the formula:
+      ALPF x Current_Temp + (1 - ALPF) x Average_Temp.
+      The property is read only in TMU version 2 case.
+
   clocks:
     maxItems: 1
 
@@ -172,6 +180,7 @@ examples:
                                   <3 0x167 0x1f>;
             interrupts = <GIC_SPI 120 IRQ_TYPE_LEVEL_HIGH>;
             #thermal-sensor-cells = <1>;
+            tmu-alpf = <QORIQ_TMR_ALPF_0_125>;
             status = "okay";
         };
     };
