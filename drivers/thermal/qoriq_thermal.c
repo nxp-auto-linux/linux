@@ -32,7 +32,9 @@
 #define TMR_IDLE	0x0
 #define TMR_ME		0x80000000
 #define TMR_ALPF	0x0c000000
-#define TMR_ALPF_V2	0x03000000
+#define TMR_ALPF_V2_DEFAULT	3
+#define TMR_ALPF_V2_MAX		3
+#define TMR_ALPF_V2_OFFSET	24
 
 #define REGS_TMTMIR	0x008	/* Temperature measurement interval Register */
 #define TMTMIR_DEFAULT	0x0000000f
@@ -159,6 +161,7 @@ struct qoriq_tmu_data {
 	 * just added to the monitored sites.
 	 */
 	u32 read_delay;
+	u32 alpf;
 };
 
 struct s32cc_plat_data {
@@ -672,7 +675,8 @@ static int qoriq_tmu_register_tmu_zone(struct platform_device *pdev,
 						   sites);
 			else
 				sites = BIT(qdata->monitored_irq_site);
-			regmap_write(qdata->regmap, REGS_TMR, TMR_ME | TMR_ALPF_V2);
+			regmap_write(qdata->regmap, REGS_TMR,
+				     TMR_ME | qdata->alpf << TMR_ALPF_V2_OFFSET);
 		}
 	}
 
@@ -1077,6 +1081,7 @@ static int qoriq_tmu_probe(struct platform_device *pdev)
 		.max_register		= SZ_4K,
 	};
 	void __iomem *base;
+	u32 alpf;
 
 	data = devm_kzalloc(dev, sizeof(struct qoriq_tmu_data),
 			    GFP_KERNEL);
@@ -1129,6 +1134,20 @@ static int qoriq_tmu_probe(struct platform_device *pdev)
 		return ret;
 	}
 	data->ver = (ver >> 8) & 0xff;
+
+	if (data->ver == TMU_VER2) {
+		data->alpf = TMR_ALPF_V2_DEFAULT;
+		/* Try reading ALPF from device tree. */
+		ret = of_property_read_u32(np, "tmu-alpf", &alpf);
+		if (!ret) {
+			if (alpf > TMR_ALPF_V2_MAX)
+				dev_err(dev,
+					"Invalid ALPF value %d. Default value (%d) will be used\n",
+					alpf, TMR_ALPF_V2_DEFAULT);
+			else
+				data->alpf = alpf;
+		}
+	}
 
 	qoriq_tmu_init_device(data);	/* TMU initialization */
 
@@ -1184,7 +1203,8 @@ static int __maybe_unused qoriq_tmu_resume(struct device *dev)
 		if (data->monitored_irq_site == TMU_INVALID_SITE)
 			regmap_write(data->regmap, REGS_V2_TMSR, data->sites);
 		regmap_write(data->regmap, REGS_V2_TMTMIR, TMTMIR_DEFAULT);
-		regmap_write(data->regmap, REGS_TMR, TMR_ME | TMR_ALPF_V2);
+		regmap_write(data->regmap, REGS_TMR,
+			     TMR_ME | data->alpf << TMR_ALPF_V2_OFFSET);
 
 		return 0;
 	}
