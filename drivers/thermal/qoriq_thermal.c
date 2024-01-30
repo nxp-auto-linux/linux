@@ -45,16 +45,21 @@
 #define TIER_MASK	GENMASK(31, 24)
 #define TIER_DISABLE	0x0
 #define TIER_IHTTIE	BIT(31)
+#define TIER_AHTTIE	BIT(30)
 #define TIER_ILTTIE	BIT(28)
+#define TIER_ALTTIE	BIT(27)
 #define TIER_RTRCTIE	BIT(25)
 #define TIER_FTRCTIE	BIT(24)
 
 #define REGS_TIDR	0x24	/* Interrupt Detect */
 #define TIDR_MASK	GENMASK(31, 24)
 #define TIDR_IHTT	BIT(31)
+#define TIDR_AHTT	BIT(30)
 #define TIDR_ILTT	BIT(28)
+#define TIDR_ALTT	BIT(27)
 
 #define REGS_TIISCR	0x30	/* Interrupt Immediate Site Capture */
+#define REGS_TIASCR	0x34	/* Interrupt Average Site Capture */
 
 #define REGS_TICSCR	0x38	/* Interrupt Critical Site Capture (TICSCR) */
 
@@ -64,12 +69,18 @@
 #define TMHTITR_EN	BIT(31)
 #define TMHTITR_TEMP_MASK	GENMASK(8, 0)
 
+#define REGS_TMHTATR	0x54	/* Monitor High Temperature Average
+				 * Threshold
+				 */
 #define REGS_TMLTITR	0x60	/* Monitor Low Temperature Immediate
 				 * Threshold
 				 */
 #define TMLTITR_EN	BIT(31)
 #define TMLTITR_TEMP_MASK	GENMASK(8, 0)
 
+#define REGS_TMLTATR	0x64	/* Monitor Low Temperature Average
+				 * Threshold
+				 */
 #define REGS_TMRTRCTR	0x70	/* Monitor Rising Temperature
 				 * Rate Critical Threshold
 				 */
@@ -174,6 +185,11 @@ static inline int tmu_virt_to_hw_sensor_id(int id)
 	return id >= SITES_MAX ? id - SITES_MAX : id;
 }
 
+static inline int tmu_hw_to_virt_sensor_id(int id, bool average)
+{
+	return average ? id + SITES_MAX : id;
+}
+
 static struct qoriq_tmu_data *qoriq_sensor_to_data(struct qoriq_sensor *s)
 {
 	return container_of(s, struct qoriq_tmu_data, sensor[s->virt_id]);
@@ -201,7 +217,7 @@ static int tmu_get_temp(void *p, int *temp)
 {
 	struct qoriq_sensor *qsensor = p;
 	struct qoriq_tmu_data *qdata = qoriq_sensor_to_data(qsensor);
-	u32 val, tier = 0, low = 0, high = 0, delay;
+	u32 val, tier = 0, low = 0, high = 0, low_avg = 0, high_avg = 0, delay;
 	bool not_monitored, take_lock;
 	bool average_sensor = tmu_is_average_sensor(qsensor);
 	int ret = 0;
@@ -254,10 +270,14 @@ static int tmu_get_temp(void *p, int *temp)
 		/* Read current thresholds. */
 		regmap_read(qdata->regmap, REGS_TMHTITR, &high);
 		regmap_read(qdata->regmap, REGS_TMLTITR, &low);
+		regmap_read(qdata->regmap, REGS_TMHTATR, &high_avg);
+		regmap_read(qdata->regmap, REGS_TMLTATR, &low_avg);
 		/* Disable interrupts and disable thresholds. */
 		regmap_update_bits(qdata->regmap, REGS_TIER, TIER_MASK, 0);
 		regmap_write(qdata->regmap, REGS_TMHTITR, 0);
 		regmap_write(qdata->regmap, REGS_TMLTITR, 0);
+		regmap_write(qdata->regmap, REGS_TMHTATR, 0);
+		regmap_write(qdata->regmap, REGS_TMLTATR, 0);
 
 		tmu_set_site_monitoring(qdata, BIT(qsensor->id) |
 					BIT(qdata->monitored_irq_site));
@@ -304,6 +324,8 @@ tmu_get_temp_out:
 		/* Enable interrupts and thresholds back. */
 		regmap_write(qdata->regmap, REGS_TMHTITR, high);
 		regmap_write(qdata->regmap, REGS_TMLTITR, low);
+		regmap_write(qdata->regmap, REGS_TMHTATR, high_avg);
+		regmap_write(qdata->regmap, REGS_TMLTATR, low_avg);
 		regmap_update_bits(qdata->regmap, REGS_TIER, TIER_MASK, tier);
 	}
 
@@ -315,11 +337,12 @@ tmu_get_temp_unlock:
 }
 
 static void tmu_set_thresholds(struct qoriq_tmu_data *qdata, int low,
-			      int high, u8 sensor_id)
+			      int high, u8 sensor_id, bool average)
 {
 	bool set_high = true, set_low = true;
 	u32 reg = 0;
 	u32 site = BIT(sensor_id);
+	unsigned int reg_addr;
 
 	if (high == INT_MAX)
 		set_high = false;
@@ -341,34 +364,45 @@ static void tmu_set_thresholds(struct qoriq_tmu_data *qdata, int low,
 	/* Clear thresholds registers. */
 	regmap_write(qdata->regmap, REGS_TMHTITR, 0);
 	regmap_write(qdata->regmap, REGS_TMLTITR, 0);
+	regmap_write(qdata->regmap, REGS_TMHTATR, 0);
+	regmap_write(qdata->regmap, REGS_TMLTATR, 0);
 
 	/* Clear the interrupt capture registers. */
 	regmap_update_bits(qdata->regmap, REGS_TIISCR,
+			   tmu_get_sites_mask(qdata), 0);
+	regmap_update_bits(qdata->regmap, REGS_TIASCR,
 			   tmu_get_sites_mask(qdata), 0);
 
 	regmap_update_bits(qdata->regmap, REGS_TIER, TIER_MASK, 0);
 
 	/* Enable interrupt handling. */
-	if (set_high)
+	if (set_high && !average)
 		reg |= TIER_IHTTIE;
-	if (set_low)
+	if (set_low && !average)
 		reg |= TIER_ILTTIE;
+	if (set_high && average)
+		reg |= TIER_AHTTIE;
+	if (set_low && average)
+		reg |= TIER_ALTTIE;
+
 	regmap_update_bits(qdata->regmap, REGS_TIER, TIER_MASK, reg);
 
 	/* Write the appropriate values to the temperature threshold registers. */
 	if (set_high) {
-		regmap_update_bits(qdata->regmap, REGS_TMHTITR,
+		reg_addr = !average ? REGS_TMHTITR : REGS_TMHTATR;
+		regmap_update_bits(qdata->regmap, reg_addr,
 				   TMHTITR_TEMP_MASK,
 				   millicelsius_to_kelvin(high));
-		regmap_update_bits(qdata->regmap, REGS_TMHTITR,
+		regmap_update_bits(qdata->regmap, reg_addr,
 				   TMHTITR_EN, TMHTITR_EN);
 	}
 
 	if (set_low) {
-		regmap_update_bits(qdata->regmap, REGS_TMLTITR,
+		reg_addr = !average ? REGS_TMLTITR : REGS_TMLTATR;
+		regmap_update_bits(qdata->regmap, reg_addr,
 				   TMLTITR_TEMP_MASK,
 				   millicelsius_to_kelvin(low));
-		regmap_update_bits(qdata->regmap, REGS_TMLTITR,
+		regmap_update_bits(qdata->regmap, reg_addr,
 				   TMLTITR_EN, TMLTITR_EN);
 	}
 
@@ -416,7 +450,8 @@ static int tmu_set_trips(void *data, int low, int high)
 	dev_dbg(qdata->dev, "%d:low(mdegC):%d, high(mdegC):%d\n",
 		sensor->id, low, high);
 
-	tmu_set_thresholds(qdata, low, high, sensor->id);
+	tmu_set_thresholds(qdata, low, high, sensor->id,
+			   tmu_is_average_sensor(sensor));
 
 	return 0;
 }
@@ -433,54 +468,96 @@ static irqreturn_t tmu_alarm_irq(int irq, void *data)
 	return IRQ_WAKE_THREAD;
 }
 
-static irqreturn_t tmu_alarm_irq_thread(int irq, void *data)
+static void tmu_handle_immediate_irq(struct qoriq_tmu_data *qdata, u32 tidr)
 {
-	struct qoriq_tmu_data *qdata = data;
-	struct qoriq_sensor *sensor = &qdata->sensor[qdata->monitored_irq_site];
-	u32 tidr = 0, tiiscr = 0;
-	bool upper_set = false, lower_set = false;
-
-	regmap_read(qdata->regmap, REGS_TIDR, &tidr);
-
-	regmap_read(qdata->regmap, REGS_TIISCR, &tiiscr);
-
-	if (unlikely(!(tidr & TIDR_MASK)))
-		goto tmu_alarm_irq;
-
-	if (unlikely(qdata->monitored_irq_site == TMU_INVALID_SITE)) {
-		dev_err(qdata->dev,
-			"monitored_irq_site is invalid! TIDR = %x TIISCR = %x\n",
-			tidr, tiiscr);
-		goto tmu_alarm_err;
-	}
-
-	if (unlikely(!(tiiscr & BIT(qdata->monitored_irq_site)))) {
-		/* Clear the interrupt capture registers. */
-		dev_warn(qdata->dev,
-			"interrupt arrised for wrong sensor TIISCR = %x\n",
-			tiiscr);
-		goto tmu_alarm_err;
-	}
+	struct qoriq_sensor *sensor;
+	bool upper_set, lower_set;
 
 	lower_set = tidr & TIDR_ILTT;
 	upper_set = tidr & TIDR_IHTT;
 
-	if (upper_set || lower_set) {
+	/* If an immediate threshold is passed, we will use the sensor that
+	 * is responsible for the immediate temperature.
+	 */
+	sensor = &qdata->sensor[qdata->monitored_irq_site];
+
+	if (upper_set || lower_set)
 		/* set_trips gets the lock back.
 		 * If get_temp, is called until that time, it doesn't matter.
 		 */
 		thermal_zone_device_update(sensor->tzd,
 					   THERMAL_EVENT_UNSPECIFIED);
-		goto tmu_alarm_irq;
+	else
+		dev_err(qdata->dev,
+			"No immediate threshold was exceeded TIDR = %x\n",
+			tidr);
+
+}
+
+static void tmu_handle_average_irq(struct qoriq_tmu_data *qdata, u32 tidr)
+{
+	struct qoriq_sensor *sensor;
+	bool upper_set, lower_set;
+	int virt_id = tmu_hw_to_virt_sensor_id(qdata->monitored_irq_site,
+					       true);
+
+	lower_set = tidr & TIDR_ALTT;
+	upper_set = tidr & TIDR_AHTT;
+
+	/* If an average threshold is passed, we will use the sensor that
+	 * is responsible for the average temperature.
+	 */
+	sensor = &qdata->sensor[virt_id];
+
+	if (upper_set || lower_set)
+		/* set_trips gets the lock back.
+		 * If get_temp, is called until that time, it doesn't matter.
+		 */
+		thermal_zone_device_update(sensor->tzd,
+					   THERMAL_EVENT_UNSPECIFIED);
+	else
+		dev_err(qdata->dev,
+			"No average threshold was exceeded TIDR = %x\n", tidr);
+}
+
+static irqreturn_t tmu_alarm_irq_thread(int irq, void *data)
+{
+	struct qoriq_tmu_data *qdata = data;
+	u32 tidr = 0, tiiscr = 0, tiascr = 0;
+
+	regmap_read(qdata->regmap, REGS_TIDR, &tidr);
+
+	regmap_read(qdata->regmap, REGS_TIISCR, &tiiscr);
+	regmap_read(qdata->regmap, REGS_TIASCR, &tiascr);
+
+	if (unlikely(!(tidr & TIDR_MASK)))
+		goto tmu_enable_irq;
+
+	if (unlikely(qdata->monitored_irq_site == TMU_INVALID_SITE)) {
+		dev_err(qdata->dev,
+			"monitored_irq_site is invalid! TIDR = %x TIISCR = %x TIASCR = %x\n",
+			tidr, tiiscr, tiascr);
+		goto tmu_alarm_err;
 	}
+
+	if (tiiscr & BIT(qdata->monitored_irq_site))
+		tmu_handle_immediate_irq(qdata, tidr);
+	else if (tiascr & BIT(qdata->monitored_irq_site))
+		tmu_handle_average_irq(qdata, tidr);
+	else
+		dev_warn(qdata->dev,
+			"interrupt arrised for wrong sensor TIISCR = %x TIASCR = %x\n",
+			tiiscr, tiascr);
 
 tmu_alarm_err:
 	mutex_lock(&qdata->lock);
 	regmap_update_bits(qdata->regmap, REGS_TIISCR,
 			   tmu_get_sites_mask(qdata), 0);
+	regmap_update_bits(qdata->regmap, REGS_TIASCR,
+			   tmu_get_sites_mask(qdata), 0);
 	regmap_update_bits(qdata->regmap, REGS_TIDR, TIDR_MASK, TIDR_MASK);
 	mutex_unlock(&qdata->lock);
-tmu_alarm_irq:
+tmu_enable_irq:
 	enable_irq(irq);
 
 	return IRQ_HANDLED;
@@ -560,7 +637,11 @@ static int qoriq_tmu_register_tmu_zone(struct platform_device *pdev,
 			if (ret < 0)
 				return ret;
 
-			qdata->monitored_irq_site = id;
+			/* Store the hardware sensor id.
+			 * The driver will choose which qoriq_sensor to use
+			 * based on the triggered interrupt type.
+			 */
+			qdata->monitored_irq_site = sensor->id;
 
 			/* Call again set_trips, since the first time it was
 			 * called, nothing was done.
