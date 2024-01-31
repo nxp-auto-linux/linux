@@ -2,7 +2,7 @@
 /*
  * Device Tree file for S32G399ARDB3 Board Rev E.
  *
- * Copyright 2022-2023 NXP
+ * Copyright 2022-2024 NXP
  */
 
 /dts-v1/;
@@ -62,4 +62,10 @@
 
 &swt11 {
 	status = "okay";
+};
+
+&usdhc0 {
+	mmc-hs200-1_8v;
+	mmc-hs400-1_8v;
+	mmc-hs400-enhanced-strobe;
 };
