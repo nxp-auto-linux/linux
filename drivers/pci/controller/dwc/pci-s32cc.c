@@ -442,7 +442,6 @@ void s32cc_pcie_stop_link(struct dw_pcie *pcie)
 	s32cc_pcie_disable_ltssm(s32cc_pp);
 }
 
-#if (IS_ENABLED(CONFIG_PCI_MSI))
 /* msi IRQ handler
  * irq - interrupt number
  * arg - pointer to the "struct pcie_port" object
@@ -453,7 +452,6 @@ static irqreturn_t s32cc_pcie_msi_handler(int irq, void *arg)
 
 	return dw_handle_msi_irq(pp);
 }
-#endif
 
 static int s32cc_pcie_host_init(struct pcie_port *pp)
 {
@@ -471,10 +469,8 @@ static int s32cc_pcie_host_init(struct pcie_port *pp)
 		}
 	}
 
-#if (IS_ENABLED(CONFIG_PCI_MSI))
-	if (!s32cc_has_msi_parent(pp))
+	if (IS_ENABLED(CONFIG_PCI_MSI) && !s32cc_has_msi_parent(pp))
 		dw_pcie_msi_init(pp);
-#endif
 
 	return 0;
 }
@@ -1289,8 +1285,7 @@ static int s32cc_pcie_config_host(struct s32cc_pcie *s32cc_pp,
 		return ret;
 
 	/* MSI configuration for RC */
-#if (IS_ENABLED(CONFIG_PCI_MSI))
-	if (!s32cc_has_msi_parent(pp)) {
+	if (IS_ENABLED(CONFIG_PCI_MSI) && !s32cc_has_msi_parent(pp)) {
 		ret = s32cc_pcie_config_irq(&pp->msi_irq, "msi", pdev,
 					      s32cc_pcie_msi_handler, pp);
 		if (ret) {
@@ -1298,7 +1293,6 @@ static int s32cc_pcie_config_host(struct s32cc_pcie *s32cc_pp,
 			return ret;
 		}
 	}
-#endif
 
 	ret = s32cc_add_pcie_port(pp);
 	if (ret)
