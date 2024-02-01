@@ -69,7 +69,17 @@ s32cc_pcie_ep_get_features(struct dw_pcie_ep *ep)
 	return &s32cc_pcie_epc_features;
 }
 
-#if (IS_ENABLED(CONFIG_PCI_S32CC_EP_MSI))
+/* msi IRQ handler
+ * irq - interrupt number
+ * arg - pointer to the "struct pcie_port" object
+ */
+static irqreturn_t s32cc_pcie_msi_handler(int irq, void *arg)
+{
+	struct pcie_port *pp = arg;
+
+	return dw_handle_msi_irq(pp);
+}
+
 /* Chained MSI interrupt service routine, for EP */
 static void dw_ep_chained_msi_isr(struct irq_desc *desc)
 {
@@ -83,7 +93,6 @@ static void dw_ep_chained_msi_isr(struct irq_desc *desc)
 
 	chained_irq_exit(chip, desc);
 }
-#endif
 
 /* Return the s32cc_pcie object for the EP with the given PCIe ID,
  * as specified in the device tree
@@ -485,50 +494,53 @@ static int s32cc_pcie_config_ep(struct s32cc_pcie *s32cc_pp,
 	if (ret)
 		return ret;
 
-#if (IS_ENABLED(CONFIG_PCI_S32CC_EP_MSI))
-	u32 val, ctrl, num_ctrls;
-	struct pcie_port *pp = &pcie->pp;
-#endif
+	/* MSI configuration for EP */
+	if (IS_ENABLED(CONFIG_PCI_S32CC_EP_MSI)) {
+		u32 val, ctrl, num_ctrls;
+		struct pcie_port *pp = &pcie->pp;
 
-/* MSI configuration for EP */
-#if (IS_ENABLED(CONFIG_PCI_S32CC_EP_MSI))
-	ret = s32cc_pcie_config_irq(&pcie->pp.msi_irq, "msi", pdev,
-		s32cc_pcie_msi_handler, &pcie->pp);
-	if (ret) {
-		dev_err(dev, "failed to request msi irq\n");
-		return ret;
+		ret = s32cc_pcie_config_irq(&pcie->pp.msi_irq, "msi", pdev,
+					    s32cc_pcie_msi_handler, &pcie->pp);
+		if (ret) {
+			dev_err(dev, "failed to request msi irq\n");
+			return ret;
+		}
+
+		pp->num_vectors = MSI_DEF_NUM_VECTORS;
+		ret = dw_pcie_allocate_domains(pp);
+		if (ret)
+			dev_err(dev, "Unable to setup MSI domain for EP\n");
+
+		if (pp->msi_irq)
+			irq_set_chained_handler_and_data(pp->msi_irq,
+				dw_ep_chained_msi_isr,
+				pp);
+
+		if (pp->has_msi_ctrl) {
+			num_ctrls = pp->num_vectors / MAX_MSI_IRQS_PER_CTRL;
+
+			/* Initialize IRQ Status array.
+			 * See void dw_pcie_setup_rc(struct pcie_port *pp)
+			 */
+			for (ctrl = 0; ctrl < num_ctrls; ctrl++) {
+				pp->irq_mask[ctrl] = ~0;
+				dw_pcie_writel_dbi(pcie, PCIE_MSI_INTR0_MASK +
+						(ctrl * MSI_REG_CTRL_BLOCK_SIZE),
+						pp->irq_mask[ctrl]);
+				dw_pcie_writel_dbi(pcie, PCIE_MSI_INTR0_ENABLE +
+						(ctrl * MSI_REG_CTRL_BLOCK_SIZE),
+						~0);
+			}
+		}
+
+		/* Setup interrupt pins */
+		val = dw_pcie_readl_dbi(pcie, PCI_INTERRUPT_LINE);
+		val &= PCI_INTERRUPT_PINS_MASK;
+		val |= PCI_INTERRUPT_PINS_VAL;
+		dw_pcie_writel_dbi(pcie, PCI_INTERRUPT_LINE, val);
+
+		dw_pcie_msi_init(&pcie->pp);
 	}
-
-	pp->num_vectors = MSI_DEF_NUM_VECTORS;
-	ret = dw_pcie_allocate_domains(pp);
-	if (ret)
-		dev_err(dev, "Unable to setup MSI domain for EP\n");
-
-	if (pp->msi_irq)
-		irq_set_chained_handler_and_data(pp->msi_irq,
-			dw_ep_chained_msi_isr,
-			pp);
-
-	num_ctrls = pp->num_vectors / MAX_MSI_IRQS_PER_CTRL;
-
-	/* Initialize IRQ Status array */
-	for (ctrl = 0; ctrl < num_ctrls; ctrl++) {
-		dw_pcie_writel_dbi(pcie, PCIE_MSI_INTR0_MASK +
-			(ctrl * MSI_REG_CTRL_BLOCK_SIZE), ~0);
-		dw_pcie_writel_dbi(pcie, PCIE_MSI_INTR0_ENABLE +
-			(ctrl * MSI_REG_CTRL_BLOCK_SIZE), ~0);
-		pcie->pp.irq_status[ctrl] = 0;
-	}
-
-	/* Setup interrupt pins */
-	val = dw_pcie_readl_dbi(pcie, PCI_INTERRUPT_LINE);
-	val &= PCI_INTERRUPT_PINS_MASK;
-	val |= PCI_INTERRUPT_PINS_VAL;
-	dw_pcie_writel_dbi(pcie, PCI_INTERRUPT_LINE, val);
-
-	dw_pcie_msi_init(&pcie->pp);
-
-#endif /* CONFIG_PCI_S32CC_EP_MSI */
 
 	if (IS_ENABLED(CONFIG_PCI_DW_DMA)) {
 		s32cc_config_dma_data(&s32cc_pp->dma, pcie);
