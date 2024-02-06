@@ -265,8 +265,14 @@ static void scmi_dev_remove(struct device *dev)
 
 static int scmi_dev_suspend(struct device *dev, pm_message_t state)
 {
-	struct scmi_driver *scmi_drv = to_scmi_driver(dev->driver);
-	struct scmi_device *scmi_dev = to_scmi_dev(dev);
+	struct scmi_driver *scmi_drv;
+	struct scmi_device *scmi_dev;
+
+	if (!dev->driver)
+		return 0;
+
+	scmi_drv = to_scmi_driver(dev->driver);
+	scmi_dev = to_scmi_dev(dev);
 
 	if (scmi_drv->suspend)
 		return scmi_drv->suspend(scmi_dev, state);
@@ -276,8 +282,14 @@ static int scmi_dev_suspend(struct device *dev, pm_message_t state)
 
 static int scmi_dev_resume(struct device *dev)
 {
-	struct scmi_driver *scmi_drv = to_scmi_driver(dev->driver);
-	struct scmi_device *scmi_dev = to_scmi_dev(dev);
+	struct scmi_driver *scmi_drv;
+	struct scmi_device *scmi_dev;
+
+	if (!dev->driver)
+		return 0;
+
+	scmi_drv = to_scmi_driver(dev->driver);
+	scmi_dev = to_scmi_dev(dev);
 
 	if (scmi_drv->resume)
 		return scmi_drv->resume(scmi_dev);
