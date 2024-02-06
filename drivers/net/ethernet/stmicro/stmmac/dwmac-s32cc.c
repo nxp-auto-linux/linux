@@ -166,6 +166,17 @@ static void s32cc_fix_mac_speed(void *priv, unsigned int speed, unsigned int mod
 		return;
 	}
 }
+static void s32cc_gmac_ptp_clk_freq_config(struct stmmac_priv *priv)
+{
+	struct plat_stmmacenet_data *plat = priv->plat;
+
+	if (!plat->clk_ptp_ref)
+		return;
+
+	plat->clk_ptp_rate = clk_get_rate(plat->clk_ptp_ref);
+
+	netdev_dbg(priv->dev, "PTP rate %lu\n", plat->clk_ptp_rate);
+}
 
 static int s32cc_dwmac_probe(struct platform_device *pdev)
 {
@@ -229,6 +240,7 @@ static int s32cc_dwmac_probe(struct platform_device *pdev)
 	plat->init = s32cc_gmac_init;
 	plat->exit = s32cc_gmac_exit;
 	plat->fix_mac_speed = s32cc_fix_mac_speed;
+	plat->ptp_clk_freq_config = s32cc_gmac_ptp_clk_freq_config;
 
 	/* tx clock */
 	gmac->tx_clk = devm_clk_get(&pdev->dev, "tx");
