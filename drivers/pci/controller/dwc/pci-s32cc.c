@@ -2,7 +2,7 @@
 /*
  * PCIe host controller driver for NXP S32CC SoCs
  *
- * Copyright 2019 NXP
+ * Copyright 2019-2020 NXP
  */
 
 #if IS_ENABLED(CONFIG_PCI_S32CC_DEBUG)
@@ -28,9 +28,6 @@
 #include "pci-s32cc-regs.h"
 #include "pci-s32cc.h"
 #include "../../pci.h"
-
-#define CONFIG_PCIE_RC_MSI
-#define CONFIG_PCIE_EP_MSI
 
 #ifdef DEBUG
 #ifdef pr_debug
@@ -228,23 +225,32 @@ u32 dw_pcie_readl_ctrl(struct s32cc_pcie *pci, u32 reg)
 
 static struct s32cc_pcie *s32cc_pcie_ep;
 
+/* Chained MSI interrupt service routine, for EP */
+static void dw_ep_chained_msi_isr(struct irq_desc *desc)
+{
+	struct irq_chip *chip = irq_desc_get_chip(desc);
+	struct dw_pcie_rp *pp;
+
+	chained_irq_enter(chip, desc);
+
+	pp = irq_desc_get_handler_data(desc);
+	dw_handle_msi_irq(pp);
+
+	chained_irq_exit(chip, desc);
+}
+
 static void s32cc_pcie_ep_init(struct dw_pcie_ep *ep)
 {
 	struct dw_pcie *pcie = to_dw_pcie_from_ep(ep);
-	struct pci_epc *epc;
+	struct pci_epc *epc = ep->epc;
 	int bar, ret = 0;
+	u32 val, ctrl, num_ctrls;
+	struct dw_pcie_rp *pp = &pcie->pp;
 
 	DEBUG_FUNC;
 
 	if (!ep) {
 		pr_err("%s: No S32CC EP configuration found\n", __func__);
-		return;
-	}
-
-	epc = ep->epc;
-
-	if (!epc || !epc->ops) {
-		pr_err("Invalid S32CC EP configuration\n");
 		return;
 	}
 
@@ -257,6 +263,46 @@ static void s32cc_pcie_ep_init(struct dw_pcie_ep *ep)
 	BSET32(pcie, dbi, PCI_CLASS_REVISION,
 	       ((PCI_BASE_CLASS_PROCESSOR << PCI_BASE_CLASS_OFF) |
 	       (PCI_SUBCLASS_OTHER << PCI_SUBCLASS_OFF)));
+
+	if (IS_ENABLED(CONFIG_PCI_S32CC_EP_MSI)) {
+		pp->num_vectors = MSI_DEF_NUM_VECTORS;
+		ret = dw_pcie_allocate_domains(pp);
+		if (ret)
+			dev_err(pcie->dev, "Unable to setup MSI domain for EP\n");
+
+		if (pp->msi_irq)
+			irq_set_chained_handler_and_data(pp->msi_irq[0],
+							 dw_ep_chained_msi_isr, pp);
+
+		num_ctrls = pp->num_vectors / MAX_MSI_IRQS_PER_CTRL;
+
+		/* Initialize IRQ Mask array */
+		for (ctrl = 0; ctrl < num_ctrls; ctrl++) {
+			pcie->pp.irq_mask[ctrl] = ~0;
+			dw_pcie_writel_dbi(pcie, PCIE_MSI_INTR0_MASK +
+					(ctrl * MSI_REG_CTRL_BLOCK_SIZE),
+					pcie->pp.irq_mask[ctrl]);
+			dw_pcie_writel_dbi(pcie, PCIE_MSI_INTR0_ENABLE +
+					(ctrl * MSI_REG_CTRL_BLOCK_SIZE), ~0);
+		}
+
+		/* Setup interrupt pins */
+		val = dw_pcie_readl_dbi(pcie, PCI_INTERRUPT_LINE);
+		val &= 0xffff00ff;
+		val |= 0x00000100;
+		dw_pcie_writel_dbi(pcie, PCI_INTERRUPT_LINE, val);
+
+		dw_pcie_msi_init(&pcie->pp);
+	}
+	pr_debug("%s: Enable MSI/MSI-X capabilities\n", __func__);
+
+	/* Enable MSIs by setting the capability bit */
+	BSET32(pcie, dbi, PCI_MSI_CAP, MSI_EN);
+
+	/* Enable MSI-Xs by setting the capability bit */
+	BSET32(pcie, dbi, PCI_MSIX_CAP, MSIX_EN);
+
+	dw_pcie_dbi_ro_wr_dis(pcie);
 
 	for (bar = BAR_0; bar <= BAR_5; bar++)
 		dw_pcie_ep_reset_bar(pcie, bar);
@@ -479,6 +525,12 @@ static void s32cc_pcie_stop_link(struct dw_pcie *pcie)
 static irqreturn_t s32cc_pcie_msi_handler(int irq, void *arg)
 {
 	struct dw_pcie_rp *pp = arg;
+#ifdef DEBUG
+	struct dw_pcie *pcie = to_dw_pcie_from_pp(pp);
+	struct s32cc_pcie *s32cc_pci = to_s32cc_from_dw_pcie(pcie);
+
+	pr_debug("%s(pcie%d)\n", __func__, s32cc_pci->id);
+#endif
 
 	return dw_handle_msi_irq(pp);
 }
@@ -521,9 +573,12 @@ static int s32cc_pcie_config_irq(int *irq_id, char *irq_name,
 	}
 
 	ret = devm_request_irq(&pdev->dev, *(irq_id), irq_handler,
-			       IRQF_SHARED,  irq_name, irq_arg);
-	if (ret)
+			IRQF_SHARED,  irq_name, irq_arg);
+	if (ret) {
+		dev_err(&pdev->dev, "Register interrupt %d (%s) failed (%d)\n",
+			 *irq_id, irq_name, ret);
 		return ret;
+	}
 
 	dev_info(&pdev->dev, "Allocated line %d for interrupt %d (%s)",
 		 ret, *irq_id, irq_name);
@@ -538,16 +593,12 @@ static int __init s32cc_add_dw_pcie_rp(struct dw_pcie_rp *pp,
 
 	DEBUG_FUNC;
 
-	if (IS_ENABLED(CONFIG_PCIE_RC_MSI)) {
-		ret = s32cc_pcie_config_irq(&pp->msi_irq[0], "msi", pdev,
-					    s32cc_pcie_msi_handler, pp);
-		if (ret) {
-			dev_err(&pdev->dev, "failed to request msi irq\n");
-			return ret;
-		}
+	ret = s32cc_pcie_config_irq(&pp->msi_irq[0], "msi", pdev,
+					s32cc_pcie_msi_handler, pp);
+	if (ret) {
+		dev_err(&pdev->dev, "failed to request msi irq\n");
+		return ret;
 	}
-
-	pp->ops = &s32cc_pcie_host_ops;
 
 	ret = dw_pcie_host_init(pp);
 	if (ret) {
@@ -594,6 +645,15 @@ static int __init s32cc_add_pcie_ep(struct s32cc_pcie *s32cc_pp,
 	struct resource *res;
 
 	DEBUG_FUNC;
+
+	if (IS_ENABLED(CONFIG_PCI_S32CC_EP_MSI)) {
+		ret = s32cc_pcie_config_irq(&pcie->pp.msi_irq[0], "msi", pdev,
+					    s32cc_pcie_msi_handler, &pcie->pp);
+		if (ret) {
+			dev_err(&pdev->dev, "failed to request msi irq\n");
+			return ret;
+		}
+	}
 
 	ep->ops = &pcie_ep_ops;
 
@@ -657,6 +717,9 @@ static int s32cc_pcie_probe(struct platform_device *pdev)
 
 	pcie = &s32cc_pp->pcie;
 	pp = &pcie->pp;
+#if IS_ENABLED(CONFIG_PCI_MSI)
+	pp->num_vectors = MAX_MSI_IRQS;
+#endif
 
 	pcie->dev = dev;
 	pcie->ops = &s32cc_pcie_ops;
@@ -721,6 +784,8 @@ static int s32cc_pcie_probe(struct platform_device *pdev)
 
 	dev_info(dev, "Configuring as %s\n",
 		 PCIE_EP_RC_MODE(s32cc_pp->is_endpoint));
+
+	pp->ops = &s32cc_pcie_host_ops;
 
 	if (!s32cc_pp->is_endpoint) {
 		ret = s32cc_add_dw_pcie_rp(pp, pdev);
