@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: (GPL-2.0+ OR BSD-3-Clause)
 /*
- *  Copyright 2022-2023 NXP
+ *  Copyright 2022-2024 NXP
  */
 
 #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
@@ -33,7 +33,6 @@ struct gpio_eirqs {
 
 struct scmi_gpio_dev {
 	struct gpio_chip gc;
-	struct irq_chip irq;
 	struct notifier_block eirq_nb;
 	struct gpio_eirqs eirqs;
 	struct scmi_protocol_handle *scmi_ph;
@@ -421,6 +420,7 @@ static void scmi_gpio_irq_unmask(struct irq_data *data)
 	if (gpio > U32_MAX)
 		return;
 
+	gpiochip_enable_irq(chip, gpio);
 	unmask_gpio_irq(gpio_dev, gpio);
 }
 
@@ -475,12 +475,24 @@ static void scmi_gpio_irq_mask(struct irq_data *data)
 		return;
 
 	mask_gpio_irq(gpio_dev, gpio);
+	gpiochip_disable_irq(chip, gpio);
 }
 
 static int scmi_gpio_irq_set_type(struct irq_data *d, unsigned int type)
 {
 	return IRQ_SET_MASK_OK;
 }
+
+static const struct irq_chip scmi_gpio_irq_chip = {
+	.name		= "scmi-gpio",
+	.irq_startup	= scmi_gpio_irq_startup,
+	.irq_shutdown	= scmi_gpio_irq_shutdown,
+	.irq_mask	= scmi_gpio_irq_mask,
+	.irq_unmask	= scmi_gpio_irq_unmask,
+	.irq_set_type	= scmi_gpio_irq_set_type,
+	.flags		= IRQCHIP_SET_TYPE_MASKED | IRQCHIP_IMMUTABLE,
+	GPIOCHIP_IRQ_RESOURCE_HELPERS,
+};
 
 static int scmi_gpio_irq_domain_xlate(struct irq_domain *d,
 				      struct device_node *ctrlr,
@@ -776,16 +788,6 @@ static int scmi_gpio_probe(struct scmi_device *sdev)
 	gc->base = gpio_dev->scmi_ops->get_gpio_base(gpio_dev->scmi_ph);
 	gc->ngpio = ngpios;
 
-	gpio_dev->irq = (struct irq_chip) {
-		.name		= dev_name(dev),
-		.irq_startup	= scmi_gpio_irq_startup,
-		.irq_shutdown	= scmi_gpio_irq_shutdown,
-		.irq_mask	= scmi_gpio_irq_mask,
-		.irq_unmask	= scmi_gpio_irq_unmask,
-		.irq_set_type	= scmi_gpio_irq_set_type,
-		.flags		= IRQCHIP_SET_TYPE_MASKED,
-	};
-
 	gc->parent = dev;
 	gc->label = dev_name(dev);
 	gc->init_valid_mask = scmi_gpio_init_valid_mask;
@@ -800,7 +802,7 @@ static int scmi_gpio_probe(struct scmi_device *sdev)
 	gc->owner = THIS_MODULE;
 
 	girq = &gc->irq;
-	girq->chip = &gpio_dev->irq;
+	gpio_irq_chip_set_chip(girq, &scmi_gpio_irq_chip);
 	girq->parent_handler = NULL;
 	girq->num_parents = 0;
 	girq->parents = NULL;
