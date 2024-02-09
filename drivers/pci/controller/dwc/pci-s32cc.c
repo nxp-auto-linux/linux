@@ -900,6 +900,7 @@ static int s32cc_pcie_dt_init(struct platform_device *pdev,
 	enum dw_pcie_device_mode mode;
 	struct dw_pcie_ep *ep = &pcie->ep;
 	struct resource *res;
+	struct device_node *shmn;
 	u32 pcie_vendor_id = PCI_VENDOR_ID_FREESCALE, pcie_variant_bits = 0;
 	int ret;
 
@@ -946,6 +947,24 @@ static int s32cc_pcie_dt_init(struct platform_device *pdev,
 	if (s32cc_pp->linkspeed < GEN1 || s32cc_pp->linkspeed > GEN3) {
 		dev_warn(dev, "Invalid PCIe speed; setting to GEN1\n");
 		s32cc_pp->linkspeed = GEN1;
+	}
+
+	/* Reserved memory */
+	/* Get pointer to shared mem region device node from "memory-region" phandle.
+	 * Don't throw errors if not available, just warn and go on without.
+	 */
+	shmn = of_parse_phandle(np, "shared-mem", 0);
+	if (shmn) {
+		/* Convert memory region to a struct resource */
+		ret = of_address_to_resource(shmn, 0, &s32cc_pp->shared_mem);
+		of_node_put(shmn);
+		if (ret) {
+			dev_warn(dev, "Failed to translate shared-mem to a resource\n");
+			s32cc_pp->shared_mem.start = 0;
+			s32cc_pp->shared_mem.end = 0;
+		}
+	} else {
+		dev_warn(dev, "No shared-mem node\n");
 	}
 
 	/* This is for EP only */

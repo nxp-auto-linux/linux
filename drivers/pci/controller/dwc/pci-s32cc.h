@@ -91,6 +91,8 @@ struct s32cc_pcie {
 	/* TODO: change this to a list */
 	void (*call_back)(u32 arg);
 	struct phy *phy0, *phy1;
+
+	struct resource shared_mem;
 };
 
 struct s32cc_inbound_region {
