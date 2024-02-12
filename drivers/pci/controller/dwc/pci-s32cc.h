@@ -9,6 +9,7 @@
 #define PCIE_S32CC_H
 
 #include <linux/errno.h>
+#include <linux/stringify.h>
 #include <linux/types.h>
 #include <linux/version.h>
 #include <linux/phy/phy.h>
@@ -16,55 +17,52 @@
 #include <linux/pcie/nxp-s32cc-pcie-phy-submode.h>
 #include "pcie-designware.h"
 
-#define BUILD_BIT_VALUE(field, x) (((x) & (1)) << field##_BIT)
-#define BUILD_MASK_VALUE(field, x) (((x) & (field##_MASK)) << field##_LSB)
-
 /* PCIe MSI capabilities register */
-#define PCI_MSI_CAP		0x50
+#define PCI_MSI_CAP		0x50U
 /* MSI Enable bit */
-#define MSI_EN			0x10000
+#define MSI_EN			0x10000U
 
 /* PCIe MSI-X capabilities register */
-#define PCI_MSIX_CAP	0xB0
+#define PCI_MSIX_CAP		0xB0U
 /* MSI-X Enable bit */
 #define MSIX_EN			BIT(31)
 
 /* PCIe controller 0 general control 1 (PE0_GEN_CTRL_1) */
-#define PE0_GEN_CTRL_1			0x50
-#define   DEVICE_TYPE_LSB		(0)
-#define   DEVICE_TYPE_MASK		(0x0000000F)
-#define   DEVICE_TYPE			((DEVICE_TYPE_MASK) << \
-					(DEVICE_TYPE_LSB))
-#define   SRIS_MODE_BIT			(8)
-#define   SRIS_MODE_MASK		BIT(SRIS_MODE_BIT)
+#define PE0_GEN_CTRL_1		0x50U
+#define   DEVICE_TYPE_LSB	(0)
+#define   DEVICE_TYPE_MASK	(0x0000000F)
+#define   DEVICE_TYPE		((DEVICE_TYPE_MASK) << (DEVICE_TYPE_LSB))
+#define   SRIS_MODE_BIT		(8)
+#define   SRIS_MODE_MASK	BIT(SRIS_MODE_BIT)
 
-#define PCI_EXP_CAP_ID_OFFSET	0x70
+#define PCI_EXP_CAP_ID_OFFSET	0x70U
 
 /* PCIe controller 0 general control 3 (PE0_GEN_CTRL_3) */
-#define PE0_GEN_CTRL_3			0x58
+#define PE0_GEN_CTRL_3		0x58U
 /* LTSSM Enable. Active high. Set it low to hold the LTSSM in Detect state. */
-#define LTSSM_EN_MASK			0x1
+#define LTSSM_EN_MASK		0x1U
 
-#define LTSSM_STATE_L0			0x11 /* L0 state */
-#define LTSSM_STATE_L0S			0x12 /* L0S state */
-#define LTSSM_STATE_L1_IDLE		0x14 /* L1_IDLE state */
+#define LTSSM_STATE_L0		0x11U /* L0 state */
+#define LTSSM_STATE_L0S		0x12U /* L0S state */
+#define LTSSM_STATE_L1_IDLE	0x14U /* L1_IDLE state */
 
-#define LINK_INT_CTRL_STS		0x40
+#define LINK_INT_CTRL_STS	0x40U
 #define LINK_REQ_RST_NOT_INT_EN	BIT(1)
 #define LINK_REQ_RST_NOT_CLR	BIT(2)
 
-#define PE0_INT_STS				0xE8
-#define HP_INT_STS				BIT(6)
+#define PE0_INT_STS		0xE8U
+#define HP_INT_STS		BIT(6)
 
-#define SERDES_CELL_SIZE		4
+#define PCI_BASE_CLASS_OFF	24U
+#define PCI_SUBCLASS_OTHER	0x80U
+#define PCI_SUBCLASS_OFF	16U
+
+#define PCI_DEVICE_ID_SHIFT	16
+
+#define SERDES_CELL_SIZE	4
 
 #define to_s32cc_from_dw_pcie(x) \
 	container_of(x, struct s32cc_pcie, pcie)
-
-enum pcie_dev_type {
-	PCIE_EP = 0x0,
-	PCIE_RC = 0x4
-};
 
 enum pcie_link_speed {
 	GEN1 = 0x1,
@@ -72,12 +70,15 @@ enum pcie_link_speed {
 	GEN3 = 0x3
 };
 
+struct s32cc_pcie_data {
+	enum dw_pcie_device_mode mode;
+};
+
 struct s32cc_pcie {
-	bool is_endpoint;
-	bool has_msi_parent;
 	struct dw_pcie	pcie;
 
-#ifdef CONFIG_PM_SLEEP
+	bool has_msi_parent;
+#if IS_ENABLED(CONFIG_PM_SLEEP)
 	u32 msi_ctrl_int;
 #endif
 
@@ -86,24 +87,25 @@ struct s32cc_pcie {
 	 */
 	void __iomem *ctrl_base;
 
+	enum dw_pcie_device_mode mode;
 	int id;
 	enum pcie_phy_mode phy_mode;
 	enum pcie_link_speed linkspeed;
 
-	/* TODO: change this to a list */
-	void (*call_back)(u32 arg);
 	struct phy *phy0, *phy1;
 
 	struct resource shared_mem;
 };
 
 struct s32cc_inbound_region {
+	int pcie_id; /* must match the id of a device tree pcie node */
 	u32 bar_nr;
 	u32 target_addr;
 	u32 region; /* for backwards compatibility */
 };
 
 struct s32cc_outbound_region {
+	int pcie_id; /* must match the id of a device tree pcie node */
 	u64 target_addr;
 	u64 base_addr;
 	u32 size;
@@ -121,5 +123,46 @@ int s32cc_pcie_setup_outbound(struct s32cc_outbound_region *ptr_outb);
 
 /* Configure Inbound window from ptr_inb for the corresponding EndPoint */
 int s32cc_pcie_setup_inbound(struct s32cc_inbound_region *ptr_inb);
+
+int s32cc_check_serdes(struct device *dev);
+int s32cc_pcie_dt_init_common(struct platform_device *pdev,
+			      struct s32cc_pcie *s32cc_pp);
+int s32cc_pcie_config_common(struct s32cc_pcie *s32cc_pp,
+			     struct platform_device *pdev);
+int s32cc_pcie_config_irq(int *irq_id, char *irq_name,
+			  struct platform_device *pdev,
+			  irq_handler_t irq_handler, void *irq_arg);
+int deinit_controller(struct s32cc_pcie *s32cc_pp);
+void s32cc_pcie_shutdown(struct platform_device *pdev);
+
+int s32cc_pcie_link_is_up(struct dw_pcie *pcie);
+int s32cc_pcie_start_link(struct dw_pcie *pcie);
+void s32cc_pcie_stop_link(struct dw_pcie *pcie);
+void s32cc_pcie_write(struct dw_pcie *pci,
+		      void __iomem *base, u32 reg, size_t size, u32 val);
+struct s32cc_pcie *s32cc_get_dw_pcie(int pcie_ep_id);
+
+#if IS_ENABLED(CONFIG_PM_SLEEP)
+int s32cc_pcie_suspend(struct device *dev);
+int s32cc_pcie_resume(struct device *dev);
+#endif
+
+static inline
+bool is_s32cc_pcie_rc(enum dw_pcie_device_mode mode)
+{
+	return mode == DW_PCIE_RC_TYPE;
+}
+
+static inline
+bool is_s32cc_pcie_ep(enum dw_pcie_device_mode mode)
+{
+	return mode == DW_PCIE_EP_TYPE;
+}
+
+static inline
+const char *s32cc_pcie_ep_rc_mode_str(enum dw_pcie_device_mode mode)
+{
+	return is_s32cc_pcie_rc(mode) ? "RootComplex" : "EndPoint";
+}
 
 #endif	/*	PCIE_S32CC_H	*/
