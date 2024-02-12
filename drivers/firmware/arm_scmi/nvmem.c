@@ -2,7 +2,7 @@
 /*
  * SCMI NVMEM Protocol - NXP Vendor Extension
  *
- * Copyright 2023 NXP
+ * Copyright 2023-2024 NXP
  */
 
 #define pr_fmt(fmt) "scmi:nvmem:proto: " fmt
@@ -27,8 +27,8 @@ struct scmi_nvmem_read_cell_a2p {
 };
 
 struct scmi_nvmem_read_cell_p2a {
-	__le32 value;
 	__le32 bytes;
+	__le32 value;
 };
 
 struct scmi_nvmem_write_cell_a2p {
