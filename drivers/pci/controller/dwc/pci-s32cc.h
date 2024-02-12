@@ -95,6 +95,7 @@ struct s32cc_pcie {
 	struct phy *phy0, *phy1;
 
 	struct resource shared_mem;
+	bool auto_config_bars;
 };
 
 struct s32cc_inbound_region {

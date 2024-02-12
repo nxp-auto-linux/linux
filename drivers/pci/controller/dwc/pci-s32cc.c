@@ -686,19 +686,9 @@ int s32cc_pcie_dt_init_common(struct platform_device *pdev,
 	struct device *dev = &pdev->dev;
 	struct device_node *np = dev->of_node;
 	struct dw_pcie *pcie = &s32cc_pp->pcie;
-	const struct of_device_id *match;
-	const struct s32cc_pcie_data *data;
-	enum dw_pcie_device_mode mode;
 	struct device_node *shmn;
 	u32 pcie_vendor_id = PCI_VENDOR_ID_FREESCALE, pcie_variant_bits = 0;
 	int ret;
-
-	match = of_match_device(s32cc_pcie_of_match, dev);
-	if (!match)
-		return -EINVAL;
-
-	data = match->data;
-	mode = data->mode;
 
 	ret = of_property_read_u32(np, "device_id", &s32cc_pp->id);
 	if (ret) {
@@ -1271,7 +1261,6 @@ static int s32cc_pcie_probe(struct platform_device *pdev)
 	struct dw_pcie *pcie;
 	const struct of_device_id *match;
 	const struct s32cc_pcie_data *data;
-	enum dw_pcie_device_mode mode;
 	int ret = 0;
 
 	ret = s32cc_check_serdes(dev);
@@ -1293,7 +1282,8 @@ static int s32cc_pcie_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, s32cc_pp);
 
 	data = match->data;
-	mode = data->mode;
+	s32cc_pp->mode = data->mode;
+
 	ret = s32cc_pcie_dt_init_common(pdev, s32cc_pp);
 	if (ret)
 		goto err;
