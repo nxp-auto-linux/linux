@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /**
- * Copyright 2021-2022 NXP
+ * Copyright 2021-2022,2024 NXP
  */
 #include <linux/device.h>
 #include <linux/errno.h>
@@ -177,6 +177,7 @@ struct s32cc_xpcs {
 	bool ext_clk;
 	bool mhz125;
 	enum pcie_xpcs_mode pcie_shared;
+	struct phylink_pcs pcs;
 };
 
 typedef bool (*xpcs_poll_func_t)(struct s32cc_xpcs *);
@@ -341,68 +342,6 @@ static const struct regmap_config xpcs_regmap_config = {
 	.readable_reg = xpcs_readable_reg,
 	.max_register = 0x1F80E1,
 };
-
-static int xpcs_init(struct s32cc_xpcs **xpcs, struct device *dev,
-		     unsigned char id, void __iomem *base, bool ext_clk,
-		     unsigned long rate, enum pcie_xpcs_mode pcie_shared)
-{
-	struct s32cc_xpcs *xpcsp;
-	struct regmap_config conf;
-	int ret;
-
-	if (rate != MHZ(125) && rate != MHZ(100)) {
-		dev_err(dev, "XPCS cannot operate @%lu HZ\n", rate);
-		return -EINVAL;
-	}
-
-	*xpcs = devm_kmalloc(dev, sizeof(**xpcs), GFP_KERNEL);
-	if (!*xpcs) {
-		dev_err(dev, "Failed to allocate xpcs\n");
-		return -ENOMEM;
-	}
-
-	xpcsp = *xpcs;
-
-	xpcsp->base = base;
-	xpcsp->ext_clk = ext_clk;
-	xpcsp->id = id;
-	xpcsp->dev = dev;
-	xpcsp->pcie_shared = pcie_shared;
-
-	if (rate == MHZ(125))
-		xpcsp->mhz125 = true;
-	else
-		xpcsp->mhz125 = false;
-
-	conf = xpcs_regmap_config;
-
-	if (!get_xpcs_id(xpcsp)) {
-		/**
-		 * XPCS parameters based on Serdes Reference Manual,
-		 * chapter 5.2
-		 */
-		xpcsp->params = (struct s32cc_xpcs_params) {
-			.addr1 = 0x823FCU,
-			.addr2 = 0x82000U,
-		};
-		conf.name = "xpcs0";
-	} else {
-		xpcsp->params = (struct s32cc_xpcs_params) {
-			.addr1 = 0X82BFCU,
-			.addr2 = 0x82800U,
-		};
-		conf.name = "xpcs1";
-	}
-
-	xpcsp->regmap = devm_regmap_init(dev, NULL, xpcsp, &conf);
-	if (IS_ERR(xpcsp->regmap)) {
-		ret = PTR_ERR(xpcsp->regmap);
-		dev_err(dev, "Failed to allocate register map: %d\n", ret);
-		return ret;
-	}
-
-	return 0;
-}
 
 static bool is_pgood_state(struct s32cc_xpcs *xpcs)
 {
@@ -987,6 +926,14 @@ static int xpcs_get_state(struct s32cc_xpcs *xpcs,
 	return 0;
 }
 
+static void s32cc_phylink_pcs_get_state(struct phylink_pcs *pcs,
+					struct phylink_link_state *state)
+{
+	struct s32cc_xpcs *xpcs = container_of(pcs, struct s32cc_xpcs, pcs);
+
+	xpcs_get_state(xpcs, state);
+}
+
 static int xpcs_pre_pcie_2g5(struct s32cc_xpcs *xpcs)
 {
 	struct device *dev = get_xpcs_device(xpcs);
@@ -1113,12 +1060,125 @@ static int xpcs_config(struct s32cc_xpcs *xpcs,
 	return 0;
 }
 
+static int s32cc_phylink_pcs_config(struct phylink_pcs *pcs,
+				    unsigned int neg_mode,
+				    phy_interface_t interface,
+				    const unsigned long *advertising,
+				    bool permit_pause_to_mac)
+{
+	/* Configuration done in link_up() */
+	return 0;
+}
+
+static void s32cc_phylink_pcs_restart_an(struct phylink_pcs *pcs)
+{
+	/* Not yet */
+}
+
+static void s32cc_phylink_pcs_link_up(struct phylink_pcs *pcs,
+				      unsigned int an_mode,
+				      phy_interface_t interface, int speed,
+				      int duplex)
+{
+	struct s32cc_xpcs *xpcs = container_of(pcs, struct s32cc_xpcs, pcs);
+	struct device *dev = get_xpcs_device(xpcs);
+	struct phylink_link_state state = { 0 };
+
+	if (xpcs_get_state(xpcs, &state)) {
+		dev_err(dev, "Get XPCS state failed\n");
+		return;
+	}
+
+	state.speed = speed;
+	state.duplex = duplex;
+	/* We support serdes autoneg only on speed <= 1G */
+	if (an_mode == MLO_AN_INBAND && speed <= SPEED_1000 &&
+	    interface == PHY_INTERFACE_MODE_SGMII)
+		state.an_enabled = true;
+
+	dev_info(dev, "xpcs_%d: speed=%u duplex=%d an=%d\n", xpcs->id, speed, duplex, an_mode);
+	xpcs_config(xpcs, &state);
+}
+
+static const struct phylink_pcs_ops s32cc_phylink_pcs_ops = {
+	.pcs_get_state = s32cc_phylink_pcs_get_state,
+	.pcs_config = s32cc_phylink_pcs_config,
+	.pcs_an_restart = s32cc_phylink_pcs_restart_an,
+	.pcs_link_up = s32cc_phylink_pcs_link_up,
+};
+
 static void xpcs_release(struct s32cc_xpcs *xpcs)
 {
 	if (xpcs) {
 		regmap_exit(xpcs->regmap);
 		devm_kfree(get_xpcs_device(xpcs), xpcs);
 	}
+}
+
+static int xpcs_init(struct s32cc_xpcs **xpcs, struct device *dev,
+		     unsigned char id, void __iomem *base, bool ext_clk,
+		     unsigned long rate, enum pcie_xpcs_mode pcie_shared)
+{
+	struct s32cc_xpcs *xpcsp;
+	struct regmap_config conf;
+	int ret;
+
+	if (rate != MHZ(125) && rate != MHZ(100)) {
+		dev_err(dev, "XPCS cannot operate @%lu HZ\n", rate);
+		return -EINVAL;
+	}
+
+	*xpcs = devm_kmalloc(dev, sizeof(**xpcs), GFP_KERNEL);
+	if (!*xpcs) {
+		dev_err(dev, "Failed to allocate xpcs\n");
+		return -ENOMEM;
+	}
+
+	xpcsp = *xpcs;
+
+	xpcsp->base = base;
+	xpcsp->ext_clk = ext_clk;
+	xpcsp->id = id;
+	xpcsp->dev = dev;
+	xpcsp->pcie_shared = pcie_shared;
+
+	if (rate == MHZ(125))
+		xpcsp->mhz125 = true;
+	else
+		xpcsp->mhz125 = false;
+
+	conf = xpcs_regmap_config;
+
+	if (!get_xpcs_id(xpcsp)) {
+		/**
+		 * XPCS parameters based on Serdes Reference Manual,
+		 * chapter 5.2
+		 */
+		xpcsp->params = (struct s32cc_xpcs_params) {
+			.addr1 = 0x823FCU,
+			.addr2 = 0x82000U,
+		};
+		conf.name = "xpcs0";
+	} else {
+		xpcsp->params = (struct s32cc_xpcs_params) {
+			.addr1 = 0X82BFCU,
+			.addr2 = 0x82800U,
+		};
+		conf.name = "xpcs1";
+	}
+
+	xpcsp->regmap = devm_regmap_init(dev, NULL, xpcsp, &conf);
+	if (IS_ERR(xpcsp->regmap)) {
+		ret = PTR_ERR(xpcsp->regmap);
+		dev_err(dev, "Failed to allocate register map: %d\n", ret);
+		return ret;
+	}
+
+	/* Phylink PCS */
+	xpcsp->pcs.ops = &s32cc_phylink_pcs_ops;
+	xpcsp->pcs.poll = true;
+
+	return 0;
 }
 
 static const struct s32cc_xpcs_ops s32cc_xpcs_ops = {
@@ -1141,4 +1201,11 @@ const struct s32cc_xpcs_ops *s32cc_xpcs_get_ops(void)
 	return &s32cc_xpcs_ops;
 }
 EXPORT_SYMBOL_GPL(s32cc_xpcs_get_ops);
+
+struct phylink_pcs *s32cc_xpcs_get_pcs(struct s32cc_xpcs *xpcs)
+{
+	return &xpcs->pcs;
+}
+EXPORT_SYMBOL_GPL(s32cc_xpcs_get_pcs);
+
 MODULE_LICENSE("GPL v2");
