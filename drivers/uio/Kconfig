@@ -223,4 +223,14 @@ config UIO_NXP_HSE_MU
 comment "MU interface must be activated by HSE firmware before use"
 	depends on UIO_NXP_HSE && !UIO_NXP_HSE_MU0
 
+config UIO_NXP_HSE_INTL_MEM_SIZE
+	int "Driver internal memory size"
+	depends on UIO_NXP_HSE
+	range 0 8
+	default 4
+	help
+	  Order of magnitude of internal memory page allocation.
+	  Number of pages is equal to 2 to the power of <order>.
+	  Used for driver internal structures and objects/metadata.
+
 endif
