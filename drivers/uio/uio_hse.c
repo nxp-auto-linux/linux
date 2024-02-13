@@ -5,7 +5,7 @@
  * This file contains the user-space I/O support for the Hardware Security
  * Engine user space driver. Used by the HSE user space library - libhse.
  *
- * Copyright 2021-2023 NXP
+ * Copyright 2021-2024 NXP
  */
 
 #include <linux/kernel.h>
@@ -814,7 +814,7 @@ static int hse_uio_probe(struct platform_device *pdev)
 	unsigned long intl_page;
 	unsigned int channel;
 	char *fw_type;
-	int irq, err;
+	int irq, err, page_num;
 	u16 status;
 
 	drv = devm_kzalloc(dev, sizeof(*drv), GFP_KERNEL);
@@ -862,15 +862,19 @@ static int hse_uio_probe(struct platform_device *pdev)
 	drv->info.mem[HSE_UIO_MAP_DESC].memtype = UIO_MEM_PHYS;
 
 	/* alloc internal shared memory */
-	intl_page = devm_get_free_pages(dev, GFP_KERNEL | __GFP_ZERO, 0);
+	intl_page = devm_get_free_pages(dev,
+					GFP_KERNEL | __GFP_ZERO | __GFP_COMP,
+					CONFIG_UIO_NXP_HSE_INTL_MEM_SIZE);
 	if (unlikely(!intl_page))
 		return -ENOMEM;
 	drv->intl = (void *)intl_page;
 
+	page_num = BIT(CONFIG_UIO_NXP_HSE_INTL_MEM_SIZE);
+
 	/* expose driver internal memory to upper layer */
 	drv->info.mem[HSE_UIO_MAP_INTL].name = "hse-driver-internal";
 	drv->info.mem[HSE_UIO_MAP_INTL].addr = (phys_addr_t)drv->intl;
-	drv->info.mem[HSE_UIO_MAP_INTL].size = PAGE_SIZE;
+	drv->info.mem[HSE_UIO_MAP_INTL].size = page_num * PAGE_SIZE;
 	drv->info.mem[HSE_UIO_MAP_INTL].memtype = UIO_MEM_LOGICAL;
 
 	/* map HSE reserved memory */
