@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /**
- * Copyright 2021-2022 NXP
+ * Copyright 2021-2022,2024 NXP
  */
 #ifndef NXP_S32CC_XPCS_H
 #define NXP_S32CC_XPCS_H
@@ -43,6 +43,8 @@ struct s32cc_xpcs_ops {
 };
 
 const struct s32cc_xpcs_ops *s32cc_xpcs_get_ops(void);
+
+struct phylink_pcs *s32cc_xpcs_get_pcs(struct s32cc_xpcs *xpcs);
 
 /**
  * s32cc_phy2xpcs() - Get XPCS instance associated with a PHY
