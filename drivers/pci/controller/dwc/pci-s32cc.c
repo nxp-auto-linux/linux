@@ -2,7 +2,7 @@
 /*
  * PCIe host controller driver for NXP S32CC SoCs
  *
- * Copyright 2019-2023 NXP
+ * Copyright 2019-2024 NXP
  */
 
 #if (IS_ENABLED(CONFIG_PCI_S32CC_DEBUG))
@@ -703,14 +703,39 @@ void s32cc_pcie_shutdown(struct platform_device *pdev)
 
 static const struct of_device_id s32cc_pcie_of_match[];
 
+static void s32cc_pcie_set_phy_mode(struct s32cc_pcie *s32cc_pp)
+{
+	struct dw_pcie *pcie = &s32cc_pp->pcie;
+	struct device *dev = pcie->dev;
+	struct device_node *np = dev->of_node;
+	const char *pcie_phy_mode = NULL;
+	int ret;
+
+	ret = of_property_read_string(np, "nxp,phy-mode", &pcie_phy_mode);
+	if (ret || !pcie_phy_mode) {
+		dev_info(dev, "Missing 'nxp,phy-mode' property, using default CRNS\n");
+		s32cc_pp->phy_mode = CRNS;
+	} else if (!strcmp(pcie_phy_mode, "crns")) {
+		s32cc_pp->phy_mode = CRNS;
+	} else if (!strcmp(pcie_phy_mode, "crss")) {
+		s32cc_pp->phy_mode = CRSS;
+	} else if (!strcmp(pcie_phy_mode, "srns")) {
+		s32cc_pp->phy_mode = SRNS;
+	} else if (!strcmp(pcie_phy_mode, "sris")) {
+		s32cc_pp->phy_mode = SRIS;
+	} else {
+		dev_warn(dev, "Unsupported 'nxp,phy-mode' specified, using default CRNS\n");
+		s32cc_pp->phy_mode = CRNS;
+	}
+}
+
 int s32cc_pcie_dt_init_common(struct platform_device *pdev,
-				struct s32cc_pcie *s32cc_pp)
+			      struct s32cc_pcie *s32cc_pp)
 {
 	struct device *dev = &pdev->dev;
 	struct device_node *np = dev->of_node;
 	struct dw_pcie *pcie = &s32cc_pp->pcie;
 	struct resource *res;
-	const char *pcie_phy_mode;
 	u32 pcie_vendor_id = PCI_VENDOR_ID_FREESCALE, pcie_variant_bits = 0;
 	int ret;
 	struct device_node *shmn;
@@ -721,20 +746,7 @@ int s32cc_pcie_dt_init_common(struct platform_device *pdev,
 		return ret;
 	}
 
-	ret = of_property_read_string(np, "nxp,phy-mode", &pcie_phy_mode);
-	if (ret) {
-		dev_info(dev, "Missing 'nxp,phy-mode' property, using default CRNS\n");
-		s32cc_pp->phy_mode = CRNS;
-	} else if (!strcmp(pcie_phy_mode, "crns")) {
-		s32cc_pp->phy_mode = CRNS;
-	} else if (!strcmp(pcie_phy_mode, "crss")) {
-		s32cc_pp->phy_mode = CRSS;
-	} else if (!strcmp(pcie_phy_mode, "sris")) {
-		s32cc_pp->phy_mode = SRIS;
-	} else {
-		dev_info(dev, "Unsupported 'nxp,phy-mode' specified, using default CRNS\n");
-		s32cc_pp->phy_mode = CRNS;
-	}
+	s32cc_pcie_set_phy_mode(s32cc_pp);
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "dbi");
 	pcie->dbi_base = devm_ioremap_resource(dev, res);
