@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: (GPL-2.0+ OR BSD-3-Clause)
 /*
- *  Copyright 2022-2023 NXP
+ *  Copyright 2022-2024 NXP
  */
 #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
 
@@ -465,7 +465,8 @@ static void scmi_gpio_irq_shutdown(struct irq_data *data)
 	if (gpio > U32_MAX)
 		return;
 
-	release_irq(gpio_dev, gpio);
+	(void)mask_gpio_irq(gpio_dev, gpio);
+	(void)release_irq(gpio_dev, gpio);
 }
 
 static void scmi_gpio_irq_mask(struct irq_data *data)
