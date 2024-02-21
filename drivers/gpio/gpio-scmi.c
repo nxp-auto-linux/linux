@@ -462,7 +462,8 @@ static void scmi_gpio_irq_shutdown(struct irq_data *data)
 	if (gpio > U32_MAX)
 		return;
 
-	release_irq(gpio_dev, gpio);
+	(void)mask_gpio_irq(gpio_dev, gpio);
+	(void)release_irq(gpio_dev, gpio);
 }
 
 static void scmi_gpio_irq_mask(struct irq_data *data)
