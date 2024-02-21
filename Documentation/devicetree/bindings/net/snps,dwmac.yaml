@@ -492,6 +492,11 @@ properties:
     description:
       Frequency division factor for MDC clock.
 
+  snps,ext_sys_time:
+    $ref: /schemas/types.yaml#/definitions/flag
+    description:
+      Use External System Time Input for timestamping.
+
   mdio:
     $ref: mdio.yaml#
     unevaluatedProperties: false
