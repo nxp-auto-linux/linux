@@ -3,7 +3,7 @@
  * NXP S32G2 SoC family
  *
  * Copyright (c) 2021 SUSE LLC
- * Copyright 2017-2023 NXP
+ * Copyright 2017-2024 NXP
  */
 
 #include <dt-bindings/interrupt-controller/arm-gic.h>
@@ -93,6 +93,7 @@
 			     <GIC_PPI 13 IRQ_TYPE_LEVEL_LOW>,
 			     <GIC_PPI 14 IRQ_TYPE_LEVEL_LOW>;
 		interrupt-names = "hyp-phys", "virt", "hyp-virt", "sec-phys", "phys";
+		arm,no-tick-in-suspend;
 	};
 
 	reserved-memory  {
