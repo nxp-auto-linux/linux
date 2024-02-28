@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later OR MIT
 /*
- * Copyright 2019-2023 NXP
+ * Copyright 2019-2024 NXP
  */
 
 #include <dt-bindings/gpio/gpio.h>
@@ -26,6 +26,9 @@
 	pinctrl-0 = <&sd0_pins_default>;
 	pinctrl-1 = <&sd0_pins_100mhz>;
 	pinctrl-2 = <&sd0_pins_200mhz>;
+	mmc-hs200-1_8v;
+	mmc-hs400-1_8v;
+	mmc-hs400-enhanced-strobe;
 	no-1-8-v;
 	status = "okay";
 };
