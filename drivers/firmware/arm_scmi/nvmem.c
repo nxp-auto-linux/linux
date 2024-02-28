@@ -51,7 +51,7 @@ static int nvmem_read_cell(const struct scmi_protocol_handle *ph, u32 offset,
 	u32 bytes_read;
 
 	ret = ph->xops->xfer_get_init(ph, SCMI_NVMEM_READ_CELL, sizeof(*conf),
-				      sizeof(*value), &t);
+				      sizeof(*return_values), &t);
 	if (ret) {
 		dev_err(ph->dev, "Failed to get SCMI_NVMEM_READ_CELL ctx\n");
 		return ret;
