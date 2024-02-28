@@ -529,8 +529,9 @@ static void siul2_gpio_irq_mask(struct irq_data *data)
 	/* Disable interrupt */
 	regmap_update_bits(gpio_dev->irqmap, SIUL2_DIRER0, mask, 0);
 
-	/* Clean status flag */
-	regmap_update_bits(gpio_dev->irqmap, SIUL2_DISR0, mask, mask);
+	/* Clear interrupt edge settings */
+	regmap_update_bits(gpio_dev->irqmap, SIUL2_IREER0, mask, 0);
+	regmap_update_bits(gpio_dev->irqmap, SIUL2_IFEER0, mask, 0);
 
 	spin_lock_irqsave(&gpio_dev->lock, flags);
 	bitmap_clear(&gpio_dev->eirqs_bitmap, platdata->irqs[index].eirq, 1);
@@ -543,6 +544,9 @@ static void siul2_gpio_irq_mask(struct irq_data *data)
 	siul2_gpio_free(gc, gpio);
 
 	gpiochip_disable_irq(gc, gpio);
+
+	/* Clean status flag */
+	regmap_update_bits(gpio_dev->irqmap, SIUL2_DISR0, mask, mask);
 }
 
 static const struct irq_chip siul2_gpio_irq_chip = {
