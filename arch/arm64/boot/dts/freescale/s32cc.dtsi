@@ -395,7 +395,7 @@
 				     <GIC_SPI 3 IRQ_TYPE_LEVEL_HIGH>; // CPU to M7/A53 interrupt#2
 		};
 
-		can0: flexcan@401b4000 {
+		can0: can@401b4000 {
 			compatible = "nxp,s32cc-flexcan";
 			reg = <0x0 0x401b4000 0x0 0xa000>;
 			interrupts = <GIC_SPI 37 IRQ_TYPE_LEVEL_HIGH>,
@@ -409,7 +409,7 @@
 			status = "disabled";
 		};
 
-		can1: flexcan@401be000 {
+		can1: can@401be000 {
 			compatible = "nxp,s32cc-flexcan";
 			reg = <0x0 0x401be000 0x0 0xa000>;
 			interrupts = <GIC_SPI 41 IRQ_TYPE_LEVEL_HIGH>,
@@ -716,7 +716,7 @@
 			status = "disabled";
 		};
 
-		can2: flexcan@402a8000 {
+		can2: can@402a8000 {
 			compatible = "nxp,s32cc-flexcan";
 			reg = <0x0 0x402a8000 0x0 0xa000>;
 			interrupts = <GIC_SPI 45 IRQ_TYPE_LEVEL_HIGH>,
@@ -730,7 +730,7 @@
 			status = "disabled";
 		};
 
-		can3: flexcan@402b2000 {
+		can3: can@402b2000 {
 			compatible = "nxp,s32cc-flexcan";
 			reg = <0x0 0x402b2000 0x0 0xa000>;
 			interrupts = <GIC_SPI 49 IRQ_TYPE_LEVEL_HIGH>,
