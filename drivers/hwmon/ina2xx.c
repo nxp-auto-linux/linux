@@ -20,6 +20,7 @@
  *
  * Copyright (C) 2012 Lothar Felten <lothar.felten@gmail.com>
  * Thanks to Jan Volkering
+ * Copyright 2024 NXP
  */
 
 #include <linux/bitfield.h>
@@ -846,8 +847,8 @@ static int ina2xx_probe(struct i2c_client *client)
 		return PTR_ERR(data->regmap);
 	}
 
-	ret = devm_regulator_get_enable(dev, "vs");
-	if (ret)
+	ret = devm_regulator_get_enable_optional(dev, "vs");
+	if (ret < 0 && ret != -ENODEV)
 		return dev_err_probe(dev, ret, "failed to enable vs regulator\n");
 
 	ret = ina2xx_init(dev, data);
