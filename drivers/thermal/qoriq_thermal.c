@@ -59,11 +59,21 @@
 #define TIDR_AHTT	BIT(30)
 #define TIDR_ILTT	BIT(28)
 #define TIDR_ALTT	BIT(27)
+#define TIDR_RTRCT	BIT(25)
+#define TIDR_FTRCT	BIT(24)
 
 #define REGS_TIISCR	0x30	/* Interrupt Immediate Site Capture */
 #define REGS_TIASCR	0x34	/* Interrupt Average Site Capture */
 
 #define REGS_TICSCR	0x38	/* Interrupt Critical Site Capture (TICSCR) */
+
+#define REGS_TMRTRCR	0x48
+#define TMRTRCR_VALID	BIT(31)
+#define TMRTRCR_TEMP_MASK	GENMASK(7, 0)
+
+#define REGS_TMFTRCR	0x4C
+#define TMFTRCR_VALID	BIT(31)
+#define TMFTRCR_TEMP_MASK	GENMASK(7, 0)
 
 #define REGS_TMHTITR	0x50	/* Monitor Low Temperature Immediate
 				 * Threshold
@@ -74,6 +84,7 @@
 #define REGS_TMHTATR	0x54	/* Monitor High Temperature Average
 				 * Threshold
 				 */
+#define TMHTATR_EN	BIT(31)
 #define REGS_TMLTITR	0x60	/* Monitor Low Temperature Immediate
 				 * Threshold
 				 */
@@ -83,6 +94,7 @@
 #define REGS_TMLTATR	0x64	/* Monitor Low Temperature Average
 				 * Threshold
 				 */
+#define TMLTATR_EN	BIT(31)
 #define REGS_TMRTRCTR	0x70	/* Monitor Rising Temperature
 				 * Rate Critical Threshold
 				 */
@@ -127,6 +139,10 @@
 #define S32CC_TCMCFG	(0x54004c00)
 
 #define TMU_INVALID_SITE	-1
+
+#define TMU_RATES_DIFF		2
+#define TMU_TRCTR_MIN		4
+#define TMU_TRCTR_MAX		200
 /*
  * Thermal zone data
  */
@@ -151,7 +167,7 @@ struct qoriq_tmu_data {
 	u8 sites_max;
 	int monitored_irq_site;
 	bool initialized;
-	/* If one site is monitorized with IRQs, when get_temp is called for
+	/* If one site is monitored with IRQs, when get_temp is called for
 	 * the rest of the sites, TMR and TMSR will be modified.
 	 * A locking mechanism is necessary to serialize the access to these
 	 * registers when tmu_get_temp for two not monitored sites is called
@@ -163,7 +179,8 @@ struct qoriq_tmu_data {
 	 */
 	u32 read_delay;
 	u32 alpf;
-	int irq;
+	unsigned int irq;
+	u32 trctr;
 };
 
 struct s32cc_plat_data {
@@ -315,6 +332,16 @@ tmu_get_temp_out:
 	if (not_monitored) {
 		/* Enable back the interrupts and monitor only
 		 * monitored_irq_site.
+		 * If any glitch happens in this time, there are two cases:
+		 * - the critical rising and falling rates both arrived until
+		 *   this point - there is nothing to be done, since
+		 *   tmu_set_site_monitoring will clear both while disabling
+		 *   the monitorization.
+		 * - only one critical rate arrives until this point and the
+		 *   opposite will arrive after the interrupts are enabled -
+		 *   there is also nothing to be done, since, even if the
+		 *   interrupt handler doesn't identify it as a glitch, the
+		 *   temperature will have a normal value.
 		 */
 		tmu_set_site_monitoring(qdata, BIT(qdata->monitored_irq_site));
 		/* Enable interrupts back. */
@@ -364,10 +391,18 @@ static void tmu_set_thresholds(struct qoriq_tmu_data *qdata, int low,
 			   tmu_get_sites_mask(qdata), 0);
 	regmap_update_bits(qdata->regmap, REGS_TIASCR,
 			   tmu_get_sites_mask(qdata), 0);
+	regmap_update_bits(qdata->regmap, REGS_TICSCR,
+			   tmu_get_sites_mask(qdata), 0);
 
 	regmap_update_bits(qdata->regmap, REGS_TIER, TIER_MASK, 0);
 
 	/* Enable interrupt handling. */
+	/* Enable Rising/Falling Temperature Rate Critical Threshold
+	 * Interrupt used as workaround for TKT0635774.
+	 */
+	if (qdata->trctr)
+		reg = TIER_RTRCTIE | TIER_FTRCTIE;
+
 	if (set_high && !average)
 		reg |= TIER_IHTTIE;
 	if (set_low && !average)
@@ -378,6 +413,16 @@ static void tmu_set_thresholds(struct qoriq_tmu_data *qdata, int low,
 		reg |= TIER_ALTTIE;
 
 	regmap_update_bits(qdata->regmap, REGS_TIER, TIER_MASK, reg);
+
+	if (qdata->trctr) {
+		/* TKT0635774 */
+		regmap_update_bits(qdata->regmap, REGS_TMRTRCTR,
+				   TMRTRCTR_TEMP_MASK | TMRTRCTR_EN,
+				   qdata->trctr | TMRTRCTR_EN);
+		regmap_update_bits(qdata->regmap, REGS_TMFTRCTR,
+				   TMFTRCR_TEMP_MASK | TMFTRCTR_EN,
+				   qdata->trctr | TMFTRCTR_EN);
+	}
 
 	/* Write the appropriate values to the temperature threshold registers. */
 	if (set_high) {
@@ -505,15 +550,62 @@ static void tmu_handle_average_irq(struct qoriq_tmu_data *qdata, u32 tidr)
 			"No average threshold was exceeded TIDR = %x\n", tidr);
 }
 
+static void tmu_read_rate(struct regmap *map, unsigned int reg, u32 mask,
+			    unsigned int *val)
+{
+	regmap_read(map, reg, val);
+	if (*val & TMRTRCR_VALID)
+		*val &= mask;
+	else
+		*val = 0;
+}
+
+static bool tmu_check_glitch(struct qoriq_tmu_data *qdata, bool rising)
+{
+	u32 tmrtrcr = 0, tmftrcr = 0;
+
+	if (rising)
+		/* Check rising rate. */
+		tmu_read_rate(qdata->regmap, REGS_TMRTRCR,
+			      TMRTRCR_TEMP_MASK, &tmrtrcr);
+	else
+		/* Check falling rate. */
+		tmu_read_rate(qdata->regmap, REGS_TMFTRCR,
+			      TMFTRCR_TEMP_MASK, &tmftrcr);
+
+	/* Wait for one more sample to make sure it is not a glitch.
+	 * If this is a gltch, the opposite critical rate capture will
+	 * contain a similar value after the next TMU sample.
+	 */
+	usleep_range(qdata->read_delay, qdata->read_delay + 1000);
+
+	if (rising)
+		/* Check falling rate. */
+		tmu_read_rate(qdata->regmap, REGS_TMFTRCR,
+			      TMFTRCR_TEMP_MASK, &tmftrcr);
+	else
+		/* Check rising rate. */
+		tmu_read_rate(qdata->regmap, REGS_TMRTRCR,
+			      TMRTRCR_TEMP_MASK, &tmrtrcr);
+
+	/* Check if the difference between the two rates indicates a glitch. */
+	if (abs(tmrtrcr - tmftrcr) <= TMU_RATES_DIFF)
+		return true;
+
+	return false;
+}
+
 static irqreturn_t tmu_alarm_irq_thread(int irq, void *data)
 {
 	struct qoriq_tmu_data *qdata = data;
-	u32 tidr = 0, tiiscr = 0, tiascr = 0;
+	u32 tidr = 0, tiiscr = 0, tiascr = 0, ticscr = 0;
+	bool glitch = false;
 
 	regmap_read(qdata->regmap, REGS_TIDR, &tidr);
 
 	regmap_read(qdata->regmap, REGS_TIISCR, &tiiscr);
 	regmap_read(qdata->regmap, REGS_TIASCR, &tiascr);
+	regmap_read(qdata->regmap, REGS_TICSCR, &ticscr);
 
 	if (unlikely(!(tidr & TIDR_MASK)))
 		return IRQ_HANDLED;
@@ -525,20 +617,37 @@ static irqreturn_t tmu_alarm_irq_thread(int irq, void *data)
 		goto tmu_alarm_err;
 	}
 
+	if (ticscr & BIT(qdata->monitored_irq_site)) {
+		/* tmu_check_glitch will detect a temperature glitch isolated
+		 * to one single TMU sample and update the immediate temperature
+		 * indirectly.
+		 */
+		if (tidr & TIDR_RTRCT)
+			glitch = tmu_check_glitch(qdata, true);
+		else if (tidr & TIDR_FTRCT)
+			glitch = tmu_check_glitch(qdata, false);
+
+		if (glitch) {
+			/* Discard Rising/Falling Temperature Rate Capture. */
+			regmap_write(qdata->regmap, REGS_TMRTRCR, TMRTRCR_VALID);
+			regmap_write(qdata->regmap, REGS_TMFTRCR, TMFTRCR_VALID);
+			goto tmu_alarm_err;
+		}
+	}
+
+	/* Verify if any immediate/average threshold was exceeded. */
 	if (tiiscr & BIT(qdata->monitored_irq_site))
 		tmu_handle_immediate_irq(qdata, tidr);
 	else if (tiascr & BIT(qdata->monitored_irq_site))
 		tmu_handle_average_irq(qdata, tidr);
-	else
-		dev_warn(qdata->dev,
-			"interrupt arrised for wrong sensor TIISCR = %x TIASCR = %x\n",
-			tiiscr, tiascr);
 
 tmu_alarm_err:
 	mutex_lock(&qdata->lock);
 	regmap_update_bits(qdata->regmap, REGS_TIISCR,
 			   tmu_get_sites_mask(qdata), 0);
 	regmap_update_bits(qdata->regmap, REGS_TIASCR,
+			   tmu_get_sites_mask(qdata), 0);
+	regmap_update_bits(qdata->regmap, REGS_TICSCR,
 			   tmu_get_sites_mask(qdata), 0);
 	regmap_update_bits(qdata->regmap, REGS_TIDR, TIDR_MASK, TIDR_MASK);
 	mutex_unlock(&qdata->lock);
@@ -1063,7 +1172,7 @@ static int qoriq_tmu_probe(struct platform_device *pdev)
 		.max_register		= SZ_4K,
 	};
 	void __iomem *base;
-	u32 alpf;
+	u32 alpf, trctr = 0;
 
 	data = devm_kzalloc(dev, sizeof(struct qoriq_tmu_data),
 			    GFP_KERNEL);
@@ -1129,6 +1238,24 @@ static int qoriq_tmu_probe(struct platform_device *pdev)
 			else
 				data->alpf = alpf;
 		}
+
+		/* Try reading rising and falling threshold used as an
+		 * workaround for TKT0635774.
+		 */
+		data->trctr = 0;
+		ret = of_property_read_u32(np, "tmu-rate-filter", &trctr);
+		if (!ret) {
+			if (trctr > TMU_TRCTR_MAX ||
+					(trctr < TMU_TRCTR_MIN && trctr != 0))
+				dev_err(dev,
+					"Invalid rising/falling rate threshold value %d. Please use a value between %d and %d or 0 if \"tmu-rate-filter\" isn't necessary. Default value (0) will be used\n",
+					trctr, TMU_TRCTR_MIN, TMU_TRCTR_MAX);
+			else
+				data->trctr = trctr;
+		}
+		dev_info(dev,
+			 "Critical rising/falling temperature threshold = %d degree(s)\n",
+			 trctr);
 	}
 
 	qoriq_tmu_init_device(data);	/* TMU initialization */
