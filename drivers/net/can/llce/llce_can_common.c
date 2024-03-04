@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0+ OR BSD-3-Clause
-/* Copyright 2021-2023 NXP */
+/* Copyright 2021-2024 NXP */
 #include <linux/can/dev.h>
 #include <linux/can/dev/llce_can_common.h>
 #include <linux/ctype.h>
@@ -122,10 +122,11 @@ static const struct llce_error llce_errors[] = {
 	LLCE_CAN_ERROR_ENTRY(LLCE_ERROR_NO_MB_TO_ABORT),
 	LLCE_CAN_ERROR_ENTRY(LLCE_ERROR_INDEX_NOT_RECOVERED),
 	LLCE_CAN_ERROR_ENTRY(LLCE_ERROR_RESET_PENDING),
-	LLCE_CAN_ERROR_ENTRY(LLCE_ERROR_CODE_RESERVED_18),
+	LLCE_CAN_ERROR_ENTRY(LLCE_ERROR_FATAL),
 	LLCE_CAN_ERROR_ENTRY(LLCE_ERROR_BCAN_TXWRN),
 	LLCE_CAN_ERROR_ENTRY(LLCE_ERROR_BCAN_RXWRN),
 	LLCE_CAN_ERROR_ENTRY(LLCE_ERROR_BCAN_PASSERR),
+	LLCE_CAN_ERROR_ENTRY(LLCE_ERROR_ROUTINGCHANNEL_DISABLED),
 };
 
 static int get_llce_can_id(const char *node_name, int *id)

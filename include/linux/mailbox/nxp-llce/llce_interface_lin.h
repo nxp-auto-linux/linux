@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0+ */
-/* Copyright 2020-2023 NXP */
+/* Copyright 2020-2024 NXP */
 #ifndef LLCE_INTERFACE_LIN_H
 #define LLCE_INTERFACE_LIN_H
 
@@ -252,7 +252,7 @@ struct llce_lin_get_status_cmd {
 	/** OUTPUT: LIN Frame error status. */
 	u8 lin_ch_frame_error_status;
 	/** OUTPUT: LIN header command type */
-	u8 Lin_transmit_header_command;
+	u8 lin_transmit_header_command;
 	/** OUTPUT: LIN controller status */
 	enum llce_lin_status controller_status;
 } __aligned(4) __packed;

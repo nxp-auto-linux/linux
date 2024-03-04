@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0+ */
-/* Copyright 2020-2023 NXP */
+/* Copyright 2020-2024 NXP */
 #ifndef LLCE_FW_INTERFACE_H
 #define LLCE_FW_INTERFACE_H
 
@@ -458,9 +458,10 @@ enum llce_fw_return {
 	 */
 	LLCE_ERROR_RESET_PENDING,
 	/**
-	 * CAN firmware notification: Reserved for future use.
+	 * CAN firmware fatal error: core has entered an error state and
+	 * is not recoverable.
 	 */
-	LLCE_ERROR_CODE_RESERVED_18,
+	LLCE_ERROR_FATAL,
 	/**
 	 * CAN firmware notification: BCAN is ready to leave bus-off
 	 * state after the automatic recovery procedure
@@ -497,6 +498,11 @@ enum llce_fw_return {
 	 * CAN firmware notification: Core has entered shutdown state.
 	 */
 	LLCE_SHUTDOWN_ENTERED,
+	/**
+	 * CAN firmware notification: Core has received an unexpected
+	 * event during shutdown and is halted but awake
+	 */
+	LLCE_SHUTDOWN_FAILED,
 	/**
 	 * Number of enum elements. It must be kept as the last member
 	 * of the list.
