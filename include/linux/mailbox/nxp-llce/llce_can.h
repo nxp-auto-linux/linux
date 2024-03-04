@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0+ */
-/* Copyright 2020-2023 NXP */
+/* Copyright 2020-2024 NXP */
 #ifndef LLCE_CAN_H
 #define LLCE_CAN_H
 
@@ -795,6 +795,8 @@ struct llce_can_rx_filter {
 	 * \b 0 means don't care.
 	 * - For RANGE filters: Maximum accepted id value.
 	 * - For EXACT MATCH: not used.
+	 *
+	 * Set LLCE_CAN_MB_IDE to match only standard/extended, unset for mixed
 	 */
 	u32 id_mask;
 	/**
@@ -802,6 +804,8 @@ struct llce_can_rx_filter {
 	 * - For MASK filters: CAN frame ID value.
 	 * - For RANGE filters: Minimum accepted id value.
 	 * - For EXACT MATCH: id value
+	 *
+	 * Bit LLCE_CAN_MB_IDE controls extended/standard if enabled in mask.
 	 */
 	u32 message_id;
 	/**
@@ -856,6 +860,8 @@ struct llce_can_aux_filter {
 	 * \b 0 means don't care.
 	 * - For RANGE filters: Maximum accepted id value.
 	 * - For EXACT MATCH: not used.
+	 *
+	 * Set LLCE_CAN_MB_IDE to match only standard/extended, unset for mixed
 	 */
 	u32 id_mask;
 	/**
@@ -863,6 +869,8 @@ struct llce_can_aux_filter {
 	 * - For MASK filters: CAN frame ID value.
 	 * - For RANGE filters: Minimum accepted id value.
 	 * - For EXACT MATCH: id value
+	 *
+	 * Bit LLCE_CAN_MB_IDE controls extended/standard if enabled in mask.
 	 */
 	u32 message_id;
 	/**
@@ -921,7 +929,11 @@ struct llce_can_can2can_routing_table {
 	 * LLCE_CAN_ROUTING_ID_REMAPPING_EN
 	 */
 	u32 can2can_routing_options;
-	/** INPUT: Can Id Remap Value.*/
+	/**
+	 * INPUT: Can Id Remap Value.
+	 * Copied into word0 of outgoing frame, except RTR flag. See
+	 * struct llce_can_mb.
+	 */
 	u32 can_id_remap_value;
 	/**
 	 * INPUT: List of destination CAN controllers for the
@@ -1289,8 +1301,8 @@ struct llce_can_get_status_cmd {
 
 /**
  * Filter address identifier
- * It is sent by the host to LLCE in order to specify a specific filter,
- * identified by a hardware address, to enable/disable/remove
+ * It is sent by the host to LLCE in order to disable/enable a specific filter,
+ * identified by its address
  **/
 struct llce_can_change_filter {
 	/**
