@@ -78,6 +78,20 @@ properties:
     maximum: 3
     default: 0
 
+  tmu-rate-filter:
+    $ref: /schemas/types.yaml#/definitions/uint32
+    description: |
+      This property is used to filter out the erroneous measurements and should
+      contain the maximum acceptable change, in degrees, between two
+      consecutive TMU samples.
+      If a potentially invalid measurement is detected, the driver will wait
+      for the next TMU sample. If the absolute value of the difference between
+      TMRTRCR (Monitor Rising Temperature Rate Critical Threshold) and
+      TMFTRCR (Monitor Falling Temperature Rate Critical Threshold) values is
+      <= 2, the initial measurement is discarded.
+      The workaround is necessary where ERR052243 applies and is implemented
+      only for the site monitored with interrupts.
+
   clocks:
     maxItems: 1
 
