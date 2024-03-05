@@ -195,6 +195,7 @@ static void s32cc_pcie_ep_init(struct dw_pcie_ep *ep)
 	/*
 	 * Configure the class and revision for the EP device,
 	 * to enable human friendly enumeration by the RC (e.g. by lspci)
+	 * EPF will set its own IDs.
 	 */
 	dw_pcie_dbi_ro_wr_en(pcie);
 	tmp = dw_pcie_readl_dbi(pcie, PCI_CLASS_REVISION) |
@@ -375,10 +376,26 @@ static int s32cc_pcie_ep_raise_irq(struct dw_pcie_ep *ep, u8 func_no,
 	return -EINVAL;
 }
 
+#if (IS_ENABLED(CONFIG_PCI_EPF_TEST))
+static int s32cc_pcie_ep_start_dma(struct dw_pcie_ep *ep, bool read,
+				   dma_addr_t src, dma_addr_t dst, u32 len,
+				   struct completion *complete)
+{
+	if (IS_ENABLED(CONFIG_PCI_DW_DMA))
+		return dw_pcie_ep_start_dma(ep, read, src, dst, len, complete);
+
+	pr_info("%s: DMA not enabled\n", __func__);
+	return -EINVAL;
+}
+#endif
+
 static struct dw_pcie_ep_ops s32cc_pcie_ep_ops = {
 	.init = s32cc_pcie_ep_init,
 	.raise_irq = s32cc_pcie_ep_raise_irq,
 	.get_features = s32cc_pcie_ep_get_features,
+#if (IS_ENABLED(CONFIG_PCI_EPF_TEST))
+	.start_dma = s32cc_pcie_ep_start_dma,
+#endif
 };
 
 int s32cc_send_msi(struct dw_pcie *pcie)
