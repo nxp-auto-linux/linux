@@ -2,7 +2,7 @@
 /*
  * PCIe EndPoint controller driver for NXP S32CC SoCs
  *
- * Copyright 2023 NXP
+ * Copyright 2023-2024 NXP
  */
 
 #if IS_ENABLED(CONFIG_PCI_S32CC_DEBUG)
@@ -144,7 +144,7 @@ static int s32cc_add_pcie_ep_to_list(struct s32cc_pcie *s32cc_ep)
 	if (!s32cc_ep)
 		return -EINVAL;
 
-	ep_entry = kmalloc(sizeof(*ep_entry), GFP_KERNEL);
+	ep_entry = kzalloc(sizeof(*ep_entry), GFP_KERNEL);
 	if (!ep_entry)
 		return -ENOMEM;
 
