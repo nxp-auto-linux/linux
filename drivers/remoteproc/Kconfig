@@ -45,6 +45,16 @@ config IMX_DSP_REMOTEPROC
 
 	  It's safe to say N here.
 
+config NXP_CARVNET_REMOTEPROC
+	tristate "NXP S32N7 CAR-V-NET remoteproc support"
+	depends on ARCH_S32
+	depends on REMOTEPROC
+	help
+	  The CAR-V-NET remoteproc driver.
+	  Requires firmware.
+
+	  It's safe to say N here.
+
 config INGENIC_VPU_RPROC
 	tristate "Ingenic JZ47xx VPU remoteproc support"
 	depends on MIPS || COMPILE_TEST
