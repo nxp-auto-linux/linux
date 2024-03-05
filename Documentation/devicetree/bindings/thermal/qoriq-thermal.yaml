@@ -69,6 +69,17 @@ properties:
       ALPF x Current_Temp + (1 - ALPF) x Average_Temp.
       The property is read only in TMU version 2 case.
 
+  tmu-rate-filter:
+    description: |
+      TMU is reporting sometimes large errors in temperature measurement,
+      for example, the temperature will go up by 40 degrees on one sample
+      and then down 40 degrees on the next sample.
+      This property is used to filter out the erroneous measurements and should
+      contain the maximum acceptable difference between two consecutive TMU
+      samples. The workaround applies only for the site monitored with IRQ and
+      only for the immediate temperature. The average temperature will be still
+      computed based on the erroneous value.
+
   clocks:
     maxItems: 1
 
