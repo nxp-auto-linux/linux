@@ -182,4 +182,18 @@ int dw_pcie_dma_single_rw(struct dma_info *di,
 void s32cc_register_callback(struct dw_pcie *pcie,
 			     void (*call_back)(u32 arg));
 
+#if (IS_ENABLED(CONFIG_PCI_EPF_TEST))
+/*
+ * dw_pcie_ep_start_dma - Start DMA on S32CC PCIE EP.
+ * @ep: the EP start the DMA transmission.
+ * @dir: direction of the DMA, 1 read, 0 write;
+ * @src: source DMA address.
+ * @dst: destination DMA address.
+ * @len: transfer length.
+ */
+int dw_pcie_ep_start_dma(struct dw_pcie_ep *ep, bool dir,
+			 dma_addr_t src, dma_addr_t dst, u32 len,
+			 struct completion *complete);
+#endif
+
 #endif  /* __PCIE_DMA_S32CC_H */
