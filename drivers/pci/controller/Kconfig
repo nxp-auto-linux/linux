@@ -242,6 +242,16 @@ config PCI_S32CC
 	or End Point mode, you should enable this.
 	Otherwise you should set it to 'no'
 
+config PCI_S32CC_IOCTL_LIMIT_ONE_ENDPOINT
+	bool "Limit ioctl configuration to one endpoint"
+	depends on PCI_S32CC
+	default false
+	help
+	This option adds support for legacy test applications
+	which can only handle one endpoint, on S32CC based boards.
+	S32CC PCIe Endpoint legacy test applications are maintained
+	outside of the Linux Kernel tree.
+
 config PCI_S32CC_EP_MSI
 	bool "Enable MSI support in End Point mode for S32CC PCIe"
 	depends on PCI_S32CC && PCI_MSI

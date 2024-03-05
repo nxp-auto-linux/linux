@@ -106,7 +106,13 @@ struct s32cc_pcie *s32cc_get_dw_pcie(int pcie_ep_id)
 
 	mutex_lock(&s32cc_pcie_ep_list_mutex);
 	list_for_each_entry_safe(pci_node, n, &s32cc_pcie_ep_list, list) {
-		if (pci_node->ep->id == pcie_ep_id) {
+		if (!IS_ENABLED(CONFIG_PCI_S32CC_IOCTL_LIMIT_ONE_ENDPOINT)) {
+			if (pci_node->ep->id == pcie_ep_id) {
+				res = pci_node->ep;
+				break;
+			}
+		} else {
+			/* Take the first entry */
 			res = pci_node->ep;
 			break;
 		}
@@ -127,7 +133,13 @@ static struct pci_epf_bar *s32cc_get_bars(int pcie_ep_id)
 
 	mutex_lock(&s32cc_pcie_ep_list_mutex);
 	list_for_each_entry(pci_node, &s32cc_pcie_ep_list, list) {
-		if (pci_node->ep->id == pcie_ep_id) {
+		if (!IS_ENABLED(CONFIG_PCI_S32CC_IOCTL_LIMIT_ONE_ENDPOINT)) {
+			if (pci_node->ep->id == pcie_ep_id) {
+				res = pci_node->ep_bars;
+				break;
+			}
+		} else {
+			/* Take the first entry */
 			res = pci_node->ep_bars;
 			break;
 		}
@@ -232,7 +244,12 @@ int s32cc_pcie_setup_outbound(struct s32cc_outbound_region *ptr_outb)
 		return -EINVAL;
 	}
 
-	s32cc_pcie_ep = s32cc_get_dw_pcie(ptr_outb->pcie_id);
+	if (!IS_ENABLED(CONFIG_PCI_S32CC_IOCTL_LIMIT_ONE_ENDPOINT))
+		s32cc_pcie_ep = s32cc_get_dw_pcie(ptr_outb->pcie_id);
+	else
+		/* No ID is needed in this case; use 0 to satisfy the API */
+		s32cc_pcie_ep = s32cc_get_dw_pcie(0);
+
 	if (IS_ERR(s32cc_pcie_ep)) {
 		pr_err("%s: No valid S32CC EP configuration found\n",
 		       __func__);
@@ -271,6 +288,7 @@ int s32cc_pcie_setup_inbound(struct s32cc_inbound_region *ptr_inb)
 
 	s32cc_pcie_ep = s32cc_get_dw_pcie(ptr_inb->pcie_id);
 	s32cc_ep_bars = s32cc_get_bars(ptr_inb->pcie_id);
+
 	if (IS_ERR(s32cc_pcie_ep) || IS_ERR(s32cc_ep_bars)) {
 		pr_err("%s: No valid S32CC EP configuration found\n",
 		       __func__);
@@ -597,7 +615,15 @@ static int s32cc_pcie_probe(struct platform_device *pdev)
 		if (s32cc_pp->shared_mem.start > 0 &&
 		    s32cc_pp->shared_mem.end > s32cc_pp->shared_mem.start) {
 			struct s32cc_inbound_region ptr_inb = {
-				s32cc_pp->id, bar,
+#if (!IS_ENABLED(CONFIG_PCI_S32CC_IOCTL_LIMIT_ONE_ENDPOINT))
+				s32cc_pp->id,
+#else
+				/* In this case we don't need the ID,
+				 * so use 0 to comply with the API
+				 */
+				0,
+#endif
+				bar,
 				s32cc_pp->shared_mem.start,
 			};
 
