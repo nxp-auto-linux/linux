@@ -403,6 +403,12 @@ struct dw_pcie_ep_ops {
 	 */
 	unsigned int (*get_dbi_offset)(struct dw_pcie_ep *ep, u8 func_no);
 	unsigned int (*get_dbi2_offset)(struct dw_pcie_ep *ep, u8 func_no);
+	unsigned int (*func_conf_select)(struct dw_pcie_ep *ep, u8 func_no);
+#if (IS_ENABLED(CONFIG_PCI_EPF_TEST))
+	int	(*start_dma)(struct dw_pcie_ep *ep, bool dir,
+			     dma_addr_t src, dma_addr_t dst, u32 len,
+			     struct completion *complete);
+#endif
 };
 
 struct dw_pcie_ep_func {

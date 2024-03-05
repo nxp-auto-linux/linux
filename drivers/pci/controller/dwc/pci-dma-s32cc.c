@@ -518,6 +518,9 @@ irqreturn_t s32cc_pcie_dma_handler(int irq, void *arg)
 		if (dma_error != DMA_ERR_NONE)
 			dev_info(pcie->dev, "dma write error 0x%0x.\n",
 				 dma_error);
+		else if (IS_ENABLED(CONFIG_PCI_EPF_TEST))
+			if (di->complete)
+				complete(di->complete);
 
 		if (signal && uinfo->send_signal_to_user)
 			uinfo->send_signal_to_user(uinfo);
@@ -531,6 +534,9 @@ irqreturn_t s32cc_pcie_dma_handler(int irq, void *arg)
 		if (dma_error != DMA_ERR_NONE)
 			dev_info(pcie->dev, "dma read error 0x%0x.\n",
 				 dma_error);
+		else if (IS_ENABLED(CONFIG_PCI_EPF_TEST))
+			if (di->complete)
+				complete(di->complete);
 
 		if (signal && uinfo->send_signal_to_user)
 			uinfo->send_signal_to_user(uinfo);
@@ -546,3 +552,33 @@ void s32cc_config_dma_data(struct dma_info *di, struct dw_pcie *pcie)
 		dw_pcie_dma_clear_regs(di);
 	}
 }
+
+#if (IS_ENABLED(CONFIG_PCI_EPF_TEST))
+int dw_pcie_ep_start_dma(struct dw_pcie_ep *ep, bool read,
+			 dma_addr_t src, dma_addr_t dst, u32 len,
+			 struct completion *complete)
+{
+	struct dw_pcie *pcie = to_dw_pcie_from_ep(ep);
+	struct dma_info *di = dw_get_dma_info(pcie);
+
+	int ret = 0;
+	struct dma_data_elem dma_single = { 0, };
+
+	if (read)
+		dma_single.flags = (DMA_FLAG_READ_ELEM | DMA_FLAG_EN_DONE_INT |
+				DMA_FLAG_LIE);
+	else
+		dma_single.flags = (DMA_FLAG_WRITE_ELEM | DMA_FLAG_EN_DONE_INT |
+				DMA_FLAG_LIE);
+
+	dma_single.size = len;
+	dma_single.sar = src;
+	dma_single.dar = dst;
+
+	di->complete = complete;
+
+	/* Test the DMA benchmark */
+	ret = dw_pcie_dma_single_rw(di, &dma_single);
+	return ret;
+}
+#endif
