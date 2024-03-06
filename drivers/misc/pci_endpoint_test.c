@@ -68,6 +68,7 @@
 
 #define PCI_ENDPOINT_TEST_FLAGS			0x2c
 #define FLAG_USE_DMA				BIT(0)
+#define FLAG_USE_SINGLE_DMA				BIT(1)
 
 #define PCI_DEVICE_ID_TI_AM654			0xb00c
 #define PCI_DEVICE_ID_TI_J7200			0xb00f
@@ -527,7 +528,7 @@ static bool pci_endpoint_test_write(struct pci_endpoint_test *test,
 	struct pci_endpoint_test_xfer_param param;
 	bool ret = false;
 	u32 flags = 0;
-	bool use_dma;
+	bool use_dma, use_single_dma;
 	u32 reg;
 	void *addr;
 	dma_addr_t phys_addr;
@@ -557,6 +558,12 @@ static bool pci_endpoint_test_write(struct pci_endpoint_test *test,
 	use_dma = !!(param.flags & PCITEST_FLAGS_USE_DMA);
 	if (use_dma)
 		flags |= FLAG_USE_DMA;
+
+	use_single_dma = !!(param.flags & PCITEST_FLAGS_USE_SINGLE_DMA);
+	if (use_single_dma) {
+		dev_info(dev, "Using Single Buffer DMA transfer\n");
+		flags |= FLAG_USE_SINGLE_DMA;
+	}
 
 	if (irq_type < IRQ_TYPE_INTX || irq_type > IRQ_TYPE_MSIX) {
 		dev_err(dev, "Invalid IRQ type option\n");
@@ -628,7 +635,7 @@ static bool pci_endpoint_test_read(struct pci_endpoint_test *test,
 	struct pci_endpoint_test_xfer_param param;
 	bool ret = false;
 	u32 flags = 0;
-	bool use_dma;
+	bool use_dma, use_single_dma;
 	size_t size;
 	void *addr;
 	dma_addr_t phys_addr;
@@ -657,6 +664,12 @@ static bool pci_endpoint_test_read(struct pci_endpoint_test *test,
 	use_dma = !!(param.flags & PCITEST_FLAGS_USE_DMA);
 	if (use_dma)
 		flags |= FLAG_USE_DMA;
+
+	use_single_dma = !!(param.flags & PCITEST_FLAGS_USE_SINGLE_DMA);
+	if (use_single_dma) {
+		dev_info(dev, "Using Single Buffer DMA transfer\n");
+		flags |= FLAG_USE_SINGLE_DMA;
+	}
 
 	if (irq_type < IRQ_TYPE_INTX || irq_type > IRQ_TYPE_MSIX) {
 		dev_err(dev, "Invalid IRQ type option\n");
