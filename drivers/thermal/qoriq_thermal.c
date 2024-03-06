@@ -152,9 +152,10 @@ struct qoriq_tmu_data {
 	int monitored_irq_site;
 	bool initialized;
 	/* If one site is monitorized with IRQs, when get_temp is called for
-	 * the rest of the sites, TMR, TMSR and TIER will be modified. Same
-	 * registers are updated by tmu_set_thresholds thus a locking
-	 * mechanism is necessary.
+	 * the rest of the sites, TMR and TMSR will be modified.
+	 * A locking mechanism is necessary to serialize the access to these
+	 * registers when tmu_get_temp for two not monitored sites is called
+	 * in the same time.
 	 */
 	struct mutex lock;
 	/* It takes time to read the updated temperature when a site is
@@ -162,6 +163,7 @@ struct qoriq_tmu_data {
 	 */
 	u32 read_delay;
 	u32 alpf;
+	int irq;
 };
 
 struct s32cc_plat_data {
@@ -220,7 +222,7 @@ static int tmu_get_temp(void *p, int *temp)
 {
 	struct qoriq_sensor *qsensor = p;
 	struct qoriq_tmu_data *qdata = qoriq_sensor_to_data(qsensor);
-	u32 val, tier = 0, low = 0, high = 0, low_avg = 0, high_avg = 0, delay;
+	u32 val, delay;
 	bool not_monitored, take_lock;
 	bool average_sensor = tmu_is_average_sensor(qsensor);
 	int ret = 0;
@@ -265,22 +267,13 @@ static int tmu_get_temp(void *p, int *temp)
 		 * For every site monitored using polling, the monitoring
 		 * should be enabled now and disabled back, after the
 		 * temperature is read. Also, the interrupts should be
-		 * disabled.
-		 * Locking is necessary to avoid conflicts with
-		 * tmu_alarm_irq_thread.
+		 * disabled to avoid receiving interrupts for the current site.
+		 * There will be no conflicts with tmu_set_thresholds since
+		 * the interrupt line is masked, but the locking is still
+		 * necessary to make sure tmu_get_temp isn't called in the
+		 * same time for two not monitored sites.
 		 */
-		regmap_read(qdata->regmap, REGS_TIER, &tier);
-		/* Read current thresholds. */
-		regmap_read(qdata->regmap, REGS_TMHTITR, &high);
-		regmap_read(qdata->regmap, REGS_TMLTITR, &low);
-		regmap_read(qdata->regmap, REGS_TMHTATR, &high_avg);
-		regmap_read(qdata->regmap, REGS_TMLTATR, &low_avg);
-		/* Disable interrupts and disable thresholds. */
-		regmap_update_bits(qdata->regmap, REGS_TIER, TIER_MASK, 0);
-		regmap_write(qdata->regmap, REGS_TMHTITR, 0);
-		regmap_write(qdata->regmap, REGS_TMLTITR, 0);
-		regmap_write(qdata->regmap, REGS_TMHTATR, 0);
-		regmap_write(qdata->regmap, REGS_TMLTATR, 0);
+		disable_irq(qdata->irq);
 
 		tmu_set_site_monitoring(qdata, BIT(qsensor->id) |
 					BIT(qdata->monitored_irq_site));
@@ -324,12 +317,8 @@ tmu_get_temp_out:
 		 * monitored_irq_site.
 		 */
 		tmu_set_site_monitoring(qdata, BIT(qdata->monitored_irq_site));
-		/* Enable interrupts and thresholds back. */
-		regmap_write(qdata->regmap, REGS_TMHTITR, high);
-		regmap_write(qdata->regmap, REGS_TMLTITR, low);
-		regmap_write(qdata->regmap, REGS_TMHTATR, high_avg);
-		regmap_write(qdata->regmap, REGS_TMLTATR, low_avg);
-		regmap_update_bits(qdata->regmap, REGS_TIER, TIER_MASK, tier);
+		/* Enable interrupts back. */
+		enable_irq(qdata->irq);
 	}
 
 tmu_get_temp_unlock:
@@ -572,6 +561,8 @@ static int tmu_register_irq(struct platform_device *pdev,
 	if (ret)
 		dev_err(&pdev->dev, "%s: failed to get irq\n",
 			__func__);
+	else
+		qdata->irq = irq;
 
 	return ret;
 }
