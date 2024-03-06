@@ -851,7 +851,13 @@ static int pci_epf_test_core_init(struct pci_epf *epf)
 	if (ret)
 		return ret;
 
-	if (msi_capable) {
+	if (msi_capable && msix_capable)
+		dev_warn(dev, "MSIs and MSI-Xs are mutually exclusive\n");
+
+	/* MSI-Xs will not work if the configuration is done
+	 * for MSIs and MSI-Xs, simultaneously.
+	 */
+	if (msi_capable && !msix_capable) {
 		dev_info(dev, "Configuring MSIs\n");
 		ret = pci_epc_set_msi(epc, epf->func_no, epf->vfunc_no,
 				      epf->msi_interrupts);
