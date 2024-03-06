@@ -464,13 +464,6 @@ static const struct thermal_zone_of_device_ops tmu_tz_ops = {
 	.set_trips = tmu_set_trips,
 };
 
-static irqreturn_t tmu_alarm_irq(int irq, void *data)
-{
-	disable_irq_nosync(irq);
-
-	return IRQ_WAKE_THREAD;
-}
-
 static void tmu_handle_immediate_irq(struct qoriq_tmu_data *qdata, u32 tidr)
 {
 	struct qoriq_sensor *sensor;
@@ -534,7 +527,7 @@ static irqreturn_t tmu_alarm_irq_thread(int irq, void *data)
 	regmap_read(qdata->regmap, REGS_TIASCR, &tiascr);
 
 	if (unlikely(!(tidr & TIDR_MASK)))
-		goto tmu_enable_irq;
+		return IRQ_HANDLED;
 
 	if (unlikely(qdata->monitored_irq_site == TMU_INVALID_SITE)) {
 		dev_err(qdata->dev,
@@ -560,8 +553,6 @@ tmu_alarm_err:
 			   tmu_get_sites_mask(qdata), 0);
 	regmap_update_bits(qdata->regmap, REGS_TIDR, TIDR_MASK, TIDR_MASK);
 	mutex_unlock(&qdata->lock);
-tmu_enable_irq:
-	enable_irq(irq);
 
 	return IRQ_HANDLED;
 }
@@ -575,7 +566,7 @@ static int tmu_register_irq(struct platform_device *pdev,
 	if (irq < 0)
 		return irq;
 
-	ret = devm_request_threaded_irq(&pdev->dev, irq, tmu_alarm_irq,
+	ret = devm_request_threaded_irq(&pdev->dev, irq, NULL,
 			       tmu_alarm_irq_thread, IRQF_ONESHOT,
 			       dev_name(&pdev->dev), qdata);
 	if (ret)
