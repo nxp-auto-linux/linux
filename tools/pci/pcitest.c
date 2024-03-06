@@ -34,6 +34,7 @@ struct pci_test {
 	bool		copy;
 	unsigned long	size;
 	bool		use_dma;
+	bool		use_single_dma;
 };
 
 static int run_test(struct pci_test *test)
@@ -115,6 +116,8 @@ static int run_test(struct pci_test *test)
 		param.size = test->size;
 		if (test->use_dma)
 			param.flags = PCITEST_FLAGS_USE_DMA;
+		if (test->use_single_dma)
+			param.flags = PCITEST_FLAGS_USE_SINGLE_DMA;
 		ret = ioctl(fd, PCITEST_WRITE, &param);
 		fprintf(stdout, "WRITE (%7ld bytes):\t\t", test->size);
 		if (ret < 0)
@@ -127,6 +130,8 @@ static int run_test(struct pci_test *test)
 		param.size = test->size;
 		if (test->use_dma)
 			param.flags = PCITEST_FLAGS_USE_DMA;
+		if (test->use_single_dma)
+			param.flags = PCITEST_FLAGS_USE_SINGLE_DMA;
 		ret = ioctl(fd, PCITEST_READ, &param);
 		fprintf(stdout, "READ (%7ld bytes):\t\t", test->size);
 		if (ret < 0)
@@ -172,79 +177,83 @@ int main(int argc, char **argv)
 	/* set default endpoint device */
 	test->device = "/dev/pci-endpoint-test.0";
 
-	while ((c = getopt(argc, argv, "D:b:m:x:i:deIlhrwcs:")) != EOF)
-	switch (c) {
-	case 'D':
-		test->device = optarg;
-		continue;
-	case 'b':
-		test->barnum = atoi(optarg);
-		if (test->barnum < 0 || test->barnum > 5)
-			goto usage;
-		continue;
-	case 'l':
-		test->legacyirq = true;
-		continue;
-	case 'm':
-		test->msinum = atoi(optarg);
-		if (test->msinum < 1 || test->msinum > 32)
-			goto usage;
-		continue;
-	case 'x':
-		test->msixnum = atoi(optarg);
-		if (test->msixnum < 1 || test->msixnum > 2048)
-			goto usage;
-		continue;
-	case 'i':
-		test->irqtype = atoi(optarg);
-		if (test->irqtype < 0 || test->irqtype > 2)
-			goto usage;
-		test->set_irqtype = true;
-		continue;
-	case 'I':
-		test->get_irqtype = true;
-		continue;
-	case 'r':
-		test->read = true;
-		continue;
-	case 'w':
-		test->write = true;
-		continue;
-	case 'c':
-		test->copy = true;
-		continue;
-	case 'e':
-		test->clear_irq = true;
-		continue;
-	case 's':
-		test->size = strtoul(optarg, NULL, 0);
-		continue;
-	case 'd':
-		test->use_dma = true;
-		continue;
-	case 'h':
-	default:
+	while ((c = getopt(argc, argv, "D:b:m:x:i:dSeIlhrwcs:")) != EOF)
+		switch (c) {
+		case 'D':
+			test->device = optarg;
+			continue;
+		case 'b':
+			test->barnum = atoi(optarg);
+			if (test->barnum < 0 || test->barnum > 5)
+				goto usage;
+			continue;
+		case 'l':
+			test->legacyirq = true;
+			continue;
+		case 'm':
+			test->msinum = atoi(optarg);
+			if (test->msinum < 1 || test->msinum > 32)
+				goto usage;
+			continue;
+		case 'x':
+			test->msixnum = atoi(optarg);
+			if (test->msixnum < 1 || test->msixnum > 2048)
+				goto usage;
+			continue;
+		case 'i':
+			test->irqtype = atoi(optarg);
+			if (test->irqtype < 0 || test->irqtype > 2)
+				goto usage;
+			test->set_irqtype = true;
+			continue;
+		case 'I':
+			test->get_irqtype = true;
+			continue;
+		case 'r':
+			test->read = true;
+			continue;
+		case 'w':
+			test->write = true;
+			continue;
+		case 'c':
+			test->copy = true;
+			continue;
+		case 'e':
+			test->clear_irq = true;
+			continue;
+		case 's':
+			test->size = strtoul(optarg, NULL, 0);
+			continue;
+		case 'd':
+			test->use_dma = true;
+			continue;
+		case 'S':
+			test->use_single_dma = true;
+			continue;
+		case 'h':
+		default:
 usage:
-		fprintf(stderr,
-			"usage: %s [options]\n"
-			"Options:\n"
-			"\t-D <dev>		PCI endpoint test device {default: /dev/pci-endpoint-test.0}\n"
-			"\t-b <bar num>		BAR test (bar number between 0..5)\n"
-			"\t-m <msi num>		MSI test (msi number between 1..32)\n"
-			"\t-x <msix num>	\tMSI-X test (msix number between 1..2048)\n"
-			"\t-i <irq type>	\tSet IRQ type (0 - Legacy, 1 - MSI, 2 - MSI-X)\n"
-			"\t-e			Clear IRQ\n"
-			"\t-I			Get current IRQ type configured\n"
-			"\t-d			Use DMA\n"
-			"\t-l			Legacy IRQ test\n"
-			"\t-r			Read buffer test\n"
-			"\t-w			Write buffer test\n"
-			"\t-c			Copy buffer test\n"
-			"\t-s <size>		Size of buffer {default: 100KB}\n"
-			"\t-h			Print this help message\n",
-			argv[0]);
-		return -EINVAL;
-	}
+			fprintf(stderr,
+				"usage: %s [options]\n"
+				"Options:\n"
+				"\t-D <dev>		PCI endpoint test device {default: /dev/pci-endpoint-test.0}\n"
+				"\t-b <bar num>		BAR test (bar number between 0..5)\n"
+				"\t-m <msi num>		MSI test (msi number between 1..32)\n"
+				"\t-x <msix num>	\tMSI-X test (msix number between 1..2048)\n"
+				"\t-i <irq type>	\tSet IRQ type (0 - Legacy, 1 - MSI, 2 - MSI-X)\n"
+				"\t-e			Clear IRQ\n"
+				"\t-I			Get current IRQ type configured\n"
+				"\t-d			Use DMA Engine\n"
+				"\t-S			Use Simple Single DMA transfer\n"
+				"\t-l			Legacy IRQ test\n"
+				"\t-r			Read buffer test\n"
+				"\t-w			Write buffer test\n"
+				"\t-c			Copy buffer test\n"
+				"\t-s <size>		Size of buffer {default: 100KB}\n"
+				"\t-h			Print this help message\n",
+				argv[0]);
+			return -EINVAL;
+		}
 
 	return run_test(test);
 }
