@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
 %YAML 1.2
 ---
-$id: http://devicetree.org/schemas/pci/nxp,s32-pcie.yaml#
+$id: http://devicetree.org/schemas/pci/nxp,s32cc-pcie.yaml#
 $schema: http://devicetree.org/meta-schemas/core.yaml#
 
 title: NXP S32CC PCIe interface
@@ -105,8 +105,8 @@ properties:
        list of the PCIe PHYs assigned to the SerDes lanes of a particular
        controller; they are usually set internally via SerDes fixups
     items:
-      - serdes_lane0
-      - serdes_lane1
+      - const: serdes_lane0
+      - const: serdes_lane1
 
   shared-mem:
     description: |
