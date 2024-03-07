@@ -925,13 +925,6 @@ static int hse_uio_probe(struct platform_device *pdev)
 		return -ENXIO;
 	}
 
-	/* register device */
-	err = uio_register_device(dev, &drv->info);
-	if (err) {
-		dev_err(dev, "failed to register UIO device: %d\n", err);
-		return err;
-	}
-
 	/* reset channels to initial state */
 	for (channel = 0; channel < HSE_NUM_CHANNELS; channel++) {
 		drv->intl->channel_ready[channel] = 0;
@@ -954,6 +947,13 @@ static int hse_uio_probe(struct platform_device *pdev)
 		return -ENODEV;
 	}
 	drv->intl->firmware_status = HSE_FW_RUNNING;
+
+	/* register device */
+	err = uio_register_device(dev, &drv->info);
+	if (err) {
+		dev_err(dev, "failed to register UIO device: %d\n", err);
+		return err;
+	}
 
 	/* check firmware version */
 	err = hse_uio_check_fw_version(dev);
