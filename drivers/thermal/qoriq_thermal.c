@@ -67,6 +67,8 @@
 
 #define REGS_TICSCR	0x38	/* Interrupt Critical Site Capture (TICSCR) */
 
+#define REGS_TMHTCR	0x40	/* Monitor High Temperature Capture */
+
 #define REGS_TMRTRCR	0x48
 #define TMRTRCR_VALID	BIT(31)
 #define TMRTRCR_TEMP_MASK	GENMASK(7, 0)
@@ -84,6 +86,10 @@
 #define REGS_TMHTATR	0x54	/* Monitor High Temperature Average
 				 * Threshold
 				 */
+#define REGS_TMHTACTR	0x58	/* Monitor High Temperature Immediate
+				 * Threshold
+				 */
+
 #define TMHTATR_EN	BIT(31)
 #define REGS_TMLTITR	0x60	/* Monitor Low Temperature Immediate
 				 * Threshold
@@ -94,6 +100,10 @@
 #define REGS_TMLTATR	0x64	/* Monitor Low Temperature Average
 				 * Threshold
 				 */
+#define REGS_TMLTACTR	0x68	/* Monitor Low Temperature Average
+				 * Critical Threshold
+				 */
+
 #define TMLTATR_EN	BIT(31)
 #define REGS_TMRTRCTR	0x70	/* Monitor Rising Temperature
 				 * Rate Critical Threshold
@@ -913,12 +923,20 @@ static const struct regmap_access_table qoriq_rd_table = {
 };
 
 static const struct regmap_range s32cc_yes_ranges[] = {
-	regmap_reg_range(REGS_TMR, REGS_TSCFGR),
+	regmap_reg_range(REGS_TMR, REGS_V2_TMTMIR),
+	regmap_reg_range(REGS_TIER, REGS_TIDR),
+	regmap_reg_range(REGS_TIISCR, REGS_TICSCR),
+	regmap_reg_range(REGS_TMHTCR, REGS_TMHTACTR),
+	regmap_reg_range(REGS_TMLTITR, REGS_TMLTACTR),
+	regmap_reg_range(REGS_TMRTRCTR, REGS_TMFTRCTR),
+	regmap_reg_range(REGS_TTCFGR, REGS_TSCFGR),
 	regmap_reg_range(REGS_TTRnCR(0), REGS_TTRnCR(15)),
 	regmap_reg_range(REGS_V2_TCMCFG, REGS_V2_TCMCFG),
 	/* Read-only */
 	regmap_reg_range(REGS_IPBRR(0), REGS_IPBRR(1)),
-	regmap_reg_range(REGS_TRITSR(0), REGS_TRATSR(2)),
+	regmap_reg_range(REGS_TRITSR(0), REGS_TRATSR(0)),
+	regmap_reg_range(REGS_TRITSR(1), REGS_TRATSR(1)),
+	regmap_reg_range(REGS_TRITSR(2), REGS_TRATSR(2)),
 };
 
 static const struct regmap_access_table s32cc_rw_table = {
