@@ -3,7 +3,7 @@
  * s32g pinctrl driver based on imx pinmux and pinconf core
  *
  * Copyright 2015-2016 Freescale Semiconductor, Inc.
- * Copyright 2017-2018, 2020-2023 NXP
+ * Copyright 2017-2018, 2020-2024 NXP
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -216,6 +216,12 @@ enum s32cc_pins {
 	S32G_IMCR_USDHC_DAT6 = 519,
 	S32G_IMCR_USDHC_DAT7 = 518,
 	S32G_IMCR_USDHC_DQS = 524,
+
+	/* JTAG IMCRs */
+	S32G_IMCR_JTAG_TMS = 562,
+	S32G_IMCR_JTAG_TCK = 572,
+	S32G_IMCR_JTAG_TDI = 573,
+
 	S32G_IMCR_CAN0_RXD = 513,
 	S32G_IMCR_CAN1_RXD = 631,
 	S32G_IMCR_CAN2_RXD = 632,
@@ -525,6 +531,12 @@ static const struct pinctrl_pin_desc s32g_pinctrl_pads_siul2[] = {
 	S32CC_PINCTRL_PIN(S32G_IMCR_USDHC_DAT7),
 	S32CC_PINCTRL_PIN(S32G_IMCR_USDHC_DQS),
 	S32CC_PINCTRL_PIN(S32G_IMCR_CAN0_RXD),
+
+	/* JTAG IMCRs */
+	S32CC_PINCTRL_PIN(S32G_IMCR_JTAG_TMS),
+	S32CC_PINCTRL_PIN(S32G_IMCR_JTAG_TCK),
+	S32CC_PINCTRL_PIN(S32G_IMCR_JTAG_TDI),
+
 	/* GMAC0 */
 	S32CC_PINCTRL_PIN(S32G_IMCR_Ethernet_MDIO),
 	S32CC_PINCTRL_PIN(S32G_IMCR_Ethernet_CRS),
