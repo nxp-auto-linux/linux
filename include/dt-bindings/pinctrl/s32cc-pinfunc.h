@@ -33,4 +33,6 @@
 #define S32CC_GPIO_3V3_SLEW_50MHZ	5
 #define S32CC_GPIO_3V3_SLEW_1MHZ	7
 
+#define S32CC_JTAG_50MHZ                4
+
 #endif /* _DT_BINDINGS_S32CC_PINFUNC_H */
