@@ -106,6 +106,7 @@ examples:
         dmas = <&edma0 0 4>,
                <&edma0 0 3>;
         dma-names = "rx", "tx";
+    };
 
   - |
     #define LLCE_MB_LINFLEXD_IRQ_0 0x0
