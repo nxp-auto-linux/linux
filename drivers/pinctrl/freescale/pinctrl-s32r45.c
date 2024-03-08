@@ -3,7 +3,7 @@
  * s32r45 pinctrl driver based on imx pinmux and pinconf core
  *
  * Copyright 2015-2016 Freescale Semiconductor, Inc.
- * Copyright 2017-2018, 2023 NXP
+ * Copyright 2017-2018, 2023-2024 NXP
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -177,6 +177,12 @@ enum s32cc_pins {
 	S32R45_IMCR_QSPI_DQS_B = 558,
 	S32R45_IMCR_BOOT_BOOTMOD0 = 560,
 	S32R45_IMCR_BOOT_BOOTMOD1 = 561,
+
+	/* JTAG IMCRs */
+	S32R45_IMCR_JTAG_TMS = 562,
+	S32R45_IMCR_JTAG_TCK = 572,
+	S32R45_IMCR_JTAG_TDI = 573,
+
 	S32R45_IMCR_FlexRay0_A_RX = 695,
 	S32R45_IMCR_FlexRay0_B_RX = 694,
 	S32R45_IMCR_FlexTimer0_CH0 = 605,
@@ -431,6 +437,12 @@ static const struct pinctrl_pin_desc s32r45_pinctrl_pads_siul2[] = {
 	S32CC_PINCTRL_PIN(S32R45_IMCR_USDHC_DAT7),
 	S32CC_PINCTRL_PIN(S32R45_IMCR_USDHC_DQS),
 	S32CC_PINCTRL_PIN(S32R45_IMCR_CAN0_RXD),
+
+	/* JTAG IMCRs */
+	S32CC_PINCTRL_PIN(S32R45_IMCR_JTAG_TMS),
+	S32CC_PINCTRL_PIN(S32R45_IMCR_JTAG_TCK),
+	S32CC_PINCTRL_PIN(S32R45_IMCR_JTAG_TDI),
+
 	/* GMAC0 */
 	S32CC_PINCTRL_PIN(S32R45_IMCR_Ethernet_MDIO),
 	S32CC_PINCTRL_PIN(S32R45_IMCR_Ethernet_CRS),

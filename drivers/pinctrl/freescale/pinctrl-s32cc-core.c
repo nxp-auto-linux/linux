@@ -3,7 +3,7 @@
  * Core driver for the S32CC pin controller
  *
  * Copyright 2015-2016 Freescale Semiconductor, Inc.
- * Copyright 2017-2018, 2020-2023 NXP
+ * Copyright 2017-2018, 2020-2024 NXP
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -1037,12 +1037,12 @@ static int s32cc_pinctrl_probe_dt(struct platform_device *pdev,
 int s32cc_pinctrl_probe(struct platform_device *pdev,
 		      struct s32cc_pinctrl_soc_info *info)
 {
-	struct s32cc_pinctrl *ipctl;
-	int ret;
-	struct pinctrl_desc *desc;
 #ifdef CONFIG_PM_SLEEP
 	struct s32cc_pinctrl_context *saved_context;
 #endif
+	struct s32cc_pinctrl *ipctl;
+	struct pinctrl_desc *desc;
+	int ret;
 
 	if (!info || !info->pins || !info->npins) {
 		dev_err(&pdev->dev, "wrong pinctrl info\n");
