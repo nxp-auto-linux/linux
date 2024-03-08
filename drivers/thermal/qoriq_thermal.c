@@ -199,6 +199,14 @@ struct s32cc_plat_data {
 	u32 len;
 };
 
+struct qoirq_tmu_data {
+	const struct regmap_access_table *ro_table;
+	const struct regmap_access_table *rw_table;
+	int (*init_and_calib)(struct qoriq_tmu_data *qdata);
+	int (*get_read_delay)(struct qoriq_tmu_data *qdata);
+	u8 sites_max;
+};
+
 static int qoriq_init_and_calib(struct qoriq_tmu_data *data);
 static int s32cc_init_and_calib(struct qoriq_tmu_data *data);
 
@@ -495,10 +503,37 @@ static const struct thermal_zone_device_ops tmu_tz_ops = {
 	.set_trips = tmu_set_trips,
 };
 
+static void tmu_print_reg_range(struct qoriq_tmu_data *qdata,
+				unsigned int start, unsigned int end)
+{
+	u32 val = 0;
+	unsigned int i;
+
+	for (i = start; i <= end; i = i + 4) {
+		regmap_read(qdata->regmap, i, &val);
+		dev_emerg(qdata->dev, "0x%x: %x", i, val);
+	}
+}
+
+static void tmu_dump(struct qoriq_tmu_data *qdata)
+{
+	const struct qoirq_tmu_data *match_data =
+		of_device_get_match_data(qdata->dev);
+	const struct regmap_access_table *ro_table =
+		match_data->ro_table;
+	int i;
+
+	for (i = 0; i < ro_table->n_yes_ranges; i++)
+		tmu_print_reg_range(qdata,
+				    ro_table->yes_ranges[i].range_min,
+				    ro_table->yes_ranges[i].range_max);
+}
+
 static void tmu_handle_immediate_irq(struct qoriq_tmu_data *qdata, u32 tidr)
 {
 	struct qoriq_sensor *sensor;
 	bool upper_set, lower_set;
+	int temp = 0, temp_crit = 0;
 
 	lower_set = tidr & TIDR_ILTT;
 	upper_set = tidr & TIDR_IHTT;
@@ -508,16 +543,24 @@ static void tmu_handle_immediate_irq(struct qoriq_tmu_data *qdata, u32 tidr)
 	 */
 	sensor = &qdata->sensor[qdata->monitored_irq_site];
 
-	if (upper_set || lower_set)
+	if (upper_set || lower_set) {
+		if (upper_set) {
+			tmu_get_temp(sensor->tzd, &temp);
+			thermal_zone_get_crit_temp(sensor->tzd, &temp_crit);
+
+			if (temp >= temp_crit)
+				tmu_dump(qdata);
+		}
 		/* set_trips gets the lock back.
 		 * If get_temp, is called until that time, it doesn't matter.
 		 */
 		thermal_zone_device_update(sensor->tzd,
 					   THERMAL_EVENT_UNSPECIFIED);
-	else
+	} else {
 		dev_err(qdata->dev,
 			"No immediate threshold was exceeded TIDR = %x\n",
 			tidr);
+	}
 
 }
 
@@ -924,14 +967,6 @@ static const struct regmap_access_table s32cc_rw_table = {
 static const struct regmap_access_table s32cc_ro_table = {
 	.yes_ranges	= s32cc_yes_ranges,
 	.n_yes_ranges	= ARRAY_SIZE(s32cc_yes_ranges),
-};
-
-struct qoirq_tmu_data {
-	const struct regmap_access_table *ro_table;
-	const struct regmap_access_table *rw_table;
-	int (*init_and_calib)(struct qoriq_tmu_data *data);
-	int (*get_read_delay)(struct qoriq_tmu_data *data);
-	u8 sites_max;
 };
 
 static const struct qoirq_tmu_data qoriq_data = {
