@@ -882,9 +882,9 @@ static int s32cc_get_read_delay(struct qoriq_tmu_data *qdata)
 	dfd = dfd_values[dfd_index];
 
 	/* Computed after the following formula:
-	 * 1s/ (FREQ / CLK_DIV) * RCTC * DFD * OCM.
+	 * 1s/ (FREQ / CLK_DIV) * (RCTC_VAL + 10) * DFD_VAL * OCM_VAL.
 	 */
-	return (USEC_PER_SEC * clk_div * rctc * dfd * ocm / clkrate + 1);
+	return (USEC_PER_SEC * clk_div * (rctc + 10) * dfd * ocm / clkrate + 1);
 }
 
 static int qoriq_get_read_delay(struct qoriq_tmu_data *qdata)
