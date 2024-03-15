@@ -36,6 +36,11 @@ properties:
     enum: [7000, 12500]
     default: 7000
 
+  nxp,no-battery:
+    description: Used in case the RTC is not linked to any battery
+      so the oscillator is stopped at startup.
+    type: boolean
+
   clock:
     $ref: /schemas/clock/fixed-clock.yaml
     description:
