@@ -2,7 +2,7 @@
 /*
  * PCIe host controller driver for NXP S32CC SoCs
  *
- * Copyright 2019-2023 NXP
+ * Copyright 2019-2024 NXP
  */
 
 #ifndef PCIE_S32CC_H
@@ -47,6 +47,7 @@
 #define LTSSM_STATE_L0		0x11U /* L0 state */
 #define LTSSM_STATE_L0S		0x12U /* L0S state */
 #define LTSSM_STATE_L1_IDLE	0x14U /* L1_IDLE state */
+#define LTSSM_STATE_HOT_RESET	0x1FU /* HOT_RESET state */
 
 #define LINK_INT_CTRL_STS	0x40U
 #define LINK_REQ_RST_NOT_INT_EN	BIT(1)
@@ -107,6 +108,9 @@ struct s32cc_pcie {
 
 	struct resource shared_mem;
 	bool auto_config_bars;
+	bool hot_reset;
+
+	raw_spinlock_t hot_reset_lock;
 };
 
 void dw_pcie_writel_ctrl(struct s32cc_pcie *pci, u32 reg, u32 val);
