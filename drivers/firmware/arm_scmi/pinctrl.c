@@ -2,7 +2,7 @@
 /*
  * SCMI pinctrl Protocol - NXP vendor extension
  *
- * Copyright 2022-2023 NXP
+ * Copyright 2022-2024 NXP
  */
 
 #define pr_fmt(fmt) "SCMI pinctrl - " fmt
@@ -396,52 +396,81 @@ static int scmi_pinctrl_attributes_get(const struct scmi_protocol_handle *ph,
 	return ret;
 }
 
+struct scmi_pinctrl_ipriv {
+	u16 no_ranges;
+	struct scmi_pinctrl_pin_range *ranges;
+};
+
+static void iter_pinctrl_describe_prepare_message(void *message,
+					    unsigned int desc_index,
+					    const void *priv)
+{
+	struct scmi_msg_pinctrl_describe *msg = message;
+
+	/* Set the number of ranges to be skipped/already read */
+	msg->range_index = cpu_to_le32(desc_index);
+}
+
+static int iter_pinctrl_describe_update_state(struct scmi_iterator_state *st,
+					const void *response, void *priv)
+{
+	const struct scmi_msg_resp_pinctrl_describe *ranges = response;
+	struct scmi_pinctrl_ipriv *p = priv;
+	static unsigned int ranges_count;
+
+	st->num_returned = le32_to_cpu(ranges->no_ranges);
+	ranges_count += st->num_returned;
+
+	if (p->no_ranges < ranges_count)
+		return -EINVAL;
+
+	st->num_remaining = p->no_ranges - ranges_count;
+
+	return 0;
+}
+
+static int
+iter_pinctrl_describe_process_response(const struct scmi_protocol_handle *ph,
+				const void *response,
+				struct scmi_iterator_state *st, void *priv)
+{
+	const struct scmi_msg_resp_pinctrl_describe *r = response;
+	struct scmi_pinctrl_ipriv *p = priv;
+
+	p->ranges[st->desc_index + st->loop_idx].start =
+		le16_to_cpu(r->range[st->loop_idx].start);
+	p->ranges[st->desc_index + st->loop_idx].no_pins =
+		le16_to_cpu(r->range[st->loop_idx].no_pins);
+
+	return 0;
+}
+
 static int scmi_pinctrl_protocol_describe(const struct scmi_protocol_handle *ph,
 					  struct scmi_pinctrl_pin_range *rv)
 {
-	struct scmi_msg_resp_pinctrl_describe *ranges;
-	struct scmi_msg_pinctrl_describe *params;
-	uint32_t range_index = 0, i, tmp_idx;
 	struct scmi_pinctrl_info *pinfo;
-	struct scmi_xfer *t;
-	int ret;
+	void *iter;
+	struct scmi_iterator_ops ops = {
+		.prepare_message = iter_pinctrl_describe_prepare_message,
+		.update_state = iter_pinctrl_describe_update_state,
+		.process_response = iter_pinctrl_describe_process_response,
+	};
+	struct scmi_pinctrl_ipriv ppriv = {
+		.ranges = rv,
+	};
 
 	pinfo = ph->get_priv(ph);
 	if (!pinfo)
 		return -ENODEV;
 
-	ret = ph->xops->xfer_get_init(ph, PINCTRL_DESCRIBE, sizeof(*params), 0,
-				      &t);
-	if (ret) {
-		dev_err(ph->dev, "Error initializing xfer!\n");
-		return ret;
-	}
+	ppriv.no_ranges = pinfo->no_ranges;
 
-	params = t->tx.buf;
-	ranges = t->rx.buf;
+	iter = ph->hops->iter_response_init(ph, &ops, pinfo->no_ranges, PINCTRL_DESCRIBE,
+					sizeof(struct scmi_msg_pinctrl_describe), &ppriv);
+	if (IS_ERR(iter))
+		return PTR_ERR(iter);
 
-	while (range_index < pinfo->no_ranges) {
-		params->range_index = cpu_to_le32(range_index);
-		ret = ph->xops->do_xfer(ph, t);
-		if (ret) {
-			dev_err(ph->dev, "Transfer error!\n");
-			goto done;
-		}
-
-		for (i = 0; i < le32_to_cpu(ranges->no_ranges); i++) {
-			tmp_idx = i + range_index;
-			rv[tmp_idx].start = le16_to_cpu(ranges->range[i].start);
-			rv[tmp_idx].no_pins = le16_to_cpu(ranges->range[i].no_pins);
-		}
-
-		range_index += le32_to_cpu(ranges->no_ranges);
-		ph->xops->reset_rx_to_maxsz(ph, t);
-	}
-
-done:
-	ph->xops->xfer_put(ph, t);
-
-	return ret;
+	return ph->hops->iter_response_run(iter);
 }
 
 static int
