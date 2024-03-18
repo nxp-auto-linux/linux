@@ -54,6 +54,20 @@
 #define PCIE_LINK_TIMEOUT_US		(PCIE_LINK_TIMEOUT_MS * USEC_PER_MSEC)
 #define PCIE_LINK_WAIT_US			1000
 
+/* Following a conventional reset of a device, within 1.0 s the device should
+ * be able to receive a configuration request and return a successful
+ * completion if the request is valid.
+ * Root Complex and/or system software should allow at least 1.0 s after a
+ * conventional reset of a device, before determining that the device
+ * is broken.
+ */
+#define PCIE_LTSSM_HOT_RESET_TRANSITION_TIMEOUT	(USEC_PER_MSEC * MSEC_PER_SEC)
+
+/* Root Complex should wait a minimum of 100 ms after link training
+ * completes before sending a configuration request to the device.
+ */
+#define PCIE_LTSSM_HOT_RESET_TRANSITION_WAIT	(100 * USEC_PER_MSEC)
+
 enum pcie_dev_type_val {
 	PCIE_EP_VAL = 0x0,
 	PCIE_RC_VAL = 0x4
@@ -408,7 +422,7 @@ int s32cc_pcie_start_link(struct dw_pcie *pcie)
 	ret = read_poll_timeout(dw_pcie_readl_dbi, tmp,
 				!(tmp & PORT_LOGIC_SPEED_CHANGE),
 				PCIE_LINK_WAIT_US,
-				PCIE_LINK_TIMEOUT_US, false,
+				PCIE_LINK_TIMEOUT_US, true,
 				pcie, PCIE_LINK_WIDTH_SPEED_CONTROL);
 
 	if (ret)
@@ -481,17 +495,49 @@ static struct dw_pcie_host_ops s32cc_pcie_host_ops2 = {
 	.msi_init = s32cc_pcie_msi_host_init,
 };
 
+static int handle_hot_reset(struct s32cc_pcie *s32cc_pci)
+{
+	struct dw_pcie *pcie = &s32cc_pci->pcie;
+	struct pci_bus *bus = pcie->pp.bridge->bus;
+	struct pci_bus *root_bus;
+	u32 tmp;
+	int ret;
+
+	root_bus = s32cc_get_child_downstream_bus(bus);
+	if (IS_ERR(root_bus)) {
+		dev_err(pcie->dev, "Failed to find downstream devices\n");
+		return PTR_ERR(root_bus);
+	}
+
+	/* Following a conventional reset of a device, within 1.0s
+	 * the device should be able to receive a configuration request
+	 */
+	ret = read_poll_timeout(dw_pcie_readl_ctrl, tmp,
+				((tmp & GET_MASK_VALUE(PCIE_SS_SMLH_LTSSM_STATE)) ==
+				 LTSSM_STATE_L0),
+				 PCIE_LTSSM_HOT_RESET_TRANSITION_WAIT,
+				 PCIE_LTSSM_HOT_RESET_TRANSITION_TIMEOUT, true,
+				 s32cc_pci, PCIE_SS_PE0_LINK_DBG_2);
+	if (ret)
+		dev_warn(pcie->dev, "Link did not recover after Hot Reset\n");
+
+	/* Remove root port to reinit non-sticky registers cleared after SBR */
+	pci_stop_and_remove_bus_device(root_bus->self);
+
+	/* Rescan bus to re-enumerate devices after SBR */
+	pci_rescan_bus(bus);
+
+	return 0;
+}
+
 static irqreturn_t s32cc_pcie_hot_unplug_irq(int irq, void *arg)
 {
 	struct s32cc_pcie *s32cc_pci = arg;
-	struct dw_pcie *pcie = &s32cc_pci->pcie;
 	u32 tmp = dw_pcie_readl_ctrl(s32cc_pci, LINK_INT_CTRL_STS) |
 				LINK_REQ_RST_NOT_CLR;
 
+	s32cc_pcie_disable_hot_unplug_irq(s32cc_pci);
 	dw_pcie_writel_ctrl(s32cc_pci, LINK_INT_CTRL_STS, tmp);
-
-	if (s32cc_pcie_link_is_up(pcie))
-		return IRQ_HANDLED;
 
 	return IRQ_WAKE_THREAD;
 }
@@ -504,43 +550,82 @@ static irqreturn_t s32cc_pcie_hot_unplug_thread(int irq, void *arg)
 	struct pci_bus *bus = pp->bridge->bus;
 	struct pci_bus *root_bus;
 	struct pci_dev *pdev, *temp;
+	bool hot_reset_needed = false;
 	int ret;
 
 	pci_lock_rescan_remove();
 
+	scoped_guard(raw_spinlock_irqsave, &s32cc_pci->hot_reset_lock) {
+		if (s32cc_pci->hot_reset) {
+			hot_reset_needed = true;
+			s32cc_pci->hot_reset = false;
+		}
+	}
+
+	if (hot_reset_needed) {
+		handle_hot_reset(s32cc_pci);
+		goto enable_hot_plug;
+	}
+
+	if (s32cc_pcie_link_is_up(pcie)) {
+		dev_warn(pcie->dev, "Link is up after Hot-Unplug event\n");
+		goto enable_hot_plug;
+	}
+
 	root_bus = s32cc_get_child_downstream_bus(bus);
 	if (IS_ERR(root_bus)) {
 		dev_err(pcie->dev, "Failed to find downstream devices\n");
-		goto out_unlock_rescan;
+		goto enable_hot_plug;
 	}
 
 	/* if EP is not connected -- Hot-Unplug Surprise event */
-	if (phy_validate(s32cc_pci->phy0, PHY_MODE_PCIE, 0, NULL))
+	if (phy_validate(s32cc_pci->phy0, PHY_MODE_PCIE, 0, NULL)) {
+		dev_warn(pcie->dev, "Hot-Unplug Surprise event\n");
 		pci_walk_bus(root_bus, pci_dev_set_disconnected, NULL);
+	}
 
 	list_for_each_entry_safe_reverse(pdev, temp,
 					 &root_bus->devices, bus_list) {
 		pci_dev_get(pdev);
+		dev_info(pcie->dev, "Remove device: 0x%04X:0x%04X\n",
+			 pdev->vendor, pdev->device);
 		pci_stop_and_remove_bus_device(pdev);
 		pci_dev_put(pdev);
 	}
 
+enable_hot_plug:
+	/* link-request-reset interrupt disables Hot-plug interrupt */
 	ret = s32cc_enable_hotplug_cap(pcie);
 	if (ret)
 		dev_err(pcie->dev, "Failed to enable hotplug capability\n");
 
-out_unlock_rescan:
 	pci_unlock_rescan_remove();
+	s32cc_pcie_enable_hot_unplug_irq(s32cc_pci);
+
 	return IRQ_HANDLED;
 }
 
 static irqreturn_t s32cc_pcie_hot_plug_irq(int irq, void *arg)
 {
 	struct s32cc_pcie *s32cc_pci = arg;
-	u32 tmp = dw_pcie_readl_ctrl(s32cc_pci, PE0_INT_STS) |
-				HP_INT_STS;
+	u32 link_state = dw_pcie_readl_ctrl(s32cc_pci, PCIE_SS_PE0_LINK_DBG_2);
 
-	dw_pcie_writel_ctrl(s32cc_pci, PE0_INT_STS, tmp);
+	dw_pcie_writel_ctrl(s32cc_pci, PE0_INT_STS, HP_INT_STS);
+
+	if ((link_state & GET_MASK_VALUE(PCIE_SS_SMLH_LTSSM_STATE)) ==
+			LTSSM_STATE_HOT_RESET) {
+		scoped_guard(raw_spinlock_irqsave, &s32cc_pci->hot_reset_lock)
+			s32cc_pci->hot_reset = true;
+		dev_info(s32cc_pci->pcie.dev, "Hot Reset detected\n");
+		return IRQ_HANDLED;
+	}
+
+	/* if EP is not connected, we exit */
+	if (phy_validate(s32cc_pci->phy0, PHY_MODE_PCIE, 0, NULL)) {
+		dev_warn(s32cc_pci->pcie.dev,
+			 "PHY error detected after Hot-Plug event\n");
+		return IRQ_HANDLED;
+	}
 
 	return IRQ_WAKE_THREAD;
 }
@@ -1329,6 +1414,9 @@ static int s32cc_pcie_probe(struct platform_device *pdev)
 
 	data = match->data;
 	s32cc_pp->mode = data->mode;
+	s32cc_pp->hot_reset = false;
+
+	raw_spin_lock_init(&s32cc_pp->hot_reset_lock);
 
 	ret = s32cc_pcie_dt_init_common(pdev, s32cc_pp);
 	if (ret)
@@ -1416,6 +1504,7 @@ int s32cc_pcie_resume(struct device *dev)
 			   s32cc_pp->msi_ctrl_int);
 
 	if (is_s32cc_pcie_rc(s32cc_pp->mode)) {
+		s32cc_pp->hot_reset = false;
 		/* Enable Hot-Plug capability */
 		ret = s32cc_enable_hotplug_cap(pcie);
 		if (ret) {
