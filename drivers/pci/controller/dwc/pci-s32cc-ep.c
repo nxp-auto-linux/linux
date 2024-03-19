@@ -290,14 +290,8 @@ int s32cc_pcie_setup_inbound(struct s32cc_inbound_region *ptr_inb)
 		return -EINVAL;
 	}
 
-#if (!IS_ENABLED(CONFIG_PCI_S32CC_IOCTL_LIMIT_ONE_ENDPOINT))
 	s32cc_pcie_ep = s32cc_get_dw_pcie(ptr_inb->pcie_id);
 	s32cc_ep_bars = s32cc_get_bars(ptr_inb->pcie_id);
-#else
-	/* In this case we don't need the ID, so use 0 to comply with the API */
-	s32cc_pcie_ep = s32cc_get_dw_pcie(0);
-	s32cc_ep_bars = s32cc_get_bars(0);
-#endif
 
 	if (IS_ERR(s32cc_pcie_ep) || IS_ERR(s32cc_ep_bars)) {
 		pr_err("%s: No valid S32CC EP configuration found\n",
@@ -627,6 +621,11 @@ static int s32cc_pcie_probe(struct platform_device *pdev)
 			struct s32cc_inbound_region ptr_inb = {
 #if (!IS_ENABLED(CONFIG_PCI_S32CC_IOCTL_LIMIT_ONE_ENDPOINT))
 				s32cc_pp->id,
+#else
+				/* In this case we don't need the ID
+				 * so use 0 to comply with the API
+				 */
+				0,
 #endif
 				bar,
 				s32cc_pp->shared_mem.start,

@@ -3,7 +3,7 @@
  * Copyright (C) 2013 Kosagi
  *              http://www.kosagi.com
  * Copyright (C) 2014-2015 Freescale Semiconductor, Inc. All Rights Reserved.
- * Copyright 2016-2023 NXP
+ * Copyright 2016-2024 NXP
  *
  * Author: Sean Cross <xobs@kosagi.com>
  *
@@ -12,8 +12,8 @@
  * published by the Free Software Foundation.
  */
 
-#ifndef PCI_IOCTL_S32CC_H
-#define PCI_IOCTL_S32CC_H
+#ifndef __PCI_IOCTL_S32CC_H
+#define __PCI_IOCTL_S32CC_H
 
 #include <linux/signal_types.h>
 #include "pcie-designware.h"
@@ -30,18 +30,14 @@
 #define RESET_DMA_READ		_IOW('S', 11,  unsigned int)
 
 struct s32cc_inbound_region {
-#if (!IS_ENABLED(CONFIG_PCI_S32CC_IOCTL_LIMIT_ONE_ENDPOINT))
 	int pcie_id; /* must match the id of a device tree pcie node */
-#endif
 	u32 bar_nr; /* for backwards compatibility; should be 0 */
 	u32 target_addr;
 	u32 region; /* for backwards compatibility; not used */
 };
 
 struct s32cc_outbound_region {
-#if (!IS_ENABLED(CONFIG_PCI_S32CC_IOCTL_LIMIT_ONE_ENDPOINT))
 	int pcie_id; /* must match the id of a device tree pcie node */
-#endif
 	u64 target_addr;
 	u64 base_addr;
 	u32 size;
@@ -80,4 +76,4 @@ int s32cc_pcie_setup_inbound(struct s32cc_inbound_region *inbStr);
 
 int s32cc_send_msi(struct dw_pcie *pcie);
 
-#endif /* PCI_IOCTL_S32CC_H */
+#endif /* __PCI_IOCTL_S32CC_H */
