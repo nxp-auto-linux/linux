@@ -346,6 +346,7 @@ struct pltfm_imx_data {
 	struct clk *clk_ahb;
 	struct clk *clk_per;
 	unsigned int actual_clock;
+	bool clks_enabled;
 	enum {
 		NO_CMD_PENDING,      /* no multiblock command pending */
 		MULTIBLK_IN_PROCESS, /* exact multiblock cmd in process */
@@ -1652,6 +1653,42 @@ sdhci_esdhc_imx_probe_dt(struct platform_device *pdev,
 	return 0;
 }
 
+static int sdhci_esdhc_imx_enable_clks(struct pltfm_imx_data *data)
+{
+	int ret = 0;
+
+	if (!data->clks_enabled) {
+		ret = clk_prepare_enable(data->clk_per);
+		if (ret)
+			return ret;
+		ret = clk_prepare_enable(data->clk_ipg);
+		if (ret)
+			goto disable_per_clk;
+		ret = clk_prepare_enable(data->clk_ahb);
+		if (ret)
+			goto disable_ipg_clk;
+		data->clks_enabled = true;
+	}
+
+	return ret;
+
+disable_ipg_clk:
+	clk_disable_unprepare(data->clk_ipg);
+disable_per_clk:
+	clk_disable_unprepare(data->clk_per);
+	return ret;
+}
+
+static void sdhci_esdhc_imx_disable_clks(struct pltfm_imx_data *data)
+{
+	if (data->clks_enabled) {
+		clk_disable_unprepare(data->clk_ahb);
+		clk_disable_unprepare(data->clk_ipg);
+		clk_disable_unprepare(data->clk_per);
+		data->clks_enabled = false;
+	}
+}
+
 static int sdhci_esdhc_imx_probe(struct platform_device *pdev)
 {
 	struct sdhci_pltfm_host *pltfm_host;
@@ -1693,15 +1730,10 @@ static int sdhci_esdhc_imx_probe(struct platform_device *pdev)
 	}
 
 	pltfm_host->clk = imx_data->clk_per;
-	err = clk_prepare_enable(imx_data->clk_per);
+	imx_data->clks_enabled = false;
+	err = sdhci_esdhc_imx_enable_clks(imx_data);
 	if (err)
 		goto free_sdhci;
-	err = clk_prepare_enable(imx_data->clk_ipg);
-	if (err)
-		goto disable_per_clk;
-	err = clk_prepare_enable(imx_data->clk_ahb);
-	if (err)
-		goto disable_ipg_clk;
 
 	pltfm_host->clock = clk_get_rate(pltfm_host->clk);
 
@@ -1755,7 +1787,7 @@ static int sdhci_esdhc_imx_probe(struct platform_device *pdev)
 		cq_host = devm_kzalloc(&pdev->dev, sizeof(*cq_host), GFP_KERNEL);
 		if (!cq_host) {
 			err = -ENOMEM;
-			goto disable_ahb_clk;
+			goto disable_clks;
 		}
 
 		cq_host->mmio = host->ioaddr + ESDHC_CQHCI_ADDR_OFFSET;
@@ -1763,18 +1795,18 @@ static int sdhci_esdhc_imx_probe(struct platform_device *pdev)
 
 		err = cqhci_init(cq_host, host->mmc, false);
 		if (err)
-			goto disable_ahb_clk;
+			goto disable_clks;
 	}
 
 	err = sdhci_esdhc_imx_probe_dt(pdev, host, imx_data);
 	if (err)
-		goto disable_ahb_clk;
+		goto disable_clks;
 
 	sdhci_esdhc_imx_hwinit(host);
 
 	err = sdhci_add_host(host);
 	if (err)
-		goto disable_ahb_clk;
+		goto disable_clks;
 
 	/*
 	 * Setup the wakeup capability here, let user to decide
@@ -1792,12 +1824,8 @@ static int sdhci_esdhc_imx_probe(struct platform_device *pdev)
 
 	return 0;
 
-disable_ahb_clk:
-	clk_disable_unprepare(imx_data->clk_ahb);
-disable_ipg_clk:
-	clk_disable_unprepare(imx_data->clk_ipg);
-disable_per_clk:
-	clk_disable_unprepare(imx_data->clk_per);
+disable_clks:
+	sdhci_esdhc_imx_disable_clks(imx_data);
 free_sdhci:
 	if (imx_data->socdata->flags & ESDHC_FLAG_PMQOS)
 		cpu_latency_qos_remove_request(&imx_data->pm_qos_req);
@@ -1819,9 +1847,7 @@ static int sdhci_esdhc_imx_remove(struct platform_device *pdev)
 
 	sdhci_remove_host(host, dead);
 
-	clk_disable_unprepare(imx_data->clk_per);
-	clk_disable_unprepare(imx_data->clk_ipg);
-	clk_disable_unprepare(imx_data->clk_ahb);
+	sdhci_esdhc_imx_disable_clks(imx_data);
 
 	if (imx_data->socdata->flags & ESDHC_FLAG_PMQOS)
 		cpu_latency_qos_remove_request(&imx_data->pm_qos_req);
@@ -1854,15 +1880,15 @@ static int sdhci_esdhc_suspend(struct device *dev)
 	if (host->tuning_mode != SDHCI_TUNING_MODE_3)
 		mmc_retune_needed(host->mmc);
 
+	ret = sdhci_esdhc_imx_enable_clks(imx_data);
+	if (ret)
+		return ret;
+
 	ret = sdhci_suspend_host(host);
 	if (ret)
 		return ret;
 
-	if (!pm_runtime_suspended(dev)) {
-		clk_disable_unprepare(imx_data->clk_per);
-		clk_disable_unprepare(imx_data->clk_ipg);
-		clk_disable_unprepare(imx_data->clk_ahb);
-	}
+	sdhci_esdhc_imx_disable_clks(imx_data);
 
 	return ret;
 }
@@ -1874,15 +1900,9 @@ static int sdhci_esdhc_resume(struct device *dev)
 	struct pltfm_imx_data *imx_data = sdhci_pltfm_priv(pltfm_host);
 	int ret;
 
-	ret = clk_prepare_enable(imx_data->clk_per);
+	ret = sdhci_esdhc_imx_enable_clks(imx_data);
 	if (ret)
 		return ret;
-	ret = clk_prepare_enable(imx_data->clk_ipg);
-	if (ret)
-		goto disable_per_clk;
-	ret = clk_prepare_enable(imx_data->clk_ahb);
-	if (ret)
-		goto disable_ipg_clk;
 
 	/* re-initialize hw state in case it's lost in low power mode */
 	sdhci_esdhc_imx_hwinit(host);
@@ -1894,12 +1914,6 @@ static int sdhci_esdhc_resume(struct device *dev)
 	if (host->mmc->caps2 & MMC_CAP2_CQE)
 		ret = cqhci_resume(host->mmc);
 
-	return sdhci_resume_host(host);
-
-disable_per_clk:
-	clk_disable_unprepare(imx_data->clk_per);
-disable_ipg_clk:
-	clk_disable_unprepare(imx_data->clk_ipg);
 	return ret;
 }
 #endif
@@ -1927,9 +1941,7 @@ static int sdhci_esdhc_runtime_suspend(struct device *dev)
 
 	imx_data->actual_clock = host->mmc->actual_clock;
 	esdhc_pltfm_set_clock(host, 0);
-	clk_disable_unprepare(imx_data->clk_per);
-	clk_disable_unprepare(imx_data->clk_ipg);
-	clk_disable_unprepare(imx_data->clk_ahb);
+	sdhci_esdhc_imx_disable_clks(imx_data);
 
 	if (imx_data->socdata->flags & ESDHC_FLAG_PMQOS)
 		cpu_latency_qos_remove_request(&imx_data->pm_qos_req);
@@ -1950,35 +1962,21 @@ static int sdhci_esdhc_runtime_resume(struct device *dev)
 	if (imx_data->socdata->flags & ESDHC_FLAG_CLK_RATE_LOST_IN_PM_RUNTIME)
 		clk_set_rate(imx_data->clk_per, pltfm_host->clock);
 
-	err = clk_prepare_enable(imx_data->clk_ahb);
+	err = sdhci_esdhc_imx_enable_clks(imx_data);
 	if (err)
 		goto remove_pm_qos_request;
-
-	err = clk_prepare_enable(imx_data->clk_per);
-	if (err)
-		goto disable_ahb_clk;
-
-	err = clk_prepare_enable(imx_data->clk_ipg);
-	if (err)
-		goto disable_per_clk;
 
 	esdhc_pltfm_set_clock(host, imx_data->actual_clock);
 
 	err = sdhci_runtime_resume_host(host, 0);
 	if (err)
-		goto disable_ipg_clk;
+		sdhci_esdhc_imx_disable_clks(imx_data);
 
 	if (host->mmc->caps2 & MMC_CAP2_CQE)
 		err = cqhci_resume(host->mmc);
 
 	return err;
 
-disable_ipg_clk:
-	clk_disable_unprepare(imx_data->clk_ipg);
-disable_per_clk:
-	clk_disable_unprepare(imx_data->clk_per);
-disable_ahb_clk:
-	clk_disable_unprepare(imx_data->clk_ahb);
 remove_pm_qos_request:
 	if (imx_data->socdata->flags & ESDHC_FLAG_PMQOS)
 		cpu_latency_qos_remove_request(&imx_data->pm_qos_req);
