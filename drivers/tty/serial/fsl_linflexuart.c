@@ -383,6 +383,10 @@ static void linflex_stop_rx(struct uart_port *port)
 	lfport->dma_rx_in_progress = 0;
 }
 
+static void linflex_start_rx(struct uart_port *port)
+{
+}
+
 static void linflex_put_char(struct uart_port *sport, unsigned char c)
 {
 	struct linflex_port *lfport = to_linflex_port(sport);
@@ -1341,6 +1345,7 @@ static const struct uart_ops linflex_pops = {
 	.stop_tx	= linflex_stop_tx,
 	.start_tx	= linflex_start_tx,
 	.stop_rx	= linflex_stop_rx,
+	.start_rx	= linflex_start_rx,
 	.break_ctl	= linflex_break_ctl,
 	.startup	= linflex_startup,
 	.shutdown	= linflex_shutdown,
