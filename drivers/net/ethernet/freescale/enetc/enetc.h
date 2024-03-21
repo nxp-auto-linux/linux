@@ -25,6 +25,7 @@
 #define ENETC_CBD_DATA_MEM_ALIGN 64
 
 #define ENETC_MADDR_HASH_TBL_SZ	64
+#define ENETC_INT_NAME_MAX	(IFNAMSIZ + 8)
 
 enum enetc_mac_addr_type {UC, MC, MADDR_TYPE};
 
@@ -308,6 +309,9 @@ struct enetc_si_ops {
 	void (*vf_teardown_cbdr)(struct enetc_si *si);
 	int (*get_rss_table)(struct enetc_si *si, u32 *table, int count);
 	int (*set_rss_table)(struct enetc_si *si, const u32 *table, int count);
+	int (*vf_register_msg_msix)(struct enetc_si *si);
+	void (*vf_free_msg_msix)(struct enetc_si *si);
+	int (*vf_register_link_status_notify)(struct enetc_si *si, bool notify);
 };
 
 /* PCI IEP device data */
@@ -340,6 +344,8 @@ struct enetc_si {
 
 	/* mailbox message lock, serialize message processing*/
 	struct mutex msg_lock;
+	struct work_struct msg_task;
+	char msg_int_name[ENETC_INT_NAME_MAX];
 };
 
 #define ENETC_SI_ALIGN	32
@@ -376,7 +382,6 @@ static inline int enetc_pf_to_port(struct pci_dev *pf_pdev)
 }
 
 #define ENETC_MAX_NUM_TXQS	8
-#define ENETC_INT_NAME_MAX	(IFNAMSIZ + 8)
 
 struct enetc_int_vector {
 	void __iomem *rbier;
