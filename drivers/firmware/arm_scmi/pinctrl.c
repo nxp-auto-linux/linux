@@ -103,6 +103,7 @@ void scmi_pinctrl_pin_list_init(struct scmi_pinctrl_pin_list *list)
 {
 	INIT_LIST_HEAD(&list->list);
 }
+EXPORT_SYMBOL_GPL(scmi_pinctrl_pin_list_init);
 
 static int scmi_pinctrl_pin_list_pin_index(struct scmi_pinctrl_pin_list *list,
 					   u16 pin)
@@ -137,6 +138,7 @@ struct scmi_pinctrl_pin_list_elem *
 
 	return NULL;
 }
+EXPORT_SYMBOL_GPL(scmi_pinctrl_pin_list_remove_pin);
 
 int scmi_pinctrl_pin_list_add_pin(struct scmi_pinctrl_pin_list *list,
 				  struct scmi_pinctrl_pin_list_elem *p)
@@ -150,6 +152,7 @@ int scmi_pinctrl_pin_list_add_pin(struct scmi_pinctrl_pin_list *list,
 
 	return 0;
 }
+EXPORT_SYMBOL_GPL(scmi_pinctrl_pin_list_add_pin);
 
 unsigned int scmi_pinctrl_count_multi_bit_values(unsigned long *configs,
 						 unsigned int no_configs)
@@ -162,6 +165,7 @@ unsigned int scmi_pinctrl_count_multi_bit_values(unsigned long *configs,
 
 	return count;
 }
+EXPORT_SYMBOL_GPL(scmi_pinctrl_count_multi_bit_values);
 
 static int compare_configs(const void *a, const void *b)
 {
@@ -233,6 +237,7 @@ int scmi_pinctrl_create_pcf(unsigned long *configs,
 
 	return ret;
 }
+EXPORT_SYMBOL_GPL(scmi_pinctrl_create_pcf);
 
 int scmi_pinctrl_convert_from_pcf(unsigned long *configs,
 				  struct scmi_pinctrl_pinconf *pcf)
@@ -251,6 +256,7 @@ int scmi_pinctrl_convert_from_pcf(unsigned long *configs,
 
 	return 0;
 }
+EXPORT_SYMBOL_GPL(scmi_pinctrl_convert_from_pcf);
 
 bool scmi_pinctrl_are_pcfs_equal(struct scmi_pinctrl_pinconf *pcfa,
 				 struct scmi_pinctrl_pinconf *pcfb)
@@ -264,6 +270,7 @@ bool scmi_pinctrl_are_pcfs_equal(struct scmi_pinctrl_pinconf *pcfa,
 	return !memcmp(pcfa->multi_bit_values, pcfb->multi_bit_values,
 		       scmi_pinctrl_mb_configs_size(pcfa->mask));
 }
+EXPORT_SYMBOL_GPL(scmi_pinctrl_are_pcfs_equal);
 
 unsigned int scmi_pinctrl_hash_pcf(struct scmi_pinctrl_pinconf *pcf)
 {
@@ -275,6 +282,7 @@ unsigned int scmi_pinctrl_hash_pcf(struct scmi_pinctrl_pinconf *pcf)
 
 	return hash;
 }
+EXPORT_SYMBOL_GPL(scmi_pinctrl_hash_pcf);
 
 static unsigned int scmi_pinctrl_get_mb_index(struct scmi_pinctrl_pinconf *pcf,
 					      enum pin_config_param param)
@@ -371,6 +379,7 @@ int scmi_pinctrl_add_pcf(struct device *dev,
 
 	return 0;
 }
+EXPORT_SYMBOL_GPL(scmi_pinctrl_add_pcf);
 
 static int scmi_pinctrl_attributes_get(const struct scmi_protocol_handle *ph,
 				       struct scmi_pinctrl_info *pinfo)
