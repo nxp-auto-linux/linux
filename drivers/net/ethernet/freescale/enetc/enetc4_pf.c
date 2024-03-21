@@ -1194,6 +1194,8 @@ static void enetc4_pl_mac_link_up(struct phylink_config *config,
 	enetc4_set_rx_pause(pf, rx_pause);
 	enetc4_enable_mac(pf, true);
 	enetc4_mm_link_state_update(pf, true);
+
+	enetc_pf_send_link_status_msg(pf, true);
 }
 
 static void enetc4_pl_mac_link_down(struct phylink_config *config,
@@ -1202,6 +1204,7 @@ static void enetc4_pl_mac_link_down(struct phylink_config *config,
 {
 	struct enetc_pf *pf = phylink_to_enetc_pf(config);
 
+	enetc_pf_send_link_status_msg(pf, false);
 	enetc4_mm_link_state_update(pf, false);
 	enetc4_enable_mac(pf, false);
 }
