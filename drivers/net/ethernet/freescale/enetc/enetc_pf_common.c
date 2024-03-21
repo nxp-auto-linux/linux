@@ -525,6 +525,30 @@ err_msg_psi:
 	return err;
 }
 EXPORT_SYMBOL_GPL(enetc_sriov_configure);
+
+void enetc_pf_send_link_status_msg(struct enetc_pf *pf, bool up)
+{
+	struct device *dev = &pf->si->pdev->dev;
+	union enetc_pf_msg pf_msg;
+	u16 ms_mask = 0;
+	int i, err;
+
+	for (i = 0; i < pf->num_vfs; i++)
+		if (pf->vf_link_status_notify[i])
+			ms_mask |= PSIMSGSR_MS(i);
+
+	if (!ms_mask)
+		return;
+
+	pf_msg.class_id = ENETC_MSG_CLASS_ID_LINK_STATUS;
+	pf_msg.class_code = up ? ENETC_PF_NC_LINK_STATUS_UP :
+				 ENETC_PF_NC_LINK_STATUS_DOWN;
+
+	err = enetc_pf_send_msg(pf, pf_msg.code, ms_mask);
+	if (err)
+		dev_err(dev, "PF notifies link status failed\n");
+}
+EXPORT_SYMBOL_GPL(enetc_pf_send_link_status_msg);
 #endif
 
 int enetc_pf_set_vf_trust(struct net_device *ndev, int vf, bool setting)

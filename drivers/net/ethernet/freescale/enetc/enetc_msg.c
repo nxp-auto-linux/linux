@@ -21,10 +21,9 @@ static void enetc_msg_enable_mr_int(struct enetc_hw *hw)
 static irqreturn_t enetc_msg_psi_msix(int irq, void *data)
 {
 	struct enetc_si *si = (struct enetc_si *)data;
-	struct enetc_pf *pf = enetc_si_priv(si);
 
 	enetc_msg_disable_mr_int(&si->hw);
-	schedule_work(&pf->msg_task);
+	schedule_work(&si->msg_task);
 
 	return IRQ_HANDLED;
 }
@@ -104,6 +103,97 @@ static u16 enetc_msg_handle_ip_revision(struct enetc_msg_header *msg_hdr,
 	}
 }
 
+static u16 enetc_msg_pf_reply_link_status(struct enetc_pf *pf)
+{
+	struct net_device *ndev = pf->si->ndev;
+	union enetc_pf_msg pf_msg;
+
+	pf_msg.class_id = ENETC_MSG_CLASS_ID_LINK_STATUS;
+	if (netif_carrier_ok(ndev))
+		pf_msg.class_code = ENETC_PF_NC_LINK_STATUS_UP;
+	else
+		pf_msg.class_code = ENETC_PF_NC_LINK_STATUS_DOWN;
+
+	return pf_msg.code;
+}
+
+int enetc_pf_send_msg(struct enetc_pf *pf, u32 msg_code, u16 ms_mask)
+{
+	struct enetc_si *si = pf->si;
+	u32 psimsgsr;
+	int err;
+
+	psimsgsr = PSIMSGSR_SET_MC(msg_code);
+	psimsgsr |= ms_mask;
+
+	mutex_lock(&si->msg_lock);
+
+	enetc_wr(&si->hw, ENETC_PSIMSGSR, psimsgsr);
+	err = read_poll_timeout(enetc_rd, psimsgsr,
+				!(psimsgsr & ms_mask),
+				100, 100000, false, &si->hw, ENETC_PSIMSGSR);
+
+	mutex_unlock(&si->msg_lock);
+
+	return err;
+}
+
+static void enetc_send_link_status_msg(struct enetc_pf *pf, u16 ms_mask)
+{
+	struct device *dev = &pf->si->pdev->dev;
+	struct net_device *ndev = pf->si->ndev;
+	union enetc_pf_msg pf_msg = {};
+	int err;
+
+	if (!ms_mask)
+		return;
+
+	pf_msg.class_id = ENETC_MSG_CLASS_ID_LINK_STATUS;
+	if (netif_carrier_ok(ndev))
+		pf_msg.class_code = ENETC_PF_NC_LINK_STATUS_UP;
+	else
+		pf_msg.class_code = ENETC_PF_NC_LINK_STATUS_DOWN;
+
+	err = enetc_pf_send_msg(pf, pf_msg.code, ms_mask);
+	if (err)
+		dev_err(dev, "PF notifies link status failed\n");
+}
+
+static u16 enetc_msg_register_link_status_notify(struct enetc_pf *pf, int vf_id,
+						 bool notify)
+{
+	struct enetc_hw *hw = &pf->si->hw;
+	u32 val;
+
+	pf->vf_link_status_notify[vf_id] = notify;
+
+	/* Reply to VF */
+	val = ENETC_SIMSGSR_SET_MC(ENETC_MSG_CODE_SUCCESS);
+	val |= ENETC_PSIMSGRR_MR(vf_id); /* w1c */
+	enetc_wr(hw, ENETC_PSIMSGRR, val);
+
+	/* Notify VF the current link status */
+	if (notify)
+		enetc_send_link_status_msg(pf, PSIMSGSR_MS(vf_id));
+
+	return 0;
+}
+
+static u16 enetc_msg_handle_link_status(struct enetc_msg_header *msg_hdr,
+					struct enetc_pf *pf, int vf_id)
+{
+	switch (msg_hdr->cmd_id) {
+	case ENETC_MSG_GET_CURRENT_LINK_STATUS:
+		return enetc_msg_pf_reply_link_status(pf);
+	case ENETC_MSG_REGISTER_LINK_CHANGE_NOTIFY:
+		return enetc_msg_register_link_status_notify(pf, vf_id, true);
+	case ENETC_MSG_UNREGISTER_LINK_CHANGE_NOTIFY:
+		return enetc_msg_register_link_status_notify(pf, vf_id, false);
+	default:
+		return ENETC_MSG_CODE_NOT_SUPPORT;
+	}
+}
+
 static void enetc_msg_handle_rxmsg(struct enetc_pf *pf, int vf_id,
 				   u16 *msg_code)
 {
@@ -136,6 +226,9 @@ static void enetc_msg_handle_rxmsg(struct enetc_pf *pf, int vf_id,
 	case ENETC_MSG_CLASS_ID_IP_REVISION:
 		*msg_code = enetc_msg_handle_ip_revision(msg_hdr, pf);
 		break;
+	case ENETC_MSG_CLASS_ID_LINK_STATUS:
+		*msg_code = enetc_msg_handle_link_status(msg_hdr, pf, vf_id);
+		break;
 	default:
 		*msg_code = ENETC_MSG_CODE_NOT_SUPPORT;
 	}
@@ -143,8 +236,9 @@ static void enetc_msg_handle_rxmsg(struct enetc_pf *pf, int vf_id,
 
 static void enetc_msg_task(struct work_struct *work)
 {
-	struct enetc_pf *pf = container_of(work, struct enetc_pf, msg_task);
-	struct enetc_hw *hw = &pf->si->hw;
+	struct enetc_si *si = container_of(work, struct enetc_si, msg_task);
+	struct enetc_pf *pf = enetc_si_priv(si);
+	struct enetc_hw *hw = &si->hw;
 	unsigned long mr_mask;
 	int i;
 
@@ -165,6 +259,12 @@ static void enetc_msg_task(struct work_struct *work)
 				continue;
 
 			enetc_msg_handle_rxmsg(pf, i, &msg_code);
+
+			/* If msg_code is 0, it means that PF has already replied
+			 * to VF, and we don't need to reply here.
+			 */
+			if (!msg_code)
+				continue;
 
 			psimsgrr = ENETC_SIMSGSR_SET_MC(msg_code);
 			psimsgrr |= ENETC_PSIMSGRR_MR(i); /* w1c */
@@ -223,10 +323,10 @@ int enetc_msg_psi_init(struct enetc_pf *pf)
 	int vector, i, err;
 
 	/* register message passing interrupt handler */
-	snprintf(pf->msg_int_name, sizeof(pf->msg_int_name), "%s-vfmsg",
+	snprintf(si->msg_int_name, sizeof(si->msg_int_name), "%s-vfmsg",
 		 si->ndev->name);
 	vector = pci_irq_vector(si->pdev, ENETC_SI_INT_IDX);
-	err = request_irq(vector, enetc_msg_psi_msix, 0, pf->msg_int_name, si);
+	err = request_irq(vector, enetc_msg_psi_msix, 0, si->msg_int_name, si);
 	if (err) {
 		dev_err(&si->pdev->dev,
 			"PSI messaging: request_irq() failed!\n");
@@ -237,7 +337,7 @@ int enetc_msg_psi_init(struct enetc_pf *pf)
 	enetc_wr(&si->hw, ENETC_SIMSIVR, ENETC_SI_INT_IDX);
 
 	/* initialize PSI mailbox */
-	INIT_WORK(&pf->msg_task, enetc_msg_task);
+	INIT_WORK(&si->msg_task, enetc_msg_task);
 
 	for (i = 0; i < pf->num_vfs; i++) {
 		err = enetc_msg_alloc_mbx(si, i);
@@ -264,7 +364,7 @@ void enetc_msg_psi_free(struct enetc_pf *pf)
 	struct enetc_si *si = pf->si;
 	int i;
 
-	cancel_work_sync(&pf->msg_task);
+	cancel_work_sync(&si->msg_task);
 
 	/* disable MR interrupts */
 	enetc_msg_disable_mr_int(&si->hw);
