@@ -708,6 +708,8 @@ static void enetc_pl_mac_link_up(struct phylink_config *config,
 
 	if (si->hw_features & ENETC_SI_F_QBU)
 		enetc_mm_link_state_update(priv, true);
+
+	enetc_pf_send_link_status_msg(pf, true);
 }
 
 static void enetc_pl_mac_link_down(struct phylink_config *config,
@@ -719,6 +721,8 @@ static void enetc_pl_mac_link_down(struct phylink_config *config,
 	struct enetc_ndev_priv *priv;
 
 	priv = netdev_priv(si->ndev);
+
+	enetc_pf_send_link_status_msg(pf, false);
 
 	if (si->hw_features & ENETC_SI_F_QBU)
 		enetc_mm_link_state_update(priv, false);
