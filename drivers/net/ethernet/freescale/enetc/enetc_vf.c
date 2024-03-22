@@ -430,7 +430,7 @@ static int enetc_vsi_wq_task_init(struct enetc_si *si)
 
 static void enetc_vsi_wq_task_destroy(struct enetc_si *si)
 {
-	if (!si->workqueue)
+	if (is_enetc_rev1(si))
 		return;
 
 	cancel_work(&si->msg_task);
