@@ -391,8 +391,6 @@ static void tmu_set_thresholds(struct qoriq_tmu_data *qdata, int low,
 	if (unlikely(!set_high && !set_low))
 		return;
 
-	mutex_lock(&qdata->lock);
-
 	/* Disable module monitoring. */
 	regmap_update_bits(qdata->regmap, REGS_TMR, TMR_ME, TMR_IDLE);
 
@@ -473,8 +471,6 @@ static void tmu_set_thresholds(struct qoriq_tmu_data *qdata, int low,
 	if (qdata->initialized)
 		/* Enable the monitor mode. */
 		regmap_update_bits(qdata->regmap, REGS_TMR, TMR_ME, TMR_ME);
-
-	mutex_unlock(&qdata->lock);
 }
 
 static int tmu_set_trips(void *data, int low, int high)
@@ -696,7 +692,6 @@ static irqreturn_t tmu_alarm_irq_thread(int irq, void *data)
 		tmu_handle_average_irq(qdata, tidr);
 
 tmu_alarm_err:
-	mutex_lock(&qdata->lock);
 	regmap_update_bits(qdata->regmap, REGS_TIISCR,
 			   tmu_get_sites_mask(qdata), 0);
 	regmap_update_bits(qdata->regmap, REGS_TIASCR,
@@ -704,7 +699,6 @@ tmu_alarm_err:
 	regmap_update_bits(qdata->regmap, REGS_TICSCR,
 			   tmu_get_sites_mask(qdata), 0);
 	regmap_update_bits(qdata->regmap, REGS_TIDR, TIDR_MASK, TIDR_MASK);
-	mutex_unlock(&qdata->lock);
 
 	return IRQ_HANDLED;
 }
