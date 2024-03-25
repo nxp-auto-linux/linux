@@ -928,13 +928,13 @@ static int s32_pinctrl_probe_dt(struct platform_device *pdev,
 static int s32_pinctrl_probe(struct platform_device *pdev)
 {
 	const struct s32_pinctrl_soc_data *soc_data;
-	struct s32_pinctrl *ipctl;
-	int ret;
-	struct pinctrl_desc *s32_pinctrl_desc;
-	struct s32_pinctrl_soc_info *info;
 #ifdef CONFIG_PM_SLEEP
 	struct s32_pinctrl_context *saved_context;
 #endif
+	struct pinctrl_desc *s32_pinctrl_desc;
+	struct s32_pinctrl_soc_info *info;
+	struct s32_pinctrl *ipctl;
+	int ret;
 
 	soc_data = of_device_get_match_data(&pdev->dev);
 	if (!soc_data || !soc_data->pins || !soc_data->npins) {
