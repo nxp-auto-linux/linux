@@ -280,6 +280,44 @@
 					    771 774
 					    777 785>;
 				status = "okay";
+
+				pinctrl-names = "default";
+				pinctrl-0 = <&jtag_pins>;
+
+				jtag_pins: jtag_pins {
+
+					jtag_grp0 {
+						pinmux = <S32CC_PINMUX(0, FUNC0)>;
+						input-enable;
+						bias-pull-up;
+						slew-rate = <S32CC_JTAG_50MHZ>;
+					};
+
+					jtag_grp1 {
+						pinmux = <S32CC_PINMUX(1, FUNC1)>;
+						slew-rate = <S32CC_JTAG_50MHZ>;
+					};
+
+					jtag_grp2 {
+						pinmux = <S32CC_PINMUX(4, FUNC0)>;
+						input-enable;
+						bias-pull-down;
+						slew-rate = <S32CC_JTAG_50MHZ>;
+					};
+
+					jtag_grp3 {
+						pinmux = <S32CC_PINMUX(572, FUNC0)>,
+							 <S32CC_PINMUX(573, FUNC0)>,
+							 <S32CC_PINMUX(562, FUNC0)>;
+					};
+
+					jtag_grp4 {
+						pinmux = <S32CC_PINMUX(5, FUNC1)>;
+						input-enable;
+						bias-pull-up;
+						slew-rate = <S32CC_JTAG_50MHZ>;
+					};
+				};
 			};
 
 			gpio: siul2-gpio@4009d700 {
