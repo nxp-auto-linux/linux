@@ -25,9 +25,9 @@
 
 #include "stmmac_platform.h"
 
-#define GMAC_TX_RATE_125M	125000000	/* 125MHz */
-#define GMAC_TX_RATE_25M	25000000	/* 25MHz */
-#define GMAC_TX_RATE_2M5	2500000		/* 2.5MHz */
+#define GMAC_RATE_125M		125000000	/* 125MHz */
+#define GMAC_RATE_25M		25000000	/* 25MHz */
+#define GMAC_RATE_2M5		2500000		/* 2.5MHz */
 
 /* S32CC SRC register for phyif selection */
 #define PHY_INTF_SEL_MII        0x00
@@ -92,7 +92,7 @@ static int s32cc_gmac_init(struct platform_device *pdev, void *priv)
 	int ret;
 
 	if (gmac->tx_clk) {
-		ret = clk_set_rate(gmac->tx_clk, GMAC_TX_RATE_125M);
+		ret = clk_set_rate(gmac->tx_clk, GMAC_RATE_125M);
 		if (!ret)
 			ret = clk_prepare_enable(gmac->tx_clk);
 
@@ -103,9 +103,12 @@ static int s32cc_gmac_init(struct platform_device *pdev, void *priv)
 	}
 
 	if (gmac->rx_clk) {
-		ret = clk_prepare_enable(gmac->rx_clk);
+		ret = clk_set_rate(gmac->rx_clk, GMAC_RATE_125M);
+		if (!ret)
+			ret = clk_prepare_enable(gmac->rx_clk);
+
 		if (ret) {
-			dev_dbg(&pdev->dev, "Can't set rx, clock source is disabled.\n");
+			dev_err(&pdev->dev, "Can't set rx, clock source is disabled.\n");
 			gmac->enable_rx = true;
 		}
 	}
@@ -133,13 +136,36 @@ static void s32cc_gmac_exit(struct platform_device *pdev, void *priv)
 static void s32cc_fix_mac_speed(void *priv, unsigned int speed, unsigned int mode)
 {
 	struct s32cc_priv_data *gmac = priv;
+	unsigned long rate;
 	int ret;
 
 	if (!gmac->tx_clk || !gmac->rx_clk)
 		return;
 
+	switch (speed) {
+	case SPEED_1000:
+		rate = GMAC_RATE_125M;
+		break;
+	case SPEED_100:
+		rate = GMAC_RATE_25M;
+		break;
+	case SPEED_10:
+		rate = GMAC_RATE_2M5;
+		break;
+	default:
+		dev_err(gmac->dev, "Unsupported/Invalid speed: %d\n", speed);
+		return;
+	}
+
 	if (gmac->enable_rx) {
-		ret = clk_prepare_enable(gmac->rx_clk);
+		/* M7 SRM clock driver requires a clk_set_rate call for each
+		 * clock that needs to be enabled by an agent.
+		 * Thus, set the rate for GMAC's RX clock before enabling it.
+		 */
+		ret = clk_set_rate(gmac->rx_clk, rate);
+		if (!ret)
+			ret = clk_prepare_enable(gmac->rx_clk);
+
 		if (ret) {
 			dev_err(gmac->dev, "Can't set RX clock\n");
 			return;
@@ -148,24 +174,15 @@ static void s32cc_fix_mac_speed(void *priv, unsigned int speed, unsigned int mod
 		gmac->enable_rx = false;
 	}
 
-	switch (speed) {
-	case SPEED_1000:
-		dev_dbg(gmac->dev, "Set TX clock to 125M\n");
-		clk_set_rate(gmac->tx_clk, GMAC_TX_RATE_125M);
-		break;
-	case SPEED_100:
-		dev_dbg(gmac->dev, "Set TX clock to 25M\n");
-		clk_set_rate(gmac->tx_clk, GMAC_TX_RATE_25M);
-		break;
-	case SPEED_10:
-		dev_dbg(gmac->dev, "Set TX clock to 2.5M\n");
-		clk_set_rate(gmac->tx_clk, GMAC_TX_RATE_2M5);
-		break;
-	default:
-		dev_err(gmac->dev, "Unsupported/Invalid speed: %d\n", speed);
+	dev_info(gmac->dev, "Setting TX clock to %lu Hz\n", rate);
+
+	ret = clk_set_rate(gmac->tx_clk, rate);
+	if (ret) {
+		dev_err(gmac->dev, "Can't set TX clock to rate %lu\n", rate);
 		return;
 	}
 }
+
 static void s32cc_gmac_ptp_clk_freq_config(struct stmmac_priv *priv)
 {
 	struct plat_stmmacenet_data *plat = priv->plat;
