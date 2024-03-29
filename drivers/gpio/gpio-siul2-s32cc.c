@@ -833,7 +833,6 @@ static struct regmap *init_eirqimcrsregmap(struct platform_device *pdev)
 {
 	struct regmap_config regmap_conf = siul2_regmap_conf;
 
-	regmap_conf.cache_type = REGCACHE_NONE;
 	regmap_conf.writeable_reg = eirq_accessible;
 	regmap_conf.readable_reg = eirq_accessible;
 
@@ -1245,18 +1244,22 @@ static int __maybe_unused siul2_suspend(struct device *dev)
 		regcache_mark_dirty(gpio_dev->irqmap);
 	}
 
+	regcache_cache_only(gpio_dev->eirqimcrsmap, true);
+	regcache_mark_dirty(gpio_dev->eirqimcrsmap);
+
 	return 0;
 }
 
 static int __maybe_unused siul2_resume(struct device *dev)
 {
 	struct siul2_gpio_dev *gpio_dev = dev_get_drvdata(dev);
-	int ret = 0;
+	int ret = 0, err = 0;
 	size_t i;
 
 	for (i = 0; i < ARRAY_SIZE(gpio_dev->siul2); ++i) {
 		regcache_cache_only(gpio_dev->siul2[i].opadmap, false);
 		ret = regcache_sync(gpio_dev->siul2[i].opadmap);
+		err |= ret;
 		if (ret)
 			dev_err(dev, "Failed to restore opadmap%lu: %d\n", i,
 				ret);
@@ -1265,11 +1268,21 @@ static int __maybe_unused siul2_resume(struct device *dev)
 	if (gpio_dev->irqmap) {
 		regcache_cache_only(gpio_dev->irqmap, false);
 		ret = regcache_sync(gpio_dev->irqmap);
+		err |= ret;
 		if (ret)
 			dev_err(dev, "Failed to restore irqmap: %d\n", ret);
 	}
 
-	return ret;
+	regcache_cache_only(gpio_dev->eirqimcrsmap, false);
+	ret = regcache_sync(gpio_dev->eirqimcrsmap);
+	err |= ret;
+	if (ret)
+		dev_err(dev, "Failed to restore EIRQ IMCRs: %d\n", ret);
+
+	if (err)
+		return -EIO;
+
+	return 0;
 }
 
 static SIMPLE_DEV_PM_OPS(siul2_pm_ops, siul2_suspend, siul2_resume);
