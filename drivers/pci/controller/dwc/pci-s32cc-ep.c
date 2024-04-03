@@ -60,8 +60,8 @@ static const struct pci_epc_features s32cc_pcie_epc_features = {
 			.only_64bit = true,},
 	.bar[BAR_1] = { .type = BAR_RESERVED, },
 	.bar[BAR_2] = { .type = BAR_FIXED, .fixed_size = SZ_4M, },
-	.bar[BAR_3] = { .type = BAR_FIXED, .fixed_size = SZ_64K, },
-	.bar[BAR_4] = { .type = BAR_FIXED, .fixed_size = 256, },
+	.bar[BAR_3] = { .type = BAR_FIXED, .fixed_size = SZ_256, },
+	.bar[BAR_4] = { .type = BAR_FIXED, .fixed_size = SZ_256, },
 	.bar[BAR_5] = { .type = BAR_RESERVED, },
 };
 
