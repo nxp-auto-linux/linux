@@ -59,8 +59,8 @@ static const struct pci_epc_features s32cc_pcie_epc_features = {
 	.bar_fixed_64bit = BIT(BAR_0),
 	.bar_fixed_size[0] = SZ_2M,
 	.bar_fixed_size[2] = SZ_1M,
-	.bar_fixed_size[3] = SZ_64K,
-	.bar_fixed_size[4] = 256,
+	.bar_fixed_size[3] = SZ_256,
+	.bar_fixed_size[4] = SZ_256,
 };
 
 static const struct pci_epc_features*
