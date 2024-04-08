@@ -239,6 +239,8 @@ struct stmmac_dma_ops {
 			   bool en, u32 chan);
 	int (*enable_tbs)(struct stmmac_priv *priv, void __iomem *ioaddr,
 			  bool en, u32 chan);
+	/* Configure AXI4 cache coherency for Tx and Rx DMA channels */
+	void (*axi4_cc)(void __iomem *ioaddr, struct stmmac_axi *axi);
 };
 
 #define stmmac_dma_init(__priv, __args...) \
@@ -297,6 +299,8 @@ struct stmmac_dma_ops {
 	stmmac_do_void_callback(__priv, dma, enable_sph, __priv, __args)
 #define stmmac_enable_tbs(__priv, __args...) \
 	stmmac_do_callback(__priv, dma, enable_tbs, __priv, __args)
+#define stmmac_axi4_cc(__priv, __args...) \
+	stmmac_do_void_callback(__priv, dma, axi4_cc, __args)
 
 struct mac_device_info;
 struct net_device;

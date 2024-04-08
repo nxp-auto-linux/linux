@@ -116,6 +116,9 @@ struct stmmac_axi {
 	bool fb;
 	bool mb;
 	bool rb;
+	u32 tx_ar_reg;
+	u32 rx_aw_reg;
+	u32 txrx_awar_reg;
 };
 
 struct stmmac_rxq_cfg {
