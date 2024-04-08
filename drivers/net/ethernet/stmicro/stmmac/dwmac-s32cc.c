@@ -35,6 +35,12 @@
 #define PHY_INTF_SEL_RGMII      0x02
 #define PHY_INTF_SEL_RMII       0x08
 
+/* AXI4 ACE control settings */
+#define ACE_DOMAIN_SIGNAL	0x2
+#define ACE_CACHE_SIGNAL	0xf
+#define ACE_CONTROL_SIGNALS	((ACE_DOMAIN_SIGNAL << 4) | ACE_CACHE_SIGNAL)
+#define ACE_PROTECTION		0x2
+
 struct s32cc_priv_data {
 	void __iomem *ioaddr;
 	void __iomem *ctrl_sts;
@@ -183,6 +189,30 @@ static void s32cc_fix_mac_speed(void *priv, unsigned int speed, unsigned int mod
 	}
 }
 
+static int s32cc_config_cache_coherency(struct platform_device *pdev,
+					struct plat_stmmacenet_data *plat_dat)
+{
+	if (!plat_dat->axi) {
+		plat_dat->axi = kzalloc(sizeof(struct stmmac_axi), GFP_KERNEL);
+
+		if (!plat_dat->axi)
+			return -ENOMEM;
+	}
+
+	plat_dat->axi->tx_ar_reg = (ACE_CONTROL_SIGNALS << 16)
+		| (ACE_CONTROL_SIGNALS << 8) | ACE_CONTROL_SIGNALS;
+
+	plat_dat->axi->rx_aw_reg = (ACE_CONTROL_SIGNALS << 24)
+		| (ACE_CONTROL_SIGNALS << 16) | (ACE_CONTROL_SIGNALS << 8)
+		| ACE_CONTROL_SIGNALS;
+
+	plat_dat->axi->txrx_awar_reg = (ACE_PROTECTION << 20)
+		| (ACE_PROTECTION << 16) | (ACE_CONTROL_SIGNALS << 8)
+		| ACE_CONTROL_SIGNALS;
+
+	return 0;
+}
+
 static void s32cc_gmac_ptp_clk_freq_config(struct stmmac_priv *priv)
 {
 	struct plat_stmmacenet_data *plat = priv->plat;
@@ -246,6 +276,14 @@ static int s32cc_dwmac_probe(struct platform_device *pdev)
 
 	gmac->intf_mode = plat->phy_interface;
 	gmac->ioaddr = res.addr;
+
+	/* DMA cache coherency settings */
+	if (of_dma_is_coherent(pdev->dev.of_node)) {
+		ret = s32cc_config_cache_coherency(pdev, plat);
+		if (ret)
+			return dev_err_probe(dev, ret,
+					     "System does not support DMA.\n");
+	}
 
 	/* S32CC core feature set */
 	plat->has_gmac4 = true;
