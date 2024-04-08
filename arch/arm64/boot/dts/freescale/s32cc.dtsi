@@ -901,6 +901,7 @@
 			interrupt-parent = <&gic>;
 			interrupts = <GIC_SPI 57 IRQ_TYPE_LEVEL_HIGH>;
 			interrupt-names = "macirq";
+			dma-coherent;
 			snps,mtl-rx-config = <&mtl_rx_setup_gmac0>;
 			snps,mtl-tx-config = <&mtl_tx_setup_gmac0>;
 			clocks = <&clks S32CC_SCMI_CLK_GMAC0_AXI>,
