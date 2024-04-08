@@ -3045,8 +3045,10 @@ static int stmmac_init_dma_engine(struct stmmac_priv *priv)
 	/* DMA Configuration */
 	stmmac_dma_init(priv, priv->ioaddr, priv->plat->dma_cfg);
 
-	if (priv->plat->axi)
+	if (priv->plat->axi) {
 		stmmac_axi(priv, priv->ioaddr, priv->plat->axi);
+		stmmac_axi4_cc(priv, priv->ioaddr, priv->plat->axi);
+	}
 
 	/* DMA CSR Channel configuration */
 	for (chan = 0; chan < dma_csr_ch; chan++) {
