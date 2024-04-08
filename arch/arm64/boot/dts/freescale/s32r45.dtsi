@@ -422,6 +422,7 @@
 			interrupt-parent = <&gic>;
 			interrupts = <GIC_SPI 220 IRQ_TYPE_LEVEL_HIGH>;
 			interrupt-names = "macirq";
+			dma-coherent;
 			snps,mtl-rx-config = <&mtl_rx_setup_gmac1>;
 			snps,mtl-tx-config = <&mtl_tx_setup_gmac1>;
 			clocks = <&clks S32R45_SCMI_CLK_GMAC1_AXI>,
