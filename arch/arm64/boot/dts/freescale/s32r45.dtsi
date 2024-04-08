@@ -382,6 +382,7 @@
 			compatible = "nxp,s32g2-dwmac";
 			reg = <0x0 0x44010000 0x0 0x2000>, /* gmac IP */
 			      <0x0 0x4007ca00 0x0 0x4>;    /* GMAC_CTRL_REG */
+			dma-coherent;
 			interrupt-parent = <&gic>;
 			interrupts = <GIC_SPI 220 IRQ_TYPE_LEVEL_HIGH>,
 				     /* CHN 0: tx, rx */
