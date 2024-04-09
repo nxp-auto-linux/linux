@@ -186,6 +186,7 @@ static int s32_dwmac_probe(struct platform_device *pdev)
 	plat->exit = s32_gmac_exit;
 	plat->fix_mac_speed = s32_fix_mac_speed;
 	plat->ptp_clk_freq_config = s32_dwmac_ptp_clk_freq_config;
+	plat->flags |= STMMAC_FLAG_HAS_S32CC;
 
 	plat->bsp_priv = gmac;
 
