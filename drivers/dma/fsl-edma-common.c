@@ -525,7 +525,7 @@ void fsl_edma_fill_tcd(struct fsl_edma_chan *fsl_chan,
 	 */
 	if (cfg->direction == DMA_MEM_TO_DEV) {
 		if (fsl_chan->is_multi_fifo)
-			burst  = cfg->dst_maxburst;
+			burst  = cfg->dst_maxburst * 4;
 		if (cfg->dst_port_window_size)
 			burst = cfg->dst_port_window_size * cfg->dst_addr_width;
 		if (burst) {
@@ -535,7 +535,7 @@ void fsl_edma_fill_tcd(struct fsl_edma_chan *fsl_chan,
 		}
 	} else {
 		if (fsl_chan->is_multi_fifo)
-			burst  = cfg->src_maxburst;
+			burst  = cfg->src_maxburst * 4;
 		if (cfg->src_port_window_size)
 			burst = cfg->src_port_window_size * cfg->src_addr_width;
 		if (burst) {
