@@ -4,7 +4,7 @@
  * driver by Fugang Duan <B38611@freescale.com>)
  *
  * Copyright 2013 Freescale Semiconductor, Inc.
- * Copyright 2017, 2020-2023 NXP
+ * Copyright 2017, 2020-2024 NXP
  */
 
 #include <linux/circ_buf.h>
@@ -672,6 +672,7 @@ static void s32cc_adc_dma_cb(void *data)
 	struct iio_dev *indio_dev = data;
 	struct dma_tx_state state;
 	struct circ_buf *dma_buf;
+	struct device *dev_dma;
 	unsigned long flags;
 	u32 *dma_samples;
 	s64 timestamp;
@@ -679,11 +680,11 @@ static void s32cc_adc_dma_cb(void *data)
 
 	dma_buf = &info->dma_buf;
 	dma_samples = (u32 *)dma_buf->buf;
-
+	dev_dma = info->dma_chan->device->dev;
 	spin_lock_irqsave(&info->lock, flags);
 	dmaengine_tx_status(info->dma_chan,
 			    info->cookie, &state);
-	dma_sync_single_for_cpu(&indio_dev->dev, info->rx_dma_buf,
+	dma_sync_single_for_cpu(dev_dma, info->rx_dma_buf,
 				ADC_DMA_BUFF_SZ, DMA_FROM_DEVICE);
 	/* Current head position */
 	dma_buf->head = (ADC_DMA_BUFF_SZ - state.residue) /
@@ -716,7 +717,7 @@ static void s32cc_adc_dma_cb(void *data)
 	}
 
 	dma_buf->tail = dma_buf->head;
-	dma_sync_single_for_device(&indio_dev->dev, info->rx_dma_buf,
+	dma_sync_single_for_device(dev_dma, info->rx_dma_buf,
 				   ADC_DMA_BUFF_SZ, DMA_FROM_DEVICE);
 	spin_unlock_irqrestore(&info->lock, flags);
 }
