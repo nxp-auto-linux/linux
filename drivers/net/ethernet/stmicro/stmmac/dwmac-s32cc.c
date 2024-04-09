@@ -296,6 +296,7 @@ static int s32cc_dwmac_probe(struct platform_device *pdev)
 	plat->exit = s32cc_gmac_exit;
 	plat->fix_mac_speed = s32cc_fix_mac_speed;
 	plat->ptp_clk_freq_config = s32cc_gmac_ptp_clk_freq_config;
+	plat->flags |= STMMAC_FLAG_HAS_S32CC;
 
 	/* tx clock */
 	gmac->tx_clk = devm_clk_get(&pdev->dev, "tx");
