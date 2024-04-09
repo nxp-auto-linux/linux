@@ -255,6 +255,21 @@ static void dwmac4_rx_watchdog(struct stmmac_priv *priv, void __iomem *ioaddr,
 {
 	const struct dwmac4_addrs *dwmac4_addrs = priv->plat->dwmac4_addrs;
 
+	/* NXP Errata E50082 requires RWT to be written before RWTU */
+	if (priv->plat->flags & STMMAC_FLAG_HAS_S32CC) {
+		u32 temp;
+
+		temp = readl(ioaddr + DMA_CHAN_RX_WATCHDOG(dwmac4_addrs, queue));
+		/* Update only RWT first */
+		temp = (temp & ~DMA_CHAN_RX_WATCHDOG_RWT) | (riwt & DMA_CHAN_RX_WATCHDOG_RWT);
+		writel(temp, ioaddr + DMA_CHAN_RX_WATCHDOG(dwmac4_addrs, queue));
+		/* Update RWTU */
+		temp = (temp & ~DMA_CHAN_RX_WATCHDOG_RWTU) | (riwt & DMA_CHAN_RX_WATCHDOG_RWTU);
+		writel(temp, ioaddr + DMA_CHAN_RX_WATCHDOG(dwmac4_addrs, queue));
+
+		return;
+	}
+
 	writel(riwt, ioaddr + DMA_CHAN_RX_WATCHDOG(dwmac4_addrs, queue));
 }
 
