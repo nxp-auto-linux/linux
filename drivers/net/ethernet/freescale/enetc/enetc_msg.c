@@ -29,6 +29,14 @@ static irqreturn_t enetc_msg_psi_msix(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
+static bool enetc_pf_is_vf_trusted(struct enetc_pf *pf, int vf_id)
+{
+	if (vf_id >= pf->total_vfs)
+		return false;
+
+	return !!(pf->vf_state[vf_id].flags & ENETC_VF_FLAG_TRUSTED);
+}
+
 static u16 enetc_msg_pf_set_vf_primary_mac_addr(struct enetc_pf *pf,
 						int vf_id)
 {
@@ -37,6 +45,9 @@ static u16 enetc_msg_pf_set_vf_primary_mac_addr(struct enetc_pf *pf,
 	struct device *dev = &pf->si->pdev->dev;
 	struct enetc_msg_mac_exact_filter *msg;
 	char *addr;
+
+	if (!enetc_pf_is_vf_trusted(pf, vf_id))
+		return ENETC_MSG_CODE_PERMISSION_DENY;
 
 	msg = (struct enetc_msg_mac_exact_filter *)msg_swbd->vaddr;
 	addr = msg->mac[0].addr;
