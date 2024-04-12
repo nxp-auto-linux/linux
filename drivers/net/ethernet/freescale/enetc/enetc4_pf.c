@@ -891,6 +891,7 @@ static const struct net_device_ops enetc4_ndev_ops = {
 	.ndo_hwtstamp_get	= enetc_hwtstamp_get,
 	.ndo_hwtstamp_set	= enetc_hwtstamp_set,
 	.ndo_setup_tc		= enetc4_pf_setup_tc,
+	.ndo_set_vf_trust	= enetc_pf_set_vf_trust,
 };
 
 static struct phylink_pcs *
