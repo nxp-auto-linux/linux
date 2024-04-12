@@ -178,12 +178,7 @@ struct qoriq_tmu_data {
 	u8 sites_max;
 	int monitored_irq_site;
 	bool initialized;
-	/* If one site is monitored with IRQs, when get_temp is called for
-	 * the rest of the sites, TMR and TMSR will be modified.
-	 * A locking mechanism is necessary to serialize the access to these
-	 * registers when tmu_get_temp for two not monitored sites is called
-	 * in the same time.
-	 */
+	/* Serialize the access to TMR register. */
 	struct mutex lock;
 	/* It takes time to read the updated temperature when a site is
 	 * just added to the monitored sites.
@@ -288,6 +283,18 @@ static int tmu_get_temp(void *p, int *temp)
 	 * within sensor range. TEMP is an 9 bit value representing
 	 * temperature in KelVin.
 	 */
+	if (not_monitored)
+		/* If IRQs are used, only one site is monitored continuously.
+		 * For every site monitored using polling, the monitoring
+		 * should be enabled now and disabled back, after the
+		 * temperature is read. Also, the interrupts should be
+		 * disabled to avoid receiving interrupts for the current site.
+		 * Locking is necessary to synchronize the access to TMR.
+		 * disable_irq should be called before taking the lock to avoid
+		 * a deadlock between this function and set_trips called from
+		 * the interrupt handler.
+		 */
+		disable_irq(qdata->irq);
 
 	if (take_lock)
 		mutex_lock(&qdata->lock);
@@ -299,18 +306,6 @@ static int tmu_get_temp(void *p, int *temp)
 	}
 
 	if (not_monitored) {
-		/* If IRQs are used, only one site is monitored continuously.
-		 * For every site monitored using polling, the monitoring
-		 * should be enabled now and disabled back, after the
-		 * temperature is read. Also, the interrupts should be
-		 * disabled to avoid receiving interrupts for the current site.
-		 * There will be no conflicts with tmu_set_thresholds since
-		 * the interrupt line is masked, but the locking is still
-		 * necessary to make sure tmu_get_temp isn't called in the
-		 * same time for two not monitored sites.
-		 */
-		disable_irq(qdata->irq);
-
 		tmu_set_site_monitoring(qdata, BIT(qsensor->id) |
 					BIT(qdata->monitored_irq_site));
 		/* Give TMU some time to read the temperature for
@@ -364,12 +359,13 @@ tmu_get_temp_out:
 		 */
 		tmu_set_site_monitoring(qdata, BIT(qdata->monitored_irq_site));
 		/* Enable interrupts back. */
-		enable_irq(qdata->irq);
 	}
 
 tmu_get_temp_unlock:
 	if (take_lock)
 		mutex_unlock(&qdata->lock);
+	if (not_monitored)
+		enable_irq(qdata->irq);
 
 	return ret;
 }
@@ -502,8 +498,10 @@ static int tmu_set_trips(void *data, int low, int high)
 	dev_dbg(qdata->dev, "%d:low(mdegC):%d, high(mdegC):%d\n",
 		sensor->id, low, high);
 
+	mutex_lock(&qdata->lock);
 	tmu_set_thresholds(qdata, low, high, sensor->id,
 			   tmu_is_average_sensor(sensor));
+	mutex_unlock(&qdata->lock);
 
 	return 0;
 }
@@ -1007,7 +1005,10 @@ static void qoriq_tmu_action(void *p)
 {
 	struct qoriq_tmu_data *data = p;
 
+	mutex_lock(&data->lock);
 	regmap_write(data->regmap, REGS_TMR, TMR_DISABLE);
+	mutex_unlock(&data->lock);
+
 	clk_disable_unprepare(data->clk);
 }
 
