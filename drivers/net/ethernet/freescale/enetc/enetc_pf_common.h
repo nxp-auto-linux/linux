@@ -33,6 +33,8 @@ static inline int enetc_sriov_configure(struct pci_dev *pdev, int num_vfs)
 }
 #endif
 
+int enetc_pf_set_vf_trust(struct net_device *ndev, int vf, bool setting);
+
 static inline u16 enetc_get_ip_revision(struct enetc_hw *hw)
 {
 	return enetc_global_rd(hw, ENETC_G_EIPBRR0) & EIPBRR0_REVISION;
