@@ -122,14 +122,14 @@ static int snps_gmac5_default_data(struct pci_dev *pdev,
 	if (!plat->axi)
 		return -ENOMEM;
 
-	plat->axi->axi_wr_osr_lmt = 31;
-	plat->axi->axi_rd_osr_lmt = 31;
+	plat->axi->wr_osr_lmt = 31;
+	plat->axi->rd_osr_lmt = 31;
 
-	plat->axi->axi_fb = false;
-	plat->axi->axi_blen[0] = 4;
-	plat->axi->axi_blen[1] = 8;
-	plat->axi->axi_blen[2] = 16;
-	plat->axi->axi_blen[3] = 32;
+	plat->axi->fb = false;
+	plat->axi->blen[0] = 4;
+	plat->axi->blen[1] = 8;
+	plat->axi->blen[2] = 16;
+	plat->axi->blen[3] = 32;
 
 	return 0;
 }

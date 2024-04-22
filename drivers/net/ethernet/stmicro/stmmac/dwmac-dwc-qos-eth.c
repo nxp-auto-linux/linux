@@ -52,36 +52,35 @@ static int dwc_eth_dwmac_config_dt(struct platform_device *pdev,
 			return -ENOMEM;
 	}
 
-	plat_dat->axi->axi_lpi_en = device_property_read_bool(dev,
-							      "snps,en-lpi");
+	plat_dat->axi->lpi_en = device_property_read_bool(dev, "snps,en-lpi");
 	if (device_property_read_u32(dev, "snps,write-requests",
-				     &plat_dat->axi->axi_wr_osr_lmt)) {
+				     &plat_dat->axi->wr_osr_lmt)) {
 		/**
 		 * Since the register has a reset value of 1, if property
 		 * is missing, default to 1.
 		 */
-		plat_dat->axi->axi_wr_osr_lmt = 1;
+		plat_dat->axi->wr_osr_lmt = 1;
 	} else {
 		/**
 		 * If property exists, to keep the behavior from dwc_eth_qos,
 		 * subtract one after parsing.
 		 */
-		plat_dat->axi->axi_wr_osr_lmt--;
+		plat_dat->axi->wr_osr_lmt--;
 	}
 
 	if (device_property_read_u32(dev, "snps,read-requests",
-				     &plat_dat->axi->axi_rd_osr_lmt)) {
+				     &plat_dat->axi->rd_osr_lmt)) {
 		/**
 		 * Since the register has a reset value of 1, if property
 		 * is missing, default to 1.
 		 */
-		plat_dat->axi->axi_rd_osr_lmt = 1;
+		plat_dat->axi->rd_osr_lmt = 1;
 	} else {
 		/**
 		 * If property exists, to keep the behavior from dwc_eth_qos,
 		 * subtract one after parsing.
 		 */
-		plat_dat->axi->axi_rd_osr_lmt--;
+		plat_dat->axi->rd_osr_lmt--;
 	}
 	device_property_read_u32(dev, "snps,burst-map", &burst_map);
 
@@ -90,19 +89,19 @@ static int dwc_eth_dwmac_config_dt(struct platform_device *pdev,
 		if (burst_map & (1 << bit_index)) {
 			switch (bit_index) {
 			case 0:
-			plat_dat->axi->axi_blen[a_index] = 4; break;
+			plat_dat->axi->blen[a_index] = 4; break;
 			case 1:
-			plat_dat->axi->axi_blen[a_index] = 8; break;
+			plat_dat->axi->blen[a_index] = 8; break;
 			case 2:
-			plat_dat->axi->axi_blen[a_index] = 16; break;
+			plat_dat->axi->blen[a_index] = 16; break;
 			case 3:
-			plat_dat->axi->axi_blen[a_index] = 32; break;
+			plat_dat->axi->blen[a_index] = 32; break;
 			case 4:
-			plat_dat->axi->axi_blen[a_index] = 64; break;
+			plat_dat->axi->blen[a_index] = 64; break;
 			case 5:
-			plat_dat->axi->axi_blen[a_index] = 128; break;
+			plat_dat->axi->blen[a_index] = 128; break;
 			case 6:
-			plat_dat->axi->axi_blen[a_index] = 256; break;
+			plat_dat->axi->blen[a_index] = 256; break;
 			default:
 			break;
 			}
