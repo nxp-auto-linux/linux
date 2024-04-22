@@ -24,17 +24,17 @@ static void dwmac1000_dma_axi(void __iomem *ioaddr, struct stmmac_axi *axi)
 	pr_info("dwmac1000: Master AXI performs %s burst length\n",
 		!(value & DMA_AXI_UNDEF) ? "fixed" : "any");
 
-	if (axi->axi_lpi_en)
+	if (axi->lpi_en)
 		value |= DMA_AXI_EN_LPI;
-	if (axi->axi_xit_frm)
+	if (axi->xit_frm)
 		value |= DMA_AXI_LPI_XIT_FRM;
 
 	value &= ~DMA_AXI_WR_OSR_LMT;
-	value |= (axi->axi_wr_osr_lmt & DMA_AXI_WR_OSR_LMT_MASK) <<
+	value |= (axi->wr_osr_lmt & DMA_AXI_WR_OSR_LMT_MASK) <<
 		 DMA_AXI_WR_OSR_LMT_SHIFT;
 
 	value &= ~DMA_AXI_RD_OSR_LMT;
-	value |= (axi->axi_rd_osr_lmt & DMA_AXI_RD_OSR_LMT_MASK) <<
+	value |= (axi->rd_osr_lmt & DMA_AXI_RD_OSR_LMT_MASK) <<
 		 DMA_AXI_RD_OSR_LMT_SHIFT;
 
 	/* Depending on the UNDEF bit the Master AXI will perform any burst
@@ -42,7 +42,7 @@ static void dwmac1000_dma_axi(void __iomem *ioaddr, struct stmmac_axi *axi)
 	 * set).
 	 */
 	for (i = 0; i < AXI_BLEN; i++) {
-		switch (axi->axi_blen[i]) {
+		switch (axi->blen[i]) {
 		case 256:
 			value |= DMA_AXI_BLEN256;
 			break;
