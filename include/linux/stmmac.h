@@ -107,15 +107,15 @@ struct stmmac_dma_cfg {
 
 #define AXI_BLEN	7
 struct stmmac_axi {
-	bool axi_lpi_en;
-	bool axi_xit_frm;
-	u32 axi_wr_osr_lmt;
-	u32 axi_rd_osr_lmt;
-	bool axi_kbbe;
-	u32 axi_blen[AXI_BLEN];
-	bool axi_fb;
-	bool axi_mb;
-	bool axi_rb;
+	bool lpi_en;
+	bool xit_frm;
+	u32 wr_osr_lmt;
+	u32 rd_osr_lmt;
+	bool kbbe;
+	u32 blen[AXI_BLEN];
+	bool fb;
+	bool mb;
+	bool rb;
 };
 
 struct stmmac_rxq_cfg {
