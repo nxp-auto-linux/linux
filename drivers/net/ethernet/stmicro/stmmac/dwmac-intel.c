@@ -530,13 +530,13 @@ static int intel_mgbe_common_data(struct pci_dev *pdev,
 	if (!plat->axi)
 		return -ENOMEM;
 
-	plat->axi->axi_lpi_en = 0;
-	plat->axi->axi_xit_frm = 0;
-	plat->axi->axi_wr_osr_lmt = 1;
-	plat->axi->axi_rd_osr_lmt = 1;
-	plat->axi->axi_blen[0] = 4;
-	plat->axi->axi_blen[1] = 8;
-	plat->axi->axi_blen[2] = 16;
+	plat->axi->lpi_en = 0;
+	plat->axi->xit_frm = 0;
+	plat->axi->wr_osr_lmt = 1;
+	plat->axi->rd_osr_lmt = 1;
+	plat->axi->blen[0] = 4;
+	plat->axi->blen[1] = 8;
+	plat->axi->blen[2] = 16;
 
 	plat->ptp_max_adj = plat->clk_ptp_rate;
 	plat->eee_usecs_rate = plat->clk_ptp_rate;
