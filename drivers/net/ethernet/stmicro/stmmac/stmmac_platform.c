@@ -106,18 +106,18 @@ static struct stmmac_axi *stmmac_axi_setup(struct platform_device *pdev)
 		return ERR_PTR(-ENOMEM);
 	}
 
-	axi->axi_lpi_en = of_property_read_bool(np, "snps,lpi_en");
-	axi->axi_xit_frm = of_property_read_bool(np, "snps,xit_frm");
-	axi->axi_kbbe = of_property_read_bool(np, "snps,kbbe");
-	axi->axi_fb = of_property_read_bool(np, "snps,fb");
-	axi->axi_mb = of_property_read_bool(np, "snps,mb");
-	axi->axi_rb =  of_property_read_bool(np, "snps,rb");
+	axi->lpi_en = of_property_read_bool(np, "snps,lpi_en");
+	axi->xit_frm = of_property_read_bool(np, "snps,xit_frm");
+	axi->kbbe = of_property_read_bool(np, "snps,kbbe");
+	axi->fb = of_property_read_bool(np, "snps,fb");
+	axi->mb = of_property_read_bool(np, "snps,mb");
+	axi->rb =  of_property_read_bool(np, "snps,rb");
 
-	if (of_property_read_u32(np, "snps,wr_osr_lmt", &axi->axi_wr_osr_lmt))
-		axi->axi_wr_osr_lmt = 1;
-	if (of_property_read_u32(np, "snps,rd_osr_lmt", &axi->axi_rd_osr_lmt))
-		axi->axi_rd_osr_lmt = 1;
-	of_property_read_u32_array(np, "snps,blen", axi->axi_blen, AXI_BLEN);
+	if (of_property_read_u32(np, "snps,wr_osr_lmt", &axi->wr_osr_lmt))
+		axi->wr_osr_lmt = 1;
+	if (of_property_read_u32(np, "snps,rd_osr_lmt", &axi->rd_osr_lmt))
+		axi->rd_osr_lmt = 1;
+	of_property_read_u32_array(np, "snps,blen", axi->blen, AXI_BLEN);
 	of_node_put(np);
 
 	return axi;
