@@ -220,8 +220,6 @@ config ARCH_MXC
 
 config ARCH_S32
 	bool "NXP S32 SoC Family"
-	select PINCTRL
-	select ARM64_ERRATUM_1530924
 	help
 	  This enables support for the NXP S32 family of processors.
 
@@ -380,7 +378,8 @@ if ARCH_S32
 
 config SOC_S32CC
 	bool "S32CC SOC"
-	default y
+	select PINCTRL
+	select ARM64_ERRATUM_1530924
 	select ARM_SCMI_PROTOCOL
 	select COMMON_CLK_SCMI
 	select GENERIC_PHY
@@ -390,6 +389,8 @@ config SOC_S32CC
 	select MUX_MMIO
 	select NXP_ERRATUM_ERR050543
 	select PHY_S32CC_SERDES
+
+if SOC_S32CC
 
 menu "STM timer used as system timer"
 	config S32CC_STM_SYSTIMER
@@ -414,8 +415,6 @@ menu "PIT timer used as system timer"
 		int "PIT Rating for ClockEvents"
 		default 460
 endmenu
-
-if SOC_S32CC
 
 menu "S32CC execution target"
 	config S32CC_EMULATOR
