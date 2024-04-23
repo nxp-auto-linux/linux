@@ -1,0 +1,99 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR BSD-3-Clause)
+/*
+ * Device Tree Include file for NXP S32N79 SoC.
+ *
+ * Copyright 2024 NXP
+ */
+
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+
+/ {
+	interrupt-parent = <&gic>;
+	#address-cells = <2>;
+	#size-cells = <2>;
+
+	aliases {
+		serial0 = &uart0;
+	};
+
+	cpus {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		cpu-map {
+			cluster0 {
+				core0 {
+					cpu = <&cpu0>;
+				};
+
+				core1 {
+					cpu = <&cpu1>;
+				};
+			};
+		};
+
+		cpu0: cpu@0 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a78-ae";
+			reg = <0x0>;
+			enable-method = "psci";
+			next-level-cache = <&l2_0>;
+		};
+
+		cpu1: cpu@1 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a78-ae";
+			reg = <0x01>;
+			enable-method = "psci";
+			next-level-cache = <&l2_0>;
+		};
+
+	};
+
+	l2_0: l2-cache {
+		compatible = "cache";
+		cache-level = <2>;
+		cache-size = <524288>;
+		cache-line-size = <64>;
+		cache-sets = <512>;
+		next-level-cache = <&l3_0>;
+	};
+
+	l3_0: l3-cache {
+		compatible = "cache";
+		cache-level = <3>;
+		cache-size = <1048576>;
+		cache-line-size = <64>;
+		cache-sets = <1024>;
+	};
+
+	timer: timer {
+		compatible = "arm,armv8-timer";
+		interrupts = <GIC_PPI 10 IRQ_TYPE_LEVEL_LOW>,
+			     <GIC_PPI 11 IRQ_TYPE_LEVEL_LOW>,
+			     <GIC_PPI 12 IRQ_TYPE_LEVEL_LOW>,
+			     <GIC_PPI 13 IRQ_TYPE_LEVEL_LOW>,
+			     <GIC_PPI 14 IRQ_TYPE_LEVEL_LOW>;
+		interrupt-names = "hyp-phys", "virt", "hyp-virt", "sec-phys", "phys";
+	};
+
+	soc {
+		compatible = "simple-bus";
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges = <0x0 0x0 0x0 0x0 0x0 0x20000000>,
+			 <0x0 0x40000000 0x0 0x40000000 0x0 0x14000000>,
+			 <0x0 0x60000000 0x0 0x60000000 0x0 0x10000000>;
+
+		gic: interrupt-controller@4f200000 {
+			compatible = "arm,gic-v3";
+			#interrupt-cells = <3>;
+			interrupt-controller;
+			reg = <0 0x4f200000 0 0x10000>, /* GIC Dist */
+			      <0 0x4f280000 0 0x80000>, /* GICR (RD_base + SGI_base) */
+			      <0 0x4ee00000 0 0x2000>, /* GICC */
+			      <0 0x4ee10000 0 0x2000>, /* GICH */
+			      <0 0x4ee20000 0 0x2000>; /* GICV */
+		};
+	};
+};
