@@ -1,0 +1,71 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR BSD-3-Clause)
+/*
+ * Copyright 2024 NXP
+ */
+
+/dts-v1/;
+#include "s32n79.dtsi"
+
+/ {
+	model = "NXP S32N79-SIM";
+
+	chosen {
+		stdout-path = "serial0:38400n8";
+		linux,initrd-start = <0xc0000000>;
+		linux,initrd-end = <0xc0ab4d99>;
+	};
+
+	memory@80000000 {
+		device_type = "memory";
+		reg = <0 0x80000000 0 0x80000000>;
+	};
+
+	soc {
+		/delete-node/ interrupt-controller@4f200000;
+
+		uart0: serial@40000000 {
+			compatible = "arm,pl011", "arm,primecell";
+			reg = <0 0x40000000 0 0x1000>;
+			clocks = <&uart_clk>, <&uart_clk>;
+			clock-names = "uartclk", "apb_pclk";
+			interrupts = <GIC_SPI 0 IRQ_TYPE_LEVEL_HIGH>;
+		};
+
+		gic: interrupt-controller@60000000 {
+			compatible = "arm,gic-v3";
+			#interrupt-cells = <3>;
+			interrupt-controller;
+			reg = <0 0x60000000 0 0x10000>, /* GIC Dist */
+			      <0 0x60060000 0 0x40000>, /* GICR (RD_base + SGI_base) */
+			      <0 0x00000 0 0x2000>, /* GICC */
+			      <0 0x10000 0 0x2000>, /* GICH */
+			      <0 0x20000 0 0x2000>; /* GICV */
+		};
+	};
+
+	clocks {
+		uart_clk: uart_clk {
+			compatible = "fixed-clock";
+			clock-frequency = <100000000>;
+			#clock-cells = <0>;
+		};
+	};
+
+	virtio@41800000 {
+		compatible = "virtio,mmio";
+		reg = <0x0 0x41800000 0 0x10000>;
+		interrupts = <GIC_SPI 3 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	virtio@41c00000 {
+		compatible = "virtio,mmio";
+		reg = <0x0 0x41c00000 0 0x10000>;
+		interrupts = <GIC_SPI 4 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	virtio@43000000 {
+		compatible = "virtio,mmio";
+		reg = <0x0 0x43000000 0 0x10000>;
+		interrupts = <GIC_SPI 5 IRQ_TYPE_LEVEL_HIGH>;
+	};
+};
