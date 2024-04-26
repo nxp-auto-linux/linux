@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later OR MIT
 /*
  * Copyright (c) 2021 SUSE LLC
- * Copyright 2019-2023 NXP
+ * Copyright 2019-2024 NXP
  */
 
 #include <dt-bindings/gpio/gpio.h>
@@ -832,6 +832,22 @@
 	scl-gpios = <&gpio 34 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
 	sda-gpios = <&gpio 33 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
 	status = "okay";
+};
+
+&gpio {
+	sja1110-rst-phy-t1-hog {
+		gpio-hog;
+		gpios = <24 GPIO_ACTIVE_LOW>;
+		output-low;
+		line-name = "sja1110-rst-phy-t1";
+	};
+
+	sja1110-rst-core-hog {
+		gpio-hog;
+		gpios = <81 GPIO_ACTIVE_LOW>;
+		output-low;
+		line-name = "sja1110-rst-core";
+	};
 };
 
 &llce_dte_sram {
