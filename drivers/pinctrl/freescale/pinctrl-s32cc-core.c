@@ -1073,17 +1073,12 @@ int s32cc_pinctrl_probe(struct platform_device *pdev,
 		return ret;
 	}
 
-	ipctl->dev = info->dev;
-	platform_set_drvdata(pdev, ipctl);
-	ipctl->pctl = pinctrl_register(desc, &pdev->dev, ipctl);
-	if (IS_ERR(ipctl->pctl)) {
-		dev_err(&pdev->dev, "Could not register s32cc pinctrl driver\n");
-		return PTR_ERR(ipctl->pctl);
-	}
-
 	INIT_LIST_HEAD(&ipctl->gpio_configs);
 	spin_lock_init(&ipctl->gpio_configs_lock);
 	spin_lock_init(&ipctl->reg_lock);
+
+	ipctl->dev = info->dev;
+	platform_set_drvdata(pdev, ipctl);
 
 #ifdef CONFIG_PM_SLEEP
 	saved_context = &ipctl->saved_context;
@@ -1094,6 +1089,12 @@ int s32cc_pinctrl_probe(struct platform_device *pdev,
 	if (!saved_context->pads)
 		return -ENOMEM;
 #endif
+
+	ipctl->pctl = pinctrl_register(desc, &pdev->dev, ipctl);
+	if (IS_ERR(ipctl->pctl)) {
+		dev_err(&pdev->dev, "Could not register s32cc pinctrl driver\n");
+		return PTR_ERR(ipctl->pctl);
+	}
 
 	dev_info(&pdev->dev, "Initialized s32cc pinctrl driver\n");
 
