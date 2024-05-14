@@ -365,13 +365,6 @@ static int siul2_gpio_irq_set_type(struct irq_data *d, unsigned int type)
 	int ret = 0;
 	u32 mask;
 
-	ret = siul2_gpio_dir_in(gc, gpio);
-	if (ret) {
-		dev_err(gc->parent, "Failed to configure GPIO %lu as input\n",
-			gpio);
-		return ret;
-	}
-
 	/* SIUL2 GPIO doesn't support level triggering */
 	if ((irq_type & IRQ_TYPE_LEVEL_HIGH) ||
 	    (irq_type & IRQ_TYPE_LEVEL_LOW)) {
