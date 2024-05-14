@@ -983,7 +983,7 @@ static int request_llce_irq(struct llce_mb *mb, struct llce_fifoirq *fifo_irq)
 		return 0;
 
 	ret = devm_request_irq(mb->dev, fifo_irq->num, fifo_irq->handler,
-			       IRQF_SHARED, fifo_irq->name, mb);
+			       0, fifo_irq->name, mb);
 	if (ret < 0)
 		dev_err(mb->dev, "Failed to register '%s' IRQ\n",
 			fifo_irq->name);
