@@ -71,7 +71,7 @@
  * Register(s): MC_RGM - DES[31:0], FES[31:0], RDSS[0], MC_ME - MODE_STAT[0]
  * Description: Returns the reset cause determined based on the values of
    mentioned registers, and also clears it by writing a non-zero value to
-   MC_RGM - DES[31:0].
+   MC_RGM - DES[31:0], FES[31:0], RDSS[0].
  */
 #define S32CC_SCMI_NVMEM_RESET_CAUSE		(0x8)
 
