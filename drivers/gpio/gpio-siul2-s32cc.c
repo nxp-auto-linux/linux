@@ -466,7 +466,6 @@ static void siul2_gpio_irq_unmask(struct irq_data *data)
 	int index = siul2_irq_gpio_index(platdata, gpio);
 	unsigned long flags;
 	u32 mask;
-	int ret;
 
 	if (index < 0)
 		return;
@@ -495,13 +494,6 @@ static void siul2_gpio_irq_unmask(struct irq_data *data)
 	regmap_write(gpio_dev->eirqimcrsmap,
 		     SIUL2_EIRQ_REG(platdata->irqs[index].eirq),
 		     platdata->irqs[index].imscr_conf);
-
-	/* Configure GPIO as input */
-	ret = siul2_gpio_dir_in(gc, gpio);
-	if (ret) {
-		dev_err(gc->parent, "Failed to configure GPIO %d as input\n",
-			ret);
-	}
 }
 
 static void siul2_gpio_irq_mask(struct irq_data *data)
@@ -539,8 +531,6 @@ static void siul2_gpio_irq_mask(struct irq_data *data)
 	regmap_write(gpio_dev->eirqimcrsmap,
 		     SIUL2_EIRQ_REG(platdata->irqs[index].eirq),
 		     0);
-
-	siul2_gpio_free(gc, gpio);
 
 	/* Clean status flag */
 	regmap_update_bits(gpio_dev->irqmap, SIUL2_DISR0, mask, mask);
