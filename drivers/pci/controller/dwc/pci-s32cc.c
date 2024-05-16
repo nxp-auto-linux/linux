@@ -2,7 +2,7 @@
 /*
  * PCIe host controller driver for NXP S32CC SoCs
  *
- * Copyright 2019-2023 NXP
+ * Copyright 2019-2024 NXP
  */
 
 #if IS_ENABLED(CONFIG_PCI_S32CC_DEBUG)
@@ -539,10 +539,6 @@ static irqreturn_t s32cc_pcie_hot_plug_irq(int irq, void *arg)
 
 	dw_pcie_writel_ctrl(s32cc_pci, PE0_INT_STS, tmp);
 
-	/* if EP is not connected, we exit */
-	if (phy_validate(s32cc_pci->phy0, PHY_MODE_PCIE, 0, NULL))
-		return IRQ_HANDLED;
-
 	return IRQ_WAKE_THREAD;
 }
 
@@ -555,6 +551,10 @@ static irqreturn_t s32cc_pcie_hot_plug_thread(int irq, void *arg)
 	struct pci_dev *dev;
 	struct pci_bus *root_bus;
 	int num, ret;
+
+	/* if EP is not connected, we exit */
+	if (phy_validate(s32cc_pci->phy0, PHY_MODE_PCIE, 0, NULL))
+		return IRQ_HANDLED;
 
 	pci_lock_rescan_remove();
 
