@@ -11,8 +11,6 @@
 
 	chosen {
 		stdout-path = "serial0:38400n8";
-		linux,initrd-start = <0xc0000000>;
-		linux,initrd-end = <0xc0ab4d99>;
 	};
 
 	memory@80000000 {
