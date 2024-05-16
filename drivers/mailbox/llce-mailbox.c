@@ -116,6 +116,11 @@ struct llce_fifoirq {
 	bool registered;
 };
 
+struct llce_fwirq {
+	int num;
+	bool fw_enabled;
+};
+
 struct llce_pair_irq {
 	struct llce_fifoirq irq0;
 	struct llce_fifoirq irq8;
@@ -167,11 +172,11 @@ struct llce_mb {
 	struct llce_chan_params chans_params[LLCE_CAN_CONFIG_MAXCTRL_COUNT];
 	struct fifos_ref_cnt fifos_irq_ref_cnt;
 	struct llce_fifoirq logger_irq;
+	struct llce_fwirq lin_irq;
+	struct llce_fwirq lpspi_irq;
 	u32 hif_id;
 	bool multihif;
 	bool suspended;
-	bool lin_irq_enabled;
-	bool lpspi_irq_enabled;
 	bool fw_logger_support;
 	struct irq_chip irq_chip;
 	struct irq_domain *domain;
@@ -2256,7 +2261,7 @@ static int lin_init(struct llce_mb *mb)
 		&mb->lin_sh_mem->lin_cmd[hw_ctrl];
 
 	/* Interrupt forwarding should be enabled only once. */
-	if (mb->lin_irq_enabled)
+	if (mb->lin_irq.fw_enabled)
 		return 0;
 
 	/* Disable and clear interrupts for LIN channels. */
@@ -2296,7 +2301,7 @@ static int lin_init(struct llce_mb *mb)
 		return -EIO;
 	}
 
-	mb->lin_irq_enabled = true;
+	mb->lin_irq.fw_enabled = true;
 
 	return 0;
 }
@@ -2429,7 +2434,7 @@ static int lpspi_init(struct llce_mb *mb)
 	u32 val, i;
 
 	/* Interrupt forwarding should be enabled only once. */
-	if (mb->lpspi_irq_enabled)
+	if (mb->lpspi_irq.fw_enabled)
 		return 0;
 
 	/* Enable interrupts for LPSI channels. */
@@ -2457,7 +2462,7 @@ static int lpspi_init(struct llce_mb *mb)
 		return ret;
 	}
 
-	mb->lpspi_irq_enabled = true;
+	mb->lpspi_irq.fw_enabled = true;
 
 	return 0;
 }
@@ -2558,7 +2563,7 @@ static const struct irq_domain_ops llce_mb_irq_ops = {
 
 static int init_llce_irq(struct platform_device *pdev,
 				   struct llce_mb *mb, const char *irq_name,
-				   irq_handler_t handler)
+				   irq_handler_t handler, struct llce_fwirq *fwirq)
 {
 	struct device *dev = &pdev->dev;
 	int irq;
@@ -2569,14 +2574,21 @@ static int init_llce_irq(struct platform_device *pdev,
 		return irq;
 	}
 
-	return devm_request_irq(dev, irq, handler, 0,
+	fwirq->num = irq;
+	return request_irq(irq, handler, 0,
 			       irq_name, (void *)mb);
 }
 
 static void deinit_llce_interrupt_ctrl(struct llce_mb *mb)
 {
-	if (mb->domain)
+	if (mb->lin_irq.num)
+		free_irq(mb->lin_irq.num, mb);
+	if (mb->lpspi_irq.num)
+		free_irq(mb->lpspi_irq.num, mb);
+	if (mb->domain) {
 		irq_domain_remove(mb->domain);
+		mb->domain = NULL;
+	}
 }
 
 static int init_llce_irq_resources(struct platform_device *pdev,
@@ -2632,14 +2644,17 @@ static int init_llce_irq_resources(struct platform_device *pdev,
 	struct {
 		const char *name;
 		irq_handler_t handler;
+		struct llce_fwirq *irq;
 	} resources_ic[] = {
 		{
 			.name = "linflex_irq",
 			.handler = llce_mb_lin_handler,
+			.irq = &mb->lin_irq,
 		},
 		{
 			.name = "lpspi_irq",
 			.handler = llce_mb_lspi_handler,
+			.irq = &mb->lpspi_irq,
 		},
 	};
 
@@ -2672,11 +2687,12 @@ static int init_llce_irq_resources(struct platform_device *pdev,
 
 	for (i = 0; i < ARRAY_SIZE(resources_ic); i++) {
 		ret = init_llce_irq(pdev, mb, resources_ic[i].name,
-				    resources_ic[i].handler);
+				    resources_ic[i].handler,
+				    resources_ic[i].irq);
 		if (ret) {
 			dev_err(dev, "Failed to request interrupt err = %d\n",
 				ret);
-			irq_domain_remove(mb->domain);
+			deinit_llce_interrupt_ctrl(mb);
 			return ret;
 		}
 	}
@@ -3306,16 +3322,16 @@ static int __maybe_unused llce_mb_resume(struct device *dev)
 		dev_err(dev, "Failed to initialize platform\n");
 
 	/* Force lin intterupt forwarding again. */
-	if (mb->lin_irq_enabled) {
-		mb->lin_irq_enabled = false;
+	if (mb->lin_irq.fw_enabled) {
+		mb->lin_irq.fw_enabled = false;
 		ret = lin_init(mb);
 		if (ret)
 			return ret;
 	}
 
 	/* Force lpspi intterupt forwarding again. */
-	if (mb->lpspi_irq_enabled) {
-		mb->lpspi_irq_enabled = false;
+	if (mb->lpspi_irq.fw_enabled) {
+		mb->lpspi_irq.fw_enabled = false;
 		ret = lpspi_init(mb);
 		if (ret)
 			return ret;
