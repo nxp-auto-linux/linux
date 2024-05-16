@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0+ OR BSD-3-Clause
 /*
- * Copyright 2020-2023 NXP
+ * Copyright 2020-2024 NXP
  */
 
 #include <dt-bindings/mailbox/nxp-llce-mb.h>
@@ -3156,26 +3156,13 @@ static void print_fw_version(struct llce_mb *mb,
 
 static int init_core_clock(struct device *dev, struct clk **clk)
 {
-	int ret;
-
-	*clk = devm_clk_get(dev, "llce_sys");
+	*clk = devm_clk_get_enabled(dev, "llce_sys");
 	if (IS_ERR(*clk)) {
 		dev_err(dev, "No clock available\n");
 		return PTR_ERR(*clk);
 	}
 
-	ret = clk_prepare_enable(*clk);
-	if (ret) {
-		dev_err(dev, "Failed to enable clock\n");
-		return ret;
-	}
-
 	return 0;
-}
-
-static void deinit_core_clock(struct clk *clk)
-{
-	clk_disable_unprepare(clk);
 }
 
 static int llce_mb_probe(struct platform_device *pdev)
@@ -3221,7 +3208,15 @@ static int llce_mb_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
+	ret = init_core_clock(dev, &mb->clk);
+	if (ret)
+		return ret;
+
 	ret = init_llce_mem_resources(pdev, mb);
+	if (ret)
+		return ret;
+
+	ret = map_llce_shmem(mb);
 	if (ret)
 		return ret;
 
@@ -3229,19 +3224,11 @@ static int llce_mb_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
-	ret = map_llce_shmem(mb);
-	if (ret)
-		goto interrupt_ctrl_deinit;
-
 	ret = init_hif_config_chan(mb);
 	if (ret) {
 		dev_err(dev, "Failed to initialize HIF config channel\n");
 		goto interrupt_ctrl_deinit;
 	}
-
-	ret = init_core_clock(dev, &mb->clk);
-	if (ret)
-		goto hif_deinit;
 
 	sysrstr = readl(mb->system_ctrl + LLCE_SYSRSTR);
 	/* If LLCE modules are under reset, the firmware was not loaded. */
@@ -3254,7 +3241,7 @@ static int llce_mb_probe(struct platform_device *pdev)
 	ret = get_fw_version(mb, &ver);
 	if (ret) {
 		dev_err(dev, "Failed to get firmware version\n");
-		goto disable_clk;
+		goto hif_deinit;
 	}
 
 	print_fw_version(mb, &ver);
@@ -3264,7 +3251,7 @@ static int llce_mb_probe(struct platform_device *pdev)
 	ret = llce_platform_init(dev, mb);
 	if (ret) {
 		dev_err(dev, "Failed to initialize platform\n");
-		goto disable_clk;
+		goto hif_deinit;
 	}
 
 	ret = devm_mbox_controller_register(dev, ctrl);
@@ -3277,10 +3264,6 @@ static int llce_mb_probe(struct platform_device *pdev)
 deinit_plat:
 	if (ret)
 		llce_platform_deinit(mb);
-
-disable_clk:
-	if (ret)
-		deinit_core_clock(mb->clk);
 
 hif_deinit:
 	if (ret)
@@ -3305,7 +3288,6 @@ static void llce_mb_remove(struct platform_device *pdev)
 		return;
 	}
 
-	deinit_core_clock(mb->clk);
 	deinit_hif_config_chan(mb);
 	deinit_llce_interrupt_ctrl(mb);
 }
