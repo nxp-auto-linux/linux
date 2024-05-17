@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later OR MIT
 /*
- * Copyright 2020-2023 NXP
+ * Copyright 2020-2024 NXP
  */
 
 /dts-v1/;
@@ -23,9 +23,11 @@
 	status = "okay";
 };
 
-&qspi {
-	/delete-node/ mx25uw51245g@0;
+&pcie1 {
+	status = "disabled";
+};
 
+&qspi {
 	mt35xu512aba@0 {
 		address-cells = <1>;
 		#size-cells = <1>;
@@ -43,6 +45,7 @@
 	pinctrl-0 = <&sd0_pins_default>;
 	pinctrl-1 = <&sd0_pins_100mhz>;
 	pinctrl-2 = <&sd0_pins_200mhz>;
+	bus-width = <4>;
 	status = "okay";
 };
 
@@ -355,18 +358,6 @@
 	#address-cells = <1>;
 	#size-cells = <0>;
 	status = "okay";
-
-	spidev1: spidev@1 {
-		compatible = "rohm,dh2228fv";
-		spi-max-frequency = <4000000>;
-		reg = <1>;
-	};
-
-	spidev2: spidev@2 {
-		compatible = "rohm,dh2228fv";
-		spi-max-frequency = <4000000>;
-		reg = <2>;
-	};
 };
 
 &spi1 {
@@ -375,34 +366,99 @@
 	#address-cells = <1>;
 	#size-cells = <0>;
 	status = "okay";
-
-	spidev0: spidev@0 {
-		compatible = "rohm,dh2228fv";
-		spi-max-frequency = <4000000>;
-		reg = <0>;
-	};
-
-	spidev3: spidev@3 {
-		compatible = "rohm,dh2228fv";
-		spi-max-frequency = <4000000>;
-		reg = <3>;
-	};
 };
 
 &fccu {
 	status = "okay";
 };
 
+&gpio {
+	PA12 {
+		gpio-hog;
+		gpios = <12 GPIO_ACTIVE_HIGH>;
+		output-high;
+		line-name = "RST_EPHY3_B";
+	};
+
+	PB02 {
+		gpio-hog;
+		gpios = <18 GPIO_ACTIVE_HIGH>;
+		output-high;
+		line-name = "RST_EPHY4_B";
+	};
+
+	PC00 {
+		gpio-hog;
+		gpios = <32 GPIO_ACTIVE_HIGH>;
+		output-high;
+		line-name = "MAIN_PWR_KILL_B";
+	};
+
+	PC05 {
+		gpio-hog;
+		gpios = <37 GPIO_ACTIVE_HIGH>;
+		output-high;
+		line-name = "SW3_RST_N";
+	};
+};
+
 &i2c0 {
+	clock-frequency = <100000>;
 	pinctrl-names = "default", "gpio";
 	pinctrl-0 = <&i2c0_pins>;
 	pinctrl-1 = <&i2c0_gpio_pins>;
 	scl-gpios = <&gpio 17 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
 	sda-gpios = <&gpio 16 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
 	status = "okay";
+
+	gpioexpander@43 {
+		compatible = "fcs,fxl6408";
+		gpio-controller;
+		#gpio-cells = <2>;
+		reg = <0x43>;
+		initial_io_dir = <0x10>;
+		initial_output = <0x00>;
+	};
+
+	dipswitch@4c {
+		compatible = "ti,tmp451";
+		reg = <0x4c>;
+	};
+
+	dipswitch@4d {
+		compatible = "nxp,pca9561";
+		reg = <0x4d>;
+	};
+
+	config1@50 {
+		compatible = "atmel,24c01a";
+		reg = <0x50>;
+	};
+
+	rtc@51 {
+		compatible = "nxp,pcf85263";
+		reg = <0x51>;
+	};
+
+	eeprom@54 {
+		compatible = "atmel,24c128";
+		reg = <0x54>;
+		u-boot,i2c-offset-len = <2>;
+	};
+
+	config2@56 {
+		compatible = "atmel,24c01a";
+		reg = <0x56>;
+	};
+
+	systemid@57 {
+		compatible = "atmel,24c02";
+		reg = <0x57>;
+	};
 };
 
 &i2c1 {
+	clock-frequency = <100000>;
 	pinctrl-names = "default", "gpio";
 	pinctrl-0 = <&i2c1_pins>;
 	pinctrl-1 = <&i2c1_gpio_pins>;
@@ -412,6 +468,7 @@
 };
 
 &i2c2 {
+	clock-frequency = <100000>;
 	pinctrl-names = "default", "gpio";
 	pinctrl-0 = <&i2c2_pins>;
 	pinctrl-1 = <&i2c2_gpio_pins>;
@@ -421,12 +478,25 @@
 };
 
 &i2c4 {
+	clock-frequency = <100000>;
 	pinctrl-names = "default", "gpio";
 	pinctrl-0 = <&i2c4_pins>;
 	pinctrl-1 = <&i2c4_gpio_pins>;
 	scl-gpios = <&gpio 34 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
 	sda-gpios = <&gpio 33 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
 	status = "okay";
+
+	vr5510@20 {
+		compatible = "nxp,vr5510";
+		reg = <0x20>;
+		status = "okay";
+	};
+
+	vr5510_fsu@21 {
+		compatible = "nxp,vr5510";
+		reg = <0x21>;
+		status = "okay";
+	};
 };
 
 &llce_dte_sram {
