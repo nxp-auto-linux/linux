@@ -3,7 +3,7 @@
  * Freescale LINFlexD UART serial port driver
  *
  * Copyright 2012-2016 Freescale Semiconductor, Inc.
- * Copyright 2017-2023 NXP
+ * Copyright 2017-2024 NXP
  */
 
 #include <linux/circ_buf.h>
@@ -1384,7 +1384,8 @@ static void linflex_console_putchar(struct uart_port *port, int ch)
 }
 
 static void linflex_string_write(struct uart_port *sport, const char *s,
-				 unsigned int count)
+				 unsigned int count,
+				 int wakeup)
 {
 	struct circ_buf *xmit = &sport->state->xmit;
 	unsigned long cr;
@@ -1397,7 +1398,7 @@ static void linflex_string_write(struct uart_port *sport, const char *s,
 
 	uart_console_write(sport, s, count, linflex_console_putchar);
 
-	if (uart_circ_chars_pending(xmit) < WAKEUP_CHARS)
+	if (wakeup && uart_circ_chars_pending(xmit) < WAKEUP_CHARS)
 		uart_write_wakeup(sport);
 	linflex_start_tx(sport);
 }
@@ -1407,14 +1408,31 @@ linflex_console_write(struct console *co, const char *s, unsigned int count)
 {
 	struct uart_port *sport = linflex_ports[co->index];
 	unsigned long flags;
+	int locked = 1;
 
-	if (sport->sysrq) {
-		linflex_string_write(sport, s, count);
-	} else {
+	if (sport->sysrq)
+		locked = 0;
+	else if (oops_in_progress)
+		locked = spin_trylock_irqsave(&sport->lock, flags);
+	else
 		spin_lock_irqsave(&sport->lock, flags);
-		linflex_string_write(sport, s, count);
+
+	linflex_string_write(sport, s, count, locked);
+
+	if (locked)
 		spin_unlock_irqrestore(&sport->lock, flags);
-	}
+}
+
+static void
+linflex_console_write_atomic(struct console *co, const char *s,
+			     unsigned int count)
+{
+	struct uart_port *sport = linflex_ports[co->index];
+	unsigned long flags;
+
+	console_atomic_lock(flags);
+	linflex_string_write(sport, s, count, 0);
+	console_atomic_unlock(flags);
 }
 
 /*
@@ -1486,7 +1504,7 @@ static struct uart_driver linflex_reg;
 static struct console linflex_console = {
 	.name		= DEV_NAME,
 	.write		= linflex_console_write,
-	.write_atomic   = linflex_console_write,
+	.write_atomic	= linflex_console_write_atomic,
 	.device		= uart_console_device,
 	.setup		= linflex_console_setup,
 	.flags		= CON_PRINTBUFFER,
