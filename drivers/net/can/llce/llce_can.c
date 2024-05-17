@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0+ OR BSD-3-Clause
-/* Copyright 2020-2023 NXP */
-
+/* Copyright 2020-2024 NXP */
 #include <linux/can/dev.h>
 #include <linux/can/dev/llce_can_common.h>
 #include <linux/clk.h>
@@ -991,6 +990,8 @@ static int __maybe_unused llce_can_suspend(struct device *device)
 
 	common->can.state = CAN_STATE_SLEEPING;
 
+	clk_disable_unprepare(llce->clk);
+
 	return ret;
 }
 
@@ -1000,6 +1001,12 @@ static int __maybe_unused llce_can_resume(struct device *device)
 	struct llce_can *llce = netdev_priv(dev);
 	struct llce_can_dev *common = &llce->common;
 	int ret = 0;
+
+	ret = clk_prepare_enable(llce->clk);
+	if (ret) {
+		dev_err(device, "Failed to enable clock\n");
+		return ret;
+	}
 
 	common->can.state = CAN_STATE_ERROR_ACTIVE;
 
