@@ -1385,7 +1385,8 @@ static void linflex_console_putchar(struct uart_port *port, unsigned char ch)
 }
 
 static void linflex_string_write(struct uart_port *sport, const char *s,
-				 unsigned int count)
+				 unsigned int count,
+				 int wakeup)
 {
 	struct tty_port *tport = &sport->state->port;
 	unsigned long cr;
@@ -1398,7 +1399,7 @@ static void linflex_string_write(struct uart_port *sport, const char *s,
 
 	uart_console_write(sport, s, count, linflex_console_putchar);
 
-	if (kfifo_len(&tport->xmit_fifo) < WAKEUP_CHARS)
+	if (wakeup && kfifo_len(&tport->xmit_fifo) < WAKEUP_CHARS)
 		uart_write_wakeup(sport);
 	linflex_start_tx(sport);
 }
@@ -1408,17 +1409,33 @@ linflex_console_write(struct console *co, const char *s, unsigned int count)
 {
 	struct uart_port *sport = linflex_ports[co->index];
 	unsigned long flags;
+	int locked = 1;
 
-	if (sport->sysrq) {
-		linflex_string_write(sport, s, count);
-	} else {
-		if (oops_in_progress)
-			uart_port_trylock_irqsave(sport, &flags);
-		else
-			uart_port_lock_irqsave(sport, &flags);
-		linflex_string_write(sport, s, count);
+	if (sport->sysrq)
+		locked = 0;
+	else if (oops_in_progress)
+		locked = uart_port_trylock_irqsave(sport, &flags);
+	else
+		uart_port_lock_irqsave(sport, &flags);
+
+	linflex_string_write(sport, s, count, locked);
+
+	if (locked)
 		uart_port_unlock_irqrestore(sport, flags);
-	}
+}
+
+static void
+linflex_console_write_atomic(struct console *co,
+			     struct nbcon_write_context *wctxt)
+{
+	struct uart_port *sport = linflex_ports[co->index];
+
+	if (!nbcon_enter_unsafe(wctxt))
+		return;
+
+	linflex_string_write(sport, wctxt->outbuf, wctxt->len, 0);
+
+	nbcon_exit_unsafe(wctxt);
 }
 
 /*
@@ -1490,6 +1507,7 @@ static struct uart_driver linflex_reg;
 static struct console linflex_console = {
 	.name		= DEV_NAME,
 	.write		= linflex_console_write,
+	.write_atomic	= linflex_console_write_atomic,
 	.device		= uart_console_device,
 	.setup		= linflex_console_setup,
 	.flags		= CON_PRINTBUFFER,
