@@ -139,24 +139,6 @@ static void s32cc_gmac_exit(struct platform_device *pdev, void *priv)
 		clk_disable_unprepare(gmac->rx_clk);
 }
 
-static struct mac_device_info *s32cc_gmac_setup(void *ppriv)
-{
-	struct mac_device_info *mac;
-	struct stmmac_priv *priv = ppriv;
-
-	mac = devm_kzalloc(priv->device, sizeof(*mac), GFP_KERNEL);
-	if (!mac)
-		return NULL;
-
-	/* Enable workaround for S32CC ERRATA E50082 */
-	mac->dma = &dwmac410_s32cc_dma_ops;
-	priv->hw = mac;
-
-	dwmac4_setup(priv);
-
-	return mac;
-}
-
 static void s32cc_fix_mac_speed(void *priv, unsigned int speed, unsigned int mode)
 {
 	struct s32cc_priv_data *gmac = priv;
@@ -312,9 +294,9 @@ static int s32cc_dwmac_probe(struct platform_device *pdev)
 
 	plat->init = s32cc_gmac_init;
 	plat->exit = s32cc_gmac_exit;
-	plat->setup = s32cc_gmac_setup;
 	plat->fix_mac_speed = s32cc_fix_mac_speed;
 	plat->ptp_clk_freq_config = s32cc_gmac_ptp_clk_freq_config;
+	plat->flags |= STMMAC_FLAG_HAS_S32CC;
 
 	/* tx clock */
 	gmac->tx_clk = devm_clk_get(&pdev->dev, "tx");

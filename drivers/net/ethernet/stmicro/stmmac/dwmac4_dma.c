@@ -247,22 +247,22 @@ static void dwmac4_rx_watchdog(struct stmmac_priv *priv, void __iomem *ioaddr,
 {
 	const struct dwmac4_addrs *dwmac4_addrs = priv->plat->dwmac4_addrs;
 
+	/* NXP Errata E50082 requires RWT to be written before RWTU */
+	if (priv->plat->flags & STMMAC_FLAG_HAS_S32CC) {
+		u32 temp;
+
+		temp = readl(ioaddr + DMA_CHAN_RX_WATCHDOG(dwmac4_addrs, queue));
+		/* Update only RWT first */
+		temp = (temp & ~DMA_CHAN_RX_WATCHDOG_RWT) | (riwt & DMA_CHAN_RX_WATCHDOG_RWT);
+		writel(temp, ioaddr + DMA_CHAN_RX_WATCHDOG(dwmac4_addrs, queue));
+		/* Update RWTU */
+		temp = (temp & ~DMA_CHAN_RX_WATCHDOG_RWTU) | (riwt & DMA_CHAN_RX_WATCHDOG_RWTU);
+		writel(temp, ioaddr + DMA_CHAN_RX_WATCHDOG(dwmac4_addrs, queue));
+
+		return;
+	}
+
 	writel(riwt, ioaddr + DMA_CHAN_RX_WATCHDOG(dwmac4_addrs, queue));
-}
-
-static void dwmac4_rx_watchdog_e50082(struct stmmac_priv *priv, void __iomem *ioaddr,
-				      u32 riwt, u32 queue)
-{
-	const struct dwmac4_addrs *dwmac4_addrs = priv->plat->dwmac4_addrs;
-	u32 temp;
-
-	temp = readl(ioaddr + DMA_CHAN_RX_WATCHDOG(dwmac4_addrs, queue));
-	/* Update only RWT first */
-	temp = (temp & ~DMA_CHAN_RX_WATCHDOG_RWT) | (riwt & DMA_CHAN_RX_WATCHDOG_RWT);
-	writel(temp, ioaddr + DMA_CHAN_RX_WATCHDOG(dwmac4_addrs, queue));
-	/* Update RWTU */
-	temp = (temp & ~DMA_CHAN_RX_WATCHDOG_RWTU) | (riwt & DMA_CHAN_RX_WATCHDOG_RWTU);
-	writel(temp, ioaddr + DMA_CHAN_RX_WATCHDOG(dwmac4_addrs, queue));
 }
 
 static void dwmac4_dma_rx_chan_op_mode(struct stmmac_priv *priv,
@@ -638,32 +638,4 @@ const struct stmmac_dma_ops dwmac410_dma_ops = {
 	.enable_sph = dwmac4_enable_sph,
 	.enable_tbs = dwmac4_enable_tbs,
 	.axi4_cc = dwmac4_axi4_cc,
-};
-
-const struct stmmac_dma_ops dwmac410_s32cc_dma_ops = {
-	.reset = dwmac4_dma_reset,
-	.init = dwmac4_dma_init,
-	.init_chan = dwmac4_dma_init_channel,
-	.init_rx_chan = dwmac4_dma_init_rx_chan,
-	.init_tx_chan = dwmac4_dma_init_tx_chan,
-	.axi = dwmac4_dma_axi,
-	.dump_regs = dwmac4_dump_dma_regs,
-	.dma_rx_mode = dwmac4_dma_rx_chan_op_mode,
-	.dma_tx_mode = dwmac4_dma_tx_chan_op_mode,
-	.enable_dma_irq = dwmac410_enable_dma_irq,
-	.disable_dma_irq = dwmac4_disable_dma_irq,
-	.start_tx = dwmac4_dma_start_tx,
-	.stop_tx = dwmac4_dma_stop_tx,
-	.start_rx = dwmac4_dma_start_rx,
-	.stop_rx = dwmac4_dma_stop_rx,
-	.dma_interrupt = dwmac4_dma_interrupt,
-	.get_hw_feature = dwmac4_get_hw_feature,
-	.rx_watchdog = dwmac4_rx_watchdog_e50082,
-	.set_rx_ring_len = dwmac4_set_rx_ring_len,
-	.set_tx_ring_len = dwmac4_set_tx_ring_len,
-	.set_rx_tail_ptr = dwmac4_set_rx_tail_ptr,
-	.set_tx_tail_ptr = dwmac4_set_tx_tail_ptr,
-	.enable_tso = dwmac4_enable_tso,
-	.qmode = dwmac4_qmode,
-	.set_bfsize = dwmac4_set_bfsize,
 };
