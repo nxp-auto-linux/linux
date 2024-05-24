@@ -52,6 +52,13 @@ properties:
       - const: rx
       - const: ptp_ref
 
+  phys:
+    description: S32G serdes XPCS for sgmii operation
+
+  phy-names:
+    const: gmac_xpcs
+    description: S32G serdes XPCS name for sgmii operation
+
 required:
   - clocks
   - clock-names
