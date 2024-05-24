@@ -30,6 +30,10 @@ properties:
   interrupt-names:
     const: macirq
 
+  dma-coherent:
+    description:
+      Declares GMAC device as DMA coherent
+
   clocks:
     items:
       - description: Main GMAC clock
@@ -56,6 +60,22 @@ properties:
   phy:
     $ref: /schemas/types.yaml#/definitions/phandle
 
+  phys:
+    description: S32G serdes XPCS for sgmii operation
+
+  phy-names:
+    const: gmac_xpcs
+    description: S32G serdes XPCS name for sgmii operation
+
+  nvmem-cells:
+    description:
+      Reference to the NVMEM node used for accessing GPRs for GMAC
+      configuration.
+
+  nvmem-cell-names:
+    items:
+      - const: "gmac_phy_intf_sel"
+
 patternProperties:
   "^mdio[@a-f0-9]+$":
     type: object
@@ -76,6 +96,7 @@ required:
   - reg
   - interrupts
   - interrupt-parent
+  - dma-coherent
   - clocks
   - clock-names
 
@@ -87,14 +108,8 @@ examples:
     #include <dt-bindings/interrupt-controller/irq.h>
     #include <dt-bindings/phy/phy.h>
     #define S32CC_SCMI_CLK_GMAC0_AXI
-    #define S32CC_SCMI_CLK_GMAC0_TX_SGMII
     #define S32CC_SCMI_CLK_GMAC0_TX_RGMII
-    #define S32CC_SCMI_CLK_GMAC0_TX_RMII
-    #define S32CC_SCMI_CLK_GMAC0_TX_MII
     #define S32CC_SCMI_CLK_GMAC0_RX_SGMII
-    #define S32CC_SCMI_CLK_GMAC0_RX_RGMII
-    #define S32CC_SCMI_CLK_GMAC0_RX_RMII
-    #define S32CC_SCMI_CLK_GMAC0_RX_MII
     #define S32CC_SCMI_CLK_GMAC0_TS
     bus {
       #address-cells = <2>;
@@ -107,6 +122,9 @@ examples:
         interrupt-parent = <&gic>;
         interrupts = <GIC_SPI 57 IRQ_TYPE_LEVEL_HIGH>;
         interrupt-names = "macirq";
+        phy-names = "gmac_xpcs";
+        phys = <&serdes0 PHY_TYPE_XPCS 0 0>;
+        dma-coherent;
         snps,mtl-rx-config = <&mtl_rx_setup>;
         snps,mtl-tx-config = <&mtl_tx_setup>;
         clocks = <&clks S32CC_SCMI_CLK_GMAC0_AXI>,
@@ -114,6 +132,8 @@ examples:
            <&clks S32CC_SCMI_CLK_GMAC0_RX_RGMII>,
            <&clks S32CC_SCMI_CLK_GMAC0_TS>;
         clock-names = "stmmaceth", "tx", "rx", "ptp_ref";
+        nvmem-cell-names = "gmac_phy_intf_sel";
+        nvmem-cells = "<&gmac0_phy_intf_sel>";
 
         mtl_rx_setup: rx-queues-config {
           snps,rx-queues-to-use = <5>;
