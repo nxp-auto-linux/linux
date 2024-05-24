@@ -22,6 +22,9 @@
 #include <soc/s32cc/nvmem_common.h>
 #endif
 
+/* S32CC Serdes */
+#include <linux/pcs/nxp-s32cc-xpcs.h>
+
 #include "stmmac_platform.h"
 
 #define GMAC_INTF_RATE_125M	125000000	/* 125MHz */
@@ -46,6 +49,10 @@ struct s32_priv_data {
 	struct clk *tx_clk;
 	struct clk *rx_clk;
 	bool use_nvmem;
+
+	/* Serdes */
+	struct phy *serdes_phy;
+	struct phylink_pcs *pcs;
 };
 
 static int s32_gmac_write_phy_intf_select(struct s32_priv_data *gmac)
@@ -147,6 +154,10 @@ static void s32_fix_mac_speed(void *priv, unsigned int speed, unsigned int mode)
 	long tx_clk_rate;
 	int ret;
 
+	/* SGMII mode doesn't support the clock reconfiguration */
+	if (*gmac->intf_mode == PHY_INTERFACE_MODE_SGMII)
+		return;
+
 	tx_clk_rate = rgmii_clock(speed);
 	if (tx_clk_rate < 0) {
 		dev_err(gmac->dev, "Unsupported/Invalid speed: %d\n", speed);
@@ -198,10 +209,46 @@ static int s32_config_cache_coherency(struct platform_device *pdev,
 	return 0;
 }
 
+static int s32_configure_serdes(struct s32_priv_data *gmac)
+{
+	struct s32cc_xpcs *xpcs;
+
+	if (!gmac->serdes_phy) {
+		dev_err(gmac->dev, "SerDes PHY was not found\n");
+		return -EINVAL;
+	}
+
+	if (phy_init(gmac->serdes_phy)) {
+		dev_err(gmac->dev, "SerDes PHY init failed\n");
+		return -EINVAL;
+	}
+
+	if (phy_power_on(gmac->serdes_phy)) {
+		dev_err(gmac->dev, "SerDes PHY power on failed\n");
+		return -EINVAL;
+	}
+
+	if (phy_configure(gmac->serdes_phy, NULL)) {
+		dev_err(gmac->dev, "SerDes PHY configuration failed\n");
+		return -EINVAL;
+	}
+
+	xpcs = s32cc_phy2xpcs(gmac->serdes_phy);
+	gmac->pcs = s32cc_xpcs_get_pcs(xpcs);
+
+	if (!gmac->pcs) {
+		dev_err(gmac->dev, "Can't get SGMII PCS\n");
+		gmac->pcs = NULL;
+	}
+
+	return 0;
+}
+
 static int s32_dwmac_probe(struct platform_device *pdev)
 {
 	struct plat_stmmacenet_data *plat;
 	struct device *dev = &pdev->dev;
+	struct phy *serdes_phy = NULL;
 	struct stmmac_resources res;
 	struct s32_priv_data *gmac;
 	struct nvmem_cell *cell;
@@ -266,6 +313,23 @@ static int s32_dwmac_probe(struct platform_device *pdev)
 	if (IS_ERR(gmac->rx_clk))
 		return dev_err_probe(dev, PTR_ERR(gmac->rx_clk),
 				     "rx clock not found\n");
+
+	if (plat->phy_interface == PHY_INTERFACE_MODE_SGMII) {
+		serdes_phy = devm_phy_get(&pdev->dev, "gmac_xpcs");
+
+		if (PTR_ERR(serdes_phy) == -EPROBE_DEFER)
+			return -EPROBE_DEFER;
+		else if (IS_ERR(serdes_phy))
+			serdes_phy = NULL;
+
+		gmac->serdes_phy = serdes_phy;
+
+		ret = s32_configure_serdes(gmac);
+		if (ret) {
+			dev_err(&pdev->dev, "SERDES is not configured\n");
+			return ret;
+		}
+	}
 
 	gmac->intf_mode = &plat->phy_interface;
 	gmac->ioaddr = res.addr;
