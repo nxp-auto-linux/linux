@@ -23,6 +23,9 @@
 #include <soc/s32cc/nvmem_common.h>
 #endif
 
+/* S32CC Serdes */
+#include <linux/pcs/nxp-s32cc-xpcs.h>
+
 #include "stmmac_platform.h"
 
 #define GMAC_RATE_125M		125000000	/* 125MHz */
@@ -50,6 +53,10 @@ struct s32cc_priv_data {
 	struct clk *rx_clk;
 	bool enable_rx;
 	bool use_nvmem;
+
+	/* Serdes */
+	struct phy *serdes_phy;
+	struct phylink_pcs *pcs;
 };
 
 static int s32cc_gmac_write_phy_intf_select(struct s32cc_priv_data *gmac)
@@ -148,6 +155,10 @@ static void s32cc_fix_mac_speed(void *priv, unsigned int speed, unsigned int mod
 	if (!gmac->tx_clk || !gmac->rx_clk)
 		return;
 
+	/* SGMII mode doesn't support the clock reconfiguration */
+	if (gmac->intf_mode == PHY_INTERFACE_MODE_SGMII)
+		return;
+
 	switch (speed) {
 	case SPEED_1000:
 		rate = GMAC_RATE_125M;
@@ -225,12 +236,50 @@ static void s32cc_gmac_ptp_clk_freq_config(struct stmmac_priv *priv)
 	netdev_dbg(priv->dev, "PTP rate %lu\n", plat->clk_ptp_rate);
 }
 
+static int s32cc_configure_serdes(struct plat_stmmacenet_data *plat_dat)
+{
+	struct s32cc_priv_data *gmac = plat_dat->bsp_priv;
+	struct s32cc_xpcs *xpcs;
+
+	if (!gmac->serdes_phy) {
+		dev_err(gmac->dev, "SerDes PHY was not found\n");
+		return -EINVAL;
+	}
+
+	if (phy_init(gmac->serdes_phy)) {
+		dev_err(gmac->dev, "SerDes PHY init failed\n");
+		return -EINVAL;
+	}
+
+	if (phy_power_on(gmac->serdes_phy)) {
+		dev_err(gmac->dev, "SerDes PHY power on failed\n");
+		return -EINVAL;
+	}
+
+	if (phy_configure(gmac->serdes_phy, NULL)) {
+		dev_err(gmac->dev, "SerDes PHY configuration failed\n");
+		return -EINVAL;
+	}
+
+	xpcs = s32cc_phy2xpcs(gmac->serdes_phy);
+	gmac->pcs = s32cc_xpcs_get_pcs(xpcs);
+
+	if (!gmac->pcs) {
+		dev_err(gmac->dev, "Can't get SGMII PCS\n");
+		gmac->pcs = NULL;
+	}
+
+	return 0;
+}
+
 static int s32cc_dwmac_probe(struct platform_device *pdev)
 {
 	struct s32cc_priv_data *gmac;
 	struct plat_stmmacenet_data *plat;
 	struct stmmac_resources res;
 	struct device *dev = &pdev->dev;
+	const char *tx_clk, *rx_clk;
+	struct phy *serdes_phy = NULL;
 	struct nvmem_cell *cell;
 	bool use_nvmem;
 	int ret;
@@ -274,6 +323,39 @@ static int s32cc_dwmac_probe(struct platform_device *pdev)
 					     "S32CC config region is missing\n");
 	}
 
+	if (plat->phy_interface != PHY_INTERFACE_MODE_SGMII &&
+	    !phy_interface_mode_is_rgmii(plat->phy_interface)) {
+		dev_err(&pdev->dev, "Not supported phy interface mode: [%s]\n",
+			phy_modes(plat->phy_interface));
+		return -EINVAL;
+	}
+
+	switch (plat->phy_interface) {
+	case PHY_INTERFACE_MODE_SGMII:
+		tx_clk = "tx_sgmii";
+		rx_clk = "rx_sgmii";
+		break;
+	case PHY_INTERFACE_MODE_RGMII:
+	case PHY_INTERFACE_MODE_RGMII_ID:
+	case PHY_INTERFACE_MODE_RGMII_TXID:
+	case PHY_INTERFACE_MODE_RGMII_RXID:
+		tx_clk = "tx_rgmii";
+		rx_clk = "rx_rgmii";
+		break;
+	case PHY_INTERFACE_MODE_RMII:
+		tx_clk = "tx_rmii";
+		rx_clk = "rx_rmii";
+		break;
+	case PHY_INTERFACE_MODE_MII:
+		tx_clk = "tx_mii";
+		rx_clk = "rx_mii";
+		break;
+	default:
+		dev_err(&pdev->dev, "Not supported phy interface mode: [%s]\n",
+			phy_modes(plat->phy_interface));
+		return -EINVAL;
+	};
+
 	gmac->intf_mode = plat->phy_interface;
 	gmac->ioaddr = res.addr;
 
@@ -283,6 +365,25 @@ static int s32cc_dwmac_probe(struct platform_device *pdev)
 		if (ret)
 			return dev_err_probe(dev, ret,
 					     "System does not support DMA.\n");
+	}
+
+	plat->bsp_priv = gmac;
+
+	if (plat->phy_interface == PHY_INTERFACE_MODE_SGMII) {
+		serdes_phy = devm_phy_get(&pdev->dev, "gmac_xpcs");
+
+		if (PTR_ERR(serdes_phy) == -EPROBE_DEFER)
+			return -EPROBE_DEFER;
+		else if (IS_ERR(serdes_phy))
+			serdes_phy = NULL;
+
+		gmac->serdes_phy = serdes_phy;
+
+		ret = s32cc_configure_serdes(plat);
+		if (ret) {
+			dev_err(&pdev->dev, "SERDES is not configured\n");
+			return ret;
+		}
 	}
 
 	/* S32CC core feature set */
@@ -299,20 +400,18 @@ static int s32cc_dwmac_probe(struct platform_device *pdev)
 	plat->flags |= STMMAC_FLAG_HAS_S32CC;
 
 	/* tx clock */
-	gmac->tx_clk = devm_clk_get(&pdev->dev, "tx");
+	gmac->tx_clk = devm_clk_get(&pdev->dev, tx_clk);
 	if (IS_ERR(gmac->tx_clk)) {
 		dev_info(&pdev->dev, "tx clock not found\n");
 		gmac->tx_clk = NULL;
 	}
 
 	/* rx clock */
-	gmac->rx_clk = devm_clk_get(&pdev->dev, "rx");
+	gmac->rx_clk = devm_clk_get(&pdev->dev, rx_clk);
 	if (IS_ERR(gmac->rx_clk)) {
 		dev_info(&pdev->dev, "rx clock not found\n");
 		gmac->rx_clk = NULL;
 	}
-
-	plat->bsp_priv = gmac;
 
 	return stmmac_pltfr_probe(pdev, plat, &res);
 }
