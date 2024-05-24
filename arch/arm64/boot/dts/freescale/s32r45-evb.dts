@@ -647,6 +647,8 @@
 };
 
 &gmac1 {
+	phy-names = "gmac_xpcs";
+	phys = <&serdes1 PHY_TYPE_XPCS 0 0>;
 	clocks = <&clks S32R45_SCMI_CLK_GMAC1_AXI>,
 		 <&clks S32R45_SCMI_CLK_GMAC1_AXI>,
 		 <&clks S32R45_SCMI_CLK_GMAC1_TX_SGMII>,
