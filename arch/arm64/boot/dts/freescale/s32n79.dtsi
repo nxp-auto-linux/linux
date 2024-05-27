@@ -82,18 +82,22 @@
 		#address-cells = <2>;
 		#size-cells = <2>;
 		ranges = <0x0 0x0 0x0 0x0 0x0 0x20000000>,
-			 <0x0 0x40000000 0x0 0x40000000 0x0 0x14000000>,
-			 <0x0 0x60000000 0x0 0x60000000 0x0 0x10000000>;
+			 <0x0 0x40000000 0x0 0x40000000 0x0 0x14000000>;
 
 		gic: interrupt-controller@4f200000 {
 			compatible = "arm,gic-v3";
 			#interrupt-cells = <3>;
 			interrupt-controller;
 			reg = <0 0x4f200000 0 0x10000>, /* GIC Dist */
-			      <0 0x4f280000 0 0x80000>, /* GICR (RD_base + SGI_base) */
-			      <0 0x4ee00000 0 0x2000>, /* GICC */
-			      <0 0x4ee10000 0 0x2000>, /* GICH */
-			      <0 0x4ee20000 0 0x2000>; /* GICV */
+			      <0 0x4f260000 0 0x80000>; /* GICR (RD_base + SGI_base) */
+		};
+
+		uart0: serial@4a030000 {
+			compatible = "arm,pl011", "arm,primecell";
+			reg = <0 0x4a030000 0 0x1000>;
+			clocks = <&uart_clk>, <&uart_clk>;
+			clock-names = "uartclk", "apb_pclk";
+			interrupts = <GIC_SPI 559 IRQ_TYPE_LEVEL_HIGH>;
 		};
 	};
 };
