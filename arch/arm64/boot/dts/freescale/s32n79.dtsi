@@ -101,12 +101,34 @@
 		ranges = <0x4a000000 0x0 0x4a000000 0xff0000>,
 			 <0x4e000000 0x0 0x4e000000 0x1000000>;
 
+		irqsteer0_coss: interrupt-controller@4ed00000 {
+			compatible = "nxp,s32n7-irqsteer";
+			reg = <0x4ed00000 0x10000>;
+			interrupts = <GIC_SPI 555 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 556 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 557 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 558 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 559 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 560 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 561 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 562 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-controller;
+			interrupt-parent = <&gic>;
+			#interrupt-cells = <1>;
+			clocks = <&sys_clk>;
+			clock-names = "ipg";
+			fsl,channel = <0>;
+			fsl,num-irqs = <512>;
+			status = "disabled";
+		};
+
 		uart0: serial@4a030000 {
 			compatible = "arm,pl011", "arm,primecell";
 			reg = <0x4a030000 0x1000>;
 			clocks = <&sys_clk>, <&sys_clk>;
 			clock-names = "uartclk", "apb_pclk";
-			interrupts = <GIC_SPI 559 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-parent = <&irqsteer0_coss>;
+			interrupts = <264>;
 			status = "disabled";
 		};
 	};
