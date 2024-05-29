@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0+
 /*
- * Copyright 2017 NXP
+ * Copyright 2017, 2024 NXP
  * Copyright (C) 2018 Pengutronix, Lucas Stach <kernel@pengutronix.de>
  */
 
@@ -27,16 +27,29 @@
 #define CHAN_MAX_OUTPUT_INT	0x8
 
 struct irqsteer_data {
-	void __iomem		*regs;
-	struct clk		*ipg_clk;
-	int			irq[CHAN_MAX_OUTPUT_INT];
-	int			irq_count;
-	raw_spinlock_t		lock;
-	int			reg_num;
-	int			channel;
-	struct irq_domain	*domain;
-	u32			*saved_reg;
-	struct device		*dev;
+	void __iomem				*regs;
+	struct clk				*ipg_clk;
+	int					irq[CHAN_MAX_OUTPUT_INT];
+	int					irq_count;
+	raw_spinlock_t				lock;
+	int					reg_num;
+	int					channel;
+	struct irq_domain			*domain;
+	u32					*saved_reg;
+	struct device				*dev;
+	const struct irqsteer_devtype_data	*devtype_data;
+};
+
+struct irqsteer_devtype_data {
+	bool has_chanctrl;
+};
+
+static const struct irqsteer_devtype_data imx_data = {
+	.has_chanctrl = true,
+};
+
+static const struct irqsteer_devtype_data s32n7_data = {
+	.has_chanctrl = false,
 };
 
 static int imx_irqsteer_get_reg_index(struct irqsteer_data *data,
@@ -188,6 +201,11 @@ static int imx_irqsteer_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
+	data->devtype_data = of_device_get_match_data(&pdev->dev);
+	if (!data->devtype_data)
+		return dev_err_probe(&pdev->dev, -ENODEV,
+				"failed to match device\n");
+
 	/*
 	 * There is one output irq for each group of 64 inputs.
 	 * One register bit map can represent 32 input interrupts.
@@ -210,7 +228,8 @@ static int imx_irqsteer_probe(struct platform_device *pdev)
 	}
 
 	/* steer all IRQs into configured channel */
-	writel_relaxed(BIT(data->channel), data->regs + CHANCTRL);
+	if (data->devtype_data->has_chanctrl)
+		writel_relaxed(BIT(data->channel), data->regs + CHANCTRL);
 
 	data->domain = irq_domain_add_linear(np, data->reg_num * 32,
 					     &imx_irqsteer_domain_ops, data);
@@ -277,7 +296,9 @@ static void imx_irqsteer_restore_regs(struct irqsteer_data *data)
 {
 	int i;
 
-	writel_relaxed(BIT(data->channel), data->regs + CHANCTRL);
+	if (data->devtype_data->has_chanctrl)
+		writel_relaxed(BIT(data->channel), data->regs + CHANCTRL);
+
 	for (i = 0; i < data->reg_num; i++)
 		writel_relaxed(data->saved_reg[i],
 			       data->regs + CHANMASK(i, data->reg_num));
@@ -317,7 +338,8 @@ static const struct dev_pm_ops imx_irqsteer_pm_ops = {
 };
 
 static const struct of_device_id imx_irqsteer_dt_ids[] = {
-	{ .compatible = "fsl,imx-irqsteer", },
+	{ .compatible = "fsl,imx-irqsteer", .data = &imx_data, },
+	{ .compatible = "nxp,s32n7-irqsteer", .data = &s32n7_data, },
 	{},
 };
 
