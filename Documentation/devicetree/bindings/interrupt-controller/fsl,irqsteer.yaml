@@ -20,6 +20,7 @@ properties:
               - fsl,imx8qm-irqsteer
               - fsl,imx8qxp-irqsteer
           - const: fsl,imx-irqsteer
+      - const: nxp,s32n7-irqsteer
 
   reg:
     maxItems: 1
