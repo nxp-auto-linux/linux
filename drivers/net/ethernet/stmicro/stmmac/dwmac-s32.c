@@ -40,7 +40,31 @@ struct s32_priv_data {
 
 static int s32_gmac_write_phy_intf_select(struct s32_priv_data *gmac)
 {
-	writel(PHY_INTF_SEL_RGMII, gmac->ctrl_sts);
+	u32 intf_sel;
+
+	switch (*gmac->intf_mode) {
+	case PHY_INTERFACE_MODE_SGMII:
+		intf_sel = PHY_INTF_SEL_SGMII;
+		break;
+	case PHY_INTERFACE_MODE_RGMII:
+	case PHY_INTERFACE_MODE_RGMII_ID:
+	case PHY_INTERFACE_MODE_RGMII_TXID:
+	case PHY_INTERFACE_MODE_RGMII_RXID:
+		intf_sel = PHY_INTF_SEL_RGMII;
+		break;
+	case PHY_INTERFACE_MODE_RMII:
+		intf_sel = PHY_INTF_SEL_RMII;
+		break;
+	case PHY_INTERFACE_MODE_MII:
+		intf_sel = PHY_INTF_SEL_MII;
+		break;
+	default:
+		dev_err(gmac->dev, "Unsupported PHY interface: %s\n",
+			phy_modes(*gmac->intf_mode));
+		return -EINVAL;
+	}
+
+	writel(intf_sel, gmac->ctrl_sts);
 
 	dev_dbg(gmac->dev, "PHY mode set to %s\n", phy_modes(*gmac->intf_mode));
 
@@ -153,6 +177,14 @@ static int s32_dwmac_probe(struct platform_device *pdev)
 	if (IS_ERR(plat))
 		return dev_err_probe(dev, PTR_ERR(plat),
 				     "dt configuration failed\n");
+
+	if (plat->phy_interface != PHY_INTERFACE_MODE_SGMII &&
+	    !phy_interface_mode_is_rgmii(plat->phy_interface) &&
+	    plat->phy_interface != PHY_INTERFACE_MODE_RMII &&
+	    plat->phy_interface != PHY_INTERFACE_MODE_MII)
+		dev_err_probe(dev, -EINVAL,
+			      "Not supported phy interface mode: [%s]\n",
+			      phy_modes(plat->phy_interface));
 
 	/* PHY interface mode control reg */
 	gmac->ctrl_sts = devm_platform_get_and_ioremap_resource(pdev, 1, NULL);
