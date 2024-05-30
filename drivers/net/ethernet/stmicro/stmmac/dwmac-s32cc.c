@@ -324,7 +324,9 @@ static int s32cc_dwmac_probe(struct platform_device *pdev)
 	}
 
 	if (plat->phy_interface != PHY_INTERFACE_MODE_SGMII &&
-	    !phy_interface_mode_is_rgmii(plat->phy_interface)) {
+	    !phy_interface_mode_is_rgmii(plat->phy_interface) &&
+	    plat->phy_interface != PHY_INTERFACE_MODE_RMII &&
+	    plat->phy_interface != PHY_INTERFACE_MODE_MII) {
 		dev_err(&pdev->dev, "Not supported phy interface mode: [%s]\n",
 			phy_modes(plat->phy_interface));
 		return -EINVAL;
