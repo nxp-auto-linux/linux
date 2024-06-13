@@ -40,10 +40,10 @@
 			next-level-cache = <&l2_0>;
 		};
 
-		cpu1: cpu@1 {
+		cpu1: cpu@100 {
 			device_type = "cpu";
 			compatible = "arm,cortex-a78-ae";
-			reg = <0x01>;
+			reg = <0x100>;
 			enable-method = "psci";
 			next-level-cache = <&l2_0>;
 		};
