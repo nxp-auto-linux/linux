@@ -77,6 +77,13 @@
 		interrupt-names = "hyp-phys", "virt", "hyp-virt", "sec-phys", "phys";
 	};
 
+	firmware {
+		psci {
+			compatible = "arm,psci-1.0";
+			method = "smc";
+		};
+	};
+
 	cis_subsys {
 		compatible = "simple-bus";
 		#address-cells = <1>;
