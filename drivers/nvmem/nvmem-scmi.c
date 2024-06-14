@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
  *  Driver using SCMI NVMEM Protocol
- *  Copyright 2023 NXP
+ *  Copyright 2023-2024 NXP
  */
 
 #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
@@ -63,6 +63,7 @@ static int scmi_nvmem_write_cell(void *priv, unsigned int offset, void *val,
 static struct nvmem_config scmi_nvmem_config = {
 	.name = "nvmem_scmi",
 	.owner = THIS_MODULE,
+	.add_legacy_fixed_of_cells = true,
 	.word_size = 1,
 	.size = 4,
 	.read_only = false,

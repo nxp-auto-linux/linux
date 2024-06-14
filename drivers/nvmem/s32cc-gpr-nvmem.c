@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0+
 /*
- * Copyright 2023 NXP
+ * Copyright 2023-2024 NXP
  */
 
 #include <linux/io.h>
@@ -256,6 +256,7 @@ static int s32r45_gpr_nvmem_write(void *context, unsigned int offset,
 
 static struct nvmem_config s32cc_gpr_nvmem_config = {
 	.name = "s32cc-gpr-nvmem",
+	.add_legacy_fixed_of_cells = true,
 	.read_only = false,
 	.word_size = 1,
 	.size = 4,
