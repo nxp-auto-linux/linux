@@ -40,6 +40,7 @@ struct s32cc_siul2_nvmem_data {
 
 static struct nvmem_config econfig_0 = {
 	.name = "s32cc-siul2_0_nvmem",
+	.add_legacy_fixed_of_cells = true,
 	.owner = THIS_MODULE,
 	.word_size = 4,
 	.size = 4,
@@ -48,6 +49,7 @@ static struct nvmem_config econfig_0 = {
 
 static struct nvmem_config econfig_1 = {
 	.name = "s32cc-siul2_1_nvmem",
+	.add_legacy_fixed_of_cells = true,
 	.owner = THIS_MODULE,
 	.word_size = 4,
 	.size = 4,

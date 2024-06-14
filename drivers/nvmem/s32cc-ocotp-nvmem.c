@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0+
 /*
- * Copyright 2023 NXP
+ * Copyright 2023-2024 NXP
  */
 
 #include <linux/delay.h>
@@ -147,6 +147,7 @@ static int s32cc_ocotp_read(void *context, unsigned int offset,
 
 static struct nvmem_config s32cc_ocotp_nvmem_config = {
 	.name = "s32cc-ocotp",
+	.add_legacy_fixed_of_cells = true,
 	.read_only = true,
 	.word_size = 4,
 	.reg_read = s32cc_ocotp_read,
