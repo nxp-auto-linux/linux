@@ -95,7 +95,7 @@
 		uart0: serial@4a030000 {
 			compatible = "arm,pl011", "arm,primecell";
 			reg = <0 0x4a030000 0 0x1000>;
-			clocks = <&uart_clk>, <&uart_clk>;
+			clocks = <&sys_clk>, <&sys_clk>;
 			clock-names = "uartclk", "apb_pclk";
 			interrupts = <GIC_SPI 559 IRQ_TYPE_LEVEL_HIGH>;
 		};
