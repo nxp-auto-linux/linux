@@ -19,7 +19,7 @@
 	};
 
 	clocks {
-		uart_clk: uart_clk {
+		sys_clk: sys_clk {
 			compatible = "fixed-clock";
 			clock-frequency = <100000000>;
 			#clock-cells = <0>;
