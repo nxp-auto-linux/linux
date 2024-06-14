@@ -86,10 +86,20 @@
 
 		gic: interrupt-controller@4f200000 {
 			compatible = "arm,gic-v3";
+			#address-cells = <1>;
+			#size-cells = <1>;
 			#interrupt-cells = <3>;
 			interrupt-controller;
+			interrupts = <GIC_PPI 9 IRQ_TYPE_LEVEL_HIGH>;
 			reg = <0x4f200000 0x10000>, /* GIC Dist */
 			      <0x4f260000 0x80000>; /* GICR (RD_base + SGI_base) */
+			ranges;
+
+			its: msi-controller@4f240000 {
+				compatible = "arm,gic-v3-its";
+				reg = <0x4f240000 0x20000>;
+				msi-controller;
+			};
 		};
 
 	};
