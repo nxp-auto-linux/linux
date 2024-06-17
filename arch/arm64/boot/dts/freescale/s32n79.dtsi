@@ -77,7 +77,27 @@
 		interrupt-names = "hyp-phys", "virt", "hyp-virt", "sec-phys", "phys";
 	};
 
+	reserved-memory  {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		scmi_tx_buf: shm@d0000000 {
+			compatible = "arm,scmi-shmem";
+			reg = <0x0 0xd0000000 0x0 0x80>;
+			no-map;
+		};
+	};
+
 	firmware {
+		scmi: scmi {
+			compatible = "arm,scmi-smc";
+			mbox-names = "tx";
+			shmem = <&scmi_tx_buf>;
+			arm,smc-id = <0xc2000000>;
+			status = "okay";
+		};
+
 		psci {
 			compatible = "arm,psci-1.0";
 			method = "smc";
