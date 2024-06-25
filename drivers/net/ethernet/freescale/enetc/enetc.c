@@ -3814,6 +3814,7 @@ static const struct enetc_drvdata enetc_vf_data = {
 static const struct enetc_drvdata enetc4_vf_data = {
 	.sysclk_freq = ENETC_CLK_333M,
 	.tx_csum = true,
+	.shared_tx_rings = true,
 	.max_frags = ENETC4_MAX_SKB_FRAGS,
 	.eth_ops = &enetc_vf_ethtool_ops,
 };
