@@ -463,6 +463,8 @@ static const struct net_device_ops enetc_ndev_ops = {
 	.ndo_set_rx_mode	= enetc_vf_set_rx_mode,
 	.ndo_vlan_rx_add_vid	= enetc_vf_vlan_rx_add_vid,
 	.ndo_vlan_rx_kill_vid	= enetc_vf_vlan_rx_del_vid,
+	.ndo_bpf		= enetc_setup_bpf,
+	.ndo_xdp_xmit		= enetc_xdp_xmit,
 };
 
 static void enetc_vf_get_revision(struct enetc_si *si)
@@ -503,6 +505,7 @@ static void enetc_vf_netdev_setup(struct enetc_si *si, struct net_device *ndev,
 	priv->msg_enable = (NETIF_MSG_IFUP << 1) - 1;
 	priv->sysclk_freq = si->drvdata->sysclk_freq;
 	priv->max_frags = si->drvdata->max_frags;
+	priv->shared_tx_rings = si->drvdata->shared_tx_rings;
 	ndev->netdev_ops = ndev_ops;
 	enetc_set_ethtool_ops(ndev);
 	ndev->watchdog_timeo = 5 * HZ;
@@ -525,6 +528,10 @@ static void enetc_vf_netdev_setup(struct enetc_si *si, struct net_device *ndev,
 		ndev->priv_flags |= IFF_UNICAST_FLT;
 		ndev->hw_features |= NETIF_F_HW_VLAN_CTAG_FILTER;
 	}
+
+	ndev->xdp_features = NETDEV_XDP_ACT_BASIC | NETDEV_XDP_ACT_REDIRECT |
+			     NETDEV_XDP_ACT_NDO_XMIT | NETDEV_XDP_ACT_RX_SG |
+			     NETDEV_XDP_ACT_NDO_XMIT_SG;
 
 	if (si->num_rss) {
 		ndev->hw_features |= NETIF_F_RXHASH;
