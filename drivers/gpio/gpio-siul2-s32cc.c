@@ -23,12 +23,10 @@
 #include <linux/irqdomain.h>
 #include <linux/gpio.h>
 #include <linux/platform_device.h>
-#include <linux/slab.h>
 #include <linux/of_device.h>
 #include <linux/module.h>
 #include <linux/gpio/driver.h>
 #include <linux/pinctrl/consumer.h>
-#include <asm-generic/bug.h>
 #include <linux/bitmap.h>
 #include <linux/regmap.h>
 #include <linux/types.h>
@@ -50,22 +48,7 @@
 /* Interrupt Falling-Edge Event Enable Register */
 #define SIUL2_IFEER0			0x20
 
-/* Device tree ranges */
-#define SIUL2_GPIO_OUTPUT_RANGE		0
-#define SIUL2_GPIO_INPUT_RANGE		1
-
-/* Reserved for Pad Data Input/Output Registers */
-#define SIUL2_GPIO_RESERVED_RANGE1	2
-#define SIUL2_GPIO_RESERVED_RANGE2	3
-
-/* Only for chips with interrupt controller */
-#define SIUL2_GPIO_INTERRUPTS_RANGE	4
-
-#define SIUL2_GPIO_32_PAD_SIZE		32
 #define SIUL2_GPIO_16_PAD_SIZE		16
-#define SIUL2_GPIO_PAD_SPACE		32
-
-#define SIUL2_0_MAX_16_PAD_BANK_NUM	6
 
 #define EIRQS_DTS_TAG		"eirqs"
 #define EIRQIMCRS_DTS_TAG	"eirq-imcrs"
@@ -75,21 +58,6 @@
  */
 enum gpio_dir {
 	IN, OUT
-};
-
-/**
- * Pin used as eirq.
- * On some platforms same eirq is exported by two pins from different gpio
- * chips.
- * Taking into account that same interrupt is raised no matter what
- * pin was configured as eirq, both gpio chips will receive the interrupt.
- * We will use "used" field to distinguish between them.
- * The user should't use in the same time both pins as eirq (same IMCR will
- * be configured when the pinmuxing is done).
- */
-struct eirq_pin {
-	int pin;
-	bool used;
 };
 
 struct eirq_mapping {
@@ -138,10 +106,8 @@ struct siul2_desc {
  * @irqmap: the regmap for EIRQ registers
  * @eirqimcrsmap: the regmap for the EIRQs' IMCRs
  * @gc: the GPIO chip
- * @irq: the IRQ chip
  * @lock: mutual access to bitmaps
- *
- * @see gpio_dir
+ * @wa_lock: lock to be used in the interrupt handler
  */
 struct siul2_gpio_dev {
 	const struct siul2_device_data *platdata;
@@ -152,20 +118,10 @@ struct siul2_gpio_dev {
 	struct regmap *eirqimcrsmap;
 	struct gpio_chip gc;
 
-	/* Mutual access to SIUL2 registers. */
+	/* Mutual access to SIUL2 bitmaps. */
 	raw_spinlock_t lock;
 	raw_spinlock_t wa_lock;
 };
-
-/* We will use the following variable names:
- * - eirq - number between 0 and 32.
- * - pin - real GPIO id
- * - gpio - number relative to base (first GPIO handled by this chip).
- */
-static inline unsigned int siul2_gpio_to_pin(struct gpio_chip *gc, unsigned int gpio)
-{
-	return gpio + gc->base;
-}
 
 static inline int siul2_get_gpio_pinspec(struct platform_device *pdev,
 					 struct of_phandle_args *pinspec,
@@ -227,7 +183,7 @@ static int siul2_gpio_dir_in(struct gpio_chip *chip, unsigned int gpio)
 	int ret = 0;
 	struct siul2_gpio_dev *gpio_dev;
 
-	ret = pinctrl_gpio_direction_input(siul2_gpio_to_pin(chip, gpio));
+	ret = pinctrl_gpio_direction_input(gpio);
 	if (ret)
 		return ret;
 
@@ -329,7 +285,7 @@ static int siul2_gpio_dir_out(struct gpio_chip *chip, unsigned int gpio,
 	gpio_dev = to_siul2_gpio_dev(chip);
 	siul2_gpio_set_val(chip, gpio, val);
 
-	ret = pinctrl_gpio_direction_output(siul2_gpio_to_pin(chip, gpio));
+	ret = pinctrl_gpio_direction_output(gpio);
 	if (ret)
 		return ret;
 
@@ -341,17 +297,17 @@ static int siul2_gpio_dir_out(struct gpio_chip *chip, unsigned int gpio,
 static int siul2_set_config(struct gpio_chip *chip, unsigned int offset,
 			    unsigned long config)
 {
-	return pinctrl_gpio_set_config(siul2_gpio_to_pin(chip, offset), config);
+	return pinctrl_gpio_set_config(offset, config);
 }
 
 static int siul2_gpio_request(struct gpio_chip *chip, unsigned int gpio)
 {
-	return pinctrl_gpio_request(siul2_gpio_to_pin(chip, gpio));
+	return pinctrl_gpio_request(gpio);
 }
 
 static void siul2_gpio_free(struct gpio_chip *chip, unsigned int gpio)
 {
-	pinctrl_gpio_free(siul2_gpio_to_pin(chip, gpio));
+	pinctrl_gpio_free(gpio);
 }
 
 static int siul2_gpio_irq_set_type(struct irq_data *d, unsigned int type)
@@ -862,7 +818,7 @@ static int siul2_irq_setup(struct platform_device *pdev,
 	regmap_write(gpio_dev->irqmap, SIUL2_DIRER0, 0);
 	regmap_write(gpio_dev->irqmap, SIUL2_DISR0, ~0U);
 
-	/* Select interrupts by default */
+	/* Select no interrupts by default */
 	regmap_write(gpio_dev->irqmap, SIUL2_DIRSR0, 0);
 
 	/* Disable rising-edge events */
@@ -870,11 +826,6 @@ static int siul2_irq_setup(struct platform_device *pdev,
 	/* Disable falling-edge events */
 	regmap_write(gpio_dev->irqmap, SIUL2_IFEER0, 0);
 
-	/*
-	 * We need to request the interrupt here (instead of providing chip
-	 * to the irq directly) because both GPIO controllers share the same
-	 * interrupt line.
-	 */
 	ret = devm_request_irq(&pdev->dev, irq, siul2_gpio_irq_handler,
 			       IRQF_SHARED,
 			       dev_name(&pdev->dev), gpio_dev);
