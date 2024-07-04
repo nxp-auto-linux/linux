@@ -689,6 +689,15 @@ static void s32cc_adc_dma_cb(void *data)
 	/* Current head position */
 	dma_buf->head = (ADC_DMA_BUFF_SZ - state.residue) /
 			ADC_DMA_SAMPLE_SZ;
+
+	/* If everything transferred, avoid an off by one error. */
+	if (!state.residue)
+		dma_buf->head--;
+
+	/* Something went wrong and nothing transferred. */
+	if (state.residue == ADC_DMA_BUFF_SZ)
+		goto out;
+
 	/* Make sure that head is multiple of info->channels_used */
 	dma_buf->head -= dma_buf->head % info->channels_used;
 
@@ -717,6 +726,7 @@ static void s32cc_adc_dma_cb(void *data)
 	}
 
 	dma_buf->tail = dma_buf->head;
+out:
 	dma_sync_single_for_device(dev_dma, info->rx_dma_buf,
 				   ADC_DMA_BUFF_SZ, DMA_FROM_DEVICE);
 	spin_unlock_irqrestore(&info->lock, flags);
