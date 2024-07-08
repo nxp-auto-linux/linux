@@ -16,7 +16,7 @@ fsl-enetc-y := enetc_pf.o
 fsl-enetc-$(CONFIG_FSL_ENETC_QOS) += enetc_qos.o
 
 obj-$(CONFIG_NXP_ENETC4) += nxp-enetc4.o
-nxp-enetc4-y := enetc4_pf.o enetc4_tc.o
+nxp-enetc4-y := enetc4_pf.o enetc4_tc.o enetc4_devlink.o
 nxp-enetc4-$(CONFIG_DEBUG_FS) += enetc4_debugfs.o
 
 obj-$(CONFIG_FSL_ENETC_VF) += fsl-enetc-vf.o
