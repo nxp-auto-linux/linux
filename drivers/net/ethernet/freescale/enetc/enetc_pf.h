@@ -3,6 +3,7 @@
 
 #include "enetc.h"
 #include <linux/phylink.h>
+#include <net/devlink.h>
 
 #define ENETC_PF_NUM_RINGS	8
 #define ENETC_MAX_NUM_MAC_FLT	((ENETC_MAX_NUM_VFS + 1) * MADDR_TYPE)
@@ -79,6 +80,7 @@ struct enetc_pf {
 	const struct enetc_pf_ops *ops;
 
 	int num_mfe;	/* number of mac address filter table entries */
+	struct devlink *devlink;
 };
 
 #define phylink_to_enetc_pf(config) \
