@@ -4,7 +4,7 @@
  *
  * This file contains the device driver core for the HSE cryptographic engine.
  *
- * Copyright 2019-2023 NXP
+ * Copyright 2019-2024 NXP
  */
 
 #include <crypto/algapi.h>
@@ -848,7 +848,10 @@ static int hse_probe(struct platform_device *pdev)
 		err = -ENODEV;
 		goto err_probe_failed;
 	}
-	if (!likely(status & HSE_STATUS_INSTALL_OK)) {
+	if ((IS_ENABLED(CONFIG_CRYPTO_DEV_NXP_HSE_AHASH) ||
+	    IS_ENABLED(CONFIG_CRYPTO_DEV_NXP_HSE_SKCIPHER) ||
+	    IS_ENABLED(CONFIG_CRYPTO_DEV_NXP_HSE_AEAD)) &&
+	    !likely(status & HSE_STATUS_INSTALL_OK)) {
 		dev_err(dev, "key catalogs not formatted\n");
 		err = -ENODEV;
 		goto err_probe_failed;
