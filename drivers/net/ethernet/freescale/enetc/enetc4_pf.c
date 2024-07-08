@@ -9,6 +9,7 @@
 
 #include "enetc_pf_common.h"
 #include "enetc4_debugfs.h"
+#include "enetc4_devlink.h"
 #include "enetc4_tc.h"
 
 #define ENETC_SI_MAX_RING_NUM	8
@@ -464,6 +465,21 @@ static u32 enetc4_psicfgr0_val_construct(bool is_vf, u32 num_tx_bdr, u32 num_rx_
 	return val;
 }
 
+static void enetc4_devlink_allocate_rings(struct enetc_pf *pf)
+{
+	struct enetc_devlink_priv *devl_priv = devlink_priv(pf->devlink);
+	u32 num_si =  pf->caps.num_vsi + 1;
+	struct enetc_hw *hw = &pf->si->hw;
+	u32 num_ring, val;
+	int i;
+
+	for (i = 0; i < num_si && i < ENETC_MAX_SI_NUM; i++) {
+		num_ring = devl_priv->si_num_rings[i];
+		val = enetc4_psicfgr0_val_construct(i > 0, num_ring, num_ring);
+		enetc_port_wr(hw, ENETC4_PSICFGR0(i), val);
+	}
+}
+
 static void enetc4_default_rings_allocation(struct enetc_pf *pf)
 {
 	struct enetc_hw *hw = &pf->si->hw;
@@ -502,7 +518,12 @@ static void enetc4_default_rings_allocation(struct enetc_pf *pf)
 
 static void enetc4_allocate_si_rings(struct enetc_pf *pf)
 {
-	enetc4_default_rings_allocation(pf);
+	struct enetc_devlink_priv *devl_priv = devlink_priv(pf->devlink);
+
+	if (!devl_priv->si_num_rings[0])
+		enetc4_default_rings_allocation(pf);
+	else
+		enetc4_devlink_allocate_rings(pf);
 }
 
 static void enetc4_set_default_si_vlan_promisc(struct enetc_pf *pf)
@@ -1463,6 +1484,92 @@ static void enetc4_pf_netdev_destroy(struct enetc_si *si)
 	free_netdev(ndev);
 }
 
+static int enetc4_pf_unload(struct enetc_pf *pf)
+{
+	struct enetc_si *si = pf->si;
+
+	enetc4_pf_netdev_destroy(si);
+	enetc4_pf_free(pf);
+	pci_disable_device(si->pdev);
+
+	return 0;
+}
+
+static int enetc4_pf_load(struct enetc_pf *pf)
+{
+	struct pci_dev *pdev = pf->si->pdev;
+	struct enetc_si *si = pf->si;
+	int err;
+
+	pcie_flr(pdev);
+	err = pci_enable_device_mem(pdev);
+	if (err) {
+		dev_err(&pdev->dev, "Failed to enable ENETC\n");
+		return err;
+	}
+
+	pci_set_master(pdev);
+
+	err = enetc4_pf_init(pf);
+	if (err)
+		goto err_pf_init;
+
+	enetc_get_si_caps(si);
+	err = enetc4_pf_netdev_create(si);
+	if (err)
+		goto err_netdev_create;
+
+	return 0;
+
+err_netdev_create:
+	enetc4_pf_free(pf);
+err_pf_init:
+	pci_disable_device(pdev);
+
+	return err;
+}
+
+static int enetc4_init_devlink(struct enetc_pf *pf)
+{
+	struct device *dev = &pf->si->pdev->dev;
+	struct enetc_devlink_priv *devl_priv;
+	struct devlink *devlink;
+	int err;
+
+	err = enetc4_devlink_alloc(pf);
+	if (err) {
+		dev_err(dev, "Failed to alloc devlink\n");
+
+		return err;
+	}
+
+	devlink = pf->devlink;
+	devl_priv = devlink_priv(devlink);
+	devl_priv->pf_load = enetc4_pf_load;
+	devl_priv->pf_unload = enetc4_pf_unload;
+
+	err = enetc4_devlink_params_register(devlink);
+	if (err) {
+		dev_err(dev, "Failed to register devlink parameters\n");
+
+		return err;
+	}
+
+	devlink_register(devlink);
+
+	enetc4_devlink_init_params(devlink);
+
+	return 0;
+}
+
+static void enetc4_deinit_devlink(struct enetc_pf *pf)
+{
+	struct devlink *devlink = pf->devlink;
+
+	devlink_unregister(devlink);
+	enetc4_devlink_params_unregister(devlink);
+}
+
 static const struct enetc_si_ops enetc4_psi_ops = {
 	.get_rss_table = enetc4_get_rss_table,
 	.set_rss_table = enetc4_set_rss_table,
@@ -1502,6 +1609,10 @@ static int enetc4_pf_probe(struct pci_dev *pdev,
 		return err;
 
 	pf = enetc_si_priv(si);
+	err = enetc4_init_devlink(pf);
+	if (err)
+		goto err_init_devlink;
+
 	err = enetc4_pf_init(pf);
 	if (err)
 		goto err_pf_init;
@@ -1519,6 +1630,8 @@ static int enetc4_pf_probe(struct pci_dev *pdev,
 err_netdev_create:
 	enetc4_pf_free(pf);
 err_pf_init:
+	enetc4_deinit_devlink(pf);
+err_init_devlink:
 	enetc4_pf_struct_free(pf);
 
 	return err;
@@ -1535,6 +1648,7 @@ static void enetc4_pf_remove(struct pci_dev *pdev)
 	enetc_remove_debugfs(si);
 	enetc4_pf_netdev_destroy(si);
 	enetc4_pf_free(pf);
+	enetc4_deinit_devlink(pf);
 	enetc4_pf_struct_free(pf);
 }
 
