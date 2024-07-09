@@ -1,0 +1,59 @@
+// SPDX-License-Identifier: GPL-2.0-or-later OR BSD-3-Clause
+/*
+ * Device Tree file for S32G3-VC-SOM board.
+ *
+ * Copyright 2024 NXP
+ */
+
+/dts-v1/;
+
+#include "s32g399a-som.dtsi"
+
+/ {
+	model = "NXP S32G3-VC-SOM Board";
+	compatible = "nxp,s32g399a-som", "nxp,s32g3";
+};
+
+&uart0 {
+	status = "okay";
+};
+
+&swt3 {
+	status = "okay";
+};
+
+&swt4 {
+	status = "okay";
+};
+
+&swt5 {
+	status = "okay";
+};
+
+&swt6 {
+	status = "okay";
+};
+
+&swt8 {
+	status = "okay";
+};
+
+&swt9 {
+	status = "okay";
+};
+
+&swt10 {
+	status = "okay";
+};
+
+&swt11 {
+	status = "okay";
+};
+
+&usdhc0 {
+	/*
+	 * Remove no-1-8-v to enable higher speed modes
+	 * for SD card such as: SDR50 or DDR50.
+	 */
+	no-1-8-v;
+};
