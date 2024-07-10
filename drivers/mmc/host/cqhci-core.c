@@ -362,9 +362,18 @@ static int cqhci_enable(struct mmc_host *mmc, struct mmc_card *card)
 /* CQHCI is idle and should halt immediately, so set a small timeout */
 #define CQHCI_OFF_TIMEOUT 100
 
+/* CQHCI could be expected to clear it's internal state pretty quickly */
+#define CQHCI_CLEAR_TIMEOUT		20
+#define CQHCI_CLEAR_DPT_RETRIES	100
+
 static u32 cqhci_read_ctl(struct cqhci_host *cq_host)
 {
 	return cqhci_readl(cq_host, CQHCI_CTL);
+}
+
+static u32 cqhci_read_tclr(struct cqhci_host *cq_host)
+{
+	return cqhci_readl(cq_host, CQHCI_TCLR);
 }
 
 static void cqhci_off(struct mmc_host *mmc)
@@ -595,6 +604,8 @@ static int cqhci_request(struct mmc_host *mmc, struct mmc_request *mrq)
 	int tag = cqhci_tag(mrq);
 	struct cqhci_host *cq_host = mmc->cqe_private;
 	unsigned long flags;
+	u32 reg, tdbr, dpt;
+	u32 retries = 0;
 
 	if (!cq_host->enabled) {
 		pr_err("%s: cqhci: not enabled\n", mmc_hostname(mmc));
@@ -644,6 +655,30 @@ static int cqhci_request(struct mmc_host *mmc, struct mmc_request *mrq)
 	cq_host->slot[tag].flags = 0;
 
 	cq_host->qcnt += 1;
+
+	if (tag == DCMD_SLOT) {
+		/*
+		 * After the task is completed, manually clear
+		 * the DPT[bit n] by setting CQTCLR register
+		 * if DPT[bit n] != CQTDBR[bit n]
+		 */
+		tdbr = cqhci_readl(cq_host, CQHCI_TDBR);
+		dpt = cqhci_readl(cq_host, CQHCI_DPT);
+		dpt &= ~tdbr;
+
+		while (dpt && (retries++ < CQHCI_CLEAR_DPT_RETRIES)) {
+			cqhci_writel(cq_host, dpt, CQHCI_TCLR);
+			err = readx_poll_timeout(cqhci_read_tclr, cq_host, reg,
+						 !(reg & dpt), 0, CQHCI_CLEAR_TIMEOUT);
+			if (err < 0)
+				pr_err("%s: cqhci: CQE did not clear TCLR\n",
+				       mmc_hostname(mmc));
+
+			dpt = cqhci_readl(cq_host, CQHCI_DPT);
+			dpt &= ~tdbr;
+		}
+	}
+
 	/* Make sure descriptors are ready before ringing the doorbell */
 	wmb();
 	cqhci_writel(cq_host, 1 << tag, CQHCI_TDBR);
@@ -1058,9 +1093,6 @@ static void cqhci_recover_mrqs(struct cqhci_host *cq_host)
  * problems clearing tasks, so be generous.
  */
 #define CQHCI_FINISH_HALT_TIMEOUT	20
-
-/* CQHCI could be expected to clear it's internal state pretty quickly */
-#define CQHCI_CLEAR_TIMEOUT		20
 
 static void cqhci_recovery_finish(struct mmc_host *mmc)
 {
