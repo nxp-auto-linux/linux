@@ -1,0 +1,63 @@
+# SPDX-License-Identifier: (GPL-2.0 OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/remoteproc/nxp,carvnet-rproc.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: NXP CAR-V Accelerator
+
+description:
+  This binding provides support for CAR-V, initially found on NXP S32N7x SoCs.
+  The CAR-V (Coherent-mesh Acceleration RISC-V) comprises a grid of many small,
+  interconnected Cores running at high frequency to allow for a high degree
+  of parallelism.
+  The CAR-V-NET mode implements networking acceleration and custom processing
+  support for companion ENETC Ethernet controller.
+
+maintainers:
+  - Jan Petrous <jan.petrous@nxp.com>
+
+properties:
+  compatible:
+    enum:
+      - nxp,carvnet-rproc
+
+  reg:
+    description:
+      Address range of the CAR-V system interface.
+
+  memory-region:
+    description:
+      A phandle for a reserved memory area that used for vdev buffers
+      and firmware used by remote processor.
+    minItems: 2
+    maxItems: 2
+
+  firmware-name:
+    description:
+      Default name of the firmware to load to the CAR-V processor.
+
+required:
+  - compatible
+  - reg
+  - memory-region
+  - firmware-name
+
+additionalProperties: false
+
+examples:
+  - |
+    carv0_fw: fw@d1000000 {
+      reg = <0xd1000000 0x100000>;
+    };
+
+    carv0_vdev: vdev@d1100000 {
+      reg = <0xd1100000 0x100000>;
+    };
+
+    carv0: carv@47800000 {
+      compatible = "nxp,carvnet-rproc";
+      reg = <0x0 0x47800000 0x0 0x50000>;
+      firmware-name = "s32n7-carvnet.fw";
+      memory-region = <&carv0_vdev>, <&carv0_fw>;
+    };
