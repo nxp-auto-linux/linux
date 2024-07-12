@@ -32,6 +32,29 @@
 		reg = <0x0 0x5c000000 0 0x10000>;
 		interrupts = <GIC_SPI 20 IRQ_TYPE_LEVEL_HIGH>;
 	};
+
+	reserved-memory {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		/* CAR-V NET */
+		carv0_fw: fw@d1000000 {
+			compatible = "shared-dma-pool";
+			/* 1 MB */
+			reg = <0 0xd1000000 0 0x100000>;
+			no-map;
+			status = "okay";
+		};
+
+		carv0_vdev: vdev@d1100000 {
+			compatible = "shared-dma-pool";
+			/* 1 MB */
+			reg = <0 0xd1100000 0 0x100000>;
+			no-map;
+			status = "okay";
+		};
+	};
 };
 
 &irqsteer0_coss {
@@ -57,5 +80,12 @@
 
 &usdhc0 {
 	disable-wp;
+	status = "okay";
+};
+
+&carv0 {
+	firmware-name = "s32n7-carvnet.fw";
+	memory-region = <&carv0_vdev>, <&carv0_fw>;
+	memory-region-names = "vdev", "text";
 	status = "okay";
 };
