@@ -2,7 +2,7 @@
 /*
  * Device Tree file for S32R45 Renan Board.
  *
- * Copyright 2023 NXP
+ * Copyright 2023-2024 NXP
  *
  */
 
@@ -597,6 +597,7 @@
 };
 
 &usdhc0 {
+	disable-wp;
 	no-1-8-v;
 	status = "okay";
 };
