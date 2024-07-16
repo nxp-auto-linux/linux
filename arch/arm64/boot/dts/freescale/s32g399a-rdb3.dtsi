@@ -68,6 +68,7 @@
 	mmc-hs200-1_8v;
 	mmc-hs400-1_8v;
 	mmc-hs400-enhanced-strobe;
+	disable-wp;
 	/* Remove no-1-8-v to enable higher speed modes for SD card such as: SDR50 or DDR50
 	 * or eMMC memory, such as HS200, HS400 or HS400 ES respectively.
 	 */
