@@ -213,6 +213,9 @@
 /* Host controller does not support SDR104 mode */
 #define ESDHC_FLAG_BROKEN_SDR104	BIT(18)
 
+/* The IP does not have GPIO CD wake capabilities */
+#define ESDHC_FLAG_SKIP_CD_WAKE		BIT(19)
+
 enum wp_types {
 	ESDHC_WP_NONE,		/* no WP, neither controller nor gpio */
 	ESDHC_WP_CONTROLLER,	/* mmc controller internal WP */
@@ -312,7 +315,8 @@ static struct esdhc_soc_data usdhc_s32cc_data = {
 			| ESDHC_FLAG_HAVE_CAP1 | ESDHC_FLAG_HS200
 			| ESDHC_FLAG_HS400 | ESDHC_FLAG_HS400_ES
 			| ESDHC_FLAG_CQHCI | ESDHC_FLAG_SKIP_ERR004536
-			| ESDHC_FLAG_BROKEN_SDR104,
+			| ESDHC_FLAG_BROKEN_SDR104
+			| ESDHC_FLAG_SKIP_CD_WAKE,
 };
 
 static struct esdhc_soc_data usdhc_imx7ulp_data = {
@@ -1806,7 +1810,8 @@ static int sdhci_esdhc_imx_probe(struct platform_device *pdev)
 		host->mmc->caps |= MMC_CAP_1_8V_DDR | MMC_CAP_3_3V_DDR;
 
 		/* GPIO CD can be set as a wakeup source */
-		host->mmc->caps |= MMC_CAP_CD_WAKE;
+		if (!(imx_data->socdata->flags & ESDHC_FLAG_SKIP_CD_WAKE))
+			host->mmc->caps |= MMC_CAP_CD_WAKE;
 
 		if (!(imx_data->socdata->flags & ESDHC_FLAG_HS200))
 			host->quirks2 |= SDHCI_QUIRK2_BROKEN_HS200;
@@ -1956,6 +1961,10 @@ static int sdhci_esdhc_suspend(struct device *dev)
 	if (ret)
 		return ret;
 
+	ret = mmc_gpio_set_cd_wake(host->mmc, true);
+	if (ret)
+		return ret;
+
 	sdhci_esdhc_imx_disable_clks(imx_data);
 
 	return ret;
@@ -1989,7 +1998,7 @@ static int sdhci_esdhc_resume(struct device *dev)
 			goto disable_clks;
 	}
 
-	return ret;
+	return mmc_gpio_set_cd_wake(host->mmc, false);
 
 disable_clks:
 	sdhci_esdhc_imx_disable_clks(imx_data);
