@@ -275,7 +275,8 @@ static int scmi_gpio_dir_in(struct gpio_chip *chip, unsigned int gpio)
 
 static int update_irq_mapping(struct scmi_gpio_dev *gpio_dev,
 			      unsigned int gpio,
-			      u32 *irq)
+			      u32 *irq,
+			      bool assign_interrupt)
 {
 	const struct scmi_gpio_proto_ops *scmi_ops = gpio_dev->scmi_ops;
 	struct gpio_eirq_state *state;
@@ -321,15 +322,24 @@ static int update_irq_mapping(struct scmi_gpio_dev *gpio_dev,
 	state = &gpio_dev->eirqs.states[*irq];
 
 	state->gpio = gpio;
-	state->active = true;
+
+	/**
+	 * There are functions which want to know if a GPIO
+	 * has an interrupt associated with it. They don't
+	 * necessarily want to enable the interrupt. For
+	 * example, sysfs uses this information in order
+	 * to figure out whether to display the edge file
+	 * for a GPIO.
+	 */
+	state->active = assign_interrupt;
 	spin_unlock(&gpio_dev->eirqs.states_lock);
 
 release_gpio:
-	if (ret && !requested_gpio)
+	if ((ret || !assign_interrupt) && !requested_gpio)
 		scmi_ops->gpio_free(gpio_dev->scmi_ph, gpio);
 
 release_gpio_pinctrl:
-	if (ret && !requested_gpio)
+	if ((ret || !assign_interrupt) && !requested_gpio)
 		pinctrl_gpio_free(gpio);
 
 	return ret;
@@ -371,7 +381,7 @@ static int enable_eirq(struct scmi_gpio_dev *gpio_dev, unsigned int gpio,
 	u32 irq;
 	int ret;
 
-	ret = update_irq_mapping(gpio_dev, gpio, &irq);
+	ret = update_irq_mapping(gpio_dev, gpio, &irq, true);
 	if (ret)
 		return ret;
 
@@ -515,15 +525,12 @@ static int scmi_gpio_irq_domain_xlate(struct irq_domain *d,
 	if (gpio > U32_MAX)
 		return -E2BIG;
 
-	ret = update_irq_mapping(gpio_dev, gpio, &irq);
-	if (ret)
-		return ret;
-
-	ret = irq_state_set_type(gpio_dev, gpio, *out_type);
+	ret = update_irq_mapping(gpio_dev, gpio, &irq, false);
 	if (ret)
 		return ret;
 
 	*out_hwirq = gpio;
+
 	return 0;
 }
 
@@ -541,7 +548,7 @@ static int scmi_gpio_to_irq(struct gpio_chip *chip, unsigned int gpio)
 	u32 irq;
 	int ret;
 
-	ret = update_irq_mapping(gpio_dev, gpio, &irq);
+	ret = update_irq_mapping(gpio_dev, gpio, &irq, false);
 	if (ret)
 		return ret;
 
