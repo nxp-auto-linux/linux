@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later OR MIT
 /*
  * Copyright (c) 2021 SUSE LLC
- * Copyright (c) 2019-2021 NXP
+ * Copyright (c) 2019-2021, 2024 NXP
  */
 
 /dts-v1/;
@@ -44,6 +44,7 @@
 };
 
 &usdhc0 {
+	disable-wp;
 	/* Remove no-1-8-v to enable higher speed modes for SD card.
 	 * However, this is not enough to enable HS400 or HS200 modes for eMMC.
 	 * In this case, the position of the resistor R797 must be changed

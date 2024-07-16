@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later OR MIT
 /*
- * Copyright 2019-2020, 2023 NXP
+ * Copyright 2019-2020, 2023-2024 NXP
  */
 
 /dts-v1/;
@@ -75,6 +75,7 @@
 &usdhc0 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&sd0_pins_default>;
+	disable-wp;
 	no-1-8-v;
 	status = "okay";
 };
