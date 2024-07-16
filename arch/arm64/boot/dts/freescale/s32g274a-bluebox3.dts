@@ -46,6 +46,7 @@
 	pinctrl-1 = <&sd0_pins_100mhz>;
 	pinctrl-2 = <&sd0_pins_200mhz>;
 	bus-width = <4>;
+	disable-wp;
 	status = "okay";
 };
 
