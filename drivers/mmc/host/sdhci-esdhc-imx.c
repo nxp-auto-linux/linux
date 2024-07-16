@@ -1944,11 +1944,9 @@ static int sdhci_esdhc_suspend(struct device *dev)
 	if (ret)
 		return ret;
 
-	if (!is_s32cc_usdhc(imx_data)) {
-		ret = pinctrl_pm_select_sleep_state(dev);
-		if (ret)
-			return ret;
-	}
+	ret = pinctrl_pm_select_sleep_state(dev);
+	if (ret)
+		return ret;
 
 	ret = mmc_gpio_set_cd_wake(host->mmc, true);
 	if (ret)
