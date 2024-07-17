@@ -70,11 +70,18 @@ static void carvnet_rproc_kick(struct rproc *rproc, int vqid)
 	/* no op */
 }
 
+static int carvnet_rproc_elf_load(struct rproc *rproc,
+				  const struct firmware *fw)
+{
+	return 0;
+}
+
 static const struct rproc_ops carvnet_rproc_ops = {
 	.start		= carvnet_rproc_start,
 	.stop		= carvnet_rproc_stop,
 	.kick		= carvnet_rproc_kick,
 	.parse_fw	= carvnet_rproc_parse_fw,
+	.load		= carvnet_rproc_elf_load,
 	.find_loaded_rsc_table	= rproc_elf_find_loaded_rsc_table,
 };
 
