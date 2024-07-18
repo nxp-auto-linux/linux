@@ -516,10 +516,13 @@ static struct regmap *common_regmap_init(struct platform_device *pdev,
 	conf->name = name;
 	conf->use_raw_spinlock = true;
 
+	if (conf->cache_type != REGCACHE_NONE)
+		conf->num_reg_defaults_raw = size / conf->reg_stride;
+
 	return devm_regmap_init_mmio(dev, base, conf);
 }
 
-static bool irqregmap_writeable(struct device *dev, unsigned int reg)
+static bool irqregmap_accessible(struct device *dev, unsigned int reg)
 {
 	switch (reg) {
 	case SIUL2_DISR0:
@@ -701,7 +704,8 @@ static struct regmap *init_irqregmap(struct platform_device *pdev)
 {
 	struct regmap_config regmap_conf = siul2_regmap_conf;
 
-	regmap_conf.writeable_reg = irqregmap_writeable;
+	regmap_conf.writeable_reg = irqregmap_accessible;
+	regmap_conf.readable_reg = irqregmap_accessible;
 	regmap_conf.volatile_reg = irqmap_volatile_reg;
 	regmap_conf.val_format_endian = REGMAP_ENDIAN_LITTLE;
 
