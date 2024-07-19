@@ -440,6 +440,28 @@
 	};
 };
 
+&gpio {
+	/*
+	 * Drive GPIO[151] low for LLCE_CAN0 enablement.
+	 */
+	tja1448a-llce-can0-stb-hog {
+		gpio-hog;
+		gpios = <151 GPIO_ACTIVE_HIGH>;
+		output-low;
+		line-name = "tja1448a-llce-can0-stb";
+	};
+
+	/*
+	 * Drive GPIO[153] low for LLCE_CAN1 enablement.
+	 */
+	tja1448a-llce-can1-stb-hog {
+		gpio-hog;
+		gpios = <153 GPIO_ACTIVE_HIGH>;
+		output-low;
+		line-name = "tja1448a-llce-can1-stb";
+	};
+};
+
 /*
  * LLCE CAN 0 is connected to the JP1 connector
  * available on the S32G3-VC-SOM board.
