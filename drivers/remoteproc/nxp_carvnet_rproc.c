@@ -10,6 +10,7 @@
 #include <linux/debugfs.h>
 #include <linux/io.h>
 #include <linux/of.h>
+#include <linux/of_address.h>
 #include <linux/of_reserved_mem.h>
 #include <linux/platform_device.h>
 #include <linux/remoteproc.h>
@@ -22,6 +23,282 @@ MODULE_PARM_DESC(auto_boot,
 		 "Auto-boot the CAR-V-NET remote processor [default=false]");
 
 #define CARVNET_FW_ALIGN	0x4000
+
+/* CAR-V NoCore registers */
+
+/* Global */
+#define CARV_GL_CR		0x0
+#define CARV_GL_AHBER		0x10	/* deprecated */
+#define CARV_GL_IMR		0x20
+#define CARV_GL_FMR		0x24
+#define CARV_GL_PCR		0x80
+#define CARV_GL_UCR		0x84
+#define CARV_GL_UPR		0x88
+#define CARV_GL_AHBCR		0x8C
+#define CARV_GL_USR		0x90
+#define CARV_GL_INFO		0x100
+
+#define CARV_GL_CR_IP_VID_MASK	(0xFFFF0000)
+#define GET_CARV_GL_CR_IP_VID(v)	(((v) & CARV_GL_CR_IP_VID_MASK) >> 16)
+#define CARV_GL_CR_LOCK_MASK	(0x00000004)
+#define CARV_GL_CR_LOCK(v)	(((v) << 2) & CARV_GL_CR_LOCK_MASK)
+#define GET_CARV_GL_CR_LOCK(v)	(((v) & CARV_GL_CR_LOCK_MASK) >> 2)
+#define CARV_GL_CR_CLOCK_MASK	(0x00000002)
+#define CARV_GL_CR_CLOCK(v)	(((v) << 1) & CARV_GL_CR_CLOCK_MASK)
+#define GET_CARV_GL_CR_CLOCK(v)	(((v) & CARV_GL_CR_CLOCK_MASK) >> 1)
+#define CARV_GL_CR_ENA_MASK	(0x00000001)
+#define CARV_GL_CR_ENA(v)	((v) & CARV_GL_CR_ENA_MASK)
+#define GET_CARV_GL_CR_ENA(v)	((v) & CARV_GL_CR_ENA_MASK)
+
+#define CARV_GL_PCR_Q_POS_0	(0x0 << 2)
+#define CARV_GL_PCR_Q_POS_1	(0x1 << 2)
+#define CARV_GL_PCR_Q_POS_2	(0x2 << 2)
+#define CARV_GL_PCR_Q_POS_3	(0x3 << 2)
+#define CARV_GL_PCR_ONE_Q_ISO	(0x0)
+#define CARV_GL_PCR_TWO_Q_ISO	(0x1)
+#define CARV_GL_PCR_FOUR_Q_ISO	(0x2)
+
+#define CARV_GL_UCR_USERCNT1	(0x0)
+#define CARV_GL_UCR_USERCNT2	(0x1)
+#define CARV_GL_UCR_USERCNT3	(0x2)
+#define CARV_GL_UCR_USERCNT4	(0x3)
+
+#define CARV_GL_UPR_PRI0(v)	((v) & 0x3)
+#define CARV_GL_UPR_PRI1(v)	(((v) & 0x3) << 2)
+#define CARV_GL_UPR_PRI2(v)	(((v) & 0x3) << 4)
+#define CARV_GL_UPR_PRI3(v)	(((v) & 0x3) << 6)
+
+/* User set array (set by GL_UCR) */
+#define CARV_Q_USER_OFFSET(u)	((u) * 0x10000)				/* u: 0..3 */
+#define CARV_Q_BASE(u)		(0x10000 + CARV_Q_USER_OFFSET(u))
+
+/* Quartile Mailbox */
+#define CARV_Q_MB_CR(u)		(CARV_Q_BASE(u) + 0x0)
+#define CARV_Q_MB_IR(u)		(CARV_Q_BASE(u) + 0x4)
+#define CARV_Q_MB_IER(u)	(CARV_Q_BASE(u) + 0x8)
+#define CARV_Q_MB_FER(u)	(CARV_Q_BASE(u) + 0xC)
+#define CARV_Q_MB_INFO_CR(u, n)	(CARV_Q_BASE(u) + 0x10 + ((n) * 0x4))	/* n: 0..2 */
+#define CARV_Q_MB_MIR(u)	(CARV_Q_BASE(u) + 0x20)
+#define CARV_Q_MBOX_IFMSK(u)	(CARV_Q_BASE(u) + 0x40)
+
+#define CARV_Q_MB_CR_INFO_MASK	(0xFFFF0000)
+#define CARV_Q_MB_CR_INFO(v)	(((v) << 16) & CARV_Q_MB_CR_INFO_MASK)
+#define GET_CARV_Q_MB_CR_INFO(v)	(((v) & CARV_Q_MB_CR_INFO_MASK) >> 16)
+#define CARV_Q_MB_CR_ERRORS_MASK	(0x0000F000)
+#define CARV_Q_MB_CR_ERRORS(v)	(((v) << 12) & CARV_Q_MB_CR_ERRORS_MASK)
+#define GET_CARV_Q_MB_CR_ERRORS(v)	(((v) & CARV_Q_MB_CR_ERRORS_MASK) >> 12)
+#define CARV_Q_MB_CR_RSTCHG_MASK	(0x00000200)
+#define CARV_Q_MB_CR_RSTCHG(v)	(((v) << 9) & CARV_Q_MB_CR_RSTCHG_MASK)
+#define GET_CARV_Q_MB_CR_RSTCHG(v)	(((v) & CARV_Q_MB_CR_RSTCHG_MASK) >> 9)
+#define CARV_Q_MB_CR_RSTSTART_MASK	(0x00000100)
+#define CARV_Q_MB_CR_RSTSTART(v)	(((v) << 8) & CARV_Q_MB_CR_RSTSTART_MASK)
+#define GET_CARV_Q_MB_CR_RSTSTART(v)	(((v) & CARV_Q_MB_CR_RSTSTART_MASK) >> 8)
+#define CARV_Q_MB_CR_UPDATE_MASK	(0x00000010)
+#define CARV_Q_MB_CR_UPDATE(v)	(((v) << 4) & CARV_Q_MB_CR_UPDATE_MASK)
+#define GET_CARV_Q_MB_CR_UPDATE(v)	(((v) & CARV_Q_MB_CR_UPDATE_MASK) >> 4)
+#define CARV_Q_MB_CR_FAULT_MASK	(0x00000008)
+#define CARV_Q_MB_CR_FAULT(v)	(((v) << 3) & CARV_Q_MB_CR_FAULT_MASK)
+#define GET_CARV_Q_MB_CR_FAULT(v)	(((v) & CARV_Q_MB_CR_FAULT_MASK) >> 3)
+#define CARV_Q_MB_CR_ERR_MASK	(0x00000004)
+#define CARV_Q_MB_CR_ERR(v)	(((v) << 2) & CARV_Q_MB_CR_ERR_MASK)
+#define GET_CARV_Q_MB_CR_ERR(v)	(((v) & CARV_Q_MB_CR_ERR_MASK) >> 2)
+#define CARV_Q_MB_CR_DONE_MASK	(0x00000002)
+#define CARV_Q_MB_CR_DONE(v)	(((v) << 1) & CARV_Q_MB_CR_DONE_MASK)
+#define GET_CARV_Q_MB_CR_DONE(v)	(((v) & CARV_Q_MB_CR_DONE_MASK) >> 1)
+#define CARV_Q_MB_CR_ENA_MASK	(0x00000001)
+#define CARV_Q_MB_CR_ENA(v)	((v) & CARV_Q_MB_CR_ENA_MASK)
+#define GET_CARV_Q_MB_CR_ENA(v)	((v) & CARV_Q_MB_CR_ENA_MASK)
+
+/* Quartile Address Translation */
+#define CARV_AT_SIMPLE_REGIONS	8
+#define CARV_AT_PRIO_REGIONS	4
+#define CARV_Q_AT_BARL(u, n)	(CARV_Q_BASE(u) + 0x50 + ((n) * 0x8))	/* n: 0..3 */
+#define CARV_Q_AT_BARH(u, n)	(CARV_Q_BASE(u) + 0x54 + ((n) * 0x8))	/* n: 0..3 */
+#define CARV_Q_AT_SRR(u, n)	(CARV_Q_BASE(u) + 0x110 + ((n) * 0x4))	/* n: 0..7 */
+#define CARV_Q_AT_RCR(u, n)	(CARV_Q_BASE(u) + 0x150 + ((n) * 0x10))	/* n: 0..3 */
+#define CARV_Q_AT_RMR(u, n)	(CARV_Q_BASE(u) + 0x154 + ((n) * 0x10))	/* n: 0..3 */
+
+#define CARV_Q_AT_BARL_MEMTYPE_NCOH	(0x0)
+#define CARV_Q_AT_BARL_MEMTYPE_COH	(0x1)
+#define CARV_Q_AT_BARL_MEMTYPE_SHAR	(0x2)
+#define CARV_Q_AT_BARL_ADDR_MASK	(0xFFFFC000ULL)
+#define CARV_Q_AT_BARL_ADDR(v)		((v) & CARV_Q_AT_BARL_ADDR_MASK)
+#define GET_CARV_Q_AT_BARL_ADDR(v)	((v) & CARV_Q_AT_BARL_ADDR_MASK)
+#define CARV_Q_AT_BARH_ADDR_MASK	(0x0007FFFFULL)
+#define CARV_Q_AT_BARH_ADDR(v)		(((v) >> 32) & CARV_Q_AT_BARH_ADDR_MASK)
+#define GET_CARV_Q_AT_BARH_ADDR(v)	(((v) & CARV_Q_AT_BARH_ADDR_MASK) << 32)
+#define GET_CARV_Q_AT_BAR_ADDR(h, l)	(GET_CARV_Q_AT_BARH_ADDR(h) |             \
+					 GET_CARV_Q_AT_BARL_ADDR(l))
+
+#define CARV_Q_AT_SRR_OFFS_MASK		(0x03F00000)
+#define CARV_Q_AT_SRR_OFFS(v)		(((v) << 20) & CARV_Q_AT_SRR_OFFS_MASK)
+#define GET_CARV_Q_AT_SRR_OFFS(v)	(((v) & CARV_Q_AT_SRR_OFFS_MASK) >> 20)
+#define CARV_Q_AT_SRR_OFFL_MASK		(0x000F0000)
+#define CARV_Q_AT_SRR_OFFL(v)		(((v) << 16) & CARV_Q_AT_SRR_OFFL_MASK)
+#define GET_CARV_Q_AT_SRR_OFFL(v)	(((v) & CARV_Q_AT_SRR_OFFL_MASK) >> 16)
+#define CARV_Q_AT_SRR_MEM_MASK		(0x00000600)
+#define CARV_Q_AT_SRR_MEM(v)		(((v) << 9) & CARV_Q_AT_SRR_MEM_MASK)
+#define GET_CARV_Q_AT_SRR_MEM(v)	(((v) & CARV_Q_AT_SRR_MEM_MASK) >> 9)
+#define CARV_Q_AT_SRR_LOCP_MASK		(0x00000100)
+#define CARV_Q_AT_SRR_LOCP(v)		(((v) << 8) & CARV_Q_AT_SRR_LOCP_MASK)
+#define GET_CARV_Q_AT_SRR_LOCP(v)	(((v) & CARV_Q_AT_SRR_LOCP_MASK) >> 8)
+#define CARV_Q_AT_SRR_SIZE_MASK		(0x000000F0)
+#define CARV_Q_AT_SRR_SIZE(v)		(((v) << 4) & CARV_Q_AT_SRR_SIZE_MASK)
+#define GET_CARV_Q_AT_SRR_SIZE(v)	(((v) & CARV_Q_AT_SRR_SIZE_MASK) >> 4)
+#define CARV_Q_AT_SRR_TYPE_MASK		(0x000000C)
+#define CARV_Q_AT_SRR_TYPE(v)		(((v) << 2) & CARV_Q_AT_SRR_TYPE_MASK)
+#define GET_CARV_Q_AT_SRR_TYPE(v)	(((v) & CARV_Q_AT_SRR_TYPE_MASK) >> 2)
+#define CARV_Q_AT_SRR_SUB_MASK		(0x00000002)
+#define CARV_Q_AT_SRR_SUB(v)		(((v) << 1) & CARV_Q_AT_SRR_SUB_MASK)
+#define GET_CARV_Q_AT_SRR_SUB(v)	(((v) & CARV_Q_AT_SRR_SUB_MASK) >> 1)
+#define CARV_Q_AT_SRR_ENA_MASK		(0x00000001)
+#define CARV_Q_AT_SRR_ENA(v)		((v) & CARV_Q_AT_SRR_ENA_MASK)
+#define GET_CARV_Q_AT_SRR_ENA(v)	((v) & CARV_Q_AT_SRR_ENA_MASK)
+
+#define CARV_Q_AT_RCR_OFFS_MASK		(0x03F00000)
+#define CARV_Q_AT_RCR_OFFS(v)		(((v) << 20) & CARV_Q_AT_RCR_OFFS_MASK)
+#define GET_CARV_Q_AT_RCR_OFFS(v)	(((v) & CARV_Q_AT_RCR_OFFS_MASK) >> 20)
+#define CARV_Q_AT_RCR_OFFL_MASK		(0x000F0000)
+#define CARV_Q_AT_RCR_OFFL(v)		(((v) << 16) & CARV_Q_AT_RCR_OFFL_MASK)
+#define GET_CARV_Q_AT_RCR_OFFL(v)	(((v) & CARV_Q_AT_RCR_OFFL_MASK) >> 16)
+#define CARV_Q_AT_RCR_SIZE_MASK		(0x00000F00)
+#define CARV_Q_AT_RCR_SIZE(v)		(((v) << 8) & CARV_Q_AT_RCR_SIZE_MASK)
+#define GET_CARV_Q_AT_RCR_SIZE(v)	(((v) & CARV_Q_AT_RCR_SIZE_MASK) >> 8)
+#define CARV_Q_AT_RCR_MEM_MASK		(0x00000006)
+#define CARV_Q_AT_RCR_MEM(v)		(((v) << 1) & CARV_Q_AT_RCR_MEM_MASK)
+#define GET_CARV_Q_AT_RCR_MEM(v)	(((v) & CARV_Q_AT_RCR_MEM_MASK) >> 1)
+#define CARV_Q_AT_RCR_ENA_MASK		(0x00000001)
+#define CARV_Q_AT_RCR_ENA(v)		((v) & CARV_Q_AT_RCR_ENA_MASK)
+#define GET_CARV_Q_AT_RCR_ENA(v)	((v) & CARV_Q_AT_RCR_ENA_MASK)
+
+#define CARV_Q_AT_RMR_MATCH_MASK	(0xFFFFF000)
+#define CARV_Q_AT_RMR_MATCH(v)		(((v) << 12) & CARV_Q_AT_RMR_MATCH_MASK)
+#define GET_CARV_Q_AT_RMR_MATCH(v)	(((v) & CARV_Q_AT_RMR_MATCH_MASK) >> 12)
+
+/* Quartile System Interface */
+#define CARV_Q_SI_PMCR(u, n)	(CARV_Q_BASE(u) + 0x190 + ((n) * 0x10))   /* n: 0..3 */
+#define CARV_Q_SI_PML(u, n)	(CARV_Q_BASE(u) + 0x194 + ((n) * 0x10))   /* n: 0..3 */
+#define CARV_Q_SI_PMH(u, n)	(CARV_Q_BASE(u) + 0x198 + ((n) * 0x10))   /* n: 0..3 */
+
+/* Interrupt sources */
+enum {
+	CARV_INT_F_BUS_BIT,	/* Parity error detected on internal CAR-V bus */
+	CARV_INT_F_L2_BIT,	/* Uncorrectable L2 error */
+	CARV_INT_F_L1_BIT,	/* Uncorrectable L1D and/or L1I error */
+	CARV_INT_F_CORE_BIT,	/* CAR-V Core related exceptions of type:
+				 *   - watchdog timeout detected
+				 *   - DTCM parity error detected
+				 *   - software vector missing
+				 *   - illegal instruction
+				 */
+	CARV_INT_F_AHB_BIT,	/* AHB access response error */
+	CARV_INT_F_PART_BIT,	/* illegal isolated partition configuration */
+	CARV_INT_F_AXIRP_BIT,	/* Parity error on AXI RDATA attribute */
+	CARV_INT_F_AXIWE_BIT,	/* Response error on AXI BRESP attribute */
+	CARV_INT_F_AXIRE_BIT,	/* Read error on AXI RRESP attribute */
+	CARV_INT_F_MAP_BIT,	/* No external memory address mapping available
+				 * (no translation)
+				 */
+	CARV_INT_ACTIVATED_BIT,	/* MBOX activated (MB_CRn[ENA] set and then
+				 * serviced)
+				 */
+	CARV_INT_EVFLDONE_BIT,	/* MBOX flush/evict completed (with barrier to
+				 * assure BRESP for all Flush writes)
+				 */
+	CARV_INT_UPDATE_BIT,	/* MBOX update received from Root Core */
+	CARV_INT_ERR_BIT,	/* MBOX error received from Root Core */
+	CARV_INT_DONE_BIT	/* MBOX done received from Root Core */
+};
+
+#define	GET_CARV_INT_F_BUS(v)		(!!((v) & CARV_INT_F_BUS))
+#define	GET_CARV_INT_F_L2(v)		(!!((v) & CARV_INT_F_L2))
+#define	GET_CARV_INT_F_L1(v)		(!!((v) & CARV_INT_F_L1))
+#define	GET_CARV_INT_F_CORE(v)		(!!((v) & CARV_INT_F_CORE))
+#define	GET_CARV_INT_F_AHB(v)		(!!((v) & CARV_INT_F_AHB))
+#define	GET_CARV_INT_F_PART(v)		(!!((v) & CARV_INT_F_PART))
+#define	GET_CARV_INT_F_AXIRP(v)		(!!((v) & CARV_INT_F_AXIRP))
+#define	GET_CARV_INT_F_AXIWE(v)		(!!((v) & CARV_INT_F_AXIWE))
+#define	GET_CARV_INT_F_AXIRE(v)		(!!((v) & CARV_INT_F_AXIRE))
+#define	GET_CARV_INT_F_MAP(v)		(!!((v) & CARV_INT_F_MAP))
+#define	GET_CARV_INT_ACTIVATED(v)	(!!((v) & CARV_INT_ACTIVATED))
+#define	GET_CARV_INT_EVFLDONE(v)	(!!((v) & CARV_INT_EVFLDONE))
+#define	GET_CARV_INT_UPDATE(v)		(!!((v) & CARV_INT_UPDATE))
+#define	GET_CARV_INT_ERR(v)		(!!((v) & CARV_INT_ERR))
+#define	GET_CARV_INT_DONE(v)		(!!((v) & CARV_INT_DONE))
+
+/* Dump area of CAR-V registers */
+static const struct q_regmap_tab_gl {
+	const char *name;
+	const u32 addr;
+} q_regmap_tab_gl[] = {
+	{ "GL_CR", CARV_GL_CR },
+	{ "GL_AHBER", CARV_GL_AHBER },
+	{ "GL_IMR", CARV_GL_IMR },
+	{ "GL_FMR", CARV_GL_FMR },
+	{ "GL_PCR", CARV_GL_PCR },
+	{ "GL_UCR", CARV_GL_UCR },
+	{ "GL_UPR", CARV_GL_UPR },
+	{ "GL_AHBCR", CARV_GL_AHBCR },
+	{ "GL_USR", CARV_GL_USR },
+	{ "GL_INFO", CARV_GL_INFO },
+	{ 0 },
+};
+
+static const struct q_regmap_tab_u {
+	const char *name;
+	const u32 addr;
+} q_regmap_tab_u[] = {
+	{ "MB_CR", CARV_Q_MB_CR(0) },
+	{ "MB_IR", CARV_Q_MB_IR(0) },
+	{ "MB_IER", CARV_Q_MB_IER(0) },
+	{ "MB_FER", CARV_Q_MB_FER(0) },
+	{ "MB_INFO_CR0", CARV_Q_MB_INFO_CR(0, 0) },
+	{ "MB_INFO_CR1", CARV_Q_MB_INFO_CR(0, 1) },
+	{ "MB_INFO_CR2", CARV_Q_MB_INFO_CR(0, 2) },
+	{ "MB_INFO_CR3", CARV_Q_MB_INFO_CR(0, 3) },
+	{ "MB_MIR", CARV_Q_MB_MIR(0) },
+	{ "MB_IFMSK", CARV_Q_MBOX_IFMSK(0) },
+	{ "AT_BARL0", CARV_Q_AT_BARL(0, 0) },
+	{ "AT_BARL1", CARV_Q_AT_BARL(0, 1) },
+	{ "AT_BARL2", CARV_Q_AT_BARL(0, 2) },
+	{ "AT_BARL3", CARV_Q_AT_BARL(0, 3) },
+	{ "AT_BARH0", CARV_Q_AT_BARH(0, 0) },
+	{ "AT_BARH1", CARV_Q_AT_BARH(0, 1) },
+	{ "AT_BARH2", CARV_Q_AT_BARH(0, 2) },
+	{ "AT_BARH3", CARV_Q_AT_BARH(0, 3) },
+	{ "AT_SRR0", CARV_Q_AT_SRR(0, 0) },
+	{ "AT_SRR1", CARV_Q_AT_SRR(0, 1) },
+	{ "AT_SRR2", CARV_Q_AT_SRR(0, 2) },
+	{ "AT_SRR3", CARV_Q_AT_SRR(0, 3) },
+	{ "AT_SRR4", CARV_Q_AT_SRR(0, 4) },
+	{ "AT_SRR5", CARV_Q_AT_SRR(0, 5) },
+	{ "AT_SRR6", CARV_Q_AT_SRR(0, 6) },
+	{ "AT_SRR7", CARV_Q_AT_SRR(0, 7) },
+	{ "AT_RCR0", CARV_Q_AT_RCR(0, 0) },
+	{ "AT_RCR1", CARV_Q_AT_RCR(0, 1) },
+	{ "AT_RCR2", CARV_Q_AT_RCR(0, 2) },
+	{ "AT_RCR3", CARV_Q_AT_RCR(0, 3) },
+	{ "AT_RMR0", CARV_Q_AT_RMR(0, 0) },
+	{ "AT_RMR1", CARV_Q_AT_RMR(0, 1) },
+	{ "AT_RMR2", CARV_Q_AT_RMR(0, 2) },
+	{ "AT_RMR3", CARV_Q_AT_RMR(0, 3) },
+	{ "SI_PMCR0", CARV_Q_SI_PMCR(0, 0) },
+	{ "SI_PMCR1", CARV_Q_SI_PMCR(0, 1) },
+	{ "SI_PMCR2", CARV_Q_SI_PMCR(0, 2) },
+	{ "SI_PMCR3", CARV_Q_SI_PMCR(0, 3) },
+	{ "SI_PML0", CARV_Q_SI_PML(0, 0) },
+	{ "SI_PML1", CARV_Q_SI_PML(0, 1) },
+	{ "SI_PML2", CARV_Q_SI_PML(0, 2) },
+	{ "SI_PML3", CARV_Q_SI_PML(0, 3) },
+	{ "SI_PMH0", CARV_Q_SI_PMH(0, 0) },
+	{ "SI_PMH1", CARV_Q_SI_PMH(0, 1) },
+	{ "SI_PMH2", CARV_Q_SI_PMH(0, 2) },
+	{ "SI_PMH3", CARV_Q_SI_PMH(0, 3) },
+	{ 0 },
+};
+
+#define MBOX_PING_REQUEST	(250U)
+#define MBOX_PING_REPLY		(251U)
 
 enum {
 	MEMRES_VDEV_ID,
@@ -45,6 +322,7 @@ struct carvnet {
 	 */
 	struct memres mrs[MEMRES_MAX];
 	struct dentry *subdentry;
+	void __iomem *regs;
 };
 
 static int carvnet_rproc_parse_fw(struct rproc *rproc,
@@ -73,6 +351,27 @@ static void carvnet_rproc_kick(struct rproc *rproc, int vqid)
 {
 	/* no op */
 }
+
+/* Expose NoCore registers via debugfs */
+static int carvnet_dump_regs_show(struct seq_file *seq, void *unused)
+{
+	struct carvnet *priv = seq->private;
+	int i;
+
+	/* Global regs (GL_*) */
+	for (i = 0; q_regmap_tab_gl[i].name; i++)
+		seq_printf(seq, "%-14s: 0x%08x\n", q_regmap_tab_gl[i].name,
+			   readl(priv->regs + q_regmap_tab_gl[i].addr));
+
+	/* User 0 set */
+	for (i = 0; q_regmap_tab_u[i].name; i++)
+		seq_printf(seq, "%-14s: 0x%08x\n", q_regmap_tab_u[i].name,
+			   readl(priv->regs + q_regmap_tab_u[i].addr +
+			   CARV_Q_USER_OFFSET(0)));
+
+	return 0;
+}
+DEFINE_SHOW_ATTRIBUTE(carvnet_dump_regs);
 
 /* Expose carveout mem content via debugfs */
 static int rproc_carveout_hexdump_show(struct seq_file *seq, void *unused)
@@ -271,6 +570,7 @@ static int carvnet_rproc_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct device_node *np = dev->of_node;
 	struct rproc *rproc;
+	struct carvnet *priv;
 	const char *fw_name = NULL;
 	int ret;
 
@@ -285,6 +585,7 @@ static int carvnet_rproc_probe(struct platform_device *pdev)
 				 sizeof(struct carvnet));
 	if (!rproc)
 		return -ENOMEM;
+	priv = rproc->priv;
 
 	ret = carvnet_rproc_parse_resmem(rproc);
 	if (ret)
@@ -295,6 +596,11 @@ static int carvnet_rproc_probe(struct platform_device *pdev)
 	rproc->auto_boot = auto_boot;
 
 	ret = devm_rproc_add(dev, rproc);
+	if (ret)
+		return dev_err_probe(dev, ret, "rproc_add failed\n");
+
+	debugfs_create_file("dump_regs", 0400, rproc->dbg_dir, priv,
+			    &carvnet_dump_regs_fops);
 
 	return ret;
 }
