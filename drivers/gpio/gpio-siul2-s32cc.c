@@ -1104,8 +1104,7 @@ static int siul2_gpio_probe(struct platform_device *pdev)
 
 	gpio_dev->eirqs_bitmap = 0;
 
-	bitmap_size = BITS_TO_LONGS(gc->ngpio) *
-		      sizeof(*gpio_dev->pin_dir_bitmap);
+	bitmap_size = gc->ngpio * sizeof(*gpio_dev->pin_dir_bitmap);
 	gpio_dev->pin_dir_bitmap = devm_bitmap_zalloc(dev, bitmap_size,
 						      GFP_KERNEL);
 	if (!gpio_dev->pin_dir_bitmap)
