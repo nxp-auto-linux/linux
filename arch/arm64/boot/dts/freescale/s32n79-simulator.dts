@@ -44,3 +44,8 @@
 &cdma_iep {
 	status = "disabled";
 };
+
+&usdhc0 {
+	disable-wp;
+	status = "okay";
+};
