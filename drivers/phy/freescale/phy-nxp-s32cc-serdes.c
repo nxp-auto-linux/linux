@@ -2,7 +2,7 @@
 /**
  * SerDes driver for S32CC SoCs
  *
- * Copyright 2021-2023 NXP
+ * Copyright 2021-2024 NXP
  */
 
 #include <dt-bindings/phy/phy.h>
@@ -99,6 +99,8 @@
 #define INTERNAL_CLK_NAME	"ref"
 
 #define SERDES_PCIE_FREQ	100000000
+
+#define XPCS_RX_STABLE_TIMEOUT	25 /* µs */
 
 struct serdes_lane_conf {
 	enum phy_mode mode;
@@ -436,6 +438,62 @@ static void prepare_pma_mode5(struct serdes *serdes)
 		      EXT_RX_LOS_THRESHOLD(0x3U) | EXT_RX_VREF_CTRL(0x11U));
 }
 
+static void xpcs_check_rx_stable(struct serdes *serdes, u32 xpcs_active)
+{
+	u32 xpcs_rx_stable = 0;
+	u32 rx_stable_timeoutus, i;
+
+	/*
+	 * Wait for RX to become stable over all referenced XPCS
+	 * after the PLLs have been set up.
+	 * The max timeout really should be determined based on the
+	 * worst case protocol that we actually have on the active
+	 * XPCS's and XPCS<=>PHY behavior. It is known to be non-zero
+	 * in time, but the max is not clearly defined. We chose 25µs
+	 * and experience shows that it is in practice below 10µs.
+	 *
+	 * It is questionable if this check is doing anything useful for
+	 * the user, especially as it would report failure needlessly
+	 * for unused lanes.
+	 */
+	for (i = 0; i < SERDES_MAX_LANES; i++) {
+		if (!(xpcs_active & BIT(i)))
+			continue;
+
+		for (rx_stable_timeoutus = 0;
+			rx_stable_timeoutus < XPCS_RX_STABLE_TIMEOUT;
+			rx_stable_timeoutus++) {
+			if (xpcs_rx_stable & BIT((i)))
+				break;
+
+			if (is_xpcs_rx_stable(serdes, i)) {
+				xpcs_rx_stable |= BIT(i);
+				dev_info(serdes->dev,
+					 "Stable RX detected on XPCS%u after %u µs\n", i,
+					 rx_stable_timeoutus);
+			}
+			udelay(1);
+		}
+	}
+
+	/*
+	 * Final report of all unstable RX XPCS. We only know after
+	 * the timeout expired.
+	 */
+	if (xpcs_rx_stable != xpcs_active) {
+		for (i = 0; i < SERDES_MAX_LANES; i++) {
+			if (!(xpcs_active & BIT(i)))
+				continue;
+
+			if (xpcs_rx_stable & BIT(i))
+				continue;
+
+			dev_warn(serdes->dev,
+				 "Unstable RX detected on XPCS%u\n", i);
+		}
+	}
+}
+
 static int xpcs_init_clks(struct serdes *serdes)
 {
 	struct serdes_ctrl *ctrl = &serdes->ctrl;
@@ -524,10 +582,6 @@ static int xpcs_init_clks(struct serdes *serdes)
 			return ret;
 
 		xpcs->ops->reset_rx(xpcs->phys[xpcs_id]);
-
-		if (!is_xpcs_rx_stable(serdes, xpcs_id))
-			dev_info(serdes->dev,
-				 "Unstable RX detected on XPCS%d\n", xpcs_id);
 	}
 
 	xpcs->initialized_clks = true;
@@ -548,14 +602,25 @@ static void xpcs_phy_release(struct phy *p)
 static int serdes_phy_init(struct phy *p)
 {
 	struct serdes *serdes = phy_get_drvdata(p);
-	int xpcs_id;
+	int xpcs_id, ret;
 
 	if (p->attrs.mode == PHY_MODE_PCIE)
 		return 0;
 
 	if (p->attrs.mode == PHY_MODE_ETHERNET) {
 		xpcs_id = lane_id_to_xpcs_id(serdes->ctrl.ss_mode, p->id);
-		return xpcs_phy_init(serdes, xpcs_id);
+		ret = xpcs_phy_init(serdes, xpcs_id);
+		if (ret)
+			return ret;
+
+		/*
+		 * Below function could check all lanes concurrently, but
+		 * we only check the current one as we have no global
+		 * visibility of all lanes here.
+		 */
+		xpcs_check_rx_stable(serdes, BIT(xpcs_id));
+
+		return ret;
 	}
 
 	return -EINVAL;
