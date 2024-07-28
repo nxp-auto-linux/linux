@@ -6,6 +6,7 @@
  *
  */
 
+#include <linux/log2.h>
 #include <linux/module.h>
 #include <linux/debugfs.h>
 #include <linux/io.h>
@@ -23,6 +24,31 @@ MODULE_PARM_DESC(auto_boot,
 		 "Auto-boot the CAR-V-NET remote processor [default=false]");
 
 #define CARVNET_FW_ALIGN	0x4000
+
+#define CARVNET_BAR_FW		0
+#define CARVNET_BAR_VDEV	1
+
+/* CAR-V Internal Memory Type and Access */
+
+#define CARV_MEMTYPE_MASK	(0xF0000000)
+
+enum {
+	/* Read-only code region */
+	CARV_MEMTYPE_RO_CODE                    = 0x02000000,
+	/* Local-private and DTCM region */
+	CARV_MEMTYPE_LOCAL_PRIVATE_DTCM         = 0x10000000,
+	/* Read-only data with coarse-grained mapping */
+	CARV_MEMTYPE_RO_DATA_COARSE_GRAINED     = 0x20000000,
+	/* Read-only data with fine-grained mapping */
+	CARV_MEMTYPE_RO_DATA_FINE_GRAINED       = 0x40000000,
+	/* Normal read/write memory with fine-grained mapping */
+	CARV_MEMTYPE_RW_DATA_FINE_GRAINED       = 0x80000000,
+	/* Normal read/write memory with coarse-grained mapping */
+	CARV_MEMTYPE_RW_DATA_COARSE_GRAINED     = 0xC0000000,
+};
+
+#define CARV_ADDR_GET_MEMTYPE(v)	((v) >> 30)
+#define CARV_ADDR_GET_MEMSUBTYPE(v)	(((v) >> 29) & 0x1)
 
 /* CAR-V NoCore registers */
 
@@ -175,6 +201,9 @@ MODULE_PARM_DESC(auto_boot,
 #define CARV_Q_AT_RMR_MATCH(v)		(((v) << 12) & CARV_Q_AT_RMR_MATCH_MASK)
 #define GET_CARV_Q_AT_RMR_MATCH(v)	(((v) & CARV_Q_AT_RMR_MATCH_MASK) >> 12)
 
+#define AT_OFFS_MAX			0x3F
+#define AT_OFFL_MAX			0x0B
+
 /* Quartile System Interface */
 #define CARV_Q_SI_PMCR(u, n)	(CARV_Q_BASE(u) + 0x190 + ((n) * 0x10))   /* n: 0..3 */
 #define CARV_Q_SI_PML(u, n)	(CARV_Q_BASE(u) + 0x194 + ((n) * 0x10))   /* n: 0..3 */
@@ -316,6 +345,7 @@ struct memres {
 };
 
 struct carvnet {
+	struct device *dev;
 	/*
 	 * 0 (MEMRES_VDEV_ID): continuous memory for vdev
 	 * 1 (MEMRES_FW_ID)  : continuous memory for firmware
@@ -323,7 +353,328 @@ struct carvnet {
 	struct memres mrs[MEMRES_MAX];
 	struct dentry *subdentry;
 	void __iomem *regs;
+	u8 q_user;		/* active Q user */
 };
+
+static int q_validate(struct carvnet *priv)
+{
+	struct device *dev = priv->dev;
+
+	if (!GET_CARV_GL_CR_ENA(readl(priv->regs + CARV_GL_CR))) {
+		dev_err(dev, "Quartile is disabled\n");
+		return -EINVAL;
+	}
+
+	if (!GET_CARV_GL_CR_CLOCK(readl(priv->regs + CARV_GL_CR))) {
+		dev_err(dev, "Quartile has MCT clock disabled\n");
+		return -EINVAL;
+	}
+
+	dev_info(dev, "CAR-V revision %x\n",
+		 GET_CARV_GL_CR_IP_VID(readl(priv->regs + CARV_GL_CR)));
+
+	if (!GET_CARV_GL_CR_LOCK(readl(priv->regs + CARV_GL_CR)))
+		dev_warn(dev,
+			 "Quartile has global config unlocked! It's dangerous.\n");
+
+	return 0;
+}
+
+static int q_get_bars(struct carvnet *priv)
+{
+	return 2;
+}
+
+static int find_closest_bar(struct carvnet *priv, struct rproc_mem_entry *m,
+			    ulong *offs)
+{
+	int i, res = -1;
+	s64 m_offs = S64_MAX;
+
+	/* Parse first n BARL/BARH register sets and find one
+	 * with the smallest offset.
+	 * There should be at least 2 BAR register sets
+	 * with valid values (resmem 'fw' and 'vdev').
+	 */
+	for (i = 0; i < q_get_bars(priv); i++) {
+		u32 barh, barl;
+		u64 baddr;
+
+		barh = readl(priv->regs + CARV_Q_AT_BARH(priv->q_user, i));
+		barl = readl(priv->regs + CARV_Q_AT_BARL(priv->q_user, i));
+		baddr = GET_CARV_Q_AT_BAR_ADDR(barh, barl);
+
+		if ((m->dma - baddr) < m_offs) {
+			res = i;
+			m_offs = m->dma - baddr;
+		}
+	}
+
+	if (res >= 0)
+		*offs = m_offs;
+
+	return res;
+}
+
+static int q_set_simple_region(struct carvnet *priv, struct rproc_mem_entry *m,
+			       int i)
+{
+	ulong m_offs;
+	ulong m_size = roundup_pow_of_two(m->len);
+	u32 r_size, r_offs, r_offl, r_mem, r_locp, r_type, r_sub;
+	int bar;
+
+	/*
+	 * AT_SRR Register RM says:
+	 * ---
+	 * Note: The 8 AT_SRRn registers will have their reset values configured
+	 * to support directly out of reset the internal memory type regions as
+	 * defined in CAR-V Internal Memory Type and Access table in section
+	 * Memory Types and Access Regions.
+	 *
+	 * Thus, software initialization of the AT_SRRn registers may not be
+	 * required.
+	 * ---
+	 */
+
+	bar = find_closest_bar(priv, m, &m_offs);
+	if (bar < 0)
+		return -EINVAL;
+
+	if (m_size < SZ_16K) {
+		m_size = SZ_16K;
+		r_size = 0;
+		r_offl = 0;
+	} else {
+		r_size = fls(m_size / SZ_16K) - 1;
+	}
+	r_offs = m_offs / SZ_16K;
+	if (r_offs > AT_OFFS_MAX) {
+		/* Small offset not fit, use large one */
+
+		if (!IS_ALIGNED(m_offs, SZ_1M)) {
+			dev_err(priv->dev,
+				"Mapping %d offset is not aligned: 0x%lx",
+				i, m_offs);
+			return -EINVAL;
+		}
+
+		r_offl = fls(m_offs / SZ_1M);
+		if (r_offl > AT_OFFL_MAX) {
+			dev_err(priv->dev,
+				"Mapping %d offset is too big: 0x%lx",
+				i, m_offs);
+			return -E2BIG;
+		}
+
+		r_offs = 0;
+	}
+
+	r_mem = bar;
+	if (m->da == CARV_MEMTYPE_LOCAL_PRIVATE_DTCM) {
+		r_locp = 1;
+		r_type = 0;
+	} else {
+		r_locp = 0;
+		r_type = CARV_ADDR_GET_MEMTYPE(m->da);
+	}
+	r_sub = CARV_ADDR_GET_MEMSUBTYPE(m->da);
+
+	writel(CARV_Q_AT_SRR_OFFS(r_offs) |
+	       CARV_Q_AT_SRR_OFFL(r_offl) |
+	       CARV_Q_AT_SRR_MEM(r_mem) |
+	       CARV_Q_AT_SRR_LOCP(r_locp) |
+	       CARV_Q_AT_SRR_SIZE(r_size) |
+	       CARV_Q_AT_SRR_TYPE(r_type) |
+	       CARV_Q_AT_SRR_SUB(r_sub) |
+	       CARV_Q_AT_SRR_ENA(1),
+	       priv->regs + CARV_Q_AT_SRR(priv->q_user, i));
+
+	dev_dbg(priv->dev,
+		"SRR=0x%x OFFS=0x%x OFFL=0x%x MEM=0x%x LOCP=%d SIZE=0x%x TYPE=0x%x SUB=%d ENA=1\n",
+		readl(priv->regs + CARV_Q_AT_SRR(priv->q_user, i)), r_offs,
+		r_offl, r_mem, r_locp, r_size, r_type, r_sub);
+
+	return 0;
+};
+
+static int q_set_prio_region(struct carvnet *priv, struct rproc_mem_entry *m,
+			     int i)
+{
+	ulong m_offs;
+	ulong m_size = roundup_pow_of_two(m->len);
+	u32 r_size, r_offs, r_offl, r_mem, r_match;
+	int bar;
+
+	bar = find_closest_bar(priv, m, &m_offs);
+	if (bar < 0)
+		return -EINVAL;
+
+	if (m_size < SZ_4K) {
+		m_size = SZ_4K;
+		r_size = 0;
+		r_offl = 0;
+	} else {
+		r_size = fls(m_size / SZ_4K) - 1;
+	}
+	r_offs = m_offs / SZ_16K;
+	if (r_offs > AT_OFFS_MAX) {
+		/* Small offset not fit, use large one */
+
+		if (!IS_ALIGNED(m_offs, SZ_1M)) {
+			dev_err(priv->dev,
+				"Mapping %d offset is not aligned: 0x%lx",
+				i, m_offs);
+			return -EINVAL;
+		}
+
+		r_offl = fls(m_offs / SZ_1M);
+		if (r_offl > AT_OFFL_MAX) {
+			dev_err(priv->dev,
+				"Mapping %d offset is too big: 0x%lx",
+				i, m_offs);
+			return -E2BIG;
+		}
+
+		r_offs = 0;
+	}
+	r_mem = bar;
+
+	writel(CARV_Q_AT_RCR_OFFS(r_offs) |
+	       CARV_Q_AT_RCR_OFFL(r_offl) |
+	       CARV_Q_AT_RCR_SIZE(r_size) |
+	       CARV_Q_AT_RCR_MEM(r_mem) |
+	       CARV_Q_AT_RCR_ENA(1),
+	       priv->regs + CARV_Q_AT_RCR(priv->q_user, i));
+
+	r_match = GET_CARV_Q_AT_RMR_MATCH(m->da);
+
+	writel(CARV_Q_AT_RMR_MATCH(r_match),
+	       priv->regs + CARV_Q_AT_RMR(priv->q_user, i));
+
+	dev_dbg(priv->dev,
+		"RCR=0x%x OFFS=0x%x OFFL=0x%x SIZE=0x%x MEM=0x%x ENA=1\n",
+		readl(priv->regs + CARV_Q_AT_RCR(priv->q_user, i)), r_offs,
+		r_offl, r_size, r_mem);
+	dev_dbg(priv->dev,
+		"RMR=0x%x MATCH=0x%x\n",
+		readl(priv->regs + CARV_Q_AT_RMR(priv->q_user, i)), r_match);
+
+	return 0;
+}
+
+static int q_set_mapper(struct carvnet *priv)
+{
+	struct rproc *rproc;
+	struct rproc_mem_entry *m = NULL;
+	int simple_n = 0, prio_n = 0, datareg = 0, ret;
+
+	rproc = dev_get_drvdata(priv->dev);
+
+	/* Set BAR0 for firmware */
+	writel(CARV_Q_AT_BARL_ADDR(priv->mrs[MEMRES_FW_ID].dma) |
+	       CARV_Q_AT_BARL_MEMTYPE_NCOH,
+	       priv->regs + CARV_Q_AT_BARL(priv->q_user, CARVNET_BAR_FW));
+	writel(CARV_Q_AT_BARH_ADDR(priv->mrs[MEMRES_FW_ID].dma),
+	       priv->regs + CARV_Q_AT_BARH(priv->q_user, CARVNET_BAR_FW));
+
+	/* Set BAR1 for vdev */
+	writel(CARV_Q_AT_BARL_ADDR(priv->mrs[MEMRES_VDEV_ID].dma) |
+	       CARV_Q_AT_BARL_MEMTYPE_NCOH,
+	       priv->regs + CARV_Q_AT_BARL(priv->q_user, CARVNET_BAR_VDEV));
+	writel(CARV_Q_AT_BARH_ADDR(priv->mrs[MEMRES_VDEV_ID].dma),
+	       priv->regs + CARV_Q_AT_BARH(priv->q_user, CARVNET_BAR_VDEV));
+
+	/* Set memory regions */
+	list_for_each_entry_reverse(m, &rproc->carveouts, node) {
+		if (simple_n >= CARV_AT_SIMPLE_REGIONS ||
+		    prio_n >= CARV_AT_PRIO_REGIONS) {
+			dev_warn(priv->dev, "Too many mappings\n");
+			break;
+		}
+
+		/*
+		 * Prerequisite for prio region management:
+		 * 1) first CARV_MEMTYPE_RW_DATA_FINE_GRAINED memory
+		 *    mapping comes from FW, it maps FW RW data block as
+		 *    simple region
+		 * 2) additional CARV_MEMTYPE_RW_DATA_FINE_GRAINED memory
+		 *    mappings are mapped as priority regions
+		 */
+		if ((m->da & CARV_MEMTYPE_MASK) != CARV_MEMTYPE_RW_DATA_FINE_GRAINED) {
+			ret = q_set_simple_region(priv, m, simple_n++);
+		} else if (!datareg) {
+			ret = q_set_simple_region(priv, m, simple_n++);
+			datareg = 1;
+		} else {
+			ret = q_set_prio_region(priv, m, prio_n++);
+		}
+
+		if (ret)
+			return ret;
+	}
+
+	return 0;
+}
+
+static void q_clear_simple_region(struct carvnet *priv, int i)
+{
+	/* Clean AT_SRR and disable it */
+	writel(0, priv->regs + CARV_Q_AT_SRR(priv->q_user, i));
+}
+
+static void q_clear_prio_region(struct carvnet *priv, int i)
+{
+	/* Clean AT_RCR/AT_RMRR and disable it */
+	writel(0, priv->regs + CARV_Q_AT_RCR(priv->q_user, i));
+	writel(0, priv->regs + CARV_Q_AT_RMR(priv->q_user, i));
+}
+
+static void q_clear_mapper(struct carvnet *priv)
+{
+	int i;
+
+	/* Clear all simple region mappings */
+	for (i = 0; i < CARV_AT_SIMPLE_REGIONS; i++)
+		q_clear_simple_region(priv, i);
+
+	/* Clear all prio region mappings */
+	for (i = 0; i < CARV_AT_PRIO_REGIONS; i++)
+		q_clear_prio_region(priv, i);
+
+	/* Clear BAR0 */
+	writel(0, priv->regs + CARV_Q_AT_BARL(priv->q_user, CARVNET_BAR_FW));
+	writel(0, priv->regs + CARV_Q_AT_BARH(priv->q_user, CARVNET_BAR_FW));
+
+	/* Clear BAR1 */
+	writel(0, priv->regs + CARV_Q_AT_BARL(priv->q_user, CARVNET_BAR_VDEV));
+	writel(0, priv->regs + CARV_Q_AT_BARH(priv->q_user, CARVNET_BAR_VDEV));
+}
+
+static int q_start(struct carvnet *priv)
+{
+	int ret;
+
+	/* Enable Functional Interrupts: User configurable mask */
+	writel(0x000f3f13, priv->regs + CARV_Q_MB_IER(0));
+	/* Enable Fault Interrupts: User configurable mask */
+	writel(0x000f3f02, priv->regs + CARV_Q_MB_FER(0));
+
+	/* Set Mapper */
+	ret = q_set_mapper(priv);
+
+	return ret;
+}
+
+static void q_stop(struct carvnet *priv)
+{
+	/* Disable Functional Interrupts: User configurable mask */
+	writel(0, priv->regs + CARV_Q_MB_IER(0));
+	/* Disable Fault Interrupts: User configurable mask */
+	writel(0, priv->regs + CARV_Q_MB_FER(0));
+
+	q_clear_mapper(priv);
+}
 
 static int carvnet_rproc_parse_fw(struct rproc *rproc,
 				  const struct firmware *fw)
@@ -339,11 +690,20 @@ static int carvnet_rproc_parse_fw(struct rproc *rproc,
 
 static int carvnet_rproc_start(struct rproc *rproc)
 {
-	return 0;
+	struct carvnet *priv = rproc->priv;
+	int ret;
+
+	ret = q_start(priv);
+
+	return ret;
 }
 
 static int carvnet_rproc_stop(struct rproc *rproc)
 {
+	struct carvnet *priv = rproc->priv;
+
+	q_stop(priv);
+
 	return 0;
 }
 
@@ -585,7 +945,9 @@ static int carvnet_rproc_probe(struct platform_device *pdev)
 				 sizeof(struct carvnet));
 	if (!rproc)
 		return -ENOMEM;
+
 	priv = rproc->priv;
+	priv->dev = dev;
 
 	ret = carvnet_rproc_parse_resmem(rproc);
 	if (ret)
@@ -599,15 +961,19 @@ static int carvnet_rproc_probe(struct platform_device *pdev)
 
 	rproc->auto_boot = auto_boot;
 
+	/* We are using only first user config */
+	priv->q_user = 0;
+
+	ret = q_validate(priv);
+	if (ret)
+		return ret;
+
 	ret = devm_rproc_add(dev, rproc);
 	if (ret)
 		return dev_err_probe(dev, ret, "rproc_add failed\n");
 
 	debugfs_create_file("dump_regs", 0400, rproc->dbg_dir, priv,
 			    &carvnet_dump_regs_fops);
-
-	dev_info(dev, "CAR-V revision %x\n",
-		 GET_CARV_GL_CR_IP_VID(readl(priv->regs + CARV_GL_CR)));
 
 	return ret;
 }
