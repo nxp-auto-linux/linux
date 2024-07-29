@@ -65,10 +65,6 @@
 	status = "okay";
 };
 
-&netc_iep {
-	status = "disabled";
-};
-
 &cdma_iep {
 	status = "disabled";
 };
@@ -88,4 +84,22 @@
 	memory-region = <&carv0_vdev>, <&carv0_fw>;
 	memory-region-names = "vdev", "text";
 	status = "okay";
+};
+
+&netc_switch_port0 {
+	status = "okay";
+	phy-mode = "internal";
+	fixed-link {
+		speed = <1000>;
+		full-duplex;
+	};
+};
+
+&netc_switch_port1 {
+	status = "okay";
+	phy-mode = "internal";
+	fixed-link {
+		speed = <1000>;
+		full-duplex;
+	};
 };
