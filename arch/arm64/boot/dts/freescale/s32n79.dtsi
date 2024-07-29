@@ -197,19 +197,152 @@
 		compatible = "simple-bus";
 		#address-cells = <2>;
 		#size-cells = <2>;
-		ranges = <0x2 0x40000000 0x2 0x40000000 0x0 0x40000000>,
-			 <0x0 0x48800000 0x0 0x48800000 0x0 0x540000>,
-			 <0x0 0x47800000 0x0 0x47800000 0x0 0xA0000>;
+		ranges = <0x2 0x40000000 0x2 0x40000000 0x0 0x20000000>,
+			 <0x0 0x47800000 0x0 0x47800000 0x0 0xA0000>,
+			 <0x0 0x48800000 0x0 0x48800000 0x0 0x80000>,
+			 <0x0 0x48880000 0x0 0x48880000 0x0 0x40000>,
+			 <0x0 0x489C0000 0x0 0x489C0000 0x0 0x40000>,
+			 <0x0 0x48A80000 0x0 0x48A80000 0x0 0x10000>;
 
-		netc_iep: pcie@240000000 {
+		netc_iep0: pcie@240000000 {
 			compatible = "pci-host-ecam-generic";
-			reg = <0x2 0x40000000 0x0 0x2000000>;
+			reg = <0x2 0x40000000 0x0 0x100000>;
 			#address-cells = <3>;
 			#size-cells = <2>;
 			msi-parent = <&its>;
 			device_type = "pci";
+			bus-range = <0x0 0x0>;
 
-			ranges = <0x82000000 0x0 0x48800000 0x0 0x48800000 0x0 0x540000>;
+			ranges = <0x82000000 0x0 0x48880000 0x0 0x48880000 0x0 0x40000>;
+		};
+
+
+		netc_iep14: pcie@240e00000 {
+			compatible = "pci-host-ecam-generic";
+			reg = <0x2 0x40e00000 0x0 0x100000>;
+			#address-cells = <3>;
+			#size-cells = <2>;
+			msi-parent = <&its>;
+			device_type = "pci";
+			bus-range = <0xe 0xe>;
+
+			ranges = <0x82000000 0x0 0x48800000 0x0 0x48800000 0x0 0x80000>,
+				 <0x82000000 0x0 0x489C0000 0x0 0x489C0000 0x0 0x40000>,
+				 <0xc2000000 0x0 0x48A80000 0x0 0x48A80000 0x0 0x10000>;
+
+			enetc5: ethernet@0,0 {
+				compatible = "pci1131,e101";
+				reg = <0x000e0000 0 0 0 0>;
+				phy-mode = "internal";
+
+				fixed-link {
+					speed = <2500>;
+					full-duplex;
+					pause;
+				};
+			};
+
+			netc_switch: ethernet-switch@0,1 {
+				compatible = "pci1131,eef2", "nxp,s32n79-netc-switch";
+				reg = <0x000e0100 0 0 0 0>;
+
+				netc_switch_ports: ports {
+					#address-cells = <1>;
+					#size-cells = <0>;
+
+					/* External ports */
+					netc_switch_port0: port@0 {
+						reg = <0>;
+						label = "lan0";
+						status = "disabled";
+					};
+
+					netc_switch_port1: port@1 {
+						reg = <1>;
+						label = "lan1";
+						status = "disabled";
+					};
+
+					port@2 {
+						reg = <2>;
+						label = "lan2";
+						status = "disabled";
+					};
+
+					port@3 {
+						reg = <3>;
+						label = "lan3";
+						status = "disabled";
+					};
+
+					port@4 {
+						reg = <4>;
+						label = "lan4";
+						status = "disabled";
+					};
+
+					port@5 {
+						reg = <5>;
+						label = "lan5";
+						status = "disabled";
+					};
+
+					port@6 {
+						reg = <6>;
+						label = "lan6";
+						status = "disabled";
+					};
+
+					port@7 {
+						reg = <7>;
+						label = "lan7";
+						status = "disabled";
+					};
+
+					/* Internal ports */
+					port@8 {
+						reg = <8>;
+						label = "sw8";
+						status = "disabled";
+					};
+
+					port@9 {
+						reg = <9>;
+						label = "sw9";
+						status = "disabled";
+					};
+
+					port@10 {
+						reg = <10>;
+						label = "sw10";
+						status = "disabled";
+					};
+
+					port@11 {
+						reg = <11>;
+						label = "sw11";
+						status = "disabled";
+					};
+
+					port@12 {
+						reg = <12>;
+						label = "sw12";
+						status = "disabled";
+					};
+
+					netc_switch_port13: port@13 {
+						reg = <13>;
+						label = "cpu13";
+						phy-mode = "internal";
+						ethernet = <&enetc5>;
+
+						fixed-link {
+							speed = <2500>;
+							full-duplex;
+						};
+					};
+				};
+			};
 		};
 
 		cdma_iep: pcie@250000000 {
