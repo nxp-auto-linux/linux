@@ -544,6 +544,9 @@ static void enetc_vf_netdev_setup(struct enetc_si *si, struct net_device *ndev,
 	if (si->hw_features & ENETC_SI_F_LSO)
 		priv->active_offloads |= ENETC_F_LSO;
 
+	if (si->hw_features & ENETC_SI_F_RSC)
+		ndev->hw_features |= NETIF_F_LRO;
+
 	/* pick up primary MAC address from SI */
 	enetc_load_primary_mac_addr(&si->hw, ndev);
 }
