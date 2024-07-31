@@ -119,7 +119,7 @@
 			interrupt-controller;
 			interrupts = <GIC_PPI 9 IRQ_TYPE_LEVEL_HIGH>;
 			reg = <0x4f200000 0x10000>, /* GIC Dist */
-			      <0x4f260000 0x80000>; /* GICR (RD_base + SGI_base) */
+			      <0x4f260000 0x100000>; /* GICR (RD_base + SGI_base) */
 			ranges;
 
 			its: msi-controller@4f240000 {
