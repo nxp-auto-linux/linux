@@ -26,6 +26,7 @@
 #define ENETC_SIPCAPR0_RSS	BIT(8)
 #define ENETC_SIPCAPR0_RFS	BIT(2)
 #define ENETC_SIPCAPR0_LSO	BIT(1)
+#define ENETC_SIPCAPR0_RSC	BIT(0)
 #define ENETC_SIPCAPR1	0x24
 #define ENETC_SITGTGR	0x30
 #define ENETC_SIRBGCR	0x38
@@ -141,6 +142,10 @@ enum enetc_bdr_type {TX, RX};
 #define ENETC_RBBAR1	0x14
 #define ENETC_RBPIR	0x18
 #define ENETC_RBLENR	0x20
+#define ENETC_RBRSCR	0x30
+#define ENETC_RBRSCR_EN	BIT(31)
+#define ENETC_RBRSCR_SIZE_MASK	0xffff
+#define ENETC_RBRSCR_SIZE(n)	((n) & ENETC_RBRSCR_SIZE_MASK)
 #define ENETC_RBIER	0xa0
 #define ENETC_RBIER_RXTIE	BIT(0)
 #define ENETC_RBIDR	0xa4
@@ -671,7 +676,10 @@ union enetc_rx_bd {
 	} r;
 	struct {
 		__le32 tstamp;
-		u8 reserved[12];
+		u8 rsc_framse;	/* For ENETC4 */
+		u8 resv0[3];
+		__le32 rsc_abs_ts_delta; /*For ENETC4*/
+		u8 resv1[4];
 	} ext;
 };
 
