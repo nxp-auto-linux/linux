@@ -9,6 +9,7 @@
 #include <linux/log2.h>
 #include <linux/module.h>
 #include <linux/debugfs.h>
+#include <linux/delay.h>
 #include <linux/io.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
@@ -651,6 +652,27 @@ static void q_clear_mapper(struct carvnet *priv)
 	writel(0, priv->regs + CARV_Q_AT_BARH(priv->q_user, CARVNET_BAR_VDEV));
 }
 
+static int q_msg_send_info(struct carvnet *priv, u32 info)
+{
+	/* Send info by mailbox 0 */
+	writel(info, priv->regs + CARV_Q_MB_INFO_CR(0, 0));
+
+	return 0;
+}
+
+static void q_stop(struct carvnet *priv)
+{
+	/* Stop the FW */
+	writel(0, priv->regs + CARV_Q_MB_CR(0));
+
+	/* Disable Functional Interrupts: User configurable mask */
+	writel(0, priv->regs + CARV_Q_MB_IER(0));
+	/* Disable Fault Interrupts: User configurable mask */
+	writel(0, priv->regs + CARV_Q_MB_FER(0));
+
+	q_clear_mapper(priv);
+}
+
 static int q_start(struct carvnet *priv)
 {
 	int ret;
@@ -662,18 +684,18 @@ static int q_start(struct carvnet *priv)
 
 	/* Set Mapper */
 	ret = q_set_mapper(priv);
+	if (ret)
+		goto err;
+
+	/* Start the FW */
+	writel(CARV_Q_MB_CR_ENA(1), priv->regs + CARV_Q_MB_CR(0));
+
+	return 0;
+
+err:
+	q_stop(priv);
 
 	return ret;
-}
-
-static void q_stop(struct carvnet *priv)
-{
-	/* Disable Functional Interrupts: User configurable mask */
-	writel(0, priv->regs + CARV_Q_MB_IER(0));
-	/* Disable Fault Interrupts: User configurable mask */
-	writel(0, priv->regs + CARV_Q_MB_FER(0));
-
-	q_clear_mapper(priv);
 }
 
 static int carvnet_rproc_parse_fw(struct rproc *rproc,
@@ -709,7 +731,9 @@ static int carvnet_rproc_stop(struct rproc *rproc)
 
 static void carvnet_rproc_kick(struct rproc *rproc, int vqid)
 {
-	/* no op */
+	struct carvnet *priv = rproc->priv;
+
+	q_msg_send_info(priv, (u32)vqid);
 }
 
 /* Expose NoCore registers via debugfs */
