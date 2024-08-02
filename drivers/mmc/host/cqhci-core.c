@@ -668,9 +668,11 @@ static int cqhci_request(struct mmc_host *mmc, struct mmc_request *mrq)
 
 	if (tag == DCMD_SLOT) {
 		/*
-		 * After the task is completed, manually clear
-		 * the DPT[bit n] by setting CQTCLR register
-		 * if DPT[bit n] != CQTDBR[bit n]
+		 * ERR052198 secondary workaround:
+		 * Before sending a DCMD (Direct Command) request,
+		 * manually clear the CQDPT[bit n] by setting CQTCLR[bit n]
+		 * if DPT[bit n] != CQTDBR[bit n], in order to clear
+		 * the pending task.
 		 */
 		tdbr = cqhci_readl(cq_host, CQHCI_TDBR);
 		dpt = cqhci_readl(cq_host, CQHCI_DPT);
