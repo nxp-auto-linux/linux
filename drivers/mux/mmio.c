@@ -3,6 +3,7 @@
  * MMIO register bitfield-controlled multiplexer driver
  *
  * Copyright (C) 2017 Pengutronix, Philipp Zabel <kernel@pengutronix.de>
+ * Copyright 2024 NXP
  */
 
 #include <linux/bitops.h>
@@ -14,6 +15,11 @@
 #include <linux/platform_device.h>
 #include <linux/property.h>
 #include <linux/regmap.h>
+
+struct mux_mmio_data {
+	struct mux_chip *mux_chip;
+	unsigned int num_fields;
+};
 
 static int mux_mmio_set(struct mux_control *mux, int state)
 {
@@ -37,10 +43,11 @@ static int mux_mmio_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct device_node *np = dev->of_node;
+	struct mux_mmio_data *mux_data;
 	struct regmap_field **fields;
 	struct mux_chip *mux_chip;
 	struct regmap *regmap;
-	int num_fields;
+	unsigned int num_fields;
 	int ret;
 	int i;
 
@@ -73,6 +80,13 @@ static int mux_mmio_probe(struct platform_device *pdev)
 				       sizeof(*fields));
 	if (IS_ERR(mux_chip))
 		return PTR_ERR(mux_chip);
+
+	mux_data = devm_kzalloc(dev, sizeof(*mux_data), GFP_KERNEL);
+	if (!mux_data)
+		return -ENOMEM;
+
+	mux_data->mux_chip = mux_chip;
+	mux_data->num_fields = num_fields;
 
 	fields = mux_chip_priv(mux_chip);
 
@@ -130,13 +144,39 @@ static int mux_mmio_probe(struct platform_device *pdev)
 
 	mux_chip->ops = &mux_mmio_ops;
 
+	platform_set_drvdata(pdev, mux_data);
+
 	return devm_mux_chip_register(dev, mux_chip);
 }
+
+static int __maybe_unused mux_mmio_resume(struct device *dev)
+{
+	struct mux_mmio_data *mux_data = dev_get_drvdata(dev);
+	struct mux_chip *mux_chip = mux_data->mux_chip;
+	struct mux_control *mux;
+	int ret = 0;
+	size_t i;
+
+	for (i = 0; i < mux_data->num_fields; i++) {
+		mux = &mux_chip->mux[i];
+
+		ret = mux_mmio_set(mux, mux->idle_state);
+		if (ret) {
+			dev_err(dev, "Unable to set idle state, err: %d\n", ret);
+			return ret;
+		}
+	}
+
+	return ret;
+}
+
+static SIMPLE_DEV_PM_OPS(mux_mmio_pm_ops, NULL, mux_mmio_resume);
 
 static struct platform_driver mux_mmio_driver = {
 	.driver = {
 		.name = "mmio-mux",
 		.of_match_table	= mux_mmio_dt_ids,
+		.pm = &mux_mmio_pm_ops,
 	},
 	.probe = mux_mmio_probe,
 };
