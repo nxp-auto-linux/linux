@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
-/* Copyright 2020-2023 NXP
+/* Copyright 2020-2024 NXP
  *
  * Driver which provides universal timestamp at SoC level for S32CC.
  *
@@ -124,19 +124,6 @@ static void deinit_sysfs_interface(struct device *dev)
 		device_remove_file(dev, &dev_attrs[i]);
 }
 
-static int devm_clk_prepare_enable(struct device *dev, struct clk *clk)
-{
-	int ret;
-
-	ret = clk_prepare_enable(clk);
-	if (ret)
-		return ret;
-
-	return devm_add_action_or_reset(dev,
-					(void(*)(void *))clk_disable_unprepare,
-					clk);
-}
-
 static const struct of_device_id global_timer_dt_ids[] = {
 	{
 		.compatible = "nxp,s32cc-stm-global",
@@ -179,16 +166,10 @@ static int global_timer_probe(struct platform_device *pdev)
 	if (!drv)
 		return -ENOMEM;
 
-	clock = devm_clk_get(dev, "stm");
+	clock = devm_clk_get_enabled(dev, "stm");
 	if (IS_ERR(clock)) {
 		dev_err(dev, "Failed getting clock from dtb\n");
 		return PTR_ERR(clock);
-	}
-
-	rc = devm_clk_prepare_enable(dev, clock);
-	if (rc) {
-		dev_err(dev, "Failed initializing clock\n");
-		return rc;
 	}
 
 	drv->base = devm_platform_ioremap_resource(pdev, 0);
