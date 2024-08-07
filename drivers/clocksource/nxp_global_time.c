@@ -19,13 +19,8 @@
 #include <linux/io.h>
 #include <linux/of_device.h>
 #include <linux/clk.h>
+#include <clocksource/timer-nxp-stm.h>
 
-#define STM_CR				0x00u
-#define STM_CNT				0x04u
-#define STM_CR_CPS_OFFSET		8u
-#define STM_CR_CPS(X)			((X) << STM_CR_CPS_OFFSET)
-#define STM_CR_FRZ			BIT(1)
-#define STM_CR_TEN			BIT(0)
 #define DRIVER_NAME			"NXP S32CC Univesal Time Source"
 #define INPUT_LEN			2u
 #define OUTPUT_LEN			11u
@@ -57,8 +52,7 @@ static ssize_t get_init(struct device *dev, struct device_attribute *attr,
 static void stm_init_counter(struct stm_driver *drv)
 {
 	writel(0, drv->base + STM_CNT);
-	writel(STM_CR_CPS(drv->prescaler - 1) | STM_CR_FRZ | STM_CR_TEN,
-	       drv->base + STM_CR);
+	stm_enable(drv->base, drv->prescaler);
 }
 
 static ssize_t set_init(struct device *dev, struct device_attribute *attr,
@@ -76,7 +70,7 @@ static ssize_t set_init(struct device *dev, struct device_attribute *attr,
 	if (should_init)
 		stm_init_counter(drv);
 	else
-		writel(0, drv->base + STM_CR);
+		stm_disable(drv->base);
 
 	if (count <= INT_MAX)
 		return count;

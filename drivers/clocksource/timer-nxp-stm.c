@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright 2016 Freescale Semiconductor, Inc.
- * Copyright 2018,2021-2023 NXP
+ * Copyright 2018,2021-2024 NXP
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
  * of the License, or (at your option) any later version.
  */
+
 #include <linux/clk.h>
 #include <linux/clockchips.h>
 #include <linux/cpuhotplug.h>
@@ -17,16 +18,12 @@
 #include <linux/of_irq.h>
 #include <linux/platform_device.h>
 #include <linux/sched_clock.h>
+#include <clocksource/timer-nxp-stm.h>
 
 /*
  * Each stm takes 0x10 Bytes register space
  */
-#define STM_CR		0x00
-#define STM_CNT		0x04
 #define STM_CH(n)	(0x10 * ((n) + 1))
-
-#define STM_CR_FRZ	BIT(1)
-#define STM_CR_TEN	BIT(0)
 
 #define STM_CCR		0x00
 #define STM_CIR		0x04
@@ -91,19 +88,9 @@ static struct stm_timer *work_to_stm(struct work_struct *work)
 	return container_of(swork, struct stm_timer, work);
 }
 
-static void enable_stm(struct stm_timer *stm)
-{
-	writel(STM_CR_FRZ | STM_CR_TEN, stm->timer_base + STM_CR);
-}
-
-static void disable_stm(struct stm_timer *stm)
-{
-	writel(0,  stm->timer_base + STM_CR);
-}
-
 static inline void stm_timer_enable(struct stm_timer *stm)
 {
-	enable_stm(stm);
+	stm_enable(stm->timer_base, 0);
 
 	/* enable clockevent channel */
 	writel(STM_CCR_CEN, stm->clkevt_base + STM_CCR);
@@ -143,30 +130,20 @@ static u64 stm_read_sched_clock(void)
 	return readl(clocksource->timer_base + STM_CNT);
 }
 
-static void stm_clksrc_save_cnt(struct stm_timer *stm)
-{
-	stm->saved_cnt = readl(stm->timer_base + STM_CNT);
-}
-
 static void stm_clksrc_suspend(struct clocksource *cs)
 {
 	struct stm_timer *stm = cs_to_stm(cs);
 
-	disable_stm(stm);
-	stm_clksrc_save_cnt(stm);
-}
-
-static void stm_clksrc_setcnt(struct stm_timer *stm, u32 cnt)
-{
-	writel(cnt, stm->timer_base + STM_CNT);
+	stm_disable(stm->timer_base);
+	stm->saved_cnt = stm_clksrc_getcnt(stm->timer_base);
 }
 
 static void stm_clksrc_resume(struct clocksource *cs)
 {
 	struct stm_timer *stm = cs_to_stm(cs);
 
-	stm_clksrc_setcnt(stm,  stm->saved_cnt);
-	enable_stm(stm);
+	stm_clksrc_setcnt(stm->timer_base, stm->saved_cnt);
+	stm_enable(stm->timer_base, 0);
 }
 
 static u64 stm_clksrc_read(struct clocksource *cs)
@@ -413,7 +390,7 @@ static int __init nxp_stm_timer_probe(struct platform_device *pdev)
 
 	/* reset counter value */
 	stm_clksrc_setcnt(stm, 0);
-	enable_stm(stm);
+	stm_enable(stm->timer_base, 0);
 
 	return 0;
 }
@@ -427,7 +404,7 @@ static int __maybe_unused nxp_stm_resume(struct device *dev)
 	if (ret)
 		return ret;
 
-	enable_stm(stm);
+	stm_enable(stm->timer_base, 0);
 
 	return ret;
 }
