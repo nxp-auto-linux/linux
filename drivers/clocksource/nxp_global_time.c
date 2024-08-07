@@ -33,7 +33,9 @@ enum stm_count_init {
 
 struct stm_driver {
 	enum stm_count_init init;
+	struct clk *clk;
 	u32 prescaler;
+	u32 saved_cnt;
 	void __iomem *base;
 };
 
@@ -52,7 +54,7 @@ static ssize_t get_init(struct device *dev, struct device_attribute *attr,
 
 static void stm_init_counter(struct stm_driver *drv)
 {
-	writel(0, drv->base + STM_CNT);
+	stm_clksrc_setcnt(drv->base, drv->saved_cnt);
 	stm_enable(drv->base, drv->prescaler);
 }
 
@@ -131,13 +133,39 @@ static const struct of_device_id global_timer_dt_ids[] = {
 	{ /* sentinel */ }
 };
 
+static int __maybe_unused global_timer_suspend(struct device *dev)
+{
+	struct stm_driver *drv = dev_get_drvdata(dev);
+
+	stm_disable(drv->base);
+	drv->saved_cnt = stm_clksrc_getcnt(drv->base);
+	clk_disable_unprepare(drv->clk);
+
+	return 0;
+}
+
+static int __maybe_unused global_timer_resume(struct device *dev)
+{
+	struct stm_driver *drv = dev_get_drvdata(dev);
+	int ret;
+
+	ret = clk_prepare_enable(drv->clk);
+	if (ret) {
+		dev_err(dev, "Could not prepare or enable the clock.\n");
+		return ret;
+	}
+
+	stm_init_counter(drv);
+
+	return ret;
+}
+
 static int global_timer_probe(struct platform_device *pdev)
 {
 	const struct of_device_id *match;
 	struct device *dev = &pdev->dev;
 	const struct device_node *node;
 	struct stm_driver *drv;
-	struct clk *clock;
 	u32 prescaler;
 	int rc;
 
@@ -161,10 +189,11 @@ static int global_timer_probe(struct platform_device *pdev)
 	if (!drv)
 		return -ENOMEM;
 
-	clock = devm_clk_get_enabled(dev, "stm");
-	if (IS_ERR(clock)) {
-		dev_err(dev, "Failed getting clock from dtb\n");
-		return PTR_ERR(clock);
+	drv->clk = devm_clk_get_enabled(dev, "stm");
+	if (IS_ERR(drv->clk)) {
+		dev_err(dev, "Failed to enable clock, err = %ld\n",
+			PTR_ERR(drv->clk));
+		return PTR_ERR(drv->clk);
 	}
 
 	drv->base = devm_platform_ioremap_resource(pdev, 0);
@@ -193,6 +222,9 @@ static void global_timer_remove(struct platform_device *pdev)
 	deinit_sysfs_interface(&pdev->dev);
 }
 
+static SIMPLE_DEV_PM_OPS(global_timer_pm_ops,
+		global_timer_suspend, global_timer_resume);
+
 static struct platform_driver global_time_driver = {
 	.probe	= global_timer_probe,
 	.remove_new	= global_timer_remove,
@@ -200,6 +232,7 @@ static struct platform_driver global_time_driver = {
 		.name			= DRIVER_NAME,
 		.owner			= THIS_MODULE,
 		.of_match_table = global_timer_dt_ids,
+		.pm = &global_timer_pm_ops,
 	},
 };
 module_platform_driver(global_time_driver)
