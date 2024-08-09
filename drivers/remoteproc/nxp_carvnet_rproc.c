@@ -6,6 +6,7 @@
  *
  */
 
+#include <linux/kthread.h>
 #include <linux/log2.h>
 #include <linux/module.h>
 #include <linux/debugfs.h>
@@ -354,6 +355,7 @@ struct carvnet {
 	struct memres mrs[MEMRES_MAX];
 	struct dentry *subdentry;
 	void __iomem *regs;
+	struct delayed_work rproc_work;
 	u8 q_user;		/* active Q user */
 };
 
@@ -715,6 +717,8 @@ static int carvnet_rproc_start(struct rproc *rproc)
 	struct carvnet *priv = rproc->priv;
 	int ret;
 
+	schedule_delayed_work(&priv->rproc_work,  msecs_to_jiffies(1));
+
 	ret = q_start(priv);
 
 	return ret;
@@ -723,6 +727,8 @@ static int carvnet_rproc_start(struct rproc *rproc)
 static int carvnet_rproc_stop(struct rproc *rproc)
 {
 	struct carvnet *priv = rproc->priv;
+
+	cancel_delayed_work_sync(&priv->rproc_work);
 
 	q_stop(priv);
 
@@ -949,6 +955,26 @@ static int carvnet_rproc_parse_resmem(struct rproc *rproc)
 	return  0;
 }
 
+static void carvnet_rproc_vq_work(struct work_struct *work)
+{
+	struct carvnet *priv = container_of(work, struct carvnet,
+					    rproc_work.work);
+	struct rproc *rproc = dev_get_drvdata(priv->dev);
+
+	mutex_lock(&rproc->lock);
+
+	if (rproc->state != RPROC_RUNNING)
+		goto unlock_mutex;
+
+	rproc_vq_interrupt(rproc, 0);
+	rproc_vq_interrupt(rproc, 1);
+
+unlock_mutex:
+	mutex_unlock(&rproc->lock);
+
+	schedule_delayed_work(&priv->rproc_work,  msecs_to_jiffies(1));
+}
+
 static int carvnet_rproc_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -991,6 +1017,8 @@ static int carvnet_rproc_probe(struct platform_device *pdev)
 	ret = q_validate(priv);
 	if (ret)
 		return ret;
+
+	INIT_DELAYED_WORK(&priv->rproc_work, carvnet_rproc_vq_work);
 
 	ret = devm_rproc_add(dev, rproc);
 	if (ret)
