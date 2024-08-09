@@ -27,7 +27,7 @@ struct gpio_eirq_state {
 struct gpio_eirqs {
 	struct gpio_eirq_state *states;
 	/* Protect access to eirq states */
-	spinlock_t states_lock;
+	raw_spinlock_t states_lock;
 	u32 num;
 };
 
@@ -157,14 +157,14 @@ static int irq_state_set_type(struct scmi_gpio_dev *gpio_dev, unsigned int gpio,
 	u32 index;
 	int ret = -EINVAL;
 
-	spin_lock(&gpio_dev->eirqs.states_lock);
+	raw_spin_lock(&gpio_dev->eirqs.states_lock);
 
 	if (get_gpio_irq_state(gpio_dev, gpio, &index)) {
 		gpio_dev->eirqs.states[index].type = type;
 		ret = 0;
 	}
 
-	spin_unlock(&gpio_dev->eirqs.states_lock);
+	raw_spin_unlock(&gpio_dev->eirqs.states_lock);
 
 	return ret;
 }
@@ -174,12 +174,12 @@ static void mark_masked_irq(struct scmi_gpio_dev *gpio_dev, unsigned int gpio,
 {
 	u32 index;
 
-	spin_lock(&gpio_dev->eirqs.states_lock);
+	raw_spin_lock(&gpio_dev->eirqs.states_lock);
 
 	if (get_gpio_irq_active_state(gpio_dev, gpio, &index))
 		gpio_dev->eirqs.states[index].masked = mask;
 
-	spin_unlock(&gpio_dev->eirqs.states_lock);
+	raw_spin_unlock(&gpio_dev->eirqs.states_lock);
 }
 
 static void release_virt_irq(struct scmi_gpio_dev *gpio_dev, unsigned int gpio)
@@ -187,7 +187,7 @@ static void release_virt_irq(struct scmi_gpio_dev *gpio_dev, unsigned int gpio)
 	struct gpio_eirq_state *state;
 	u32 index;
 
-	spin_lock(&gpio_dev->eirqs.states_lock);
+	raw_spin_lock(&gpio_dev->eirqs.states_lock);
 
 	if (get_gpio_irq_state(gpio_dev, gpio, &index)) {
 		state = &gpio_dev->eirqs.states[index];
@@ -195,7 +195,7 @@ static void release_virt_irq(struct scmi_gpio_dev *gpio_dev, unsigned int gpio)
 		state->virtirq = 0;
 	}
 
-	spin_unlock(&gpio_dev->eirqs.states_lock);
+	raw_spin_unlock(&gpio_dev->eirqs.states_lock);
 }
 
 static void scmi_gpio_free(struct gpio_chip *chip, unsigned int gpio)
@@ -282,9 +282,9 @@ static int update_irq_mapping(struct scmi_gpio_dev *gpio_dev,
 	bool requested_gpio, found = false;
 	int ret;
 
-	spin_lock(&gpio_dev->eirqs.states_lock);
+	raw_spin_lock(&gpio_dev->eirqs.states_lock);
 	found = get_gpio_irq_active_state(gpio_dev, gpio, irq);
-	spin_unlock(&gpio_dev->eirqs.states_lock);
+	raw_spin_unlock(&gpio_dev->eirqs.states_lock);
 
 	if (found)
 		return 0;
@@ -317,7 +317,7 @@ static int update_irq_mapping(struct scmi_gpio_dev *gpio_dev,
 		goto release_gpio;
 	}
 
-	spin_lock(&gpio_dev->eirqs.states_lock);
+	raw_spin_lock(&gpio_dev->eirqs.states_lock);
 	state = &gpio_dev->eirqs.states[*irq];
 
 	state->gpio = gpio;
@@ -331,7 +331,7 @@ static int update_irq_mapping(struct scmi_gpio_dev *gpio_dev,
 	 * for a GPIO.
 	 */
 	state->active = assign_interrupt;
-	spin_unlock(&gpio_dev->eirqs.states_lock);
+	raw_spin_unlock(&gpio_dev->eirqs.states_lock);
 
 release_gpio:
 	if ((ret || !assign_interrupt) && !requested_gpio)
@@ -350,7 +350,7 @@ static int release_irq_mapping(struct scmi_gpio_dev *gpio_dev, unsigned int gpio
 	struct gpio_eirq_state *state = NULL;
 	u32 index;
 
-	spin_lock(&gpio_dev->eirqs.states_lock);
+	raw_spin_lock(&gpio_dev->eirqs.states_lock);
 
 	if (get_gpio_irq_active_state(gpio_dev, gpio, &index))
 		state = &gpio_dev->eirqs.states[index];
@@ -359,7 +359,7 @@ static int release_irq_mapping(struct scmi_gpio_dev *gpio_dev, unsigned int gpio
 	if (state)
 		state->active = false;
 
-	spin_unlock(&gpio_dev->eirqs.states_lock);
+	raw_spin_unlock(&gpio_dev->eirqs.states_lock);
 
 	if (!state)
 		return -EINVAL;
@@ -556,9 +556,9 @@ static int scmi_gpio_to_irq(struct gpio_chip *chip, unsigned int gpio)
 	if (!virt_irq)
 		virt_irq = irq_create_mapping(domain, gpio);
 
-	spin_lock(&gpio_dev->eirqs.states_lock);
+	raw_spin_lock(&gpio_dev->eirqs.states_lock);
 	gpio_dev->eirqs.states[irq].virtirq = virt_irq;
-	spin_unlock(&gpio_dev->eirqs.states_lock);
+	raw_spin_unlock(&gpio_dev->eirqs.states_lock);
 
 	if (virt_irq > INT_MAX)
 		return -E2BIG;
@@ -584,7 +584,7 @@ static int scmi_gpio_irq_setup(struct scmi_gpio_dev *gpio_dev)
 	if (!gpio_dev->eirqs.states)
 		return -ENOMEM;
 
-	spin_lock_init(&gpio_dev->eirqs.states_lock);
+	raw_spin_lock_init(&gpio_dev->eirqs.states_lock);
 
 	return ret;
 }
@@ -611,12 +611,12 @@ static int eirq_notification_cb(struct notifier_block *nb, unsigned long event,
 		if (eirq >= gpio_dev->eirqs.num)
 			continue;
 
-		spin_lock(&gpio_dev->eirqs.states_lock);
+		raw_spin_lock(&gpio_dev->eirqs.states_lock);
 
 		gpio = gpio_dev->eirqs.states[eirq].gpio;
 		active = gpio_dev->eirqs.states[eirq].active;
 
-		spin_unlock(&gpio_dev->eirqs.states_lock);
+		raw_spin_unlock(&gpio_dev->eirqs.states_lock);
 
 		if (!active)
 			continue;
