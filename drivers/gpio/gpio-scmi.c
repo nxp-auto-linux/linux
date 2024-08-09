@@ -192,7 +192,6 @@ static void release_virt_irq(struct scmi_gpio_dev *gpio_dev, unsigned int gpio)
 	if (get_gpio_irq_state(gpio_dev, gpio, &index)) {
 		state = &gpio_dev->eirqs.states[index];
 		/* This is usually created by .to_irq callback */
-		irq_dispose_mapping(state->virtirq);
 		state->virtirq = 0;
 	}
 
@@ -552,7 +551,10 @@ static int scmi_gpio_to_irq(struct gpio_chip *chip, unsigned int gpio)
 	if (ret)
 		return ret;
 
-	virt_irq = irq_create_mapping(domain, gpio);
+
+	virt_irq = irq_find_mapping(domain, gpio);
+	if (!virt_irq)
+		virt_irq = irq_create_mapping(domain, gpio);
 
 	spin_lock(&gpio_dev->eirqs.states_lock);
 	gpio_dev->eirqs.states[irq].virtirq = virt_irq;
