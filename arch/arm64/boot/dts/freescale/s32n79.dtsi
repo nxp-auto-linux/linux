@@ -168,6 +168,16 @@
 			interrupts = <264>;
 			status = "disabled";
 		};
+
+		ufshc: ufshc@4ac80000 {
+			compatible = "snps,g210-tc-6.00-20bit",
+				     "snps,dwc-ufshcd-1.40a",
+				     "jedec,ufs-3.0";
+			reg = <0x4ac80000 0x1000>;
+			interrupt-parent = <&irqsteer0_coss>;
+			interrupts = <211>;
+			status = "disabled";
+		};
 	};
 
 	fss_subsys {
