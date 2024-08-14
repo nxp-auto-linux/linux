@@ -41,6 +41,10 @@
 	status = "okay";
 };
 
+&netc_iep {
+	status = "disabled";
+};
+
 &cdma_iep {
 	status = "disabled";
 };
