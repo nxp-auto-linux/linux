@@ -45,6 +45,11 @@
 	status = "disabled";
 };
 
+&ufshc {
+	lanes-per-direction = <1>;
+	status = "okay";
+};
+
 &usdhc0 {
 	disable-wp;
 	status = "okay";
