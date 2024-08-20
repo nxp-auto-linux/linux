@@ -846,7 +846,6 @@ static int xpcs_get_state(struct s32cc_xpcs *xpcs,
 	unsigned int mii_ctrl, val, ss;
 	bool ss6, ss13, an_enabled, intr_en;
 
-
 	mii_ctrl = XPCS_READ(xpcs, SR_MII_CTRL);
 	an_enabled = !!(mii_ctrl & AN_ENABLE);
 	intr_en = !!(XPCS_READ(xpcs, VR_MII_AN_CTRL) & MII_AN_INTR_EN);
@@ -967,6 +966,31 @@ static int xpcs_pre_pcie_2g5(struct s32cc_xpcs *xpcs)
 	return ret;
 }
 
+static int xpcs_config_an(struct s32cc_xpcs *xpcs,
+			  const struct phylink_link_state state)
+{
+	bool an_enabled = false;
+
+	an_enabled = linkmode_test_bit(ETHTOOL_LINK_MODE_Autoneg_BIT,
+				       state.advertising);
+	if (!an_enabled)
+		return 0;
+
+	XPCS_WRITE_BITS(xpcs, VR_MII_DIG_CTRL1,
+			CL37_TMR_OVRRIDE, CL37_TMR_OVRRIDE);
+
+	XPCS_WRITE_BITS(xpcs, VR_MII_AN_CTRL,
+			PCS_MODE_MASK | MII_AN_INTR_EN,
+			PCS_MODE_SET(PCS_MODE_SGMII) | MII_AN_INTR_EN);
+	/* Enable SGMII AN */
+	XPCS_WRITE_BITS(xpcs, SR_MII_CTRL, AN_ENABLE, AN_ENABLE);
+	/* Enable SGMII AUTO SW */
+	XPCS_WRITE_BITS(xpcs, VR_MII_DIG_CTRL1,
+			MAC_AUTO_SW, MAC_AUTO_SW);
+
+	return 0;
+}
+
 static int xpcs_config(struct s32cc_xpcs *xpcs,
 		       const struct phylink_link_state *state)
 {
@@ -974,45 +998,44 @@ static int xpcs_config(struct s32cc_xpcs *xpcs,
 	unsigned int val = 0, duplex = 0;
 	int ret = 0;
 	int speed = state->speed;
-	bool sgmii_osc = false, an_enabled;
+	bool an_enabled;
 
 	/* Configure adaptive MII width */
 	XPCS_WRITE_BITS(xpcs, VR_MII_AN_CTRL, MII_CTRL, 0);
 
-	an_enabled = linkmode_test_bit(ETHTOOL_LINK_MODE_Autoneg_BIT,
-				       state->advertising);
+	an_enabled = !!(XPCS_READ(xpcs, SR_MII_CTRL) & AN_ENABLE);
 
-	if (phylink_test(state->advertising, 2500baseT_Full))
-		sgmii_osc = true;
+	dev_dbg(dev, "xpcs_%d: speed=%u duplex=%d an=%d\n", xpcs->id,
+		speed, duplex, an_enabled);
 
-	if (phylink_test(state->advertising, 10baseT_Half) ||
-	    phylink_test(state->advertising, 10baseT_Full) ||
-	    phylink_test(state->advertising, 100baseT_Half) ||
-	    phylink_test(state->advertising, 100baseT_Full) ||
-	    phylink_test(state->advertising, 100baseT1_Full) ||
-	    phylink_test(state->advertising, 1000baseT_Half) ||
-	    phylink_test(state->advertising, 1000baseT_Full) ||
-	    phylink_test(state->advertising, 1000baseX_Full))
-		if (an_enabled && sgmii_osc)
-			dev_err(dev, "Invalid advertising configuration for SGMII AN\n");
-
-	if (an_enabled && !state->an_complete) {
-		if (sgmii_osc) {
-			XPCS_WRITE(xpcs, VR_MII_LINK_TIMER_CTRL, 0x7a1);
-			speed = SPEED_2500;
-		} else {
+	if (an_enabled) {
+		switch (speed) {
+		case SPEED_10:
+		case SPEED_100:
+		case SPEED_1000:
 			XPCS_WRITE(xpcs, VR_MII_LINK_TIMER_CTRL, 0x2faf);
-			speed = SPEED_1000;
+			break;
+		case SPEED_2500:
+			XPCS_WRITE(xpcs, VR_MII_LINK_TIMER_CTRL, 0x7a1);
+			XPCS_WRITE_BITS(xpcs, VR_MII_DIG_CTRL1, MAC_AUTO_SW, 0);
+			break;
+		default:
+			dev_err(dev, "Speed not recognized. Can't setup xpcs\n");
+			return -EINVAL;
 		}
-		XPCS_WRITE_BITS(xpcs, VR_MII_DIG_CTRL1, CL37_TMR_OVRRIDE, 0);
-		XPCS_WRITE_BITS(xpcs, VR_MII_DIG_CTRL1,
-				CL37_TMR_OVRRIDE, CL37_TMR_OVRRIDE);
-	} else if (!an_enabled) {
+
+		XPCS_WRITE_BITS(xpcs, SR_MII_CTRL, RESTART_AN, RESTART_AN);
+
+		ret = xpcs_wait(xpcs, is_an_done);
+		if (ret)
+			dev_warn(dev, "AN did not finish for XPCS%d", xpcs->id);
+
+		/* Clear the AN CMPL intr */
+		XPCS_WRITE_BITS(xpcs, VR_MII_AN_INTR_STS, CL37_ANCMPLT_INTR, 0);
+	} else {
 		XPCS_WRITE_BITS(xpcs, SR_MII_CTRL, AN_ENABLE, 0);
 		XPCS_WRITE_BITS(xpcs, VR_MII_AN_CTRL, MII_AN_INTR_EN, 0);
-	}
 
-	if (!an_enabled || !state->an_complete) {
 		switch (speed) {
 		case SPEED_10:
 			break;
@@ -1050,30 +1073,6 @@ static int xpcs_config(struct s32cc_xpcs *xpcs,
 		XPCS_WRITE_BITS(xpcs, SR_MII_CTRL, SS6 | SS13, val);
 	}
 
-	if (an_enabled && !state->an_complete) {
-		/* Select SGMII type AN, enable interrupt */
-		XPCS_WRITE_BITS(xpcs, VR_MII_AN_CTRL,
-				PCS_MODE_MASK | MII_AN_INTR_EN,
-				PCS_MODE_SET(PCS_MODE_SGMII) | MII_AN_INTR_EN);
-		/* Enable SGMII AN */
-		XPCS_WRITE_BITS(xpcs, SR_MII_CTRL, AN_ENABLE, AN_ENABLE);
-		/* Enable SGMII AUTO SW */
-		if (sgmii_osc)
-			XPCS_WRITE_BITS(xpcs, VR_MII_DIG_CTRL1, MAC_AUTO_SW, 0);
-		else
-			XPCS_WRITE_BITS(xpcs, VR_MII_DIG_CTRL1,
-					MAC_AUTO_SW, MAC_AUTO_SW);
-
-		XPCS_WRITE_BITS(xpcs, SR_MII_CTRL, RESTART_AN, RESTART_AN);
-
-		ret = xpcs_wait(xpcs, is_an_done);
-		if (ret)
-			dev_warn(dev, "AN did not finish for XPCS%d", xpcs->id);
-
-		/* Clear the AN CMPL intr */
-		XPCS_WRITE_BITS(xpcs, VR_MII_AN_INTR_STS, CL37_ANCMPLT_INTR, 0);
-	}
-
 	return 0;
 }
 
@@ -1083,8 +1082,15 @@ static int s32cc_phylink_pcs_config(struct phylink_pcs *pcs,
 				    const unsigned long *advertising,
 				    bool permit_pause_to_mac)
 {
-	/* Configuration done in link_up() */
-	return 0;
+	struct s32cc_xpcs *xpcs = phylink_pcs_to_s32cc_xpcs(pcs);
+	struct phylink_link_state state  = { 0 };
+
+	if (!(neg_mode == PHYLINK_PCS_NEG_INBAND_ENABLED))
+		return 0;
+
+	linkmode_copy(state.advertising, advertising);
+
+	return xpcs_config_an(xpcs, state);
 }
 
 static void s32cc_phylink_pcs_restart_an(struct phylink_pcs *pcs)
@@ -1098,19 +1104,12 @@ static void s32cc_phylink_pcs_link_up(struct phylink_pcs *pcs,
 				      int duplex)
 {
 	struct s32cc_xpcs *xpcs = phylink_pcs_to_s32cc_xpcs(pcs);
-	struct device *dev = get_xpcs_device(xpcs);
 	struct phylink_link_state state = { 0 };
 
-	if (xpcs_get_state(xpcs, &state)) {
-		dev_err(dev, "Get XPCS state failed\n");
-		return;
-	}
-
-	state.interface = interface;
 	state.speed = speed;
 	state.duplex = duplex;
+	state.an_complete = false;
 
-	dev_dbg(dev, "xpcs_%d: speed=%u duplex=%d an=%d\n", xpcs->id, speed, duplex, neg_mode);
 	xpcs_config(xpcs, &state);
 }
 
