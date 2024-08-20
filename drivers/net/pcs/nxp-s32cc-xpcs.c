@@ -971,7 +971,7 @@ static int xpcs_config(struct s32cc_xpcs *xpcs,
 	unsigned int val = 0, duplex = 0;
 	int ret = 0;
 	int speed = state->speed;
-	bool sgmi_osc = false, an_enabled;
+	bool sgmii_osc = false, an_enabled;
 
 	/* Configure adaptive MII width */
 	XPCS_WRITE_BITS(xpcs, VR_MII_AN_CTRL, MII_CTRL, 0);
@@ -980,7 +980,7 @@ static int xpcs_config(struct s32cc_xpcs *xpcs,
 				       state->advertising);
 
 	if (phylink_test(state->advertising, 2500baseT_Full))
-		sgmi_osc = true;
+		sgmii_osc = true;
 
 	if (phylink_test(state->advertising, 10baseT_Half) ||
 	    phylink_test(state->advertising, 10baseT_Full) ||
@@ -990,15 +990,15 @@ static int xpcs_config(struct s32cc_xpcs *xpcs,
 	    phylink_test(state->advertising, 1000baseT_Half) ||
 	    phylink_test(state->advertising, 1000baseT_Full) ||
 	    phylink_test(state->advertising, 1000baseX_Full))
-		if (an_enabled && sgmi_osc)
+		if (an_enabled && sgmii_osc)
 			dev_err(dev, "Invalid advertising configuration for SGMII AN\n");
 
 	if (an_enabled && !state->an_complete) {
-		if (sgmi_osc) {
-			XPCS_WRITE(xpcs, VR_MII_LINK_TIMER_CTRL, 0x30e);
+		if (sgmii_osc) {
+			XPCS_WRITE(xpcs, VR_MII_LINK_TIMER_CTRL, 0x7a1);
 			speed = SPEED_2500;
 		} else {
-			XPCS_WRITE(xpcs, VR_MII_LINK_TIMER_CTRL, 0x7a1);
+			XPCS_WRITE(xpcs, VR_MII_LINK_TIMER_CTRL, 0x2faf);
 			speed = SPEED_1000;
 		}
 		XPCS_WRITE_BITS(xpcs, VR_MII_DIG_CTRL1, CL37_TMR_OVRRIDE, 0);
@@ -1055,7 +1055,7 @@ static int xpcs_config(struct s32cc_xpcs *xpcs,
 		/* Enable SGMII AN */
 		XPCS_WRITE_BITS(xpcs, SR_MII_CTRL, AN_ENABLE, AN_ENABLE);
 		/* Enable SGMII AUTO SW */
-		if (sgmi_osc)
+		if (sgmii_osc)
 			XPCS_WRITE_BITS(xpcs, VR_MII_DIG_CTRL1, MAC_AUTO_SW, 0);
 		else
 			XPCS_WRITE_BITS(xpcs, VR_MII_DIG_CTRL1,
