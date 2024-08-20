@@ -20,7 +20,7 @@
 &pfe {
 	status = "disabled";
 	pinctrl-names = "default";
-	pinctrl-0 = <&pfe2mdiob_pins>, <&pfe2rgmiib_pins>;
+	pinctrl-0 = <&pfe2mdiob_pins>, <&pfe2rgmiib_pins>, <&pfe0_mdio_pins>;
 };
 
 &usdhc0 {
@@ -100,6 +100,26 @@
 				 <S32CC_PINMUX(77, FUNC0)>;
 			input-enable;
 			slew-rate = <S32CC_FAST_SLEW_166MHZ>;
+		};
+	};
+
+	pfe0_mdio_pins: pfe0_mdio {
+		pfe0_mdio_grp0 {
+			pinmux = <S32CC_PINMUX(80, FUNC2)>;
+			output-enable;
+			drive-push-pull;
+			slew-rate = <S32CC_FAST_SLEW_166MHZ>;
+		};
+
+		pfe0_mdio_grp1 {
+			pinmux = <S32CC_PINMUX(81, FUNC3)>;
+			output-enable;
+			input-enable;
+			slew-rate = <S32CC_FAST_SLEW_166MHZ>;
+		};
+
+		pfe0_mdio_grp2 {
+			pinmux = <S32CC_PINMUX(837, FUNC3)>;
 		};
 	};
 

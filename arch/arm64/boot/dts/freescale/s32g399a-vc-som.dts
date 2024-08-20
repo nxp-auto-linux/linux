@@ -36,8 +36,11 @@
 };
 
 &pfe_mdio0 {
-	/* unused */
-	status = "disabled";
+	/* TJA1120B on BASE board */
+	status = "okay";
+	pfe_mdio_b_phy7: ethernet-phy@7 {
+		reg = <7>;
+	};
 };
 
 &pfe_mdio1 {
@@ -46,7 +49,7 @@
 };
 
 &pfe_mdio2 {
-	/* TJA1120 */
+	/* TJA1120A */
 	pfe_mdio_b_phy1: ethernet-phy@1 {
 		reg = <1>;
 	};
@@ -63,22 +66,16 @@
 
 &pfe_netif1 {
 	phy-mode = "sgmii";
-
-	fixed-link {
-		speed = <1000>;
-		full-duplex;
-	};
+	status = "okay";
+	managed = "in-band-status";
+	phy-handle = <&pfe_mdio_b_phy7>;
 };
 
 &pfe_netif2 {
 	phy-mode = "rgmii";
 	phy-handle = <&pfe_mdio_b_phy1>;
 
-	/*
-	 * Workaround for TJA1120.
-	 * Will be updated once TJA1120 support
-	 * is added.
-	 */
+	/* TJA1120A does not support AN */
 	fixed-link {
 		speed = <1000>;
 		full-duplex;
