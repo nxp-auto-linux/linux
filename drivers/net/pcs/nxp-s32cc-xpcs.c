@@ -374,6 +374,13 @@ static bool is_not_in_reset(struct s32cc_xpcs *xpcs)
 	return !(val & SR_RST);
 }
 
+static bool is_an_done(struct s32cc_xpcs *xpcs)
+{
+	unsigned int val = XPCS_READ(xpcs, VR_MII_AN_INTR_STS);
+
+	return !!(val & CL37_ANCMPLT_INTR);
+};
+
 static bool xpcs_poll_timeout(struct s32cc_xpcs *xpcs, xpcs_poll_func_t func,
 			      ktime_t timeout)
 {
@@ -880,10 +887,6 @@ static int xpcs_get_state(struct s32cc_xpcs *xpcs,
 			return 0;
 		}
 
-		/* Clear the interrupt */
-		if (val & CL37_ANCMPLT_INTR)
-			XPCS_WRITE_BITS(xpcs, VR_MII_AN_INTR_STS,
-					CL37_ANCMPLT_INTR, 0);
 	} else {
 		/* MLO_AN_FIXED, MLO_AN_PHY */
 		val = XPCS_READ(xpcs, SR_MII_STS);
@@ -1062,6 +1065,13 @@ static int xpcs_config(struct s32cc_xpcs *xpcs,
 					MAC_AUTO_SW, MAC_AUTO_SW);
 
 		XPCS_WRITE_BITS(xpcs, SR_MII_CTRL, RESTART_AN, RESTART_AN);
+
+		ret = xpcs_wait(xpcs, is_an_done);
+		if (ret)
+			dev_warn(dev, "AN did not finish for XPCS%d", xpcs->id);
+
+		/* Clear the AN CMPL intr */
+		XPCS_WRITE_BITS(xpcs, VR_MII_AN_INTR_STS, CL37_ANCMPLT_INTR, 0);
 	}
 
 	return 0;
