@@ -1181,6 +1181,7 @@ static int xpcs_init(struct s32cc_xpcs **xpcs, struct device *dev,
 	/* Phylink PCS */
 	xpcsp->pcs.ops = &s32cc_phylink_pcs_ops;
 	xpcsp->pcs.poll = true;
+	xpcsp->pcs.neg_mode = true;
 
 	return 0;
 }
