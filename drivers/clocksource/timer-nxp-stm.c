@@ -389,7 +389,7 @@ static int __init nxp_stm_timer_probe(struct platform_device *pdev)
 	flush_work(&stm->work.work);
 
 	/* reset counter value */
-	stm_clksrc_setcnt(stm, 0);
+	stm_clksrc_setcnt(stm->timer_base, 0);
 	stm_enable(stm->timer_base, 0);
 
 	return 0;
