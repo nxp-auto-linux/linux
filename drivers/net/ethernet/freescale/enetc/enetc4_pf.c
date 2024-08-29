@@ -403,6 +403,10 @@ static void enetc4_get_psi_hw_features(struct enetc_si *si)
 	val = enetc_port_rd(hw, ENETC4_IPCAPR);
 	if (val & IPCAPR_ISID)
 		si->hw_features |= ENETC_SI_F_PSFP;
+
+	val = enetc_port_rd(hw, ENETC4_PCAPR);
+	if (val & PCAPR_LINK_TYPE)
+		si->hw_features |= ENETC_SI_F_PPM;
 }
 
 static void enetc4_pf_set_si_vlan_promisc(struct enetc_hw *hw, int si, bool en)
@@ -1038,6 +1042,9 @@ static void enetc4_mac_config(struct enetc_pf *pf, unsigned int mode,
 	struct enetc_ndev_priv *priv = netdev_priv(pf->si->ndev);
 	struct enetc_si *si = pf->si;
 	u32 val;
+
+	if (si->hw_features & ENETC_SI_F_PPM)
+		return;
 
 	val = enetc_port_mac_rd(si, ENETC4_PM_IF_MODE(0));
 	val &= ~(PM_IF_MODE_IFMODE | PM_IF_MODE_ENA);
@@ -1967,6 +1974,7 @@ static DEFINE_SIMPLE_DEV_PM_OPS(enetc4_pf_pm_ops, enetc4_pf_suspend,
 static const struct pci_device_id enetc4_pf_id_table[] = {
 	{ PCI_DEVICE(NXP_ENETC_VENDOR_ID, NXP_ENETC_PF_DEV_ID) },
 	{ PCI_DEVICE(NXP_ENETC_VENDOR_ID, NXP_ENETC_PROXY_PF_DEVID) },
+	{ PCI_DEVICE(NXP_ENETC_VENDOR_ID, NXP_ENETC_PPM_DEV_ID) },
 	{ 0, } /* End of table. */
 };
 MODULE_DEVICE_TABLE(pci, enetc4_pf_id_table);

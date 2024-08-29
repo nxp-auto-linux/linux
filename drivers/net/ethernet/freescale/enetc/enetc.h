@@ -279,6 +279,7 @@ enum enetc_errata {
 #define ENETC_SI_F_QBU  BIT(2)
 #define ENETC_SI_F_LSO	BIT(3)
 #define ENETC_SI_F_RSC	BIT(4)
+#define ENETC_SI_F_PPM	BIT(5) /* Pseduo MAC */
 
 struct enetc_drvdata {
 	u32 pmac_offset; /* Only valid for PSI which supports 802.1Qbu */
@@ -574,6 +575,7 @@ int enetc_resume(struct net_device *ndev, bool wol);
 extern const struct ethtool_ops enetc_pf_ethtool_ops;
 extern const struct ethtool_ops enetc4_pf_ethtool_ops;
 extern const struct ethtool_ops enetc_vf_ethtool_ops;
+extern const struct ethtool_ops enetc4_ppm_ethtool_ops;
 void enetc_set_ethtool_ops(struct net_device *ndev);
 void enetc_mm_commit_preemptible_tcs(struct enetc_ndev_priv *priv);
 void enetc_eee_mode_set(struct net_device *dev, bool enable);
