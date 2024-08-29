@@ -11,9 +11,14 @@
 
 #define NXP_ENETC_VENDOR_ID		0x1131
 #define NXP_ENETC_PF_DEV_ID		0xe101
+#define NXP_ENETC_PPM_DEV_ID		0xe110
 #define NXP_ENETC_VF_DEV_ID		0xef00
 
 /**********************Station interface registers************************/
+
+/* Station interface transmit discard frame counter */
+#define ENETC4_SITDFCR			0x340
+
 /* Station interface LSO segmentation flag mask register 0/1 */
 #define ENETC4_SILSOSFMR0		0x1300
 #define  SILSOSFMR0_TCP_MID_SEG		GENMASK(27, 16)
@@ -496,5 +501,30 @@
 
 /* Port MAC Merge Hold Count Register */
 #define ENETC4_MMHCR			0x581c
+
+/**********************ENETC Pseudo MAC port registers************************/
+/* Port pseudo MAC receive octets counter (64-bit) */
+#define ENETC4_PPMROCR			0x5080
+
+/* Port pseudo MAC receive unicast frame counter register (64-bit) */
+#define ENETC4_PPMRUFCR			0x5088
+
+/* Port pseudo MAC receive multicast frame counter register (64-bit) */
+#define ENETC4_PPMRMFCR			0x5090
+
+/* Port pseudo MAC receive broadcast frame counter register (64-bit) */
+#define ENETC4_PPMRBFCR			0x5098
+
+/* Port pseudo MAC transmit octets counter (64-bit) */
+#define ENETC4_PPMTOCR			0x50c0
+
+/* Port pseudo MAC transmit unicast frame counter register (64-bit) */
+#define ENETC4_PPMTUFCR			0x50c8
+
+/* Port pseudo MAC transmit multicast frame counter register (64-bit) */
+#define ENETC4_PPMTMFCR			0x50d0
+
+/* Port pseudo MAC transmit broadcast frame counter register (64-bit) */
+#define ENETC4_PPMTBFCR			0x50d8
 
 #endif
