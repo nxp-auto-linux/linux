@@ -504,41 +504,6 @@ static const struct irq_chip scmi_gpio_irq_chip = {
 	GPIOCHIP_IRQ_RESOURCE_HELPERS,
 };
 
-static int scmi_gpio_irq_domain_xlate(struct irq_domain *d,
-				      struct device_node *ctrlr,
-				      const u32 *intspec,
-				      unsigned int intsize,
-				      irq_hw_number_t *out_hwirq,
-				      unsigned int *out_type)
-{
-	struct scmi_gpio_dev *gpio_dev = d->host_data;
-	irq_hw_number_t gpio;
-	int ret;
-	u32 irq;
-
-	ret = irq_domain_xlate_twocell(d, ctrlr, intspec, intsize,
-				       &gpio, out_type);
-	if (ret)
-		return ret;
-
-	if (gpio > U32_MAX)
-		return -E2BIG;
-
-	ret = update_irq_mapping(gpio_dev, gpio, &irq, false);
-	if (ret)
-		return ret;
-
-	*out_hwirq = gpio;
-
-	return 0;
-}
-
-static const struct irq_domain_ops scmi_domain_ops = {
-	.map	= gpiochip_irq_map,
-	.unmap	= gpiochip_irq_unmap,
-	.xlate	= scmi_gpio_irq_domain_xlate,
-};
-
 static int scmi_gpio_to_irq(struct gpio_chip *chip, unsigned int gpio)
 {
 	struct scmi_gpio_dev *gpio_dev = to_scmi_gpio_dev(chip);
@@ -818,7 +783,6 @@ static int scmi_gpio_probe(struct scmi_device *sdev)
 	girq->parents = NULL;
 	girq->default_type = IRQ_TYPE_NONE;
 	girq->handler = handle_simple_irq;
-	girq->domain_ops = &scmi_domain_ops;
 
 	ret = devm_gpiochip_add_data(dev, gc, gpio_dev);
 	if (ret)
