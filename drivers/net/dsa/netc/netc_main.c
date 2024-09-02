@@ -416,7 +416,7 @@ static void netc_init_ntmp_tbl_versions(struct netc_switch *priv)
 	/* All tables default to version 0 */
 	memset(&user->tbl, 0, sizeof(user->tbl));
 
-	if (priv->revision == NETC_SWITCH_REV_4_3)
+	if (priv->revision >= NETC_SWITCH_REV_4_3)
 		user->tbl.ist_ver = 1;
 }
 
