@@ -36,6 +36,8 @@
 #define NTMP_ISCT_ID			38
 #define NTMP_ECT_ID			39
 #define NTMP_FMT_ID			40
+#define NTMP_BPT_ID			41
+#define NTMP_SBPT_ID			42
 
 /* Generic Update Actions for most tables */
 #define NTMP_GEN_UA_CFGEU		BIT(0)
@@ -51,6 +53,8 @@
 #define FDBT_UA_ACTEU			BIT(1)
 #define ESRT_UA_SRSEU			BIT(2)
 #define ECT_UA_STSEU			BIT(0)
+#define BPT_UA_BPSEU			BIT(1)
+#define SBPT_UA_BPSEU			BIT(1)
 
 /* Quary Action: 0: Full query, 1: Only query entry ID */
 #define NTMP_QA_ENTRY_ID		1
@@ -333,6 +337,10 @@ static const char *ntmp_table_name(int tbl_id)
 		return "Egress Sequence Recovery Table";
 	case NTMP_FMT_ID:
 		return "Frame Modification Table";
+	case NTMP_BPT_ID:
+		return "Buffer Pool Table";
+	case NTMP_SBPT_ID:
+		return "Shared Buffer Pool Table";
 	default:
 		return "Unknown Table";
 	};
@@ -2349,6 +2357,140 @@ end:
 	return err;
 }
 EXPORT_SYMBOL_GPL(ntmp_fmt_query_entry);
+
+int ntmp_bpt_update_entry(struct ntmp_user *user, u32 entry_id,
+			  struct bpt_cfge_data *cfge)
+{
+	struct ntmp_dma_buf data = {
+		.dev = user->dev,
+		.size = sizeof(struct bpt_req_update),
+	};
+	struct bpt_req_update *req;
+	union netc_cbd cbd;
+	int err;
+
+	err = ntmp_alloc_data_mem(&data, (void **)&req);
+	if (err)
+		return err;
+
+	ntmp_fill_crd_eid(&req->rbe, user->tbl.bpt_ver, 0,
+			  NTMP_GEN_UA_CFGEU | BPT_UA_BPSEU, entry_id);
+	req->cfge = *cfge;
+	ntmp_fill_request_hdr(&cbd, data.dma, NTMP_LEN(data.size, 0),
+			      NTMP_BPT_ID, NTMP_CMD_UPDATE, NTMP_AM_ENTRY_ID);
+
+	err = netc_xmit_ntmp_cmd(user, &cbd);
+	if (err)
+		dev_err(user->dev,
+			"Failed to update BPT entry 0x%x, err: %pe\n",
+			entry_id, ERR_PTR(err));
+
+	ntmp_free_data_mem(&data);
+
+	return err;
+}
+EXPORT_SYMBOL_GPL(ntmp_bpt_update_entry);
+
+int ntmp_bpt_query_entry(struct ntmp_user *user, u32 entry_id,
+			 struct bpt_entry_data *bpt)
+{
+	struct ntmp_dma_buf data = {
+		.dev = user->dev,
+		.size = sizeof(struct bpt_resp_query),
+	};
+	struct ntmp_req_by_eid *req;
+	struct bpt_resp_query *resp;
+	u32 len;
+	int err;
+
+	err = ntmp_alloc_data_mem(&data, (void **)&req);
+	if (err)
+		return err;
+
+	ntmp_fill_crd_eid(req, user->tbl.bpt_ver, 0, 0, entry_id);
+	len = NTMP_LEN(sizeof(*req), data.size);
+	err = ntmp_query_entry_by_id(user, NTMP_BPT_ID, len,
+				     req, data.dma, true);
+	if (err)
+		goto end;
+
+	resp = (struct bpt_resp_query *)req;
+	bpt->bpse = resp->bpse;
+	bpt->cfge = resp->cfge;
+
+end:
+	ntmp_free_data_mem(&data);
+
+	return err;
+}
+EXPORT_SYMBOL_GPL(ntmp_bpt_query_entry);
+
+int ntmp_sbpt_update_entry(struct ntmp_user *user, u32 entry_id,
+			   struct sbpt_cfge_data *cfge)
+{
+	struct ntmp_dma_buf data = {
+		.dev = user->dev,
+		.size = sizeof(struct sbpt_req_update),
+	};
+	struct sbpt_req_update *req;
+	union netc_cbd cbd;
+	int err;
+
+	err = ntmp_alloc_data_mem(&data, (void **)&req);
+	if (err)
+		return err;
+
+	ntmp_fill_crd_eid(&req->rbe, user->tbl.sbpt_ver, 0,
+			  NTMP_GEN_UA_CFGEU | SBPT_UA_BPSEU, entry_id);
+	req->cfge = *cfge;
+	ntmp_fill_request_hdr(&cbd, data.dma, NTMP_LEN(data.size, 0),
+			      NTMP_SBPT_ID, NTMP_CMD_UPDATE, NTMP_AM_ENTRY_ID);
+
+	err = netc_xmit_ntmp_cmd(user, &cbd);
+	if (err)
+		dev_err(user->dev,
+			"Failed to update SBPT entry 0x%x, err: %pe\n",
+			entry_id, ERR_PTR(err));
+
+	ntmp_free_data_mem(&data);
+
+	return err;
+}
+EXPORT_SYMBOL_GPL(ntmp_sbpt_update_entry);
+
+int ntmp_sbpt_query_entry(struct ntmp_user *user, u32 entry_id,
+			  struct sbpt_entry_data *sbpt)
+{
+	struct ntmp_dma_buf data = {
+		.dev = user->dev,
+		.size = sizeof(struct sbpt_resp_query),
+	};
+	struct sbpt_resp_query *resp;
+	struct ntmp_req_by_eid *req;
+	u32 len;
+	int err;
+
+	err = ntmp_alloc_data_mem(&data, (void **)&req);
+	if (err)
+		return err;
+
+	ntmp_fill_crd_eid(req, user->tbl.sbpt_ver, 0, 0, entry_id);
+	len =  NTMP_LEN(sizeof(*req), data.size);
+	err = ntmp_query_entry_by_id(user, NTMP_SBPT_ID, len,
+				     req, data.dma, true);
+	if (err)
+		goto end;
+
+	resp = (struct sbpt_resp_query *)req;
+	sbpt->sbpse = resp->sbpse;
+	sbpt->cfge = resp->cfge;
+
+end:
+	ntmp_free_data_mem(&data);
+
+	return err;
+}
+EXPORT_SYMBOL_GPL(ntmp_sbpt_query_entry);
 
 MODULE_DESCRIPTION("NXP NETC Library");
 MODULE_LICENSE("Dual BSD/GPL");
