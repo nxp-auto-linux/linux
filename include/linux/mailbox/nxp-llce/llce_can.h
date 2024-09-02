@@ -254,7 +254,12 @@ enum llce_can_command_id {
 	 * The host requests all LLCE cores to execute WFI and shut
 	 * down.
 	 */
-	LLCE_CAN_CMD_SHUTDOWN
+	LLCE_CAN_CMD_SHUTDOWN,
+	/**
+	 * Host removes a destination which is used by the advanced
+	 * routing filters. Stored data of this destination will be lost.
+	 */
+	LLCE_CAN_CMD_REMOVE_AF_DESTINATION
 } __packed;
 
 /**
@@ -1329,6 +1334,13 @@ struct llce_can_create_af_destination {
 } __aligned(4) __packed;
 
 /**
+ * Remove AF destination command.
+ * It is sent by the host to LLCE in order remove a destination used by AF. It
+ * is the index in LLCE list of destination to be removed.
+ **/
+typedef u8 llce_can_remove_af_destination;
+
+/**
  * Abort MB command structure
  * It is sent by the host to LLCE in order to abort the lowest priority pending
  * transmission of a specific controller.
@@ -1414,6 +1426,8 @@ union llce_can_command_list {
 	struct llce_can_init_pfe_with_extern_ring_cmd init_pfe_with_extern_ring;
 	/** Command for creating a destination for AF */
 	struct llce_can_create_af_destination create_af_dest;
+	/** Command for removing a destination for AF */
+	llce_can_remove_af_destination remove_af_dest;
 	/**
 	 * Command for aborting either the lowest priority message buffer
 	 * or all the message buffers with a specific tag.

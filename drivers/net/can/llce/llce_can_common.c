@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0+ OR BSD-3-Clause
 /* Copyright 2021-2024 NXP */
+
 #include <linux/can/dev.h>
 #include <linux/can/dev/llce_can_common.h>
 #include <linux/ctype.h>
@@ -101,7 +102,7 @@ static const struct llce_error llce_errors[] = {
 	LLCE_CAN_ERROR_ENTRY(LLCE_ERROR_IDX_NOT_VALID_LOG),
 	LLCE_CAN_ERROR_ENTRY(LLCE_ERROR_CODE_RESERVED_13),
 	LLCE_CAN_ERROR_ENTRY(LLCE_ERROR_CODE_RESERVED_14),
-	LLCE_CAN_ERROR_ENTRY(LLCE_ERROR_CODE_RESERVED_15),
+	LLCE_CAN_ERROR_ENTRY(LLCE_ERROR_TXFRAME_MAC_GEN_ERROR),
 	LLCE_CAN_ERROR_ENTRY(LLCE_ERROR_RXFRAME_AUTH_ERROR),
 	LLCE_CAN_ERROR_ENTRY(LLCE_ERROR_CODE_RESERVED_16),
 	LLCE_CAN_ERROR_ENTRY(LLCE_ERROR_CODE_RESERVED_17),
@@ -453,11 +454,15 @@ void process_llce_can_error(struct llce_can_dev *llce,
 	case LLCE_ERROR_MB_NOTAVAILABLE:
 	case LLCE_ERROR_RXOUT_FIFO_FULL:
 	case LLCE_ERROR_SW_FIFO_FULL:
+	case LLCE_ERROR_RXFRAME_AUTH_ERROR:
 		net_stats->rx_dropped++;
 		break;
 	case LLCE_ERROR_BCAN_RXFIFO_OVERRUN:
 		net_stats->rx_over_errors++;
 		net_stats->rx_errors++;
+		break;
+	case LLCE_ERROR_TXFRAME_MAC_GEN_ERROR:
+		net_stats->tx_dropped++;
 		break;
 	default:
 		break;
