@@ -441,6 +441,16 @@ struct vft_resp_query {
 	struct vft_cfge_data cfge;
 };
 
+struct ett_req_ua {
+	struct ntmp_req_by_eid rbe;
+	struct ett_cfge_data cfge;
+};
+
+struct ett_resp_query {
+	__le32 entry_id;
+	struct ett_cfge_data cfge;
+};
+
 u32 ntmp_lookup_free_words(unsigned long *bitmap, u32 size, u32 num_words);
 void ntmp_clear_words_bitmap(unsigned long *bitmap, u32 entry_id, u32 num_words);
 int ntmp_tgst_query_entry(struct ntmp_user *user, u32 entry_id,
