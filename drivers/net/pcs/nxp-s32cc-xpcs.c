@@ -917,11 +917,11 @@ static int xpcs_get_state(struct s32cc_xpcs *xpcs,
 	}
 
 	val = XPCS_READ(xpcs, VR_MII_DIG_CTRL1);
-	if ((mii_ctrl & EN_2_5G_MODE) && state->speed == SPEED_1000)
+	if ((val & EN_2_5G_MODE) && state->speed == SPEED_1000)
 		state->speed = SPEED_2500;
 
 	/* Cover SGMII AN inability to distigunish between 1G and 2.5G */
-	if ((mii_ctrl & EN_2_5G_MODE) &&
+	if ((val & EN_2_5G_MODE) &&
 	    state->speed != SPEED_2500 && an_enabled) {
 		dev_err(dev, "Speed not supported in SGMII AN mode\n");
 		return -EINVAL;
