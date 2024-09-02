@@ -468,6 +468,16 @@ struct esrt_req_update {
 	struct esrt_cfge_data cfge;
 };
 
+struct fmt_req_ua {
+	struct ntmp_req_by_eid rbe;
+	struct fmt_cfge_data cfge;
+};
+
+struct fmt_resp_query {
+	__le32 entry_id;
+	struct fmt_cfge_data cfge;
+};
+
 u32 ntmp_lookup_free_words(unsigned long *bitmap, u32 size, u32 num_words);
 void ntmp_clear_words_bitmap(unsigned long *bitmap, u32 entry_id, u32 num_words);
 int ntmp_tgst_query_entry(struct ntmp_user *user, u32 entry_id,
