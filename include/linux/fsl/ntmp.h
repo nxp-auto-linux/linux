@@ -385,6 +385,21 @@ struct vft_cfge_data {
 	__le32 et_eid;
 };
 
+struct ett_cfge_data {
+	__le16 efm_cfg;
+#define	ETT_EFM_MODE		GENMASK(1, 0)
+#define ETT_ESQA		GENMASK(5, 4)
+#define ETT_ECA			GENMASK(8, 6)
+#define ETT_ECA_INC		1
+#define ETT_EFM_LEN_CHANGE	GENMASK(15, 9)
+#define ETT_FRM_LEN_DEL_VLAN	0x7c
+	__le16 efm_data_len;
+#define ETT_EFM_DATA_LEN	GENMASK(10, 0)
+	__le32 efm_eid;
+	__le32 ec_eid;
+	__le32 esqa_tgt_eid;
+};
+
 struct netc_cbdr_regs {
 	void __iomem *pir;
 	void __iomem *cir;
@@ -415,6 +430,7 @@ struct netc_tbl_vers {
 	u8 sgclt_ver;
 	u8 isct_ver;
 	u8 rfst_ver;
+	u8 ett_ver;
 };
 
 struct netc_cbdr {
@@ -600,6 +616,11 @@ int ntmp_vft_search_entry(struct ntmp_user *user, u32 *resume_eid,
 			  u32 *entry_id, u16 *vid, struct vft_cfge_data *cfge);
 int ntmp_vft_query_entry_by_vid(struct ntmp_user *user, u16 vid,
 				u32 *entry_id, struct vft_cfge_data *cfge);
+int ntmp_ett_add_or_update_entry(struct ntmp_user *user, u32 entry_id,
+				 bool add, struct ett_cfge_data *cfge);
+int ntmp_ett_delete_entry(struct ntmp_user *user, u32 entry_id);
+int ntmp_ett_query_entry(struct ntmp_user *user, u32 entry_id,
+			 struct ett_cfge_data *cfge);
 #else
 static inline u32 ntmp_lookup_free_eid(unsigned long *bitmap, u32 size)
 {
@@ -785,6 +806,23 @@ static inline int ntmp_vft_search_entry(struct ntmp_user *user, u32 *resume_eid,
 static inline int ntmp_vft_query_entry_by_vid(struct ntmp_user *user, u16 vid,
 					      u32 *entry_id,
 					      struct vft_cfge_data *cfge)
+{
+	return 0;
+}
+
+static inline int ntmp_ett_add_or_update_entry(struct ntmp_user *user, u32 entry_id,
+					       bool add, struct ett_cfge_data *cfge)
+{
+	return 0;
+}
+
+static inline int ntmp_ett_delete_entry(struct ntmp_user *user, u32 entry_id)
+{
+	return 0;
+}
+
+static inline int ntmp_ett_query_entry(struct ntmp_user *user, u32 entry_id,
+				       struct ett_cfge_data *cfge)
 {
 	return 0;
 }
