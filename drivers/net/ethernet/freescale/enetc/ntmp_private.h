@@ -394,6 +394,16 @@ struct ect_resp_query {
 	struct ect_stse_data stse;
 };
 
+struct fmt_req_ua {
+	struct ntmp_req_by_eid rbe;
+	struct fmt_cfge_data cfge;
+};
+
+struct fmt_resp_query {
+	__le32 entry_id;
+	struct fmt_cfge_data cfge;
+};
+
 #pragma pack()
 
 struct tgst_query_data {
