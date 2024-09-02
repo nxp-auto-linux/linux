@@ -230,6 +230,11 @@ struct esrt_resp_query {
 	struct esrt_srse_data srse;
 };
 
+struct ect_resp_query {
+	__le32 entry_id;
+	struct ect_stse_data stse;
+};
+
 #pragma pack()
 
 struct tgst_query_data {

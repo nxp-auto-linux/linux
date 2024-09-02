@@ -431,6 +431,11 @@ struct esrt_srse_data {
 	__le32 sqr_history[4];
 };
 
+struct ect_stse_data {
+	__le64 enq_frm_cnt;
+	__le64 rej_frm_cnt;
+};
+
 struct netc_cbdr_regs {
 	void __iomem *pir;
 	void __iomem *cir;
@@ -463,6 +468,7 @@ struct netc_tbl_vers {
 	u8 rfst_ver;
 	u8 ett_ver;
 	u8 esrt_ver;
+	u8 ect_ver;
 };
 
 struct netc_cbdr {
@@ -663,6 +669,9 @@ int ntmp_esrt_update_entry(struct ntmp_user *user, u32 entry_id,
 			   struct esrt_cfge_data *cfge);
 int ntmp_esrt_query_entry(struct ntmp_user *user, u32 entry_id,
 			  struct esrt_entry_data *erst);
+int ntmp_ect_update_entry(struct ntmp_user *user, u32 entry_id);
+int ntmp_ect_query_entry(struct ntmp_user *user, u32 entry_id,
+			 struct ect_stse_data *stse, bool update);
 #else
 static inline u32 ntmp_lookup_free_eid(unsigned long *bitmap, u32 size)
 {
@@ -877,6 +886,17 @@ static inline int ntmp_esrt_update_entry(struct ntmp_user *user, u32 entry_id,
 
 static inline int ntmp_esrt_query_entry(struct ntmp_user *user, u32 entry_id,
 					struct esrt_entry_data *erst)
+{
+	return 0;
+}
+
+static inline int ntmp_ect_update_entry(struct ntmp_user *user, u32 entry_id)
+{
+	return 0;
+}
+
+static inline int ntmp_ect_query_entry(struct ntmp_user *user, u32 entry_id,
+				       struct ect_stse_data *stse, bool update)
 {
 	return 0;
 }
