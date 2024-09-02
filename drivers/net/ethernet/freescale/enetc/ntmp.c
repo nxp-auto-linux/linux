@@ -35,6 +35,7 @@
 #define NTMP_SGCLT_ID			37
 #define NTMP_ISCT_ID			38
 #define NTMP_ECT_ID			39
+#define NTMP_FMT_ID			40
 
 /* Generic Update Actions for most tables */
 #define NTMP_GEN_UA_CFGEU		BIT(0)
@@ -330,6 +331,8 @@ static const char *ntmp_table_name(int tbl_id)
 		return "Egress Treatment Table";
 	case NTMP_ESRT_ID:
 		return "Egress Sequence Recovery Table";
+	case NTMP_FMT_ID:
+		return "Frame Modification Table";
 	default:
 		return "Unknown Table";
 	};
@@ -2264,6 +2267,88 @@ end:
 	return err;
 }
 EXPORT_SYMBOL_GPL(ntmp_ect_query_entry);
+
+int ntmp_fmt_add_or_update_entry(struct ntmp_user *user, u32 entry_id,
+				 bool add, struct fmt_cfge_data *cfge)
+{
+	struct ntmp_dma_buf data = {
+		.dev = user->dev,
+		.size = sizeof(struct fmt_req_ua),
+	};
+	struct fmt_req_ua *req;
+	union netc_cbd cbd;
+	u32 len;
+	int err;
+
+	err = ntmp_alloc_data_mem(&data, (void **)&req);
+	if (err)
+		return err;
+
+	/* Request data */
+	ntmp_fill_crd_eid(&req->rbe, user->tbl.fmt_ver, 0,
+			  NTMP_GEN_UA_CFGEU, entry_id);
+	req->cfge = *cfge;
+
+	/* Request header */
+	len = NTMP_LEN(data.size, 0);
+	ntmp_fill_request_hdr(&cbd, data.dma, len, NTMP_FMT_ID,
+			      add ? NTMP_CMD_ADD : NTMP_CMD_UPDATE,
+			      NTMP_AM_ENTRY_ID);
+
+	err = netc_xmit_ntmp_cmd(user, &cbd);
+	if (err)
+		dev_err(user->dev,
+			"Failed to %s FMT entry 0x%0x, err: %pe\n",
+			add ? "Add" : "Update", entry_id, ERR_PTR(err));
+
+	ntmp_free_data_mem(&data);
+
+	return err;
+}
+EXPORT_SYMBOL_GPL(ntmp_fmt_add_or_update_entry);
+
+int ntmp_fmt_delete_entry(struct ntmp_user *user, u32 entry_id)
+{
+	return ntmp_delete_entry_by_id(user, NTMP_FMT_ID, user->tbl.fmt_ver,
+				       entry_id, NTMP_EID_REQ_LEN, 0);
+}
+EXPORT_SYMBOL_GPL(ntmp_fmt_delete_entry);
+
+int ntmp_fmt_query_entry(struct ntmp_user *user, u32 entry_id,
+			 struct fmt_cfge_data *cfge)
+{
+	struct ntmp_dma_buf data = {
+		.dev = user->dev,
+		.size = sizeof(struct fmt_resp_query),
+	};
+	struct ntmp_req_by_eid *req;
+	struct fmt_resp_query *resp;
+	u32 len;
+	int err;
+
+	if (entry_id == NTMP_NULL_ENTRY_ID)
+		return -EINVAL;
+
+	err = ntmp_alloc_data_mem(&data, (void **)&req);
+	if (err)
+		return err;
+
+	ntmp_fill_crd_eid(req, user->tbl.fmt_ver, 0, 0, entry_id);
+	len = NTMP_LEN(sizeof(*req), data.size);
+	err = ntmp_query_entry_by_id(user, NTMP_FMT_ID, len,
+				     req, data.dma, true);
+	if (err)
+		goto end;
+
+	resp = (struct fmt_resp_query *)req;
+	*cfge = resp->cfge;
+
+end:
+	ntmp_free_data_mem(&data);
+
+	return err;
+}
+EXPORT_SYMBOL_GPL(ntmp_fmt_query_entry);
 
 MODULE_DESCRIPTION("NXP NETC Library");
 MODULE_LICENSE("Dual BSD/GPL");

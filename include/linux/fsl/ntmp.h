@@ -436,6 +436,47 @@ struct ect_stse_data {
 	__le64 rej_frm_cnt;
 };
 
+struct fmt_cfge_data {
+	__le16 act0;
+#define FMT_L2_ACT		BIT(0)
+#define FMT_MAC_HDR_ACT		GENMASK(3, 1)
+#define FMT_VLAN_HDR_ACT	GENMASK(5, 4)
+#define FMT_OUTER_VID_ACT	GENMASK(7, 6)
+#define FMT_SQT_ACT		GENMASK(10, 8)
+#define FMT_SMAC_PORT		GENMASK(15, 11)
+	u8 dest_mac_addr[ETH_ALEN]; /* big-endian */
+	__le16 outer_vlan;
+#define	FMT_OUTER_VLAN_VID	GENMASK(11, 0)
+#define FMT_OUTER_VLAN_PCP	GENMASK(14, 12)
+#define FMT_OUTER_VLAN_DEI	BIT(15)
+	__le16 act1;
+#define FMT_OUTER_TPID_ACT	GENMASK(2, 0)
+#define FMT_OUTER_PCP_ACT	GENMASK(5, 3)
+#define FMT_OUTER_DEI_ACT	GENMASK(7, 6)
+#define FMT_PLD_ACT		GENMASK(10, 8)
+#define FMT_OPCUA_MSG_CNT	GENMASK(15, 11)
+	__le16 pld_offset;
+	__le16 opcua_fms;
+	__le16 fmd_bytes;
+	__le16 opcua_param;
+#define FMT_OPCUA_PARAM		GENMASK(5, 0)
+	__le32 fmd_eid;
+};
+
+union ntmp_fmt_eid {
+	__le32 index;
+#define	FMTEID_INDEX		GENMASK(12, 0)
+	__le32 vuda_sqta;
+#define FMTEID_VUDA		GENMASK(1, 0)
+#define FMTEID_VUDA_DEL_OTAG	2
+#define FMTEID_SQTA		GENMASK(4, 2)
+#define FMTEID_VUDA_SQTA	BIT(13)
+	__le32 vara_vid;
+#define FMTEID_VID		GENMASK(11, 0)
+#define FMTEID_VARA		GENMASK(13, 12)
+#define FRMEOD_VARA_VID		BIT(14)
+};
+
 struct netc_cbdr_regs {
 	void __iomem *pir;
 	void __iomem *cir;
@@ -469,6 +510,7 @@ struct netc_tbl_vers {
 	u8 ett_ver;
 	u8 esrt_ver;
 	u8 ect_ver;
+	u8 fmt_ver;
 };
 
 struct netc_cbdr {
@@ -672,6 +714,11 @@ int ntmp_esrt_query_entry(struct ntmp_user *user, u32 entry_id,
 int ntmp_ect_update_entry(struct ntmp_user *user, u32 entry_id);
 int ntmp_ect_query_entry(struct ntmp_user *user, u32 entry_id,
 			 struct ect_stse_data *stse, bool update);
+int ntmp_fmt_add_or_update_entry(struct ntmp_user *user, u32 entry_id,
+				 bool add, struct fmt_cfge_data *cfge);
+int ntmp_fmt_delete_entry(struct ntmp_user *user, u32 entry_id);
+int ntmp_fmt_query_entry(struct ntmp_user *user, u32 entry_id,
+			 struct fmt_cfge_data *cfge);
 #else
 static inline u32 ntmp_lookup_free_eid(unsigned long *bitmap, u32 size)
 {
@@ -897,6 +944,23 @@ static inline int ntmp_ect_update_entry(struct ntmp_user *user, u32 entry_id)
 
 static inline int ntmp_ect_query_entry(struct ntmp_user *user, u32 entry_id,
 				       struct ect_stse_data *stse, bool update)
+{
+	return 0;
+}
+
+static inline int ntmp_fmt_add_or_update_entry(struct ntmp_user *user, u32 entry_id,
+					       bool add, struct fmt_cfge_data *cfge)
+{
+	return 0;
+}
+
+static inline int ntmp_fmt_delete_entry(struct ntmp_user *user, u32 entry_id)
+{
+	return 0;
+}
+
+static inline int ntmp_fmt_query_entry(struct ntmp_user *user, u32 entry_id,
+				       struct fmt_cfge_data *cfge)
 {
 	return 0;
 }
