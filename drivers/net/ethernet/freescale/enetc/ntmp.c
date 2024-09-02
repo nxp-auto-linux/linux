@@ -35,6 +35,8 @@
 #define NTMP_ISCT_ID			38
 #define NTMP_ECT_ID			39
 #define NTMP_FMT_ID			40
+#define NTMP_BPT_ID			41
+#define NTMP_SBPT_ID			42
 
 /* Generic Update Actions for most tables */
 #define NTMP_GEN_UA_CFGEU		BIT(0)
@@ -50,6 +52,8 @@
 #define FDBT_UA_ACTEU			BIT(1)
 #define ESRT_UA_SRSEU			BIT(2)
 #define ECT_UA_STSEU			BIT(0)
+#define BPT_UA_BPSEU			BIT(1)
+#define SBPT_UA_BPSEU			BIT(1)
 
 /* Quary Action: 0: Full query, 1: Only query entry ID */
 #define NTMP_QA_ENTRY_ID		1
@@ -2299,6 +2303,145 @@ end:
 	return err;
 }
 EXPORT_SYMBOL_GPL(ntmp_fmt_query_entry);
+
+int ntmp_bpt_update_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
+			  struct bpt_cfge_data *cfge)
+{
+	struct ntmp_dma_buf data = {.dev = cbdrs->dma_dev};
+	struct bpt_req_update *req;
+	union netc_cbd cbd;
+	u32 len;
+	int err;
+
+	data.size = sizeof(*req);
+	err = ntmp_alloc_data_mem(&data, (void **)&req);
+	if (err)
+		return err;
+
+	ntmp_fill_crd_eid(&req->rbe, cbdrs->tbl.bpt_ver, 0,
+			  NTMP_GEN_UA_CFGEU | BPT_UA_BPSEU, entry_id);
+	req->cfge = *cfge;
+
+	len = NTMP_LEN(data.size, 0);
+	ntmp_fill_request_headr(&cbd, data.dma, len, NTMP_BPT_ID,
+				NTMP_CMD_UPDATE, NTMP_AM_ENTRY_ID);
+
+	err = netc_xmit_ntmp_cmd(cbdrs, &cbd);
+	if (err)
+		dev_err(cbdrs->dma_dev, "Update Buffer Pool table entry failed (%d)\n",
+			err);
+
+	ntmp_free_data_mem(&data);
+
+	return err;
+}
+EXPORT_SYMBOL_GPL(ntmp_bpt_update_entry);
+
+int ntmp_bpt_query_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
+			 struct bpt_query_data *qd)
+{
+	struct ntmp_dma_buf data = {.dev = cbdrs->dma_dev};
+	struct ntmp_req_by_eid *req;
+	struct bpt_resp_query *resp;
+	u32 req_len = sizeof(*req);
+	u32 resp_len;
+	int err;
+
+	if (entry_id == NTMP_NULL_ENTRY_ID)
+		return -EINVAL;
+
+	resp_len = sizeof(*resp);
+	data.size = max_t(u32, req_len, resp_len);
+	err = ntmp_alloc_data_mem(&data, (void **)&req);
+	if (err)
+		return err;
+
+	ntmp_fill_crd_eid(req, cbdrs->tbl.bpt_ver, 0, 0, entry_id);
+	err = ntmp_query_entry_by_id(cbdrs, NTMP_BPT_ID,
+				     NTMP_LEN(req_len, resp_len),
+				     req, data.dma, true);
+	if (err)
+		goto end;
+
+	resp = (struct bpt_resp_query *)req;
+	qd->bpse = resp->bpse;
+	qd->cfge = resp->cfge;
+
+end:
+	ntmp_free_data_mem(&data);
+
+	return err;
+}
+EXPORT_SYMBOL_GPL(ntmp_bpt_query_entry);
+
+int ntmp_sbpt_update_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
+			   struct sbpt_cfge_data *cfge)
+{
+	struct ntmp_dma_buf data = {.dev = cbdrs->dma_dev};
+	struct sbpt_req_update *req;
+	union netc_cbd cbd;
+	u32 len;
+	int err;
+
+	data.size = sizeof(*req);
+	err = ntmp_alloc_data_mem(&data, (void **)&req);
+	if (err)
+		return err;
+
+	ntmp_fill_crd_eid(&req->rbe, cbdrs->tbl.sbpt_ver, 0,
+			  NTMP_GEN_UA_CFGEU | SBPT_UA_BPSEU, entry_id);
+	req->cfge = *cfge;
+
+	len = NTMP_LEN(data.size, 0);
+	ntmp_fill_request_headr(&cbd, data.dma, len, NTMP_SBPT_ID,
+				NTMP_CMD_UPDATE, NTMP_AM_ENTRY_ID);
+
+	err = netc_xmit_ntmp_cmd(cbdrs, &cbd);
+	if (err)
+		dev_err(cbdrs->dma_dev, "Update Shared Buffer Pool table entry failed (%d)\n",
+			err);
+
+	ntmp_free_data_mem(&data);
+
+	return err;
+}
+EXPORT_SYMBOL_GPL(ntmp_sbpt_update_entry);
+
+int ntmp_sbpt_query_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
+			  struct sbpt_query_data *qd)
+{
+	struct ntmp_dma_buf data = {.dev = cbdrs->dma_dev};
+	struct sbpt_resp_query *resp;
+	u32 resp_len = sizeof(*resp);
+	struct ntmp_req_by_eid *req;
+	u32 req_len = sizeof(*req);
+	int err;
+
+	if (entry_id == NTMP_NULL_ENTRY_ID)
+		return -EINVAL;
+
+	data.size = max_t(u32, req_len, resp_len);
+	err = ntmp_alloc_data_mem(&data, (void **)&req);
+	if (err)
+		return err;
+
+	ntmp_fill_crd_eid(req, cbdrs->tbl.sbpt_ver, 0, 0, entry_id);
+	err = ntmp_query_entry_by_id(cbdrs, NTMP_SBPT_ID,
+				     NTMP_LEN(req_len, resp_len),
+				     req, data.dma, true);
+	if (err)
+		goto end;
+
+	resp = (struct sbpt_resp_query *)req;
+	qd->sbpse = resp->sbpse;
+	qd->cfge = resp->cfge;
+
+end:
+	ntmp_free_data_mem(&data);
+
+	return err;
+}
+EXPORT_SYMBOL_GPL(ntmp_sbpt_query_entry);
 
 MODULE_DESCRIPTION("NXP NETC Library");
 MODULE_LICENSE("Dual BSD/GPL");
