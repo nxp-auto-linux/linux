@@ -30,6 +30,7 @@
 #define NTMP_IST_ID			31
 #define NTMP_ISFT_ID			32
 #define NTMP_ETT_ID			33
+#define NTMP_ESRT_ID			35
 #define NTMP_SGIT_ID			36
 #define NTMP_SGCLT_ID			37
 #define NTMP_ISCT_ID			38
@@ -46,6 +47,7 @@
 #define SGIT_UA_CFGEU			BIT(1)
 #define SGIT_UA_SGISEU			BIT(2)
 #define FDBT_UA_ACTEU			BIT(1)
+#define ESRT_UA_SRSEU			BIT(2)
 
 /* Quary Action: 0: Full query, 1: Only query entry ID */
 #define NTMP_QA_ENTRY_ID		1
@@ -324,6 +326,8 @@ static const char *ntmp_table_name(int tbl_id)
 		return "FDB Table";
 	case NTMP_ETT_ID:
 		return "Egress Treatment Table";
+	case NTMP_ESRT_ID:
+		return "Egress Sequence Recovery Table";
 	default:
 		return "Unknown Table";
 	};
@@ -2100,6 +2104,76 @@ end:
 	return err;
 }
 EXPORT_SYMBOL_GPL(ntmp_ett_query_entry);
+
+int ntmp_esrt_update_entry(struct ntmp_user *user, u32 entry_id,
+			   struct esrt_cfge_data *cfge)
+{
+	struct ntmp_dma_buf data = {
+		.dev = user->dev,
+		.size = sizeof(struct esrt_req_update),
+	};
+	struct esrt_req_update *req;
+	union netc_cbd cbd;
+	int err;
+
+	err = ntmp_alloc_data_mem(&data, (void **)&req);
+	if (err)
+		return err;
+
+	/* Request data */
+	ntmp_fill_crd_eid(&req->rbe, user->tbl.esrt_ver, 0, NTMP_GEN_UA_CFGEU |
+			  NTMP_GEN_UA_STSEU | ESRT_UA_SRSEU, entry_id);
+	req->cfge = *cfge;
+
+	/* Request header */
+	ntmp_fill_request_hdr(&cbd, data.dma, NTMP_LEN(data.size, 0),
+			      NTMP_ESRT_ID, NTMP_CMD_UPDATE, NTMP_AM_ENTRY_ID);
+
+	err = netc_xmit_ntmp_cmd(user, &cbd);
+	if (err)
+		dev_err(user->dev, "Failed to update ESRT entry 0x%x, err: %pe\n",
+			entry_id, ERR_PTR(err));
+
+	ntmp_free_data_mem(&data);
+
+	return err;
+}
+EXPORT_SYMBOL_GPL(ntmp_esrt_update_entry);
+
+int ntmp_esrt_query_entry(struct ntmp_user *user, u32 entry_id,
+			  struct esrt_entry_data *erst)
+{
+	struct ntmp_dma_buf data = {
+		.dev = user->dev,
+		.size = sizeof(struct esrt_resp_query),
+	};
+	struct esrt_resp_query *resp;
+	struct ntmp_req_by_eid *req;
+	u32 len;
+	int err;
+
+	err = ntmp_alloc_data_mem(&data, (void **)&req);
+	if (err)
+		return err;
+
+	ntmp_fill_crd_eid(req, user->tbl.esrt_ver, 0, 0, entry_id);
+	len = NTMP_LEN(sizeof(*req), data.size);
+	err = ntmp_query_entry_by_id(user, NTMP_ESRT_ID, len,
+				     req, data.dma, true);
+	if (err)
+		goto end;
+
+	resp = (struct esrt_resp_query *)req;
+	erst->stse = resp->stse;
+	erst->cfge = resp->cfge;
+	erst->srse = resp->srse;
+
+end:
+	ntmp_free_data_mem(&data);
+
+	return err;
+}
+EXPORT_SYMBOL_GPL(ntmp_esrt_query_entry);
 
 MODULE_DESCRIPTION("NXP NETC Library");
 MODULE_LICENSE("Dual BSD/GPL");
