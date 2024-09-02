@@ -44,6 +44,22 @@ static void imx94_switch_phylink_get_caps(int port, struct phylink_config *confi
 	}
 }
 
+static void s32n79_switch_phylink_get_caps(int port, struct phylink_config *config)
+{
+	config->mac_capabilities |= MAC_1000FD;
+
+	switch (port) {
+	case 0 ... 7:
+		/* TODO: configure as internal for now, for the simulator */
+		__set_bit(PHY_INTERFACE_MODE_INTERNAL, config->supported_interfaces);
+		break;
+	/* CPU ports */
+	default:
+		__set_bit(PHY_INTERFACE_MODE_INTERNAL, config->supported_interfaces);
+		config->mac_capabilities |= MAC_2500FD;
+	}
+}
+
 static void imx94_switch_bpt_init(struct netc_switch *priv)
 {
 	int i;
@@ -107,9 +123,18 @@ static const struct netc_switch_info imx94_info = {
 	.port_tx_pause_config = imx94_port_tx_pause_config,
 };
 
+static const struct netc_switch_info s32n79_info = {
+	.cpu_port_num = 6,
+	.usr_port_num = 8,
+	.phylink_get_caps = s32n79_switch_phylink_get_caps,
+};
+
 static const struct netc_switch_platform netc_platforms[] = {
 	{ .revision = NETC_SWITCH_REV_4_3,
 	  .info = &imx94_info,
+	},
+	{ .revision = NETC_SWITCH_REV_4_4,
+	  .info = &s32n79_info,
 	},
 	{ },
 };
