@@ -165,13 +165,13 @@ enum llce_fw_return {
 	LLCE_ERROR_DATA_LOST,
 	/**
 	 * CAN firmware error: The number of Message Buffers available
-	 *  for transmission arbitration was exceeded or the status register
+	 * for transmission arbitration was exceeded or the status register
 	 * indicates that the TXLUT accelerator is full.
 	 */
 	LLCE_ERROR_TXLUT_FULL,
 	/**
 	 * CAN firmware error: A command with an unknown id was issued
-	 *  or the current host tried to overlap the other host's resources at
+	 * or the current host tried to overlap the other host's resources at
 	 * initialization.
 	 */
 	LLCE_ERROR_CMD_PROCESSING,
@@ -195,7 +195,7 @@ enum llce_fw_return {
 	LLCE_ERROR_RXLUT_SLOW_OPERATION,
 	/**
 	 * CAN firmware error: Indicates hardware malfunction when
-	 *  trying to perform a read on the RXLUT status register during search
+	 * trying to perform a read on the RXLUT status register during search
 	 * operation and no value was obtained within a configured timeout.
 	 */
 	LLCE_ERROR_RXLUT_INCOMPLETE_OP,
@@ -347,9 +347,10 @@ enum llce_fw_return {
 	 */
 	LLCE_ERROR_CODE_RESERVED_14,
 	/**
-	 * CAN firmware error: Reserved for future use.
+	 * CAN firmware error: Tx frame was dropped because MAC
+	 * generation failed.
 	 */
-	LLCE_ERROR_CODE_RESERVED_15,
+	LLCE_ERROR_TXFRAME_MAC_GEN_ERROR,
 	/**
 	 * CAN firmware error: Rx frame was dropped because it is not
 	 * authentic.
