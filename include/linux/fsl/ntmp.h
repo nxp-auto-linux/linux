@@ -130,6 +130,16 @@ struct sgit_sgise_data {
 #define SGIT_STATE		GENMASK(4, 2)
 };
 
+struct esrt_stse_data {
+	__le64 in_order_packets;
+	__le64 out_of_order_packets;
+	__le64 rogue_packets;
+	__le64 duplicate_packets;
+	__le64 lost_packets;
+	__le64 tagless_packets;
+	__le32 srec_resets;
+};
+
 #pragma pack()
 
 struct rpt_fee_data {
@@ -400,6 +410,27 @@ struct ett_cfge_data {
 	__le32 esqa_tgt_eid;
 };
 
+struct esrt_cfge_data {
+	__le32 sqr_cfg;
+#define ESRT_SQ_TAG		GENMASK(2, 0)
+#define ESRT_SQR_TNSQ		BIT(3)
+#define ESRT_SQR_ALG		BIT(4)
+#define ESRT_SQR_TYPE		BIT(5)
+#define ESRT_SQR_HL		GENMASK(14, 8)
+#define ESRT_SQR_FWL		GENMASK(27, 16)
+	__le32	sqr_tp;
+#define SRT_SQR_TP		GENMASK(11, 0)
+};
+
+struct esrt_srse_data {
+	__le16 sqr_num;
+	__le16 ts_lce_take;
+#define ESRT_TAKE_ANY		BIT(0)
+#define ESRT_LCE		BIT(1)
+#define ESRT_SQR_TS		GENMASK(13, 2)
+	__le32 sqr_history[4];
+};
+
 struct netc_cbdr_regs {
 	void __iomem *pir;
 	void __iomem *cir;
@@ -431,6 +462,7 @@ struct netc_tbl_vers {
 	u8 isct_ver;
 	u8 rfst_ver;
 	u8 ett_ver;
+	u8 esrt_ver;
 };
 
 struct netc_cbdr {
@@ -561,6 +593,12 @@ struct fdbt_entry_data {
 	struct fdbt_acte_data acte;
 };
 
+struct esrt_entry_data {
+	struct esrt_stse_data stse;
+	struct esrt_cfge_data cfge;
+	struct esrt_srse_data srse;
+};
+
 #if IS_ENABLED(CONFIG_NXP_NETC_LIB)
 int ntmp_init_cbdr(struct netc_cbdr *cbdr, struct device *dev,
 		   const struct netc_cbdr_regs *regs);
@@ -621,6 +659,10 @@ int ntmp_ett_add_or_update_entry(struct ntmp_user *user, u32 entry_id,
 int ntmp_ett_delete_entry(struct ntmp_user *user, u32 entry_id);
 int ntmp_ett_query_entry(struct ntmp_user *user, u32 entry_id,
 			 struct ett_cfge_data *cfge);
+int ntmp_esrt_update_entry(struct ntmp_user *user, u32 entry_id,
+			   struct esrt_cfge_data *cfge);
+int ntmp_esrt_query_entry(struct ntmp_user *user, u32 entry_id,
+			  struct esrt_entry_data *erst);
 #else
 static inline u32 ntmp_lookup_free_eid(unsigned long *bitmap, u32 size)
 {
@@ -823,6 +865,18 @@ static inline int ntmp_ett_delete_entry(struct ntmp_user *user, u32 entry_id)
 
 static inline int ntmp_ett_query_entry(struct ntmp_user *user, u32 entry_id,
 				       struct ett_cfge_data *cfge)
+{
+	return 0;
+}
+
+static inline int ntmp_esrt_update_entry(struct ntmp_user *user, u32 entry_id,
+					 struct esrt_cfge_data *cfge)
+{
+	return 0;
+}
+
+static inline int ntmp_esrt_query_entry(struct ntmp_user *user, u32 entry_id,
+					struct esrt_entry_data *erst)
 {
 	return 0;
 }
