@@ -549,6 +549,7 @@ struct netc_tbl_vers {
 	u8 fmt_ver;
 	u8 bpt_ver;
 	u8 sbpt_ver;
+	u8 fmdt_ver;
 };
 
 struct netc_cbdr {
@@ -775,6 +776,10 @@ int ntmp_sbpt_update_entry(struct ntmp_user *user, u32 entry_id,
 			   struct sbpt_cfge_data *cfge);
 int ntmp_sbpt_query_entry(struct ntmp_user *user, u32 entry_id,
 			  struct sbpt_entry_data *sbpt);
+int ntmp_fmdt_update_entry(struct ntmp_user *user, u32 entry_id,
+			   u8 *data, u32 data_len);
+int ntmp_fmdt_query_entry(struct ntmp_user *user, u32 entry_id,
+			  u8 *data_buff, u32 data_len);
 #else
 static inline u32 ntmp_lookup_free_eid(unsigned long *bitmap, u32 size)
 {
@@ -1041,6 +1046,18 @@ static inline int ntmp_sbpt_update_entry(struct ntmp_user *user, u32 entry_id,
 
 static inline int ntmp_sbpt_query_entry(struct ntmp_user *user, u32 entry_id,
 					struct sbpt_entry_data *sbpt)
+{
+	return 0;
+}
+
+static inline int ntmp_fmdt_update_entry(struct ntmp_user *user, u32 entry_id,
+					 u8 *data, u32 data_len)
+{
+	return 0;
+}
+
+static inline int ntmp_fmdt_query_entry(struct ntmp_user *user, u32 entry_id,
+					u8 *data_buff, u32 data_len)
 {
 	return 0;
 }
