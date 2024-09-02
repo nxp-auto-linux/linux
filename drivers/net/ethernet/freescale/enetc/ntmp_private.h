@@ -17,6 +17,7 @@
 #define SGCLT_MAX_GE_NUM	256
 #define SGIT_MAX_CYCLE_TIME	0x3fffffffU
 #define SDU_TYPE_MPDU		1
+#define FMDT_DATA_LEN_ALIGN	4
 
 union netc_cbd {
 	struct {
@@ -503,6 +504,16 @@ struct sbpt_resp_query {
 	struct sbpt_sbpse_data sbpse;
 	u8 resv[3];
 	struct sbpt_cfge_data cfge;
+};
+
+struct fmdt_req_update {
+	struct ntmp_req_by_eid rbe;
+	u8 data[]; /* big-endian, must be aligned to 4 bytes */
+};
+
+struct fmdt_resp_query {
+	__le32 entry_id;
+	u8 data[];
 };
 
 u32 ntmp_lookup_free_words(unsigned long *bitmap, u32 size, u32 num_words);
