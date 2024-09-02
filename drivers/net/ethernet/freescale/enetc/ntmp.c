@@ -20,6 +20,7 @@
 /* Define NTMP Table ID */
 #define NTMP_MAFT_ID			1
 #define NTMP_RSST_ID			3
+#define NTMP_RFST_ID			4
 #define NTMP_TGST_ID			5
 #define NTMP_RPT_ID			10
 #define NTMP_IPFT_ID			13
@@ -313,6 +314,8 @@ static const char *ntmp_table_name(int tbl_id)
 		return "Stream Gate Control List Table";
 	case NTMP_IPFT_ID:
 		return "Ingress Port Filter Table";
+	case NTMP_RFST_ID:
+		return "RFS Table";
 	default:
 		return "Unknown Table";
 	};
@@ -1385,6 +1388,81 @@ int ntmp_ipft_delete_entry(struct ntmp_user *user, u32 entry_id)
 				       entry_id, req_len, NTMP_STATUS_RESP_LEN);
 }
 EXPORT_SYMBOL_GPL(ntmp_ipft_delete_entry);
+
+int ntmp_rfst_add_entry(struct ntmp_user *user, u32 entry_id,
+			struct rfst_entry_data *rfst)
+{
+	struct ntmp_dma_buf data = {
+		.dev = user->dev,
+		.size = sizeof(struct rfst_req_add),
+	};
+	struct rfst_req_add *req;
+	union netc_cbd cbd;
+	int err;
+
+	err = ntmp_alloc_data_mem(&data, (void **)&req);
+	if (err)
+		return err;
+
+	ntmp_fill_crd_eid(&req->rbe, user->tbl.rfst_ver, 0, 0, entry_id);
+	req->keye = rfst->keye;
+	req->cfge = rfst->cfge;
+
+	ntmp_fill_request_hdr(&cbd, data.dma, NTMP_LEN(data.size, 0),
+			      NTMP_RFST_ID, NTMP_CMD_ADD, NTMP_AM_ENTRY_ID);
+
+	err = netc_xmit_ntmp_cmd(user, &cbd);
+	if (err)
+		dev_err(user->dev, "Failed to add RFST entry 0x%x, err: %pe\n",
+			entry_id, ERR_PTR(err));
+
+	ntmp_free_data_mem(&data);
+
+	return err;
+}
+EXPORT_SYMBOL_GPL(ntmp_rfst_add_entry);
+
+int ntmp_rfst_query_entry(struct ntmp_user *user, u32 entry_id,
+			  struct rfst_entry_data *rfst)
+{
+	struct ntmp_dma_buf data = {
+		.dev = user->dev,
+		.size = sizeof(struct rfst_resp_query),
+	};
+	struct rfst_resp_query *resp;
+	struct ntmp_req_by_eid *req;
+	u32 len;
+	int err;
+
+	err = ntmp_alloc_data_mem(&data, (void **)&req);
+	if (err)
+		return err;
+
+	ntmp_fill_crd_eid(req, user->tbl.rfst_ver, 0, 0, entry_id);
+	len = NTMP_LEN(sizeof(*req), data.size);
+	err = ntmp_query_entry_by_id(user, NTMP_RFST_ID, len,
+				     req, data.dma, true);
+	if (err)
+		goto end;
+
+	resp = (struct rfst_resp_query *)req;
+	rfst->keye = resp->keye;
+	rfst->cfge = resp->cfge;
+	rfst->matched_frames = resp->matched_frames;
+
+end:
+	ntmp_free_data_mem(&data);
+
+	return err;
+}
+EXPORT_SYMBOL_GPL(ntmp_rfst_query_entry);
+
+int ntmp_rfst_delete_entry(struct ntmp_user *user, u32 entry_id)
+{
+	return ntmp_delete_entry_by_id(user, NTMP_RFST_ID, user->tbl.rfst_ver,
+				       entry_id, NTMP_EID_REQ_LEN, 0);
+}
+EXPORT_SYMBOL_GPL(ntmp_rfst_delete_entry);
 
 MODULE_DESCRIPTION("NXP NETC Library");
 MODULE_LICENSE("Dual BSD/GPL");

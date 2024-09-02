@@ -303,6 +303,39 @@ struct ipft_cfge_data {
 	__le32 flta_tgt;
 };
 
+struct rfst_keye_data {
+	__le32 resv0[6];
+	__be32 source_ip_addr[4];
+	__be32 source_ip_addr_mask[4];
+	__be32 dest_ip_addr[4];
+	__be32 dest_ip_addr_mask[4];
+	__le32 resv1[2];
+	__be16 l4_source_port;
+	__be16 l4_source_port_mask;
+	__be16 l4_dest_port;
+	__be16 l4_dest_port_mask;
+	__le32 resv2;
+	u8 l4_protocol;
+	u8 l4_protocol_mask;
+	__le16 l3_l4_protocol;
+#define RFST_IP_PRESENT			BIT(2)
+#define RFST_IP_PRESENT_MASK		BIT(3)
+#define RFST_L4_PROTOCOL_PRESENT	BIT(4)
+#define RFST_L4_PROTOCOL_PRESENT_MASK	BIT(5)
+#define RFST_TCP_OR_UDP_PRESENT		BIT(6)
+#define RFST_TCP_OR_UDP_PRESENT_MASK	BIT(7)
+#define RFST_IPV4_IPV6			BIT(8)
+#define RFST_IPV4_IPV6_MASK		BIT(9)
+#define RFST_UDP_TCP			BIT(10)
+#define RFST_UDP_TCP_MASK		BIT(11)
+};
+
+struct rfst_cfge_data {
+	__le32 cfg;
+#define RFST_RESULT		GENMASK(7, 0)
+#define RFST_MODE		GENMASK(17, 16)
+};
+
 struct netc_cbdr_regs {
 	void __iomem *pir;
 	void __iomem *cir;
@@ -330,6 +363,7 @@ struct netc_tbl_vers {
 	u8 sgit_ver;
 	u8 sgclt_ver;
 	u8 isct_ver;
+	u8 rfst_ver;
 };
 
 struct netc_cbdr {
@@ -447,6 +481,13 @@ struct ntmp_ipft_entry {
 	__le64 match_count; /* STSE_DATA */
 };
 
+struct rfst_entry_data {
+	struct rfst_keye_data keye;
+	struct rfst_cfge_data cfge;
+	/* STSE_DATA, Only valid for query action */
+	__le64 matched_frames;
+};
+
 #if IS_ENABLED(CONFIG_NXP_NETC_LIB)
 int ntmp_init_cbdr(struct netc_cbdr *cbdr, struct device *dev,
 		   const struct netc_cbdr_regs *regs);
@@ -476,6 +517,11 @@ int ntmp_ipft_update_entry(struct ntmp_user *user, u32 entry_id,
 int ntmp_ipft_query_entry(struct ntmp_user *user, u32 entry_id,
 			  bool update, struct ntmp_ipft_entry *entry);
 int ntmp_ipft_delete_entry(struct ntmp_user *user, u32 entry_id);
+int ntmp_rfst_add_entry(struct ntmp_user *user, u32 entry_id,
+			struct rfst_entry_data *rfst);
+int ntmp_rfst_query_entry(struct ntmp_user *user, u32 entry_id,
+			  struct rfst_entry_data *rfst);
+int ntmp_rfst_delete_entry(struct ntmp_user *user, u32 entry_id);
 #else
 static inline u32 ntmp_lookup_free_eid(unsigned long *bitmap, u32 size)
 {
@@ -571,6 +617,23 @@ static inline int ntmp_ipft_query_entry(struct ntmp_user *user, u32 entry_id,
 }
 
 static inline int ntmp_ipft_delete_entry(struct ntmp_user *user, u32 entry_id)
+{
+	return 0;
+}
+
+static inline int ntmp_rfst_add_entry(struct ntmp_user *user, u32 entry_id,
+				      struct rfst_entry_data *rfst)
+{
+	return 0;
+}
+
+static inline int ntmp_rfst_query_entry(struct ntmp_user *user, u32 entry_id,
+					struct rfst_entry_data *rfst)
+{
+	return 0;
+}
+
+static inline int ntmp_rfst_delete_entry(struct ntmp_user *user, u32 entry_id)
 {
 	return 0;
 }
