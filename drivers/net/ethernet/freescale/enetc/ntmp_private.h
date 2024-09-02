@@ -431,6 +431,16 @@ struct sbpt_resp_query {
 	struct sbpt_cfge_data cfge;
 };
 
+struct fmdt_req_update {
+	struct ntmp_req_by_eid rbe;
+	u8 data[]; /* big-endian, must be aligned to 4 bytes */
+};
+
+struct fmdt_resp_query {
+	__le32 entry_id;
+	u8 data[];
+};
+
 #pragma pack()
 
 struct tgst_query_data {
