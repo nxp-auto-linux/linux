@@ -34,6 +34,7 @@
 #define NTMP_SGIT_ID			36
 #define NTMP_SGCLT_ID			37
 #define NTMP_ISCT_ID			38
+#define NTMP_ECT_ID			39
 
 /* Generic Update Actions for most tables */
 #define NTMP_GEN_UA_CFGEU		BIT(0)
@@ -48,6 +49,7 @@
 #define SGIT_UA_SGISEU			BIT(2)
 #define FDBT_UA_ACTEU			BIT(1)
 #define ESRT_UA_SRSEU			BIT(2)
+#define ECT_UA_STSEU			BIT(0)
 
 /* Quary Action: 0: Full query, 1: Only query entry ID */
 #define NTMP_QA_ENTRY_ID		1
@@ -2174,6 +2176,94 @@ end:
 	return err;
 }
 EXPORT_SYMBOL_GPL(ntmp_esrt_query_entry);
+
+int ntmp_ect_update_entry(struct ntmp_user *user, u32 entry_id)
+{
+	struct ntmp_dma_buf data = {
+		.dev = user->dev,
+		.size = sizeof(struct ntmp_req_by_eid),
+	};
+	struct ntmp_req_by_eid *req;
+	union netc_cbd cbd;
+	int err;
+
+	err = ntmp_alloc_data_mem(&data, (void **)&req);
+	if (err)
+		return err;
+
+	/* Request data */
+	ntmp_fill_crd_eid(req, user->tbl.ect_ver, 0, ECT_UA_STSEU, entry_id);
+
+	/* Request header */
+	ntmp_fill_request_hdr(&cbd, data.dma, NTMP_LEN(data.size, 0),
+			      NTMP_ECT_ID, NTMP_CMD_UPDATE, NTMP_AM_ENTRY_ID);
+
+	err = netc_xmit_ntmp_cmd(user, &cbd);
+	if (err)
+		dev_err(user->dev, "Failed to update ECT entry 0x%x, err: %pe\n",
+			entry_id, ERR_PTR(err));
+
+	ntmp_free_data_mem(&data);
+
+	return err;
+}
+EXPORT_SYMBOL_GPL(ntmp_ect_update_entry);
+
+int ntmp_ect_query_entry(struct ntmp_user *user, u32 entry_id,
+			 struct ect_stse_data *stse, bool update)
+{
+	struct ntmp_dma_buf data = {
+		.dev = user->dev,
+		.size = sizeof(struct ect_resp_query),
+	};
+	struct ect_resp_query *resp;
+	struct ntmp_req_by_eid *req;
+	union netc_cbd cbd;
+	u16 ua = 0;
+	u32 len;
+	int err;
+
+	err = ntmp_alloc_data_mem(&data, (void **)&req);
+	if (err)
+		return err;
+
+	/* Request data */
+	if (update)
+		/* Query, followed by Update. */
+		ua = ECT_UA_STSEU;
+
+	ntmp_fill_crd_eid(req, user->tbl.ect_ver, 0, ua, entry_id);
+
+	/* Request header */
+	len = NTMP_LEN(sizeof(*req), data.size);
+	ntmp_fill_request_hdr(&cbd, data.dma, len, NTMP_ECT_ID,
+			      update ? NTMP_CMD_QU : NTMP_CMD_QUERY,
+			      NTMP_AM_ENTRY_ID);
+
+	err = netc_xmit_ntmp_cmd(user, &cbd);
+	if (err) {
+		dev_err(user->dev, "Failed to query ECT entry 0x%x, err: %pe\n",
+			entry_id, ERR_PTR(err));
+		goto end;
+	}
+
+	resp = (struct ect_resp_query *)req;
+	if (unlikely(entry_id != le32_to_cpu(resp->entry_id))) {
+		dev_err(user->dev,
+			"ECT: query EID 0x%x doesn't match response EID 0x%x",
+			entry_id, le32_to_cpu(resp->entry_id));
+		err = -EIO;
+		goto end;
+	}
+
+	*stse = resp->stse;
+
+end:
+	ntmp_free_data_mem(&data);
+
+	return err;
+}
+EXPORT_SYMBOL_GPL(ntmp_ect_query_entry);
 
 MODULE_DESCRIPTION("NXP NETC Library");
 MODULE_LICENSE("Dual BSD/GPL");
