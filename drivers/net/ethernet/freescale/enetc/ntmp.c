@@ -29,6 +29,7 @@
 #define NTMP_IST_ID			31
 #define NTMP_ISFT_ID			32
 #define NTMP_ETT_ID			33
+#define NTMP_ESRT_ID			35
 #define NTMP_SGIT_ID			36
 #define NTMP_SGCLT_ID			37
 #define NTMP_ISCT_ID			38
@@ -45,6 +46,7 @@
 #define SGIT_UA_CFGEU			BIT(1)
 #define SGIT_UA_SGISEU			BIT(2)
 #define FDBT_UA_ACTEU			BIT(1)
+#define ESRT_UA_SRSEU			BIT(2)
 
 /* Quary Action: 0: Full query, 1: Only query entry ID */
 #define NTMP_QA_ENTRY_ID		1
@@ -2055,6 +2057,78 @@ end:
 	return err;
 }
 EXPORT_SYMBOL_GPL(ntmp_ett_query_entry);
+
+int ntmp_esrt_update_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
+			   struct esrt_cfge_data *cfge)
+{
+	struct ntmp_dma_buf data = {.dev = cbdrs->dma_dev};
+	struct esrt_req_update *req;
+	union netc_cbd cbd;
+	u32 len;
+	int err;
+
+	data.size = sizeof(*req);
+	err = ntmp_alloc_data_mem(&data, (void **)&req);
+	if (err)
+		return err;
+
+	/* Request data */
+	ntmp_fill_crd_eid(&req->rbe, cbdrs->tbl.esrt_ver, 0, NTMP_GEN_UA_CFGEU |
+			  NTMP_GEN_UA_STSEU | ESRT_UA_SRSEU, entry_id);
+	req->cfge = *cfge;
+
+	/* Request header */
+	len = NTMP_LEN(data.size, 0);
+	ntmp_fill_request_headr(&cbd, data.dma, len, NTMP_ESRT_ID,
+				NTMP_CMD_UPDATE, NTMP_AM_ENTRY_ID);
+
+	err = netc_xmit_ntmp_cmd(cbdrs, &cbd);
+	if (err)
+		dev_err(cbdrs->dma_dev, "Update ESRT entry failed (%d)\n",
+			err);
+
+	ntmp_free_data_mem(&data);
+
+	return err;
+}
+EXPORT_SYMBOL_GPL(ntmp_esrt_update_entry);
+
+int ntmp_esrt_query_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
+			  struct esrt_query_data *qd)
+{
+	struct ntmp_dma_buf data = {.dev = cbdrs->dma_dev};
+	struct esrt_resp_query *resp;
+	u32 resp_len = sizeof(*resp);
+	struct ntmp_req_by_eid *req;
+	u32 req_len = sizeof(*req);
+	int err;
+
+	if (entry_id == NTMP_NULL_ENTRY_ID)
+		return -EINVAL;
+
+	data.size = max_t(u32, req_len, resp_len);
+	err = ntmp_alloc_data_mem(&data, (void **)&req);
+	if (err)
+		return err;
+
+	ntmp_fill_crd_eid(req, cbdrs->tbl.esrt_ver, 0, 0, entry_id);
+	err = ntmp_query_entry_by_id(cbdrs, NTMP_ESRT_ID,
+				     NTMP_LEN(req_len, resp_len),
+				     req, data.dma, true);
+	if (err)
+		goto end;
+
+	resp = (struct esrt_resp_query *)req;
+	qd->stse = resp->stse;
+	qd->cfge = resp->cfge;
+	qd->srse = resp->srse;
+
+end:
+	ntmp_free_data_mem(&data);
+
+	return err;
+}
+EXPORT_SYMBOL_GPL(ntmp_esrt_query_entry);
 
 MODULE_DESCRIPTION("NXP NETC Library");
 MODULE_LICENSE("Dual BSD/GPL");
