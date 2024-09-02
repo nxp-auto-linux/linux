@@ -140,6 +140,21 @@ struct esrt_stse_data {
 	__le32 srec_resets;
 };
 
+struct bpt_bpse_data {
+	__le32 amount_used;
+	__le32 amount_used_hwm;
+	u8 bpd_fc_state;
+#define BPT_FC_STATE		BIT(0)
+#define BPT_BPD			BIT(1)
+};
+
+struct sbpt_sbpse_data {
+	__le32 amount_used;
+	__le32 amount_used_hwm;
+	u8 fc_state;
+#define SBPT_FC_STATE		BIT(0)
+};
+
 #pragma pack()
 
 struct rpt_fee_data {
@@ -477,6 +492,27 @@ union ntmp_fmt_eid {
 #define FRMEOD_VARA_VID		BIT(14)
 };
 
+struct bpt_cfge_data {
+	u8 fccfg_sbpen;
+#define BPT_SBP_EN		BIT(0)
+#define BPT_FC_CFG		GENMASK(2, 1)
+#define BPT_FC_CFG_EN_BPFC	1
+	u8 pfc_vector;
+	__le16 max_thresh;
+	__le16 fc_on_thresh;
+	__le16 fc_off_thresh;
+	__le16 sbp_thresh;
+	__le16 resv;
+	__le32 sbp_eid;
+	__le32 fc_ports;
+};
+
+struct sbpt_cfge_data {
+	__le16 resv;
+	__le16 max_thresh;
+	__le16 fc_on_thresh;
+	__le16 fc_off_thresh;
+};
 struct netc_cbdr_regs {
 	void __iomem *pir;
 	void __iomem *cir;
@@ -511,6 +547,8 @@ struct netc_tbl_vers {
 	u8 esrt_ver;
 	u8 ect_ver;
 	u8 fmt_ver;
+	u8 bpt_ver;
+	u8 sbpt_ver;
 };
 
 struct netc_cbdr {
@@ -647,6 +685,16 @@ struct esrt_entry_data {
 	struct esrt_srse_data srse;
 };
 
+struct bpt_entry_data {
+	struct bpt_bpse_data bpse;
+	struct bpt_cfge_data cfge;
+};
+
+struct sbpt_entry_data {
+	struct sbpt_sbpse_data sbpse;
+	struct sbpt_cfge_data cfge;
+};
+
 #if IS_ENABLED(CONFIG_NXP_NETC_LIB)
 int ntmp_init_cbdr(struct netc_cbdr *cbdr, struct device *dev,
 		   const struct netc_cbdr_regs *regs);
@@ -719,6 +767,14 @@ int ntmp_fmt_add_or_update_entry(struct ntmp_user *user, u32 entry_id,
 int ntmp_fmt_delete_entry(struct ntmp_user *user, u32 entry_id);
 int ntmp_fmt_query_entry(struct ntmp_user *user, u32 entry_id,
 			 struct fmt_cfge_data *cfge);
+int ntmp_bpt_update_entry(struct ntmp_user *user, u32 entry_id,
+			  struct bpt_cfge_data *cfge);
+int ntmp_bpt_query_entry(struct ntmp_user *user, u32 entry_id,
+			 struct bpt_entry_data *bpt);
+int ntmp_sbpt_update_entry(struct ntmp_user *user, u32 entry_id,
+			   struct sbpt_cfge_data *cfge);
+int ntmp_sbpt_query_entry(struct ntmp_user *user, u32 entry_id,
+			  struct sbpt_entry_data *sbpt);
 #else
 static inline u32 ntmp_lookup_free_eid(unsigned long *bitmap, u32 size)
 {
@@ -961,6 +1017,30 @@ static inline int ntmp_fmt_delete_entry(struct ntmp_user *user, u32 entry_id)
 
 static inline int ntmp_fmt_query_entry(struct ntmp_user *user, u32 entry_id,
 				       struct fmt_cfge_data *cfge)
+{
+	return 0;
+}
+
+static inline int ntmp_bpt_update_entry(struct ntmp_user *user, u32 entry_id,
+					struct bpt_bpse_data *cfge)
+{
+	return 0;
+}
+
+static inline int ntmp_bpt_query_entry(struct ntmp_user *user, u32 entry_id,
+				       struct bpt_entry_data *bpt)
+{
+	return 0;
+}
+
+static inline int ntmp_sbpt_update_entry(struct ntmp_user *user, u32 entry_id,
+					 struct sbpt_cfge_data *cfge)
+{
+	return 0;
+}
+
+static inline int ntmp_sbpt_query_entry(struct ntmp_user *user, u32 entry_id,
+					struct sbpt_entry_data *sbpt)
 {
 	return 0;
 }
