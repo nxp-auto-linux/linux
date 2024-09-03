@@ -19,6 +19,18 @@
 	model = "NXP S32G2XXX-EVB3 SABRE";
 };
 
+&qspi {
+	status = "okay";
+};
+
+&serdes0 {
+	status = "okay";
+};
+
+&serdes1 {
+	status = "okay";
+};
+
 &can2 {
 	/* Conflict with PB 11 - PHY IRQ */
 	status = "disabled";

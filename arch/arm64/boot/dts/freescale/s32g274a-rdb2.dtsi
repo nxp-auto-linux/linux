@@ -24,6 +24,18 @@
 	status = "okay";
 };
 
+&serdes0 {
+	status = "okay";
+};
+
+&serdes1 {
+	status = "okay";
+};
+
+&qspi {
+	status = "okay";
+};
+
 &gmac0_mdio {
 	/* AQR107 */
 	gmac_mdio_a_phy3: ethernet-phy@3 {

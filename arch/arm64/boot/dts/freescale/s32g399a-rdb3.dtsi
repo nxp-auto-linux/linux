@@ -35,6 +35,18 @@
 	status = "okay";
 };
 
+&qspi {
+	status = "okay";
+};
+
+&serdes0 {
+	status = "okay";
+};
+
+&serdes1 {
+	status = "okay";
+};
+
 &i2c4 {
 	ina231@40 {
 		compatible = "ti,ina231";

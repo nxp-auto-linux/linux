@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /*
- * Copyright 2022 NXP
+ * Copyright 2022, 2024 NXP
  */
 
 /*
@@ -30,6 +30,18 @@
 &spi5 {
 	/* Disable SJA1105 switch */
 	status = "disabled";
+};
+
+&qspi {
+	status = "okay";
+};
+
+&serdes0 {
+	status = "okay";
+};
+
+&serdes1 {
+	status = "okay";
 };
 
 &pfe_mdio0 {
