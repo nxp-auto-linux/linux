@@ -33,6 +33,18 @@
 	/delete-property/ dma-names;
 };
 
+&qspi {
+	status = "okay";
+};
+
+&serdes0 {
+	status = "okay";
+};
+
+&serdes1 {
+	status = "okay";
+};
+
 &timer {
 	clock-frequency = <5000000>;
 };

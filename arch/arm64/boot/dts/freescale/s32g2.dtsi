@@ -95,7 +95,6 @@
 &qspi {
 	pinctrl-names = "default";
 	pinctrl-0 = <&qspi_pins_200mhz_fast_sre>;
-	status = "okay";
 };
 
 &tmu {

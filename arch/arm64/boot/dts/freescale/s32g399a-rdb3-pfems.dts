@@ -3,12 +3,24 @@
  * Device Tree file for S32G399ARDB3 Board Rev E.
  * PFE Master/Slave mode supported
  *
- * Copyright 2022-2023 NXP
+ * Copyright 2022-2024 NXP
  *
  */
 
 #include "s32g399a-rdb3.dtsi"
 #include "s32g-pfe-slave.dtsi"
+
+&qspi {
+	status = "okay";
+};
+
+&serdes0 {
+	status = "okay";
+};
+
+&serdes1 {
+	status = "okay";
+};
 
 &pfe_aux0 {
 	status = "okay";
