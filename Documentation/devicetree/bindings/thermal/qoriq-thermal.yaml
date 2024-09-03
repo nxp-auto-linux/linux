@@ -68,6 +68,7 @@ properties:
       (0.125). The average temperature is calculated using the formula:
       ALPF x Current_Temp + (1 - ALPF) x Average_Temp.
       The property is read only in TMU version 2 case.
+      If ERR052223 applies, it is recommended to set tmu-alpf to 0.
 
   tmu-rate-filter:
     description: |
