@@ -152,6 +152,16 @@ static int s32cc_wdt_set_timeout(struct watchdog_device *wdog,
 {
 	struct s32cc_wdt_device *wdev = watchdog_get_drvdata(wdog);
 
+	/* Erratum ERR052226:
+	 * The following boundary conditions sequence(NOT possible with the
+	 * current implementation) will cause the counter to reach 0 when
+	 * setting the new timeout, if the current S32CC_SWT_TO is smaller than 0x14:
+	 * - Stop the WDT (S32CC_SWT_CR[WEN] = 0b0)
+	 * - Set the new timeout in S32CC_SWT_TO
+	 * - Resume the WDT (S32CC_SWT_CR[WEN] = 0b1)
+	 * Workaround: servicing sequence 1 and 2 has to be performed before
+	 * setting the new timeout value.
+	 */
 	__raw_writel(wdog_sec_to_count(wdev, new_timeout),
 		     wdev->base + S32CC_SWT_TO);
 	wdog->timeout = clamp_t(unsigned int, new_timeout, 1, wdog->max_timeout);
