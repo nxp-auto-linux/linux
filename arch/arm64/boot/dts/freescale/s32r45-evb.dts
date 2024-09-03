@@ -620,6 +620,14 @@
 	status = "okay";
 };
 
+&serdes0 {
+	status = "okay";
+};
+
+&serdes1 {
+	status = "okay";
+};
+
 &qspi {
 	compatible = "nxp,s32r45-qspi";
 	pinctrl-names = "default";
