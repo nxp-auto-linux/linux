@@ -3,7 +3,7 @@
  * NXP S32G2 SoC family
  *
  * Copyright (c) 2021 SUSE LLC
- * Copyright (c) 2017-2023 NXP
+ * Copyright (c) 2017-2024 NXP
  */
 
 #include "s32g.dtsi"
@@ -95,7 +95,6 @@
 &qspi {
 	pinctrl-names = "default";
 	pinctrl-0 = <&qspi_pins_200mhz_fast_sre>;
-	status = "okay";
 };
 
 &tmu {
