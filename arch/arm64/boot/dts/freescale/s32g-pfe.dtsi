@@ -85,7 +85,7 @@
 				compatible = "nxp,s32g-pfe-netif";
 				status = "okay";
 				reg = <10>;
-				local-mac-address = [ 02 04 9F BE EF 00 ];
+				local-mac-address = [ 00 04 9F BE EF 00 ];
 				nxp,pfeng-if-name = "pfe0";
 				nxp,pfeng-hif-channels = <PFE_HIF_CHANNEL_0>;
 				nxp,pfeng-linked-phyif = <PFE_PHYIF_EMAC_0>;
@@ -108,7 +108,7 @@
 				compatible = "nxp,s32g-pfe-netif";
 				status = "okay";
 				reg = <11>;
-				local-mac-address = [ 02 04 9F BE EF 01 ];
+				local-mac-address = [ 00 04 9F BE EF 01 ];
 				nxp,pfeng-if-name = "pfe1";
 				nxp,pfeng-hif-channels = <PFE_HIF_CHANNEL_1>;
 				nxp,pfeng-linked-phyif = <PFE_PHYIF_EMAC_1>;
@@ -131,7 +131,7 @@
 				compatible = "nxp,s32g-pfe-netif";
 				status = "okay";
 				reg = <12>;
-				local-mac-address = [ 02 04 9F BE EF 02 ];
+				local-mac-address = [ 00 04 9F BE EF 02 ];
 				nxp,pfeng-if-name = "pfe2";
 				nxp,pfeng-hif-channels = <PFE_HIF_CHANNEL_2>;
 				nxp,pfeng-linked-phyif = <PFE_PHYIF_EMAC_2>;
@@ -154,7 +154,7 @@
 				compatible = "nxp,s32g-pfe-netif";
 				status = "disabled";
 				reg = <13>;
-				local-mac-address = [ 02 04 9F BE EF 80 ];
+				local-mac-address = [ 00 04 9F BE EF 80 ];
 				nxp,pfeng-if-name = "aux0";
 				nxp,pfeng-hif-channels = <PFE_HIF_CHANNEL_0>,
 							 <PFE_HIF_CHANNEL_1>,
@@ -167,7 +167,7 @@
 				compatible = "nxp,s32g-pfe-netif";
 				status = "disabled";
 				reg = <14>;
-				local-mac-address = [ 02 04 9F BE EF F0 ];
+				local-mac-address = [ 00 04 9F BE EF F0 ];
 				nxp,pfeng-if-name = "hif3";
 				nxp,pfeng-hif-channels = <PFE_HIF_CHANNEL_0>;
 				nxp,pfeng-linked-phyif = <PFE_PHYIF_HIF_3>;
