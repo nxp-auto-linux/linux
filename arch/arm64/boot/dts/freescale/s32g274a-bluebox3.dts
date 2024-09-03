@@ -154,6 +154,14 @@
 	status = "disabled";
 };
 
+&serdes0 {
+	status = "okay";
+};
+
+&serdes1 {
+	status = "okay";
+};
+
 &usdhc0 {
 	pinctrl-names = "default", "state_100mhz", "state_200mhz";
 	/* By default, sd0 pins are able to work at 100Mhz and 200Mhz */
@@ -512,6 +520,7 @@
 };
 
 &qspi {
+	status = "okay";
 	mt35xu512aba@0 {
 		#address-cells = <1>;
 		#size-cells = <1>;

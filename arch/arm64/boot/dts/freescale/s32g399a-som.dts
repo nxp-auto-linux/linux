@@ -18,6 +18,18 @@
 	status = "okay";
 };
 
+&qspi {
+	status = "okay";
+};
+
+&serdes0 {
+	status = "okay";
+};
+
+&serdes1 {
+	status = "okay";
+};
+
 &swt3 {
 	status = "okay";
 };

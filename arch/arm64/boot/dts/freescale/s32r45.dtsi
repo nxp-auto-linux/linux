@@ -99,7 +99,6 @@
 	soc {
 		siul2@4009c000 {
 			compatible = "simple-mfd";
-			status = "okay";
 			#address-cells = <2>;
 			#size-cells = <2>;
 
@@ -248,8 +247,6 @@
 				      /* IMCR range 777-785 */
 				      <IMCRS_SIUL2_1_24 0 0x0 0x24>;
 
-				status = "okay";
-
 				pinctrl-names = "default";
 				pinctrl-0 = <&jtag_pins>;
 
@@ -311,7 +308,6 @@
 				interrupt-controller;
 				#interrupt-cells = <2>;
 				interrupts = <GIC_SPI 237 IRQ_TYPE_LEVEL_HIGH>;
-				status = "okay";
 			};
 
 			nvram1: nvram@4403C000 {
@@ -319,7 +315,6 @@
 				reg = <MIDR_SIUL2_1 0 0x0 0x10>;
 				#address-cells = <1>;
 				#size-cells = <1>;
-				status = "okay";
 
 				serdes_presence: serdes_presence@0 {
 					reg = <SERDES_PRESENCE_OFFSET NVRAM_CELL_SIZE>;
