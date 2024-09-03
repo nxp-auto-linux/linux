@@ -1,10 +1,22 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /*
- * Copyright 2023 NXP
+ * Copyright 2023-2024 NXP
  */
 
 #include "s32g2xxa-evb3.dtsi"
 #include "s32g-pfe-slave.dtsi"
+
+&qspi {
+	status = "okay";
+};
+
+&serdes0 {
+	status = "okay";
+};
+
+&serdes1 {
+	status = "okay";
+};
 
 &pfe_aux0 {
 	status = "okay";

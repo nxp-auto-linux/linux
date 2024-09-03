@@ -3,7 +3,7 @@
  * Device Tree file for S32G-PROCEVB with S32G3 + S32GRV-VNP-PLAT boards
  * PFE Master/Slave mode supported
  *
- * Copyright 2022-2023 NXP
+ * Copyright 2022-2024 NXP
  */
 
 #include "s32g3xxa-evb.dtsi"
@@ -22,5 +22,17 @@
 };
 
 &pfesl_hif0 {
+	status = "okay";
+};
+
+&qspi {
+	status = "okay";
+};
+
+&serdes0 {
+	status = "okay";
+};
+
+&serdes1 {
 	status = "okay";
 };

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later OR MIT
 /*
  * Copyright (c) 2021 SUSE LLC
- * Copyright 2019-2021 NXP
+ * Copyright 2019-2021, 2024 NXP
  */
 
 /dts-v1/;
@@ -15,9 +15,18 @@
 };
 
 &qspi {
+	status = "okay";
 	mx25uw51245g@0 {
 		spi-max-frequency = <166666666>;
 	};
+};
+
+&serdes0 {
+	status = "okay";
+};
+
+&serdes1 {
+	status = "okay";
 };
 
 /* UART (J58) to Micro USB port */
