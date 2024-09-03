@@ -44,6 +44,7 @@
 struct netc_switch_info {
 	u32 cpu_port_num;
 	u32 usr_port_num;
+	void (*phylink_get_caps)(int port, struct phylink_config *config);
 };
 
 struct netc_port_caps {
@@ -89,6 +90,8 @@ struct netc_switch {
 
 	struct ntmp_priv ntmp;
 };
+
+#define NETC_PORT(priv, port_id)	((priv)->ports[(port_id)])
 
 /* Generic interfaces for writing/reading Switch registers */
 #define netc_reg_rd(addr)		netc_read(addr)
