@@ -31,6 +31,13 @@ struct gpio_eirqs {
 	u32 num;
 };
 
+struct scmi_gpio_sync {
+	struct mutex irq_lock;
+	bool needs_enable;
+	bool needs_unmask;
+	bool needs_mask;
+};
+
 struct scmi_gpio_dev {
 	struct gpio_chip gc;
 	struct notifier_block eirq_nb;
@@ -38,6 +45,7 @@ struct scmi_gpio_dev {
 	struct scmi_protocol_handle *scmi_ph;
 	const struct scmi_gpio_proto_ops *scmi_ops;
 	unsigned long *pins_value;
+	struct scmi_gpio_sync sync;
 };
 
 static u32 get_ngpios(struct scmi_gpio_dev *gpio_dev)
@@ -154,8 +162,8 @@ static bool get_gpio_irq_active_state(struct scmi_gpio_dev *gpio_dev,
 static int irq_state_set_type(struct scmi_gpio_dev *gpio_dev, unsigned int gpio,
 			      unsigned int type)
 {
-	u32 index;
 	int ret = -EINVAL;
+	u32 index;
 
 	raw_spin_lock(&gpio_dev->eirqs.states_lock);
 
@@ -279,9 +287,16 @@ static int update_irq_mapping(struct scmi_gpio_dev *gpio_dev,
 {
 	const struct scmi_gpio_proto_ops *scmi_ops = gpio_dev->scmi_ops;
 	struct gpio_eirq_state *state;
-	bool requested_gpio, found = false;
+	bool found = false;
 	int ret;
 
+	/* Try to see if the IRQ is already mapped
+	 * so we can avoid making an SCMI call
+	 * via the ->gpio_get_irq call.
+	 * The found variable is again set a few lines below
+	 * in case another thread modified it after
+	 * releasing the `eirq.states_lock` here.
+	 */
 	raw_spin_lock(&gpio_dev->eirqs.states_lock);
 	found = get_gpio_irq_active_state(gpio_dev, gpio, irq);
 	raw_spin_unlock(&gpio_dev->eirqs.states_lock);
@@ -289,35 +304,22 @@ static int update_irq_mapping(struct scmi_gpio_dev *gpio_dev,
 	if (found)
 		return 0;
 
-	requested_gpio = is_gpio_requested(gpio_dev, gpio);
-
-	/**
-	 * There are cases when an IRQ line can be requested without ownership
-	 * of the GPIO pin. This is the case of EIRQs referenced through the
-	 * device tree nodes.
-	 */
-	if (!requested_gpio) {
-		ret = pinctrl_gpio_request(gpio);
-		if (ret)
-			return ret;
-
-		ret = request_scmi_gpio(gpio_dev, gpio);
-		if (ret)
-			goto release_gpio_pinctrl;
-	}
-
 	ret = scmi_ops->gpio_get_irq(gpio_dev->scmi_ph, gpio, irq);
-	if (ret) {
-		ret = -EINVAL;
-		goto release_gpio;
-	}
+	if (ret)
+		return ret;
 
-	if (*irq >= gpio_dev->eirqs.num) {
-		ret = -EINVAL;
-		goto release_gpio;
-	}
+	if (*irq >= gpio_dev->eirqs.num)
+		return -ENXIO;
 
 	raw_spin_lock(&gpio_dev->eirqs.states_lock);
+
+	/* Make sure another thread didn't reserve this. */
+	found = get_gpio_irq_active_state(gpio_dev, gpio, irq);
+	if (found) {
+		raw_spin_unlock(&gpio_dev->eirqs.states_lock);
+		return -EINVAL;
+	}
+
 	state = &gpio_dev->eirqs.states[*irq];
 
 	state->gpio = gpio;
@@ -333,20 +335,11 @@ static int update_irq_mapping(struct scmi_gpio_dev *gpio_dev,
 	state->active = assign_interrupt;
 	raw_spin_unlock(&gpio_dev->eirqs.states_lock);
 
-release_gpio:
-	if ((ret || !assign_interrupt) && !requested_gpio)
-		scmi_ops->gpio_free(gpio_dev->scmi_ph, gpio);
-
-release_gpio_pinctrl:
-	if ((ret || !assign_interrupt) && !requested_gpio)
-		pinctrl_gpio_free(gpio);
-
-	return ret;
+	return 0;
 }
 
 static int release_irq_mapping(struct scmi_gpio_dev *gpio_dev, unsigned int gpio)
 {
-	const struct scmi_gpio_proto_ops *scmi_ops = gpio_dev->scmi_ops;
 	struct gpio_eirq_state *state = NULL;
 	u32 index;
 
@@ -363,12 +356,6 @@ static int release_irq_mapping(struct scmi_gpio_dev *gpio_dev, unsigned int gpio
 
 	if (!state)
 		return -EINVAL;
-
-	/* Release the GPIO pin if it was explicitly used for EIRQ only */
-	if (!is_gpio_requested(gpio_dev, gpio)) {
-		scmi_ops->gpio_free(gpio_dev->scmi_ph, gpio);
-		pinctrl_gpio_free(gpio);
-	}
 
 	return 0;
 }
@@ -430,49 +417,7 @@ static void scmi_gpio_irq_unmask(struct irq_data *data)
 		return;
 
 	gpiochip_enable_irq(chip, gpio);
-	unmask_gpio_irq(gpio_dev, gpio);
-}
-
-static unsigned int scmi_gpio_irq_startup(struct irq_data *data)
-{
-	struct gpio_chip *chip = irq_data_get_irq_chip_data(data);
-	struct scmi_gpio_dev *gpio_dev = to_scmi_gpio_dev(chip);
-	u32 type = irqd_get_trigger_type(data);
-	irq_hw_number_t gpio = irqd_to_hwirq(data);
-	int ret;
-
-	if (gpio > U32_MAX) {
-		ret = -E2BIG;
-		goto exit;
-	}
-
-	ret = pinctrl_gpio_direction_input(gpio);
-	if (ret)
-		goto exit;
-
-	ret = enable_eirq(gpio_dev, gpio, type);
-	if (ret)
-		goto exit;
-
-	ret = unmask_gpio_irq(gpio_dev, gpio);
-	if (ret)
-		release_irq(gpio_dev, gpio);
-
-exit:
-	return (unsigned int)ret;
-}
-
-static void scmi_gpio_irq_shutdown(struct irq_data *data)
-{
-	struct gpio_chip *chip = irq_data_get_irq_chip_data(data);
-	struct scmi_gpio_dev *gpio_dev = to_scmi_gpio_dev(chip);
-	irq_hw_number_t gpio = irqd_to_hwirq(data);
-
-	if (gpio > U32_MAX)
-		return;
-
-	(void)mask_gpio_irq(gpio_dev, gpio);
-	(void)release_irq(gpio_dev, gpio);
+	gpio_dev->sync.needs_unmask = true;
 }
 
 static void scmi_gpio_irq_mask(struct irq_data *data)
@@ -484,24 +429,173 @@ static void scmi_gpio_irq_mask(struct irq_data *data)
 	if (gpio > U32_MAX)
 		return;
 
-	mask_gpio_irq(gpio_dev, gpio);
+	gpio_dev->sync.needs_mask = true;
 	gpiochip_disable_irq(chip, gpio);
 }
 
 static int scmi_gpio_irq_set_type(struct irq_data *d, unsigned int type)
 {
+	struct gpio_chip *chip = irq_data_get_irq_chip_data(d);
+	struct scmi_gpio_dev *gpio_dev = to_scmi_gpio_dev(chip);
+	irq_hw_number_t gpio = irqd_to_hwirq(d);
+
+	if (gpio > U32_MAX)
+		return -EINVAL;
+
+	gpio_dev->sync.needs_enable = true;
+
+	irq_state_set_type(gpio_dev, gpio, type);
+
 	return IRQ_SET_MASK_OK;
 }
 
+static void scmi_gpio_bus_lock(struct irq_data *data)
+{
+	struct gpio_chip *chip = irq_data_get_irq_chip_data(data);
+	struct scmi_gpio_dev *gpio_dev = to_scmi_gpio_dev(chip);
+
+	mutex_lock(&gpio_dev->sync.irq_lock);
+	gpio_dev->sync.needs_enable = false;
+	gpio_dev->sync.needs_mask = false;
+	gpio_dev->sync.needs_unmask = false;
+}
+
+static void scmi_gpio_bus_sync_unlock(struct irq_data *data)
+{
+	struct gpio_chip *chip = irq_data_get_irq_chip_data(data);
+	struct scmi_gpio_dev *gpio_dev = to_scmi_gpio_dev(chip);
+	irq_hw_number_t gpio = irqd_to_hwirq(data);
+	const struct scmi_gpio_proto_ops *scmi_ops;
+	unsigned int type;
+	u32 index;
+	int ret;
+
+	if (gpio > U32_MAX)
+		return;
+
+	scmi_ops = gpio_dev->scmi_ops;
+
+	if (gpio_dev->sync.needs_enable) {
+		raw_spin_lock(&gpio_dev->eirqs.states_lock);
+
+		if (!get_gpio_irq_state(gpio_dev, gpio, &index)) {
+			dev_err(chip->parent,
+				"No state set for GPIO IRQ: %lu\n",
+				gpio);
+			raw_spin_unlock(&gpio_dev->eirqs.states_lock);
+			goto unlock;
+		}
+
+		type = gpio_dev->eirqs.states[index].type;
+		raw_spin_unlock(&gpio_dev->eirqs.states_lock);
+
+		ret = scmi_ops->gpio_enable_irq(gpio_dev->scmi_ph, gpio, type);
+		if (ret) {
+			dev_err(chip->parent,
+				"Failed to enable GPIO IRQ: %lu error: %d\n",
+				gpio, ret);
+			goto unlock;
+		}
+	}
+
+	if (gpio_dev->sync.needs_unmask)
+		unmask_gpio_irq(gpio_dev, gpio);
+	else if (gpio_dev->sync.needs_mask)
+		mask_gpio_irq(gpio_dev, gpio);
+
+unlock:
+	mutex_unlock(&gpio_dev->sync.irq_lock);
+}
+
+static int scmi_gpio_irq_reqres(struct irq_data *data)
+{
+	struct gpio_chip *chip = irq_data_get_irq_chip_data(data);
+	struct scmi_gpio_dev *gpio_dev = to_scmi_gpio_dev(chip);
+	const struct scmi_gpio_proto_ops *scmi_ops;
+	irq_hw_number_t gpio = irqd_to_hwirq(data);
+	bool requested_gpio;
+	int ret;
+	u32 irq;
+
+	if (gpio > U32_MAX)
+		return -EINVAL;
+
+	scmi_ops = gpio_dev->scmi_ops;
+	requested_gpio = is_gpio_requested(gpio_dev, gpio);
+
+	ret = update_irq_mapping(gpio_dev, gpio, &irq, true);
+	if (ret)
+		return ret;
+
+	/**
+	 * There are cases when an IRQ line can be requested without ownership
+	 * of the GPIO pin. This is the case of EIRQs referenced through the
+	 * device tree nodes.
+	 */
+	if (!requested_gpio) {
+		ret = pinctrl_gpio_request(gpio);
+		if (ret)
+			goto release_mapping;
+
+		ret = pinctrl_gpio_direction_input(gpio);
+		if (ret)
+			goto free_pinctrl_gpio;
+
+		ret = request_scmi_gpio(gpio_dev, gpio);
+		if (ret)
+			goto free_pinctrl_gpio;
+	}
+
+	ret = gpiochip_irq_reqres(data);
+	if (ret)
+		goto free_scmi;
+
+	return 0;
+
+free_scmi:
+	scmi_ops->gpio_free(gpio_dev->scmi_ph, gpio);
+free_pinctrl_gpio:
+	pinctrl_gpio_free(gpio);
+release_mapping:
+	release_irq_mapping(gpio_dev, gpio);
+
+	return ret;
+}
+
+static void scmi_gpio_irq_relres(struct irq_data *data)
+{
+	struct gpio_chip *chip = irq_data_get_irq_chip_data(data);
+	struct scmi_gpio_dev *gpio_dev = to_scmi_gpio_dev(chip);
+	const struct scmi_gpio_proto_ops *scmi_ops;
+	irq_hw_number_t gpio = irqd_to_hwirq(data);
+
+	if (gpio > U32_MAX)
+		return;
+
+	scmi_ops = gpio_dev->scmi_ops;
+
+	gpiochip_irq_relres(data);
+
+	/* Release the GPIO pin if it was explicitly used for EIRQ only */
+	if (!is_gpio_requested(gpio_dev, gpio)) {
+		scmi_ops->gpio_free(gpio_dev->scmi_ph, gpio);
+		pinctrl_gpio_free(gpio);
+	}
+
+	release_irq(gpio_dev, gpio);
+}
+
+
 static const struct irq_chip scmi_gpio_irq_chip = {
-	.name		= "scmi-gpio",
-	.irq_startup	= scmi_gpio_irq_startup,
-	.irq_shutdown	= scmi_gpio_irq_shutdown,
-	.irq_mask	= scmi_gpio_irq_mask,
-	.irq_unmask	= scmi_gpio_irq_unmask,
-	.irq_set_type	= scmi_gpio_irq_set_type,
-	.flags		= IRQCHIP_SET_TYPE_MASKED | IRQCHIP_IMMUTABLE,
-	GPIOCHIP_IRQ_RESOURCE_HELPERS,
+	.name			= "scmi-gpio",
+	.irq_mask		= scmi_gpio_irq_mask,
+	.irq_unmask		= scmi_gpio_irq_unmask,
+	.irq_set_type		= scmi_gpio_irq_set_type,
+	.irq_bus_lock		= scmi_gpio_bus_lock,
+	.irq_bus_sync_unlock	= scmi_gpio_bus_sync_unlock,
+	.irq_request_resources	= scmi_gpio_irq_reqres,
+	.irq_release_resources	= scmi_gpio_irq_relres,
+	.flags			= IRQCHIP_SET_TYPE_MASKED | IRQCHIP_IMMUTABLE,
 };
 
 static int scmi_gpio_to_irq(struct gpio_chip *chip, unsigned int gpio)
@@ -515,7 +609,6 @@ static int scmi_gpio_to_irq(struct gpio_chip *chip, unsigned int gpio)
 	ret = update_irq_mapping(gpio_dev, gpio, &irq, false);
 	if (ret)
 		return ret;
-
 
 	virt_irq = irq_find_mapping(domain, gpio);
 	if (!virt_irq)
@@ -575,7 +668,6 @@ static int eirq_notification_cb(struct notifier_block *nb, unsigned long event,
 			 BITS_PER_BYTE * sizeof(eirq_update->eirq_mask)) {
 		if (eirq >= gpio_dev->eirqs.num)
 			continue;
-
 		raw_spin_lock(&gpio_dev->eirqs.states_lock);
 
 		gpio = gpio_dev->eirqs.states[eirq].gpio;
@@ -696,7 +788,6 @@ static int restore_irq_settings(struct scmi_gpio_dev *gpio_dev)
 				irq_state->gpio);
 			return ret;
 		}
-
 	}
 
 	return ret;
@@ -755,6 +846,8 @@ static int scmi_gpio_probe(struct scmi_device *sdev)
 	gpio_dev->pins_value = devm_bitmap_zalloc(dev, ngpios, GFP_KERNEL);
 	if (!gpio_dev->pins_value)
 		return -ENOMEM;
+
+	mutex_init(&gpio_dev->sync.irq_lock);
 
 	gpio_dev->eirq_nb.notifier_call = eirq_notification_cb;
 
