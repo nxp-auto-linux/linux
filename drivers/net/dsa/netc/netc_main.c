@@ -30,6 +30,14 @@ static void netc_mac_port_wr(struct netc_port *port, u32 reg, u32 val)
 		netc_port_wr(port, reg + NETC_PMAC_OFFSET, val);
 }
 
+static u32 netc_mac_port_rd(struct netc_port *port, u32 reg)
+{
+	if (is_netc_pseudo_port(port))
+		return 0;
+
+	return netc_port_rd(port, reg);
+}
+
 static void netc_port_get_capability(struct netc_port *port)
 {
 	u32 val;
@@ -667,10 +675,245 @@ static void netc_switch_get_ip_revision(struct netc_switch *priv)
 	priv->revision = val & IPBRR0_IP_REV;
 }
 
+static void netc_phylink_get_caps(struct dsa_switch *ds, int port_id,
+				  struct phylink_config *config)
+{
+	struct netc_switch *priv = ds->priv;
+
+	if (priv->info && priv->info->phylink_get_caps)
+		priv->info->phylink_get_caps(port_id, config);
+}
+
+static struct phylink_pcs *netc_mac_select_pcs(struct phylink_config *config,
+					       phy_interface_t interface)
+{
+	struct dsa_port *dp = dsa_phylink_to_port(config);
+	struct netc_switch *priv = dp->ds->priv;
+
+	return priv->ports[dp->index]->pcs;
+}
+
+static void netc_port_set_mac_mode(struct netc_port *port,
+				   unsigned int mode, phy_interface_t phy_mode)
+{
+	u32 val;
+
+	val = netc_mac_port_rd(port, NETC_PM_IF_MODE(0));
+	val &= ~(PM_IF_MODE_IFMODE | PM_IF_MODE_ENA);
+
+	switch (phy_mode) {
+	case PHY_INTERFACE_MODE_RGMII:
+	case PHY_INTERFACE_MODE_RGMII_ID:
+	case PHY_INTERFACE_MODE_RGMII_RXID:
+	case PHY_INTERFACE_MODE_RGMII_TXID:
+		val |= IFMODE_RGMII;
+		/* We need to enable auto-negotiation for the MAC
+		 * if its RGMII interface support In-Band status.
+		 */
+		if (phylink_autoneg_inband(mode))
+			val |= PM_IF_MODE_ENA;
+		break;
+	case PHY_INTERFACE_MODE_RMII:
+		val |= IFMODE_RMII;
+		break;
+	case PHY_INTERFACE_MODE_REVMII:
+		val |= PM_IF_MODE_REVMII;
+		fallthrough;
+	case PHY_INTERFACE_MODE_MII:
+		val |= IFMODE_MII;
+		break;
+	case PHY_INTERFACE_MODE_SGMII:
+	case PHY_INTERFACE_MODE_2500BASEX:
+		val |= IFMODE_SGMII;
+		break;
+	default:
+		break;
+	}
+
+	netc_mac_port_wr(port, NETC_PM_IF_MODE(0), val);
+}
+
+static void netc_mac_config(struct phylink_config *config, unsigned int mode,
+			    const struct phylink_link_state *state)
+{
+	struct dsa_port *dp = dsa_phylink_to_port(config);
+	struct netc_switch *priv = dp->ds->priv;
+
+	netc_port_set_mac_mode(priv->ports[dp->index], mode, state->interface);
+}
+
+static void netc_port_set_speed(struct netc_port *port, int speed)
+{
+	u32 val;
+
+	if (port->speed == speed)
+		return;
+
+	val = netc_port_rd(port, NETC_PCR);
+	val &= ~PCR_PSPEED;
+
+	switch (speed) {
+	case SPEED_10:
+	case SPEED_100:
+	case SPEED_1000:
+	case SPEED_2500:
+		val |= PSPEED_SET_VAL(speed);
+		break;
+	default:
+		dev_err(port->switch_priv->dev,
+			"Unsupported MAC speed:%d\n", speed);
+		return;
+	}
+
+	port->speed = speed;
+	netc_port_wr(port, NETC_PCR, val);
+}
+
+/* If the RGMII device does not support the In-Band Status (IBS), we need
+ * the MAC driver to get the link speed and duplex mode from the PHY driver.
+ * The MAC driver then sets the MAC for the correct speed and duplex mode
+ * to match the PHY. The PHY driver gets the link status and speed and duplex
+ * information from the PHY via the MDIO/MDC interface.
+ */
+static void netc_port_force_set_rgmii_mac(struct netc_port *port,
+					  int speed, int duplex)
+{
+	u32 old_val, val;
+
+	old_val = netc_mac_port_rd(port, NETC_PM_IF_MODE(0));
+	val = old_val & ~(PM_IF_MODE_ENA | PM_IF_MODE_M10 | PM_IF_MODE_REVMII);
+
+	switch (speed) {
+	case SPEED_1000:
+		val = u32_replace_bits(val, SSP_1G, PM_IF_MODE_SSP);
+		break;
+	case SPEED_100:
+		val = u32_replace_bits(val, SSP_100M, PM_IF_MODE_SSP);
+		break;
+	case SPEED_10:
+		val = u32_replace_bits(val, SSP_10M, PM_IF_MODE_SSP);
+	}
+
+	val = u32_replace_bits(val, duplex == DUPLEX_FULL ? 0 : 1,
+			       PM_IF_MODE_HD);
+
+	if (old_val == val)
+		return;
+
+	netc_mac_port_wr(port, NETC_PM_IF_MODE(0), val);
+}
+
+static void net_port_set_rmii_mii_mac(struct netc_port *port,
+				      int speed, int duplex)
+{
+	u32 old_val, val;
+
+	old_val = netc_mac_port_rd(port, NETC_PM_IF_MODE(0));
+	val = old_val & ~(PM_IF_MODE_ENA | PM_IF_MODE_SSP);
+
+	switch (speed) {
+	case SPEED_100:
+		val &= ~PM_IF_MODE_M10;
+		break;
+	case SPEED_10:
+		val |= PM_IF_MODE_M10;
+	}
+
+	val = u32_replace_bits(val, duplex == DUPLEX_FULL ? 0 : 1,
+			       PM_IF_MODE_HD);
+
+	if (old_val == val)
+		return;
+
+	netc_mac_port_wr(port, NETC_PM_IF_MODE(0), val);
+}
+
+static void netc_port_set_hd_flow_control(struct netc_port *port,
+					  bool enable)
+{
+	u32 old_val, val;
+
+	if (!port->caps.half_duplex)
+		return;
+
+	old_val = netc_mac_port_rd(port, NETC_PM_CMD_CFG(0));
+	val = u32_replace_bits(old_val, enable ? 1 : 0, PM_CMD_CFG_HD_FCEN);
+	if (val == old_val)
+		return;
+
+	netc_mac_port_wr(port, NETC_PM_CMD_CFG(0), val);
+}
+
+static void netc_port_enable_mac_path(struct netc_port *port,
+				      bool enable)
+{
+	u32 val;
+
+	val = netc_mac_port_rd(port, NETC_PM_CMD_CFG(0));
+	if (enable)
+		val |= PM_CMD_CFG_TX_EN | PM_CMD_CFG_RX_EN;
+	else
+		val &= ~(PM_CMD_CFG_TX_EN | PM_CMD_CFG_RX_EN);
+
+	netc_mac_port_wr(port, NETC_PM_CMD_CFG(0), val);
+}
+
+static void netc_mac_link_up(struct phylink_config *config,
+			     struct phy_device *phy, unsigned int mode,
+			     phy_interface_t interface, int speed, int duplex,
+			     bool tx_pause, bool rx_pause)
+{
+	struct dsa_port *dp = dsa_phylink_to_port(config);
+	struct netc_switch *priv = dp->ds->priv;
+	struct netc_port *port;
+	bool hd_fc = false;
+
+	port = NETC_PORT(priv, dp->index);
+	netc_port_set_speed(port, speed);
+
+	if (phy_interface_mode_is_rgmii(interface) &&
+	    !phylink_autoneg_inband(mode)) {
+		netc_port_force_set_rgmii_mac(port, speed, duplex);
+	}
+
+	if (interface == PHY_INTERFACE_MODE_RMII ||
+	    interface == PHY_INTERFACE_MODE_REVMII ||
+	    interface == PHY_INTERFACE_MODE_MII) {
+		net_port_set_rmii_mii_mac(port, speed, duplex);
+	}
+
+	if (duplex == DUPLEX_HALF) {
+		if (tx_pause || rx_pause)
+			hd_fc = true;
+	}
+
+	netc_port_set_hd_flow_control(port, hd_fc);
+	netc_port_enable_mac_path(port, true);
+}
+
+static void netc_mac_link_down(struct phylink_config *config, unsigned int mode,
+			       phy_interface_t interface)
+{
+	struct dsa_port *dp = dsa_phylink_to_port(config);
+	struct netc_switch *priv = dp->ds->priv;
+	struct netc_port *port;
+
+	port = NETC_PORT(priv, dp->index);
+	netc_port_enable_mac_path(port, false);
+}
+
+static const struct phylink_mac_ops netc_phylink_mac_ops = {
+	.mac_select_pcs		= netc_mac_select_pcs,
+	.mac_config		= netc_mac_config,
+	.mac_link_up		= netc_mac_link_up,
+	.mac_link_down		= netc_mac_link_down,
+};
+
 static const struct dsa_switch_ops netc_switch_ops = {
 	.get_tag_protocol		= netc_get_tag_protocol,
 	.setup				= netc_setup,
 	.teardown			= netc_teardown,
+	.phylink_get_caps		= netc_phylink_get_caps,
 };
 
 static int netc_switch_probe(struct pci_dev *pdev, const struct pci_device_id *id)
@@ -712,6 +955,7 @@ static int netc_switch_probe(struct pci_dev *pdev, const struct pci_device_id *i
 	ds->num_ports = priv->num_ports;
 	ds->num_tx_queues = NETC_TC_NUM;
 	ds->ops = &netc_switch_ops;
+	ds->phylink_mac_ops = &netc_phylink_mac_ops;
 	ds->priv = priv;
 
 	priv->ds = ds;
