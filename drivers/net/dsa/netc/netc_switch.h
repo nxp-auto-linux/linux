@@ -61,6 +61,8 @@
 #define NETC_PORT_FC_ON_THRESH		0xb43
 #define NETC_PORT_FC_OFF_THRESH		0x3c3
 
+#define NETC_MM_VERIFY_RETRIES		3
+
 struct netc_switch_info {
 	u32 cpu_port_num;
 	u32 usr_port_num;
@@ -75,6 +77,7 @@ struct netc_port_caps {
 
 enum netc_port_offloads {
 	NETC_FLAG_QAV			= BIT(0),
+	NETC_FLAG_QBU			= BIT(1),
 };
 
 struct netc_switch;
@@ -96,8 +99,15 @@ struct netc_port {
 
 	u16 pvid;
 	u16 vlan_aware:1;
+	u16 tx_pause:1;
 
 	enum netc_port_offloads offloads;
+
+	/* Serialize access to MAC Merge state between ethtool requests
+	 * and link state updates
+	 */
+	struct mutex mm_lock;
+	unsigned long preemptible_tcs;
 };
 
 struct netc_switch_regs {
@@ -173,6 +183,7 @@ struct netc_vlan_entry {
 #define netc_glb_wr(r, o, v)		netc_write((r)->global + (o), v)
 
 int netc_switch_platform_probe(struct netc_switch *priv);
+void netc_port_set_tx_pause(struct netc_port *port, bool tx_pause);
 
 /* TC APIs */
 int netc_tc_query_caps(struct tc_query_caps_base *base);
@@ -180,6 +191,16 @@ int netc_tc_setup_mqprio(struct netc_switch *priv, int port,
 			 struct tc_mqprio_qopt_offload *mqprio);
 int netc_tc_setup_cbs(struct netc_switch *priv, int port,
 		      struct tc_cbs_qopt_offload *cbs);
+
+/* ethtool APIs */
+void netc_port_mm_commit_preemptible_tcs(struct netc_port *port);
+int netc_port_get_mm(struct dsa_switch *ds, int port_id,
+		     struct ethtool_mm_state *state);
+int netc_port_set_mm(struct dsa_switch *ds, int port_id,
+		     struct ethtool_mm_cfg *cfg,
+		     struct netlink_ext_ack *extack);
+void netc_port_get_mm_stats(struct dsa_switch *ds, int port_id,
+			    struct ethtool_mm_stats *stats);
 
 static inline bool is_netc_pseudo_port(struct netc_port *port)
 {
