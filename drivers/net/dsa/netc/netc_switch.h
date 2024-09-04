@@ -73,6 +73,10 @@ struct netc_port_caps {
 	u32 pseudo_link:1;
 };
 
+enum netc_port_offloads {
+	NETC_FLAG_QAV			= BIT(0),
+};
+
 struct netc_switch;
 
 struct netc_port {
@@ -92,6 +96,8 @@ struct netc_port {
 
 	u16 pvid;
 	u16 vlan_aware:1;
+
+	enum netc_port_offloads offloads;
 };
 
 struct netc_switch_regs {
@@ -172,6 +178,8 @@ int netc_switch_platform_probe(struct netc_switch *priv);
 int netc_tc_query_caps(struct tc_query_caps_base *base);
 int netc_tc_setup_mqprio(struct netc_switch *priv, int port,
 			 struct tc_mqprio_qopt_offload *mqprio);
+int netc_tc_setup_cbs(struct netc_switch *priv, int port,
+		      struct tc_cbs_qopt_offload *cbs);
 
 static inline bool is_netc_pseudo_port(struct netc_port *port)
 {
