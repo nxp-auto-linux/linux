@@ -52,10 +52,15 @@
 #define NETC_FDBT_CLEAN_INTERVAL	(3 * HZ)
 #define NETC_FDBT_AGING_ACT_CNT		100
 
+struct netc_switch;
+struct netc_port;
+
 struct netc_switch_info {
 	u32 cpu_port_num;
 	u32 usr_port_num;
 	void (*phylink_get_caps)(int port, struct phylink_config *config);
+	void (*bpt_init)(struct netc_switch *priv);
+	void (*port_tx_pause_config)(struct netc_port *port, bool tx_pause);
 };
 
 struct netc_port_caps {
@@ -63,8 +68,6 @@ struct netc_port_caps {
 	u32 pmac:1;	  /* indicates the port whether has preemption MAC */
 	u32 pseudo_link:1;
 };
-
-struct netc_switch;
 
 struct netc_port {
 	struct netc_switch *switch_priv;
@@ -91,6 +94,11 @@ struct netc_switch_regs {
 	void __iomem *global;
 };
 
+struct netc_switch_caps {
+	int num_bp;
+	int num_sbp;
+};
+
 struct netc_switch {
 	struct pci_dev *pdev;
 	struct device *dev;
@@ -113,6 +121,9 @@ struct netc_switch {
 	/* interval times act_cnt is aging time */
 	unsigned long fdbt_acteu_interval;
 	u8 fdbt_aging_act_cnt; /* maximum is 127 */
+
+	struct netc_switch_caps caps;
+	struct bpt_cfge_data *bpt_list;
 };
 
 struct netc_fdb_entry {
