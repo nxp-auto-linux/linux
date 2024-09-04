@@ -168,6 +168,11 @@ struct netc_vlan_entry {
 
 int netc_switch_platform_probe(struct netc_switch *priv);
 
+/* TC APIs */
+int netc_tc_query_caps(struct tc_query_caps_base *base);
+int netc_tc_setup_mqprio(struct netc_switch *priv, int port,
+			 struct tc_mqprio_qopt_offload *mqprio);
+
 static inline bool is_netc_pseudo_port(struct netc_port *port)
 {
 	return port->caps.pseudo_link;
