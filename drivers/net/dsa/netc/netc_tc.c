@@ -21,12 +21,23 @@ int netc_tc_query_caps(struct tc_query_caps_base *base)
 	}
 }
 
+static void netc_port_change_preemptible_tcs(struct netc_port *port,
+					     unsigned long preemptible_tcs)
+{
+	if (!port->caps.pmac)
+		return;
+
+	port->preemptible_tcs = preemptible_tcs;
+	netc_port_mm_commit_preemptible_tcs(port);
+}
+
 static void netc_port_reset_mqprio(struct netc_port *port)
 {
 	struct net_device *ndev = port->dp->user;
 
 	netdev_reset_tc(ndev);
 	netif_set_real_num_tx_queues(ndev, NETC_TC_NUM);
+	netc_port_change_preemptible_tcs(port, 0);
 }
 
 int netc_tc_setup_mqprio(struct netc_switch *priv, int port_id,
@@ -66,6 +77,8 @@ int netc_tc_setup_mqprio(struct netc_switch *priv, int port_id,
 	if (err)
 		goto reset_mqprio;
 
+	netc_port_change_preemptible_tcs(port, mqprio->preemptible_tcs);
+
 	return 0;
 
 reset_mqprio:
@@ -77,6 +90,16 @@ reset_mqprio:
 static bool netc_port_tc_cbs_is_enable(struct netc_port *port, int tc)
 {
 	return !!(netc_port_rd(port, NETC_PTCCBSR2(tc)) & PTCCBSR2_CBSE);
+}
+
+static void netc_port_enable_time_gating(struct netc_port *port, bool en)
+{
+	u32 old_val, val;
+
+	old_val = netc_port_rd(port, NETC_PTGSCR);
+	val = u32_replace_bits(old_val, en ? 1 : 0, PTGSCR_TGE);
+	if (val != old_val)
+		netc_port_wr(port, NETC_PTGSCR, val);
 }
 
 static void netc_port_set_tc_cbs_params(struct netc_port *port, int tc,
@@ -161,6 +184,12 @@ static int netc_port_setup_cbs(struct netc_port *port,
 			   "The total bandwidth of CBS can't exceed the link rate\n");
 		return -EINVAL;
 	}
+
+	/* If CBS is going to be used in combination with frame preemption, then time
+	 * gate scheduling should be enabled for the port.
+	 */
+	if (port->offloads & NETC_FLAG_QBU)
+		netc_port_enable_time_gating(port, true);
 
 	netc_port_set_tc_cbs_params(port, tc, true, cbs->idleslope);
 
