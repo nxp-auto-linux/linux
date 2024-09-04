@@ -52,6 +52,15 @@
 #define NETC_FDBT_CLEAN_INTERVAL	(3 * HZ)
 #define NETC_FDBT_AGING_ACT_CNT		100
 
+#define NETC_DEFULT_BUFF_POOL_MAP0	0x03020100
+#define NETC_DEFULT_BUFF_POOL_MAP1	0x07060504
+
+/* The FC_ON threshold is about 3 * NETC_MAX_FRAME_LEN
+ * The FC_OFF threshold is about 1 * NETC_MAX_FRAME_LEN
+ */
+#define NETC_PORT_FC_ON_THRESH		0xb43
+#define NETC_PORT_FC_OFF_THRESH		0x3c3
+
 struct netc_switch_info {
 	u32 cpu_port_num;
 	u32 usr_port_num;
@@ -83,7 +92,6 @@ struct netc_port {
 
 	u16 pvid;
 	u16 vlan_aware:1;
-
 };
 
 struct netc_switch_regs {
@@ -92,6 +100,10 @@ struct netc_switch_regs {
 	void __iomem *global;
 };
 
+struct netc_switch_caps {
+	int num_bp;
+	int num_sbp;
+};
 struct netc_switch {
 	struct pci_dev *pdev;
 	struct device *dev;
@@ -113,6 +125,10 @@ struct netc_switch {
 	/* interval times act_cnt is aging time */
 	unsigned long fdbt_acteu_interval;
 	u8 fdbt_aging_act_cnt; /* maximum is 127 */
+
+	struct netc_switch_caps caps;
+	struct bpt_cfge_data *bpt_list;
+	struct mutex bpt_lock; /* buffer pool table lock */
 };
 
 #define NETC_PRIV(ds)			((struct netc_switch *)((ds)->priv))

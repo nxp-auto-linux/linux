@@ -110,6 +110,16 @@ static u32 netc_mac_port_rd(struct netc_port *port, u32 reg)
 	return netc_port_rd(port, reg);
 }
 
+static void netc_switch_get_capabilities(struct netc_switch *priv)
+{
+	struct netc_switch_regs *regs = &priv->regs;
+	u32 val;
+
+	val = netc_base_rd(regs, NETC_BPCAPR);
+	priv->caps.num_bp = BPCAPR_GET_NUM_BP(val);
+	priv->caps.num_sbp = BPCAPR_GET_NUM_SBP(val);
+}
+
 static void netc_port_get_capability(struct netc_port *port)
 {
 	u32 val;
@@ -587,6 +597,7 @@ static void netc_port_set_mlo(struct netc_port *port, int mlo)
 
 static void netc_port_default_config(struct netc_port *port)
 {
+	u32 pqnt = 0xffff, qth = 0xffff / 2;
 	u32 val;
 
 	/* Default VLAN unware */
@@ -611,7 +622,19 @@ static void netc_port_default_config(struct netc_port *port)
 	val |= PISIDCR_KC0EN | PISIDCR_KC1EN;
 	netc_port_wr(port, NETC_PISIDCR, val);
 
+	/* Default buffer pool mapping */
+	netc_port_wr(port, NETC_PBPMCR0, NETC_DEFULT_BUFF_POOL_MAP0);
+	netc_port_wr(port, NETC_PBPMCR1, NETC_DEFULT_BUFF_POOL_MAP1);
+
 	if (dsa_port_is_user(port->dp)) {
+		/* Set the quanta value of tx PAUSE frame */
+		netc_port_wr(port, NETC_PM_PAUSE_QUANTA(0), pqnt);
+
+		/* When a quanta timer counts down and reaches this value, the MAC
+		 * sends a refresh PAUSE frame with the programmed full quanta value
+		 * if a pause condition still exists.
+		 */
+		netc_port_wr(port, NETC_PM_PAUSE_TRHESH(0), qth);
 		netc_port_set_mlo(port, MLO_DISABLE);
 	} else {
 		val = netc_port_rd(port, NETC_BPCR);
@@ -625,11 +648,37 @@ static void netc_port_default_config(struct netc_port *port)
 	netc_port_set_all_tc_msdu(port, NULL);
 }
 
+static int netc_switch_bpt_default_config(struct netc_switch *priv)
+{
+	struct bpt_cfge_data *cfge;
+	int i;
+
+	priv->bpt_list = devm_kcalloc(priv->dev, priv->caps.num_bp,
+				      sizeof(*cfge), GFP_KERNEL);
+	if (!priv->bpt_list)
+		return -ENOMEM;
+
+	guard(mutex)(&priv->bpt_lock);
+	for (i = 0; i < priv->caps.num_bp; i++) {
+		cfge = &priv->bpt_list[i];
+		/* FC enabled using only buffer pool FC state */
+		cfge->fccfg_sbpen = FIELD_PREP(BPT_FC_CFG, BPT_FC_CFG_EN_BPFC);
+		cfge->fc_on_thresh = cpu_to_le16(NETC_PORT_FC_ON_THRESH);
+		cfge->fc_off_thresh = cpu_to_le16(NETC_PORT_FC_OFF_THRESH);
+
+		ntmp_bpt_update_entry(&priv->ntmp.cbdrs, i, cfge);
+	}
+
+	return 0;
+}
+
 static int netc_setup(struct dsa_switch *ds)
 {
 	struct netc_switch *priv = ds->priv;
 	struct netc_port *port;
 	int i, err;
+
+	netc_switch_get_capabilities(priv);
 
 	err = netc_init_all_ports(ds);
 	if (err)
@@ -646,6 +695,7 @@ static int netc_setup(struct dsa_switch *ds)
 	priv->fdbt_acteu_interval = NETC_FDBT_CLEAN_INTERVAL;
 	priv->fdbt_aging_act_cnt = NETC_FDBT_AGING_ACT_CNT;
 	INIT_DELAYED_WORK(&priv->fdbt_clean, netc_clean_fdbt_aging_entries);
+	mutex_init(&priv->bpt_lock);
 
 	netc_switch_dos_default_config(priv);
 	netc_switch_vfht_default_config(priv);
@@ -658,12 +708,18 @@ static int netc_setup(struct dsa_switch *ds)
 			netc_port_default_config(port);
 	}
 
+	err = netc_switch_bpt_default_config(priv);
+	if (err)
+		goto deinit_ntmp_priv;
+
 	schedule_delayed_work(&priv->fdbt_clean, priv->fdbt_acteu_interval);
 
 	ds->fdb_isolation = true;
 
 	return 0;
 
+deinit_ntmp_priv:
+	netc_deinit_ntmp_priv(priv);
 free_internal_mdiobus:
 	netc_remove_all_ports_internal_mdiobus(ds);
 
@@ -1946,6 +2002,37 @@ static void netc_port_set_hd_flow_control(struct netc_port *port,
 	netc_mac_port_wr(port, NETC_PM_CMD_CFG(0), val);
 }
 
+static void netc_port_set_tx_pause(struct netc_port *port, bool tx_pause)
+{
+	struct netc_switch *priv = port->switch_priv;
+	struct bpt_cfge_data *cfge;
+	int i;
+
+	guard(mutex)(&priv->bpt_lock);
+	for (i = 0; i < priv->caps.num_bp; i++) {
+		cfge = &priv->bpt_list[i];
+		if (tx_pause)
+			cfge->fc_ports |= cpu_to_le32(BIT(port->index));
+		else
+			cfge->fc_ports &= cpu_to_le32(~BIT(port->index));
+
+		ntmp_bpt_update_entry(&priv->ntmp.cbdrs, i, cfge);
+	}
+}
+
+static void netc_port_set_rx_pause(struct netc_port *port, bool rx_pause)
+{
+	u32 old_val, val;
+
+	old_val = netc_mac_port_rd(port, NETC_PM_CMD_CFG(0));
+	val = u32_replace_bits(old_val, rx_pause ? 0 : 1, PM_CMD_CFG_PAUSE_IGN);
+
+	if (old_val == val)
+		return;
+
+	netc_mac_port_wr(port, NETC_PM_CMD_CFG(0), val);
+}
+
 static void netc_port_enable_mac_path(struct netc_port *port,
 				      bool enable)
 {
@@ -1987,9 +2074,17 @@ static void netc_mac_link_up(struct phylink_config *config,
 	if (duplex == DUPLEX_HALF) {
 		if (tx_pause || rx_pause)
 			hd_fc = true;
+
+		/* As per 802.3 annex 31B, PAUSE frames are only supported
+		 * when the link is configured for full duplex operation.
+		 */
+		tx_pause = false;
+		rx_pause = false;
 	}
 
 	netc_port_set_hd_flow_control(port, hd_fc);
+	netc_port_set_tx_pause(port, tx_pause);
+	netc_port_set_rx_pause(port, rx_pause);
 	netc_port_enable_mac_path(port, true);
 }
 
