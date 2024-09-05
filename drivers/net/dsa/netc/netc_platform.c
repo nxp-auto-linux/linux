@@ -44,6 +44,7 @@ static void imx94_switch_phylink_get_caps(int port, struct phylink_config *confi
 static const struct netc_switch_info imx94_info = {
 	.cpu_port_num = 1,
 	.usr_port_num = 3,
+	.tmr_devfn = 1,
 	.phylink_get_caps = imx94_switch_phylink_get_caps,
 };
 
