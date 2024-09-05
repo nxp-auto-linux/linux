@@ -1050,8 +1050,8 @@ clear_sgit_eid_bit:
 }
 EXPORT_SYMBOL_GPL(netc_setup_psfp);
 
-static void netc_free_flower_police_tbl(struct ntmp_user *user,
-					struct netc_police_tbl *police_tbl)
+void netc_free_flower_police_tbl(struct ntmp_user *user,
+				 struct netc_police_tbl *police_tbl)
 {
 	if (!police_tbl)
 		return;
@@ -1063,6 +1063,7 @@ static void netc_free_flower_police_tbl(struct ntmp_user *user,
 		kfree(police_tbl);
 	}
 }
+EXPORT_SYMBOL_GPL(netc_free_flower_police_tbl);
 
 void netc_delete_psfp_flower_rule(struct ntmp_user *user,
 				  struct netc_flower_rule *rule)
@@ -1260,3 +1261,224 @@ int netc_ipft_keye_construct(struct flow_rule *rule, int port_id,
 	return 0;
 }
 EXPORT_SYMBOL_GPL(netc_ipft_keye_construct);
+
+static int netc_add_police_key_tbl(struct netc_flower_key_tbl **key_tbl,
+				   struct ipft_keye_data *ipft_key,
+				   u32 rpt_eid)
+{
+	struct netc_flower_key_tbl *new_tbl __free(kfree);
+	struct ntmp_ipft_entry *ipft_entry __free(kfree);
+	struct ipft_cfge_data *ipft_cfge;
+	u32 cfg;
+
+	new_tbl = kzalloc(sizeof(*new_tbl), GFP_KERNEL);
+	if (!new_tbl)
+		return -ENOMEM;
+
+	ipft_entry = kzalloc(sizeof(*ipft_entry), GFP_KERNEL);
+	if (!ipft_entry)
+		return -ENOMEM;
+
+	ipft_cfge = &ipft_entry->cfge;
+	ipft_entry->keye = *ipft_key;
+
+	cfg = FIELD_PREP(IPFT_FLTFA, IPFT_FLTFA_PERMIT);
+	cfg |= FIELD_PREP(IPFT_FLTA, IPFT_FLTA_RP);
+	ipft_cfge->cfg = cpu_to_le32(cfg);
+	ipft_cfge->flta_tgt = cpu_to_le32(rpt_eid);
+
+	new_tbl->tbl_type = FLOWER_KEY_TBL_IPFT;
+	refcount_set(&new_tbl->refcount, 1);
+	new_tbl->ipft_entry = no_free_ptr(ipft_entry);
+	*key_tbl = no_free_ptr(new_tbl);
+
+	return 0;
+}
+
+static int netc_set_police_tables(struct ntmp_user *user,
+				  struct ntmp_ipft_entry *ipft_entry,
+				  struct ntmp_rpt_entry *rpt_entry)
+{
+	int err;
+
+	if (rpt_entry) {
+		err = ntmp_rpt_add_entry(user, rpt_entry);
+		if (err)
+			return err;
+	}
+
+	err = ntmp_ipft_add_entry(user, ipft_entry);
+	if (err)
+		goto delete_rpt_entry;
+
+	return 0;
+
+delete_rpt_entry:
+	if (rpt_entry)
+		ntmp_rpt_delete_entry(user, rpt_entry->entry_id);
+
+	return err;
+}
+
+int netc_setup_police(struct ntmp_user *user, int port_id,
+		      struct flow_cls_offload *f)
+{
+	struct flow_rule *cls_rule = flow_cls_offload_flow_rule(f);
+	struct netc_police_tbl *police_tbl __free(kfree) = NULL;
+	struct ntmp_rpt_entry *rpt_entry __free(kfree) = NULL;
+	struct netc_flower_rule *rule __free(kfree) = NULL;
+	struct netlink_ext_ack *extack = f->common.extack;
+	struct netc_police_tbl *reused_police_tbl = NULL;
+	struct ipft_keye_data *ipft_keye __free(kfree);
+	struct flow_action_entry *police_act = NULL;
+	struct netc_flower_key_tbl *key_tbl = NULL;
+	struct flow_action_entry *action_entry;
+	struct ntmp_ipft_entry *ipft_entry;
+	struct netc_flower_rule *old_rule;
+	unsigned long cookie = f->cookie;
+	u16 prio = f->common.prio;
+	int i, err;
+
+	guard(mutex)(&user->flower_lock);
+	if (netc_find_flower_rule_by_cookie(user, port_id, cookie)) {
+		NL_SET_ERR_MSG_MOD(extack,
+				   "Cannot add new rule with same cookie");
+		return -EINVAL;
+	}
+
+	rule = kzalloc(sizeof(*rule), GFP_KERNEL);
+	if (!rule)
+		return -ENOMEM;
+
+	rule->port_id = port_id;
+	rule->cookie = cookie;
+	rule->flower_type = FLOWER_TYPE_POLICE;
+
+	flow_action_for_each(i, action_entry, &cls_rule->action)
+		if (action_entry->id == FLOW_ACTION_POLICE)
+			police_act = action_entry;
+
+	if (!police_act) {
+		NL_SET_ERR_MSG_MOD(extack, "No police action");
+		return -EINVAL;
+	}
+
+	ipft_keye = kzalloc(sizeof(*ipft_keye), GFP_KERNEL);
+	if (!ipft_keye)
+		return -ENOMEM;
+
+	err = netc_ipft_keye_construct(cls_rule, port_id, prio,
+				       ipft_keye, extack);
+	if (err)
+		return err;
+
+	old_rule = netc_find_flower_rule_by_key(user, FLOWER_KEY_TBL_IPFT,
+						ipft_keye);
+	if (old_rule) {
+		NL_SET_ERR_MSG_MOD(extack,
+				   "The IPFT key has been used by existing rule");
+		return -EINVAL;
+	}
+
+	err = netc_police_entry_validate(user, &cls_rule->action, police_act,
+					 &reused_police_tbl, extack);
+	if (err)
+		return err;
+
+	if (!reused_police_tbl) {
+		police_tbl = kzalloc(sizeof(*police_tbl), GFP_KERNEL);
+		if (!police_tbl) {
+			err = -ENOMEM;
+			goto clear_rpt_eid_bit;
+		}
+
+		rpt_entry = kzalloc(sizeof(*rpt_entry), GFP_KERNEL);
+		if (!rpt_entry) {
+			err = -ENOMEM;
+			goto clear_rpt_eid_bit;
+		}
+
+		police_tbl->rpt_eid = police_act->hw_index;
+		refcount_set(&police_tbl->refcount, 1);
+		netc_rpt_entry_config(police_act, rpt_entry);
+	}
+
+	err = netc_add_police_key_tbl(&key_tbl, ipft_keye, police_act->hw_index);
+	if (err) {
+		NL_SET_ERR_MSG_MOD(extack, "Failed to add police key table");
+		goto clear_rpt_eid_bit;
+	}
+
+	ipft_entry = key_tbl->ipft_entry;
+	err = netc_set_police_tables(user, ipft_entry, rpt_entry);
+	if (err) {
+		NL_SET_ERR_MSG_MOD(extack, "Failed to add police table entries");
+		goto free_key_tbl;
+	}
+
+	rule->lastused = jiffies;
+	rule->key_tbl = key_tbl;
+
+	if (reused_police_tbl) {
+		rule->police_tbl = reused_police_tbl;
+		refcount_inc(&reused_police_tbl->refcount);
+	} else if (police_tbl) {
+		rule->police_tbl = no_free_ptr(police_tbl);
+	}
+
+	hlist_add_head(&no_free_ptr(rule)->node, &user->flower_list);
+
+	return 0;
+
+free_key_tbl:
+	kfree(key_tbl->ipft_entry);
+	kfree(key_tbl);
+clear_rpt_eid_bit:
+	if (!reused_police_tbl)
+		ntmp_clear_eid_bitmap(user->rpt_eid_bitmap,
+				      police_act->hw_index);
+
+	return err;
+}
+EXPORT_SYMBOL_GPL(netc_setup_police);
+
+void netc_delete_police_flower_rule(struct ntmp_user *user,
+				    struct netc_flower_rule *rule)
+{
+	struct netc_police_tbl *police_tbl = rule->police_tbl;
+	struct netc_flower_key_tbl *key_tbl = rule->key_tbl;
+	struct ntmp_ipft_entry *ipft_entry;
+
+	ipft_entry = key_tbl->ipft_entry;
+	ntmp_ipft_delete_entry(user, ipft_entry->entry_id);
+
+	netc_free_flower_police_tbl(user, police_tbl);
+	netc_free_flower_key_tbl(user, key_tbl);
+
+	hlist_del(&rule->node);
+	kfree(rule);
+}
+EXPORT_SYMBOL_GPL(netc_delete_police_flower_rule);
+
+int netc_police_flower_stat(struct ntmp_user *user,
+			    struct netc_flower_rule *rule,
+			    u64 *pkt_cnt)
+{
+	struct ntmp_ipft_entry *ipft_entry = rule->key_tbl->ipft_entry;
+	struct ntmp_ipft_entry *ipft_query __free(kfree) = NULL;
+	int err;
+
+	ipft_query = kzalloc(sizeof(*ipft_query), GFP_KERNEL);
+	if (!ipft_query)
+		return -ENOMEM;
+
+	err = ntmp_ipft_query_entry(user, ipft_entry->entry_id,
+				    true, ipft_query);
+	if (err)
+		return err;
+
+	*pkt_cnt = le64_to_cpu(ipft_query->match_count);
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(netc_police_flower_stat);
