@@ -6,6 +6,16 @@
 
 #include "netc_switch.h"
 
+static const struct netc_flower netc_flow_filter[] = {
+	{
+		BIT_ULL(FLOW_ACTION_GATE),
+		BIT_ULL(FLOW_ACTION_POLICE),
+		BIT_ULL(FLOW_DISSECTOR_KEY_ETH_ADDRS) |
+		BIT_ULL(FLOW_DISSECTOR_KEY_VLAN),
+		FLOWER_TYPE_PSFP
+	},
+};
+
 int netc_tc_query_caps(struct tc_query_caps_base *base)
 {
 	switch (base->type) {
@@ -321,4 +331,151 @@ int netc_tc_setup_taprio(struct netc_switch *priv, int port_id,
 	default:
 		return -EOPNOTSUPP;
 	}
+}
+
+static const struct netc_flower *netc_parse_tc_flower(u64 actions, u64 keys)
+{
+	u64 key_acts, all_acts;
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(netc_flow_filter); i++) {
+		key_acts = netc_flow_filter[i].key_acts;
+		all_acts = netc_flow_filter[i].key_acts |
+			   netc_flow_filter[i].opt_acts;
+
+		/* key_acts must be matched */
+		if ((actions & key_acts) == key_acts &&
+		    (actions & all_acts) == actions &&
+		    keys & netc_flow_filter[i].keys)
+			return &netc_flow_filter[i];
+	}
+
+	return NULL;
+}
+
+int netc_port_flow_cls_replace(struct netc_port *port,
+			       struct flow_cls_offload *f)
+{
+	struct flow_rule *rule = flow_cls_offload_flow_rule(f);
+	struct netlink_ext_ack *extack = f->common.extack;
+	struct netc_switch *priv = port->switch_priv;
+	struct flow_action *action = &rule->action;
+	struct flow_dissector *dissector;
+	const struct netc_flower *flower;
+	struct flow_action_entry *entry;
+	u64 actions = 0;
+	int i;
+
+	dissector = rule->match.dissector;
+
+	if (!flow_action_has_entries(action)) {
+		NL_SET_ERR_MSG_MOD(extack, "At least one action is needed");
+		return -EINVAL;
+	}
+
+	if (!flow_action_basic_hw_stats_check(action, extack))
+		return -EOPNOTSUPP;
+
+	flow_action_for_each(i, entry, action)
+		actions |= BIT_ULL(entry->id);
+
+	flower = netc_parse_tc_flower(actions, dissector->used_keys);
+	if (!flower) {
+		NL_SET_ERR_MSG_MOD(extack, "Unsupported actions or keys");
+		return -EOPNOTSUPP;
+	}
+
+	switch (flower->type) {
+	case FLOWER_TYPE_PSFP:
+		return netc_setup_psfp(&priv->ntmp, port->index, f);
+	default:
+		NL_SET_ERR_MSG_MOD(extack, "Unsupported flower type");
+		return -EOPNOTSUPP;
+	}
+}
+
+static void netc_delete_flower_rule(struct ntmp_priv *ntmp,
+				    struct netc_flower_rule *rule)
+{
+	switch (rule->flower_type) {
+	case FLOWER_TYPE_PSFP:
+		netc_delete_psfp_flower_rule(ntmp, rule);
+		break;
+	default:
+		break;
+	}
+}
+
+int netc_port_flow_cls_destroy(struct netc_port *port,
+			       struct flow_cls_offload *f)
+{
+	struct netlink_ext_ack *extack = f->common.extack;
+	struct netc_switch *priv = port->switch_priv;
+	struct ntmp_priv *ntmp = &priv->ntmp;
+	unsigned long cookie = f->cookie;
+	struct netc_flower_rule *rule;
+
+	guard(mutex)(&ntmp->flower_lock);
+	rule = netc_find_flower_rule_by_cookie(ntmp, port->index, cookie);
+	if (!rule) {
+		NL_SET_ERR_MSG_MOD(extack, "Cannot find the rule");
+		return -EINVAL;
+	}
+
+	netc_delete_flower_rule(ntmp, rule);
+
+	return 0;
+}
+
+int netc_port_flow_cls_stats(struct netc_port *port,
+			     struct flow_cls_offload *f)
+{
+	struct netlink_ext_ack *extack = f->common.extack;
+	struct netc_switch *priv = port->switch_priv;
+	u64 pkt_cnt = 0, drop_cnt = 0, byte_cnt = 0;
+	struct ntmp_priv *ntmp = &priv->ntmp;
+	unsigned long cookie = f->cookie;
+	struct netc_flower_rule *rule;
+	int err;
+
+	guard(mutex)(&ntmp->flower_lock);
+	rule = netc_find_flower_rule_by_cookie(ntmp, port->index, cookie);
+	if (!rule) {
+		NL_SET_ERR_MSG_MOD(extack, "Cannot find the rule");
+		return -EINVAL;
+	}
+
+	switch (rule->flower_type) {
+	case FLOWER_TYPE_PSFP:
+		err = netc_psfp_flower_stat(ntmp, rule, &byte_cnt,
+					    &pkt_cnt, &drop_cnt);
+		if (err)
+			goto err_out;
+		break;
+	default:
+		NL_SET_ERR_MSG_MOD(extack, "Unknown flower type");
+		return -EINVAL;
+	}
+
+	flow_stats_update(&f->stats, byte_cnt, pkt_cnt, drop_cnt,
+			  rule->lastused, FLOW_ACTION_HW_STATS_IMMEDIATE);
+	rule->lastused = jiffies;
+
+	return 0;
+
+err_out:
+	NL_SET_ERR_MSG_MOD(extack, "Failed to get statistics");
+
+	return err;
+}
+
+void netc_destroy_flower_list(struct netc_switch *priv)
+{
+	struct ntmp_priv *ntmp = &priv->ntmp;
+	struct netc_flower_rule *rule;
+	struct hlist_node *tmp;
+
+	guard(mutex)(&ntmp->flower_lock);
+	hlist_for_each_entry_safe(rule, tmp, &ntmp->flower_list, node)
+		netc_delete_flower_rule(ntmp, rule);
 }
