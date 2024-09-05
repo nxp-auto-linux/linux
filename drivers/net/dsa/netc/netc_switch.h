@@ -66,6 +66,7 @@
 struct netc_switch_info {
 	u32 cpu_port_num;
 	u32 usr_port_num;
+	u32 tmr_devfn;
 	void (*phylink_get_caps)(int port, struct phylink_config *config);
 };
 
@@ -78,6 +79,7 @@ struct netc_port_caps {
 enum netc_port_offloads {
 	NETC_FLAG_QAV			= BIT(0),
 	NETC_FLAG_QBU			= BIT(1),
+	NETC_FLAG_QBV			= BIT(2),
 };
 
 struct netc_switch;
@@ -182,8 +184,12 @@ struct netc_vlan_entry {
 #define netc_glb_rd(r, o)		netc_read((r)->global + (o))
 #define netc_glb_wr(r, o, v)		netc_write((r)->global + (o), v)
 
+#define ntmp_to_netc_switch(ntmp_priv)	\
+	container_of((ntmp_priv), struct netc_switch, ntmp)
+
 int netc_switch_platform_probe(struct netc_switch *priv);
 void netc_port_set_tx_pause(struct netc_port *port, bool tx_pause);
+void netc_port_set_all_tc_msdu(struct netc_port *port, u32 *max_sdu);
 
 /* TC APIs */
 int netc_tc_query_caps(struct tc_query_caps_base *base);
@@ -191,6 +197,8 @@ int netc_tc_setup_mqprio(struct netc_switch *priv, int port,
 			 struct tc_mqprio_qopt_offload *mqprio);
 int netc_tc_setup_cbs(struct netc_switch *priv, int port,
 		      struct tc_cbs_qopt_offload *cbs);
+int netc_tc_setup_taprio(struct netc_switch *priv, int port,
+			 struct tc_taprio_qopt_offload *taprio);
 
 /* ethtool APIs */
 void netc_port_mm_commit_preemptible_tcs(struct netc_port *port);

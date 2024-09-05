@@ -16,6 +16,13 @@ int netc_tc_query_caps(struct tc_query_caps_base *base)
 
 		return 0;
 	}
+	case TC_SETUP_QDISC_TAPRIO: {
+		struct tc_taprio_caps *caps = base->caps;
+
+		caps->supports_queue_max_sdu = true;
+
+		return 0;
+	}
 	default:
 		return -EOPNOTSUPP;
 	}
@@ -150,8 +157,12 @@ static int netc_port_setup_cbs(struct netc_port *port,
 
 		netc_port_set_tc_cbs_params(port, tc, false, 0);
 
-		if (tc == top_prio_tc)
+		if (tc == top_prio_tc) {
+			if (!(port->offloads & NETC_FLAG_QBV))
+				netc_port_enable_time_gating(port, false);
+
 			port->offloads &= ~NETC_FLAG_QAV;
+		}
 
 		return 0;
 	}
@@ -202,4 +213,112 @@ int netc_tc_setup_cbs(struct netc_switch *priv, int port_id,
 		      struct tc_cbs_qopt_offload *cbs)
 {
 	return netc_port_setup_cbs(priv->ports[port_id], cbs);
+}
+
+static bool netc_port_get_tge_status(struct netc_port *port)
+{
+	u32 val;
+
+	val = netc_port_rd(port, NETC_PTGSCR);
+	if (val & PTGSCR_TGE)
+		return true;
+
+	return false;
+}
+
+static int netc_port_setup_taprio(struct netc_port *port,
+				  struct tc_taprio_qopt_offload *taprio)
+{
+	struct netc_switch *priv = port->switch_priv;
+	u32 entry_id = port->index;
+	bool tge;
+	int err;
+
+	/* Set the maximum frame size for each traffic class */
+	netc_port_set_all_tc_msdu(port, taprio->max_sdu);
+
+	tge = netc_port_get_tge_status(port);
+	if (!tge)
+		netc_port_enable_time_gating(port, true);
+
+	err = netc_setup_taprio(&priv->ntmp, entry_id, taprio);
+	if (err)
+		goto disable_time_gating;
+
+	port->offloads |= NETC_FLAG_QBV;
+
+	return 0;
+
+disable_time_gating:
+	if (!tge)
+		netc_port_enable_time_gating(port, false);
+
+	netc_port_set_all_tc_msdu(port, NULL);
+
+	return err;
+}
+
+static int netc_tc_taprio_replace(struct netc_switch *priv, int port_id,
+				  struct tc_taprio_qopt_offload *taprio)
+{
+	struct netc_port *port = NETC_PORT(priv, port_id);
+	struct netlink_ext_ack *extack = taprio->extack;
+	int err;
+
+	err = netc_tc_setup_mqprio(priv, port_id, &taprio->mqprio);
+	if (err) {
+		NL_SET_ERR_MSG_MOD(extack, "Setup mqprio failed");
+		return err;
+	}
+
+	err = netc_port_setup_taprio(port, taprio);
+	if (err)
+		netc_port_reset_mqprio(port);
+
+	return err;
+}
+
+static int netc_port_reset_taprio(struct netc_port *port)
+{
+	/* Remove both operational and administrative gate control list from
+	 * the corresponding table entry by disabling time gate scheduling on
+	 * the port.
+	 */
+	netc_port_enable_time_gating(port, false);
+
+	/* Time gate scheduling should be enabled for the port if credit-based
+	 * shaper is going to be used in combination with frame preemption.
+	 */
+	if (port->offloads & NETC_FLAG_QAV && port->offloads & NETC_FLAG_QBU)
+		netc_port_enable_time_gating(port, true);
+
+	/* Reset TC max SDU */
+	netc_port_set_all_tc_msdu(port, NULL);
+
+	port->offloads &= ~NETC_FLAG_QBV;
+
+	return 0;
+}
+
+static int netc_tc_taprio_destroy(struct netc_switch *priv, int port_id)
+{
+	struct netc_port *port = NETC_PORT(priv, port_id);
+
+	netc_port_reset_taprio(port);
+	netc_port_reset_mqprio(port);
+
+	return 0;
+}
+
+int netc_tc_setup_taprio(struct netc_switch *priv, int port_id,
+			 struct tc_taprio_qopt_offload *taprio)
+{
+	switch (taprio->cmd) {
+	case TAPRIO_CMD_REPLACE:
+		return netc_tc_taprio_replace(priv, port_id, taprio);
+	case TAPRIO_CMD_DESTROY:
+		return netc_tc_taprio_destroy(priv, port_id);
+	default:
+		return -EOPNOTSUPP;
+	}
 }
