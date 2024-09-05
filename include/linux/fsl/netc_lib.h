@@ -19,6 +19,7 @@ enum netc_flower_type {
 	FLOWER_TYPE_PSFP,
 	FLOWER_TYPE_TRAP,
 	FLOWER_TYPE_REDIRECT,
+	FLOWER_TYPE_POLICE,
 };
 
 enum netc_key_tbl_type {
@@ -115,6 +116,12 @@ int netc_psfp_flower_stat(struct ntmp_priv *priv, struct netc_flower_rule *rule,
 int netc_ipft_keye_construct(struct flow_rule *rule, int port_id,
 			     u16 prio, struct ipft_keye_data *keye,
 			     struct netlink_ext_ack *extack);
+int netc_setup_police(struct ntmp_priv *priv, int port_id,
+		      struct flow_cls_offload *f);
+void netc_delete_police_flower_rule(struct ntmp_priv *priv,
+				    struct netc_flower_rule *rule);
+int netc_police_flower_stat(struct ntmp_priv *priv, struct netc_flower_rule *rule,
+			    u64 *pkt_cnt);
 
 #else
 static inline int netc_setup_taprio(struct ntmp_priv *priv, u32 entry_id,
@@ -216,6 +223,24 @@ static inline int netc_kstrtouint(const char __user *buffer, size_t count,
 static inline int netc_ipft_keye_construct(struct flow_rule *rule, int port_id,
 					   u16 prio, struct ipft_keye_data *keye,
 					   struct netlink_ext_ack *extack)
+{
+	return 0;
+}
+
+static inline int netc_setup_police(struct ntmp_priv *priv, int port_id,
+				    struct flow_cls_offload *f)
+{
+	return 0;
+}
+
+static inline void netc_delete_police_flower_rule(struct ntmp_priv *priv,
+						  struct netc_flower_rule *rule)
+{
+}
+
+static inline int netc_police_flower_stat(struct ntmp_priv *priv,
+					  struct netc_flower_rule *rule,
+					  u64 *pkt_cnt)
 {
 	return 0;
 }
