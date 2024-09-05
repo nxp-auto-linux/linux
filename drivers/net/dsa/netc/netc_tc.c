@@ -34,6 +34,12 @@ static const struct netc_flower netc_flow_filter[] = {
 		NETC_IPFT_KEYS,
 		FLOWER_TYPE_REDIRECT
 	},
+	{
+		BIT_ULL(FLOW_ACTION_POLICE),
+		0,
+		NETC_IPFT_KEYS,
+		FLOWER_TYPE_POLICE
+	},
 };
 
 int netc_tc_query_caps(struct tc_query_caps_base *base)
@@ -738,6 +744,8 @@ int netc_port_flow_cls_replace(struct netc_port *port,
 	case FLOWER_TYPE_TRAP:
 	case FLOWER_TYPE_REDIRECT:
 		return netc_setup_trap_redirect(&priv->ntmp, port->index, f);
+	case FLOWER_TYPE_POLICE:
+		return netc_setup_police(&priv->ntmp, port->index, f);
 	default:
 		NL_SET_ERR_MSG_MOD(extack, "Unsupported flower type");
 		return -EOPNOTSUPP;
@@ -787,6 +795,9 @@ static void netc_delete_flower_rule(struct ntmp_priv *ntmp,
 	case FLOWER_TYPE_TRAP:
 	case FLOWER_TYPE_REDIRECT:
 		netc_delete_trap_redirect_flower_rule(ntmp, rule);
+		break;
+	case FLOWER_TYPE_POLICE:
+		netc_delete_police_flower_rule(ntmp, rule);
 		break;
 	default:
 		break;
@@ -884,6 +895,11 @@ int netc_port_flow_cls_stats(struct netc_port *port,
 	case FLOWER_TYPE_REDIRECT:
 		err = netc_trap_redirect_flower_stat(ntmp, rule, &byte_cnt,
 						     &pkt_cnt, &drop_cnt);
+		if (err)
+			goto err_out;
+		break;
+	case FLOWER_TYPE_POLICE:
+		err = netc_police_flower_stat(ntmp, rule, &pkt_cnt);
 		if (err)
 			goto err_out;
 		break;
