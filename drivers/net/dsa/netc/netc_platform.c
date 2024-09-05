@@ -102,6 +102,7 @@ static void imx94_port_tx_pause_config(struct netc_port *port, bool en)
 static const struct netc_switch_info imx94_info = {
 	.cpu_port_num = 1,
 	.usr_port_num = 3,
+	.tmr_devfn = 1,
 	.phylink_get_caps = imx94_switch_phylink_get_caps,
 	.bpt_init = imx94_switch_bpt_init,
 	.port_tx_pause_config = imx94_port_tx_pause_config,
