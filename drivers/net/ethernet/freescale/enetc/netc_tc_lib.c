@@ -1142,3 +1142,121 @@ int netc_psfp_flower_stat(struct ntmp_user *user, struct netc_flower_rule *rule,
 	return 0;
 }
 EXPORT_SYMBOL_GPL(netc_psfp_flower_stat);
+
+int netc_ipft_keye_construct(struct flow_rule *rule, int port_id,
+			     u16 prio, struct ipft_keye_data *keye,
+			     struct netlink_ext_ack *extack)
+{
+	u16 frm_attr_flags = 0, src_port = 0;
+	u16 vlan_tci, vlan_tci_mask;
+	__be16 eth_type = 0;
+
+	keye->precedence = cpu_to_le16(prio);
+
+	if (flow_rule_match_key(rule, FLOW_DISSECTOR_KEY_ETH_ADDRS)) {
+		struct flow_match_eth_addrs match = {0};
+
+		flow_rule_match_eth_addrs(rule, &match);
+		ether_addr_copy(keye->dmac, match.key->dst);
+		ether_addr_copy(keye->dmac_mask, match.mask->dst);
+		ether_addr_copy(keye->smac, match.key->src);
+		ether_addr_copy(keye->smac_mask, match.mask->src);
+	}
+
+	if (flow_rule_match_key(rule, FLOW_DISSECTOR_KEY_VLAN)) {
+		struct flow_match_vlan match = {0};
+
+		flow_rule_match_vlan(rule, &match);
+		vlan_tci = match.key->vlan_id | match.key->vlan_dei << 12 |
+			   match.key->vlan_priority << VLAN_PRIO_SHIFT;
+		vlan_tci_mask = match.mask->vlan_id | match.mask->vlan_dei << 12 |
+				match.mask->vlan_priority << VLAN_PRIO_SHIFT;
+		keye->outer_vlan_tci = htons(vlan_tci);
+		keye->outer_vlan_tci_mask = htons(vlan_tci_mask);
+		frm_attr_flags |= IPFT_FAF_OVLAN;
+	}
+
+	if (flow_rule_match_key(rule, FLOW_DISSECTOR_KEY_CVLAN)) {
+		struct flow_match_vlan match = {0};
+
+		flow_rule_match_vlan(rule, &match);
+		vlan_tci = match.key->vlan_id | match.key->vlan_dei << 12 |
+			   match.key->vlan_priority << VLAN_PRIO_SHIFT;
+		vlan_tci_mask = match.mask->vlan_id | match.mask->vlan_dei << 12 |
+				match.mask->vlan_priority << VLAN_PRIO_SHIFT;
+		keye->inner_vlan_tci = htons(vlan_tci);
+		keye->inner_vlan_tci_mask = htons(vlan_tci_mask);
+		frm_attr_flags |= IPFT_FAF_IVLAN;
+	}
+
+	if (flow_rule_match_key(rule, FLOW_DISSECTOR_KEY_BASIC)) {
+		struct flow_match_basic match = {0};
+
+		flow_rule_match_basic(rule, &match);
+		if (match.mask->n_proto && ntohs(match.mask->n_proto) != 0xffff) {
+			NL_SET_ERR_MSG_MOD(extack, "Ether type mask must be 0xFFFF");
+			return -EINVAL;
+		}
+
+		eth_type = match.key->n_proto;
+		keye->ethertype = match.key->n_proto;
+		keye->ethertype_mask = match.mask->n_proto;
+		keye->ip_protocol = match.key->ip_proto;
+		keye->ip_protocol_mask = match.mask->ip_proto;
+		if (match.mask->ip_proto == 0xff) {
+			if (match.key->ip_proto == IPPROTO_TCP)
+				frm_attr_flags |= FIELD_PREP(IPFT_FAF_L4_CODE,
+							     IPFT_FAF_TCP_HDR);
+			else if (match.key->ip_proto == IPPROTO_UDP)
+				frm_attr_flags |= FIELD_PREP(IPFT_FAF_L4_CODE,
+							     IPFT_FAF_UDP_HDR);
+		}
+	}
+
+	if (ntohs(eth_type) == ETH_P_IP &&
+	    flow_rule_match_key(rule, FLOW_DISSECTOR_KEY_IPV4_ADDRS)) {
+		struct flow_match_ipv4_addrs match = {0};
+
+		flow_rule_match_ipv4_addrs(rule, &match);
+		keye->ip_dst[3] = match.key->dst;
+		keye->ip_dst_mask[3] = match.mask->dst;
+		keye->ip_src[3] = match.key->src;
+		keye->ip_src_mask[3] = match.mask->src;
+		frm_attr_flags |= IPFT_FAF_IP_HDR;
+	}
+
+	if (ntohs(eth_type) == ETH_P_IPV6 &&
+	    flow_rule_match_key(rule, FLOW_DISSECTOR_KEY_IPV6_ADDRS)) {
+		struct flow_match_ipv6_addrs match = {0};
+
+		flow_rule_match_ipv6_addrs(rule, &match);
+		memcpy(keye->ip_dst, &match.key->dst, sizeof(keye->ip_dst));
+		memcpy(keye->ip_dst_mask, &match.mask->dst, sizeof(keye->ip_dst_mask));
+		memcpy(keye->ip_src, &match.key->src, sizeof(keye->ip_src));
+		memcpy(keye->ip_src_mask, &match.mask->src, sizeof(keye->ip_src_mask));
+		frm_attr_flags |= IPFT_FAF_IP_HDR | IPFT_FAF_IP_VER6;
+	}
+
+	if (flow_rule_match_key(rule, FLOW_DISSECTOR_KEY_PORTS)) {
+		struct flow_match_ports match = {0};
+
+		flow_rule_match_ports(rule, &match);
+		keye->l4_src_port = match.key->src;
+		keye->l4_src_port_mask = match.mask->src;
+		keye->l4_dst_port = match.key->dst;
+		keye->l4_dst_port_mask = match.mask->dst;
+	}
+
+	keye->frm_attr_flags = cpu_to_le16(frm_attr_flags);
+	keye->frm_attr_flags_mask = keye->frm_attr_flags;
+
+	/* For ENETC, the port_id must be less than 0 */
+	if (port_id >= 0) {
+		src_port |= FIELD_PREP(IPFT_SRC_PORT, port_id);
+		src_port |= IPFT_SRC_PORT_MASK;
+		keye->src_port = cpu_to_le16(src_port);
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(netc_ipft_keye_construct);
