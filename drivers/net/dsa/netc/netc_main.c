@@ -460,12 +460,66 @@ static void netc_free_ntmp_bitmaps(struct netc_switch *priv)
 	user->ett_gid_bitmap = NULL;
 }
 
+static struct pci_dev *netc_get_ptp_timer(struct netc_switch *priv)
+{
+	struct pci_bus *bus = priv->pdev->bus;
+	u32 devfn = priv->info->tmr_devfn;
+
+	return pci_get_domain_bus_and_slot(pci_domain_nr(bus),
+					   bus->number, devfn);
+}
+
+static u64 netc_switch_adjust_base_time(struct ntmp_user *user, u64 base_time,
+					u32 cycle_time)
+{
+	struct netc_switch *priv = ntmp_to_netc_switch(user);
+	u64 current_time, delta, n;
+	struct pci_dev *tmr_dev;
+
+	tmr_dev = netc_get_ptp_timer(priv);
+	if (!tmr_dev)
+		return base_time;
+
+	current_time = netc_timer_get_current_time(tmr_dev);
+	pci_dev_put(tmr_dev);
+	if (base_time >= current_time)
+		return base_time;
+
+	delta = current_time - base_time;
+	n = DIV_ROUND_UP_ULL(delta, cycle_time);
+	base_time += (n * (u64)cycle_time);
+
+	return base_time;
+}
+
+static u32 netc_switch_get_tgst_free_words(struct ntmp_user *user)
+{
+	struct netc_switch *priv = ntmp_to_netc_switch(user);
+	struct netc_switch_regs *regs = &priv->regs;
+	u32 words_in_use;
+	u32 total_words;
+
+	total_words = netc_base_rd(regs, NETC_TGSTCAPR);
+	total_words = NETC_GET_NUM_WORDS(total_words);
+
+	words_in_use = netc_base_rd(regs, NETC_TGSTMOR);
+	words_in_use = NETC_GET_NUM_WORDS(words_in_use);
+
+	return total_words - words_in_use;
+}
+
+static const struct ntmp_ops ntmp_ops = {
+	.adjust_base_time = netc_switch_adjust_base_time,
+	.get_tgst_free_words = netc_switch_get_tgst_free_words,
+};
+
 static int netc_init_ntmp_user(struct netc_switch *priv)
 {
 	struct ntmp_user *user = &priv->user;
 	int err;
 
 	user->dev_type = NETC_DEV_SWITCH;
+	user->ops = &ntmp_ops;
 	netc_init_ntmp_tbl_versions(priv);
 	netc_get_ntmp_capabilities(priv);
 
@@ -582,7 +636,7 @@ static void netc_port_set_tc_max_sdu(struct netc_port *port,
 	netc_port_wr(port, NETC_PTCTMSDUR(tc), val);
 }
 
-static void netc_port_set_all_tc_msdu(struct netc_port *port, u32 *max_sdu)
+void netc_port_set_all_tc_msdu(struct netc_port *port, u32 *max_sdu)
 {
 	u32 overhead = ETH_FCS_LEN + VLAN_ETH_HLEN;
 	int tc;
@@ -1843,6 +1897,8 @@ static int netc_port_setup_tc(struct dsa_switch *ds, int port_id,
 		return netc_tc_setup_mqprio(priv, port_id, type_data);
 	case TC_SETUP_QDISC_CBS:
 		return netc_tc_setup_cbs(priv, port_id, type_data);
+	case TC_SETUP_QDISC_TAPRIO:
+		return netc_tc_setup_taprio(priv, port_id, type_data);
 	default:
 		return -EOPNOTSUPP;
 	}
