@@ -543,6 +543,22 @@ static void s32cc_adc_enable(struct s32cc_adc *info, bool enable)
 				   s32cc_adc_clk_rate(info)) * 3U);
 }
 
+static void s32cc_adc_stop_conversion(struct s32cc_adc *info)
+{
+	u32 mcr_data;
+
+	mcr_data = readl(info->regs + REG_ADC_MCR);
+	mcr_data &= ~ADC_NSTART;
+	writel(mcr_data, info->regs + REG_ADC_MCR);
+
+	/* On disable, we have to wait for the transaction to finish.
+	 * ADC does not abort the transaction if a chain conversion
+	 * is in progress.
+	 * Wait for the worst case scenario - 80 ADC clk cycles.
+	 */
+	ndelay(div64_u64(NSEC_PER_SEC, s32cc_adc_clk_rate(info)) * 80U);
+}
+
 static int s32cc_adc_start_conversion(struct s32cc_adc *info, int currentmode)
 {
 	u32 mcr_data;
