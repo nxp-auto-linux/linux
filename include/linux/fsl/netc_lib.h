@@ -207,6 +207,7 @@ int netc_show_sgclt_entry(struct ntmp_priv *priv, struct seq_file *s, u32 entry_
 int netc_show_isct_entry(struct ntmp_priv *priv, struct seq_file *s, u32 entry_id);
 int netc_show_rpt_entry(struct ntmp_priv *priv, struct seq_file *s, u32 entry_id);
 int netc_show_ipft_entry(struct ntmp_priv *priv, struct seq_file *s, u32 entry_id);
+void netc_show_ipft_flower(struct seq_file *s, struct netc_flower_rule *rule);
 #else
 static inline int netc_show_tgst_entry(struct ntmp_priv *priv,
 				       struct seq_file *s, u32 entry_id)
@@ -297,6 +298,11 @@ static inline int netc_show_ipft_entry(struct ntmp_priv *priv,
 {
 	return 0;
 }
+
+void netc_show_ipft_flower(struct seq_file *s, struct netc_flower_rule *rule)
+{
+}
+
 #endif
 
 #endif
