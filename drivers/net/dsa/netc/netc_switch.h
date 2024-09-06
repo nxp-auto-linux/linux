@@ -128,6 +128,11 @@ struct netc_port {
 	u32 ptp_ipft_eid[NETC_PTP_MAX];
 };
 
+enum netc_port_mac {
+	NETC_PORT_EMAC = 0,
+	NETC_PORT_PMAC,
+};
+
 struct netc_switch_regs {
 	void __iomem *base;
 	void __iomem *port;
@@ -213,6 +218,7 @@ struct netc_vlan_entry {
 
 /* Write/Read registers of Switch Port (including pseudo MAC port) */
 #define netc_port_rd(p, o)		netc_read((p)->iobase + (o))
+#define netc_port_rd64(p, o)		netc_read64((p)->iobase + (o))
 #define netc_port_wr(p, o, v)		netc_write((p)->iobase + (o), v)
 
 /* Write/Read Switch global registers */
@@ -253,6 +259,15 @@ int netc_port_set_mm(struct dsa_switch *ds, int port_id,
 		     struct netlink_ext_ack *extack);
 void netc_port_get_mm_stats(struct dsa_switch *ds, int port_id,
 			    struct ethtool_mm_stats *stats);
+void netc_port_get_pause_stats(struct dsa_switch *ds, int port_id,
+			       struct ethtool_pause_stats *pause_stats);
+void netc_port_get_rmon_stats(struct dsa_switch *ds, int port_id,
+			      struct ethtool_rmon_stats *rmon_stats,
+			      const struct ethtool_rmon_hist_range **ranges);
+void netc_port_get_eth_ctrl_stats(struct dsa_switch *ds, int port_id,
+				  struct ethtool_eth_ctrl_stats *ctrl_stats);
+void netc_port_get_eth_mac_stats(struct dsa_switch *ds, int port_id,
+				 struct ethtool_eth_mac_stats *mac_stats);
 
 /* PTP APIs */
 int netc_get_ts_info(struct dsa_switch *ds, int port_id,

@@ -2407,6 +2407,10 @@ static const struct dsa_switch_ops netc_switch_ops = {
 	.port_hwtstamp_get		= netc_port_hwtstamp_get,
 	.port_rxtstamp			= netc_port_rxtstamp,
 	.port_txtstamp			= netc_port_txtstamp,
+	.get_pause_stats		= netc_port_get_pause_stats,
+	.get_rmon_stats			= netc_port_get_rmon_stats,
+	.get_eth_ctrl_stats		= netc_port_get_eth_ctrl_stats,
+	.get_eth_mac_stats		= netc_port_get_eth_mac_stats,
 };
 
 static int netc_switch_probe(struct pci_dev *pdev, const struct pci_device_id *id)
