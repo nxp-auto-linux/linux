@@ -1072,6 +1072,8 @@ static void s32cc_adc_remove(struct platform_device *pdev)
 	struct s32cc_adc *info = iio_priv(indio_dev);
 
 	s32cc_adc_stop_conversion(info);
+	s32cc_adc_disable_channels(info, iio_device_get_current_mode(indio_dev));
+	s32cc_adc_dma_cfg(info, false);
 	s32cc_adc_enable(info, false);
 	dmaengine_terminate_sync(info->dma_chan);
 	dma_free_coherent(info->dma_chan->device->dev, ADC_DMA_BUFF_SZ,
