@@ -125,6 +125,23 @@ struct netc_switch_caps {
 	int num_bp;
 	int num_sbp;
 };
+
+struct netc_switch_dbgfs {
+	u32 port;
+	u16 vft_vid;
+	u32 ett_eid;
+	u32 fmt_eid;
+	u32 ect_eid;
+	u32 isit_eid;
+	u32 ist_eid;
+	u32 isft_eid;
+	u32 sgit_eid;
+	u32 sgclt_eid;
+	u32 isct_eid;
+	u32 rpt_eid;
+	u32 ipft_eid;
+};
+
 struct netc_switch {
 	struct pci_dev *pdev;
 	struct device *dev;
@@ -150,6 +167,9 @@ struct netc_switch {
 	struct netc_switch_caps caps;
 	struct bpt_cfge_data *bpt_list;
 	struct mutex bpt_lock; /* buffer pool table lock */
+
+	struct netc_switch_dbgfs dbg_params;
+	struct dentry *debugfs_root;
 };
 
 #define NETC_PRIV(ds)			((struct netc_switch *)((ds)->priv))
@@ -219,6 +239,19 @@ int netc_port_set_mm(struct dsa_switch *ds, int port_id,
 		     struct netlink_ext_ack *extack);
 void netc_port_get_mm_stats(struct dsa_switch *ds, int port_id,
 			    struct ethtool_mm_stats *stats);
+
+#if IS_ENABLED(CONFIG_DEBUG_FS)
+void netc_create_debugfs(struct netc_switch *priv);
+void netc_remove_debugfs(struct netc_switch *priv);
+#else
+static inline void netc_create_debugfs(struct netc_switch *priv)
+{
+}
+
+static inline void netc_remove_debugfs(struct netc_switch *priv)
+{
+}
+#endif
 
 static inline bool is_netc_pseudo_port(struct netc_port *port)
 {
