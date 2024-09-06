@@ -591,3 +591,25 @@ int netc_show_ipft_entry(struct ntmp_user *user, struct seq_file *s,
 	return err;
 }
 EXPORT_SYMBOL_GPL(netc_show_ipft_entry);
+
+void netc_show_ipft_flower(struct seq_file *s, struct netc_flower_rule *rule)
+{
+	struct ntmp_ipft_entry *ipft_entry = rule->key_tbl->ipft_entry;
+	struct ntmp_ist_entry *ist_entry = rule->key_tbl->ist_entry;
+	u32 ipft_cfg = le32_to_cpu(ipft_entry->cfge.cfg);
+	u32 rpt_eid = NTMP_NULL_ENTRY_ID;
+
+	seq_printf(s, "IPFT entry ID:0x%x\n", ipft_entry->entry_id);
+	if (ist_entry) {
+		seq_printf(s, "IST entry ID: 0x%x\n", ist_entry->entry_id);
+		seq_printf(s, "ISCT entry ID: 0x%x\n", ist_entry->cfge.isc_eid);
+		rpt_eid = le32_to_cpu(ist_entry->cfge.rp_eid);
+	}
+
+	if (FIELD_GET(IPFT_FLTA, ipft_cfg) == IPFT_FLTA_RP)
+		rpt_eid = le32_to_cpu(ipft_entry->cfge.flta_tgt);
+
+	if (rpt_eid != NTMP_NULL_ENTRY_ID)
+		seq_printf(s, "RPT entry ID: 0x%x\n", rpt_eid);
+}
+EXPORT_SYMBOL_GPL(netc_show_ipft_flower);
