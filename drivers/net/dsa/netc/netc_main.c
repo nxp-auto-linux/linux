@@ -69,7 +69,54 @@ static enum dsa_tag_protocol netc_get_tag_protocol(struct dsa_switch *ds, int po
 	return priv->tag_proto;
 }
 
-static void netc_mac_port_wr(struct netc_port *port, u32 reg, u32 val)
+static void netc_twostep_tstamp_handler(struct dsa_switch *ds, int port_id,
+					u8 ts_req_id, u64 ts)
+{
+	struct netc_port *port = NETC_PORT(NETC_PRIV(ds), port_id);
+	struct sk_buff *skb, *skb_tmp, *skb_match = NULL;
+	struct netc_switch *priv = port->switch_priv;
+	struct skb_shared_hwtstamps hwtstamps;
+
+	spin_lock(&port->ts_req_id_lock);
+
+	skb_queue_walk_safe(&port->skb_txtstamp_queue, skb, skb_tmp) {
+		if (NETC_SKB_CB(skb)->ts_req_id != ts_req_id)
+			continue;
+
+		__skb_unlink(skb, &port->skb_txtstamp_queue);
+		skb_match = skb;
+		break;
+	}
+
+	spin_unlock(&port->ts_req_id_lock);
+
+	if (!skb_match) {
+		dev_dbg_ratelimited(priv->dev,
+				    "Port %d received an expired Tx timestamp response (ts_req_id %u)",
+				    port_id, ts_req_id);
+		return;
+	}
+
+	hwtstamps.hwtstamp = ns_to_ktime(ts);
+	skb_complete_tx_timestamp(skb_match, &hwtstamps);
+}
+
+static int netc_connect_tag_protocol(struct dsa_switch *ds,
+				     enum dsa_tag_protocol proto)
+{
+	struct netc_tagger_data *tagger_data;
+	struct netc_switch *priv = ds->priv;
+
+	if (proto != priv->tag_proto)
+		return -EPROTONOSUPPORT;
+
+	tagger_data = ds->tagger_data;
+	tagger_data->twostep_tstamp_handler = netc_twostep_tstamp_handler;
+
+	return 0;
+}
+
+void netc_mac_port_wr(struct netc_port *port, u32 reg, u32 val)
 {
 	if (is_netc_pseudo_port(port))
 		return;
@@ -268,6 +315,14 @@ static void netc_remove_all_ports_internal_mdiobus(struct dsa_switch *ds)
 	}
 }
 
+static void netc_port_init_ptp_ipft_eid(struct netc_port *port)
+{
+	int i;
+
+	for (i = 0; i < NETC_PTP_MAX; i++)
+		port->ptp_ipft_eid[i] = NTMP_NULL_ENTRY_ID;
+}
+
 static int netc_init_all_ports(struct dsa_switch *ds)
 {
 	struct device_node *switch_node, *ports;
@@ -291,12 +346,18 @@ static int netc_init_all_ports(struct dsa_switch *ds)
 		port->index = i;
 		port->switch_priv = priv;
 		port->iobase = priv->regs.port + PORT_IOBASE(i);
+		netc_port_init_ptp_ipft_eid(port);
 		priv->ports[i] = port;
 
 		netc_port_get_capability(port);
 
 		if (port->caps.pmac)
 			mutex_init(&port->mm_lock);
+
+		if (!port->caps.pseudo_link) {
+			spin_lock_init(&port->ts_req_id_lock);
+			skb_queue_head_init(&port->skb_txtstamp_queue);
+		}
 	}
 
 	switch_node = dev->of_node;
@@ -530,7 +591,7 @@ static void netc_free_ntmp_bitmaps(struct netc_switch *priv)
 	user->ett_gid_bitmap = NULL;
 }
 
-static struct pci_dev *netc_get_ptp_timer(struct netc_switch *priv)
+struct pci_dev *netc_get_ptp_timer(struct netc_switch *priv)
 {
 	struct pci_bus *bus = priv->pdev->bus;
 	u32 devfn = priv->info->tmr_devfn;
@@ -2313,6 +2374,7 @@ static const struct phylink_mac_ops netc_phylink_mac_ops = {
 
 static const struct dsa_switch_ops netc_switch_ops = {
 	.get_tag_protocol		= netc_get_tag_protocol,
+	.connect_tag_protocol		= netc_connect_tag_protocol,
 	.setup				= netc_setup,
 	.teardown			= netc_teardown,
 	.port_enable			= netc_port_enable,
@@ -2340,6 +2402,11 @@ static const struct dsa_switch_ops netc_switch_ops = {
 	.get_mm				= netc_port_get_mm,
 	.set_mm				= netc_port_set_mm,
 	.get_mm_stats			= netc_port_get_mm_stats,
+	.get_ts_info			= netc_get_ts_info,
+	.port_hwtstamp_set		= netc_port_hwtstamp_set,
+	.port_hwtstamp_get		= netc_port_hwtstamp_get,
+	.port_rxtstamp			= netc_port_rxtstamp,
+	.port_txtstamp			= netc_port_txtstamp,
 };
 
 static int netc_switch_probe(struct pci_dev *pdev, const struct pci_device_id *id)
