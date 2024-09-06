@@ -83,6 +83,18 @@ enum netc_port_offloads {
 	NETC_FLAG_QAV			= BIT(0),
 	NETC_FLAG_QBU			= BIT(1),
 	NETC_FLAG_QBV			= BIT(2),
+
+	NETC_FLAG_TX_TSTAMP		= BIT(9),
+	NETC_FLAG_TX_ONESTEP_SYNC	= BIT(10),
+};
+
+enum netc_ptp_type {
+	NETC_PTP_L2,
+	NETC_PTP_L4_IPV4_EVENT,
+	NETC_PTP_L4_IPV4_GENERAL,
+	NETC_PTP_L4_IPV6_EVENT,
+	NETC_PTP_L4_IPV6_GENERAL,
+	NETC_PTP_MAX,
 };
 
 struct netc_switch;
@@ -113,6 +125,13 @@ struct netc_port {
 	 */
 	struct mutex mm_lock;
 	unsigned long preemptible_tcs;
+
+	/* Timestamp Request Identifier lock */
+	spinlock_t ts_req_id_lock;
+	/* skb queue for two-step timestamp frames */
+	struct sk_buff_head skb_txtstamp_queue;
+	int ptp_filter;
+	u32 ptp_ipft_eid[NETC_PTP_MAX];
 };
 
 struct netc_switch_regs {
@@ -155,6 +174,7 @@ struct netc_switch {
 	u32 num_ports;
 
 	struct ntmp_priv ntmp;
+
 	struct hlist_head fdb_list;
 	struct hlist_head vlan_list;
 	struct mutex fdbt_lock; /* FDB table lock */
@@ -213,6 +233,8 @@ struct netc_vlan_entry {
 int netc_switch_platform_probe(struct netc_switch *priv);
 void netc_port_set_tx_pause(struct netc_port *port, bool tx_pause);
 void netc_port_set_all_tc_msdu(struct netc_port *port, u32 *max_sdu);
+struct pci_dev *netc_switch_get_timer(struct netc_switch *priv);
+void netc_mac_port_wr(struct netc_port *port, u32 reg, u32 val);
 
 /* TC APIs */
 int netc_tc_query_caps(struct tc_query_caps_base *base);
@@ -239,6 +261,18 @@ int netc_port_set_mm(struct dsa_switch *ds, int port_id,
 		     struct netlink_ext_ack *extack);
 void netc_port_get_mm_stats(struct dsa_switch *ds, int port_id,
 			    struct ethtool_mm_stats *stats);
+
+/* PTP APIs */
+int netc_get_ts_info(struct dsa_switch *ds, int port_id,
+		     struct kernel_ethtool_ts_info *info);
+int netc_port_hwtstamp_set(struct dsa_switch *ds, int port_id,
+			   struct ifreq *ifr);
+int netc_port_hwtstamp_get(struct dsa_switch *ds, int port_id,
+			   struct ifreq *ifr);
+bool netc_port_rxtstamp(struct dsa_switch *ds, int port,
+			struct sk_buff *skb, unsigned int type);
+void netc_port_txtstamp(struct dsa_switch *ds, int port_id,
+			struct sk_buff *skb);
 
 #if IS_ENABLED(CONFIG_DEBUG_FS)
 void netc_create_debugfs(struct netc_switch *priv);
