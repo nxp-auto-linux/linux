@@ -525,13 +525,10 @@ static void s32cc_adc_enable(struct s32cc_adc *info, bool enable)
 	u32 mcr_data;
 
 	mcr_data = readl(info->regs + REG_ADC_MCR);
-	if (enable) {
+	if (enable)
 		mcr_data &= ~ADC_PWDN;
-	} else {
+	else
 		mcr_data |= ADC_PWDN;
-		/* Stop any conversion. */
-		mcr_data &= ~ADC_NSTART;
-	}
 
 	writel(mcr_data, info->regs + REG_ADC_MCR);
 
@@ -618,6 +615,7 @@ static int s32cc_read_raw(struct iio_dev *indio_dev,
 
 		s32cc_adc_chan_enable(info, chan->channel, false);
 		s32cc_adc_irq_cfg(info, false);
+		s32cc_adc_stop_conversion(info);
 		s32cc_adc_enable(info, false);
 
 		if (ret == 0) {
@@ -825,6 +823,7 @@ static int s32cc_adc_buffer_postenable(struct iio_dev *indio_dev)
 	return 0;
 
 buffer_postenable_clean_up:
+	s32cc_adc_stop_conversion(info);
 	s32cc_adc_enable(info, false);
 	s32cc_adc_dma_cfg(info, false);
 	s32cc_adc_disable_channels(info, current_mode);
@@ -837,7 +836,7 @@ static int s32cc_adc_buffer_predisable(struct iio_dev *indio_dev)
 	struct s32cc_adc *info = iio_priv(indio_dev);
 	int currentmode = iio_device_get_current_mode(indio_dev);
 
-	s32cc_adc_enable(info, false);
+	s32cc_adc_stop_conversion(info);
 
 	if (currentmode == INDIO_BUFFER_SOFTWARE) {
 		/* The ADC DMAEN bit should be cleared before DMA transaction
@@ -850,6 +849,7 @@ static int s32cc_adc_buffer_predisable(struct iio_dev *indio_dev)
 	}
 
 	s32cc_adc_disable_channels(info, currentmode);
+	s32cc_adc_enable(info, false);
 
 	return 0;
 }
@@ -1071,6 +1071,7 @@ static void s32cc_adc_remove(struct platform_device *pdev)
 	struct iio_dev *indio_dev = platform_get_drvdata(pdev);
 	struct s32cc_adc *info = iio_priv(indio_dev);
 
+	s32cc_adc_stop_conversion(info);
 	s32cc_adc_enable(info, false);
 	dmaengine_terminate_sync(info->dma_chan);
 	dma_free_coherent(info->dma_chan->device->dev, ADC_DMA_BUFF_SZ,
