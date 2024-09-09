@@ -411,7 +411,7 @@ static void tmu_set_thresholds(struct qoriq_tmu_data *qdata, int low,
 
 	/* Enable interrupt handling. */
 	/* Enable Rising/Falling Temperature Rate Critical Threshold
-	 * Interrupt used as workaround for TKT0635774.
+	 * Interrupt used as workaround for ERR052243.
 	 */
 	if (qdata->trctr)
 		reg = TIER_RTRCTIE | TIER_FTRCTIE;
@@ -428,7 +428,7 @@ static void tmu_set_thresholds(struct qoriq_tmu_data *qdata, int low,
 	regmap_update_bits(qdata->regmap, REGS_TIER, TIER_MASK, reg);
 
 	if (qdata->trctr) {
-		/* TKT0635774 */
+		/* ERR052243 */
 		regmap_update_bits(qdata->regmap, REGS_TMRTRCTR,
 				   TMRTRCTR_TEMP_MASK | TMRTRCTR_EN,
 				   qdata->trctr | TMRTRCTR_EN);
@@ -1271,7 +1271,7 @@ static int qoriq_tmu_probe(struct platform_device *pdev)
 		}
 
 		/* Try reading rising and falling threshold used as an
-		 * workaround for TKT0635774.
+		 * workaround for ERR052243.
 		 */
 		data->trctr = 0;
 		ret = of_property_read_u32(np, "tmu-rate-filter", &trctr);
