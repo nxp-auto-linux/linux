@@ -72,14 +72,16 @@ properties:
 
   tmu-rate-filter:
     description: |
-      TMU is reporting sometimes large errors in temperature measurement,
-      for example, the temperature will go up by 40 degrees on one sample
-      and then down 40 degrees on the next sample.
       This property is used to filter out the erroneous measurements and should
-      contain the maximum acceptable difference between two consecutive TMU
-      samples. The workaround applies only for the site monitored with IRQ and
-      only for the immediate temperature. The average temperature will be still
-      computed based on the erroneous value.
+      contain the maximum acceptable change, in degrees, between two
+      consecutive TMU samples.
+      If a potentially invalid measurement is detected, the driver will wait
+      for the next TMU sample. If the absolute value of the difference between
+      TMRTRCR (Monitor Rising Temperature Rate Critical Threshold) and
+      TMFTRCR (Monitor Falling Temperature Rate Critical Threshold) values is
+      <= 2, the initial measurement is discarded.
+      The workaround is necessary where ERR052243 applies and is implemented
+      only for the site monitored with interrupts.
 
   clocks:
     maxItems: 1
