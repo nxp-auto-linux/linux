@@ -451,6 +451,12 @@
 #define NETC_PPMCR			0x1010
 #define NETC_PPMROCR			0x1080	/* 64 bits register*/
 #define NETC_PPMRUFCR			0x1088
+#define NETC_PPMRMFCR			0x1090
+#define NETC_PPMRBFCR			0x1098
+#define NETC_PPMTOCR			0x10c0
+#define NETC_PPMTUFCR			0x10c8
+#define NETC_PPMTMFCR			0x10d0
+#define NETC_PPMTBFCR			0x10d8
 
 /* Definition of global registers (read only) */
 #define NETC_SMCAPR			0x0000
