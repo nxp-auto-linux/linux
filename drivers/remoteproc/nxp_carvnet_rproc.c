@@ -593,6 +593,10 @@ static int carvnet_rproc_probe(struct platform_device *pdev)
 
 	dev_set_drvdata(dev, rproc);
 
+	priv->regs = devm_platform_ioremap_resource(pdev, 0);
+	if (WARN_ON(IS_ERR(priv->regs)))
+		return PTR_ERR(priv->regs);
+
 	rproc->auto_boot = auto_boot;
 
 	ret = devm_rproc_add(dev, rproc);
@@ -601,6 +605,9 @@ static int carvnet_rproc_probe(struct platform_device *pdev)
 
 	debugfs_create_file("dump_regs", 0400, rproc->dbg_dir, priv,
 			    &carvnet_dump_regs_fops);
+
+	dev_info(dev, "CAR-V revision %x\n",
+		 GET_CARV_GL_CR_IP_VID(readl(priv->regs + CARV_GL_CR)));
 
 	return ret;
 }
