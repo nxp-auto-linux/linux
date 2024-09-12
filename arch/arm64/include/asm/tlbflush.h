@@ -4,7 +4,7 @@
  *
  * Copyright (C) 1999-2003 Russell King
  * Copyright (C) 2012 ARM Ltd.
- * Copyright 2022-2023 NXP
+ * Copyright 2022-2024 NXP
  */
 #ifndef __ASM_TLBFLUSH_H
 #define __ASM_TLBFLUSH_H
@@ -55,19 +55,20 @@
 #define IS_ERR050481_ADDR(addr_shr_12)  \
 	(((addr_shr_12) & GENMASK_ULL(36, 29)) != 0)
 
-#define S32CC_TLBI_ALT(OP, ADDR) do {\
+#define S32CC_TLBI_ALT(OP, ALT_OP, ADDR) do {\
 	unsigned long __temp_050481 = (ADDR);\
 	if (cpu_has_nxp_err050481() && IS_ERR050481_ADDR(__temp_050481))\
-		__TLBI_0(vmalle1is, 0);\
+		__TLBI_0(ALT_OP, 0);\
 	else\
 		__TLBI_1(OP, __temp_050481);\
 } while (0)
 
-#define __tlbi_vaae1is(ADDR, ...)	S32CC_TLBI_ALT(vaae1is, ADDR)
-#define __tlbi_vaae1is(ADDR, ...)	S32CC_TLBI_ALT(vaae1is, ADDR)
-#define __tlbi_vaale1is(ADDR, ...)	S32CC_TLBI_ALT(vaale1is, ADDR)
-#define __tlbi_vae1is(ADDR, ...)	S32CC_TLBI_ALT(vae1is, ADDR)
-#define __tlbi_vale1is(ADDR, ...)	S32CC_TLBI_ALT(vale1is, ADDR)
+#define __tlbi_vaae1is(ADDR, ...)      S32CC_TLBI_ALT(vaae1is, vmalle1is, ADDR)
+#define __tlbi_vaale1is(ADDR, ...)     S32CC_TLBI_ALT(vaale1is, vmalle1is, ADDR)
+#define __tlbi_vae1is(ADDR, ...)       S32CC_TLBI_ALT(vae1is, vmalle1is, ADDR)
+#define __tlbi_vale1is(ADDR, ...)      S32CC_TLBI_ALT(vale1is, vmalle1is, ADDR)
+#define __tlbi_vae2is(ADDR, ...)       S32CC_TLBI_ALT(vae2is, alle2is, ADDR)
+#define __tlbi_vale2is(ADDR, ...)      S32CC_TLBI_ALT(vale2is, alle2is, ADDR)
 #define __tlbi_vmalle1()		__TLBI_0(vmalle1, 0)
 #define __tlbi_vmalle1is()		__TLBI_0(vmalle1is, 0)
 #define __tlbi_alle1is()		__TLBI_0(alle1is, 0)
@@ -77,6 +78,11 @@
 #define __tlbi_rvale1is(ADDR)		__TLBI_1(rvale1is, ADDR)
 #define __tlbi_rvae1is(ADDR)		__TLBI_1(rvae1is, ADDR)
 #define __tlbi_ipas2e1is(ADDR)		__TLBI_1(ipas2e1is, ADDR)
+#define __tlbi_ipas2e1(ADDR)		__TLBI_1(ipas2e1, ADDR)
+/* We don't, in fact, support TLB range invalidate; at runtime, this function
+ * shouldn't even be executed. Implement it to appease the compiler.
+ */
+#define __tlbi_ripas2e1is(ADDR)		__TLBI_0(vmalls12e1is, 0)
 
 #define __tlbi(op, ...) __tlbi_##op(__VA_ARGS__)
 
