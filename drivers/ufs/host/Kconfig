@@ -143,3 +143,12 @@ config SCSI_UFS_SPRD
 
 	  Select this if you have UFS controller on Unisoc chipset.
 	  If unsure, say N.
+
+config SCSI_UFS_S32N79
+	tristate "NXP S32N79 platform driver"
+	depends on SCSI_UFSHCD_PLATFORM && (ARCH_S32 || COMPILE_TEST)
+	help
+	  This selects the S32N79 specific additions to UFSHCD platform driver.
+
+	  Select this if you're using a S32N79 based board.
+	  Otherwise you should set it to 'no'.
