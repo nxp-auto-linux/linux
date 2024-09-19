@@ -12,7 +12,124 @@
 / {
 	model = "NXP S32G3-VC-SOM Board";
 	compatible = "nxp,s32g399a-som", "nxp,s32g3";
+
+	chosen {
+		stdout-path = "serial0:115200n8";
+	};
 };
+
+&gmac0 {
+	status = "okay";
+	phy-handle = <&gmac_mdio_a_phy1>;
+	phy-mode = "rgmii-id";
+};
+
+&gmac0_mdio {
+	/* KSZ9031 GMAC */
+	gmac_mdio_a_phy1: ethernet-phy@1 {
+		reg = <1>;
+	};
+};
+
+&pfe {
+	status = "okay";
+};
+
+&pfe_mdio0 {
+	/* unused */
+	status = "disabled";
+};
+
+&pfe_mdio1 {
+	/* occupied by GMAC0 */
+	status = "disabled";
+};
+
+&pfe_mdio2 {
+	/* TJA1120 */
+	pfe_mdio_b_phy1: ethernet-phy@1 {
+		reg = <1>;
+	};
+};
+
+&pfe_netif0 {
+	phy-mode = "sgmii";
+
+	fixed-link {
+		speed = <1000>;
+		full-duplex;
+	};
+};
+
+&pfe_netif1 {
+	phy-mode = "sgmii";
+
+	fixed-link {
+		speed = <1000>;
+		full-duplex;
+	};
+};
+
+&pfe_netif2 {
+	phy-mode = "rgmii";
+	phy-handle = <&pfe_mdio_b_phy1>;
+
+	/*
+	 * Workaround for TJA1120.
+	 * Will be updated once TJA1120 support
+	 * is added.
+	 */
+	fixed-link {
+		speed = <1000>;
+		full-duplex;
+	};
+};
+
+&i2c0 {
+	status = "okay";
+};
+
+&i2c1 {
+	status = "okay";
+
+	rtc@51 {
+		compatible = "nxp,pca85073a";
+		reg = <0x51>;
+		nxp,no-battery;
+	};
+
+	pct2075@48 {
+		compatible = "nxp,pct2075";
+		reg = <0x48>;
+	};
+};
+
+&i2c4 {
+	status = "okay";
+};
+
+&gpio {
+	/*
+	 * Drive GPIO[151] low for LLCE_CAN0 enablement.
+	 */
+	tja1448a-llce-can0-stb-hog {
+		gpio-hog;
+		gpios = <151 GPIO_ACTIVE_HIGH>;
+		output-low;
+		line-name = "tja1448a-llce-can0-stb";
+	};
+
+	/*
+	 * Drive GPIO[153] low for LLCE_CAN1 enablement.
+	 */
+	tja1448a-llce-can1-stb-hog {
+		gpio-hog;
+		gpios = <153 GPIO_ACTIVE_HIGH>;
+		output-low;
+		line-name = "tja1448a-llce-can1-stb";
+	};
+};
+
 
 &uart0 {
 	status = "okay";
@@ -62,7 +179,12 @@
 	status = "okay";
 };
 
+&pcie0 {
+	status = "okay";
+};
+
 &usdhc0 {
+	status = "okay";
 	/*
 	 * Remove no-1-8-v to enable higher speed modes
 	 * for SD card such as: SDR50 or DDR50.
