@@ -7,7 +7,7 @@
 
 /dts-v1/;
 
-#include "s32g399a-som.dtsi"
+#include "s32g399a-vc.dtsi"
 
 / {
 	model = "NXP S32G3-VC-SOM Board";
