@@ -1,0 +1,253 @@
+// SPDX-License-Identifier: GPL-2.0-or-later OR BSD-3-Clause
+/*
+ * Device Tree file for S32G3-VC-BASE board.
+ *
+ * Copyright 2024 NXP
+ */
+
+/dts-v1/;
+
+#include "s32g399a-vc.dtsi"
+
+/ {
+	model = "NXP S32G3-VC-BASE Board";
+	compatible = "nxp,s32g399a-base", "nxp,s32g3";
+
+	chosen {
+		stdout-path = "serial0:115200n8";
+	};
+
+	sfp_eth1: sfp-eth1 {
+		compatible = "sff,sfp";
+		i2c-bus = <&sfp_2g5_i2c3>;
+		/*
+		 * All SFP signals (TX_FAULT, RX_LOS etc.) are
+		 * coming directly from the 0x22 I2C2 IO expender.
+		 */
+	};
+};
+
+&gmac0 {
+	status = "okay";
+	phy-handle = <&gmac_mdio_a_phy1>;
+	phy-mode = "rgmii-id";
+};
+
+&gmac0_mdio {
+	/* KSZ9131 GMAC */
+	gmac_mdio_a_phy1: ethernet-phy@1 {
+		reg = <1>;
+	};
+};
+
+&pfe {
+	status = "okay";
+};
+
+&pfe_mdio0 {
+	/* unused */
+	status = "disabled";
+};
+
+&pfe_mdio1 {
+	/* occupied by GMAC0 */
+	status = "disabled";
+};
+
+&pfe_mdio2 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	/* TJA1120 */
+	pfe_mdio_b_phy1: ethernet-phy@1 {
+		reg = <1>;
+	};
+};
+
+&pfe_netif0 {
+	status = "okay";
+	sfp = <&sfp_eth1>;
+	phy-mode = "sgmii";
+	managed = "in-band-status";
+};
+
+&pfe_netif1 {
+	phy-mode = "sgmii";
+
+	fixed-link {
+		speed = <1000>;
+		full-duplex;
+	};
+};
+
+&pfe_netif2 {
+	phy-mode = "rgmii-id";
+	phy-handle = <&pfe_mdio_b_phy1>;
+
+	fixed-link {
+		speed = <1000>;
+		full-duplex;
+	};
+};
+
+&i2c0 {
+	status = "okay";
+
+	at24c01: eeprom@a {
+		compatible = "atmel,24c01";
+		reg = <0xa>;
+	};
+};
+
+&i2c1 {
+	status = "okay";
+
+	sa56004: temperature-sensor@4c {
+		compatible = "nxp,sa56004";
+		reg = <0x4c>;
+	};
+
+	pca85073a: rtc@51 {
+		compatible = "nxp,pca85073a";
+		reg = <0x51>;
+		nxp,no-battery;
+	};
+
+	pct2075: pct2075@48 {
+		compatible = "nxp,pct2075";
+		reg = <0x48>;
+	};
+};
+
+&i2c2 {
+	status = "okay";
+
+	pcal6524: gpio-expander@22 {
+		compatible = "nxp,pcal6524";
+		reg = <0x22>;
+		gpio-controller;
+		#gpio-cells = <2>;
+	};
+
+	pcal6524_1: gpio-expander@23 {
+		compatible = "nxp,pcal6524";
+		reg = <0x23>;
+		gpio-controller;
+		#gpio-cells = <2>;
+	};
+
+	pca9546: i2c-mux@77 {
+		compatible = "nxp,pca9546";
+		reg = <0x77>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+	};
+};
+
+&i2c3 {
+	status = "okay";
+
+	sfp_2g5_i2c3: i2c@50 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg = <0x50>;
+	};
+};
+
+&i2c4 {
+	status = "okay";
+
+	vr5510@20 {
+		compatible = "nxp,vr5510";
+		reg = <0x20>;
+		status = "okay";
+	};
+
+	vr5510_fsu@21 {
+		compatible = "nxp,vr5510";
+		reg = <0x21>;
+		status = "okay";
+	};
+};
+
+&gpio {
+	sja1110-rst-phy-t1-hog {
+		gpio-hog;
+		gpios = <24 GPIO_ACTIVE_LOW>;
+		output-low;
+		line-name = "sja1110-rst-phy-t1";
+	};
+
+	sja1110-rst-core-hog {
+		gpio-hog;
+		gpios = <81 GPIO_ACTIVE_LOW>;
+		output-low;
+		line-name = "sja1110-rst-core";
+	};
+};
+
+
+&uart0 {
+	status = "okay";
+};
+
+&qspi {
+	status = "okay";
+};
+
+&serdes0 {
+	status  = "okay";
+};
+
+&serdes1 {
+	status  = "okay";
+};
+
+&swt3 {
+	status = "okay";
+};
+
+&swt4 {
+	status = "okay";
+};
+
+&swt5 {
+	status = "okay";
+};
+
+&swt6 {
+	status = "okay";
+};
+
+&swt8 {
+	status = "okay";
+};
+
+&swt9 {
+	status = "okay";
+};
+
+&swt10 {
+	status = "okay";
+};
+
+&swt11 {
+	status = "okay";
+};
+
+&pcie0 {
+	status = "okay";
+};
+
+&pcie1 {
+	status = "okay";
+};
+
+&usdhc0 {
+	status = "okay";
+	/*
+	 * Remove no-1-8-v to enable higher speed modes
+	 * for SD card such as: SDR50 or DDR50.
+	 */
+	no-1-8-v;
+};

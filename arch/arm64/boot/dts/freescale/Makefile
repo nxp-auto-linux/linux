@@ -301,6 +301,7 @@ dtb-$(CONFIG_ARCH_S32) += s32g274a-rdb2-pfems.dtb
 dtb-$(CONFIG_ARCH_S32) += s32g399a-rdb3.dtb
 dtb-$(CONFIG_ARCH_S32) += s32g399a-rdb3-pfems.dtb
 dtb-$(CONFIG_ARCH_S32) += s32g399a-vc-som.dtb
+dtb-$(CONFIG_ARCH_S32) += s32g399a-vc-base.dtb
 dtb-$(CONFIG_ARCH_S32) += s32r45-evb.dtb
 dtb-$(CONFIG_ARCH_S32) += s32r45-renan.dtb
 dtb-$(CONFIG_ARCH_S32) += s32r45-emu.dtb
