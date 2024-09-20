@@ -34,7 +34,7 @@
 
 		cpu0: cpu@0 {
 			device_type = "cpu";
-			compatible = "arm,cortex-a78-ae";
+			compatible = "arm,cortex-a78ae";
 			reg = <0x0>;
 			enable-method = "psci";
 			next-level-cache = <&l2_0>;
@@ -42,7 +42,7 @@
 
 		cpu1: cpu@100 {
 			device_type = "cpu";
-			compatible = "arm,cortex-a78-ae";
+			compatible = "arm,cortex-a78ae";
 			reg = <0x100>;
 			enable-method = "psci";
 			next-level-cache = <&l2_0>;
@@ -69,12 +69,10 @@
 
 	timer: timer {
 		compatible = "arm,armv8-timer";
-		interrupts = <GIC_PPI 10 IRQ_TYPE_LEVEL_LOW>,
+		interrupts = <GIC_PPI 13 IRQ_TYPE_LEVEL_LOW>,
+			     <GIC_PPI 14 IRQ_TYPE_LEVEL_LOW>,
 			     <GIC_PPI 11 IRQ_TYPE_LEVEL_LOW>,
-			     <GIC_PPI 12 IRQ_TYPE_LEVEL_LOW>,
-			     <GIC_PPI 13 IRQ_TYPE_LEVEL_LOW>,
-			     <GIC_PPI 14 IRQ_TYPE_LEVEL_LOW>;
-		interrupt-names = "hyp-phys", "virt", "hyp-virt", "sec-phys", "phys";
+			     <GIC_PPI 10 IRQ_TYPE_LEVEL_LOW>;
 	};
 
 	reserved-memory  {
@@ -104,7 +102,7 @@
 		};
 	};
 
-	cis_subsys {
+	cis_subsys: bus@0 {
 		compatible = "simple-bus";
 		#address-cells = <1>;
 		#size-cells = <1>;
@@ -131,7 +129,7 @@
 
 	};
 
-	coss_subsys {
+	coss_subsys: bus@4a000000 {
 		compatible = "simple-bus";
 		#address-cells = <1>;
 		#size-cells = <1>;
@@ -178,7 +176,7 @@
 		};
 	};
 
-	fss_subsys {
+	fss_subsys: bus@5b490000 {
 		compatible = "simple-bus";
 		#address-cells = <1>;
 		#size-cells = <1>;
@@ -195,7 +193,7 @@
 		};
 	};
 
-	nwss_subsys {
+	nwss_subsys: bus@40000000 {
 		compatible = "simple-bus";
 		#address-cells = <2>;
 		#size-cells = <2>;
