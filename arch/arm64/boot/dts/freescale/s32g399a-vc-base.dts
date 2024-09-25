@@ -191,6 +191,22 @@
 	status = "okay";
 };
 
+&llce_uart0 {
+	status = "okay";
+};
+
+&llce_uart1 {
+	status = "okay";
+};
+
+&llce_uart2 {
+	status = "okay";
+};
+
+&llce_uart3 {
+	status = "okay";
+};
+
 &qspi {
 	status = "okay";
 };
