@@ -130,11 +130,11 @@
 	};
 };
 
-&serdes0 {
+&uart0 {
 	status = "okay";
 };
 
-&serdes1 {
+&uart1 {
 	status = "okay";
 };
 
@@ -142,7 +142,11 @@
 	status = "okay";
 };
 
-&uart0 {
+&serdes0 {
+	status = "okay";
+};
+
+&serdes1 {
 	status = "okay";
 };
 
