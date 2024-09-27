@@ -2,7 +2,7 @@
 /*
  * Device Tree file for NXP S32G2 SoC family.
  *
- * Copyright 2021-2023 NXP
+ * Copyright 2021-2024 NXP
  *
  */
 
@@ -95,7 +95,6 @@
 &qspi {
 	pinctrl-names = "default";
 	pinctrl-0 = <&qspi_pins_200mhz_fast_sre>;
-	status = "okay";
 };
 
 &tmu {

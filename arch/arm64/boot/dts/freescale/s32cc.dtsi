@@ -68,12 +68,10 @@
 
 		cluster0_l2_cache: l2-cache0 {
 			compatible = "cache";
-			status = "okay";
 		};
 
 		cluster1_l2_cache: l2-cache1 {
 			compatible = "cache";
-			status = "okay";
 		};
 	};
 
@@ -152,7 +150,6 @@
 			arm,smc-id = <0xc20000fe>;
 			#address-cells = <1>;
 			#size-cells = <0>;
-			status = "okay";
 			interrupts = <GIC_SPI 300 IRQ_TYPE_EDGE_RISING>;
 			interrupt-names = "p2a_notif";
 
@@ -231,7 +228,6 @@
 			reg = <0x0 0x4007c000 0x0 0x3000>;
 			#address-cells = <1>;
 			#size-cells = <1>;
-			status = "okay";
 
 			ddr_pmu_irq: ddr_pmu_irq@0 {
 				reg = <S32CC_GPR_DDR_PMU_IRQ_OFFSET
@@ -247,7 +243,6 @@
 			compatible = "simple-mfd";
 			#address-cells = <2>;
 			#size-cells = <2>;
-			status = "okay";
 
 			/* MIDR */
 			ranges = <MIDR_SIUL2_0 0x0 0x0 0x4009c000 0x0 0x10>;
@@ -257,7 +252,7 @@
 				reg = <MIDR_SIUL2_0 0x0 0x0 0x10>;
 				#address-cells = <1>;
 				#size-cells = <1>;
-				status = "okay";
+
 				soc_major: soc_major@0 {
 					reg = <SOC_MAJOR_OFFSET NVRAM_CELL_SIZE>;
 				};
@@ -274,7 +269,6 @@
 			reg = <0x0 0x400a4000 0x0 0x400>;
 			#address-cells = <1>;
 			#size-cells = <1>;
-			status = "okay";
 			tmu_fuse_val: tmu_fuse_val@298 {
 				reg = <TMU_FUSE_OFFSET OCOTP_CELL_SIZE>;
 			};
@@ -291,7 +285,6 @@
 			little-endian;
 			tmu-alpf = <QORIQ_TMR_ALPF_1_0>;
 			tmu-rate-filter = <5>;
-			status = "okay";
 		};
 
 		swt3: watchdog@4010c000 {
@@ -559,7 +552,6 @@
 			dmas = <&edma0 0 32>;
 			dma-names = "rx";
 			vref = <1800>;
-			status = "okay";
 		};
 
 		swt4: watchdog@40200000 {
@@ -851,7 +843,6 @@
 			dmas = <&edma1 1 32>;
 			dma-names = "rx";
 			vref = <1800>;
-			status = "okay";
 		};
 
 		usdhc0: mmc@402f0000 {
@@ -1063,7 +1054,7 @@
 			      <0x0 0x40482000 0x0 0x800>,
 			      <0x0 0x40482800 0x0 0x800>;
 			reg-names = "ss_pcie", "pcie_phy", "xpcs0", "xpcs1";
-			status = "okay";
+			status = "disabled";
 		};
 
 		pcie1: pcie@44100000 {
@@ -1125,7 +1116,7 @@
 			      <0x0 0x44182000 0x0 0x800>,
 			      <0x0 0x44182800 0x0 0x800>;
 			reg-names = "ss_pcie", "pcie_phy", "xpcs0", "xpcs1";
-			status = "okay";
+			status = "disabled";
 		};
 
 		gic: interrupt-controller@50800000 {

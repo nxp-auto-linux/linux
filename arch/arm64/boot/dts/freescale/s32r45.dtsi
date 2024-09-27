@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright 2017-2023 NXP
+ * Copyright 2017-2024 NXP
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -96,7 +96,6 @@
 	soc {
 		siul2@4009c000 {
 			compatible = "simple-mfd";
-			status = "okay";
 			#address-cells = <2>;
 			#size-cells = <2>;
 
@@ -277,8 +276,6 @@
 					    754 760
 					    771 774
 					    777 785>;
-				status = "okay";
-
 				pinctrl-names = "default";
 				pinctrl-0 = <&jtag_pins>;
 
@@ -340,7 +337,6 @@
 				interrupt-controller;
 				#interrupt-cells = <2>;
 				interrupts = <GIC_SPI 237 IRQ_TYPE_LEVEL_HIGH>;
-				status = "okay";
 			};
 
 			nvram1: nvram@4403C000 {
@@ -348,7 +344,6 @@
 				reg = <MIDR_SIUL2_1 0 0x0 0x10>;
 				#address-cells = <1>;
 				#size-cells = <1>;
-				status = "okay";
 				serdes_presence: serdes_presence@0 {
 					reg = <SERDES_PRESENCE_OFFSET NVRAM_CELL_SIZE>;
 				};

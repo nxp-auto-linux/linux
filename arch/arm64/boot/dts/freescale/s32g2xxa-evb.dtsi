@@ -2,7 +2,7 @@
 /*
  * Device Tree file for S32G-VNP-PROC + S32GRV-VNP-PLAT boards
  *
- * Copyright 2021-2023 NXP
+ * Copyright 2021-2024 NXP
  */
 
 /dts-v1/;
@@ -13,7 +13,16 @@
 	model = "NXP S32G2XXX-EVB";
 };
 
+&serdes0 {
+	status = "okay";
+};
+
+&serdes1 {
+	status = "okay";
+};
+
 &qspi {
+	status = "okay";
 	mx25uw51245g@0 {
 		spi-max-frequency = <166666666>;
 	};
