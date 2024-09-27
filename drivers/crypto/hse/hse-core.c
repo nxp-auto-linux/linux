@@ -653,6 +653,7 @@ static void hse_srv_rsp_dispatch(struct device *dev, u8 channel)
 
 		drv->rx_cbk[channel].fn = NULL;
 		drv->rx_cbk[channel].ctx = NULL;
+		smp_mb(); /* ensure rx_cbk is invalidated before freeing channel */
 
 		drv->channel_busy[channel] = false;
 
