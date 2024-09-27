@@ -36,6 +36,18 @@
 	phy-handle = <&gmac_mdio_a_phy8>;
 };
 
+&qspi {
+	status = "okay";
+};
+
+&serdes0 {
+	status = "okay";
+};
+
+&serdes1 {
+	status = "okay";
+};
+
 &swt8 {
 	status = "okay";
 };

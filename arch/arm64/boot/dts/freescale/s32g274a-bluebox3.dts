@@ -604,7 +604,16 @@
 	status = "okay";
 };
 
+&serdes0 {
+	status = "okay";
+};
+
+&serdes1 {
+	status = "okay";
+};
+
 &qspi {
+	status = "okay";
 	mt35xu512aba@0 {
 		address-cells = <1>;
 		#size-cells = <1>;

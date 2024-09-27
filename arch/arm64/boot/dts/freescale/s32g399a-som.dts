@@ -14,6 +14,18 @@
 	compatible = "nxp,s32g399a-som", "nxp,s32g3";
 };
 
+&serdes0 {
+	status = "okay";
+};
+
+&serdes1 {
+	status = "okay";
+};
+
+&qspi {
+	status = "okay";
+};
+
 &uart0 {
 	status = "okay";
 };

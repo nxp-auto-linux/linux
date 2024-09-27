@@ -2,7 +2,7 @@
 /*
  * Device Tree file for S32G274ARDB Board.
  *
- * Copyright 2019-2022 NXP
+ * Copyright 2019-2022, 2024 NXP
  *
  */
 
@@ -11,6 +11,18 @@
 #include "s32gxxxa-rdb.dtsi"
 / {
 	model = "NXP S32G274A-RDB2";
+};
+
+&serdes0 {
+	status = "okay";
+};
+
+&serdes1 {
+	status = "okay";
+};
+
+&qspi {
+	status = "okay";
 };
 
 &gmac0_mdio {
