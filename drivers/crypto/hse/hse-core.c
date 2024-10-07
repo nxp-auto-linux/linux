@@ -653,7 +653,7 @@ static void hse_srv_rsp_dispatch(struct device *dev, u8 channel)
 
 		drv->rx_cbk[channel].fn = NULL;
 		drv->rx_cbk[channel].ctx = NULL;
-		smp_mb(); /* ensure rx_cbk is invalidated before freeing channel */
+		smp_wmb(); /* ensure rx_cbk is invalidated before freeing channel */
 
 		drv->channel_busy[channel] = false;
 
@@ -664,7 +664,7 @@ static void hse_srv_rsp_dispatch(struct device *dev, u8 channel)
 	spin_lock_irqsave(&drv->rx_lock, flags);
 	if (drv->sync[channel].done) {
 		*drv->sync[channel].reply = err;
-		mb(); /* ensure reply is written before calling complete */
+		smp_wmb(); /* ensure reply is written before calling complete */
 
 		complete(drv->sync[channel].done);
 		drv->sync[channel].done = NULL;
@@ -725,7 +725,7 @@ static void hse_srv_req_cancel_all(struct device *dev)
 			drv->rx_cbk[channel].fn(-ECANCELED, ctx);
 		} else if (drv->sync[channel].done) {
 			*drv->sync[channel].reply = -ECANCELED;
-			mb(); /* ensure reply is written before complete */
+			smp_wmb(); /* ensure reply is written before complete */
 
 			complete(drv->sync[channel].done);
 		}
