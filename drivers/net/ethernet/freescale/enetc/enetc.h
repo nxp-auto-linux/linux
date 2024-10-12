@@ -519,6 +519,8 @@ struct enetc_ndev_priv {
 	struct pci_dev *rcec;
 	u32 ipt_wol_eid;
 	int wolopts;
+
+	struct ethtool_keee eee;
 };
 
 #define ENETC_CBD(R, i)	(&(((struct enetc_cbd *)((R).bd_base))[i]))
@@ -574,6 +576,7 @@ extern const struct ethtool_ops enetc4_pf_ethtool_ops;
 extern const struct ethtool_ops enetc_vf_ethtool_ops;
 void enetc_set_ethtool_ops(struct net_device *ndev);
 void enetc_mm_commit_preemptible_tcs(struct enetc_ndev_priv *priv);
+void enetc_eee_mode_set(struct net_device *dev, bool enable);
 
 /* control buffer descriptor ring (CBDR) */
 int enetc_setup_cbdr(struct enetc_si *si);
