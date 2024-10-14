@@ -285,6 +285,37 @@
 		};
 	};
 
+	i2c3_pins: i2c3_pins {
+		i2c3_grp0 {
+			pinmux = <S32CC_PINMUX(23, FUNC1)>,
+				 <S32CC_PINMUX(29, FUNC2)>;
+			drive-open-drain;
+			output-enable;
+			input-enable;
+			slew-rate = <S32CC_GPIO_3V3_SLEW_50MHZ>;
+		};
+
+		i2c3_grp1 {
+			pinmux = <S32CC_PINMUX(722, FUNC4)>,
+				 <S32CC_PINMUX(721, FUNC2)>;
+		};
+	};
+
+	i2c3_gpio_pins: i2c3_gpio_pins {
+		i2c3_gpio_grp0 {
+			pinmux = <S32CC_PINMUX(722, FUNC0)>,
+				 <S32CC_PINMUX(721, FUNC0)>;
+		};
+
+		i2c3_gpio_grp1 {
+			pinmux = <S32CC_PINMUX(29, FUNC0)>,
+				 <S32CC_PINMUX(23, FUNC0)>;
+			drive-open-drain;
+			output-enable;
+			slew-rate = <S32CC_GPIO_3V3_SLEW_50MHZ>;
+		};
+	};
+
 	i2c4_pins: i2c4_pins {
 		i2c4_grp0 {
 			pinmux = <S32CC_PINMUX(33, FUNC1)>;
@@ -384,6 +415,15 @@
 	pinctrl-1 = <&i2c2_gpio_pins>;
 	scl-gpios = <&gpio 21 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
 	sda-gpios = <&gpio 22 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
+	status = "disabled";
+};
+
+&i2c3 {
+	pinctrl-names = "default", "gpio";
+	pinctrl-0 = <&i2c3_pins>;
+	pinctrl-1 = <&i2c3_gpio_pins>;
+	scl-gpios = <&gpio 23 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
+	sda-gpios = <&gpio 29 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
 	status = "disabled";
 };
 
