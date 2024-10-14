@@ -19,7 +19,7 @@
 
 	sfp_eth1: sfp-eth1 {
 		compatible = "sff,sfp";
-		i2c-bus = <&sfp_2g5_i2c3>;
+		i2c-bus = <&i2c3>;
 		/*
 		 * All SFP signals (TX_FAULT, RX_LOS etc.) are
 		 * coming directly from the 0x22 I2C2 IO expender.
@@ -68,7 +68,11 @@
 	status = "okay";
 	sfp = <&sfp_eth1>;
 	phy-mode = "sgmii";
-	managed = "in-band-status";
+
+	fixed-link {
+		speed = <2500>;
+		full-duplex;
+	};
 };
 
 &pfe_netif1 {
@@ -145,13 +149,13 @@
 };
 
 &i2c3 {
-	status = "okay";
-
-	sfp_2g5_i2c3: i2c@50 {
-		#address-cells = <1>;
-		#size-cells = <0>;
-		reg = <0x50>;
-	};
+  /*
+   * I2C3 is used to inteact with the SFP, but the SFP
+   * used to test, even though it's an RJ45 transceiver,
+   * it's detected as 2500baseX. We disable I2C3 and
+   * use the PFE0 interface as fixed-link at 2500.
+   */
+	status = "disabled";
 };
 
 &i2c4 {
