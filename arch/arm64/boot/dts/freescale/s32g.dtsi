@@ -503,6 +503,7 @@
 				memory-region-names = "shmem";
 				interrupt-controller;
 				#interrupt-cells = <1>;
+				interrupt-parent = <&gic>;
 				interrupts = <GIC_SPI 171 IRQ_TYPE_LEVEL_HIGH>,
 					<GIC_SPI 172 IRQ_TYPE_LEVEL_HIGH>,
 					<GIC_SPI 174 IRQ_TYPE_LEVEL_HIGH>,
