@@ -587,7 +587,6 @@
 			compatible = "simple-bus";
 			#address-cells = <2>;
 			#size-cells = <2>;
-			#interrupt-cells = <3>;
 			memory-region = <&hse_reserved>;
 			ranges;
 
