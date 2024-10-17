@@ -184,8 +184,43 @@
 		output-low;
 		line-name = "sja1110-rst-core";
 	};
+
+	/*
+	 * Drive GPIO[161] low for LLCE_CAN3 enablement.
+	 */
+	tja1448a-llce-can3-stb-hog {
+		gpio-hog;
+		gpios = <161 GPIO_ACTIVE_HIGH>;
+		output-low;
+		line-name = "tja1448a-llce-can3-stb";
+	};
+
+	/*
+	 * Drive GPIO[165] low for LLCE_CAN7 enablement.
+	 */
+	tja1448a-llce-can7-stb-hog {
+		gpio-hog;
+		gpios = <165 GPIO_ACTIVE_HIGH>;
+		output-low;
+		line-name = "tja1448a-llce-can7-stb";
+	};
 };
 
+&llce_can2 {
+	status = "okay";
+};
+
+&llce_can3 {
+	status = "okay";
+};
+
+&llce_can6 {
+	status = "okay";
+};
+
+&llce_can7 {
+	status = "okay";
+};
 
 &uart0 {
 	status = "okay";
