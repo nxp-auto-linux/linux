@@ -7,9 +7,9 @@
 
 &macronix_memory {
 	partitions {
-		pfe@32a0000 {
+		pfe@32c0000 {
 			label = "PFE-Firmware";
-			reg = <0x32a0000 0xd60000>;
+			reg = <0x32c0000 0xd40000>;
 		};
 	};
 };

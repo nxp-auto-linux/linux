@@ -35,28 +35,33 @@
 			};
 
 			boot@0 {
+				label = "BL2";
+				reg = <0x0 0xd0000>;
+			};
+
+			fip@d0000 {
 				label = "FIP";
-				reg = <0x0 0x280000>;
+				reg = <0xd0000 0x1d0000>;
 			};
 
-			boot-env@280000 {
+			boot-env@2a0000 {
 				label = "U-Boot-Env";
-				reg = <0x280000 0x10000>;
+				reg = <0x2a0000 0x10000>;
 			};
 
-			kernel@290000 {
+			kernel@2b0000 {
 				label = "Kernel";
-				reg = <0x290000 0x10d0000>;
+				reg = <0x2b0000 0x10d0000>;
 			};
 
-			dtb@1360000 {
+			dtb@1380000 {
 				label = "DTB";
-				reg = <0x1360000 0x30000>;
+				reg = <0x1380000 0x30000>;
 			};
 
-			rootfs@1390000 {
+			rootfs@13b0000 {
 				label = "Rootfs";
-				reg = <0x1390000 0x1f10000>;
+				reg = <0x13b0000 0x1f10000>;
 			};
 		};
 	};
