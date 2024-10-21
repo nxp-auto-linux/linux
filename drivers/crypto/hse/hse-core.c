@@ -617,6 +617,8 @@ int hse_srv_req_sync(struct device *dev, u8 channel, const void *srv_desc)
 		return err;
 	}
 
+	smp_rmb(); /* ensure reply is updated before returning */
+
 	return reply;
 }
 
