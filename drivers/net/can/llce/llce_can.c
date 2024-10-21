@@ -16,6 +16,7 @@
 #include <linux/processor.h>
 #include <linux/stringify.h>
 #include <net/devlink.h>
+#include <linux/phy/phy.h>
 
 /* 10 ms timeout on all channels */
 #define CHAN_TIMEOUT			10
@@ -42,6 +43,8 @@ struct llce_can {
 	struct mbox_chan *config, *tx;
 
 	struct clk *clk;
+
+	struct phy *phy;
 
 	struct llce_can_dl_params *dl_params;
 
@@ -921,6 +924,13 @@ static int llce_can_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, netdev);
 
+	/* get a possible external phy */
+	llce->phy = devm_phy_optional_get(dev, NULL);
+	if (IS_ERR(llce->phy))
+		return PTR_ERR(llce->phy);
+
+	phy_power_on(llce->phy);
+
 	netdev->netdev_ops = &llce_can_netdev_ops;
 	netdev->flags |= IFF_ECHO;
 
@@ -986,6 +996,8 @@ static int __maybe_unused llce_can_suspend(struct device *device)
 		netif_device_detach(dev);
 	}
 
+	phy_power_off(llce->phy);
+
 	common->can.state = CAN_STATE_SLEEPING;
 
 	clk_disable_unprepare(llce->clk);
@@ -1005,6 +1017,8 @@ static int __maybe_unused llce_can_resume(struct device *device)
 		dev_err(device, "Failed to enable clock\n");
 		return ret;
 	}
+
+	phy_power_on(llce->phy);
 
 	common->can.state = CAN_STATE_ERROR_ACTIVE;
 
