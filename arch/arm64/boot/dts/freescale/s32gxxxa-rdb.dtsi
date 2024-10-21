@@ -16,6 +16,85 @@
 		compatible = "usb-nop-xceiv";
 		#phy-cells = <0>;
 	};
+
+	/* standby and enable GPIOs are shared between LLCE CAN0 and LLCE CAN1 */
+	can_phy01: can_phy01 {
+		compatible = "nxp,tja1043";
+		#phy-cells = <0>;
+		max-bitrate = <5000000>;
+		standby-gpios = <&pcal6524 0 GPIO_ACTIVE_LOW>;  /* P0_0 */
+		enable-gpios = <&pcal6524 1 GPIO_ACTIVE_HIGH>;  /* P0_1 */
+	};
+
+	can_phy2: can_phy2 {
+		compatible = "nxp,tja1043";
+		#phy-cells = <0>;
+		max-bitrate = <5000000>;
+		standby-gpios = <&pcal6524 2 GPIO_ACTIVE_LOW>;  /* P0_2 */
+		enable-gpios = <&pcal6524 3 GPIO_ACTIVE_HIGH>;  /* P0_3 */
+	};
+
+	can_phy3: can_phy3 {
+		compatible = "nxp,tja1043";
+		#phy-cells = <0>;
+		max-bitrate = <5000000>;
+		standby-gpios = <&pcal6524 4 GPIO_ACTIVE_LOW>;  /* P0_4 */
+		enable-gpios = <&pcal6524 5 GPIO_ACTIVE_HIGH>;  /* P0_5 */
+	};
+
+	/* standby and enable GPIOs are shared between LLCE CAN4 and LLCE CAN5 */
+	can_phy45: can_phy45 {
+		compatible = "nxp,tja1043";
+		#phy-cells = <0>;
+		max-bitrate = <5000000>;
+		standby-gpios = <&pcal6524 6 GPIO_ACTIVE_LOW>;  /* P0_6 */
+		enable-gpios = <&pcal6524 7 GPIO_ACTIVE_HIGH>;  /* P0_7 */
+	};
+
+	/* standby and enable GPIOs are shared between LLCE CAN6 and LLCE CAN7 */
+	can_phy67: can_phy67 {
+		compatible = "nxp,tja1043";
+		#phy-cells = <0>;
+		max-bitrate = <5000000>;
+		standby-gpios = <&pcal6524 8 GPIO_ACTIVE_LOW>;  /* P1_0 */
+		enable-gpios = <&pcal6524 9 GPIO_ACTIVE_HIGH>;  /* P1_1 */
+	};
+
+	/* standby and enable GPIOs are shared between LLCE CAN8 and LLCE CAN9 */
+	can_phy89: can_phy89 {
+		compatible = "nxp,tja1043";
+		#phy-cells = <0>;
+		max-bitrate = <5000000>;
+		standby-gpios = <&pcal6524 10 GPIO_ACTIVE_LOW>;  /* P1_2 */
+		enable-gpios = <&pcal6524 11 GPIO_ACTIVE_HIGH>;  /* P1_3 */
+	};
+
+	/* standby and enable GPIOs are shared between LLCE CAN10 and LLCE CAN11 */
+	can_phy1011: can_phy1011 {
+		compatible = "nxp,tja1043";
+		#phy-cells = <0>;
+		max-bitrate = <5000000>;
+		standby-gpios = <&pcal6524 12 GPIO_ACTIVE_LOW>; /* P1_4 */
+		enable-gpios = <&pcal6524 13 GPIO_ACTIVE_HIGH>; /* P1_5 */
+	};
+
+	/* standby and enable GPIOs are shared between LLCE CAN12 and LLCE CAN13 */
+	can_phy1213: can_phy1213 {
+		compatible = "nxp,tja1043";
+		#phy-cells = <0>;
+		max-bitrate = <5000000>;
+		standby-gpios = <&pcal6524 14 GPIO_ACTIVE_LOW>; /* P1_6 */
+		enable-gpios = <&pcal6524 15 GPIO_ACTIVE_HIGH>; /* P1_7 */
+	};
+
+	/* standby and enable GPIOs are shared between LLCE CAN14 and LLCE CAN15 */
+	can_phy1415: can_phy1415 {
+		compatible = "nxp,tja1043";
+		#phy-cells = <0>;
+		max-bitrate = <5000000>;
+		standby-gpios = <&pcal6524 16 GPIO_ACTIVE_LOW>; /* P2_0 */
+		enable-gpios = <&pcal6524 17 GPIO_ACTIVE_HIGH>; /* P2_1 */
+	};
 };
 
 &timer {
@@ -877,66 +956,82 @@
 };
 
 &llce_can0 {
+	phys = <&can_phy01>;
 	status = "okay";
 };
 
 &llce_can1 {
+	phys = <&can_phy01>;
 	status = "okay";
 };
 
 &llce_can2 {
+	phys = <&can_phy2>;
 	status = "okay";
 };
 
 &llce_can3 {
+	phys = <&can_phy3>;
 	status = "okay";
 };
 
 &llce_can4 {
+	phys = <&can_phy45>;
 	status = "okay";
 };
 
 &llce_can5 {
+	phys = <&can_phy45>;
 	status = "okay";
 };
 
 &llce_can6 {
+	phys = <&can_phy67>;
 	status = "okay";
 };
 
 &llce_can7 {
+	phys = <&can_phy67>;
 	status = "okay";
 };
 
 &llce_can8 {
+	phys = <&can_phy89>;
 	status = "okay";
 };
 
 &llce_can9 {
+	phys = <&can_phy89>;
 	status = "okay";
 };
 
 &llce_can10 {
+	phys = <&can_phy1011>;
 	status = "okay";
 };
 
 &llce_can11 {
+	phys = <&can_phy1011>;
 	status = "okay";
 };
 
 &llce_can12 {
+	phys = <&can_phy1213>;
 	status = "okay";
 };
 
 &llce_can13 {
+	phys = <&can_phy1213>;
 	status = "okay";
 };
 
 &llce_can14 {
+	phys = <&can_phy1415>;
 	status = "okay";
 };
 
 &llce_can15 {
+	phys = <&can_phy1415>;
 	status = "okay";
 };
 
