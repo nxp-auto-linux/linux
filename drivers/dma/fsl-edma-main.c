@@ -3,7 +3,7 @@
  * drivers/dma/fsl-edma.c
  *
  * Copyright 2013-2014 Freescale Semiconductor, Inc.
- * Copyright 2017-2018, 2020-2021 NXP
+ * Copyright 2017-2018, 2020-2021, 2024 NXP
  *
  * Driver for the Freescale eDMA engine with flexible channel multiplexing
  * capability for DMA request sources. The eDMA block can be found on some
@@ -477,7 +477,7 @@ static struct fsl_edma_drvdata s32cc_data = {
 	.dmamuxs = DMAMUX_NR,
 	.chreg_space_sz = EDMA_TCD,
 	.chreg_off = 0x4000,
-	.flags = FSL_EDMA_DRV_EDMA3 | FSL_EDMA_DRV_REVERSED_CHANNEL_MUX,
+	.flags = FSL_EDMA_DRV_EDMA3 | FSL_EDMA_DRV_MUX_SWAP,
 	.setup_irq = fsl_edma3_or_irq_init,
 };
 
