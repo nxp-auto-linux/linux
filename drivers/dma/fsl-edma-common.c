@@ -187,11 +187,6 @@ static void mux_configure32(struct fsl_edma_chan *fsl_chan, void __iomem *addr,
 	iowrite32(val, addr + off * 4);
 }
 
-static unsigned int reversed_mux_mapping(u32 channel_id)
-{
-	return 4 * (channel_id / 4) + ((4 - channel_id % 4) - 1);
-}
-
 void fsl_edma_chan_mux(struct fsl_edma_chan *fsl_chan,
 		       unsigned int slot, bool enable)
 {
@@ -205,10 +200,7 @@ void fsl_edma_chan_mux(struct fsl_edma_chan *fsl_chan,
 		return;
 
 	chans_per_mux = fsl_chan->edma->n_chans / dmamux_nr;
-	if (fsl_chan->edma->drvdata->flags & FSL_EDMA_DRV_REVERSED_CHANNEL_MUX)
-		ch_off = reversed_mux_mapping(ch % chans_per_mux);
-	else
-		ch_off = fsl_chan->vchan.chan.chan_id % chans_per_mux;
+	ch_off = fsl_chan->vchan.chan.chan_id % chans_per_mux;
 
 	if (fsl_chan->edma->drvdata->flags & FSL_EDMA_DRV_MUX_SWAP)
 		ch_off += endian_diff[ch_off % 4];
