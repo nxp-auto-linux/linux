@@ -32,22 +32,20 @@ MODULE_PARM_DESC(auto_boot,
 
 /* CAR-V Internal Memory Type and Access */
 
-#define CARV_MEMTYPE_MASK	(0xF0000000)
+#define CARV_MEMTYPE_MASK			GENMASK(31, 28)
 
-enum {
-	/* Read-only code region */
-	CARV_MEMTYPE_RO_CODE                    = 0x02000000,
-	/* Local-private and DTCM region */
-	CARV_MEMTYPE_LOCAL_PRIVATE_DTCM         = 0x10000000,
-	/* Read-only data with coarse-grained mapping */
-	CARV_MEMTYPE_RO_DATA_COARSE_GRAINED     = 0x20000000,
-	/* Read-only data with fine-grained mapping */
-	CARV_MEMTYPE_RO_DATA_FINE_GRAINED       = 0x40000000,
-	/* Normal read/write memory with fine-grained mapping */
-	CARV_MEMTYPE_RW_DATA_FINE_GRAINED       = 0x80000000,
-	/* Normal read/write memory with coarse-grained mapping */
-	CARV_MEMTYPE_RW_DATA_COARSE_GRAINED     = 0xC0000000,
-};
+/* Read-only code region */
+#define CARV_MEMTYPE_RO_CODE			0x02000000
+/* Local-private and DTCM region */
+#define CARV_MEMTYPE_LOCAL_PRIVATE_DTCM		0x10000000
+/* Read-only data with coarse-grained mapping */
+#define CARV_MEMTYPE_RO_DATA_COARSE_GRAINED	0x20000000
+/* Read-only data with fine-grained mapping */
+#define CARV_MEMTYPE_RO_DATA_FINE_GRAINED	0x40000000
+/* Normal read/write memory with fine-grained mapping */
+#define CARV_MEMTYPE_RW_DATA_FINE_GRAINED	0x80000000
+/* Normal read/write memory with coarse-grained mapping */
+#define CARV_MEMTYPE_RW_DATA_COARSE_GRAINED	0xC0000000
 
 #define CARV_ADDR_GET_MEMTYPE(v)	((v) >> 30)
 #define CARV_ADDR_GET_MEMSUBTYPE(v)	(((v) >> 29) & 0x1)
@@ -66,15 +64,15 @@ enum {
 #define CARV_GL_USR		0x90
 #define CARV_GL_INFO		0x100
 
-#define CARV_GL_CR_IP_VID_MASK	(0xFFFF0000)
+#define CARV_GL_CR_IP_VID_MASK	GENMASK(31, 16)
 #define GET_CARV_GL_CR_IP_VID(v)	(((v) & CARV_GL_CR_IP_VID_MASK) >> 16)
-#define CARV_GL_CR_LOCK_MASK	(0x00000004)
+#define CARV_GL_CR_LOCK_MASK	BIT(2)
 #define CARV_GL_CR_LOCK(v)	(((v) << 2) & CARV_GL_CR_LOCK_MASK)
 #define GET_CARV_GL_CR_LOCK(v)	(((v) & CARV_GL_CR_LOCK_MASK) >> 2)
-#define CARV_GL_CR_CLOCK_MASK	(0x00000002)
+#define CARV_GL_CR_CLOCK_MASK	BIT(1)
 #define CARV_GL_CR_CLOCK(v)	(((v) << 1) & CARV_GL_CR_CLOCK_MASK)
 #define GET_CARV_GL_CR_CLOCK(v)	(((v) & CARV_GL_CR_CLOCK_MASK) >> 1)
-#define CARV_GL_CR_ENA_MASK	(0x00000001)
+#define CARV_GL_CR_ENA_MASK	BIT(0)
 #define CARV_GL_CR_ENA(v)	((v) & CARV_GL_CR_ENA_MASK)
 #define GET_CARV_GL_CR_ENA(v)	((v) & CARV_GL_CR_ENA_MASK)
 
@@ -109,33 +107,33 @@ enum {
 #define CARV_Q_MB_MIR(u)	(CARV_Q_BASE(u) + 0x20)
 #define CARV_Q_MBOX_IFMSK(u)	(CARV_Q_BASE(u) + 0x40)
 
-#define CARV_Q_MB_CR_INFO_MASK	(0xFFFF0000)
-#define CARV_Q_MB_CR_INFO(v)	(((v) << 16) & CARV_Q_MB_CR_INFO_MASK)
+#define CARV_Q_MB_CR_INFO_MASK		GENMASK(31, 16)
+#define CARV_Q_MB_CR_INFO(v)		(((v) << 16) & CARV_Q_MB_CR_INFO_MASK)
 #define GET_CARV_Q_MB_CR_INFO(v)	(((v) & CARV_Q_MB_CR_INFO_MASK) >> 16)
-#define CARV_Q_MB_CR_ERRORS_MASK	(0x0000F000)
-#define CARV_Q_MB_CR_ERRORS(v)	(((v) << 12) & CARV_Q_MB_CR_ERRORS_MASK)
+#define CARV_Q_MB_CR_ERRORS_MASK	GENMASK(15, 12)
+#define CARV_Q_MB_CR_ERRORS(v)		(((v) << 12) & CARV_Q_MB_CR_ERRORS_MASK)
 #define GET_CARV_Q_MB_CR_ERRORS(v)	(((v) & CARV_Q_MB_CR_ERRORS_MASK) >> 12)
-#define CARV_Q_MB_CR_RSTCHG_MASK	(0x00000200)
-#define CARV_Q_MB_CR_RSTCHG(v)	(((v) << 9) & CARV_Q_MB_CR_RSTCHG_MASK)
+#define CARV_Q_MB_CR_RSTCHG_MASK	BIT(9)
+#define CARV_Q_MB_CR_RSTCHG(v)		(((v) << 9) & CARV_Q_MB_CR_RSTCHG_MASK)
 #define GET_CARV_Q_MB_CR_RSTCHG(v)	(((v) & CARV_Q_MB_CR_RSTCHG_MASK) >> 9)
-#define CARV_Q_MB_CR_RSTSTART_MASK	(0x00000100)
+#define CARV_Q_MB_CR_RSTSTART_MASK	BIT(8)
 #define CARV_Q_MB_CR_RSTSTART(v)	(((v) << 8) & CARV_Q_MB_CR_RSTSTART_MASK)
 #define GET_CARV_Q_MB_CR_RSTSTART(v)	(((v) & CARV_Q_MB_CR_RSTSTART_MASK) >> 8)
-#define CARV_Q_MB_CR_UPDATE_MASK	(0x00000010)
-#define CARV_Q_MB_CR_UPDATE(v)	(((v) << 4) & CARV_Q_MB_CR_UPDATE_MASK)
+#define CARV_Q_MB_CR_UPDATE_MASK	BIT(4)
+#define CARV_Q_MB_CR_UPDATE(v)		(((v) << 4) & CARV_Q_MB_CR_UPDATE_MASK)
 #define GET_CARV_Q_MB_CR_UPDATE(v)	(((v) & CARV_Q_MB_CR_UPDATE_MASK) >> 4)
-#define CARV_Q_MB_CR_FAULT_MASK	(0x00000008)
-#define CARV_Q_MB_CR_FAULT(v)	(((v) << 3) & CARV_Q_MB_CR_FAULT_MASK)
+#define CARV_Q_MB_CR_FAULT_MASK		BIT(3)
+#define CARV_Q_MB_CR_FAULT(v)		(((v) << 3) & CARV_Q_MB_CR_FAULT_MASK)
 #define GET_CARV_Q_MB_CR_FAULT(v)	(((v) & CARV_Q_MB_CR_FAULT_MASK) >> 3)
-#define CARV_Q_MB_CR_ERR_MASK	(0x00000004)
-#define CARV_Q_MB_CR_ERR(v)	(((v) << 2) & CARV_Q_MB_CR_ERR_MASK)
-#define GET_CARV_Q_MB_CR_ERR(v)	(((v) & CARV_Q_MB_CR_ERR_MASK) >> 2)
-#define CARV_Q_MB_CR_DONE_MASK	(0x00000002)
-#define CARV_Q_MB_CR_DONE(v)	(((v) << 1) & CARV_Q_MB_CR_DONE_MASK)
+#define CARV_Q_MB_CR_ERR_MASK		BIT(2)
+#define CARV_Q_MB_CR_ERR(v)		(((v) << 2) & CARV_Q_MB_CR_ERR_MASK)
+#define GET_CARV_Q_MB_CR_ERR(v)		(((v) & CARV_Q_MB_CR_ERR_MASK) >> 2)
+#define CARV_Q_MB_CR_DONE_MASK		BIT(1)
+#define CARV_Q_MB_CR_DONE(v)		(((v) << 1) & CARV_Q_MB_CR_DONE_MASK)
 #define GET_CARV_Q_MB_CR_DONE(v)	(((v) & CARV_Q_MB_CR_DONE_MASK) >> 1)
-#define CARV_Q_MB_CR_ENA_MASK	(0x00000001)
-#define CARV_Q_MB_CR_ENA(v)	((v) & CARV_Q_MB_CR_ENA_MASK)
-#define GET_CARV_Q_MB_CR_ENA(v)	((v) & CARV_Q_MB_CR_ENA_MASK)
+#define CARV_Q_MB_CR_ENA_MASK		BIT(0)
+#define CARV_Q_MB_CR_ENA(v)		((v) & CARV_Q_MB_CR_ENA_MASK)
+#define GET_CARV_Q_MB_CR_ENA(v)		((v) & CARV_Q_MB_CR_ENA_MASK)
 
 /* Quartile Address Translation */
 #define CARV_AT_SIMPLE_REGIONS	8
@@ -149,57 +147,57 @@ enum {
 #define CARV_Q_AT_BARL_MEMTYPE_NCOH	(0x0)
 #define CARV_Q_AT_BARL_MEMTYPE_COH	(0x1)
 #define CARV_Q_AT_BARL_MEMTYPE_SHAR	(0x2)
-#define CARV_Q_AT_BARL_ADDR_MASK	(0xFFFFC000ULL)
+#define CARV_Q_AT_BARL_ADDR_MASK	GENMASK_ULL(31, 14)
 #define CARV_Q_AT_BARL_ADDR(v)		((v) & CARV_Q_AT_BARL_ADDR_MASK)
 #define GET_CARV_Q_AT_BARL_ADDR(v)	((v) & CARV_Q_AT_BARL_ADDR_MASK)
-#define CARV_Q_AT_BARH_ADDR_MASK	(0x0007FFFFULL)
+#define CARV_Q_AT_BARH_ADDR_MASK	GENMASK_ULL(18, 0)
 #define CARV_Q_AT_BARH_ADDR(v)		(((v) >> 32) & CARV_Q_AT_BARH_ADDR_MASK)
 #define GET_CARV_Q_AT_BARH_ADDR(v)	(((v) & CARV_Q_AT_BARH_ADDR_MASK) << 32)
-#define GET_CARV_Q_AT_BAR_ADDR(h, l)	(GET_CARV_Q_AT_BARH_ADDR(h) |             \
+#define GET_CARV_Q_AT_BAR_ADDR(h, l)	(GET_CARV_Q_AT_BARH_ADDR(h) | \
 					 GET_CARV_Q_AT_BARL_ADDR(l))
 
-#define CARV_Q_AT_SRR_OFFS_MASK		(0x03F00000)
+#define CARV_Q_AT_SRR_OFFS_MASK		GENMASK(25, 20)
 #define CARV_Q_AT_SRR_OFFS(v)		(((v) << 20) & CARV_Q_AT_SRR_OFFS_MASK)
 #define GET_CARV_Q_AT_SRR_OFFS(v)	(((v) & CARV_Q_AT_SRR_OFFS_MASK) >> 20)
-#define CARV_Q_AT_SRR_OFFL_MASK		(0x000F0000)
+#define CARV_Q_AT_SRR_OFFL_MASK		GENMASK(19, 16)
 #define CARV_Q_AT_SRR_OFFL(v)		(((v) << 16) & CARV_Q_AT_SRR_OFFL_MASK)
 #define GET_CARV_Q_AT_SRR_OFFL(v)	(((v) & CARV_Q_AT_SRR_OFFL_MASK) >> 16)
-#define CARV_Q_AT_SRR_MEM_MASK		(0x00000600)
+#define CARV_Q_AT_SRR_MEM_MASK		GENMASK(10, 9)
 #define CARV_Q_AT_SRR_MEM(v)		(((v) << 9) & CARV_Q_AT_SRR_MEM_MASK)
 #define GET_CARV_Q_AT_SRR_MEM(v)	(((v) & CARV_Q_AT_SRR_MEM_MASK) >> 9)
-#define CARV_Q_AT_SRR_LOCP_MASK		(0x00000100)
+#define CARV_Q_AT_SRR_LOCP_MASK		BIT(8)
 #define CARV_Q_AT_SRR_LOCP(v)		(((v) << 8) & CARV_Q_AT_SRR_LOCP_MASK)
 #define GET_CARV_Q_AT_SRR_LOCP(v)	(((v) & CARV_Q_AT_SRR_LOCP_MASK) >> 8)
-#define CARV_Q_AT_SRR_SIZE_MASK		(0x000000F0)
+#define CARV_Q_AT_SRR_SIZE_MASK		GENMASK(7, 4)
 #define CARV_Q_AT_SRR_SIZE(v)		(((v) << 4) & CARV_Q_AT_SRR_SIZE_MASK)
 #define GET_CARV_Q_AT_SRR_SIZE(v)	(((v) & CARV_Q_AT_SRR_SIZE_MASK) >> 4)
-#define CARV_Q_AT_SRR_TYPE_MASK		(0x000000C)
+#define CARV_Q_AT_SRR_TYPE_MASK		GENMASK(3, 2)
 #define CARV_Q_AT_SRR_TYPE(v)		(((v) << 2) & CARV_Q_AT_SRR_TYPE_MASK)
 #define GET_CARV_Q_AT_SRR_TYPE(v)	(((v) & CARV_Q_AT_SRR_TYPE_MASK) >> 2)
-#define CARV_Q_AT_SRR_SUB_MASK		(0x00000002)
+#define CARV_Q_AT_SRR_SUB_MASK		BIT(1)
 #define CARV_Q_AT_SRR_SUB(v)		(((v) << 1) & CARV_Q_AT_SRR_SUB_MASK)
 #define GET_CARV_Q_AT_SRR_SUB(v)	(((v) & CARV_Q_AT_SRR_SUB_MASK) >> 1)
-#define CARV_Q_AT_SRR_ENA_MASK		(0x00000001)
+#define CARV_Q_AT_SRR_ENA_MASK		BIT(0)
 #define CARV_Q_AT_SRR_ENA(v)		((v) & CARV_Q_AT_SRR_ENA_MASK)
 #define GET_CARV_Q_AT_SRR_ENA(v)	((v) & CARV_Q_AT_SRR_ENA_MASK)
 
-#define CARV_Q_AT_RCR_OFFS_MASK		(0x03F00000)
+#define CARV_Q_AT_RCR_OFFS_MASK		GENMASK(25, 20)
 #define CARV_Q_AT_RCR_OFFS(v)		(((v) << 20) & CARV_Q_AT_RCR_OFFS_MASK)
 #define GET_CARV_Q_AT_RCR_OFFS(v)	(((v) & CARV_Q_AT_RCR_OFFS_MASK) >> 20)
-#define CARV_Q_AT_RCR_OFFL_MASK		(0x000F0000)
+#define CARV_Q_AT_RCR_OFFL_MASK		GENMASK(19, 16)
 #define CARV_Q_AT_RCR_OFFL(v)		(((v) << 16) & CARV_Q_AT_RCR_OFFL_MASK)
 #define GET_CARV_Q_AT_RCR_OFFL(v)	(((v) & CARV_Q_AT_RCR_OFFL_MASK) >> 16)
-#define CARV_Q_AT_RCR_SIZE_MASK		(0x00000F00)
+#define CARV_Q_AT_RCR_SIZE_MASK		GENMASK(11, 8)
 #define CARV_Q_AT_RCR_SIZE(v)		(((v) << 8) & CARV_Q_AT_RCR_SIZE_MASK)
 #define GET_CARV_Q_AT_RCR_SIZE(v)	(((v) & CARV_Q_AT_RCR_SIZE_MASK) >> 8)
-#define CARV_Q_AT_RCR_MEM_MASK		(0x00000006)
+#define CARV_Q_AT_RCR_MEM_MASK		GENMASK(2, 1)
 #define CARV_Q_AT_RCR_MEM(v)		(((v) << 1) & CARV_Q_AT_RCR_MEM_MASK)
 #define GET_CARV_Q_AT_RCR_MEM(v)	(((v) & CARV_Q_AT_RCR_MEM_MASK) >> 1)
-#define CARV_Q_AT_RCR_ENA_MASK		(0x00000001)
+#define CARV_Q_AT_RCR_ENA_MASK		BIT(0)
 #define CARV_Q_AT_RCR_ENA(v)		((v) & CARV_Q_AT_RCR_ENA_MASK)
 #define GET_CARV_Q_AT_RCR_ENA(v)	((v) & CARV_Q_AT_RCR_ENA_MASK)
 
-#define CARV_Q_AT_RMR_MATCH_MASK	(0xFFFFF000)
+#define CARV_Q_AT_RMR_MATCH_MASK	GENMASK(31, 12)
 #define CARV_Q_AT_RMR_MATCH(v)		(((v) << 12) & CARV_Q_AT_RMR_MATCH_MASK)
 #define GET_CARV_Q_AT_RMR_MATCH(v)	(((v) & CARV_Q_AT_RMR_MATCH_MASK) >> 12)
 
@@ -212,50 +210,58 @@ enum {
 #define CARV_Q_SI_PMH(u, n)	(CARV_Q_BASE(u) + 0x198 + ((n) * 0x10))   /* n: 0..3 */
 
 /* Interrupt sources */
-enum {
-	CARV_INT_F_BUS_BIT,	/* Parity error detected on internal CAR-V bus */
-	CARV_INT_F_L2_BIT,	/* Uncorrectable L2 error */
-	CARV_INT_F_L1_BIT,	/* Uncorrectable L1D and/or L1I error */
-	CARV_INT_F_CORE_BIT,	/* CAR-V Core related exceptions of type:
-				 *   - watchdog timeout detected
-				 *   - DTCM parity error detected
-				 *   - software vector missing
-				 *   - illegal instruction
-				 */
-	CARV_INT_F_AHB_BIT,	/* AHB access response error */
-	CARV_INT_F_PART_BIT,	/* illegal isolated partition configuration */
-	CARV_INT_F_AXIRP_BIT,	/* Parity error on AXI RDATA attribute */
-	CARV_INT_F_AXIWE_BIT,	/* Response error on AXI BRESP attribute */
-	CARV_INT_F_AXIRE_BIT,	/* Read error on AXI RRESP attribute */
-	CARV_INT_F_MAP_BIT,	/* No external memory address mapping available
-				 * (no translation)
-				 */
-	CARV_INT_ACTIVATED_BIT,	/* MBOX activated (MB_CRn[ENA] set and then
-				 * serviced)
-				 */
-	CARV_INT_EVFLDONE_BIT,	/* MBOX flush/evict completed (with barrier to
-				 * assure BRESP for all Flush writes)
-				 */
-	CARV_INT_UPDATE_BIT,	/* MBOX update received from Root Core */
-	CARV_INT_ERR_BIT,	/* MBOX error received from Root Core */
-	CARV_INT_DONE_BIT	/* MBOX done received from Root Core */
-};
+#define	CARV_INT_F_BUS_BIT		BIT(19)	/* Parity error detected on internal CAR-V bus */
+#define	CARV_INT_F_L2_BIT		BIT(18)	/* Uncorrectable L2 error */
+#define	CARV_INT_F_L1_BIT		BIT(17)	/* Uncorrectable L1D and/or L1I error */
+#define	CARV_INT_F_CORE_BIT		BIT(16)	/* CAR-V Core related exceptions of type:
+						 *   - watchdog timeout detected
+						 *   - DTCM parity error detected
+						 *   - software vector missing
+						 *   - illegal instruction
+						 */
+#define	CARV_INT_F_AHB_BIT		BIT(13)	/* AHB access response error */
+#define	CARV_INT_F_PART_BIT		BIT(12)	/* illegal isolated partition configuration */
+#define	CARV_INT_F_AXIRP_BIT		BIT(11)	/* Parity error on AXI RDATA attribute */
+#define	CARV_INT_F_AXIWE_BIT		BIT(10)	/* Response error on AXI BRESP attribute */
+#define	CARV_INT_F_AXIRE_BIT		BIT(9)	/* Read error on AXI RRESP attribute */
+#define	CARV_INT_F_MAP_BIT		BIT(8)	/* No external memory address mapping available
+						 * (no translation)
+						 */
+#define	CARV_INT_ACTIVATED_BIT		BIT(4)	/* MBOX activated (MB_CRn[ENA] set and then
+						 * serviced)
+						 */
+#define	CARV_INT_EVFLDONE_BIT		BIT(3)	/* MBOX flush/evict completed (with barrier to
+						 * assure BRESP for all Flush writes)
+						 */
+#define	CARV_INT_UPDATE_BIT		BIT(2)	/* MBOX update received from Root Core */
+#define	CARV_INT_ERR_BIT		BIT(1)	/* MBOX error received from Root Core */
+#define	CARV_INT_DONE_BIT		BIT(0)	/* MBOX done received from Root Core */
 
-#define	GET_CARV_INT_F_BUS(v)		(!!((v) & CARV_INT_F_BUS))
-#define	GET_CARV_INT_F_L2(v)		(!!((v) & CARV_INT_F_L2))
-#define	GET_CARV_INT_F_L1(v)		(!!((v) & CARV_INT_F_L1))
-#define	GET_CARV_INT_F_CORE(v)		(!!((v) & CARV_INT_F_CORE))
-#define	GET_CARV_INT_F_AHB(v)		(!!((v) & CARV_INT_F_AHB))
-#define	GET_CARV_INT_F_PART(v)		(!!((v) & CARV_INT_F_PART))
-#define	GET_CARV_INT_F_AXIRP(v)		(!!((v) & CARV_INT_F_AXIRP))
-#define	GET_CARV_INT_F_AXIWE(v)		(!!((v) & CARV_INT_F_AXIWE))
-#define	GET_CARV_INT_F_AXIRE(v)		(!!((v) & CARV_INT_F_AXIRE))
-#define	GET_CARV_INT_F_MAP(v)		(!!((v) & CARV_INT_F_MAP))
-#define	GET_CARV_INT_ACTIVATED(v)	(!!((v) & CARV_INT_ACTIVATED))
-#define	GET_CARV_INT_EVFLDONE(v)	(!!((v) & CARV_INT_EVFLDONE))
-#define	GET_CARV_INT_UPDATE(v)		(!!((v) & CARV_INT_UPDATE))
-#define	GET_CARV_INT_ERR(v)		(!!((v) & CARV_INT_ERR))
-#define	GET_CARV_INT_DONE(v)		(!!((v) & CARV_INT_DONE))
+#define	GET_CARV_INT_F_BUS(v)		(!!((v) & CARV_INT_F_BUS_BIT))
+#define	GET_CARV_INT_F_L2(v)		(!!((v) & CARV_INT_F_L2_BIT))
+#define	GET_CARV_INT_F_L1(v)		(!!((v) & CARV_INT_F_L1_BIT))
+#define	GET_CARV_INT_F_CORE(v)		(!!((v) & CARV_INT_F_CORE_BIT))
+#define	GET_CARV_INT_F_AHB(v)		(!!((v) & CARV_INT_F_AHB_BIT))
+#define	GET_CARV_INT_F_PART(v)		(!!((v) & CARV_INT_F_PART_BIT))
+#define	GET_CARV_INT_F_AXIRP(v)		(!!((v) & CARV_INT_F_AXIRP_BIT))
+#define	GET_CARV_INT_F_AXIWE(v)		(!!((v) & CARV_INT_F_AXIWE_BIT))
+#define	GET_CARV_INT_F_AXIRE(v)		(!!((v) & CARV_INT_F_AXIRE_BIT))
+#define	GET_CARV_INT_F_MAP(v)		(!!((v) & CARV_INT_F_MAP_BIT))
+#define	GET_CARV_INT_ACTIVATED(v)	(!!((v) & CARV_INT_ACTIVATED_BIT))
+#define	GET_CARV_INT_EVFLDONE(v)	(!!((v) & CARV_INT_EVFLDONE_BIT))
+#define	GET_CARV_INT_UPDATE(v)		(!!((v) & CARV_INT_UPDATE_BIT))
+#define	GET_CARV_INT_ERR(v)		(!!((v) & CARV_INT_ERR_BIT))
+#define	GET_CARV_INT_DONE(v)		(!!((v) & CARV_INT_DONE_BIT))
+
+#define FUNC_ENABLE_MASK (CARV_INT_ACTIVATED_BIT | CARV_INT_EVFLDONE_BIT | \
+	CARV_INT_UPDATE_BIT | CARV_INT_ERR_BIT | CARV_INT_DONE_BIT)
+
+#define FAULT_ENABLE_MASK (CARV_INT_F_BUS_BIT | CARV_INT_F_L2_BIT | CARV_INT_F_L1_BIT | \
+	CARV_INT_F_CORE_BIT | CARV_INT_F_AHB_BIT | CARV_INT_F_PART_BIT | CARV_INT_F_AXIRP_BIT | \
+	CARV_INT_F_AXIWE_BIT | CARV_INT_F_AXIRE_BIT | CARV_INT_F_MAP_BIT)
+
+
+#define CARVNET_IRQ_CNT 2
 
 /* Dump area of CAR-V registers */
 static const struct q_regmap_tab_gl {
@@ -373,7 +379,7 @@ static int q_validate(struct carvnet *priv)
 		return -EINVAL;
 	}
 
-	dev_info(dev, "CAR-V revision %x\n",
+	dev_info(dev, "CAR-V revision %lx\n",
 		 GET_CARV_GL_CR_IP_VID(readl(priv->regs + CARV_GL_CR)));
 
 	if (!GET_CARV_GL_CR_LOCK(readl(priv->regs + CARV_GL_CR)))
