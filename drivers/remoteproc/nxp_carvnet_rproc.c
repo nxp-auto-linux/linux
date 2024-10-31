@@ -6,14 +6,9 @@
  *
  */
 
-#include <linux/kthread.h>
-#include <linux/log2.h>
-#include <linux/module.h>
 #include <linux/debugfs.h>
-#include <linux/delay.h>
-#include <linux/io.h>
-#include <linux/of.h>
-#include <linux/of_address.h>
+#include <linux/interrupt.h>
+#include <linux/module.h>
 #include <linux/of_reserved_mem.h>
 #include <linux/platform_device.h>
 #include <linux/remoteproc.h>
@@ -25,7 +20,7 @@ module_param(auto_boot, bool, 0400);
 MODULE_PARM_DESC(auto_boot,
 		 "Auto-boot the CAR-V-NET remote processor [default=false]");
 
-#define CARVNET_FW_ALIGN	0x4000
+#define CARVNET_FW_ALIGN	0x4000U
 
 #define CARVNET_BAR_FW		0
 #define CARVNET_BAR_VDEV	1
@@ -35,17 +30,17 @@ MODULE_PARM_DESC(auto_boot,
 #define CARV_MEMTYPE_MASK			GENMASK(31, 28)
 
 /* Read-only code region */
-#define CARV_MEMTYPE_RO_CODE			0x02000000
+#define CARV_MEMTYPE_RO_CODE			0x02000000U
 /* Local-private and DTCM region */
-#define CARV_MEMTYPE_LOCAL_PRIVATE_DTCM		0x10000000
+#define CARV_MEMTYPE_LOCAL_PRIVATE_DTCM		0x10000000U
 /* Read-only data with coarse-grained mapping */
-#define CARV_MEMTYPE_RO_DATA_COARSE_GRAINED	0x20000000
+#define CARV_MEMTYPE_RO_DATA_COARSE_GRAINED	0x20000000U
 /* Read-only data with fine-grained mapping */
-#define CARV_MEMTYPE_RO_DATA_FINE_GRAINED	0x40000000
+#define CARV_MEMTYPE_RO_DATA_FINE_GRAINED	0x40000000U
 /* Normal read/write memory with fine-grained mapping */
-#define CARV_MEMTYPE_RW_DATA_FINE_GRAINED	0x80000000
+#define CARV_MEMTYPE_RW_DATA_FINE_GRAINED	0x80000000U
 /* Normal read/write memory with coarse-grained mapping */
-#define CARV_MEMTYPE_RW_DATA_COARSE_GRAINED	0xC0000000
+#define CARV_MEMTYPE_RW_DATA_COARSE_GRAINED	0xC0000000U
 
 #define CARV_ADDR_GET_MEMTYPE(v)	((v) >> 30)
 #define CARV_ADDR_GET_MEMSUBTYPE(v)	(((v) >> 29) & 0x1)
@@ -361,7 +356,7 @@ struct carvnet {
 	struct memres mrs[MEMRES_MAX];
 	struct dentry *subdentry;
 	void __iomem *regs;
-	struct delayed_work rproc_work;
+	struct work_struct rproc_work;
 	u8 q_user;		/* active Q user */
 };
 
@@ -686,9 +681,9 @@ static int q_start(struct carvnet *priv)
 	int ret;
 
 	/* Enable Functional Interrupts: User configurable mask */
-	writel(0x000f3f13, priv->regs + CARV_Q_MB_IER(0));
+	writel(FUNC_ENABLE_MASK, priv->regs + CARV_Q_MB_IER(0));
 	/* Enable Fault Interrupts: User configurable mask */
-	writel(0x000f3f02, priv->regs + CARV_Q_MB_FER(0));
+	writel(FAULT_ENABLE_MASK, priv->regs + CARV_Q_MB_FER(0));
 
 	/* Set Mapper */
 	ret = q_set_mapper(priv);
@@ -723,8 +718,6 @@ static int carvnet_rproc_start(struct rproc *rproc)
 	struct carvnet *priv = rproc->priv;
 	int ret;
 
-	schedule_delayed_work(&priv->rproc_work,  msecs_to_jiffies(1));
-
 	ret = q_start(priv);
 
 	return ret;
@@ -733,8 +726,6 @@ static int carvnet_rproc_start(struct rproc *rproc)
 static int carvnet_rproc_stop(struct rproc *rproc)
 {
 	struct carvnet *priv = rproc->priv;
-
-	cancel_delayed_work_sync(&priv->rproc_work);
 
 	q_stop(priv);
 
@@ -964,30 +955,47 @@ static int carvnet_rproc_parse_resmem(struct rproc *rproc)
 static void carvnet_rproc_vq_work(struct work_struct *work)
 {
 	struct carvnet *priv = container_of(work, struct carvnet,
-					    rproc_work.work);
+					    rproc_work);
 	struct rproc *rproc = dev_get_drvdata(priv->dev);
 
-	mutex_lock(&rproc->lock);
+	guard(mutex)(&rproc->lock);
 
 	if (rproc->state != RPROC_RUNNING)
-		goto unlock_mutex;
+		return;
 
 	rproc_vq_interrupt(rproc, 0);
 	rproc_vq_interrupt(rproc, 1);
+}
 
-unlock_mutex:
-	mutex_unlock(&rproc->lock);
+static irqreturn_t carvnet_rproc_handle_irq(int irq_num, void *d)
+{
+	struct carvnet *priv = (struct carvnet *)d;
+	u32 irq_mask, ier_mask, fer_mask;
 
-	schedule_delayed_work(&priv->rproc_work,  msecs_to_jiffies(1));
+	irq_mask = readl(priv->regs + CARV_Q_MB_IR(priv->q_user));
+	ier_mask = readl(priv->regs + CARV_Q_MB_IER(priv->q_user));
+	fer_mask = readl(priv->regs + CARV_Q_MB_FER(priv->q_user));
+
+	/* Write back the interrupt bits to clear the interrupt in the CARV hardware */
+	irq_mask &= (ier_mask | fer_mask);
+	writel(irq_mask, priv->regs + CARV_Q_MB_IR(priv->q_user));
+
+	if (GET_CARV_INT_UPDATE(irq_mask))
+		schedule_work(&priv->rproc_work);
+
+	return IRQ_HANDLED;
 }
 
 static int carvnet_rproc_probe(struct platform_device *pdev)
 {
+	static const char *irq_name[CARVNET_IRQ_CNT] = { "func", "fault" };
+	struct device_node *np = pdev->dev.of_node;
 	struct device *dev = &pdev->dev;
-	struct device_node *np = dev->of_node;
-	struct rproc *rproc;
-	struct carvnet *priv;
 	const char *fw_name = NULL;
+	struct carvnet *priv;
+	struct rproc *rproc;
+	int irq_index;
+	int irq;
 	int ret;
 
 	ret = rproc_of_parse_firmware(dev, 0, &fw_name);
@@ -1024,7 +1032,7 @@ static int carvnet_rproc_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
-	INIT_DELAYED_WORK(&priv->rproc_work, carvnet_rproc_vq_work);
+	INIT_WORK(&priv->rproc_work, carvnet_rproc_vq_work);
 
 	ret = devm_rproc_add(dev, rproc);
 	if (ret)
@@ -1032,6 +1040,16 @@ static int carvnet_rproc_probe(struct platform_device *pdev)
 
 	debugfs_create_file("dump_regs", 0400, rproc->dbg_dir, priv,
 			    &carvnet_dump_regs_fops);
+
+	for (irq_index = 0; irq_index < CARVNET_IRQ_CNT; irq_index++) {
+		irq = platform_get_irq_byname(pdev, irq_name[irq_index]);
+		ret = devm_request_irq(dev, irq, carvnet_rproc_handle_irq, 0,
+				pdev->name, priv);
+		if (ret)
+			return dev_err_probe(dev, ret,
+					"unable to request IRQ%d (%s) for CARV device\n",
+					irq, irq_name[irq_index]);
+	}
 
 	return ret;
 }
