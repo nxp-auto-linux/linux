@@ -177,8 +177,6 @@ struct ipft_resp_query {
 	struct ipft_cfge_data cfge;
 };
 
-#pragma pack()
-
 /* Ingress Stream Identification Table Resquet and Response Data Buffer Format */
 struct isit_ak_eid {
 	__le32 entry_id;
@@ -282,6 +280,64 @@ struct ipft_req_qd {
 	struct ntmp_req_by_eid rbe;
 	__le32 resv[52];
 };
+
+/* Access Key: Entry ID Match */
+struct fdbt_ak_eid {
+	__le32 entry_id;
+	__le32 resv[7];
+};
+
+/* Access Key: Key Element Match */
+struct fdbt_ak_exact {
+	struct fdbt_keye_data keye;
+	__le32 resv[5];
+};
+
+/* Access Key: Search */
+struct fdbt_ak_search {
+	__le32 resume_eid;
+	struct fdbt_keye_data keye;
+	struct fdbt_cfge_data cfge;
+	struct fdbt_acte_data acte;
+	u8 keye_mc;
+#define FDBT_KEYE_MAC		GENMASK(1, 0)
+	u8 cfge_mc;
+#define FDBT_CFGE_MC		GENMASK(2, 0)
+#define FDBT_CFGE_MC_ANY		0
+#define FDBT_CFGE_MC_DYNAMIC		1
+#define FDBT_CFGE_MC_PORT_BITMAP	2
+#define FDBT_CFGE_MC_DYNAMIC_AND_PORT_BITMAP	3
+	u8 acte_mc;
+#define FDBT_ACTE_MC		BIT(0)
+};
+
+union fdbt_access_key {
+	struct fdbt_ak_eid eid;
+	struct fdbt_ak_exact exact;
+	struct fdbt_ak_search search;
+};
+
+struct fdbt_req_ua {
+	struct common_req_data crd;
+	union fdbt_access_key ak;
+	struct fdbt_cfge_data cfge;
+};
+
+struct fdbt_req_qd {
+	struct common_req_data crd;
+	union fdbt_access_key ak;
+};
+
+struct fdbt_resp_query {
+	__le32 status;
+	__le32 entry_id;
+	struct fdbt_keye_data keye;
+	struct fdbt_cfge_data cfge;
+	struct fdbt_acte_data acte;
+	u8 resv[3];
+};
+
+#pragma pack()
 
 struct tgst_query_data {
 	__le64 config_change_time;
