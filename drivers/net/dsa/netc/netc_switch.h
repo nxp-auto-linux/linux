@@ -41,6 +41,17 @@
 
 #define NETC_MAX_FRAME_LEN		9600
 
+#define NETC_STG_STATE_DISABLED		0
+#define NETC_STG_STATE_LEARNING		1
+#define NETC_STG_STATE_FORWARDING	2
+
+#define NETC_STANDALONE_PVID		0
+#define NETC_CPU_PORT_PVID		1
+#define NETC_VLAN_UNAWARE_PVID		4095
+
+#define NETC_FDBT_CLEAN_INTERVAL	(3 * HZ)
+#define NETC_FDBT_AGING_ACT_CNT		100
+
 struct netc_switch_info {
 	u32 cpu_port_num;
 	u32 usr_port_num;
@@ -60,6 +71,7 @@ struct netc_port {
 	struct netc_port_caps caps;
 	struct dsa_port *dp;
 	struct clk *ref_clk; /* RGMII/RMII reference clock */
+	struct net_device *bridge;
 	int index;
 
 	void __iomem *iobase;
@@ -68,6 +80,9 @@ struct netc_port {
 
 	u32 speed;
 	phy_interface_t phy_mode;
+
+	u16 pvid;
+	u16 vlan_aware:1;
 };
 
 struct netc_switch_regs {
@@ -89,8 +104,34 @@ struct netc_switch {
 	u32 num_ports;
 
 	struct ntmp_user user;
+
+	struct hlist_head fdb_list;
+	struct hlist_head vlan_list;
+	struct mutex fdbt_lock; /* FDB table lock */
+	struct mutex vft_lock; /* VLAN filter table lock */
+	struct delayed_work fdbt_clean;
+	/* interval times act_cnt is aging time */
+	unsigned long fdbt_acteu_interval;
+	u8 fdbt_aging_act_cnt; /* maximum is 127 */
 };
 
+struct netc_fdb_entry {
+	u32 entry_id;
+	struct fdbt_cfge_data cfge;
+	struct fdbt_keye_data keye;
+	struct hlist_node node;
+};
+
+struct netc_vlan_entry {
+	u16 vid;
+	u32 entry_id;
+	u32 ect_gid;
+	u32 untagged_port_bitmap;
+	struct vft_cfge_data cfge;
+	struct hlist_node node;
+};
+
+#define NETC_PRIV(ds)			((struct netc_switch *)((ds)->priv))
 #define NETC_PORT(priv, port_id)	((priv)->ports[(port_id)])
 
 /* Generic interfaces for writing/reading Switch registers */
@@ -114,6 +155,30 @@ int netc_switch_platform_probe(struct netc_switch *priv);
 static inline bool is_netc_pseudo_port(struct netc_port *port)
 {
 	return port->caps.pseudo_link;
+}
+
+static inline void netc_add_fdb_entry(struct netc_switch *priv,
+				      struct netc_fdb_entry *entry)
+{
+	hlist_add_head(&entry->node, &priv->fdb_list);
+}
+
+static inline void netc_del_fdb_entry(struct netc_fdb_entry *entry)
+{
+	hlist_del(&entry->node);
+	kfree(entry);
+}
+
+static inline void netc_add_vlan_entry(struct netc_switch *priv,
+				       struct netc_vlan_entry *entry)
+{
+	hlist_add_head(&entry->node, &priv->vlan_list);
+}
+
+static inline void netc_del_vlan_entry(struct netc_vlan_entry *entry)
+{
+	hlist_del(&entry->node);
+	kfree(entry);
 }
 
 #endif
