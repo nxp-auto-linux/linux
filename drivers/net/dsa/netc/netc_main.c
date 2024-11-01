@@ -7,10 +7,82 @@
 #include <linux/clk.h>
 #include <linux/etherdevice.h>
 #include <linux/fsl/enetc_mdio.h>
+#include <linux/if_bridge.h>
+#include <linux/if_vlan.h>
 #include <linux/of_mdio.h>
 #include <linux/unaligned.h>
 
 #include "netc_switch.h"
+
+static struct netc_fdb_entry *netc_lookup_fdb_entry(struct netc_switch *priv,
+						    const unsigned char *addr,
+						    u16 vid)
+{
+	struct netc_fdb_entry *entry;
+
+	hlist_for_each_entry(entry, &priv->fdb_list, node)
+		if (ether_addr_equal(entry->keye.mac_addr, addr) &&
+		    le16_to_cpu(entry->keye.fid) == vid)
+			return entry;
+
+	return NULL;
+}
+
+static inline void netc_add_fdb_entry(struct netc_switch *priv,
+				      struct netc_fdb_entry *entry)
+{
+	hlist_add_head(&entry->node, &priv->fdb_list);
+}
+
+static inline void netc_del_fdb_entry(struct netc_fdb_entry *entry)
+{
+	hlist_del(&entry->node);
+	kfree(entry);
+}
+
+static void netc_destroy_fdb_list(struct netc_switch *priv)
+{
+	struct netc_fdb_entry *entry;
+	struct hlist_node *tmp;
+
+	guard(mutex)(&priv->fdbt_lock);
+	hlist_for_each_entry_safe(entry, tmp, &priv->fdb_list, node)
+		netc_del_fdb_entry(entry);
+}
+
+static struct netc_vlan_entry *netc_lookup_vlan_entry(struct netc_switch *priv,
+						      u16 vid)
+{
+	struct netc_vlan_entry *entry;
+
+	hlist_for_each_entry(entry, &priv->vlan_list, node)
+		if (entry->vid == vid)
+			return entry;
+
+	return NULL;
+}
+
+static inline void netc_add_vlan_entry(struct netc_switch *priv,
+				       struct netc_vlan_entry *entry)
+{
+	hlist_add_head(&entry->node, &priv->vlan_list);
+}
+
+static inline void netc_del_vlan_entry(struct netc_vlan_entry *entry)
+{
+	hlist_del(&entry->node);
+	kfree(entry);
+}
+
+static void netc_destroy_vlan_list(struct netc_switch *priv)
+{
+	struct netc_vlan_entry *entry;
+	struct hlist_node *tmp;
+
+	guard(mutex)(&priv->vft_lock);
+	hlist_for_each_entry_safe(entry, tmp, &priv->vlan_list, node)
+		netc_del_vlan_entry(entry);
+}
 
 static enum dsa_tag_protocol netc_get_tag_protocol(struct dsa_switch *ds, int port,
 						   enum dsa_tag_protocol mprot)
@@ -324,6 +396,53 @@ static void netc_remove_all_cbdrs(struct netc_switch *priv)
 	kfree(cbdrs->ring);
 }
 
+static void netc_get_ntmp_capabilities(struct netc_switch *priv)
+{
+	struct netc_switch_regs *regs = &priv->regs;
+	struct ntmp_priv *ntmp = &priv->ntmp;
+	u32 val;
+
+	val = netc_base_rd(regs, NETC_ETTCAPR);
+	ntmp->caps.ett_num_entries = NETC_GET_NUM_ENTRIES(val);
+
+	val = netc_base_rd(regs, NETC_ECTCAPR);
+	ntmp->caps.ect_num_entries = NETC_GET_NUM_ENTRIES(val);
+}
+
+static int netc_init_ntmp_bitmaps(struct netc_switch *priv)
+{
+	struct ntmp_priv *ntmp = &priv->ntmp;
+
+	ntmp->ett_bitmap_size = ntmp->caps.ett_num_entries / priv->num_ports;
+	ntmp->ett_eid_bitmap = bitmap_zalloc(ntmp->ett_bitmap_size, GFP_KERNEL);
+	if (!ntmp->ett_eid_bitmap)
+		return -ENOMEM;
+
+	ntmp->ect_bitmap_size = ntmp->caps.ect_num_entries / priv->num_ports;
+	ntmp->ect_eid_bitmap = bitmap_zalloc(ntmp->ect_bitmap_size, GFP_KERNEL);
+	if (!ntmp->ect_eid_bitmap)
+		goto free_ett_eid_bitmap;
+
+	return 0;
+
+free_ett_eid_bitmap:
+	bitmap_free(ntmp->ett_eid_bitmap);
+	ntmp->ett_eid_bitmap = NULL;
+
+	return -ENOMEM;
+}
+
+static void netc_free_ntmp_bitmaps(struct netc_switch *priv)
+{
+	struct ntmp_priv *ntmp = &priv->ntmp;
+
+	bitmap_free(ntmp->ect_eid_bitmap);
+	ntmp->ect_eid_bitmap = NULL;
+
+	bitmap_free(ntmp->ett_eid_bitmap);
+	ntmp->ett_eid_bitmap = NULL;
+}
+
 static int netc_init_ntmp_priv(struct netc_switch *priv)
 {
 	struct ntmp_priv *ntmp = &priv->ntmp;
@@ -335,12 +454,44 @@ static int netc_init_ntmp_priv(struct netc_switch *priv)
 	if (err)
 		return err;
 
+	netc_get_ntmp_capabilities(priv);
+	err = netc_init_ntmp_bitmaps(priv);
+	if (err)
+		goto free_all_cbdrs;
+
 	return 0;
+
+free_all_cbdrs:
+	netc_remove_all_cbdrs(priv);
+
+	return err;
 }
 
 static void netc_deinit_ntmp_priv(struct netc_switch *priv)
 {
+	netc_free_ntmp_bitmaps(priv);
 	netc_remove_all_cbdrs(priv);
+}
+
+static void netc_clean_fdbt_aging_entries(struct work_struct *work)
+{
+	struct delayed_work *dwork = to_delayed_work(work);
+	struct netc_switch *priv;
+
+	priv = container_of(dwork, struct netc_switch, fdbt_clean);
+
+	/* We should first update the activity element in FDB table */
+	scoped_guard(mutex, &priv->fdbt_lock) {
+		ntmp_fdbt_update_activity_element(&priv->ntmp.cbdrs);
+
+		/* After the activity element is updated, we delete the aging
+		 * entries in the FDB table.
+		 */
+		ntmp_fdbt_delete_aging_entries(&priv->ntmp.cbdrs,
+					       priv->fdbt_aging_act_cnt);
+	}
+
+	schedule_delayed_work(&priv->fdbt_clean, priv->fdbt_acteu_interval);
 }
 
 static void netc_switch_dos_default_config(struct netc_switch *priv)
@@ -488,6 +639,14 @@ static int netc_setup(struct dsa_switch *ds)
 	if (err)
 		goto free_internal_mdiobus;
 
+	INIT_HLIST_HEAD(&priv->fdb_list);
+	mutex_init(&priv->fdbt_lock);
+	INIT_HLIST_HEAD(&priv->vlan_list);
+	mutex_init(&priv->vft_lock);
+	priv->fdbt_acteu_interval = NETC_FDBT_CLEAN_INTERVAL;
+	priv->fdbt_aging_act_cnt = NETC_FDBT_AGING_ACT_CNT;
+	INIT_DELAYED_WORK(&priv->fdbt_clean, netc_clean_fdbt_aging_entries);
+
 	netc_switch_dos_default_config(priv);
 	netc_switch_vfht_default_config(priv);
 	netc_switch_isit_key_config(priv);
@@ -499,6 +658,10 @@ static int netc_setup(struct dsa_switch *ds)
 			netc_port_default_config(port);
 	}
 
+	schedule_delayed_work(&priv->fdbt_clean, priv->fdbt_acteu_interval);
+
+	ds->fdb_isolation = true;
+
 	return 0;
 
 free_internal_mdiobus:
@@ -507,10 +670,20 @@ free_internal_mdiobus:
 	return err;
 }
 
+static void netc_destroy_all_lists(struct netc_switch *priv)
+{
+	netc_destroy_fdb_list(priv);
+	mutex_destroy(&priv->fdbt_lock);
+	netc_destroy_vlan_list(priv);
+	mutex_destroy(&priv->vft_lock);
+}
+
 static void netc_teardown(struct dsa_switch *ds)
 {
 	struct netc_switch *priv = ds->priv;
 
+	cancel_delayed_work_sync(&priv->fdbt_clean);
+	netc_destroy_all_lists(priv);
 	netc_deinit_ntmp_priv(priv);
 	netc_remove_all_ports_internal_mdiobus(ds);
 }
@@ -673,6 +846,935 @@ static void netc_switch_get_ip_revision(struct netc_switch *priv)
 
 	val = netc_glb_rd(regs, NETC_IPBRR0);
 	priv->revision = val & IPBRR0_IP_REV;
+}
+
+static int netc_switch_add_vlan_egress_rule(struct netc_switch *priv,
+					    struct netc_vlan_entry *entry)
+{
+	struct netc_cbdrs *cbdrs = &priv->ntmp.cbdrs;
+	struct ett_cfge_data ett_cfge = {0};
+	u32 ett_base_eid, ect_base_eid;
+	u32 ett_eid, vuda_sqta;
+	u16 efm_cfg;
+	int i, err;
+
+	/* step1: find available ect entries and update these entries */
+	ect_base_eid = ntmp_lookup_free_eid(priv->ntmp.ect_eid_bitmap,
+					    priv->ntmp.ect_bitmap_size);
+	if (ect_base_eid == NTMP_NULL_ENTRY_ID) {
+		dev_warn(priv->dev, "No ECT entries available\n");
+	} else {
+		ect_base_eid *= priv->num_ports;
+		for (i = 0; i < priv->num_ports; i++)
+			/* Reset the counters of ECT entry */
+			ntmp_ect_update_entry(cbdrs, ect_base_eid + i);
+	}
+
+	/* step2: find available ett entries and add these entries */
+	ett_base_eid = ntmp_lookup_free_eid(priv->ntmp.ett_eid_bitmap,
+					    priv->ntmp.ett_bitmap_size);
+	if (ett_base_eid == NTMP_NULL_ENTRY_ID) {
+		dev_err(priv->dev, "No free ETT entries found\n");
+		err = -ENOSPC;
+		goto clear_ect_eid;
+	}
+
+	ett_base_eid *=  priv->num_ports;
+	ett_eid = ett_base_eid;
+	for (i = 0; i < priv->num_ports; i++, ett_eid++) {
+		/* Specify the FMT entry ID format */
+		vuda_sqta = FMTEID_VUDA_SQTA;
+		efm_cfg = 0;
+
+		if (ect_base_eid != NTMP_NULL_ENTRY_ID) {
+			/* Increase egress frame counter */
+			efm_cfg |= FIELD_PREP(ETT_ECA, ETT_ECA_INC);
+			ett_cfge.ec_eid = cpu_to_le32(ett_eid);
+		}
+
+		/* If egress rule is VLAN untagged */
+		if (entry->untagged_port_bitmap & BIT(i)) {
+			/* delete outer VLAN tag */
+			vuda_sqta |= FIELD_PREP(FMTEID_VUDA,
+						FMTEID_VUDA_DEL_OTAG);
+			/* length change: twos-complement notation */
+			efm_cfg |= FIELD_PREP(ETT_EFM_LEN_CHANGE,
+					      ETT_FRM_LEN_DEL_VLAN);
+		}
+
+		ett_cfge.efm_eid = cpu_to_le32(vuda_sqta);
+		ett_cfge.esqa_tgt_eid = cpu_to_le32(NTMP_NULL_ENTRY_ID);
+		ett_cfge.efm_cfg = cpu_to_le16(efm_cfg);
+
+		/* Add an ETT entry */
+		err = ntmp_ett_add_or_update_entry(cbdrs, ett_eid, true, &ett_cfge);
+		if (err)
+			goto clear_ett_entries;
+	}
+
+	entry->cfge.et_eid = cpu_to_le32(ett_base_eid);
+	entry->ect_base_eid = ect_base_eid;
+
+	return 0;
+
+clear_ett_entries:
+	ntmp_clear_eid_bitmap(priv->ntmp.ett_eid_bitmap, ett_base_eid);
+	for (i--, ett_eid--; i >= 0; i--, ett_eid--)
+		ntmp_ett_delete_entry(cbdrs, ett_eid);
+
+clear_ect_eid:
+	/* ECT is a static index table, no need to delete the entries */
+	ntmp_clear_eid_bitmap(priv->ntmp.ect_eid_bitmap, ect_base_eid);
+
+	return err;
+}
+
+static void netc_switch_delete_vlan_egress_rule(struct netc_switch *priv,
+						struct netc_vlan_entry *entry)
+{
+	u32 ett_eid_bit, ect_eid_bit;
+	u32 ett_eid, ect_eid;
+	int i;
+
+	ett_eid = le32_to_cpu(entry->cfge.et_eid);
+	if (ett_eid == NTMP_NULL_ENTRY_ID)
+		return;
+
+	ett_eid_bit = ett_eid / priv->num_ports;
+	ntmp_clear_eid_bitmap(priv->ntmp.ett_eid_bitmap, ett_eid_bit);
+	for (i = 0; i < priv->num_ports; i++) {
+		ett_eid += i;
+		ntmp_ett_delete_entry(&priv->ntmp.cbdrs, ett_eid);
+	}
+
+	entry->cfge.et_eid = cpu_to_le32(NTMP_NULL_ENTRY_ID);
+
+	ect_eid = entry->ect_base_eid;
+	if (ect_eid == NTMP_NULL_ENTRY_ID)
+		return;
+
+	ect_eid_bit = ect_eid / priv->num_ports;
+	ntmp_clear_eid_bitmap(priv->ntmp.ect_eid_bitmap, ect_eid_bit);
+	entry->ect_base_eid = NTMP_NULL_ENTRY_ID;
+}
+
+static int netc_port_update_vlan_egress_rule(struct netc_port *port,
+					     struct netc_vlan_entry *entry)
+{
+	struct netc_switch *priv = port->switch_priv;
+	struct netc_cbdrs *cbdrs = &priv->ntmp.cbdrs;
+	struct ett_cfge_data ett_cfge = {0};
+	u32 ett_eid, ect_eid, vuda_sqta;
+	u16 efm_cfg = 0;
+
+	ett_eid = le32_to_cpu(entry->cfge.et_eid);
+	if (ett_eid == NTMP_NULL_ENTRY_ID)
+		return 0;
+
+	ett_eid += port->index;
+	ect_eid = entry->ect_base_eid;
+	if (ect_eid != NTMP_NULL_ENTRY_ID) {
+		ect_eid += port->index;
+		ntmp_ect_update_entry(cbdrs, ect_eid);
+
+		efm_cfg |= FIELD_PREP(ETT_ECA, ETT_ECA_INC);
+		ett_cfge.ec_eid = cpu_to_le32(ect_eid);
+	}
+
+	/* Specify the FMT entry ID format */
+	vuda_sqta = FMTEID_VUDA_SQTA;
+	/* If egress rule is VLAN untagged */
+	if (entry->untagged_port_bitmap & BIT(port->index)) {
+		/* delete outer VLAN tag */
+		vuda_sqta |= FIELD_PREP(FMTEID_VUDA, FMTEID_VUDA_DEL_OTAG);
+		/* length change: twos-complement notation */
+		efm_cfg |= FIELD_PREP(ETT_EFM_LEN_CHANGE, ETT_FRM_LEN_DEL_VLAN);
+	}
+
+	ett_cfge.efm_cfg = cpu_to_le16(efm_cfg);
+	ett_cfge.efm_eid = cpu_to_le32(vuda_sqta);
+	ett_cfge.esqa_tgt_eid = cpu_to_le32(NTMP_NULL_ENTRY_ID);
+
+	/* Add an ETT entry */
+	return ntmp_ett_add_or_update_entry(cbdrs, ett_eid, false, &ett_cfge);
+}
+
+static int netc_port_add_vlan_entry(struct netc_port *port, u16 vid,
+				    bool untagged)
+{
+	struct netc_switch *priv = port->switch_priv;
+	struct netc_vlan_entry *entry __free(kfree);
+	u32 bitmap_stg, eta_port_bitmap = 0;
+	u16 cfg = 0;
+	int i, err;
+
+	entry = kzalloc(sizeof(*entry), GFP_KERNEL);
+	if (!entry)
+		return -ENOMEM;
+
+	entry->vid = vid;
+	entry->ect_base_eid = NTMP_NULL_ENTRY_ID;
+	entry->cfge.et_eid = cpu_to_le32(NTMP_NULL_ENTRY_ID);
+	bitmap_stg = BIT(port->index) | VFT_STG_ID(0);
+	entry->cfge.bitmap_stg = cpu_to_le32(bitmap_stg);
+	entry->cfge.fid = cpu_to_le16(vid);
+
+	if (vid == NETC_STANDALONE_PVID) {
+		cfg |= FIELD_PREP(VFT_MLO, MLO_DISABLE);
+		cfg |= FIELD_PREP(VFT_MFO, MFO_NO_MATCH_DISCARD);
+		entry->cfge.cfg = cpu_to_le16(cfg);
+	} else {
+		cfg |= FIELD_PREP(VFT_MLO, MLO_HW);
+		cfg |= FIELD_PREP(VFT_MFO, MFO_NO_MATCH_FLOOD);
+		entry->cfge.cfg = cpu_to_le16(cfg);
+
+		for (i = 0; i < priv->num_ports; i++)
+			eta_port_bitmap |= BIT(i);
+
+		if (untagged && vid != NETC_VLAN_UNAWARE_PVID)
+			entry->untagged_port_bitmap = BIT(port->index);
+
+		entry->cfge.eta_port_bitmap = cpu_to_le32(eta_port_bitmap);
+
+		err = netc_switch_add_vlan_egress_rule(priv, entry);
+		if (err)
+			return err;
+	}
+
+	err = ntmp_vft_add_entry(&priv->ntmp.cbdrs, &entry->entry_id,
+				 vid, &entry->cfge);
+	if (err)
+		goto delete_vlan_egress_rule;
+
+	netc_add_vlan_entry(priv, no_free_ptr(entry));
+
+	return 0;
+
+delete_vlan_egress_rule:
+	if (vid != NETC_STANDALONE_PVID)
+		netc_switch_delete_vlan_egress_rule(priv, entry);
+
+	return err;
+}
+
+static bool netc_port_vlan_egress_rule_changed(struct netc_vlan_entry *entry,
+					       int port_id, bool untagged)
+{
+	bool port_untagged = !!(entry->untagged_port_bitmap & BIT(port_id));
+	u16 vid = entry->vid;
+
+	if (vid == NETC_STANDALONE_PVID || vid == NETC_VLAN_UNAWARE_PVID)
+		return false;
+
+	if (port_untagged == untagged)
+		return false;
+
+	return true;
+}
+
+static int netc_port_set_vlan_entry(struct netc_port *port, u16 vid,
+				    bool untagged)
+{
+	struct netc_switch *priv = port->switch_priv;
+	struct netc_vlan_entry *entry;
+	int port_id = port->index;
+	bool rule_changed;
+	int err;
+
+	guard(mutex)(&priv->vft_lock);
+
+	entry = netc_lookup_vlan_entry(priv, vid);
+	if (!entry) {
+		err = netc_port_add_vlan_entry(port, vid, untagged);
+		if (err)
+			dev_err(priv->dev,
+				"Failed to add VLAN %u entry for port:%d\n",
+				vid, port_id);
+
+		return err;
+	}
+
+	rule_changed = netc_port_vlan_egress_rule_changed(entry, port_id, untagged);
+	if (rule_changed) {
+		entry->untagged_port_bitmap ^= BIT(port_id);
+		err = netc_port_update_vlan_egress_rule(port, entry);
+		if (err) {
+			dev_err(priv->dev,
+				"Port:%d failed to update VLAN %u egress rule\n",
+				port_id, vid);
+
+			goto restore_untagged_bitmap;
+		}
+	}
+
+	if (entry->cfge.bitmap_stg & cpu_to_le32(BIT(port_id)))
+		return 0;
+
+	entry->cfge.bitmap_stg ^= cpu_to_le32(BIT(port_id));
+	err = ntmp_vft_update_entry(&priv->ntmp.cbdrs, vid, &entry->cfge);
+	if (err) {
+		dev_err(priv->dev, "Port:%d failed to update VLAN %u entry\n",
+			port_id, vid);
+
+		goto restore_bitmap_stg;
+	}
+
+	return 0;
+
+restore_bitmap_stg:
+	entry->cfge.bitmap_stg ^= cpu_to_le32(BIT(port_id));
+restore_untagged_bitmap:
+	if (rule_changed)
+		entry->untagged_port_bitmap ^= BIT(port_id);
+
+	return err;
+}
+
+static int netc_port_del_vlan_entry(struct netc_port *port, u16 vid)
+{
+	struct netc_switch *priv = port->switch_priv;
+	struct netc_vlan_entry *entry;
+	int port_id = port->index;
+	u32 vlan_port_bitmap;
+	int err;
+
+	guard(mutex)(&priv->vft_lock);
+	entry = netc_lookup_vlan_entry(priv, vid);
+	if (!entry)
+		return 0;
+
+	vlan_port_bitmap = le32_to_cpu(entry->cfge.bitmap_stg) &
+			   VFT_PORT_MEMBERSHIP;
+	/* If the VLAN only belongs to the current port */
+	if (vlan_port_bitmap == BIT(port_id)) {
+		ntmp_vft_delete_entry(&priv->ntmp.cbdrs, vid);
+		if (vid != NETC_STANDALONE_PVID)
+			netc_switch_delete_vlan_egress_rule(priv, entry);
+
+		netc_del_vlan_entry(entry);
+
+		return 0;
+	}
+
+	if (!(vlan_port_bitmap & BIT(port_id)))
+		return 0;
+
+	entry->cfge.bitmap_stg ^= cpu_to_le32(BIT(port_id));
+	err = ntmp_vft_update_entry(&priv->ntmp.cbdrs, vid, &entry->cfge);
+	if (err) {
+		entry->cfge.bitmap_stg ^= cpu_to_le32(BIT(port_id));
+
+		return err;
+	}
+
+	entry->untagged_port_bitmap &= ~BIT(port_id);
+
+	return 0;
+}
+
+static int netc_port_add_fdb_entry(struct netc_port *port,
+				   const unsigned char *addr, u16 vid)
+{
+	struct netc_switch *priv = port->switch_priv;
+	struct netc_fdb_entry *entry __free(kfree);
+	struct fdbt_keye_data *keye;
+	struct fdbt_cfge_data *cfge;
+	int port_id = port->index;
+	u32 cfg = 0;
+	int err;
+
+	entry = kzalloc(sizeof(*entry), GFP_KERNEL);
+	if (!entry)
+		return -ENOMEM;
+
+	keye = &entry->keye;
+	cfge = &entry->cfge;
+	ether_addr_copy(keye->mac_addr, addr);
+	keye->fid = cpu_to_le16(vid);
+
+	cfge->port_bitmap = cpu_to_le32(BIT(port_id));
+	cfge->cfg = cpu_to_le32(cfg);
+	cfge->et_eid = cpu_to_le32(NTMP_NULL_ENTRY_ID);
+
+	err = ntmp_fdbt_add_entry(&priv->ntmp.cbdrs, &entry->entry_id,
+				  keye, cfge);
+	if (err)
+		return err;
+
+	netc_add_fdb_entry(priv, no_free_ptr(entry));
+
+	return 0;
+}
+
+static int netc_port_set_fdb_entry(struct netc_port *port,
+				   const unsigned char *addr, u16 vid)
+{
+	struct netc_switch *priv = port->switch_priv;
+	struct netc_fdb_entry *entry;
+	int port_id = port->index;
+	u32 port_bitmap;
+	int err;
+
+	guard(mutex)(&priv->fdbt_lock);
+
+	entry = netc_lookup_fdb_entry(priv, addr, vid);
+	if (!entry) {
+		err = netc_port_add_fdb_entry(port, addr, vid);
+		if (err)
+			dev_err(priv->dev, "Failed to add FDB entry for port:%d\n",
+				port_id);
+
+		return err;
+	}
+
+	port_bitmap = le32_to_cpu(entry->cfge.port_bitmap);
+	/* If the entry has existed on the port, return 0 directly */
+	if (unlikely(port_bitmap & BIT(port_id)))
+		return 0;
+
+	/* If the entry has already existed, but not exists on this port,
+	 * we need to update the port bitmap. In general, it should only
+	 * be valid for multicast or broadcast address.
+	 */
+	port_bitmap ^= BIT(port_id);
+	entry->cfge.port_bitmap = cpu_to_le32(port_bitmap);
+	err = ntmp_fdbt_update_entry(&priv->ntmp.cbdrs, entry->entry_id,
+				     &entry->cfge);
+	if (err) {
+		port_bitmap ^= BIT(port_id);
+		entry->cfge.port_bitmap = cpu_to_le32(port_bitmap);
+		dev_err(priv->dev, "Failed to set FDB entry for port:%d\n",
+			port_id);
+	}
+
+	return err;
+}
+
+static int netc_port_del_fdb_entry(struct netc_port *port,
+				   const unsigned char *addr, u16 vid)
+{
+	struct netc_switch *priv = port->switch_priv;
+	struct netc_fdb_entry *entry;
+	int port_id = port->index;
+	u32 port_bitmap;
+	int err;
+
+	guard(mutex)(&priv->fdbt_lock);
+
+	entry = netc_lookup_fdb_entry(priv, addr, vid);
+	if (unlikely(!entry))
+		return 0;
+
+	port_bitmap = le32_to_cpu(entry->cfge.port_bitmap);
+	if (unlikely(!(port_bitmap & BIT(port_id))))
+		return 0;
+
+	if (port_bitmap != BIT(port_id)) {
+		/* If the entry also exists on other ports, we need to
+		 * update the entry in the FDB table.
+		 */
+		port_bitmap ^= BIT(port_id);
+		entry->cfge.port_bitmap = cpu_to_le32(port_bitmap);
+		err = ntmp_fdbt_update_entry(&priv->ntmp.cbdrs, entry->entry_id,
+					     &entry->cfge);
+		if (err) {
+			port_bitmap ^= BIT(port_id);
+			entry->cfge.port_bitmap = cpu_to_le32(port_bitmap);
+
+			return err;
+		}
+
+	} else {
+		/* If the entry only exists on this port, just delete
+		 * it from the FDB table.
+		 */
+		err = ntmp_fdbt_delete_entry(&priv->ntmp.cbdrs, entry->entry_id);
+		if (err)
+			return err;
+
+		netc_del_fdb_entry(entry);
+	}
+
+	return 0;
+}
+
+static int netc_port_add_bcast_fdb_entry(struct netc_port *port, u16 vid)
+{
+	const u8 bcast[ETH_ALEN] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
+
+	return netc_port_set_fdb_entry(port, bcast, vid);
+}
+
+static int netc_port_del_bcast_fdb_entry(struct netc_port *port, u16 vid)
+{
+	const u8 bcast[ETH_ALEN] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
+
+	return netc_port_del_fdb_entry(port, bcast, vid);
+}
+
+static void netc_port_set_mac_address(struct netc_port *port)
+{
+	struct net_device *ndev;
+	u32 upper;
+	u16 lower;
+
+	if (dsa_port_is_cpu(port->dp))
+		ndev = port->dp->conduit;
+	else
+		ndev = port->dp->user;
+
+	lower = get_unaligned_le16(ndev->dev_addr + 4);
+	upper = get_unaligned_le32(ndev->dev_addr);
+
+	netc_port_wr(port, NETC_PMAR0, upper);
+	netc_port_wr(port, NETC_PMAR1, lower);
+}
+
+static int netc_port_enable(struct dsa_switch *ds, int port_id,
+			    struct phy_device *phy)
+{
+	struct netc_port *port = NETC_PORT(NETC_PRIV(ds), port_id);
+	int err;
+
+	err = netc_port_set_vlan_entry(port, NETC_STANDALONE_PVID, false);
+	if (err) {
+		dev_err(ds->dev,
+			"Failed to set VLAN %d entry for port:%d\n",
+			NETC_STANDALONE_PVID, port_id);
+		return err;
+	}
+
+	/* If the user port as a standalone port, then its PVID is 0,
+	 * MLO is set to "disable MAC learning" and MFO is set to
+	 * "discard frames if no matching entry found in FDB table".
+	 * Therefore, we need to add a broadcast FDB entry on the CPU
+	 * port so that the broadcast frames receivced on the user
+	 * port can be forwarded to the CPU port.
+	 */
+	if (dsa_is_cpu_port(ds, port_id)) {
+		err = netc_port_add_bcast_fdb_entry(port, NETC_STANDALONE_PVID);
+		if (err) {
+			dev_err(ds->dev,
+				"Failed to set broadcast FDB entry for port:%d\n",
+				port_id);
+			goto del_standalone_vlan_entry;
+		}
+
+		err = netc_port_set_vlan_entry(port, NETC_VLAN_UNAWARE_PVID, false);
+		if (err) {
+			dev_err(ds->dev,
+				"Failed to set VLAN %d entry for port:%d\n",
+				NETC_VLAN_UNAWARE_PVID, port_id);
+			goto del_bcast_fdb_entry;
+		}
+	}
+
+	err = clk_prepare_enable(port->ref_clk);
+	if (err) {
+		dev_err(ds->dev,
+			"Enable enet_ref_clk of port %d failed\n", port_id);
+		goto del_unaware_vlan_entry;
+	}
+
+	netc_port_set_mac_address(port);
+	netc_port_wr(port, NETC_POR, 0);
+
+	return 0;
+
+del_unaware_vlan_entry:
+	if (dsa_is_cpu_port(ds, port_id))
+		netc_port_del_vlan_entry(port, NETC_VLAN_UNAWARE_PVID);
+del_bcast_fdb_entry:
+	if (dsa_is_cpu_port(ds, port_id))
+		netc_port_del_bcast_fdb_entry(port, NETC_STANDALONE_PVID);
+del_standalone_vlan_entry:
+	netc_port_del_vlan_entry(port, NETC_STANDALONE_PVID);
+
+	return err;
+}
+
+static void netc_port_disable(struct dsa_switch *ds, int port_id)
+{
+	struct netc_port *port = NETC_PORT(NETC_PRIV(ds), port_id);
+
+	netc_port_wr(port, NETC_POR, PCR_TXDIS | PCR_RXDIS);
+	clk_disable_unprepare(port->ref_clk);
+
+	if (dsa_is_cpu_port(ds, port_id)) {
+		netc_port_del_vlan_entry(port, NETC_VLAN_UNAWARE_PVID);
+		netc_port_del_bcast_fdb_entry(port, NETC_STANDALONE_PVID);
+	}
+
+	netc_port_del_vlan_entry(port, NETC_STANDALONE_PVID);
+}
+
+static void netc_port_stp_state_set(struct dsa_switch *ds, int port_id, u8 state)
+{
+	struct netc_port *port = NETC_PORT(NETC_PRIV(ds), port_id);
+	u32 val;
+
+	if (state > BR_STATE_BLOCKING)
+		return;
+
+	/* mapping of STP protocol states to NETC STG_STATE filed states */
+	if (state == BR_STATE_DISABLED || state == BR_STATE_LISTENING ||
+	    state == BR_STATE_BLOCKING)
+		val = NETC_STG_STATE_DISABLED;
+	else if (state == BR_STATE_LEARNING)
+		val = NETC_STG_STATE_LEARNING;
+	else
+		val = NETC_STG_STATE_FORWARDING;
+
+	netc_port_wr(port, NETC_BPSTGSR, val);
+}
+
+static int netc_port_change_mtu(struct dsa_switch *ds, int port_id, int new_mtu)
+{
+	struct netc_port *port = NETC_PORT(NETC_PRIV(ds), port_id);
+	u32 max_frame_size = new_mtu + ETH_HLEN + ETH_FCS_LEN;
+
+	netc_port_set_max_frame_size(port, max_frame_size);
+
+	return 0;
+}
+
+static int netc_port_max_mtu(struct dsa_switch *ds, int port_id)
+{
+	int mtu = NETC_MAX_FRAME_LEN - ETH_HLEN - ETH_FCS_LEN;
+
+	if (dsa_is_cpu_port(ds, port_id))
+		mtu -= NETC_TAG_MAX_LEN;
+
+	return mtu;
+}
+
+static struct net_device *netc_classify_db(struct dsa_db db)
+{
+	switch (db.type) {
+	case DSA_DB_PORT:
+		return NULL;
+	case DSA_DB_BRIDGE:
+		return db.bridge.dev;
+	default:
+		return ERR_PTR(-EOPNOTSUPP);
+	}
+}
+
+static int netc_port_fdb_add(struct dsa_switch *ds, int port_id,
+			     const unsigned char *addr, u16 vid,
+			     struct dsa_db db)
+{
+	struct netc_port *port = NETC_PORT(NETC_PRIV(ds), port_id);
+	struct net_device *bridge = netc_classify_db(db);
+
+	if (IS_ERR(bridge))
+		return PTR_ERR(bridge);
+
+	if (!vid) {
+		if (!bridge)
+			vid = NETC_STANDALONE_PVID;
+		else
+			vid = NETC_VLAN_UNAWARE_PVID;
+	}
+
+	return netc_port_set_fdb_entry(port, addr, vid);
+}
+
+static int netc_port_fdb_del(struct dsa_switch *ds, int port_id,
+			     const unsigned char *addr, u16 vid,
+			     struct dsa_db db)
+{
+	struct netc_port *port = NETC_PORT(NETC_PRIV(ds), port_id);
+	struct net_device *bridge = netc_classify_db(db);
+
+	if (IS_ERR(bridge))
+		return PTR_ERR(bridge);
+
+	if (!vid) {
+		if (!bridge)
+			vid = NETC_STANDALONE_PVID;
+		else
+			vid = NETC_VLAN_UNAWARE_PVID;
+	}
+
+	return netc_port_del_fdb_entry(port, addr, vid);
+}
+
+static int netc_port_fdb_dump(struct dsa_switch *ds, int port_id,
+			      dsa_fdb_dump_cb_t *cb, void *data)
+{
+	struct fdbt_query_data *entry_data __free(kfree);
+	struct netc_switch *priv = ds->priv;
+	u32 resume_eid = NTMP_NULL_ENTRY_ID;
+	struct fdbt_keye_data *keye;
+	struct fdbt_cfge_data *cfge;
+	u32 entry_id, cfg;
+	bool is_static;
+	u16 vid;
+	int err;
+
+	entry_data = kmalloc(sizeof(*entry_data), GFP_KERNEL);
+	if (!entry_data)
+		return -ENOMEM;
+
+	keye = &entry_data->keye;
+	cfge = &entry_data->cfge;
+	guard(mutex)(&priv->fdbt_lock);
+	do {
+		memset(entry_data, 0, sizeof(*entry_data));
+		err = ntmp_fdbt_search_port_entry(&priv->ntmp.cbdrs, port_id,
+						  &resume_eid, &entry_id, entry_data);
+		if (err || entry_id == NTMP_NULL_ENTRY_ID)
+			break;
+
+		cfg = le32_to_cpu(cfge->cfg);
+		is_static = (cfg & FDBT_DYNAMIC) ? false : true;
+		vid = le16_to_cpu(keye->fid);
+		if (vid == NETC_VLAN_UNAWARE_PVID)
+			vid = 0;
+
+		err = cb(keye->mac_addr, vid, is_static, data);
+		if (err)
+			break;
+	} while (resume_eid != NTMP_NULL_ENTRY_ID);
+
+	return err;
+}
+
+static int netc_port_mdb_add(struct dsa_switch *ds, int port_id,
+			     const struct switchdev_obj_port_mdb *mdb,
+			     struct dsa_db db)
+{
+	return netc_port_fdb_add(ds, port_id, mdb->addr, mdb->vid, db);
+}
+
+static int netc_port_mdb_del(struct dsa_switch *ds, int port_id,
+			     const struct switchdev_obj_port_mdb *mdb,
+			     struct dsa_db db)
+{
+	return netc_port_fdb_del(ds, port_id, mdb->addr, mdb->vid, db);
+}
+
+static bool netc_user_ports_all_standalone(struct netc_switch *priv)
+{
+	struct netc_port *port;
+	int i;
+
+	for (i = 0; i < priv->num_ports; i++) {
+		port = priv->ports[i];
+		if (dsa_port_is_user(port->dp) && port->bridge)
+			return false;
+	}
+
+	return true;
+}
+
+static bool netc_user_ports_vlan_aware(struct netc_switch *priv)
+{
+	struct netc_port *port;
+	int i;
+
+	for (i = 0; i < priv->num_ports; i++) {
+		port = priv->ports[i];
+		if (dsa_port_is_user(port->dp) && port->vlan_aware)
+			return true;
+	}
+
+	return false;
+}
+
+static void netc_cpu_port_set_vlan_filtering(struct netc_switch *priv)
+{
+	struct netc_port *port;
+	bool vlan_aware;
+	u16 pvid;
+	u32 val;
+	int i;
+
+	vlan_aware = netc_user_ports_vlan_aware(priv);
+
+	for (i = 0; i < priv->num_ports; i++) {
+		port = priv->ports[i];
+		if (dsa_port_is_cpu(port->dp)) {
+			if (netc_user_ports_all_standalone(priv)) {
+				pvid = NETC_STANDALONE_PVID;
+				port->pvid = NETC_STANDALONE_PVID;
+				port->vlan_aware = 0;
+			} else {
+				pvid = vlan_aware ? port->pvid :
+				       NETC_VLAN_UNAWARE_PVID;
+				port->vlan_aware = vlan_aware ? 1 : 0;
+			}
+
+			val = netc_port_rd(port, NETC_BPDVR);
+			val = u32_replace_bits(val, port->vlan_aware ? 0 : 1,
+					       BPDVR_RXVAM);
+			val = u32_replace_bits(val, pvid, BPDVR_VID);
+			netc_port_wr(port, NETC_BPDVR, val);
+		}
+	}
+}
+
+static int netc_port_vlan_filtering(struct dsa_switch *ds, int port_id,
+				    bool vlan_aware, struct netlink_ext_ack *extack)
+{
+	struct netc_port *port = NETC_PORT(NETC_PRIV(ds), port_id);
+	u16 pvid;
+	u32 val;
+
+	if (!port->bridge) {
+		pvid = NETC_STANDALONE_PVID;
+		port->pvid = NETC_STANDALONE_PVID;
+		port->vlan_aware = 0;
+	} else {
+		pvid = vlan_aware ? port->pvid : NETC_VLAN_UNAWARE_PVID;
+		port->vlan_aware = vlan_aware ? 1 : 0;
+	}
+
+	val = netc_port_rd(port, NETC_BPDVR);
+	val = u32_replace_bits(val, port->vlan_aware ? 0 : 1, BPDVR_RXVAM);
+	val = u32_replace_bits(val, pvid, BPDVR_VID);
+	netc_port_wr(port, NETC_BPDVR, val);
+
+	netc_cpu_port_set_vlan_filtering(ds->priv);
+
+	return 0;
+}
+
+static void netc_port_set_pvid(struct netc_port *port, u16 pvid)
+{
+	u32 val;
+
+	val = netc_port_rd(port, NETC_BPDVR);
+	val = u32_replace_bits(val, pvid, BPDVR_VID);
+	netc_port_wr(port, NETC_BPDVR, val);
+}
+
+static int netc_port_vlan_add(struct dsa_switch *ds, int port_id,
+			      const struct switchdev_obj_port_vlan *vlan,
+			      struct netlink_ext_ack *extack)
+{
+	struct netc_port *port = NETC_PORT(NETC_PRIV(ds), port_id);
+	bool is_pvid, untagged;
+	u16 pvid;
+	int err;
+
+	untagged = !!(vlan->flags & BRIDGE_VLAN_INFO_UNTAGGED);
+	err = netc_port_set_vlan_entry(port, vlan->vid, untagged);
+	if (err)
+		return err;
+
+	is_pvid = !!(vlan->flags & BRIDGE_VLAN_INFO_PVID);
+	/* BRIDGE_VLAN_INFO_PVID won't be set for CPU port due to
+	 * commit b9499904f363, so we set VID 1 as the PVID of CPU
+	 * port and it is unchangeable.
+	 */
+	if (dsa_is_cpu_port(ds, port_id) &&
+	    vlan->vid == NETC_CPU_PORT_PVID)
+		is_pvid = true;
+
+	if (is_pvid) {
+		port->pvid = vlan->vid;
+		pvid = vlan->vid;
+		if (!port->vlan_aware)
+			pvid = NETC_VLAN_UNAWARE_PVID;
+
+		netc_port_set_pvid(port, pvid);
+	} else {
+		/* delete PVID */
+		if (port->pvid == vlan->vid) {
+			port->pvid = 0;
+
+			if (port->vlan_aware)
+				netc_port_set_pvid(port, 0);
+		}
+	}
+
+	return 0;
+}
+
+static int netc_port_vlan_del(struct dsa_switch *ds, int port_id,
+			      const struct switchdev_obj_port_vlan *vlan)
+{
+	struct netc_port *port = NETC_PORT(NETC_PRIV(ds), port_id);
+	int err;
+
+	err = netc_port_del_vlan_entry(port, vlan->vid);
+	if (err)
+		return err;
+
+	if (port->pvid == vlan->vid) {
+		port->pvid = 0;
+
+		if (port->vlan_aware)
+			netc_port_set_pvid(port, 0);
+	}
+
+	return 0;
+}
+
+static int netc_set_ageing_time(struct dsa_switch *ds, unsigned int msecs)
+{
+	struct netc_switch *priv = ds->priv;
+	u32 secs = msecs / 1000;
+	u32 act_cnt, interval;
+
+	if (!secs)
+		secs = 1;
+
+	for (interval = 1; interval <= secs; interval++) {
+		act_cnt = secs / interval;
+		if (act_cnt <= FDBT_MAX_ACT_CNT)
+			break;
+	}
+
+	priv->fdbt_acteu_interval = interval * HZ;
+	priv->fdbt_aging_act_cnt = act_cnt;
+
+	return 0;
+}
+
+static void netc_port_remove_dynamic_entries(struct netc_port *port)
+{
+	struct netc_switch *priv = port->switch_priv;
+
+	guard(mutex)(&priv->fdbt_lock);
+	ntmp_fdbt_delete_port_dynamic_entries(&priv->ntmp.cbdrs, port->index);
+}
+
+static void netc_port_fast_age(struct dsa_switch *ds, int port_id)
+{
+	struct netc_port *port = NETC_PORT(NETC_PRIV(ds), port_id);
+
+	netc_port_remove_dynamic_entries(port);
+}
+
+static int netc_port_bridge_join(struct dsa_switch *ds, int port_id,
+				 struct dsa_bridge bridge,
+				 bool *tx_fwd_offload,
+				 struct netlink_ext_ack *extack)
+{
+	struct netc_port *port = NETC_PORT(NETC_PRIV(ds), port_id);
+	int err;
+
+	err = netc_port_set_vlan_entry(port, NETC_VLAN_UNAWARE_PVID, false);
+	if (err)
+		return err;
+
+	port->bridge = bridge.dev;
+	netc_port_set_mlo(port, MLO_NOT_OVERRIDE);
+
+	return 0;
+}
+
+static void netc_port_bridge_leave(struct dsa_switch *ds, int port_id,
+				   struct dsa_bridge bridge)
+{
+	struct netc_port *port = NETC_PORT(NETC_PRIV(ds), port_id);
+
+	netc_port_set_mlo(port, MLO_DISABLE);
+	port->bridge = NULL;
+	netc_port_del_vlan_entry(port, NETC_VLAN_UNAWARE_PVID);
 }
 
 static void netc_phylink_get_caps(struct dsa_switch *ds, int port_id,
@@ -900,6 +2002,7 @@ static void netc_mac_link_down(struct phylink_config *config, unsigned int mode,
 
 	port = NETC_PORT(priv, dp->index);
 	netc_port_enable_mac_path(port, false);
+	netc_port_remove_dynamic_entries(port);
 }
 
 static const struct phylink_mac_ops netc_phylink_mac_ops = {
@@ -913,7 +2016,24 @@ static const struct dsa_switch_ops netc_switch_ops = {
 	.get_tag_protocol		= netc_get_tag_protocol,
 	.setup				= netc_setup,
 	.teardown			= netc_teardown,
+	.port_enable			= netc_port_enable,
+	.port_disable			= netc_port_disable,
+	.port_stp_state_set		= netc_port_stp_state_set,
 	.phylink_get_caps		= netc_phylink_get_caps,
+	.port_change_mtu		= netc_port_change_mtu,
+	.port_max_mtu			= netc_port_max_mtu,
+	.port_fdb_add			= netc_port_fdb_add,
+	.port_fdb_del			= netc_port_fdb_del,
+	.port_fdb_dump			= netc_port_fdb_dump,
+	.port_mdb_add			= netc_port_mdb_add,
+	.port_mdb_del			= netc_port_mdb_del,
+	.port_vlan_filtering		= netc_port_vlan_filtering,
+	.port_vlan_add			= netc_port_vlan_add,
+	.port_vlan_del			= netc_port_vlan_del,
+	.set_ageing_time		= netc_set_ageing_time,
+	.port_fast_age			= netc_port_fast_age,
+	.port_bridge_join		= netc_port_bridge_join,
+	.port_bridge_leave		= netc_port_bridge_leave,
 };
 
 static int netc_switch_probe(struct pci_dev *pdev, const struct pci_device_id *id)
