@@ -25,6 +25,7 @@
 #define NTMP_RPT_ID			10
 #define NTMP_IPFT_ID			13
 #define NTMP_FDBT_ID			15
+#define NTMP_VFT_ID			18
 #define NTMP_ISIT_ID			30
 #define NTMP_IST_ID			31
 #define NTMP_ISFT_ID			32
@@ -1777,6 +1778,248 @@ end:
 	return err;
 }
 EXPORT_SYMBOL_GPL(ntmp_fdbt_search_port_entry);
+
+/**
+ * ntmp_vft_add_entry - add an entry into the VLAN filter table
+ * @user: target ntmp_user struct
+ * @entry_id: retruned value, the ID of the Vlan filter entry
+ * @vid: VLAN ID
+ * @cfge: configuration elemenet data
+ *
+ * Returns two values: entry_id and error code (0 on success or < 0 on error)
+ */
+int ntmp_vft_add_entry(struct ntmp_user *user, u32 *entry_id,
+		       u16 vid, struct vft_cfge_data *cfge)
+{
+	struct ntmp_dma_buf data = {
+		.dev = user->dev,
+		.size = sizeof(struct vft_resp_query),
+	};
+	struct vft_resp_query *resp;
+	struct vft_req_ua *req;
+	union netc_cbd cbd;
+	u32 len;
+	int err;
+
+	err = ntmp_alloc_data_mem(&data, (void **)&req);
+	if (err)
+		return err;
+
+	/* Request data */
+	ntmp_fill_crd(&req->crd, user->tbl.vft_ver, NTMP_QA_ENTRY_ID,
+		      NTMP_GEN_UA_CFGEU);
+	req->ak.exact.vid = cpu_to_le16(vid);
+	req->cfge = *cfge;
+
+	/* Request header */
+	len = NTMP_LEN(sizeof(*req), data.size);
+	ntmp_fill_request_hdr(&cbd, data.dma, len, NTMP_VFT_ID,
+			      NTMP_CMD_AQ, NTMP_AM_EXACT_KEY);
+
+	err = netc_xmit_ntmp_cmd(user, &cbd);
+	if (err) {
+		dev_err(user->dev,
+			"Failed to add VFT entry, vid: %u, err: %pe\n",
+			vid, ERR_PTR(err));
+		goto end;
+	}
+
+	if (entry_id) {
+		resp = (struct vft_resp_query *)req;
+		*entry_id = le32_to_cpu(resp->entry_id);
+	}
+
+end:
+	ntmp_free_data_mem(&data);
+
+	return err;
+}
+EXPORT_SYMBOL_GPL(ntmp_vft_add_entry);
+
+int ntmp_vft_update_entry(struct ntmp_user *user, u16 vid,
+			  struct vft_cfge_data *cfge)
+{
+	struct ntmp_dma_buf data = {
+		.dev = user->dev,
+		.size = sizeof(struct vft_req_ua),
+	};
+	struct vft_req_ua *req;
+	union netc_cbd cbd;
+	u32 len;
+	int err;
+
+	err = ntmp_alloc_data_mem(&data, (void **)&req);
+	if (err)
+		return err;
+
+	/* Request data */
+	ntmp_fill_crd(&req->crd, user->tbl.vft_ver, 0, NTMP_GEN_UA_CFGEU);
+	req->ak.exact.vid = cpu_to_le16(vid);
+	req->cfge = *cfge;
+
+	/* Request header */
+	len = NTMP_LEN(data.size, NTMP_STATUS_RESP_LEN);
+	ntmp_fill_request_hdr(&cbd, data.dma, len, NTMP_VFT_ID,
+			      NTMP_CMD_UPDATE, NTMP_AM_EXACT_KEY);
+
+	err = netc_xmit_ntmp_cmd(user, &cbd);
+	if (err)
+		dev_err(user->dev,
+			"Failed to update VFT entry, vid: %u, err: %pe\n",
+			vid, ERR_PTR(err));
+
+	ntmp_free_data_mem(&data);
+
+	return err;
+}
+EXPORT_SYMBOL_GPL(ntmp_vft_update_entry);
+
+int ntmp_vft_delete_entry(struct ntmp_user *user, u16 vid)
+{
+	struct ntmp_dma_buf data = {
+		.dev = user->dev,
+		.size = sizeof(struct vft_req_qd),
+	};
+	struct vft_req_qd *req;
+	union netc_cbd cbd;
+	u32 len;
+	int err;
+
+	err = ntmp_alloc_data_mem(&data, (void **)&req);
+	if (err)
+		return err;
+
+	/* Request data */
+	ntmp_fill_crd(&req->crd, user->tbl.vft_ver, 0, 0);
+	req->ak.exact.vid = cpu_to_le16(vid);
+
+	/* Request header */
+	len = NTMP_LEN(data.size, NTMP_STATUS_RESP_LEN);
+	ntmp_fill_request_hdr(&cbd, data.dma, len, NTMP_VFT_ID,
+			      NTMP_CMD_DELETE, NTMP_AM_EXACT_KEY);
+
+	err = netc_xmit_ntmp_cmd(user, &cbd);
+	if (err)
+		dev_err(user->dev,
+			"Failed to delete VFT entry, vid: %u, err: %pe\n",
+			vid, ERR_PTR(err));
+
+	ntmp_free_data_mem(&data);
+
+	return err;
+}
+EXPORT_SYMBOL_GPL(ntmp_vft_delete_entry);
+
+int ntmp_vft_search_entry(struct ntmp_user *user, u32 *resume_eid,
+			  u32 *entry_id, u16 *vid,
+			  struct vft_cfge_data *cfge)
+{
+	struct ntmp_dma_buf data = {
+		.dev = user->dev,
+		.size = sizeof(struct vft_resp_query),
+	};
+	struct vft_resp_query *resp;
+	struct vft_req_qd *req;
+	union netc_cbd cbd;
+	u32 len;
+	int err;
+
+	err = ntmp_alloc_data_mem(&data, (void **)&req);
+	if (err)
+		return err;
+
+	/* Request data */
+	ntmp_fill_crd(&req->crd, user->tbl.vft_ver, 0, 0);
+	req->ak.resume_entry_id = cpu_to_le32(*resume_eid);
+
+	/* Request header */
+	len = NTMP_LEN(sizeof(*req), data.size);
+	ntmp_fill_request_hdr(&cbd, data.dma, len, NTMP_VFT_ID,
+			      NTMP_CMD_QUERY, NTMP_AM_SEARCH);
+
+	err = netc_xmit_ntmp_cmd(user, &cbd);
+	if (err) {
+		dev_err(user->dev, "Failed to search VFT entry, err: %pe\n",
+			ERR_PTR(err));
+		goto end;
+	}
+
+	if (!cbd.resp_hdr.num_matched) {
+		*entry_id = NTMP_NULL_ENTRY_ID;
+		*resume_eid = NTMP_NULL_ENTRY_ID;
+		goto end;
+	}
+
+	resp = (struct vft_resp_query *)req;
+	/* Get the response resume_entry_id to continue search */
+	*resume_eid = le32_to_cpu(resp->status);
+	*entry_id = le32_to_cpu(resp->entry_id);
+	*cfge = resp->cfge;
+	*vid = le16_to_cpu(resp->vid);
+
+end:
+	ntmp_free_data_mem(&data);
+
+	return err;
+}
+EXPORT_SYMBOL_GPL(ntmp_vft_search_entry);
+
+int ntmp_vft_query_entry_by_vid(struct ntmp_user *user, u16 vid,
+				u32 *entry_id, struct vft_cfge_data *cfge)
+{
+	struct ntmp_dma_buf data = {
+		.dev = user->dev,
+		.size = sizeof(struct vft_resp_query),
+	};
+	struct vft_resp_query *resp;
+	struct vft_req_qd *req;
+	union netc_cbd cbd;
+	u32 len;
+	int err;
+
+	err = ntmp_alloc_data_mem(&data, (void **)&req);
+	if (err)
+		return err;
+
+	/* Request data */
+	ntmp_fill_crd(&req->crd, user->tbl.vft_ver, 0, 0);
+	req->ak.exact.vid = cpu_to_le16(vid);
+
+	/* Request header */
+	len = NTMP_LEN(sizeof(*req), data.size);
+	ntmp_fill_request_hdr(&cbd, data.dma, len, NTMP_VFT_ID,
+			      NTMP_CMD_QUERY, NTMP_AM_EXACT_KEY);
+	err = netc_xmit_ntmp_cmd(user, &cbd);
+	if (err) {
+		dev_err(user->dev,
+			"Failed to search VFT entry, vid:%u, err: %pe\n",
+			vid, ERR_PTR(err));
+		goto end;
+	}
+
+	if (!cbd.resp_hdr.num_matched) {
+		*entry_id = NTMP_NULL_ENTRY_ID;
+		goto end;
+	}
+
+	resp = (struct vft_resp_query *)req;
+	if (vid != le16_to_cpu(resp->vid)) {
+		dev_err(user->dev,
+			"IPFT: query VID %u doesn't match response VID %u\n",
+			le16_to_cpu(resp->vid), vid);
+		err = -EINVAL;
+		goto end;
+	}
+
+	*entry_id = le32_to_cpu(resp->entry_id);
+	*cfge = resp->cfge;
+
+end:
+	ntmp_free_data_mem(&data);
+
+	return err;
+}
+EXPORT_SYMBOL_GPL(ntmp_vft_query_entry_by_vid);
 
 MODULE_DESCRIPTION("NXP NETC Library");
 MODULE_LICENSE("Dual BSD/GPL");
