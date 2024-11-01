@@ -387,6 +387,27 @@ struct fdbt_acte_data {
 #define FDBT_ACT_FLAG		BIT(7)
 };
 
+struct vft_cfge_data {
+	__le32 bitmap_stg;
+#define	VFT_PORT_MEMBERSHIP	GENMASK(23, 0)
+#define	VFT_STG_ID_MASK		GENMASK(27, 24)
+#define VFT_STG_ID(g)		FIELD_PREP(VFT_STG_ID_MASK, (g))
+	__le16 fid;
+#define VFT_FID			GENMASK(11, 0)
+	__le16 cfg;
+#define VFT_MLO			GENMASK(2, 0)
+#define VFT_MFO			GENMASK(4, 3)
+#define VFT_IPMFE		BIT(6)
+#define VFT_IPMFLE		BIT(7)
+#define VFT_PGA			BIT(8)
+#define VFT_SFDA		BIT(10)
+#define VFT_OSFDA		BIT(11)
+#define VFT_FDBAFSS		BIT(12)
+	__le32 eta_port_bitmap;
+#define VFT_ETA_PORT_BITMAP	GENMASK(23, 0)
+	__le32 et_eid;
+};
+
 #pragma pack()
 
 struct netc_cbdr_regs {
@@ -412,6 +433,7 @@ struct netc_tbl_vers {
 	u8 rpt_ver;
 	u8 ipft_ver;
 	u8 fdbt_ver;
+	u8 vft_ver;
 	u8 isit_ver;
 	u8 ist_ver;
 	u8 isft_ver;
@@ -597,6 +619,15 @@ int ntmp_fdbt_delete_port_dynamic_entries(struct netc_cbdrs *cbdrs, int port);
 int ntmp_fdbt_search_port_entry(struct netc_cbdrs *cbdrs, int port,
 				u32 *resume_entry_id, u32 *entry_id,
 				struct fdbt_query_data *data);
+int ntmp_vft_add_entry(struct netc_cbdrs *cbdrs, u32 *entry_id,
+		       u16 vid, struct vft_cfge_data *cfge);
+int ntmp_vft_update_entry(struct netc_cbdrs *cbdrs, u16 vid,
+			  struct vft_cfge_data *cfge);
+int ntmp_vft_delete_entry(struct netc_cbdrs *cbdrs, u16 vid);
+int ntmp_vft_search_entry(struct netc_cbdrs *cbdrs, u32 *resume_eid,
+			  u32 *entry_id, u16 *vid, struct vft_cfge_data *cfge);
+int ntmp_vft_query_entry_by_vid(struct netc_cbdrs *cbdrs, u16 vid,
+				u32 *entry_id, struct vft_cfge_data *cfge);
 #else
 static inline u32 ntmp_lookup_free_eid(unsigned long *bitmap, u32 size)
 {
@@ -742,6 +773,37 @@ static inline int ntmp_fdbt_delete_port_dynamic_entries(struct netc_cbdrs *cbdrs
 static inline int ntmp_fdbt_search_port_entry(struct netc_cbdrs *cbdrs, int port,
 					      u32 *resume_entry_id, u32 *entry_id,
 					      struct fdbt_query_data *data)
+{
+	return 0;
+}
+
+static inline int ntmp_vft_add_entry(struct netc_cbdrs *cbdrs, u32 *entry_id,
+				     u16 vid, struct vft_cfge_data *cfge)
+{
+	return 0;
+}
+
+static inline int ntmp_vft_update_entry(struct netc_cbdrs *cbdrs, u16 vid,
+					struct vft_cfge_data *cfge)
+{
+	return 0;
+}
+
+static inline int ntmp_vft_delete_entry(struct netc_cbdrs *cbdrs, u16 vid)
+{
+	return 0;
+}
+
+static inline int ntmp_vft_search_entry(struct netc_cbdrs *cbdrs, u32 *resume_eid,
+					u32 *entry_id, u16 *vid,
+					struct vft_cfge_data *cfge)
+{
+	return 0;
+}
+
+static inline int ntmp_vft_query_entry_by_vid(struct netc_cbdrs *cbdrs, u16 vid,
+					      u32 *entry_id,
+					      struct vft_cfge_data *cfge)
 {
 	return 0;
 }
