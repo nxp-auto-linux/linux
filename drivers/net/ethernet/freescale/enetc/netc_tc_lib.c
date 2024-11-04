@@ -1053,8 +1053,8 @@ clear_sgit_eid_bit:
 }
 EXPORT_SYMBOL_GPL(netc_setup_psfp);
 
-static void netc_free_fower_police_tbl(struct ntmp_priv *priv,
-				       struct netc_police_tbl *police_tbl)
+void netc_free_flower_police_tbl(struct ntmp_priv *priv,
+				 struct netc_police_tbl *police_tbl)
 {
 	struct netc_cbdrs *cbdrs = &priv->cbdrs;
 
@@ -1068,6 +1068,7 @@ static void netc_free_fower_police_tbl(struct ntmp_priv *priv,
 		kfree(police_tbl);
 	}
 }
+EXPORT_SYMBOL_GPL(netc_free_flower_police_tbl);
 
 void netc_delete_psfp_flower_rule(struct ntmp_priv *priv,
 				  struct netc_flower_rule *rule)
@@ -1105,7 +1106,7 @@ void netc_delete_psfp_flower_rule(struct ntmp_priv *priv,
 		kfree(gate_tbl);
 	}
 
-	netc_free_fower_police_tbl(priv, rule->police_tbl);
+	netc_free_flower_police_tbl(priv, rule->police_tbl);
 
 	hlist_del(&rule->node);
 	kfree(rule);

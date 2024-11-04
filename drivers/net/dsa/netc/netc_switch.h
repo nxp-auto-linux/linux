@@ -63,6 +63,9 @@
 
 #define NETC_MM_VERIFY_RETRIES		3
 
+/* Software defined host reason */
+#define NETC_HR_TRAP			0x8
+
 struct netc_switch_info {
 	u32 cpu_port_num;
 	u32 usr_port_num;
