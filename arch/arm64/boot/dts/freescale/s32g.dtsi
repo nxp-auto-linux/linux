@@ -473,7 +473,6 @@
 
 			#address-cells = <2>;
 			#size-cells = <2>;
-			#interrupt-cells = <3>;
 
 			llce_mb: llce_mb@43a00000 {
 				compatible = "nxp,s32g-llce-mailbox";
