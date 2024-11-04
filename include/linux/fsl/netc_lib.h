@@ -17,6 +17,8 @@
 
 enum netc_flower_type {
 	FLOWER_TYPE_PSFP,
+	FLOWER_TYPE_TRAP,
+	FLOWER_TYPE_REDIRECT,
 };
 
 enum netc_key_tbl_type {
@@ -94,6 +96,8 @@ void netc_init_ist_entry_eids(struct ntmp_priv *priv,
 			      struct ntmp_ist_entry *ist_entry);
 void netc_free_flower_key_tbl(struct ntmp_priv *priv,
 			      struct netc_flower_key_tbl *key_tbl);
+void netc_free_flower_police_tbl(struct ntmp_priv *priv,
+				 struct netc_police_tbl *police_tbl);
 int netc_police_entry_validate(struct ntmp_priv *priv,
 			       const struct flow_action *action,
 			       const struct flow_action_entry *police_entry,
@@ -139,6 +143,11 @@ static inline void netc_init_ist_entry_eids(struct ntmp_priv *priv,
 
 static inline void netc_free_flower_key_tbl(struct ntmp_priv *priv,
 					    struct netc_flower_key_tbl *key_tbl)
+{
+}
+
+static inline void netc_free_flower_police_tbl(struct ntmp_priv *priv,
+					       struct netc_police_tbl *police_tbl)
 {
 }
 
