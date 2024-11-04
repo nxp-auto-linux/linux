@@ -762,6 +762,9 @@ static void netc_port_fixed_config(struct netc_port *port)
 	val |= PISIDCR_KC0EN | PISIDCR_KC1EN;
 	netc_port_wr(port, NETC_PISIDCR, val);
 
+	/* Enable ingress port filter table lookup */
+	netc_port_wr(port, NETC_PIPFCR, PIPFCR_EN);
+
 	/* Set the quanta value of TX PAUSE frame */
 	netc_mac_port_wr(port, NETC_PM_PAUSE_QUANTA(0), pqnt);
 
