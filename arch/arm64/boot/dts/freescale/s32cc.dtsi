@@ -197,7 +197,6 @@
 
 		rtc0: rtc@40060000 {
 			compatible = "nxp,s32cc-rtc";
-			#interrupt-cells = <3>;
 			reg = <0x0 0x40060000 0x0 0x1000>;
 			interrupts = <GIC_SPI 121 IRQ_TYPE_LEVEL_HIGH>;	// RTC irq - GIC 153
 			clocks = <&clks S32CC_SCMI_CLK_RTC_REG>,
