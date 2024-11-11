@@ -921,6 +921,39 @@ static int carvnet_rproc_parse_resmem(struct rproc *rproc)
 	return  0;
 }
 
+static void carvnet_rproc_fault_irq_msg(struct device *dev, u32 irq_mask)
+{
+	if (irq_mask & CARV_INT_F_BUS_BIT)
+		dev_err(dev, "Fault: Parity error detected on internal CAR-V bus\n");
+
+	if (irq_mask & CARV_INT_F_L2_BIT)
+		dev_err(dev, "Fault: Uncorrectable L2 cache error\n");
+
+	if (irq_mask & CARV_INT_F_L1_BIT)
+		dev_err(dev, "Fault: Uncorrectable L1D and/or L1I error\n");
+
+	if (irq_mask & CARV_INT_F_CORE_BIT)
+		dev_err(dev, "Fault: CAR-V Core related exceptions of type\n");
+
+	if (irq_mask & CARV_INT_F_AHB_BIT)
+		dev_err(dev, "Fault: AHB access response error\n");
+
+	if (irq_mask & CARV_INT_F_PART_BIT)
+		dev_err(dev, "Fault: Illegal isolated partition configuration\n");
+
+	if (irq_mask & CARV_INT_F_AXIRP_BIT)
+		dev_err(dev, "Fault: Parity error on AXI RDATA attribute\n");
+
+	if (irq_mask & CARV_INT_F_AXIWE_BIT)
+		dev_err(dev, "Fault: Response error on AXI BRESP attribute\n");
+
+	if (irq_mask & CARV_INT_F_AXIRE_BIT)
+		dev_err(dev, "Fault: Read error on AXI RRESP attribute\n");
+
+	if (irq_mask & CARV_INT_F_MAP_BIT)
+		dev_err(dev, "Fault: No external memory address mapping available\n");
+}
+
 static void carvnet_rproc_vq_work(struct work_struct *work)
 {
 	struct carvnet *priv = container_of(work, struct carvnet,
@@ -951,6 +984,12 @@ static irqreturn_t carvnet_rproc_handle_irq(int irq_num, void *d)
 
 	if (GET_CARV_INT_UPDATE(irq_mask))
 		schedule_work(&priv->rproc_work);
+
+	if (GET_CARV_INT_ACTIVATED(irq_mask))
+		dev_info(priv->dev, "Activated\n");
+
+	if (FAULT_ENABLE_MASK & irq_mask)
+		carvnet_rproc_fault_irq_msg(priv->dev, irq_mask);
 
 	return IRQ_HANDLED;
 }
