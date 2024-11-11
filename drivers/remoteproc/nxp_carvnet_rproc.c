@@ -90,7 +90,7 @@ MODULE_PARM_DESC(auto_boot,
 #define CARV_GL_UPR_PRI3(v)	(((v) & 0x3) << 6)
 
 /* User set array (set by GL_UCR) */
-#define CARV_Q_USER_OFFSET(u)	((u) * 0x10000)				/* u: 0..3 */
+#define CARV_Q_USER_OFFSET(u)	((u & 3) * 0x10000)			/* u: 0..3 */
 #define CARV_Q_BASE(u)		(0x10000 + CARV_Q_USER_OFFSET(u))
 
 /* Quartile Mailbox */
@@ -98,33 +98,33 @@ MODULE_PARM_DESC(auto_boot,
 #define CARV_Q_MB_IR(u)		(CARV_Q_BASE(u) + 0x4)
 #define CARV_Q_MB_IER(u)	(CARV_Q_BASE(u) + 0x8)
 #define CARV_Q_MB_FER(u)	(CARV_Q_BASE(u) + 0xC)
-#define CARV_Q_MB_INFO_CR(u, n)	(CARV_Q_BASE(u) + 0x10 + ((n) * 0x4))	/* n: 0..2 */
+#define CARV_Q_MB_INFO_CR(u, n)	(CARV_Q_BASE(u) + 0x10 + ((n & 3) * 0x4))	/* n: 0..2 */
 #define CARV_Q_MB_MIR(u)	(CARV_Q_BASE(u) + 0x20)
 #define CARV_Q_MBOX_IFMSK(u)	(CARV_Q_BASE(u) + 0x40)
 
 #define CARV_Q_MB_CR_INFO_MASK		GENMASK(31, 16)
-#define CARV_Q_MB_CR_INFO(v)		(((v) << 16) & CARV_Q_MB_CR_INFO_MASK)
+#define CARV_Q_MB_CR_INFO(v)		(((v & 0xffff) << 16) & CARV_Q_MB_CR_INFO_MASK)
 #define GET_CARV_Q_MB_CR_INFO(v)	(((v) & CARV_Q_MB_CR_INFO_MASK) >> 16)
 #define CARV_Q_MB_CR_ERRORS_MASK	GENMASK(15, 12)
-#define CARV_Q_MB_CR_ERRORS(v)		(((v) << 12) & CARV_Q_MB_CR_ERRORS_MASK)
+#define CARV_Q_MB_CR_ERRORS(v)		(((v & 15) << 12) & CARV_Q_MB_CR_ERRORS_MASK)
 #define GET_CARV_Q_MB_CR_ERRORS(v)	(((v) & CARV_Q_MB_CR_ERRORS_MASK) >> 12)
 #define CARV_Q_MB_CR_RSTCHG_MASK	BIT(9)
-#define CARV_Q_MB_CR_RSTCHG(v)		(((v) << 9) & CARV_Q_MB_CR_RSTCHG_MASK)
+#define CARV_Q_MB_CR_RSTCHG(v)		(((v & 1) << 9) & CARV_Q_MB_CR_RSTCHG_MASK)
 #define GET_CARV_Q_MB_CR_RSTCHG(v)	(((v) & CARV_Q_MB_CR_RSTCHG_MASK) >> 9)
 #define CARV_Q_MB_CR_RSTSTART_MASK	BIT(8)
-#define CARV_Q_MB_CR_RSTSTART(v)	(((v) << 8) & CARV_Q_MB_CR_RSTSTART_MASK)
+#define CARV_Q_MB_CR_RSTSTART(v)	(((v & 1) << 8) & CARV_Q_MB_CR_RSTSTART_MASK)
 #define GET_CARV_Q_MB_CR_RSTSTART(v)	(((v) & CARV_Q_MB_CR_RSTSTART_MASK) >> 8)
 #define CARV_Q_MB_CR_UPDATE_MASK	BIT(4)
-#define CARV_Q_MB_CR_UPDATE(v)		(((v) << 4) & CARV_Q_MB_CR_UPDATE_MASK)
+#define CARV_Q_MB_CR_UPDATE(v)		(((v & 1) << 4) & CARV_Q_MB_CR_UPDATE_MASK)
 #define GET_CARV_Q_MB_CR_UPDATE(v)	(((v) & CARV_Q_MB_CR_UPDATE_MASK) >> 4)
 #define CARV_Q_MB_CR_FAULT_MASK		BIT(3)
-#define CARV_Q_MB_CR_FAULT(v)		(((v) << 3) & CARV_Q_MB_CR_FAULT_MASK)
+#define CARV_Q_MB_CR_FAULT(v)		(((v & 1) << 3) & CARV_Q_MB_CR_FAULT_MASK)
 #define GET_CARV_Q_MB_CR_FAULT(v)	(((v) & CARV_Q_MB_CR_FAULT_MASK) >> 3)
 #define CARV_Q_MB_CR_ERR_MASK		BIT(2)
-#define CARV_Q_MB_CR_ERR(v)		(((v) << 2) & CARV_Q_MB_CR_ERR_MASK)
+#define CARV_Q_MB_CR_ERR(v)		(((v & 1) << 2) & CARV_Q_MB_CR_ERR_MASK)
 #define GET_CARV_Q_MB_CR_ERR(v)		(((v) & CARV_Q_MB_CR_ERR_MASK) >> 2)
 #define CARV_Q_MB_CR_DONE_MASK		BIT(1)
-#define CARV_Q_MB_CR_DONE(v)		(((v) << 1) & CARV_Q_MB_CR_DONE_MASK)
+#define CARV_Q_MB_CR_DONE(v)		(((v & 1) << 1) & CARV_Q_MB_CR_DONE_MASK)
 #define GET_CARV_Q_MB_CR_DONE(v)	(((v) & CARV_Q_MB_CR_DONE_MASK) >> 1)
 #define CARV_Q_MB_CR_ENA_MASK		BIT(0)
 #define CARV_Q_MB_CR_ENA(v)		((v) & CARV_Q_MB_CR_ENA_MASK)
@@ -133,11 +133,11 @@ MODULE_PARM_DESC(auto_boot,
 /* Quartile Address Translation */
 #define CARV_AT_SIMPLE_REGIONS	8
 #define CARV_AT_PRIO_REGIONS	4
-#define CARV_Q_AT_BARL(u, n)	(CARV_Q_BASE(u) + 0x50 + ((n) * 0x8))	/* n: 0..3 */
-#define CARV_Q_AT_BARH(u, n)	(CARV_Q_BASE(u) + 0x54 + ((n) * 0x8))	/* n: 0..3 */
-#define CARV_Q_AT_SRR(u, n)	(CARV_Q_BASE(u) + 0x110 + ((n) * 0x4))	/* n: 0..7 */
-#define CARV_Q_AT_RCR(u, n)	(CARV_Q_BASE(u) + 0x150 + ((n) * 0x10))	/* n: 0..3 */
-#define CARV_Q_AT_RMR(u, n)	(CARV_Q_BASE(u) + 0x154 + ((n) * 0x10))	/* n: 0..3 */
+#define CARV_Q_AT_BARL(u, n)	(CARV_Q_BASE(u) + 0x50 + ((n & 3) * 0x8))	/* n: 0..3 */
+#define CARV_Q_AT_BARH(u, n)	(CARV_Q_BASE(u) + 0x54 + ((n & 3) * 0x8))	/* n: 0..3 */
+#define CARV_Q_AT_SRR(u, n)	(CARV_Q_BASE(u) + 0x110 + ((n & 7) * 0x4))	/* n: 0..7 */
+#define CARV_Q_AT_RCR(u, n)	(CARV_Q_BASE(u) + 0x150 + ((n & 3) * 0x10))	/* n: 0..3 */
+#define CARV_Q_AT_RMR(u, n)	(CARV_Q_BASE(u) + 0x154 + ((n & 3) * 0x10))	/* n: 0..3 */
 
 #define CARV_Q_AT_BARL_MEMTYPE_NCOH	(0x0)
 #define CARV_Q_AT_BARL_MEMTYPE_COH	(0x1)
@@ -151,58 +151,52 @@ MODULE_PARM_DESC(auto_boot,
 #define GET_CARV_Q_AT_BAR_ADDR(h, l)	(GET_CARV_Q_AT_BARH_ADDR(h) | \
 					 GET_CARV_Q_AT_BARL_ADDR(l))
 
-#define CARV_Q_AT_SRR_OFFS_MASK		GENMASK(25, 20)
-#define CARV_Q_AT_SRR_OFFS(v)		(((v) << 20) & CARV_Q_AT_SRR_OFFS_MASK)
-#define GET_CARV_Q_AT_SRR_OFFS(v)	(((v) & CARV_Q_AT_SRR_OFFS_MASK) >> 20)
-#define CARV_Q_AT_SRR_OFFL_MASK		GENMASK(19, 16)
-#define CARV_Q_AT_SRR_OFFL(v)		(((v) << 16) & CARV_Q_AT_SRR_OFFL_MASK)
-#define GET_CARV_Q_AT_SRR_OFFL(v)	(((v) & CARV_Q_AT_SRR_OFFL_MASK) >> 16)
+#define CARV_Q_AT_SRR_OFF_MASK		GENMASK(31, 14)
+#define CARV_Q_AT_SRR_OFF(v)		(((v & GENMASK(17, 0)) << 14) & CARV_Q_AT_SRR_OFF_MASK)
+#define GET_CARV_Q_AT_SRR_OFF(v)	(((v) & CARV_Q_AT_SRR_OFF_MASK) >> 14)
 #define CARV_Q_AT_SRR_MEM_MASK		GENMASK(10, 9)
-#define CARV_Q_AT_SRR_MEM(v)		(((v) << 9) & CARV_Q_AT_SRR_MEM_MASK)
+#define CARV_Q_AT_SRR_MEM(v)		(((v & 3) << 9) & CARV_Q_AT_SRR_MEM_MASK)
 #define GET_CARV_Q_AT_SRR_MEM(v)	(((v) & CARV_Q_AT_SRR_MEM_MASK) >> 9)
 #define CARV_Q_AT_SRR_LOCP_MASK		BIT(8)
-#define CARV_Q_AT_SRR_LOCP(v)		(((v) << 8) & CARV_Q_AT_SRR_LOCP_MASK)
+#define CARV_Q_AT_SRR_LOCP(v)		(((v & 1) << 8) & CARV_Q_AT_SRR_LOCP_MASK)
 #define GET_CARV_Q_AT_SRR_LOCP(v)	(((v) & CARV_Q_AT_SRR_LOCP_MASK) >> 8)
 #define CARV_Q_AT_SRR_SIZE_MASK		GENMASK(7, 4)
-#define CARV_Q_AT_SRR_SIZE(v)		(((v) << 4) & CARV_Q_AT_SRR_SIZE_MASK)
+#define CARV_Q_AT_SRR_SIZE(v)		(((v & 15) << 4) & CARV_Q_AT_SRR_SIZE_MASK)
 #define GET_CARV_Q_AT_SRR_SIZE(v)	(((v) & CARV_Q_AT_SRR_SIZE_MASK) >> 4)
 #define CARV_Q_AT_SRR_TYPE_MASK		GENMASK(3, 2)
-#define CARV_Q_AT_SRR_TYPE(v)		(((v) << 2) & CARV_Q_AT_SRR_TYPE_MASK)
+#define CARV_Q_AT_SRR_TYPE(v)		(((v & 3) << 2) & CARV_Q_AT_SRR_TYPE_MASK)
 #define GET_CARV_Q_AT_SRR_TYPE(v)	(((v) & CARV_Q_AT_SRR_TYPE_MASK) >> 2)
 #define CARV_Q_AT_SRR_SUB_MASK		BIT(1)
-#define CARV_Q_AT_SRR_SUB(v)		(((v) << 1) & CARV_Q_AT_SRR_SUB_MASK)
+#define CARV_Q_AT_SRR_SUB(v)		(((v & 1) << 1) & CARV_Q_AT_SRR_SUB_MASK)
 #define GET_CARV_Q_AT_SRR_SUB(v)	(((v) & CARV_Q_AT_SRR_SUB_MASK) >> 1)
 #define CARV_Q_AT_SRR_ENA_MASK		BIT(0)
 #define CARV_Q_AT_SRR_ENA(v)		((v) & CARV_Q_AT_SRR_ENA_MASK)
 #define GET_CARV_Q_AT_SRR_ENA(v)	((v) & CARV_Q_AT_SRR_ENA_MASK)
 
-#define CARV_Q_AT_RCR_OFFS_MASK		GENMASK(25, 20)
-#define CARV_Q_AT_RCR_OFFS(v)		(((v) << 20) & CARV_Q_AT_RCR_OFFS_MASK)
-#define GET_CARV_Q_AT_RCR_OFFS(v)	(((v) & CARV_Q_AT_RCR_OFFS_MASK) >> 20)
-#define CARV_Q_AT_RCR_OFFL_MASK		GENMASK(19, 16)
-#define CARV_Q_AT_RCR_OFFL(v)		(((v) << 16) & CARV_Q_AT_RCR_OFFL_MASK)
-#define GET_CARV_Q_AT_RCR_OFFL(v)	(((v) & CARV_Q_AT_RCR_OFFL_MASK) >> 16)
+#define CARV_Q_AT_RCR_OFF_MASK		GENMASK(31, 12)
+#define CARV_Q_AT_RCR_OFF(v)		(((v & GENMASK(19, 0)) << 12) & CARV_Q_AT_RCR_OFF_MASK)
+#define GET_CARV_Q_AT_RCR_OFF(v)	(((v) & CARV_Q_AT_RCR_OFF_MASK) >> 12)
 #define CARV_Q_AT_RCR_SIZE_MASK		GENMASK(11, 8)
-#define CARV_Q_AT_RCR_SIZE(v)		(((v) << 8) & CARV_Q_AT_RCR_SIZE_MASK)
+#define CARV_Q_AT_RCR_SIZE(v)		(((v & 15) << 8) & CARV_Q_AT_RCR_SIZE_MASK)
 #define GET_CARV_Q_AT_RCR_SIZE(v)	(((v) & CARV_Q_AT_RCR_SIZE_MASK) >> 8)
 #define CARV_Q_AT_RCR_MEM_MASK		GENMASK(2, 1)
-#define CARV_Q_AT_RCR_MEM(v)		(((v) << 1) & CARV_Q_AT_RCR_MEM_MASK)
+#define CARV_Q_AT_RCR_MEM(v)		(((v & 3) << 1) & CARV_Q_AT_RCR_MEM_MASK)
 #define GET_CARV_Q_AT_RCR_MEM(v)	(((v) & CARV_Q_AT_RCR_MEM_MASK) >> 1)
 #define CARV_Q_AT_RCR_ENA_MASK		BIT(0)
 #define CARV_Q_AT_RCR_ENA(v)		((v) & CARV_Q_AT_RCR_ENA_MASK)
 #define GET_CARV_Q_AT_RCR_ENA(v)	((v) & CARV_Q_AT_RCR_ENA_MASK)
 
 #define CARV_Q_AT_RMR_MATCH_MASK	GENMASK(31, 12)
-#define CARV_Q_AT_RMR_MATCH(v)		(((v) << 12) & CARV_Q_AT_RMR_MATCH_MASK)
+#define CARV_Q_AT_RMR_MATCH(v)		(((v & GENMASK(19, 0)) << 12) & CARV_Q_AT_RMR_MATCH_MASK)
 #define GET_CARV_Q_AT_RMR_MATCH(v)	(((v) & CARV_Q_AT_RMR_MATCH_MASK) >> 12)
 
 #define AT_OFFS_MAX			0x3F
 #define AT_OFFL_MAX			0x0B
 
 /* Quartile System Interface */
-#define CARV_Q_SI_PMCR(u, n)	(CARV_Q_BASE(u) + 0x190 + ((n) * 0x10))   /* n: 0..3 */
-#define CARV_Q_SI_PML(u, n)	(CARV_Q_BASE(u) + 0x194 + ((n) * 0x10))   /* n: 0..3 */
-#define CARV_Q_SI_PMH(u, n)	(CARV_Q_BASE(u) + 0x198 + ((n) * 0x10))   /* n: 0..3 */
+#define CARV_Q_SI_PMCR(u, n)	(CARV_Q_BASE(u) + 0x190 + ((n & 3) * 0x10))   /* n: 0..3 */
+#define CARV_Q_SI_PML(u, n)	(CARV_Q_BASE(u) + 0x194 + ((n & 3) * 0x10))   /* n: 0..3 */
+#define CARV_Q_SI_PMH(u, n)	(CARV_Q_BASE(u) + 0x198 + ((n & 3) * 0x10))   /* n: 0..3 */
 
 /* Interrupt sources */
 #define	CARV_INT_F_BUS_BIT		BIT(19)	/* Parity error detected on internal CAR-V bus */
@@ -390,7 +384,7 @@ static int q_get_bars(struct carvnet *priv)
 }
 
 static int find_closest_bar(struct carvnet *priv, struct rproc_mem_entry *m,
-			    ulong *offs)
+			    u32 *offs)
 {
 	int i, res = -1;
 	s64 m_offs = S64_MAX;
@@ -414,8 +408,15 @@ static int find_closest_bar(struct carvnet *priv, struct rproc_mem_entry *m,
 		}
 	}
 
-	if (res >= 0)
-		*offs = m_offs;
+	if (res >= 0) {
+		if (m_offs >= (s64)SZ_4G) {
+			dev_err(priv->dev,
+				"Mapping %d (%s) offset is bigger than SZ_4G: 0x%llx",
+				i, m->name, m_offs);
+			return -EINVAL;
+		}
+		*offs = (u32)m_offs;
+	}
 
 	return res;
 }
@@ -423,9 +424,8 @@ static int find_closest_bar(struct carvnet *priv, struct rproc_mem_entry *m,
 static int q_set_simple_region(struct carvnet *priv, struct rproc_mem_entry *m,
 			       int i)
 {
-	ulong m_offs;
+	u32 r_size, r_off, r_mem, r_locp, r_type, r_sub, r_value;
 	ulong m_size = roundup_pow_of_two(m->len);
-	u32 r_size, r_offs, r_offl, r_mem, r_locp, r_type, r_sub;
 	int bar;
 
 	/*
@@ -441,39 +441,24 @@ static int q_set_simple_region(struct carvnet *priv, struct rproc_mem_entry *m,
 	 * ---
 	 */
 
-	bar = find_closest_bar(priv, m, &m_offs);
+	bar = find_closest_bar(priv, m, &r_off);
 	if (bar < 0)
 		return -EINVAL;
 
 	if (m_size < SZ_16K) {
 		m_size = SZ_16K;
 		r_size = 0;
-		r_offl = 0;
 	} else {
 		r_size = fls(m_size / SZ_16K) - 1;
 	}
-	r_offs = m_offs / SZ_16K;
-	if (r_offs > AT_OFFS_MAX) {
-		/* Small offset not fit, use large one */
 
-		if (!IS_ALIGNED(m_offs, SZ_1M)) {
-			dev_err(priv->dev,
-				"Mapping %d offset is not aligned: 0x%lx",
-				i, m_offs);
-			return -EINVAL;
-		}
-
-		r_offl = fls(m_offs / SZ_1M);
-		if (r_offl > AT_OFFL_MAX) {
-			dev_err(priv->dev,
-				"Mapping %d offset is too big: 0x%lx",
-				i, m_offs);
-			return -E2BIG;
-		}
-
-		r_offs = 0;
+	if (!IS_ALIGNED(r_off, SZ_16K)) {
+		dev_err(priv->dev,
+			"Mapping %d offset is not aligned to SZ_16K: 0x%x",
+			i, r_off);
+		return -EINVAL;
 	}
-
+	r_off = r_off / SZ_16K;
 	r_mem = bar;
 	if (m->da == CARV_MEMTYPE_LOCAL_PRIVATE_DTCM) {
 		r_locp = 1;
@@ -484,20 +469,19 @@ static int q_set_simple_region(struct carvnet *priv, struct rproc_mem_entry *m,
 	}
 	r_sub = CARV_ADDR_GET_MEMSUBTYPE(m->da);
 
-	writel(CARV_Q_AT_SRR_OFFS(r_offs) |
-	       CARV_Q_AT_SRR_OFFL(r_offl) |
-	       CARV_Q_AT_SRR_MEM(r_mem) |
-	       CARV_Q_AT_SRR_LOCP(r_locp) |
-	       CARV_Q_AT_SRR_SIZE(r_size) |
-	       CARV_Q_AT_SRR_TYPE(r_type) |
-	       CARV_Q_AT_SRR_SUB(r_sub) |
-	       CARV_Q_AT_SRR_ENA(1),
-	       priv->regs + CARV_Q_AT_SRR(priv->q_user, i));
+	r_value = CARV_Q_AT_SRR_OFF(r_off) |
+		CARV_Q_AT_SRR_MEM(r_mem) |
+		CARV_Q_AT_SRR_LOCP(r_locp) |
+		CARV_Q_AT_SRR_SIZE(r_size) |
+		CARV_Q_AT_SRR_TYPE(r_type) |
+		CARV_Q_AT_SRR_SUB(r_sub) |
+		CARV_Q_AT_SRR_ENA(1U);
+	writel(r_value, priv->regs + CARV_Q_AT_SRR(priv->q_user, i));
 
 	dev_dbg(priv->dev,
-		"SRR=0x%x OFFS=0x%x OFFL=0x%x MEM=0x%x LOCP=%d SIZE=0x%x TYPE=0x%x SUB=%d ENA=1\n",
-		readl(priv->regs + CARV_Q_AT_SRR(priv->q_user, i)), r_offs,
-		r_offl, r_mem, r_locp, r_size, r_type, r_sub);
+		"SRR=0x%x OFF=0x%x MEM=0x%x LOCP=%d SIZE=0x%x TYPE=0x%x SUB=%d ENA=1\n",
+		readl(priv->regs + CARV_Q_AT_SRR(priv->q_user, i)), r_off,
+		r_mem, r_locp, r_size, r_type, r_sub);
 
 	return 0;
 };
@@ -505,51 +489,36 @@ static int q_set_simple_region(struct carvnet *priv, struct rproc_mem_entry *m,
 static int q_set_prio_region(struct carvnet *priv, struct rproc_mem_entry *m,
 			     int i)
 {
-	ulong m_offs;
+	u32 r_size, r_off, r_mem, r_match, r_value;
 	ulong m_size = roundup_pow_of_two(m->len);
-	u32 r_size, r_offs, r_offl, r_mem, r_match;
 	int bar;
 
-	bar = find_closest_bar(priv, m, &m_offs);
+	bar = find_closest_bar(priv, m, &r_off);
 	if (bar < 0)
 		return -EINVAL;
 
 	if (m_size < SZ_4K) {
 		m_size = SZ_4K;
 		r_size = 0;
-		r_offl = 0;
 	} else {
 		r_size = fls(m_size / SZ_4K) - 1;
 	}
-	r_offs = m_offs / SZ_16K;
-	if (r_offs > AT_OFFS_MAX) {
-		/* Small offset not fit, use large one */
 
-		if (!IS_ALIGNED(m_offs, SZ_1M)) {
-			dev_err(priv->dev,
-				"Mapping %d offset is not aligned: 0x%lx",
-				i, m_offs);
-			return -EINVAL;
-		}
-
-		r_offl = fls(m_offs / SZ_1M);
-		if (r_offl > AT_OFFL_MAX) {
-			dev_err(priv->dev,
-				"Mapping %d offset is too big: 0x%lx",
-				i, m_offs);
-			return -E2BIG;
-		}
-
-		r_offs = 0;
+	if (!IS_ALIGNED(r_off, SZ_4K)) {
+		dev_err(priv->dev,
+			"Mapping %d offset is not aligned to SZ_4K: 0x%x",
+			i, r_off);
+		return -EINVAL;
 	}
+
+	r_off = r_off / SZ_4K;
 	r_mem = bar;
 
-	writel(CARV_Q_AT_RCR_OFFS(r_offs) |
-	       CARV_Q_AT_RCR_OFFL(r_offl) |
-	       CARV_Q_AT_RCR_SIZE(r_size) |
-	       CARV_Q_AT_RCR_MEM(r_mem) |
-	       CARV_Q_AT_RCR_ENA(1),
-	       priv->regs + CARV_Q_AT_RCR(priv->q_user, i));
+	r_value = CARV_Q_AT_RCR_OFF(r_off) |
+		CARV_Q_AT_RCR_SIZE(r_size) |
+		CARV_Q_AT_RCR_MEM(r_mem) |
+		CARV_Q_AT_RCR_ENA(1U);
+	writel(r_value, priv->regs + CARV_Q_AT_RCR(priv->q_user, i));
 
 	r_match = GET_CARV_Q_AT_RMR_MATCH(m->da);
 
@@ -557,9 +526,9 @@ static int q_set_prio_region(struct carvnet *priv, struct rproc_mem_entry *m,
 	       priv->regs + CARV_Q_AT_RMR(priv->q_user, i));
 
 	dev_dbg(priv->dev,
-		"RCR=0x%x OFFS=0x%x OFFL=0x%x SIZE=0x%x MEM=0x%x ENA=1\n",
-		readl(priv->regs + CARV_Q_AT_RCR(priv->q_user, i)), r_offs,
-		r_offl, r_size, r_mem);
+		"RCR=0x%x OFF=0x%x SIZE=0x%x MEM=0x%x ENA=1\n",
+		readl(priv->regs + CARV_Q_AT_RCR(priv->q_user, i)), r_off,
+		r_size, r_mem);
 	dev_dbg(priv->dev,
 		"RMR=0x%x MATCH=0x%x\n",
 		readl(priv->regs + CARV_Q_AT_RMR(priv->q_user, i)), r_match);
