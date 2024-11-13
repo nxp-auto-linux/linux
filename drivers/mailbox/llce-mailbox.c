@@ -745,7 +745,7 @@ static u32 build_word0(bool rtr, bool ide, u32 std_id,
 	return word0;
 }
 
-static int send_can_msg(struct mbox_chan *chan, struct llce_tx_msg *msg)
+static int send_can_msg(struct mbox_chan *chan, struct sk_buff *skb)
 {
 	struct llce_chan_priv *priv = chan->con_priv;
 	struct llce_mb *mb = priv->mb;
@@ -755,7 +755,8 @@ static int send_can_msg(struct mbox_chan *chan, struct llce_tx_msg *msg)
 	void __iomem *push0 = LLCE_FIFO_PUSH0(blrin);
 	struct llce_can_shared_memory __iomem *sh_cmd = mb->can_sh_mem;
 	unsigned int ack_interface, chan_idx = priv->index;
-	struct canfd_frame *cf = msg->cf;
+	struct canfd_frame *cf = (struct canfd_frame *)skb->data;
+	bool fd_msg = can_is_canfd_skb(skb);
 	u32 mb_index;
 	u16 frame_index;
 	u32 word0, std_id, ext_id;
@@ -816,7 +817,7 @@ static int send_can_msg(struct mbox_chan *chan, struct llce_tx_msg *msg)
 	dlc = can_fd_len2dlc(cf->len);
 
 	mb_config = dlc;
-	if (msg->fd_msg) {
+	if (fd_msg) {
 		/* Configure the tx mb as a CAN FD frame. */
 		mb_config |= LLCE_CAN_MB_FDF;
 
