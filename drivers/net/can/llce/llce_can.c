@@ -592,31 +592,26 @@ static void llce_tx_notif_callback(struct mbox_client *cl, void *msg)
 static netdev_tx_t llce_can_start_xmit(struct sk_buff *skb,
 				       struct net_device *dev)
 {
-	int ret;
 	struct llce_can *llce = netdev_priv(dev);
 	struct llce_can_dev *llce_dev = &llce->common;
 	struct can_priv *can = &llce_dev->can;
-	struct canfd_frame *cf = (struct canfd_frame *)skb->data;
-	struct llce_tx_msg msg = {
-		.fd_msg = can_is_canfd_skb(skb),
-		.long_msg = is_canfd_dev(can),
-		.cf = cf,
-	};
+	int ret;
 
 	if (can_dropped_invalid_skb(dev, skb))
 		return NETDEV_TX_OK;
 
 	netif_stop_queue(dev);
+
 	/* Put the skb on can loopback stack */
 	can_put_echo_skb(skb, dev, 0, 0);
 
-	ret = mbox_send_message(llce->tx, &msg);
+	/* Send the echo skb since it's available until the tx notification callback */
+	ret = mbox_send_message(llce->tx, can->echo_skb[0]);
 	if (ret < 0) {
 		can_free_echo_skb(dev, 0, NULL);
 		netdev_err(dev, "Failed to send CAN frame\n");
 		return NETDEV_TX_BUSY;
 	}
-
 
 	return NETDEV_TX_OK;
 }
