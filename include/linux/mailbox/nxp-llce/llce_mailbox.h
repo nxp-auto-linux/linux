@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0+ */
-/* Copyright 2020-2023 NXP */
+/* Copyright 2020-2024 NXP */
 #ifndef LLCE_MAILBOX_H
 #define LLCE_MAILBOX_H
 
@@ -33,12 +33,6 @@ struct llce_chan_priv {
 	/* LLCE channel lock. */
 	spinlock_t lock;
 	void *data;
-};
-
-struct llce_tx_msg {
-	bool fd_msg;
-	bool long_msg;
-	struct canfd_frame *cf;
 };
 
 struct llce_tx_notif {
