@@ -4,7 +4,7 @@
  *
  * This file contains the hw_random framework support for HSE hardware TRNG.
  *
- * Copyright 2019-2022 NXP
+ * Copyright 2019-2022,2024 NXP
  */
 
 #include <linux/kernel.h>
@@ -26,7 +26,7 @@
  * @srv_desc: service descriptor used for cache refill
  * @cache_idx: current index in internal cache
  * @cache_dma: DMA address of internal cache
- * @req_lock: mutex used for cache refill operations
+ * @req_sem: semaphore used for cache refill operations
  */
 struct hse_rng_ctx {
 	u8 cache[HSE_RNG_CACHE_MAX];
@@ -34,7 +34,7 @@ struct hse_rng_ctx {
 	struct hse_srv_desc srv_desc;
 	size_t cache_idx;
 	dma_addr_t cache_dma;
-	struct mutex req_lock; /* cache request mutex */
+	struct semaphore req_sem; /* cache request semaphore */
 };
 
 /**
@@ -49,7 +49,7 @@ static void hse_rng_done(int err, void *_ctx)
 	if (likely(!err))
 		ctx->cache_idx += ctx->srv_desc.rng_req.random_num_len;
 
-	mutex_unlock(&ctx->req_lock);
+	up(&ctx->req_sem);
 
 	if (unlikely(err))
 		dev_dbg(ctx->dev, "%s: request failed: %d\n", __func__, err);
@@ -67,7 +67,7 @@ static void hse_rng_refill_cache(struct hwrng *rng)
 	if (ctx->cache_idx >= HSE_RNG_CACHE_MIN)
 		return;
 
-	if (!mutex_trylock(&ctx->req_lock)) {
+	if (!down_trylock(&ctx->req_sem)) {
 		dev_dbg(ctx->dev, "%s: other request in progress\n", __func__);
 		return;
 	}
@@ -79,7 +79,7 @@ static void hse_rng_refill_cache(struct hwrng *rng)
 	err = hse_srv_req_async(ctx->dev, HSE_CHANNEL_ANY, &ctx->srv_desc, ctx,
 				hse_rng_done);
 	if (unlikely(err)) {
-		mutex_unlock(&ctx->req_lock);
+		up(&ctx->req_sem);
 		dev_dbg(ctx->dev, "%s: request failed: %d\n", __func__, err);
 	}
 }
@@ -155,7 +155,7 @@ static int hse_rng_init(struct hwrng *rng)
 {
 	struct hse_rng_ctx *ctx = (struct hse_rng_ctx *)rng->priv;
 
-	mutex_init(&ctx->req_lock);
+	sema_init(&ctx->req_sem, 1);
 
 	ctx->srv_desc.srv_id = HSE_SRV_ID_GET_RANDOM_NUM;
 	ctx->srv_desc.rng_req.rng_class = HSE_RNG_CLASS_PTG3;
