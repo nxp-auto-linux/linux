@@ -821,7 +821,7 @@ static int send_can_msg(struct mbox_chan *chan, struct sk_buff *skb)
 		/* Configure the tx mb as a CAN FD frame. */
 		mb_config |= LLCE_CAN_MB_FDF;
 
-		/* Enable BRS feature to allow receiveing of CAN FD frames */
+		/* Enable BRS feature to allow receiving of CAN FD frames */
 		if (cf->flags & CANFD_BRS)
 			mb_config |= LLCE_CAN_MB_BRS;
 
@@ -907,7 +907,7 @@ static void disable_fifo_irq(void __iomem *fifo)
 static enum llce_sema42_gate get_sema42_gate(u8 fifo, u32 host)
 {
 	/**
-	 * Semaphore used to protect acces to TXACK and RXOUT between LLCE and
+	 * Semaphore used to protect access to TXACK and RXOUT between LLCE and
 	 * host on interrupt enable/disable.
 	 */
 	static const enum llce_sema42_gate
@@ -3340,7 +3340,7 @@ static int __maybe_unused llce_mb_resume(struct device *dev)
 	if (ret)
 		dev_err(dev, "Failed to initialize platform\n");
 
-	/* Force lin intterupt forwarding again. */
+	/* Force lin interrupt forwarding again. */
 	if (mb->lin_irq.fw_enabled) {
 		mb->lin_irq.fw_enabled = false;
 		ret = lin_init(mb);
@@ -3348,7 +3348,7 @@ static int __maybe_unused llce_mb_resume(struct device *dev)
 			return ret;
 	}
 
-	/* Force lpspi intterupt forwarding again. */
+	/* Force lpspi interrupt forwarding again. */
 	if (mb->lpspi_irq.fw_enabled) {
 		mb->lpspi_irq.fw_enabled = false;
 		ret = lpspi_init(mb);
