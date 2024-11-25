@@ -367,16 +367,11 @@ static bool is_pgood_state(struct s32cc_xpcs *xpcs)
 
 static bool is_not_in_reset(struct s32cc_xpcs *xpcs)
 {
-	unsigned int val = XPCS_READ(xpcs, VR_MII_DIG_CTRL1);
+	unsigned int val;
 
-	return !(val & VR_RST);
-}
+	val = XPCS_READ(xpcs, SR_MII_CTRL);
 
-static bool is_rx_link_up(struct s32cc_xpcs *xpcs)
-{
-	unsigned int val = XPCS_READ(xpcs, SR_MII_STS);
-
-	return val & LINK_STS;
+	return !(val & SR_RST);
 }
 
 static bool is_an_done(struct s32cc_xpcs *xpcs)
@@ -494,11 +489,6 @@ static int xpcs_reset_rx(struct s32cc_xpcs *xpcs)
 	/* Step 22 */
 	XPCS_WRITE_BITS(xpcs, VR_MII_GEN5_12G_16G_RX_GENCTRL1,
 			RX_RST_0, 0);
-
-	/* Step 23 */
-	ret = xpcs_wait(xpcs, is_rx_link_up);
-	if (ret)
-		dev_err(dev, "RX link is not up\n");
 
 	return ret;
 }
@@ -955,7 +945,7 @@ static int xpcs_pre_pcie_2g5(struct s32cc_xpcs *xpcs)
 	struct device *dev = get_xpcs_device(xpcs);
 	int ret;
 
-	/* Enable voltage boost */
+	/* Enable volatge boost */
 	XPCS_WRITE_BITS(xpcs, VR_MII_GEN5_12G_16G_TX_GENCTRL1, VBOOST_EN_0,
 			VBOOST_EN_0);
 
