@@ -634,3 +634,9 @@
 	pinctrl-0 = <&rgmii3_pins>;
 	phy-handle = <&gmac1_phy1>;
 };
+
+&uart0 {
+	pinctrl-0 = <&uart0_pins>;
+	pinctrl-names = "default";
+	status = "okay";
+};
