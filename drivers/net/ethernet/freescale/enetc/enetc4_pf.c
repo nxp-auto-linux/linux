@@ -2,11 +2,13 @@
 /* Copyright 2024 NXP */
 
 #include <linux/clk.h>
+#include <linux/fsl/enetc_mdio.h>
 #include <linux/fsl/netc_global.h>
 #include <linux/module.h>
 #include <linux/of_mdio.h>
 #include <linux/of_net.h>
 #include <linux/of_platform.h>
+#include <linux/regulator/consumer.h>
 #include <linux/unaligned.h>
 
 #include "enetc_pf_common.h"
@@ -1794,9 +1796,40 @@ static int enetc4_sriov_resume(struct pci_dev *pdev)
 }
 #endif
 
+static int enetc4_pf_imdio_regulator_enable(struct enetc_pf *pf)
+{
+	struct enetc_mdio_priv *mdio_priv;
+	int err = 0;
+
+	if (!pf->imdio)
+		return -EINVAL;
+	mdio_priv = pf->imdio->priv;
+
+	if (mdio_priv && mdio_priv->regulator)
+		err = regulator_enable(mdio_priv->regulator);
+
+	return err;
+}
+
+static void enetc4_pf_imdio_regulator_disable(struct enetc_pf *pf)
+{
+	struct enetc_mdio_priv *mdio_priv;
+
+	if (!pf->imdio)
+		return;
+	mdio_priv = pf->imdio->priv;
+
+	if (mdio_priv && mdio_priv->regulator)
+		regulator_disable(mdio_priv->regulator);
+}
+
 static void enetc4_pf_power_down(struct enetc_si *si)
 {
+	struct enetc_pf *pf = enetc_si_priv(si);
 	struct pci_dev *pdev = si->pdev;
+
+	if (pf->pcs)
+		enetc4_pf_imdio_regulator_disable(pf);
 
 	pci_free_irq_vectors(pdev);
 	enetc4_teardown_cbdr(si);
@@ -1845,6 +1878,14 @@ static int enetc4_pf_power_up(struct pci_dev *pdev, struct device_node *node)
 	if (err) {
 		dev_err(&pdev->dev, "Failed to alloc MSI-X vectors\n");
 		return err;
+	}
+
+	if (pf->pcs) {
+		err = enetc4_pf_imdio_regulator_enable(pf);
+		if (err) {
+			dev_err(&pdev->dev, "imdio regulator enable failed\n");
+			return err;
+		}
 	}
 
 	return 0;
