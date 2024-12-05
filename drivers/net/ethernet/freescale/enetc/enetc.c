@@ -1677,7 +1677,7 @@ static int enetc_clean_rx_ring(struct enetc_bdr *rx_ring,
 
 static void enetc_xdp_map_tx_buff(struct enetc_bdr *tx_ring, int i,
 				  struct enetc_tx_swbd *tx_swbd,
-				  int frm_len)
+				  bool first_bd, int frm_len)
 {
 	union enetc_tx_bd *txbd = ENETC_TXBD(*tx_ring, i);
 
@@ -1686,99 +1686,58 @@ static void enetc_xdp_map_tx_buff(struct enetc_bdr *tx_ring, int i,
 	enetc_clear_tx_bd(txbd);
 	txbd->addr = cpu_to_le64(tx_swbd->dma + tx_swbd->page_offset);
 	txbd->buf_len = cpu_to_le16(tx_swbd->len);
-	txbd->frm_len = cpu_to_le16(frm_len);
 
-	memcpy(&tx_ring->tx_swbd[i], tx_swbd, sizeof(*tx_swbd));
+	/* FRM_LEN is only applicable in the first BD */
+	if (first_bd)
+		txbd->frm_len = cpu_to_le16(frm_len);
+
+	/* last BD needs 'F' bit set */
+	if (tx_swbd->is_eof)
+		txbd->flags = ENETC_TXBD_FLAGS_F;
 }
 
 /* Puts in the TX ring one XDP frame, mapped as an array of TX software buffer
  * descriptors.
  */
-static bool enetc_xdp_tx(struct enetc_bdr *tx_ring,
-			 struct enetc_tx_swbd *xdp_tx_arr, int num_tx_swbd)
+static void enetc_xdp_tx_swbd_to_tx_bd(struct enetc_bdr *tx_ring, u32 frm_len,
+				       int num_tx_swbd)
 {
-	struct enetc_tx_swbd *tmp_tx_swbd = xdp_tx_arr;
-	int i, k, frm_len = tmp_tx_swbd->len;
-
-	if (unlikely(enetc_bd_unused(tx_ring) < ENETC_TXBDS_NEEDED(num_tx_swbd)))
-		return false;
-
-	while (unlikely(!tmp_tx_swbd->is_eof)) {
-		tmp_tx_swbd++;
-		frm_len += tmp_tx_swbd->len;
-	}
-
-	i = tx_ring->next_to_use;
+	struct enetc_tx_swbd *tx_swbd;
+	int i = tx_ring->next_to_use;
+	int k;
 
 	for (k = 0; k < num_tx_swbd; k++) {
-		struct enetc_tx_swbd *xdp_tx_swbd = &xdp_tx_arr[k];
-
-		enetc_xdp_map_tx_buff(tx_ring, i, xdp_tx_swbd, frm_len);
-
-		/* last BD needs 'F' bit set */
-		if (xdp_tx_swbd->is_eof) {
-			union enetc_tx_bd *txbd = ENETC_TXBD(*tx_ring, i);
-
-			txbd->flags = ENETC_TXBD_FLAGS_F;
-		}
-
+		tx_swbd = &tx_ring->tx_swbd[i];
+		enetc_xdp_map_tx_buff(tx_ring, i, tx_swbd, k == 0, frm_len);
 		enetc_bdr_idx_inc(tx_ring, &i);
 	}
 
 	tx_ring->next_to_use = i;
-
-	return true;
 }
 
 static int enetc_xdp_frame_to_xdp_tx_swbd(struct enetc_bdr *tx_ring,
-					  struct enetc_tx_swbd *xdp_tx_arr,
 					  struct xdp_frame *xdp_frame)
 {
-	struct enetc_tx_swbd *xdp_tx_swbd = &xdp_tx_arr[0];
+	struct enetc_tx_swbd *xdp_tx_swbd;
+	int nr_frags = 0, frags_cnt = 0;
 	struct skb_shared_info *shinfo;
 	void *data = xdp_frame->data;
+	int i = tx_ring->next_to_use;
 	int len = xdp_frame->len;
 	skb_frag_t *frag;
 	dma_addr_t dma;
-	unsigned int f;
-	int n = 0;
+	int orig_i = i;
 
-	dma = dma_map_single(tx_ring->dev, data, len, DMA_TO_DEVICE);
-	if (unlikely(dma_mapping_error(tx_ring->dev, dma))) {
-		netdev_err(tx_ring->ndev, "DMA map error\n");
-		return -1;
+	if (unlikely(xdp_frame_has_frags(xdp_frame))) {
+		shinfo = xdp_get_shared_info_from_frame(xdp_frame);
+		nr_frags = shinfo->nr_frags;
 	}
 
-	xdp_tx_swbd->dma = dma;
-	xdp_tx_swbd->dir = DMA_TO_DEVICE;
-	xdp_tx_swbd->len = len;
-	xdp_tx_swbd->is_xdp_redirect = true;
-	xdp_tx_swbd->is_eof = false;
-	xdp_tx_swbd->xdp_frame = NULL;
-
-	n++;
-
-	if (!xdp_frame_has_frags(xdp_frame))
-		goto out;
-
-	xdp_tx_swbd = &xdp_tx_arr[n];
-
-	shinfo = xdp_get_shared_info_from_frame(xdp_frame);
-
-	for (f = 0, frag = &shinfo->frags[0]; f < shinfo->nr_frags;
-	     f++, frag++) {
-		data = skb_frag_address(frag);
-		len = skb_frag_size(frag);
-
+	for (;;) {
+		xdp_tx_swbd = &tx_ring->tx_swbd[i];
 		dma = dma_map_single(tx_ring->dev, data, len, DMA_TO_DEVICE);
-		if (unlikely(dma_mapping_error(tx_ring->dev, dma))) {
-			/* Undo the DMA mapping for all fragments */
-			while (--n >= 0)
-				enetc_unmap_tx_buff(tx_ring, &xdp_tx_arr[n]);
-
-			netdev_err(tx_ring->ndev, "DMA map error\n");
-			return -1;
-		}
+		if (unlikely(dma_mapping_error(tx_ring->dev, dma)))
+			goto dma_map_err;
 
 		xdp_tx_swbd->dma = dma;
 		xdp_tx_swbd->dir = DMA_TO_DEVICE;
@@ -1787,25 +1746,53 @@ static int enetc_xdp_frame_to_xdp_tx_swbd(struct enetc_bdr *tx_ring,
 		xdp_tx_swbd->is_eof = false;
 		xdp_tx_swbd->xdp_frame = NULL;
 
-		n++;
-		xdp_tx_swbd = &xdp_tx_arr[n];
-	}
-out:
-	xdp_tx_arr[n - 1].is_eof = true;
-	xdp_tx_arr[n - 1].xdp_frame = xdp_frame;
+		if (frags_cnt == nr_frags) {
+			xdp_tx_swbd->is_eof = true;
+			xdp_tx_swbd->xdp_frame = xdp_frame;
+			break;
+		}
 
-	return n;
+		frag = &shinfo->frags[frags_cnt];
+		data = skb_frag_address(frag);
+		len = skb_frag_size(frag);
+		frags_cnt++;
+		enetc_bdr_idx_inc(tx_ring, &i);
+	}
+
+	return 0;
+
+dma_map_err:
+	while (orig_i != i) {
+		xdp_tx_swbd = &tx_ring->tx_swbd[orig_i];
+		enetc_unmap_tx_buff(tx_ring, xdp_tx_swbd);
+		memset(xdp_tx_swbd, 0, sizeof(*xdp_tx_swbd));
+		enetc_bdr_idx_inc(tx_ring, &orig_i);
+	}
+
+	return -ENOMEM;
+}
+
+static bool enetc_tx_ring_avaiable(struct enetc_bdr *tx_ring, int num_txbd)
+{
+	struct enetc_ndev_priv *priv = netdev_priv(tx_ring->ndev);
+	int max_supp_bd = ENETC_TXBDS_NEEDED(priv->max_frags);
+	int num_unused_bd = enetc_bd_unused(tx_ring);
+
+	if (num_txbd > max_t(int, num_unused_bd, max_supp_bd))
+		return false;
+
+	return true;
 }
 
 int enetc_xdp_xmit(struct net_device *ndev, int num_frames,
 		   struct xdp_frame **frames, u32 flags)
 {
-	struct enetc_tx_swbd xdp_redirect_arr[ENETC_MAX_SKB_FRAGS] = {0};
 	struct enetc_ndev_priv *priv = netdev_priv(ndev);
 	struct skb_shared_info *shinfo;
 	struct enetc_bdr *tx_ring;
-	int xdp_tx_bd_cnt, i, k;
 	int xdp_tx_frm_cnt = 0;
+	int xdp_tx_bd_cnt, k;
+	u32 frm_len;
 
 	if (unlikely(test_bit(ENETC_TX_DOWN, &priv->flags) ||
 		     !netif_carrier_ok(ndev)))
@@ -1818,27 +1805,25 @@ int enetc_xdp_xmit(struct net_device *ndev, int num_frames,
 	prefetchw(ENETC_TXBD(*tx_ring, tx_ring->next_to_use));
 
 	for (k = 0; k < num_frames; k++) {
-		if (xdp_frame_has_frags(frames[k])) {
+		if (unlikely(xdp_frame_has_frags(frames[k]))) {
 			shinfo = xdp_get_shared_info_from_frame(frames[k]);
-			if (unlikely((shinfo->nr_frags + 1) > ENETC_MAX_SKB_FRAGS))
-				break;
+			xdp_tx_bd_cnt = shinfo->nr_frags + 1;
+		} else {
+			xdp_tx_bd_cnt = 1;
 		}
 
-		xdp_tx_bd_cnt = enetc_xdp_frame_to_xdp_tx_swbd(tx_ring,
-							       xdp_redirect_arr,
-							       frames[k]);
-		if (unlikely(xdp_tx_bd_cnt < 0))
-			break;
-
-		if (unlikely(!enetc_xdp_tx(tx_ring, xdp_redirect_arr,
-					   xdp_tx_bd_cnt))) {
-			for (i = 0; i < xdp_tx_bd_cnt; i++)
-				enetc_unmap_tx_buff(tx_ring,
-						    &xdp_redirect_arr[i]);
+		if (unlikely(!enetc_tx_ring_avaiable(tx_ring, xdp_tx_bd_cnt))) {
 			tx_ring->stats.xdp_tx_drops++;
 			break;
 		}
 
+		if (unlikely(enetc_xdp_frame_to_xdp_tx_swbd(tx_ring, frames[k]))) {
+			tx_ring->stats.xdp_tx_drops++;
+			break;
+		}
+
+		frm_len = xdp_get_frame_len(frames[k]);
+		enetc_xdp_tx_swbd_to_tx_bd(tx_ring, frm_len, xdp_tx_bd_cnt);
 		xdp_tx_frm_cnt++;
 	}
 
@@ -1925,16 +1910,18 @@ static void enetc_build_xdp_buff(struct enetc_bdr *rx_ring, u32 bd_status,
 /* Convert RX buffer descriptors to TX buffer descriptors. These will be
  * recycled back into the RX ring in enetc_clean_tx_ring.
  */
-static int enetc_rx_swbd_to_xdp_tx_swbd(struct enetc_tx_swbd *xdp_tx_arr,
-					struct enetc_bdr *rx_ring,
-					int rx_ring_first, int rx_ring_last)
+static void enetc_rx_swbd_to_xdp_tx_swbd(struct enetc_bdr *rx_ring,
+					 int rx_ring_first, int rx_ring_last,
+					 struct enetc_bdr *tx_ring)
 {
-	int n = 0;
+	struct enetc_tx_swbd *tx_swbd;
+	struct enetc_rx_swbd *rx_swbd;
+	int i = tx_ring->next_to_use;
+	int j = rx_ring_first;
 
-	for (; rx_ring_first != rx_ring_last;
-	     n++, enetc_bdr_idx_inc(rx_ring, &rx_ring_first)) {
-		struct enetc_rx_swbd *rx_swbd = &rx_ring->rx_swbd[rx_ring_first];
-		struct enetc_tx_swbd *tx_swbd = &xdp_tx_arr[n];
+	while (j != rx_ring_last) {
+		tx_swbd = &tx_ring->tx_swbd[i];
+		rx_swbd = &rx_ring->rx_swbd[j];
 
 		/* No need to dma_map, we already have DMA_BIDIRECTIONAL */
 		tx_swbd->dma = rx_swbd->dma;
@@ -1945,12 +1932,12 @@ static int enetc_rx_swbd_to_xdp_tx_swbd(struct enetc_tx_swbd *xdp_tx_arr,
 		tx_swbd->is_dma_page = true;
 		tx_swbd->is_xdp_tx = true;
 		tx_swbd->is_eof = false;
+
+		enetc_bdr_idx_inc(tx_ring, &i);
+		enetc_bdr_idx_inc(rx_ring, &j);
 	}
 
-	/* We rely on caller providing an rx_ring_last > rx_ring_first */
-	xdp_tx_arr[n - 1].is_eof = true;
-
-	return n;
+	tx_swbd->is_eof = true;
 }
 
 static void enetc_xdp_drop(struct enetc_bdr *rx_ring, int rx_ring_first,
@@ -1973,17 +1960,26 @@ static void enetc_bulk_flip_buff(struct enetc_bdr *rx_ring, int rx_ring_first,
 	}
 }
 
+static int enetc_xdp_num_bd(struct enetc_bdr *rx_ring, int rx_ring_first,
+			    int rx_ring_last)
+{
+	if (rx_ring_first <= rx_ring_last)
+		return rx_ring_last - rx_ring_first;
+
+	return rx_ring->bd_count - rx_ring_first + rx_ring_last;
+}
+
 static int enetc_clean_rx_ring_xdp(struct enetc_bdr *rx_ring,
 				   struct napi_struct *napi, int work_limit,
 				   struct bpf_prog *prog)
 {
 	int xdp_tx_bd_cnt, xdp_tx_frm_cnt = 0, xdp_redirect_frm_cnt = 0;
-	struct enetc_tx_swbd xdp_tx_arr[ENETC_MAX_SKB_FRAGS] = {0};
 	struct enetc_ndev_priv *priv = netdev_priv(rx_ring->ndev);
 	int rx_frm_cnt = 0, rx_byte_cnt = 0;
 	struct enetc_bdr *tx_ring;
 	int cleaned_cnt, i;
 	u32 xdp_act;
+	u32 frm_len;
 
 	cleaned_cnt = enetc_bd_unused(rx_ring);
 	/* next descriptor to process */
@@ -2055,36 +2051,33 @@ static int enetc_clean_rx_ring_xdp(struct enetc_bdr *rx_ring,
 			enetc_lock_mdio();
 			break;
 		case XDP_TX:
+			xdp_tx_bd_cnt = enetc_xdp_num_bd(rx_ring, orig_i, i);
 			tx_ring = priv->xdp_tx_ring[rx_ring->index];
-			if (unlikely(test_bit(ENETC_TX_DOWN, &priv->flags))) {
+			if (unlikely(test_bit(ENETC_TX_DOWN, &priv->flags) ||
+				     !enetc_tx_ring_avaiable(tx_ring, xdp_tx_bd_cnt))) {
 				enetc_xdp_drop(rx_ring, orig_i, i);
 				tx_ring->stats.xdp_tx_drops++;
 				break;
 			}
 
-			xdp_tx_bd_cnt = enetc_rx_swbd_to_xdp_tx_swbd(xdp_tx_arr,
-								     rx_ring,
-								     orig_i, i);
+			enetc_rx_swbd_to_xdp_tx_swbd(rx_ring, orig_i, i, tx_ring);
+			frm_len = xdp_get_buff_len(&xdp_buff);
+			enetc_xdp_tx_swbd_to_tx_bd(tx_ring, frm_len, xdp_tx_bd_cnt);
 
-			if (!enetc_xdp_tx(tx_ring, xdp_tx_arr, xdp_tx_bd_cnt)) {
-				enetc_xdp_drop(rx_ring, orig_i, i);
-				tx_ring->stats.xdp_tx_drops++;
-			} else {
-				tx_ring->stats.xdp_tx++;
-				rx_ring->xdp.xdp_tx_in_flight += xdp_tx_bd_cnt;
-				xdp_tx_frm_cnt++;
-				/* The XDP_TX enqueue was successful, so we
-				 * need to scrub the RX software BDs because
-				 * the ownership of the buffers no longer
-				 * belongs to the RX ring, and we must prevent
-				 * enetc_refill_rx_ring() from reusing
-				 * rx_swbd->page.
-				 */
-				while (orig_i != i) {
-					rx_ring->rx_swbd[orig_i].page = NULL;
-					enetc_bdr_idx_inc(rx_ring, &orig_i);
-				}
+			tx_ring->stats.xdp_tx++;
+			rx_ring->xdp.xdp_tx_in_flight += xdp_tx_bd_cnt;
+			xdp_tx_frm_cnt++;
+
+			/* The XDP_TX enqueue was successful, so we need to scrub
+			 * the RX software BDs because  the ownership of the buffers
+			 * no longer belongs to the RX ring, and we must prevent
+			 * enetc_refill_rx_ring() from reusing rx_swbd->page.
+			 */
+			while (orig_i != i) {
+				rx_ring->rx_swbd[orig_i].page = NULL;
+				enetc_bdr_idx_inc(rx_ring, &orig_i);
 			}
+
 			break;
 		case XDP_REDIRECT:
 			enetc_unlock_mdio();
