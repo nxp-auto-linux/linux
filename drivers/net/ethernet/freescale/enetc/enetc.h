@@ -42,6 +42,7 @@ struct enetc_tx_swbd {
 	union {
 		struct sk_buff *skb;
 		struct xdp_frame *xdp_frame;
+		struct xdp_buff *xsk_buff;
 	};
 	dma_addr_t dma;
 	struct page *page;	/* valid only if is_xdp_tx */
@@ -54,6 +55,7 @@ struct enetc_tx_swbd {
 	u8 is_eof:1;
 	u8 is_xdp_tx:1;
 	u8 is_xdp_redirect:1;
+	u8 is_xsk:1;
 	u8 qbv_en:1;
 };
 
@@ -90,6 +92,7 @@ struct enetc_lso_t {
 struct enetc_rx_swbd {
 	dma_addr_t dma;
 	struct page *page;
+	struct xdp_buff *xsk_buff;
 	u16 page_offset;
 	enum dma_data_direction dir;
 	u16 len;
@@ -125,12 +128,15 @@ struct enetc_ring_stats {
 struct enetc_xdp_data {
 	struct xdp_rxq_info rxq;
 	struct bpf_prog *prog;
+	struct xsk_buff_pool *xsk_pool;
+	struct xdp_buff **xsk_batch;
 	int xdp_tx_in_flight;
 };
 
 #define ENETC_RX_RING_DEFAULT_SIZE	2048
 #define ENETC_TX_RING_DEFAULT_SIZE	2048
 #define ENETC_DEFAULT_TX_WORK		(ENETC_TX_RING_DEFAULT_SIZE / 2)
+#define ENETC_XSK_TX_BUDGET		256
 
 struct enetc_bdr_resource {
 	/* Input arguments saved for teardown */
@@ -561,6 +567,7 @@ void enetc_reset_tc_mqprio(struct net_device *ndev);
 int enetc_setup_bpf(struct net_device *ndev, struct netdev_bpf *bpf);
 int enetc_xdp_xmit(struct net_device *ndev, int num_frames,
 		   struct xdp_frame **frames, u32 flags);
+int enetc_xsk_wakeup(struct net_device *ndev, u32 queue, u32 flags);
 
 int enetc_hwtstamp_get(struct net_device *ndev,
 		       struct kernel_hwtstamp_config *config);
