@@ -113,6 +113,18 @@
 	status = "okay";
 };
 
+&irqsteer0_rcu {
+	status = "okay";
+};
+
+&can0 {
+	status = "okay";
+};
+
+&can1 {
+	status = "okay";
+};
+
 &carv0 {
 	firmware-name = "s32n7-carvnet.fw";
 	memory-region = <&carv0_reserved>, <&carv0_vdev0vring0>,

@@ -176,6 +176,56 @@
 		};
 	};
 
+	rcu_subsys: bus@54000000 {
+		compatible = "simple-bus";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges = <0x54000000 0x0 0x54000000 0x4000000>;
+
+		irqsteer0_rcu: interrupt-controller@55101000 {
+			compatible = "nxp,s32n7-irqsteer";
+			reg = <0x55101000 0x1000>;
+			interrupts = <GIC_SPI 101 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 102 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 103 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 104 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 105 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 106 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 107 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 108 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-controller;
+			interrupt-parent = <&gic>;
+			#interrupt-cells = <1>;
+			clocks = <&sys_clk>;
+			clock-names = "ipg";
+			fsl,channel = <0>;
+			fsl,num-irqs = <512>;
+			status = "disabled";
+		};
+
+		can0: can@55b60000 {
+			compatible = "nxp,s32n79-flexcan";
+			reg = <0x55b60000 0x4000>;
+			interrupt-parent = <&irqsteer0_rcu>;
+			interrupts = <0>, <64>;
+			interrupt-names = "mb_0-127", "berr";
+			clocks = <&sys_clk>, <&sys_clk>;
+			clock-names = "ipg", "per";
+			status = "disabled";
+		};
+
+		can1: can@55b70000 {
+			compatible = "nxp,s32n79-flexcan";
+			reg = <0x55b70000 0x4000>;
+			interrupt-parent = <&irqsteer0_rcu>;
+			interrupts = <1>, <65>;
+			interrupt-names = "mb_0-127", "berr";
+			clocks = <&sys_clk>, <&sys_clk>;
+			clock-names = "ipg", "per";
+			status = "disabled";
+		};
+	};
+
 	fss_subsys: bus@5b490000 {
 		compatible = "simple-bus";
 		#address-cells = <1>;
