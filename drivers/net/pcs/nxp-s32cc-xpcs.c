@@ -945,7 +945,7 @@ static int xpcs_pre_pcie_2g5(struct s32cc_xpcs *xpcs)
 	struct device *dev = get_xpcs_device(xpcs);
 	int ret;
 
-	/* Enable volatge boost */
+	/* Enable voltage boost */
 	XPCS_WRITE_BITS(xpcs, VR_MII_GEN5_12G_16G_TX_GENCTRL1, VBOOST_EN_0,
 			VBOOST_EN_0);
 
