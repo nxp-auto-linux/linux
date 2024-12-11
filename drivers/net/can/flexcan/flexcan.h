@@ -67,8 +67,8 @@
 #define FLEXCAN_QUIRK_SUPPORT_RX_MAILBOX_RTR BIT(15)
 /* Device supports RX via FIFO */
 #define FLEXCAN_QUIRK_SUPPORT_RX_FIFO BIT(16)
-/* S32CC platforms have different bittiming */
-#define FLEXCAN_S32CC_BITTIMING		BIT(17)
+/* S32 platforms have different bittiming */
+#define FLEXCAN_S32_BITTIMING		BIT(17)
 
 /* Flags identifying interrupt handlers associated to each IRQ number */
 #define FLEXCAN_HANDLER_STATE	BIT(0) /* Bus Off, Tx Warning, Rx Warning */

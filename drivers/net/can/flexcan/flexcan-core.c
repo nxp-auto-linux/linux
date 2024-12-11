@@ -421,14 +421,14 @@ static const struct flexcan_devtype_data fsl_s32cc_devtype_data = {
 		FLEXCAN_QUIRK_DISABLE_MECR | FLEXCAN_QUIRK_BROKEN_PERR_STATE |
 		FLEXCAN_QUIRK_USE_RX_MAILBOX | FLEXCAN_QUIRK_SUPPORT_FD |
 		FLEXCAN_QUIRK_SUPPORT_ECC | FLEXCAN_QUIRK_SUPPORT_RX_MAILBOX |
-		FLEXCAN_QUIRK_SUPPORT_RX_MAILBOX_RTR | FLEXCAN_S32CC_BITTIMING,
+		FLEXCAN_QUIRK_SUPPORT_RX_MAILBOX_RTR | FLEXCAN_S32_BITTIMING,
 	.n_irqs = ARRAY_SIZE(s32cc_flexcan_irqs),
 	.irqs = s32cc_flexcan_irqs,
 };
 
-static int is_s32cc_bittiming(struct flexcan_priv *data)
+static int is_s32_bittiming(struct flexcan_priv *data)
 {
-	return data->devtype_data.quirks & FLEXCAN_S32CC_BITTIMING;
+	return data->devtype_data.quirks & FLEXCAN_S32_BITTIMING;
 }
 
 static const struct can_bittiming_const flexcan_bittiming_const = {
@@ -467,7 +467,7 @@ static const struct can_bittiming_const flexcan_fd_data_bittiming_const = {
 	.brp_inc = 1,
 };
 
-static const struct can_bittiming_const s32cc_flexcan_bittiming_const = {
+static const struct can_bittiming_const s32_flexcan_bittiming_const = {
 	.name = DRV_NAME,
 	.tseg1_min = 2,
 	.tseg1_max = 16,
@@ -479,7 +479,7 @@ static const struct can_bittiming_const s32cc_flexcan_bittiming_const = {
 	.brp_inc = 1,
 };
 
-static const struct can_bittiming_const s32cc_flexcan_fd_bittiming_const = {
+static const struct can_bittiming_const s32_flexcan_fd_bittiming_const = {
 	.name = DRV_NAME,
 	.tseg1_min = 2,
 	.tseg1_max = 96,
@@ -491,7 +491,7 @@ static const struct can_bittiming_const s32cc_flexcan_fd_bittiming_const = {
 	.brp_inc = 1,
 };
 
-static const struct can_bittiming_const s32cc_flexcan_fd_data_bittiming_const = {
+static const struct can_bittiming_const s32_flexcan_fd_data_bittiming_const = {
 	.name = DRV_NAME,
 	.tseg1_min = 2,
 	.tseg1_max = 39,
@@ -2356,18 +2356,18 @@ static int flexcan_probe(struct platform_device *pdev)
 	if (priv->devtype_data.quirks & FLEXCAN_QUIRK_SUPPORT_FD) {
 		priv->can.ctrlmode_supported |= CAN_CTRLMODE_FD |
 			CAN_CTRLMODE_FD_NON_ISO;
-		if (is_s32cc_bittiming(priv)) {
-			priv->can.bittiming_const = &s32cc_flexcan_fd_bittiming_const;
+		if (is_s32_bittiming(priv)) {
+			priv->can.bittiming_const = &s32_flexcan_fd_bittiming_const;
 			priv->can.data_bittiming_const =
-				&s32cc_flexcan_fd_data_bittiming_const;
+				&s32_flexcan_fd_data_bittiming_const;
 		} else {
 			priv->can.bittiming_const = &flexcan_fd_bittiming_const;
 			priv->can.data_bittiming_const =
 				&flexcan_fd_data_bittiming_const;
 		}
 	} else {
-		if (is_s32cc_bittiming(priv))
-			priv->can.bittiming_const = &s32cc_flexcan_bittiming_const;
+		if (is_s32_bittiming(priv))
+			priv->can.bittiming_const = &s32_flexcan_bittiming_const;
 		else
 			priv->can.bittiming_const = &flexcan_bittiming_const;
 	}
