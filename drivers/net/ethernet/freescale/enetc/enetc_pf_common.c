@@ -163,6 +163,7 @@ void enetc_pf_netdev_setup(struct enetc_si *si, struct net_device *ndev,
 			     NETDEV_XDP_ACT_XSK_ZEROCOPY;
 
 	ndev->xdp_zc_max_segs = priv->max_frags;
+	ndev->xdp_metadata_ops = &enetc_xdp_metadata_ops;
 
 	if (!is_enetc_rev1(si)) {
 		ndev->features |= NETIF_F_HW_TC;

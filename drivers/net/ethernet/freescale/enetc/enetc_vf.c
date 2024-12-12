@@ -535,6 +535,7 @@ static void enetc_vf_netdev_setup(struct enetc_si *si, struct net_device *ndev,
 			     NETDEV_XDP_ACT_XSK_ZEROCOPY;
 
 	ndev->xdp_zc_max_segs = priv->max_frags;
+	ndev->xdp_metadata_ops = &enetc_xdp_metadata_ops;
 
 	if (si->num_rss) {
 		ndev->hw_features |= NETIF_F_RXHASH;
