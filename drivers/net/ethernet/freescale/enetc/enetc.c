@@ -1467,10 +1467,28 @@ static void enetc_skb_rx_timestamp(struct net_device *ndev,
 	}
 }
 
+static void enetc_get_rx_tpid(struct enetc_hw *hw, u16 flags, __be16 *tpid)
+{
+	switch (flags & ENETC_RXBD_FLAG_TPID) {
+	case ENETC_RXBD_TPID_8021Q:
+		*tpid = htons(ETH_P_8021Q);
+		break;
+	case ENETC_RXBD_TPID_8021AD:
+		*tpid = htons(ETH_P_8021AD);
+		break;
+	case ENETC_RXBD_TPID_CTAG1:
+		*tpid = htons(enetc_rd(hw, ENETC_SICVLANR1) & SICVLANR_ETYPE);
+		break;
+	case ENETC_RXBD_TPID_CTAG2:
+		*tpid = htons(enetc_rd(hw, ENETC_SICVLANR2) & SICVLANR_ETYPE);
+	}
+}
+
 static void enetc_get_offloads(struct enetc_bdr *rx_ring,
 			       union enetc_rx_bd *rxbd, struct sk_buff *skb)
 {
 	struct enetc_ndev_priv *priv = netdev_priv(rx_ring->ndev);
+	u16 flags = le16_to_cpu(rxbd->r.flags);
 
 	/* TODO: hashing */
 	if (rx_ring->ndev->features & NETIF_F_RXCSUM) {
@@ -1480,26 +1498,10 @@ static void enetc_get_offloads(struct enetc_bdr *rx_ring,
 		skb->ip_summed = CHECKSUM_COMPLETE;
 	}
 
-	if (le16_to_cpu(rxbd->r.flags) & ENETC_RXBD_FLAG_VLAN) {
-		struct enetc_hw *hw = &priv->si->hw;
+	if (flags & ENETC_RXBD_FLAG_VLAN) {
 		__be16 tpid = 0;
 
-		switch (le16_to_cpu(rxbd->r.flags) & ENETC_RXBD_FLAG_TPID) {
-		case 0:
-			tpid = htons(ETH_P_8021Q);
-			break;
-		case 1:
-			tpid = htons(ETH_P_8021AD);
-			break;
-		case 2:
-			tpid = htons(enetc_rd_hot(hw, ENETC_SICVLANR1) &
-				     SICVLANR_ETYPE);
-			break;
-		case 3:
-			tpid = htons(enetc_rd_hot(hw, ENETC_SICVLANR2) &
-				     SICVLANR_ETYPE);
-		}
-
+		enetc_get_rx_tpid(&priv->si->hw, flags, &tpid);
 		__vlan_hwaccel_put_tag(skb, tpid, le16_to_cpu(rxbd->r.vlan_opt));
 	}
 
@@ -2752,9 +2754,31 @@ static int enetc_xdp_rx_hash(const struct xdp_md *ctx, u32 *hash,
 	return 0;
 }
 
+static int enetc_xdp_rx_vlan_tag(const struct xdp_md *ctx, __be16 *vlan_proto,
+				 u16 *vlan_tci)
+{
+	const struct enetc_xdp_buff *_ctx = (void *)ctx;
+	struct enetc_bdr *rx_ring = _ctx->rx_ring;
+	union enetc_rx_bd *rxbd = _ctx->rxbd;
+	struct enetc_ndev_priv *priv;
+	u16 flags;
+
+	flags = le16_to_cpu(rxbd->r.flags);
+	if (!(flags & ENETC_RXBD_FLAG_VLAN))
+		return -ENODATA;
+
+	priv = netdev_priv(rx_ring->ndev);
+	*vlan_tci = le16_to_cpu(rxbd->r.vlan_opt);
+
+	enetc_get_rx_tpid(&priv->si->hw, flags, vlan_proto);
+
+	return 0;
+}
+
 const struct xdp_metadata_ops enetc_xdp_metadata_ops = {
 	.xmo_rx_timestamp	= enetc_xdp_rx_timestamp,
 	.xmo_rx_hash		= enetc_xdp_rx_hash,
+	.xmo_rx_vlan_tag	= enetc_xdp_rx_vlan_tag
 };
 EXPORT_SYMBOL_GPL(enetc_xdp_metadata_ops);
 

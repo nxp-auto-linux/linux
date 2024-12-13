@@ -697,6 +697,10 @@ union enetc_rx_bd {
 #define ENETC_RXBD_FLAG_VLAN	BIT(9)
 #define ENETC_RXBD_FLAG_TSTMP	BIT(10)
 #define ENETC_RXBD_FLAG_TPID	GENMASK(1, 0)
+#define ENETC_RXBD_TPID_8021Q	0
+#define ENETC_RXBD_TPID_8021AD	1
+#define ENETC_RXBD_TPID_CTAG1	2
+#define ENETC_RXBD_TPID_CTAG2	3
 
 #define ENETC_MAC_ADDR_FILT_CNT	8 /* # of supported entries per port */
 #define EMETC_MAC_ADDR_FILT_RES	3 /* # of reserved entries at the beginning */
