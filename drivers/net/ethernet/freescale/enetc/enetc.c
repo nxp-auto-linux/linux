@@ -24,6 +24,15 @@ struct enetc_xdp_buff {
 	union enetc_rx_bd *rxbd;
 };
 
+/* Currently, we only need the TCP and UDP type */
+enum enetc_l4_type {
+	ENETC_L4T_UDP = 0,
+	ENETC_L4T_TCP,
+	ENETC_L4T_OTHER,
+};
+
+#define ENETC_L4_TYPE_NUM		28
+
 u32 enetc_port_mac_rd(struct enetc_si *si, u32 reg)
 {
 	if (si->hw_features & ENETC_SI_F_PPM)
@@ -2681,8 +2690,71 @@ static int enetc_xdp_rx_timestamp(const struct xdp_md *ctx, u64 *timestamp)
 	return -ENODATA;
 }
 
+static u32 enetc_get_rx_hash(union enetc_rx_bd *rxbd)
+{
+	if (unlikely(!(rxbd->r.flags & ENETC_RXBD_FLAG_RSSV)))
+		return 0;
+
+	return le32_to_cpu(rxbd->r.rss_hash);
+}
+
+static enum enetc_l4_type enetc_l4t[ENETC_L4_TYPE_NUM] = {
+	ENETC_L4T_OTHER, ENETC_L4T_OTHER, ENETC_L4T_OTHER, ENETC_L4T_OTHER,
+	ENETC_L4T_OTHER, ENETC_L4T_OTHER, ENETC_L4T_OTHER, ENETC_L4T_OTHER,
+	ENETC_L4T_OTHER, ENETC_L4T_OTHER, ENETC_L4T_OTHER, ENETC_L4T_OTHER,
+	ENETC_L4T_OTHER, ENETC_L4T_OTHER, ENETC_L4T_TCP, ENETC_L4T_OTHER,
+	ENETC_L4T_TCP, ENETC_L4T_UDP, ENETC_L4T_OTHER, ENETC_L4T_OTHER,
+	ENETC_L4T_UDP, ENETC_L4T_UDP, ENETC_L4T_UDP, ENETC_L4T_UDP,
+	ENETC_L4T_UDP, ENETC_L4T_UDP, ENETC_L4T_OTHER, ENETC_L4T_UDP,
+};
+
+static enum xdp_rss_hash_type
+enetc_get_xdp_rx_hash_type(union enetc_rx_bd *rxbd)
+{
+	enum xdp_rss_hash_type hash_type = XDP_RSS_TYPE_NONE;
+	u16 parse_summary;
+	u8 l3, l4;
+
+	parse_summary = le16_to_cpu(rxbd->r.parse_summary);
+	if (parse_summary & ENETC_RXBD_PS_ERROR)
+		return hash_type;
+
+	l3 = FIELD_GET(ENETC_RXBD_PS_L3, parse_summary);
+	if (l3 == ENETC_RXBD_PS_L3_IPV4)
+		hash_type |= XDP_RSS_L3_IPV4;
+	else if (l3 == ENETC_RXBD_PS_L3_IPV6)
+		hash_type |= XDP_RSS_L3_IPV6;
+	else
+		return hash_type;
+
+	l4 = FIELD_GET(ENETC_RXBD_PS_L4, parse_summary);
+	if (l4 >= ENETC_L4_TYPE_NUM || enetc_l4t[l4] == ENETC_L4T_OTHER)
+		return hash_type;
+
+	hash_type |= XDP_RSS_L4;
+	hash_type |= enetc_l4t[l4] ? XDP_RSS_L4_TCP : XDP_RSS_L4_UDP;
+
+	return hash_type;
+}
+
+static int enetc_xdp_rx_hash(const struct xdp_md *ctx, u32 *hash,
+			     enum xdp_rss_hash_type *rss_type)
+{
+	const struct enetc_xdp_buff *_ctx = (void *)ctx;
+	union enetc_rx_bd *rxbd = _ctx->rxbd;
+
+	*hash = enetc_get_rx_hash(rxbd);
+	if (unlikely(*hash == 0))
+		return -ENODATA;
+
+	*rss_type = enetc_get_xdp_rx_hash_type(rxbd);
+
+	return 0;
+}
+
 const struct xdp_metadata_ops enetc_xdp_metadata_ops = {
 	.xmo_rx_timestamp	= enetc_xdp_rx_timestamp,
+	.xmo_rx_hash		= enetc_xdp_rx_hash,
 };
 EXPORT_SYMBOL_GPL(enetc_xdp_metadata_ops);
 
