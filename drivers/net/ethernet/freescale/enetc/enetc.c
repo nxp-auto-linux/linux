@@ -31,6 +31,18 @@ enum enetc_l4_type {
 	ENETC_L4T_OTHER,
 };
 
+struct enetc_metadata_req {
+	struct enetc_bdr *tx_ring;
+	union enetc_tx_bd *txbd;
+	int *index;
+	bool txbd_update;
+};
+
+struct enetc_xsk_tx_complete {
+	struct enetc_bdr *tx_ring;
+	union enetc_tx_bd *txbd;
+};
+
 #define ENETC_L4_TYPE_NUM		28
 
 u32 enetc_port_mac_rd(struct enetc_si *si, u32 reg)
@@ -1258,6 +1270,70 @@ static void enetc_recycle_xdp_tx_buff(struct enetc_bdr *tx_ring,
 	rx_ring->xdp.xdp_tx_in_flight--;
 }
 
+static void enetc_xsk_request_timestamp(void *_priv)
+{
+	struct enetc_metadata_req *meta_req = _priv;
+	union enetc_tx_bd *txbd = meta_req->txbd;
+	struct enetc_bdr *tx_ring;
+
+	tx_ring = meta_req->tx_ring;
+	txbd->flags |= ENETC_TXBD_FLAGS_EX;
+	enetc_bdr_idx_inc(tx_ring, meta_req->index);
+
+	/* Get the extended Tx BD */
+	txbd = ENETC_TXBD(*tx_ring, *meta_req->index);
+	prefetchw(txbd);
+	enetc_clear_tx_bd(txbd);
+	txbd->ext.e_flags = ENETC_TXBD_E_FLAGS_TWO_STEP_PTP;
+	meta_req->txbd_update = true;
+}
+
+static u64 enetc_xsk_fill_timestamp(void *_priv)
+{
+	struct enetc_xsk_tx_complete *tx_compl = _priv;
+	struct enetc_bdr *tx_ring = tx_compl->tx_ring;
+	union enetc_tx_bd *txbd = tx_compl->txbd;
+	struct enetc_ndev_priv *priv;
+	u64 tstamp = 0;
+
+	if (!(txbd->flags & ENETC_TXBD_FLAGS_W))
+		return 0;
+
+	priv = netdev_priv(tx_ring->ndev);
+	enetc_get_tx_tstamp(&priv->si->hw, txbd, &tstamp);
+
+	return ns_to_ktime(tstamp);
+}
+
+const struct xsk_tx_metadata_ops enetc_xsk_tx_metadata_ops = {
+	.tmo_request_timestamp	= enetc_xsk_request_timestamp,
+	.tmo_fill_timestamp	= enetc_xsk_fill_timestamp,
+};
+EXPORT_SYMBOL_GPL(enetc_xsk_tx_metadata_ops);
+
+static void enetc_complete_xsk_tx(struct enetc_bdr *tx_ring,
+				  int i, u32 *xsk_tx_cnt)
+{
+	struct enetc_ndev_priv *priv = netdev_priv(tx_ring->ndev);
+	struct enetc_tx_swbd *tx_swbd = &tx_ring->tx_swbd[i];
+	union enetc_tx_bd *txbd = ENETC_TXBD(*tx_ring, i);
+	struct enetc_xsk_tx_complete tx_compl = {
+		.tx_ring = tx_ring,
+		.txbd = txbd,
+	};
+	struct xsk_buff_pool *pool;
+	struct enetc_bdr *rx_ring;
+
+	(*xsk_tx_cnt)++;
+
+	rx_ring = enetc_rx_ring_from_xdp_tx_ring(priv, tx_ring);
+	pool = rx_ring->xdp.xsk_pool;
+	if (pool && xp_tx_metadata_enabled(pool))
+		xsk_tx_metadata_complete(&tx_swbd->xsk_meta,
+					 &enetc_xsk_tx_metadata_ops,
+					 &tx_compl);
+}
+
 static bool enetc_clean_tx_ring(struct enetc_bdr *tx_ring, int napi_budget,
 				u32 *xsk_tx_cnt)
 {
@@ -1299,7 +1375,7 @@ static bool enetc_clean_tx_ring(struct enetc_bdr *tx_ring, int napi_budget,
 		if (tx_swbd->is_xsk && tx_swbd->is_xdp_tx)
 			xsk_buff_free(tx_swbd->xsk_buff);
 		else if (tx_swbd->is_xsk)
-			(*xsk_tx_cnt)++;
+			enetc_complete_xsk_tx(tx_ring, i, xsk_tx_cnt);
 		else if (tx_swbd->is_xdp_tx)
 			enetc_recycle_xdp_tx_buff(tx_ring, tx_swbd);
 		else if (likely(tx_swbd->dma))
@@ -2597,6 +2673,7 @@ static void enetc_xsk_descs_to_tx_ring(struct enetc_bdr *tx_ring,
 	struct xdp_desc *xsk_descs = pool->tx_descs;
 	union enetc_tx_bd *txbd, *first_txbd;
 	struct enetc_tx_swbd *tx_swbd;
+	struct xsk_tx_metadata *meta;
 	bool first_bd = true;
 	dma_addr_t dma;
 	u16 frm_len;
@@ -2610,7 +2687,6 @@ static void enetc_xsk_descs_to_tx_ring(struct enetc_bdr *tx_ring,
 		tx_swbd = &tx_ring->tx_swbd[i];
 		tx_swbd->len = xsk_descs[j].len;
 		tx_swbd->is_xsk = true;
-		tx_swbd->is_eof = xsk_is_eop_desc(&xsk_descs[j]);
 
 		txbd = ENETC_TXBD(*tx_ring, i);
 		prefetchw(txbd);
@@ -2618,15 +2694,41 @@ static void enetc_xsk_descs_to_tx_ring(struct enetc_bdr *tx_ring,
 		txbd->addr = cpu_to_le64(dma);
 		txbd->buf_len = cpu_to_le16(tx_swbd->len);
 		if (first_bd) {
+			struct enetc_metadata_req meta_req;
+
 			first_txbd = txbd;
 			frm_len = tx_swbd->len;
+
+			meta = xsk_buff_get_metadata(pool, xsk_descs[j].addr);
+			if (!meta)
+				goto no_metadata_req;
+
+			meta_req.tx_ring = tx_ring;
+			meta_req.txbd = txbd;
+			meta_req.index = &i;
+			meta_req.txbd_update = false;
+
+			xsk_tx_metadata_request(meta, &enetc_xsk_tx_metadata_ops,
+						&meta_req);
+			xsk_tx_metadata_to_compl(meta, &tx_swbd->xsk_meta);
+
+			/* Update txbd and tx_swbd, because i may have been
+			 * incremented by 1 in xsk_tx_metadata_request().
+			 */
+			if (meta_req.txbd_update) {
+				tx_swbd = &tx_ring->tx_swbd[i];
+				txbd = ENETC_TXBD(*tx_ring, i);
+				prefetchw(txbd);
+			}
 		} else {
 			frm_len += tx_swbd->len;
 		}
 
+no_metadata_req:
+		tx_swbd->is_eof = xsk_is_eop_desc(&xsk_descs[j]);
 		if (tx_swbd->is_eof) {
 			first_txbd->frm_len = cpu_to_le16(frm_len);
-			txbd->flags = ENETC_TXBD_FLAGS_F;
+			txbd->flags |= ENETC_TXBD_FLAGS_F;
 		}
 
 		first_bd = tx_swbd->is_eof;
@@ -2651,7 +2753,16 @@ static bool enetc_xsk_xmit(struct net_device *ndev, u32 queue,
 	tx_ring = priv->xdp_tx_ring[queue];
 	enetc_tx_queue_lock(tx_ring, cpu);
 
-	budget = enetc_bd_unused(tx_ring);
+	/* XDP_TXMD_FLAGS_TIMESTAMP maybe set if Tx metadata is enabled,
+	 * if so, extended Tx BD must be enabled to support Tx timestamp.
+	 * To ensure that there are enough available Tx BDs, it is assumed
+	 * that the extended BD is used for each frame.
+	 */
+	if (xp_tx_metadata_enabled(pool))
+		budget = enetc_bd_unused(tx_ring) / 2;
+	else
+		budget = enetc_bd_unused(tx_ring);
+
 	budget = min_t(int, budget, ENETC_XSK_TX_BUDGET);
 
 	batch = xsk_tx_peek_release_desc_batch(pool, budget);
