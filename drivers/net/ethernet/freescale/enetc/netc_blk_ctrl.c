@@ -47,6 +47,11 @@
 #define PCS_PROT_SFI			BIT(4)
 #define PCS_PROT_10G_SXGMII		BIT(6)
 
+#define IMX94_MISC_SOC_CONTROL		0x0
+#define  SEL_XPCS_1			BIT(1)
+#define   IMX94_XPCS_PORT_0		0x0
+#define   IMX94_XPCS_PORT_1		0x1
+
 #define IMX94_EXT_PIN_CONTROL		0x10
 #define  MAC2_MAC3_SEL			BIT(1)
 
@@ -99,12 +104,6 @@
 /* Flags for different platforms */
 #define NETC_HAS_NETCMIX		BIT(0)
 
-struct netc_devinfo {
-	u32 flags;
-	int (*netcmix_init)(struct platform_device *pdev);
-	int (*ierb_init)(struct platform_device *pdev);
-};
-
 struct netc_blk_ctrl {
 	void __iomem *prb;
 	void __iomem *ierb;
@@ -115,6 +114,13 @@ struct netc_blk_ctrl {
 	struct dentry *debugfs_root;
 	struct clk *ipg_clk;
 	atomic_t wakeonlan_count;
+};
+
+struct netc_devinfo {
+	u32 flags;
+	int (*netcmix_init)(struct platform_device *pdev);
+	int (*ierb_init)(struct platform_device *pdev);
+	void (*xpcs_port_init)(struct netc_blk_ctrl *priv, int port);
 };
 
 static struct netc_blk_ctrl *netc_bc;
@@ -535,6 +541,32 @@ static int netc_ierb_init(struct platform_device *pdev)
 	return 0;
 }
 
+static void imx94_netc_xpcs_port_init(struct netc_blk_ctrl *priv, int port)
+{
+	u32 val;
+
+	val = netc_reg_read(priv->netcmix, IMX94_MISC_SOC_CONTROL);
+	if (port == IMX94_XPCS_PORT_1)
+		val |= SEL_XPCS_1;
+	else
+		val &= ~SEL_XPCS_1;
+	netc_reg_write(priv->netcmix, IMX94_MISC_SOC_CONTROL, val);
+}
+
+void netc_xpcs_port_init(int port)
+{
+	struct netc_blk_ctrl *priv = netc_bc;
+	const struct netc_devinfo *devinfo;
+
+	if (!priv)
+		return;
+	devinfo = priv->devinfo;
+
+	if (devinfo->xpcs_port_init)
+		devinfo->xpcs_port_init(priv, port);
+}
+EXPORT_SYMBOL_GPL(netc_xpcs_port_init);
+
 void netc_ierb_enable_wakeonlan(void)
 {
 	struct netc_blk_ctrl *priv = netc_bc;
@@ -640,6 +672,7 @@ static const struct netc_devinfo imx94_devinfo = {
 	.flags = NETC_HAS_NETCMIX,
 	.netcmix_init = imx94_netcmix_init,
 	.ierb_init = imx94_ierb_init,
+	.xpcs_port_init = imx94_netc_xpcs_port_init,
 };
 
 static const struct of_device_id netc_blk_ctrl_match[] = {
