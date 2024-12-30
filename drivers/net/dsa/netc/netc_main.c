@@ -138,6 +138,16 @@ static int netc_port_create_internal_mdiobus(struct netc_port *port)
 		goto free_mdiobus;
 	}
 
+	switch (priv->revision) {
+	case NETC_SWITCH_REV_4_3:
+		break;
+	default:
+		err = -EOPNOTSUPP;
+		dev_err(dev, "unsupported xpcs version\n");
+		goto unregister_mdiobus;
+	}
+
+	netc_xpcs_port_init(port->index);
 	/* TODO: xpcs_create_mdiodev_with_phy() should be refactored for i.MX94 */
 	xpcs = xpcs_create_mdiodev(bus, port->index, port->phy_mode);
 	if (IS_ERR(xpcs)) {
