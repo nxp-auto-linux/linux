@@ -11,6 +11,15 @@
 
 #define ENETC_SI_MAX_RING_NUM	8
 
+#define ENETC_MAC_FILTER_TYPE_UC	BIT(0)
+#define ENETC_MAC_FILTER_TYPE_MC	BIT(1)
+#define ENETC_MAC_FILTER_TYPE_ALL	(ENETC_MAC_FILTER_TYPE_UC | \
+					 ENETC_MAC_FILTER_TYPE_MC)
+
+struct enetc_mac_addr {
+	u8 addr[ETH_ALEN];
+};
+
 static void enetc4_get_port_caps(struct enetc_pf *pf)
 {
 	struct enetc_hw *hw = &pf->si->hw;
@@ -26,6 +35,9 @@ static void enetc4_get_port_caps(struct enetc_pf *pf)
 
 	val = enetc_port_rd(hw, ENETC4_PMCAPR);
 	pf->caps.half_duplex = (val & PMCAPR_HD) ? 1 : 0;
+
+	val = enetc_port_rd(hw, ENETC4_PSIMAFCAPR);
+	pf->caps.mac_filter_num = val & PSIMAFCAPR_NUM_MAC_AFTE;
 }
 
 static void enetc4_pf_set_si_primary_mac(struct enetc_hw *hw, int si,
@@ -56,6 +68,341 @@ static void enetc4_pf_get_si_primary_mac(struct enetc_hw *hw, int si,
 	put_unaligned_le16(lower, addr + 4);
 }
 
+static void enetc4_pf_set_si_mac_promisc(struct enetc_hw *hw, int si,
+					 int type, bool en)
+{
+	u32 val = enetc_port_rd(hw, ENETC4_PSIPMMR);
+
+	if (type == UC) {
+		if (en)
+			val |= PSIPMMR_SI_MAC_UP(si);
+		else
+			val &= ~PSIPMMR_SI_MAC_UP(si);
+	} else { /* Multicast promiscuous mode. */
+		if (en)
+			val |= PSIPMMR_SI_MAC_MP(si);
+		else
+			val &= ~PSIPMMR_SI_MAC_MP(si);
+	}
+
+	enetc_port_wr(hw, ENETC4_PSIPMMR, val);
+}
+
+static void enetc4_pf_set_si_mac_hash_filter(struct enetc_hw *hw, int si,
+					     int type, u64 hash)
+{
+	if (type == UC) {
+		enetc_port_wr(hw, ENETC4_PSIUMHFR0(si), lower_32_bits(hash));
+		enetc_port_wr(hw, ENETC4_PSIUMHFR1(si), upper_32_bits(hash));
+	} else { /* MC */
+		enetc_port_wr(hw, ENETC4_PSIMMHFR0(si), lower_32_bits(hash));
+		enetc_port_wr(hw, ENETC4_PSIMMHFR1(si), upper_32_bits(hash));
+	}
+}
+
+static void enetc4_pf_destroy_mac_list(struct enetc_pf *pf)
+{
+	struct enetc_mac_list_entry *entry;
+	struct hlist_node *tmp;
+
+	mutex_lock(&pf->mac_list_lock);
+
+	hlist_for_each_entry_safe(entry, tmp, &pf->mac_list, node) {
+		hlist_del(&entry->node);
+		kfree(entry);
+	}
+
+	pf->num_mfe = 0;
+
+	mutex_unlock(&pf->mac_list_lock);
+}
+
+static bool enetc_mac_filter_type_check(int type, const u8 *addr)
+{
+	if (type == ENETC_MAC_FILTER_TYPE_UC)
+		return !is_multicast_ether_addr(addr);
+	else if (type == ENETC_MAC_FILTER_TYPE_MC)
+		return is_multicast_ether_addr(addr);
+	else
+		return true;
+}
+
+static struct enetc_mac_list_entry *
+enetc_mac_list_lookup_entry(struct enetc_pf *pf, const unsigned char *addr)
+{
+	struct enetc_mac_list_entry *entry;
+
+	hlist_for_each_entry(entry, &pf->mac_list, node)
+		if (ether_addr_equal(entry->mac, addr))
+			return entry;
+
+	return NULL;
+}
+
+static void enetc_mac_list_add_entry(struct enetc_pf *pf,
+				     struct enetc_mac_list_entry *entry)
+{
+	hlist_add_head(&entry->node, &pf->mac_list);
+}
+
+static void enetc_mac_list_del_entry(struct enetc_mac_list_entry *entry)
+{
+	hlist_del(&entry->node);
+	kfree(entry);
+}
+
+static void enetc_mac_list_del_matched_entries(struct enetc_pf *pf, u16 si_bit,
+					       struct enetc_mac_addr *mac,
+					       int mac_cnt)
+{
+	struct enetc_mac_list_entry *entry;
+	int i;
+
+	for (i = 0; i < mac_cnt; i++) {
+		entry = enetc_mac_list_lookup_entry(pf, mac[i].addr);
+		if (!entry)
+			continue;
+
+		entry->si_bitmap &= ~si_bit;
+		if (entry->si_bitmap)
+			continue;
+
+		enetc_mac_list_del_entry(entry);
+		pf->num_mfe--;
+	}
+}
+
+static bool enetc_mac_list_is_available(struct enetc_pf *pf,
+					struct enetc_mac_addr *mac,
+					int mac_cnt)
+{
+	int max_num_mfe = pf->caps.mac_filter_num;
+	struct enetc_mac_list_entry *entry;
+	int cur_num_mfe = pf->num_mfe;
+	int i, new_mac_cnt = 0;
+
+	if (mac_cnt > max_num_mfe)
+		return false;
+
+	/* Check MAC filter table whether has enough available entries */
+	hlist_for_each_entry(entry, &pf->mac_list, node) {
+		for (i = 0; i < mac_cnt; i++) {
+			if (ether_addr_equal(entry->mac, mac[i].addr))
+				break;
+		}
+
+		if (i == mac_cnt)
+			new_mac_cnt++;
+
+		if ((cur_num_mfe + new_mac_cnt) > max_num_mfe)
+			return false;
+	}
+
+	return true;
+}
+
+static int enetc4_pf_add_si_mac_exact_filter(struct enetc_pf *pf, int si_id,
+					     struct enetc_mac_addr *mac,
+					     int mac_cnt)
+{
+	struct enetc_mac_list_entry *entry;
+	struct maft_entry_data data = {0};
+	struct enetc_si *si = pf->si;
+	u16 si_bit = BIT(si_id);
+	int i, num_mfe, err = 0;
+
+	mutex_lock(&pf->mac_list_lock);
+
+	if (!enetc_mac_list_is_available(pf, mac, mac_cnt)) {
+		err = -ENOSPC;
+		goto mac_list_unlock;
+	}
+
+	num_mfe = pf->num_mfe;
+	/* Update mac_list */
+	for (i = 0; i < mac_cnt; i++) {
+		entry = enetc_mac_list_lookup_entry(pf, mac[i].addr);
+		if (entry) {
+			entry->si_bitmap |= si_bit;
+			continue;
+		}
+
+		entry = kzalloc(sizeof(*entry), GFP_KERNEL);
+		if (unlikely(!entry)) {
+			/* Restore MAC list to the state before the update
+			 * if an error occurs.
+			 */
+			enetc_mac_list_del_matched_entries(pf, si_bit,
+							   mac, i + 1);
+			err = -ENOMEM;
+			goto mac_list_unlock;
+		}
+
+		ether_addr_copy(entry->mac, mac[i].addr);
+		entry->si_bitmap = si_bit;
+		enetc_mac_list_add_entry(pf, entry);
+		pf->num_mfe++;
+	}
+
+	/* Clear MAC filter table */
+	for (i = 0; i < num_mfe; i++)
+		ntmp_maft_delete_entry(&si->ntmp.cbdrs, i);
+
+	i = 0;
+	hlist_for_each_entry(entry, &pf->mac_list, node) {
+		data.cfge.si_bitmap = cpu_to_le16(entry->si_bitmap);
+		ether_addr_copy(data.keye.mac_addr, entry->mac);
+		ntmp_maft_add_entry(&si->ntmp.cbdrs, i++, &data);
+	}
+
+mac_list_unlock:
+	mutex_unlock(&pf->mac_list_lock);
+
+	return err;
+}
+
+static void enetc4_pf_flush_si_mac_exact_filter(struct enetc_pf *pf, int si_id,
+						int mac_type)
+{
+	struct enetc_mac_list_entry *entry;
+	struct maft_entry_data data = {0};
+	struct enetc_si *si = pf->si;
+	u16 si_bit = BIT(si_id);
+	struct hlist_node *tmp;
+	int i, num_mfe;
+
+	mutex_lock(&pf->mac_list_lock);
+
+	num_mfe = pf->num_mfe;
+	hlist_for_each_entry_safe(entry, tmp, &pf->mac_list, node) {
+		if (enetc_mac_filter_type_check(mac_type, entry->mac) &&
+		    entry->si_bitmap & si_bit) {
+			entry->si_bitmap ^= si_bit;
+			if (entry->si_bitmap)
+				continue;
+
+			enetc_mac_list_del_entry(entry);
+			pf->num_mfe--;
+		}
+	}
+
+	for (i = 0; i < num_mfe; i++)
+		ntmp_maft_delete_entry(&si->ntmp.cbdrs, i);
+
+	i = 0;
+	hlist_for_each_entry(entry, &pf->mac_list, node) {
+		data.cfge.si_bitmap = cpu_to_le16(entry->si_bitmap);
+		ether_addr_copy(data.keye.mac_addr, entry->mac);
+		ntmp_maft_add_entry(&si->ntmp.cbdrs, i++, &data);
+	}
+
+	mutex_unlock(&pf->mac_list_lock);
+}
+
+static int enetc4_pf_set_mac_exact_filter(struct enetc_pf *pf, int type)
+{
+	int max_num_mfe = pf->caps.mac_filter_num;
+	struct net_device *ndev = pf->si->ndev;
+	struct enetc_mac_addr *mac_tbl;
+	struct netdev_hw_addr *ha;
+	u8 si_mac[ETH_ALEN];
+	int mac_cnt = 0;
+	int err;
+
+	mac_tbl = kcalloc(max_num_mfe, sizeof(*mac_tbl), GFP_KERNEL);
+	if (!mac_tbl)
+		return -ENOMEM;
+
+	enetc_get_primary_mac_addr(&pf->si->hw, si_mac);
+
+	netif_addr_lock_bh(ndev);
+	if (type & ENETC_MAC_FILTER_TYPE_UC) {
+		netdev_for_each_uc_addr(ha, ndev) {
+			if (!is_valid_ether_addr(ha->addr) ||
+			    ether_addr_equal(ha->addr, si_mac))
+				continue;
+
+			if (mac_cnt >= max_num_mfe)
+				goto err_nospace_out;
+
+			ether_addr_copy(mac_tbl[mac_cnt++].addr, ha->addr);
+		}
+	}
+
+	if (type & ENETC_MAC_FILTER_TYPE_MC) {
+		netdev_for_each_mc_addr(ha, ndev) {
+			if (!is_multicast_ether_addr(ha->addr))
+				continue;
+
+			if (mac_cnt >= max_num_mfe)
+				goto err_nospace_out;
+
+			ether_addr_copy(mac_tbl[mac_cnt++].addr, ha->addr);
+		}
+	}
+	netif_addr_unlock_bh(ndev);
+
+	err = enetc4_pf_add_si_mac_exact_filter(pf, 0, mac_tbl, mac_cnt);
+	kfree(mac_tbl);
+
+	return err;
+
+err_nospace_out:
+	netif_addr_unlock_bh(ndev);
+	kfree(mac_tbl);
+
+	return -ENOSPC;
+}
+
+static void enetc4_pf_set_mac_hash_filter(struct enetc_pf *pf, int type)
+{
+	struct net_device *ndev = pf->si->ndev;
+	struct enetc_mac_filter *mac_filter;
+	struct enetc_hw *hw = &pf->si->hw;
+	struct enetc_si *si = pf->si;
+	struct netdev_hw_addr *ha;
+
+	netif_addr_lock_bh(ndev);
+	if (type & ENETC_MAC_FILTER_TYPE_UC) {
+		mac_filter = &si->mac_filter[UC];
+		enetc_reset_mac_addr_filter(mac_filter);
+		netdev_for_each_uc_addr(ha, ndev)
+			enetc_add_mac_addr_ht_filter(mac_filter, ha->addr);
+
+		enetc4_pf_set_si_mac_hash_filter(hw, 0, UC,
+						 *mac_filter->mac_hash_table);
+	}
+
+	if (type & ENETC_MAC_FILTER_TYPE_MC) {
+		mac_filter = &si->mac_filter[MC];
+		enetc_reset_mac_addr_filter(mac_filter);
+		netdev_for_each_mc_addr(ha, ndev)
+			enetc_add_mac_addr_ht_filter(mac_filter, ha->addr);
+
+		enetc4_pf_set_si_mac_hash_filter(hw, 0, MC,
+						 *mac_filter->mac_hash_table);
+	}
+	netif_addr_unlock_bh(ndev);
+}
+
+static void enetc4_pf_set_mac_filter(struct enetc_pf *pf, int type)
+{
+	/* Currently, the MAC address filter table only has 4 entries, and the
+	 * table is shared by PF and VFs. In the default network configuration,
+	 * the MAC filter will be configured with multiple multicast addresses,
+	 * so it is only suitable for unicast filtering. If the number of unicast
+	 * addresses exceeds the table capacity, the MAC hash filter will be used.
+	 */
+	if (type & ENETC_MAC_FILTER_TYPE_UC) {
+		if (enetc4_pf_set_mac_exact_filter(pf, ENETC_MAC_FILTER_TYPE_UC))
+			/* Fall back to the MAC hash filter */
+			enetc4_pf_set_mac_hash_filter(pf, ENETC_MAC_FILTER_TYPE_UC);
+	}
+
+	if (type & ENETC_MAC_FILTER_TYPE_MC)
+		enetc4_pf_set_mac_hash_filter(pf, ENETC_MAC_FILTER_TYPE_MC);
+}
+
 static const struct enetc_pf_ops enetc4_pf_ops = {
 	.set_si_primary_mac = enetc4_pf_set_si_primary_mac,
 	.get_si_primary_mac = enetc4_pf_get_si_primary_mac,
@@ -71,7 +418,16 @@ static int enetc4_pf_struct_init(struct enetc_si *si)
 
 	enetc4_get_port_caps(pf);
 
+	INIT_HLIST_HEAD(&pf->mac_list);
+	mutex_init(&pf->mac_list_lock);
+
 	return 0;
+}
+
+static void enetc4_pf_struct_free(struct enetc_pf *pf)
+{
+	enetc4_pf_destroy_mac_list(pf);
+	mutex_destroy(&pf->mac_list_lock);
 }
 
 static u32 enetc4_psicfgr0_val_construct(bool is_vf, u32 num_tx_bdr, u32 num_rx_bdr)
@@ -305,12 +661,53 @@ static void enetc4_pf_free(struct enetc_pf *pf)
 	enetc4_free_ntmp_priv(pf->si);
 }
 
+static void enetc4_pf_do_set_rx_mode(struct work_struct *work)
+{
+	struct enetc_si *si = container_of(work, struct enetc_si, rx_mode_task);
+	struct enetc_pf *pf = enetc_si_priv(si);
+	struct net_device *ndev = si->ndev;
+	struct enetc_hw *hw = &si->hw;
+	bool uc_promisc = false;
+	bool mc_promisc = false;
+	int type = 0;
+
+	if (ndev->flags & IFF_PROMISC) {
+		uc_promisc = true;
+		mc_promisc = true;
+	} else if (ndev->flags & IFF_ALLMULTI) {
+		mc_promisc = true;
+		type = ENETC_MAC_FILTER_TYPE_UC;
+	} else {
+		type = ENETC_MAC_FILTER_TYPE_ALL;
+	}
+
+	enetc4_pf_set_si_mac_promisc(hw, 0, UC, uc_promisc);
+	enetc4_pf_set_si_mac_promisc(hw, 0, MC, mc_promisc);
+
+	/* Clear Old MAC filter */
+	enetc4_pf_flush_si_mac_exact_filter(pf, 0, ENETC_MAC_FILTER_TYPE_ALL);
+	enetc4_pf_set_si_mac_hash_filter(hw, 0, UC, 0);
+	enetc4_pf_set_si_mac_hash_filter(hw, 0, MC, 0);
+
+	/* Set new MAC filter */
+	enetc4_pf_set_mac_filter(pf, type);
+}
+
+static void enetc4_pf_set_rx_mode(struct net_device *ndev)
+{
+	struct enetc_ndev_priv *priv = netdev_priv(ndev);
+	struct enetc_si *si = priv->si;
+
+	queue_work(si->workqueue, &si->rx_mode_task);
+}
+
 static const struct net_device_ops enetc4_ndev_ops = {
 	.ndo_open		= enetc_open,
 	.ndo_stop		= enetc_close,
 	.ndo_start_xmit		= enetc_xmit,
 	.ndo_get_stats		= enetc_get_stats,
 	.ndo_set_mac_address	= enetc_pf_set_mac_addr,
+	.ndo_set_rx_mode	= enetc4_pf_set_rx_mode,
 };
 
 static struct phylink_pcs *
@@ -721,6 +1118,19 @@ static const struct enetc_si_ops enetc4_psi_ops = {
 	.teardown_cbdr = enetc4_teardown_cbdr,
 };
 
+static int enetc4_pf_wq_task_init(struct enetc_si *si)
+{
+	char wq_name[24];
+
+	INIT_WORK(&si->rx_mode_task, enetc4_pf_do_set_rx_mode);
+	snprintf(wq_name, sizeof(wq_name), "enetc-%s", pci_name(si->pdev));
+	si->workqueue = create_singlethread_workqueue(wq_name);
+	if (!si->workqueue)
+		return -ENOMEM;
+
+	return 0;
+}
+
 static int enetc4_pf_probe(struct pci_dev *pdev,
 			   const struct pci_device_id *ent)
 {
@@ -756,9 +1166,13 @@ static int enetc4_pf_probe(struct pci_dev *pdev,
 		return err;
 
 	pf = enetc_si_priv(si);
+	err = enetc4_pf_wq_task_init(si);
+	if (err)
+		goto err_wq_task_init;
+
 	err = enetc4_pf_init(pf);
 	if (err)
-		return err;
+		goto err_pf_init;
 
 	enetc_get_si_caps(si);
 
@@ -770,6 +1184,10 @@ static int enetc4_pf_probe(struct pci_dev *pdev,
 
 err_netdev_create:
 	enetc4_pf_free(pf);
+err_pf_init:
+	destroy_workqueue(si->workqueue);
+err_wq_task_init:
+	enetc4_pf_struct_free(pf);
 
 	return err;
 }
@@ -781,6 +1199,8 @@ static void enetc4_pf_remove(struct pci_dev *pdev)
 
 	enetc4_pf_netdev_destroy(si);
 	enetc4_pf_free(pf);
+	destroy_workqueue(si->workqueue);
+	enetc4_pf_struct_free(pf);
 }
 
 static const struct pci_device_id enetc4_pf_id_table[] = {
