@@ -101,6 +101,13 @@ static void enetc4_pf_set_si_mac_hash_filter(struct enetc_hw *hw, int si,
 	}
 }
 
+static void enetc4_pf_set_si_vlan_hash_filter(struct enetc_hw *hw,
+					      int si, u64 hash)
+{
+	enetc_port_wr(hw, ENETC4_PSIVHFR0(si), lower_32_bits(hash));
+	enetc_port_wr(hw, ENETC4_PSIVHFR1(si), upper_32_bits(hash));
+}
+
 static void enetc4_pf_destroy_mac_list(struct enetc_pf *pf)
 {
 	struct enetc_mac_list_entry *entry;
@@ -407,6 +414,7 @@ static void enetc4_pf_set_mac_filter(struct enetc_pf *pf, int type)
 static const struct enetc_pf_ops enetc4_pf_ops = {
 	.set_si_primary_mac = enetc4_pf_set_si_primary_mac,
 	.get_si_primary_mac = enetc4_pf_get_si_primary_mac,
+	.set_si_vlan_hash_filter = enetc4_pf_set_si_vlan_hash_filter,
 };
 
 static int enetc4_pf_struct_init(struct enetc_si *si)
@@ -696,6 +704,16 @@ static void enetc4_pf_set_rx_mode(struct net_device *ndev)
 static int enetc4_pf_set_features(struct net_device *ndev,
 				  netdev_features_t features)
 {
+	netdev_features_t changed = ndev->features ^ features;
+	struct enetc_ndev_priv *priv = netdev_priv(ndev);
+	struct enetc_hw *hw = &priv->si->hw;
+
+	if (changed & NETIF_F_HW_VLAN_CTAG_FILTER) {
+		bool promisc_en = !(features & NETIF_F_HW_VLAN_CTAG_FILTER);
+
+		enetc4_pf_set_si_vlan_promisc(hw, 0, promisc_en);
+	}
+
 	enetc_set_features(ndev, features);
 
 	return 0;
@@ -709,6 +727,8 @@ static const struct net_device_ops enetc4_ndev_ops = {
 	.ndo_set_mac_address	= enetc_pf_set_mac_addr,
 	.ndo_set_rx_mode	= enetc4_pf_set_rx_mode,
 	.ndo_set_features	= enetc4_pf_set_features,
+	.ndo_vlan_rx_add_vid	= enetc_vlan_rx_add_vid,
+	.ndo_vlan_rx_kill_vid	= enetc_vlan_rx_del_vid,
 };
 
 static struct phylink_pcs *
