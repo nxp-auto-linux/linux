@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: (GPL-2.0+ OR BSD-3-Clause)
-/* Copyright 2017-2019, 2024 NXP */
+/* Copyright 2017-2019, 2024-2025 NXP */
 
 #include <linux/unaligned.h>
 #include <linux/module.h>
@@ -949,6 +949,11 @@ static int enetc_pf_register_with_ierb(struct pci_dev *pdev)
 	return ret;
 }
 
+static const struct enetc_si_ops enetc_psi_ops = {
+	.setup_cbdr = enetc_setup_cbdr,
+	.teardown_cbdr = enetc_teardown_cbdr,
+};
+
 static struct enetc_si *enetc_psi_create(struct pci_dev *pdev)
 {
 	struct enetc_si *si;
@@ -967,6 +972,7 @@ static struct enetc_si *enetc_psi_create(struct pci_dev *pdev)
 		goto out_pci_remove;
 	}
 
+	si->ops = &enetc_psi_ops;
 	si->revision = enetc_get_ip_revision(&si->hw);
 	err = enetc_get_driver_data(si);
 	if (err) {
@@ -974,8 +980,7 @@ static struct enetc_si *enetc_psi_create(struct pci_dev *pdev)
 		goto out_pci_remove;
 	}
 
-	err = enetc_setup_cbdr(&pdev->dev, &si->hw, ENETC_CBDR_DEFAULT_SIZE,
-			       &si->cbd_ring);
+	err = si->ops->setup_cbdr(si);
 	if (err)
 		goto out_pci_remove;
 
@@ -994,7 +999,7 @@ static struct enetc_si *enetc_psi_create(struct pci_dev *pdev)
 	return si;
 
 out_teardown_cbdr:
-	enetc_teardown_cbdr(&si->cbd_ring);
+	si->ops->teardown_cbdr(si);
 out_pci_remove:
 	enetc_pci_remove(pdev);
 out:
@@ -1005,7 +1010,7 @@ static void enetc_psi_destroy(struct pci_dev *pdev)
 {
 	struct enetc_si *si = pci_get_drvdata(pdev);
 
-	enetc_teardown_cbdr(&si->cbd_ring);
+	si->ops->teardown_cbdr(si);
 	enetc_pci_remove(pdev);
 }
 
