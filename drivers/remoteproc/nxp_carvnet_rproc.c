@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: GPL-2.0 OR BSD-3-Clause
 /*
- * Copyright 2024 NXP
+ * Copyright 2024-2025 NXP
  *
  * CAR-V NET remoteproc driver
  *
  */
 
 #include <linux/debugfs.h>
+#include <linux/iopoll.h>
 #include <linux/interrupt.h>
 #include <linux/module.h>
 #include <linux/of_reserved_mem.h>
@@ -21,6 +22,8 @@ MODULE_PARM_DESC(auto_boot,
 		 "Auto-boot the CAR-V-NET remote processor [default=false]");
 
 #define CARVNET_FW_ALIGN	0x4000U
+
+#define CMD_FW_STOP		32U
 
 #define CARVNET_BAR_FW		0
 #define CARVNET_BAR_VDEV	1
@@ -536,11 +539,47 @@ static int q_set_prio_region(struct carvnet *priv, struct rproc_mem_entry *m,
 	return 0;
 }
 
+static void q_clear_simple_region(struct carvnet *priv, int i)
+{
+	/* Clean AT_SRR and disable it */
+	writel(0, priv->regs + CARV_Q_AT_SRR(priv->q_user, i));
+}
+
+static void q_clear_prio_region(struct carvnet *priv, int i)
+{
+	/* Clean AT_RCR/AT_RMRR and disable it */
+	writel(0, priv->regs + CARV_Q_AT_RCR(priv->q_user, i));
+	writel(0, priv->regs + CARV_Q_AT_RMR(priv->q_user, i));
+}
+
+static void q_clear_mapper(struct carvnet *priv)
+{
+	int i;
+
+	/* Clear all simple region mappings */
+	for (i = 0; i < CARV_AT_SIMPLE_REGIONS; i++)
+		q_clear_simple_region(priv, i);
+
+	/* Clear all prio region mappings */
+	for (i = 0; i < CARV_AT_PRIO_REGIONS; i++)
+		q_clear_prio_region(priv, i);
+
+	/* Clear BAR0 */
+	writel(0, priv->regs + CARV_Q_AT_BARL(priv->q_user, CARVNET_BAR_FW));
+	writel(0, priv->regs + CARV_Q_AT_BARH(priv->q_user, CARVNET_BAR_FW));
+
+	/* Clear BAR1 */
+	writel(0, priv->regs + CARV_Q_AT_BARL(priv->q_user, CARVNET_BAR_VDEV));
+	writel(0, priv->regs + CARV_Q_AT_BARH(priv->q_user, CARVNET_BAR_VDEV));
+}
+
 static int q_set_mapper(struct carvnet *priv)
 {
 	struct rproc *rproc;
 	struct rproc_mem_entry *m = NULL;
 	int simple_n = 0, prio_n = 0, datareg = 0, ret;
+
+	q_clear_mapper(priv);
 
 	rproc = dev_get_drvdata(priv->dev);
 
@@ -590,40 +629,6 @@ static int q_set_mapper(struct carvnet *priv)
 	return 0;
 }
 
-static void q_clear_simple_region(struct carvnet *priv, int i)
-{
-	/* Clean AT_SRR and disable it */
-	writel(0, priv->regs + CARV_Q_AT_SRR(priv->q_user, i));
-}
-
-static void q_clear_prio_region(struct carvnet *priv, int i)
-{
-	/* Clean AT_RCR/AT_RMRR and disable it */
-	writel(0, priv->regs + CARV_Q_AT_RCR(priv->q_user, i));
-	writel(0, priv->regs + CARV_Q_AT_RMR(priv->q_user, i));
-}
-
-static void q_clear_mapper(struct carvnet *priv)
-{
-	int i;
-
-	/* Clear all simple region mappings */
-	for (i = 0; i < CARV_AT_SIMPLE_REGIONS; i++)
-		q_clear_simple_region(priv, i);
-
-	/* Clear all prio region mappings */
-	for (i = 0; i < CARV_AT_PRIO_REGIONS; i++)
-		q_clear_prio_region(priv, i);
-
-	/* Clear BAR0 */
-	writel(0, priv->regs + CARV_Q_AT_BARL(priv->q_user, CARVNET_BAR_FW));
-	writel(0, priv->regs + CARV_Q_AT_BARH(priv->q_user, CARVNET_BAR_FW));
-
-	/* Clear BAR1 */
-	writel(0, priv->regs + CARV_Q_AT_BARL(priv->q_user, CARVNET_BAR_VDEV));
-	writel(0, priv->regs + CARV_Q_AT_BARH(priv->q_user, CARVNET_BAR_VDEV));
-}
-
 static int q_msg_send_info(struct carvnet *priv, u32 info)
 {
 	/* Send info by mailbox 0 */
@@ -634,6 +639,17 @@ static int q_msg_send_info(struct carvnet *priv, u32 info)
 
 static void q_stop(struct carvnet *priv)
 {
+	u32 done;
+	int ret;
+
+	q_msg_send_info(priv, (u32)CMD_FW_STOP);
+
+	/* Wait for the MB_CR Done bit with timeout 10ms */
+	ret = read_poll_timeout(GET_CARV_Q_MB_CR_DONE, done, done == 1, 100, 10000, false,
+			readl(priv->regs + CARV_Q_MB_CR(priv->q_user)));
+	if (ret)
+		dev_info(priv->dev, "Waiting Done bit timeout\n");
+
 	/* Stop the FW */
 	writel(0, priv->regs + CARV_Q_MB_CR(0));
 
@@ -641,8 +657,6 @@ static void q_stop(struct carvnet *priv)
 	writel(0, priv->regs + CARV_Q_MB_IER(0));
 	/* Disable Fault Interrupts: User configurable mask */
 	writel(0, priv->regs + CARV_Q_MB_FER(0));
-
-	q_clear_mapper(priv);
 }
 
 static int q_start(struct carvnet *priv)
@@ -660,7 +674,7 @@ static int q_start(struct carvnet *priv)
 		goto err;
 
 	/* Start the FW */
-	writel(CARV_Q_MB_CR_ENA(1), priv->regs + CARV_Q_MB_CR(0));
+	writel(CARV_Q_MB_CR_ENA(1) | CARV_Q_MB_CR_RSTSTART(1), priv->regs + CARV_Q_MB_CR(0));
 
 	return 0;
 
