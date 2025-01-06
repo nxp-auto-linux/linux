@@ -9,6 +9,8 @@
 #include <linux/debugfs.h>
 #include <linux/iopoll.h>
 #include <linux/interrupt.h>
+#include <linux/limits.h>
+#include <linux/minmax.h>
 #include <linux/module.h>
 #include <linux/of_reserved_mem.h>
 #include <linux/platform_device.h>
@@ -25,8 +27,7 @@ MODULE_PARM_DESC(auto_boot,
 
 #define CMD_FW_STOP		32U
 
-#define CARVNET_BAR_FW		0
-#define CARVNET_BAR_VDEV	1
+#define RSC_VENDOR_CARV_MATCH_ADDR	256U
 
 /* CAR-V Internal Memory Type and Access */
 
@@ -145,6 +146,7 @@ MODULE_PARM_DESC(auto_boot,
 #define CARV_Q_AT_BARL_MEMTYPE_NCOH	(0x0)
 #define CARV_Q_AT_BARL_MEMTYPE_COH	(0x1)
 #define CARV_Q_AT_BARL_MEMTYPE_SHAR	(0x2)
+#define CARV_Q_AT_BARL_MEMTYPE_DEFAULT	CARV_Q_AT_BARL_MEMTYPE_NCOH
 #define CARV_Q_AT_BARL_ADDR_MASK	GENMASK_ULL(31, 14)
 #define CARV_Q_AT_BARL_ADDR(v)		((v) & CARV_Q_AT_BARL_ADDR_MASK)
 #define GET_CARV_Q_AT_BARL_ADDR(v)	((v) & CARV_Q_AT_BARL_ADDR_MASK)
@@ -222,9 +224,7 @@ MODULE_PARM_DESC(auto_boot,
 #define	CARV_INT_ACTIVATED_BIT		BIT(4)	/* MBOX activated (MB_CRn[ENA] set and then
 						 * serviced)
 						 */
-#define	CARV_INT_EVFLDONE_BIT		BIT(3)	/* MBOX flush/evict completed (with barrier to
-						 * assure BRESP for all Flush writes)
-						 */
+#define	CARV_INT_RESERVED_BIT3		BIT(3)	/* Bit3 reserved */
 #define	CARV_INT_UPDATE_BIT		BIT(2)	/* MBOX update received from Root Core */
 #define	CARV_INT_ERR_BIT		BIT(1)	/* MBOX error received from Root Core */
 #define	CARV_INT_DONE_BIT		BIT(0)	/* MBOX done received from Root Core */
@@ -245,13 +245,12 @@ MODULE_PARM_DESC(auto_boot,
 #define	GET_CARV_INT_ERR(v)		(!!((v) & CARV_INT_ERR_BIT))
 #define	GET_CARV_INT_DONE(v)		(!!((v) & CARV_INT_DONE_BIT))
 
-#define FUNC_ENABLE_MASK (CARV_INT_ACTIVATED_BIT | CARV_INT_EVFLDONE_BIT | \
+#define FUNC_ENABLE_MASK (CARV_INT_ACTIVATED_BIT | \
 	CARV_INT_UPDATE_BIT | CARV_INT_ERR_BIT | CARV_INT_DONE_BIT)
 
 #define FAULT_ENABLE_MASK (CARV_INT_F_BUS_BIT | CARV_INT_F_L2_BIT | CARV_INT_F_L1_BIT | \
 	CARV_INT_F_CORE_BIT | CARV_INT_F_AHB_BIT | CARV_INT_F_PART_BIT | CARV_INT_F_AXIRP_BIT | \
 	CARV_INT_F_AXIWE_BIT | CARV_INT_F_AXIRE_BIT | CARV_INT_F_MAP_BIT)
-
 
 #define CARVNET_IRQ_CNT 2
 
@@ -326,35 +325,55 @@ static const struct q_regmap_tab_u {
 	{ 0 },
 };
 
-#define MBOX_PING_REQUEST	(250U)
-#define MBOX_PING_REPLY		(251U)
+#define CARVEOUT_NAME_SIZE 32U
 
-enum {
-	MEMRES_VDEV_ID,
-	MEMRES_FW_ID,
-	MEMRES_MAX
+struct __packed fw_rsc_vendor_carv_match_addr {
+	u32 match_addr;
+	u8 carveout_name[CARVEOUT_NAME_SIZE];
 };
 
-struct memres {
-	void *va;		/* virtual address */
-	dma_addr_t dma;		/* dma address */
-	size_t len;		/* length in bytes */
-	u32 free_idx;		/* pointer to free area inside the region */
-	u32 of_resm_idx;	/* reserved memory phandle index */
-	char name[32];		/* associated memory region name (optional) */
+struct __packed carvnet_bar_info {
+	u8  bar_type;
+	u64 addr;
+	u64 addr_end;
+};
+
+#define BAR_CNT 4
+#define BAR_INVALID 0xFFFFFFFF
+
+/* Carveouts from Firmware segments have a special dedicated name
+ * to recognize them for mapping as simple-regions
+ */
+#define FIRMWARE_SEGMENT_NAME "fwseg"
+
+/**
+ * struct carveout_info - additional information for each carveout memory in rproc->carveouts
+ * @carveout_name: human-readable name of the carveout resource
+ * @match_addr: the CarV side address (match address) to be used for specified Carveout
+ * @bar_index: index 0..3 of the BAR to use with this carveout, or BAR_INVALID
+ *             if not assigned
+ * @node: kernel list node, to keep infos in struct carvnet's carveout_infos list
+ *
+ * This resource entry provides the host information about required CARV address for
+ * each Carveout region
+ */
+struct carveout_info {
+	u8 carveout_name[CARVEOUT_NAME_SIZE];
+	u32 match_addr;
+	u32 bar_index;
+	struct list_head node;
 };
 
 struct carvnet {
 	struct device *dev;
-	/*
-	 * 0 (MEMRES_VDEV_ID): continuous memory for vdev
-	 * 1 (MEMRES_FW_ID)  : continuous memory for firmware
-	 */
-	struct memres mrs[MEMRES_MAX];
+	struct carvnet_bar_info bar_info[BAR_CNT];
+	u8 bar_info_cnt;
 	struct dentry *subdentry;
 	void __iomem *regs;
 	struct work_struct rproc_work;
 	u8 q_user;		/* active Q user */
+
+	struct list_head carveout_infos; /* Extra information for each carveout: bar, match_addr */
 };
 
 static int q_validate(struct carvnet *priv)
@@ -375,53 +394,32 @@ static int q_validate(struct carvnet *priv)
 		 GET_CARV_GL_CR_IP_VID(readl(priv->regs + CARV_GL_CR)));
 
 	if (!GET_CARV_GL_CR_LOCK(readl(priv->regs + CARV_GL_CR)))
-		dev_warn(dev,
-			 "Quartile has global config unlocked! It's dangerous.\n");
+		dev_warn(dev, "Quartile has global config unlocked\n");
 
 	return 0;
 }
 
-static int q_get_bars(struct carvnet *priv)
+static struct carveout_info *q_get_carveout_info(struct carvnet *priv,
+						 const char name[CARVEOUT_NAME_SIZE])
 {
-	return 2;
-}
+	struct carveout_info *info;
 
-static int find_closest_bar(struct carvnet *priv, struct rproc_mem_entry *m,
-			    u32 *offs)
-{
-	int i, res = -1;
-	s64 m_offs = S64_MAX;
+	/* Find carveout_info for this Carveout name */
+	list_for_each_entry(info, &priv->carveout_infos, node)
+		if (strncmp((const char *)info->carveout_name, name, CARVEOUT_NAME_SIZE) == 0)
+			return info;
 
-	/* Parse first n BARL/BARH register sets and find one
-	 * with the smallest offset.
-	 * There should be at least 2 BAR register sets
-	 * with valid values (resmem 'fw' and 'vdev').
-	 */
-	for (i = 0; i < q_get_bars(priv); i++) {
-		u32 barh, barl;
-		u64 baddr;
+	/* Allocate carveout_info and store it into carvnet::carveout_infos list */
+	info = kzalloc(sizeof(struct carveout_info), GFP_KERNEL);
+	if (!info)
+		return NULL;
 
-		barh = readl(priv->regs + CARV_Q_AT_BARH(priv->q_user, i));
-		barl = readl(priv->regs + CARV_Q_AT_BARL(priv->q_user, i));
-		baddr = GET_CARV_Q_AT_BAR_ADDR(barh, barl);
+	info->bar_index = BAR_INVALID;
+	strscpy((char *)info->carveout_name, name, CARVEOUT_NAME_SIZE);
 
-		if ((m->dma - baddr) < m_offs) {
-			res = i;
-			m_offs = m->dma - baddr;
-		}
-	}
+	list_add_tail(&info->node, &priv->carveout_infos);
 
-	if (res >= 0) {
-		if (m_offs >= (s64)SZ_4G) {
-			dev_err(priv->dev,
-				"Mapping %d (%s) offset is bigger than SZ_4G: 0x%llx",
-				i, m->name, m_offs);
-			return -EINVAL;
-		}
-		*offs = (u32)m_offs;
-	}
-
-	return res;
+	return info;
 }
 
 static int q_set_simple_region(struct carvnet *priv, struct rproc_mem_entry *m,
@@ -429,6 +427,8 @@ static int q_set_simple_region(struct carvnet *priv, struct rproc_mem_entry *m,
 {
 	u32 r_size, r_off, r_mem, r_locp, r_type, r_sub, r_value;
 	ulong m_size = roundup_pow_of_two(m->len);
+	struct carveout_info *info;
+	u64 off64;
 	int bar;
 
 	/*
@@ -444,9 +444,19 @@ static int q_set_simple_region(struct carvnet *priv, struct rproc_mem_entry *m,
 	 * ---
 	 */
 
-	bar = find_closest_bar(priv, m, &r_off);
-	if (bar < 0)
+	info = q_get_carveout_info(priv, m->name);
+	if (!info)
+		return -ENOMEM;
+	if (info->bar_index >= BAR_CNT) {
+		dev_err(priv->dev, "Missing bar info for region: %s", m->name);
 		return -EINVAL;
+	}
+
+	bar = info->bar_index;
+	off64 = m->dma - priv->bar_info[info->bar_index].addr;
+	if (off64 > UINT_MAX)
+		return -EINVAL;
+	r_off = (u32)off64;
 
 	if (m_size < SZ_16K) {
 		m_size = SZ_16K;
@@ -457,8 +467,8 @@ static int q_set_simple_region(struct carvnet *priv, struct rproc_mem_entry *m,
 
 	if (!IS_ALIGNED(r_off, SZ_16K)) {
 		dev_err(priv->dev,
-			"Mapping %d offset is not aligned to SZ_16K: 0x%x",
-			i, r_off);
+			"Mapping %d (%s) offset is not aligned to SZ_16K: 0x%x",
+			i, m->name, r_off);
 		return -EINVAL;
 	}
 	r_off = r_off / SZ_16K;
@@ -489,16 +499,25 @@ static int q_set_simple_region(struct carvnet *priv, struct rproc_mem_entry *m,
 	return 0;
 };
 
-static int q_set_prio_region(struct carvnet *priv, struct rproc_mem_entry *m,
-			     int i)
+static int q_set_prio_region(struct carvnet *priv, struct carveout_info *info,
+			     dma_addr_t dma, size_t len, int *prio_n)
 {
 	u32 r_size, r_off, r_mem, r_match, r_value;
-	ulong m_size = roundup_pow_of_two(m->len);
+	ulong m_size = roundup_pow_of_two(len);
+	int i = *prio_n;
+	u64 off64;
 	int bar;
 
-	bar = find_closest_bar(priv, m, &r_off);
-	if (bar < 0)
+	if (*prio_n >= CARV_AT_PRIO_REGIONS) {
+		dev_err(priv->dev, "Too many priority region mappings\n");
 		return -EINVAL;
+	}
+	*prio_n = *prio_n + 1;
+
+	off64 = dma - priv->bar_info[info->bar_index].addr;
+	if (off64 > UINT_MAX)
+		return -EINVAL;
+	r_off = (u32)off64;
 
 	if (m_size < SZ_4K) {
 		m_size = SZ_4K;
@@ -509,8 +528,8 @@ static int q_set_prio_region(struct carvnet *priv, struct rproc_mem_entry *m,
 
 	if (!IS_ALIGNED(r_off, SZ_4K)) {
 		dev_err(priv->dev,
-			"Mapping %d offset is not aligned to SZ_4K: 0x%x",
-			i, r_off);
+			"Mapping %d (%s) offset is not aligned to SZ_4K: 0x%x",
+			i, info->carveout_name, r_off);
 		return -EINVAL;
 	}
 
@@ -523,7 +542,7 @@ static int q_set_prio_region(struct carvnet *priv, struct rproc_mem_entry *m,
 		CARV_Q_AT_RCR_ENA(1U);
 	writel(r_value, priv->regs + CARV_Q_AT_RCR(priv->q_user, i));
 
-	r_match = GET_CARV_Q_AT_RMR_MATCH(m->da);
+	r_match = GET_CARV_Q_AT_RMR_MATCH(info->match_addr);
 
 	writel(CARV_Q_AT_RMR_MATCH(r_match),
 	       priv->regs + CARV_Q_AT_RMR(priv->q_user, i));
@@ -537,6 +556,49 @@ static int q_set_prio_region(struct carvnet *priv, struct rproc_mem_entry *m,
 		readl(priv->regs + CARV_Q_AT_RMR(priv->q_user, i)), r_match);
 
 	return 0;
+}
+
+static int g_get_bar(struct carvnet *priv, u8 bar_type, struct rproc_mem_entry *mem)
+{
+	struct carvnet_bar_info *bar_info = NULL;
+	u64 diff, addr, addr_end;
+	int i, ret;
+
+	/* Try to find existing bar_info - matching type and <4GB offset */
+	for (i = 0; i < priv->bar_info_cnt; i++) {
+		bar_info = &priv->bar_info[i];
+		if (bar_info->bar_type != bar_type)
+			continue;
+
+		/* Check if superset of current BAR + the new region fits into 4GB */
+		addr     = min(bar_info->addr, mem->dma);
+		addr_end = max(bar_info->addr_end, mem->dma + mem->len);
+
+		diff = addr_end - addr;
+		if (diff < SZ_4G) {
+			bar_info->addr = addr;
+			bar_info->addr_end = addr_end;
+			return i;
+		}
+	}
+
+	if (priv->bar_info_cnt == BAR_CNT) {
+		dev_err(priv->dev, "No free BAR available for resource: %s\n",
+			mem->name);
+		return -EINVAL;
+	}
+
+	/* If not found, create a new bar_info to be used */
+	ret = priv->bar_info_cnt;
+	bar_info = &priv->bar_info[priv->bar_info_cnt];
+	bar_info->bar_type = bar_type;
+	bar_info->addr = mem->dma;
+	if (mem->dma > ULONG_MAX - mem->len) /* Overflow check to comply with coverity */
+		return -EINVAL;
+	bar_info->addr_end = mem->dma + mem->len;
+	priv->bar_info_cnt++;
+
+	return ret;
 }
 
 static void q_clear_simple_region(struct carvnet *priv, int i)
@@ -564,69 +626,81 @@ static void q_clear_mapper(struct carvnet *priv)
 	for (i = 0; i < CARV_AT_PRIO_REGIONS; i++)
 		q_clear_prio_region(priv, i);
 
-	/* Clear BAR0 */
-	writel(0, priv->regs + CARV_Q_AT_BARL(priv->q_user, CARVNET_BAR_FW));
-	writel(0, priv->regs + CARV_Q_AT_BARH(priv->q_user, CARVNET_BAR_FW));
-
-	/* Clear BAR1 */
-	writel(0, priv->regs + CARV_Q_AT_BARL(priv->q_user, CARVNET_BAR_VDEV));
-	writel(0, priv->regs + CARV_Q_AT_BARH(priv->q_user, CARVNET_BAR_VDEV));
+	/* Clear BARs */
+	for (i = 0; i < BAR_CNT; i++) {
+		writel(0, priv->regs + CARV_Q_AT_BARL(priv->q_user, i));
+		writel(0, priv->regs + CARV_Q_AT_BARH(priv->q_user, i));
+	}
 }
 
 static int q_set_mapper(struct carvnet *priv)
 {
+	struct carveout_info *info, *aggr_info = NULL;
+	int simple_n = 0, prio_n = 0, ret = 0, i;
+	struct rproc_mem_entry *m;
 	struct rproc *rproc;
-	struct rproc_mem_entry *m = NULL;
-	int simple_n = 0, prio_n = 0, datareg = 0, ret;
+	size_t aggr_len = 0;
+	dma_addr_t aggr_dma;
 
 	q_clear_mapper(priv);
 
 	rproc = dev_get_drvdata(priv->dev);
 
-	/* Set BAR0 for firmware */
-	writel(CARV_Q_AT_BARL_ADDR(priv->mrs[MEMRES_FW_ID].dma) |
-	       CARV_Q_AT_BARL_MEMTYPE_NCOH,
-	       priv->regs + CARV_Q_AT_BARL(priv->q_user, CARVNET_BAR_FW));
-	writel(CARV_Q_AT_BARH_ADDR(priv->mrs[MEMRES_FW_ID].dma),
-	       priv->regs + CARV_Q_AT_BARH(priv->q_user, CARVNET_BAR_FW));
+	/* Assign BAR index to possible auto-generated carveouts (vrings etc) */
+	list_for_each_entry(m, &rproc->carveouts, node) {
+		info = q_get_carveout_info(priv, m->name);
+		if (!info)
+			return -ENOMEM;
 
-	/* Set BAR1 for vdev */
-	writel(CARV_Q_AT_BARL_ADDR(priv->mrs[MEMRES_VDEV_ID].dma) |
-	       CARV_Q_AT_BARL_MEMTYPE_NCOH,
-	       priv->regs + CARV_Q_AT_BARL(priv->q_user, CARVNET_BAR_VDEV));
-	writel(CARV_Q_AT_BARH_ADDR(priv->mrs[MEMRES_VDEV_ID].dma),
-	       priv->regs + CARV_Q_AT_BARH(priv->q_user, CARVNET_BAR_VDEV));
-
-	/* Set memory regions */
-	list_for_each_entry_reverse(m, &rproc->carveouts, node) {
-		if (simple_n >= CARV_AT_SIMPLE_REGIONS ||
-		    prio_n >= CARV_AT_PRIO_REGIONS) {
-			dev_warn(priv->dev, "Too many mappings\n");
-			break;
+		if (info->bar_index == BAR_INVALID) {
+			ret = g_get_bar(priv, CARV_Q_AT_BARL_MEMTYPE_DEFAULT, m);
+			if (ret < 0)
+				return ret;
+			info->bar_index = (u32)ret;
 		}
+	}
 
-		/*
-		 * Prerequisite for prio region management:
-		 * 1) first CARV_MEMTYPE_RW_DATA_FINE_GRAINED memory
-		 *    mapping comes from FW, it maps FW RW data block as
-		 *    simple region
-		 * 2) additional CARV_MEMTYPE_RW_DATA_FINE_GRAINED memory
-		 *    mappings are mapped as priority regions
-		 */
-		if ((m->da & CARV_MEMTYPE_MASK) != CARV_MEMTYPE_RW_DATA_FINE_GRAINED) {
+	/* Write all BARs to registers */
+	for (i = 0; i < priv->bar_info_cnt; i++) {
+		writel(CARV_Q_AT_BARL_ADDR(priv->bar_info[i].addr) | priv->bar_info[i].bar_type,
+			priv->regs + CARV_Q_AT_BARL(priv->q_user, i));
+		writel(CARV_Q_AT_BARH_ADDR(priv->bar_info[i].addr),
+			priv->regs + CARV_Q_AT_BARH(priv->q_user, i));
+	}
+
+	/* Set mapping of the memory regions */
+	list_for_each_entry(m, &rproc->carveouts, node) {
+		info = q_get_carveout_info(priv, m->name);
+		if (!info)
+			return -EINVAL;
+
+		if (strncmp(m->name, FIRMWARE_SEGMENT_NAME,
+			    strlen(FIRMWARE_SEGMENT_NAME)) == 0) {
+			if (simple_n >= CARV_AT_SIMPLE_REGIONS)
+				return -EINVAL;
 			ret = q_set_simple_region(priv, m, simple_n++);
-		} else if (!datareg) {
-			ret = q_set_simple_region(priv, m, simple_n++);
-			datareg = 1;
 		} else {
-			ret = q_set_prio_region(priv, m, prio_n++);
+			if (aggr_info && (aggr_dma + aggr_len == m->dma) &&
+				aggr_info->bar_index == info->bar_index) {
+				/* Append this region into single RCR mapping */
+				aggr_len += m->len;
+			} else {
+				if (aggr_len)
+					ret = q_set_prio_region(priv, aggr_info, aggr_dma,
+								aggr_len, &prio_n);
+				aggr_dma  = m->dma;
+				aggr_len  = m->len;
+				aggr_info = info;
+			}
 		}
 
 		if (ret)
 			return ret;
 	}
+	if (aggr_info)
+		ret = q_set_prio_region(priv, aggr_info, aggr_dma, aggr_len, &prio_n);
 
-	return 0;
+	return ret;
 }
 
 static int q_msg_send_info(struct carvnet *priv, u32 info)
@@ -709,8 +783,15 @@ static int carvnet_rproc_start(struct rproc *rproc)
 static int carvnet_rproc_stop(struct rproc *rproc)
 {
 	struct carvnet *priv = rproc->priv;
+	struct carveout_info *entry, *tmp;
 
 	q_stop(priv);
+
+	/* clean up match_addr allocations */
+	list_for_each_entry_safe(entry, tmp, &priv->carveout_infos, node) {
+		list_del(&entry->node);
+		kfree(entry);
+	}
 
 	return 0;
 }
@@ -757,22 +838,32 @@ static int rproc_carveout_hexdump_show(struct seq_file *seq, void *unused)
 }
 DEFINE_SHOW_ATTRIBUTE(rproc_carveout_hexdump);
 
+/* carvnet_release_carveout() - release acquired carveout */
+static int carvnet_release_carveout(struct rproc *rproc,
+				    struct rproc_mem_entry *mem)
+{
+	struct device *dev = &rproc->dev;
+
+	dma_free_coherent(dev->parent, mem->len, mem->va, mem->dma);
+	return 0;
+}
+
+
 static int carvnet_rproc_elf_load(struct rproc *rproc,
 				  const struct firmware *fw)
 {
 	struct carvnet *priv = rproc->priv;
 	struct device *dev = &rproc->dev;
-	struct memres *memres_fw = &priv->mrs[MEMRES_FW_ID];
 	const u8 *elf_data = fw->data;
-	struct elf32_hdr *ehdr;
-	struct elf32_phdr *phdr;
 	struct rproc_mem_entry *mem;
+	struct elf32_phdr *phdr;
+	struct elf32_hdr *ehdr;
+	dma_addr_t dma;
 	int i, ret = 0;
+	void *va;
 
 	ehdr = (struct elf32_hdr *)elf_data;
 	phdr = (struct elf32_phdr *)(elf_data + ehdr->e_phoff);
-
-	dev_dbg(dev, " fw phnum=%d\n", ehdr->e_phnum);
 
 	/* Remove possible existing debugfs carveouts subdir */
 	debugfs_remove(priv->subdentry);
@@ -787,8 +878,9 @@ static int carvnet_rproc_elf_load(struct rproc *rproc,
 		u32 offset = phdr->p_offset;
 		u32 flags = phdr->p_flags;
 
-		dev_dbg(dev, "phdr[%i]: type %d da 0x%x offset 0x%x flags 0x%x memsz 0x%x filesz 0x%x\n",
-			i, phdr->p_type, da, offset, flags, memsz, filesz);
+		dev_dbg(dev,
+		"phdr[%i]: type %d da 0x%x offset 0x%x flags 0x%x memsz 0x%x filesz 0x%x\n",
+		i, phdr->p_type, da, offset, flags, memsz, filesz);
 
 		if (phdr->p_type != PT_LOAD)
 			continue;
@@ -807,34 +899,21 @@ static int carvnet_rproc_elf_load(struct rproc *rproc,
 			break;
 		}
 
-		/* Create memory carveout for every fw segment.
-		 * NOTE: We don't need to alloc/free such carveouts,
-		 * they are part of reserved region 'fw'.
-		 */
-		mem = rproc_mem_entry_init(dev,
-					   memres_fw->va + memres_fw->free_idx,
-					   memres_fw->dma + memres_fw->free_idx,
-					   segsize, da, NULL, NULL, "fwseg%d",
-					   i);
+		dma = 0U;
+		va = dma_alloc_coherent(dev->parent, segsize, &dma, GFP_KERNEL);
+		if (!va)
+			return -ENOMEM;
+
+		mem = rproc_mem_entry_init(dev, va, dma,
+					   segsize, da, NULL, carvnet_release_carveout, "%s%d",
+					   FIRMWARE_SEGMENT_NAME, i);
 		if (!mem)
 			return -ENOMEM;
 
-		if (rproc_coredump_add_segment(rproc, da, segsize))
-			dev_warn(dev,
-				 "Failed to add memory region '%s' to the coredump\n",
-				 mem->name);
-
 		rproc_add_carveout(rproc, mem);
-
-		/* Move free pointer to the next aligned boundary */
-		memres_fw->free_idx += segsize;
 
 		/* Save segment in the reserved carveout memory region */
 		memcpy(mem->va, elf_data + offset, filesz);
-
-		/* Zero unused memory */
-		if ((segsize - filesz) > 0)
-			memset(mem->va + filesz, 0, segsize - filesz);
 	}
 
 	/* Add debugfs dump regions */
@@ -846,12 +925,34 @@ static int carvnet_rproc_elf_load(struct rproc *rproc,
 	return ret;
 }
 
+static int carvnet_rproc_handle_rsc(struct rproc *rproc, u32 rsc_type, void *rsc,
+		  int offset, int avail)
+{
+	struct fw_rsc_vendor_carv_match_addr *orig_rsc;
+	struct carvnet *priv = rproc->priv;
+	struct carveout_info *info;
+
+	if (rsc_type != RSC_VENDOR_CARV_MATCH_ADDR)
+		return RSC_IGNORED;
+
+	orig_rsc = (struct fw_rsc_vendor_carv_match_addr *)rsc;
+
+	info = q_get_carveout_info(priv, (const char *)orig_rsc->carveout_name);
+	if (!info)
+		return -ENOMEM;
+
+	info->match_addr = orig_rsc->match_addr;
+
+	return RSC_HANDLED;
+}
+
 static const struct rproc_ops carvnet_rproc_ops = {
 	.start		= carvnet_rproc_start,
 	.stop		= carvnet_rproc_stop,
 	.kick		= carvnet_rproc_kick,
 	.parse_fw	= carvnet_rproc_parse_fw,
 	.load		= carvnet_rproc_elf_load,
+	.handle_rsc	= carvnet_rproc_handle_rsc,
 	.find_loaded_rsc_table	= rproc_elf_find_loaded_rsc_table,
 };
 
@@ -861,8 +962,14 @@ static int carvnet_rproc_parse_resmem(struct rproc *rproc)
 	struct device_node *np = dev->of_node;
 	struct carvnet *priv = rproc->priv;
 	struct of_phandle_iterator it;
+	struct rproc_mem_entry *mem;
+	struct carveout_info *info;
 	struct reserved_mem *rmem;
-	int idx = 0, ret;
+	unsigned long remap_flag;
+	u32 resm_idx = 0, value;
+	u8 bar_type;
+	void *va;
+	int ret;
 
 	/* Parse associated reserved memory regions */
 	of_phandle_iterator_init(&it, np, "memory-region", NULL, 0);
@@ -876,61 +983,59 @@ static int carvnet_rproc_parse_resmem(struct rproc *rproc)
 			return -ENOMEM;
 		}
 
-		/* Verify the correct memres name */
-		if (idx == MEMRES_VDEV_ID) {
-			/* Required resmem 0: vdev */
-			if (strcmp(it.node->name, "vdev")) {
-				dev_err(dev,
-					"Invalid memory region name for vdev: '%s'\n",
-					it.node->name);
-				return -EINVAL;
-			}
-
-			/* Associate vdev reserved memory region
-			 * with device
-			 */
-			ret = of_reserved_mem_device_init_by_idx(dev, np, idx);
+		if (resm_idx == 0) {
+			ret = of_reserved_mem_device_init_by_idx(dev, np, resm_idx);
 			if (ret) {
 				dev_err(dev, "Failed to associate vdev resmem: %d\n",
 					ret);
 				return ret;
 			}
-		} else if (idx == MEMRES_FW_ID) {
-			/* Required resmem 1: firmware */
-			if (strcmp(it.node->name, "fw")) {
-				dev_err(dev,
-					"Invalid memory region name for firmware: '%s'\n",
-					it.node->name);
-				return -EINVAL;
-			}
 		} else {
-			/* MEMRES_CUSTOM is optional, skipped for now */
-			continue;
+			value = 0U;
+			of_property_read_u32_index(np, "nxp,s32n7-carv-mem-region-types",
+							resm_idx, &value);
+
+			if (value == 0U) {
+				bar_type = CARV_Q_AT_BARL_MEMTYPE_NCOH;
+				remap_flag = MEMREMAP_WC;
+			} else if (value == 1U) {
+				bar_type = CARV_Q_AT_BARL_MEMTYPE_SHAR;
+				remap_flag = MEMREMAP_WC;
+			} else {
+				bar_type = CARV_Q_AT_BARL_MEMTYPE_DEFAULT;
+				remap_flag = MEMREMAP_WB;
+			}
+
+			va = devm_memremap(dev, rmem->base, rmem->size, remap_flag);
+			if (!va) {
+				dev_err(dev, "Failed to ioremap resmem: %d %s\n",
+					resm_idx, it.node->name);
+				return -ENOMEM;
+			}
+			mem = rproc_mem_entry_init(priv->dev, va,
+						   (dma_addr_t)rmem->base, rmem->size, 0U,
+						   NULL, NULL,
+						   it.node->name);
+			if (!mem)
+				return -ENOMEM;
+
+			mem->of_resm_idx = resm_idx;
+
+			info = q_get_carveout_info(priv, mem->name);
+			if (!info)
+				return -ENOMEM;
+
+			/* Assign BAR to this Carveout */
+			ret = g_get_bar(priv, bar_type, mem);
+			if (ret < 0)
+				return -ENOMEM;
+
+			info->bar_index = (u32)ret;
+
+			rproc_add_carveout(rproc, mem);
 		}
-
-		priv->mrs[idx].dma = (dma_addr_t)rmem->base;
-		priv->mrs[idx].len = rmem->size;
-		priv->mrs[idx].of_resm_idx = idx;
-		strscpy(priv->mrs[idx].name, it.node->name,
-			strlen(it.node->name));
-		priv->mrs[idx].va = devm_ioremap_wc(dev, rmem->base,
-						    rmem->size);
-		if (!priv->mrs[idx].va) {
-			dev_err(dev,
-				"Unable to map memory region: '%s' %pa+0x%llx\n",
-				priv->mrs[idx].name, &rmem->base, rmem->size);
-			return -ENOMEM;
-		}
-
-		dev_dbg(dev, "Parsed resmem #%d for memory region '%s'\n", idx,
-			it.node->name);
-
-		idx++;
+		resm_idx++;
 	}
-
-	if (idx < 2)
-		dev_warn(dev, "Not all required regions were declared: %d\n",
-			 idx);
 
 	return  0;
 }
@@ -1034,6 +1139,8 @@ static int carvnet_rproc_probe(struct platform_device *pdev)
 
 	priv = rproc->priv;
 	priv->dev = dev;
+	priv->bar_info_cnt = 0U;
+	INIT_LIST_HEAD(&priv->carveout_infos);
 
 	ret = carvnet_rproc_parse_resmem(rproc);
 	if (ret)
