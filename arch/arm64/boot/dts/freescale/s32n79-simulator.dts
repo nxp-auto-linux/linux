@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: (GPL-2.0+ OR BSD-3-Clause)
 /*
- * Copyright 2024 NXP
+ * Copyright 2024-2025 NXP
  */
 
 /dts-v1/;
 #include "s32n79.dtsi"
+#include "dt-bindings/memory/s32n7-carv.h"
 
 / {
 	model = "NXP S32N79-SIM";
@@ -39,7 +40,7 @@
 		ranges;
 
 		/* CAR-V NET */
-		carv0_fw: fw@d1000000 {
+		carv0_reserved: carv-reserved@d1000000 {
 			compatible = "shared-dma-pool";
 			/* 1 MB */
 			reg = <0 0xd1000000 0 0x100000>;
@@ -47,10 +48,43 @@
 			status = "okay";
 		};
 
-		carv0_vdev: vdev@d1100000 {
+		carv0_vdev0vring0: vdev0vring0@d1100000 {
+			compatible = "shared-dma-pool";
+			/* 16 KB */
+			reg = <0 0xd1100000 0 0x4000>;
+			no-map;
+			status = "okay";
+		};
+
+		carv0_vdev0vring1: vdev0vring1@d1104000 {
+			compatible = "shared-dma-pool";
+			/* 16 KB */
+			reg = <0 0xd1104000 0 0x4000>;
+			no-map;
+			status = "okay";
+		};
+
+		carv0_vdev0buffer: vdev0buffer@d1108000 {
+			compatible = "shared-dma-pool";
+			/* 16 KB */
+			reg = <0 0xd1108000 0 0x4000>;
+			no-map;
+			status = "okay";
+		};
+
+		carv0_packet_sram: packet-sram@d1110000 {
+			compatible = "shared-dma-pool";
+			/* 16 KB */
+			reg = <0 0xd1110000 0 0x4000>;
+			no-map;
+			status = "okay";
+		};
+
+		/* CAR-V NET */
+		carv1_reserved: carv-reserved@d2000000 {
 			compatible = "shared-dma-pool";
 			/* 1 MB */
-			reg = <0 0xd1100000 0 0x100000>;
+			reg = <0 0xd2000000 0 0x100000>;
 			no-map;
 			status = "okay";
 		};
@@ -81,8 +115,21 @@
 
 &carv0 {
 	firmware-name = "s32n7-carvnet.fw";
-	memory-region = <&carv0_vdev>, <&carv0_fw>;
-	memory-region-names = "vdev", "text";
+	memory-region = <&carv0_reserved>, <&carv0_vdev0vring0>,
+			<&carv0_vdev0vring1>, <&carv0_vdev0buffer>, <&carv0_packet_sram>;
+	memory-region-names = "carv-reserved","vdev0vring0",
+			"vdev0vring1","vdev0buffer","packet-sram";
+	nxp,s32n7-carv-mem-region-types = <CARV_MEM_NONCOHERENT>,<CARV_MEM_NONCOHERENT>,
+			<CARV_MEM_NONCOHERENT>,<CARV_MEM_NONCOHERENT>,<CARV_MEM_SHARED>;
+
+	status = "okay";
+};
+
+&carv1 {
+	firmware-name = "s32n7-carvnet.fw";
+	memory-region = <&carv1_reserved>;
+	memory-region-names = "carv-reserved";
+	nxp,s32n7-carv-mem-region-types = <CARV_MEM_COHERENT>;
 	status = "okay";
 };
 
