@@ -28,10 +28,10 @@ properties:
 
   memory-region:
     description:
-      A phandle for a reserved memory area that used for vdev buffers
-      and firmware used by remote processor.
-    minItems: 2
-    maxItems: 2
+      A phandle for a reserved memory areas that are used for vdev buffers,
+      firmware used by remote processor or user regions
+    minItems: 1
+    maxItems: 20
 
   firmware-name:
     description:
@@ -46,6 +46,13 @@ properties:
       - const: func
       - const: fault
 
+  nxp,s32n7-carv-mem-region-types:
+    $ref: /schemas/types.yaml#/definitions/uint32-array
+    description:
+      Type of the CarV memory used as attribute of the BAR register
+    minItems: 1
+    maxItems: 20
+
 required:
   - compatible
   - reg
@@ -53,26 +60,36 @@ required:
   - firmware-name
   - interrupts
   - interrupt-names
+  - nxp,s32n7-carv-mem-region-types
 
 additionalProperties: false
 
 examples:
   - |
     #include <dt-bindings/interrupt-controller/arm-gic.h>
+    #include <dt-bindings/memory/s32n7-carv.h>
 
-    carv0_fw: fw@d1000000 {
-      reg = <0xd1000000 0x100000>;
+    carv0_reserved: carv-reserved@d1000000 {
+        reg = <0 0xd1000000 0 0x100000>;
     };
-
-    carv0_vdev: vdev@d1100000 {
-      reg = <0xd1100000 0x100000>;
+    carv0_vdev0vring0: vdev0vring0@d1100000 {
+        reg = <0 0xd1100000 0 0x4000>;
+    };
+    carv0_vdev0vring1: vdev0vring1@d1104000 {
+        reg = <0 0xd1104000 0 0x4000>;
+    };
+    carv0_vdev0buffer: vdev0buffer@d1108000 {
+        reg = <0 0xd1108000 0 0x4000>;
     };
 
     carv0: carv@47800000 {
       compatible = "nxp,carvnet-rproc";
       reg = <0x0 0x47800000 0x0 0x50000>;
       firmware-name = "s32n7-carvnet.fw";
-      memory-region = <&carv0_vdev>, <&carv0_fw>;
+      memory-region = <&carv0_reserved>, <&carv0_vdev0vring0>,
+                      <&carv0_vdev0vring1>,<&carv0_vdev0buffer>;
+      nxp,s32n7-carv-mem-region-types = <CARV_MEM_NONCOHERENT>,<CARV_MEM_NONCOHERENT>,
+                      <CARV_MEM_NONCOHERENT>,<CARV_MEM_NONCOHERENT>;
       interrupts = <GIC_SPI 279 IRQ_TYPE_LEVEL_HIGH>,
                    <GIC_SPI 280 IRQ_TYPE_LEVEL_HIGH>;
       interrupt-parent = <&gic>;
