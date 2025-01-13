@@ -26,6 +26,7 @@ properties:
           - fsl,ls1021ar2-flexcan
           - fsl,lx2160ar1-flexcan
           - nxp,s32g2-flexcan
+          - nxp,s32n79-flexcan
       - items:
           - enum:
               - fsl,imx53-flexcan
@@ -167,6 +168,28 @@ allOf:
       required:
         - interrupt-names
     else:
+      if:
+        properties:
+          compatible:
+            enum:
+              - nxp,s32n79-flexcan
+      then:
+        properties:
+          interrupts:
+            items:
+              - description: Message Buffer interrupt for mailboxes 0-127
+              - description: Bus Error detection and device state change interrupt
+          interrupt-names:
+            items:
+              - const: mb_0-127
+              - const: berr
+        required:
+          - interrupts
+      else:
+        properties:
+          interrupts:
+            minItems: 1
+            maxItems: 1
       properties:
         interrupts:
           maxItems: 1
