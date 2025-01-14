@@ -38,6 +38,9 @@
 
 #define SPI_CTAR(x)			(0x0c + (((x) & GENMASK(2, 0)) * 4))
 #define SPI_CTAR_FMSZ(x)		(((x) << 27) & GENMASK(30, 27))
+/* FMSZ is stored in PUSR_CMD regisger for DSPI V2 */
+#define SPI_V2_PUSHR_CMD_FMSZ(x)	(((x) & GENMASK(15, 0)))
+
 #define SPI_CTAR_DBR			BIT(31)
 #define SPI_CTAR_CPOL			BIT(26)
 #define SPI_CTAR_CPHA			BIT(25)
@@ -54,7 +57,8 @@
 
 #define SPI_CTAR0_SLAVE			0x0c
 
-#define SPI_SR				0x2c
+#define SPI_SR			0x2c
+#define SPI_V2_SR			0x180
 #define SPI_SR_TCFQF			BIT(31)
 #define SPI_SR_TFUF			BIT(27)
 #define SPI_SR_TFFF			BIT(25)
@@ -70,21 +74,50 @@
 					SPI_SR_CMDTCF | SPI_SR_SPEF | \
 					SPI_SR_RFOF | SPI_SR_TFIWF | \
 					SPI_SR_RFDF | SPI_SR_CMDFFF)
+/* FIFO Status (FSR) */
+#define SPI_V2_FIFO_SR			0x184
+#define SPI_V2_FIFO_SR_TXCTR		(((x) << 13) & GENMASK(17, 13) >> 13)
+#define SPI_V2_FIFO_SR_RXCTR		(((x) << 22) & GENMASK(26, 22) >> 22)
+
+/* FIFO Control (FCR) */
+#define SPI_V2_FCR			0x3c
+#define SPI_V2_FCR_RXWATER		(((x) << 8) & GENMASK(11, 8) >> 8)
+#define SPI_V2_FCR_TXWATER		(((x) << 0) & GENMASK(3, 0) >> 0)
+
+/* Reset to Initial State (RTIS) */
+#define SPI_RTIS			0x50
+/* 0x01 - Graceful reset */
+#define RTIS_SRST			BIT(0)
 
 #define SPI_RSER_TFFFE			BIT(25)
 #define SPI_RSER_TFFFD			BIT(24)
 #define SPI_RSER_RFDFE			BIT(17)
 #define SPI_RSER_RFDFD			BIT(16)
 
+/* DMA and Interrupt Request Select and Enable */
 #define SPI_RSER			0x30
 #define SPI_RSER_TCFQE			BIT(31)
+
+#define SPI_V2_RSER			0x2c
+#define SPI_RSER_TCFE			BIT(31)
 #define SPI_RSER_CMDTCFE		BIT(23)
 
+#define SPI_V2_PUSHR_CMD		0x30
+
 #define SPI_PUSHR			0x34
+
 #define SPI_PUSHR_CMD_CONT		BIT(15)
-#define SPI_PUSHR_CMD_CTAS(x)		(((x) << 12 & GENMASK(14, 12)))
+#define SPI_V2_PUSHR_CMD_CONT		BIT(31)
+
+#define SPI_PUSHR_CMD_CTAS(x)	(((x) << 12 & GENMASK(14, 12)))
+#define SPI_V2_PUSHR_CMD_CTAS(x)	(((x) << 28 & GENMASK(30, 28)))
+
 #define SPI_PUSHR_CMD_EOQ		BIT(11)
+#define SPI_V2_PUSHR_CMD_EOQ		BIT(27)
+
 #define SPI_PUSHR_CMD_CTCNT		BIT(10)
+#define SPI_V2_PUSHR_CMD_CTCNT		BIT(26)
+
 #define SPI_PUSHR_CMD_PCS(x)		(BIT(x) & GENMASK(5, 0))
 
 #define SPI_PUSHR_SLAVE			0x34
@@ -93,28 +126,46 @@
 
 /* Transmit FIFO TXFR */
 #define SPI_TXFR(x)			(0x3c + ((x) * 4))
+#define SPI_V2_TXFR(x)		(0x80 + ((x) * 4))
 
 /* Receive FIFO (RXFR) */
 #define SPI_RXFR(x)			(0x7c + ((x) * 4))
+#define SPI_V2_RXFR(x)		(0xc0 + ((x) * 4))
 
+/* Clock and Transfer Attributes Register Extended */
 #define SPI_CTARE(x)			(0x11c + (((x) & GENMASK(2, 0)) * 4))
+
 #define SPI_CTARE_FMSZE(x)		(((x) & 0x1) << 16)
+/* Data Transfer Count Preload */
 #define SPI_CTARE_DTCP(x)		((x) & 0x7ff)
 
-#define SPI_SREX			0x13c
+/* Clock and transfer attributes */
+#define DSPI_V2_CTAR(x)			(0x0c + (((x) & GENMASK(2, 0)) * 4))
+#define DSPI_V2_CTAR_DBR		BIT(31)
+/* Delay After Transfer Scaler */
+#define DSPI_V2_CTAR_DT(x)		(0x0c + (((x) & GENMASK(7, 4)) * 4))
 
+/* Status Register Extended (SREX) replaced by FIFO_SR, see DSPI_FSR */
+#define SPI_SREX			0x13c
+/* FIFO Status (FIFO_SR) */
 #define SPI_FRAME_BITS(bits)		SPI_CTAR_FMSZ((bits) - 1)
-#define SPI_FRAME_EBITS(bits)		SPI_CTARE_FMSZE(((bits) - 1) >> 4)
+
+#define SPI_FRAME_EBITS(bits)	SPI_CTARE_FMSZE(((bits) - 1) >> 4)
 
 #define DMA_COMPLETION_TIMEOUT		msecs_to_jiffies(3000)
 
-#define SPI_25MHZ					25000000
+#define SPI_25MHZ			25000000
 
 /* The maximum that edma can transfer once.*/
 #define SPI_DMA_BUFFER_SIZE	(GENMASK(14, 0) * DMA_SLAVE_BUSWIDTH_4_BYTES)
 
 struct chip_data {
 	u32			ctar_val;
+};
+
+enum dspi_hw_ver {
+	DSPI_V1,
+	DSPI_V2,
 };
 
 enum dspi_trans_mode {
@@ -126,6 +177,7 @@ struct fsl_dspi_devtype_data {
 	enum dspi_trans_mode	trans_mode;
 	u8			max_clock_factor;
 	int			fifo_size;
+	enum dspi_hw_ver	hw_version;
 };
 
 enum {
@@ -143,70 +195,107 @@ enum {
 	S32CC_TARGET,
 };
 
+static inline u32 dspi_get_sr(enum dspi_hw_ver ver)
+{
+	return ver == DSPI_V1 ? SPI_SR : SPI_V2_SR;
+}
+
+static inline u32 dspi_get_rser(enum dspi_hw_ver ver)
+{
+	return ver == DSPI_V1 ? SPI_RSER : SPI_V2_RSER;
+}
+
+static inline u32 dspi_pushr_cmd_cont_mask(enum dspi_hw_ver ver)
+{
+	return ver == DSPI_V1 ? SPI_PUSHR_CMD_CONT : SPI_V2_PUSHR_CMD_CONT;
+}
+
+static inline u32 dspi_pushr_cmd_eoq_mask(enum dspi_hw_ver ver)
+{
+	return ver == DSPI_V1 ? SPI_PUSHR_CMD_EOQ : SPI_V2_PUSHR_CMD_EOQ;
+}
+
+static inline u32 dspi_pushr_cmd_ctas_mask(enum dspi_hw_ver ver, uint ctar)
+{
+	return ver == DSPI_V1 ? SPI_PUSHR_CMD_CTAS(ctar) : SPI_V2_PUSHR_CMD_CTAS(ctar);
+}
+
 static const struct fsl_dspi_devtype_data devtype_data[] = {
 	[VF610] = {
 		.trans_mode		= DSPI_DMA_MODE,
 		.max_clock_factor	= 2,
 		.fifo_size		= 4,
+		.hw_version		= DSPI_V1,
 	},
 	[LS1021A] = {
 		/* Has A-011218 DMA erratum */
 		.trans_mode		= DSPI_XSPI_MODE,
 		.max_clock_factor	= 8,
 		.fifo_size		= 4,
+		.hw_version		= DSPI_V1,
 	},
 	[LS1012A] = {
 		/* Has A-011218 DMA erratum */
 		.trans_mode		= DSPI_XSPI_MODE,
 		.max_clock_factor	= 8,
 		.fifo_size		= 16,
+		.hw_version		= DSPI_V1,
 	},
 	[LS1028A] = {
 		.trans_mode		= DSPI_XSPI_MODE,
 		.max_clock_factor	= 8,
 		.fifo_size		= 4,
+		.hw_version		= DSPI_V1,
 	},
 	[LS1043A] = {
 		/* Has A-011218 DMA erratum */
 		.trans_mode		= DSPI_XSPI_MODE,
 		.max_clock_factor	= 8,
 		.fifo_size		= 16,
+		.hw_version		= DSPI_V1,
 	},
 	[LS1046A] = {
 		/* Has A-011218 DMA erratum */
 		.trans_mode		= DSPI_XSPI_MODE,
 		.max_clock_factor	= 8,
 		.fifo_size		= 16,
+		.hw_version		= DSPI_V1,
 	},
 	[LS2080A] = {
 		.trans_mode		= DSPI_XSPI_MODE,
 		.max_clock_factor	= 8,
 		.fifo_size		= 4,
+		.hw_version		= DSPI_V1,
 	},
 	[LS2085A] = {
 		.trans_mode		= DSPI_XSPI_MODE,
 		.max_clock_factor	= 8,
 		.fifo_size		= 4,
+		.hw_version		= DSPI_V1,
 	},
 	[LX2160A] = {
 		.trans_mode		= DSPI_XSPI_MODE,
 		.max_clock_factor	= 8,
 		.fifo_size		= 4,
+		.hw_version		= DSPI_V1,
 	},
 	[MCF5441X] = {
 		.trans_mode		= DSPI_DMA_MODE,
 		.max_clock_factor	= 8,
 		.fifo_size		= 16,
+		.hw_version		= DSPI_V1,
 	},
 	[S32CC] = {
 		.trans_mode		= DSPI_XSPI_MODE,
 		.max_clock_factor	= 1,
 		.fifo_size		= 5,
+		.hw_version		= DSPI_V1,
 	},
 	[S32CC_TARGET] = {
 		.trans_mode		= DSPI_DMA_MODE,
 		.max_clock_factor	= 1,
 		.fifo_size		= 5,
+		.hw_version		= DSPI_V1,
 	},
 };
 
@@ -230,6 +319,9 @@ struct fsl_dspi {
 	struct platform_device			*pdev;
 
 	struct regmap				*regmap;
+	/* SPI V1 combines 16bit command 16bit TX data into the same 32bit register.
+	 * SPI V2 has separate 32bit PUSHR and PUSHR_CMD registers.
+	 */
 	struct regmap				*regmap_pushr;
 	int						irq;
 	struct clk				*clk;
@@ -256,6 +348,7 @@ struct fsl_dspi {
 	/*
 	 * Offsets for CMD and TXDATA within SPI_PUSHR when accessed
 	 * individually (in XSPI mode)
+	 * Note: this only applies to V1 hw_version.
 	 */
 	int					pushr_cmd;
 	int					pushr_tx;
@@ -361,17 +454,25 @@ static u32 dspi_pop_tx(struct fsl_dspi *dspi)
 	return txdata;
 }
 
-/* Prepare one TX FIFO entry (txdata plus cmd) */
+/* Prepare one TX FIFO entry:
+ * - 16 bit txdata plus 16 bit cmd for SPI V1 hw version
+ * - 32 bit txdata for SPI V2 hw version
+ */
 static u32 dspi_pop_tx_pushr(struct fsl_dspi *dspi)
 {
+	enum dspi_hw_ver hw_ver = dspi->devtype_data->hw_version;
 	u16 cmd = dspi->tx_cmd, data = dspi_pop_tx(dspi);
 
 	if (spi_controller_is_target(dspi->ctlr))
 		return data;
 
 	if (dspi->len > 0)
-		cmd |= SPI_PUSHR_CMD_CONT;
-	return cmd << 16 | data;
+		cmd |= dspi_pushr_cmd_cont_mask(hw_ver);
+
+	if (hw_ver == DSPI_V1)
+		return cmd << 16 | data;
+	else
+		return data;
 }
 
 /* Push one word to the RX buffer from the POPR register (RX FIFO) */
@@ -700,8 +801,10 @@ static void ns_delay_scale(char *psc, char *sc, int delay_ns,
 	}
 }
 
-static void dspi_pushr_cmd_write(struct fsl_dspi *dspi, u16 cmd)
+static void dspi_pushr_cmd_write(struct fsl_dspi *dspi, u32 cmd)
 {
+	enum dspi_hw_ver hw_ver = dspi->devtype_data->hw_version;
+
 	/*
 	 * The only time when the PCS doesn't need continuation after this word
 	 * is when it's last. We need to look ahead, because we actually call
@@ -713,19 +816,28 @@ static void dspi_pushr_cmd_write(struct fsl_dspi *dspi, u16 cmd)
 	 * deasserted (not continued) here.
 	 */
 	if (dspi->len > dspi->oper_word_size)
-		cmd |= SPI_PUSHR_CMD_CONT;
-	regmap_write(dspi->regmap_pushr, dspi->pushr_cmd, cmd);
+		cmd |= dspi_pushr_cmd_cont_mask(hw_ver);
+	if (hw_ver == DSPI_V1)
+		regmap_write(dspi->regmap_pushr, dspi->pushr_cmd, (u16)cmd);
+	else
+		regmap_write(dspi->regmap, SPI_V2_PUSHR_CMD, cmd);
 }
 
-static void dspi_pushr_txdata_write(struct fsl_dspi *dspi, u16 txdata)
+static void dspi_pushr_txdata_write(struct fsl_dspi *dspi, u32 txdata)
 {
-	regmap_write(dspi->regmap_pushr, dspi->pushr_tx, txdata);
+	enum dspi_hw_ver hw_ver = dspi->devtype_data->hw_version;
+
+	if (hw_ver == DSPI_V1)
+		regmap_write(dspi->regmap_pushr, dspi->pushr_tx, txdata);
+	else
+		regmap_write(dspi->regmap, SPI_PUSHR, txdata);
 }
 
 static void dspi_xspi_fifo_write(struct fsl_dspi *dspi, int num_words)
 {
+	enum dspi_hw_ver hw_ver = dspi->devtype_data->hw_version;
 	int num_bytes = num_words * dspi->oper_word_size;
-	u16 tx_cmd = dspi->tx_cmd;
+	u32 tx_cmd = dspi->tx_cmd;
 
 	/*
 	 * If the PCS needs to de-assert (i.e. we're at the end of the buffer
@@ -735,13 +847,17 @@ static void dspi_xspi_fifo_write(struct fsl_dspi *dspi, int num_words)
 	 * So send one word less during this go, to force a split and a command
 	 * with a single word next time, when CONT will be unset.
 	 */
-	if (!(dspi->tx_cmd & SPI_PUSHR_CMD_CONT) && num_bytes == dspi->len)
-		tx_cmd |= SPI_PUSHR_CMD_EOQ;
+	if (!(dspi->tx_cmd & dspi_pushr_cmd_cont_mask(hw_ver)) && num_bytes == dspi->len)
+		tx_cmd |= dspi_pushr_cmd_eoq_mask(hw_ver);
 
-	/* Update CTARE */
-	regmap_write(dspi->regmap, SPI_CTARE(0),
-		     SPI_FRAME_EBITS(dspi->oper_bits_per_word) |
-		     SPI_CTARE_DTCP(num_words));
+	/* Update frame size */
+	if (hw_ver == DSPI_V1)
+		regmap_write(dspi->regmap, SPI_CTARE(0),
+			     SPI_FRAME_EBITS(dspi->oper_bits_per_word) |
+			     SPI_CTARE_DTCP(num_words));
+	else
+		tx_cmd  = tx_cmd << 16 | (SPI_V2_PUSHR_CMD_FMSZ(dspi->oper_bits_per_word)
+					  * num_words - 1);
 
 	/*
 	 * Write the CMD FIFO entry first, and then the two
@@ -753,9 +869,13 @@ static void dspi_xspi_fifo_write(struct fsl_dspi *dspi, int num_words)
 	while (num_words--) {
 		u32 data = dspi_pop_tx(dspi);
 
-		dspi_pushr_txdata_write(dspi, data & 0xFFFF);
-		if (dspi->oper_bits_per_word > 16)
-			dspi_pushr_txdata_write(dspi, data >> 16);
+		if (hw_ver == DSPI_V1) {
+			dspi_pushr_txdata_write(dspi, data & 0xFFFF);
+			if (dspi->oper_bits_per_word > 16)
+				dspi_pushr_txdata_write(dspi, data >> 16);
+		} else {
+			dspi_pushr_txdata_write(dspi, data);
+		}
 	}
 }
 
@@ -834,13 +954,15 @@ no_accel:
 	 * We will update CTARE in the portion specific to XSPI, when we
 	 * also know the preload value (DTCP).
 	 */
-	regmap_write(dspi->regmap, SPI_CTAR(0),
-		     dspi->cur_chip->ctar_val |
-		     SPI_FRAME_BITS(dspi->oper_bits_per_word));
+	if (dspi->devtype_data->hw_version == DSPI_V1)
+		dspi->cur_chip->ctar_val |= SPI_FRAME_BITS(dspi->oper_bits_per_word);
+
+	regmap_write(dspi->regmap, SPI_CTAR(0), dspi->cur_chip->ctar_val);
 }
 
 static void dspi_fifo_write(struct fsl_dspi *dspi)
 {
+	enum dspi_hw_ver hw_ver = dspi->devtype_data->hw_version;
 	int num_fifo_entries = dspi->devtype_data->fifo_size;
 	struct spi_transfer *xfer = dspi->cur_transfer;
 	struct spi_message *msg = dspi->cur_msg;
@@ -848,8 +970,8 @@ static void dspi_fifo_write(struct fsl_dspi *dspi)
 
 	dspi_setup_accel(dspi);
 
-	/* In XSPI mode each 32-bit word occupies 2 TX FIFO entries */
-	if (dspi->oper_word_size == 4)
+	/* In XSPI mode each 32-bit word occupies 2 TX FIFO entries for DSPI V1 */
+	if (hw_ver == DSPI_V1 && dspi->oper_word_size == 4)
 		num_fifo_entries /= 2;
 
 	/*
@@ -900,14 +1022,15 @@ static int dspi_rxtx(struct fsl_dspi *dspi)
 
 static int dspi_poll(struct fsl_dspi *dspi)
 {
+	const u32 sr = dspi_get_sr(dspi->devtype_data->hw_version);
 	int tries = 1000;
-	u32 spi_sr;
+	u32 sr_val;
 
 	do {
-		regmap_read(dspi->regmap, SPI_SR, &spi_sr);
-		regmap_write(dspi->regmap, SPI_SR, spi_sr);
+		regmap_read(dspi->regmap, sr, &sr_val);
+		regmap_write(dspi->regmap, sr, sr_val);
 
-		if (spi_sr & SPI_SR_CMDTCF)
+		if (sr_val & SPI_SR_CMDTCF)
 			break;
 	} while (--tries);
 
@@ -920,12 +1043,13 @@ static int dspi_poll(struct fsl_dspi *dspi)
 static irqreturn_t dspi_interrupt(int irq, void *dev_id)
 {
 	struct fsl_dspi *dspi = (struct fsl_dspi *)dev_id;
-	u32 spi_sr;
+	const u32 sr = dspi_get_sr(dspi->devtype_data->hw_version);
+	u32 sr_val;
 
-	regmap_read(dspi->regmap, SPI_SR, &spi_sr);
-	regmap_write(dspi->regmap, SPI_SR, spi_sr);
+	regmap_read(dspi->regmap, sr, &sr_val);
+	regmap_write(dspi->regmap, sr, sr_val);
 
-	if (!(spi_sr & SPI_SR_CMDTCF))
+	if (!(sr_val & SPI_SR_CMDTCF))
 		return IRQ_NONE;
 
 	if (dspi_rxtx(dspi) == 0)
@@ -956,6 +1080,8 @@ static int dspi_transfer_one_message(struct spi_controller *ctlr,
 				     struct spi_message *message)
 {
 	struct fsl_dspi *dspi = spi_controller_get_devdata(ctlr);
+	enum dspi_hw_ver hw_ver = dspi->devtype_data->hw_version;
+	const u32 sr = dspi_get_sr(hw_ver);
 	struct spi_device *spi = message->spi;
 	struct spi_transfer *transfer;
 	bool cs = false;
@@ -969,8 +1095,8 @@ static int dspi_transfer_one_message(struct spi_controller *ctlr,
 	regmap_read(dspi->regmap, SPI_MCR, &val);
 	if (val & SPI_MCR_HALT) {
 		regmap_update_bits(dspi->regmap, SPI_MCR, SPI_MCR_HALT, 0);
-		while (regmap_read(dspi->regmap, SPI_SR, &val) >= 0 &&
-		       !(val & SPI_SR_TXRXS))
+		while (regmap_read(dspi->regmap, sr, &val) >= 0 &&
+				!(val & SPI_SR_TXRXS))
 			;
 	}
 
@@ -982,7 +1108,7 @@ static int dspi_transfer_one_message(struct spi_controller *ctlr,
 		dspi_assert_cs(spi, &cs);
 
 		/* Prepare command word for CMD FIFO */
-		dspi->tx_cmd = SPI_PUSHR_CMD_CTAS(0);
+		dspi->tx_cmd = dspi_pushr_cmd_ctas_mask(hw_ver, 0);
 		if (!spi_get_csgpiod(spi, 0))
 			dspi->tx_cmd |= SPI_PUSHR_CMD_PCS(spi_get_chipselect(spi, 0));
 
@@ -992,7 +1118,7 @@ static int dspi_transfer_one_message(struct spi_controller *ctlr,
 			 * cs_change is set.
 			 */
 			if (transfer->cs_change)
-				dspi->tx_cmd |= SPI_PUSHR_CMD_CONT;
+				dspi->tx_cmd |= dspi_pushr_cmd_cont_mask(hw_ver);
 		} else {
 			/* Keep PCS active between transfers in same message
 			 * when cs_change is not set, and de-activate PCS
@@ -1000,7 +1126,7 @@ static int dspi_transfer_one_message(struct spi_controller *ctlr,
 			 * cs_change is set.
 			 */
 			if (!transfer->cs_change)
-				dspi->tx_cmd |= SPI_PUSHR_CMD_CONT;
+				dspi->tx_cmd |= dspi_pushr_cmd_cont_mask(hw_ver);
 		}
 
 		cs_change = transfer->cs_change;
@@ -1012,8 +1138,7 @@ static int dspi_transfer_one_message(struct spi_controller *ctlr,
 		regmap_update_bits(dspi->regmap, SPI_MCR,
 				   SPI_MCR_CLR_TXF | SPI_MCR_CLR_RXF,
 				   SPI_MCR_CLR_TXF | SPI_MCR_CLR_RXF);
-
-		regmap_write(dspi->regmap, SPI_SR, SPI_SR_CLEAR);
+		regmap_write(dspi->regmap, sr, SPI_SR_CLEAR);
 
 		spi_take_timestamp_pre(dspi->ctlr, dspi->cur_transfer,
 				       dspi->progress, !dspi->irq);
@@ -1046,7 +1171,7 @@ static int dspi_transfer_one_message(struct spi_controller *ctlr,
 
 		spi_transfer_delay_exec(transfer);
 
-		if (!(dspi->tx_cmd & SPI_PUSHR_CMD_CONT))
+		if (!(dspi->tx_cmd & dspi_pushr_cmd_cont_mask(hw_ver)))
 			dspi_deassert_cs(spi, &cs);
 	}
 
@@ -1054,7 +1179,7 @@ static int dspi_transfer_one_message(struct spi_controller *ctlr,
 		/* Put DSPI in stop mode */
 		regmap_update_bits(dspi->regmap, SPI_MCR,
 				   SPI_MCR_HALT, SPI_MCR_HALT);
-		while (regmap_read(dspi->regmap, SPI_SR, &val) >= 0 &&
+		while (regmap_read(dspi->regmap, sr, &val) >= 0 &&
 		       val & SPI_SR_TXRXS)
 			;
 	}
@@ -1331,7 +1456,7 @@ enum {
 	S32CC_DSPI_REGMAP,
 	DSPI_XSPI_REGMAP,
 	S32CC_DSPI_XSPI_REGMAP,
-	DSPI_PUSHR
+	DSPI_PUSHR,
 };
 
 static const struct regmap_config dspi_regmap_config[] = {
@@ -1382,12 +1507,16 @@ static const struct regmap_config dspi_regmap_config[] = {
 
 static int dspi_init(struct fsl_dspi *dspi)
 {
+	const u32 rser = dspi_get_rser(dspi->devtype_data->hw_version);
+	const u32 sr = dspi_get_sr(dspi->devtype_data->hw_version);
+
 	unsigned int mcr;
 
 	/* Set idle states for all chip select signals to high */
 	mcr = SPI_MCR_PCSIS(GENMASK(dspi->ctlr->max_native_cs - 1, 0));
 
-	if (dspi->devtype_data->trans_mode == DSPI_XSPI_MODE)
+	if (dspi->devtype_data->trans_mode == DSPI_XSPI_MODE &&
+	    dspi->devtype_data->hw_version == DSPI_V1)
 		mcr |= SPI_MCR_XSPI;
 	if (!spi_controller_is_target(dspi->ctlr))
 		mcr |= SPI_MCR_HOST;
@@ -1395,14 +1524,14 @@ static int dspi_init(struct fsl_dspi *dspi)
 	mcr |= SPI_MCR_HALT;
 
 	regmap_write(dspi->regmap, SPI_MCR, mcr);
-	regmap_write(dspi->regmap, SPI_SR, SPI_SR_CLEAR);
+	regmap_write(dspi->regmap, sr, SPI_SR_CLEAR);
 
 	switch (dspi->devtype_data->trans_mode) {
 	case DSPI_XSPI_MODE:
-		regmap_write(dspi->regmap, SPI_RSER, SPI_RSER_CMDTCFE);
+		regmap_write(dspi->regmap, rser, SPI_RSER_CMDTCFE);
 		break;
 	case DSPI_DMA_MODE:
-		regmap_write(dspi->regmap, SPI_RSER,
+		regmap_write(dspi->regmap, rser,
 			     SPI_RSER_TFFFE | SPI_RSER_TFFFD |
 			     SPI_RSER_RFDFE | SPI_RSER_RFDFD);
 		break;
@@ -1443,6 +1572,7 @@ static int dspi_probe(struct platform_device *pdev)
 	struct fsl_dspi_platform_data *pdata;
 	struct spi_controller *ctlr;
 	int ret, cs_num, bus_num = -1;
+	enum dspi_hw_ver hw_ver;
 	struct fsl_dspi *dspi;
 	struct resource *res;
 	void __iomem *base;
@@ -1509,12 +1639,20 @@ static int dspi_probe(struct platform_device *pdev)
 
 		big_endian = of_device_is_big_endian(np);
 	}
-	if (big_endian) {
-		dspi->pushr_cmd = 0;
-		dspi->pushr_tx = 2;
-	} else {
-		dspi->pushr_cmd = 2;
-		dspi->pushr_tx = 0;
+
+	hw_ver = dspi->devtype_data->hw_version;
+
+	/* This data and cmd separation only applies for V1 hw version, since V2
+	 * has separate 32Bit PUSHR_CMD register
+	 */
+	if (hw_ver == DSPI_V1) {
+		if (big_endian) {
+			dspi->pushr_cmd = 0;
+			dspi->pushr_tx = 2;
+		} else {
+			dspi->pushr_cmd = 2;
+			dspi->pushr_tx = 0;
+		}
 	}
 
 	if (dspi->devtype_data->trans_mode == DSPI_XSPI_MODE)
@@ -1552,7 +1690,7 @@ static int dspi_probe(struct platform_device *pdev)
 		goto out_ctlr_put;
 	}
 
-	if (dspi->devtype_data->trans_mode == DSPI_XSPI_MODE) {
+	if (hw_ver == DSPI_V1 && dspi->devtype_data->trans_mode == DSPI_XSPI_MODE) {
 		dspi->regmap_pushr = devm_regmap_init_mmio(
 			&pdev->dev, base + SPI_PUSHR,
 			&dspi_regmap_config[DSPI_PUSHR]);
