@@ -24,6 +24,7 @@ properties:
           - fsl,ls2085a-dspi
           - fsl,lx2160a-dspi
           - nxp,s32cc-dspi
+          - nxp,s32n79-dspi
       - items:
           - enum:
               - fsl,ls1012a-dspi
