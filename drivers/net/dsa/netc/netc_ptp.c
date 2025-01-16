@@ -194,7 +194,7 @@ static int netc_port_add_l2_l4_ptp_filter(struct netc_port *port)
 	return err;
 }
 
-static int netc_port_set_ptp_filter(struct netc_port *port, int ptp_filter)
+int netc_port_set_ptp_filter(struct netc_port *port, int ptp_filter)
 {
 	int err;
 

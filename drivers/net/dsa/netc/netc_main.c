@@ -29,12 +29,11 @@ static struct netc_fdb_entry *netc_lookup_fdb_entry(struct netc_switch *priv,
 	return NULL;
 }
 
-static void netc_destroy_fdb_list(struct netc_switch *priv)
+void netc_destroy_fdb_list(struct netc_switch *priv)
 {
 	struct netc_fdb_entry *entry;
 	struct hlist_node *tmp;
 
-	guard(mutex)(&priv->fdbt_lock);
 	hlist_for_each_entry_safe(entry, tmp, &priv->fdb_list, node)
 		netc_del_fdb_entry(entry);
 }
@@ -51,12 +50,11 @@ static struct netc_vlan_entry *netc_lookup_vlan_entry(struct netc_switch *priv,
 	return NULL;
 }
 
-static void netc_destroy_vlan_list(struct netc_switch *priv)
+void netc_destroy_vlan_list(struct netc_switch *priv)
 {
 	struct netc_vlan_entry *entry;
 	struct hlist_node *tmp;
 
-	guard(mutex)(&priv->vft_lock);
 	hlist_for_each_entry_safe(entry, tmp, &priv->vlan_list, node)
 		netc_del_vlan_entry(entry);
 }
@@ -126,7 +124,7 @@ void netc_mac_port_wr(struct netc_port *port, u32 reg, u32 val)
 		netc_port_wr(port, reg + NETC_PMAC_OFFSET, val);
 }
 
-static u32 netc_mac_port_rd(struct netc_port *port, u32 reg)
+u32 netc_mac_port_rd(struct netc_port *port, u32 reg)
 {
 	if (is_netc_pseudo_port(port))
 		return 0;
@@ -756,7 +754,7 @@ static void netc_port_set_max_frame_size(struct netc_port *port,
 	netc_mac_port_wr(port, NETC_PM_MAXFRM(0), val);
 }
 
-static void netc_switch_fixed_config(struct netc_switch *priv)
+void netc_switch_fixed_config(struct netc_switch *priv)
 {
 	netc_switch_dos_default_config(priv);
 	netc_switch_vfht_default_config(priv);
@@ -803,7 +801,7 @@ static void netc_port_set_mlo(struct netc_port *port, int mlo)
 		netc_port_wr(port, NETC_BPCR, val);
 }
 
-static void netc_port_fixed_config(struct netc_port *port)
+void netc_port_fixed_config(struct netc_port *port)
 {
 	u32 pqnt = 0xffff, qth = 0xff00;
 	u32 val;
@@ -1134,10 +1132,10 @@ static int netc_add_or_update_ett_entry(struct netc_switch *priv, bool add,
 					    add, &ett_cfge);
 }
 
-static int netc_add_ett_group_entries(struct netc_switch *priv,
-				      u32 untagged_port_bitmap,
-				      u32 ett_base_eid,
-				      u32 ect_base_eid)
+int netc_add_ett_group_entries(struct netc_switch *priv,
+			       u32 untagged_port_bitmap,
+			       u32 ett_base_eid,
+			       u32 ect_base_eid)
 {
 	struct ntmp_user *user = &priv->user;
 	u32 ett_eid = ett_base_eid;
@@ -1216,8 +1214,8 @@ clear_ect_gid:
 	return err;
 }
 
-static void netc_switch_delete_vlan_egress_rule(struct netc_switch *priv,
-						struct netc_vlan_entry *entry)
+void netc_switch_delete_vlan_egress_rule(struct netc_switch *priv,
+					 struct netc_vlan_entry *entry)
 {
 	struct ntmp_user *user = &priv->user;
 	u32 ett_eid, ett_gid;
@@ -1620,6 +1618,8 @@ static int netc_port_enable(struct dsa_switch *ds, int port_id,
 		goto del_unaware_vlan_entry;
 	}
 
+	port->enabled = true;
+
 	return 0;
 
 del_unaware_vlan_entry:
@@ -1646,6 +1646,7 @@ static void netc_port_disable(struct dsa_switch *ds, int port_id)
 	}
 
 	netc_port_del_vlan_entry(port, NETC_STANDALONE_PVID);
+	port->enabled = false;
 }
 
 static void netc_port_stp_state_set(struct dsa_switch *ds, int port_id, u8 state)
@@ -2419,6 +2420,8 @@ static const struct dsa_switch_ops netc_switch_ops = {
 	.get_eth_mac_stats		= netc_port_get_eth_mac_stats,
 	.get_mac_eee			= netc_port_get_mac_eee,
 	.set_mac_eee			= netc_port_set_mac_eee,
+	.resume				= netc_resume,
+	.suspend			= netc_suspend,
 };
 
 static int netc_switch_probe(struct pci_dev *pdev, const struct pci_device_id *id)
@@ -2497,17 +2500,41 @@ static void netc_switch_remove(struct pci_dev *pdev)
 	netc_switch_pci_destroy(pdev);
 }
 
+static int netc_switch_suspend(struct device *dev)
+{
+	struct pci_dev *pdev = to_pci_dev(dev);
+	struct netc_switch *priv;
+
+	priv = pci_get_drvdata(pdev);
+
+	return dsa_switch_suspend(priv->ds);
+}
+
+static int netc_switch_resume(struct device *dev)
+{
+	struct pci_dev *pdev = to_pci_dev(dev);
+	struct netc_switch *priv;
+
+	priv = pci_get_drvdata(pdev);
+
+	return dsa_switch_resume(priv->ds);
+}
+
 static const struct pci_device_id netc_switch_ids[] = {
 	{ PCI_DEVICE(NETC_SWITCH_VENDOR_ID, NETC_SWITCH_DEVICE_ID) },
 	{ 0, },
 };
 MODULE_DEVICE_TABLE(pci, netc_switch_ids);
 
+static DEFINE_SIMPLE_DEV_PM_OPS(netc_switch_pm_ops, netc_switch_suspend,
+				netc_switch_resume);
+
 static struct pci_driver netc_switch_driver = {
 	.name		= KBUILD_MODNAME,
 	.id_table	= netc_switch_ids,
 	.probe		= netc_switch_probe,
 	.remove		= netc_switch_remove,
+	.driver.pm	= pm_ptr(&netc_switch_pm_ops),
 };
 module_pci_driver(netc_switch_driver);
 
