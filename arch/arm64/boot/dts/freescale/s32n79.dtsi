@@ -20,6 +20,12 @@
 		i2c3 = &lpi2c3;
 		i2c4 = &lpi2c4;
 		i2c5 = &lpi2c5;
+		spi0 = &spi0;
+		spi1 = &spi1;
+		spi2 = &spi2;
+		spi3 = &spi3;
+		spi4 = &spi4;
+		spi5 = &spi5;
 	};
 
 	cpus {
@@ -332,6 +338,90 @@
 			interrupt-names = "mb_0-127", "berr";
 			clocks = <&sys_clk>, <&sys_clk>;
 			clock-names = "ipg", "per";
+			status = "disabled";
+		};
+
+		spi0: spi@4a070000 {
+			compatible = "nxp,s32n79-dspi";
+			reg = <0x4a070000 0x1000>;
+			interrupt-parent = <&irqsteer0_coss>;
+			interrupts = <272>;
+			clocks = <&sys_clk>;
+			clock-names = "dspi";
+			spi-num-chipselects = <6>;
+			bus-num = <0>;
+			spi-cpol;
+			spi-cpha;
+			status = "disabled";
+		};
+
+		spi1: spi@4a080000 {
+			compatible = "nxp,s32n79-dspi";
+			reg = <0x4a080000 0x1000>;
+			interrupt-parent = <&irqsteer0_coss>;
+			interrupts = <273>;
+			clocks = <&sys_clk>;
+			clock-names = "dspi";
+			spi-num-chipselects = <6>;
+			bus-num = <1>;
+			spi-cpol;
+			spi-cpha;
+			status = "disabled";
+		};
+
+		spi2: spi@4a090000 {
+			compatible = "nxp,s32n79-dspi";
+			reg = <0x4a090000 0x1000>;
+			interrupt-parent = <&irqsteer0_coss>;
+			interrupts = <274>;
+			clocks = <&sys_clk>;
+			clock-names = "dspi";
+			spi-num-chipselects = <6>;
+			bus-num = <2>;
+			spi-cpol;
+			spi-cpha;
+			status = "disabled";
+		};
+
+		spi3: spi@4aa70000 {
+			compatible = "nxp,s32n79-dspi";
+			reg = <0x4aa70000 0x1000>;
+			interrupt-parent = <&irqsteer0_coss>;
+			interrupts = <275>;
+			clocks = <&sys_clk>;
+			clock-names = "dspi";
+			spi-num-chipselects = <6>;
+			bus-num = <3>;
+			spi-cpol;
+			spi-cpha;
+			status = "disabled";
+		};
+
+		spi4: spi@4aa80000 {
+			compatible = "nxp,s32n79-dspi";
+			reg = <0x4aa80000 0x1000>;
+			interrupt-parent = <&irqsteer0_coss>;
+			interrupts = <276>;
+			clocks = <&sys_clk>;
+			clock-names = "dspi";
+			spi-num-chipselects = <6>;
+			bus-num = <4>;
+			spi-cpol;
+			spi-cpha;
+			status = "disabled";
+		};
+
+		spi5: spi@4aa90000 {
+			compatible = "nxp,s32n79-dspi";
+			reg = <0x4aa90000 0x1000>;
+			interrupt-parent = <&irqsteer0_coss>;
+			interrupts = <277>;
+			clocks = <&sys_clk>;
+			clock-names = "dspi";
+			spi-num-chipselects = <6>;
+			bus-num = <5>;
+			spi-cpol;
+			spi-cpha;
 			status = "disabled";
 		};
 	};
