@@ -14,6 +14,12 @@
 
 	aliases {
 		serial0 = &uart0;
+		i2c0 = &lpi2c0;
+		i2c1 = &lpi2c1;
+		i2c2 = &lpi2c2;
+		i2c3 = &lpi2c3;
+		i2c4 = &lpi2c4;
+		i2c5 = &lpi2c5;
 	};
 
 	cpus {
@@ -172,6 +178,66 @@
 			reg = <0x4ac80000 0x1000>;
 			interrupt-parent = <&irqsteer0_coss>;
 			interrupts = <211>;
+			status = "disabled";
+		};
+
+		lpi2c0: i2c@4a0d0000 {
+			compatible = "nxp,s32n79-lpi2c";
+			reg = <0x4a0d0000 0x1000>;
+			clocks = <&sys_clk>, <&sys_clk>;
+			clock-names = "per", "ipg";
+			interrupt-parent = <&irqsteer0_coss>;
+			interrupts = <256>;
+			status = "disabled";
+		};
+
+		lpi2c1: i2c@4a0e0000 {
+			compatible = "nxp,s32n79-lpi2c";
+			reg = <0x4a0e0000 0x1000>;
+			clocks = <&sys_clk>, <&sys_clk>;
+			clock-names = "per", "ipg";
+			interrupt-parent = <&irqsteer0_coss>;
+			interrupts = <257>;
+			status = "disabled";
+		};
+
+		lpi2c2: i2c@4a0f0000 {
+			compatible = "nxp,s32n79-lpi2c";
+			reg = <0x4a0f0000 0x1000>;
+			clocks = <&sys_clk>, <&sys_clk>;
+			clock-names = "per", "ipg";
+			interrupt-parent = <&irqsteer0_coss>;
+			interrupts = <258>;
+			status = "disabled";
+		};
+
+		lpi2c3: i2c@4aaa0000 {
+			compatible = "nxp,s32n79-lpi2c";
+			reg = <0x4aaa0000 0x1000>;
+			clocks = <&sys_clk>, <&sys_clk>;
+			clock-names = "per", "ipg";
+			interrupt-parent = <&irqsteer0_coss>;
+			interrupts = <259>;
+			status = "disabled";
+		};
+
+		lpi2c4: i2c@4aab0000 {
+			compatible = "nxp,s32n79-lpi2c";
+			reg = <0x4aab0000 0x1000>;
+			clocks = <&sys_clk>, <&sys_clk>;
+			clock-names = "per", "ipg";
+			interrupt-parent = <&irqsteer0_coss>;
+			interrupts = <260>;
+			status = "disabled";
+		};
+
+		lpi2c5: i2c@4aac0000 {
+			compatible = "nxp,s32n79-lpi2c";
+			reg = <0x4aac0000 0x1000>;
+			clocks = <&sys_clk>, <&sys_clk>;
+			clock-names = "per", "ipg";
+			interrupt-parent = <&irqsteer0_coss>;
+			interrupts = <261>;
 			status = "disabled";
 		};
 	};
