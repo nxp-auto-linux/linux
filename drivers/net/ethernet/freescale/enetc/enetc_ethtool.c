@@ -2,6 +2,7 @@
 /* Copyright 2017-2019 NXP */
 
 #include <linux/ethtool_netlink.h>
+#include <linux/fsl/netc_global.h>
 #include <linux/net_tstamp.h>
 #include <linux/module.h>
 #include "enetc.h"
@@ -869,23 +870,10 @@ static int enetc_set_coalesce(struct net_device *ndev,
 	return 0;
 }
 
-static int enetc_get_ts_info(struct net_device *ndev,
-			     struct kernel_ethtool_ts_info *info)
+static void enetc_ts_generic_info(struct net_device *ndev,
+				  struct kernel_ethtool_ts_info *info)
 {
 	struct enetc_ndev_priv *priv = netdev_priv(ndev);
-	int *phc_idx;
-
-	phc_idx = symbol_get(enetc_phc_index);
-	if (phc_idx) {
-		info->phc_index = *phc_idx;
-		symbol_put(enetc_phc_index);
-	}
-
-	if (!IS_ENABLED(CONFIG_FSL_ENETC_PTP_CLOCK)) {
-		info->so_timestamping = SOF_TIMESTAMPING_TX_SOFTWARE;
-
-		return 0;
-	}
 
 	info->so_timestamping = SOF_TIMESTAMPING_TX_HARDWARE |
 				SOF_TIMESTAMPING_RX_HARDWARE |
@@ -900,6 +888,50 @@ static int enetc_get_ts_info(struct net_device *ndev,
 
 	info->rx_filters = (1 << HWTSTAMP_FILTER_NONE) |
 			   (1 << HWTSTAMP_FILTER_ALL);
+}
+
+static int enetc_get_ts_info(struct net_device *ndev,
+			     struct kernel_ethtool_ts_info *info)
+{
+	int *phc_idx;
+
+	phc_idx = symbol_get(enetc_phc_index);
+	if (phc_idx) {
+		info->phc_index = *phc_idx;
+		symbol_put(enetc_phc_index);
+	}
+
+	if (!IS_ENABLED(CONFIG_FSL_ENETC_PTP_CLOCK)) {
+		info->so_timestamping = SOF_TIMESTAMPING_TX_SOFTWARE;
+
+		return 0;
+	}
+
+	enetc_ts_generic_info(ndev, info);
+
+	return 0;
+}
+
+static int enetc4_get_ts_info(struct net_device *ndev,
+			      struct kernel_ethtool_ts_info *info)
+{
+	struct enetc_ndev_priv *priv = netdev_priv(ndev);
+	struct pci_bus *bus = priv->si->pdev->bus;
+	u8 devfn = priv->si->drvdata->tmr_devfn;
+	struct pci_dev *timer_pdev;
+	int domain, phc_index;
+
+	domain = pci_domain_nr(bus);
+	timer_pdev = pci_get_domain_bus_and_slot(domain, bus->number, devfn);
+	phc_index = netc_timer_get_phc_index(timer_pdev);
+	if (phc_index < 0) {
+		info->so_timestamping = SOF_TIMESTAMPING_TX_SOFTWARE;
+
+		return 0;
+	}
+
+	info->phc_index = phc_index;
+	enetc_ts_generic_info(ndev, info);
 
 	return 0;
 }
@@ -1285,6 +1317,7 @@ const struct ethtool_ops enetc4_pf_ethtool_ops = {
 	.get_rxfh_indir_size = enetc_get_rxfh_indir_size,
 	.get_rxfh = enetc_get_rxfh,
 	.set_rxfh = enetc_set_rxfh,
+	.get_ts_info = enetc4_get_ts_info,
 };
 
 void enetc_set_ethtool_ops(struct net_device *ndev)
