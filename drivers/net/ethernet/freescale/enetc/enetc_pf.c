@@ -680,6 +680,40 @@ static void enetc_force_rgmii_mac(struct enetc_si *si, int speed, int duplex)
 	enetc_port_mac_wr(si, ENETC_PM0_IF_MODE, val);
 }
 
+/* When the link is lost, the verification state machine goes to the FAILED
+ * state and doesn't restart on its own after a new link up event.
+ * According to 802.3 Figure 99-8 - Verify state diagram, the LINK_FAIL bit
+ * should have been sufficient to re-trigger verification, but for ENETC it
+ * doesn't. As a workaround, we need to toggle the Merge Enable bit to
+ * re-trigger verification when link comes up.
+ */
+static void enetc_mm_link_state_update(struct enetc_ndev_priv *priv,
+				       bool link)
+{
+	struct enetc_hw *hw = &priv->si->hw;
+	u32 val;
+
+	mutex_lock(&priv->mm_lock);
+
+	val = enetc_port_rd(hw, ENETC_MMCSR);
+
+	if (link) {
+		val &= ~ENETC_MMCSR_LINK_FAIL;
+		if (priv->active_offloads & ENETC_F_QBU)
+			val |= ENETC_MMCSR_ME;
+	} else {
+		val |= ENETC_MMCSR_LINK_FAIL;
+		if (priv->active_offloads & ENETC_F_QBU)
+			val &= ~ENETC_MMCSR_ME;
+	}
+
+	enetc_port_wr(hw, ENETC_MMCSR, val);
+
+	enetc_mm_commit_preemptible_tcs(priv);
+
+	mutex_unlock(&priv->mm_lock);
+}
+
 static void enetc_pl_mac_link_up(struct phylink_config *config,
 				 struct phy_device *phy, unsigned int mode,
 				 phy_interface_t interface, int speed,

@@ -1178,6 +1178,7 @@ void enetc_mm_commit_preemptible_tcs(struct enetc_ndev_priv *priv)
 out:
 	enetc_set_ptcfpr(hw, preemptible_tcs);
 }
+EXPORT_SYMBOL_GPL(enetc_mm_commit_preemptible_tcs);
 
 /* FIXME: Workaround for the link partner's verification failing if ENETC
  * priorly received too much express traffic. The documentation doesn't
@@ -1255,40 +1256,6 @@ static int enetc_set_mm(struct net_device *ndev, struct ethtool_mm_cfg *cfg,
 
 	return 0;
 }
-
-/* When the link is lost, the verification state machine goes to the FAILED
- * state and doesn't restart on its own after a new link up event.
- * According to 802.3 Figure 99-8 - Verify state diagram, the LINK_FAIL bit
- * should have been sufficient to re-trigger verification, but for ENETC it
- * doesn't. As a workaround, we need to toggle the Merge Enable bit to
- * re-trigger verification when link comes up.
- */
-void enetc_mm_link_state_update(struct enetc_ndev_priv *priv, bool link)
-{
-	struct enetc_hw *hw = &priv->si->hw;
-	u32 val;
-
-	mutex_lock(&priv->mm_lock);
-
-	val = enetc_port_rd(hw, ENETC_MMCSR);
-
-	if (link) {
-		val &= ~ENETC_MMCSR_LINK_FAIL;
-		if (priv->active_offloads & ENETC_F_QBU)
-			val |= ENETC_MMCSR_ME;
-	} else {
-		val |= ENETC_MMCSR_LINK_FAIL;
-		if (priv->active_offloads & ENETC_F_QBU)
-			val &= ~ENETC_MMCSR_ME;
-	}
-
-	enetc_port_wr(hw, ENETC_MMCSR, val);
-
-	enetc_mm_commit_preemptible_tcs(priv);
-
-	mutex_unlock(&priv->mm_lock);
-}
-EXPORT_SYMBOL_GPL(enetc_mm_link_state_update);
 
 const struct ethtool_ops enetc_pf_ethtool_ops = {
 	.supported_coalesce_params = ETHTOOL_COALESCE_USECS |
