@@ -26,6 +26,16 @@ struct enetc_port_caps {
 	int mac_filter_num;
 };
 
+struct enetc_mm {
+	u8 pmac_enabled:1;
+	u8 tx_enabled:1;
+	u8 verify_enabled:1;
+	u8 lafs;
+	u8 rafs;
+	u8 vsts;
+	u8 vt;
+};
+
 struct enetc_pf;
 
 struct enetc_pf_ops {
@@ -34,6 +44,7 @@ struct enetc_pf_ops {
 	struct phylink_pcs *(*create_pcs)(struct enetc_pf *pf, struct mii_bus *bus);
 	void (*destroy_pcs)(struct phylink_pcs *pcs);
 	int (*enable_psfp)(struct enetc_ndev_priv *priv);
+	void (*get_mm)(struct enetc_ndev_priv *priv, struct enetc_mm *mm);
 };
 
 struct enetc_pf {
