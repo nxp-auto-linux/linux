@@ -20,6 +20,7 @@
 /* Define NTMP Table ID */
 #define NTMP_MAFT_ID			1
 #define NTMP_RSST_ID			3
+#define NTMP_TGST_ID			5
 
 /* Generic Update Actions for most tables */
 #define NTMP_GEN_UA_CFGEU		BIT(0)
@@ -452,6 +453,132 @@ end:
 	return err;
 }
 EXPORT_SYMBOL_GPL(ntmp_rsst_query_entry);
+
+int ntmp_tgst_query_entry(struct ntmp_user *user, u32 entry_id,
+			  struct tgst_query_data *tgst)
+{
+	struct ntmp_dma_buf data = {.dev = user->dev};
+	struct tgst_resp_query *resp;
+	struct tgst_cfge_data *cfge;
+	struct tgst_olse_data *olse;
+	struct ntmp_req_by_eid *req;
+	int i, err;
+
+	data.size = sizeof(*resp) + struct_size(cfge, ge, TGST_MAX_ENTRY_NUM) +
+		    struct_size(olse, ge, TGST_MAX_ENTRY_NUM);
+	err = ntmp_alloc_data_mem(&data, (void **)&req);
+	if (err)
+		return err;
+
+	ntmp_fill_crd_eid(req, user->tbl.tgst_ver, 0, 0, entry_id);
+	err = ntmp_query_entry_by_id(user, NTMP_TGST_ID,
+				     NTMP_LEN(sizeof(*req), data.size),
+				     req, data.dma, false);
+	if (err)
+		goto end;
+
+	resp = (struct tgst_resp_query *)req;
+	cfge = (struct tgst_cfge_data *)resp->data;
+
+	tgst->config_change_time = resp->status.cfg_ct;
+	tgst->admin_bt = cfge->admin_bt;
+	tgst->admin_ct = cfge->admin_ct;
+	tgst->admin_ct_ext = cfge->admin_ct_ext;
+	tgst->admin_cl_len = cfge->admin_cl_len;
+	for (i = 0; i < le16_to_cpu(cfge->admin_cl_len); i++)
+		tgst->cfge_ge[i] = cfge->ge[i];
+
+	olse = (struct tgst_olse_data *)&cfge->ge[i];
+	tgst->oper_cfg_ct = olse->oper_cfg_ct;
+	tgst->oper_cfg_ce = olse->oper_cfg_ce;
+	tgst->oper_bt = olse->oper_bt;
+	tgst->oper_ct = olse->oper_ct;
+	tgst->oper_ct_ext = olse->oper_ct_ext;
+	tgst->oper_cl_len = olse->oper_cl_len;
+	for (i = 0; i < le16_to_cpu(olse->oper_cl_len); i++)
+		tgst->olse_ge[i] = olse->ge[i];
+
+end:
+	ntmp_free_data_mem(&data);
+
+	return err;
+}
+
+int ntmp_tgst_delete_admin_gate_list(struct ntmp_user *user, u32 entry_id)
+{
+	struct ntmp_dma_buf data = {
+		.dev = user->dev,
+		.size = sizeof(struct tgst_req_update),
+	};
+	struct tgst_req_update *req;
+	struct tgst_cfge_data *cfge;
+	union netc_cbd cbd;
+	u32 len;
+	int err;
+
+	err = ntmp_alloc_data_mem(&data, (void **)&req);
+	if (err)
+		return err;
+
+	/* Set the request data buffer and set the admin control list len
+	 * to zero to delete the existing admin control list.
+	 */
+	ntmp_fill_crd_eid(&req->rbe, user->tbl.tgst_ver, 0,
+			  NTMP_GEN_UA_CFGEU, entry_id);
+	cfge = &req->cfge;
+	cfge->admin_cl_len = 0;
+
+	/* Request header */
+	len = NTMP_LEN(data.size, sizeof(struct tgst_resp_status));
+	ntmp_fill_request_hdr(&cbd, data.dma, len, NTMP_TGST_ID,
+			      NTMP_CMD_UPDATE, NTMP_AM_ENTRY_ID);
+
+	err = netc_xmit_ntmp_cmd(user, &cbd);
+	if (err)
+		dev_err(user->dev, "Failed to delete TGST entry 0x%x, err: %pe\n",
+			entry_id, ERR_PTR(err));
+
+	ntmp_free_data_mem(&data);
+
+	return err;
+}
+
+int ntmp_tgst_update_admin_gate_list(struct ntmp_user *user, u32 entry_id,
+				     struct tgst_cfge_data *cfge)
+{
+	u16 list_len = le16_to_cpu(cfge->admin_cl_len);
+	u32 cfge_len = struct_size(cfge, ge, list_len);
+	struct ntmp_dma_buf data = {.dev = user->dev};
+	struct tgst_req_update *req;
+	union netc_cbd cbd;
+	u32 len;
+	int err;
+
+	/* Calculate the size of request data buffer */
+	data.size = struct_size(req, cfge.ge, list_len);
+	err = ntmp_alloc_data_mem(&data, (void **)&req);
+	if (err)
+		return err;
+
+	/* Set the request data buffer */
+	ntmp_fill_crd_eid(&req->rbe, user->tbl.tgst_ver, 0,
+			  NTMP_GEN_UA_CFGEU, entry_id);
+	memcpy(&req->cfge, cfge, cfge_len);
+
+	/* Request header */
+	len = NTMP_LEN(data.size, sizeof(struct tgst_resp_status));
+	ntmp_fill_request_hdr(&cbd, data.dma, len, NTMP_TGST_ID,
+			      NTMP_CMD_UPDATE, NTMP_AM_ENTRY_ID);
+
+	err = netc_xmit_ntmp_cmd(user, &cbd);
+	if (err)
+		dev_err(user->dev, "Failed to update TGST entry 0x%x, err: %pe\n",
+			entry_id, ERR_PTR(err));
+
+	ntmp_free_data_mem(&data);
+
+	return err;
+}
 
 MODULE_DESCRIPTION("NXP NETC Library");
 MODULE_LICENSE("Dual BSD/GPL");
