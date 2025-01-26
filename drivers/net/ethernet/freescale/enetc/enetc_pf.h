@@ -49,6 +49,7 @@ struct enetc_pf_ops {
 	int (*enable_psfp)(struct enetc_ndev_priv *priv);
 	void (*set_si_vlan_hash_filter)(struct enetc_hw *hw, int si, u64 hash);
 	void (*get_mm)(struct enetc_ndev_priv *priv, struct enetc_mm *mm);
+	void (*set_preemptible_tcs)(struct enetc_ndev_priv *priv);
 };
 
 struct enetc_pf {
