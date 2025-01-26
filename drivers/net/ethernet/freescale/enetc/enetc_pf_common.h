@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: (GPL-2.0+ OR BSD-3-Clause) */
 /* Copyright 2024 NXP */
 
+#include <net/pkt_sched.h>
+
 #include "enetc_pf.h"
 
 int enetc_pf_set_mac_addr(struct net_device *ndev, void *addr);
@@ -15,6 +17,12 @@ void enetc_phylink_destroy(struct enetc_ndev_priv *priv);
 void enetc_set_default_rss_key(struct enetc_pf *pf);
 int enetc_vlan_rx_add_vid(struct net_device *ndev, __be16 prot, u16 vid);
 int enetc_vlan_rx_del_vid(struct net_device *ndev, __be16 prot, u16 vid);
+void enetc_reset_taprio_stats(struct enetc_ndev_priv *priv);
+void enetc_taprio_stats(struct net_device *ndev,
+			struct tc_taprio_qopt_stats *stats);
+void enetc_taprio_queue_stats(struct net_device *ndev,
+			      struct tc_taprio_qopt_queue_stats *queue_stats);
+int enetc_qos_query_caps(struct net_device *ndev, void *type_data);
 
 static inline u16 enetc_get_ip_revision(struct enetc_hw *hw)
 {

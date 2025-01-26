@@ -425,5 +425,67 @@ int enetc_vlan_rx_del_vid(struct net_device *ndev, __be16 prot, u16 vid)
 }
 EXPORT_SYMBOL_GPL(enetc_vlan_rx_del_vid);
 
+void enetc_reset_taprio_stats(struct enetc_ndev_priv *priv)
+{
+	int i;
+
+	for (i = 0; i < priv->num_tx_rings; i++)
+		priv->tx_ring[i]->stats.win_drop = 0;
+}
+EXPORT_SYMBOL_GPL(enetc_reset_taprio_stats);
+
+void enetc_taprio_stats(struct net_device *ndev,
+			struct tc_taprio_qopt_stats *stats)
+{
+	struct enetc_ndev_priv *priv = netdev_priv(ndev);
+	u64 window_drops = 0;
+	int i;
+
+	for (i = 0; i < priv->num_tx_rings; i++)
+		window_drops += priv->tx_ring[i]->stats.win_drop;
+
+	stats->window_drops = window_drops;
+}
+EXPORT_SYMBOL_GPL(enetc_taprio_stats);
+
+void enetc_taprio_queue_stats(struct net_device *ndev,
+			      struct tc_taprio_qopt_queue_stats *queue_stats)
+{
+	struct tc_taprio_qopt_stats *stats = &queue_stats->stats;
+	struct enetc_ndev_priv *priv = netdev_priv(ndev);
+	int queue = queue_stats->queue;
+
+	stats->window_drops = priv->tx_ring[queue]->stats.win_drop;
+}
+EXPORT_SYMBOL_GPL(enetc_taprio_queue_stats);
+
+int enetc_qos_query_caps(struct net_device *ndev, void *type_data)
+{
+	struct enetc_ndev_priv *priv = netdev_priv(ndev);
+	struct tc_query_caps_base *base = type_data;
+	struct enetc_si *si = priv->si;
+
+	switch (base->type) {
+	case TC_SETUP_QDISC_MQPRIO: {
+		struct tc_mqprio_caps *caps = base->caps;
+
+		caps->validate_queue_counts = true;
+
+		return 0;
+	}
+	case TC_SETUP_QDISC_TAPRIO: {
+		struct tc_taprio_caps *caps = base->caps;
+
+		if (si->hw_features & ENETC_SI_F_QBV)
+			caps->supports_queue_max_sdu = true;
+
+		return 0;
+	}
+	default:
+		return -EOPNOTSUPP;
+	}
+}
+EXPORT_SYMBOL_GPL(enetc_qos_query_caps);
+
 MODULE_DESCRIPTION("NXP ENETC PF common functionality driver");
 MODULE_LICENSE("Dual BSD/GPL");
