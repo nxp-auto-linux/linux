@@ -18,6 +18,9 @@
 #define ENETC_MAC_FILTER_TYPE_ALL	(ENETC_MAC_FILTER_TYPE_UC | \
 					 ENETC_MAC_FILTER_TYPE_MC)
 
+#define ntmp_user_to_enetc_si(user)	\
+	container_of((user), struct enetc_si, ntmp_user)
+
 struct enetc_mac_addr {
 	u8 addr[ETH_ALEN];
 };
@@ -376,6 +379,10 @@ static void enetc4_get_psi_hw_features(struct enetc_si *si)
 	val = enetc_port_rd(hw, ENETC4_PMCAPR);
 	if (FIELD_GET(PMCAPR_FP, val) == PMCAPR_FP_SUPP)
 		si->hw_features |= ENETC_SI_F_QBU;
+
+	val = enetc_port_rd(hw, ENETC4_PCAPR);
+	if (val & PCAPR_TGS)
+		si->hw_features |= ENETC_SI_F_QBV;
 }
 
 static const struct enetc_pf_ops enetc4_pf_ops = {
@@ -531,17 +538,6 @@ static void enetc4_configure_port_si(struct enetc_pf *pf)
 	enetc4_enable_all_si(pf);
 }
 
-static void enetc4_pf_reset_tc_msdu(struct enetc_hw *hw)
-{
-	u32 val = ENETC_MAC_MAXFRM_SIZE;
-	int tc;
-
-	val = u32_replace_bits(val, SDU_TYPE_MPDU, PTCTMSDUR_SDU_TYPE);
-
-	for (tc = 0; tc < ENETC_NUM_TC; tc++)
-		enetc_port_wr(hw, ENETC4_PTCTMSDUR(tc), val);
-}
-
 static void enetc4_set_trx_frame_size(struct enetc_pf *pf)
 {
 	struct enetc_si *si = pf->si;
@@ -568,9 +564,63 @@ static void enetc4_configure_port(struct enetc_pf *pf)
 	enetc4_enable_trx(pf);
 }
 
+static u64 enetc4_get_current_time(struct enetc_si *si)
+{
+	u32 time_l, time_h;
+	u64 current_time;
+
+	time_l = enetc_rd_hot(&si->hw, ENETC_SICTR0);
+	time_h = enetc_rd_hot(&si->hw, ENETC_SICTR1);
+	current_time = (u64)time_h << 32 | time_l;
+
+	return current_time;
+}
+
+static u64 enetc4_adjust_base_time(struct ntmp_user *user, u64 base_time,
+				   u32 cycle_time)
+{
+	struct enetc_si *si = ntmp_user_to_enetc_si(user);
+	u64 current_time, delta, n;
+
+	current_time = enetc4_get_current_time(si);
+	if (base_time >= current_time)
+		return base_time;
+
+	delta = current_time - base_time;
+	n = DIV_ROUND_UP_ULL(delta, cycle_time);
+	base_time += (n * (u64)cycle_time);
+
+	return base_time;
+}
+
+static u32 enetc4_get_tgst_free_words(struct ntmp_user *user)
+{
+	struct enetc_si *si = ntmp_user_to_enetc_si(user);
+	struct enetc_hw *hw = &si->hw;
+	u32 words_in_use;
+	u32 total_words;
+
+	/* Notice that the admin gate list should be delete first before call
+	 * this function, so the ENETC4_PTGAGLLR[ADMIN_GATE_LIST_LENGTH] equal
+	 * to zero. That is, the ENETC4_TGSTMOR only contains the words of the
+	 * operational gate control list.
+	 */
+	words_in_use = enetc_port_rd(hw, ENETC4_TGSTMOR) & TGSTMOR_NUM_WORDS;
+	total_words = enetc_port_rd(hw, ENETC4_TGSTCAPR) & TGSTCAPR_NUM_WORDS;
+
+	return total_words - words_in_use;
+}
+
+static const struct ntmp_ops ntmp_ops = {
+	.adjust_base_time = enetc4_adjust_base_time,
+	.get_tgst_free_words = enetc4_get_tgst_free_words,
+};
+
 static int enetc4_init_ntmp_user(struct enetc_si *si)
 {
 	struct ntmp_user *user = &si->ntmp_user;
+
+	user->ops = &ntmp_ops;
 
 	/* For ENETC 4.1, all table versions are 0 */
 	memset(&user->tbl, 0, sizeof(user->tbl));
