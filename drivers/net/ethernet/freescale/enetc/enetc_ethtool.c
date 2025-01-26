@@ -1167,6 +1167,24 @@ static int enetc_set_mm(struct net_device *ndev, struct ethtool_mm_cfg *cfg,
 	return 0;
 }
 
+static void enetc4_get_mm_stats(struct net_device *ndev,
+				struct ethtool_mm_stats *s)
+{
+	struct enetc_ndev_priv *priv = netdev_priv(ndev);
+	struct enetc_si *si = priv->si;
+	struct enetc_hw *hw = &si->hw;
+
+	if (!(si->hw_features & ENETC_SI_F_QBU))
+		return;
+
+	s->MACMergeFrameAssErrorCount = enetc_port_rd(hw, ENETC4_MMFAECR);
+	s->MACMergeFrameSmdErrorCount = enetc_port_rd(hw, ENETC4_MMFSECR);
+	s->MACMergeFrameAssOkCount = enetc_port_rd(hw, ENETC4_MMFAOCR);
+	s->MACMergeFragCountRx = enetc_port_rd(hw, ENETC4_MMFCRXR);
+	s->MACMergeFragCountTx = enetc_port_rd(hw, ENETC4_MMFCTXR);
+	s->MACMergeHoldCount = enetc_port_rd(hw, ENETC4_MMHCR);
+}
+
 const struct ethtool_ops enetc_pf_ethtool_ops = {
 	.supported_coalesce_params = ETHTOOL_COALESCE_USECS |
 				     ETHTOOL_COALESCE_MAX_FRAMES |
@@ -1243,6 +1261,9 @@ const struct ethtool_ops enetc4_pf_ethtool_ops = {
 	.get_rxfh = enetc_get_rxfh,
 	.set_rxfh = enetc_set_rxfh,
 	.get_ts_info = enetc_get_ts_info,
+	.get_mm = enetc_get_mm,
+	.set_mm = enetc_set_mm,
+	.get_mm_stats = enetc4_get_mm_stats,
 };
 
 void enetc_set_ethtool_ops(struct net_device *ndev)
