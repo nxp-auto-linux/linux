@@ -926,6 +926,23 @@ static void enetc_psi_destroy(struct pci_dev *pdev)
 	enetc_pci_remove(pdev);
 }
 
+static void enetc_pf_get_mm(struct enetc_ndev_priv *priv, struct enetc_mm *mm)
+{
+	struct enetc_hw *hw = &priv->si->hw;
+	u32 val;
+
+	val = enetc_port_rd(hw, ENETC_PFPMR);
+	mm->pmac_enabled = !!(val & ENETC_PFPMR_PMACE);
+
+	val = enetc_port_rd(hw, ENETC_MMCSR);
+	mm->vsts = ENETC_MMCSR_GET_VSTS(val);
+	mm->rafs = ENETC_MMCSR_GET_RAFS(val);
+	mm->lafs = ENETC_MMCSR_GET_LAFS(val);
+	mm->tx_enabled = !!(val & ENETC_MMCSR_LPE); /* mirror of MMCSR_ME */
+	mm->verify_enabled = !(val & ENETC_MMCSR_VDIS);
+	mm->vt = ENETC_MMCSR_GET_VT(val);
+}
+
 static const struct enetc_pf_ops enetc_pf_ops = {
 	.set_si_primary_mac = enetc_pf_set_primary_mac_addr,
 	.get_si_primary_mac = enetc_pf_get_primary_mac_addr,
@@ -933,6 +950,7 @@ static const struct enetc_pf_ops enetc_pf_ops = {
 	.destroy_pcs = enetc_pf_destroy_pcs,
 	.enable_psfp = enetc_psfp_enable,
 	.set_si_vlan_hash_filter = enetc_set_vlan_ht_filter,
+	.get_mm = enetc_pf_get_mm,
 };
 
 static int enetc_pf_probe(struct pci_dev *pdev,
