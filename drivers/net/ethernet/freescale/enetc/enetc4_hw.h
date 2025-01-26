@@ -114,6 +114,7 @@
 #define ENETC4_PMCAPR			0x4004
 #define  PMCAPR_HD			BIT(8)
 #define  PMCAPR_FP			GENMASK(10, 9)
+#define   PMCAPR_FP_SUPP		2
 
 /* Port configuration register */
 #define ENETC4_PCR			0x4010
@@ -129,6 +130,9 @@
 
 /* Port operational register */
 #define ENETC4_POR			0x4100
+
+/* Port frame preemption configuration register */
+#define ENETC4_PFPCR			0x4134
 
 /* Port traffic class a transmit maximum SDU register */
 #define ENETC4_PTCTMSDUR(a)		((a) * 0x20 + 0x4208)
@@ -192,5 +196,42 @@
 #define   SSP_10M			1
 #define   SSP_1G			2
 #define  PM_IF_MODE_ENA			BIT(15)
+
+/* Port MAC Merge Control and Status Register */
+#define ENETC4_MMCSR			0x5800
+#define  MMCSR_LPE			BIT(1)
+#define  MMCSR_LAFS			GENMASK(4, 3)
+#define  MMCSR_RAFS			GENMASK(9, 8)
+#define  MMCSR_ME			GENMASK(16, 15)
+#define   MMCSR_ME_DISABLE		0
+#define   MMCSR_ME_ANY_BOUNDARY		1
+#define   MMCSR_ME_4B_BOUNDARY		2
+#define  MMCSR_VDIS			BIT(17)
+#define  MMCSR_VSTS			GENMASK(20, 18)
+#define   MMCSR_VSTS_DISABLED		0
+#define   MMCSR_VSTS_IN_PROGRESS	2
+#define   MMCSR_VSTS_SUCCESSFUL		3
+#define   MMCSR_VSTS_FAILED		4
+#define   MMCSR_VSTS_GET(v)		FIELD_GET(MMCSR_VSTS, v)
+#define  MMCSR_VT			GENMASK(29, 23)
+#define  MMCSR_LINK_FAIL		BIT(31)
+
+/* Port MAC Merge Control and Status Register */
+#define ENETC4_MMFAECR			0x5808
+
+/* Port MAC Merge Frame SMD Error Count Register */
+#define ENETC4_MMFSECR			0x580c
+
+/* Port MAC Merge Frame Assembly OK Count Register */
+#define ENETC4_MMFAOCR			0x5810
+
+/* Port MAC Merge Fragment Count RX Register */
+#define ENETC4_MMFCRXR			0x5814
+
+/* Port MAC Merge Fragment Count TX Register */
+#define ENETC4_MMFCTXR			0x5818
+
+/* Port MAC Merge Hold Count Register */
+#define ENETC4_MMHCR			0x581c
 
 #endif
