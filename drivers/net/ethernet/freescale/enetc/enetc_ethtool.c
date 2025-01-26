@@ -1070,62 +1070,16 @@ static int enetc_get_mm(struct net_device *ndev, struct ethtool_mm_state *state)
 	return 0;
 }
 
-static int enetc_mm_wait_tx_active(struct enetc_hw *hw, int verify_time)
-{
-	int timeout = verify_time * USEC_PER_MSEC * ENETC_MM_VERIFY_RETRIES;
-	u32 val;
-
-	/* This will time out after the standard value of 3 verification
-	 * attempts. To not sleep forever, it relies on a non-zero verify_time,
-	 * guarantee which is provided by the ethtool nlattr policy.
-	 */
-	return read_poll_timeout(enetc_port_rd, val,
-				 ENETC_MMCSR_GET_VSTS(val) == 3,
-				 ENETC_MM_VERIFY_SLEEP_US, timeout,
-				 true, hw, ENETC_MMCSR);
-}
-
-static void enetc_set_ptcfpr(struct enetc_hw *hw, u8 preemptible_tcs)
-{
-	u32 val;
-	int tc;
-
-	for (tc = 0; tc < 8; tc++) {
-		val = enetc_port_rd(hw, ENETC_PTCFPR(tc));
-
-		if (preemptible_tcs & BIT(tc))
-			val |= ENETC_PTCFPR_FPE;
-		else
-			val &= ~ENETC_PTCFPR_FPE;
-
-		enetc_port_wr(hw, ENETC_PTCFPR(tc), val);
-	}
-}
-
 /* ENETC does not have an IRQ to notify changes to the MAC Merge TX status
  * (active/inactive), but the preemptible traffic classes should only be
  * committed to hardware once TX is active. Resort to polling.
  */
 void enetc_mm_commit_preemptible_tcs(struct enetc_ndev_priv *priv)
 {
-	struct enetc_hw *hw = &priv->si->hw;
-	u8 preemptible_tcs = 0;
-	u32 val;
-	int err;
+	struct enetc_pf *pf = enetc_si_priv(priv->si);
 
-	val = enetc_port_rd(hw, ENETC_MMCSR);
-	if (!(val & ENETC_MMCSR_ME))
-		goto out;
-
-	if (!(val & ENETC_MMCSR_VDIS)) {
-		err = enetc_mm_wait_tx_active(hw, ENETC_MMCSR_GET_VT(val));
-		if (err)
-			goto out;
-	}
-
-	preemptible_tcs = priv->preemptible_tcs;
-out:
-	enetc_set_ptcfpr(hw, preemptible_tcs);
+	if (pf->ops->set_preemptible_tcs)
+		pf->ops->set_preemptible_tcs(priv);
 }
 EXPORT_SYMBOL_GPL(enetc_mm_commit_preemptible_tcs);
 
