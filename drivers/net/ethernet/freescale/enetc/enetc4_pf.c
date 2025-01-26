@@ -264,9 +264,126 @@ static void enetc4_pf_set_mac_filter(struct enetc_pf *pf, int type)
 		enetc4_pf_set_mac_hash_filter(pf, ENETC_MAC_FILTER_TYPE_MC);
 }
 
+static void enetc4_pf_get_mm(struct enetc_ndev_priv *priv,
+			     struct enetc_mm *mm)
+{
+	struct enetc_hw *hw = &priv->si->hw;
+	u32 val;
+
+	val = enetc_port_rd(hw, ENETC4_MMCSR);
+	mm->pmac_enabled = !!(val & MMCSR_ME);
+	mm->tx_enabled = !!(val & MMCSR_LPE);
+	mm->verify_enabled = !(val & MMCSR_VDIS);
+	mm->vsts = FIELD_GET(MMCSR_VSTS, val);
+	mm->rafs = FIELD_GET(MMCSR_RAFS, val);
+	mm->lafs = FIELD_GET(MMCSR_LAFS, val);
+	mm->vt = FIELD_GET(MMCSR_VT, val);
+}
+
+static void enetc4_restart_emac_rx(struct enetc_si *si)
+{
+	struct enetc_hw *hw = &si->hw;
+	u32 val;
+
+	val = enetc_port_rd(hw, ENETC4_PM_CMD_CFG(0));
+
+	enetc_port_wr(hw, ENETC4_PM_CMD_CFG(0), val & ~PM_CMD_CFG_RX_EN);
+
+	if (val & PM_CMD_CFG_RX_EN)
+		enetc_port_wr(hw, ENETC4_PM_CMD_CFG(0), val);
+}
+
+static void enetc4_pf_set_mm(struct enetc_ndev_priv *priv,
+			     struct ethtool_mm_cfg *cfg,
+			     u32 add_frag_size)
+{
+	struct enetc_si *si = priv->si;
+	struct enetc_hw *hw = &si->hw;
+	u32 val;
+
+	val = enetc_port_rd(hw, ENETC4_MMCSR);
+	if (cfg->pmac_enabled)
+		val = u32_replace_bits(val, MMCSR_ME_4B_BOUNDARY, MMCSR_ME);
+	else
+		val = u32_replace_bits(val, MMCSR_ME_DISABLE, MMCSR_ME);
+
+	if (cfg->verify_enabled)
+		val &= ~MMCSR_VDIS;
+	else
+		val |= MMCSR_VDIS;
+
+	/* If link is up, enable/disable MAC Merge right away */
+	if (!(val & MMCSR_LINK_FAIL)) {
+		if (priv->active_offloads & ENETC_F_QBU) {
+			val = u32_replace_bits(val, MMCSR_ME_4B_BOUNDARY, MMCSR_ME);
+
+			/* When preemption is enabled, generation of PAUSE must be
+			 * disabled.
+			 */
+			enetc_port_wr(hw, ENETC4_PPAUONTR, 0);
+			enetc_port_wr(hw, ENETC4_PPAUOFFTR, 0);
+		} else {
+			val = u32_replace_bits(val, MMCSR_ME_DISABLE, MMCSR_ME);
+		}
+	}
+
+	val = u32_replace_bits(val, cfg->verify_time, MMCSR_VT);
+	val = u32_replace_bits(val, add_frag_size, MMCSR_RAFS);
+
+	enetc_port_wr(hw, ENETC4_MMCSR, val);
+
+	enetc4_restart_emac_rx(si);
+}
+
+static int enetc4_mm_wait_tx_active(struct enetc_hw *hw, int verify_time)
+{
+	int timeout = verify_time * USEC_PER_MSEC * ENETC_MM_VERIFY_RETRIES;
+	u32 val;
+
+	return read_poll_timeout(enetc_port_rd, val,
+				 MMCSR_VSTS_GET(val) == MMCSR_VSTS_SUCCESSFUL,
+				 ENETC_MM_VERIFY_SLEEP_US, timeout,
+				 true, hw, ENETC4_MMCSR);
+}
+
+static void enetc4_pf_set_preemptible_tcs(struct enetc_ndev_priv *priv)
+{
+	struct enetc_hw *hw = &priv->si->hw;
+	u32 preemptible_tcs = 0, val;
+	int err;
+
+	val = enetc_port_rd(hw, ENETC4_MMCSR);
+	if (!(val & MMCSR_ME))
+		goto out;
+
+	if (!(val & MMCSR_VDIS)) {
+		err = enetc4_mm_wait_tx_active(hw, FIELD_GET(MMCSR_VT, val));
+		if (err)
+			goto out;
+	}
+
+	preemptible_tcs = priv->preemptible_tcs;
+
+out:
+	enetc_port_wr(hw, ENETC4_PFPCR, preemptible_tcs);
+}
+
+static void enetc4_get_psi_hw_features(struct enetc_si *si)
+{
+	struct enetc_hw *hw = &si->hw;
+	u32 val;
+
+	val = enetc_port_rd(hw, ENETC4_PMCAPR);
+	if (FIELD_GET(PMCAPR_FP, val) == PMCAPR_FP_SUPP)
+		si->hw_features |= ENETC_SI_F_QBU;
+}
+
 static const struct enetc_pf_ops enetc4_pf_ops = {
 	.set_si_primary_mac = enetc4_pf_set_si_primary_mac,
 	.get_si_primary_mac = enetc4_pf_get_si_primary_mac,
+	.get_mm = enetc4_pf_get_mm,
+	.set_mm = enetc4_pf_set_mm,
+	.set_preemptible_tcs = enetc4_pf_set_preemptible_tcs,
 };
 
 static int enetc4_pf_struct_init(struct enetc_si *si)
@@ -278,6 +395,7 @@ static int enetc4_pf_struct_init(struct enetc_si *si)
 	pf->ops = &enetc4_pf_ops;
 
 	enetc4_get_port_caps(pf);
+	enetc4_get_psi_hw_features(si);
 
 	return 0;
 }
@@ -801,6 +919,39 @@ static void enetc4_enable_mac(struct enetc_pf *pf, bool en)
 	enetc_port_mac_wr(si, ENETC4_PM_CMD_CFG(0), val);
 }
 
+static void enetc4_mm_link_state_update(struct enetc_pf *pf,
+					bool link)
+{
+	struct enetc_ndev_priv *priv = netdev_priv(pf->si->ndev);
+	struct enetc_hw *hw = &pf->si->hw;
+	u32 val;
+
+	if (!(pf->si->hw_features & ENETC_SI_F_QBU))
+		return;
+
+	mutex_lock(&priv->mm_lock);
+
+	val = enetc_port_rd(hw, ENETC4_MMCSR);
+
+	if (link) {
+		val &= ~MMCSR_LINK_FAIL;
+		if (priv->active_offloads & ENETC_F_QBU)
+			val = u32_replace_bits(val, MMCSR_ME_4B_BOUNDARY,
+					       MMCSR_ME);
+	} else {
+		val |= MMCSR_LINK_FAIL;
+		if (priv->active_offloads & ENETC_F_QBU)
+			val = u32_replace_bits(val, MMCSR_ME_DISABLE,
+					       MMCSR_ME);
+	}
+
+	enetc_port_wr(hw, ENETC4_MMCSR, val);
+
+	enetc_mm_commit_preemptible_tcs(priv);
+
+	mutex_unlock(&priv->mm_lock);
+}
+
 static void enetc4_pl_mac_link_up(struct phylink_config *config,
 				  struct phy_device *phy, unsigned int mode,
 				  phy_interface_t interface, int speed,
@@ -842,6 +993,7 @@ static void enetc4_pl_mac_link_up(struct phylink_config *config,
 	enetc4_set_tx_pause(pf, priv->num_rx_rings, tx_pause);
 	enetc4_set_rx_pause(pf, rx_pause);
 	enetc4_enable_mac(pf, true);
+	enetc4_mm_link_state_update(pf, true);
 }
 
 static void enetc4_pl_mac_link_down(struct phylink_config *config,
@@ -850,6 +1002,7 @@ static void enetc4_pl_mac_link_down(struct phylink_config *config,
 {
 	struct enetc_pf *pf = phylink_to_enetc_pf(config);
 
+	enetc4_mm_link_state_update(pf, false);
 	enetc4_enable_mac(pf, false);
 }
 
@@ -934,6 +1087,7 @@ static int enetc4_pf_netdev_create(struct enetc_si *si)
 		return  -ENOMEM;
 
 	priv = netdev_priv(ndev);
+	mutex_init(&priv->mm_lock);
 	priv->ref_clk = devm_clk_get_optional(dev, "ref");
 	if (IS_ERR(priv->ref_clk)) {
 		dev_err(dev, "Get reference clock failed\n");
@@ -984,6 +1138,7 @@ err_link_init:
 err_alloc_msix:
 err_config_si:
 err_clk_get:
+	mutex_destroy(&priv->mm_lock);
 	free_netdev(ndev);
 
 	return err;
@@ -999,6 +1154,7 @@ static void enetc4_pf_netdev_destroy(struct enetc_si *si)
 	destroy_workqueue(si->workqueue);
 	enetc4_link_deinit(priv);
 	enetc_free_msix(priv);
+	mutex_destroy(&priv->mm_lock);
 	free_netdev(ndev);
 }
 
