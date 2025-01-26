@@ -45,6 +45,7 @@ struct enetc_pf_ops {
 	void (*destroy_pcs)(struct phylink_pcs *pcs);
 	int (*enable_psfp)(struct enetc_ndev_priv *priv);
 	void (*get_mm)(struct enetc_ndev_priv *priv, struct enetc_mm *mm);
+	void (*set_preemptible_tcs)(struct enetc_ndev_priv *priv);
 };
 
 struct enetc_pf {
