@@ -1134,27 +1134,13 @@ void enetc_mm_commit_preemptible_tcs(struct enetc_ndev_priv *priv)
 }
 EXPORT_SYMBOL_GPL(enetc_mm_commit_preemptible_tcs);
 
-/* FIXME: Workaround for the link partner's verification failing if ENETC
- * priorly received too much express traffic. The documentation doesn't
- * suggest this is needed.
- */
-static void enetc_restart_emac_rx(struct enetc_si *si)
-{
-	u32 val = enetc_port_rd(&si->hw, ENETC_PM0_CMD_CFG);
-
-	enetc_port_wr(&si->hw, ENETC_PM0_CMD_CFG, val & ~ENETC_PM0_RX_EN);
-
-	if (val & ENETC_PM0_RX_EN)
-		enetc_port_wr(&si->hw, ENETC_PM0_CMD_CFG, val);
-}
-
 static int enetc_set_mm(struct net_device *ndev, struct ethtool_mm_cfg *cfg,
 			struct netlink_ext_ack *extack)
 {
 	struct enetc_ndev_priv *priv = netdev_priv(ndev);
-	struct enetc_hw *hw = &priv->si->hw;
+	struct enetc_pf *pf = enetc_si_priv(priv->si);
 	struct enetc_si *si = priv->si;
-	u32 val, add_frag_size;
+	u32 add_frag_size;
 	int err;
 
 	if (!(si->hw_features & ENETC_SI_F_QBU))
@@ -1167,42 +1153,12 @@ static int enetc_set_mm(struct net_device *ndev, struct ethtool_mm_cfg *cfg,
 
 	mutex_lock(&priv->mm_lock);
 
-	val = enetc_port_rd(hw, ENETC_PFPMR);
-	if (cfg->pmac_enabled)
-		val |= ENETC_PFPMR_PMACE;
-	else
-		val &= ~ENETC_PFPMR_PMACE;
-	enetc_port_wr(hw, ENETC_PFPMR, val);
-
-	val = enetc_port_rd(hw, ENETC_MMCSR);
-
-	if (cfg->verify_enabled)
-		val &= ~ENETC_MMCSR_VDIS;
-	else
-		val |= ENETC_MMCSR_VDIS;
-
 	if (cfg->tx_enabled)
 		priv->active_offloads |= ENETC_F_QBU;
 	else
 		priv->active_offloads &= ~ENETC_F_QBU;
 
-	/* If link is up, enable/disable MAC Merge right away */
-	if (!(val & ENETC_MMCSR_LINK_FAIL)) {
-		if (!!(priv->active_offloads & ENETC_F_QBU))
-			val |= ENETC_MMCSR_ME;
-		else
-			val &= ~ENETC_MMCSR_ME;
-	}
-
-	val &= ~ENETC_MMCSR_VT_MASK;
-	val |= ENETC_MMCSR_VT(cfg->verify_time);
-
-	val &= ~ENETC_MMCSR_RAFS_MASK;
-	val |= ENETC_MMCSR_RAFS(add_frag_size);
-
-	enetc_port_wr(hw, ENETC_MMCSR, val);
-
-	enetc_restart_emac_rx(priv->si);
+	pf->ops->set_mm(priv, cfg, add_frag_size);
 
 	enetc_mm_commit_preemptible_tcs(priv);
 
