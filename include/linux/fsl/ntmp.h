@@ -29,6 +29,7 @@ struct netc_cbdr_regs {
 struct netc_tbl_vers {
 	u8 maft_ver;
 	u8 rsst_ver;
+	u8 tgst_ver;
 };
 
 struct netc_cbdr {
