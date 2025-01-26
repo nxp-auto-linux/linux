@@ -50,11 +50,20 @@ struct netc_cbdr {
 	spinlock_t ring_lock;
 };
 
+struct ntmp_user;
+
+struct ntmp_ops {
+	u64 (*adjust_base_time)(struct ntmp_user *user, u64 base_time,
+				u32 cycle_time);
+	u32 (*get_tgst_free_words)(struct ntmp_user *user);
+};
+
 struct ntmp_user {
 	int cbdr_num;	/* number of control BD ring */
 	struct device *dev;
 	struct netc_cbdr *ring;
 	struct netc_tbl_vers tbl;
+	const struct ntmp_ops *ops;
 };
 
 struct maft_entry_data {
