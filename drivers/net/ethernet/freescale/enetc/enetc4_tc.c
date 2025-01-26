@@ -2,27 +2,11 @@
 /*
  * Copyright 2025 NXP
  */
-#include <net/pkt_sched.h>
 
-#include "enetc_pf.h"
+#include <linux/fsl/netc_lib.h>
+
+#include "enetc_pf_common.h"
 #include "enetc4_tc.h"
-
-static int enetc4_tc_query_caps(struct net_device *ndev, void *type_data)
-{
-	struct tc_query_caps_base *base = type_data;
-
-	switch (base->type) {
-	case TC_SETUP_QDISC_MQPRIO: {
-		struct tc_mqprio_caps *caps = base->caps;
-
-		caps->validate_queue_counts = true;
-
-		return 0;
-	}
-	default:
-		return -EOPNOTSUPP;
-	}
-}
 
 static bool enetc4_tc_cbs_is_enable(struct enetc_hw *hw, int tc)
 {
@@ -189,16 +173,156 @@ static int enetc4_setup_tc_cbs(struct net_device *ndev, void *type_data)
 	return 0;
 }
 
+static int enetc4_devfn_to_port(struct pci_dev *pdev)
+{
+	switch (pdev->devfn) {
+	case 0:
+		return 0;
+	case 64:
+		return 1;
+	case 128:
+		return 2;
+	default:
+		return -1;
+	}
+}
+
+static int enetc4_pf_to_port(struct enetc_si *si)
+{
+	switch (si->revision) {
+	case ENETC_REV_4_1:
+		return enetc4_devfn_to_port(si->pdev);
+	default:
+		return -1;
+	}
+}
+
+static void enetc4_pf_set_tc_msdu(struct enetc_hw *hw, u32 *max_sdu)
+{
+	int tc;
+
+	for (tc = 0; tc < 8; tc++) {
+		u32 val = ENETC_MAC_MAXFRM_SIZE;
+
+		if (max_sdu[tc])
+			val = max_sdu[tc] + VLAN_ETH_HLEN;
+
+		val = u32_replace_bits(val, SDU_TYPE_MPDU, PTCTMSDUR_SDU_TYPE);
+		enetc_port_wr(hw, ENETC4_PTCTMSDUR(tc), val);
+	}
+}
+
+void enetc4_pf_reset_tc_msdu(struct enetc_hw *hw)
+{
+	u32 val = ENETC_MAC_MAXFRM_SIZE;
+	int tc;
+
+	val = u32_replace_bits(val, SDU_TYPE_MPDU, PTCTMSDUR_SDU_TYPE);
+
+	for (tc = 0; tc < ENETC_NUM_TC; tc++)
+		enetc_port_wr(hw, ENETC4_PTCTMSDUR(tc), val);
+}
+
+static void enetc4_pf_set_time_gating(struct enetc_hw *hw, bool en)
+{
+	u32 old_val, val;
+
+	old_val = enetc_port_rd(hw, ENETC4_PTGSCR);
+	val = u32_replace_bits(old_val, en ? 1 : 0, PTGSCR_TGE);
+	if (val != old_val)
+		enetc_port_wr(hw, ENETC4_PTGSCR, val);
+}
+
+static int enetc4_taprio_replace(struct net_device *ndev,
+				 struct tc_taprio_qopt_offload *offload)
+{
+	struct enetc_ndev_priv *priv = netdev_priv(ndev);
+	struct enetc_si *si = priv->si;
+	struct enetc_hw *hw = &si->hw;
+	int port, err;
+
+	port = enetc4_pf_to_port(si);
+	if (port < 0)
+		return -EINVAL;
+
+	err = enetc_setup_tc_mqprio(ndev, &offload->mqprio);
+	if (err)
+		return err;
+
+	/* Set the maximum frame size for each traffic class */
+	enetc4_pf_set_tc_msdu(hw, offload->max_sdu);
+	enetc4_pf_set_time_gating(hw, true);
+
+	err = netc_setup_taprio(&si->ntmp_user, port, offload);
+	if (err)
+		goto err_setup_taprio;
+
+	priv->active_offloads |= ENETC_F_QBV;
+
+	return 0;
+
+err_setup_taprio:
+	enetc4_pf_set_time_gating(hw, false);
+	enetc4_pf_reset_tc_msdu(hw);
+	enetc_reset_tc_mqprio(ndev);
+
+	return err;
+}
+
+static void enetc4_taprio_destroy(struct net_device *ndev)
+{
+	struct enetc_ndev_priv *priv = netdev_priv(ndev);
+	struct enetc_hw *hw = &priv->si->hw;
+
+	enetc4_pf_set_time_gating(hw, false);
+	enetc4_pf_reset_tc_msdu(hw);
+	enetc_reset_tc_mqprio(ndev);
+	enetc_reset_taprio_stats(priv);
+	priv->active_offloads &= ~ENETC_F_QBV;
+}
+
+static int enetc4_setup_tc_taprio(struct net_device *ndev, void *type_data)
+{
+	struct tc_taprio_qopt_offload *offload = type_data;
+	struct enetc_ndev_priv *priv = netdev_priv(ndev);
+	struct enetc_si *si = priv->si;
+	int err = 0;
+
+	if (!(si->hw_features & ENETC_SI_F_QBV))
+		return -EOPNOTSUPP;
+
+	switch (offload->cmd) {
+	case TAPRIO_CMD_REPLACE:
+		err = enetc4_taprio_replace(ndev, offload);
+		break;
+	case TAPRIO_CMD_DESTROY:
+		enetc4_taprio_destroy(ndev);
+		break;
+	case TAPRIO_CMD_STATS:
+		enetc_taprio_stats(ndev, &offload->stats);
+		break;
+	case TAPRIO_CMD_QUEUE_STATS:
+		enetc_taprio_queue_stats(ndev, &offload->queue_stats);
+		break;
+	default:
+		err = -EOPNOTSUPP;
+	}
+
+	return err;
+}
+
 int enetc4_pf_setup_tc(struct net_device *ndev, enum tc_setup_type type,
 		       void *type_data)
 {
 	switch (type) {
 	case TC_QUERY_CAPS:
-		return enetc4_tc_query_caps(ndev, type_data);
+		return enetc_qos_query_caps(ndev, type_data);
 	case TC_SETUP_QDISC_MQPRIO:
 		return enetc_setup_tc_mqprio(ndev, type_data);
 	case TC_SETUP_QDISC_CBS:
 		return enetc4_setup_tc_cbs(ndev, type_data);
+	case TC_SETUP_QDISC_TAPRIO:
+		return enetc4_setup_tc_taprio(ndev, type_data);
 	default:
 		return -EOPNOTSUPP;
 	}
