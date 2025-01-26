@@ -8,5 +8,6 @@
 
 int enetc4_pf_setup_tc(struct net_device *ndev, enum tc_setup_type type,
 		       void *type_data);
+void enetc4_pf_reset_tc_msdu(struct enetc_hw *hw);
 
 #endif
