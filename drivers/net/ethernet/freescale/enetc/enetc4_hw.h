@@ -142,6 +142,16 @@
 #define   SDU_TYPE_MPDU			1
 #define   SDU_TYPE_MSDU			2
 
+/* Port transmit traffic class a credit based shaper register 0 */
+#define ENETC4_PTCCBSR0(a)		((a) * 0x20 + 0x4210)
+#define  PTCCBSR0_BW			GENMASK(6, 0)
+#define  PTCCBSR0_FRACT			GENMASK(19, 16)
+#define   PTCCBSR0_FRACT_GET(v)		FIELD_GET(PTCCBSR0_FRACT, v)
+#define  PTCCBSR0_CBSE			BIT(31)
+
+/* Port traffic class a credit based shaper register 1 */
+#define ENETC4_PTCCBSR1(a)		((a) * 0x20 + 0x4214)
+
 #define ENETC4_PMAC_OFFSET		0x400
 #define ENETC4_PM_CMD_CFG(mac)		(0x5008 + (mac) * 0x400)
 #define  PM_CMD_CFG_TX_EN		BIT(0)
