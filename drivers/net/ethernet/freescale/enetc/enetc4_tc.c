@@ -24,6 +24,171 @@ static int enetc4_tc_query_caps(struct net_device *ndev, void *type_data)
 	}
 }
 
+static bool enetc4_tc_cbs_is_enable(struct enetc_hw *hw, int tc)
+{
+	u32 val;
+
+	val = enetc_port_rd(hw, ENETC4_PTCCBSR0(tc));
+	if (val & PTCCBSR0_CBSE)
+		return true;
+
+	return false;
+}
+
+static void enetc4_set_ptccbsr(struct enetc_hw *hw, int tc,
+			       bool en, u32 bw, u32 hi_credit)
+{
+	if (en) {
+		u32 val = PTCCBSR0_CBSE;
+
+		val |= (bw / 10) & PTCCBSR0_BW;
+		val |= (bw % 10) << 16;
+
+		enetc_port_wr(hw, ENETC4_PTCCBSR1(tc), hi_credit);
+		enetc_port_wr(hw, ENETC4_PTCCBSR0(tc), val);
+
+	} else {
+		enetc_port_wr(hw, ENETC4_PTCCBSR1(tc), 0);
+		enetc_port_wr(hw, ENETC4_PTCCBSR0(tc), 0);
+	}
+}
+
+static u32 enetc4_get_tc_cbs_bw(struct enetc_hw *hw, int tc)
+{
+	u32 val, bw;
+
+	val = enetc_port_rd(hw, ENETC4_PTCCBSR0(tc));
+	bw = (val & PTCCBSR0_BW) * 10 + PTCCBSR0_FRACT_GET(val);
+
+	return bw;
+}
+
+static u32 enetc4_get_tc_msdu(struct enetc_hw *hw, int tc)
+{
+	return enetc_port_rd(hw, ENETC4_PTCTMSDUR(tc)) & PTCTMSDUR_MAXSDU;
+}
+
+static int enetc4_setup_tc_cbs(struct net_device *ndev, void *type_data)
+{
+	struct enetc_ndev_priv *priv = netdev_priv(ndev);
+	struct tc_cbs_qopt_offload *cbs = type_data;
+	u32 port_transmit_rate = priv->speed;
+	u8 tc_nums = netdev_get_num_tc(ndev);
+	u64 sysclk_freq = priv->sysclk_freq;
+	u32 hi_credit_bit, hi_credit_reg;
+	u8 high_prio_tc, second_prio_tc;
+	struct enetc_si *si = priv->si;
+	struct enetc_hw *hw = &si->hw;
+	u32 max_interference_size;
+	u32 port_frame_max_size;
+	u32 bw, bw_sum;
+	u8 tc;
+
+	high_prio_tc = tc_nums - 1;
+	second_prio_tc = tc_nums - 2;
+
+	tc = netdev_txq_to_tc(ndev, cbs->queue);
+
+	/* Support highest prio and second prio tc in cbs mode */
+	if (tc != high_prio_tc && tc != second_prio_tc)
+		return -EOPNOTSUPP;
+
+	if (!cbs->enable) {
+		/* Make sure the other TC that are numerically
+		 * lower than this TC have been disabled.
+		 */
+		if (tc == high_prio_tc &&
+		    enetc4_tc_cbs_is_enable(hw, second_prio_tc)) {
+			dev_err(&ndev->dev,
+				"Disable TC%d before disable TC%d\n",
+				second_prio_tc, tc);
+			return -EINVAL;
+		}
+
+		enetc4_set_ptccbsr(hw, tc, false, 0, 0);
+
+		return 0;
+	}
+
+	/* The unit of idleslope and sendslope is kbps. And the sendslope should be
+	 * a negative number, it can be calculated as follows, IEEE 802.1Q-2014
+	 * Section 8.6.8.2 item g):
+	 * sendslope = idleslope - port_transmit_rate
+	 */
+	if (cbs->idleslope - cbs->sendslope != port_transmit_rate * 1000L ||
+	    cbs->idleslope < 0 || cbs->sendslope > 0)
+		return -EOPNOTSUPP;
+
+	port_frame_max_size = ndev->mtu + VLAN_ETH_HLEN + ETH_FCS_LEN;
+
+	/* The unit of port_transmit_rate is Mbps, the unit of bw is 1/1000 */
+	bw = cbs->idleslope / port_transmit_rate;
+	bw_sum = bw;
+
+	/* Make sure the credit-based shaper of highest priority TC has been enabled
+	 * before the secondary priority TC.
+	 */
+	if (tc == second_prio_tc) {
+		if (!enetc4_tc_cbs_is_enable(hw, high_prio_tc)) {
+			dev_err(&ndev->dev,
+				"Enable TC%d first before enable TC%d\n",
+				high_prio_tc, second_prio_tc);
+			return -EINVAL;
+		}
+		bw_sum += enetc4_get_tc_cbs_bw(hw, high_prio_tc);
+	}
+
+	if (bw_sum >= 1000) {
+		dev_err(&ndev->dev,
+			"The sum of all CBS Bandwidth can't exceed 1000\n");
+		return -EINVAL;
+	}
+
+	/* For the AVB Class A (highest priority TC), the max_interfrence_size is
+	 * maximum sized frame for the port.
+	 * For the AVB Class B (second highest priority TC), the max_interfrence_size
+	 * is calculated as below:
+	 *
+	 *      max_interference_size = (Ra * M0) / (R0 - Ra) + MA + M0
+	 *
+	 *	- RA: idleSlope for AVB Class A
+	 *	- R0: port transmit rate
+	 *	- M0: maximum sized frame for the port
+	 *	- MA: maximum sized frame for AVB Class A
+	 */
+
+	if (tc == high_prio_tc) {
+		max_interference_size = port_frame_max_size * 8;
+	} else {
+		u32 m0, ma;
+		u64 ra, r0;
+
+		m0 = port_frame_max_size * 8;
+		ma = enetc4_get_tc_msdu(hw, high_prio_tc) * 8;
+		ra = enetc4_get_tc_cbs_bw(hw, high_prio_tc) *
+		     port_transmit_rate * 1000ULL;
+		r0 = port_transmit_rate * 1000000ULL;
+		max_interference_size = m0 + ma + (u32)div_u64(ra * m0, r0 - ra);
+	}
+
+	/* hiCredit bits calculate by:
+	 *
+	 * max_interference_size * (idleslope / port_transmit_rate)
+	 */
+	hi_credit_bit = max_interference_size * bw / 1000;
+
+	/* Number of credits per bit is calculated as follows:
+	 *
+	 * (enetClockFrequency / port_transmit_rate) * 100
+	 */
+	hi_credit_reg = (u32)div_u64(sysclk_freq * 1000ULL * hi_credit_bit,
+				     port_transmit_rate * 1000000ULL);
+
+	enetc4_set_ptccbsr(hw, tc, true, bw, hi_credit_reg);
+
+	return 0;
+}
+
 int enetc4_pf_setup_tc(struct net_device *ndev, enum tc_setup_type type,
 		       void *type_data)
 {
@@ -32,6 +197,8 @@ int enetc4_pf_setup_tc(struct net_device *ndev, enum tc_setup_type type,
 		return enetc4_tc_query_caps(ndev, type_data);
 	case TC_SETUP_QDISC_MQPRIO:
 		return enetc_setup_tc_mqprio(ndev, type_data);
+	case TC_SETUP_QDISC_CBS:
+		return enetc4_setup_tc_cbs(ndev, type_data);
 	default:
 		return -EOPNOTSUPP;
 	}
