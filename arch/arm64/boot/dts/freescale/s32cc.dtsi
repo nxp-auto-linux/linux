@@ -3,7 +3,7 @@
  * NXP S32G2 SoC family
  *
  * Copyright (c) 2021 SUSE LLC
- * Copyright 2017-2024 NXP
+ * Copyright 2017-2025 NXP
  */
 
 #include <dt-bindings/interrupt-controller/arm-gic.h>
@@ -1001,7 +1001,6 @@
 
 			nxp,phy-mode = "crns";
 			num-lanes = <2>;
-			max-link-speed = <3>;
 			bus-range = <0x0 0xff>;
 			interrupts =  <GIC_SPI 124 IRQ_TYPE_LEVEL_HIGH>,
 					<GIC_SPI 123 IRQ_TYPE_LEVEL_HIGH>,
@@ -1081,7 +1080,6 @@
 
 			nxp,phy-mode = "crns";
 			num-lanes = <1>;
-			max-link-speed = <3>;
 			bus-range = <0x0 0xff>;
 
 			shared-mem = <&pci_shared_memory1>;
