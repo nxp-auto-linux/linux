@@ -2,7 +2,7 @@
 /*
  * PCIe host controller driver for NXP S32CC SoCs
  *
- * Copyright 2019-2024 NXP
+ * Copyright 2019-2025 NXP
  */
 
 #ifndef PCIE_S32CC_H
@@ -71,6 +71,7 @@
 		container_of(x, struct s32cc_pcie, dma)
 
 enum pcie_link_speed {
+	NOT_SPECIFIED = 0,
 	GEN1 = 0x1,
 	GEN2 = 0x2,
 	GEN3 = 0x3
@@ -96,7 +97,7 @@ struct s32cc_pcie {
 	enum dw_pcie_device_mode mode;
 	int id;
 	enum pcie_phy_mode phy_mode;
-	enum pcie_link_speed linkspeed;
+	int linkspeed;
 
 	int dma_irq;
 	struct dma_info	dma;
