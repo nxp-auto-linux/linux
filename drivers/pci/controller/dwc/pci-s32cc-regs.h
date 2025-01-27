@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0+ */
 /*
  * Copyright 2015-2016 Freescale Semiconductor, Inc.
- * Copyright 2016-2023 NXP
+ * Copyright 2016-2023, 2025 NXP
  */
 
 #ifndef PCI_S32CC_REGS_H
@@ -23,6 +23,14 @@
 
 #define PCIE_CTRL_TYPE1_CLASS_CODE_REV_ID_REG	(0x8U)
 
+/* Link Control and Status Register. */
+
+#define PCIE_CTRL_LINK_STATUS_REG				(0x80U)
+
+/* Link Control 2 and Status 2 Register. */
+
+#define PCIE_CTRL2_LINK_STATUS2_REG				(0xA0U)
+
 /* Field definitions for TYPE1_STATUS_COMMAND_REG */
 
 #define PCIE_IO_EN_VALUE(x)			(((x) & 0x00000001) << 0)
@@ -37,6 +45,15 @@
 #define PCIE_PERREN_BIT				(6)
 #define PCIE_SERREN_BIT				(8)
 #define PCIE_INT_EN_BIT				(10)
+
+/* Field definitions for CTRL2_LINK_STATUS2_REG */
+
+#define PCIE_CAP_TARGET_LINK_SPEED		GENMASK(3, 0)
+
+/* Field definitions for CTRL_LINK_STATUS_REG */
+
+#define PCIE_CAP_RETRAIN_LINK			BIT(5)
+#define PCIE_CAP_LINK_TRAINING			BIT(27)
 
 /* Instance PCIE_SPCIE_CAP_HEADER */
 
