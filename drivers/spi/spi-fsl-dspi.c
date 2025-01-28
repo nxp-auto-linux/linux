@@ -1409,6 +1409,18 @@ static const struct regmap_range s32cc_dspi_yes_ranges[] = {
 	regmap_reg_range(SPI_SREX, SPI_SREX),
 };
 
+static const struct regmap_range s32n_dspi_yes_ranges[] = {
+	regmap_reg_range(SPI_MCR, SPI_MCR),
+	regmap_reg_range(SPI_TCR, SPI_CTAR(5)),
+	regmap_reg_range(SPI_V2_RSER, SPI_V2_PUSHR_CMD),
+	regmap_reg_range(SPI_V2_PUSHR_CMD, SPI_PUSHR),
+	regmap_reg_range(SPI_PUSHR, SPI_V2_RXFR(0)),
+	regmap_reg_range(SPI_V2_TXFR(0), SPI_V2_TXFR(15)),
+	regmap_reg_range(SPI_V2_RXFR(0), SPI_V2_RXFR(15)),
+	regmap_reg_range(SPI_V2_SR, SPI_V2_SR),
+	regmap_reg_range(SPI_V2_FIFO_SR, SPI_V2_FIFO_SR),
+};
+
 static const struct regmap_access_table dspi_access_table = {
 	.yes_ranges	= dspi_yes_ranges,
 	.n_yes_ranges	= ARRAY_SIZE(dspi_yes_ranges),
@@ -1417,6 +1429,11 @@ static const struct regmap_access_table dspi_access_table = {
 static const struct regmap_access_table s32cc_dspi_access_table = {
 	.yes_ranges	= s32cc_dspi_yes_ranges,
 	.n_yes_ranges	= ARRAY_SIZE(s32cc_dspi_yes_ranges),
+};
+
+static const struct regmap_access_table s32n_dspi_access_table = {
+	.yes_ranges	= s32n_dspi_yes_ranges,
+	.n_yes_ranges	= ARRAY_SIZE(s32n_dspi_yes_ranges),
 };
 
 static const struct regmap_range dspi_volatile_ranges[] = {
@@ -1448,6 +1465,7 @@ enum {
 	DSPI_XSPI_REGMAP,
 	S32CC_DSPI_XSPI_REGMAP,
 	DSPI_PUSHR,
+	S32N_DSPI_REGMAP
 };
 
 static const struct regmap_config dspi_regmap_config[] = {
@@ -1493,6 +1511,14 @@ static const struct regmap_config dspi_regmap_config[] = {
 		.val_bits	= 16,
 		.reg_stride	= 2,
 		.max_register	= 0x2,
+	},
+	[S32N_DSPI_REGMAP] = {
+		.reg_bits	= 32,
+		.val_bits	= 32,
+		.reg_stride	= 4,
+		.max_register	= 0x184,
+		.wr_table	= &s32n_dspi_access_table,
+		.rd_table	= &s32n_dspi_access_table,
 	},
 };
 
