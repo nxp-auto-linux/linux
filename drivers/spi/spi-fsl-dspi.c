@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0+
 //
 // Copyright 2013 Freescale Semiconductor, Inc.
-// Copyright 2020-2023, 2024 NXP
+// Copyright 2020-2025 NXP
 //
 // Freescale DSPI driver
 // This file contains a driver for the Freescale DSPI
@@ -91,16 +91,11 @@
 
 #define SPI_POPR			0x38
 
-#define SPI_TXFR0			0x3c
-#define SPI_TXFR1			0x40
-#define SPI_TXFR2			0x44
-#define SPI_TXFR3			0x48
-#define SPI_TXFR4			0x4C
-#define SPI_RXFR0			0x7c
-#define SPI_RXFR1			0x80
-#define SPI_RXFR2			0x84
-#define SPI_RXFR3			0x88
-#define SPI_RXFR4			0x8C
+/* Transmit FIFO TXFR */
+#define SPI_TXFR(x)			(0x3c + ((x) * 4))
+
+/* Receive FIFO (RXFR) */
+#define SPI_RXFR(x)			(0x7c + ((x) * 4))
 
 #define SPI_CTARE(x)			(0x11c + (((x) & GENMASK(2, 0)) * 4))
 #define SPI_CTARE_FMSZE(x)		(((x) & 0x1) << 16)
@@ -1279,8 +1274,8 @@ static SIMPLE_DEV_PM_OPS(dspi_pm, dspi_suspend, dspi_resume);
 static const struct regmap_range dspi_yes_ranges[] = {
 	regmap_reg_range(SPI_MCR, SPI_MCR),
 	regmap_reg_range(SPI_TCR, SPI_CTAR(3)),
-	regmap_reg_range(SPI_SR, SPI_TXFR3),
-	regmap_reg_range(SPI_RXFR0, SPI_RXFR3),
+	regmap_reg_range(SPI_SR, SPI_TXFR(3)),
+	regmap_reg_range(SPI_RXFR(0), SPI_RXFR(3)),
 	regmap_reg_range(SPI_CTARE(0), SPI_CTARE(3)),
 	regmap_reg_range(SPI_SREX, SPI_SREX),
 };
@@ -1288,8 +1283,8 @@ static const struct regmap_range dspi_yes_ranges[] = {
 static const struct regmap_range s32cc_dspi_yes_ranges[] = {
 	regmap_reg_range(SPI_MCR, SPI_MCR),
 	regmap_reg_range(SPI_TCR, SPI_CTAR(5)),
-	regmap_reg_range(SPI_SR, SPI_TXFR4),
-	regmap_reg_range(SPI_RXFR0, SPI_RXFR4),
+	regmap_reg_range(SPI_SR, SPI_TXFR(4)),
+	regmap_reg_range(SPI_RXFR(0), SPI_RXFR(4)),
 	regmap_reg_range(SPI_CTARE(0), SPI_CTARE(5)),
 	regmap_reg_range(SPI_SREX, SPI_SREX),
 };
@@ -1307,7 +1302,7 @@ static const struct regmap_access_table s32cc_dspi_access_table = {
 static const struct regmap_range dspi_volatile_ranges[] = {
 	regmap_reg_range(SPI_MCR, SPI_TCR),
 	regmap_reg_range(SPI_SR, SPI_SR),
-	regmap_reg_range(SPI_PUSHR, SPI_RXFR4),
+	regmap_reg_range(SPI_PUSHR, SPI_RXFR(4)),
 };
 
 static const struct regmap_access_table dspi_volatile_table = {
@@ -1318,7 +1313,7 @@ static const struct regmap_access_table dspi_volatile_table = {
 static const struct regmap_range dspi_xspi_volatile_ranges[] = {
 	regmap_reg_range(SPI_MCR, SPI_TCR),
 	regmap_reg_range(SPI_SR, SPI_SR),
-	regmap_reg_range(SPI_PUSHR, SPI_RXFR4),
+	regmap_reg_range(SPI_PUSHR, SPI_RXFR(4)),
 	regmap_reg_range(SPI_SREX, SPI_SREX),
 };
 
