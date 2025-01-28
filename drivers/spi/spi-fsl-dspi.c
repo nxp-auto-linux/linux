@@ -193,6 +193,7 @@ enum {
 	VF610,
 	S32CC,
 	S32CC_TARGET,
+	S32N79,
 };
 
 static inline u32 dspi_get_sr(enum dspi_hw_ver ver)
@@ -296,6 +297,12 @@ static const struct fsl_dspi_devtype_data devtype_data[] = {
 		.max_clock_factor	= 1,
 		.fifo_size		= 5,
 		.hw_version		= DSPI_V1,
+	},
+	[S32N79] = {
+		.trans_mode		= DSPI_XSPI_MODE,
+		.max_clock_factor	= 1,
+		.fifo_size		= 16,
+		.hw_version		= DSPI_V2,
 	},
 };
 
@@ -1351,6 +1358,9 @@ static const struct of_device_id fsl_dspi_dt_ids[] = {
 	}, {
 		.compatible = "nxp,s32cc-dspi",
 		.data = &devtype_data[S32CC],
+	}, {
+		.compatible = "nxp,s32n79-dspi",
+		.data = &devtype_data[S32N79],
 	},
 	{ /* sentinel */ }
 };
@@ -1692,7 +1702,9 @@ static int dspi_probe(struct platform_device *pdev)
 		goto out_ctlr_put;
 	}
 
-	if (is_s32cc_dspi(dspi)) {
+	if (dspi->devtype_data == &devtype_data[S32N79]) {
+		regmap_config = &dspi_regmap_config[S32N_DSPI_REGMAP];
+	} else if (is_s32cc_dspi(dspi)) {
 		if (dspi->devtype_data->trans_mode == DSPI_XSPI_MODE)
 			regmap_config =
 				&dspi_regmap_config[S32CC_DSPI_XSPI_REGMAP];
