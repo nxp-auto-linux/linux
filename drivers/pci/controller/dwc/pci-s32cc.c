@@ -209,11 +209,11 @@ static void s32cc_pcie_disable_hot_plug_irq(struct dw_pcie *pcie)
 {
 	u32 reg;
 
-	dw_pcie_dbi_ro_wr_en(pcie);
 	reg = dw_pcie_readl_dbi(pcie, PCIE_SLOT_CONTROL_SLOT_STATUS);
 	reg &= ~(BIT(PCIE_CAP_PRESENCE_DETECT_CHANGE_EN_BIT) |
 		BIT(PCIE_CAP_HOT_PLUG_INT_EN_BIT) |
 		BIT(PCIE_CAP_DLL_STATE_CHANGED_EN_BIT));
+	dw_pcie_dbi_ro_wr_en(pcie);
 	dw_pcie_writel_dbi(pcie, PCIE_SLOT_CONTROL_SLOT_STATUS, reg);
 	dw_pcie_dbi_ro_wr_dis(pcie);
 }
@@ -222,11 +222,11 @@ static void s32cc_pcie_enable_hot_plug_irq(struct dw_pcie *pcie)
 {
 	u32 reg;
 
-	dw_pcie_dbi_ro_wr_en(pcie);
 	reg = dw_pcie_readl_dbi(pcie, PCIE_SLOT_CONTROL_SLOT_STATUS);
 	reg |= (BIT(PCIE_CAP_PRESENCE_DETECT_CHANGE_EN_BIT) |
 		BIT(PCIE_CAP_HOT_PLUG_INT_EN_BIT) |
 		BIT(PCIE_CAP_DLL_STATE_CHANGED_EN_BIT));
+	dw_pcie_dbi_ro_wr_en(pcie);
 	dw_pcie_writel_dbi(pcie, PCIE_SLOT_CONTROL_SLOT_STATUS, reg);
 	dw_pcie_dbi_ro_wr_dis(pcie);
 }
@@ -860,15 +860,13 @@ static void disable_equalization(struct dw_pcie *pcie)
 {
 	u32 val;
 
-	dw_pcie_dbi_ro_wr_en(pcie);
-
 	val = dw_pcie_readl_dbi(pcie, PORT_LOGIC_GEN3_EQ_CONTROL);
 	val &= ~(GET_MASK_VALUE(PCIE_GEN3_EQ_FB_MODE) |
 		GET_MASK_VALUE(PCIE_GEN3_EQ_PSET_REQ_VEC));
 	val |= BUILD_MASK_VALUE(PCIE_GEN3_EQ_FB_MODE, 1) |
 		BUILD_MASK_VALUE(PCIE_GEN3_EQ_PSET_REQ_VEC, 0x84);
+	dw_pcie_dbi_ro_wr_en(pcie);
 	dw_pcie_writel_dbi(pcie, PORT_LOGIC_GEN3_EQ_CONTROL, val);
-
 	dw_pcie_dbi_ro_wr_dis(pcie);
 
 	/* Test value */
@@ -940,9 +938,6 @@ static int init_pcie(struct s32cc_pcie *s32cc_pp)
 		dw_pcie_writel_ctrl(s32cc_pp, PE0_GEN_CTRL_1, val);
 	}
 
-	/* Enable writing dbi registers */
-	dw_pcie_dbi_ro_wr_en(pcie);
-
 	/* Disable phase 2,3 equalization */
 	disable_equalization(pcie);
 
@@ -960,11 +955,9 @@ static int init_pcie(struct s32cc_pcie *s32cc_pp)
 	dev_dbg(dev, "COHERENCY_CONTROL_3_OFF: 0x%08x\n",
 		dw_pcie_readl_dbi(pcie, PORT_LOGIC_COHERENCY_CONTROL_3));
 
-	/* Make sure DBI registers are R/W */
-	dw_pcie_dbi_ro_wr_en(pcie);
-
 	val = dw_pcie_readl_dbi(pcie, PORT_LOGIC_PORT_FORCE_OFF);
 	val |= BIT(PCIE_DO_DESKEW_FOR_SRIS_BIT);
+	dw_pcie_dbi_ro_wr_en(pcie);
 	dw_pcie_writel_dbi(pcie, PORT_LOGIC_PORT_FORCE_OFF, val);
 
 	if (is_s32cc_pcie_rc(s32cc_pp->mode)) {
