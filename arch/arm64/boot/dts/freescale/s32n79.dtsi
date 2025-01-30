@@ -185,14 +185,6 @@
 			status = "disabled";
 		};
 
-		ufshc: ufshc@4ac80000 {
-			compatible = "nxp,s32n79-ufshc","jedec,ufs-3.0";
-			reg = <0x4ac80000 0x1000>;
-			interrupt-parent = <&irqsteer0_coss>;
-			interrupts = <211>;
-			status = "disabled";
-		};
-
 		lpi2c0: i2c@4a0d0000 {
 			compatible = "nxp,s32n79-lpi2c";
 			reg = <0x4a0d0000 0x1000>;
@@ -250,6 +242,46 @@
 			clock-names = "per", "ipg";
 			interrupt-parent = <&irqsteer0_coss>;
 			interrupts = <261>;
+			status = "disabled";
+		};
+
+		ufshc: ufs@4ac80000 {
+			compatible = "nxp,s32n79-ufshc","jedec,ufs-3.0";
+			reg = <0x4ac80000 0x1000>;
+			interrupt-parent = <&irqsteer0_coss>;
+			interrupts = <211>;
+			status = "disabled";
+		};
+
+		ufshci0: ufs@4acb0000 {
+			compatible = "nxp,s32n79-ufshc", "jedec,ufs-3.0";
+			reg = <0x4acb0000 0x1000>;
+			interrupt-parent = <&irqsteer0_coss>;
+			interrupts = <212>;
+			status = "disabled";
+		};
+
+		ufshci1: ufs@4acd0000 {
+			compatible = "nxp,s32n79-ufshc", "jedec,ufs-3.0";
+			reg = <0x4acd0000 0x1000>;
+			interrupt-parent = <&irqsteer0_coss>;
+			interrupts = <213>;
+			status = "disabled";
+		};
+
+		ufshci2: ufs@4acf0000 {
+			compatible = "nxp,s32n79-ufshc", "jedec,ufs-3.0";
+			reg = <0x4acf0000 0x1000>;
+			interrupt-parent = <&irqsteer0_coss>;
+			interrupts = <214>;
+			status = "disabled";
+		};
+
+		ufshci3: ufs@4ad10000 {
+			compatible = "nxp,s32n79-ufshc", "jedec,ufs-3.0";
+			reg = <0x4ad10000 0x1000>;
+			interrupt-parent = <&irqsteer0_coss>;
+			interrupts = <215>;
 			status = "disabled";
 		};
 	};
