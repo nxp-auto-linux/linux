@@ -105,7 +105,22 @@
 
 &ufshc {
 	lanes-per-direction = <1>;
-	status = "okay";
+};
+
+&ufshci0 {
+	lanes-per-direction = <1>;
+};
+
+&ufshci1 {
+	lanes-per-direction = <1>;
+};
+
+&ufshci2 {
+	lanes-per-direction = <1>;
+};
+
+&ufshci3 {
+	lanes-per-direction = <1>;
 };
 
 &usdhc0 {
