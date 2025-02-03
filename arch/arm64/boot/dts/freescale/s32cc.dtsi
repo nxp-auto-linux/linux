@@ -885,8 +885,26 @@
 			reg = <0x0 0x4033c000 0x0 0x2000>, /* gmac IP */
 			      <0x0 0x4007c004 0x0 0x4>;    /* GMAC_0_CTRL_STS */
 			interrupt-parent = <&gic>;
-			interrupts = <GIC_SPI 57 IRQ_TYPE_LEVEL_HIGH>;
-			interrupt-names = "macirq";
+			interrupts = <GIC_SPI 57 IRQ_TYPE_LEVEL_HIGH>,
+				     /* CHN 0: tx, rx */
+				     <GIC_SPI 58 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 59 IRQ_TYPE_LEVEL_HIGH>,
+				     /* CHN 1: tx, rx */
+				     <GIC_SPI 60 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 61 IRQ_TYPE_LEVEL_HIGH>,
+				     /* CHN 2: tx, rx */
+				     <GIC_SPI 62 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 63 IRQ_TYPE_LEVEL_HIGH>,
+				     /* CHN 3: tx, rx */
+				     <GIC_SPI 64 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 65 IRQ_TYPE_LEVEL_HIGH>,
+				     /* CHN 4: tx, rx */
+				     <GIC_SPI 66 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 67 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "macirq",
+					  "tx0", "rx0", "tx1", "rx1",
+					  "tx2", "rx2", "tx3", "rx3",
+					  "tx4", "rx4";
 			phy-names = "gmac_xpcs";
 			phys = <&serdes0 PHY_TYPE_XPCS 0 0>;
 			dma-coherent;
@@ -914,10 +932,9 @@
 			nvmem-cells = <&gmac0_phy_intf_sel>;
 
 			mtl_rx_setup_gmac0: rx-queues-config {
-				snps,rx-queues-to-use = <5>;
 				#address-cells = <1>;
 				#size-cells = <0>;
-
+				snps,rx-queues-to-use = <5>;
 				queue@0 {
 				};
 				queue@1 {
@@ -931,10 +948,9 @@
 			};
 
 			mtl_tx_setup_gmac0: tx-queues-config {
-				snps,tx-queues-to-use = <5>;
 				#address-cells = <1>;
 				#size-cells = <0>;
-
+				snps,tx-queues-to-use = <5>;
 				queue@0 {
 				};
 				queue@1 {
