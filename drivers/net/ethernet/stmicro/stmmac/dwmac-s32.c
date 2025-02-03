@@ -2,7 +2,7 @@
 /*
  * NXP S32G/R GMAC glue layer
  *
- * Copyright 2019-2024 NXP
+ * Copyright 2019-2025 NXP
  *
  */
 
@@ -212,6 +212,7 @@ static int s32_dwmac_probe(struct platform_device *pdev)
 	plat->pmt = 1;
 	plat->flags |= STMMAC_FLAG_SPH_DISABLE;
 	plat->flags |= STMMAC_FLAG_HAS_S32CC;
+	plat->flags |= STMMAC_FLAG_MULTI_MSI_EN;
 	plat->rx_fifo_size = 20480;
 	plat->tx_fifo_size = 20480;
 
