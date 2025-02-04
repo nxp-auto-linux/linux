@@ -129,6 +129,31 @@ struct isit_keye_data {
 	u8 frame_key[ISIT_FRAME_KEY_LEN];
 };
 
+struct isft_keye_data {
+	__le32 is_eid;
+	u8 pcp;
+#define ISFT_PCP		GENMASK(2, 0)
+	u8 resv[3];
+};
+
+struct isft_cfge_data {
+	__le16 cfg;
+#define ISFT_IPV		GENMASK(3, 0)
+#define ISFT_OIPV		BIT(4)
+#define ISFT_DR			GENMASK(6, 5)
+#define ISFT_ODR		BIT(7)
+#define ISFT_IMIRE		BIT(8)
+#define ISFT_TIMECAPE		BIT(9)
+#define ISFT_OSGI		BIT(10)
+#define ISFT_CTD		BIT(11)
+#define ISFT_ORP		BIT(12)
+#define ISFT_SDU_TYPE		GENMASK(14, 13)
+	__le16 msdu;
+	__le32 rp_eid;
+	__le32 sgi_eid;
+	__le32 isc_eid;
+};
+
 struct netc_cbdr_regs {
 	void __iomem *pir;
 	void __iomem *cir;
@@ -146,6 +171,7 @@ struct netc_tbl_vers {
 	u8 rpt_ver;
 	u8 isit_ver;
 	u8 ist_ver;
+	u8 isft_ver;
 };
 
 struct netc_cbdr {
@@ -204,6 +230,12 @@ struct ntmp_isit_entry {
 struct ntmp_ist_entry {
 	u32 entry_id; /* software assigns entry ID */
 	struct ist_cfge_data cfge;
+};
+
+struct ntmp_isft_entry {
+	u32 entry_id; /* hardware assigns entry ID */
+	struct isft_keye_data keye;
+	struct isft_cfge_data cfge;
 };
 
 #if IS_ENABLED(CONFIG_NXP_NETC_LIB)

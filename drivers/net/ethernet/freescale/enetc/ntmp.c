@@ -24,6 +24,7 @@
 #define NTMP_RPT_ID			10
 #define NTMP_ISIT_ID			30
 #define NTMP_IST_ID			31
+#define NTMP_ISFT_ID			32
 
 /* Generic Update Actions for most tables */
 #define NTMP_GEN_UA_CFGEU		BIT(0)
@@ -243,6 +244,8 @@ static const char *ntmp_table_name(int tbl_id)
 		return "Ingress Stream Identification Table";
 	case NTMP_IST_ID:
 		return "Ingress Stream Table";
+	case NTMP_ISFT_ID:
+		return "Ingress Stream Filter Table";
 	default:
 		return "Unknown Table";
 	};
@@ -843,6 +846,103 @@ int ntmp_ist_delete_entry(struct ntmp_user *user, u32 entry_id)
 				       entry_id, NTMP_EID_REQ_LEN, 0);
 }
 EXPORT_SYMBOL_GPL(ntmp_ist_delete_entry);
+
+int ntmp_isft_add_entry(struct ntmp_user *user, struct ntmp_isft_entry *entry)
+{
+	struct ntmp_dma_buf data = {
+		.dev = user->dev,
+		.size = sizeof(struct isft_resp_query),
+	};
+	struct isft_resp_query *resp;
+	struct isft_req_ua *req;
+	union netc_cbd cbd;
+	u32 len;
+	int err;
+
+	err = ntmp_alloc_data_mem(&data, (void **)&req);
+	if (err)
+		return err;
+
+	ntmp_fill_crd(&req->crd, user->tbl.isft_ver, NTMP_QA_ENTRY_ID,
+		      NTMP_GEN_UA_CFGEU);
+	req->ak.keye = entry->keye;
+	req->cfge = entry->cfge;
+
+	len = NTMP_LEN(sizeof(*req), sizeof(*resp));
+	/* Add command, followed by a query. So that we can get entry
+	 * ID from hardware.
+	 */
+	ntmp_fill_request_hdr(&cbd, data.dma, len, NTMP_ISFT_ID,
+			      NTMP_CMD_AQ, NTMP_AM_EXACT_KEY);
+
+	err = netc_xmit_ntmp_cmd(user, &cbd);
+	if (err) {
+		dev_err(user->dev, "Failed to add ISFT entry, err: %pe\n",
+			ERR_PTR(err));
+
+		goto end;
+	}
+
+	resp = (struct isft_resp_query *)req;
+	entry->entry_id = le32_to_cpu(resp->entry_id);
+
+end:
+	ntmp_free_data_mem(&data);
+
+	return err;
+}
+
+int ntmp_isft_query_entry(struct ntmp_user *user, u32 entry_id,
+			  struct ntmp_isft_entry *entry)
+{
+	struct ntmp_dma_buf data = {
+		.dev = user->dev,
+		.size = sizeof(struct maft_req_add),
+	};
+	struct isft_resp_query *resp;
+	struct isft_req_qd *req;
+	u32 len;
+	int err;
+
+	err = ntmp_alloc_data_mem(&data, (void **)&req);
+	if (err)
+		return err;
+
+	ntmp_fill_crd(&req->crd, user->tbl.isft_ver, 0, 0);
+	req->ak.eid.entry_id = cpu_to_le32(entry_id);
+	len = NTMP_LEN(sizeof(*req), data.size);
+	err = ntmp_query_entry_by_id(user, NTMP_ISFT_ID, len,
+				     (struct ntmp_req_by_eid *)req,
+				     data.dma, false);
+	if (err)
+		goto end;
+
+	resp = (struct isft_resp_query *)req;
+	if (unlikely(le32_to_cpu(resp->entry_id) != entry_id)) {
+		dev_err(user->dev,
+			"ISFT: query EID (0x%0x) doesn't match response EID (0x%x)\n",
+			entry_id, le32_to_cpu(resp->entry_id));
+
+		err = -EIO;
+		goto end;
+	}
+
+	entry->keye = resp->keye;
+	entry->cfge = resp->cfge;
+
+end:
+	ntmp_free_data_mem(&data);
+
+	return err;
+}
+
+int ntmp_isft_delete_entry(struct ntmp_user *user, u32 entry_id)
+{
+	u32 req_len = sizeof(struct isft_req_qd);
+
+	return ntmp_delete_entry_by_id(user, NTMP_ISFT_ID, user->tbl.isft_ver,
+				       entry_id, req_len, NTMP_STATUS_RESP_LEN);
+}
 
 MODULE_DESCRIPTION("NXP NETC Library");
 MODULE_LICENSE("Dual BSD/GPL");
