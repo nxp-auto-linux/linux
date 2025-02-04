@@ -25,6 +25,7 @@
 #define NTMP_ISIT_ID			30
 #define NTMP_IST_ID			31
 #define NTMP_ISFT_ID			32
+#define NTMP_SGIT_ID			36
 
 /* Generic Update Actions for most tables */
 #define NTMP_GEN_UA_CFGEU		BIT(0)
@@ -34,6 +35,9 @@
 #define RPT_UA_FEEU			BIT(1)
 #define RPT_UA_PSEU			BIT(2)
 #define RPT_UA_STSEU			BIT(3)
+#define SGIT_UA_ACFGEU			BIT(0)
+#define SGIT_UA_CFGEU			BIT(1)
+#define SGIT_UA_SGISEU			BIT(2)
 
 /* Quary Action: 0: Full query, 1: Only query entry ID */
 #define NTMP_QA_ENTRY_ID		1
@@ -246,6 +250,8 @@ static const char *ntmp_table_name(int tbl_id)
 		return "Ingress Stream Table";
 	case NTMP_ISFT_ID:
 		return "Ingress Stream Filter Table";
+	case NTMP_SGIT_ID:
+		return "Stream Gate Instance Table";
 	default:
 		return "Unknown Table";
 	};
@@ -942,6 +948,84 @@ int ntmp_isft_delete_entry(struct ntmp_user *user, u32 entry_id)
 
 	return ntmp_delete_entry_by_id(user, NTMP_ISFT_ID, user->tbl.isft_ver,
 				       entry_id, req_len, NTMP_STATUS_RESP_LEN);
+}
+
+int ntmp_sgit_add_or_update_entry(struct ntmp_user *user, bool add,
+				  struct ntmp_sgit_entry *entry)
+{
+	int cmd = add ? NTMP_CMD_ADD : NTMP_CMD_UPDATE;
+	struct ntmp_dma_buf data = {
+		.dev = user->dev,
+		.size = sizeof(struct sgit_req_ua),
+	};
+	struct sgit_req_ua *req;
+	union netc_cbd cbd;
+	int err;
+
+	err = ntmp_alloc_data_mem(&data, (void **)&req);
+	if (err)
+		return err;
+
+	ntmp_fill_crd_eid(&req->rbe, user->tbl.sgit_ver, 0, SGIT_UA_ACFGEU |
+			  SGIT_UA_CFGEU | SGIT_UA_SGISEU, entry->entry_id);
+	req->acfge = entry->acfge;
+	req->cfge = entry->cfge;
+	req->icfge = entry->icfge;
+
+	/* Request header */
+	ntmp_fill_request_hdr(&cbd, data.dma, NTMP_LEN(data.size, 0),
+			      NTMP_SGIT_ID, cmd, NTMP_AM_ENTRY_ID);
+
+	err = netc_xmit_ntmp_cmd(user, &cbd);
+	if (err)
+		dev_err(user->dev, "Failed to %s SGIT entry 0x%x, err: %pe\n",
+			add ? "add" : "update", entry->entry_id, ERR_PTR(err));
+
+	ntmp_free_data_mem(&data);
+
+	return err;
+}
+EXPORT_SYMBOL_GPL(ntmp_sgit_add_or_update_entry);
+
+int ntmp_sgit_query_entry(struct ntmp_user *user, u32 entry_id,
+			  struct ntmp_sgit_entry *entry)
+{
+	struct ntmp_dma_buf data = {
+		.dev = user->dev,
+		.size = sizeof(struct sgit_resp_query),
+	};
+	struct sgit_resp_query *resp;
+	struct ntmp_req_by_eid *req;
+	u32 len;
+	int err;
+
+	err = ntmp_alloc_data_mem(&data, (void **)&req);
+	if (err)
+		return err;
+
+	ntmp_fill_crd_eid(req, user->tbl.sgit_ver, 0, 0, entry_id);
+	len = NTMP_LEN(sizeof(*req), data.size);
+	err = ntmp_query_entry_by_id(user, NTMP_SGIT_ID, len,
+				     req, data.dma, true);
+	if (err)
+		goto end;
+
+	resp = (struct sgit_resp_query *)req;
+	entry->sgise = resp->sgise;
+	entry->cfge = resp->cfge;
+	entry->icfge = resp->icfge;
+	entry->acfge = resp->acfge;
+
+end:
+	ntmp_free_data_mem(&data);
+
+	return err;
+}
+
+int ntmp_sgit_delete_entry(struct ntmp_user *user, u32 entry_id)
+{
+	return ntmp_delete_entry_by_id(user, NTMP_SGIT_ID, user->tbl.sgit_ver,
+				       entry_id, NTMP_EID_REQ_LEN, 0);
 }
 
 MODULE_DESCRIPTION("NXP NETC Library");

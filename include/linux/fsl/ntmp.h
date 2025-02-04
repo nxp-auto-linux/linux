@@ -107,6 +107,23 @@ struct ist_cfge_data {
 	__le16 si_bitmap;
 };
 
+struct sgit_acfge_data {
+	__le32 admin_sgcl_eid;
+	__le64 admin_base_time;
+	__le32 admin_cycle_time_ext;
+};
+
+struct sgit_sgise_data {
+	__le32 oper_sgcl_eid;
+	__le64 config_change_time;
+	__le64 oper_base_time;
+	__le32 oper_cycle_time_ext;
+	u8 info;
+#define SGIT_OEX		BIT(0)
+#define SGIT_IRX		BIT(1)
+#define SGIT_STATE		GENMASK(4, 2)
+};
+
 #pragma pack()
 
 struct rpt_fee_data {
@@ -154,6 +171,21 @@ struct isft_cfge_data {
 	__le32 isc_eid;
 };
 
+struct sgit_cfge_data {
+	u8 cfg;
+#define SGIT_OEXEN		BIT(0)
+#define SGIT_IRXEN		BIT(1)
+#define SGIT_SDU_TYPE		GENMASK(3, 2)
+};
+
+struct sgit_icfge_data {
+	u8 icfg;
+#define SGIT_IPV		GENMASK(3, 0)
+#define SGIT_OIPV		BIT(4)
+#define SGIT_GST		BIT(5)
+#define SGIT_CTD		BIT(6)
+};
+
 struct netc_cbdr_regs {
 	void __iomem *pir;
 	void __iomem *cir;
@@ -172,6 +204,7 @@ struct netc_tbl_vers {
 	u8 isit_ver;
 	u8 ist_ver;
 	u8 isft_ver;
+	u8 sgit_ver;
 };
 
 struct netc_cbdr {
@@ -236,6 +269,14 @@ struct ntmp_isft_entry {
 	u32 entry_id; /* hardware assigns entry ID */
 	struct isft_keye_data keye;
 	struct isft_cfge_data cfge;
+};
+
+struct ntmp_sgit_entry {
+	u32 entry_id; /* software assigns entry ID */
+	struct sgit_acfge_data acfge;
+	struct sgit_cfge_data cfge;
+	struct sgit_icfge_data icfge;
+	struct sgit_sgise_data sgise;
 };
 
 #if IS_ENABLED(CONFIG_NXP_NETC_LIB)
