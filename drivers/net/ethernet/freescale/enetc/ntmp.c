@@ -23,6 +23,7 @@
 #define NTMP_TGST_ID			5
 #define NTMP_RPT_ID			10
 #define NTMP_ISIT_ID			30
+#define NTMP_IST_ID			31
 
 /* Generic Update Actions for most tables */
 #define NTMP_GEN_UA_CFGEU		BIT(0)
@@ -240,6 +241,8 @@ static const char *ntmp_table_name(int tbl_id)
 		return "Rate Policer Table";
 	case NTMP_ISIT_ID:
 		return "Ingress Stream Identification Table";
+	case NTMP_IST_ID:
+		return "Ingress Stream Table";
 	default:
 		return "Unknown Table";
 	};
@@ -767,6 +770,79 @@ int ntmp_isit_delete_entry(struct ntmp_user *user, u32 entry_id)
 	return ntmp_delete_entry_by_id(user, NTMP_ISIT_ID, user->tbl.isit_ver,
 				       entry_id, req_len, NTMP_STATUS_RESP_LEN);
 }
+
+int ntmp_ist_add_entry(struct ntmp_user *user, struct ntmp_ist_entry *entry)
+{
+	struct ntmp_dma_buf data = {
+		.dev = user->dev,
+		.size = sizeof(struct ist_req_ua),
+	};
+	struct ist_req_ua *req;
+	union netc_cbd cbd;
+	int err;
+
+	err = ntmp_alloc_data_mem(&data, (void **)&req);
+	if (err)
+		return err;
+
+	/* Fill up NTMP request data buffer */
+	ntmp_fill_crd_eid(&req->rbe, user->tbl.ist_ver, 0,
+			  NTMP_GEN_UA_CFGEU, entry->entry_id);
+	req->cfge = entry->cfge;
+
+	/* Request header */
+	ntmp_fill_request_hdr(&cbd, data.dma, NTMP_LEN(data.size, 0),
+			      NTMP_IST_ID, NTMP_CMD_ADD, NTMP_AM_ENTRY_ID);
+
+	err = netc_xmit_ntmp_cmd(user, &cbd);
+	if (err)
+		dev_err(user->dev, "Failed to add IST entry 0x%x, err: %pe\n",
+			entry->entry_id, ERR_PTR(err));
+
+	ntmp_free_data_mem(&data);
+
+	return err;
+}
+EXPORT_SYMBOL_GPL(ntmp_ist_add_entry);
+
+int ntmp_ist_query_entry(struct ntmp_user *user, u32 entry_id,
+			 struct ist_cfge_data *cfge)
+{
+	struct ntmp_dma_buf data = {
+		.dev = user->dev,
+		.size = sizeof(struct ist_resp_query),
+	};
+	struct ist_resp_query *resp;
+	struct ntmp_req_by_eid *req;
+	u32 len;
+	int err;
+
+	err = ntmp_alloc_data_mem(&data, (void **)&req);
+	if (err)
+		return err;
+
+	ntmp_fill_crd_eid(req, user->tbl.ist_ver, 0, 0, entry_id);
+	len = NTMP_LEN(sizeof(*req), data.size);
+	err = ntmp_query_entry_by_id(user, NTMP_IST_ID, len,
+				     req, data.dma, true);
+	if (err)
+		goto end;
+
+	resp = (struct ist_resp_query *)req;
+	*cfge = resp->cfge;
+
+end:
+	ntmp_free_data_mem(&data);
+
+	return err;
+}
+
+int ntmp_ist_delete_entry(struct ntmp_user *user, u32 entry_id)
+{
+	return ntmp_delete_entry_by_id(user, NTMP_IST_ID, user->tbl.ist_ver,
+				       entry_id, NTMP_EID_REQ_LEN, 0);
+}
+EXPORT_SYMBOL_GPL(ntmp_ist_delete_entry);
 
 MODULE_DESCRIPTION("NXP NETC Library");
 MODULE_LICENSE("Dual BSD/GPL");

@@ -169,6 +169,17 @@ struct rpt_resp_query {
 	struct rpt_pse_data pse;
 };
 
+/* Ingress Stream Table Resquet and Response Data Buffer Format */
+struct ist_req_ua {
+	struct ntmp_req_by_eid rbe;
+	struct ist_cfge_data cfge;
+};
+
+struct ist_resp_query {
+	__le32 entry_id;
+	struct ist_cfge_data cfge;
+};
+
 #pragma pack()
 
 struct tgst_query_data {
@@ -235,5 +246,7 @@ int ntmp_isit_add_entry(struct ntmp_user *user, struct ntmp_isit_entry *entry);
 int ntmp_isit_query_entry(struct ntmp_user *user, u32 entry_id,
 			  struct ntmp_isit_entry *entry);
 int ntmp_isit_delete_entry(struct ntmp_user *user, u32 entry_id);
+int ntmp_ist_query_entry(struct ntmp_user *user, u32 entry_id,
+			 struct ist_cfge_data *cfge);
 
 #endif
