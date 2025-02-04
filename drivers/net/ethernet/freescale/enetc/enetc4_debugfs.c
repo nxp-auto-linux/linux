@@ -2,12 +2,12 @@
 /* Copyright 2025 NXP */
 
 #include <linux/device.h>
-#include <linux/debugfs.h>
-#include <linux/seq_file.h>
+#include <linux/fsl/netc_lib.h>
 #include <linux/string_choices.h>
 
 #include "enetc_pf.h"
 #include "enetc4_debugfs.h"
+#include "enetc4_tc.h"
 
 static void enetc_show_si_mac_hash_filter(struct seq_file *s, int i)
 {
@@ -69,6 +69,27 @@ static int enetc_mac_filter_show(struct seq_file *s, void *data)
 }
 DEFINE_SHOW_ATTRIBUTE(enetc_mac_filter);
 
+static int enetc_tgst_entry_show(struct seq_file *s, void *data)
+{
+	struct enetc_si *si = s->private;
+	int port;
+	u32 val;
+
+	val = enetc_port_rd(&si->hw, ENETC4_PTGSCR);
+	if (!(val & PTGSCR_TGE)) {
+		seq_puts(s, "Time Gating Disable\n");
+
+		return 0;
+	}
+
+	port = enetc4_pf_to_port(si);
+	if (port < 0)
+		return -EINVAL;
+
+	return netc_show_tgst_entry(&si->ntmp_user, s, port);
+}
+DEFINE_SHOW_ATTRIBUTE(enetc_tgst_entry);
+
 void enetc_create_debugfs(struct enetc_si *si)
 {
 	struct net_device *ndev = si->ndev;
@@ -81,6 +102,7 @@ void enetc_create_debugfs(struct enetc_si *si)
 	si->debugfs_root = root;
 
 	debugfs_create_file("mac_filter", 0444, root, si, &enetc_mac_filter_fops);
+	debugfs_create_file("tgst_entry", 0444, root, si, &enetc_tgst_entry_fops);
 }
 
 void enetc_remove_debugfs(struct enetc_si *si)
