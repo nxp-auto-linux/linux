@@ -64,6 +64,61 @@ struct maft_cfge_data {
 	__le16 resv;
 };
 
+#pragma pack(1)
+
+struct rpt_cfge_data {
+	__le32 cir;
+	__le32 cbs;
+	__le32 eir;
+	__le32 ebs;
+	__le16 cfg;
+#define RPT_MREN	BIT(0)
+#define RPT_DOY		BIT(1)
+#define RPT_CM		BIT(2)
+#define RPT_CF		BIT(3)
+#define RPT_NDOR	BIT(4)
+#define RPT_SDU_TYPE	GENMASK(6, 5)
+};
+
+struct rpt_stse_data {
+	__le64 byte_count;
+	__le32 drop_frames;
+	__le32 rev0;
+	__le32 dr0_grn_frames;
+	__le32 rev1;
+	__le32 dr1_grn_frames;
+	__le32 rev2;
+	__le32 dr2_ylw_frames;
+	__le32 rev3;
+	__le32 remark_ylw_frames;
+	__le32 rev4;
+	__le32 dr3_red_frames;
+	__le32 rev5;
+	__le32 remark_red_frames;
+	__le32 rev6;
+	__le32 lts;
+	__le32 bci;
+	__le32 bcf_bcs;
+#define RPT_BCF		GENMASK(30, 0)
+#define RPT_BCS		BIT(31)
+	__le32 bei;
+	__le32 bef_bes;
+#define RPT_BEF		GENMASK(30, 0)
+#define RPT_BES		BIT(31)
+};
+
+#pragma pack()
+
+struct rpt_fee_data {
+	u8 fen;
+#define RPT_FEN		BIT(0)
+};
+
+struct rpt_pse_data {
+	u8 mr;
+#define RPT_MR		BIT(0)
+};
+
 struct netc_cbdr_regs {
 	void __iomem *pir;
 	void __iomem *cir;
@@ -78,6 +133,7 @@ struct netc_tbl_vers {
 	u8 maft_ver;
 	u8 rsst_ver;
 	u8 tgst_ver;
+	u8 rpt_ver;
 };
 
 struct netc_cbdr {
@@ -127,6 +183,14 @@ struct maft_entry_data {
 	struct maft_cfge_data cfge;
 };
 
+struct ntmp_rpt_entry {
+	u32 entry_id;
+	struct rpt_cfge_data cfge;
+	struct rpt_fee_data fee;
+	struct rpt_stse_data stse;
+	struct rpt_pse_data pse;
+};
+
 #if IS_ENABLED(CONFIG_NXP_NETC_LIB)
 int netc_setup_cbdr(struct device *dev, int cbd_num,
 		    struct netc_cbdr_regs *regs,
@@ -141,6 +205,9 @@ int ntmp_maft_query_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
 int ntmp_maft_delete_entry(struct netc_cbdrs *cbdrs, u32 entry_id);
 int ntmp_rsst_query_or_update_entry(struct netc_cbdrs *cbdrs,
 				    u32 *table, int count, bool query);
+int ntmp_rpt_add_or_update_entry(struct netc_cbdrs *cbdrs,
+				 struct ntmp_rpt_entry *entry);
+int ntmp_rpt_delete_entry(struct netc_cbdrs *cbdrs, u32 entry_id);
 #else
 static inline int netc_setup_cbdr(struct device *dev, int cbd_num,
 				  struct netc_cbdr_regs *regs,
@@ -174,6 +241,17 @@ static inline int ntmp_maft_delete_entry(struct netc_cbdrs *cbdrs, u32 entry_id)
 static inline int ntmp_rsst_query_or_update_entry(struct netc_cbdrs *cbdrs,
 						  u32 *table, int count,
 						  bool query)
+{
+	return 0;
+}
+
+static inline int ntmp_rpt_add_or_update_entry(struct netc_cbdrs *cbdrs,
+					       struct ntmp_rpt_entry *entry)
+{
+	return 0;
+}
+
+static inline int ntmp_rpt_delete_entry(struct netc_cbdrs *cbdrs, u32 entry_id)
 {
 	return 0;
 }
