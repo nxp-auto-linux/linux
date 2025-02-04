@@ -180,6 +180,23 @@ struct ist_resp_query {
 	struct ist_cfge_data cfge;
 };
 
+/* Stream Gate Instance Table Resquet and Response Data Buffer Format */
+struct sgit_req_ua {
+	struct ntmp_req_by_eid rbe;
+	struct sgit_acfge_data acfge;
+	struct sgit_cfge_data cfge;
+	struct sgit_icfge_data icfge;
+};
+
+struct sgit_resp_query {
+	__le32 entry_id;
+	struct sgit_sgise_data sgise;
+	struct sgit_cfge_data cfge;
+	struct sgit_icfge_data icfge;
+	u8 resv;
+	struct sgit_acfge_data acfge;
+};
+
 #pragma pack()
 
 struct tgst_query_data {
@@ -287,5 +304,10 @@ int ntmp_isft_add_entry(struct ntmp_user *user, struct ntmp_isft_entry *entry);
 int ntmp_isft_query_entry(struct ntmp_user *user, u32 entry_id,
 			  struct ntmp_isft_entry *entry);
 int ntmp_isft_delete_entry(struct ntmp_user *user, u32 entry_id);
+int ntmp_sgit_add_or_update_entry(struct ntmp_user *user, bool add,
+				  struct ntmp_sgit_entry *entry);
+int ntmp_sgit_query_entry(struct ntmp_user *user, u32 entry_id,
+			  struct ntmp_sgit_entry *entry);
+int ntmp_sgit_delete_entry(struct ntmp_user *user, u32 entry_id);
 
 #endif
