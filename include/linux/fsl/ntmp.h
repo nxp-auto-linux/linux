@@ -186,6 +186,30 @@ struct sgit_icfge_data {
 #define SGIT_CTD		BIT(6)
 };
 
+struct sgclt_ge {
+	__le32 interval;
+	__le32 cfg;
+#define SGCLT_IOM		GENMASK(23, 0)
+#define SGCLT_IPV		GENMASK(27, 24)
+#define SGCLT_OIPV		BIT(28)
+#define SGCLT_CTD		BIT(29)
+#define SGCLT_IOMEN		BIT(30)
+#define SGCLT_GTST		BIT(31)
+};
+
+struct sgclt_cfge_data {
+	__le32 cycle_time;
+	u8 list_length;
+	u8 resv0;
+	u8 ext_cfg;
+#define SGCLT_EXT_OIPV		BIT(0)
+#define SGCLT_EXT_IPV		GENMASK(4, 1)
+#define SGCLT_EXT_CTD		BIT(5)
+#define SGCLT_EXT_GTST		BIT(6)
+	u8 resv1;
+	struct sgclt_ge ge[];
+};
+
 struct netc_cbdr_regs {
 	void __iomem *pir;
 	void __iomem *cir;
@@ -205,6 +229,7 @@ struct netc_tbl_vers {
 	u8 ist_ver;
 	u8 isft_ver;
 	u8 sgit_ver;
+	u8 sgclt_ver;
 };
 
 struct netc_cbdr {
@@ -277,6 +302,12 @@ struct ntmp_sgit_entry {
 	struct sgit_cfge_data cfge;
 	struct sgit_icfge_data icfge;
 	struct sgit_sgise_data sgise;
+};
+
+struct ntmp_sgclt_entry {
+	u32 entry_id;
+	u8 ref_count; /* SGCLSE_DATA */
+	struct sgclt_cfge_data cfge; /* Must be last member */
 };
 
 #if IS_ENABLED(CONFIG_NXP_NETC_LIB)

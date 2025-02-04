@@ -26,6 +26,7 @@
 #define NTMP_IST_ID			31
 #define NTMP_ISFT_ID			32
 #define NTMP_SGIT_ID			36
+#define NTMP_SGCLT_ID			37
 
 /* Generic Update Actions for most tables */
 #define NTMP_GEN_UA_CFGEU		BIT(0)
@@ -46,6 +47,7 @@
 #define RSST_ENTRY_NUM			64
 #define RSST_STSE_DATA_SIZE(n)		((n) * 8)
 #define RSST_CFGE_DATA_SIZE(n)		(n)
+#define SGCLT_MAX_GE_NUM		256
 
 int ntmp_init_cbdr(struct netc_cbdr *cbdr, struct device *dev,
 		   const struct netc_cbdr_regs *regs)
@@ -252,6 +254,8 @@ static const char *ntmp_table_name(int tbl_id)
 		return "Ingress Stream Filter Table";
 	case NTMP_SGIT_ID:
 		return "Stream Gate Instance Table";
+	case NTMP_SGCLT_ID:
+		return "Stream Gate Control List Table";
 	default:
 		return "Unknown Table";
 	};
@@ -1025,6 +1029,88 @@ end:
 int ntmp_sgit_delete_entry(struct ntmp_user *user, u32 entry_id)
 {
 	return ntmp_delete_entry_by_id(user, NTMP_SGIT_ID, user->tbl.sgit_ver,
+				       entry_id, NTMP_EID_REQ_LEN, 0);
+}
+
+int ntmp_sgclt_add_entry(struct ntmp_user *user, struct ntmp_sgclt_entry *entry)
+{
+	struct ntmp_dma_buf data = {.dev = user->dev};
+	struct sgclt_req_add *req;
+	u32 num_gates, cfge_len;
+	union netc_cbd cbd;
+	int err;
+
+	num_gates = entry->cfge.list_length + 1;
+	data.size = struct_size(req, cfge.ge, num_gates);
+	err = ntmp_alloc_data_mem(&data, (void **)&req);
+	if (err)
+		return err;
+
+	/* Fill up NTMP request data buffer */
+	ntmp_fill_crd_eid(&req->rbe, user->tbl.sgclt_ver, 0, 0,
+			  entry->entry_id);
+	cfge_len = struct_size_t(struct sgclt_cfge_data, ge, num_gates);
+	memcpy(&req->cfge, &entry->cfge, cfge_len);
+
+	/* Request header */
+	ntmp_fill_request_hdr(&cbd, data.dma, NTMP_LEN(data.size, 0),
+			      NTMP_SGCLT_ID, NTMP_CMD_ADD, NTMP_AM_ENTRY_ID);
+
+	err = netc_xmit_ntmp_cmd(user, &cbd);
+	if (err)
+		dev_err(user->dev, "Failed to add SGCLT entry 0x%x, err: %pe\n",
+			entry->entry_id, ERR_PTR(err));
+
+	ntmp_free_data_mem(&data);
+
+	return err;
+}
+
+int ntmp_sgclt_query_entry(struct ntmp_user *user, u32 entry_id,
+			   struct ntmp_sgclt_entry *entry, u32 cfge_size)
+{
+	struct ntmp_dma_buf data = {.dev = user->dev};
+	struct sgclt_resp_query *resp;
+	u32 num_gates, cfge_len, len;
+	struct ntmp_req_by_eid *req;
+	int err;
+
+	data.size = struct_size(resp, cfge.ge, SGCLT_MAX_GE_NUM);
+	err = ntmp_alloc_data_mem(&data, (void **)&req);
+	if (err)
+		return err;
+
+	ntmp_fill_crd_eid(req, user->tbl.sgclt_ver, 0, 0, entry_id);
+	len = NTMP_LEN(sizeof(*req), data.size);
+	err = ntmp_query_entry_by_id(user, NTMP_SGCLT_ID, len,
+				     req, data.dma, true);
+	if (err)
+		goto end;
+
+	resp = (struct sgclt_resp_query *)req;
+	entry->ref_count = resp->ref_count;
+	num_gates = resp->cfge.list_length + 1;
+	cfge_len = struct_size_t(struct sgclt_cfge_data, ge, num_gates);
+	if (cfge_len > cfge_size) {
+		dev_err(user->dev,
+			"Responsed SGCLT_CFGE size (%u) is larger than %u\n",
+			cfge_size, cfge_len);
+		err = -ENOMEM;
+
+		goto end;
+	}
+
+	memcpy(&entry->cfge, &resp->cfge, cfge_len);
+
+end:
+	ntmp_free_data_mem(&data);
+
+	return err;
+}
+
+int ntmp_sgclt_delete_entry(struct ntmp_user *user, u32 entry_id)
+{
+	return ntmp_delete_entry_by_id(user, NTMP_SGCLT_ID, user->tbl.sgclt_ver,
 				       entry_id, NTMP_EID_REQ_LEN, 0);
 }
 
