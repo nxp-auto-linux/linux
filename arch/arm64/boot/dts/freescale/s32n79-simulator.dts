@@ -99,6 +99,14 @@
 	status = "okay";
 };
 
+&linflex0 {
+	status = "okay";
+};
+
+&linflex1 {
+	status = "okay";
+};
+
 &cdma_iep {
 	status = "disabled";
 };
