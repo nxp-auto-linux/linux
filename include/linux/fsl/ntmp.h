@@ -61,6 +61,52 @@ struct rpt_stse_data {
 #define RPT_BES		BIT(31)
 };
 
+struct ist_cfge_data {
+	__le32 cfg;
+#define IST_SFE			BIT(0)
+#define IST_RRT			BIT(1)
+#define IST_BL2F		BIT(2)
+#define IST_IPV			GENMASK(7, 4)
+#define	IST_OIPV		BIT(8)
+#define IST_DR			GENMASK(10, 9)
+#define IST_ODR			BIT(11)
+#define IST_IMIRE		BIT(12)
+#define IST_TIMERCAPE		BIT(13)
+#define IST_SPPD		BIT(15)
+#define IST_ISQGA		GENMASK(17, 16)
+#define IST_ORP			BIT(18)
+#define IST_OSGI		BIT(19)
+#define IST_HR			GENMASK(23, 20)
+/* VERSION 0 */
+#define IST_V0_FA		GENMASK(26, 24)
+#define IST_V0_SDU_TYPE		GENMASK(28, 27)
+/* VERSION 1 */
+#define IST_V1_FA		GENMASK(27, 24)
+#define	IST_V1_SDU_TYPE		GENMASK(29, 28)
+#define IST_FA_NO_SI_BITMAP	1
+#define IST_SWITCH_FA_SF	2
+#define IST_SWITCH_FA_BF	3
+#define IST_SWITCH_FA_SF_COPY	4
+#define IST_SDFA		BIT(30)
+#define IST_OSDFA		BIT(31)
+	__le16 msdu;
+	__le16 switch_cfg; /* Only applicable to NETC switch */
+#define IST_IFME_LEN_CHANGE	GENMASK(6, 0)
+#define	IST_EPORT		GENMASK(11, 7)
+#define IST_OETEID		GENMASK(13, 12)
+#define IST_CTD			GENMASK(15, 14)
+	__le32 isqg_eid; /* Only applicable to NETC switch */
+	__le32 rp_eid;
+	__le32 sgi_eid;
+	__le32 ifm_eid; /* Only applicable to NETC switch */
+	__le32 et_eid; /* Only applicable to NETC switch */
+	__le32 isc_eid;
+	__le32 bitmap_evmeid; /* Only applicable to NETC switch */
+#define IST_EGRESS_PORT_BITMAP	GENMASK(23, 0)
+#define IST_EVMEID		GENMASK(27, 24)
+	__le16 si_bitmap;
+};
+
 #pragma pack()
 
 struct rpt_fee_data {
@@ -99,6 +145,7 @@ struct netc_tbl_vers {
 	u8 tgst_ver;
 	u8 rpt_ver;
 	u8 isit_ver;
+	u8 ist_ver;
 };
 
 struct netc_cbdr {
@@ -154,6 +201,11 @@ struct ntmp_isit_entry {
 	__le32 is_eid; /* cfge data */
 };
 
+struct ntmp_ist_entry {
+	u32 entry_id; /* software assigns entry ID */
+	struct ist_cfge_data cfge;
+};
+
 #if IS_ENABLED(CONFIG_NXP_NETC_LIB)
 int ntmp_init_cbdr(struct netc_cbdr *cbdr, struct device *dev,
 		   const struct netc_cbdr_regs *regs);
@@ -171,6 +223,8 @@ int ntmp_rsst_query_entry(struct ntmp_user *user,
 			  u32 *table, int count);
 int ntmp_rpt_add_entry(struct ntmp_user *user, struct ntmp_rpt_entry *entry);
 int ntmp_rpt_delete_entry(struct ntmp_user *user, u32 entry_id);
+int ntmp_ist_add_entry(struct ntmp_user *user, struct ntmp_ist_entry *entry);
+int ntmp_ist_delete_entry(struct ntmp_user *user, u32 entry_id);
 #else
 static inline int ntmp_init_cbdr(struct netc_cbdr *cbdr, struct device *dev,
 				 const struct netc_cbdr_regs *regs)
@@ -218,6 +272,17 @@ static inline int ntmp_rpt_add_entry(struct ntmp_user *user,
 }
 
 static inline int ntmp_rpt_delete_entry(struct ntmp_user *user, u32 entry_id)
+{
+	return 0;
+}
+
+static inline int ntmp_ist_add_entry(struct ntmp_user *user,
+					       struct ntmp_ist_entry *entry)
+{
+	return 0;
+}
+
+static inline int ntmp_ist_delete_entry(struct ntmp_user *user, u32 entry_id)
 {
 	return 0;
 }
