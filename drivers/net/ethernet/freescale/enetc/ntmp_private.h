@@ -287,6 +287,19 @@ struct isft_resp_query {
 	struct isft_cfge_data cfge;
 };
 
+/* Stream Gate Control List Table Request and Response Data Buffer Format */
+struct sgclt_req_add {
+	struct ntmp_req_by_eid rbe;
+	struct sgclt_cfge_data cfge;
+};
+
+struct sgclt_resp_query {
+	__le32 entry_id;
+	u8 ref_count;
+	u8 resv[3];
+	struct sgclt_cfge_data cfge;
+};
+
 int ntmp_tgst_query_entry(struct ntmp_user *user, u32 entry_id,
 			  struct tgst_query_data *tgst);
 int ntmp_tgst_update_admin_gate_list(struct ntmp_user *user, u32 entry_id,
@@ -309,5 +322,9 @@ int ntmp_sgit_add_or_update_entry(struct ntmp_user *user, bool add,
 int ntmp_sgit_query_entry(struct ntmp_user *user, u32 entry_id,
 			  struct ntmp_sgit_entry *entry);
 int ntmp_sgit_delete_entry(struct ntmp_user *user, u32 entry_id);
+int ntmp_sgclt_add_entry(struct ntmp_user *user, struct ntmp_sgclt_entry *entry);
+int ntmp_sgclt_delete_entry(struct ntmp_user *user, u32 entry_id);
+int ntmp_sgclt_query_entry(struct ntmp_user *user, u32 entry_id,
+			   struct ntmp_sgclt_entry *entry, u32 cfge_size);
 
 #endif
