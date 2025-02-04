@@ -8,6 +8,7 @@ nxp-enetc-pf-common-y := enetc_pf_common.o
 
 obj-$(CONFIG_NXP_NETC_LIB) += nxp-netc-lib.o
 nxp-netc-lib-y := ntmp.o netc_tc_lib.o
+nxp-netc-lib-$(CONFIG_DEBUG_FS) += netc_debugfs_lib.o
 
 obj-$(CONFIG_FSL_ENETC) += fsl-enetc.o
 fsl-enetc-y := enetc_pf.o
