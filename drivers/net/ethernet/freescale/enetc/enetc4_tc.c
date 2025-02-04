@@ -311,6 +311,43 @@ static int enetc4_setup_tc_taprio(struct net_device *ndev, void *type_data)
 	return err;
 }
 
+static void enetc4_pf_set_tc_tsd(struct enetc_hw *hw, int tc, bool en)
+{
+	enetc_port_wr(hw, ENETC4_PTCTSDR(tc), en ? PTCTSDR_TSDE : 0);
+}
+
+static int enetc4_setup_tc_txtime(struct net_device *ndev, void *type_data)
+{
+	struct enetc_ndev_priv *priv = netdev_priv(ndev);
+	struct tc_etf_qopt_offload *qopt = type_data;
+	u8 tc_nums = netdev_get_num_tc(ndev);
+	struct enetc_hw *hw = &priv->si->hw;
+	int i, tc;
+
+	if (!tc_nums)
+		return -EOPNOTSUPP;
+
+	if (qopt->queue < 0 || qopt->queue >= ndev->real_num_tx_queues)
+		return -EINVAL;
+
+	tc = netdev_txq_to_tc(ndev, qopt->queue);
+	if (tc < 0 || tc >= tc_nums)
+		return -EINVAL;
+
+	/* Accordiing to the NETC block guide, all traffic on the traffic class
+	 * should use time specific departure operation.
+	 */
+	for (i = 0; i < ndev->tc_to_txq[tc].count; i++) {
+		u16 offset = ndev->tc_to_txq[tc].offset + i;
+
+		priv->tx_ring[offset]->tsd_enable = qopt->enable;
+	}
+
+	enetc4_pf_set_tc_tsd(hw, tc, qopt->enable);
+
+	return 0;
+}
+
 int enetc4_pf_setup_tc(struct net_device *ndev, enum tc_setup_type type,
 		       void *type_data)
 {
@@ -323,6 +360,8 @@ int enetc4_pf_setup_tc(struct net_device *ndev, enum tc_setup_type type,
 		return enetc4_setup_tc_cbs(ndev, type_data);
 	case TC_SETUP_QDISC_TAPRIO:
 		return enetc4_setup_tc_taprio(ndev, type_data);
+	case TC_SETUP_QDISC_ETF:
+		return enetc4_setup_tc_txtime(ndev, type_data);
 	default:
 		return -EOPNOTSUPP;
 	}
