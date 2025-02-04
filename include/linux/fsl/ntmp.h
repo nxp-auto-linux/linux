@@ -258,6 +258,17 @@ struct sgclt_cfge_data {
 	struct sgclt_ge ge[];
 };
 
+struct isct_stse_data {
+	__le32 rx_count;
+	__le32 resv0;
+	__le32 msdu_drop_count;
+	__le32 resv1;
+	__le32 policer_drop_count;
+	__le32 resv2;
+	__le32 sg_drop_count;
+	__le32 resv3;
+};
+
 struct netc_cbdr_regs {
 	void __iomem *pir;
 	void __iomem *cir;
@@ -278,6 +289,7 @@ struct netc_tbl_vers {
 	u8 isft_ver;
 	u8 sgit_ver;
 	u8 sgclt_ver;
+	u8 isct_ver;
 };
 
 struct netc_cbdr {
@@ -366,6 +378,11 @@ struct ntmp_sgclt_entry {
 	struct sgclt_cfge_data cfge; /* Must be last member */
 };
 
+struct ntmp_isct_entry {
+	u32 entry_id;
+	struct isct_stse_data stse;
+};
+
 #if IS_ENABLED(CONFIG_NXP_NETC_LIB)
 int netc_setup_cbdr(struct device *dev, int cbd_num,
 		    struct netc_cbdr_regs *regs,
@@ -386,6 +403,8 @@ int ntmp_rpt_delete_entry(struct netc_cbdrs *cbdrs, u32 entry_id);
 int ntmp_ist_add_or_update_entry(struct netc_cbdrs *cbdrs,
 				 struct ntmp_ist_entry *entry);
 int ntmp_ist_delete_entry(struct netc_cbdrs *cbdrs, u32 entry_id);
+int ntmp_isct_operate_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
+			    int cmd, struct isct_stse_data *data);
 #else
 static inline int netc_setup_cbdr(struct device *dev, int cbd_num,
 				  struct netc_cbdr_regs *regs,
@@ -441,6 +460,12 @@ static inline int ntmp_ist_add_or_update_entry(struct netc_cbdrs *cbdrs,
 }
 
 static inline int ntmp_ist_delete_entry(struct netc_cbdrs *cbdrs, u32 entry_id)
+{
+	return 0;
+}
+
+static inline int ntmp_isct_operate_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
+					  int cmd, struct isct_stse_data *stse)
 {
 	return 0;
 }
