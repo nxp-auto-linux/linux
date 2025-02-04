@@ -6,6 +6,8 @@
 #include <linux/bitops.h>
 #include <linux/if_ether.h>
 
+#define ISIT_FRAME_KEY_LEN		16
+
 struct maft_keye_data {
 	u8 mac_addr[ETH_ALEN];
 	__le16 resv;
@@ -71,6 +73,16 @@ struct rpt_pse_data {
 #define RPT_MR		BIT(0)
 };
 
+struct isit_keye_data {
+	__le32 key_aux;
+#define ISIT_KEY_TYPE			GENMASK(1, 0)
+#define ISIT_KEY_TYPE0_SMAC_VLAN	0
+#define ISIT_KEY_TYPE1_DMAC_VLAN	1
+#define ISIT_SRC_PORT_ID		GENMASK(6, 2)
+#define ISIT_SPM			BIT(7)
+	u8 frame_key[ISIT_FRAME_KEY_LEN];
+};
+
 struct netc_cbdr_regs {
 	void __iomem *pir;
 	void __iomem *cir;
@@ -86,6 +98,7 @@ struct netc_tbl_vers {
 	u8 rsst_ver;
 	u8 tgst_ver;
 	u8 rpt_ver;
+	u8 isit_ver;
 };
 
 struct netc_cbdr {
@@ -133,6 +146,12 @@ struct ntmp_rpt_entry {
 	struct rpt_fee_data fee;
 	struct rpt_stse_data stse;
 	struct rpt_pse_data pse;
+};
+
+struct ntmp_isit_entry {
+	u32 entry_id;  /* hardware assigns entry ID */
+	struct isit_keye_data keye;
+	__le32 is_eid; /* cfge data */
 };
 
 #if IS_ENABLED(CONFIG_NXP_NETC_LIB)

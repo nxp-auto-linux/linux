@@ -13,6 +13,7 @@
 #define NTMP_EID_REQ_LEN	8
 #define NETC_CBDR_BD_NUM	256
 #define TGST_MAX_ENTRY_NUM	64
+#define NTMP_STATUS_RESP_LEN	4
 
 union netc_cbd {
 	struct {
@@ -28,6 +29,7 @@ union netc_cbd {
 #define NTMP_CMD_QUERY		BIT(2)
 #define NTMP_CMD_ADD		BIT(3)
 #define NTMP_CMD_QU		(NTMP_CMD_QUERY | NTMP_CMD_UPDATE)
+#define NTMP_CMD_AQ		(NTMP_CMD_ADD | NTMP_CMD_QUERY)
 		u8 access_method;
 #define NTMP_ACCESS_METHOD	GENMASK(7, 4)
 #define NTMP_AM_ENTRY_ID	0
@@ -185,6 +187,43 @@ struct tgst_query_data {
 	struct tgst_ge cfge_ge[TGST_MAX_ENTRY_NUM];
 };
 
+/* Ingress Stream Identification Table Resquet and Response Data Buffer Format */
+struct isit_ak_eid {
+	__le32 entry_id;
+	__le32 resv[4];
+};
+
+struct isit_ak_search {
+	__le32 resume_eid;
+	__le32 resv[4];
+};
+
+union isit_access_key {
+	struct isit_ak_eid eid;
+	struct isit_keye_data keye;
+	struct isit_ak_search search;
+};
+
+/* struct for update or add operation*/
+struct isit_req_ua {
+	struct ntmp_cmn_req_data crd;
+	union isit_access_key ak;
+	__le32 is_eid;
+};
+
+/* struct for not update or add operation, such as delete, query */
+struct isit_req_qd {
+	struct ntmp_cmn_req_data crd;
+	union isit_access_key ak;
+};
+
+struct isit_resp_query {
+	__le32 status;
+	__le32 entry_id;
+	struct isit_keye_data keye;
+	__le32 is_eid;
+};
+
 int ntmp_tgst_query_entry(struct ntmp_user *user, u32 entry_id,
 			  struct tgst_query_data *tgst);
 int ntmp_tgst_update_admin_gate_list(struct ntmp_user *user, u32 entry_id,
@@ -192,5 +231,9 @@ int ntmp_tgst_update_admin_gate_list(struct ntmp_user *user, u32 entry_id,
 int ntmp_tgst_delete_admin_gate_list(struct ntmp_user *user, u32 entry_id);
 int ntmp_rpt_query_entry(struct ntmp_user *user, u32 entry_id,
 			 struct ntmp_rpt_entry *entry);
+int ntmp_isit_add_entry(struct ntmp_user *user, struct ntmp_isit_entry *entry);
+int ntmp_isit_query_entry(struct ntmp_user *user, u32 entry_id,
+			  struct ntmp_isit_entry *entry);
+int ntmp_isit_delete_entry(struct ntmp_user *user, u32 entry_id);
 
 #endif

@@ -22,6 +22,7 @@
 #define NTMP_RSST_ID			3
 #define NTMP_TGST_ID			5
 #define NTMP_RPT_ID			10
+#define NTMP_ISIT_ID			30
 
 /* Generic Update Actions for most tables */
 #define NTMP_GEN_UA_CFGEU		BIT(0)
@@ -31,6 +32,9 @@
 #define RPT_UA_FEEU			BIT(1)
 #define RPT_UA_PSEU			BIT(2)
 #define RPT_UA_STSEU			BIT(3)
+
+/* Quary Action: 0: Full query, 1: Only query entry ID */
+#define NTMP_QA_ENTRY_ID		1
 
 #define NTMP_ENTRY_ID_SIZE		4
 #define RSST_ENTRY_NUM			64
@@ -234,6 +238,8 @@ static const char *ntmp_table_name(int tbl_id)
 		return "RSS Table";
 	case NTMP_RPT_ID:
 		return "Rate Policer Table";
+	case NTMP_ISIT_ID:
+		return "Ingress Stream Identification Table";
 	default:
 		return "Unknown Table";
 	};
@@ -664,6 +670,103 @@ int ntmp_rpt_delete_entry(struct ntmp_user *user, u32 entry_id)
 				       entry_id, NTMP_EID_REQ_LEN, 0);
 }
 EXPORT_SYMBOL_GPL(ntmp_rpt_delete_entry);
+
+int ntmp_isit_add_entry(struct ntmp_user *user, struct ntmp_isit_entry *entry)
+{
+	struct ntmp_dma_buf data = {
+		.dev = user->dev,
+		.size = sizeof(struct isit_resp_query),
+	};
+	struct isit_resp_query *resp;
+	struct isit_req_ua *req;
+	union netc_cbd cbd;
+	u32 len;
+	int err;
+
+	err = ntmp_alloc_data_mem(&data, (void **)&req);
+	if (err)
+		return err;
+
+	ntmp_fill_crd(&req->crd, user->tbl.isit_ver, NTMP_QA_ENTRY_ID,
+		      NTMP_GEN_UA_CFGEU);
+	req->ak.keye = entry->keye;
+	req->is_eid = entry->is_eid;
+
+	len = NTMP_LEN(sizeof(*req), sizeof(*resp));
+	/* Add command, followed by a query. So that we can get
+	 * the entry id from HW.
+	 */
+	ntmp_fill_request_hdr(&cbd, data.dma, len, NTMP_ISIT_ID,
+			      NTMP_CMD_AQ, NTMP_AM_EXACT_KEY);
+
+	err = netc_xmit_ntmp_cmd(user, &cbd);
+	if (err) {
+		dev_err(user->dev, "Failed to add ISIT entry, err: %pe\n",
+			ERR_PTR(err));
+
+		goto end;
+	}
+
+	resp = (struct isit_resp_query *)req;
+	entry->entry_id = le32_to_cpu(resp->entry_id);
+
+end:
+	ntmp_free_data_mem(&data);
+
+	return err;
+}
+
+int ntmp_isit_query_entry(struct ntmp_user *user, u32 entry_id,
+			  struct ntmp_isit_entry *entry)
+{
+	struct ntmp_dma_buf data = {
+		.dev = user->dev,
+		.size = sizeof(struct isit_resp_query),
+	};
+	struct isit_resp_query *resp;
+	struct isit_req_qd *req;
+	u32 len;
+	int err;
+
+	err = ntmp_alloc_data_mem(&data, (void **)&req);
+	if (err)
+		return err;
+
+	ntmp_fill_crd(&req->crd, user->tbl.isit_ver, 0, 0);
+	req->ak.eid.entry_id = cpu_to_le32(entry_id);
+	len = NTMP_LEN(sizeof(*req), data.size);
+	err = ntmp_query_entry_by_id(user, NTMP_ISIT_ID, len,
+				     (struct ntmp_req_by_eid *)req,
+				     data.dma, false);
+	if (err)
+		goto end;
+
+	resp = (struct isit_resp_query *)req;
+	if (unlikely(le32_to_cpu(resp->entry_id) != entry_id)) {
+		dev_err(user->dev,
+			"ISIT: query EID (0x%0x) doesn't match response EID (0x%x)\n",
+			entry_id, le32_to_cpu(resp->entry_id));
+		err = -EIO;
+
+		goto end;
+	}
+
+	entry->keye = resp->keye;
+	entry->is_eid = resp->is_eid;
+
+end:
+	ntmp_free_data_mem(&data);
+
+	return err;
+}
+
+int ntmp_isit_delete_entry(struct ntmp_user *user, u32 entry_id)
+{
+	u32 req_len = sizeof(struct isit_req_qd);
+
+	return ntmp_delete_entry_by_id(user, NTMP_ISIT_ID, user->tbl.isit_ver,
+				       entry_id, req_len, NTMP_STATUS_RESP_LEN);
+}
 
 MODULE_DESCRIPTION("NXP NETC Library");
 MODULE_LICENSE("Dual BSD/GPL");
