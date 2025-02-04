@@ -187,7 +187,7 @@ static int enetc4_devfn_to_port(struct pci_dev *pdev)
 	}
 }
 
-static int enetc4_pf_to_port(struct enetc_si *si)
+int enetc4_pf_to_port(struct enetc_si *si)
 {
 	switch (si->revision) {
 	case ENETC_REV_4_1:
