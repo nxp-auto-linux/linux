@@ -14,6 +14,8 @@
 
 	aliases {
 		serial0 = &uart0;
+		serial10 = &linflex0;
+		serial11 = &linflex1;
 		i2c0 = &lpi2c0;
 		i2c1 = &lpi2c1;
 		i2c2 = &lpi2c2;
@@ -422,6 +424,28 @@
 			interrupt-names = "mb_0-127", "berr";
 			clocks = <&sys_clk>, <&sys_clk>;
 			clock-names = "ipg", "per";
+			status = "disabled";
+		};
+
+		linflex0: serial@55ae0000 {
+			compatible = "nxp,s32n79-linflexuart",
+					"fsl,s32v234-linflexuart";
+			reg = <0x55ae0000 0x3000>;
+			interrupts = <160>;
+			interrupt-parent = <&irqsteer0_rcu>;
+			clocks = <&sys_clk>, <&sys_clk>;
+			clock-names = "lin", "ipg";
+			status = "disabled";
+		};
+
+		linflex1: serial@55af0000 {
+			compatible = "nxp,s32n79-linflexuart",
+					"fsl,s32v234-linflexuart";
+			reg = <0x55af0000 0x3000>;
+			interrupts = <161>;
+			interrupt-parent = <&irqsteer0_rcu>;
+			clocks = <&sys_clk>, <&sys_clk>;
+			clock-names = "lin", "ipg";
 			status = "disabled";
 		};
 	};
