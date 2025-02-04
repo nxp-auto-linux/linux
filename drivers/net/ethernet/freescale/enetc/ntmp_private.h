@@ -197,6 +197,14 @@ struct sgit_resp_query {
 	struct sgit_acfge_data acfge;
 };
 
+struct ipft_resp_query {
+	__le32 status;
+	__le32 entry_id;
+	struct ipft_keye_data keye;
+	__le64 match_count; /* STSE_DATA */
+	struct ipft_cfge_data cfge;
+};
+
 #pragma pack()
 
 struct tgst_query_data {
@@ -304,6 +312,29 @@ struct sgclt_resp_query {
 struct isct_resp_query {
 	__le32 entry_id;
 	struct isct_stse_data stse;
+};
+
+struct ipft_ak_eid {
+	__le32 entry_id;
+	__le32 resv[52];
+};
+
+union ipft_access_key {
+	struct ipft_ak_eid eid;
+	struct ipft_keye_data keye;
+};
+
+/* Ingress Port Filter Table Request and Response Data Buffer Format */
+struct ipft_req_ua {
+	struct ntmp_cmn_req_data crd;
+	union ipft_access_key ak;
+	struct ipft_cfge_data cfge;
+};
+
+/* request data format of query or delete action */
+struct ipft_req_qd {
+	struct ntmp_req_by_eid rbe;
+	__le32 resv[52];
 };
 
 int ntmp_tgst_query_entry(struct ntmp_user *user, u32 entry_id,
