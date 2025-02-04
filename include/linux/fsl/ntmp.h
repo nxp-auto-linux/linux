@@ -210,6 +210,17 @@ struct sgclt_cfge_data {
 	struct sgclt_ge ge[];
 };
 
+struct isct_stse_data {
+	__le32 rx_count;
+	__le32 resv0;
+	__le32 msdu_drop_count;
+	__le32 resv1;
+	__le32 policer_drop_count;
+	__le32 resv2;
+	__le32 sg_drop_count;
+	__le32 resv3;
+};
+
 struct netc_cbdr_regs {
 	void __iomem *pir;
 	void __iomem *cir;
@@ -230,6 +241,7 @@ struct netc_tbl_vers {
 	u8 isft_ver;
 	u8 sgit_ver;
 	u8 sgclt_ver;
+	u8 isct_ver;
 };
 
 struct netc_cbdr {
@@ -310,6 +322,11 @@ struct ntmp_sgclt_entry {
 	struct sgclt_cfge_data cfge; /* Must be last member */
 };
 
+struct ntmp_isct_entry {
+	u32 entry_id;
+	struct isct_stse_data stse;
+};
+
 #if IS_ENABLED(CONFIG_NXP_NETC_LIB)
 int ntmp_init_cbdr(struct netc_cbdr *cbdr, struct device *dev,
 		   const struct netc_cbdr_regs *regs);
@@ -329,6 +346,8 @@ int ntmp_rpt_add_entry(struct ntmp_user *user, struct ntmp_rpt_entry *entry);
 int ntmp_rpt_delete_entry(struct ntmp_user *user, u32 entry_id);
 int ntmp_ist_add_entry(struct ntmp_user *user, struct ntmp_ist_entry *entry);
 int ntmp_ist_delete_entry(struct ntmp_user *user, u32 entry_id);
+int ntmp_isct_set_entry(struct ntmp_user *user, u32 entry_id,
+			int cmd, struct isct_stse_data *data);
 #else
 static inline int ntmp_init_cbdr(struct netc_cbdr *cbdr, struct device *dev,
 				 const struct netc_cbdr_regs *regs)
@@ -387,6 +406,12 @@ static inline int ntmp_ist_add_entry(struct ntmp_user *user,
 }
 
 static inline int ntmp_ist_delete_entry(struct ntmp_user *user, u32 entry_id)
+{
+	return 0;
+}
+
+static inline int ntmp_isct_set_entry(struct ntmp_user *user, u32 entry_id,
+				      int cmd, struct isct_stse_data *stse)
 {
 	return 0;
 }
