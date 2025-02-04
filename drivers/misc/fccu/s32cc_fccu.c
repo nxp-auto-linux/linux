@@ -2,7 +2,7 @@
 /*
  * FCCU driver for S32CC SoC
  *
- * Copyright 2018, 2021-2022 NXP.
+ * Copyright 2018, 2021-2022, 2025 NXP.
  *
  * Drives the Fault Collection and Control Unit.
  *
@@ -176,11 +176,9 @@ static void set_maximal_fault_lists(struct device *dev,
 				    u32 *fault_list, u32 size,
 				    u32 *reaction_list, u32 size_r)
 {
-	u32 i;
-	int ncf_num;
-	u32 reg_fault_pos;
 	struct fccu_alarm_mask *mask = priv_data->mask;
-	int reactions = 0;
+	u32 i, reg_fault_pos, reactions;
+	int ncf_num;
 
 	for (i = 0; i < size; i++) {
 		ncf_num = fccu_get_ncf_reg_number(fault_list[i]);
@@ -199,6 +197,7 @@ static void set_maximal_fault_lists(struct device *dev,
 			continue;
 
 		/* Setup reaction bits */
+		reactions = 0;
 		if (reaction_list[i] & S32CC_FCCU_REACTION_ALARM) {
 			mask->alarm_state.mask[ncf_num] |= BIT(reg_fault_pos);
 			reactions++;
