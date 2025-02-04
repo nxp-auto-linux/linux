@@ -22,6 +22,7 @@
 #define NTMP_RSST_ID			3
 #define NTMP_TGST_ID			5
 #define NTMP_RPT_ID			10
+#define NTMP_IPFT_ID			13
 #define NTMP_ISIT_ID			30
 #define NTMP_IST_ID			31
 #define NTMP_ISFT_ID			32
@@ -257,6 +258,8 @@ static const char *ntmp_table_name(int tbl_id)
 		return "Stream Gate Instance Table";
 	case NTMP_SGCLT_ID:
 		return "Stream Gate Control List Table";
+	case NTMP_IPFT_ID:
+		return "Ingress Port Filter Table";
 	default:
 		return "Unknown Table";
 	};
@@ -1185,6 +1188,150 @@ end:
 	return err;
 }
 EXPORT_SYMBOL_GPL(ntmp_isct_set_entry);
+
+int ntmp_ipft_add_entry(struct ntmp_user *user, struct ntmp_ipft_entry *entry)
+{
+	struct ntmp_dma_buf data = {
+		.dev = user->dev,
+		.size = sizeof(struct ipft_resp_query),
+	};
+	struct ipft_resp_query *resp;
+	struct ipft_req_ua *req;
+	union netc_cbd cbd;
+	u32 len;
+	int err;
+
+	err = ntmp_alloc_data_mem(&data, (void **)&req);
+	if (err)
+		return err;
+
+	ntmp_fill_crd(&req->crd, user->tbl.ipft_ver, NTMP_QA_ENTRY_ID,
+		      NTMP_GEN_UA_CFGEU | NTMP_GEN_UA_STSEU);
+	req->ak.keye = entry->keye;
+	req->cfge = entry->cfge;
+
+	len = NTMP_LEN(sizeof(*req), data.size);
+	ntmp_fill_request_hdr(&cbd, data.dma, len, NTMP_IPFT_ID,
+			      NTMP_CMD_AQ, NTMP_AM_TERNARY_KEY);
+
+	err = netc_xmit_ntmp_cmd(user, &cbd);
+	if (err) {
+		dev_err(user->dev, "Failed to add IPFT entry, err: %pe\n",
+			ERR_PTR(err));
+
+		goto end;
+	}
+
+	resp = (struct ipft_resp_query *)req;
+	entry->entry_id = le32_to_cpu(resp->entry_id);
+
+end:
+	ntmp_free_data_mem(&data);
+
+	return err;
+}
+EXPORT_SYMBOL_GPL(ntmp_ipft_add_entry);
+
+int ntmp_ipft_update_entry(struct ntmp_user *user, u32 entry_id,
+			   struct ipft_cfge_data *cfge)
+{
+	struct ntmp_dma_buf data = {
+		.dev = user->dev,
+		.size = sizeof(struct ipft_req_ua),
+	};
+	struct ipft_req_ua *req;
+	union netc_cbd cbd;
+	u32 len;
+	int err;
+
+	err = ntmp_alloc_data_mem(&data, (void **)&req);
+	if (err)
+		return err;
+
+	ntmp_fill_crd(&req->crd, user->tbl.ipft_ver, 0,
+		      NTMP_GEN_UA_CFGEU | NTMP_GEN_UA_STSEU);
+	req->ak.eid.entry_id = cpu_to_le32(entry_id);
+	req->cfge = *cfge;
+
+	len = NTMP_LEN(data.size, NTMP_STATUS_RESP_LEN);
+	ntmp_fill_request_hdr(&cbd, data.dma, len, NTMP_IPFT_ID,
+			      NTMP_CMD_UPDATE, NTMP_AM_ENTRY_ID);
+
+	err = netc_xmit_ntmp_cmd(user, &cbd);
+	if (err)
+		dev_err(user->dev, "Failed to update IPFT entry, err: %pe\n",
+			ERR_PTR(err));
+
+	ntmp_free_data_mem(&data);
+
+	return err;
+}
+EXPORT_SYMBOL_GPL(ntmp_ipft_update_entry);
+
+int ntmp_ipft_query_entry(struct ntmp_user *user, u32 entry_id,
+			  bool update, struct ntmp_ipft_entry *entry)
+{
+	struct ntmp_dma_buf data = {
+		.dev = user->dev,
+		.size = sizeof(struct ipft_resp_query),
+	};
+	u32 req_len = sizeof(struct ipft_req_qd);
+	struct ipft_resp_query *resp;
+	struct ipft_req_qd *req;
+	u16 ua = 0;
+	u32 len;
+	int err;
+
+	/* CFGE_DATA is present when performing an update command,
+	 * but we don't need to set this field because only STSEU
+	 * is updated here.
+	 */
+	if (update) {
+		req_len += sizeof(struct ipft_cfge_data);
+		ua = NTMP_GEN_UA_STSEU;
+	}
+
+	err = ntmp_alloc_data_mem(&data, (void **)&req);
+	if (err)
+		return err;
+
+	ntmp_fill_crd_eid(&req->rbe, user->tbl.ipft_ver, 0, ua, entry_id);
+	len = NTMP_LEN(req_len, data.size);
+	err = ntmp_query_entry_by_id(user, NTMP_IPFT_ID, len,
+				     (struct ntmp_req_by_eid *)req,
+				     data.dma, false);
+	if (err)
+		goto end;
+
+	resp = (struct ipft_resp_query *)req;
+	if (unlikely(le32_to_cpu(resp->entry_id) != entry_id)) {
+		dev_err(user->dev,
+			"IPFT: query EID 0x%x doesn't match response EID 0x%x\n",
+			entry_id, le32_to_cpu(resp->entry_id));
+		err = -EIO;
+
+		goto end;
+	}
+
+	entry->keye = resp->keye;
+	entry->match_count = resp->match_count;
+	entry->cfge = resp->cfge;
+
+end:
+	ntmp_free_data_mem(&data);
+
+	return err;
+}
+EXPORT_SYMBOL_GPL(ntmp_ipft_query_entry);
+
+int ntmp_ipft_delete_entry(struct ntmp_user *user, u32 entry_id)
+{
+	u32 req_len = sizeof(struct ipft_req_qd);
+
+	return ntmp_delete_entry_by_id(user, NTMP_IPFT_ID, user->tbl.ipft_ver,
+				       entry_id, req_len, NTMP_STATUS_RESP_LEN);
+}
+EXPORT_SYMBOL_GPL(ntmp_ipft_delete_entry);
 
 MODULE_DESCRIPTION("NXP NETC Library");
 MODULE_LICENSE("Dual BSD/GPL");
