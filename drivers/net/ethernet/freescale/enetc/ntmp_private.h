@@ -152,6 +152,21 @@ struct tgst_resp_query {
 	u8 data[];
 };
 
+/* Rate Policer Table Request and Response Data Buffer Format */
+struct rpt_req_ua {
+	struct ntmp_req_by_eid rbe;
+	struct rpt_cfge_data cfge;
+	struct rpt_fee_data fee;
+};
+
+struct rpt_resp_query {
+	__le32 entry_id;
+	struct rpt_stse_data stse;
+	struct rpt_cfge_data cfge;
+	struct rpt_fee_data fee;
+	struct rpt_pse_data pse;
+};
+
 #pragma pack()
 
 struct tgst_query_data {
@@ -175,5 +190,7 @@ int ntmp_tgst_query_entry(struct ntmp_user *user, u32 entry_id,
 int ntmp_tgst_update_admin_gate_list(struct ntmp_user *user, u32 entry_id,
 				     struct tgst_cfge_data *cfge);
 int ntmp_tgst_delete_admin_gate_list(struct ntmp_user *user, u32 entry_id);
+int ntmp_rpt_query_entry(struct ntmp_user *user, u32 entry_id,
+			 struct ntmp_rpt_entry *entry);
 
 #endif
