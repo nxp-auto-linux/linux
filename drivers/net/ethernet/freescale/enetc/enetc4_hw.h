@@ -86,6 +86,10 @@
 #define ENETC4_PSIVLANFMR		0x2c4
 #define  PSIVLANFMR_VS			BIT(0)
 
+/* Port traffic class a time specific departure register */
+#define ENETC4_PTCTSDR(a)		((a) * 0x4 + 0x390)
+#define  PTCTSDR_TSDE			BIT(31)
+
 /* Time gate scheduling table capability register */
 #define ENETC4_TGSTCAPR			0x18d4
 #define  TGSTCAPR_NUM_WORDS		GENMASK(15, 0)
