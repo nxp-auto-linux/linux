@@ -21,6 +21,7 @@
 #define NTMP_RSST_ID			3
 #define NTMP_TGST_ID			5
 #define NTMP_RPT_ID			10
+#define NTMP_IPFT_ID			13
 #define NTMP_ISIT_ID			30
 #define NTMP_IST_ID			31
 #define NTMP_ISFT_ID			32
@@ -1206,6 +1207,114 @@ end:
 	return err;
 }
 EXPORT_SYMBOL_GPL(ntmp_isct_operate_entry);
+
+int ntmp_ipft_add_entry(struct netc_cbdrs *cbdrs, u32 *entry_id,
+			struct ntmp_ipft_entry *entry)
+{
+	struct ntmp_dma_buf data = {.dev = cbdrs->dma_dev};
+	struct ipft_resp_query *resp;
+	struct ipft_req_add *req;
+	union netc_cbd cbd;
+	int err;
+
+	data.size = sizeof(*resp);
+	err = ntmp_alloc_data_mem(&data, (void **)&req);
+	if (err)
+		return err;
+
+	/* Fill up NTMP request data buffer */
+	ntmp_fill_crd(&req->crd, cbdrs->tbl.ipft_ver, NTMP_QA_ENTRY_ID,
+		      NTMP_GEN_UA_CFGEU | NTMP_GEN_UA_STSEU);
+	req->keye = entry->keye;
+	req->cfge = entry->cfge;
+
+	/* Request header */
+	ntmp_fill_request_headr(&cbd, data.dma, NTMP_LEN(sizeof(*req), data.size),
+				NTMP_IPFT_ID, NTMP_CMD_AQ, NTMP_AM_TERNARY_KEY);
+
+	err = netc_xmit_ntmp_cmd(cbdrs, &cbd);
+	if (err) {
+		dev_err(cbdrs->dma_dev, "Add IPFT entry failed (%d)", err);
+		goto end;
+	}
+
+	resp = (struct ipft_resp_query *)req;
+	if (entry_id)
+		*entry_id = le32_to_cpu(resp->entry_id);
+
+end:
+	ntmp_free_data_mem(&data);
+
+	return err;
+}
+EXPORT_SYMBOL_GPL(ntmp_ipft_add_entry);
+
+int ntmp_ipft_query_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
+			  bool update, struct ntmp_ipft_entry *entry)
+{
+	struct ntmp_dma_buf data = {.dev = cbdrs->dma_dev};
+	struct ipft_resp_query *resp;
+	struct ipft_req_qd *req;
+	u32 req_len;
+	u16 ua = 0;
+	int err;
+
+	if (entry_id == NTMP_NULL_ENTRY_ID)
+		return -EINVAL;
+
+	req_len = sizeof(*req);
+	/* CFGE_DATA is present when performing an update command,
+	 * but we don't need to set this filed because only STSEU
+	 * is updated here.
+	 */
+	if (update)
+		req_len += sizeof(struct ipft_cfge_data);
+
+	data.size = sizeof(*resp);
+	err = ntmp_alloc_data_mem(&data, (void **)&req);
+	if (err)
+		return err;
+
+	if (update)
+		ua = NTMP_GEN_UA_STSEU;
+
+	ntmp_fill_crd_eid(&req->rbe, cbdrs->tbl.ipft_ver, 0, ua, entry_id);
+	err = ntmp_query_entry_by_id(cbdrs, NTMP_IPFT_ID,
+				     NTMP_LEN(req_len, data.size),
+				     (struct ntmp_req_by_eid *)req,
+				     data.dma, false);
+	if (err)
+		goto end;
+
+	resp = (struct ipft_resp_query *)req;
+	if (unlikely(le32_to_cpu(resp->entry_id) != entry_id)) {
+		dev_err(cbdrs->dma_dev,
+			"IPFT Query EID:0x%0x, Response EID:0x%x\n",
+			entry_id, le32_to_cpu(resp->entry_id));
+		err = -EIO;
+		goto end;
+	}
+
+	entry->keye = resp->keye;
+	entry->match_count = resp->match_count;
+	entry->cfge = resp->cfge;
+
+end:
+	ntmp_free_data_mem(&data);
+
+	return err;
+}
+EXPORT_SYMBOL_GPL(ntmp_ipft_query_entry);
+
+int ntmp_ipft_delete_entry(struct netc_cbdrs *cbdrs, u32 entry_id)
+{
+	u32 resp_len = sizeof(struct common_resp_nq);
+	u32 req_len = sizeof(struct ipft_req_qd);
+
+	return ntmp_delete_entry_by_id(cbdrs, NTMP_IPFT_ID, cbdrs->tbl.ipft_ver,
+				       entry_id, req_len, resp_len);
+}
+EXPORT_SYMBOL_GPL(ntmp_ipft_delete_entry);
 
 MODULE_DESCRIPTION("NXP NETC Library");
 MODULE_LICENSE("Dual BSD/GPL");
