@@ -240,6 +240,12 @@ struct sgclt_resp_query {
 	struct sgclt_cfge_data cfge;
 };
 
+/* Ingress Stream Count Table Request and Response Data Buffer Format */
+struct isct_resp_query {
+	__le32 entry_id;
+	struct isct_stse_data stse;
+};
+
 struct tgst_query_data {
 	__le64 config_change_time;
 	__le64 admin_bt;
