@@ -127,6 +127,43 @@ struct rpt_resp_query {
 
 #pragma pack()
 
+/* Ingress Stream Identification Table Resquet and Response Data Buffer Format */
+struct isit_ak_eid {
+	__le32 entry_id;
+	__le32 resv[4];
+};
+
+struct isit_ak_search {
+	__le32 resume_eid;
+	__le32 resv[4];
+};
+
+union isit_access_key {
+	struct isit_ak_eid eid;
+	struct isit_keye_data keye;
+	struct isit_ak_search search;
+};
+
+/* struct for update or add operation*/
+struct isit_req_ua {
+	struct common_req_data crd;
+	union isit_access_key ak;
+	__le32 is_eid;
+};
+
+/* struct for not update or add operation, such as delete, query */
+struct isit_req_qd {
+	struct common_req_data crd;
+	union isit_access_key ak;
+};
+
+struct isit_resp_query {
+	__le32 status;
+	__le32 entry_id;
+	struct isit_keye_data keye;
+	__le32 is_eid;
+};
+
 struct tgst_query_data {
 	__le64 config_change_time;
 	__le64 admin_bt;
@@ -150,5 +187,10 @@ int ntmp_tgst_update_admin_gate_list(struct netc_cbdrs *cbdrs, u32 entry_id,
 int ntmp_tgst_delete_admin_gate_list(struct netc_cbdrs *cbdrs, u32 entry_id);
 int ntmp_rpt_query_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
 			 struct ntmp_rpt_entry *entry);
+int ntmp_isit_add_or_update_entry(struct netc_cbdrs *cbdrs, bool add,
+				  struct ntmp_isit_entry *entry);
+int ntmp_isit_query_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
+			  struct ntmp_isit_entry *entry);
+int ntmp_isit_delete_entry(struct netc_cbdrs *cbdrs, u32 entry_id);
 
 #endif
