@@ -300,6 +300,12 @@ struct sgclt_resp_query {
 	struct sgclt_cfge_data cfge;
 };
 
+/* Ingress Stream Count Table Request and Response Data Buffer Format */
+struct isct_resp_query {
+	__le32 entry_id;
+	struct isct_stse_data stse;
+};
+
 int ntmp_tgst_query_entry(struct ntmp_user *user, u32 entry_id,
 			  struct tgst_query_data *tgst);
 int ntmp_tgst_update_admin_gate_list(struct ntmp_user *user, u32 entry_id,
