@@ -338,8 +338,9 @@ struct __packed carvnet_bar_info {
 	u64 addr_end;
 };
 
-#define BAR_CNT 4
-#define BAR_INVALID 0xFFFFFFFF
+#define MAX_QUARTILES 4U
+#define BAR_CNT 4U
+#define BAR_INVALID 0xFFFFFFFFU
 
 /* Carveouts from Firmware segments have a special dedicated name
  * to recognize them for mapping as simple-regions
@@ -369,7 +370,8 @@ struct carvnet {
 	struct carvnet_bar_info bar_info[BAR_CNT];
 	u8 bar_info_cnt;
 	struct dentry *subdentry;
-	void __iomem *regs;
+	u32 num_quartiles;
+	void __iomem *regs[MAX_QUARTILES];
 	struct work_struct rproc_work;
 	u8 q_user;		/* active Q user */
 
@@ -380,20 +382,20 @@ static int q_validate(struct carvnet *priv)
 {
 	struct device *dev = priv->dev;
 
-	if (!GET_CARV_GL_CR_ENA(readl(priv->regs + CARV_GL_CR))) {
+	if (!GET_CARV_GL_CR_ENA(readl(priv->regs[0] + CARV_GL_CR))) {
 		dev_err(dev, "Quartile is disabled\n");
 		return -EINVAL;
 	}
 
-	if (!GET_CARV_GL_CR_CLOCK(readl(priv->regs + CARV_GL_CR))) {
+	if (!GET_CARV_GL_CR_CLOCK(readl(priv->regs[0] + CARV_GL_CR))) {
 		dev_err(dev, "Quartile has MCT clock disabled\n");
 		return -EINVAL;
 	}
 
 	dev_info(dev, "CAR-V revision %lx\n",
-		 GET_CARV_GL_CR_IP_VID(readl(priv->regs + CARV_GL_CR)));
+		 GET_CARV_GL_CR_IP_VID(readl(priv->regs[0] + CARV_GL_CR)));
 
-	if (!GET_CARV_GL_CR_LOCK(readl(priv->regs + CARV_GL_CR)))
+	if (!GET_CARV_GL_CR_LOCK(readl(priv->regs[0] + CARV_GL_CR)))
 		dev_warn(dev, "Quartile has global config unlocked\n");
 
 	return 0;
@@ -425,7 +427,7 @@ static struct carveout_info *q_get_carveout_info(struct carvnet *priv,
 static int q_set_simple_region(struct carvnet *priv, struct rproc_mem_entry *m,
 			       int i)
 {
-	u32 r_size, r_off, r_mem, r_locp, r_type, r_sub, r_value;
+	u32 r_size, r_off, r_mem, r_locp, r_type, r_sub, r_value, q;
 	ulong m_size = roundup_pow_of_two(m->len);
 	struct carveout_info *info;
 	u64 off64;
@@ -489,12 +491,14 @@ static int q_set_simple_region(struct carvnet *priv, struct rproc_mem_entry *m,
 		CARV_Q_AT_SRR_TYPE(r_type) |
 		CARV_Q_AT_SRR_SUB(r_sub) |
 		CARV_Q_AT_SRR_ENA(1U);
-	writel(r_value, priv->regs + CARV_Q_AT_SRR(priv->q_user, i));
+	for (q = 0; q < priv->num_quartiles; q++) {
+		writel(r_value, priv->regs[q] + CARV_Q_AT_SRR(priv->q_user, i));
 
-	dev_dbg(priv->dev,
-		"SRR=0x%x OFF=0x%x MEM=0x%x LOCP=%d SIZE=0x%x TYPE=0x%x SUB=%d ENA=1\n",
-		readl(priv->regs + CARV_Q_AT_SRR(priv->q_user, i)), r_off,
+		dev_dbg(priv->dev,
+		"QT%u: SRR=0x%x OFF=0x%x MEM=0x%x LOCP=%d SIZE=0x%x TYPE=0x%x SUB=%d ENA=1\n",
+		q, readl(priv->regs[q] + CARV_Q_AT_SRR(priv->q_user, i)), r_off,
 		r_mem, r_locp, r_size, r_type, r_sub);
+	}
 
 	return 0;
 };
@@ -502,7 +506,7 @@ static int q_set_simple_region(struct carvnet *priv, struct rproc_mem_entry *m,
 static int q_set_prio_region(struct carvnet *priv, struct carveout_info *info,
 			     dma_addr_t dma, size_t len, int *prio_n)
 {
-	u32 r_size, r_off, r_mem, r_match, r_value;
+	u32 r_size, r_off, r_mem, r_match, r_value, q;
 	ulong m_size = roundup_pow_of_two(len);
 	int i = *prio_n;
 	u64 off64;
@@ -540,20 +544,21 @@ static int q_set_prio_region(struct carvnet *priv, struct carveout_info *info,
 		CARV_Q_AT_RCR_SIZE(r_size) |
 		CARV_Q_AT_RCR_MEM(r_mem) |
 		CARV_Q_AT_RCR_ENA(1U);
-	writel(r_value, priv->regs + CARV_Q_AT_RCR(priv->q_user, i));
-
 	r_match = GET_CARV_Q_AT_RMR_MATCH(info->match_addr);
 
-	writel(CARV_Q_AT_RMR_MATCH(r_match),
-	       priv->regs + CARV_Q_AT_RMR(priv->q_user, i));
+	for (q = 0; q < priv->num_quartiles; q++) {
+		writel(r_value, priv->regs[q] + CARV_Q_AT_RCR(priv->q_user, i));
+		writel(CARV_Q_AT_RMR_MATCH(r_match),
+				priv->regs[q] + CARV_Q_AT_RMR(priv->q_user, i));
 
-	dev_dbg(priv->dev,
-		"RCR=0x%x OFF=0x%x SIZE=0x%x MEM=0x%x ENA=1\n",
-		readl(priv->regs + CARV_Q_AT_RCR(priv->q_user, i)), r_off,
-		r_size, r_mem);
-	dev_dbg(priv->dev,
-		"RMR=0x%x MATCH=0x%x\n",
-		readl(priv->regs + CARV_Q_AT_RMR(priv->q_user, i)), r_match);
+		dev_dbg(priv->dev,
+			"QT%u: RCR=0x%x OFF=0x%x SIZE=0x%x MEM=0x%x ENA=1\n", q,
+			readl(priv->regs[q] + CARV_Q_AT_RCR(priv->q_user, i)), r_off,
+			r_size, r_mem);
+		dev_dbg(priv->dev,
+			"QT%u: RMR=0x%x MATCH=0x%x\n", q,
+			readl(priv->regs[q] + CARV_Q_AT_RMR(priv->q_user, i)), r_match);
+	}
 
 	return 0;
 }
@@ -603,20 +608,26 @@ static int g_get_bar(struct carvnet *priv, u8 bar_type, struct rproc_mem_entry *
 
 static void q_clear_simple_region(struct carvnet *priv, int i)
 {
+	u32 q;
 	/* Clean AT_SRR and disable it */
-	writel(0, priv->regs + CARV_Q_AT_SRR(priv->q_user, i));
+	for (q = 0; q < priv->num_quartiles; q++)
+		writel(0, priv->regs[q] + CARV_Q_AT_SRR(priv->q_user, i));
 }
 
 static void q_clear_prio_region(struct carvnet *priv, int i)
 {
+	u32 q;
 	/* Clean AT_RCR/AT_RMRR and disable it */
-	writel(0, priv->regs + CARV_Q_AT_RCR(priv->q_user, i));
-	writel(0, priv->regs + CARV_Q_AT_RMR(priv->q_user, i));
+	for (q = 0; q < priv->num_quartiles; q++) {
+		writel(0, priv->regs[q] + CARV_Q_AT_RCR(priv->q_user, i));
+		writel(0, priv->regs[q] + CARV_Q_AT_RMR(priv->q_user, i));
+	}
 }
 
 static void q_clear_mapper(struct carvnet *priv)
 {
 	int i;
+	u32 q;
 
 	/* Clear all simple region mappings */
 	for (i = 0; i < CARV_AT_SIMPLE_REGIONS; i++)
@@ -628,8 +639,10 @@ static void q_clear_mapper(struct carvnet *priv)
 
 	/* Clear BARs */
 	for (i = 0; i < BAR_CNT; i++) {
-		writel(0, priv->regs + CARV_Q_AT_BARL(priv->q_user, i));
-		writel(0, priv->regs + CARV_Q_AT_BARH(priv->q_user, i));
+		for (q = 0; q < priv->num_quartiles; q++) {
+			writel(0, priv->regs[q] + CARV_Q_AT_BARL(priv->q_user, i));
+			writel(0, priv->regs[q] + CARV_Q_AT_BARH(priv->q_user, i));
+		}
 	}
 }
 
@@ -641,6 +654,7 @@ static int q_set_mapper(struct carvnet *priv)
 	struct rproc *rproc;
 	size_t aggr_len = 0;
 	dma_addr_t aggr_dma;
+	u32 q;
 
 	q_clear_mapper(priv);
 
@@ -662,10 +676,13 @@ static int q_set_mapper(struct carvnet *priv)
 
 	/* Write all BARs to registers */
 	for (i = 0; i < priv->bar_info_cnt; i++) {
-		writel(CARV_Q_AT_BARL_ADDR(priv->bar_info[i].addr) | priv->bar_info[i].bar_type,
-			priv->regs + CARV_Q_AT_BARL(priv->q_user, i));
-		writel(CARV_Q_AT_BARH_ADDR(priv->bar_info[i].addr),
-			priv->regs + CARV_Q_AT_BARH(priv->q_user, i));
+		for (q = 0; q < priv->num_quartiles; q++) {
+			writel(CARV_Q_AT_BARL_ADDR(priv->bar_info[i].addr) |
+				priv->bar_info[i].bar_type,
+				priv->regs[q] + CARV_Q_AT_BARL(priv->q_user, i));
+			writel(CARV_Q_AT_BARH_ADDR(priv->bar_info[i].addr),
+				priv->regs[q] + CARV_Q_AT_BARH(priv->q_user, i));
+		}
 	}
 
 	/* Set mapping of the memory regions */
@@ -706,7 +723,7 @@ static int q_set_mapper(struct carvnet *priv)
 static int q_msg_send_info(struct carvnet *priv, u32 info)
 {
 	/* Send info by mailbox 0 */
-	writel(info, priv->regs + CARV_Q_MB_INFO_CR(0, 0));
+	writel(info, priv->regs[0] + CARV_Q_MB_INFO_CR(0, 0));
 
 	return 0;
 }
@@ -720,17 +737,17 @@ static void q_stop(struct carvnet *priv)
 
 	/* Wait for the MB_CR Done bit with timeout 10ms */
 	ret = read_poll_timeout(GET_CARV_Q_MB_CR_DONE, done, done == 1, 100, 10000, false,
-			readl(priv->regs + CARV_Q_MB_CR(priv->q_user)));
+			readl(priv->regs[0] + CARV_Q_MB_CR(priv->q_user)));
 	if (ret)
 		dev_info(priv->dev, "Waiting Done bit timeout\n");
 
 	/* Stop the FW */
-	writel(0, priv->regs + CARV_Q_MB_CR(0));
+	writel(0, priv->regs[0] + CARV_Q_MB_CR(0));
 
 	/* Disable Functional Interrupts: User configurable mask */
-	writel(0, priv->regs + CARV_Q_MB_IER(0));
+	writel(0, priv->regs[0] + CARV_Q_MB_IER(0));
 	/* Disable Fault Interrupts: User configurable mask */
-	writel(0, priv->regs + CARV_Q_MB_FER(0));
+	writel(0, priv->regs[0] + CARV_Q_MB_FER(0));
 }
 
 static int q_start(struct carvnet *priv)
@@ -738,9 +755,9 @@ static int q_start(struct carvnet *priv)
 	int ret;
 
 	/* Enable Functional Interrupts: User configurable mask */
-	writel(FUNC_ENABLE_MASK, priv->regs + CARV_Q_MB_IER(0));
+	writel(FUNC_ENABLE_MASK, priv->regs[0] + CARV_Q_MB_IER(0));
 	/* Enable Fault Interrupts: User configurable mask */
-	writel(FAULT_ENABLE_MASK, priv->regs + CARV_Q_MB_FER(0));
+	writel(FAULT_ENABLE_MASK, priv->regs[0] + CARV_Q_MB_FER(0));
 
 	/* Set Mapper */
 	ret = q_set_mapper(priv);
@@ -748,7 +765,7 @@ static int q_start(struct carvnet *priv)
 		goto err;
 
 	/* Start the FW */
-	writel(CARV_Q_MB_CR_ENA(1) | CARV_Q_MB_CR_RSTSTART(1), priv->regs + CARV_Q_MB_CR(0));
+	writel(CARV_Q_MB_CR_ENA(1) | CARV_Q_MB_CR_RSTSTART(1), priv->regs[0] + CARV_Q_MB_CR(0));
 
 	return 0;
 
@@ -807,19 +824,22 @@ static void carvnet_rproc_kick(struct rproc *rproc, int vqid)
 static int carvnet_dump_regs_show(struct seq_file *seq, void *unused)
 {
 	struct carvnet *priv = seq->private;
-	int i;
+	u32 i;
+	u32 q;
 
-	/* Global regs (GL_*) */
-	for (i = 0; q_regmap_tab_gl[i].name; i++)
-		seq_printf(seq, "%-14s: 0x%08x\n", q_regmap_tab_gl[i].name,
-			   readl(priv->regs + q_regmap_tab_gl[i].addr));
+	for (q = 0; q < priv->num_quartiles; q++) {
+		seq_printf(seq, "Quartile %u:\n", q);
+		/* Global regs (GL_*) */
+		for (i = 0; q_regmap_tab_gl[i].name; i++)
+			seq_printf(seq, "%-14s: 0x%08x\n", q_regmap_tab_gl[i].name,
+				   readl(priv->regs[q] + q_regmap_tab_gl[i].addr));
 
-	/* User 0 set */
-	for (i = 0; q_regmap_tab_u[i].name; i++)
-		seq_printf(seq, "%-14s: 0x%08x\n", q_regmap_tab_u[i].name,
-			   readl(priv->regs + q_regmap_tab_u[i].addr +
-			   CARV_Q_USER_OFFSET(0)));
-
+		/* User 0 set */
+		for (i = 0; q_regmap_tab_u[i].name; i++)
+			seq_printf(seq, "%-14s: 0x%08x\n", q_regmap_tab_u[i].name,
+				   readl(priv->regs[q] + q_regmap_tab_u[i].addr +
+				   CARV_Q_USER_OFFSET(0)));
+	}
 	return 0;
 }
 DEFINE_SHOW_ATTRIBUTE(carvnet_dump_regs);
@@ -1093,13 +1113,13 @@ static irqreturn_t carvnet_rproc_handle_irq(int irq_num, void *d)
 	struct carvnet *priv = (struct carvnet *)d;
 	u32 irq_mask, ier_mask, fer_mask;
 
-	irq_mask = readl(priv->regs + CARV_Q_MB_IR(priv->q_user));
-	ier_mask = readl(priv->regs + CARV_Q_MB_IER(priv->q_user));
-	fer_mask = readl(priv->regs + CARV_Q_MB_FER(priv->q_user));
+	irq_mask = readl(priv->regs[0] + CARV_Q_MB_IR(priv->q_user));
+	ier_mask = readl(priv->regs[0] + CARV_Q_MB_IER(priv->q_user));
+	fer_mask = readl(priv->regs[0] + CARV_Q_MB_FER(priv->q_user));
 
 	/* Write back the interrupt bits to clear the interrupt in the CARV hardware */
 	irq_mask &= (ier_mask | fer_mask);
-	writel(irq_mask, priv->regs + CARV_Q_MB_IR(priv->q_user));
+	writel(irq_mask, priv->regs[0] + CARV_Q_MB_IR(priv->q_user));
 
 	if (GET_CARV_INT_UPDATE(irq_mask))
 		schedule_work(&priv->rproc_work);
@@ -1124,6 +1144,7 @@ static int carvnet_rproc_probe(struct platform_device *pdev)
 	int irq_index;
 	int irq;
 	int ret;
+	u32 q;
 
 	ret = rproc_of_parse_firmware(dev, 0, &fw_name);
 	if (ret)
@@ -1148,9 +1169,17 @@ static int carvnet_rproc_probe(struct platform_device *pdev)
 
 	dev_set_drvdata(dev, rproc);
 
-	priv->regs = devm_platform_ioremap_resource(pdev, 0);
-	if (WARN_ON(IS_ERR(priv->regs)))
-		return PTR_ERR(priv->regs);
+	if (pdev->num_resources > MAX_QUARTILES || pdev->num_resources == 0)
+		return dev_err_probe(dev, -EINVAL, "Invalid number of Reg: %u\n",
+				     pdev->num_resources);
+
+	priv->num_quartiles = pdev->num_resources;
+
+	for (q = 0; q < priv->num_quartiles; q++) {
+		priv->regs[q] = devm_platform_ioremap_resource(pdev, q);
+		if (!priv->regs[q])
+			return dev_err_probe(dev, ret, "Failed to ioremap register region %u", q);
+	}
 
 	rproc->auto_boot = auto_boot;
 
