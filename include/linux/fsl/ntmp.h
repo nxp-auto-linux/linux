@@ -7,6 +7,7 @@
 #include <linux/if_ether.h>
 
 #define ISIT_FRAME_KEY_LEN		16
+#define IPFT_MAX_PLD_LEN		24
 
 struct maft_keye_data {
 	u8 mac_addr[ETH_ALEN];
@@ -221,6 +222,81 @@ struct isct_stse_data {
 	__le32 resv3;
 };
 
+struct ipft_pld_byte {
+	u8 data;
+	u8 mask;
+};
+
+struct ipft_keye_data {
+	__le16 precedence;
+	__le16 resv0[3];
+	__le16 frm_attr_flags;
+#define IPFT_FAF_OVLAN		BIT(2)
+#define IPFT_FAF_IVLAN		BIT(3)
+#define IPFT_FAF_IP_HDR		BIT(7)
+#define IPFT_FAF_IP_VER6	BIT(8)
+#define IPFT_FAF_L4_CODE	GENMASK(11, 10)
+#define  IPFT_FAF_TCP_HDR	1
+#define  IPFT_FAF_UDP_HDR	2
+#define  IPFT_FAF_SCTP_HDR	3
+#define IPFT_FAF_WOL_MAGIC	BIT(12)
+	__le16 frm_attr_flags_mask;
+	__le16 dscp;
+#define IPFT_DSCP		GENMASK(5, 0)
+#define IPFT_DSCP_MASK		GENMASK(11, 0)
+#define IPFT_DSCP_MASK_ALL	0x3f
+	__le16 src_port; /* This field is reserved for ENETC */
+#define	IPFT_SRC_PORT		GENMASK(4, 0)
+#define IPFT_SRC_PORT_MASK	GENMASK(9, 5)
+#define IPFT_SRC_PORT_MASK_ALL	0x1f
+	__be16 outer_vlan_tci;
+	__be16 outer_vlan_tci_mask;
+	u8 dmac[ETH_ALEN];
+	u8 dmac_mask[ETH_ALEN];
+	u8 smac[ETH_ALEN];
+	u8 smac_mask[ETH_ALEN];
+	__be16 inner_vlan_tci;
+	__be16 inner_vlan_tci_mask;
+	__be16 ethertype;
+	__be16 ethertype_mask;
+	u8 ip_protocol;
+	u8 ip_protocol_mask;
+	__le16 resv1[7];
+	__be32 ip_src[4];
+	__le32 resv2[2];
+	__be32 ip_src_mask[4];
+	__be16 l4_src_port;
+	__be16 l4_src_port_mask;
+	__le32 resv3;
+	__be32 ip_dst[4];
+	__le32 resv4[2];
+	__be32 ip_dst_mask[4];
+	__be16 l4_dst_port;
+	__be16 l4_dst_port_mask;
+	__le32 resv5;
+	struct ipft_pld_byte byte[IPFT_MAX_PLD_LEN];
+};
+
+struct ipft_cfge_data {
+	__le32 cfg;
+#define IPFT_IPV		GENMASK(3, 0)
+#define IPFT_OIPV		BIT(4)
+#define IPFT_DR			GENMASK(6, 5)
+#define IPFT_ODR		BIT(7)
+#define IPFT_FLTFA		GENMASK(10, 8)
+#define IPFT_IMIRE		BIT(11)
+#define IPFT_WOLTE		BIT(12)
+#define IPFT_FLTA		GENMASK(14, 13)
+#define IPFT_RPR		GENMASK(16, 15)
+#define IPFT_CTD		BIT(17)
+#define IPFT_HR			GENMASK(21, 18)
+#define IPFT_TIMECAPE		BIT(22)
+#define IPFT_RRT		BIT(23)
+#define IPFT_BL2F		BIT(24)
+#define IPFT_EVMEID		GENMASK(31, 28)
+	__le32 flta_tgt;
+};
+
 struct netc_cbdr_regs {
 	void __iomem *pir;
 	void __iomem *cir;
@@ -236,6 +312,7 @@ struct netc_tbl_vers {
 	u8 rsst_ver;
 	u8 tgst_ver;
 	u8 rpt_ver;
+	u8 ipft_ver;
 	u8 isit_ver;
 	u8 ist_ver;
 	u8 isft_ver;
@@ -327,6 +404,13 @@ struct ntmp_isct_entry {
 	struct isct_stse_data stse;
 };
 
+struct ntmp_ipft_entry {
+	u32 entry_id; /* hardware assigns entry ID */
+	struct ipft_keye_data keye;
+	struct ipft_cfge_data cfge;
+	__le64 match_count; /* STSE_DATA */
+};
+
 #if IS_ENABLED(CONFIG_NXP_NETC_LIB)
 int ntmp_init_cbdr(struct netc_cbdr *cbdr, struct device *dev,
 		   const struct netc_cbdr_regs *regs);
@@ -348,6 +432,12 @@ int ntmp_ist_add_entry(struct ntmp_user *user, struct ntmp_ist_entry *entry);
 int ntmp_ist_delete_entry(struct ntmp_user *user, u32 entry_id);
 int ntmp_isct_set_entry(struct ntmp_user *user, u32 entry_id,
 			int cmd, struct isct_stse_data *data);
+int ntmp_ipft_add_entry(struct ntmp_user *user, struct ntmp_ipft_entry *entry);
+int ntmp_ipft_update_entry(struct ntmp_user *user, u32 entry_id,
+			   struct ipft_cfge_data *cfge);
+int ntmp_ipft_query_entry(struct ntmp_user *user, u32 entry_id,
+			  bool update, struct ntmp_ipft_entry *entry);
+int ntmp_ipft_delete_entry(struct ntmp_user *user, u32 entry_id);
 #else
 static inline int ntmp_init_cbdr(struct netc_cbdr *cbdr, struct device *dev,
 				 const struct netc_cbdr_regs *regs)
@@ -412,6 +502,28 @@ static inline int ntmp_ist_delete_entry(struct ntmp_user *user, u32 entry_id)
 
 static inline int ntmp_isct_set_entry(struct ntmp_user *user, u32 entry_id,
 				      int cmd, struct isct_stse_data *stse)
+{
+	return 0;
+}
+static inline int ntmp_ipft_add_entry(struct ntmp_user *user,
+				      struct ntmp_ipft_entry *entry)
+{
+	return 0;
+}
+
+static inline int ntmp_ipft_update_entry(struct ntmp_user *user, u32 entry_id,
+					 struct ipft_cfge_data *cfge)
+{
+	return 0;
+}
+
+static inline int ntmp_ipft_query_entry(struct ntmp_user *user, u32 entry_id,
+					bool update, struct ntmp_ipft_entry *entry)
+{
+	return 0;
+}
+
+static inline int ntmp_ipft_delete_entry(struct ntmp_user *user, u32 entry_id)
 {
 	return 0;
 }
