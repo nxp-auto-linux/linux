@@ -90,6 +90,30 @@
 #define ENETC4_PTCTSDR(a)		((a) * 0x4 + 0x390)
 #define  PTCTSDR_TSDE			BIT(31)
 
+/* Ingress port capability register */
+#define ENETC4_IPCAPR			0x1000
+#define  IPCAPR_ISID			BIT(2)
+
+/* Rate policer index table capability register */
+#define ENETC4_RPITCAPR			0x1814
+#define  RPITCAPR_NUM_ENTRIES		GENMASK(13, 0)
+
+/* Ingress stream counter index table capability register */
+#define ENETC4_ISCICAPR			0x1824
+#define  ISCICAPR_NUM_ENTRIES		GENMASK(15, 0)
+
+/* Ingress stream index table capability register  */
+#define ENETC4_ISITCAPR			0x1834
+#define  ISITCAPR_NUM_ENTRIES		GENMASK(15, 0)
+
+/* Stream gate instance index table capability register */
+#define	ENETC4_SGIITCAPR		0x1864
+#define  SGITCAPR_NUM_ENTRIES		GENMASK(15, 0)
+
+/* Stream gate control list index table capability register */
+#define ENETC4_SGCLITCAPR		0x1874
+#define  SGCLITCAPR_NUM_WORDS		GENMASK(15, 0)
+
 /* Time gate scheduling table capability register */
 #define ENETC4_TGSTCAPR			0x18d4
 #define  TGSTCAPR_NUM_WORDS		GENMASK(15, 0)
@@ -97,6 +121,15 @@
 /* Time gate scheduling table memory operation register */
 #define ENETC4_TGSTMOR			0x18dc
 #define  TGSTMOR_NUM_WORDS		GENMASK(15, 0)
+
+/* Ingress stream identification key construction a configuration register 0 */
+#define ENETC4_ISIDKC0CR0		0x1924
+#define ENETC4_ISIDKC1CR0		0x1944
+#define  ISIDKCCR0_VALID		BIT(0)
+#define  ISIDKCCR0_DMACP		BIT(3)
+#define  ISIDKCCR0_SMACP		BIT(4)
+#define  ISIDKCCR0_OVIDP		BIT(5)
+#define  ISIDKCCR0_OPCPP		BIT(6)
 
 /* Port Station interface a primary MAC address registers */
 #define ENETC4_PSIPMAR0(a)		((a) * 0x80 + 0x2000)
@@ -176,6 +209,11 @@
 
 /* Port traffic class a credit based shaper register 1 */
 #define ENETC4_PTCCBSR1(a)		((a) * 0x20 + 0x4214)
+
+/* Port ingress stream identification configuration register */
+#define ENETC4_PISIDCR			0x4460
+#define  PISIDCR_KC0EN			BIT(1)
+#define  PISIDCR_KC1EN			BIT(2)
 
 #define ENETC4_PMAC_OFFSET		0x400
 #define ENETC4_PM_CMD_CFG(mac)		(0x5008 + (mac) * 0x400)
