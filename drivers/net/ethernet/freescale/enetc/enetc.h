@@ -288,6 +288,16 @@ struct enetc_platform_info {
 	const struct enetc_drvdata *data;
 };
 
+struct enetc_debugfs_params {
+	u32 isit_eid;
+	u32 ist_eid;
+	u32 isft_eid;
+	u32 sgit_eid;
+	u32 sgclt_eid;
+	u32 isct_eid;
+	u32 rpt_eid;
+};
+
 struct enetc_si;
 
 /*
@@ -327,6 +337,7 @@ struct enetc_si {
 	struct workqueue_struct *workqueue;
 	struct work_struct rx_mode_task;
 	struct dentry *debugfs_root;
+	struct enetc_debugfs_params dbg_params;
 };
 
 #define ENETC_SI_ALIGN	32
