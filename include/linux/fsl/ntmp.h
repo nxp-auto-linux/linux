@@ -8,6 +8,10 @@
 
 #define ISIT_FRAME_KEY_LEN		16
 #define IPFT_MAX_PLD_LEN		24
+#define NTMP_NULL_ENTRY_ID		0xffffffffU
+
+/* NTMP errata */
+#define NTMP_ERR052134			BIT(0)
 
 struct maft_keye_data {
 	u8 mac_addr[ETH_ALEN];
@@ -307,6 +311,11 @@ struct netc_cbdr_regs {
 	void __iomem *lenr;
 };
 
+enum ntmp_table_version {
+	NTMP_TBL_VER0 = 0, /* MUST be 0 */
+	NTMP_TBL_VER1,
+};
+
 struct netc_tbl_vers {
 	u8 maft_ver;
 	u8 rsst_ver;
@@ -339,6 +348,18 @@ struct netc_cbdr {
 	spinlock_t ring_lock;
 };
 
+enum netc_dev_type {
+	NETC_DEV_ENETC,
+	NETC_DEV_SWITCH
+};
+struct ntmp_caps {
+	int rpt_num_entries;
+	int isct_num_entries;
+	int ist_num_entries;
+	int sgit_num_entries;
+	int sgclt_num_words;
+};
+
 struct ntmp_user;
 
 struct ntmp_ops {
@@ -348,11 +369,24 @@ struct ntmp_ops {
 };
 
 struct ntmp_user {
+	enum netc_dev_type dev_type;
 	int cbdr_num;	/* number of control BD ring */
 	struct device *dev;
 	struct netc_cbdr *ring;
 	struct netc_tbl_vers tbl;
 	const struct ntmp_ops *ops;
+
+	u32 errata;
+	struct ntmp_caps caps;
+	/* bitmap of table entry ID */
+	unsigned long *ist_eid_bitmap;
+	unsigned long *rpt_eid_bitmap;
+	unsigned long *sgit_eid_bitmap;
+	unsigned long *isct_eid_bitmap;
+	unsigned long *sgclt_word_bitmap;
+
+	struct hlist_head flower_list;
+	struct mutex flower_lock; /* flower_list lock */
 };
 
 struct maft_entry_data {
@@ -417,6 +451,8 @@ int ntmp_init_cbdr(struct netc_cbdr *cbdr, struct device *dev,
 void ntmp_free_cbdr(struct netc_cbdr *cbdr);
 
 /* NTMP APIs */
+u32 ntmp_lookup_free_eid(unsigned long *bitmap, u32 size);
+void ntmp_clear_eid_bitmap(unsigned long *bitmap, u32 entry_id);
 int ntmp_maft_add_entry(struct ntmp_user *user, u32 entry_id,
 			struct maft_entry_data *maft);
 int ntmp_maft_query_entry(struct ntmp_user *user, u32 entry_id,
@@ -439,6 +475,15 @@ int ntmp_ipft_query_entry(struct ntmp_user *user, u32 entry_id,
 			  bool update, struct ntmp_ipft_entry *entry);
 int ntmp_ipft_delete_entry(struct ntmp_user *user, u32 entry_id);
 #else
+static inline u32 ntmp_lookup_free_eid(unsigned long *bitmap, u32 size)
+{
+	return NTMP_NULL_ENTRY_ID;
+}
+
+static inline void ntmp_clear_eid_bitmap(unsigned long *bitmap, u32 entry_id)
+{
+}
+
 static inline int ntmp_init_cbdr(struct netc_cbdr *cbdr, struct device *dev,
 				 const struct netc_cbdr_regs *regs)
 {
