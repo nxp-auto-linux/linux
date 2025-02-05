@@ -290,6 +290,16 @@ struct enetc_platform_info {
 	const struct enetc_drvdata *data;
 };
 
+struct enetc_debugfs_params {
+	u32 isit_eid;
+	u32 ist_eid;
+	u32 isft_eid;
+	u32 sgit_eid;
+	u32 sgclt_eid;
+	u32 isct_eid;
+	u32 rpt_eid;
+};
+
 struct enetc_si;
 
 /*
@@ -335,6 +345,7 @@ struct enetc_si {
 
 	DECLARE_BITMAP(vlan_ht_filter, ENETC_VLAN_HT_SIZE);
 	DECLARE_BITMAP(active_vlans, VLAN_N_VID);
+	struct enetc_debugfs_params dbg_params;
 };
 
 #define ENETC_SI_ALIGN	32
