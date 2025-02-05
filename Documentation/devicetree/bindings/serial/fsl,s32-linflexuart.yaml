@@ -31,6 +31,7 @@ properties:
           - enum:
               - nxp,s32g2-linflexuart
               - nxp,s32g3-linflexuart
+              - nxp,s32n79-linflexuart
           - const: fsl,s32v234-linflexuart
 
   reg:
