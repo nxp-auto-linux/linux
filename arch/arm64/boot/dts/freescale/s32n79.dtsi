@@ -107,7 +107,14 @@
 			mbox-names = "tx";
 			shmem = <&scmi_tx_buf>;
 			arm,smc-id = <0xc2000000>;
+			#address-cells = <1>;
+			#size-cells = <0>;
 			status = "okay";
+
+			clks: protocol@14 {
+				reg = <0x14>;
+				#clock-cells = <1>;
+			};
 		};
 
 		psci {
