@@ -383,6 +383,10 @@ static void enetc4_get_psi_hw_features(struct enetc_si *si)
 	val = enetc_port_rd(hw, ENETC4_PCAPR);
 	if (val & PCAPR_TGS)
 		si->hw_features |= ENETC_SI_F_QBV;
+
+	val = enetc_port_rd(hw, ENETC4_IPCAPR);
+	if (val & IPCAPR_ISID)
+		si->hw_features |= ENETC_SI_F_PSFP;
 }
 
 static const struct enetc_pf_ops enetc4_pf_ops = {
@@ -556,11 +560,31 @@ static void enetc4_enable_trx(struct enetc_pf *pf)
 	enetc_port_wr(hw, ENETC4_POR, 0);
 }
 
+static void enetc4_set_isit_key_profile(struct enetc_pf *pf)
+{
+	struct enetc_hw *hw = &pf->si->hw;
+	u32 val;
+
+	/* Key construction rule 0: SMAC + VID */
+	val = ISIDKCCR0_VALID | ISIDKCCR0_SMACP | ISIDKCCR0_OVIDP;
+	enetc_port_wr(hw, ENETC4_ISIDKC0CR0, val);
+
+	/* Key construction rule 1: DMAC + VID */
+	val = ISIDKCCR0_VALID | ISIDKCCR0_DMACP | ISIDKCCR0_OVIDP;
+	enetc_port_wr(hw, ENETC4_ISIDKC1CR0, val);
+
+	/* Enable key construction rule 0 and 1 */
+	val = enetc_port_rd(hw, ENETC4_PISIDCR);
+	val |= PISIDCR_KC0EN | PISIDCR_KC1EN;
+	enetc_port_wr(hw, ENETC4_PISIDCR, val);
+}
+
 static void enetc4_configure_port(struct enetc_pf *pf)
 {
 	enetc4_configure_port_si(pf);
 	enetc4_set_trx_frame_size(pf);
 	enetc_set_default_rss_key(pf);
+	enetc4_set_isit_key_profile(pf);
 	enetc4_enable_trx(pf);
 }
 
@@ -616,20 +640,136 @@ static const struct ntmp_ops ntmp_ops = {
 	.get_tgst_free_words = enetc4_get_tgst_free_words,
 };
 
+static void enetc4_get_ntmp_caps(struct enetc_si *si)
+{
+	struct ntmp_caps *caps = &si->ntmp_user.caps;
+	struct enetc_hw *hw = &si->hw;
+	u32 val;
+
+	/* Get the max number of entris of RP table */
+	val = enetc_port_rd(hw, ENETC4_RPITCAPR);
+	caps->rpt_num_entries = val & RPITCAPR_NUM_ENTRIES;
+
+	/* Get the max number of entris of IS table */
+	val = enetc_port_rd(hw, ENETC4_ISITCAPR);
+	caps->ist_num_entries = val & ISITCAPR_NUM_ENTRIES;
+
+	/* Get the max number of entris of SGI table */
+	val = enetc_port_rd(hw, ENETC4_SGIITCAPR);
+	caps->sgit_num_entries = val & SGITCAPR_NUM_ENTRIES;
+
+	/* Get the max number of entris of ISC table */
+	val = enetc_port_rd(hw, ENETC4_ISCICAPR);
+	caps->isct_num_entries = val & ISCICAPR_NUM_ENTRIES;
+
+	/* Get the max number of words of SGCL table */
+	val = enetc_port_rd(hw, ENETC4_SGCLITCAPR);
+	caps->sgclt_num_words = val & SGCLITCAPR_NUM_WORDS;
+}
+
+static int enetc4_ntmp_bitmap_init(struct ntmp_user *user)
+{
+	struct ntmp_caps *caps = &user->caps;
+
+	user->ist_eid_bitmap = bitmap_zalloc(caps->ist_num_entries, GFP_KERNEL);
+	if (!user->ist_eid_bitmap)
+		return -ENOMEM;
+
+	user->sgit_eid_bitmap = bitmap_zalloc(caps->sgit_num_entries, GFP_KERNEL);
+	if (!user->sgit_eid_bitmap)
+		goto free_ist_bitmap;
+
+	user->sgclt_word_bitmap = bitmap_zalloc(caps->sgclt_num_words, GFP_KERNEL);
+	if (!user->sgclt_word_bitmap)
+		goto free_sgit_bitmap;
+
+	user->isct_eid_bitmap = bitmap_zalloc(caps->isct_num_entries, GFP_KERNEL);
+	if (!user->isct_eid_bitmap)
+		goto free_sgclt_bitmap;
+
+	user->rpt_eid_bitmap = bitmap_zalloc(caps->rpt_num_entries, GFP_KERNEL);
+	if (!user->rpt_eid_bitmap)
+		goto free_isct_bitmap;
+
+	return 0;
+
+free_isct_bitmap:
+	bitmap_free(user->isct_eid_bitmap);
+	user->isct_eid_bitmap = NULL;
+
+free_sgclt_bitmap:
+	bitmap_free(user->sgclt_word_bitmap);
+	user->sgclt_word_bitmap = NULL;
+
+free_sgit_bitmap:
+	bitmap_free(user->sgit_eid_bitmap);
+	user->sgit_eid_bitmap = NULL;
+
+free_ist_bitmap:
+	bitmap_free(user->ist_eid_bitmap);
+	user->ist_eid_bitmap = NULL;
+
+	return -ENOMEM;
+}
+
+static void enetc4_ntmp_bitmap_free(struct ntmp_user *user)
+{
+	bitmap_free(user->rpt_eid_bitmap);
+	user->rpt_eid_bitmap = NULL;
+
+	bitmap_free(user->isct_eid_bitmap);
+	user->isct_eid_bitmap = NULL;
+
+	bitmap_free(user->sgclt_word_bitmap);
+	user->sgclt_word_bitmap = NULL;
+
+	bitmap_free(user->sgit_eid_bitmap);
+	user->sgit_eid_bitmap = NULL;
+
+	bitmap_free(user->ist_eid_bitmap);
+	user->ist_eid_bitmap = NULL;
+}
+
 static int enetc4_init_ntmp_user(struct enetc_si *si)
 {
 	struct ntmp_user *user = &si->ntmp_user;
+	int err;
 
 	user->ops = &ntmp_ops;
+	user->dev_type = NETC_DEV_ENETC;
+	if (si->revision == ENETC_REV_4_1)
+		user->errata = NTMP_ERR052134;
 
 	/* For ENETC 4.1, all table versions are 0 */
 	memset(&user->tbl, 0, sizeof(user->tbl));
 
-	return enetc4_setup_cbdr(si);
+	err = enetc4_setup_cbdr(si);
+	if (err)
+		return err;
+
+	enetc4_get_ntmp_caps(si);
+	err = enetc4_ntmp_bitmap_init(user);
+	if (err)
+		goto teardown_cbdr;
+
+	INIT_HLIST_HEAD(&user->flower_list);
+	mutex_init(&user->flower_lock);
+
+	return 0;
+
+teardown_cbdr:
+	enetc4_teardown_cbdr(si);
+
+	return err;
 }
 
 static void enetc4_free_ntmp_user(struct enetc_si *si)
 {
+	struct ntmp_user *user = &si->ntmp_user;
+
+	enetc4_clear_flower_list(si);
+	mutex_destroy(&user->flower_lock);
+	enetc4_ntmp_bitmap_free(user);
 	enetc4_teardown_cbdr(si);
 }
 
