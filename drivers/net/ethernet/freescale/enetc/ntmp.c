@@ -184,6 +184,59 @@ cbdr_unlock:
 	return err;
 }
 
+u32 ntmp_lookup_free_eid(unsigned long *bitmap, u32 size)
+{
+	u32 entry_id;
+
+	entry_id = find_first_zero_bit(bitmap, size);
+	if (entry_id == size)
+		return NTMP_NULL_ENTRY_ID;
+
+	/* Set the bit once we found it */
+	set_bit(entry_id, bitmap);
+
+	return entry_id;
+}
+EXPORT_SYMBOL_GPL(ntmp_lookup_free_eid);
+
+void ntmp_clear_eid_bitmap(unsigned long *bitmap, u32 entry_id)
+{
+	if (entry_id == NTMP_NULL_ENTRY_ID)
+		return;
+
+	clear_bit(entry_id, bitmap);
+}
+EXPORT_SYMBOL_GPL(ntmp_clear_eid_bitmap);
+
+u32 ntmp_lookup_free_words(unsigned long *bitmap, u32 size, u32 num_words)
+{
+	u32 entry_id, next_eid, num;
+
+	do {
+		entry_id = find_first_zero_bit(bitmap, size);
+		if (entry_id == size)
+			return NTMP_NULL_ENTRY_ID;
+
+		next_eid = find_next_bit(bitmap, size, entry_id + 1);
+		num = next_eid - entry_id;
+	} while (num < num_words && next_eid != size);
+
+	if (num < num_words)
+		return NTMP_NULL_ENTRY_ID;
+
+	bitmap_set(bitmap, entry_id, num_words);
+
+	return entry_id;
+}
+
+void ntmp_clear_words_bitmap(unsigned long *bitmap, u32 entry_id, u32 num_words)
+{
+	if (entry_id == NTMP_NULL_ENTRY_ID)
+		return;
+
+	bitmap_clear(bitmap, entry_id, num_words);
+}
+
 static int ntmp_alloc_data_mem(struct ntmp_dma_buf *data, void **buf_align)
 {
 	void *buf;

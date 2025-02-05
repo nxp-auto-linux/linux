@@ -14,6 +14,9 @@
 #define NETC_CBDR_BD_NUM	256
 #define TGST_MAX_ENTRY_NUM	64
 #define NTMP_STATUS_RESP_LEN	4
+#define SGCLT_MAX_GE_NUM	256
+#define SGIT_MAX_CYCLE_TIME	0x3fffffffU
+#define SDU_TYPE_MPDU		1
 
 union netc_cbd {
 	struct {
@@ -337,6 +340,8 @@ struct ipft_req_qd {
 	__le32 resv[52];
 };
 
+u32 ntmp_lookup_free_words(unsigned long *bitmap, u32 size, u32 num_words);
+void ntmp_clear_words_bitmap(unsigned long *bitmap, u32 entry_id, u32 num_words);
 int ntmp_tgst_query_entry(struct ntmp_user *user, u32 entry_id,
 			  struct tgst_query_data *tgst);
 int ntmp_tgst_update_admin_gate_list(struct ntmp_user *user, u32 entry_id,
