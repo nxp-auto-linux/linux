@@ -12,6 +12,9 @@
 #include <net/pkt_sched.h>
 #include <net/tc_act/tc_gate.h>
 
+#define is_en(x)	(x) ? "Enabled" : "Disabled"
+#define is_yes(x)	(x) ? "Yes" : "No"
+
 enum netc_flower_type {
 	FLOWER_TYPE_PSFP,
 };
@@ -173,8 +176,77 @@ static inline int netc_psfp_flower_stat(struct ntmp_user *user,
 /* debugfs API */
 int netc_show_tgst_entry(struct ntmp_user *user, struct seq_file *s,
 			 u32 entry_id);
+int netc_kstrtouint(const char __user *buffer, size_t count, loff_t *ppos, u32 *val);
+void netc_show_psfp_flower(struct seq_file *s, struct netc_flower_rule *rule);
+int netc_show_isit_entry(struct ntmp_user *user, struct seq_file *s, u32 entry_id);
+int netc_show_ist_entry(struct ntmp_user *user, struct seq_file *s, u32 entry_id);
+int netc_show_isft_entry(struct ntmp_user *user, struct seq_file *s, u32 entry_id);
+int netc_show_sgit_entry(struct ntmp_user *user, struct seq_file *s, u32 entry_id);
+int netc_show_sgclt_entry(struct ntmp_user *user, struct seq_file *s, u32 entry_id);
+int netc_show_isct_entry(struct ntmp_user *user, struct seq_file *s, u32 entry_id);
+int netc_show_rpt_entry(struct ntmp_user *user, struct seq_file *s, u32 entry_id);
+int netc_show_ipft_entry(struct ntmp_user *user, struct seq_file *s, u32 entry_id);
 #else
 static inline int netc_show_tgst_entry(struct ntmp_user *user,
+				       struct seq_file *s, u32 entry_id)
+{
+	return 0;
+}
+
+static inline int netc_kstrtouint(const char __user *buffer, size_t count,
+				  loff_t *ppos, u32 *val)
+{
+	return 0;
+}
+
+static inline void netc_show_psfp_flower(struct seq_file *s,
+					 struct netc_flower_rule *rule)
+{
+}
+
+static inline int netc_show_isit_entry(struct ntmp_user *user,
+				       struct seq_file *s, u32 entry_id)
+{
+	return 0;
+}
+
+static inline int netc_show_ist_entry(struct ntmp_user *user,
+				      struct seq_file *s, u32 entry_id)
+{
+	return 0;
+}
+
+static inline int netc_show_isft_entry(struct ntmp_user *user,
+				       struct seq_file *s, u32 entry_id)
+{
+	return 0;
+}
+
+static inline int netc_show_sgit_entry(struct ntmp_user *user,
+				       struct seq_file *s, u32 entry_id)
+{
+	return 0;
+}
+
+static inline int netc_show_sgclt_entry(struct ntmp_user *user,
+					struct seq_file *s, u32 entry_id)
+{
+	return 0;
+}
+
+static inline int netc_show_isct_entry(struct ntmp_user *user,
+				       struct seq_file *s, u32 entry_id)
+{
+	return 0;
+}
+
+static inline int netc_show_rpt_entry(struct ntmp_user *user,
+				      struct seq_file *s, u32 entry_id)
+{
+	return 0;
+}
+
+static inline int netc_show_ipft_entry(struct ntmp_user *user,
 				       struct seq_file *s, u32 entry_id)
 {
 	return 0;
