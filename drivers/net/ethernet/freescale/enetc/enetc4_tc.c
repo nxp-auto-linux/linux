@@ -4,9 +4,22 @@
  */
 
 #include <linux/fsl/netc_lib.h>
+#include <net/pkt_cls.h>
 
 #include "enetc_pf_common.h"
 #include "enetc4_tc.h"
+
+static LIST_HEAD(enetc4_block_cb_list);
+
+static const struct netc_flower enetc4_flower[] = {
+	{
+		BIT_ULL(FLOW_ACTION_GATE),
+		BIT_ULL(FLOW_ACTION_POLICE),
+		BIT_ULL(FLOW_DISSECTOR_KEY_ETH_ADDRS) |
+		BIT_ULL(FLOW_DISSECTOR_KEY_VLAN),
+		FLOWER_TYPE_PSFP
+	},
+};
 
 static bool enetc4_tc_cbs_is_enable(struct enetc_hw *hw, int tc)
 {
@@ -348,6 +361,208 @@ static int enetc4_setup_tc_txtime(struct net_device *ndev, void *type_data)
 	return 0;
 }
 
+static const struct netc_flower *enetc4_parse_tc_flower(u64 actions, u64 keys)
+{
+	u64 key_acts, all_acts;
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(enetc4_flower); i++) {
+		key_acts = enetc4_flower[i].key_acts;
+		all_acts = enetc4_flower[i].key_acts |
+			   enetc4_flower[i].opt_acts;
+
+		/* key_acts must be matched */
+		if ((actions & key_acts) == key_acts &&
+		    (actions & all_acts) == actions &&
+		    keys & enetc4_flower[i].keys)
+			return &enetc4_flower[i];
+	}
+
+	return NULL;
+}
+
+static int enetc4_config_cls_flower(struct enetc_ndev_priv *priv,
+				    struct flow_cls_offload *f)
+{
+	struct flow_rule *rule = flow_cls_offload_flow_rule(f);
+	struct netlink_ext_ack *extack = f->common.extack;
+	struct flow_action *action = &rule->action;
+	struct flow_dissector *dissector;
+	const struct netc_flower *flower;
+	struct flow_action_entry *entry;
+	struct enetc_si *si = priv->si;
+	u64 actions = 0;
+	int i;
+
+	dissector = rule->match.dissector;
+
+	if (!flow_action_has_entries(action)) {
+		NL_SET_ERR_MSG_MOD(extack, "At least one action is needed");
+		return -EINVAL;
+	}
+
+	if (!flow_action_basic_hw_stats_check(action, extack))
+		return -EOPNOTSUPP;
+
+	flow_action_for_each(i, entry, action)
+		actions |= BIT_ULL(entry->id);
+
+	flower = enetc4_parse_tc_flower(actions, dissector->used_keys);
+	if (!flower) {
+		NL_SET_ERR_MSG_MOD(extack, "Unsupported actions or keys");
+		return -EOPNOTSUPP;
+	}
+
+	switch (flower->type) {
+	case FLOWER_TYPE_PSFP:
+		if (!(si->hw_features & ENETC_SI_F_PSFP))
+			return -EOPNOTSUPP;
+
+		return netc_setup_psfp(&si->ntmp_user, 0, f);
+	default:
+		NL_SET_ERR_MSG_MOD(extack, "Unsupported flower type");
+		return -EOPNOTSUPP;
+	}
+}
+
+static void enetc4_destroy_flower_rule(struct ntmp_user *user,
+				       struct netc_flower_rule *rule)
+{
+	switch (rule->flower_type) {
+	case FLOWER_TYPE_PSFP:
+		netc_delete_psfp_flower_rule(user, rule);
+		break;
+	default:
+		break;
+	}
+}
+
+void enetc4_clear_flower_list(struct enetc_si *si)
+{
+	struct ntmp_user *user = &si->ntmp_user;
+	struct netc_flower_rule *rule;
+	struct hlist_node *tmp;
+
+	mutex_lock(&user->flower_lock);
+
+	hlist_for_each_entry_safe(rule, tmp, &user->flower_list, node)
+		enetc4_destroy_flower_rule(user, rule);
+
+	mutex_unlock(&user->flower_lock);
+}
+
+static int enetc4_destroy_cls_flower(struct enetc_ndev_priv *priv,
+				     struct flow_cls_offload *f)
+{
+	struct netlink_ext_ack *extack = f->common.extack;
+	struct ntmp_user *user = &priv->si->ntmp_user;
+	unsigned long cookie = f->cookie;
+	struct netc_flower_rule *rule;
+	int err = 0;
+
+	mutex_lock(&user->flower_lock);
+	rule = netc_find_flower_rule_by_cookie(user, 0, cookie);
+	if (!rule) {
+		NL_SET_ERR_MSG_MOD(extack, "Cannot find the rule");
+		err = -EINVAL;
+		goto unlock_flower;
+	}
+
+	enetc4_destroy_flower_rule(user, rule);
+
+unlock_flower:
+	mutex_unlock(&user->flower_lock);
+
+	return err;
+}
+
+static int enetc4_get_cls_flower_stats(struct enetc_ndev_priv *priv,
+				       struct flow_cls_offload *f)
+{
+	struct netlink_ext_ack *extack = f->common.extack;
+	struct ntmp_user *user = &priv->si->ntmp_user;
+	unsigned long cookie = f->cookie;
+	struct netc_flower_rule *rule;
+	u64 pkt_cnt, drop_cnt;
+	u64 byte_cnt = 0;
+	int err;
+
+	mutex_lock(&user->flower_lock);
+	rule = netc_find_flower_rule_by_cookie(user, 0, cookie);
+	if (!rule) {
+		NL_SET_ERR_MSG_MOD(extack, "Cannot find the rule");
+		err = -EINVAL;
+		goto unlock_flower;
+	}
+
+	switch (rule->flower_type) {
+	case FLOWER_TYPE_PSFP:
+		err = netc_psfp_flower_stat(user, rule, &byte_cnt,
+					    &pkt_cnt, &drop_cnt);
+		if (err) {
+			NL_SET_ERR_MSG_MOD(extack,
+					   "Failed to get statistics of PSFP");
+			goto unlock_flower;
+		}
+		break;
+	default:
+		NL_SET_ERR_MSG_MOD(extack, "Unknown flower type");
+		err = -EINVAL;
+		goto unlock_flower;
+	}
+
+	flow_stats_update(&f->stats, byte_cnt, pkt_cnt, drop_cnt,
+			  rule->lastused, FLOW_ACTION_HW_STATS_IMMEDIATE);
+	rule->lastused = jiffies;
+
+unlock_flower:
+	mutex_unlock(&user->flower_lock);
+
+	return err;
+}
+
+static int enetc4_setup_tc_cls_flower(struct enetc_ndev_priv *priv,
+				      struct flow_cls_offload *f)
+{
+	switch (f->command) {
+	case FLOW_CLS_REPLACE:
+		return enetc4_config_cls_flower(priv, f);
+	case FLOW_CLS_DESTROY:
+		return enetc4_destroy_cls_flower(priv, f);
+	case FLOW_CLS_STATS:
+		return enetc4_get_cls_flower_stats(priv, f);
+	default:
+		return -EOPNOTSUPP;
+	}
+}
+
+static int enetc4_setup_tc_block_cb(enum tc_setup_type type, void *type_data,
+				    void *cb_priv)
+{
+	struct net_device *ndev = cb_priv;
+	struct enetc_ndev_priv *priv;
+
+	if (!tc_can_offload(ndev))
+		return -EOPNOTSUPP;
+
+	priv = netdev_priv(ndev);
+	switch (type) {
+	case TC_SETUP_CLSFLOWER:
+		return enetc4_setup_tc_cls_flower(priv, type_data);
+	default:
+		return -EOPNOTSUPP;
+	}
+}
+
+static int enetc4_setup_tc_block(struct net_device *ndev, void *type_data)
+{
+	struct flow_block_offload *f = type_data;
+
+	return flow_block_cb_setup_simple(f, &enetc4_block_cb_list,
+					  enetc4_setup_tc_block_cb,
+					  ndev, ndev, true);
+}
+
 int enetc4_pf_setup_tc(struct net_device *ndev, enum tc_setup_type type,
 		       void *type_data)
 {
@@ -362,6 +577,8 @@ int enetc4_pf_setup_tc(struct net_device *ndev, enum tc_setup_type type,
 		return enetc4_setup_tc_taprio(ndev, type_data);
 	case TC_SETUP_QDISC_ETF:
 		return enetc4_setup_tc_txtime(ndev, type_data);
+	case TC_SETUP_BLOCK:
+		return enetc4_setup_tc_block(ndev, type_data);
 	default:
 		return -EOPNOTSUPP;
 	}
