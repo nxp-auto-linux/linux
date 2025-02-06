@@ -877,6 +877,31 @@ static int enetc4_pf_set_features(struct net_device *ndev,
 	return 0;
 }
 
+static int enetc4_pf_set_vf_vlan(struct net_device *ndev, int vf,
+				 u16 vlan, u8 qos, __be16 proto)
+{
+	struct enetc_ndev_priv *priv = netdev_priv(ndev);
+	struct enetc_pf *pf = enetc_si_priv(priv->si);
+	struct enetc_hw *hw = &priv->si->hw;
+	u32 val = vlan & PSIVLANR_VID;
+
+	if (vf >= pf->total_vfs || vlan >= VLAN_N_VID || qos > 7)
+		return -EINVAL;
+
+	if (proto != htons(ETH_P_8021Q))
+		/* only C-tags supported for now */
+		return -EPROTONOSUPPORT;
+
+	if (val) {
+		val = u32_replace_bits(val, qos, PSIVLANR_PCP);
+		val |= PSIVLANR_E;
+	}
+
+	enetc_port_wr(hw, ENETC4_PSIVLANR(vf + 1), val);
+
+	return 0;
+}
+
 static const struct net_device_ops enetc4_ndev_ops = {
 	.ndo_open		= enetc_open,
 	.ndo_stop		= enetc_close,
@@ -893,6 +918,7 @@ static const struct net_device_ops enetc4_ndev_ops = {
 	.ndo_setup_tc		= enetc4_pf_setup_tc,
 	.ndo_set_vf_trust	= enetc_pf_set_vf_trust,
 	.ndo_set_vf_mac		= enetc_pf_set_vf_mac,
+	.ndo_set_vf_vlan	= enetc4_pf_set_vf_vlan,
 };
 
 static struct phylink_pcs *
