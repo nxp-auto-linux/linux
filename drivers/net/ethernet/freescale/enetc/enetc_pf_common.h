@@ -39,6 +39,7 @@ static inline void enetc_pf_send_link_status_msg(struct enetc_pf *pf, bool up)
 #endif
 
 int enetc_pf_set_vf_trust(struct net_device *ndev, int vf, bool setting);
+int enetc_pf_set_vf_mac(struct net_device *ndev, int vf, u8 *mac);
 
 static inline u16 enetc_get_ip_revision(struct enetc_hw *hw)
 {
