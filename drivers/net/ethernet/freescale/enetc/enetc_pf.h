@@ -81,7 +81,3 @@ struct enetc_pf {
 
 #define phylink_to_enetc_pf(config) \
 	container_of((config), struct enetc_pf, phylink_config)
-
-int enetc_msg_psi_init(struct enetc_pf *pf);
-void enetc_msg_psi_free(struct enetc_pf *pf);
-void enetc_msg_handle_rxmsg(struct enetc_pf *pf, int mbox_id, u16 *status);

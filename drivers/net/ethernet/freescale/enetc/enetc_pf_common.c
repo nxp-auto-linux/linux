@@ -6,6 +6,7 @@
 #include <linux/of_net.h>
 
 #include "enetc_pf_common.h"
+#include "enetc_msg.h"
 
 static void enetc_set_si_hw_addr(struct enetc_pf *pf, int si,
 				 const u8 *mac_addr)
@@ -486,6 +487,45 @@ int enetc_qos_query_caps(struct net_device *ndev, void *type_data)
 	}
 }
 EXPORT_SYMBOL_GPL(enetc_qos_query_caps);
+
+#if IS_ENABLED(CONFIG_PCI_IOV)
+int enetc_sriov_configure(struct pci_dev *pdev, int num_vfs)
+{
+	struct enetc_si *si = pci_get_drvdata(pdev);
+	struct enetc_pf *pf = enetc_si_priv(si);
+	int err;
+
+	if (!num_vfs) {
+		pci_disable_sriov(pdev);
+		enetc_msg_psi_free(pf);
+		pf->num_vfs = 0;
+	} else {
+		pf->num_vfs = num_vfs;
+
+		err = enetc_msg_psi_init(pf);
+		if (err) {
+			dev_err(&pdev->dev, "enetc_msg_psi_init (%d)\n", err);
+			goto err_msg_psi;
+		}
+
+		err = pci_enable_sriov(pdev, num_vfs);
+		if (err) {
+			dev_err(&pdev->dev, "pci_enable_sriov err %d\n", err);
+			goto err_en_sriov;
+		}
+	}
+
+	return num_vfs;
+
+err_en_sriov:
+	enetc_msg_psi_free(pf);
+err_msg_psi:
+	pf->num_vfs = 0;
+
+	return err;
+}
+EXPORT_SYMBOL_GPL(enetc_sriov_configure);
+#endif
 
 MODULE_DESCRIPTION("NXP ENETC PF common functionality driver");
 MODULE_LICENSE("Dual BSD/GPL");
