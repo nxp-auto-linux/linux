@@ -304,6 +304,8 @@ struct enetc_si;
  * for VSI. For VSI-specific hooks, the format is ‘vf_*()’.
  */
 struct enetc_si_ops {
+	int (*vf_setup_cbdr)(struct enetc_si *si);
+	void (*vf_teardown_cbdr)(struct enetc_si *si);
 	int (*get_rss_table)(struct enetc_si *si, u32 *table, int count);
 	int (*set_rss_table)(struct enetc_si *si, const u32 *table, int count);
 };
@@ -541,9 +543,8 @@ void enetc_set_ethtool_ops(struct net_device *ndev);
 void enetc_mm_commit_preemptible_tcs(struct enetc_ndev_priv *priv);
 
 /* control buffer descriptor ring (CBDR) */
-int enetc_setup_cbdr(struct device *dev, struct enetc_hw *hw, int bd_count,
-		     struct enetc_cbdr *cbdr);
-void enetc_teardown_cbdr(struct enetc_cbdr *cbdr);
+int enetc_setup_cbdr(struct enetc_si *si);
+void enetc_teardown_cbdr(struct enetc_si *si);
 int enetc4_setup_cbdr(struct enetc_si *si);
 void enetc4_teardown_cbdr(struct enetc_si *si);
 int enetc_set_mac_flt_entry(struct enetc_si *si, int index,

@@ -83,6 +83,12 @@ static int enetc_msg_vsi_send(struct enetc_si *si, struct enetc_msg_swbd *msg)
 		case ENETC_MSG_CLASS_ID_MAC_FILTER:
 			err = -EINVAL;
 			break;
+		case ENETC_MSG_CLASS_ID_IP_REVISION:
+			if (pf_msg.class_code_u8 == ENETC_PF_RC_IP_REVISION_INVALID)
+				err = -EINVAL;
+			else
+				msg->class_code = pf_msg.class_code_u8;
+			break;
 		default:
 			err = -EIO;
 		}
@@ -121,6 +127,27 @@ static int enetc_msg_vsi_set_primary_mac_addr(struct enetc_ndev_priv *priv,
 	dma_free_coherent(priv->dev, msg_swbd.size, msg_swbd.vaddr, msg_swbd.dma);
 
 	return err;
+}
+
+static u8 enetc_msg_vsi_get_ip_minor_revision(struct enetc_si *si)
+{
+	struct device *dev = &si->pdev->dev;
+	struct enetc_msg_swbd msg_swbd;
+	int err;
+
+	msg_swbd.size = ALIGN(sizeof(struct enetc_msg_generic), ENETC_MSG_ALIGN);
+	msg_swbd.vaddr = dma_alloc_coherent(dev, msg_swbd.size, &msg_swbd.dma,
+					    GFP_KERNEL);
+	if (!msg_swbd.vaddr)
+		return ENETC_PF_RC_IP_REVISION_INVALID;
+
+	enetc_msg_vsi_fill_cmn_hdr(&msg_swbd, ENETC_MSG_CLASS_ID_IP_REVISION,
+				   ENETC_MSG_GET_IP_MN, 0, 0);
+
+	err = enetc_msg_vsi_send(si, &msg_swbd);
+	dma_free_coherent(dev, msg_swbd.size, msg_swbd.vaddr, msg_swbd.dma);
+
+	return err ? ENETC_PF_RC_IP_REVISION_INVALID : msg_swbd.class_code;
 }
 
 static int enetc_vf_set_mac_addr(struct net_device *ndev, void *addr)
@@ -174,6 +201,30 @@ static const struct net_device_ops enetc_ndev_ops = {
 	.ndo_hwtstamp_set	= enetc_hwtstamp_set,
 };
 
+static void enetc_vf_get_revision(struct enetc_si *si)
+{
+	u8 ip_mj = si->pdev->revision;
+	u8 ip_mn;
+
+	if (is_enetc_rev1(si)) {
+		si->revision = ENETC_REV_1_0;
+
+		return;
+	}
+
+	ip_mn = enetc_msg_vsi_get_ip_minor_revision(si);
+	if (ip_mn != ENETC_PF_RC_IP_REVISION_INVALID) {
+		si->revision = (u16)ip_mj << 8 | ip_mn;
+
+		return;
+	}
+
+	si->revision = ENETC_REV_4_1;
+	dev_info(&si->pdev->dev,
+		 "Failed to get IP revision, use compatible revision: 0x%04x\n",
+		 si->revision);
+}
+
 static void enetc_vf_netdev_setup(struct enetc_si *si, struct net_device *ndev,
 				  const struct net_device_ops *ndev_ops)
 {
@@ -211,13 +262,28 @@ static void enetc_vf_netdev_setup(struct enetc_si *si, struct net_device *ndev,
 		ndev->features |= NETIF_F_RXHASH;
 	}
 
+	if (si->drvdata->tx_csum)
+		priv->active_offloads |= ENETC_F_TXCSUM;
+
+	if (si->hw_features & ENETC_SI_F_LSO)
+		priv->active_offloads |= ENETC_F_LSO;
+
 	/* pick up primary MAC address from SI */
 	enetc_load_primary_mac_addr(&si->hw, ndev);
 }
 
 static const struct enetc_si_ops enetc_vsi_ops = {
+	.vf_setup_cbdr = enetc_setup_cbdr,
+	.vf_teardown_cbdr = enetc_teardown_cbdr,
 	.get_rss_table = enetc_get_rss_table,
 	.set_rss_table = enetc_set_rss_table,
+};
+
+static const struct enetc_si_ops enetc4_vsi_ops = {
+	.vf_setup_cbdr = enetc4_setup_cbdr,
+	.vf_teardown_cbdr = enetc4_teardown_cbdr,
+	.get_rss_table = enetc4_get_rss_table,
+	.set_rss_table = enetc4_set_rss_table,
 };
 
 static int enetc_vf_probe(struct pci_dev *pdev,
@@ -233,8 +299,12 @@ static int enetc_vf_probe(struct pci_dev *pdev,
 		return dev_err_probe(&pdev->dev, err, "PCI probing failed\n");
 
 	si = pci_get_drvdata(pdev);
-	si->revision = ENETC_REV_1_0;
-	si->ops = &enetc_vsi_ops;
+	enetc_vf_get_revision(si);
+	if (is_enetc_rev1(si))
+		si->ops = &enetc_vsi_ops;
+	else
+		si->ops = &enetc4_vsi_ops;
+
 	err = enetc_get_driver_data(si);
 	if (err) {
 		dev_err_probe(&pdev->dev, err,
@@ -257,8 +327,7 @@ static int enetc_vf_probe(struct pci_dev *pdev,
 
 	enetc_init_si_rings_params(priv);
 
-	err = enetc_setup_cbdr(priv->dev, &si->hw, ENETC_CBDR_DEFAULT_SIZE,
-			       &si->cbd_ring);
+	err = si->ops->vf_setup_cbdr(si);
 	if (err)
 		goto err_setup_cbdr;
 
@@ -294,7 +363,7 @@ err_config_si:
 err_alloc_msix:
 	enetc_free_si_resources(priv);
 err_alloc_si_res:
-	enetc_teardown_cbdr(&si->cbd_ring);
+	si->ops->vf_teardown_cbdr(si);
 err_setup_cbdr:
 	si->ndev = NULL;
 	free_netdev(ndev);
@@ -315,7 +384,7 @@ static void enetc_vf_remove(struct pci_dev *pdev)
 	enetc_free_msix(priv);
 
 	enetc_free_si_resources(priv);
-	enetc_teardown_cbdr(&si->cbd_ring);
+	si->ops->vf_teardown_cbdr(si);
 
 	free_netdev(si->ndev);
 
@@ -324,6 +393,7 @@ static void enetc_vf_remove(struct pci_dev *pdev)
 
 static const struct pci_device_id enetc_vf_id_table[] = {
 	{ PCI_DEVICE(PCI_VENDOR_ID_FREESCALE, ENETC_DEV_ID_VF) },
+	{ PCI_DEVICE(NXP_ENETC_VENDOR_ID, NXP_ENETC_VF_DEV_ID) },
 	{ 0, } /* End of table. */
 };
 MODULE_DEVICE_TABLE(pci, enetc_vf_id_table);
