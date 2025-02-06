@@ -33,46 +33,81 @@ static u16 enetc_msg_pf_set_vf_primary_mac_addr(struct enetc_pf *pf,
 						int vf_id)
 {
 	struct enetc_vf_state *vf_state = &pf->vf_state[vf_id];
-	struct enetc_msg_swbd *msg = &pf->rxmsg[vf_id];
-	struct enetc_msg_cmd_set_primary_mac *cmd;
+	struct enetc_msg_swbd *msg_swbd = &pf->rxmsg[vf_id];
 	struct device *dev = &pf->si->pdev->dev;
-	u16 cmd_id;
+	struct enetc_msg_mac_exact_filter *msg;
 	char *addr;
 
-	cmd = (struct enetc_msg_cmd_set_primary_mac *)msg->vaddr;
-	cmd_id = cmd->header.id;
-	if (cmd_id != ENETC_MSG_CMD_MNG_ADD)
-		return ENETC_MSG_CMD_STATUS_FAIL;
-
-	addr = cmd->mac.sa_data;
+	msg = (struct enetc_msg_mac_exact_filter *)msg_swbd->vaddr;
+	addr = msg->mac[0].addr;
 	if (vf_state->flags & ENETC_VF_FLAG_PF_SET_MAC)
 		dev_warn(dev, "Attempt to override PF set mac addr for VF%d\n",
 			 vf_id);
-	else
-		pf->ops->set_si_primary_mac(&pf->si->hw, vf_id + 1, addr);
 
-	return ENETC_MSG_CMD_STATUS_OK;
+	pf->ops->set_si_primary_mac(&pf->si->hw, vf_id + 1, addr);
+
+	return ENETC_MSG_CODE_SUCCESS;
+}
+
+static bool enetc_msg_check_crc16(void *msg_addr, u32 msg_size)
+{
+	u8 *data_buf = msg_addr + 2;
+	u8 data_size = msg_size - 2;
+	u16 verify_val;
+
+	if (msg_size > ENETC_DEFAULT_MSG_SIZE)
+		return false;
+
+	verify_val = crc_itu_t(ENETC_CRC_INIT, data_buf, data_size);
+	verify_val = crc_itu_t(verify_val, msg_addr, 2);
+	if (verify_val)
+		return false;
+
+	return true;
+}
+
+static u16 enetc_msg_handle_mac_filter(struct enetc_msg_header *msg_hdr,
+				       struct enetc_pf *pf, int vf_id)
+{
+	switch (msg_hdr->cmd_id) {
+	case ENETC_MSG_SET_PRIMARY_MAC:
+		return enetc_msg_pf_set_vf_primary_mac_addr(pf, vf_id);
+	default:
+		return ENETC_MSG_CODE_NOT_SUPPORT;
+	}
 }
 
 static void enetc_msg_handle_rxmsg(struct enetc_pf *pf, int vf_id,
-				   u16 *status)
+				   u16 *msg_code)
 {
-	struct enetc_msg_swbd *msg = &pf->rxmsg[vf_id];
+	struct enetc_msg_swbd *msg_swbd = &pf->rxmsg[vf_id];
 	struct device *dev = &pf->si->pdev->dev;
-	struct enetc_msg_cmd_header *cmd_hdr;
-	u16 cmd_type;
+	struct enetc_msg_header *msg_hdr;
+	u32 msg_size;
 
-	*status = ENETC_MSG_CMD_STATUS_OK;
-	cmd_hdr = (struct enetc_msg_cmd_header *)msg->vaddr;
-	cmd_type = cmd_hdr->type;
+	msg_hdr = (struct enetc_msg_header *)msg_swbd->vaddr;
+	msg_size = ENETC_MSG_SIZE(msg_hdr->len);
+	if (!enetc_msg_check_crc16(msg_swbd->vaddr, msg_size)) {
+		dev_err(dev, "VSI to PSI Message CRC16 error\n");
+		*msg_code = ENETC_MSG_CODE_CRC_ERROR;
 
-	switch (cmd_type) {
-	case ENETC_MSG_CMD_MNG_MAC:
-		*status = enetc_msg_pf_set_vf_primary_mac_addr(pf, vf_id);
+		return;
+	}
+
+	/* Currently, we don't support asynchronous action */
+	if (msg_hdr->cookie) {
+		dev_err(dev, "Cookie field is not supported yet\n");
+		*msg_code = ENETC_MSG_CODE_NOT_SUPPORT;
+
+		return;
+	}
+
+	switch (msg_hdr->class_id) {
+	case ENETC_MSG_CLASS_ID_MAC_FILTER:
+		*msg_code = enetc_msg_handle_mac_filter(msg_hdr, pf, vf_id);
 		break;
 	default:
-		dev_err(dev, "command not supported (cmd_type: 0x%x)\n",
-			cmd_type);
+		*msg_code = ENETC_MSG_CODE_NOT_SUPPORT;
 	}
 }
 
