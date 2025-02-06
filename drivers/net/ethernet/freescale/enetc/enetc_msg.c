@@ -2,6 +2,7 @@
 /* Copyright 2017-2019 NXP */
 
 #include "enetc_pf.h"
+#include "enetc_msg.h"
 
 static void enetc_msg_disable_mr_int(struct enetc_hw *hw)
 {
@@ -26,6 +27,53 @@ static irqreturn_t enetc_msg_psi_msix(int irq, void *data)
 	schedule_work(&pf->msg_task);
 
 	return IRQ_HANDLED;
+}
+
+static u16 enetc_msg_pf_set_vf_primary_mac_addr(struct enetc_pf *pf,
+						int vf_id)
+{
+	struct enetc_vf_state *vf_state = &pf->vf_state[vf_id];
+	struct enetc_msg_swbd *msg = &pf->rxmsg[vf_id];
+	struct enetc_msg_cmd_set_primary_mac *cmd;
+	struct device *dev = &pf->si->pdev->dev;
+	u16 cmd_id;
+	char *addr;
+
+	cmd = (struct enetc_msg_cmd_set_primary_mac *)msg->vaddr;
+	cmd_id = cmd->header.id;
+	if (cmd_id != ENETC_MSG_CMD_MNG_ADD)
+		return ENETC_MSG_CMD_STATUS_FAIL;
+
+	addr = cmd->mac.sa_data;
+	if (vf_state->flags & ENETC_VF_FLAG_PF_SET_MAC)
+		dev_warn(dev, "Attempt to override PF set mac addr for VF%d\n",
+			 vf_id);
+	else
+		pf->ops->set_si_primary_mac(&pf->si->hw, vf_id + 1, addr);
+
+	return ENETC_MSG_CMD_STATUS_OK;
+}
+
+static void enetc_msg_handle_rxmsg(struct enetc_pf *pf, int vf_id,
+				   u16 *status)
+{
+	struct enetc_msg_swbd *msg = &pf->rxmsg[vf_id];
+	struct device *dev = &pf->si->pdev->dev;
+	struct enetc_msg_cmd_header *cmd_hdr;
+	u16 cmd_type;
+
+	*status = ENETC_MSG_CMD_STATUS_OK;
+	cmd_hdr = (struct enetc_msg_cmd_header *)msg->vaddr;
+	cmd_type = cmd_hdr->type;
+
+	switch (cmd_type) {
+	case ENETC_MSG_CMD_MNG_MAC:
+		*status = enetc_msg_pf_set_vf_primary_mac_addr(pf, vf_id);
+		break;
+	default:
+		dev_err(dev, "command not supported (cmd_type: 0x%x)\n",
+			cmd_type);
+	}
 }
 
 static void enetc_msg_task(struct work_struct *work)
