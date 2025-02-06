@@ -160,6 +160,12 @@
 #define ENETC4_PSIPMAR0(a)		((a) * 0x80 + 0x2000)
 #define ENETC4_PSIPMAR1(a)		((a) * 0x80 + 0x2004)
 
+/* Port station interface a VLAN register */
+#define ENETC4_PSIVLANR(a)		((a) * 0x80 + 0x2008)
+#define  PSIVLANR_VID			GENMASK(11, 0)
+#define  PSIVLANR_PCP			GENMASK(15, 13)
+#define  PSIVLANR_E			BIT(31)
+
 /* Port station interface a configuration register 0/2 */
 #define ENETC4_PSICFGR0(a)		((a) * 0x80 + 0x2010)
 #define  PSICFGR0_VASE			BIT(13)
