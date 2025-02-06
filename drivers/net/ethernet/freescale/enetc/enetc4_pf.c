@@ -919,6 +919,43 @@ static int enetc4_pf_set_vf_spoofchk(struct net_device *ndev, int vf, bool en)
 	return 0;
 }
 
+static bool enetc4_pf_get_vf_spoofchk(struct enetc_hw *hw, int vf)
+{
+	u32 val = enetc_port_rd(hw, ENETC4_PSICFGR0(vf + 1));
+
+	return !!(val & PSICFGR0_ASE);
+}
+
+static void enetc4_pf_get_si_based_vlan(struct enetc_hw *hw, int si,
+					u32 *vid, u32 *pcp)
+{
+	u32 val = enetc_port_rd(hw, ENETC4_PSIVLANR(si));
+
+	*vid = val & PSIVLANR_VID;
+	*pcp = FIELD_GET(PSIVLANR_PCP, val);
+}
+
+static int enetc4_pf_get_vf_config(struct net_device *ndev, int vf,
+				   struct ifla_vf_info *ivi)
+{
+	struct enetc_ndev_priv *priv = netdev_priv(ndev);
+	struct enetc_pf *pf = enetc_si_priv(priv->si);
+	struct enetc_hw *hw = &pf->si->hw;
+	struct enetc_vf_state *vf_state;
+
+	if (vf >= pf->num_vfs)
+		return -EINVAL;
+
+	vf_state = &pf->vf_state[vf];
+	ivi->vf = vf;
+	enetc4_pf_get_si_based_vlan(hw, vf + 1, &ivi->vlan, &ivi->qos);
+	enetc4_pf_get_si_primary_mac(hw, vf + 1, ivi->mac);
+	ivi->spoofchk = enetc4_pf_get_vf_spoofchk(hw, vf);
+	ivi->trusted = !!(vf_state->flags & ENETC_VF_FLAG_TRUSTED);
+
+	return 0;
+}
+
 static const struct net_device_ops enetc4_ndev_ops = {
 	.ndo_open		= enetc_open,
 	.ndo_stop		= enetc_close,
@@ -937,6 +974,7 @@ static const struct net_device_ops enetc4_ndev_ops = {
 	.ndo_set_vf_mac		= enetc_pf_set_vf_mac,
 	.ndo_set_vf_vlan	= enetc4_pf_set_vf_vlan,
 	.ndo_set_vf_spoofchk	= enetc4_pf_set_vf_spoofchk,
+	.ndo_get_vf_config	= enetc4_pf_get_vf_config,
 };
 
 static struct phylink_pcs *
