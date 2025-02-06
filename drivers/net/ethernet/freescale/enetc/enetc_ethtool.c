@@ -691,11 +691,35 @@ done:
 	return enetc_set_fs_entry(si, &rfse, fs->location);
 }
 
+/* i.MX95 ENETC does not support RFS table, but we can use ingress port
+ * filter table to implement Wake-on-LAN filter or drop the matched flow,
+ * so the implementation will be different from enetc_get_rxnfc() and
+ * enetc_set_rxnfc(). Therefore, add enetc4_get_rxnfc() for ENETC v4 PF.
+ */
+static int enetc4_get_rxnfc(struct net_device *ndev, struct ethtool_rxnfc *rxnfc,
+			    u32 *rule_locs)
+{
+	struct enetc_ndev_priv *priv = netdev_priv(ndev);
+
+	switch (rxnfc->cmd) {
+	case ETHTOOL_GRXRINGS:
+		rxnfc->data = priv->num_rx_rings;
+		break;
+	default:
+		return -EOPNOTSUPP;
+	}
+
+	return 0;
+}
+
 static int enetc_get_rxnfc(struct net_device *ndev, struct ethtool_rxnfc *rxnfc,
 			   u32 *rule_locs)
 {
 	struct enetc_ndev_priv *priv = netdev_priv(ndev);
 	int i, j;
+
+	if (!is_enetc_rev1(priv->si))
+		return enetc4_get_rxnfc(ndev, rxnfc, rule_locs);
 
 	switch (rxnfc->cmd) {
 	case ETHTOOL_GRXRINGS:
@@ -742,33 +766,14 @@ static int enetc_get_rxnfc(struct net_device *ndev, struct ethtool_rxnfc *rxnfc,
 	return 0;
 }
 
-/* i.MX95 ENETC does not support RFS table, but we can use ingress port
- * filter table to implement Wake-on-LAN filter or drop the matched flow,
- * so the implementation will be different from enetc_get_rxnfc() and
- * enetc_set_rxnfc(). Therefore, add enetc4_get_rxnfc() for ENETC v4 PF.
- */
-static int enetc4_get_rxnfc(struct net_device *ndev, struct ethtool_rxnfc *rxnfc,
-			    u32 *rule_locs)
-{
-	struct enetc_ndev_priv *priv = netdev_priv(ndev);
-
-	switch (rxnfc->cmd) {
-	case ETHTOOL_GRXRINGS:
-		rxnfc->data = priv->num_rx_rings;
-		break;
-	case ETHTOOL_GRXFH:
-		return enetc_get_rsshash(rxnfc);
-	default:
-		return -EOPNOTSUPP;
-	}
-
-	return 0;
-}
-
 static int enetc_set_rxnfc(struct net_device *ndev, struct ethtool_rxnfc *rxnfc)
 {
 	struct enetc_ndev_priv *priv = netdev_priv(ndev);
 	int err;
+
+	/* TODO: add .set_rxnfc() support for ENETC v4 */
+	if (!is_enetc_rev1(priv->si))
+		return -EOPNOTSUPP;
 
 	switch (rxnfc->cmd) {
 	case ETHTOOL_SRXCLSRLINS:
@@ -1360,7 +1365,7 @@ const struct ethtool_ops enetc4_pf_ethtool_ops = {
 	.set_wol = enetc_set_wol,
 	.get_pauseparam = enetc_get_pauseparam,
 	.set_pauseparam = enetc_set_pauseparam,
-	.get_rxnfc = enetc4_get_rxnfc,
+	.get_rxnfc = enetc_get_rxnfc,
 	.get_rxfh_key_size = enetc_get_rxfh_key_size,
 	.get_rxfh_indir_size = enetc_get_rxfh_indir_size,
 	.get_rxfh = enetc_get_rxfh,

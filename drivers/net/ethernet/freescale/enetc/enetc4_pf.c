@@ -401,10 +401,23 @@ static int enetc4_pf_struct_init(struct enetc_si *si)
 	pf->total_vfs = pci_sriov_get_totalvfs(si->pdev);
 	pf->ops = &enetc4_pf_ops;
 
+	if (pf->total_vfs) {
+		pf->vf_state = kcalloc(pf->total_vfs,
+				       sizeof(struct enetc_vf_state),
+				       GFP_KERNEL);
+		if (!pf->vf_state)
+			return -ENOMEM;
+	}
+
 	enetc4_get_port_caps(pf);
 	enetc4_get_psi_hw_features(si);
 
 	return 0;
+}
+
+static void enetc4_pf_struct_free(struct enetc_pf *pf)
+{
+	kfree(pf->vf_state);
 }
 
 static u32 enetc4_psicfgr0_val_construct(bool is_vf, u32 num_tx_bdr, u32 num_rx_bdr)
@@ -1385,7 +1398,7 @@ static int enetc4_pf_probe(struct pci_dev *pdev,
 	pf = enetc_si_priv(si);
 	err = enetc4_pf_init(pf);
 	if (err)
-		return err;
+		goto err_pf_init;
 
 	enetc_get_si_caps(si);
 
@@ -1399,6 +1412,8 @@ static int enetc4_pf_probe(struct pci_dev *pdev,
 
 err_netdev_create:
 	enetc4_pf_free(pf);
+err_pf_init:
+	enetc4_pf_struct_free(pf);
 
 	return err;
 }
@@ -1408,9 +1423,13 @@ static void enetc4_pf_remove(struct pci_dev *pdev)
 	struct enetc_si *si = pci_get_drvdata(pdev);
 	struct enetc_pf *pf = enetc_si_priv(si);
 
+	if (pf->num_vfs)
+		enetc_sriov_configure(pdev, 0);
+
 	enetc_remove_debugfs(si);
 	enetc4_pf_netdev_destroy(si);
 	enetc4_pf_free(pf);
+	enetc4_pf_struct_free(pf);
 }
 
 static const struct pci_device_id enetc4_pf_id_table[] = {
@@ -1424,6 +1443,9 @@ static struct pci_driver enetc4_pf_driver = {
 	.id_table = enetc4_pf_id_table,
 	.probe = enetc4_pf_probe,
 	.remove = enetc4_pf_remove,
+#ifdef CONFIG_PCI_IOV
+	.sriov_configure = enetc_sriov_configure,
+#endif
 };
 module_pci_driver(enetc4_pf_driver);
 

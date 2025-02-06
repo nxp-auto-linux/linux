@@ -16,6 +16,7 @@
 
 /* Common Class ID for PSI-TO-VSI and VSI-TO-PSI messages */
 #define ENETC_MSG_CLASS_ID_MAC_FILTER		0x20
+#define ENETC_MSG_CLASS_ID_IP_REVISION		0xf0
 
 /* Class ID for PSI-TO-VSI messages */
 #define ENETC_MSG_CLASS_ID_CMD_SUCCESS		0x1
@@ -34,21 +35,36 @@
 #define ENETC_PF_RC_MAC_FILTER_MAC_NOT_FOUND	0x2
 #define ENETC_PF_RC_MAC_FILTER_NO_RESOURCE	0x3
 
+/* Class-specific error return codes for IP revision */
+#define ENETC_PF_RC_IP_REVISION_INVALID		0xff
+
 enum enetc_msg_mac_filter_cmd_id {
 	ENETC_MSG_SET_PRIMARY_MAC,
+};
+
+enum enetc_msg_ip_revision_cmd_id {
+	ENETC_MSG_GET_IP_MN = 1,
 };
 
 struct enetc_msg_swbd {
 	void *vaddr;
 	dma_addr_t dma;
 	int size;
+	/* save return code from PSI for 'get' messages */
+	u8 class_code;
 };
 
 /* The format of PSI-TO-VSI message, only a 16-bits code */
 union enetc_pf_msg {
 	struct {
-		u8 cookie:4;
-		u8 class_code:4;
+		union {
+			struct {
+				u8 cookie:4;
+				u8 class_code:4;
+			};
+			/* some messages class_code is 8-bit without cookie */
+			u8 class_code_u8;
+		};
 		u8 class_id;
 	};
 	u16 code;
@@ -79,6 +95,14 @@ struct enetc_msg_mac_exact_filter {
 	u8 mac_cnt;
 	u8 resv[3];
 	struct enetc_mac_addr mac[];
+};
+
+/* The generic message format applies to the following messages:
+ * Get IP revision message, class_id: 0xf0
+ * cmd_id 1: get IP minor revision
+ */
+struct enetc_msg_generic {
+	struct enetc_msg_header hdr;
 };
 
 #endif
