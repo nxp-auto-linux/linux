@@ -902,6 +902,23 @@ static int enetc4_pf_set_vf_vlan(struct net_device *ndev, int vf,
 	return 0;
 }
 
+static int enetc4_pf_set_vf_spoofchk(struct net_device *ndev, int vf, bool en)
+{
+	struct enetc_ndev_priv *priv = netdev_priv(ndev);
+	struct enetc_pf *pf = enetc_si_priv(priv->si);
+	struct enetc_hw *hw = &priv->si->hw;
+	u32 val;
+
+	if (vf >= pf->total_vfs)
+		return -EINVAL;
+
+	val = enetc_port_rd(hw, ENETC4_PSICFGR0(vf + 1));
+	val = u32_replace_bits(val, en ? 1 : 0, PSICFGR0_ASE);
+	enetc_port_wr(hw, ENETC4_PSICFGR0(vf + 1), val);
+
+	return 0;
+}
+
 static const struct net_device_ops enetc4_ndev_ops = {
 	.ndo_open		= enetc_open,
 	.ndo_stop		= enetc_close,
@@ -919,6 +936,7 @@ static const struct net_device_ops enetc4_ndev_ops = {
 	.ndo_set_vf_trust	= enetc_pf_set_vf_trust,
 	.ndo_set_vf_mac		= enetc_pf_set_vf_mac,
 	.ndo_set_vf_vlan	= enetc4_pf_set_vf_vlan,
+	.ndo_set_vf_spoofchk	= enetc4_pf_set_vf_spoofchk,
 };
 
 static struct phylink_pcs *
