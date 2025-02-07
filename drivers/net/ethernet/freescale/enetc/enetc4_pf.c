@@ -39,6 +39,9 @@ static void enetc4_get_port_caps(struct enetc_pf *pf)
 
 	val = enetc_port_rd(hw, ENETC4_PSIMAFCAPR);
 	pf->caps.mac_filter_num = val & PSIMAFCAPR_NUM_MAC_AFTE;
+
+	val = enetc_port_rd(hw, ENETC4_PSIVLANFCAPR);
+	pf->caps.vlan_filter_num = val & PSIVLANFCAPR_NUM_VLAN_FTE;
 }
 
 static void enetc4_pf_set_si_primary_mac(struct enetc_hw *hw, int si,
@@ -616,10 +619,259 @@ static void enetc4_get_psi_hw_features(struct enetc_si *si)
 		si->hw_features |= ENETC_SI_F_PSFP;
 }
 
+static void enetc4_pf_destroy_vlan_list(struct enetc_pf *pf)
+{
+	struct enetc_vlan_list_entry *entry;
+	struct hlist_node *tmp;
+
+	scoped_guard(mutex, &pf->vlan_list_lock) {
+		hlist_for_each_entry_safe(entry, tmp, &pf->vlan_list, node) {
+			hlist_del(&entry->node);
+			kfree(entry);
+		}
+
+		pf->num_vfe = 0;
+	}
+}
+
+static bool enetc_vlan_list_is_available(struct enetc_pf *pf,
+					 struct enetc_vlan *vlan,
+					 int vlan_cnt)
+{
+	int max_vfe_num = pf->caps.vlan_filter_num;
+	struct enetc_vlan_list_entry *entry;
+	int cur_num_vfe = pf->num_vfe;
+	int i, new_vlan_cnt = 0;
+
+	if (vlan_cnt > max_vfe_num)
+		return false;
+
+	/* Check VLAN filter table whether has enough available entries */
+	hlist_for_each_entry(entry, &pf->vlan_list, node) {
+		for (i = 0; i < vlan_cnt; i++) {
+			if (entry->vid == vlan[i].vid &&
+			    entry->tpid == vlan[i].tpid)
+				break;
+		}
+
+		if (i == vlan_cnt)
+			new_vlan_cnt++;
+
+		if ((cur_num_vfe + new_vlan_cnt) > max_vfe_num)
+			return false;
+	}
+
+	return true;
+}
+
+static struct enetc_vlan_list_entry *
+enetc_vlan_list_lookup_entry(struct enetc_pf *pf, struct enetc_vlan *vlan)
+{
+	struct enetc_vlan_list_entry *entry;
+
+	hlist_for_each_entry(entry, &pf->vlan_list, node)
+		if (entry->vid == vlan->vid &&
+		    entry->tpid == vlan->tpid)
+			return entry;
+
+	return NULL;
+}
+
+static void enetc_vlan_list_add_entry(struct enetc_pf *pf,
+				      struct enetc_vlan_list_entry *entry)
+{
+	hlist_add_head(&entry->node, &pf->vlan_list);
+}
+
+static void enetc_vlan_list_del_entry(struct enetc_vlan_list_entry *entry)
+{
+	hlist_del(&entry->node);
+	kfree(entry);
+}
+
+static void enetc_vlan_list_del_matched_entries(struct enetc_pf *pf, u16 si_bit,
+						struct enetc_vlan *vlan,
+						int vlan_cnt)
+{
+	struct enetc_vlan_list_entry *entry;
+	int i;
+
+	for (i = 0; i < vlan_cnt; i++) {
+		entry = enetc_vlan_list_lookup_entry(pf, &vlan[i]);
+		if (entry) {
+			entry->si_bitmap &= ~si_bit;
+			if (!entry->si_bitmap) {
+				enetc_vlan_list_del_entry(entry);
+				pf->num_vfe--;
+			}
+		}
+	}
+}
+
+static void enetc_vle_to_vaft_data(struct enetc_vlan_list_entry *vle,
+				   struct vaft_entry_data *vaft)
+{
+	u16 vid = FIELD_PREP(VAFT_VLAN_ID, vle->vid);
+
+	vaft->keye.tpid = FIELD_PREP(VAFT_TPID, vle->tpid);
+	vaft->keye.vlan_id = cpu_to_le16(vid);
+	vaft->cfge.si_bitmap = cpu_to_le16(vle->si_bitmap);
+}
+
+static int enetc4_pf_add_vlan_exact_filter(struct enetc_pf *pf, int si_id,
+					   struct enetc_vlan *vlan,
+					   int vlan_cnt)
+{
+	struct enetc_vlan_list_entry *entry;
+	struct vaft_entry_data data = {0};
+	struct enetc_si *si = pf->si;
+	u16 si_bit = BIT(si_id);
+	int i, num_vfe, err = 0;
+
+	mutex_lock(&pf->vlan_list_lock);
+
+	if (!enetc_vlan_list_is_available(pf, vlan, vlan_cnt)) {
+		err = -ENOSPC;
+		goto vlan_list_unlock;
+	}
+
+	num_vfe = pf->num_vfe;
+	/* Update VLAN list */
+	for (i = 0; i < vlan_cnt; i++) {
+		entry = enetc_vlan_list_lookup_entry(pf, &vlan[i]);
+		if (!entry) {
+			entry = kzalloc(sizeof(*entry), GFP_KERNEL);
+			if (unlikely(!entry)) {
+				enetc_vlan_list_del_matched_entries(pf, si_bit, vlan,
+								    i + 1);
+				err = -ENOMEM;
+				goto vlan_list_unlock;
+			}
+
+			entry->vid = vlan[i].vid;
+			entry->tpid = vlan[i].tpid;
+			entry->si_bitmap = si_bit;
+			enetc_vlan_list_add_entry(pf, entry);
+			pf->num_vfe++;
+		} else {
+			entry->si_bitmap |= si_bit;
+		}
+	}
+
+	/* Clear VLAN filter table */
+	for (i = 0; i < num_vfe; i++)
+		ntmp_vaft_delete_entry(&si->ntmp.cbdrs, i);
+
+	i = 0;
+	hlist_for_each_entry(entry, &pf->vlan_list, node) {
+		enetc_vle_to_vaft_data(entry, &data);
+		ntmp_vaft_add_entry(&si->ntmp.cbdrs, i++, &data);
+	}
+
+vlan_list_unlock:
+	mutex_unlock(&pf->vlan_list_lock);
+
+	return err;
+}
+
+static int enetc4_validate_delete_vlans(struct enetc_pf *pf, u16 si_bit,
+					struct enetc_vlan *vlan, int vlan_cnt)
+{
+	struct enetc_vlan_list_entry *entry;
+	int i;
+
+	for (i = 0; i < vlan_cnt; i++) {
+		entry = enetc_vlan_list_lookup_entry(pf, &vlan[i]);
+		if (entry && (entry->si_bitmap & si_bit))
+			continue;
+
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+static int enetc4_pf_del_si_vlan_exact_filter(struct enetc_pf *pf, int si_id,
+					      struct enetc_vlan *vlan,
+					      int vlan_cnt)
+{
+	struct enetc_vlan_list_entry *entry;
+	struct vaft_entry_data data = {0};
+	struct enetc_si *si = pf->si;
+	u16 si_bit = BIT(si_id);
+	int i, num_vfe, err;
+
+	mutex_lock(&pf->vlan_list_lock);
+
+	err = enetc4_validate_delete_vlans(pf, si_bit, vlan, vlan_cnt);
+	if (err)
+		goto vlan_list_unlock;
+
+	num_vfe = pf->num_vfe;
+	enetc_vlan_list_del_matched_entries(pf, si_bit, vlan, vlan_cnt);
+
+	for (i = 0; i < num_vfe; i++)
+		ntmp_vaft_delete_entry(&si->ntmp.cbdrs, i);
+
+	i = 0;
+	hlist_for_each_entry(entry, &pf->vlan_list, node) {
+		enetc_vle_to_vaft_data(entry, &data);
+		ntmp_vaft_add_entry(&si->ntmp.cbdrs, i++, &data);
+	}
+
+vlan_list_unlock:
+	mutex_unlock(&pf->vlan_list_lock);
+
+	return err;
+}
+
+static void enetc4_pf_flush_vlan_exact_filter(struct enetc_pf *pf, int si_id)
+{
+	struct enetc_vlan_list_entry *entry;
+	struct vaft_entry_data data = {0};
+	struct enetc_si *si = pf->si;
+	u16 si_bit = BIT(si_id);
+	struct hlist_node *tmp;
+	int i, num_vfe;
+
+	mutex_lock(&pf->vlan_list_lock);
+
+	num_vfe = pf->num_vfe;
+	hlist_for_each_entry_safe(entry, tmp, &pf->vlan_list, node) {
+		if (entry->si_bitmap & si_bit) {
+			entry->si_bitmap &= ~si_bit;
+			if (!entry->si_bitmap) {
+				enetc_vlan_list_del_entry(entry);
+				pf->num_vfe--;
+			}
+		}
+	}
+
+	for (i = 0; i < num_vfe; i++)
+		ntmp_vaft_delete_entry(&si->ntmp.cbdrs, i);
+
+	i = 0;
+	hlist_for_each_entry(entry, &pf->vlan_list, node) {
+		enetc_vle_to_vaft_data(entry, &data);
+		ntmp_vaft_add_entry(&si->ntmp.cbdrs, i++, &data);
+	}
+
+	mutex_unlock(&pf->vlan_list_lock);
+}
+
+static void enetc4_pf_flush_vlan_filter(struct enetc_pf *pf, int si_id)
+{
+	enetc4_pf_flush_vlan_exact_filter(pf, si_id);
+	enetc4_pf_set_si_vlan_hash_filter(&pf->si->hw, si_id, 0);
+}
+
 static const struct enetc_pf_ops enetc4_pf_ops = {
 	.set_si_primary_mac = enetc4_pf_set_si_primary_mac,
 	.get_si_primary_mac = enetc4_pf_get_si_primary_mac,
+	.add_si_vlan_exact_filter = enetc4_pf_add_vlan_exact_filter,
+	.del_si_vlan_exact_filter = enetc4_pf_del_si_vlan_exact_filter,
 	.set_si_vlan_hash_filter = enetc4_pf_set_si_vlan_hash_filter,
+	.flush_si_vlan_filter = enetc4_pf_flush_vlan_filter,
 	.get_mm = enetc4_pf_get_mm,
 	.set_mm = enetc4_pf_set_mm,
 	.set_preemptible_tcs = enetc4_pf_set_preemptible_tcs,
@@ -650,12 +902,16 @@ static int enetc4_pf_struct_init(struct enetc_si *si)
 
 	INIT_HLIST_HEAD(&pf->mac_list);
 	mutex_init(&pf->mac_list_lock);
+	INIT_HLIST_HEAD(&pf->vlan_list);
+	mutex_init(&pf->vlan_list_lock);
 
 	return 0;
 }
 
 static void enetc4_pf_struct_free(struct enetc_pf *pf)
 {
+	enetc4_pf_destroy_vlan_list(pf);
+	mutex_destroy(&pf->vlan_list_lock);
 	enetc4_pf_destroy_mac_list(pf);
 	mutex_destroy(&pf->mac_list_lock);
 	kfree(pf->vf_state);
