@@ -58,6 +58,20 @@ struct maft_resp_query {
 	struct maft_cfge_data cfge;
 };
 
+/* VLAM Address Filter table Request and Response Data Buffer Format */
+struct vaft_req_add {
+	struct ntmp_req_by_eid rbe;
+	struct vaft_keye_data keye;
+	struct vaft_cfge_data cfge;
+};
+
+/* VLAN Address Filter Table Response to Query action */
+struct vaft_resp_query {
+	__le32 entry_id;
+	struct vaft_keye_data keye;
+	struct vaft_cfge_data cfge;
+};
+
 /* RSS Table Request Data Buffer Format of Update action */
 struct rsst_req_update {
 	struct ntmp_req_by_eid rbe;
