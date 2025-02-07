@@ -53,6 +53,13 @@ struct enetc_pf_ops {
 	void (*set_mm)(struct enetc_ndev_priv *priv, struct ethtool_mm_cfg *cfg,
 		       u32 add_frag_size);
 	void (*set_preemptible_tcs)(struct enetc_ndev_priv *priv);
+	int (*add_si_mac_exact_filter)(struct enetc_pf *pf, int si,
+				       struct enetc_mac_addr *mac, int mac_cnt);
+	int (*del_si_mac_exact_filter)(struct enetc_pf *pf, int si,
+				       struct enetc_mac_addr *mac, int mac_cnt);
+	void (*set_si_mac_hash_filter)(struct enetc_hw *hw, int si,
+				       int type, u64 hash);
+	void (*flush_si_mac_filter)(struct enetc_pf *pf, int si, int mac_type);
 };
 
 struct enetc_pf {
