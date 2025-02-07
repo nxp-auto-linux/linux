@@ -42,24 +42,16 @@ static void enetc_pf_destroy_pcs(struct phylink_pcs *pcs)
 	lynx_pcs_destroy(pcs);
 }
 
-static void enetc_set_vlan_promisc(struct enetc_hw *hw, char si_map)
+static void enetc_set_si_vlan_promisc(struct enetc_hw *hw, int si_id, bool en)
 {
 	u32 val = enetc_port_rd(hw, ENETC_PSIPVMR);
 
-	val &= ~ENETC_PSIPVMR_SET_VP(ENETC_VLAN_PROMISC_MAP_ALL);
-	enetc_port_wr(hw, ENETC_PSIPVMR, ENETC_PSIPVMR_SET_VP(si_map) | val);
-}
+	if (en)
+		val |= BIT(si_id);
+	else
+		val &= ~BIT(si_id);
 
-static void enetc_enable_si_vlan_promisc(struct enetc_pf *pf, int si_idx)
-{
-	pf->vlan_promisc_simap |= BIT(si_idx);
-	enetc_set_vlan_promisc(&pf->si->hw, pf->vlan_promisc_simap);
-}
-
-static void enetc_disable_si_vlan_promisc(struct enetc_pf *pf, int si_idx)
-{
-	pf->vlan_promisc_simap &= ~BIT(si_idx);
-	enetc_set_vlan_promisc(&pf->si->hw, pf->vlan_promisc_simap);
+	enetc_port_wr(hw, ENETC_PSIPVMR, val);
 }
 
 static void enetc_set_isol_vlan(struct enetc_hw *hw, int si, u16 vlan, u8 qos)
@@ -220,6 +212,13 @@ static void enetc_set_vlan_ht_filter(struct enetc_hw *hw, int si_idx, u64 hash)
 {
 	enetc_port_wr(hw, ENETC_PSIVHFR0(si_idx), lower_32_bits(hash));
 	enetc_port_wr(hw, ENETC_PSIVHFR1(si_idx), upper_32_bits(hash));
+}
+
+static void enetc_pf_flush_si_vlan_filter(struct enetc_pf *pf, int si_id)
+{
+	struct enetc_hw *hw = &pf->si->hw;
+
+	enetc_set_vlan_ht_filter(hw, si_id, 0);
 }
 
 static void enetc_set_loopback(struct net_device *ndev, bool en)
@@ -444,6 +443,7 @@ static void enetc_configure_port(struct enetc_pf *pf)
 {
 	u8 hash_key[ENETC_RSSHASH_KEY_SIZE];
 	struct enetc_hw *hw = &pf->si->hw;
+	u32 val;
 
 	enetc_configure_port_mac(pf->si);
 
@@ -457,8 +457,9 @@ static void enetc_configure_port(struct enetc_pf *pf)
 	enetc_port_assign_rfs_entries(pf->si);
 
 	/* enforce VLAN promisc mode for all SIs */
-	pf->vlan_promisc_simap = ENETC_VLAN_PROMISC_MAP_ALL;
-	enetc_set_vlan_promisc(hw, pf->vlan_promisc_simap);
+	val = enetc_port_rd(hw, ENETC_PSIPVMR);
+	val |= ENETC_VLAN_PROMISC_MAP_ALL;
+	enetc_port_wr(hw, ENETC_PSIPVMR, val);
 
 	enetc_port_wr(hw, ENETC_PSIPMR, 0);
 
@@ -480,12 +481,10 @@ static int enetc_pf_set_features(struct net_device *ndev,
 	}
 
 	if (changed & NETIF_F_HW_VLAN_CTAG_FILTER) {
-		struct enetc_pf *pf = enetc_si_priv(priv->si);
+		bool promisc_en = !(features & NETIF_F_HW_VLAN_CTAG_FILTER);
+		struct enetc_hw *hw = &priv->si->hw;
 
-		if (!!(features & NETIF_F_HW_VLAN_CTAG_FILTER))
-			enetc_disable_si_vlan_promisc(pf, 0);
-		else
-			enetc_enable_si_vlan_promisc(pf, 0);
+		enetc_set_si_vlan_promisc(hw, 0, promisc_en);
 	}
 
 	if (changed & NETIF_F_LOOPBACK)
@@ -1005,6 +1004,7 @@ static const struct enetc_pf_ops enetc_pf_ops = {
 	.destroy_pcs = enetc_pf_destroy_pcs,
 	.enable_psfp = enetc_psfp_enable,
 	.set_si_vlan_hash_filter = enetc_set_vlan_ht_filter,
+	.flush_si_vlan_filter = enetc_pf_flush_si_vlan_filter,
 	.get_mm = enetc_pf_get_mm,
 	.set_mm = enetc_pf_set_mm,
 	.set_preemptible_tcs = enetc_pf_set_preemptible_tcs,

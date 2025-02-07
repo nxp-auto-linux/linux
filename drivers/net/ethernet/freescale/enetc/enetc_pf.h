@@ -22,10 +22,18 @@ struct enetc_port_caps {
 	int num_rx_bdr;
 	int num_tx_bdr;
 	int mac_filter_num;
+	int vlan_filter_num;
 };
 
 struct enetc_mac_list_entry {
 	u8 mac[ETH_ALEN];
+	u16 si_bitmap;
+	struct hlist_node node;
+};
+
+struct enetc_vlan_list_entry {
+	u16 vid;
+	u8 tpid;
 	u16 si_bitmap;
 	struct hlist_node node;
 };
@@ -48,7 +56,12 @@ struct enetc_pf_ops {
 	struct phylink_pcs *(*create_pcs)(struct enetc_pf *pf, struct mii_bus *bus);
 	void (*destroy_pcs)(struct phylink_pcs *pcs);
 	int (*enable_psfp)(struct enetc_ndev_priv *priv);
+	int (*add_si_vlan_exact_filter)(struct enetc_pf *pf, int si,
+					struct enetc_vlan *vlan, int vlan_cnt);
+	int (*del_si_vlan_exact_filter)(struct enetc_pf *pf, int si,
+					struct enetc_vlan *vlan, int vlan_cnt);
 	void (*set_si_vlan_hash_filter)(struct enetc_hw *hw, int si, u64 hash);
+	void (*flush_si_vlan_filter)(struct enetc_pf *pf, int si);
 	void (*get_mm)(struct enetc_ndev_priv *priv, struct enetc_mm *mm);
 	void (*set_mm)(struct enetc_ndev_priv *priv, struct ethtool_mm_cfg *cfg,
 		       u32 add_frag_size);
@@ -71,8 +84,6 @@ struct enetc_pf {
 	struct enetc_msg_swbd rxmsg[ENETC_MAX_NUM_VFS];
 	bool vf_link_status_notify[ENETC_MAX_NUM_VFS];
 
-	char vlan_promisc_simap; /* bitmap of SIs in VLAN promisc mode */
-
 	struct mii_bus *mdio; /* saved for cleanup */
 	struct mii_bus *imdio;
 	struct phylink_pcs *pcs;
@@ -86,6 +97,10 @@ struct enetc_pf {
 	struct hlist_head mac_list; /* MAC address filter table */
 	struct mutex mac_list_lock; /* mac_list lock */
 	int num_mfe;	/* number of mac address filter table entries */
+
+	struct hlist_head vlan_list; /* VLAN address filter table */
+	struct mutex vlan_list_lock; /* mac_list lock */
+	int num_vfe; /* number of VLAN address filter table entries */
 };
 
 #define phylink_to_enetc_pf(config) \
