@@ -18,6 +18,7 @@
 
 /* Define NTMP Table ID */
 #define NTMP_MAFT_ID			1
+#define NTMP_VAFT_ID			2
 #define NTMP_RSST_ID			3
 #define NTMP_TGST_ID			5
 #define NTMP_RPT_ID			10
@@ -471,6 +472,78 @@ int ntmp_maft_delete_entry(struct netc_cbdrs *cbdrs, u32 entry_id)
 				       entry_id, 0, 0);
 }
 EXPORT_SYMBOL_GPL(ntmp_maft_delete_entry);
+
+int ntmp_vaft_add_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
+			struct vaft_entry_data *vaft)
+{
+	struct ntmp_dma_buf data = {.dev = cbdrs->dma_dev};
+	struct vaft_req_add *req;
+	union netc_cbd cbd;
+	int err;
+
+	data.size = sizeof(*req);
+	err = ntmp_alloc_data_mem(&data, (void **)&req);
+	if (err)
+		return err;
+
+	/* Set VLAN address filter table request data buffer */
+	ntmp_fill_crd_eid(&req->rbe, cbdrs->tbl.vaft_ver, 0, 0, entry_id);
+	req->keye = vaft->keye;
+	req->cfge = vaft->cfge;
+
+	ntmp_fill_request_headr(&cbd, data.dma, NTMP_LEN(data.size, 0),
+				NTMP_VAFT_ID, NTMP_CMD_ADD, NTMP_AM_ENTRY_ID);
+
+	err = netc_xmit_ntmp_cmd(cbdrs, &cbd);
+	if (err)
+		dev_err(cbdrs->dma_dev, "Add VAFT entry failed (%d)", err);
+
+	ntmp_free_data_mem(&data);
+
+	return err;
+}
+EXPORT_SYMBOL_GPL(ntmp_vaft_add_entry);
+
+int ntmp_vaft_query_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
+			  struct vaft_entry_data *vaft)
+{
+	struct ntmp_dma_buf data = {.dev = cbdrs->dma_dev};
+	struct vaft_resp_query *resp;
+	struct ntmp_req_by_eid *req;
+	int err;
+
+	if (entry_id == NTMP_NULL_ENTRY_ID)
+		return -EINVAL;
+
+	data.size = sizeof(*resp);
+	err = ntmp_alloc_data_mem(&data, (void **)&req);
+	if (err)
+		return err;
+
+	ntmp_fill_crd_eid(req, cbdrs->tbl.vaft_ver, 0, 0, entry_id);
+	err = ntmp_query_entry_by_id(cbdrs, NTMP_VAFT_ID,
+				     NTMP_LEN(sizeof(*req), data.size),
+				     req, data.dma, true);
+	if (err)
+		goto end;
+
+	resp = (struct vaft_resp_query *)req;
+	vaft->keye = resp->keye;
+	vaft->cfge = resp->cfge;
+
+end:
+	ntmp_free_data_mem(&data);
+
+	return err;
+}
+EXPORT_SYMBOL_GPL(ntmp_vaft_query_entry);
+
+int ntmp_vaft_delete_entry(struct netc_cbdrs *cbdrs, u32 entry_id)
+{
+	return ntmp_delete_entry_by_id(cbdrs, NTMP_VAFT_ID, cbdrs->tbl.maft_ver,
+				       entry_id, 0, 0);
+}
+EXPORT_SYMBOL_GPL(ntmp_vaft_delete_entry);
 
 int ntmp_rsst_query_or_update_entry(struct netc_cbdrs *cbdrs, u32 *table,
 				    int count, bool query)
