@@ -16,6 +16,7 @@
 
 /* Common Class ID for PSI-TO-VSI and VSI-TO-PSI messages */
 #define ENETC_MSG_CLASS_ID_MAC_FILTER		0x20
+#define ENETC_MSG_CLASS_ID_VLAN_FILTER		0x21
 #define ENETC_MSG_CLASS_ID_LINK_STATUS		0x80
 #define ENETC_MSG_CLASS_ID_LINK_SPEED		0x81
 
@@ -36,6 +37,12 @@
 #define ENETC_PF_RC_MAC_FILTER_MAC_NOT_FOUND	0x2
 #define ENETC_PF_RC_MAC_FILTER_NO_RESOURCE	0x3
 
+/* Class-specific error return codes for VLAN filter */
+#define ENETC_PF_RC_VLAN_FILTER_INVALID_VLAN	0x0
+#define ENETC_PF_RC_VLAN_FILTER_DUPLICATE_VLAN	0x1
+#define ENETC_PF_RC_VLAN_FILTER_VLAN_NOT_FOUND	0x2
+#define ENETC_PF_RC_VLAN_FILTER_NO_RESOURCE	0x3
+
 /* Class-specific notification codes for link status */
 #define ENETC_PF_NC_LINK_STATUS_UP		0x0
 #define ENETC_PF_NC_LINK_STATUS_DOWN		0x1
@@ -50,6 +57,12 @@
 #define ENETC_MAC_FILTER_FLUSH			1
 #define ENETC_MAC_HASH_TABLE_SIZE_64		0
 
+#define ENETC_VLAN_CTAG_TPID			0
+#define ENETC_VLAN_STAG_TPID			1
+#define ENETC_VLAN_HASH_TABLE_SIZE_64		0
+#define ENETC_VLAN_PROMISC_MODE_DISABLE		0
+#define ENETC_VLAN_PROMISC_MODE_ENABLE		1
+
 enum enetc_msg_mac_filter_cmd_id {
 	ENETC_MSG_SET_PRIMARY_MAC,
 	ENETC_MSG_ADD_EXACT_MAC_ENTRIES,
@@ -57,6 +70,14 @@ enum enetc_msg_mac_filter_cmd_id {
 	ENETC_MSG_SET_MAC_HASH_TABLE,
 	ENETC_MSG_FLUSH_MAC_ENTRIES,
 	ENETC_MSG_SET_MAC_PROMISC_MODE,
+};
+
+enum enetc_msg_vlan_filter_cmd_id {
+	ENETC_MSG_ADD_EXACT_VLAN_ENTRIES,
+	ENETC_MSG_DEL_EXACT_VLAN_ENTRIES,
+	ENETC_MSG_SET_VLAN_HASH_TABLE,
+	ENETC_MSG_FLUSH_VLAN_ENTRIES,
+	ENETC_MSG_SET_VLAN_PROMISC_MODE,
 };
 
 enum enetc_msg_link_status_cmd_id {
@@ -161,6 +182,48 @@ struct enetc_msg_mac_promsic_mode {
 	u8 promisc_mode:1;
 	u8 resv:4;
 	u8 type:2;
+};
+
+/* message format of class_id 0x21, cmd_id: 0x0~0x1
+ * cmd_id 0: add VLAN address filter table entries
+ * cmd_id 1: delete VLAN address filter table entries
+ */
+struct enetc_vlan {
+	u16 vid:12;
+	u16 resv0:4;
+	u8 tpid:2;
+	u8 resv1:6;
+	u8 resv2;
+};
+
+struct enetc_msg_vlan_exact_filter {
+	struct enetc_msg_header hdr;
+	u8 vlan_cnt;
+	u8 resv[3];
+	struct enetc_vlan vlan[];
+};
+
+/* message format of class_id 0x21, cmd_id: 0x2, set VLAN hash table */
+struct enetc_msg_vlan_hash_filter {
+	struct enetc_msg_header hdr;
+	u8 size;
+	u8 resv[3];
+	u64 hash_tbl[];
+};
+
+/* message format of class_id 0x21, cmd_id: 0x3, flush VLAN address
+ * filter table entries
+ */
+struct enetc_msg_vlan_filter_flush {
+	struct enetc_msg_header hdr;
+};
+
+/* message format of class_id 0x21, cmd_id: 0x4, set VLAN promiscuous mode */
+struct enetc_msg_vlan_promsic_mode {
+	struct enetc_msg_header hdr;
+	u8 flush_vlans:1;
+	u8 promisc_mode:1;
+	u8 resv:6;
 };
 
 /* message format of class_id 0x80, cmd_id 0x0~0x2
