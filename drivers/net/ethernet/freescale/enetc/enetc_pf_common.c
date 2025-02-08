@@ -513,8 +513,27 @@ EXPORT_SYMBOL_GPL(enetc_qos_query_caps);
 int enetc_sriov_configure(struct pci_dev *pdev, int num_vfs)
 {
 	struct enetc_si *si = pci_get_drvdata(pdev);
-	struct enetc_pf *pf = enetc_si_priv(si);
+	struct enetc_pf *pf;
 	int err;
+
+	if (is_enetc_proxy_pf(pdev)) {
+		if (!num_vfs) {
+			pci_disable_sriov(pdev);
+
+			return 0;
+		}
+
+		err = pci_enable_sriov(pdev, num_vfs);
+		if (err < 0) {
+			dev_err(&pdev->dev, "pci_enable_sriov err %pe\n",
+				ERR_PTR(err));
+			return err;
+		}
+
+		return num_vfs;
+	}
+
+	pf = enetc_si_priv(si);
 
 	if (!num_vfs) {
 		pci_disable_sriov(pdev);
