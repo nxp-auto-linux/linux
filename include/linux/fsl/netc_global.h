@@ -16,4 +16,23 @@ static inline void netc_write(void __iomem *reg, u32 val)
 	iowrite32(val, reg);
 }
 
+#if IS_ENABLED(CONFIG_NXP_NETC_BLK_CTRL)
+void netc_ierb_enable_wakeonlan(void);
+void netc_ierb_disable_wakeonlan(void);
+int netc_ierb_may_wakeonlan(void);
+#else
+static inline void netc_ierb_enable_wakeonlan(void)
+{
+}
+
+static inline void netc_ierb_disable_wakeonlan(void)
+{
+}
+
+static inline int netc_ierb_may_wakeonlan(void)
+{
+	return -EINVAL;
+}
+#endif
+
 #endif

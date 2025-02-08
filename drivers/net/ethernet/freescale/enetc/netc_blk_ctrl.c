@@ -85,7 +85,11 @@ struct netc_blk_ctrl {
 	const struct netc_devinfo *devinfo;
 	struct platform_device *pdev;
 	struct dentry *debugfs_root;
+	struct clk *ipg_clk;
+	atomic_t wakeonlan_count;
 };
+
+static struct netc_blk_ctrl *netc_bc;
 
 static void netc_reg_write(void __iomem *base, u32 offset, u32 val)
 {
@@ -273,8 +277,47 @@ static int netc_ierb_init(struct platform_device *pdev)
 		return err;
 	}
 
+	atomic_set(&priv->wakeonlan_count, 0);
+
 	return 0;
 }
+
+void netc_ierb_enable_wakeonlan(void)
+{
+	struct netc_blk_ctrl *priv = netc_bc;
+
+	if (!priv)
+		return;
+
+	atomic_inc(&priv->wakeonlan_count);
+}
+EXPORT_SYMBOL_GPL(netc_ierb_enable_wakeonlan);
+
+void netc_ierb_disable_wakeonlan(void)
+{
+	struct netc_blk_ctrl *priv = netc_bc;
+
+	if (!priv)
+		return;
+
+	atomic_dec(&priv->wakeonlan_count);
+	if (atomic_read(&priv->wakeonlan_count) < 0) {
+		atomic_set(&priv->wakeonlan_count, 0);
+		dev_warn(&priv->pdev->dev, "Wake-on-LAN count underflow.\n");
+	}
+}
+EXPORT_SYMBOL_GPL(netc_ierb_disable_wakeonlan);
+
+int netc_ierb_may_wakeonlan(void)
+{
+	struct netc_blk_ctrl *priv = netc_bc;
+
+	if (!priv)
+		return -ENXIO;
+
+	return atomic_read(&priv->wakeonlan_count);
+}
+EXPORT_SYMBOL_GPL(netc_ierb_may_wakeonlan);
 
 #if IS_ENABLED(CONFIG_DEBUG_FS)
 static int netc_prb_show(struct seq_file *s, void *data)
@@ -367,6 +410,7 @@ static int netc_blk_ctrl_probe(struct platform_device *pdev)
 		return dev_err_probe(dev, PTR_ERR(ipg_clk),
 				     "Set ipg clock failed\n");
 
+	priv->ipg_clk = ipg_clk;
 	id = of_match_device(netc_blk_ctrl_match, dev);
 	if (!id)
 		return dev_err_probe(dev, -EINVAL, "Cannot match device\n");
@@ -419,6 +463,8 @@ static int netc_blk_ctrl_probe(struct platform_device *pdev)
 		return dev_err_probe(dev, err, "of_platform_populate failed\n");
 	}
 
+	netc_bc = priv;
+
 	return 0;
 }
 
@@ -426,14 +472,76 @@ static void netc_blk_ctrl_remove(struct platform_device *pdev)
 {
 	struct netc_blk_ctrl *priv = platform_get_drvdata(pdev);
 
+	netc_bc = NULL;
 	of_platform_depopulate(&pdev->dev);
 	netc_blk_ctrl_remove_debugfs(priv);
 }
+
+static int netc_blk_ctrl_suspend_noirq(struct device *dev)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct netc_blk_ctrl *priv = platform_get_drvdata(pdev);
+
+	if (netc_ierb_may_wakeonlan())
+		return 0;
+
+	clk_disable_unprepare(priv->ipg_clk);
+
+	return 0;
+}
+
+static int netc_blk_ctrl_resume_noirq(struct device *dev)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct netc_blk_ctrl *priv = platform_get_drvdata(pdev);
+	const struct netc_devinfo *devinfo = priv->devinfo;
+	int err;
+
+	if (netc_ierb_may_wakeonlan())
+		return 0;
+
+	err = clk_prepare_enable(priv->ipg_clk);
+	if (err) {
+		dev_err(dev, "Enable ipg_clk failed\n");
+		return err;
+	}
+
+	if (devinfo->netcmix_init) {
+		err = devinfo->netcmix_init(pdev);
+		if (err) {
+			dev_err(dev, "Initializing NETCMIX failed\n");
+			goto disable_ipg_clk;
+		}
+	}
+
+	err = netc_ierb_init(pdev);
+	if (err) {
+		dev_err(&pdev->dev, "Initializing IERB failed.\n");
+		goto disable_ipg_clk;
+	}
+
+	if (netc_prb_check_error(priv) < 0)
+		dev_warn(&pdev->dev,
+			 "The current IERB configuration is invalid.\n");
+
+	return 0;
+
+disable_ipg_clk:
+	clk_disable_unprepare(priv->ipg_clk);
+
+	return err;
+}
+
+static const struct dev_pm_ops __maybe_unused netc_blk_ctrl_pm_ops = {
+	SET_NOIRQ_SYSTEM_SLEEP_PM_OPS(netc_blk_ctrl_suspend_noirq,
+				      netc_blk_ctrl_resume_noirq)
+};
 
 static struct platform_driver netc_blk_ctrl_driver = {
 	.driver = {
 		.name = "nxp-netc-blk-ctrl",
 		.of_match_table = netc_blk_ctrl_match,
+		.pm = &netc_blk_ctrl_pm_ops,
 	},
 	.probe = netc_blk_ctrl_probe,
 	.remove = netc_blk_ctrl_remove,
