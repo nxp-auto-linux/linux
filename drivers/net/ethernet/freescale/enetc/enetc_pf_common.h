@@ -48,3 +48,12 @@ static inline u16 enetc_get_ip_revision(struct enetc_hw *hw)
 {
 	return enetc_global_rd(hw, ENETC_G_EIPBRR0) & EIPBRR0_REVISION;
 }
+
+static inline bool is_enetc_proxy_pf(struct pci_dev *pdev)
+{
+	if (pdev->vendor == NXP_ENETC_VENDOR_ID &&
+	    pdev->device == NXP_ENETC_PROXY_PF_DEVID)
+		return true;
+
+	return false;
+}
