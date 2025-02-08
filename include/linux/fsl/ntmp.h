@@ -288,9 +288,11 @@ struct ipft_cfge_data {
 #define IPFT_DR			GENMASK(6, 5)
 #define IPFT_ODR		BIT(7)
 #define IPFT_FLTFA		GENMASK(10, 8)
+#define  IPFT_FLTFA_PERMIT	1
 #define IPFT_IMIRE		BIT(11)
 #define IPFT_WOLTE		BIT(12)
 #define IPFT_FLTA		GENMASK(14, 13)
+#define  IPFT_FLTA_SI_BITMAP	3
 #define IPFT_RPR		GENMASK(16, 15)
 #define IPFT_CTD		BIT(17)
 #define IPFT_HR			GENMASK(21, 18)

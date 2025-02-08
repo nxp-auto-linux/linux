@@ -27,6 +27,8 @@ int enetc_qos_query_caps(struct net_device *ndev, void *type_data);
 #if IS_ENABLED(CONFIG_PCI_IOV)
 int enetc_sriov_configure(struct pci_dev *pdev, int num_vfs);
 void enetc_pf_send_link_status_msg(struct enetc_pf *pf, bool up);
+int enetc_msg_psi_init(struct enetc_pf *pf);
+void enetc_msg_psi_free(struct enetc_pf *pf);
 #else
 static inline int enetc_sriov_configure(struct pci_dev *pdev, int num_vfs)
 {

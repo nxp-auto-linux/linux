@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: (GPL-2.0+ OR BSD-3-Clause)
 /* Copyright 2017-2019 NXP */
 
-#include "enetc_pf.h"
+#include "enetc_pf_common.h"
 #include "enetc_msg.h"
 
 static void enetc_msg_enable_mr_int(struct enetc_pf *pf, bool en)
@@ -512,6 +512,7 @@ static void enetc_msg_free_mbx(struct enetc_si *si, int idx)
 	enetc_wr(hw, ENETC_PSIVMSGRCVAR1(idx), 0);
 }
 
+#if IS_ENABLED(CONFIG_PCI_IOV)
 int enetc_msg_psi_init(struct enetc_pf *pf)
 {
 	struct enetc_si *si = pf->si;
@@ -553,6 +554,7 @@ err_init_mbx:
 
 	return err;
 }
+EXPORT_SYMBOL_GPL(enetc_msg_psi_init);
 
 void enetc_msg_psi_free(struct enetc_pf *pf)
 {
@@ -570,3 +572,5 @@ void enetc_msg_psi_free(struct enetc_pf *pf)
 	/* de-register message passing interrupt handler */
 	free_irq(pci_irq_vector(si->pdev, ENETC_SI_INT_IDX), si);
 }
+EXPORT_SYMBOL_GPL(enetc_msg_psi_free);
+#endif

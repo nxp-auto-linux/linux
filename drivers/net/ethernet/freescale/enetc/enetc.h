@@ -511,6 +511,10 @@ struct enetc_ndev_priv {
 
 	/* Kernel stack and XDP share the tx rings */
 	bool shared_tx_rings;
+
+	struct pci_dev *rcec;
+	u32 ipt_wol_eid;
+	int wolopts;
 };
 
 #define ENETC_CBD(R, i)	(&(((struct enetc_cbd *)((R).bd_base))[i]))
@@ -522,6 +526,7 @@ u32 enetc_port_mac_rd(struct enetc_si *si, u32 reg);
 void enetc_port_mac_wr(struct enetc_si *si, u32 reg, u32 val);
 int enetc_pci_probe(struct pci_dev *pdev, const char *name, int sizeof_priv);
 void enetc_pci_remove(struct pci_dev *pdev);
+int enetc_alloc_msix_vectors(struct enetc_ndev_priv *priv);
 int enetc_alloc_msix(struct enetc_ndev_priv *priv);
 void enetc_free_msix(struct enetc_ndev_priv *priv);
 void enetc_get_si_caps(struct enetc_si *si);
@@ -555,6 +560,9 @@ int enetc_hwtstamp_get(struct net_device *ndev,
 int enetc_hwtstamp_set(struct net_device *ndev,
 		       struct kernel_hwtstamp_config *config,
 		       struct netlink_ext_ack *extack);
+
+int enetc_suspend(struct net_device *ndev, bool wol);
+int enetc_resume(struct net_device *ndev, bool wol);
 
 /* ethtool */
 extern const struct ethtool_ops enetc_pf_ethtool_ops;
