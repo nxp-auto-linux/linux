@@ -2,6 +2,7 @@
 /* Copyright 2017-2019 NXP */
 
 #include <linux/ethtool_netlink.h>
+#include <linux/fsl/netc_global.h>
 #include <linux/net_tstamp.h>
 #include <linux/module.h>
 #include <linux/of.h>
@@ -1097,26 +1098,123 @@ timestamp_tx_sw:
 static void enetc_get_wol(struct net_device *dev,
 			  struct ethtool_wolinfo *wol)
 {
+	struct enetc_ndev_priv *priv = netdev_priv(dev);
+	struct enetc_si *si = priv->si;
+	struct enetc_pf *pf;
+
 	wol->supported = 0;
 	wol->wolopts = 0;
+	pf = enetc_si_priv(si);
 
-	if (dev->phydev)
+	if (pf->caps.wol) {
+		if (device_can_wakeup(priv->dev)) {
+			wol->supported = WAKE_MAGIC;
+			wol->wolopts = priv->wolopts;
+		}
+	} else if (dev->phydev) {
 		phy_ethtool_get_wol(dev->phydev, wol);
+	}
+}
+
+static int enetc4_set_wol_mg_ipft_entry(struct enetc_ndev_priv *priv)
+{
+	struct ntmp_ipft_entry *entry __free(kfree);
+	struct enetc_si *si = priv->si;
+	struct ipft_keye_data *keye;
+	struct ipft_cfge_data *cfge;
+	u32 flta_tgt = BIT(0);
+	u16 frame_attr;
+	u32 val, cfg;
+	int err;
+
+	entry = kzalloc(sizeof(*entry), GFP_KERNEL);
+	if (!entry)
+		return -ENOMEM;
+
+	keye = &entry->keye;
+	cfge = &entry->cfge;
+
+	frame_attr = IPFT_FAF_WOL_MAGIC;
+	keye->frm_attr_flags = cpu_to_le16(frame_attr);
+	keye->frm_attr_flags_mask = keye->frm_attr_flags;
+
+	cfg = FIELD_PREP(IPFT_FLTFA, IPFT_FLTFA_PERMIT);
+	cfg |= IPFT_WOLTE;
+	cfg |= FIELD_PREP(IPFT_FLTA, IPFT_FLTA_SI_BITMAP);
+	cfge->cfg = cpu_to_le32(cfg);
+	cfge->flta_tgt = cpu_to_le32(flta_tgt);
+
+	err = ntmp_ipft_add_entry(&si->ntmp_user, entry);
+	if (err)
+		return err;
+
+	priv->ipt_wol_eid = entry->entry_id;
+	val = enetc_port_rd(&si->hw, ENETC4_PIPFCR);
+	if (!(val & PIPFCR_EN))
+		/* Enable ingress port filter table lookup. */
+		enetc_port_wr(&si->hw, ENETC4_PIPFCR, PIPFCR_EN);
+
+	return 0;
 }
 
 static int enetc_set_wol(struct net_device *dev,
 			 struct ethtool_wolinfo *wol)
 {
-	int ret;
+	struct enetc_ndev_priv *priv = netdev_priv(dev);
+	struct enetc_si *si = priv->si;
+	u32 support = WAKE_MAGIC;
+	struct enetc_pf *pf;
+	int err;
 
-	if (!dev->phydev)
-		return -EOPNOTSUPP;
+	pf = enetc_si_priv(si);
 
-	ret = phy_ethtool_set_wol(dev->phydev, wol);
-	if (!ret)
-		device_set_wakeup_enable(&dev->dev, wol->wolopts);
+	if (pf->caps.wol) {
+		if (!device_can_wakeup(priv->dev) || wol->wolopts & ~support)
+			return -EOPNOTSUPP;
 
-	return ret;
+		if (wol->wolopts == priv->wolopts)
+			return 0;
+
+		if (wol->wolopts) {
+			err = enetc4_set_wol_mg_ipft_entry(priv);
+			if (err)
+				return err;
+
+			if (priv->rcec && netc_ierb_may_wakeonlan() == 0) {
+				priv->rcec->dev_flags |= PCI_DEV_FLAGS_NO_D3;
+				device_set_wakeup_enable(&priv->rcec->dev, 1);
+			}
+
+			netc_ierb_enable_wakeonlan();
+			netdev_info(dev, "enetc: wakeup enable\n");
+		} else {
+			netc_ierb_disable_wakeonlan();
+			if (priv->rcec && netc_ierb_may_wakeonlan() == 0) {
+				device_set_wakeup_enable(&priv->rcec->dev, 0);
+				priv->rcec->dev_flags &= ~PCI_DEV_FLAGS_NO_D3;
+			}
+
+			err = ntmp_ipft_delete_entry(&si->ntmp_user,
+						     priv->ipt_wol_eid);
+			if (err)
+				return err;
+
+			netdev_info(dev, "enetc: wakeup disable\n");
+		}
+
+		priv->wolopts = wol->wolopts;
+	} else {
+		if (!dev->phydev)
+			return -EOPNOTSUPP;
+
+		err = phy_ethtool_set_wol(dev->phydev, wol);
+		if (!err) {
+			device_set_wakeup_enable(&dev->dev, wol->wolopts);
+			return err;
+		}
+	}
+
+	return 0;
 }
 
 static void enetc_get_pauseparam(struct net_device *dev,

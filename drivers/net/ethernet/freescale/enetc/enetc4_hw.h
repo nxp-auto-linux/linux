@@ -111,6 +111,10 @@
 /* Port broadcast frames dropped VLAN filtering register */
 #define ENETC4_PBFDVFR			0x2d8
 
+/* Port low power mode register */
+#define ENETC4_PLPMR			0x340
+#define  PLPMR_WME			BIT(0)
+
 /* Port traffic class a time specific departure register */
 #define ENETC4_PTCTSDR(a)		((a) * 0x4 + 0x390)
 #define  PTCTSDR_TSDE			BIT(31)
@@ -212,6 +216,10 @@
 /* Port MAC address register 0/1 */
 #define ENETC4_PMAR0			0x4020
 #define ENETC4_PMAR1			0x4024
+
+/* Port ingress port filter configuration register */
+#define ENETC4_PIPFCR			0x4084
+#define  PIPFCR_EN			BIT(0)
 
 /* Port operational register */
 #define ENETC4_POR			0x4100

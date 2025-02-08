@@ -2,6 +2,7 @@
 /* Copyright 2024 NXP */
 
 #include <linux/clk.h>
+#include <linux/fsl/netc_global.h>
 #include <linux/module.h>
 #include <linux/of_mdio.h>
 #include <linux/of_net.h>
@@ -41,6 +42,9 @@ static void enetc4_get_port_caps(struct enetc_pf *pf)
 
 	val = enetc_port_rd(hw, ENETC4_PSIMAFCAPR);
 	pf->caps.mac_filter_num = val & PSIMAFCAPR_NUM_MAC_AFTE;
+
+	val = enetc_port_rd(hw, ENETC4_ECAPR0);
+	pf->caps.wol = !!(val & ECAPR0_WO);
 }
 
 static void enetc4_pf_set_si_primary_mac(struct enetc_hw *hw, int si,
@@ -1081,13 +1085,8 @@ static void enetc4_pl_mac_config(struct phylink_config *config, unsigned int mod
 
 static void enetc4_set_port_speed(struct enetc_ndev_priv *priv, int speed)
 {
-	u32 old_speed = priv->speed;
-	u32 val;
+	u32 val = enetc_port_rd(&priv->si->hw, ENETC4_PCR);
 
-	if (speed == old_speed)
-		return;
-
-	val = enetc_port_rd(&priv->si->hw, ENETC4_PCR);
 	val &= ~PCR_PSPEED;
 
 	switch (speed) {
@@ -1417,6 +1416,10 @@ static int enetc4_pf_netdev_create(struct enetc_si *si)
 
 	priv = netdev_priv(ndev);
 	mutex_init(&priv->mm_lock);
+
+	if (si->pdev->rcec)
+		priv->rcec = si->pdev->rcec;
+
 	priv->ref_clk = devm_clk_get_optional(dev, "ref");
 	if (IS_ERR(priv->ref_clk)) {
 		dev_err(dev, "Get reference clock failed\n");
@@ -1711,6 +1714,226 @@ static void enetc4_pf_remove(struct pci_dev *pdev)
 	enetc4_pf_struct_free(pf);
 }
 
+#if IS_ENABLED(CONFIG_PCI_IOV)
+static void enetc4_sriov_suspend(struct pci_dev *pdev)
+{
+	struct enetc_si *si = pci_get_drvdata(pdev);
+	struct enetc_pf *pf = enetc_si_priv(si);
+
+	if (pf->num_vfs == 0)
+		return;
+
+	pci_disable_sriov(pdev);
+	enetc_msg_psi_free(pf);
+}
+
+static int enetc4_sriov_resume(struct pci_dev *pdev)
+{
+	struct enetc_si *si = pci_get_drvdata(pdev);
+	struct enetc_pf *pf = enetc_si_priv(si);
+	int err;
+
+	if (pf->num_vfs == 0)
+		return 0;
+
+	err = enetc_msg_psi_init(pf);
+	if (err) {
+		dev_err(&pdev->dev, "enetc_msg_psi_init (%d)\n", err);
+		return err;
+	}
+
+	err = pci_enable_sriov(pdev, pf->num_vfs);
+	if (err) {
+		dev_err(&pdev->dev, "pci_enable_sriov err %d\n", err);
+		enetc_msg_psi_free(pf);
+
+		return err;
+	}
+
+	return 0;
+}
+#else
+static void enetc4_sriov_suspend(struct pci_dev *pdev)
+{
+}
+
+static int enetc4_sriov_resume(struct pci_dev *pdev)
+{
+	return 0;
+}
+#endif
+
+static void enetc4_pf_power_down(struct enetc_si *si)
+{
+	struct pci_dev *pdev = si->pdev;
+
+	pci_free_irq_vectors(pdev);
+	enetc4_teardown_cbdr(si);
+	pci_disable_device(pdev);
+	pcie_flr(pdev);
+}
+
+static int enetc4_pf_power_up(struct pci_dev *pdev, struct device_node *node)
+{
+	struct enetc_ndev_priv *priv;
+	struct enetc_si *si;
+	struct enetc_pf *pf;
+	int err;
+
+	si = pci_get_drvdata(pdev);
+	pf = enetc_si_priv(si);
+	priv = netdev_priv(si->ndev);
+
+	err = pci_enable_device_mem(pdev);
+	if (err) {
+		dev_err(&pdev->dev, "device enable failed\n");
+		return err;
+	}
+
+	pci_set_master(pdev);
+
+	err = enetc4_setup_cbdr(si);
+	if (err)
+		return err;
+
+	err = enetc_setup_mac_addresses(node, pf);
+	if (err)
+		return err;
+
+	enetc_load_primary_mac_addr(&si->hw, priv->ndev);
+
+	enetc4_configure_port(pf);
+
+	err = enetc_configure_si(priv);
+	if (err) {
+		dev_err(&pdev->dev, "Failed to configure SI\n");
+		return err;
+	}
+
+	err = enetc_alloc_msix_vectors(priv);
+	if (err) {
+		dev_err(&pdev->dev, "Failed to alloc MSI-X vectors\n");
+		return err;
+	}
+
+	return 0;
+}
+
+static void enetc4_pf_set_wol(struct enetc_si *si, bool en)
+{
+	u32 val = enetc_port_mac_rd(si, ENETC4_PM_CMD_CFG(0));
+
+	if (en)
+		val |= PM_CMD_CFG_MG;
+	else
+		val &= ~PM_CMD_CFG_MG;
+	enetc_port_mac_wr(si, ENETC4_PM_CMD_CFG(0), val);
+
+	enetc_port_mac_wr(si, ENETC4_PLPMR, en ? PLPMR_WME : 0);
+}
+
+static int enetc4_pf_suspend(struct device *dev)
+{
+	struct pci_dev *pdev = to_pci_dev(dev);
+	struct enetc_ndev_priv *priv;
+	struct enetc_si *si;
+	bool wol;
+
+	si = pci_get_drvdata(pdev);
+	priv = netdev_priv(si->ndev);
+
+	enetc4_sriov_suspend(pdev);
+
+	cancel_work_sync(&si->rx_mode_task);
+
+	rtnl_lock();
+
+	if (!netif_running(si->ndev)) {
+		enetc4_pf_power_down(si);
+		rtnl_unlock();
+		return 0;
+	}
+
+	netif_device_detach(si->ndev);
+	wol = !!priv->wolopts;
+	enetc_suspend(si->ndev, wol);
+
+	if (netc_ierb_may_wakeonlan() > 0) {
+		if (wol) {
+			pci_pme_active(pdev, true);
+			enetc4_pf_set_wol(si, true);
+		}
+
+		pci_save_state(pdev);
+		pci_disable_device(pdev);
+		pci_set_power_state(pdev, PCI_D3hot);
+		phylink_suspend(priv->phylink, wol);
+	} else {
+		phylink_suspend(priv->phylink, false);
+		enetc4_pf_power_down(si);
+	}
+
+	rtnl_unlock();
+
+	return 0;
+}
+
+static int enetc4_pf_resume(struct device *dev)
+{
+	struct device_node *node = dev->of_node;
+	struct pci_dev *pdev = to_pci_dev(dev);
+	struct enetc_ndev_priv *priv;
+	struct enetc_si *si;
+	bool wol;
+	int err;
+
+	si = pci_get_drvdata(pdev);
+	priv = netdev_priv(si->ndev);
+
+	rtnl_lock();
+
+	if (!netif_running(si->ndev)) {
+		err = enetc4_pf_power_up(pdev, node);
+		rtnl_unlock();
+		if (err)
+			return err;
+
+		return enetc4_sriov_resume(pdev);
+	}
+
+	wol = !!priv->wolopts;
+	if (netc_ierb_may_wakeonlan() > 0) {
+		pci_set_power_state(pdev, PCI_D0);
+		err = pci_enable_device(pdev);
+		if (err)
+			goto err_unlock_rtnl;
+		pci_restore_state(pdev);
+		if (wol)
+			enetc4_pf_set_wol(si, false);
+	} else {
+		err = enetc4_pf_power_up(pdev, node);
+		if (err)
+			goto err_unlock_rtnl;
+	}
+
+	phylink_resume(priv->phylink);
+	enetc_resume(si->ndev, wol);
+	netif_device_attach(si->ndev);
+
+	rtnl_unlock();
+
+	enetc4_sriov_resume(pdev);
+
+	return 0;
+
+err_unlock_rtnl:
+	rtnl_unlock();
+	return err;
+}
+
+static DEFINE_SIMPLE_DEV_PM_OPS(enetc4_pf_pm_ops, enetc4_pf_suspend,
+				enetc4_pf_resume);
+
 static const struct pci_device_id enetc4_pf_id_table[] = {
 	{ PCI_DEVICE(NXP_ENETC_VENDOR_ID, NXP_ENETC_PF_DEV_ID) },
 	{ 0, } /* End of table. */
@@ -1722,6 +1945,7 @@ static struct pci_driver enetc4_pf_driver = {
 	.id_table = enetc4_pf_id_table,
 	.probe = enetc4_pf_probe,
 	.remove = enetc4_pf_remove,
+	.driver.pm = pm_ptr(&enetc4_pf_pm_ops),
 #ifdef CONFIG_PCI_IOV
 	.sriov_configure = enetc_sriov_configure,
 #endif
