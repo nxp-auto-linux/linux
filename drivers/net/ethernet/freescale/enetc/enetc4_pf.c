@@ -1015,6 +1015,8 @@ static const struct net_device_ops enetc4_ndev_ops = {
 	.ndo_set_vf_vlan	= enetc4_pf_set_vf_vlan,
 	.ndo_set_vf_spoofchk	= enetc4_pf_set_vf_spoofchk,
 	.ndo_get_vf_config	= enetc4_pf_get_vf_config,
+	.ndo_bpf		= enetc_setup_bpf,
+	.ndo_xdp_xmit		= enetc_xdp_xmit,
 };
 
 static struct phylink_pcs *
