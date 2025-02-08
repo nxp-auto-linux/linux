@@ -1655,6 +1655,9 @@ static int enetc4_pf_probe(struct pci_dev *pdev,
 	struct enetc_pf *pf;
 	int err;
 
+	if (is_enetc_proxy_pf(pdev))
+		return 0;
+
 	err = enetc_add_emdio_consumer(pdev);
 	if (err)
 		return err;
@@ -1716,8 +1719,15 @@ err_init_devlink:
 static void enetc4_pf_remove(struct pci_dev *pdev)
 {
 	struct enetc_si *si = pci_get_drvdata(pdev);
-	struct enetc_pf *pf = enetc_si_priv(si);
+	struct enetc_pf *pf;
 
+	if (is_enetc_proxy_pf(pdev)) {
+		pci_disable_sriov(pdev);
+
+		return;
+	}
+
+	pf = enetc_si_priv(si);
 	if (pf->num_vfs)
 		enetc_sriov_configure(pdev, 0);
 
@@ -1853,6 +1863,9 @@ static int enetc4_pf_suspend(struct device *dev)
 	struct enetc_si *si;
 	bool wol;
 
+	if (is_enetc_proxy_pf(pdev))
+		return 0;
+
 	si = pci_get_drvdata(pdev);
 	priv = netdev_priv(si->ndev);
 
@@ -1900,6 +1913,9 @@ static int enetc4_pf_resume(struct device *dev)
 	struct enetc_si *si;
 	bool wol;
 	int err;
+
+	if (is_enetc_proxy_pf(pdev))
+		return 0;
 
 	si = pci_get_drvdata(pdev);
 	priv = netdev_priv(si->ndev);
@@ -1950,6 +1966,7 @@ static DEFINE_SIMPLE_DEV_PM_OPS(enetc4_pf_pm_ops, enetc4_pf_suspend,
 
 static const struct pci_device_id enetc4_pf_id_table[] = {
 	{ PCI_DEVICE(NXP_ENETC_VENDOR_ID, NXP_ENETC_PF_DEV_ID) },
+	{ PCI_DEVICE(NXP_ENETC_VENDOR_ID, NXP_ENETC_PROXY_PF_DEVID) },
 	{ 0, } /* End of table. */
 };
 MODULE_DEVICE_TABLE(pci, enetc4_pf_id_table);
