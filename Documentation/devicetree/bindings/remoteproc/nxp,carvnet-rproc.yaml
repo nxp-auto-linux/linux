@@ -24,14 +24,23 @@ properties:
 
   reg:
     description:
-      Address range of the CAR-V system interface.
+      Address ranges of the CAR-V system interface registers for each
+      quartile within the CAR-V partition. Each CAR-V partition is
+      interfaced by separate instance of the nxp_carvnet_rproc kernel
+      driver. If partition contains two quartiles, there are 2 address
+      ranges in this reg list, otherwise there is only 1 address range.
+    minItems: 1
+    maxItems: 4
 
   memory-region:
     description:
       A phandle for a reserved memory areas that are used for vdev buffers,
-      firmware used by remote processor or user regions
+      firmware used by remote processor or user regions. There are 4 priority
+      regions, first one occupied by the 3 virtio carveouts (vring0/vring1/vdev)
+      and the other 3 available for user-defined regions. So it is total
+      6 regions for Carv0 and 6 for Carv1, ie. maximum is 12.
     minItems: 1
-    maxItems: 20
+    maxItems: 12
 
   firmware-name:
     description:
@@ -84,7 +93,8 @@ examples:
 
     carv0: carv@47800000 {
       compatible = "nxp,carvnet-rproc";
-      reg = <0x0 0x47800000 0x0 0x50000>;
+      reg = <0x0 0x47800000 0x0 0x50000>,
+            <0x0 0x47850000 0x0 0x50000>;
       firmware-name = "s32n7-carvnet.fw";
       memory-region = <&carv0_reserved>, <&carv0_vdev0vring0>,
                       <&carv0_vdev0vring1>,<&carv0_vdev0buffer>;
