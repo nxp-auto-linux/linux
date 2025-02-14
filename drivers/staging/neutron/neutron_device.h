@@ -66,6 +66,7 @@
 // Power status
 #define NEUTRON_POWER_OFF    0
 #define NEUTRON_POWER_ON     1
+#define SPECIFIC_DMA_POOL      BIT(0)
 
 // Suspend delay time in millisecond
 #define NEUTRON_AUTOSUSPEND_DELAY 10000
@@ -114,6 +115,7 @@ struct neutron_device {
 	dev_t                          devt;
 	unsigned int                   power_state;
 	u32                            firmw_id;
+	u32                            flags;
 };
 
 int neutron_dev_init(struct neutron_device *ndev,
