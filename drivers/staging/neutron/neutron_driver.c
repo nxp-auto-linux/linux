@@ -12,6 +12,7 @@
 #include <linux/io.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
+#include <linux/of_reserved_mem.h>
 #include <linux/platform_device.h>
 #include <linux/clk.h>
 #include <linux/delay.h>
@@ -77,17 +78,27 @@ static int neutron_pdev_probe(struct platform_device *pdev)
 		goto err_put_pm;
 	}
 
+	if (of_reserved_mem_device_init(&pdev->dev)) {
+		dev_dbg(&pdev->dev, "doesn't have specific DMA pool.\n");
+		ndev->flags &= (~SPECIFIC_DMA_POOL);
+	} else {
+		ndev->flags |= SPECIFIC_DMA_POOL;
+	}
+
 	/* Initialize device */
 	ret = neutron_dev_init(ndev, &pdev->dev, irq, neutron_class,
 			       MKDEV(MAJOR(devt), minor));
 	if (ret)
-		goto err_put_pm;
+		goto of_release_mem;
 
 	pm_runtime_put_autosuspend(&pdev->dev);
 	set_bit(minor, minors);
 
 	return 0;
 
+of_release_mem:
+	if (ndev->flags & SPECIFIC_DMA_POOL)
+		of_reserved_mem_device_release(&pdev->dev);
 err_put_pm:
 	pm_runtime_disable(&pdev->dev);
 err_free_dev:
@@ -101,6 +112,8 @@ static void neutron_pdev_remove(struct platform_device *pdev)
 	struct neutron_device *ndev = platform_get_drvdata(pdev);
 
 	neutron_rproc_shutdown(ndev);
+	if (ndev->flags & SPECIFIC_DMA_POOL)
+		of_reserved_mem_device_release(&pdev->dev);
 	clear_bit(MINOR(ndev->devt), minors);
 	neutron_dev_deinit(ndev);
 	pm_runtime_disable(ndev->dev);
