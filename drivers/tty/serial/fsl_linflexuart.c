@@ -3,7 +3,7 @@
  * Freescale LINFlexD UART serial port driver
  *
  * Copyright 2012-2016 Freescale Semiconductor, Inc.
- * Copyright 2017-2024 NXP
+ * Copyright 2017-2025 NXP
  */
 
 #include <linux/circ_buf.h>
@@ -151,7 +151,7 @@
 
 #define DRIVER_NAME	"fsl-linflexuart"
 #define DEV_NAME	"ttyLF"
-#define UART_NR		7
+#define UART_NR		32
 
 #define EARLYCON_BUFFER_INITIAL_CAP	8
 
