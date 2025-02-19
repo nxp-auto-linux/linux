@@ -328,7 +328,7 @@
 			interrupts = <277>;
 			clocks = <&sys_clk>;
 			clock-names = "dspi";
-			spi-num-chipselects = <6>;
+			spi-num-chipselects = <3>;
 			bus-num = <5>;
 			spi-cpol;
 			spi-cpha;
