@@ -66,6 +66,7 @@
 /* NETC integrated endpoint register block register */
 #define IERB_EMDIOFAUXR			0x344
 #define IERB_T0FAUXR			0x444
+#define IERB_ETBCR(a)			(0x300c + 0x100 * (a))
 #define IERB_EFAUXR(a)			(0x3044 + 0x100 * (a))
 #define IERB_VFAUXR(a)			(0x4004 + 0x40 * (a))
 #define FAUXR_LDID			GENMASK(3, 0)
@@ -76,15 +77,24 @@
 #define IMX95_ENETC2_BUS_DEVFN		0x80
 
 #define IMX94_ENETC3_BUS_DEVFN		0x0
+#define IMX94_TIMER0_BUS_DEVFN		0x1
 #define IMX94_SWITCH_BUS_DEVFN		0x2
 #define IMX94_ENETC0_BUS_DEVFN		0x100
+#define IMX94_TIMER1_BUS_DEVFN		0x101
 #define IMX94_ENETC1_BUS_DEVFN		0x140
 #define IMX94_ENETC2_BUS_DEVFN		0x180
+#define IMX94_TIMER2_BUS_DEVFN		0x181
 #define IMX94_ENETC0_LINK		3
 #define IMX94_ENETC1_LINK		4
 #define IMX94_ENETC2_LINK		5
+#define IMX94_ENETC0_OFFSET		0
+#define IMX94_ENETC1_OFFSET		1
+#define IMX94_ENETC2_OFFSET		2
 #define IMX94_SWITCH_PORT2		2
 #define IMX94_SWITCH_CPU_PORT		3
+#define IMX94_TIMER0_ID			0
+#define IMX94_TIMER1_ID			1
+#define IMX94_TIMER2_ID			2
 
 /* Flags for different platforms */
 #define NETC_HAS_NETCMIX		BIT(0)
@@ -401,6 +411,99 @@ static int imx95_ierb_init(struct platform_device *pdev)
 	return 0;
 }
 
+static int imx94_enetc_get_enetc_offset(struct device_node *np)
+{
+	int bus_devfn;
+
+	bus_devfn = netc_of_pci_get_bus_devfn(np);
+	if (bus_devfn < 0)
+		return -EINVAL;
+
+	/* Parse ENETC offset */
+	switch (bus_devfn) {
+	case IMX94_ENETC0_BUS_DEVFN:
+		return IMX94_ENETC0_OFFSET;
+	case IMX94_ENETC1_BUS_DEVFN:
+		return IMX94_ENETC1_OFFSET;
+	case IMX94_ENETC2_BUS_DEVFN:
+		return IMX94_ENETC2_OFFSET;
+	default:
+		return -EINVAL;
+	}
+}
+
+static int imx94_enetc_get_timer_id(struct device_node *np)
+{
+	int bus_devfn;
+
+	bus_devfn = netc_of_pci_get_bus_devfn(np);
+	if (bus_devfn < 0)
+		return -EINVAL;
+
+	/* Parse ENETC PTP timer ID */
+	switch (bus_devfn) {
+	case IMX94_TIMER0_BUS_DEVFN:
+		return IMX94_TIMER0_ID;
+	case IMX94_TIMER1_BUS_DEVFN:
+		return IMX94_TIMER1_ID;
+	case IMX94_TIMER2_BUS_DEVFN:
+		return IMX94_TIMER2_ID;
+	default:
+		return -EINVAL;
+	}
+}
+
+static int imx94_enetc_update_tid(struct netc_blk_ctrl *priv, struct device_node *pf_np)
+{
+	struct device_node *timer_np;
+	int offset, tid;
+
+	offset = imx94_enetc_get_enetc_offset(pf_np);
+	if (offset < 0) {
+		dev_err(&priv->pdev->dev, "Find unknown PF node.\n");
+		return offset;
+	}
+
+	timer_np = of_parse_phandle(pf_np, "ptp-timer", 0);
+	if (!timer_np) {
+		/*
+		 * If nxp,ptp-timer is not set, the first timer of the bus
+		 * where enetc is located will be used as the default timer.
+		 */
+		tid = IMX94_TIMER1_ID;
+		goto update_reg;
+	}
+
+	tid = imx94_enetc_get_timer_id(timer_np);
+	of_node_put(timer_np);
+	if (tid < 0) {
+		dev_err(&priv->pdev->dev, "Incorrect bus/devfn of ptp-timer.\n");
+		return tid;
+	}
+
+update_reg:
+	netc_reg_write(priv->ierb, IERB_ETBCR(offset), tid);
+
+	return 0;
+}
+
+static int imx94_ierb_init(struct platform_device *pdev)
+{
+	struct netc_blk_ctrl *priv = platform_get_drvdata(pdev);
+	struct device_node *blk_np = pdev->dev.of_node;
+	int ret = 0;
+
+	if (!blk_np)
+		return -ENODEV;
+
+	for_each_available_child_of_node_scoped(blk_np, bus_np)
+		for_each_available_child_of_node_scoped(bus_np, pf_np)
+			if (of_device_is_compatible(pf_np, "pci1131,e101"))
+				ret = imx94_enetc_update_tid(priv, pf_np);
+
+	return ret;
+}
+
 static int netc_ierb_init(struct platform_device *pdev)
 {
 	struct netc_blk_ctrl *priv = platform_get_drvdata(pdev);
@@ -536,6 +639,7 @@ static const struct netc_devinfo imx95_devinfo = {
 static const struct netc_devinfo imx94_devinfo = {
 	.flags = NETC_HAS_NETCMIX,
 	.netcmix_init = imx94_netcmix_init,
+	.ierb_init = imx94_ierb_init,
 };
 
 static const struct of_device_id netc_blk_ctrl_match[] = {
