@@ -1,0 +1,53 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR BSD-3-Clause)
+/*
+ * Device Tree file for NXP S32R47.
+ *
+ * Copyright 2025 NXP
+ */
+
+#include "s32r47.dtsi"
+
+/ {
+	model = "NXP S32R478AEVB";
+	compatible = "nxp,s32r47";
+
+	tick-timer = &pit1;
+};
+
+&gmac1 {
+	status = "okay";
+	phy-handle = <&mdio_gmac1_phy4>;
+};
+
+&gmac2 {
+	status = "okay";
+	phy-handle = <&mdio_gmac2_phy1>;
+};
+
+&gmac1_mdio {
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	/* TJA1120B */
+	mdio_gmac1_phy4: ethernet-phy@4 {
+		reg = <4>;
+	};
+};
+
+&gmac2_mdio {
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	/* TJA1120B */
+	mdio_gmac2_phy1: ethernet-phy@1 {
+		reg = <1>;
+	};
+};
+
+&pit1 {
+	status = "okay";
+};
+
+&uart0 {
+	status = "okay";
+};
