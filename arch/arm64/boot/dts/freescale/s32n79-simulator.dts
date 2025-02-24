@@ -79,15 +79,6 @@
 			no-map;
 			status = "okay";
 		};
-
-		/* CAR-V NET */
-		carv1_reserved: carv-reserved@d2000000 {
-			compatible = "shared-dma-pool";
-			/* 1 MB */
-			reg = <0 0xd2000000 0 0x100000>;
-			no-map;
-			status = "okay";
-		};
 	};
 };
 
@@ -148,7 +139,11 @@
 	status = "okay";
 };
 
-&carv0 {
+&carv0_partition0 {
+	status = "okay";
+};
+
+&carv0_partition0_user0 {
 	firmware-name = "s32n7-carvnet.fw";
 	memory-region = <&carv0_reserved>, <&carv0_vdev0vring0>,
 			<&carv0_vdev0vring1>, <&carv0_vdev0buffer>, <&carv0_packet_sram>;
@@ -160,11 +155,24 @@
 	status = "okay";
 };
 
-&carv1 {
-	firmware-name = "s32n7-carvnet.fw";
-	memory-region = <&carv1_reserved>;
-	memory-region-names = "carv-reserved";
-	nxp,s32n7-carv-mem-region-types = <CARV_MEM_COHERENT>;
+&carv0_partition1 {
+	nxp,stack-size = <8>;
+	status = "okay";
+};
+
+&carv0_partition1_user0 {
+	status = "okay";
+};
+
+&carv0_partition1_user1 {
+	status = "okay";
+};
+
+&carv0_partition1_user2 {
+	status = "okay";
+};
+
+&carv0_partition1_user3 {
 	status = "okay";
 };
 
