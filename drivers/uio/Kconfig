@@ -216,3 +216,14 @@ config UIO_NXP_HSE_INTL_MEM_SIZE
 	  Used for driver internal structures and objects/metadata.
 
 endif
+
+config UIO_NXP_CARV
+	tristate "NXP CAR-V UIO driver"
+	depends on ARCH_S32
+	help
+	  Enables the UIO driver support for NXP Coherent-mesh Acceleration RISC-V (CAR-V).
+	  The CAR-V accelerator partitions can have up to four virtual interface. A virtual
+	  interface will be exposed by this driver to be configured by userspace applications.
+	  For a virtual interface this driver exposes the register map, a reserved physical
+	  contiguous memory for placing the firmware and sharing data between userspace and
+	  CAR-V and a driver internal shared memory, which will be read-only from userspace.
