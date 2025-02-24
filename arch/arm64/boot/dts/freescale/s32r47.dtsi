@@ -1,0 +1,413 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR BSD-3-Clause)
+/*
+ * Device Tree Include file for NXP R47 SoC.
+ *
+ * Copyright 2025 NXP
+ */
+
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/memory/s32cc-siul2.h>
+#include <dt-bindings/nvmem/s32cc-siul2-nvmem.h>
+#include <dt-bindings/nvmem/s32cc-gpr-nvmem.h>
+#include <dt-bindings/phy/phy.h>
+
+/dts-v1/;
+
+/ {
+	interrupt-parent = <&gic>;
+	#address-cells = <2>;
+	#size-cells = <2>;
+
+	chosen {
+		stdout-path = "serial0:115200n8";
+	};
+
+	aliases {
+		ethernet1 = &gmac1;
+		ethernet2 = &gmac2;
+		serial0 = &uart0;
+		serdes1 = &serdes1;
+		spi6 = &qspi;
+	};
+
+	reserved-memory {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+	};
+
+	generic_timer: timer {
+		compatible = "arm,armv8-timer";
+		interrupts = <GIC_PPI 13 IRQ_TYPE_LEVEL_LOW>,
+			     <GIC_PPI 14 IRQ_TYPE_LEVEL_LOW>,
+			     <GIC_PPI 11 IRQ_TYPE_LEVEL_LOW>,
+			     <GIC_PPI 10 IRQ_TYPE_LEVEL_LOW>;
+	};
+
+	clocks {
+		qspi_clk: qspi-clk {
+			compatible = "fixed-clock";
+			clock-frequency = <133333333>;
+			clock-output-names = "qspi_clk";
+			#clock-cells = <0>;
+		};
+
+		qspi_2x_clk: qspi-2x-clk {
+			compatible = "fixed-clock";
+			clock-frequency = <266666666>;
+			clock-output-names = "qspi_2x_clk";
+			#clock-cells = <0>;
+		};
+
+		serdes_clk: serdes-clk {
+			compatible = "fixed-clock";
+			clock-frequency = <125000000>;
+			clock-output-names = "serdes_clk";
+			#clock-cells = <0>;
+		};
+
+		lin_clk: lin-clk {
+			compatible = "fixed-clock";
+			clock-frequency = <66666666>;
+			clock-output-names = "lin_clk";
+			#clock-cells = <0>;
+		};
+
+		xbar_lin_clk: xbar-lin-clk {
+			compatible = "fixed-clock";
+			clock-frequency = <400000000>;
+			clock-output-names = "xbar_lin_clk";
+			#clock-cells = <0>;
+		};
+
+		sys_clk: sys-clk {
+			compatible = "fixed-clock";
+			clock-frequency = <400000000>;
+			clock-output-names = "sys_clk";
+			#clock-cells = <0>;
+		};
+
+		gmac_ts_clk: gmac-ts-clk {
+			compatible = "fixed-clock";
+			clock-frequency = <250000000>;
+			clock-output-names = "gmac_ts_clk";
+			#clock-cells = <0>;
+		};
+
+		gmac_tx_rx_clk: gmac-tx-rx-clk {
+			compatible = "fixed-clock";
+			clock-frequency = <312500000>;
+			clock-output-names = "gmac_tx_rx_clk";
+			#clock-cells = <0>;
+		};
+
+		pit_clk: pit-clk {
+			compatible = "fixed-clock";
+			clock-frequency = <100000000>;
+			clock-output-names = "pit_clk";
+			#clock-cells = <0>;
+		};
+	};
+
+	firmware {
+		psci {
+			compatible = "arm,psci-1.0";
+			method = "smc";
+		};
+	};
+
+	cpus {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		cluster0_l2_cache: l2-cache0 {
+			compatible = "cache";
+		};
+
+		cpu-map {
+			cluster0 {
+				core0 {
+					cpu = <&cpu0>;
+				};
+				core1 {
+					cpu = <&cpu1>;
+				};
+				core2 {
+					cpu = <&cpu2>;
+				};
+				core3 {
+					cpu = <&cpu3>;
+				};
+			};
+		};
+
+		cpu0: cpu@0 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a53";
+			reg = <0x0>;
+			enable-method = "psci";
+			next-level-cache = <&cluster0_l2_cache>;
+		};
+
+		cpu1: cpu@1 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a53";
+			reg = <0x1>;
+			enable-method = "psci";
+			next-level-cache = <&cluster0_l2_cache>;
+		};
+
+		cpu2: cpu@2 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a53";
+			reg = <0x2>;
+			enable-method = "psci";
+			next-level-cache = <&cluster0_l2_cache>;
+		};
+
+		cpu3: cpu@3 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a53";
+			reg = <0x3>;
+			enable-method = "psci";
+			next-level-cache = <&cluster0_l2_cache>;
+		};
+	};
+
+	memory@60000000 {
+		device_type = "memory";
+		reg = <0 0x60000000 0 0x80000000>;
+	};
+
+	soc: soc {
+		compatible = "simple-bus";
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges = <0x0 0x0 0x0 0x0 0x0 0x20000000>,
+			 <0x0 0x22C00000 0x0 0x22C00000 0x0 0x4000>,
+			 <0x0 0x40000000 0x0 0x40000000 0x0 0x14000000>,
+			 <0x48 0x0 0x48 0x0 0x8 0x0>,
+			 <0x58 0x0 0x58 0x0 0x8 0x0>;
+
+		siul2@40100000 {
+			compatible = "simple-mfd";
+			#address-cells = <2>;
+			#size-cells = <2>;
+
+			/* MIDR */
+			ranges = <MIDR_SIUL2_0 0 0x0 0x40100000 0x0 0x10>,
+				 <MIDR_SIUL2_1 0 0x0 0x44190000 0x0 0x10>;
+
+			siul2_0_nvram: siul2_0_nvram {
+				reg = <MIDR_SIUL2_0 0 0x0 0x10>;
+				#address-cells = <1>;
+				#size-cells = <1>;
+				compatible = "nxp,s32cc-siul2_0-nvmem";
+
+				soc_major: soc_major@0 {
+					reg = <SOC_MAJOR_OFFSET NVRAM_CELL_SIZE>;
+				};
+
+				soc_minor: soc_minor@1 {
+					reg = <SOC_MINOR_OFFSET NVRAM_CELL_SIZE>;
+				};
+			};
+		};
+
+		gic: interrupt-controller@50800000 {
+			compatible = "arm,gic-v3";
+			#interrupt-cells = <3>;
+			#address-cells = <2>;
+			#size-cells = <2>;
+			interrupt-controller;
+			reg = <0 0x50800000 0 0x10000>, /* GIC Dist */
+			      <0 0x50880000 0 0x80000>, /* GICR (RD_base + SGI_base) */
+			      <0 0x50400000 0 0x2000>, /* GICC */
+			      <0 0x50410000 0 0x2000>, /* GICH */
+			      <0 0x50420000 0 0x2000>; /* GICV */
+			interrupts = <GIC_PPI 9 IRQ_TYPE_LEVEL_HIGH>;
+		};
+
+		src: syscon@440d0000 {
+			compatible = "simple-mfd", "syscon";
+			reg = <0x0 0x440d0000 0x0 0x3000>;
+			#address-cells = <1>;
+			#size-cells = <1>;
+			ranges = <0x0 0x0 0x440d0000 0x100>;
+		};
+
+		qspi: spi@402d0000 {
+			compatible = "nxp,s32cc-qspi";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0x0 0x402d0000 0x0 0x1000>,
+			      <0x0 0x00000000 0x0 0x20000000>;
+			reg-names = "QuadSPI", "QuadSPI-memory";
+			clock-names = "qspi_en", "qspi";
+			clocks = <&qspi_clk>, <&qspi_clk>;
+			spi-max-frequency = <133333333>;
+			spi-num-chipselects = <1>;
+			status = "disabled";
+		};
+
+		/* PCIE_APB_ENET - 1 GMAC's, 1 PCIE */
+		serdes1: serdes@44200000 {
+			#phy-cells = <3>;
+			compatible = "nxp,s32cc-serdes";
+			clocks = <&serdes_clk>, <&serdes_clk>,
+				<&serdes_clk>, <&serdes_clk>;
+			clock-names = "axi", "aux", "apb", "ref";
+			#address-cells = <3>;
+			#size-cells = <2>;
+			num-lanes = <2>;
+			reg = <0x0 0x44200000 0x0 0x108>,
+			      <0x0 0x44203008 0x0 0x10>,
+			      <0x0 0x44202000 0x0 0x800>,
+			      <0x0 0x44202800 0x0 0x800>;
+			reg-names = "ss_pcie", "pcie_phy", "xpcs0", "xpcs1";
+			status = "disabled";
+		};
+
+		gmac1: ethernet@404a8000 {
+			compatible = "nxp,s32cc-dwmac";
+			reg = <0x0 0x404a8000 0x0 0x4000>;
+			interrupt-parent = <&gic>;
+			interrupts = <GIC_SPI 220 IRQ_TYPE_LEVEL_HIGH>,
+				/* CHN0: tx, rx */
+				<GIC_SPI 221 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 222 IRQ_TYPE_LEVEL_HIGH>,
+				/* CHN1: tx, rx */
+				<GIC_SPI 223 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 224 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "macirq",
+					  "tx0", "rx0", "tx1", "rx1";
+			tx-fifo-depth = <20480>;
+			rx-fifo-depth = <20480>;
+			status = "disabled";
+			phy-names = "gmac_xpcs";
+			phys = <&serdes1 PHY_TYPE_XPCS 0 0>;
+			dma-coherent;
+			snps,mtl-rx-config = <&mtl_rx_setup_gmac1>;
+			snps,mtl-tx-config = <&mtl_tx_setup_gmac1>;
+			clocks = <&sys_clk 0>,
+				 <&sys_clk 0>,
+				 <&gmac_tx_rx_clk 0>,
+				 <&gmac_tx_rx_clk 0>,
+				 <&gmac_ts_clk 0>;
+			clock-names = "stmmaceth", "pclk",
+				      "tx_sgmii", "rx_sgmii",
+				      "ptp_ref";
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			mtl_tx_setup_gmac1: tx-queues-config {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				snps,tx-queues-to-use = <2>;
+				queue@0 {
+				};
+				queue@1 {
+				};
+			};
+
+			mtl_rx_setup_gmac1: rx-queues-config {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				snps,rx-queues-to-use = <2>;
+				queue@0 {
+				};
+				queue@1 {
+				};
+			};
+
+			gmac1_mdio: mdio@404a8200 {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				compatible = "snps,dwmac-mdio";
+			};
+		};
+
+		gmac2: ethernet@402b0000 {
+			compatible = "nxp,s32cc-dwmac";
+			reg = <0x0 0x402b0000 0x0 0x4000>;
+			interrupt-parent = <&gic>;
+			interrupts = <GIC_SPI 225 IRQ_TYPE_LEVEL_HIGH>,
+				/* CHN0: tx, rx */
+				<GIC_SPI 226 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 227 IRQ_TYPE_LEVEL_HIGH>,
+				/* CHN1: tx, rx */
+				<GIC_SPI 228 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 229 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "macirq",
+					  "tx0", "rx0", "tx1", "rx1";
+			tx-fifo-depth = <20480>;
+			rx-fifo-depth = <20480>;
+			status = "disabled";
+			phy-names = "gmac_xpcs";
+			phys = <&serdes1 PHY_TYPE_XPCS 0 0>;
+			dma-coherent;
+			snps,mtl-rx-config = <&mtl_rx_setup_gmac2>;
+			snps,mtl-tx-config = <&mtl_tx_setup_gmac2>;
+			clocks = <&sys_clk 0>,
+				 <&sys_clk 0>,
+				 <&gmac_tx_rx_clk 0>,
+				 <&gmac_tx_rx_clk 0>,
+				 <&gmac_ts_clk 0>;
+			clock-names = "stmmaceth", "pclk",
+				      "tx_sgmii", "rx_sgmii",
+				      "ptp_ref";
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			mtl_tx_setup_gmac2: tx-queues-config {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				snps,tx-queues-to-use = <2>;
+				queue@0 {
+				};
+				queue@1 {
+				};
+			};
+
+			mtl_rx_setup_gmac2: rx-queues-config {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				snps,rx-queues-to-use = <2>;
+				queue@0 {
+				};
+				queue@1 {
+				};
+			};
+
+			gmac2_mdio: mdio@402b0200 {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				compatible = "snps,dwmac-mdio";
+			};
+		};
+
+		pit1: pit@440d8000 {
+			compatible = "nxp,s32cc-pit";
+			reg = <0x0 0x40408000 0x0 0x3000>;
+			interrupts = <GIC_SPI 53 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&pit_clk>;
+			clock-names = "pit";
+			status = "disabled";
+		};
+
+		uart0: serial@4048c000 {
+			compatible = "nxp,s32cc-linflexuart",
+				     "fsl,s32v234-linflexuart";
+			reg = <0x0 0x4048c000 0x0 0x1000>;
+			interrupts = <GIC_SPI 82 IRQ_TYPE_EDGE_RISING>;
+			clocks = <&lin_clk>, <&xbar_lin_clk>;
+			clock-names = "lin", "ipg";
+			status = "disabled";
+		};
+	};
+};
