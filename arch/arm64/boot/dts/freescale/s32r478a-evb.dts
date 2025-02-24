@@ -6,6 +6,7 @@
  */
 
 #include "s32r47.dtsi"
+#include "s32r47-nxp-flash-micron.dtsi"
 
 / {
 	model = "NXP S32R478AEVB";
