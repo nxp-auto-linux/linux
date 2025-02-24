@@ -1,0 +1,65 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR BSD-3-Clause)
+/*
+ * Copyright 2025 NXP
+ */
+
+&qspi {
+	micron_memory: mt25qu512abb@0 {
+		compatible = "mt25qu512a", "jedec,spi-nor";
+		spi-max-frequency = <133000000>;
+		spi-tx-bus-width = <1>;
+		spi-rx-bus-width = <4>;
+		reg = <0>;
+
+		partitions {
+			compatible = "fixed-partitions";
+			#address-cells = <1>;
+			#size-cells = <1>;
+
+			flashimage@0 {
+				label = "Flash-Image";
+				reg = <0x0 0x4000000>;
+			};
+
+			m7-software@0 {
+				label = "M7-Software";
+				reg = <0x0 0x1350000>;
+			};
+
+			boot-info@1350000 {
+				label = "BL2-SW-INFO";
+				reg = <0x1350000 0x10000>;
+			};
+
+			boot@1360000 {
+				label = "BL2";
+				reg = <0x1360000 0xc0000>;
+			};
+
+			fip@1420000 {
+				label = "FIP";
+				reg = <0x1420000 0x1d0000>;
+			};
+
+			boot-env@1500000 {
+				label = "U-Boot-Env";
+				reg = <0x15f0000 0x10000>;
+			};
+
+			kernel@1600000 {
+				label = "Kernel";
+				reg = <0x1600000 0x10d0000>;
+			};
+
+			dtb@26d0000 {
+				label = "DTB";
+				reg = <0x26d0000 0x30000>;
+			};
+
+			rootfs@2700000 {
+				label = "Rootfs";
+				reg = <0x2700000 0x1900000>;
+			};
+		};
+	};
+};
