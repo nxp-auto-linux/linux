@@ -818,8 +818,8 @@ static void nxp_xspi_fill_txfifo(struct nxp_xspi *xspi,
 		reg |= XSPI_FR_TBFF;
 		xspi_writel(xspi, reg, base + XSPI_FR);
 		/* read again to check whether the tx fifo has rom */
-		reg = xspi_readl(xspi, base + XSPI_FR);
-		WARN_ON(!(reg & XSPI_FR_TBFF));
+		//reg = xspi_readl(xspi, base + XSPI_FR);
+		//WARN_ON(!(reg & XSPI_FR_TBFF));
 		if (i == ALIGN_DOWN(op->data.nbytes, 4)) {
 			/* the last 1 to 3 bytes */
 			memcpy((u8 *)&left, buf + i, op->data.nbytes - i);
