@@ -454,7 +454,9 @@
 		compatible = "simple-bus";
 		#address-cells = <1>;
 		#size-cells = <1>;
-		ranges = <0x5b490000 0x0 0x5b490000 0x1000>;
+		ranges = <0x10000000 0x0 0x10000000 0x10000000>,
+			 <0x5b490000 0x0 0x5b490000 0x1000>,
+			 <0x5b700000 0x0 0x5b700000 0x81000>;
 
 		usdhc0: mmc@5b490000 {
 			compatible = "nxp,s32n-usdhc";
@@ -463,6 +465,18 @@
 			clocks = <&sys_clk>, <&sys_clk>, <&sys_clk>;
 			clock-names = "ipg", "ahb", "per";
 			bus-width = <8>;
+			status = "disabled";
+		};
+
+		xspi0: spi@5b700000 {
+			compatible = "nxp,s32n79-xspi";
+			reg = <0x5b700000 0x81000>, <0x10000000 0x10000000>;
+			reg-names = "base", "mmap";
+			interrupts = <GIC_SPI 443 IRQ_TYPE_LEVEL_HIGH>;// EENV0
+			#address-cells = <1>;
+			#size-cells = <0>;
+			clocks = <&sys_clk>;
+			clock-names = "per";
 			status = "disabled";
 		};
 	};
