@@ -233,3 +233,37 @@
 &spi5 {
 	status = "okay";
 };
+
+&xspi0 {
+	status = "okay";
+
+	s28hs512t: flash@0 {
+		compatible = "jedec,spi-nor";
+		reg = <0>;
+		spi-max-frequency = <200000000>;
+		spi-tx-bus-width = <8>;
+		spi-rx-bus-width = <8>;
+
+		partitions {
+			compatible = "fixed-partitions";
+			#address-cells = <1>;
+			#size-cells = <1>;
+
+			/*
+			 * By default, s28hs512t/s28hs01gt have a bottom hybrid
+			 * configuration:
+			 * - address range [0x0 - 0x1ffff] - 32 sectors
+			 * of 4KB size
+			 * - address range [0x20000 - 0x3ffff] - 1 sector of
+			 * 128KB size
+			 * - address range [0x3ffff - ...] - 256KB sectors
+			 * The XSPI partitions should be defined taking into
+			 * account the flash address space configuration.
+			 */
+			flashimage@0 {
+				label = "Flash-Image";
+				reg = <0x0 0x4000000>;
+			};
+		};
+	};
+};
