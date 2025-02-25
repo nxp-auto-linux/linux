@@ -1,0 +1,273 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR BSD-3-Clause)
+/*
+ * Device Tree file compatibility layer between NXP R47 SoC
+ * and R45 EVB board.
+ *
+ * Copyright 2025 NXP
+ */
+
+#include "s32r47.dtsi"
+#include "s32r47-nxp-flash-micron.dtsi"
+
+#include <dt-bindings/pinctrl/s32cc-pinfunc.h>
+#include <dt-bindings/perf/s32cc-scmi-perf.h>
+
+/ {
+
+	tick-timer = &pit0;
+
+	/delete-node/ memory@60000000;
+
+	memory@80000000 {
+		device_type = "memory";
+		reg = <0 0x80000000 0 0x80000000>;
+	};
+
+	memory@880000000 {
+		device_type = "memory";
+		reg = <0x8 0x80000000 0 0x80000000>;
+	};
+
+	reserved-memory {
+		scmi_shbuf: shm@d0000000 {
+			compatible = "arm,scmi-shmem";
+			reg = <0x0 0xd0000000 0x0 0x80>;
+			no-map;
+		};
+	};
+
+	clocks {
+		gmac0_tx_clk: gmac0-tx-clk {
+			compatible = "fixed-clock";
+			clock-frequency = <312500000>;
+			clock-output-names = "gmac0_tx_clk";
+			#clock-cells = <0>;
+		};
+
+		gmac0_rx_clk: gmac0-rx-clk {
+			compatible = "fixed-clock";
+			clock-frequency = <500000000>;
+			clock-output-names = "gmac0_rx_clk";
+			#clock-cells = <0>;
+		};
+
+	};
+
+	firmware {
+		u-boot,dm-pre-reloc;
+
+		scmi: scmi {
+			u-boot,dm-pre-reloc;
+			compatible = "arm,scmi-smc";
+			shmem = <&scmi_shbuf>;
+			arm,smc-id = <0xc20000fe>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			dfs: protocol@13 {
+				reg = <0x13>;
+				#clock-cells = <1>;
+			};
+		};
+	};
+
+	/delete-node/ cpus;
+	cpus {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		u-boot,dm-pre-reloc;
+
+		cluster0_l2_cache: l2-cache0 {
+			compatible = "cache";
+		};
+
+		cluster1_l2_cache: l2-cache1 {
+			compatible = "cache";
+		};
+
+		cpu-map {
+			cluster0 {
+				core0 {
+					cpu = <&cpu0>;
+				};
+
+				core1 {
+					cpu = <&cpu1>;
+				};
+			};
+
+			cluster1 {
+				core0 {
+					cpu = <&cpu2>;
+				};
+
+				core1 {
+					cpu = <&cpu3>;
+				};
+			};
+		};
+
+		cpu0: cpu@0 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a53";
+			reg = <0x0>;
+			enable-method = "psci";
+			clocks = <&dfs S32CC_SCMI_PERF_A53>;
+			next-level-cache = <&cluster0_l2_cache>;
+		};
+
+		cpu1: cpu@1 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a53";
+			reg = <0x1>;
+			enable-method = "psci";
+			clocks = <&dfs S32CC_SCMI_PERF_A53>;
+			next-level-cache = <&cluster0_l2_cache>;
+		};
+
+		cpu2: cpu@100 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a53";
+			reg = <0x100>;
+			enable-method = "psci";
+			clocks = <&dfs S32CC_SCMI_PERF_A53>;
+			next-level-cache = <&cluster1_l2_cache>;
+		};
+
+		cpu3: cpu@101 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a53";
+			reg = <0x101>;
+			enable-method = "psci";
+			clocks = <&dfs S32CC_SCMI_PERF_A53>;
+			next-level-cache = <&cluster1_l2_cache>;
+		};
+	};
+};
+
+&lin_clk {
+	clock-frequency = <125000000>;
+};
+
+&soc {
+	/delete-node/ siul2@40100000;
+	siul2@4009c000 {
+		compatible = "simple-mfd";
+		u-boot,dm-pre-reloc;
+		#address-cells = <2>;
+		#size-cells = <2>;
+
+		/* MIDR */
+		ranges = <MIDR_SIUL2_0 0 0x0 0x4009c000 0x0 0x10>,
+			<MIDR_SIUL2_1 0 0x0 0x4403c000 0x0 0x10>;
+
+		siul2_0_nvram: siul2_0_nvram {
+			reg = <MIDR_SIUL2_0 0 0x0 0x10>;
+			#address-cells = <1>;
+			#size-cells = <1>;
+			compatible = "nxp,s32cc-siul2_0-nvmem";
+
+			soc_major: soc_major@0 {
+				reg = <SOC_MAJOR_OFFSET NVRAM_CELL_SIZE>;
+			};
+
+			soc_minor: soc_minor@1 {
+				reg = <SOC_MINOR_OFFSET NVRAM_CELL_SIZE>;
+			};
+		};
+	};
+
+	/delete-node/ spi@402d0000;
+	qspi: spi@40134000 {
+		compatible = "nxp,s32cc-qspi";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg = <0x0 0x40134000 0x0 0x1000>,
+			<0x0 0x00000000 0x0 0x20000000>;
+		reg-names = "QuadSPI", "QuadSPI-memory";
+		clock-names = "qspi_en", "qspi";
+		clocks = <&qspi_clk>, <&qspi_clk>;
+		spi-max-frequency = <200000000>;
+		spi-num-chipselects = <2>;
+		status = "disabled";
+	};
+
+	gmac0: ethernet@4033c000 {
+		compatible = "nxp,s32cc-dwmac";
+		reg = <0x0 0x4033c000 0x0 0x2000>;
+		interrupt-parent = <&gic>;
+		interrupts = <GIC_SPI 57 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "macirq";
+		tx-fifo-depth = <20480>;
+		rx-fifo-depth = <20480>;
+		status = "okay";
+		phy-names = "gmac_xpcs";
+		dma-coherent;
+		clocks = <&sys_clk 0>,
+			<&sys_clk 0>,
+			<&gmac0_tx_clk 0>,
+			<&gmac0_tx_clk 0>,
+			<&gmac0_tx_clk 0>,
+			<&gmac0_tx_clk 0>,
+			<&gmac0_rx_clk 0>,
+			<&gmac0_rx_clk 0>,
+			<&gmac0_rx_clk 0>,
+			<&gmac0_rx_clk 0>,
+			<&gmac_ts_clk 0>;
+		clock-names = "stmmaceth", "pclk",
+				"tx_sgmii", "tx_rgmii",
+				"tx_rmii", "tx_mii",
+				"rx_sgmii", "rx_rgmii",
+				"rx_rmii", "rx_mii",
+				"ptp_ref";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		phy-mode = "sgmii";
+
+		gmac0_mdio: mdio@4033c200 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			compatible = "snps,dwmac-mdio";
+			reg = <0x4033c200>;
+
+			/* TJA1120B */
+			mdio_gmac0_phy2: ethernet-phy@2 {
+				reg = <2>;
+			};
+
+			/* GPHY212 */
+			mdio_gmac0_phy1: ethernet-phy@1 {
+				reg = <1>;
+			};
+		};
+	};
+
+	/delete-node/ syscon@440d0000;
+	src: syscon@4007c000 {
+		compatible = "simple-mfd", "syscon";
+		reg = <0x0 0x4007c000 0x0 0x3000>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges = <0x0 0x0 0x4007c000 0x100>;
+	};
+
+	/delete-node/ pit@440d8000;
+	pit0: pit@40188000 {
+		compatible = "nxp,s32cc-pit";
+		reg = <0x0 0x40188000 0x0 0x3000>;
+		interrupts = <GIC_SPI 53 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&pit_clk>;
+		clock-names = "pit";
+		status = "okay";
+	};
+
+	/delete-node/ serial@4048c000;
+	uart0: serial@401c8000 {
+		compatible = "nxp,s32cc-linflexuart", "fsl,s32v234-linflexuart";
+		reg = <0x0 0x401c8000 0x0 0x3000>;
+		interrupts = <GIC_SPI 82 IRQ_TYPE_EDGE_RISING>;
+		clocks = <&lin_clk>, <&xbar_lin_clk>;
+		clock-names = "lin", "ipg";
+		status = "okay";
+	};
+};
