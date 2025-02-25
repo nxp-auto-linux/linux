@@ -343,6 +343,13 @@ static struct nxp_xspi_devtype_data imx94_data = {
 	.little_endian = true,  /* little-endian    */
 };
 
+static struct nxp_xspi_devtype_data s32n79_data = {
+	.rxfifo = SZ_256,       /* (64 * 4 bytes)  */
+	.txfifo = SZ_1K,        /* (256 * 4 bytes)  */
+	.ahb_buf_size = SZ_512,  /* (should be 1024 * 4 bytes)  */
+	.little_endian = true,  /* little-endian    */
+};
+
 struct nxp_xspi {
 	void __iomem *iobase;
 	void __iomem *ahb_addr;
@@ -1370,6 +1377,7 @@ static const struct dev_pm_ops nxp_xspi_pm_ops = {
 
 static const struct of_device_id nxp_xspi_dt_ids[] = {
 	{ .compatible = "nxp,imx94-xspi", .data = (void *)&imx94_data, },
+	{ .compatible = "nxp,s32n79-xspi", .data = (void *)&s32n79_data, },
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, nxp_xspi_dt_ids);
