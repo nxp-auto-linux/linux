@@ -449,7 +449,7 @@ config SPI_NXP_FLEXSPI
 
 config SPI_NXP_XSPI
 	tristate "NXP xSPI controller"
-	depends on ARCH_MXC || COMPILE_TEST
+	depends on ARCH_MXC || ARCH_S32 || COMPILE_TEST
 	depends on HAS_IOMEM
 	help
 	  This enables support for the xSPI controller. This controller
