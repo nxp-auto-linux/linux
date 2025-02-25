@@ -196,4 +196,5 @@ dtb-$(CONFIG_ARCH_S32) += s32r45-evb.dtb
 dtb-$(CONFIG_ARCH_S32) += s32r45-renan.dtb
 dtb-$(CONFIG_ARCH_S32) += s32r45-emu.dtb
 dtb-$(CONFIG_ARCH_S32) += s32r478a-evb.dtb
+dtb-$(CONFIG_ARCH_S32) += s32r47_w_r45.dtb
 dtb-$(CONFIG_ARCH_S32) += s32v234-evb.dtb
