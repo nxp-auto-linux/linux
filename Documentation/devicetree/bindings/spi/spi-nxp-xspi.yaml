@@ -15,6 +15,7 @@ properties:
     oneOf:
       - enum:
           - nxp,imx94-xspi
+          - nxp,s32n79-xspi
 
   reg:
     items:
