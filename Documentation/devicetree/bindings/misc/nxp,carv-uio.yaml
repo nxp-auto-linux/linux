@@ -1,0 +1,141 @@
+# SPDX-License-Identifier: (GPL-2.0 OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/misc/nxp,carv-uio.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: NXP CAR-V Accelerator
+
+description:
+  Binding for NXP CAR-V user nodes, initially found on NXP S32N7x SoCs, which
+  represent individual users within a partition of the CAR-V device. Each partition
+  may contain up to 4 users, defined directly in the partition node.
+  CAR-V comprises a grid of many small, interconnected cores running at high
+  frequency to allow for a high degree of parallelism.
+
+maintainers:
+  - Andrei-Edward Popa <andrei.popa_1@nxp.com>
+
+properties:
+  compatible:
+    enum:
+      - nxp,carv-uio
+      - nxp,carv-ahb-uio
+    description:
+      The compatible strings for a CAR-V users nodes within a CAR-V partition,
+      with or without AHB capabilities enabled.
+      Only one user per partition can have nxp,carv-ahb-uio compatible to enable
+      AHB capabilities for it.
+
+  reg:
+    minItems: 1
+    maxItems: 2
+    description:
+      MMIO register space assigned to this CAR-V user.
+      If CAR-V partition has N quartiles, it must have N 'reg' entries.
+
+  interrupts:
+    maxItems: 1
+    description:
+      Interrupt assigned to this CAR-V user.
+
+required:
+  - compatible
+  - reg
+  - interrupts
+
+additionalProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/interrupt-controller/arm-gic.h>
+
+    /* Users containing 1 quartile */
+    carv-user@47810000 {
+        compatible = "nxp,carv-uio";
+        reg = <0x47810000 0x10000>;
+        interrupts = <GIC_SPI 279 IRQ_TYPE_LEVEL_HIGH>;
+        status = "okay";
+    };
+
+    /* Enable AHB capabilities for this user */
+    carv-user@47820000 {
+        compatible = "nxp,carv-ahb-uio";
+        reg = <0x47820000 0x10000>;
+        interrupts = <GIC_SPI 281 IRQ_TYPE_LEVEL_HIGH>;
+        status = "okay";
+    };
+
+    carv-user@47830000 {
+        compatible = "nxp,carv-uio";
+        reg = <0x47830000 0x10000>;
+        interrupts = <GIC_SPI 283 IRQ_TYPE_LEVEL_HIGH>;
+        status = "okay";
+    };
+
+    carv-user@47840000 {
+        compatible = "nxp,carv-uio";
+        reg = <0x47840000 0x10000>;
+        interrupts = <GIC_SPI 285 IRQ_TYPE_LEVEL_HIGH>;
+        status = "okay";
+    };
+
+    carv-user@47860000 {
+        compatible = "nxp,carv-uio";
+        reg = <0x47860000 0x10000>;
+        interrupts = <GIC_SPI 287 IRQ_TYPE_LEVEL_HIGH>;
+        status = "okay";
+    };
+
+    carv-user@47870000 {
+        compatible = "nxp,carv-uio";
+        reg = <0x47870000 0x10000>;
+        interrupts = <GIC_SPI 289 IRQ_TYPE_LEVEL_HIGH>;
+        status = "okay";
+    };
+
+    carv-user@47880000 {
+        compatible = "nxp,carv-uio";
+        reg = <0x47880000 0x10000>;
+        interrupts = <GIC_SPI 291 IRQ_TYPE_LEVEL_HIGH>;
+        status = "okay";
+    };
+
+    carv-user@47890000 {
+        compatible = "nxp,carv-uio";
+        reg = <0x47890000 0x10000>;
+        interrupts = <GIC_SPI 293 IRQ_TYPE_LEVEL_HIGH>;
+        status = "okay";
+    };
+  - |
+    #include <dt-bindings/interrupt-controller/arm-gic.h>
+
+    /* Users containing 2 quartiles */
+    carv-user@47810000 {
+        compatible = "nxp,carv-uio";
+        reg = <0x47810000 0x10000>,<0x47860000 0x10000>;
+        interrupts = <GIC_SPI 279 IRQ_TYPE_LEVEL_HIGH>;
+        status = "okay";
+    };
+
+    carv-user@47820000 {
+        compatible = "nxp,carv-uio";
+        reg = <0x47820000 0x10000>,<0x47870000 0x10000>;
+        interrupts = <GIC_SPI 281 IRQ_TYPE_LEVEL_HIGH>;
+        status = "okay";
+    };
+
+    /* Enable AHB capabilities for this user */
+    carv-user@47830000 {
+        compatible = "nxp,carv-ahb-uio";
+        reg = <0x47830000 0x10000>,<0x47880000 0x10000>;
+        interrupts = <GIC_SPI 283 IRQ_TYPE_LEVEL_HIGH>;
+        status = "okay";
+    };
+
+    carv-user@47840000 {
+        compatible = "nxp,carv-uio";
+        reg = <0x47840000 0x10000>,<0x47890000 0x10000>;
+        interrupts = <GIC_SPI 285 IRQ_TYPE_LEVEL_HIGH>;
+        status = "okay";
+    };
