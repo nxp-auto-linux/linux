@@ -610,6 +610,15 @@ config MARVELL_CN10K_DPI
 	  To compile this driver as a module, choose M here: the module
 	  will be called mrvl_cn10k_dpi.
 
+config NXP_CARV_PARTITION
+	tristate "NXP CAR-V partition driver"
+	depends on ARCH_S32
+	help
+	  Enables the partition driver support for NXP Coherent-mesh Acceleration RISC-V (CAR-V).
+	  The CAR-V accelerator can be partitioned into a maximum of two isolated partition. Each
+	  partition must be configured to know how many compute units (quartiles) are assigned to
+	  them and enabled to be able to use the exposed virtual interfaces.
+
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"
 source "drivers/misc/cb710/Kconfig"
