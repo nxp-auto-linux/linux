@@ -3874,6 +3874,8 @@ static int __stmmac_open(struct net_device *dev,
 
 	stmmac_init_coalesce(priv);
 
+	stmmac_restore_hw_vlan_rx_fltr(priv, dev, priv->hw);
+
 	phylink_start(priv->phylink);
 	/* We may have called phylink_speed_down before */
 	phylink_speed_up(priv->phylink);
