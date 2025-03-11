@@ -178,9 +178,9 @@ MODULE_PARM_DESC(auto_boot,
 #define CARV_Q_AT_SRR_ENA(v)		((v) & CARV_Q_AT_SRR_ENA_MASK)
 #define GET_CARV_Q_AT_SRR_ENA(v)	((v) & CARV_Q_AT_SRR_ENA_MASK)
 
-#define CARV_Q_AT_RCR_OFF_MASK		GENMASK(31, 12)
-#define CARV_Q_AT_RCR_OFF(v)		(((v & GENMASK(19, 0)) << 12) & CARV_Q_AT_RCR_OFF_MASK)
-#define GET_CARV_Q_AT_RCR_OFF(v)	(((v) & CARV_Q_AT_RCR_OFF_MASK) >> 12)
+#define CARV_Q_AT_RCR_OFF_MASK		GENMASK(31, 14)
+#define CARV_Q_AT_RCR_OFF(v)		(((v & GENMASK(19, 0)) << 14) & CARV_Q_AT_RCR_OFF_MASK)
+#define GET_CARV_Q_AT_RCR_OFF(v)	(((v) & CARV_Q_AT_RCR_OFF_MASK) >> 14)
 #define CARV_Q_AT_RCR_SIZE_MASK		GENMASK(11, 8)
 #define CARV_Q_AT_RCR_SIZE(v)		(((v & 15) << 8) & CARV_Q_AT_RCR_SIZE_MASK)
 #define GET_CARV_Q_AT_RCR_SIZE(v)	(((v) & CARV_Q_AT_RCR_SIZE_MASK) >> 8)
@@ -530,14 +530,14 @@ static int q_set_prio_region(struct carvnet *priv, struct carveout_info *info,
 		r_size = fls(m_size / SZ_4K) - 1;
 	}
 
-	if (!IS_ALIGNED(r_off, SZ_4K)) {
+	if (!IS_ALIGNED(r_off, SZ_16K)) {
 		dev_err(priv->dev,
-			"Mapping %d (%s) offset is not aligned to SZ_4K: 0x%x",
+			"Mapping %d (%s) offset is not aligned to SZ_16K: 0x%x",
 			i, info->carveout_name, r_off);
 		return -EINVAL;
 	}
 
-	r_off = r_off / SZ_4K;
+	r_off = r_off / SZ_16K;
 	r_mem = bar;
 
 	r_value = CARV_Q_AT_RCR_OFF(r_off) |
