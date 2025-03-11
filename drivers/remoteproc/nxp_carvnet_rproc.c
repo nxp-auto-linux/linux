@@ -214,7 +214,6 @@ MODULE_PARM_DESC(auto_boot,
 						 *   - illegal instruction
 						 */
 #define	CARV_INT_F_AHB_BIT		BIT(13)	/* AHB access response error */
-#define	CARV_INT_F_PART_BIT		BIT(12)	/* illegal isolated partition configuration */
 #define	CARV_INT_F_AXIRP_BIT		BIT(11)	/* Parity error on AXI RDATA attribute */
 #define	CARV_INT_F_AXIWE_BIT		BIT(10)	/* Response error on AXI BRESP attribute */
 #define	CARV_INT_F_AXIRE_BIT		BIT(9)	/* Read error on AXI RRESP attribute */
@@ -234,7 +233,6 @@ MODULE_PARM_DESC(auto_boot,
 #define	GET_CARV_INT_F_L1(v)		(!!((v) & CARV_INT_F_L1_BIT))
 #define	GET_CARV_INT_F_CORE(v)		(!!((v) & CARV_INT_F_CORE_BIT))
 #define	GET_CARV_INT_F_AHB(v)		(!!((v) & CARV_INT_F_AHB_BIT))
-#define	GET_CARV_INT_F_PART(v)		(!!((v) & CARV_INT_F_PART_BIT))
 #define	GET_CARV_INT_F_AXIRP(v)		(!!((v) & CARV_INT_F_AXIRP_BIT))
 #define	GET_CARV_INT_F_AXIWE(v)		(!!((v) & CARV_INT_F_AXIWE_BIT))
 #define	GET_CARV_INT_F_AXIRE(v)		(!!((v) & CARV_INT_F_AXIRE_BIT))
@@ -249,7 +247,7 @@ MODULE_PARM_DESC(auto_boot,
 	CARV_INT_UPDATE_BIT | CARV_INT_ERR_BIT | CARV_INT_DONE_BIT)
 
 #define FAULT_ENABLE_MASK (CARV_INT_F_BUS_BIT | CARV_INT_F_L2_BIT | CARV_INT_F_L1_BIT | \
-	CARV_INT_F_CORE_BIT | CARV_INT_F_AHB_BIT | CARV_INT_F_PART_BIT | CARV_INT_F_AXIRP_BIT | \
+	CARV_INT_F_CORE_BIT | CARV_INT_F_AHB_BIT | CARV_INT_F_AXIRP_BIT | \
 	CARV_INT_F_AXIWE_BIT | CARV_INT_F_AXIRE_BIT | CARV_INT_F_MAP_BIT)
 
 #define CARVNET_IRQ_CNT 2
@@ -1076,9 +1074,6 @@ static void carvnet_rproc_fault_irq_msg(struct device *dev, u32 irq_mask)
 
 	if (irq_mask & CARV_INT_F_AHB_BIT)
 		dev_err(dev, "Fault: AHB access response error\n");
-
-	if (irq_mask & CARV_INT_F_PART_BIT)
-		dev_err(dev, "Fault: Illegal isolated partition configuration\n");
 
 	if (irq_mask & CARV_INT_F_AXIRP_BIT)
 		dev_err(dev, "Fault: Parity error on AXI RDATA attribute\n");
