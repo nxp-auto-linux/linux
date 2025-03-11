@@ -158,6 +158,7 @@
 				     <GIC_SPI 30 IRQ_TYPE_EDGE_RISING>;
 			interrupt-names = "eventq", "gerror", "priq", "cmdq-sync";
 			#iommu-cells = <1>;
+			dma-coherent;
 			status = "disabled";
 		};
 
