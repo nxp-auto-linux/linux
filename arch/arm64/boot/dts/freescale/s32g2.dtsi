@@ -3,7 +3,7 @@
  * NXP S32G2 SoC family
  *
  * Copyright (c) 2021 SUSE LLC
- * Copyright 2017-2021, 2024 NXP
+ * Copyright 2017-2025 NXP
  */
 
 #include "s32g.dtsi"
@@ -74,18 +74,6 @@
 			#cooling-cells = <2>;
 		};
 	};
-
-	reserved-memory {
-		ddr_errata_reserved: ddr@85000000 {
-			reg = <0x0 0x85000000 0x0 0x1000>; /* 4 KB */
-			no-map;
-		};
-	};
-};
-
-&ddr_errata {
-	memory-region = <&ddr_errata_reserved>;
-	status = "okay";
 };
 
 &nvram {
