@@ -25,7 +25,7 @@ MODULE_PARM_DESC(auto_boot,
 
 #define CARVNET_FW_ALIGN	0x4000U
 
-#define CMD_FW_STOP		32U
+#define CMD_FW_STOP			0xFFFFFFFDU
 
 #define RSC_VENDOR_CARV_MATCH_ADDR	256U
 
@@ -51,51 +51,9 @@ MODULE_PARM_DESC(auto_boot,
 
 /* CAR-V NoCore registers */
 
-/* Global */
-#define CARV_GL_CR		0x0
-#define CARV_GL_AHBER		0x10	/* deprecated */
-#define CARV_GL_IMR		0x20
-#define CARV_GL_FMR		0x24
-#define CARV_GL_PCR		0x80
-#define CARV_GL_UCR		0x84
-#define CARV_GL_UPR		0x88
-#define CARV_GL_AHBCR		0x8C
-#define CARV_GL_USR		0x90
-#define CARV_GL_INFO		0x100
-
-#define CARV_GL_CR_IP_VID_MASK	GENMASK(31, 16)
-#define GET_CARV_GL_CR_IP_VID(v)	(((v) & CARV_GL_CR_IP_VID_MASK) >> 16)
-#define CARV_GL_CR_LOCK_MASK	BIT(2)
-#define CARV_GL_CR_LOCK(v)	(((v) << 2) & CARV_GL_CR_LOCK_MASK)
-#define GET_CARV_GL_CR_LOCK(v)	(((v) & CARV_GL_CR_LOCK_MASK) >> 2)
-#define CARV_GL_CR_CLOCK_MASK	BIT(1)
-#define CARV_GL_CR_CLOCK(v)	(((v) << 1) & CARV_GL_CR_CLOCK_MASK)
-#define GET_CARV_GL_CR_CLOCK(v)	(((v) & CARV_GL_CR_CLOCK_MASK) >> 1)
-#define CARV_GL_CR_ENA_MASK	BIT(0)
-#define CARV_GL_CR_ENA(v)	((v) & CARV_GL_CR_ENA_MASK)
-#define GET_CARV_GL_CR_ENA(v)	((v) & CARV_GL_CR_ENA_MASK)
-
-#define CARV_GL_PCR_Q_POS_0	(0x0 << 2)
-#define CARV_GL_PCR_Q_POS_1	(0x1 << 2)
-#define CARV_GL_PCR_Q_POS_2	(0x2 << 2)
-#define CARV_GL_PCR_Q_POS_3	(0x3 << 2)
-#define CARV_GL_PCR_ONE_Q_ISO	(0x0)
-#define CARV_GL_PCR_TWO_Q_ISO	(0x1)
-#define CARV_GL_PCR_FOUR_Q_ISO	(0x2)
-
-#define CARV_GL_UCR_USERCNT1	(0x0)
-#define CARV_GL_UCR_USERCNT2	(0x1)
-#define CARV_GL_UCR_USERCNT3	(0x2)
-#define CARV_GL_UCR_USERCNT4	(0x3)
-
-#define CARV_GL_UPR_PRI0(v)	((v) & 0x3)
-#define CARV_GL_UPR_PRI1(v)	(((v) & 0x3) << 2)
-#define CARV_GL_UPR_PRI2(v)	(((v) & 0x3) << 4)
-#define CARV_GL_UPR_PRI3(v)	(((v) & 0x3) << 6)
-
 /* User set array (set by GL_UCR) */
 #define CARV_Q_USER_OFFSET(u)	((u & 3) * 0x10000)			/* u: 0..3 */
-#define CARV_Q_BASE(u)		(0x10000 + CARV_Q_USER_OFFSET(u))
+#define CARV_Q_BASE(u)		(CARV_Q_USER_OFFSET(u))
 
 /* Quartile Mailbox */
 #define CARV_Q_MB_CR(u)		(CARV_Q_BASE(u) + 0x0)
@@ -121,9 +79,6 @@ MODULE_PARM_DESC(auto_boot,
 #define CARV_Q_MB_CR_UPDATE_MASK	BIT(4)
 #define CARV_Q_MB_CR_UPDATE(v)		(((v & 1) << 4) & CARV_Q_MB_CR_UPDATE_MASK)
 #define GET_CARV_Q_MB_CR_UPDATE(v)	(((v) & CARV_Q_MB_CR_UPDATE_MASK) >> 4)
-#define CARV_Q_MB_CR_FAULT_MASK		BIT(3)
-#define CARV_Q_MB_CR_FAULT(v)		(((v & 1) << 3) & CARV_Q_MB_CR_FAULT_MASK)
-#define GET_CARV_Q_MB_CR_FAULT(v)	(((v) & CARV_Q_MB_CR_FAULT_MASK) >> 3)
 #define CARV_Q_MB_CR_ERR_MASK		BIT(2)
 #define CARV_Q_MB_CR_ERR(v)		(((v & 1) << 2) & CARV_Q_MB_CR_ERR_MASK)
 #define GET_CARV_Q_MB_CR_ERR(v)		(((v) & CARV_Q_MB_CR_ERR_MASK) >> 2)
@@ -243,32 +198,11 @@ MODULE_PARM_DESC(auto_boot,
 #define	GET_CARV_INT_ERR(v)		(!!((v) & CARV_INT_ERR_BIT))
 #define	GET_CARV_INT_DONE(v)		(!!((v) & CARV_INT_DONE_BIT))
 
-#define FUNC_ENABLE_MASK (CARV_INT_ACTIVATED_BIT | \
-	CARV_INT_UPDATE_BIT | CARV_INT_ERR_BIT | CARV_INT_DONE_BIT)
-
-#define FAULT_ENABLE_MASK (CARV_INT_F_BUS_BIT | CARV_INT_F_L2_BIT | CARV_INT_F_L1_BIT | \
+#define IRQ_ENABLE_MASK (CARV_INT_ACTIVATED_BIT | \
+	CARV_INT_UPDATE_BIT | CARV_INT_ERR_BIT | CARV_INT_DONE_BIT | \
+	CARV_INT_F_BUS_BIT | CARV_INT_F_L2_BIT | CARV_INT_F_L1_BIT | \
 	CARV_INT_F_CORE_BIT | CARV_INT_F_AHB_BIT | CARV_INT_F_AXIRP_BIT | \
 	CARV_INT_F_AXIWE_BIT | CARV_INT_F_AXIRE_BIT | CARV_INT_F_MAP_BIT)
-
-#define CARVNET_IRQ_CNT 2
-
-/* Dump area of CAR-V registers */
-static const struct q_regmap_tab_gl {
-	const char *name;
-	const u32 addr;
-} q_regmap_tab_gl[] = {
-	{ "GL_CR", CARV_GL_CR },
-	{ "GL_AHBER", CARV_GL_AHBER },
-	{ "GL_IMR", CARV_GL_IMR },
-	{ "GL_FMR", CARV_GL_FMR },
-	{ "GL_PCR", CARV_GL_PCR },
-	{ "GL_UCR", CARV_GL_UCR },
-	{ "GL_UPR", CARV_GL_UPR },
-	{ "GL_AHBCR", CARV_GL_AHBCR },
-	{ "GL_USR", CARV_GL_USR },
-	{ "GL_INFO", CARV_GL_INFO },
-	{ 0 },
-};
 
 static const struct q_regmap_tab_u {
 	const char *name;
@@ -336,7 +270,7 @@ struct __packed carvnet_bar_info {
 	u64 addr_end;
 };
 
-#define MAX_QUARTILES 4U
+#define MAX_QUARTILES 2U
 #define BAR_CNT 4U
 #define BAR_INVALID 0xFFFFFFFFU
 
@@ -375,29 +309,6 @@ struct carvnet {
 
 	struct list_head carveout_infos; /* Extra information for each carveout: bar, match_addr */
 };
-
-static int q_validate(struct carvnet *priv)
-{
-	struct device *dev = priv->dev;
-
-	if (!GET_CARV_GL_CR_ENA(readl(priv->regs[0] + CARV_GL_CR))) {
-		dev_err(dev, "Quartile is disabled\n");
-		return -EINVAL;
-	}
-
-	if (!GET_CARV_GL_CR_CLOCK(readl(priv->regs[0] + CARV_GL_CR))) {
-		dev_err(dev, "Quartile has MCT clock disabled\n");
-		return -EINVAL;
-	}
-
-	dev_info(dev, "CAR-V revision %lx\n",
-		 GET_CARV_GL_CR_IP_VID(readl(priv->regs[0] + CARV_GL_CR)));
-
-	if (!GET_CARV_GL_CR_LOCK(readl(priv->regs[0] + CARV_GL_CR)))
-		dev_warn(dev, "Quartile has global config unlocked\n");
-
-	return 0;
-}
 
 static struct carveout_info *q_get_carveout_info(struct carvnet *priv,
 						 const char name[CARVEOUT_NAME_SIZE])
@@ -744,33 +655,6 @@ static void q_stop(struct carvnet *priv)
 
 	/* Disable Functional Interrupts: User configurable mask */
 	writel(0, priv->regs[0] + CARV_Q_MB_IER(0));
-	/* Disable Fault Interrupts: User configurable mask */
-	writel(0, priv->regs[0] + CARV_Q_MB_FER(0));
-}
-
-static int q_start(struct carvnet *priv)
-{
-	int ret;
-
-	/* Enable Functional Interrupts: User configurable mask */
-	writel(FUNC_ENABLE_MASK, priv->regs[0] + CARV_Q_MB_IER(0));
-	/* Enable Fault Interrupts: User configurable mask */
-	writel(FAULT_ENABLE_MASK, priv->regs[0] + CARV_Q_MB_FER(0));
-
-	/* Set Mapper */
-	ret = q_set_mapper(priv);
-	if (ret)
-		goto err;
-
-	/* Start the FW */
-	writel(CARV_Q_MB_CR_ENA(1) | CARV_Q_MB_CR_RSTSTART(1), priv->regs[0] + CARV_Q_MB_CR(0));
-
-	return 0;
-
-err:
-	q_stop(priv);
-
-	return ret;
 }
 
 static int carvnet_rproc_parse_fw(struct rproc *rproc,
@@ -790,7 +674,21 @@ static int carvnet_rproc_start(struct rproc *rproc)
 	struct carvnet *priv = rproc->priv;
 	int ret;
 
-	ret = q_start(priv);
+	/* Enable Functional Interrupts: User configurable mask */
+	writel(IRQ_ENABLE_MASK, priv->regs[0] + CARV_Q_MB_IER(0));
+
+	/* Set Mapper */
+	ret = q_set_mapper(priv);
+	if (ret)
+		goto err;
+
+	/* Start the FW */
+	writel(CARV_Q_MB_CR_ENA(1) | CARV_Q_MB_CR_RSTSTART(1), priv->regs[0] + CARV_Q_MB_CR(0));
+
+	return 0;
+
+err:
+	q_stop(priv);
 
 	return ret;
 }
@@ -827,10 +725,6 @@ static int carvnet_dump_regs_show(struct seq_file *seq, void *unused)
 
 	for (q = 0; q < priv->num_quartiles; q++) {
 		seq_printf(seq, "Quartile %u:\n", q);
-		/* Global regs (GL_*) */
-		for (i = 0; q_regmap_tab_gl[i].name; i++)
-			seq_printf(seq, "%-14s: 0x%08x\n", q_regmap_tab_gl[i].name,
-				   readl(priv->regs[q] + q_regmap_tab_gl[i].addr));
 
 		/* User 0 set */
 		for (i = 0; q_regmap_tab_u[i].name; i++)
@@ -1106,14 +1000,13 @@ static void carvnet_rproc_vq_work(struct work_struct *work)
 static irqreturn_t carvnet_rproc_handle_irq(int irq_num, void *d)
 {
 	struct carvnet *priv = (struct carvnet *)d;
-	u32 irq_mask, ier_mask, fer_mask;
+	u32 irq_mask, ier_mask;
 
 	irq_mask = readl(priv->regs[0] + CARV_Q_MB_IR(priv->q_user));
 	ier_mask = readl(priv->regs[0] + CARV_Q_MB_IER(priv->q_user));
-	fer_mask = readl(priv->regs[0] + CARV_Q_MB_FER(priv->q_user));
 
 	/* Write back the interrupt bits to clear the interrupt in the CARV hardware */
-	irq_mask &= (ier_mask | fer_mask);
+	irq_mask &= (ier_mask);
 	writel(irq_mask, priv->regs[0] + CARV_Q_MB_IR(priv->q_user));
 
 	if (GET_CARV_INT_UPDATE(irq_mask))
@@ -1122,7 +1015,7 @@ static irqreturn_t carvnet_rproc_handle_irq(int irq_num, void *d)
 	if (GET_CARV_INT_ACTIVATED(irq_mask))
 		dev_info(priv->dev, "Activated\n");
 
-	if (FAULT_ENABLE_MASK & irq_mask)
+	if (IRQ_ENABLE_MASK & irq_mask)
 		carvnet_rproc_fault_irq_msg(priv->dev, irq_mask);
 
 	return IRQ_HANDLED;
@@ -1130,13 +1023,11 @@ static irqreturn_t carvnet_rproc_handle_irq(int irq_num, void *d)
 
 static int carvnet_rproc_probe(struct platform_device *pdev)
 {
-	static const char *irq_name[CARVNET_IRQ_CNT] = { "func", "fault" };
 	struct device_node *np = pdev->dev.of_node;
 	struct device *dev = &pdev->dev;
 	const char *fw_name = NULL;
 	struct carvnet *priv;
 	struct rproc *rproc;
-	int irq_index;
 	int irq;
 	int ret;
 	u32 q;
@@ -1181,10 +1072,6 @@ static int carvnet_rproc_probe(struct platform_device *pdev)
 	/* We are using only first user config */
 	priv->q_user = 0;
 
-	ret = q_validate(priv);
-	if (ret)
-		return ret;
-
 	INIT_WORK(&priv->rproc_work, carvnet_rproc_vq_work);
 
 	ret = devm_rproc_add(dev, rproc);
@@ -1194,15 +1081,16 @@ static int carvnet_rproc_probe(struct platform_device *pdev)
 	debugfs_create_file("dump_regs", 0400, rproc->dbg_dir, priv,
 			    &carvnet_dump_regs_fops);
 
-	for (irq_index = 0; irq_index < CARVNET_IRQ_CNT; irq_index++) {
-		irq = platform_get_irq_byname(pdev, irq_name[irq_index]);
-		ret = devm_request_irq(dev, irq, carvnet_rproc_handle_irq, 0,
-				pdev->name, priv);
-		if (ret)
-			return dev_err_probe(dev, ret,
-					"unable to request IRQ%d (%s) for CARV device\n",
-					irq, irq_name[irq_index]);
-	}
+	irq = platform_get_irq(pdev, 0U);
+	if (irq < 0)
+		return dev_err_probe(dev, irq, "platform_get_irq failed\n");
+
+	ret = devm_request_irq(dev, (u32)irq, carvnet_rproc_handle_irq, 0,
+			pdev->name, priv);
+	if (ret)
+		return dev_err_probe(dev, ret,
+				"unable to request IRQ%d for CARV device\n",
+				irq);
 
 	return ret;
 }
