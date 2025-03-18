@@ -682,7 +682,7 @@ static bool s32_pinctrl_should_save(struct s32_pinctrl *ipctl,
 	return false;
 }
 
-int s32_pinctrl_suspend(struct device *dev)
+static int s32_pinctrl_suspend(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);
 	struct s32_pinctrl *ipctl = platform_get_drvdata(pdev);
@@ -709,7 +709,7 @@ int s32_pinctrl_suspend(struct device *dev)
 	return 0;
 }
 
-int s32_pinctrl_resume(struct device *dev)
+static int s32_pinctrl_resume(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);
 	struct s32_pinctrl *ipctl = platform_get_drvdata(pdev);
