@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later OR MIT
 /*
  * Copyright (c) 2021 SUSE LLC
- * Copyright 2019-2024 NXP
+ * Copyright 2019-2025 NXP
  */
 
 #include <dt-bindings/gpio/gpio.h>
@@ -102,11 +102,21 @@
 };
 
 &gmac0 {
-	status = "okay";
+	clocks = <&clks S32CC_SCMI_CLK_GMAC0_AXI>,
+		 <&clks S32CC_SCMI_CLK_GMAC0_AXI>,
+		 <&clks S32CC_SCMI_CLK_GMAC0_TX_RGMII>,
+		 <&clks S32CC_SCMI_CLK_GMAC0_RX_RGMII>,
+		 <&clks S32CC_SCMI_CLK_GMAC0_TS>;
+	clock-names = "stmmaceth",
+		      "pclk",
+		      "tx",
+		      "rx",
+		      "ptp_ref";
 	pinctrl-names = "default";
 	pinctrl-0 = <&gmac0rgmiia_pins>, <&gmac0mdioa_pins>;
 	phy-handle = <&gmac_mdio_a_phy1>;
 	phy-mode = "rgmii-id";
+	status = "okay";
 };
 
 &gmac0_mdio {
