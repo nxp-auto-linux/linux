@@ -2,7 +2,7 @@
 /*
  * Device Tree file for S32R45EVB Board.
  *
- * Copyright 2019-2022, 2024 NXP
+ * Copyright 2019-2022, 2024-2025 NXP
  */
 
 /dts-v1/;
@@ -622,6 +622,16 @@
 };
 
 &gmac0 {
+	clocks = <&clks S32CC_SCMI_CLK_GMAC0_AXI>,
+		 <&clks S32CC_SCMI_CLK_GMAC0_AXI>,
+		 <&clks S32CC_SCMI_CLK_GMAC0_TX_RGMII>,
+		 <&clks S32CC_SCMI_CLK_GMAC0_RX_RGMII>,
+		 <&clks S32CC_SCMI_CLK_GMAC0_TS>;
+	clock-names = "stmmaceth",
+		      "pclk",
+		      "tx",
+		      "rx",
+		      "ptp_ref";
 	pinctrl-names = "default";
 	pinctrl-0 = <&rgmii2_pins>, <&mdio2_pins>;
 	phy-mode = "rgmii-id";
@@ -637,11 +647,21 @@
 };
 
 &gmac1 {
+	clocks = <&clks S32R45_SCMI_CLK_GMAC1_AXI>,
+		 <&clks S32R45_SCMI_CLK_GMAC1_AXI>,
+		 <&clks S32R45_SCMI_CLK_GMAC1_TX_SGMII>,
+		 <&clks S32R45_SCMI_CLK_GMAC1_RX_SGMII>,
+		 <&clks S32R45_SCMI_CLK_GMAC1_TS>;
+	clock-names = "stmmaceth",
+		      "pclk",
+		      "tx",
+		      "rx",
+		      "ptp_ref";
 	pinctrl-names = "default";
 	phy-mode = "sgmii";
-	status = "disabled";
 	pinctrl-0 = <&mdio3_pins>;
 	phy-handle = <&gmac1_phy1>;
+	status = "disabled";
 };
 
 &gmac1_mdio {
