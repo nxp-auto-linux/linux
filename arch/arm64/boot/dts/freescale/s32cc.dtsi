@@ -352,21 +352,21 @@
 		};
 
 		edma0: dma-controller@40144000 {
-			#dma-cells = <2>;
-			compatible = "nxp,s32cc-edma";
+			compatible = "nxp,s32g2-edma";
 			reg = <0x0 0x40144000 0x0 0x24000>,
 			      <0x0 0x4012c000 0x0 0x3000>,
 			      <0x0 0x40130000 0x0 0x3000>;
+			#dma-cells = <2>;
 			dma-channels = <32>;
 			interrupts = <GIC_SPI 8 IRQ_TYPE_LEVEL_HIGH>,
 				     <GIC_SPI 9 IRQ_TYPE_LEVEL_HIGH>,
 				     <GIC_SPI 10 IRQ_TYPE_LEVEL_HIGH>;
-			interrupt-names = "edma-tx_0-15",
-					  "edma-tx_16-31",
-					  "edma-err";
-			clock-names = "dmamux0", "dmamux1";
+			interrupt-names = "tx-0-15",
+					  "tx-16-31",
+					  "err";
 			clocks = <&clks S32CC_SCMI_CLK_EDMA_MODULE>,
 				 <&clks S32CC_SCMI_CLK_EDMA_AHB>;
+			clock-names = "dmamux0", "dmamux1";
 		};
 
 		pit0: pit@40188000 {
@@ -679,21 +679,21 @@
 		};
 
 		edma1: dma-controller@40244000 {
-			#dma-cells = <2>;
-			compatible = "nxp,s32cc-edma";
+			compatible = "nxp,s32g2-edma";
 			reg = <0x0 0x40244000 0x0 0x24000>,
 			      <0x0 0x4022c000 0x0 0x3000>,
 			      <0x0 0x40230000 0x0 0x3000>;
+			#dma-cells = <2>;
 			dma-channels = <32>;
 			interrupts = <GIC_SPI 11 IRQ_TYPE_LEVEL_HIGH>,
 				     <GIC_SPI 12 IRQ_TYPE_LEVEL_HIGH>,
 				     <GIC_SPI 13 IRQ_TYPE_LEVEL_HIGH>;
-			interrupt-names = "edma-tx_0-15",
-					  "edma-tx_16-31",
-					  "edma-err";
-			clock-names = "dmamux0", "dmamux1";
+			interrupt-names = "tx-0-15",
+					  "tx-16-31",
+					  "err";
 			clocks = <&clks S32CC_SCMI_CLK_EDMA_MODULE>,
 				 <&clks S32CC_SCMI_CLK_EDMA_AHB>;
+			clock-names = "dmamux0", "dmamux1";
 		};
 
 		pit1: pit@40288000 {
