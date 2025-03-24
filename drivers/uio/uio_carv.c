@@ -26,9 +26,6 @@
 
 #define CARV_INTL_MAX_MAPPINGS	64
 
-#define CARV_USER_AHB_DISABLED	0
-#define CARV_USER_AHB_ENABLED	1
-
 /*
  * enum carv_uio_map_idx - CAR-V UIO mapping index
  * @CARV_UIO_MAP_RMEM: Reserved memory range
@@ -504,10 +501,7 @@ static int carv_uio_probe(struct platform_device *pdev)
 	info->version = DRIVER_VERSION;
 
 	/* Set UIO driver name */
-	if ((uintptr_t)of_device_get_match_data(dev) == CARV_USER_AHB_ENABLED)
-		info->name = "carv-ahb-uio";
-	else
-		info->name = "carv-uio";
+	info->name = DRIVER_NAME;
 
 	/* Set UIO private data */
 	info->priv = priv;
@@ -559,8 +553,7 @@ static void carv_uio_remove(struct platform_device *pdev)
 }
 
 static const struct of_device_id carv_uio_of_match[] = {
-	{ .compatible = "nxp,carv-uio", .data = (void *)CARV_USER_AHB_DISABLED },
-	{ .compatible = "nxp,carv-ahb-uio", .data = (void *)CARV_USER_AHB_ENABLED },
+	{ .compatible = "nxp,carv-uio", },
 	{}
 };
 MODULE_DEVICE_TABLE(of, carv_uio_of_match);
