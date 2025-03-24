@@ -70,7 +70,6 @@ patternProperties:
           - enum:
               - nxp,carvnet-rproc
               - nxp,carv-uio
-              - nxp,carv-ahb-uio
     additionalProperties: true
 
 required:
@@ -84,7 +83,7 @@ examples:
   - |
     #include <dt-bindings/interrupt-controller/arm-gic.h>
 
-    /* A partition consisting of 1 quartile, 4 UIO users and AHB on user 0 */
+    /* Setup for a partition consisting of 1 quartile and 4 UIO users. */
     carv-partition@47800000 {
         compatible = "nxp,carv-partition", "simple-mfd";
         reg = <0x47800000 0x10000>;
@@ -96,7 +95,7 @@ examples:
         nxp,stack-size = <8>;
 
         carv-user@47810000 {
-            compatible = "nxp,carv-ahb-uio";
+            compatible = "nxp,carv-uio";
             reg = <0x47810000 0x10000>;
             interrupts = <GIC_SPI 279 IRQ_TYPE_LEVEL_HIGH>;
             status = "okay";
@@ -124,7 +123,7 @@ examples:
         };
     };
 
-    /* Another partition consisting of 1 quartile, 4 UIO users and AHB on user 1 */
+    /* Setup for a partition consisting of 1 quartile and 4 UIO users. */
     carv-partition@47850000 {
         compatible = "nxp,carv-partition", "simple-mfd";
         reg = <0x47850000 0x10000>;
@@ -141,7 +140,7 @@ examples:
         };
 
         carv-user@47870000 {
-            compatible = "nxp,carv-ahb-uio";
+            compatible = "nxp,carv-uio";
             reg = <0x47870000 0x10000>;
             interrupts = <GIC_SPI 289 IRQ_TYPE_LEVEL_HIGH>;
             status = "okay";
@@ -164,7 +163,7 @@ examples:
   - |
     #include <dt-bindings/interrupt-controller/arm-gic.h>
 
-    /* A partition consisting of 2 quartiles, 4 UIO users and no AHB user */
+    /* Setup for a partition consisting of 2 quartiles and 4 UIO users. */
     carv-partition@47800000 {
         compatible = "nxp,carv-partition", "simple-mfd";
         reg = <0x47800000 0x10000>,<0x47850000 0x10000>;
