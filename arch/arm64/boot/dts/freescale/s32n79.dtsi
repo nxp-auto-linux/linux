@@ -772,7 +772,7 @@
 				status = "disabled";
 
 				carv0_partition1_user0: carv-user@47860000 {
-					compatible = "nxp,carv-ahb-uio";
+					compatible = "nxp,carv-uio";
 					reg = <0x47860000 0x10000>;
 					interrupts = <GIC_SPI 287 IRQ_TYPE_LEVEL_HIGH>;
 					status = "disabled";
