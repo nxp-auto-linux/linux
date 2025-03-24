@@ -20,12 +20,8 @@ properties:
   compatible:
     enum:
       - nxp,carv-uio
-      - nxp,carv-ahb-uio
     description:
-      The compatible strings for a CAR-V users nodes within a CAR-V partition,
-      with or without AHB capabilities enabled.
-      Only one user per partition can have nxp,carv-ahb-uio compatible to enable
-      AHB capabilities for it.
+      The compatible string for a CAR-V user nodes within a CAR-V partition.
 
   reg:
     minItems: 1
@@ -50,7 +46,7 @@ examples:
   - |
     #include <dt-bindings/interrupt-controller/arm-gic.h>
 
-    /* Users containing 1 quartile */
+    /* Setup for users containing 1 quartile */
     carv-user@47810000 {
         compatible = "nxp,carv-uio";
         reg = <0x47810000 0x10000>;
@@ -58,9 +54,8 @@ examples:
         status = "okay";
     };
 
-    /* Enable AHB capabilities for this user */
     carv-user@47820000 {
-        compatible = "nxp,carv-ahb-uio";
+        compatible = "nxp,carv-uio";
         reg = <0x47820000 0x10000>;
         interrupts = <GIC_SPI 281 IRQ_TYPE_LEVEL_HIGH>;
         status = "okay";
@@ -110,7 +105,7 @@ examples:
   - |
     #include <dt-bindings/interrupt-controller/arm-gic.h>
 
-    /* Users containing 2 quartiles */
+    /* Setup for users containing 2 quartiles */
     carv-user@47810000 {
         compatible = "nxp,carv-uio";
         reg = <0x47810000 0x10000>,<0x47860000 0x10000>;
@@ -125,9 +120,8 @@ examples:
         status = "okay";
     };
 
-    /* Enable AHB capabilities for this user */
     carv-user@47830000 {
-        compatible = "nxp,carv-ahb-uio";
+        compatible = "nxp,carv-uio";
         reg = <0x47830000 0x10000>,<0x47880000 0x10000>;
         interrupts = <GIC_SPI 283 IRQ_TYPE_LEVEL_HIGH>;
         status = "okay";
