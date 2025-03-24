@@ -28,8 +28,8 @@
 #define CARV_DEFAULT_STACK_SIZE	64
 
 #define CARV_USER_REGS_OFFSET	0x10000
-/* CAR-V Registers */
 
+/* CAR-V Registers */
 #define CARV_GL_CR	0x00000000	/* Global Configuration */
 #define CARV_GL_AHBER	0x00000010	/* Global AHB-Lite Enable */
 #define CARV_GL_IMR	0x00000020	/* Global Functional Interrupt Mask */
@@ -109,10 +109,6 @@
 #define CARV_GL_AHBCR_AHBEN_MASK		BIT(0)
 #define CARV_GL_AHBCR_AHBEN_SET(val)		FIELD_PREP(CARV_GL_AHBCR_AHBEN_MASK, val)
 
-/* AHB-Lite Port Selection */
-#define CARV_GL_AHBCR_AHBSEL_MASK		GENMASK(5, 4)
-#define CARV_GL_AHBCR_AHBSEL_SET(val)		FIELD_PREP(CARV_GL_AHBCR_AHBSEL_MASK, val)
-
 /*
  * enum carv_global_interrupt - CAR-V global interrupts
  * @CARV_GL_INT_DONE: Done Interrupt
@@ -150,7 +146,6 @@ enum carv_global_interrupt {
  * @dev: CAR-V partition device
  * @num_quartiles: Number of quartiles of the CAR-V partition
  * @num_users: Number of users of the CAR-V partition
- * @ahb_user_id: AHB-Lite User ID of the CAR-V partition
  * @stack_size: Stack size of the CAR-V partition
  * @regs: Quartile registers of the CAR-V partition
  * @has_rproc_child: It tells if CAR-V partition has rproc child user
@@ -160,7 +155,6 @@ struct carv_partition_drvdata {
 	struct miscdevice misc_dev;
 	u32 num_quartiles;
 	u32 num_users;
-	s32 ahb_user_id;
 	u32 stack_size;
 	u8 __iomem **regs;
 	bool has_rproc_child;
@@ -211,21 +205,15 @@ static void carv_disable_partition(struct device *dev)
 }
 
 /*
- * carv_config_ahb_lite_master_port - CAR-V AHB-Lite configuration
+ * carv_config_ahb_lite_manager_port - CAR-V AHB-Lite configuration
  * @dev: CAR-V partition device
  */
-static void carv_config_ahb_lite_master_port(struct device *dev)
+static void carv_config_ahb_lite_manager_port(struct device *dev)
 {
 	struct carv_partition_drvdata *priv = dev_get_drvdata(dev);
 
-	if (priv->ahb_user_id != -1) {
-		writel(CARV_GL_AHBER_ENA_SET(1), priv->regs[0] + CARV_GL_AHBER);
-		writel(CARV_GL_AHBCR_AHBEN_SET(1) | CARV_GL_AHBCR_AHBSEL_SET(priv->ahb_user_id),
-		       priv->regs[0] + CARV_GL_AHBCR);
-	} else {
-		writel(0, priv->regs[0] + CARV_GL_AHBER);
-		writel(0, priv->regs[0] + CARV_GL_AHBCR);
-	}
+	writel(CARV_GL_AHBER_ENA_SET(1), priv->regs[0] + CARV_GL_AHBER);
+	writel(CARV_GL_AHBCR_AHBEN_SET(1), priv->regs[0] + CARV_GL_AHBCR);
 }
 
 /*
@@ -258,12 +246,12 @@ static void carv_init_partition(struct device *dev)
 	struct carv_partition_drvdata *priv = dev_get_drvdata(dev);
 	u32 irqs;
 
-	dev_info(dev, "%s: nQTs: %u, nUsers: %u, ahbUser: %d, stack: %u KB", __func__,
-		 priv->num_quartiles, priv->num_users, priv->ahb_user_id, priv->stack_size);
+	dev_info(dev, "%s: nQTs: %u, nUsers: %u, stack: %u KB", __func__,
+		 priv->num_quartiles, priv->num_users, priv->stack_size);
 
 	carv_disable_partition(dev);
 	carv_config_partition(dev);
-	carv_config_ahb_lite_master_port(dev);
+	carv_config_ahb_lite_manager_port(dev);
 
 	irqs = BIT(CARV_GL_INT_ACTIV) | BIT(CARV_GL_INT_UPDATE) | BIT(CARV_GL_INT_ERR) |
 	       BIT(CARV_GL_INT_DONE) | BIT(CARV_GL_F_INT_BUS) | BIT(CARV_GL_F_INT_L2) |
@@ -337,47 +325,6 @@ static int carv_partition_dt_part_read(struct device *dev)
 	}
 
 	return 0;
-}
-
-/*
- * carv_partition_set_ahb_user_id - Set AHB user id based on child nodes compatibles
- * @dev: CAR-V partition device
- */
-static int carv_partition_set_ahb_user_id(struct device *dev)
-{
-	struct carv_partition_drvdata *priv = dev_get_drvdata(dev);
-	struct resource res, child_res;
-	struct device_node *child;
-	int ret = 0;
-
-	priv->ahb_user_id = -1;
-
-	if (priv->has_rproc_child) {
-		priv->ahb_user_id = 0;
-		return 0;
-	}
-
-	for_each_child_of_node(dev->of_node, child) {
-		if (of_device_is_compatible(child, "nxp,carv-ahb-uio")) {
-			ret = of_address_to_resource(dev->of_node, 0, &res);
-			if (ret < 0) {
-				dev_err(dev, "failed to get resource\n");
-				break;
-			}
-
-			ret = of_address_to_resource(child, 0, &child_res);
-			if (ret < 0) {
-				dev_err(dev, "failed to get child resource\n");
-				break;
-			}
-
-			priv->ahb_user_id =
-				((child_res.start - res.start) / CARV_USER_REGS_OFFSET) - 1;
-			break;
-		}
-	}
-
-	return ret;
 }
 
 /*
@@ -475,11 +422,6 @@ static int carv_partition_probe(struct platform_device *pdev)
 
 	/* Read device tree fields for partition */
 	ret = carv_partition_dt_part_read(dev);
-	if (ret)
-		return ret;
-
-	/* Set AHB user id based on child nodes compatibles */
-	ret = carv_partition_set_ahb_user_id(dev);
 	if (ret)
 		return ret;
 
