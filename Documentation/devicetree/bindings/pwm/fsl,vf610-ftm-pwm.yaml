@@ -29,6 +29,7 @@ properties:
     enum:
       - fsl,vf610-ftm-pwm
       - fsl,imx8qm-ftm-pwm
+      - nxp,s32cc-ftm-pwm
 
   reg:
     maxItems: 1
