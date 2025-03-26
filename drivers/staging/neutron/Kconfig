@@ -4,7 +4,7 @@
 
 config NEUTRON
 	tristate "NXP Neutron NPU support"
-	depends on ARCH_MXC
+	depends on ARCH_MXC || ARCH_S32
 	depends on IMX_NEUTRON_REMOTEPROC
 	help
 	  Say Y here if you want to support NXP Neutron NPU.
