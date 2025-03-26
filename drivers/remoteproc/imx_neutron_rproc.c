@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright 2023 NXP
+ * Copyright 2023, 2025 NXP
  */
 
 #include <linux/err.h>
@@ -41,6 +41,18 @@ static const struct imx_rproc_att neutron_rproc_att_imx95[] = {
 	/*TODO if need to add SECURE memmap*/
 };
 
+static const struct imx_rproc_att neutron_rproc_att_s32n7[] = {
+	/* dev addr , sys addr  , size	    , flags */
+
+	/* DTCM-Data NON-SECURE 32K */
+	{ 0x00040000, 0x25F88000, 0x00008000, ATT_OWN | ATT_IOMEM },
+
+	/* ITCM NON-SECURE 64K */
+	{ 0x00000000, 0x25F90000, 0x00010000, ATT_OWN | ATT_IOMEM },
+
+	/*TODO if need to add SECURE memmap*/
+};
+
 static const struct imx_rproc_dcfg neutron_rproc_cfg_imx95 = {
 	.src_reg	= IMX95_SRC_SCR,
 	.src_mask	= IMX95_NEUTRON_RST_MASK,
@@ -48,6 +60,15 @@ static const struct imx_rproc_dcfg neutron_rproc_cfg_imx95 = {
 	.src_stop	= IMX95_NEUTRON_STOP,
 	.att		= neutron_rproc_att_imx95,
 	.att_size	= ARRAY_SIZE(neutron_rproc_att_imx95),
+};
+
+static const struct imx_rproc_dcfg neutron_rproc_cfg_s32n7 = {
+	.src_reg	= IMX95_SRC_SCR,
+	.src_mask	= IMX95_NEUTRON_RST_MASK,
+	.src_start	= IMX95_NEUTRON_START,
+	.src_stop	= IMX95_NEUTRON_STOP,
+	.att		= neutron_rproc_att_s32n7,
+	.att_size	= ARRAY_SIZE(neutron_rproc_att_s32n7),
 };
 
 /**
@@ -280,6 +301,7 @@ static void neutron_rproc_remove(struct platform_device *pdev)
 
 static const struct of_device_id neutron_rproc_of_match[] = {
 	{ .compatible = "fsl,imx95-neutron-rproc", .data = &neutron_rproc_cfg_imx95 },
+	{ .compatible = "nxp,s32n7-neutron-rproc", .data = &neutron_rproc_cfg_s32n7 },
 	{},
 };
 MODULE_DEVICE_TABLE(of, neutron_rproc_of_match);
