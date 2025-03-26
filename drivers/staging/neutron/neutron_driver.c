@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0+
 /*
- * Copyright 2023 NXP
+ * Copyright 2023, 2025 NXP
  */
 /****************************************************************************/
 
@@ -180,6 +180,7 @@ static const struct dev_pm_ops neutron_dev_pm_ops = {
 
 static const struct of_device_id neutron_pdev_match[] = {
 	{ .compatible = "fsl,imx95-neutron" },
+	{ .compatible = "nxp,s32n7-neutron" },
 	{ /* Sentinel */ },
 };
 
