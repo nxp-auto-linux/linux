@@ -57,7 +57,7 @@ config NXP_CARVNET_REMOTEPROC
 
 config IMX_NEUTRON_REMOTEPROC
 	tristate "i.MX neutron remoteproc support"
-	depends on ARCH_MXC
+	depends on ARCH_MXC || ARCH_S32
 	help
 	  Say y here to support iMX's neutron npu via the remote
 	  processor framework.
