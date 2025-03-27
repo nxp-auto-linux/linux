@@ -493,7 +493,7 @@
 		};
 
 		i2c0: i2c@401e4000 {
-			compatible = "nxp,s32cc-i2c";
+			compatible = "nxp,s32g2-i2c";
 			reg = <0x0 0x401e4000 0x0 0x1000>;
 			interrupts = <GIC_SPI 92 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&clks S32CC_SCMI_CLK_I2C_REG>;
@@ -507,7 +507,7 @@
 		};
 
 		i2c1: i2c@401e8000 {
-			compatible = "nxp,s32cc-i2c";
+			compatible = "nxp,s32g2-i2c";
 			reg = <0x0 0x401e8000 0x0 0x1000>;
 			interrupts = <GIC_SPI 93 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&clks S32CC_SCMI_CLK_I2C_REG>;
@@ -521,7 +521,7 @@
 		};
 
 		i2c2: i2c@401ec000 {
-			compatible = "nxp,s32cc-i2c";
+			compatible = "nxp,s32g2-i2c";
 			reg = <0x0 0x401ec000 0x0 0x1000>;
 			interrupts = <GIC_SPI 94 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&clks S32CC_SCMI_CLK_I2C_REG>;
@@ -797,7 +797,7 @@
 		};
 
 		i2c3: i2c@402d8000 {
-			compatible = "nxp,s32cc-i2c";
+			compatible = "nxp,s32g2-i2c";
 			reg = <0x0 0x402d8000 0x0 0x1000>;
 			interrupts = <GIC_SPI 95 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&clks S32CC_SCMI_CLK_I2C_REG>;
@@ -811,7 +811,7 @@
 		};
 
 		i2c4: i2c@402dc000 {
-			compatible = "nxp,s32cc-i2c";
+			compatible = "nxp,s32g2-i2c";
 			reg = <0x0 0x402dc000 0x0 0x1000>;
 			interrupts = <GIC_SPI 96 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&clks S32CC_SCMI_CLK_I2C_REG>;
