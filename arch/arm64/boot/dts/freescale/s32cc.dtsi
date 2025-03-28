@@ -906,6 +906,8 @@
 					  "tx0", "rx0", "tx1", "rx1",
 					  "tx2", "rx2", "tx3", "rx3",
 					  "tx4", "rx4";
+			nvmem-cell-names = "gmac_phy_intf_sel";
+			nvmem-cells = <&gmac0_phy_intf_sel>;
 			snps,mtl-rx-config = <&mtl_rx_setup_gmac0>;
 			snps,mtl-tx-config = <&mtl_tx_setup_gmac0>;
 			status = "disabled";
