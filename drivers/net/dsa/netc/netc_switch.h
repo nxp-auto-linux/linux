@@ -60,10 +60,13 @@
 struct netc_switch;
 struct netc_port;
 
+#define NETC_SYSCLK_333M		333333333ULL
+
 struct netc_switch_info {
 	u32 cpu_port_num;
 	u32 usr_port_num;
 	u32 tmr_devfn;
+	u64 sysclk_freq;
 	void (*phylink_get_caps)(int port, struct phylink_config *config);
 	void (*bpt_init)(struct netc_switch *priv);
 	void (*port_tx_pause_config)(struct netc_port *port, bool tx_pause);
@@ -126,6 +129,9 @@ struct netc_port {
 	struct sk_buff_head skb_txtstamp_queue;
 	int ptp_filter;
 	u32 ptp_ipft_eid[NETC_PTP_MAX];
+
+	bool tx_lpi_enabled;
+	u32 tx_lpi_timer;
 };
 
 enum netc_port_mac {
@@ -268,6 +274,11 @@ void netc_port_get_eth_ctrl_stats(struct dsa_switch *ds, int port_id,
 				  struct ethtool_eth_ctrl_stats *ctrl_stats);
 void netc_port_get_eth_mac_stats(struct dsa_switch *ds, int port_id,
 				 struct ethtool_eth_mac_stats *mac_stats);
+void netc_port_set_tx_lpi(struct netc_port *port, bool enable);
+int netc_port_get_mac_eee(struct dsa_switch *ds, int port_id,
+			  struct ethtool_keee *e);
+int netc_port_set_mac_eee(struct dsa_switch *ds, int port_id,
+			  struct ethtool_keee *e);
 
 /* PTP APIs */
 int netc_get_ts_info(struct dsa_switch *ds, int port_id,
