@@ -862,7 +862,8 @@ static int netc_switch_bpt_default_config(struct netc_switch *priv)
 		cfge->fc_on_thresh = cpu_to_le16(NETC_PORT_FC_ON_THRESH);
 		cfge->fc_off_thresh = cpu_to_le16(NETC_PORT_FC_OFF_THRESH);
 
-		ntmp_bpt_update_entry(&priv->ntmp.cbdrs, i, cfge);
+		if (!(priv->ntmp.errata & NTMP_ERR_SIM01))
+			ntmp_bpt_update_entry(&priv->ntmp.cbdrs, i, cfge);
 	}
 
 	return 0;
@@ -2267,7 +2268,8 @@ void netc_port_set_tx_pause(struct netc_port *port, bool tx_pause)
 		else
 			cfge->fc_ports &= cpu_to_le32(~BIT(port->index));
 
-		ntmp_bpt_update_entry(&priv->ntmp.cbdrs, i, cfge);
+		if (!(priv->ntmp.errata & NTMP_ERR_SIM01))
+			ntmp_bpt_update_entry(&priv->ntmp.cbdrs, i, cfge);
 	}
 }
 
