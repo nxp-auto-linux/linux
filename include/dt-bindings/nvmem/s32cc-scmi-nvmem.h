@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only OR BSD-3-Clause */
 /*
- * Copyright 2023-2024 NXP
+ * Copyright 2023-2025 NXP
  */
 
 #ifndef S32CC_SCMI_NVMEM_H
@@ -157,7 +157,15 @@
  */
 #define S32CC_SCMI_NVMEM_DDR_MEM_RET		(0x12)
 
-#define S32CC_SCMI_NVMEM_MAX				(0x13)
+/*
+ * Commands: Write
+ * Register(s): MC_RGM - FRET[3:0]
+ * Description: Writes a 4-bit value to the mentioned register. This changes
+   the default value of functional escalation value.
+ */
+#define S32CC_SCMI_NVMEM_FUNC_RESET_THRESHOLD	(0x13)
+
+#define S32CC_SCMI_NVMEM_MAX				(0x14)
 
 #define S32CC_SCMI_NVMEM_CELL_SIZE			(0x4)
 
