@@ -910,7 +910,6 @@
 	rtc@51 {
 		compatible = "nxp,pca85073a";
 		reg = <0x51>;
-		nxp,no-battery;
 	};
 };
 

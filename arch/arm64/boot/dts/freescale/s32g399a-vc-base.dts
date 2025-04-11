@@ -2,7 +2,7 @@
 /*
  * Device Tree file for S32G3-VC-BASE board.
  *
- * Copyright 2024 NXP
+ * Copyright 2024-2025 NXP
  */
 
 /dts-v1/;
@@ -114,7 +114,6 @@
 	pca85073a: rtc@51 {
 		compatible = "nxp,pca85073a";
 		reg = <0x51>;
-		nxp,no-battery;
 	};
 
 	pct2075: pct2075@48 {
