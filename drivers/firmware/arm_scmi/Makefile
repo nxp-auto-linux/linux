@@ -7,7 +7,7 @@ scmi-driver-$(CONFIG_ARM_SCMI_RAW_MODE_SUPPORT) += raw_mode.o
 scmi-transport-$(CONFIG_ARM_SCMI_HAVE_SHMEM) = shmem.o
 scmi-transport-$(CONFIG_ARM_SCMI_HAVE_MSG) += msg.o
 scmi-protocols-y := base.o clock.o perf.o power.o reset.o sensors.o system.o voltage.o powercap.o
-ifeq ($(CONFIG_S32_ARM_SCMI_PINCTRL),n)
+ifneq ($(CONFIG_S32_ARM_SCMI_PINCTRL),y)
 scmi-protocols-y += pinctrl.o
 endif
 scmi-module-objs := $(scmi-driver-y) $(scmi-protocols-y) $(scmi-transport-y)
