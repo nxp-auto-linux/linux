@@ -6,7 +6,7 @@
 // Copyright (c) 2009 Sascha Hauer, Pengutronix
 // Copyright (c) 2010-2017 Pengutronix, Marc Kleine-Budde <kernel@pengutronix.de>
 // Copyright (c) 2014 David Jander, Protonic Holland
-// Copyright 2015, 2019-2024 NXP
+// Copyright 2015, 2019-2025 NXP
 //
 // Based on code originally by Andrey Volkov <avolkov@varma-el.com>
 
@@ -1808,7 +1808,10 @@ static int flexcan_open(struct net_device *dev)
 				  flexcan_irq, IRQF_SHARED, dev->name, dev);
 		if (err)
 			goto out_free_irq;
+	}
 
+	if (priv->devtype_data.quirks &
+			(FLEXCAN_QUIRK_NR_IRQ_3 | FLEXCAN_QUIRK_NR_IRQ_2)) {
 		err = request_irq(priv->irq_err,
 				  flexcan_irq, IRQF_SHARED, dev->name, dev);
 		if (err)
@@ -1829,7 +1832,8 @@ static int flexcan_open(struct net_device *dev)
 	return 0;
 
  out_free_irq_err:
-	if (priv->devtype_data.quirks & FLEXCAN_QUIRK_NR_IRQ_3)
+	if (priv->devtype_data.quirks &
+			(FLEXCAN_QUIRK_NR_IRQ_3 | FLEXCAN_QUIRK_NR_IRQ_2))
 		free_irq(priv->irq_err, dev);
  out_free_irq_boff:
 	if (priv->devtype_data.quirks & FLEXCAN_QUIRK_NR_IRQ_3)
@@ -1861,10 +1865,12 @@ static int flexcan_close(struct net_device *dev)
 	if (priv->devtype_data.quirks & FLEXCAN_QUIRK_SECONDARY_MB_IRQ)
 		free_irq(priv->irq_secondary_mb, dev);
 
-	if (priv->devtype_data.quirks & FLEXCAN_QUIRK_NR_IRQ_3) {
+	if (priv->devtype_data.quirks &
+			(FLEXCAN_QUIRK_NR_IRQ_3 | FLEXCAN_QUIRK_NR_IRQ_2))
 		free_irq(priv->irq_err, dev);
+
+	if (priv->devtype_data.quirks & FLEXCAN_QUIRK_NR_IRQ_3)
 		free_irq(priv->irq_boff, dev);
-	}
 
 	free_irq(dev->irq, dev);
 	can_rx_offload_disable(&priv->offload);
@@ -2277,7 +2283,16 @@ static int flexcan_probe(struct platform_device *pdev)
 			err = priv->irq_boff;
 			goto failed_platform_get_irq;
 		}
+
 		priv->irq_err = platform_get_irq(pdev, 2);
+		if (priv->irq_err < 0) {
+			err = priv->irq_err;
+			goto failed_platform_get_irq;
+		}
+	}
+
+	if (priv->devtype_data.quirks & FLEXCAN_QUIRK_NR_IRQ_2) {
+		priv->irq_err = platform_get_irq(pdev, 1);
 		if (priv->irq_err < 0) {
 			err = priv->irq_err;
 			goto failed_platform_get_irq;
