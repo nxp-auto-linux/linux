@@ -580,6 +580,8 @@ struct ntmp_caps {
 	int ist_num_entries;
 	int sgit_num_entries;
 	int sgclt_num_words;
+	int ett_num_entries;
+	int ect_num_entries;
 };
 
 struct ntmp_user;
@@ -606,6 +608,10 @@ struct ntmp_user {
 	unsigned long *sgit_eid_bitmap;
 	unsigned long *isct_eid_bitmap;
 	unsigned long *sgclt_word_bitmap;
+	unsigned long *ett_gid_bitmap;
+	unsigned long *ect_gid_bitmap;
+	u32 ett_bitmap_size;
+	u32 ect_bitmap_size;
 
 	struct hlist_head flower_list;
 	struct mutex flower_lock; /* flower_list lock */
