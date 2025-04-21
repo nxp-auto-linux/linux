@@ -315,9 +315,13 @@ struct ipft_cfge_data {
 #define IPFT_ODR		BIT(7)
 #define IPFT_FLTFA		GENMASK(10, 8)
 #define  IPFT_FLTFA_PERMIT	1
+/* Redirect is only for switch */
+#define  IPFT_FLTFA_REDIRECT	2
 #define IPFT_IMIRE		BIT(11)
 #define IPFT_WOLTE		BIT(12)
 #define IPFT_FLTA		GENMASK(14, 13)
+#define  IPFT_FLTA_RP		1
+#define  IPFT_FLTA_IS		2
 #define  IPFT_FLTA_SI_BITMAP	3
 #define IPFT_RPR		GENMASK(16, 15)
 #define IPFT_CTD		BIT(17)
