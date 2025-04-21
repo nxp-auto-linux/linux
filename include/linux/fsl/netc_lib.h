@@ -17,6 +17,8 @@
 
 enum netc_flower_type {
 	FLOWER_TYPE_PSFP,
+	FLOWER_TYPE_TRAP,
+	FLOWER_TYPE_REDIRECT,
 };
 
 enum netc_key_tbl_type {
