@@ -496,7 +496,7 @@ static int netc_set_trap_redirect_tables(struct ntmp_priv *ntmp,
 	}
 
 	if (ist_entry) {
-		err = ntmp_ist_add_or_update_entry(cbdrs, ist_entry);
+		err = ntmp_ist_add_entry(cbdrs, ist_entry);
 		if (err)
 			goto delete_isct_entry;
 	}
