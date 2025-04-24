@@ -426,11 +426,6 @@ static int s32cc_pcie_msi_host_init(struct dw_pcie_rp *pp)
 }
 
 static struct dw_pcie_host_ops s32cc_pcie_host_ops = {
-	.host_init = s32cc_pcie_host_init,
-};
-
-static struct dw_pcie_host_ops s32cc_pcie_host_ops2 = {
-	.host_init = s32cc_pcie_host_init,
 	.msi_host_init = s32cc_pcie_msi_host_init,
 };
 
@@ -1227,8 +1222,6 @@ static int s32cc_pcie_init_controller(struct s32cc_pcie *s32cc_pp)
 		 s32cc_pcie_ep_rc_mode_str(s32cc_pp->mode));
 
 	if (s32cc_pp->has_msi_parent)
-		pp->ops = &s32cc_pcie_host_ops2;
-	else
 		pp->ops = &s32cc_pcie_host_ops;
 
 	return 0;
