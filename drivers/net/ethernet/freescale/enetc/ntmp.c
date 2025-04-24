@@ -945,8 +945,7 @@ int ntmp_isit_delete_entry(struct netc_cbdrs *cbdrs, u32 entry_id)
 				       entry_id, req_len, resp_len);
 }
 
-int ntmp_ist_add_or_update_entry(struct netc_cbdrs *cbdrs,
-				 struct ntmp_ist_entry *entry)
+int ntmp_ist_add_entry(struct netc_cbdrs *cbdrs, struct ntmp_ist_entry *entry)
 {
 	struct ntmp_dma_buf data = {.dev = cbdrs->dma_dev};
 	struct ist_req_ua *req;
@@ -965,18 +964,18 @@ int ntmp_ist_add_or_update_entry(struct netc_cbdrs *cbdrs,
 
 	/* Request header */
 	ntmp_fill_request_headr(&cbd, data.dma, NTMP_LEN(data.size, 0),
-				NTMP_IST_ID, NTMP_CMD_AU, NTMP_AM_ENTRY_ID);
+				NTMP_IST_ID, NTMP_CMD_ADD, NTMP_AM_ENTRY_ID);
 
 	err = netc_xmit_ntmp_cmd(cbdrs, &cbd);
 	if (err)
 		dev_err(cbdrs->dma_dev,
-			"Add/Update IST entry failed (%d)", err);
+			"Add IST entry failed (%d)", err);
 
 	ntmp_free_data_mem(&data);
 
 	return err;
 }
-EXPORT_SYMBOL_GPL(ntmp_ist_add_or_update_entry);
+EXPORT_SYMBOL_GPL(ntmp_ist_add_entry);
 
 int ntmp_ist_query_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
 			 struct ist_cfge_data *cfge)
