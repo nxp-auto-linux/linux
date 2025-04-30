@@ -486,7 +486,7 @@
 			compatible = "nxp,s32n79-xspi";
 			reg = <0x5b700000 0x81000>, <0x10000000 0x10000000>;
 			reg-names = "base", "mmap";
-			interrupts = <GIC_SPI 443 IRQ_TYPE_LEVEL_HIGH>;// EENV0
+			interrupts = <GIC_SPI 395 IRQ_TYPE_LEVEL_HIGH>;// EENV0
 			#address-cells = <1>;
 			#size-cells = <0>;
 			clocks = <&sys_clk>;
