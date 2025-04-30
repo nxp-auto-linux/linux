@@ -1731,6 +1731,15 @@ static bool enetc_xdp_tx(struct enetc_bdr *tx_ring,
 	return true;
 }
 
+static bool enetc_tx_ring_available(struct enetc_bdr *tx_ring, int num_txbd)
+{
+	struct enetc_ndev_priv *priv = netdev_priv(tx_ring->ndev);
+	int max_supp_bd = ENETC_TXBDS_NEEDED(priv->max_frags);
+	int num_unused_bd = enetc_bd_unused(tx_ring);
+
+	return num_txbd <= min(num_unused_bd, max_supp_bd);
+}
+
 static int enetc_xdp_frame_to_xdp_tx_swbd(struct enetc_bdr *tx_ring,
 					  struct enetc_tx_swbd *xdp_tx_arr,
 					  struct xdp_frame *xdp_frame)
@@ -2060,7 +2069,8 @@ static int enetc_clean_rx_ring_xdp(struct enetc_bdr *rx_ring,
 		case XDP_TX:
 			xdp_tx_bd_cnt = enetc_num_bd(rx_ring, orig_i, i);
 			tx_ring = priv->xdp_tx_ring[rx_ring->index];
-			if (unlikely(test_bit(ENETC_TX_DOWN, &priv->flags))) {
+			if (unlikely(test_bit(ENETC_TX_DOWN, &priv->flags) ||
+				     !enetc_tx_ring_available(tx_ring, xdp_tx_bd_cnt))) {
 				enetc_xdp_drop(rx_ring, orig_i, i);
 				tx_ring->stats.xdp_tx_drops++;
 				break;
