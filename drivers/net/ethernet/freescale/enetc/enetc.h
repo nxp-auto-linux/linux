@@ -191,20 +191,25 @@ static inline void enetc_bdr_idx_inc(struct enetc_bdr *bdr, int *i)
 		*i = 0;
 }
 
+/* enetc_num_bd() retrieves the BD count between a given ring start and
+ * end index.
+ */
+static inline int enetc_num_bd(struct enetc_bdr *ring, int first, int last)
+{
+	if (first < last)
+		return last - first;
+
+	return ring->bd_count + last - first;
+}
+
 static inline int enetc_bd_unused(struct enetc_bdr *bdr)
 {
-	if (bdr->next_to_clean > bdr->next_to_use)
-		return bdr->next_to_clean - bdr->next_to_use - 1;
-
-	return bdr->bd_count + bdr->next_to_clean - bdr->next_to_use - 1;
+	return enetc_num_bd(bdr, bdr->next_to_use, bdr->next_to_clean) - 1;
 }
 
 static inline int enetc_swbd_unused(struct enetc_bdr *bdr)
 {
-	if (bdr->next_to_clean > bdr->next_to_alloc)
-		return bdr->next_to_clean - bdr->next_to_alloc - 1;
-
-	return bdr->bd_count + bdr->next_to_clean - bdr->next_to_alloc - 1;
+	return enetc_num_bd(bdr, bdr->next_to_alloc, bdr->next_to_clean) - 1;
 }
 
 /* Control BD ring */
