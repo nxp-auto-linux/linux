@@ -1675,7 +1675,7 @@ static int enetc_clean_rx_ring(struct enetc_bdr *rx_ring,
 
 static void enetc_xdp_map_tx_buff(struct enetc_bdr *tx_ring, int i,
 				  struct enetc_tx_swbd *tx_swbd,
-				  int frm_len)
+				  bool first_bd, int frm_len)
 {
 	union enetc_tx_bd *txbd = ENETC_TXBD(*tx_ring, i);
 
@@ -1684,7 +1684,10 @@ static void enetc_xdp_map_tx_buff(struct enetc_bdr *tx_ring, int i,
 	enetc_clear_tx_bd(txbd);
 	txbd->addr = cpu_to_le64(tx_swbd->dma + tx_swbd->page_offset);
 	txbd->buf_len = cpu_to_le16(tx_swbd->len);
-	txbd->frm_len = cpu_to_le16(frm_len);
+
+	/* FRM_LEN is only applicable in the first BD */
+	if (first_bd)
+		txbd->frm_len = cpu_to_le16(frm_len);
 
 	memcpy(&tx_ring->tx_swbd[i], tx_swbd, sizeof(*tx_swbd));
 }
@@ -1711,7 +1714,7 @@ static bool enetc_xdp_tx(struct enetc_bdr *tx_ring,
 	for (k = 0; k < num_tx_swbd; k++) {
 		struct enetc_tx_swbd *xdp_tx_swbd = &xdp_tx_arr[k];
 
-		enetc_xdp_map_tx_buff(tx_ring, i, xdp_tx_swbd, frm_len);
+		enetc_xdp_map_tx_buff(tx_ring, i, xdp_tx_swbd, k == 0, frm_len);
 
 		/* last BD needs 'F' bit set */
 		if (xdp_tx_swbd->is_eof) {
