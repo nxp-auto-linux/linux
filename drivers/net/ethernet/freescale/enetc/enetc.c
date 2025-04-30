@@ -1926,9 +1926,9 @@ static void enetc_build_xdp_buff(struct enetc_bdr *rx_ring, u32 bd_status,
 /* Convert RX buffer descriptors to TX buffer descriptors. These will be
  * recycled back into the RX ring in enetc_clean_tx_ring.
  */
-static int enetc_rx_swbd_to_xdp_tx_swbd(struct enetc_tx_swbd *xdp_tx_arr,
-					struct enetc_bdr *rx_ring,
-					int rx_ring_first, int rx_ring_last)
+static void enetc_rx_swbd_to_xdp_tx_swbd(struct enetc_tx_swbd *xdp_tx_arr,
+					 struct enetc_bdr *rx_ring,
+					 int rx_ring_first, int rx_ring_last)
 {
 	int n = 0;
 
@@ -1950,8 +1950,6 @@ static int enetc_rx_swbd_to_xdp_tx_swbd(struct enetc_tx_swbd *xdp_tx_arr,
 
 	/* We rely on caller providing an rx_ring_last > rx_ring_first */
 	xdp_tx_arr[n - 1].is_eof = true;
-
-	return n;
 }
 
 static void enetc_xdp_drop(struct enetc_bdr *rx_ring, int rx_ring_first,
@@ -2060,6 +2058,7 @@ static int enetc_clean_rx_ring_xdp(struct enetc_bdr *rx_ring,
 			enetc_lock_mdio();
 			break;
 		case XDP_TX:
+			xdp_tx_bd_cnt = enetc_num_bd(rx_ring, orig_i, i);
 			tx_ring = priv->xdp_tx_ring[rx_ring->index];
 			if (unlikely(test_bit(ENETC_TX_DOWN, &priv->flags))) {
 				enetc_xdp_drop(rx_ring, orig_i, i);
@@ -2067,10 +2066,7 @@ static int enetc_clean_rx_ring_xdp(struct enetc_bdr *rx_ring,
 				break;
 			}
 
-			xdp_tx_bd_cnt = enetc_rx_swbd_to_xdp_tx_swbd(xdp_tx_arr,
-								     rx_ring,
-								     orig_i, i);
-
+			enetc_rx_swbd_to_xdp_tx_swbd(xdp_tx_arr, rx_ring, orig_i, i);
 			if (!enetc_xdp_tx(tx_ring, xdp_tx_arr, xdp_tx_bd_cnt)) {
 				enetc_xdp_drop(rx_ring, orig_i, i);
 				tx_ring->stats.xdp_tx_drops++;
