@@ -365,7 +365,7 @@
 					  "tx0", "rx0", "tx1", "rx1";
 			status = "disabled";
 			phy-names = "gmac_xpcs";
-			phys = <&serdes1 PHY_TYPE_XPCS 0 0>;
+			phys = <&serdes1 PHY_TYPE_XPCS 1 0>;
 			snps,mtl-rx-config = <&mtl_rx_setup_gmac1>;
 			snps,mtl-tx-config = <&mtl_tx_setup_gmac1>;
 			clocks = <&sys_clk>,
@@ -423,7 +423,7 @@
 					  "tx0", "rx0", "tx1", "rx1";
 			status = "disabled";
 			phy-names = "gmac_xpcs";
-			phys = <&serdes1 PHY_TYPE_XPCS 0 0>;
+			phys = <&serdes1 PHY_TYPE_XPCS 1 1>;
 			snps,mtl-rx-config = <&mtl_rx_setup_gmac2>;
 			snps,mtl-tx-config = <&mtl_tx_setup_gmac2>;
 			clocks = <&sys_clk>,
