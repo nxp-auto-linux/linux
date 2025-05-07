@@ -2,7 +2,7 @@
 /**
  * SerDes driver for S32CC SoCs
  *
- * Copyright 2021-2024 NXP
+ * Copyright 2021-2025 NXP
  */
 
 #include <dt-bindings/phy/phy.h>
@@ -832,7 +832,7 @@ static int check_lane_selection(struct serdes *serdes,
 	}
 
 	if (phy_type == PHY_TYPE_XPCS) {
-		pcs_lane_id = mode_to_pcs_lane(ctrl->ss_mode, instance);
+		pcs_lane_id = mode_to_pcs_lane(ctrl->ss_mode, *lane_id);
 		if (pcs_lane_id >= 0) {
 			*lane_id = pcs_lane_id;
 		} else {
@@ -874,7 +874,7 @@ static int check_lane_selection(struct serdes *serdes,
 	}
 
 	if (lane_conf->mode != PHY_MODE_PCIE &&
-	    lane_conf->instance != instance) {
+	    lane_conf->instance != *lane_id) {
 		dev_err(dev, "PHY %s instance %u cannot be applied on lane %u using SerDes mode %u)\n",
 			phy_name, instance, *lane_id, serdes->ctrl.ss_mode);
 		return -EINVAL;
