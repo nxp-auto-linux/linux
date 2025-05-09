@@ -262,7 +262,7 @@
 		ranges = <0x4a000000 0x0 0x4a000000 0xff0000>,
 			 <0x4e000000 0x0 0x4e000000 0x1000000>;
 
-		irqsteer0_coss: interrupt-controller@4ed00000 {
+		irqsteer_coss: interrupt-controller@4ed00000 {
 			compatible = "nxp,s32n7-irqsteer";
 			reg = <0x4ed00000 0x10000>;
 			interrupts = <GIC_SPI 555 IRQ_TYPE_LEVEL_HIGH>,
@@ -288,7 +288,7 @@
 			reg = <0x4a030000 0x1000>;
 			clocks = <&sys_clk>, <&sys_clk>;
 			clock-names = "uartclk", "apb_pclk";
-			interrupt-parent = <&irqsteer0_coss>;
+			interrupt-parent = <&irqsteer_coss>;
 			interrupts = <264>;
 			status = "disabled";
 		};
@@ -298,7 +298,7 @@
 			reg = <0x4a0d0000 0x1000>;
 			clocks = <&sys_clk>, <&sys_clk>;
 			clock-names = "per", "ipg";
-			interrupt-parent = <&irqsteer0_coss>;
+			interrupt-parent = <&irqsteer_coss>;
 			interrupts = <256>;
 			status = "disabled";
 		};
@@ -308,7 +308,7 @@
 			reg = <0x4a0e0000 0x1000>;
 			clocks = <&sys_clk>, <&sys_clk>;
 			clock-names = "per", "ipg";
-			interrupt-parent = <&irqsteer0_coss>;
+			interrupt-parent = <&irqsteer_coss>;
 			interrupts = <257>;
 			status = "disabled";
 		};
@@ -318,7 +318,7 @@
 			reg = <0x4a0f0000 0x1000>;
 			clocks = <&sys_clk>, <&sys_clk>;
 			clock-names = "per", "ipg";
-			interrupt-parent = <&irqsteer0_coss>;
+			interrupt-parent = <&irqsteer_coss>;
 			interrupts = <258>;
 			status = "disabled";
 		};
@@ -328,7 +328,7 @@
 			reg = <0x4aaa0000 0x1000>;
 			clocks = <&sys_clk>, <&sys_clk>;
 			clock-names = "per", "ipg";
-			interrupt-parent = <&irqsteer0_coss>;
+			interrupt-parent = <&irqsteer_coss>;
 			interrupts = <259>;
 			status = "disabled";
 		};
@@ -338,7 +338,7 @@
 			reg = <0x4aab0000 0x1000>;
 			clocks = <&sys_clk>, <&sys_clk>;
 			clock-names = "per", "ipg";
-			interrupt-parent = <&irqsteer0_coss>;
+			interrupt-parent = <&irqsteer_coss>;
 			interrupts = <260>;
 			status = "disabled";
 		};
@@ -348,7 +348,7 @@
 			reg = <0x4aac0000 0x1000>;
 			clocks = <&sys_clk>, <&sys_clk>;
 			clock-names = "per", "ipg";
-			interrupt-parent = <&irqsteer0_coss>;
+			interrupt-parent = <&irqsteer_coss>;
 			interrupts = <261>;
 			status = "disabled";
 		};
@@ -356,7 +356,7 @@
 		spi0: spi@4a070000 {
 			compatible = "nxp,s32n79-dspi";
 			reg = <0x4a070000 0x1000>;
-			interrupt-parent = <&irqsteer0_coss>;
+			interrupt-parent = <&irqsteer_coss>;
 			interrupts = <272>;
 			clocks = <&sys_clk>;
 			clock-names = "dspi";
@@ -370,7 +370,7 @@
 		spi1: spi@4a080000 {
 			compatible = "nxp,s32n79-dspi";
 			reg = <0x4a080000 0x1000>;
-			interrupt-parent = <&irqsteer0_coss>;
+			interrupt-parent = <&irqsteer_coss>;
 			interrupts = <273>;
 			clocks = <&sys_clk>;
 			clock-names = "dspi";
@@ -384,7 +384,7 @@
 		spi2: spi@4a090000 {
 			compatible = "nxp,s32n79-dspi";
 			reg = <0x4a090000 0x1000>;
-			interrupt-parent = <&irqsteer0_coss>;
+			interrupt-parent = <&irqsteer_coss>;
 			interrupts = <274>;
 			clocks = <&sys_clk>;
 			clock-names = "dspi";
@@ -398,7 +398,7 @@
 		spi3: spi@4aa70000 {
 			compatible = "nxp,s32n79-dspi";
 			reg = <0x4aa70000 0x1000>;
-			interrupt-parent = <&irqsteer0_coss>;
+			interrupt-parent = <&irqsteer_coss>;
 			interrupts = <275>;
 			clocks = <&sys_clk>;
 			clock-names = "dspi";
@@ -412,7 +412,7 @@
 		spi4: spi@4aa80000 {
 			compatible = "nxp,s32n79-dspi";
 			reg = <0x4aa80000 0x1000>;
-			interrupt-parent = <&irqsteer0_coss>;
+			interrupt-parent = <&irqsteer_coss>;
 			interrupts = <276>;
 			clocks = <&sys_clk>;
 			clock-names = "dspi";
@@ -426,7 +426,7 @@
 		spi5: spi@4aa90000 {
 			compatible = "nxp,s32n79-dspi";
 			reg = <0x4aa90000 0x1000>;
-			interrupt-parent = <&irqsteer0_coss>;
+			interrupt-parent = <&irqsteer_coss>;
 			interrupts = <277>;
 			clocks = <&sys_clk>;
 			clock-names = "dspi";
@@ -440,7 +440,7 @@
 		ufshc: ufs@4ac80000 {
 			compatible = "nxp,s32n79-ufshc","jedec,ufs-3.0";
 			reg = <0x4ac80000 0x1000>;
-			interrupt-parent = <&irqsteer0_coss>;
+			interrupt-parent = <&irqsteer_coss>;
 			interrupts = <211>;
 			status = "disabled";
 		};
@@ -448,7 +448,7 @@
 		ufshci0: ufs@4acb0000 {
 			compatible = "nxp,s32n79-ufshc", "jedec,ufs-3.0";
 			reg = <0x4acb0000 0x1000>;
-			interrupt-parent = <&irqsteer0_coss>;
+			interrupt-parent = <&irqsteer_coss>;
 			interrupts = <212>;
 			status = "disabled";
 		};
@@ -456,7 +456,7 @@
 		ufshci1: ufs@4acd0000 {
 			compatible = "nxp,s32n79-ufshc", "jedec,ufs-3.0";
 			reg = <0x4acd0000 0x1000>;
-			interrupt-parent = <&irqsteer0_coss>;
+			interrupt-parent = <&irqsteer_coss>;
 			interrupts = <213>;
 			status = "disabled";
 		};
@@ -464,7 +464,7 @@
 		ufshci2: ufs@4acf0000 {
 			compatible = "nxp,s32n79-ufshc", "jedec,ufs-3.0";
 			reg = <0x4acf0000 0x1000>;
-			interrupt-parent = <&irqsteer0_coss>;
+			interrupt-parent = <&irqsteer_coss>;
 			interrupts = <214>;
 			status = "disabled";
 		};
@@ -472,7 +472,7 @@
 		ufshci3: ufs@4ad10000 {
 			compatible = "nxp,s32n79-ufshc", "jedec,ufs-3.0";
 			reg = <0x4ad10000 0x1000>;
-			interrupt-parent = <&irqsteer0_coss>;
+			interrupt-parent = <&irqsteer_coss>;
 			interrupts = <215>;
 			status = "disabled";
 		};
@@ -484,7 +484,7 @@
 		#size-cells = <1>;
 		ranges = <0x54000000 0x0 0x54000000 0x4000000>;
 
-		irqsteer0_rcu: interrupt-controller@55101000 {
+		irqsteer_rcu: interrupt-controller@55101000 {
 			compatible = "nxp,s32n7-irqsteer";
 			reg = <0x55101000 0x1000>;
 			interrupts = <GIC_SPI 101 IRQ_TYPE_LEVEL_HIGH>,
@@ -508,7 +508,7 @@
 		can0: can@55b60000 {
 			compatible = "nxp,s32n79-flexcan";
 			reg = <0x55b60000 0x4000>;
-			interrupt-parent = <&irqsteer0_rcu>;
+			interrupt-parent = <&irqsteer_rcu>;
 			interrupts = <0>, <64>;
 			interrupt-names = "mb_0-127", "berr";
 			clocks = <&sys_clk>, <&sys_clk>;
@@ -519,7 +519,7 @@
 		can1: can@55b70000 {
 			compatible = "nxp,s32n79-flexcan";
 			reg = <0x55b70000 0x4000>;
-			interrupt-parent = <&irqsteer0_rcu>;
+			interrupt-parent = <&irqsteer_rcu>;
 			interrupts = <1>, <65>;
 			interrupt-names = "mb_0-127", "berr";
 			clocks = <&sys_clk>, <&sys_clk>;
@@ -532,7 +532,7 @@
 					"fsl,s32v234-linflexuart";
 			reg = <0x55ae0000 0x3000>;
 			interrupts = <160>;
-			interrupt-parent = <&irqsteer0_rcu>;
+			interrupt-parent = <&irqsteer_rcu>;
 			clocks = <&sys_clk>, <&sys_clk>;
 			clock-names = "lin", "ipg";
 			status = "disabled";
@@ -543,7 +543,7 @@
 					"fsl,s32v234-linflexuart";
 			reg = <0x55af0000 0x3000>;
 			interrupts = <161>;
-			interrupt-parent = <&irqsteer0_rcu>;
+			interrupt-parent = <&irqsteer_rcu>;
 			clocks = <&sys_clk>, <&sys_clk>;
 			clock-names = "lin", "ipg";
 			status = "disabled";
