@@ -62,9 +62,56 @@
 			next-level-cache = <&l2_0>;
 		};
 
+		cpu2: cpu@10000 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a78ae";
+			reg = <0x10000>;
+			enable-method = "psci";
+			next-level-cache = <&l2_1>;
+		};
+
+		cpu3: cpu@10100 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a78ae";
+			reg = <0x10100>;
+			enable-method = "psci";
+			next-level-cache = <&l2_1>;
+		};
+
+		cpu4: cpu@20000 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a78ae";
+			reg = <0x20000>;
+			enable-method = "psci";
+			next-level-cache = <&l2_2>;
+		};
+
+		cpu5: cpu@20100 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a78ae";
+			reg = <0x20100>;
+			enable-method = "psci";
+			next-level-cache = <&l2_2>;
+		};
+
+		cpu6: cpu@30000 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a78ae";
+			reg = <0x30000>;
+			enable-method = "psci";
+			next-level-cache = <&l2_3>;
+		};
+
+		cpu7: cpu@30100 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a78ae";
+			reg = <0x30100>;
+			enable-method = "psci";
+			next-level-cache = <&l2_3>;
+		};
 	};
 
-	l2_0: l2-cache {
+	l2_0: l2-cache0 {
 		compatible = "cache";
 		cache-level = <2>;
 		cache-size = <524288>;
@@ -73,7 +120,58 @@
 		next-level-cache = <&l3_0>;
 	};
 
-	l3_0: l3-cache {
+	l2_1: l2-cache1 {
+		compatible = "cache";
+		cache-level = <2>;
+		cache-size = <524288>;
+		cache-line-size = <64>;
+		cache-sets = <512>;
+		next-level-cache = <&l3_1>;
+	};
+
+	l2_2: l2-cache2 {
+		compatible = "cache";
+		cache-level = <2>;
+		cache-size = <524288>;
+		cache-line-size = <64>;
+		cache-sets = <512>;
+		next-level-cache = <&l3_2>;
+	};
+
+	l2_3: l2-cache3 {
+		compatible = "cache";
+		cache-level = <2>;
+		cache-size = <524288>;
+		cache-line-size = <64>;
+		cache-sets = <512>;
+		next-level-cache = <&l3_3>;
+	};
+
+	l3_0: l3-cache0 {
+		compatible = "cache";
+		cache-level = <3>;
+		cache-size = <1048576>;
+		cache-line-size = <64>;
+		cache-sets = <1024>;
+	};
+
+	l3_1: l3-cache1 {
+		compatible = "cache";
+		cache-level = <3>;
+		cache-size = <1048576>;
+		cache-line-size = <64>;
+		cache-sets = <1024>;
+	};
+
+	l3_2: l3-cache2 {
+		compatible = "cache";
+		cache-level = <3>;
+		cache-size = <1048576>;
+		cache-line-size = <64>;
+		cache-sets = <1024>;
+	};
+
+	l3_3: l3-cache3 {
 		compatible = "cache";
 		cache-level = <3>;
 		cache-size = <1048576>;
