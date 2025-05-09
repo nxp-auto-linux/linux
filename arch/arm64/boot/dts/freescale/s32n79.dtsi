@@ -34,18 +34,6 @@
 		#address-cells = <1>;
 		#size-cells = <0>;
 
-		cpu-map {
-			cluster0 {
-				core0 {
-					cpu = <&cpu0>;
-				};
-
-				core1 {
-					cpu = <&cpu1>;
-				};
-			};
-		};
-
 		cpu0: cpu@0 {
 			device_type = "cpu";
 			compatible = "arm,cortex-a78ae";
@@ -226,7 +214,7 @@
 		};
 	};
 
-	cis_subsys: bus@0 {
+	cis_subsys {
 		compatible = "simple-bus";
 		#address-cells = <1>;
 		#size-cells = <1>;
@@ -267,7 +255,7 @@
 
 	};
 
-	coss_subsys: bus@4a000000 {
+	coss_subsys {
 		compatible = "simple-bus";
 		#address-cells = <1>;
 		#size-cells = <1>;
@@ -490,7 +478,7 @@
 		};
 	};
 
-	rcu_subsys: bus@54000000 {
+	rcu_subsys {
 		compatible = "simple-bus";
 		#address-cells = <1>;
 		#size-cells = <1>;
@@ -562,7 +550,7 @@
 		};
 	};
 
-	fss_subsys: bus@5b490000 {
+	fss_subsys {
 		compatible = "simple-bus";
 		#address-cells = <1>;
 		#size-cells = <1>;
@@ -593,7 +581,7 @@
 		};
 	};
 
-	nwss_subsys: bus@40000000 {
+	nwss_subsys {
 		compatible = "simple-bus";
 		#address-cells = <2>;
 		#size-cells = <2>;
