@@ -98,10 +98,6 @@
 	status = "okay";
 };
 
-&cdma_iep {
-	status = "disabled";
-};
-
 &ufshc {
 	lanes-per-direction = <1>;
 };
@@ -136,6 +132,10 @@
 };
 
 &can1 {
+	status = "okay";
+};
+
+&netc_iep14 {
 	status = "okay";
 };
 
