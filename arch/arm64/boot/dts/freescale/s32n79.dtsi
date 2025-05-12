@@ -608,6 +608,7 @@
 			msi-parent = <&its>;
 			device_type = "pci";
 			bus-range = <0x0 0x0>;
+			status = "disabled";
 
 			ranges = /* SW0 */
 				 <0x82000000 0x0 0x48800000 0x0 0x48800000 0x0 0x80000>,
@@ -745,6 +746,7 @@
 			#address-cells = <3>;
 			#size-cells = <2>;
 			device_type = "pci";
+			status = "disabled";
 
 			ranges = <0x82000000 0x0 0x47c00000 0x0 0x47c00000 0x0 0x620000>;
 		};
