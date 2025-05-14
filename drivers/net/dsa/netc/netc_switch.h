@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: (GPL-2.0+ OR BSD-3-Clause) */
 /*
- * Copyright 2024 NXP
+ * Copyright 2024-2025 NXP
  */
 
 #ifndef _NETC_SWITCH_H
@@ -49,6 +49,7 @@
 #define NETC_STANDALONE_PVID		0
 #define NETC_CPU_PORT_PVID		1
 #define NETC_VLAN_UNAWARE_PVID		4095
+#define NETC_DPO_PORT_ID		0xFF
 
 #define NETC_FDBT_CLEAN_INTERVAL	(3 * HZ)
 #define NETC_FDBT_AGING_ACT_CNT		100
@@ -66,6 +67,7 @@
 
 /* Software defined host reason */
 #define NETC_HR_TRAP			0x8
+#define NETC_HR_DPO			0x9
 
 struct netc_switch_info {
 	u32 cpu_port_num;
