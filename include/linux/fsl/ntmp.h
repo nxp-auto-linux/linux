@@ -154,6 +154,7 @@ struct ist_cfge_data {
 #define IST_SWITCH_FA_SF	2
 #define IST_SWITCH_FA_BF	3
 #define IST_SWITCH_FA_SF_COPY	4
+#define IST_SWITCH_FA_DPO	9
 #define IST_SDFA		BIT(30)
 #define IST_OSDFA		BIT(31)
 	__le16 msdu;
