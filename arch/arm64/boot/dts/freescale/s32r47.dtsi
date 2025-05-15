@@ -251,8 +251,8 @@
 			status = "disabled";
 		};
 
-		/* PCIE_APB_ENET - 1 GMAC's, 1 PCIE */
-		serdes1: serdes@44200000 {
+		/* 2X_ENET - 2 GMAC's */
+		serdes1: serdes@4419C000 {
 			#phy-cells = <3>;
 			compatible = "nxp,s32cc-serdes";
 			clocks = <&serdes_clk>, <&serdes_clk>,
@@ -261,10 +261,10 @@
 			#address-cells = <3>;
 			#size-cells = <2>;
 			num-lanes = <2>;
-			reg = <0x0 0x44200000 0x0 0x108>,
-			      <0x0 0x44203008 0x0 0x10>,
-			      <0x0 0x44202000 0x0 0x800>,
-			      <0x0 0x44202800 0x0 0x800>;
+			reg = <0x0 0x4419C000 0x0 0x108>,
+			      <0x0 0x4419F008 0x0 0x10>,
+			      <0x0 0x4419E000 0x0 0x800>,
+			      <0x0 0x4419E800 0x0 0x800>;
 			reg-names = "ss_pcie", "pcie_phy", "xpcs0", "xpcs1";
 			status = "disabled";
 		};

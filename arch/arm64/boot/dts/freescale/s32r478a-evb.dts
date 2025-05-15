@@ -52,3 +52,7 @@
 &uart0 {
 	status = "okay";
 };
+
+&serdes1 {
+	status = "okay";
+};
