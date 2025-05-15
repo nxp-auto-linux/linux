@@ -60,6 +60,18 @@
 			#clock-cells = <0>;
 		};
 
+		serdes_100_ext: serdes_100_ext {
+			compatible = "fixed-clock";
+			clock-frequency = <100000000>;
+			#clock-cells = <0>;
+		};
+
+		serdes_125_ext: serdes_125_ext {
+			compatible = "fixed-clock";
+			clock-frequency = <125000000>;
+			#clock-cells = <0>;
+		};
+
 		serdes_clk: serdes-clk {
 			compatible = "fixed-clock";
 			clock-frequency = <125000000>;
