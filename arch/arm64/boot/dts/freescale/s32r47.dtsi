@@ -69,14 +69,14 @@
 
 		lin_clk: lin-clk {
 			compatible = "fixed-clock";
-			clock-frequency = <66666666>;
+			clock-frequency = <100000000>;
 			clock-output-names = "lin_clk";
 			#clock-cells = <0>;
 		};
 
 		xbar_lin_clk: xbar-lin-clk {
 			compatible = "fixed-clock";
-			clock-frequency = <400000000>;
+			clock-frequency = <50000000>;
 			clock-output-names = "xbar_lin_clk";
 			#clock-cells = <0>;
 		};
