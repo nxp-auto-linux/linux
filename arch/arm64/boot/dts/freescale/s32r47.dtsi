@@ -302,11 +302,11 @@
 			dma-coherent;
 			snps,mtl-rx-config = <&mtl_rx_setup_gmac1>;
 			snps,mtl-tx-config = <&mtl_tx_setup_gmac1>;
-			clocks = <&sys_clk 0>,
-				 <&sys_clk 0>,
-				 <&gmac_tx_rx_clk 0>,
-				 <&gmac_tx_rx_clk 0>,
-				 <&gmac_ts_clk 0>;
+			clocks = <&sys_clk>,
+				 <&sys_clk>,
+				 <&gmac_tx_rx_clk>,
+				 <&gmac_tx_rx_clk>,
+				 <&gmac_ts_clk>;
 			clock-names = "stmmaceth", "pclk",
 				      "tx_sgmii", "rx_sgmii",
 				      "ptp_ref";
@@ -336,9 +336,9 @@
 			};
 
 			gmac1_mdio: mdio@404a8200 {
+				compatible = "snps,dwmac-mdio";
 				#address-cells = <1>;
 				#size-cells = <0>;
-				compatible = "snps,dwmac-mdio";
 			};
 		};
 
@@ -363,11 +363,11 @@
 			dma-coherent;
 			snps,mtl-rx-config = <&mtl_rx_setup_gmac2>;
 			snps,mtl-tx-config = <&mtl_tx_setup_gmac2>;
-			clocks = <&sys_clk 0>,
-				 <&sys_clk 0>,
-				 <&gmac_tx_rx_clk 0>,
-				 <&gmac_tx_rx_clk 0>,
-				 <&gmac_ts_clk 0>;
+			clocks = <&sys_clk>,
+				 <&sys_clk>,
+				 <&gmac_tx_rx_clk>,
+				 <&gmac_tx_rx_clk>,
+				 <&gmac_ts_clk>;
 			clock-names = "stmmaceth", "pclk",
 				      "tx_sgmii", "rx_sgmii",
 				      "ptp_ref";
