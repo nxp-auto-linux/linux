@@ -403,10 +403,10 @@
 			};
 		};
 
-		pit1: pit@440d8000 {
+		pit2: pit@440d8000 {
 			compatible = "nxp,s32cc-pit";
-			reg = <0x0 0x40408000 0x0 0x3000>;
-			interrupts = <GIC_SPI 53 IRQ_TYPE_LEVEL_HIGH>;
+			reg = <0x0 0x440d8000 0x0 0x3000>;
+			interrupts = <GIC_SPI 54 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&pit_clk>;
 			clock-names = "pit";
 			status = "disabled";
