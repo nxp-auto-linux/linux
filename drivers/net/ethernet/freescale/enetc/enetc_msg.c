@@ -59,6 +59,67 @@ static u16 enetc_msg_pf_set_vf_primary_mac_addr(struct enetc_pf *pf,
 	return ENETC_MSG_CODE_SUCCESS;
 }
 
+static u16 enetc_msg_pf_set_vf_mac_hash_filter(struct enetc_pf *pf, int vf_id)
+{
+	struct enetc_msg_swbd *msg_swbd = &pf->rxmsg[vf_id];
+	struct enetc_msg_mac_hash_filter *msg;
+	struct enetc_hw *hw = &pf->si->hw;
+	int si_id = vf_id + 1;
+
+	if (is_enetc_rev1(pf->si))
+		return ENETC_MSG_CODE_NOT_SUPPORT;
+
+	if (!enetc_pf_is_vf_trusted(pf, vf_id))
+		return ENETC_MSG_CODE_PERMISSION_DENY;
+
+	msg = (struct enetc_msg_mac_hash_filter *)msg_swbd->vaddr;
+	/* Currently, hardware only supports 64 bits table size */
+	if (msg->size != ENETC_MAC_HASH_TABLE_SIZE_64)
+		return ENETC_MSG_CODE_NOT_SUPPORT;
+
+	if (msg->type == ENETC_MAC_FILTER_TYPE_UC) {
+		pf->ops->set_si_mac_hash_filter(hw, si_id, UC, msg->hash_tbl[0]);
+	} else if (msg->type == ENETC_MAC_FILTER_TYPE_MC) {
+		pf->ops->set_si_mac_hash_filter(hw, si_id, MC, msg->hash_tbl[0]);
+	} else {
+		pf->ops->set_si_mac_hash_filter(hw, si_id, UC, msg->hash_tbl[0]);
+		pf->ops->set_si_mac_hash_filter(hw, si_id, MC, msg->hash_tbl[1]);
+	}
+
+	return ENETC_MSG_CODE_SUCCESS;
+}
+
+static u16 enetc_msg_pf_set_vf_mac_promisc_mode(struct enetc_pf *pf, int vf_id)
+{
+	struct enetc_msg_swbd *msg_swbd = &pf->rxmsg[vf_id];
+	struct enetc_msg_mac_promsic_mode *msg;
+	struct enetc_hw *hw = &pf->si->hw;
+	bool promisc_mode = false;
+	int si_id = vf_id + 1;
+
+	msg = (struct enetc_msg_mac_promsic_mode *)msg_swbd->vaddr;
+	if (msg->promisc_mode == ENETC_MAC_PROMISC_MODE_ENABLE) {
+		if (!enetc_pf_is_vf_trusted(pf, vf_id))
+			return ENETC_MSG_CODE_PERMISSION_DENY;
+
+		promisc_mode = true;
+	}
+
+	if (msg->type & ENETC_MAC_FILTER_TYPE_UC) {
+		pf->ops->set_si_mac_promisc(hw, si_id, UC, promisc_mode);
+		if (msg->flush_macs)
+			pf->ops->set_si_mac_hash_filter(hw, si_id, UC, 0);
+	}
+
+	if (msg->type & ENETC_MAC_FILTER_TYPE_MC) {
+		pf->ops->set_si_mac_promisc(hw, si_id, MC, promisc_mode);
+		if (msg->flush_macs)
+			pf->ops->set_si_mac_hash_filter(hw, si_id, MC, 0);
+	}
+
+	return ENETC_MSG_CODE_SUCCESS;
+}
+
 static bool enetc_msg_check_crc16(void *msg_addr, u32 msg_size)
 {
 	u8 *data_buf = msg_addr + 2;
@@ -82,6 +143,10 @@ static u16 enetc_msg_handle_mac_filter(struct enetc_msg_header *msg_hdr,
 	switch (msg_hdr->cmd_id) {
 	case ENETC_MSG_SET_PRIMARY_MAC:
 		return enetc_msg_pf_set_vf_primary_mac_addr(pf, vf_id);
+	case ENETC_MSG_SET_MAC_HASH_TABLE:
+		return enetc_msg_pf_set_vf_mac_hash_filter(pf, vf_id);
+	case ENETC_MSG_SET_MAC_PROMISC_MODE:
+		return enetc_msg_pf_set_vf_mac_promisc_mode(pf, vf_id);
 	default:
 		return ENETC_MSG_CODE_NOT_SUPPORT;
 	}
