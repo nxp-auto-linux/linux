@@ -366,7 +366,6 @@
 			status = "disabled";
 			phy-names = "gmac_xpcs";
 			phys = <&serdes1 PHY_TYPE_XPCS 0 0>;
-			dma-coherent;
 			snps,mtl-rx-config = <&mtl_rx_setup_gmac1>;
 			snps,mtl-tx-config = <&mtl_tx_setup_gmac1>;
 			clocks = <&sys_clk>,
@@ -425,7 +424,6 @@
 			status = "disabled";
 			phy-names = "gmac_xpcs";
 			phys = <&serdes1 PHY_TYPE_XPCS 0 0>;
-			dma-coherent;
 			snps,mtl-rx-config = <&mtl_rx_setup_gmac2>;
 			snps,mtl-tx-config = <&mtl_tx_setup_gmac2>;
 			clocks = <&sys_clk>,
