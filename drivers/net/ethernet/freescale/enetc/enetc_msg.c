@@ -168,6 +168,54 @@ static u16 enetc_msg_handle_ip_revision(struct enetc_msg_header *msg_hdr,
 	}
 }
 
+static u16 enetc_msg_pf_set_vf_vlan_hash_filter(struct enetc_pf *pf, int vf_id)
+{
+	struct enetc_msg_swbd *msg_swbd = &pf->rxmsg[vf_id];
+	struct enetc_msg_vlan_hash_filter *msg;
+	int si_id = vf_id + 1;
+
+	msg = (struct enetc_msg_vlan_hash_filter *)msg_swbd->vaddr;
+	/* Currently, hardware only supports 64 bits table size */
+	if (msg->size != ENETC_VLAN_HASH_TABLE_SIZE_64)
+		return ENETC_MSG_CODE_NOT_SUPPORT;
+
+	pf->ops->set_si_vlan_hash_filter(pf->si, si_id, msg->hash_tbl[0]);
+
+	return ENETC_MSG_CODE_SUCCESS;
+}
+
+static u16 enetc_msg_pf_set_vf_vlan_promisc_mode(struct enetc_pf *pf, int vf_id)
+{
+	struct enetc_msg_swbd *msg_swbd = &pf->rxmsg[vf_id];
+	struct enetc_msg_vlan_promsic_mode *msg;
+	struct enetc_si *si = pf->si;
+	bool promisc_mode = false;
+	int si_id = vf_id + 1;
+
+	msg = (struct enetc_msg_vlan_promsic_mode *)msg_swbd->vaddr;
+	if (msg->promisc_mode == ENETC_VLAN_PROMISC_MODE_ENABLE)
+		promisc_mode = true;
+
+	pf->ops->set_si_vlan_promisc(&si->hw, si_id, promisc_mode);
+	if (msg->flush_vlans)
+		pf->ops->set_si_vlan_hash_filter(si, si_id, 0);
+
+	return ENETC_MSG_CODE_SUCCESS;
+}
+
+static u16 enetc_msg_handle_vlan_filter(struct enetc_msg_header *msg_hdr,
+					struct enetc_pf *pf, int vf_id)
+{
+	switch (msg_hdr->cmd_id) {
+	case ENETC_MSG_SET_VLAN_HASH_TABLE:
+		return enetc_msg_pf_set_vf_vlan_hash_filter(pf, vf_id);
+	case ENETC_MSG_SET_VLAN_PROMISC_MODE:
+		return enetc_msg_pf_set_vf_vlan_promisc_mode(pf, vf_id);
+	default:
+		return ENETC_MSG_CODE_NOT_SUPPORT;
+	}
+}
+
 static u16 enetc_msg_pf_reply_link_status(struct enetc_pf *pf)
 {
 	struct net_device *ndev = pf->si->ndev;
@@ -365,6 +413,9 @@ static void enetc_msg_handle_rxmsg(struct enetc_pf *pf, int vf_id,
 		break;
 	case ENETC_MSG_CLASS_ID_LINK_SPEED:
 		*msg_code = enetc_msg_handle_link_speed(msg_hdr, pf, vf_id);
+		break;
+	case ENETC_MSG_CLASS_ID_VLAN_FILTER:
+		*msg_code = enetc_msg_handle_vlan_filter(msg_hdr, pf, vf_id);
 		break;
 	default:
 		*msg_code = ENETC_MSG_CODE_NOT_SUPPORT;

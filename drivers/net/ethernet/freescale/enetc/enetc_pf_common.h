@@ -40,6 +40,7 @@ static inline void enetc_pf_send_link_status_msg(struct enetc_pf *pf, bool up)
 
 int enetc_pf_set_vf_trust(struct net_device *ndev, int vf, bool setting);
 int enetc_pf_set_vf_mac(struct net_device *ndev, int vf, u8 *mac);
+void enetc_set_si_vlan_ht_filter(struct enetc_si *si, int si_id, u64 hash);
 
 static inline u16 enetc_get_ip_revision(struct enetc_hw *hw)
 {
