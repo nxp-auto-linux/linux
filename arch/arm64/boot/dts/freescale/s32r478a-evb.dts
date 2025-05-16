@@ -15,14 +15,32 @@
 	tick-timer = &pit2;
 };
 
+&gmac0 {
+	status = "okay";
+	phy-handle = <&mdio_gmac0_phy1>;
+	phy-mode = "sgmii";
+};
+
 &gmac1 {
 	status = "okay";
 	phy-handle = <&mdio_gmac1_phy4>;
+	phy-mode = "sgmii";
 };
 
 &gmac2 {
 	status = "okay";
 	phy-handle = <&mdio_gmac2_phy1>;
+	phy-mode = "sgmii";
+};
+
+&gmac0_mdio {
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	/* GPY212 */
+	mdio_gmac0_phy1: ethernet-phy@1 {
+		reg = <1>;
+	};
 };
 
 &gmac1_mdio {
