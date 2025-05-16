@@ -53,6 +53,10 @@
 	status = "okay";
 };
 
+&serdes0 {
+	status = "okay";
+};
+
 &serdes1 {
 	status = "okay";
 };
