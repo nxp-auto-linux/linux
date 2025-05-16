@@ -268,7 +268,7 @@
 		/* PCIE_ENET - PCIe & GMAC0 */
 		serdes0: serdes@44280000 {
 			#phy-cells = <3>;
-			compatible = "nxp,s32cc-serdes";
+			compatible = "nxp,s32r47-serdes";
 			clocks = <&serdes_clk>, <&serdes_clk>,
 				<&serdes_clk>, <&serdes_clk>;
 			clock-names = "axi", "aux", "apb", "ref";
@@ -286,7 +286,7 @@
 		/* 2X_ENET - 2 GMAC's */
 		serdes1: serdes@4419C000 {
 			#phy-cells = <3>;
-			compatible = "nxp,s32cc-serdes";
+			compatible = "nxp,s32r47-serdes";
 			clocks = <&serdes_clk>, <&serdes_clk>,
 				<&serdes_clk>, <&serdes_clk>;
 			clock-names = "axi", "aux", "apb", "ref";
