@@ -27,6 +27,7 @@
 		ethernet1 = &gmac1;
 		ethernet2 = &gmac2;
 		serial0 = &uart0;
+		serdes0 = &serdes0;
 		serdes1 = &serdes1;
 		spi6 = &qspi;
 	};
@@ -260,6 +261,24 @@
 			clocks = <&qspi_clk>, <&qspi_clk>;
 			spi-max-frequency = <133333333>;
 			spi-num-chipselects = <1>;
+			status = "disabled";
+		};
+
+		/* PCIE_ENET - PCIe & GMAC0 */
+		serdes0: serdes@44280000 {
+			#phy-cells = <3>;
+			compatible = "nxp,s32cc-serdes";
+			clocks = <&serdes_clk>, <&serdes_clk>,
+				<&serdes_clk>, <&serdes_clk>;
+			clock-names = "axi", "aux", "apb", "ref";
+			#address-cells = <3>;
+			#size-cells = <2>;
+			num-lanes = <2>;
+			reg = <0x0 0x44280000 0x0 0x108>,
+			      <0x0 0x44283008 0x0 0x10>,
+			      <0x0 0x44282000 0x0 0x800>,
+			      <0x0 0x44282800 0x0 0x800>;
+			reg-names = "ss_pcie", "pcie_phy", "xpcs0", "xpcs1";
 			status = "disabled";
 		};
 
