@@ -53,6 +53,8 @@ struct enetc_pf_ops {
 				   enum enetc_mac_addr_type type, bool en);
 	void (*set_si_mac_hash_filter)(struct enetc_hw *hw, int si,
 				       enum enetc_mac_addr_type type, u64 hash);
+	void (*set_si_vlan_promisc)(struct enetc_hw *hw, int si, bool en);
+	void (*set_si_vlan_hash_filter)(struct enetc_si *si, int si_id, u64 hash);
 };
 
 struct enetc_pf {
@@ -65,8 +67,6 @@ struct enetc_pf {
 	bool vf_link_status_notify[ENETC_MAX_NUM_VFS];
 
 	char vlan_promisc_simap; /* bitmap of SIs in VLAN promisc mode */
-	DECLARE_BITMAP(vlan_ht_filter, ENETC_VLAN_HT_SIZE);
-	DECLARE_BITMAP(active_vlans, VLAN_N_VID);
 
 	struct mii_bus *mdio; /* saved for cleanup */
 	struct mii_bus *imdio;
