@@ -18,6 +18,7 @@ properties:
   compatible:
     enum:
       - nxp,s32cc-dwmac
+      - nxp,s32r47-dwmac
 
   reg:
     items:
