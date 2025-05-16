@@ -44,6 +44,13 @@
 #define ACE_CONTROL_SIGNALS	((ACE_DOMAIN_SIGNAL << 4) | ACE_CACHE_SIGNAL)
 #define ACE_PROTECTION		0x2
 
+/* Controller does not have a PHY interface select entry in GMAC SRC */
+#define GMAC_QUIRK_SKIP_PHY_INTF_SELECT		BIT(0)
+
+struct gmac_devtype_data {
+	unsigned int quirks;
+};
+
 struct s32cc_priv_data {
 	void __iomem *ioaddr;
 	void __iomem *ctrl_sts;
@@ -51,6 +58,7 @@ struct s32cc_priv_data {
 	phy_interface_t intf_mode;
 	struct clk *tx_clk;
 	struct clk *rx_clk;
+	const struct gmac_devtype_data *devtype_data;
 	bool enable_rx;
 	bool use_nvmem;
 
@@ -58,6 +66,19 @@ struct s32cc_priv_data {
 	struct phy *serdes_phy;
 	struct phylink_pcs *pcs;
 };
+
+static const struct gmac_devtype_data s32cc_data = {
+	.quirks = 0,
+};
+
+static const struct gmac_devtype_data s32r47_data = {
+	.quirks = GMAC_QUIRK_SKIP_PHY_INTF_SELECT,
+};
+
+static bool needs_phy_intf_sel(struct s32cc_priv_data *gmac)
+{
+	return !(gmac->devtype_data->quirks & GMAC_QUIRK_SKIP_PHY_INTF_SELECT);
+}
 
 static int s32cc_gmac_write_phy_intf_select(struct s32cc_priv_data *gmac)
 {
@@ -126,10 +147,12 @@ static int s32cc_gmac_init(struct platform_device *pdev, void *priv)
 		}
 	}
 
-	ret = s32cc_gmac_write_phy_intf_select(gmac);
-	if (ret) {
-		dev_err(&pdev->dev, "Can't set PHY interface mode\n");
-		return ret;
+	if (needs_phy_intf_sel(gmac)) {
+		ret = s32cc_gmac_write_phy_intf_select(gmac);
+		if (ret) {
+			dev_err(&pdev->dev, "Can't set PHY interface mode\n");
+			return ret;
+		}
 	}
 
 	return 0;
@@ -281,29 +304,36 @@ static int s32cc_dwmac_probe(struct platform_device *pdev)
 	const char *tx_clk, *rx_clk;
 	struct phy *serdes_phy = NULL;
 	struct nvmem_cell *cell;
-	bool use_nvmem;
+	bool use_nvmem = false;
 	int ret;
-
-	/* Check if NVMEM for PHY Interface Mode selection is available */
-	cell = nvmem_cell_get(dev, "gmac_phy_intf_sel");
-	if (IS_ERR(cell)) {
-		if (PTR_ERR(cell) == -EPROBE_DEFER)
-			return -EPROBE_DEFER;
-
-		dev_info(dev, "No NVMEM for GPRs available, mapping them as resource\n");
-		use_nvmem = false;
-	} else {
-		use_nvmem = true;
-		nvmem_cell_put(cell);
-	}
 
 	gmac = devm_kzalloc(&pdev->dev, sizeof(*gmac), GFP_KERNEL);
 	if (!gmac)
 		return PTR_ERR(gmac);
 
+	gmac->devtype_data = of_device_get_match_data(dev);
+	if (!gmac->devtype_data)
+		return dev_err_probe(dev, -ENODEV,
+				"Failed to get devtype data\n");
+
+	/* Check if NVMEM for PHY Interface Mode selection is available */
+	if (needs_phy_intf_sel(gmac)) {
+		cell = nvmem_cell_get(dev, "gmac_phy_intf_sel");
+		if (IS_ERR(cell)) {
+			if (PTR_ERR(cell) == -EPROBE_DEFER)
+				return -EPROBE_DEFER;
+
+			dev_info(dev, "No NVMEM for GPRs available, mapping them as resource\n");
+		} else {
+			use_nvmem = true;
+			nvmem_cell_put(cell);
+		}
+	}
+
 	gmac->dev = &pdev->dev;
 	gmac->use_nvmem = use_nvmem;
 
+	platform_set_drvdata(pdev, gmac);
 	ret = stmmac_get_platform_resources(pdev, &res);
 	if (ret)
 		return dev_err_probe(dev, ret,
@@ -315,12 +345,14 @@ static int s32cc_dwmac_probe(struct platform_device *pdev)
 				     "dt configuration failed\n");
 
 	/* SoC control reg */
-	if (!use_nvmem) {
-		gmac->ctrl_sts = devm_platform_get_and_ioremap_resource(pdev, 1,
-									NULL);
-		if (IS_ERR_OR_NULL(gmac->ctrl_sts))
-			return dev_err_probe(dev, PTR_ERR(gmac->ctrl_sts),
-					     "S32CC config region is missing\n");
+	if (needs_phy_intf_sel(gmac)) {
+		if (!use_nvmem) {
+			gmac->ctrl_sts = devm_platform_get_and_ioremap_resource(pdev, 1,
+										NULL);
+			if (IS_ERR_OR_NULL(gmac->ctrl_sts))
+				return dev_err_probe(dev, PTR_ERR(gmac->ctrl_sts),
+							 "S32CC config region is missing\n");
+		}
 	}
 
 	if (plat->phy_interface != PHY_INTERFACE_MODE_SGMII &&
@@ -420,7 +452,8 @@ static int s32cc_dwmac_probe(struct platform_device *pdev)
 }
 
 static const struct of_device_id s32cc_dwmac_match[] = {
-	{ .compatible = "nxp,s32cc-dwmac" },
+	{ .compatible = "nxp,s32cc-dwmac", .data = &s32cc_data },
+	{ .compatible = "nxp,s32r47-dwmac", .data = &s32r47_data },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, s32cc_dwmac_match);
