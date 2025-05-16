@@ -12,7 +12,7 @@
 	model = "NXP S32R478AEVB";
 	compatible = "nxp,s32r47";
 
-	tick-timer = &pit1;
+	tick-timer = &pit2;
 };
 
 &gmac1 {
@@ -45,7 +45,7 @@
 	};
 };
 
-&pit1 {
+&pit2 {
 	status = "okay";
 };
 
