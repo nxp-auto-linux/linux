@@ -102,6 +102,12 @@
 
 #define XPCS_RX_STABLE_TIMEOUT	25 /* µs */
 
+/*
+ * SerDes mode is already set. Hence assert/deassert reset of SerDes lines
+ * is not needed.
+ */
+#define SERDES_QUIRK_SKIP_ASSERT_RESET_LINES	BIT(0)
+
 struct serdes_lane_conf {
 	enum phy_mode mode;
 	u8 instance; /** Instance ID (e.g PCIE0, XPCS1) */
@@ -136,16 +142,34 @@ struct xpcs_ctrl {
 	bool initialized_clks;
 };
 
+struct serdes_devtype_data {
+	unsigned int quirks;
+};
+
 struct serdes {
 	struct pcie_ctrl pcie;
 	struct serdes_ctrl ctrl;
 	struct xpcs_ctrl xpcs;
 	struct device *dev;
 	struct phy *phys[SERDES_MAX_LANES];
+	const struct serdes_devtype_data *devtype_data;
 	u8 lanes_status;
 };
 
+static const struct serdes_devtype_data s32cc_data = {
+	.quirks = 0,
+};
+
+static const struct serdes_devtype_data s32r47_data = {
+	.quirks = SERDES_QUIRK_SKIP_ASSERT_RESET_LINES,
+};
+
 static int lane_id_to_xpcs_id(unsigned int mode, int lane_id);
+
+static int skip_assert_reset_lines(struct serdes *serdes)
+{
+	return serdes->devtype_data->quirks & SERDES_QUIRK_SKIP_ASSERT_RESET_LINES;
+}
 
 static void mark_configured_lane(struct serdes *serdes, u32 lane)
 {
@@ -956,35 +980,37 @@ static int init_serdes(struct serdes *serdes)
 	u32 reg0;
 	int ret;
 
-	ret = assert_reset(serdes);
-	if (ret)
-		return ret;
+	if (!skip_assert_reset_lines(serdes)) {
+		ret = assert_reset(serdes);
+		if (ret)
+			return ret;
 
-	reg0 = readl(ctrl->ss_base + SS_RW_REG_0);
-	reg0 &= ~SUBMODE_MASK;
-	if (ctrl->ss_mode == 5)
-		reg0 |= 2;
-	else
-		reg0 |= ctrl->ss_mode;
-	writel(reg0, ctrl->ss_base + SS_RW_REG_0);
+		reg0 = readl(ctrl->ss_base + SS_RW_REG_0);
+		reg0 &= ~SUBMODE_MASK;
+		if (ctrl->ss_mode == 5)
+			reg0 |= 2;
+		else
+			reg0 |= ctrl->ss_mode;
+		writel(reg0, ctrl->ss_base + SS_RW_REG_0);
 
-	reg0 = readl(ctrl->ss_base + SS_RW_REG_0);
-	if (ctrl->ext_clk)
-		reg0 &= ~CLKEN_MASK;
-	else
-		reg0 |= CLKEN_MASK;
+		reg0 = readl(ctrl->ss_base + SS_RW_REG_0);
+		if (ctrl->ext_clk)
+			reg0 &= ~CLKEN_MASK;
+		else
+			reg0 |= CLKEN_MASK;
 
-	writel(reg0, ctrl->ss_base + SS_RW_REG_0);
+		writel(reg0, ctrl->ss_base + SS_RW_REG_0);
 
-	/* Wait for the selection of working mode (as per the manual specs) */
-	usleep_range(100, 110);
+		/* Wait for the selection of working mode (as per the manual specs) */
+		usleep_range(100, 110);
 
-	ret = deassert_reset(serdes);
-	if (ret)
-		return ret;
+		ret = deassert_reset(serdes);
+		if (ret)
+			return ret;
 
-	dev_info(serdes->dev, "Using mode %d for SerDes subsystem\n",
-		 ctrl->ss_mode);
+		dev_info(serdes->dev, "Using mode %d for SerDes subsystem\n",
+			 ctrl->ss_mode);
+	}
 
 	ret = xpcs_init_clks(serdes);
 	if (ret)
@@ -1018,10 +1044,12 @@ static int ss_dt_init(struct platform_device *pdev, struct serdes *serdes)
 		return PTR_ERR(ctrl->ss_base);
 	}
 
-	ctrl->rst = devm_reset_control_get(dev, "serdes");
-	if (IS_ERR(ctrl->rst))
-		return dev_err_probe(dev, PTR_ERR(ctrl->rst),
-				     "Failed to get 'serdes' reset control\n");
+	if (!skip_assert_reset_lines(serdes)) {
+		ctrl->rst = devm_reset_control_get(dev, "serdes");
+		if (IS_ERR(ctrl->rst))
+			return dev_err_probe(dev, PTR_ERR(ctrl->rst),
+						 "Failed to get 'serdes' reset control\n");
+	}
 
 	ctrl->nclks = devm_clk_bulk_get_all(dev, &ctrl->clks);
 	if (ctrl->nclks < 1) {
@@ -1053,10 +1081,12 @@ static int pcie_dt_init(struct platform_device *pdev, struct serdes *serdes)
 		return PTR_ERR(pcie->phy_base);
 	}
 
-	pcie->rst = devm_reset_control_get(dev, "pcie");
-	if (IS_ERR(pcie->rst)) {
-		dev_err(dev, "Failed to get 'pcie' reset control\n");
-		return PTR_ERR(pcie->rst);
+	if (!skip_assert_reset_lines(serdes)) {
+		pcie->rst = devm_reset_control_get(dev, "pcie");
+		if (IS_ERR(pcie->rst)) {
+			dev_err(dev, "Failed to get 'pcie' reset control\n");
+			return PTR_ERR(pcie->rst);
+		}
 	}
 
 	return 0;
@@ -1095,6 +1125,11 @@ static int serdes_probe(struct platform_device *pdev)
 	serdes = devm_kzalloc(dev, sizeof(*serdes), GFP_KERNEL);
 	if (!serdes)
 		return -ENOMEM;
+
+	serdes->devtype_data = of_device_get_match_data(dev);
+	if (!serdes->devtype_data)
+		return dev_err_probe(dev, -ENODEV,
+				"Failed to get devtype data\n");
 
 	platform_set_drvdata(pdev, serdes);
 	serdes->dev = dev;
@@ -1228,9 +1263,8 @@ static int __maybe_unused serdes_resume(struct device *device)
 }
 
 static const struct of_device_id serdes_match[] = {
-	{
-		.compatible = "nxp,s32cc-serdes",
-	},
+	{ .compatible = "nxp,s32cc-serdes", .data = &s32cc_data },
+	{ .compatible = "nxp,s32r47-serdes", .data = &s32r47_data },
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, serdes_match);
