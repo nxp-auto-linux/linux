@@ -302,7 +302,7 @@
 		};
 
 		gmac0: ethernet@402ac000 {
-			compatible = "nxp,s32cc-dwmac";
+			compatible = "nxp,s32r47-dwmac";
 			reg = <0x0 0x402ac000 0x0 0x4000>;
 			interrupt-parent = <&gic>;
 			interrupts = <GIC_SPI 215 IRQ_TYPE_LEVEL_HIGH>;
@@ -351,7 +351,7 @@
 		};
 
 		gmac1: ethernet@404a8000 {
-			compatible = "nxp,s32cc-dwmac";
+			compatible = "nxp,s32r47-dwmac";
 			reg = <0x0 0x404a8000 0x0 0x4000>;
 			interrupt-parent = <&gic>;
 			interrupts = <GIC_SPI 220 IRQ_TYPE_LEVEL_HIGH>,
@@ -409,7 +409,7 @@
 		};
 
 		gmac2: ethernet@402b0000 {
-			compatible = "nxp,s32cc-dwmac";
+			compatible = "nxp,s32r47-dwmac";
 			reg = <0x0 0x402b0000 0x0 0x4000>;
 			interrupt-parent = <&gic>;
 			interrupts = <GIC_SPI 225 IRQ_TYPE_LEVEL_HIGH>,
