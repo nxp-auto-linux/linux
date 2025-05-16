@@ -44,8 +44,23 @@
 #define ENETC_PF_NC_LINK_STATUS_UP		0x0
 #define ENETC_PF_NC_LINK_STATUS_DOWN		0x1
 
+#define ENETC_MAC_FILTER_TYPE_UC		BIT(0)
+#define ENETC_MAC_FILTER_TYPE_MC		BIT(1)
+#define ENETC_MAC_FILTER_TYPE_ALL		(ENETC_MAC_FILTER_TYPE_UC | \
+						 ENETC_MAC_FILTER_TYPE_MC)
+
+#define ENETC_MAC_PROMISC_MODE_DISABLE		0
+#define ENETC_MAC_PROMISC_MODE_ENABLE		1
+#define ENETC_MAC_FILTER_FLUSH			1
+#define ENETC_MAC_HASH_TABLE_SIZE_64		0
+
 enum enetc_msg_mac_filter_cmd_id {
 	ENETC_MSG_SET_PRIMARY_MAC,
+	ENETC_MSG_ADD_EXACT_MAC_ENTRIES,
+	ENETC_MSG_DEL_EXACT_MAC_ENTRIES,
+	ENETC_MSG_SET_MAC_HASH_TABLE,
+	ENETC_MSG_FLUSH_MAC_ENTRIES,
+	ENETC_MSG_SET_MAC_PROMISC_MODE,
 };
 
 enum enetc_msg_ip_revision_cmd_id {
@@ -128,6 +143,27 @@ struct enetc_msg_mac_exact_filter {
 	u8 mac_cnt;
 	u8 resv[3];
 	struct enetc_mac_addr mac[];
+};
+
+/* message format of class_id 0x20, cmd_id: 0x3,
+ * set MAC hash table
+ */
+struct enetc_msg_mac_hash_filter {
+	struct enetc_msg_header hdr;
+	u8 size:6;
+	u8 type:2;
+	u64 hash_tbl[];
+};
+
+/* message format of class_id 0x20, cmd_id: 0x5,
+ * set MAC promiscuous mode
+ */
+struct enetc_msg_mac_promsic_mode {
+	struct enetc_msg_header hdr;
+	u8 flush_macs:1;
+	u8 promisc_mode:1;
+	u8 resv:4;
+	u8 type:2;
 };
 
 /* The generic message format applies to the following messages:

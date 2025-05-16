@@ -49,6 +49,10 @@ struct enetc_pf_ops {
 	void (*set_mm)(struct enetc_ndev_priv *priv, struct ethtool_mm_cfg *cfg,
 		       u32 add_frag_size);
 	void (*set_preemptible_tcs)(struct enetc_ndev_priv *priv);
+	void (*set_si_mac_promisc)(struct enetc_hw *hw, int si,
+				   enum enetc_mac_addr_type type, bool en);
+	void (*set_si_mac_hash_filter)(struct enetc_hw *hw, int si,
+				       enum enetc_mac_addr_type type, u64 hash);
 };
 
 struct enetc_pf {
@@ -56,8 +60,6 @@ struct enetc_pf {
 	int num_vfs; /* number of active VFs, after sriov_init */
 	int total_vfs; /* max number of VFs, set for PF at probe */
 	struct enetc_vf_state *vf_state;
-
-	struct enetc_mac_filter mac_filter[ENETC_MAX_NUM_MAC_FLT];
 
 	struct enetc_msg_swbd rxmsg[ENETC_MAX_NUM_VFS];
 	bool vf_link_status_notify[ENETC_MAX_NUM_VFS];

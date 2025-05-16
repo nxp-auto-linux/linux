@@ -346,6 +346,7 @@ struct enetc_si {
 	struct mutex msg_lock;
 	struct work_struct msg_task;
 	char msg_int_name[ENETC_INT_NAME_MAX];
+	struct enetc_mac_filter mac_filter[MADDR_TYPE];
 };
 
 #define ENETC_SI_ALIGN	32
