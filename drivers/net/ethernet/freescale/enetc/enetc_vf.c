@@ -195,9 +195,46 @@ static int enetc_vf_set_mac_addr(struct net_device *ndev, void *addr)
 	return 0;
 }
 
+static int enetc_msg_vf_set_vlan_promisc(struct enetc_ndev_priv *priv, bool en)
+{
+	struct enetc_msg_vlan_promsic_mode *msg;
+	struct enetc_msg_swbd msg_swbd;
+	struct enetc_si *si = priv->si;
+	int err;
+
+	msg_swbd.size = ALIGN(sizeof(*msg), ENETC_MSG_ALIGN);
+	msg_swbd.vaddr = dma_alloc_coherent(priv->dev, msg_swbd.size,
+					    &msg_swbd.dma, GFP_KERNEL);
+	if (!msg_swbd.vaddr)
+		return -ENOMEM;
+
+	msg = (struct enetc_msg_vlan_promsic_mode *)msg_swbd.vaddr;
+	msg->promisc_mode = en ? ENETC_VLAN_PROMISC_MODE_ENABLE :
+				 ENETC_VLAN_PROMISC_MODE_DISABLE;
+	enetc_msg_vsi_fill_cmn_hdr(&msg_swbd, ENETC_MSG_CLASS_ID_VLAN_FILTER,
+				   ENETC_MSG_SET_VLAN_PROMISC_MODE, 0, 0);
+
+	/* send the command and wait */
+	err = enetc_msg_vsi_send(si, &msg_swbd);
+
+	dma_free_coherent(priv->dev, msg_swbd.size, msg_swbd.vaddr, msg_swbd.dma);
+
+	return err;
+}
+
 static int enetc_vf_set_features(struct net_device *ndev,
 				 netdev_features_t features)
 {
+	netdev_features_t changed = ndev->features ^ features;
+	struct enetc_ndev_priv *priv = netdev_priv(ndev);
+
+	if (changed & NETIF_F_HW_VLAN_CTAG_FILTER) {
+		bool vlan_promisc;
+
+		vlan_promisc = !(features & NETIF_F_HW_VLAN_CTAG_FILTER);
+		enetc_msg_vf_set_vlan_promisc(priv, vlan_promisc);
+	}
+
 	enetc_set_features(ndev, features);
 
 	return 0;
@@ -337,6 +374,80 @@ static void enetc_vf_set_rx_mode(struct net_device *ndev)
 	queue_work(si->workqueue, &si->rx_mode_task);
 }
 
+static int enetc_msg_vf_set_vlan_hash_filter(struct enetc_ndev_priv *priv)
+{
+	struct enetc_msg_vlan_hash_filter *msg;
+	struct enetc_msg_swbd msg_swbd;
+	struct enetc_si *si = priv->si;
+	u32 msg_size;
+	int err;
+
+	/* Currently, hardware only supports 64 bits table size */
+	msg_size = struct_size(msg, hash_tbl, 1);
+	msg_swbd.size = ALIGN(msg_size, ENETC_MSG_ALIGN);
+	msg_swbd.vaddr = dma_alloc_coherent(priv->dev, msg_swbd.size,
+					    &msg_swbd.dma, GFP_KERNEL);
+	if (!msg_swbd.vaddr)
+		return -ENOMEM;
+
+	msg = (struct enetc_msg_vlan_hash_filter *)msg_swbd.vaddr;
+	msg->size = ENETC_VLAN_HASH_TABLE_SIZE_64;
+
+	memcpy(msg->hash_tbl, si->vlan_ht_filter, sizeof(si->vlan_ht_filter));
+	enetc_msg_vsi_fill_cmn_hdr(&msg_swbd, ENETC_MSG_CLASS_ID_VLAN_FILTER,
+				   ENETC_MSG_SET_VLAN_HASH_TABLE, 0, 0);
+
+	/* send the command and wait */
+	err = enetc_msg_vsi_send(si, &msg_swbd);
+
+	dma_free_coherent(priv->dev, msg_swbd.size, msg_swbd.vaddr, msg_swbd.dma);
+
+	return err;
+}
+
+static int enetc_vf_vlan_rx_add_vid(struct net_device *ndev,
+				    __be16 prot, u16 vid)
+{
+	struct enetc_ndev_priv *priv = netdev_priv(ndev);
+	struct enetc_si *si = priv->si;
+	int idx, err = 0;
+
+	__set_bit(vid, si->active_vlans);
+
+	idx = enetc_vid_hash_idx(vid);
+	if (!__test_and_set_bit(idx, si->vlan_ht_filter))
+		err = enetc_msg_vf_set_vlan_hash_filter(priv);
+
+	if (err) {
+		__clear_bit(idx, si->vlan_ht_filter);
+		__clear_bit(vid, si->active_vlans);
+	}
+
+	return err;
+}
+
+static int enetc_vf_vlan_rx_del_vid(struct net_device *ndev,
+				    __be16 prot, u16 vid)
+{
+	struct enetc_ndev_priv *priv = netdev_priv(ndev);
+	struct enetc_si *si = priv->si;
+	int idx, err = 0;
+
+	if (__test_and_clear_bit(vid, si->active_vlans)) {
+		idx = enetc_vid_hash_idx(vid);
+		enetc_refresh_vlan_ht_filter(si);
+		if (!test_bit(idx, si->vlan_ht_filter))
+			err = enetc_msg_vf_set_vlan_hash_filter(priv);
+
+		if (err) {
+			__set_bit(idx, si->vlan_ht_filter);
+			__set_bit(vid, si->active_vlans);
+		}
+	}
+
+	return err;
+}
+
 /* Probing/ Init */
 static const struct net_device_ops enetc_ndev_ops = {
 	.ndo_open		= enetc_open,
@@ -350,6 +461,8 @@ static const struct net_device_ops enetc_ndev_ops = {
 	.ndo_hwtstamp_get	= enetc_hwtstamp_get,
 	.ndo_hwtstamp_set	= enetc_hwtstamp_set,
 	.ndo_set_rx_mode	= enetc_vf_set_rx_mode,
+	.ndo_vlan_rx_add_vid	= enetc_vf_vlan_rx_add_vid,
+	.ndo_vlan_rx_kill_vid	= enetc_vf_vlan_rx_del_vid,
 };
 
 static void enetc_vf_get_revision(struct enetc_si *si)
@@ -408,8 +521,10 @@ static void enetc_vf_netdev_setup(struct enetc_si *si, struct net_device *ndev,
 	ndev->vlan_features = NETIF_F_SG | NETIF_F_HW_CSUM |
 			      NETIF_F_TSO | NETIF_F_TSO6;
 
-	if (!is_enetc_rev1(si))
+	if (!is_enetc_rev1(si)) {
 		ndev->priv_flags |= IFF_UNICAST_FLT;
+		ndev->hw_features |= NETIF_F_HW_VLAN_CTAG_FILTER;
+	}
 
 	if (si->num_rss) {
 		ndev->hw_features |= NETIF_F_RXHASH;

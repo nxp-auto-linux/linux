@@ -399,6 +399,18 @@ static void enetc4_get_psi_hw_features(struct enetc_si *si)
 		si->hw_features |= ENETC_SI_F_PSFP;
 }
 
+static void enetc4_pf_set_si_vlan_promisc(struct enetc_hw *hw, int si, bool en)
+{
+	u32 val = enetc_port_rd(hw, ENETC4_PSIPVMR);
+
+	if (en)
+		val |= BIT(si);
+	else
+		val &= ~BIT(si);
+
+	enetc_port_wr(hw, ENETC4_PSIPVMR, val);
+}
+
 static const struct enetc_pf_ops enetc4_pf_ops = {
 	.set_si_primary_mac = enetc4_pf_set_si_primary_mac,
 	.get_si_primary_mac = enetc4_pf_get_si_primary_mac,
@@ -407,6 +419,8 @@ static const struct enetc_pf_ops enetc4_pf_ops = {
 	.set_preemptible_tcs = enetc4_pf_set_preemptible_tcs,
 	.set_si_mac_promisc = enetc4_pf_set_si_mac_promisc,
 	.set_si_mac_hash_filter = enetc4_pf_set_si_mac_hash_filter,
+	.set_si_vlan_promisc = enetc4_pf_set_si_vlan_promisc,
+	.set_si_vlan_hash_filter = enetc_set_si_vlan_ht_filter,
 };
 
 static int enetc4_pf_struct_init(struct enetc_si *si)
@@ -489,18 +503,6 @@ static void enetc4_default_rings_allocation(struct enetc_pf *pf)
 static void enetc4_allocate_si_rings(struct enetc_pf *pf)
 {
 	enetc4_default_rings_allocation(pf);
-}
-
-static void enetc4_pf_set_si_vlan_promisc(struct enetc_hw *hw, int si, bool en)
-{
-	u32 val = enetc_port_rd(hw, ENETC4_PSIPVMR);
-
-	if (en)
-		val |= BIT(si);
-	else
-		val &= ~BIT(si);
-
-	enetc_port_wr(hw, ENETC4_PSIPVMR, val);
 }
 
 static void enetc4_set_default_si_vlan_promisc(struct enetc_pf *pf)
