@@ -70,19 +70,22 @@ static void enetc4_pf_get_si_primary_mac(struct enetc_hw *hw, int si,
 }
 
 static void enetc4_pf_set_si_mac_promisc(struct enetc_hw *hw, int si,
-					 bool uc_promisc, bool mc_promisc)
+					 enum enetc_mac_addr_type type,
+					 bool en)
 {
 	u32 val = enetc_port_rd(hw, ENETC4_PSIPMMR);
 
-	if (uc_promisc)
-		val |= PSIPMMR_SI_MAC_UP(si);
-	else
-		val &= ~PSIPMMR_SI_MAC_UP(si);
-
-	if (mc_promisc)
-		val |= PSIPMMR_SI_MAC_MP(si);
-	else
-		val &= ~PSIPMMR_SI_MAC_MP(si);
+	if (type == UC) {
+		if (en)
+			val |= PSIPMMR_SI_MAC_UP(si);
+		else
+			val &= ~PSIPMMR_SI_MAC_UP(si);
+	} else { /* Multicast promiscuous mode. */
+		if (en)
+			val |= PSIPMMR_SI_MAC_MP(si);
+		else
+			val &= ~PSIPMMR_SI_MAC_MP(si);
+	}
 
 	enetc_port_wr(hw, ENETC4_PSIPMMR, val);
 }
@@ -99,6 +102,16 @@ static void enetc4_pf_set_si_mc_hash_filter(struct enetc_hw *hw, int si,
 {
 	enetc_port_wr(hw, ENETC4_PSIMMHFR0(si), lower_32_bits(hash));
 	enetc_port_wr(hw, ENETC4_PSIMMHFR1(si), upper_32_bits(hash));
+}
+
+static void enetc4_pf_set_si_mac_hash_filter(struct enetc_hw *hw, int si,
+					     enum enetc_mac_addr_type type,
+					     u64 hash)
+{
+	if (type == UC)
+		enetc4_pf_set_si_uc_hash_filter(hw, si, hash);
+	else
+		enetc4_pf_set_si_uc_hash_filter(hw, si, hash);
 }
 
 static void enetc4_pf_set_loopback(struct net_device *ndev, bool en)
@@ -219,11 +232,12 @@ static void enetc4_pf_set_mac_hash_filter(struct enetc_pf *pf, int type)
 	struct net_device *ndev = pf->si->ndev;
 	struct enetc_mac_filter *mac_filter;
 	struct enetc_hw *hw = &pf->si->hw;
+	struct enetc_si *si = pf->si;
 	struct netdev_hw_addr *ha;
 
 	netif_addr_lock_bh(ndev);
 	if (type & ENETC_MAC_FILTER_TYPE_UC) {
-		mac_filter = &pf->mac_filter[UC];
+		mac_filter = &si->mac_filter[UC];
 		enetc_reset_mac_addr_filter(mac_filter);
 		netdev_for_each_uc_addr(ha, ndev)
 			enetc_add_mac_addr_ht_filter(mac_filter, ha->addr);
@@ -233,7 +247,7 @@ static void enetc4_pf_set_mac_hash_filter(struct enetc_pf *pf, int type)
 	}
 
 	if (type & ENETC_MAC_FILTER_TYPE_MC) {
-		mac_filter = &pf->mac_filter[MC];
+		mac_filter = &si->mac_filter[MC];
 		enetc_reset_mac_addr_filter(mac_filter);
 		netdev_for_each_mc_addr(ha, ndev)
 			enetc_add_mac_addr_ht_filter(mac_filter, ha->addr);
@@ -391,6 +405,8 @@ static const struct enetc_pf_ops enetc4_pf_ops = {
 	.get_mm = enetc4_pf_get_mm,
 	.set_mm = enetc4_pf_set_mm,
 	.set_preemptible_tcs = enetc4_pf_set_preemptible_tcs,
+	.set_si_mac_promisc = enetc4_pf_set_si_mac_promisc,
+	.set_si_mac_hash_filter = enetc4_pf_set_si_mac_hash_filter,
 };
 
 static int enetc4_pf_struct_init(struct enetc_si *si)
@@ -832,7 +848,8 @@ static void enetc4_psi_do_set_rx_mode(struct work_struct *work)
 		type = ENETC_MAC_FILTER_TYPE_ALL;
 	}
 
-	enetc4_pf_set_si_mac_promisc(hw, 0, uc_promisc, mc_promisc);
+	enetc4_pf_set_si_mac_promisc(hw, 0, UC, uc_promisc);
+	enetc4_pf_set_si_mac_promisc(hw, 0, MC, mc_promisc);
 
 	if (uc_promisc) {
 		enetc4_pf_set_si_uc_hash_filter(hw, 0, 0);
