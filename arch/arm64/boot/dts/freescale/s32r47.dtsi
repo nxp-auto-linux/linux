@@ -24,6 +24,7 @@
 	};
 
 	aliases {
+		ethernet0 = &gmac0;
 		ethernet1 = &gmac1;
 		ethernet2 = &gmac2;
 		serial0 = &uart0;
@@ -300,6 +301,55 @@
 			status = "disabled";
 		};
 
+		gmac0: ethernet@402ac000 {
+			compatible = "nxp,s32cc-dwmac";
+			reg = <0x0 0x402ac000 0x0 0x4000>;
+			interrupt-parent = <&gic>;
+			interrupts = <GIC_SPI 215 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "macirq";
+			status = "disabled";
+			phy-names = "gmac_xpcs";
+			phys = <&serdes0 PHY_TYPE_XPCS 0 1>;
+			snps,mtl-rx-config = <&mtl_rx_setup_gmac0>;
+			snps,mtl-tx-config = <&mtl_tx_setup_gmac0>;
+			clocks = <&sys_clk>,
+				 <&sys_clk>,
+				 <&gmac_tx_rx_clk>,
+				 <&gmac_tx_rx_clk>,
+				 <&gmac_ts_clk>;
+			clock-names = "stmmaceth", "pclk",
+				      "tx_sgmii", "rx_sgmii",
+				      "ptp_ref";
+
+			mtl_tx_setup_gmac0: tx-queues-config {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				snps,tx-queues-to-use = <2>;
+				queue@0 {
+				};
+				queue@1 {
+				};
+			};
+
+			mtl_rx_setup_gmac0: rx-queues-config {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				snps,rx-queues-to-use = <2>;
+				queue@0 {
+				};
+				queue@1 {
+				};
+			};
+
+			gmac0_mdio: mdio@402ac200 {
+				compatible = "snps,dwmac-mdio";
+				#address-cells = <1>;
+				#size-cells = <0>;
+			};
+		};
+
 		gmac1: ethernet@404a8000 {
 			compatible = "nxp,s32cc-dwmac";
 			reg = <0x0 0x404a8000 0x0 0x4000>;
@@ -313,8 +363,6 @@
 				<GIC_SPI 224 IRQ_TYPE_LEVEL_HIGH>;
 			interrupt-names = "macirq",
 					  "tx0", "rx0", "tx1", "rx1";
-			tx-fifo-depth = <20480>;
-			rx-fifo-depth = <20480>;
 			status = "disabled";
 			phy-names = "gmac_xpcs";
 			phys = <&serdes1 PHY_TYPE_XPCS 0 0>;
@@ -374,8 +422,6 @@
 				<GIC_SPI 229 IRQ_TYPE_LEVEL_HIGH>;
 			interrupt-names = "macirq",
 					  "tx0", "rx0", "tx1", "rx1";
-			tx-fifo-depth = <20480>;
-			rx-fifo-depth = <20480>;
 			status = "disabled";
 			phy-names = "gmac_xpcs";
 			phys = <&serdes1 PHY_TYPE_XPCS 0 0>;
