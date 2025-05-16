@@ -46,6 +46,7 @@ properties:
   compatible:
     enum:
       - nxp,s32cc-serdes
+      - nxp,s32r47-serdes
 
   clocks:
     description:
