@@ -48,11 +48,17 @@ struct s32_priv_data {
 	phy_interface_t *intf_mode;
 	struct clk *tx_clk;
 	struct clk *rx_clk;
+	const struct s32_dwmac_ops *ops;
 	bool use_nvmem;
 
 	/* Serdes */
 	struct phy *serdes_phy;
 	struct phylink_pcs *pcs;
+};
+
+struct s32_dwmac_ops {
+	int (*platform_init)(struct platform_device *pdev, struct s32_priv_data *gmac);
+	int (*set_intf_mode)(struct s32_priv_data *gmac);
 };
 
 static int s32_gmac_write_phy_intf_select(struct s32_priv_data *gmac)
@@ -124,11 +130,10 @@ static int s32_gmac_init(struct platform_device *pdev, void *priv)
 		goto err_txrx_disable;
 	}
 
-	/* Set interface mode */
-	ret = s32_gmac_write_phy_intf_select(gmac);
-	if (ret) {
-		dev_err(&pdev->dev, "Can't set PHY interface mode\n");
-		goto err_txrx_disable;
+	if (gmac->ops->set_intf_mode) {
+		ret = gmac->ops->set_intf_mode(gmac);
+		if (ret)
+			goto err_txrx_disable;
 	}
 
 	return 0;
@@ -251,34 +256,29 @@ static int s32_dwmac_probe(struct platform_device *pdev)
 	struct phy *serdes_phy = NULL;
 	struct stmmac_resources res;
 	struct s32_priv_data *gmac;
-	struct nvmem_cell *cell;
-	bool use_nvmem;
 	int ret;
-
-	/* Check if NVMEM for PHY Interface Mode selection is available */
-	cell = nvmem_cell_get(dev, "gmac_phy_intf_sel");
-	if (IS_ERR(cell)) {
-		if (PTR_ERR(cell) == -EPROBE_DEFER)
-			return -EPROBE_DEFER;
-
-		dev_info(dev, "No NVMEM for GPRs available, map as resource\n");
-		use_nvmem = false;
-	} else {
-		use_nvmem = true;
-		nvmem_cell_put(cell);
-	}
 
 	gmac = devm_kzalloc(&pdev->dev, sizeof(*gmac), GFP_KERNEL);
 	if (!gmac)
 		return -ENOMEM;
 
-	gmac->dev = &pdev->dev;
-	gmac->use_nvmem = use_nvmem;
+	gmac->ops = of_device_get_match_data(dev);
+	if (!gmac->ops)
+		return dev_err_probe(dev, -ENODEV, "Unsupported device\n");
 
+	gmac->dev = &pdev->dev;
+
+	platform_set_drvdata(pdev, gmac);
 	ret = stmmac_get_platform_resources(pdev, &res);
 	if (ret)
 		return dev_err_probe(dev, ret,
 				     "Failed to get platform resources\n");
+
+	if (gmac->ops->platform_init) {
+		ret = gmac->ops->platform_init(pdev, gmac);
+		if (ret)
+			return ret;
+	}
 
 	plat = devm_stmmac_probe_config_dt(pdev, res.mac);
 	if (IS_ERR(plat))
@@ -292,15 +292,6 @@ static int s32_dwmac_probe(struct platform_device *pdev)
 		dev_err_probe(dev, -EINVAL,
 			      "Not supported phy interface mode: [%s]\n",
 			      phy_modes(plat->phy_interface));
-
-	/* PHY interface mode control reg */
-	if (!use_nvmem) {
-		gmac->ctrl_sts = devm_platform_get_and_ioremap_resource(pdev, 1,
-									NULL);
-		if (IS_ERR_OR_NULL(gmac->ctrl_sts))
-			return dev_err_probe(dev, PTR_ERR(gmac->ctrl_sts),
-					     "config region is missing\n");
-	}
 
 	/* tx clock */
 	gmac->tx_clk = devm_clk_get(&pdev->dev, "tx");
@@ -361,8 +352,56 @@ static int s32_dwmac_probe(struct platform_device *pdev)
 	return stmmac_pltfr_probe(pdev, plat, &res);
 }
 
+/* ---------------- SoC-specific ops implementations ---------------- */
+
+/* S32G2/G3/R45: has PHY control (via NVMEM or MMIO) */
+static int s32g2_dwmac_init(struct platform_device *pdev, struct s32_priv_data *gmac)
+{
+	struct device *dev = &pdev->dev;
+	struct nvmem_cell *cell;
+
+	cell = nvmem_cell_get(dev, "gmac_phy_intf_sel");
+	if (IS_ERR(cell)) {
+		if (PTR_ERR(cell) == -EPROBE_DEFER)
+			return -EPROBE_DEFER;
+
+		dev_info(dev, "No NVMEM for GPRs available, mapping them as resource\n");
+		gmac->use_nvmem = false;
+
+		gmac->ctrl_sts = devm_platform_get_and_ioremap_resource(pdev, 1, NULL);
+		if (IS_ERR_OR_NULL(gmac->ctrl_sts))
+			return dev_err_probe(dev, PTR_ERR(gmac->ctrl_sts),
+					     "config region is missing\n");
+	} else {
+		gmac->use_nvmem = true;
+		nvmem_cell_put(cell);
+	}
+
+	return 0;
+}
+
+static int s32g2_dwmac_set_intf_mode(struct s32_priv_data *gmac)
+{
+	int ret = s32_gmac_write_phy_intf_select(gmac);
+
+	if (ret)
+		dev_err(gmac->dev, "Can't set PHY interface mode\n");
+	return ret;
+}
+
+static const struct s32_dwmac_ops s32cc_ops = {
+	.platform_init = s32g2_dwmac_init,
+	.set_intf_mode = s32g2_dwmac_set_intf_mode,
+};
+
+static const struct s32_dwmac_ops s32r47_ops = {
+	.platform_init = NULL,
+	.set_intf_mode = NULL,
+};
+
 static const struct of_device_id s32_dwmac_match[] = {
-	{ .compatible = "nxp,s32g2-dwmac" },
+	{ .compatible = "nxp,s32g2-dwmac",  .data = &s32cc_ops  },
+	{ .compatible = "nxp,s32r47-dwmac", .data = &s32r47_ops },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, s32_dwmac_match);
