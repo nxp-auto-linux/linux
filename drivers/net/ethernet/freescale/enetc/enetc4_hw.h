@@ -4,7 +4,7 @@
  * of ENETC4 PF and VFs. Note that the same registers as ENETC
  * version 1.0 are defined in the enetc_hw.h file.
  *
- * Copyright 2024 NXP
+ * Copyright 2024-2025 NXP
  */
 #ifndef __ENETC4_HW_H_
 #define __ENETC4_HW_H_
@@ -129,6 +129,12 @@
 #define ENETC4_IPCAPR			0x1000
 #define  IPCAPR_ISID			BIT(2)
 
+/* NST tagging */
+#define ENETC4_MPCR			0x1030
+#define ENETC4_DOPCR			0x1034
+#define  PCR_SWID			GENMASK(8, 5)
+#define  PCR_PORT			GENMASK(4, 0)
+
 /* Ingress port filter table capability register */
 #define ENETC4_IPFTCAPR		0x1644
 #define  IPFTCAPR_NUM_WORDS	GENMASK(15, 0)
@@ -218,6 +224,7 @@
 /* Port configuration register */
 #define ENETC4_PCR			0x4010
 #define  PCR_HDR_FMT			BIT(0)
+#define  PCR_NS_TAG_PORT		BIT(3)
 #define  PCR_L2DOSE			BIT(4)
 #define  PCR_TIMER_CS			BIT(8)
 #define  PCR_PSPEED			GENMASK(29, 16)
