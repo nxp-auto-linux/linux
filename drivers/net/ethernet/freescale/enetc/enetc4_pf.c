@@ -10,6 +10,7 @@
 #include <linux/of_platform.h>
 #include <linux/regulator/consumer.h>
 #include <linux/unaligned.h>
+#include <linux/fsl/netc_global.h>
 
 #include "enetc_pf_common.h"
 #include "enetc4_debugfs.h"
@@ -25,6 +26,39 @@
 
 #define ntmp_user_to_enetc_si(user)	\
 	container_of((user), struct enetc_si, ntmp_user)
+
+#if IS_ENABLED(CONFIG_NET_DSA_NETC_SWITCH)
+static void enetc4_set_dsa_port_entity(struct enetc_hw *hw, bool is_dpo,
+				       u8 swid, u8 port)
+{
+	u32 val, reg;
+
+	val = enetc_port_rd(hw, ENETC4_PCR);
+	val |= PCR_NS_TAG_PORT;
+	enetc_port_wr(hw, ENETC4_PCR, val);
+
+	reg = is_dpo ? ENETC4_DOPCR : ENETC4_MPCR;
+	val = FIELD_PREP(PCR_SWID, swid);
+	val |= FIELD_PREP(PCR_PORT, port);
+	enetc_port_wr(hw, reg, val);
+}
+
+void netc_set_enetc_port_mp_entity(struct net_device *ndev, u8 swid, u8 port)
+{
+	struct enetc_ndev_priv *priv = netdev_priv(ndev);
+
+	enetc4_set_dsa_port_entity(&priv->si->hw, false, swid, port);
+}
+EXPORT_SYMBOL_GPL(netc_set_enetc_port_mp_entity);
+
+void netc_set_enetc_port_dop_entity(struct net_device *ndev, u8 swid, u8 port)
+{
+	struct enetc_ndev_priv *priv = netdev_priv(ndev);
+
+	enetc4_set_dsa_port_entity(&priv->si->hw, true, swid, port);
+}
+EXPORT_SYMBOL_GPL(netc_set_enetc_port_dop_entity);
+#endif
 
 static void enetc4_get_port_caps(struct enetc_pf *pf)
 {

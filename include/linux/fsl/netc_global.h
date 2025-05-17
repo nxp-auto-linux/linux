@@ -5,6 +5,7 @@
 #define __NETC_GLOBAL_H
 
 #include <linux/io.h>
+#include <linux/netdevice.h>
 
 static inline u32 netc_read(void __iomem *reg)
 {
@@ -35,6 +36,19 @@ static inline void netc_write(void __iomem *reg, u32 val)
 {
 	iowrite32(val, reg);
 }
+
+#if IS_ENABLED(CONFIG_NET_DSA_NETC_SWITCH)
+void netc_set_enetc_port_mp_entity(struct net_device *ndev, u8 swid, u8 port);
+void netc_set_enetc_port_dop_entity(struct net_device *ndev, u8 swid, u8 port);
+#else
+static inline void netc_set_enetc_port_mp_entity(struct net_device *ndev, u8 swid, u8 port)
+{
+}
+
+static inline void netc_set_enetc_port_dop_entity(struct net_device *ndev, u8 swid, u8 port)
+{
+}
+#endif
 
 #if IS_ENABLED(CONFIG_PTP_NETC_V4_TIMER)
 u64 netc_timer_get_current_time(struct pci_dev *timer_dev);
