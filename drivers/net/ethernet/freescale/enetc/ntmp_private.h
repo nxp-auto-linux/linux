@@ -25,7 +25,7 @@ struct common_req_data {
 	u8 dbg_opt;
 	u8 tblv_qact;
 #define NTMP_QUERY_ACT		GENMASK(3, 0)
-#define NTMP_TBL_VER		GENMASK(7, 0)
+#define NTMP_TBL_VER		GENMASK(7, 4)
 #define NTMP_TBLV_QACT(v, a)	(FIELD_PREP(NTMP_TBL_VER, (v)) | \
 				 ((a) & NTMP_QUERY_ACT))
 };
