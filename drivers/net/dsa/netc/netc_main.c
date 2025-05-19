@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: (GPL-2.0+ OR BSD-3-Clause)
 /*
  * NXP NETC switch driver
- * Copyright 2024 NXP
+ * Copyright 2024-2025 NXP
  */
 
 #include <linux/clk.h>
@@ -788,8 +788,10 @@ static void netc_port_set_mlo(struct netc_port *port, int mlo)
 		netc_port_wr(port, NETC_BPCR, val);
 }
 
-static void netc_port_default_config(struct netc_port *port)
+static void netc_port_default_config(struct netc_switch *priv,
+				     struct netc_port *port)
 {
+	struct netc_switch_regs *regs = &priv->regs;
 	u32 pqnt = 0xffff, qth = 0xffff / 2;
 	u32 val;
 
@@ -833,6 +835,31 @@ static void netc_port_default_config(struct netc_port *port)
 		netc_port_wr(port, NETC_PM_PAUSE_TRHESH(0), qth);
 		netc_port_set_mlo(port, MLO_DISABLE);
 	} else {
+		if (dsa_port_is_cpu(port->dp)) {
+			struct dsa_port *dp = port->dp;
+
+			netc_set_enetc_port_mp_entity(dp->conduit, NETC_SWID_D,
+						      NETC_MPORT_D);
+			netc_set_enetc_port_dop_entity(dp->conduit, NETC_SWID_D,
+						       NETC_DOPORT_D);
+
+			val = netc_port_rd(port, NETC_PCR);
+			val |= PCR_NS_TAG_PORT;
+			netc_port_wr(port, NETC_PCR, val);
+
+			netc_base_wr(regs, NETC_SWIDPMR(NETC_SWID_D), PMR_VALID |
+				     FIELD_PREP(PCR_PORT, port->index));
+
+			netc_base_wr(regs, NETC_MPCR,
+				     PCR_SET(NETC_SWID_D, NETC_MPORT_D));
+			 /*
+			  * TODO: Use port index w/a here for earlier simulator
+			  * models. Port ID should be disregarded in the
+			  * final version and only SWID should be set instead.
+			  */
+			netc_base_wr(regs, NETC_DOPCR,
+				     PCR_SET(NETC_SWID_D, port->index));
+		}
 		val = netc_port_rd(port, NETC_BPCR);
 		val |= BPCR_SRCPRND;
 		netc_port_wr(port, NETC_BPCR, val);
@@ -902,7 +929,7 @@ static int netc_setup(struct dsa_switch *ds)
 	for (i = 0; i < priv->num_ports; i++) {
 		port = priv->ports[i];
 		if (port->dp)
-			netc_port_default_config(port);
+			netc_port_default_config(priv, port);
 	}
 
 	err = netc_switch_bpt_default_config(priv);
