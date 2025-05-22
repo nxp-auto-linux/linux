@@ -11,6 +11,13 @@
 #define NTMP_NULL_ENTRY_ID		0xffffffffU
 #define FDBT_MAX_ACT_CNT		0x7f
 
+#define NTMP_CMD_DELETE			BIT(0)
+#define NTMP_CMD_UPDATE			BIT(1)
+#define NTMP_CMD_QUERY			BIT(2)
+#define NTMP_CMD_ADD			BIT(3)
+#define NTMP_CMD_QU			(NTMP_CMD_QUERY | NTMP_CMD_UPDATE)
+#define NTMP_CMD_AQ			(NTMP_CMD_ADD | NTMP_CMD_QUERY)
+
 /* NTMP errata */
 #define NTMP_ERR052134			BIT(0)
 
