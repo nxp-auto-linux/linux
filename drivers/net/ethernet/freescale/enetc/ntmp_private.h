@@ -28,12 +28,6 @@ union netc_cbd {
 #define NTMP_LEN(req, resp)	(FIELD_PREP(NTMP_REQ_LEN, (req)) | \
 				((resp) & NTMP_RESP_LEN))
 		u8 cmd;
-#define NTMP_CMD_DELETE		BIT(0)
-#define NTMP_CMD_UPDATE		BIT(1)
-#define NTMP_CMD_QUERY		BIT(2)
-#define NTMP_CMD_ADD		BIT(3)
-#define NTMP_CMD_QU		(NTMP_CMD_QUERY | NTMP_CMD_UPDATE)
-#define NTMP_CMD_AQ		(NTMP_CMD_ADD | NTMP_CMD_QUERY)
 		u8 access_method;
 #define NTMP_ACCESS_METHOD	GENMASK(7, 4)
 #define NTMP_AM_ENTRY_ID	0
