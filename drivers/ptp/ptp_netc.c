@@ -108,6 +108,7 @@ struct netc_timer {
 
 	struct ptp_clock *clock;
 	struct ptp_clock_info caps;
+	struct clk *src_clk;
 	u32 clk_select;
 	u32 clk_freq;
 	u32 oclk_prsc;
@@ -841,6 +842,7 @@ static int netc_timer_get_reference_clk_source(struct netc_timer *priv)
 			priv->clk_freq = clk_get_rate(clk);
 			priv->clk_select = i ? NETC_TMR_EXT_OSC :
 					       NETC_TMR_CCM_TIMER1;
+			priv->src_clk = clk;
 			break;
 		}
 	}
@@ -1004,11 +1006,88 @@ static const struct pci_device_id netc_timer_id_table[] = {
 };
 MODULE_DEVICE_TABLE(pci, netc_timer_id_table);
 
+static void ptp_netc_shutdown(struct netc_timer *priv)
+{
+	struct pci_dev *pdev = priv->pdev;
+
+	netc_timer_free_msix_irq(priv);
+	clk_disable_unprepare(priv->src_clk);
+
+	pci_save_state(pdev);
+	pci_disable_device(priv->pdev);
+}
+
+static int ptp_netc_powerup(struct netc_timer *priv)
+{
+	struct pci_dev *pdev = priv->pdev;
+	int err;
+
+	err = pci_enable_device_mem(pdev);
+	if (err) {
+		dev_err(&pdev->dev, "device enable failed\n");
+		return err;
+	}
+
+	pci_restore_state(pdev);
+	pci_set_master(pdev);
+
+	err = clk_prepare_enable(priv->src_clk);
+	if (err) {
+		dev_err(&pdev->dev, "Enable timer source clock failed!\n");
+		return err;
+	}
+
+	err = netc_timer_init_msix_irq(priv);
+	if (err) {
+		clk_disable_unprepare(priv->src_clk);
+		return err;
+	}
+
+	netc_timer_init(priv);
+
+	return 0;
+}
+
+static int ptp_netc_suspend_noirq(struct device *dev)
+{
+	struct netc_timer *priv = pci_get_drvdata(to_pci_dev(dev));
+
+	if (netc_ierb_may_wakeonlan())
+		return 0;
+
+	ptp_netc_shutdown(priv);
+
+	return 0;
+}
+
+static int ptp_netc_resume_noirq(struct device *dev)
+{
+	struct netc_timer *priv = pci_get_drvdata(to_pci_dev(dev));
+	int err;
+
+	if (netc_ierb_may_wakeonlan())
+		return 0;
+
+	err = ptp_netc_powerup(priv);
+	if (err) {
+		dev_err(dev, "NETC Timer powerup failed\n");
+		return err;
+	}
+
+	return err;
+}
+
+static const struct dev_pm_ops __maybe_unused ptp_netc_pm_ops = {
+	SET_NOIRQ_SYSTEM_SLEEP_PM_OPS(ptp_netc_suspend_noirq,
+				      ptp_netc_resume_noirq)
+};
+
 static struct pci_driver netc_timer_driver = {
 	.name = KBUILD_MODNAME,
 	.id_table = netc_timer_id_table,
 	.probe = netc_timer_probe,
 	.remove = netc_timer_remove,
+	.driver.pm = pm_ptr(&ptp_netc_pm_ops),
 };
 module_pci_driver(netc_timer_driver);
 
