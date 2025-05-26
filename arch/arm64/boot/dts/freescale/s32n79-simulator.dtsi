@@ -11,6 +11,10 @@
 	model = "NXP S32N79-SIM";
 	compatible = "nxp,s32n79-sim", "nxp,s32n79";
 
+	chosen {
+		stdout-path = "serial0:115200n8";
+	};
+
 	clocks {
 		sys_clk: sys_clk {
 			compatible = "fixed-clock";
@@ -69,6 +73,13 @@
 			no-map;
 			status = "disabled";
 		};
+	};
+
+	virtio: virtio@43000000 {
+		compatible = "virtio,mmio";
+		reg = <0x0 0x5c000000 0 0x10000>;
+		interrupts = <GIC_SPI 20 IRQ_TYPE_LEVEL_HIGH>;
+		status = "disabled";
 	};
 };
 
