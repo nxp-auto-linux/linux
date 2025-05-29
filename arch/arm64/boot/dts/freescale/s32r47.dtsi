@@ -250,6 +250,10 @@
 			      <0 0x50410000 0 0x2000>, /* GICH */
 			      <0 0x50420000 0 0x2000>; /* GICV */
 			interrupts = <GIC_PPI 9 IRQ_TYPE_LEVEL_HIGH>;
+
+			msi-controller;
+			/* GIC interrupts between 110 and 113 can be used as MBIs. */
+			mbi-ranges = <110 4>;
 		};
 
 		src: syscon@440d0000 {
