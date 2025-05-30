@@ -565,6 +565,7 @@
 			clocks = <&sys_clk>, <&sys_clk>, <&sys_clk>;
 			clock-names = "ipg", "ahb", "per";
 			bus-width = <8>;
+			iommus = <&smmu 0x0>; // StreamID 0
 			status = "disabled";
 		};
 
