@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0+
 /*
- * Copyright 2021-2024 NXP
+ * Copyright 2021-2025 NXP
  */
 
 #include <linux/module.h>
@@ -26,6 +26,11 @@
 #define SIUL2_1_MIDR2_SERDES_MASK	BIT(15)
 
 #define SIUL2_QUIRK_MIDR1_DECREMENT_VAL	BIT(1)
+
+/* On some SoCs, the SERDES_PRESENCE field may be missing.
+ * Use below quirk to return a mock up presence value.
+ */
+#define SIUL2_QUIRK_MISSING_SERDES_PRESENCE_FIELD	BIT(2)
 
 struct s32cc_nvmem_drvdata {
 	u32 quirks;
@@ -68,6 +73,10 @@ static const struct s32cc_nvmem_drvdata s32cc_siul2_1_data = {
 	.quirks = 0,
 };
 
+static const struct s32cc_nvmem_drvdata s32r47_siul2_1_data = {
+	.quirks = SIUL2_QUIRK_MISSING_SERDES_PRESENCE_FIELD,
+};
+
 static inline bool is_siul2_0_data(const struct s32cc_nvmem_drvdata *data)
 {
 	return (data == &s32cc_siul2_0_data) ||
@@ -76,12 +85,18 @@ static inline bool is_siul2_0_data(const struct s32cc_nvmem_drvdata *data)
 
 static inline bool is_siul2_1_data(const struct s32cc_nvmem_drvdata *data)
 {
-	return data == &s32cc_siul2_1_data;
+	return (data == &s32cc_siul2_1_data) ||
+		(data == &s32r47_siul2_1_data);
 }
 
 static inline int needs_minor_decrement(const struct s32cc_nvmem_drvdata *data)
 {
 	return data->quirks & SIUL2_QUIRK_MIDR1_DECREMENT_VAL;
+}
+
+static inline int missing_serdes_presence(const struct s32cc_nvmem_drvdata *data)
+{
+	return data->quirks & SIUL2_QUIRK_MISSING_SERDES_PRESENCE_FIELD;
 }
 
 static u32 get_variant_bits(u32 value)
@@ -170,9 +185,13 @@ static int s32cc_siul2_1_nvmem_read(void *context, unsigned int offset,
 	if (offset != SERDES_PRESENCE_OFFSET || bytes != NVRAM_CELL_SIZE)
 		return -EOPNOTSUPP;
 
-	midr2 = ioread32(priv->siul2 + SIUL2_MIDR2_OFF);
-	serdes = !!(midr2 & SIUL2_1_MIDR2_SERDES_MASK);
-	*(u32 *)val = serdes;
+	if (missing_serdes_presence(priv->drvdata)) {
+		*(u32 *)val = 1;
+	} else {
+		midr2 = ioread32(priv->siul2 + SIUL2_MIDR2_OFF);
+		serdes = !!(midr2 & SIUL2_1_MIDR2_SERDES_MASK);
+		*(u32 *)val = serdes;
+	}
 
 	return 0;
 }
@@ -181,6 +200,7 @@ static const struct of_device_id s32cc_siul2_nvmem_match[] = {
 	{ .compatible = "nxp,s32cc-siul2_0-nvmem", .data = &s32cc_siul2_0_data },
 	{ .compatible = "nxp,s32g2-siul2_0-nvmem", .data = &s32g2_siul2_0_data },
 	{ .compatible = "nxp,s32cc-siul2_1-nvmem", .data = &s32cc_siul2_1_data },
+	{ .compatible = "nxp,s32r47-siul2_1-nvmem", .data = &s32r47_siul2_1_data },
 	{ /* sentinel */ },
 };
 MODULE_DEVICE_TABLE(of, s32cc_siul2_nvmem_match);
