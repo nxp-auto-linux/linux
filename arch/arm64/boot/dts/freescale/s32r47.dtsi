@@ -236,6 +236,17 @@
 					reg = <SOC_MINOR_OFFSET NVRAM_CELL_SIZE>;
 				};
 			};
+
+			siul2_1_nvram: siul2_1_nvram {
+				reg = <MIDR_SIUL2_1 0 0x0 0x10>;
+				#address-cells = <1>;
+				#size-cells = <1>;
+				compatible = "nxp,s32r47-siul2_1-nvmem";
+
+				serdes_presence: serdes_presence@0 {
+					reg = <SERDES_PRESENCE_OFFSET NVRAM_CELL_SIZE>;
+				};
+			};
 		};
 
 		gic: interrupt-controller@50800000 {
@@ -330,6 +341,9 @@
 			pcie_device_id = <0x5D80>;
 			msi-parent = <&gic>;
 			shared-mem = <&pci_shared_memory>;
+
+			nvmem-cell-names = "serdes_presence";
+			nvmem-cells = <&serdes_presence>;
 
 			status = "disabled";
 		};
