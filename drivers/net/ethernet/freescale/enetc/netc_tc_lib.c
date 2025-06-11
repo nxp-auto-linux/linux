@@ -1310,9 +1310,11 @@ static int netc_set_police_tables(struct ntmp_priv *priv,
 	struct netc_cbdrs *cbdrs = &priv->cbdrs;
 	int err;
 
-	err = ntmp_rpt_add_or_update_entry(cbdrs, rpt_entry);
-	if (err)
-		return err;
+	if (rpt_entry) {
+		err = ntmp_rpt_add_or_update_entry(cbdrs, rpt_entry);
+		if (err)
+			return err;
+	}
 
 	err = ntmp_ipft_add_entry(cbdrs, &ipft_entry->entry_id, ipft_entry);
 	if (err)
@@ -1321,7 +1323,8 @@ static int netc_set_police_tables(struct ntmp_priv *priv,
 	return 0;
 
 delete_rpt_entry:
-	ntmp_rpt_delete_entry(cbdrs, rpt_entry->entry_id);
+	if (rpt_entry)
+		ntmp_rpt_delete_entry(cbdrs, rpt_entry->entry_id);
 
 	return err;
 }
