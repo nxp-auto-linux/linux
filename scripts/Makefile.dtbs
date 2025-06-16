@@ -115,7 +115,7 @@ DTC_FLAGS += $(if $(filter $(patsubst $(obj)/%,%,$@), $(base-dtb-y)), -@)
 
 DTC_INCLUDE := $(srctree)/scripts/dtc/include-prefixes
 
-dtc_cpp_flags = -Wp,-MMD,$(depfile).pre.tmp -nostdinc -I $(DTC_INCLUDE) -undef -D__DTS__
+dtc_cpp_flags = -Wp,-MMD,$(depfile).pre.tmp -nostdinc -I $(DTC_INCLUDE) $(DTC_EXTRA) -undef -D__DTS__
 
 dtc-tmp = $(subst $(comma),_,$(dot-target).dts.tmp)
 
