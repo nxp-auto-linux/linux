@@ -227,20 +227,49 @@ static void netc_remove_fdbt_entries(struct netc_switch *priv)
 	mutex_unlock(&priv->fdbt_lock);
 }
 
+static int netc_port_restore_taprio(struct netc_port *port)
+{
+	struct netc_switch *priv = port->switch_priv;
+	u32 entry_id = port->index;
+
+	if (!port->taprio)
+		return 0;
+
+	return netc_setup_taprio(&priv->user, entry_id, port->taprio);
+}
+
 static int netc_port_restore_config(struct netc_port *port)
 {
+	int err;
+
 	if (!port->dp)
 		return 0;
 
 	netc_port_fixed_config(port);
 
-	return netc_port_restore_config_from_db(port);
+	err = netc_port_restore_config_from_db(port);
+	if (err)
+		return err;
+
+	err = netc_port_restore_taprio(port);
+	if (err)
+		goto del_ptp_filter;
+
+	return 0;
+
+del_ptp_filter:
+	netc_port_set_ptp_filter(port, HWTSTAMP_FILTER_NONE);
+
+	return err;
 }
 
 static void netc_port_remove_config(struct netc_port *port)
 {
 	if (!port->dp)
 		return;
+
+	if (port->taprio)
+		netc_port_reset_taprio(port);
 
 	netc_port_set_ptp_filter(port, HWTSTAMP_FILTER_NONE);
 }

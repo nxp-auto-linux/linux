@@ -149,6 +149,7 @@ struct netc_port {
 	bool tx_lpi_enabled;
 	u32 tx_lpi_timer;
 	struct netc_port_db db;
+	struct tc_taprio_qopt_offload *taprio;
 };
 
 enum netc_port_mac {
@@ -275,6 +276,7 @@ int netc_tc_setup_cbs(struct netc_switch *priv, int port,
 		      struct tc_cbs_qopt_offload *cbs);
 int netc_tc_setup_taprio(struct netc_switch *priv, int port,
 			 struct tc_taprio_qopt_offload *taprio);
+int netc_port_reset_taprio(struct netc_port *port);
 int netc_port_flow_cls_replace(struct netc_port *port,
 			       struct flow_cls_offload *f);
 int netc_port_flow_cls_destroy(struct netc_port *port,
@@ -282,6 +284,7 @@ int netc_port_flow_cls_destroy(struct netc_port *port,
 int netc_port_flow_cls_stats(struct netc_port *port,
 			     struct flow_cls_offload *f);
 void netc_destroy_flower_list(struct netc_switch *priv);
+void netc_port_free_taprio(struct netc_port *port);
 
 /* ethtool APIs */
 void netc_port_mm_commit_preemptible_tcs(struct netc_port *port);

@@ -294,6 +294,14 @@ disable_time_gating:
 	return err;
 }
 
+void netc_port_free_taprio(struct netc_port *port)
+{
+	if (port->taprio) {
+		taprio_offload_free(port->taprio);
+		port->taprio = NULL;
+	}
+}
+
 static int netc_tc_taprio_replace(struct netc_switch *priv, int port_id,
 				  struct tc_taprio_qopt_offload *taprio)
 {
@@ -311,10 +319,13 @@ static int netc_tc_taprio_replace(struct netc_switch *priv, int port_id,
 	if (err)
 		netc_port_reset_mqprio(port);
 
+	netc_port_free_taprio(port);
+	port->taprio = taprio_offload_get(taprio);
+
 	return err;
 }
 
-static int netc_port_reset_taprio(struct netc_port *port)
+int netc_port_reset_taprio(struct netc_port *port)
 {
 	/* Remove both operational and administrative gate control list from
 	 * the corresponding table entry by disabling time gate scheduling on
@@ -341,6 +352,7 @@ static int netc_tc_taprio_destroy(struct netc_switch *priv, int port_id)
 	struct netc_port *port = NETC_PORT(priv, port_id);
 
 	netc_port_reset_taprio(port);
+	netc_port_free_taprio(port);
 	netc_port_reset_mqprio(port);
 
 	return 0;
