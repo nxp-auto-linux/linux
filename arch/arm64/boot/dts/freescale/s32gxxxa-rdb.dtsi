@@ -8,6 +8,10 @@
 #include "s32g-nxp-flash-macronix.dtsi"
 
 / {
+	aliases {
+		rtc1 = &rtc1;
+	};
+
 	chosen {
 		stdout-path = "serial0:115200n8";
 	};
@@ -907,7 +911,7 @@
 		#gpio-cells = <2>;
 	};
 
-	rtc@51 {
+	rtc1: rtc@51 {
 		compatible = "nxp,pca85073a";
 		reg = <0x51>;
 	};

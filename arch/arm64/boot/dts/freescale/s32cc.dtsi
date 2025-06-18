@@ -47,6 +47,8 @@
 		serdes0 = &serdes0;
 		serdes1 = &serdes1;
 
+		rtc0 = &rtc0;
+
 		i2c0 = &i2c0;
 		i2c1 = &i2c1;
 		i2c2 = &i2c2;
