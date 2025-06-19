@@ -293,6 +293,14 @@ del_ports_config:
 	return err;
 }
 
+static void netc_remove_ports_config(struct netc_switch *priv)
+{
+	int i;
+
+	for (i = 0; i < priv->num_ports; i++)
+		netc_port_remove_config(NETC_PORT(priv, i));
+}
+
 static void netc_enable_all_cdbrs(struct netc_switch *priv)
 {
 	struct netc_switch_regs *regs = &priv->regs;
@@ -327,8 +335,14 @@ static int netc_restore_hw_config(struct netc_switch *priv)
 	if (err)
 		goto del_fdb_entries;
 
+	err = netc_restore_flower_list_config(&priv->user);
+	if (err)
+		goto del_ports_config;
+
 	return 0;
 
+del_ports_config:
+	netc_remove_ports_config(priv);
 del_fdb_entries:
 	netc_remove_fdbt_entries(priv);
 del_vlan_entries:
@@ -381,7 +395,7 @@ int netc_suspend(struct dsa_switch *ds)
 	}
 
 	if (power_off) {
-		netc_destroy_flower_list(priv);
+		netc_clear_flower_table_restored_flag(&priv->user);
 	} else {
 		pci_save_state(pdev);
 		pci_set_power_state(pdev, PCI_D3hot);
