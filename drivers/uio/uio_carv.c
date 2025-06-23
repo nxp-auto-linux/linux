@@ -268,7 +268,9 @@ static int carv_uio_mmap(struct uio_info *info, struct vm_area_struct *vma)
 		return -EINVAL;
 	}
 
-	vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
+	if (vma->vm_pgoff != CARV_UIO_MAP_RMEM)
+		vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
+
 	ret = remap_pfn_range(vma, vma->vm_start, pfn, vma_size, vma->vm_page_prot);
 	goto out;
 
