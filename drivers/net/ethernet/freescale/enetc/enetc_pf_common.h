@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: (GPL-2.0+ OR BSD-3-Clause) */
-/* Copyright 2024 NXP */
+/* Copyright 2024-2025 NXP */
 
 #include <net/pkt_sched.h>
 
@@ -13,6 +13,7 @@ int enetc_mdiobus_create(struct enetc_pf *pf, struct device_node *node);
 void enetc_mdiobus_destroy(struct enetc_pf *pf);
 int enetc_phylink_create(struct enetc_ndev_priv *priv,
 			 const struct phylink_mac_ops *ops);
+int enetc_phylink_match_pseudo_mac_speed(int speed);
 void enetc_phylink_destroy(struct enetc_ndev_priv *priv);
 void enetc_set_default_rss_key(struct enetc_pf *pf);
 int enetc_vlan_rx_add_vid(struct net_device *ndev, __be16 prot, u16 vid);

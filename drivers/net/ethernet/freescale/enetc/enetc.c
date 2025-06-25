@@ -3733,7 +3733,7 @@ static void enetc_clear_interrupts(struct enetc_ndev_priv *priv)
 
 struct fwnode_handle *enetc_fwnode(struct enetc_ndev_priv *priv)
 {
-	return dev_fwnode(priv->dev);
+	return priv->swnode ?: dev_fwnode(priv->dev);
 }
 EXPORT_SYMBOL_GPL(enetc_fwnode);
 
