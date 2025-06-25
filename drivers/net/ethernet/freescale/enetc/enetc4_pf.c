@@ -1870,6 +1870,79 @@ static void enetc4_pci_remove(void *data)
 	enetc_pci_remove(pdev);
 }
 
+static void enetc4_get_pcr_speed(struct enetc_hw *hw, int *speed)
+{
+	int pspeed;
+	u32 val;
+
+	val = enetc_port_rd(hw, ENETC4_PCR);
+	pspeed = FIELD_GET(PCR_PSPEED, val);
+	*speed = (pspeed + 1) * 10;
+}
+
+static void enetc4_put_fwnode(struct enetc_ndev_priv *priv)
+{
+	struct fwnode_handle *child;
+
+	if (!priv->swnode)
+		return;
+
+	fwnode_for_each_child_node(priv->swnode, child)
+		fwnode_remove_software_node(child);
+
+	fwnode_remove_software_node(priv->swnode);
+	priv->swnode = NULL;
+}
+
+static int enetc4_get_fwnode(struct enetc_ndev_priv *priv,
+			     struct device_node *node)
+{
+	struct enetc_pf *pf = enetc_si_priv(priv->si);
+	struct property_entry eth_props[2] = {};
+	struct property_entry fl_props[3] = {};
+	struct fwnode_handle *tmp_fwnode;
+	int speed, err;
+
+	/* NULL DT node is accepted only for Pseudo-MAC ENETCs */
+	if (node || !enetc_is_pseudo_mac(priv->si)) {
+		err = of_get_phy_mode(node, &pf->if_mode);
+		if (err) {
+			dev_err(priv->dev, "Failed to get PHY mode\n");
+			return err;
+		}
+
+		return 0;
+	}
+
+	/* dev->of_node missing */
+	enetc4_get_pcr_speed(&priv->si->hw, &speed);
+	speed = enetc_phylink_match_pseudo_mac_speed(speed);
+	pf->if_mode = PHY_INTERFACE_MODE_INTERNAL;
+
+	fl_props[0] = PROPERTY_ENTRY_U32("speed", speed);
+	fl_props[1] = PROPERTY_ENTRY_BOOL("full-duplex");
+	eth_props[0] = PROPERTY_ENTRY_STRING("phy-mode",
+					     phy_modes(pf->if_mode));
+
+	tmp_fwnode = fwnode_create_software_node(eth_props, NULL);
+	if (IS_ERR(tmp_fwnode)) {
+		dev_err(priv->dev, "Failed to create swnode\n");
+		return PTR_ERR(tmp_fwnode);
+	}
+
+	/* keep parent reference */
+	priv->swnode = tmp_fwnode;
+	tmp_fwnode = fwnode_create_named_software_node(fl_props, tmp_fwnode,
+						       "fixed-link");
+	if (IS_ERR(tmp_fwnode)) {
+		dev_err(priv->dev, "Failed to create 'fixed-link' swnode\n");
+		enetc4_put_fwnode(priv);
+		return PTR_ERR(tmp_fwnode);
+	}
+
+	return 0;
+}
+
 static int enetc4_link_init(struct enetc_ndev_priv *priv,
 			    struct device_node *node)
 {
@@ -1877,16 +1950,14 @@ static int enetc4_link_init(struct enetc_ndev_priv *priv,
 	struct device *dev = priv->dev;
 	int err;
 
-	err = of_get_phy_mode(node, &pf->if_mode);
-	if (err) {
-		dev_err(dev, "Failed to get PHY mode\n");
+	err = enetc4_get_fwnode(priv, node);
+	if (err)
 		return err;
-	}
 
 	err = enetc_mdiobus_create(pf, node);
 	if (err) {
 		dev_err(dev, "Failed to create MDIO bus\n");
-		return err;
+		goto err_mdiobus_create;
 	}
 
 	err = enetc_phylink_create(priv, &enetc_pl_mac_ops);
@@ -1899,6 +1970,8 @@ static int enetc4_link_init(struct enetc_ndev_priv *priv,
 
 err_phylink_create:
 	enetc_mdiobus_destroy(pf);
+err_mdiobus_create:
+	enetc4_put_fwnode(priv);
 
 	return err;
 }
@@ -1909,6 +1982,7 @@ static void enetc4_link_deinit(struct enetc_ndev_priv *priv)
 
 	enetc_phylink_destroy(priv);
 	enetc_mdiobus_destroy(pf);
+	enetc4_put_fwnode(priv);
 }
 
 static int enetc4_pf_netdev_create(struct enetc_si *si)
