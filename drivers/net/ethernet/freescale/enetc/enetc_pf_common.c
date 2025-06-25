@@ -291,6 +291,9 @@ int enetc_mdiobus_create(struct enetc_pf *pf, struct device_node *node)
 	struct device_node *mdio_np;
 	int err;
 
+	if (!node)
+		return 0;
+
 	mdio_np = of_get_child_by_name(node, "mdio");
 	if (mdio_np) {
 		err = enetc_mdio_probe(pf, mdio_np);
@@ -342,6 +345,17 @@ static unsigned long enetc_get_pseudo_mac_caps(void)
 		mac_caps |= enetc_pseudo_mac_phylink_caps[i].mac_caps;
 
 	return mac_caps;
+}
+
+int enetc_phylink_match_pseudo_mac_speed(int speed)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(enetc_pseudo_mac_phylink_caps); i++)
+		if (enetc_pseudo_mac_phylink_caps[i].speed <= speed)
+			return enetc_pseudo_mac_phylink_caps[i].speed;
+
+	return SPEED_UNKNOWN;
 }
 
 int enetc_phylink_create(struct enetc_ndev_priv *priv,
