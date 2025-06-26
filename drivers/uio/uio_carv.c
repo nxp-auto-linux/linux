@@ -111,6 +111,10 @@ struct carv_uio_vm_entry {
 	size_t size;
 };
 
+static bool carv_fault_vm_ops_enable;
+module_param(carv_fault_vm_ops_enable, bool, 0644);
+MODULE_PARM_DESC(carv_fault_vm_ops_enable, "Enable vm_ops fault handler for rmem mapping");
+
 static unsigned long carv_pool_sz = SZ_16M;
 
 /*
@@ -146,8 +150,38 @@ static void carv_uio_vm_close(struct vm_area_struct *vma)
 	kfree(entry);
 }
 
+/*
+ * carv_uio_vm_fault - Handle page fault for UIO DMA memory mapping
+ * @vmf: vm_fault structure containing faulting address and VMA info
+ *
+ * Return: VM_FAULT_SIGBUS if the fault is outside the mapped range,
+ * or the result of vmf_insert_page() on success.
+ */
+static vm_fault_t carv_uio_vm_fault(struct vm_fault *vmf)
+{
+	struct carv_uio_vm_entry *entry = vmf->vma->vm_private_data;
+	unsigned long offset;
+	unsigned long pfn;
+	struct page *page;
+
+	if (WARN_ON(!carv_fault_vm_ops_enable))
+		return VM_FAULT_SIGBUS;
+
+	offset = vmf->address - vmf->vma->vm_start;
+	if (offset >= entry->size)
+		return VM_FAULT_SIGBUS;
+
+	pfn = PFN_DOWN(entry->addr + offset);
+	if (!pfn_valid(pfn))
+		return VM_FAULT_SIGBUS;
+
+	page = pfn_to_page(pfn);
+	return vmf_insert_page(vmf->vma, vmf->address, page);
+}
+
 static const struct vm_operations_struct carv_uio_vm_ops = {
 	.close = carv_uio_vm_close,
+	.fault = carv_uio_vm_fault,
 };
 
 /*
@@ -212,7 +246,7 @@ static int carv_uio_mmap(struct uio_info *info, struct vm_area_struct *vma)
 	unsigned long vma_size;
 	unsigned long pfn;
 	unsigned long mem;
-	int ret;
+	int ret = 0;
 
 	if (vma->vm_end < vma->vm_start)
 		return -EINVAL;
@@ -258,6 +292,11 @@ static int carv_uio_mmap(struct uio_info *info, struct vm_area_struct *vma)
 
 		vma->vm_ops = &carv_uio_vm_ops;
 		vma->vm_private_data = entry;
+		if (carv_fault_vm_ops_enable) {
+			vm_flags_mask = VM_MIXEDMAP | VM_DONTEXPAND | VM_DONTDUMP;
+			vm_flags_mod(vma, vm_flags_mask, VM_PFNMAP);
+			goto out;
+		}
 		break;
 	case CARV_UIO_MAP_INTL:
 		pfn = __phys_to_pfn(priv->info.mem[CARV_UIO_MAP_INTL].addr);
