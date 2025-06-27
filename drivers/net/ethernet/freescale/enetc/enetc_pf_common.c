@@ -44,11 +44,16 @@ static int enetc_setup_mac_address(struct device_node *np, struct enetc_pf *pf,
 				   int si)
 {
 	struct device *dev = &pf->si->pdev->dev;
+	struct net_device *ndev = pf->si->ndev;
 	u8 mac_addr[ETH_ALEN] = { 0 };
 	int err;
 
+	/* (0) try to get the MAC address from netdev */
+	if (ndev && ndev->dev_addr && is_valid_ether_addr(ndev->dev_addr))
+		memcpy(mac_addr, ndev->dev_addr, ETH_ALEN);
+
 	/* (1) try to get the MAC address from the device tree */
-	if (np) {
+	if (is_zero_ether_addr(mac_addr) && np) {
 		err = of_get_mac_address(np, mac_addr);
 		if (err == -EPROBE_DEFER)
 			return err;
