@@ -1509,8 +1509,6 @@ static int enetc4_pf_get_vf_config(struct net_device *ndev, int vf,
 	vf_state = &pf->vf_state[vf];
 	ivi->vf = vf;
 	enetc4_pf_get_si_based_vlan(hw, vf + 1, &ivi->vlan, &ivi->qos);
-	if (ivi->vlan)
-		ivi->vlan_proto = ETH_P_8021Q;
 
 	enetc4_pf_get_si_primary_mac(hw, vf + 1, ivi->mac);
 	ivi->spoofchk = enetc4_pf_get_vf_spoofchk(hw, vf);
