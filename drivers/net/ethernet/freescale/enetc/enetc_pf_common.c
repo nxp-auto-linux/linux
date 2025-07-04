@@ -344,7 +344,7 @@ static unsigned long enetc_get_pseudo_mac_caps(void)
 	return mac_caps;
 }
 
-int enetc_phylink_create(struct enetc_ndev_priv *priv, struct device_node *node,
+int enetc_phylink_create(struct enetc_ndev_priv *priv,
 			 const struct phylink_mac_ops *ops)
 {
 	struct enetc_pf *pf = enetc_si_priv(priv->si);
@@ -377,7 +377,7 @@ int enetc_phylink_create(struct enetc_ndev_priv *priv, struct device_node *node,
 		phy_interface_set_rgmii(pf->phylink_config.supported_interfaces);
 	}
 
-	phylink = phylink_create(&pf->phylink_config, of_fwnode_handle(node),
+	phylink = phylink_create(&pf->phylink_config, enetc_fwnode(priv),
 				 pf->if_mode, ops);
 	if (IS_ERR(phylink)) {
 		err = PTR_ERR(phylink);
