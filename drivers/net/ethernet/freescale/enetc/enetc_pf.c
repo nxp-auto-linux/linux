@@ -1076,7 +1076,7 @@ static int enetc_pf_probe(struct pci_dev *pdev,
 	if (err)
 		goto err_mdiobus_create;
 
-	err = enetc_phylink_create(priv, node, &enetc_mac_phylink_ops);
+	err = enetc_phylink_create(priv, &enetc_mac_phylink_ops);
 	if (err)
 		goto err_phylink_create;
 
