@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: (GPL-2.0+ OR BSD-3-Clause)
-/* Copyright 2024 NXP */
+/* Copyright 2024-2025 NXP */
 
 #include <linux/fsl/enetc_mdio.h>
 #include <linux/of_mdio.h>
@@ -167,7 +167,7 @@ void enetc_pf_netdev_setup(struct enetc_si *si, struct net_device *ndev,
 		ndev->hw_features |= NETIF_F_HW_TC;
 	}
 
-	if (!(si->hw_features & ENETC_SI_F_PPM))
+	if (!enetc_is_pseudo_mac(si))
 		ndev->hw_features |= NETIF_F_LOOPBACK;
 
 	/* pick up primary MAC address from SI */
@@ -319,29 +319,63 @@ void enetc_mdiobus_destroy(struct enetc_pf *pf)
 }
 EXPORT_SYMBOL_GPL(enetc_mdiobus_destroy);
 
+static struct {
+	int speed;
+	unsigned long mac_caps;
+} enetc_pseudo_mac_phylink_caps[] = {
+	{ SPEED_25000, MAC_25000FD },
+	{ SPEED_20000, MAC_20000FD },
+	{ SPEED_10000, MAC_10000FD },
+	{ SPEED_5000,  MAC_5000FD  },
+	{ SPEED_2500,  MAC_2500FD  },
+	{ SPEED_1000,  MAC_1000FD  },
+	{ SPEED_100,   MAC_100FD   },
+	{ SPEED_10,    MAC_10FD    },
+};
+
+static unsigned long enetc_get_pseudo_mac_caps(void)
+{
+	unsigned long mac_caps = 0;
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(enetc_pseudo_mac_phylink_caps); i++)
+		mac_caps |= enetc_pseudo_mac_phylink_caps[i].mac_caps;
+
+	return mac_caps;
+}
+
 int enetc_phylink_create(struct enetc_ndev_priv *priv, struct device_node *node,
 			 const struct phylink_mac_ops *ops)
 {
 	struct enetc_pf *pf = enetc_si_priv(priv->si);
+	unsigned long mac_caps = 0;
 	struct phylink *phylink;
 	int err;
 
 	pf->phylink_config.dev = &priv->ndev->dev;
 	pf->phylink_config.type = PHYLINK_NETDEV;
-	pf->phylink_config.mac_capabilities = MAC_ASYM_PAUSE | MAC_SYM_PAUSE |
-		MAC_10 | MAC_100 | MAC_1000 | MAC_2500FD;
 
+	if (!enetc_is_pseudo_mac(priv->si))
+		mac_caps = MAC_ASYM_PAUSE | MAC_SYM_PAUSE |
+			   MAC_10 | MAC_100 | MAC_1000 | MAC_2500FD;
+	else
+		mac_caps = enetc_get_pseudo_mac_caps();
+
+	pf->phylink_config.mac_capabilities = mac_caps;
 	__set_bit(PHY_INTERFACE_MODE_INTERNAL,
 		  pf->phylink_config.supported_interfaces);
-	__set_bit(PHY_INTERFACE_MODE_SGMII,
-		  pf->phylink_config.supported_interfaces);
-	__set_bit(PHY_INTERFACE_MODE_1000BASEX,
-		  pf->phylink_config.supported_interfaces);
-	__set_bit(PHY_INTERFACE_MODE_2500BASEX,
-		  pf->phylink_config.supported_interfaces);
-	__set_bit(PHY_INTERFACE_MODE_USXGMII,
-		  pf->phylink_config.supported_interfaces);
-	phy_interface_set_rgmii(pf->phylink_config.supported_interfaces);
+
+	if (!enetc_is_pseudo_mac(priv->si)) {
+		__set_bit(PHY_INTERFACE_MODE_SGMII,
+			  pf->phylink_config.supported_interfaces);
+		__set_bit(PHY_INTERFACE_MODE_1000BASEX,
+			  pf->phylink_config.supported_interfaces);
+		__set_bit(PHY_INTERFACE_MODE_2500BASEX,
+			  pf->phylink_config.supported_interfaces);
+		__set_bit(PHY_INTERFACE_MODE_USXGMII,
+			  pf->phylink_config.supported_interfaces);
+		phy_interface_set_rgmii(pf->phylink_config.supported_interfaces);
+	}
 
 	phylink = phylink_create(&pf->phylink_config, of_fwnode_handle(node),
 				 pf->if_mode, ops);

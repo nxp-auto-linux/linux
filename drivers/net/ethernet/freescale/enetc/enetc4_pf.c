@@ -1553,7 +1553,7 @@ static void enetc4_mac_config(struct enetc_pf *pf, unsigned int mode,
 	struct enetc_si *si = pf->si;
 	u32 val;
 
-	if (si->hw_features & ENETC_SI_F_PPM)
+	if (enetc_is_pseudo_mac(si))
 		return;
 
 	val = enetc_port_mac_rd(si, ENETC4_PM_IF_MODE(0));
