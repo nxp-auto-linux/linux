@@ -11,7 +11,7 @@ void enetc_pf_netdev_setup(struct enetc_si *si, struct net_device *ndev,
 			   const struct net_device_ops *ndev_ops);
 int enetc_mdiobus_create(struct enetc_pf *pf, struct device_node *node);
 void enetc_mdiobus_destroy(struct enetc_pf *pf);
-int enetc_phylink_create(struct enetc_ndev_priv *priv, struct device_node *node,
+int enetc_phylink_create(struct enetc_ndev_priv *priv,
 			 const struct phylink_mac_ops *ops);
 void enetc_phylink_destroy(struct enetc_ndev_priv *priv);
 void enetc_set_default_rss_key(struct enetc_pf *pf);
