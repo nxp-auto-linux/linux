@@ -14,7 +14,7 @@
 
 u32 enetc_port_mac_rd(struct enetc_si *si, u32 reg)
 {
-	if (si->hw_features & ENETC_SI_F_PPM)
+	if (enetc_is_pseudo_mac(si))
 		return 0;
 
 	return enetc_port_rd(&si->hw, reg);
@@ -23,7 +23,7 @@ EXPORT_SYMBOL_GPL(enetc_port_mac_rd);
 
 void enetc_port_mac_wr(struct enetc_si *si, u32 reg, u32 val)
 {
-	if (si->hw_features & ENETC_SI_F_PPM)
+	if (enetc_is_pseudo_mac(si))
 		return;
 
 	enetc_port_wr(&si->hw, reg, val);
@@ -3487,7 +3487,7 @@ static int enetc_hwtstamp_set(struct net_device *ndev, struct ifreq *ifr)
 			return -EOPNOTSUPP;
 
 		/* Pseudo MAC does not support one-step timestamp */
-		if (priv->si->hw_features & ENETC_SI_F_PPM)
+		if (enetc_is_pseudo_mac(priv->si))
 			return -EOPNOTSUPP;
 
 		new_offloads &= ~ENETC_F_TX_TSTAMP_MASK;
