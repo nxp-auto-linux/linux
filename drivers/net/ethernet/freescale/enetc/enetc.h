@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: (GPL-2.0+ OR BSD-3-Clause) */
-/* Copyright 2017-2019 NXP */
+/* Copyright 2017-2019, 2025 NXP */
 
 #include <linux/timer.h>
 #include <linux/pci.h>
@@ -400,6 +400,11 @@ static inline int enetc_pf_to_port(struct pci_dev *pf_pdev)
 	default:
 		return -1;
 	}
+}
+
+static inline bool enetc_is_pseudo_mac(struct enetc_si *si)
+{
+	return si->hw_features & ENETC_SI_F_PPM;
 }
 
 #define ENETC_MAX_NUM_TXQS	8
