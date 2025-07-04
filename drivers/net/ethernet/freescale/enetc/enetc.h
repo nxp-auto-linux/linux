@@ -586,6 +586,7 @@ int enetc_hwtstamp_set(struct net_device *ndev,
 
 int enetc_suspend(struct net_device *ndev, bool wol);
 int enetc_resume(struct net_device *ndev, bool wol);
+struct fwnode_handle *enetc_fwnode(struct enetc_ndev_priv *priv);
 
 /* ethtool */
 extern const struct ethtool_ops enetc_pf_ethtool_ops;
