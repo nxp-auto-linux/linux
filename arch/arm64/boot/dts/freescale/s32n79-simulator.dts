@@ -57,6 +57,10 @@
 	status = "okay";
 };
 
+&edma0_rcu {
+	status = "okay";
+};
+
 &can0 {
 	status = "okay";
 };

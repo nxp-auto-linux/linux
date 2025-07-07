@@ -505,6 +505,35 @@
 			status = "disabled";
 		};
 
+		edma0_rcu: dma-controller@558c0000 {
+			compatible = "nxp,s32n79-rcu-edma5";
+			reg = <0x558c0000 0x101000>,
+				<0x558b0000 0x1000>,
+				<0x558b1000 0x1000>;
+			#dma-cells = <2>;
+			dma-channels = <16>;
+			interrupt-parent = <&irqsteer_rcu>;
+			interrupts = <192>,
+				     <193>,
+				     <194>,
+				     <195>,
+				     <196>,
+				     <197>,
+				     <198>,
+				     <199>,
+				     <200>,
+				     <201>,
+				     <202>,
+				     <203>,
+				     <204>,
+				     <205>,
+				     <206>,
+				     <207>;
+			clocks = <&sys_clk>, <&sys_clk>;
+			clock-names = "dmamux0", "dmamux1";
+			status = "disabled";
+		};
+
 		can0: can@55b60000 {
 			compatible = "nxp,s32n79-flexcan";
 			reg = <0x55b60000 0x4000>;
