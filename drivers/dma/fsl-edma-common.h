@@ -219,6 +219,10 @@ struct fsl_edma_desc {
 /* Need clean CHn_CSR DONE before enable TCD's MAJORELINK */
 #define FSL_EDMA_DRV_CLEAR_DONE_E_LINK	BIT(14)
 #define FSL_EDMA_DRV_TCD64		BIT(15)
+/* Used when one DMA-Mux is connected to the even DMA request inputs,
+ * while the other is connected to the odd DMA request inputs.
+ */
+#define FSL_EDMA_DRV_MUX_ODD_EVEN	BIT(16)
 
 #define FSL_EDMA_DRV_EDMA3	(FSL_EDMA_DRV_SPLIT_REG |	\
 				 FSL_EDMA_DRV_BUS_8BYTE |	\
