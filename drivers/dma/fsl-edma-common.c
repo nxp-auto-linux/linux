@@ -2,7 +2,7 @@
 //
 // Copyright (c) 2013-2014 Freescale Semiconductor, Inc
 // Copyright (c) 2017 Sysam, Angelo Dureghello  <angelo@sysam.it>
-// Copyright 2023 NXP
+// Copyright 2023, 2025 NXP
 
 #include <linux/cleanup.h>
 #include <linux/clk.h>
@@ -199,6 +199,9 @@ void fsl_edma_chan_mux(struct fsl_edma_chan *fsl_chan,
 	if (!dmamux_nr)
 		return;
 
+	/* Extract DMAMUX slot. */
+	slot = EDMAMUX_SRCID_TO_SLOT(slot);
+
 	chans_per_mux = fsl_chan->edma->n_chans / dmamux_nr;
 	ch_off = fsl_chan->vchan.chan.chan_id % chans_per_mux;
 
@@ -206,7 +209,6 @@ void fsl_edma_chan_mux(struct fsl_edma_chan *fsl_chan,
 		ch_off += endian_diff[ch_off % 4];
 
 	muxaddr = fsl_chan->edma->muxbase[ch / chans_per_mux];
-	slot = EDMAMUX_CHCFG_SOURCE(slot);
 
 	if (fsl_chan->edma->drvdata->flags & FSL_EDMA_DRV_CONFIG32)
 		mux_configure32(fsl_chan, muxaddr, ch_off, slot, enable);

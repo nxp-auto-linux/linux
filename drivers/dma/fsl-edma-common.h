@@ -2,7 +2,7 @@
 /*
  * Copyright 2013-2014 Freescale Semiconductor, Inc.
  * Copyright 2018 Angelo Dureghello <angelo@sysam.it>
- * Copyright 2023 NXP
+ * Copyright 2023, 2025 NXP
  */
 #ifndef _FSL_EDMA_COMMON_H_
 #define _FSL_EDMA_COMMON_H_
@@ -52,6 +52,13 @@
 #define EDMAMUX_CHCFG_DIS		0x0
 #define EDMAMUX_CHCFG_ENBL		0x80
 #define EDMAMUX_CHCFG_SOURCE(n)		((n) & 0x3F)
+
+#define FSL_EDMA_SRCIDS_PER_MUX		64
+#define EDMAMUX_SRCID_TO_SLOT(slot)	\
+	(EDMAMUX_CHCFG_SOURCE((slot)) % FSL_EDMA_SRCIDS_PER_MUX)
+#define EDMAMUX_SLOT_TO_SRCID(mux, slot)	\
+	((mux) * FSL_EDMA_SRCIDS_PER_MUX + (slot))
+
 
 #define DMAMUX_NR	2
 
