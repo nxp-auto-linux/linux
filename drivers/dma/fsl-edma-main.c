@@ -3,7 +3,7 @@
  * drivers/dma/fsl-edma.c
  *
  * Copyright 2013-2014 Freescale Semiconductor, Inc.
- * Copyright 2024 NXP
+ * Copyright 2024-2025 NXP
  *
  * Driver for the Freescale eDMA engine with flexible channel multiplexing
  * capability for DMA request sources. The eDMA block can be found on some
@@ -177,11 +177,14 @@ static struct dma_chan *fsl_edma_xlate(struct of_phandle_args *dma_spec,
 	struct fsl_edma_engine *fsl_edma = ofdma->of_dma_data;
 	struct dma_chan *chan, *_chan;
 	struct fsl_edma_chan *fsl_chan;
-	u32 dmamux_nr = fsl_edma->drvdata->dmamuxs;
+	u32 dmamux_nr = fsl_edma->drvdata->dmamuxs, srcid;
 	unsigned long chans_per_mux = fsl_edma->n_chans / dmamux_nr;
 
 	if (dma_spec->args_count != 2)
 		return NULL;
+
+	/* Generate unic id based on slot and mux number. */
+	srcid = EDMAMUX_SLOT_TO_SRCID(dma_spec->args[0], dma_spec->args[1]);
 
 	guard(mutex)(&fsl_edma->fsl_edma_mutex);
 
@@ -189,7 +192,7 @@ static struct dma_chan *fsl_edma_xlate(struct of_phandle_args *dma_spec,
 		if (chan->client_count)
 			continue;
 
-		if (fsl_edma_srcid_in_use(fsl_edma, dma_spec->args[1]))
+		if (fsl_edma_srcid_in_use(fsl_edma, srcid))
 			return NULL;
 
 		if ((chan->chan_id / chans_per_mux) == dma_spec->args[0]) {
@@ -197,7 +200,7 @@ static struct dma_chan *fsl_edma_xlate(struct of_phandle_args *dma_spec,
 			if (chan) {
 				chan->device->privatecnt++;
 				fsl_chan = to_fsl_edma_chan(chan);
-				fsl_chan->srcid = dma_spec->args[1];
+				fsl_chan->srcid = srcid;
 
 				if (!fsl_chan->srcid) {
 					dev_err(&fsl_chan->pdev->dev, "Invalidate srcid %d\n",
@@ -205,8 +208,7 @@ static struct dma_chan *fsl_edma_xlate(struct of_phandle_args *dma_spec,
 					return NULL;
 				}
 
-				fsl_edma_chan_mux(fsl_chan, fsl_chan->srcid,
-						true);
+				fsl_edma_chan_mux(fsl_chan, srcid, true);
 				return chan;
 			}
 		}
