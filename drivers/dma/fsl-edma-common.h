@@ -237,7 +237,10 @@ struct fsl_edma_desc {
 #define FSL_EDMA_DRV_TCD64		BIT(15)
 /* All channel ERR IRQ share one IRQ line */
 #define FSL_EDMA_DRV_ERRIRQ_SHARE       BIT(16)
-
+/* Used when one DMA-Mux is connected to the even DMA request inputs,
+ * while the other is connected to the odd DMA request inputs.
+ */
+#define FSL_EDMA_DRV_MUX_ODD_EVEN	BIT(17)
 
 #define FSL_EDMA_DRV_EDMA3	(FSL_EDMA_DRV_SPLIT_REG |	\
 				 FSL_EDMA_DRV_BUS_8BYTE |	\

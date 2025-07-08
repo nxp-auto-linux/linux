@@ -204,15 +204,19 @@ void fsl_edma_chan_mux(struct fsl_edma_chan *fsl_chan,
 	/* Extract DMAMUX slot. */
 	slot = EDMAMUX_SRCID_TO_SLOT(slot);
 
-	chans_per_mux = fsl_chan->edma->n_chans / dmamux_nr;
-	ch_off = fsl_chan->vchan.chan.chan_id % chans_per_mux;
+	if (fsl_edma_drvflags(fsl_chan) & FSL_EDMA_DRV_MUX_ODD_EVEN) {
+		ch_off = fsl_chan->vchan.chan.chan_id / 2;
+		muxaddr = fsl_chan->edma->muxbase[ch % 2];
+	} else {
+		chans_per_mux = fsl_chan->edma->n_chans / dmamux_nr;
+		ch_off = fsl_chan->vchan.chan.chan_id % chans_per_mux;
+		muxaddr = fsl_chan->edma->muxbase[ch / chans_per_mux];
+	}
 
-	if (fsl_chan->edma->drvdata->flags & FSL_EDMA_DRV_MUX_SWAP)
+	if (fsl_edma_drvflags(fsl_chan) & FSL_EDMA_DRV_MUX_SWAP)
 		ch_off += endian_diff[ch_off % 4];
 
-	muxaddr = fsl_chan->edma->muxbase[ch / chans_per_mux];
-
-	if (fsl_chan->edma->drvdata->flags & FSL_EDMA_DRV_CONFIG32)
+	if (fsl_edma_drvflags(fsl_chan) & FSL_EDMA_DRV_CONFIG32)
 		mux_configure32(fsl_chan, muxaddr, ch_off, slot, enable);
 	else
 		mux_configure8(fsl_chan, muxaddr, ch_off, slot, enable);
