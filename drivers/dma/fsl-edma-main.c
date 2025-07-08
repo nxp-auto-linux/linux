@@ -618,6 +618,15 @@ static const struct fsl_edma_drvdata s32g2_data = {
 	.setup_irq = fsl_edma3_or_irq_init,
 };
 
+static struct fsl_edma_drvdata s32n79_rcu_data5 = {
+	.dmamuxs = 2,
+	.flags = FSL_EDMA_DRV_EDMA4 | FSL_EDMA_DRV_TCD64 |
+		 FSL_EDMA_DRV_MUX_SWAP | FSL_EDMA_DRV_MUX_ODD_EVEN,
+	.chreg_space_sz = 0x10000,
+	.chreg_off = 0x10000,
+	.setup_irq = fsl_edma3_irq_init,
+};
+
 static const struct of_device_id fsl_edma_dt_ids[] = {
 	{ .compatible = "fsl,vf610-edma", .data = &vf610_data},
 	{ .compatible = "fsl,ls1028a-edma", .data = &ls1028a_data},
@@ -628,6 +637,7 @@ static const struct of_device_id fsl_edma_dt_ids[] = {
 	{ .compatible = "fsl,imx93-edma4", .data = &imx93_data4},
 	{ .compatible = "fsl,imx95-edma5", .data = &imx95_data5},
 	{ .compatible = "nxp,s32g2-edma", .data = &s32g2_data},
+	{ .compatible = "nxp,s32n79-rcu-edma5", .data = &s32n79_rcu_data5},
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, fsl_edma_dt_ids);
