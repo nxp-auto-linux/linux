@@ -254,8 +254,8 @@ static struct dma_chan *fsl_edma_xlate(struct of_phandle_args *dma_spec,
 	struct fsl_edma_engine *fsl_edma = ofdma->of_dma_data;
 	struct dma_chan *chan, *_chan;
 	struct fsl_edma_chan *fsl_chan;
-	u32 dmamux_nr = fsl_edma->drvdata->dmamuxs, srcid;
-	unsigned long chans_per_mux = fsl_edma->n_chans / dmamux_nr;
+	u32 dmamux_nr = fsl_edma->drvdata->dmamuxs, srcid, dmamux;
+	u32 chans_per_mux = fsl_edma->n_chans / dmamux_nr;
 
 	if (dma_spec->args_count != 2)
 		return NULL;
@@ -272,7 +272,12 @@ static struct dma_chan *fsl_edma_xlate(struct of_phandle_args *dma_spec,
 		if (fsl_edma_srcid_in_use(fsl_edma, srcid))
 			return NULL;
 
-		if ((chan->chan_id / chans_per_mux) == dma_spec->args[0]) {
+		if (fsl_edma->drvdata->flags & FSL_EDMA_DRV_MUX_ODD_EVEN)
+			dmamux = chan->chan_id % 2;
+		else
+			dmamux = chan->chan_id / chans_per_mux;
+
+		if (dmamux == dma_spec->args[0]) {
 			chan = dma_get_slave_channel(chan);
 			if (chan) {
 				chan->device->privatecnt++;
