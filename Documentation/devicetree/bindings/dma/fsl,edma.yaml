@@ -27,6 +27,7 @@ properties:
           - fsl,imx93-edma4
           - fsl,imx95-edma5
           - nxp,s32g2-edma
+          - nxp,s32n79-rcu-edma5
       - items:
           - const: fsl,ls1028a-edma
           - const: fsl,vf610-edma
@@ -254,6 +255,31 @@ allOf:
           const: 2
         dma-channels:
           const: 32
+
+  - if:
+      properties:
+        compatible:
+          contains:
+            const: nxp,s32n79-rcu-edma5
+    then:
+      properties:
+        clocks:
+          minItems: 2
+          maxItems: 2
+        clock-names:
+          items:
+            - const: dmamux0
+            - const: dmamux1
+        interrupts:
+          minItems: 16
+          maxItems: 16
+        reg:
+          minItems: 3
+          maxItems: 3
+        "#dma-cells":
+          const: 2
+        dma-channels:
+          const: 16
 
 unevaluatedProperties: false
 
