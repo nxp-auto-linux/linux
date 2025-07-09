@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
 //
 // Copyright 2016 Freescale Semiconductor, Inc.
-// Copyright 2023-2024 NXP
+// Copyright 2023-2025 NXP
 
 #include <linux/clk.h>
 #include <linux/err.h>
@@ -14,9 +14,9 @@
 #include <linux/regmap.h>
 #include <linux/sizes.h>
 #include <linux/mutex.h>
+#include <linux/nvmem-consumer.h>
 #include <linux/thermal.h>
 #include <linux/units.h>
-#include <soc/s32cc/nvmem_common.h>
 
 #include "thermal_core.h"
 #include "thermal_hwmon.h"
@@ -1149,7 +1149,7 @@ static int s32cc_get_calib_value(struct qoriq_tmu_data *data,
 {
 	int ret;
 
-	ret = read_nvmem_cell(data->dev, "tmu_fuse_val", fuse_val);
+	ret = nvmem_cell_read_u32(data->dev, "tmu_fuse_val", fuse_val);
 	if (ret) {
 		if (ret != -EPROBE_DEFER)
 			dev_err(data->dev, "Error reading fuse values\n");
