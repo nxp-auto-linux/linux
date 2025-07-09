@@ -1,13 +1,12 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright 2021-2023 NXP
+ * Copyright 2021-2023, 2025 NXP
  *
  */
 
 #ifndef __SOC_S32CC_REVISION_H__
 #define __SOC_S32CC_REVISION_H__
 
-#include <soc/s32cc/nvmem_common.h>
 #include <soc/s32cc/revision_defs.h>
 
 static inline
@@ -20,11 +19,11 @@ int s32cc_nvmem_get_soc_revision(struct device *dev,
 	if (!soc_rev)
 		return -EINVAL;
 
-	ret = read_nvmem_cell(dev, "soc_major", &major);
+	ret = nvmem_cell_read_u32(dev, "soc_major", &major);
 	if (ret)
 		return ret;
 
-	ret = read_nvmem_cell(dev, "soc_minor", &minor);
+	ret = nvmem_cell_read_u32(dev, "soc_minor", &minor);
 	if (ret)
 		return ret;
 
@@ -43,7 +42,7 @@ int s32cc_nvmem_get_pcie_dev_id(struct device *dev, u32 *pcie_variant_bits)
 	if (!pcie_variant_bits)
 		return -EINVAL;
 
-	return read_nvmem_cell(dev, "pcie_dev_id", pcie_variant_bits);
+	return nvmem_cell_read_u32(dev, "pcie_dev_id", pcie_variant_bits);
 }
 
 #endif /* __SOC_S32CC_REVISION_H__*/
