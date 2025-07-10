@@ -68,8 +68,8 @@
 
 		carv0_packet_sram: packet-sram@d1110000 {
 			compatible = "shared-dma-pool";
-			/* 16 KB */
-			reg = <0 0xd1110000 0 0x4000>;
+			/* 128 KB */
+			reg = <0 0xd1110000 0 0x20000>;
 			no-map;
 			status = "disabled";
 		};
