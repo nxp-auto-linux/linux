@@ -141,6 +141,10 @@
 	status = "okay";
 };
 
+&edma0_coss {
+	status = "okay";
+};
+
 &lpi2c3 {
 	status = "okay";
 };
