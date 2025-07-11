@@ -546,7 +546,7 @@ static void fsl_disable_clocks(struct fsl_edma_engine *fsl_edma, int nr_clocks)
 }
 
 static struct fsl_edma_drvdata vf610_data = {
-	.dmamuxs = DMAMUX_NR,
+	.dmamuxs = 2,
 	.flags = FSL_EDMA_DRV_WRAP_IO,
 	.chreg_off = EDMA_TCD,
 	.chreg_space_sz = sizeof(struct fsl_edma_hw_tcd),
@@ -554,7 +554,7 @@ static struct fsl_edma_drvdata vf610_data = {
 };
 
 static struct fsl_edma_drvdata ls1028a_data = {
-	.dmamuxs = DMAMUX_NR,
+	.dmamuxs = 2,
 	.flags = FSL_EDMA_DRV_MUX_SWAP | FSL_EDMA_DRV_WRAP_IO,
 	.chreg_off = EDMA_TCD,
 	.chreg_space_sz = sizeof(struct fsl_edma_hw_tcd),
@@ -615,7 +615,7 @@ static struct fsl_edma_drvdata imx95_data5 = {
 };
 
 static const struct fsl_edma_drvdata s32g2_data = {
-	.dmamuxs = DMAMUX_NR,
+	.dmamuxs = 2,
 	.chreg_space_sz = EDMA_TCD,
 	.chreg_off = 0x4000,
 	.flags = FSL_EDMA_DRV_EDMA3 | FSL_EDMA_DRV_MUX_SWAP,
