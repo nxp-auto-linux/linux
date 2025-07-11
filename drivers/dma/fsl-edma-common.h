@@ -60,7 +60,7 @@
 	((mux) * FSL_EDMA_SRCIDS_PER_MUX + (slot))
 
 
-#define DMAMUX_NR	2
+#define MAX_DMAMUX_NR	4
 
 #define EDMA_TCD                0x1000
 
@@ -269,8 +269,8 @@ struct fsl_edma_drvdata {
 struct fsl_edma_engine {
 	struct dma_device	dma_dev;
 	void __iomem		*membase;
-	void __iomem		*muxbase[DMAMUX_NR];
-	struct clk		*muxclk[DMAMUX_NR];
+	void __iomem		*muxbase[MAX_DMAMUX_NR];
+	struct clk		*muxclk[MAX_DMAMUX_NR];
 	struct clk		*dmaclk;
 	struct mutex		fsl_edma_mutex;
 	const struct fsl_edma_drvdata *drvdata;
