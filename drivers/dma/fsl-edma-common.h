@@ -262,6 +262,7 @@ struct fsl_edma_drvdata {
 	u32			flags;
 	u32			mux_off;	/* channel mux register offset */
 	u32			mux_skip;	/* how much skip for each channel */
+	u32			chans_per_mux;
 	int			(*setup_irq)(struct platform_device *pdev,
 					     struct fsl_edma_engine *fsl_edma);
 };
@@ -281,6 +282,7 @@ struct fsl_edma_engine {
 	bool			big_endian;
 	struct edma_regs	regs;
 	u64			chan_masked;
+	u32			chans_per_mux;
 	struct fsl_edma_chan	chans[] __counted_by(n_chans);
 };
 
