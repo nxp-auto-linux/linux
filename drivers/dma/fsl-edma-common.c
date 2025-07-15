@@ -163,8 +163,7 @@ void fsl_edma_disable_request(struct fsl_edma_chan *fsl_chan)
 	}
 }
 
-static void mux_configure8(struct fsl_edma_chan *fsl_chan, void __iomem *addr,
-			   u32 off, u32 slot, bool enable)
+static void mux_configure8(void __iomem *addr, u32 off, u32 slot, bool enable)
 {
 	u8 val8;
 
@@ -176,8 +175,7 @@ static void mux_configure8(struct fsl_edma_chan *fsl_chan, void __iomem *addr,
 	iowrite8(val8, addr + off);
 }
 
-static void mux_configure32(struct fsl_edma_chan *fsl_chan, void __iomem *addr,
-			    u32 off, u32 slot, bool enable)
+static void mux_configure32(void __iomem *addr, u32 off, u32 slot, bool enable)
 {
 	u32 val;
 
@@ -189,16 +187,108 @@ static void mux_configure32(struct fsl_edma_chan *fsl_chan, void __iomem *addr,
 	iowrite32(val, addr + off * 4);
 }
 
+void fsl_edma_chan_mux_configure(void __iomem *muxaddr, unsigned int slot,
+				 unsigned int ch_off, u32 flags, bool enable)
+{
+	int endian_diff[4] = {3, 1, -1, -3};
+
+	/* Extract DMAMUX slot. */
+	slot = EDMAMUX_SRCID_TO_SLOT(slot);
+
+	if (flags & FSL_EDMA_DRV_MUX_SWAP)
+		ch_off += endian_diff[ch_off % 4];
+
+	if (flags & FSL_EDMA_DRV_CONFIG32)
+		mux_configure32(muxaddr, ch_off, slot, enable);
+	else
+		mux_configure8(muxaddr, ch_off, slot, enable);
+}
+
+static int fsl_edma_chan_mux_child(struct fsl_edma_chan *fsl_chan,
+		       unsigned int slot, bool enable)
+{
+	struct fsl_edma_engine *fsl_edma = fsl_chan->edma;
+	unsigned int ch_off, slot_f = fsl_chan->srcid_f;
+	u32 dmamux;
+
+	if (!enable && !slot_f)
+		/* Called during initialization. There is nothing to do
+		 * since there is no configuration done in the child DMAMUX
+		 * for the current channel.
+		 */
+		return 0;
+
+	if (enable) {
+		dmamux = slot / FSL_EDMA_SRCIDS_PER_MUX;
+		if (dmamux >= fsl_edma->drvdata->dmamuxs - 1) {
+			dev_err(&fsl_chan->pdev->dev,
+				"Invalid DMAMUX%d. Please use a value between 0 and %d!",
+				dmamux, fsl_edma->drvdata->dmamuxs - 1);
+			return -EINVAL;
+		}
+
+		/* Find first free channel. */
+		ch_off = find_first_zero_bit(fsl_edma->mux_channels[dmamux],
+					     fsl_edma->chans_per_mux);
+
+		if (ch_off >= fsl_chan->edma->chans_per_mux) {
+			dev_err(&fsl_chan->pdev->dev,
+				"DMAMUX%d maximum supported channels %d reached!",
+				dmamux, fsl_chan->edma->chans_per_mux);
+			return -EBUSY;
+		}
+
+		/* DMAMUX_F is split as follows:
+		 * slot 0 - reserved
+		 * slot 1 - 16 - CH_MUX0[0] - CH_MUX0[15]
+		 * slot 17 - 32 - CH_MUX1[0] - CH_MUX1[15]
+		 * slot 33 - 48 - CH_MUX2[0] - CH_MUX2[15].
+		 */
+		slot_f = dmamux * fsl_edma->chans_per_mux + ch_off + 1;
+
+		/* Mark the channel as used. */
+		bitmap_set(fsl_edma->mux_channels[dmamux], ch_off, 1);
+		/* Based on the used slot in DMAMUX_F, we will know which
+		 * channel from the child dmamux should be disabled.
+		 */
+		fsl_chan->srcid_f = slot_f;
+	} else {
+		dmamux = (slot_f - 1) / fsl_edma->chans_per_mux;
+		ch_off = (slot_f - 1) % fsl_edma->chans_per_mux;
+		bitmap_clear(fsl_edma->mux_channels[dmamux], ch_off, 1);
+		fsl_chan->srcid_f = slot;
+	}
+
+	fsl_edma_chan_mux_configure(fsl_edma->muxbase[dmamux], slot, ch_off,
+				    fsl_edma_drvflags(fsl_chan), enable);
+
+	return 0;
+}
+
+static void fsl_edma_chan_mux_f(struct fsl_edma_chan *fsl_chan,
+		       unsigned int slot, bool enable)
+{
+	struct fsl_edma_engine *fsl_edma = fsl_chan->edma;
+	u32 dmamux_nr = fsl_edma->drvdata->dmamuxs;
+
+	if (fsl_edma_chan_mux_child(fsl_chan, slot, enable))
+		return;
+
+	fsl_edma_chan_mux_configure(fsl_edma->muxbase[dmamux_nr - 1],
+				    fsl_chan->srcid_f,
+				    fsl_chan->vchan.chan.chan_id,
+				    fsl_edma_drvflags(fsl_chan), enable);
+}
+
 void fsl_edma_chan_mux(struct fsl_edma_chan *fsl_chan,
 		       unsigned int slot, bool enable)
 {
 	u32 ch = fsl_chan->vchan.chan.chan_id;
 	void __iomem *muxaddr;
 	unsigned int chans_per_mux, ch_off;
-	int endian_diff[4] = {3, 1, -1, -3};
 
-	/* Extract DMAMUX slot. */
-	slot = EDMAMUX_SRCID_TO_SLOT(slot);
+	if (fsl_edma_drvflags(fsl_chan) & FSL_EDMA_DRV_MUX_F)
+		return fsl_edma_chan_mux_f(fsl_chan, slot, enable);
 
 	if (fsl_edma_drvflags(fsl_chan) & FSL_EDMA_DRV_MUX_ODD_EVEN) {
 		ch_off = fsl_chan->vchan.chan.chan_id / 2;
@@ -211,13 +301,8 @@ void fsl_edma_chan_mux(struct fsl_edma_chan *fsl_chan,
 		muxaddr = fsl_chan->edma->muxbase[ch / chans_per_mux];
 	}
 
-	if (fsl_edma_drvflags(fsl_chan) & FSL_EDMA_DRV_MUX_SWAP)
-		ch_off += endian_diff[ch_off % 4];
-
-	if (fsl_edma_drvflags(fsl_chan) & FSL_EDMA_DRV_CONFIG32)
-		mux_configure32(fsl_chan, muxaddr, ch_off, slot, enable);
-	else
-		mux_configure8(fsl_chan, muxaddr, ch_off, slot, enable);
+	fsl_edma_chan_mux_configure(muxaddr, slot, ch_off,
+				    fsl_chan->edma->drvdata->flags, enable);
 }
 
 static unsigned int fsl_edma_get_tcd_attr(enum dma_slave_buswidth addr_width)
@@ -880,8 +965,6 @@ void fsl_edma_free_chan_resources(struct dma_chan *chan)
 
 	spin_lock_irqsave(&fsl_chan->vchan.lock, flags);
 	fsl_edma_disable_request(fsl_chan);
-	if (edma->drvdata->dmamuxs)
-		fsl_edma_chan_mux(fsl_chan, 0, false);
 	fsl_chan->edesc = NULL;
 	vchan_get_all_descriptors(&fsl_chan->vchan, &head);
 	fsl_edma_unprep_slave_dma(fsl_chan);
@@ -900,6 +983,11 @@ void fsl_edma_free_chan_resources(struct dma_chan *chan)
 	fsl_chan->is_remote = false;
 	if (fsl_edma_drvflags(fsl_chan) & FSL_EDMA_DRV_HAS_CHCLK)
 		clk_disable_unprepare(fsl_chan->clk);
+
+	scoped_guard(mutex, &edma->fsl_edma_mutex) {
+		if (edma->drvdata->dmamuxs)
+			fsl_edma_chan_mux(fsl_chan, 0, false);
+	}
 }
 
 void fsl_edma_cleanup_vchan(struct dma_device *dmadev)
