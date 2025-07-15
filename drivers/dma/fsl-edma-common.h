@@ -195,6 +195,7 @@ struct fsl_edma_chan {
 	struct device			*pd_dev;
 	struct device_link		*pd_dev_link;
 	u32				srcid;
+	u32				srcid_f;
 	struct clk			*clk;
 	int                             priority;
 	int				hw_chanid;
@@ -241,6 +242,7 @@ struct fsl_edma_desc {
  * while the other is connected to the odd DMA request inputs.
  */
 #define FSL_EDMA_DRV_MUX_ODD_EVEN	BIT(17)
+#define FSL_EDMA_DRV_MUX_F		BIT(18)
 
 #define FSL_EDMA_DRV_EDMA3	(FSL_EDMA_DRV_SPLIT_REG |	\
 				 FSL_EDMA_DRV_BUS_8BYTE |	\
@@ -283,6 +285,7 @@ struct fsl_edma_engine {
 	struct edma_regs	regs;
 	u64			chan_masked;
 	u32			chans_per_mux;
+	unsigned long		*mux_channels[MAX_DMAMUX_NR - 1];
 	struct fsl_edma_chan	chans[] __counted_by(n_chans);
 };
 
@@ -499,6 +502,8 @@ static inline void fsl_edma_err_chan_handler(struct fsl_edma_chan *fsl_chan)
 
 void fsl_edma_tx_chan_handler(struct fsl_edma_chan *fsl_chan);
 void fsl_edma_disable_request(struct fsl_edma_chan *fsl_chan);
+void fsl_edma_chan_mux_configure(void __iomem *muxaddr, unsigned int slot,
+				 unsigned int ch_off, u32 flags, bool enable);
 void fsl_edma_chan_mux(struct fsl_edma_chan *fsl_chan,
 			unsigned int slot, bool enable);
 void fsl_edma_free_desc(struct virt_dma_desc *vdesc);
