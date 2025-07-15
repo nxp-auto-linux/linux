@@ -132,7 +132,7 @@ static void fsl_edma3_disable_request(struct fsl_edma_chan *fsl_chan)
 			EDMA_V3_MP_HRS : EDMA_V4_MP_HRS;
 
 	/* Make sure there is no hardware request in progress. */
-	while (edma_readl(fsl_edma, fsl_edma->membase + hrs_offset) &
+	while (edma_readl(fsl_edma, fsl_edma->mpbase + hrs_offset) &
 	       EDMA_V3_MP_HRS_CH(ch))
 		;
 
