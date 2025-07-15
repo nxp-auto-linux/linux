@@ -260,6 +260,7 @@ struct fsl_edma_desc {
 struct fsl_edma_drvdata {
 	u32			dmamuxs; /* only used before v3 */
 	u32			chreg_off;
+	u32			mpreg_off;
 	u32			chreg_space_sz;
 	u32			flags;
 	u32			mux_off;	/* channel mux register offset */
@@ -272,6 +273,7 @@ struct fsl_edma_drvdata {
 struct fsl_edma_engine {
 	struct dma_device	dma_dev;
 	void __iomem		*membase;
+	void __iomem		*mpbase;
 	void __iomem		*muxbase[MAX_DMAMUX_NR];
 	struct clk		*muxclk[MAX_DMAMUX_NR];
 	struct clk		*dmaclk;
