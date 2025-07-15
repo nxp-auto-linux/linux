@@ -125,12 +125,14 @@ static void fsl_edma3_disable_request(struct fsl_edma_chan *fsl_chan)
 	struct fsl_edma_engine *fsl_edma = fsl_chan->edma;
 	u32 val = edma_readl_chreg(fsl_chan, ch_csr);
 	u32 ch = fsl_chan->vchan.chan.chan_id;
-	u32 flags;
+	u32 flags, hrs_offset;
 
 	flags = fsl_edma_drvflags(fsl_chan);
+	hrs_offset = (flags & FSL_EDMA_DRV_EDMA3) == FSL_EDMA_DRV_EDMA3 ?
+			EDMA_V3_MP_HRS : EDMA_V4_MP_HRS;
 
 	/* Make sure there is no hardware request in progress. */
-	while (edma_readl(fsl_edma, fsl_edma->membase + EDMA_V3_MP_HRS) &
+	while (edma_readl(fsl_edma, fsl_edma->membase + hrs_offset) &
 	       EDMA_V3_MP_HRS_CH(ch))
 		;
 
