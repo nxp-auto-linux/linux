@@ -670,7 +670,10 @@
 	/* AQR107 on S32GRV-PLATEVB */
 	gmac1_phy1: ethernet-phy@1 {
 		compatible = "ethernet-phy-ieee802.3-c45";
-		reg = <1>;
+		/* S32GRV-PLATEVB revision C or older have PHY ADDR 0x1
+		 * for AQR107.
+		 */
+		reg = <3>;
 	};
 };
 
