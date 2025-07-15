@@ -196,10 +196,6 @@ void fsl_edma_chan_mux(struct fsl_edma_chan *fsl_chan,
 	void __iomem *muxaddr;
 	unsigned int chans_per_mux, ch_off;
 	int endian_diff[4] = {3, 1, -1, -3};
-	u32 dmamux_nr = fsl_chan->edma->drvdata->dmamuxs;
-
-	if (!dmamux_nr)
-		return;
 
 	/* Extract DMAMUX slot. */
 	slot = EDMAMUX_SRCID_TO_SLOT(slot);
@@ -208,7 +204,9 @@ void fsl_edma_chan_mux(struct fsl_edma_chan *fsl_chan,
 		ch_off = fsl_chan->vchan.chan.chan_id / 2;
 		muxaddr = fsl_chan->edma->muxbase[ch % 2];
 	} else {
-		chans_per_mux = fsl_chan->edma->n_chans / dmamux_nr;
+		chans_per_mux = fsl_chan->edma->chans_per_mux;
+		if (!chans_per_mux)
+			return;
 		ch_off = fsl_chan->vchan.chan.chan_id % chans_per_mux;
 		muxaddr = fsl_chan->edma->muxbase[ch / chans_per_mux];
 	}

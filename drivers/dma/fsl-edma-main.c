@@ -254,8 +254,7 @@ static struct dma_chan *fsl_edma_xlate(struct of_phandle_args *dma_spec,
 	struct fsl_edma_engine *fsl_edma = ofdma->of_dma_data;
 	struct dma_chan *chan, *_chan;
 	struct fsl_edma_chan *fsl_chan;
-	u32 dmamux_nr = fsl_edma->drvdata->dmamuxs, srcid, dmamux;
-	u32 chans_per_mux = fsl_edma->n_chans / dmamux_nr;
+	u32 srcid, dmamux;
 
 	if (dma_spec->args_count != 2)
 		return NULL;
@@ -275,7 +274,7 @@ static struct dma_chan *fsl_edma_xlate(struct of_phandle_args *dma_spec,
 		if (fsl_edma->drvdata->flags & FSL_EDMA_DRV_MUX_ODD_EVEN)
 			dmamux = chan->chan_id % 2;
 		else
-			dmamux = chan->chan_id / chans_per_mux;
+			dmamux = chan->chan_id / fsl_edma->chans_per_mux;
 
 		if (dmamux == dma_spec->args[0]) {
 			chan = dma_get_slave_channel(chan);
@@ -769,6 +768,14 @@ static int fsl_edma_probe(struct platform_device *pdev)
 		fsl_edma->chan_masked <<= 32;
 		fsl_edma->chan_masked |= chan_mask[0];
 	}
+
+	/* If chans_per_mux is not defined, compute it as
+	 * number of chans / number of dmamuxs.
+	 */
+	if (drvdata->dmamuxs)
+		fsl_edma->chans_per_mux = drvdata->chans_per_mux ?
+					drvdata->chans_per_mux :
+					fsl_edma->n_chans / drvdata->dmamuxs;
 
 	for (i = 0; i < fsl_edma->drvdata->dmamuxs; i++) {
 		char clkname[32];
