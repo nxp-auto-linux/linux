@@ -276,7 +276,12 @@ static struct dma_chan *fsl_edma_xlate(struct of_phandle_args *dma_spec,
 		else
 			dmamux = chan->chan_id / fsl_edma->chans_per_mux;
 
-		if (dmamux == dma_spec->args[0]) {
+		/* If DMAMUX_F is present, any channel can be used.
+		 * The slot (srcid_f) will be computed based on child dmamux
+		 * number.
+		 */
+		if (fsl_edma->drvdata->flags & FSL_EDMA_DRV_MUX_F ||
+				dmamux == dma_spec->args[0]) {
 			chan = dma_get_slave_channel(chan);
 			if (chan) {
 				chan->device->privatecnt++;
@@ -719,7 +724,7 @@ static int fsl_edma_probe(struct platform_device *pdev)
 	char clk_name[36];
 	struct edma_regs *regs;
 	int chans;
-	int ret, i;
+	int ret, i, j;
 
 	drvdata = device_get_match_data(&pdev->dev);
 	if (!drvdata) {
@@ -794,6 +799,21 @@ static int fsl_edma_probe(struct platform_device *pdev)
 			dev_err(&pdev->dev, "Missing DMAMUX block clock.\n");
 			/* on error: disable all previously enabled clks */
 			return PTR_ERR(fsl_edma->muxclk[i]);
+		}
+
+		/*
+		 * Use a bitmap for each child DMAMUX to track the used
+		 * channels.
+		 * Last DMAMUX is DMAMUX_F so don't use any bitmap for it.
+		 */
+		if ((drvdata->flags & FSL_EDMA_DRV_MUX_F) &&
+		    (i != fsl_edma->drvdata->dmamuxs - 1)) {
+			fsl_edma->mux_channels[i] =
+				devm_bitmap_zalloc(&pdev->dev,
+						   fsl_edma->chans_per_mux,
+						   GFP_KERNEL);
+			if (!fsl_edma->mux_channels[i])
+				return PTR_ERR(fsl_edma->mux_channels[i]);
 		}
 	}
 
@@ -918,6 +938,15 @@ static int fsl_edma_probe(struct platform_device *pdev)
 		fsl_edma_chan_mux(fsl_chan, 0, false);
 	}
 
+	/* Initialize the child DMAMUXs. */
+	if (drvdata->flags & FSL_EDMA_DRV_MUX_F) {
+		for (i = 0; i < drvdata->dmamuxs - 1; i++)
+			for (j = 0; j < fsl_edma->chans_per_mux; j++) {
+				fsl_edma_chan_mux_configure(fsl_edma->muxbase[i],
+						0, j, drvdata->flags, false);
+			}
+	}
+
 	ret = of_dma_controller_register(np,
 			drvdata->dmamuxs ? fsl_edma_xlate : fsl_edma3_xlate,
 			fsl_edma);
@@ -951,6 +980,7 @@ static int fsl_edma_suspend_late(struct device *dev)
 	struct fsl_edma_engine *fsl_edma = dev_get_drvdata(dev);
 	struct fsl_edma_chan *fsl_chan;
 	unsigned long flags;
+	bool enabled;
 	int i;
 
 	for (i = 0; i < fsl_edma->n_chans; i++) {
@@ -959,14 +989,19 @@ static int fsl_edma_suspend_late(struct device *dev)
 			continue;
 		spin_lock_irqsave(&fsl_chan->vchan.lock, flags);
 		/* Make sure chan is idle or will force disable. */
-		if (unlikely(fsl_chan->status == DMA_IN_PROGRESS)) {
+		enabled = fsl_chan->status == DMA_IN_PROGRESS;
+		if (unlikely(enabled)) {
 			dev_warn(dev, "WARN: There is non-idle channel.\n");
 			fsl_edma_disable_request(fsl_chan);
-			fsl_edma_chan_mux(fsl_chan, 0, false);
 		}
 
 		fsl_chan->pm_state = SUSPENDED;
 		spin_unlock_irqrestore(&fsl_chan->vchan.lock, flags);
+
+		if (enabled) {
+			scoped_guard(mutex, &fsl_edma->fsl_edma_mutex)
+				fsl_edma_chan_mux(fsl_chan, 0, false);
+		}
 	}
 
 	return 0;
