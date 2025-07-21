@@ -508,8 +508,8 @@
 		edma0_rcu: dma-controller@558c0000 {
 			compatible = "nxp,s32n79-rcu-edma5";
 			reg = <0x558c0000 0x101000>,
-				<0x558b0000 0x1000>,
-				<0x558b1000 0x1000>;
+				<0x558b1000 0x1000>,
+				<0x558b0000 0x1000>;
 			#dma-cells = <2>;
 			dma-channels = <16>;
 			interrupt-parent = <&irqsteer_rcu>;
