@@ -611,14 +611,6 @@ static void enetc4_set_trx_frame_size(struct enetc_pf *pf)
 	enetc4_pf_reset_tc_msdu(&si->hw);
 }
 
-static void enetc4_enable_trx(struct enetc_pf *pf)
-{
-	struct enetc_hw *hw = &pf->si->hw;
-
-	/* Enable port transmit/receive */
-	enetc_port_wr(hw, ENETC4_POR, 0);
-}
-
 static void enetc4_set_isit_key_profile(struct enetc_pf *pf)
 {
 	struct enetc_hw *hw = &pf->si->hw;
@@ -644,7 +636,6 @@ static void enetc4_configure_port(struct enetc_pf *pf)
 	enetc4_set_trx_frame_size(pf);
 	enetc_set_default_rss_key(pf);
 	enetc4_set_isit_key_profile(pf);
-	enetc4_enable_trx(pf);
 }
 
 static u64 enetc4_get_current_time(struct enetc_si *si)
@@ -1244,8 +1235,11 @@ static void enetc4_set_tx_pause(struct enetc_pf *pf, int num_rxbdr, bool tx_paus
 
 static void enetc4_enable_mac(struct enetc_pf *pf, bool en)
 {
+	struct enetc_hw *hw = &pf->si->hw;
 	struct enetc_si *si = pf->si;
 	u32 val;
+
+	enetc_port_wr(hw, ENETC4_POR, en ? 0 : POR_TXDIS | POR_RXDIS);
 
 	val = enetc_port_mac_rd(si, ENETC4_PM_CMD_CFG(0));
 	val &= ~(PM_CMD_CFG_TX_EN | PM_CMD_CFG_RX_EN);
