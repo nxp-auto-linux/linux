@@ -271,8 +271,8 @@ allOf:
             - const: dmamux0
             - const: dmamux1
         interrupts:
-          minItems: 16
-          maxItems: 16
+          minItems: 17
+          maxItems: 17
         reg:
           minItems: 3
           maxItems: 3
