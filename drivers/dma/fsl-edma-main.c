@@ -621,7 +621,8 @@ static const struct fsl_edma_drvdata s32g2_data = {
 static struct fsl_edma_drvdata s32n79_rcu_data5 = {
 	.dmamuxs = 2,
 	.flags = FSL_EDMA_DRV_EDMA4 | FSL_EDMA_DRV_TCD64 |
-		 FSL_EDMA_DRV_MUX_SWAP | FSL_EDMA_DRV_MUX_ODD_EVEN,
+		 FSL_EDMA_DRV_MUX_SWAP | FSL_EDMA_DRV_MUX_ODD_EVEN |
+		 FSL_EDMA_DRV_ERRIRQ_SHARE,
 	.chreg_space_sz = 0x10000,
 	.chreg_off = 0x10000,
 	.setup_irq = fsl_edma3_irq_init,
