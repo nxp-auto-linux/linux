@@ -4,7 +4,7 @@
  *
  * Copyright (C) 1999-2003 Russell King
  * Copyright (C) 2012 ARM Ltd.
- * Copyright 2022-2024 NXP
+ * Copyright 2022-2025 NXP
  */
 #ifndef __ASM_TLBFLUSH_H
 #define __ASM_TLBFLUSH_H
@@ -74,6 +74,8 @@
 /* We don't, in fact, support TLB range invalidate; at runtime, this function
  * shouldn't even be executed. Implement it to appease the compiler.
  */
+#define __tlbi_rvaae1is(ADDR)		__TLBI_0(alle1is, 0)
+#define __tlbi_rvaale1is(ADDR)		__TLBI_0(alle1is, 0)
 #define __tlbi_ripas2e1is(ADDR)		__TLBI_0(vmalls12e1is, 0)
 
 #define __tlbi(op, ...) __tlbi_##op(__VA_ARGS__)
