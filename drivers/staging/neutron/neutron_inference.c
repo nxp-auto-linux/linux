@@ -281,6 +281,9 @@ static void inference_done_callback(struct work_struct *work)
 	if (!inf || IS_ERR(inf))
 		return;
 
+	if (!kref_read(&inf->kref))
+		return;
+
 	neutron_inference_get(inf);
 
 	/* Update inference job from running to done */
@@ -300,8 +303,10 @@ static void inference_done_callback(struct work_struct *work)
 	wake_up_interruptible(&inf->waitq);
 
 	/* Reset neutron */
+	mutex_lock(&ndev->mutex);
 	if (mbox->ops->send_reset(ndev->mbox))
 		dev_warn(ndev->dev, "failed to reset neutron state\n");
+	mutex_unlock(&ndev->mutex);
 
 	dev_dbg(ndev->dev, "inf %x is done\n", inf->args.tensor_offset);
 
@@ -436,8 +441,14 @@ int neutron_inference_create(struct neutron_device *ndev, enum neutron_cmd_type 
 
 	inf->ndev = ndev;
 	inf->cmd_type = type;
+
+	/* use irq mode */
+	if (ndev->flags & NEUTRON_USE_IRQ_MODE)
+		inf->poll_mode = false;
+
 	/* use polling mode */
-	inf->poll_mode = true;
+	else
+		inf->poll_mode = true;
 
 	kref_init(&inf->kref);
 	init_waitqueue_head(&inf->waitq);
