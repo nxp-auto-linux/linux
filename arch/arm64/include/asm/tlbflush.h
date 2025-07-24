@@ -67,16 +67,16 @@
 #define __tlbi_vmalls12e1()		__TLBI_0(vmalls12e1, 0)
 #define __tlbi_vmalls12e1is()		__TLBI_0(vmalls12e1is, 0)
 #define __tlbi_aside1is(ASID)		__TLBI_1(aside1is, ASID)
-#define __tlbi_rvale1is(ADDR)		__TLBI_1(rvale1is, ADDR)
-#define __tlbi_rvae1is(ADDR)		__TLBI_1(rvae1is, ADDR)
 #define __tlbi_ipas2e1is(ADDR)		__TLBI_1(ipas2e1is, ADDR)
 #define __tlbi_ipas2e1(ADDR)		__TLBI_1(ipas2e1, ADDR)
 /* We don't, in fact, support TLB range invalidate; at runtime, this function
  * shouldn't even be executed. Implement it to appease the compiler.
  */
+#define __tlbi_rvae1is(ADDR)		__TLBI_0(alle1is, 0)
+#define __tlbi_rvale1is(ADDR)		__TLBI_0(alle1is, 0)
 #define __tlbi_rvaae1is(ADDR)		__TLBI_0(alle1is, 0)
 #define __tlbi_rvaale1is(ADDR)		__TLBI_0(alle1is, 0)
-#define __tlbi_ripas2e1is(ADDR)		__TLBI_0(vmalls12e1is, 0)
+#define __tlbi_ripas2e1is(ADDR)		__TLBI_0(alle1is, 0)
 
 #define __tlbi(op, ...) __tlbi_##op(__VA_ARGS__)
 
