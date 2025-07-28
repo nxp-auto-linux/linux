@@ -106,7 +106,8 @@
  * SerDes mode is already set. Hence assert/deassert reset of SerDes lines
  * is not needed.
  */
-#define SERDES_QUIRK_SKIP_ASSERT_RESET_LINES	BIT(0)
+#define SERDES_QUIRK_SKIP_ASSERT_RESET_LINES BIT(0)
+#define SERDES_QUIRK_SKIP_VR_RST BIT(1)
 
 struct serdes_lane_conf {
 	enum phy_mode mode;
@@ -154,6 +155,7 @@ struct serdes {
 	struct phy *phys[SERDES_MAX_LANES];
 	const struct serdes_devtype_data *devtype_data;
 	u8 lanes_status;
+	u8 id;
 };
 
 static const struct serdes_devtype_data s32cc_data = {
@@ -161,7 +163,7 @@ static const struct serdes_devtype_data s32cc_data = {
 };
 
 static const struct serdes_devtype_data s32r47_data = {
-	.quirks = SERDES_QUIRK_SKIP_ASSERT_RESET_LINES,
+	.quirks = SERDES_QUIRK_SKIP_ASSERT_RESET_LINES | SERDES_QUIRK_SKIP_VR_RST
 };
 
 static int lane_id_to_xpcs_id(unsigned int mode, int lane_id);
@@ -169,6 +171,12 @@ static int lane_id_to_xpcs_id(unsigned int mode, int lane_id);
 static int skip_assert_reset_lines(struct serdes *serdes)
 {
 	return serdes->devtype_data->quirks & SERDES_QUIRK_SKIP_ASSERT_RESET_LINES;
+}
+
+static bool skip_vr_rst(struct serdes *serdes)
+{
+	return serdes->devtype_data->quirks & SERDES_QUIRK_SKIP_VR_RST &&
+	       serdes->id == 0 && serdes->ctrl.ss_mode == 2;
 }
 
 static void mark_configured_lane(struct serdes *serdes, u32 lane)
@@ -589,9 +597,11 @@ static int xpcs_init_clks(struct serdes *serdes)
 			if (xpcs_id == XPCS_DISABLED)
 				continue;
 
-			ret = xpcs->ops->vreset(xpcs->phys[xpcs_id]);
-			if (ret)
-				return ret;
+			if (!skip_vr_rst(serdes)) {
+				ret = xpcs->ops->vreset(xpcs->phys[xpcs_id]);
+				if (ret)
+					return ret;
+			}
 		}
 	}
 
@@ -601,11 +611,13 @@ static int xpcs_init_clks(struct serdes *serdes)
 		if (xpcs_id == XPCS_DISABLED)
 			continue;
 
-		ret = xpcs->ops->wait_vreset(xpcs->phys[xpcs_id]);
-		if (ret)
-			return ret;
+		if (!skip_vr_rst(serdes)) {
+			ret = xpcs->ops->wait_vreset(xpcs->phys[xpcs_id]);
+			if (ret)
+				return ret;
 
-		xpcs->ops->reset_rx(xpcs->phys[xpcs_id]);
+			xpcs->ops->reset_rx(xpcs->phys[xpcs_id]);
+		}
 	}
 
 	xpcs->initialized_clks = true;
@@ -1024,6 +1036,14 @@ static int ss_dt_init(struct platform_device *pdev, struct serdes *serdes)
 	struct serdes_ctrl *ctrl = &serdes->ctrl;
 	struct device *dev = &pdev->dev;
 	int ret;
+
+	ret = of_alias_get_id(dev->of_node, "serdes");
+	if (ret < 0) {
+		dev_err(dev, "Failed to get serdes id\n");
+		return ret;
+	}
+
+	serdes->id = ret;
 
 	ret = of_property_read_u32(dev->of_node, "nxp,sys-mode",
 				   &ctrl->ss_mode);
