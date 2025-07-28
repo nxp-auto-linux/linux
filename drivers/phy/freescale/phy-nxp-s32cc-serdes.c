@@ -1019,10 +1019,10 @@ static int init_serdes(struct serdes *serdes)
 		ret = deassert_reset(serdes);
 		if (ret)
 			return ret;
-
-		dev_info(serdes->dev, "Using mode %d for SerDes subsystem\n",
-			 ctrl->ss_mode);
 	}
+
+	dev_info(serdes->dev, "Using mode %d for SerDes subsystem\n",
+			ctrl->ss_mode);
 
 	ret = xpcs_init_clks(serdes);
 	if (ret)
