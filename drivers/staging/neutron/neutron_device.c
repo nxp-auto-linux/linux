@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0+
 /*
- * Copyright 2023 NXP
+ * Copyright 2023, 2025 NXP
  */
 /****************************************************************************/
 
@@ -568,7 +568,7 @@ static long neutron_ioctl(struct file *file,
 		data_offset = uapi.data_offset;
 
 		if (*fw_name == '\0')
-			strcpy(fw_name, NEUTRON_FIRMW_NAME);
+			strscpy(fw_name, NEUTRON_FIRMW_NAME, sizeof(uapi.fw_name));
 		neu_dbg("fw_name: %s\n", fw_name);
 
 		buf = neutron_buffer_get_from_fd(buf_fd);
