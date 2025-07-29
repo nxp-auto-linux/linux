@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0+
 /*
- * Copyright 2023 NXP
+ * Copyright 2023, 2025 NXP
  */
 
 /****************************************************************************
@@ -169,7 +169,7 @@ static int neutron_inference_run(struct neutron_inference *inf)
 	} else {
 		inf->status = NEUTRON_UAPI_STATUS_ERROR;
 		ret = -EINVAL;
-		dev_err(ndev->dev, "unkonw inference type: %d\n", inf->cmd_type);
+		dev_err(ndev->dev, "unknown inference type: %d\n", inf->cmd_type);
 		goto inf_stop_early;
 	}
 
