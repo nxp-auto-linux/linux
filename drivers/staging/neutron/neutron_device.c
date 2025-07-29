@@ -185,7 +185,7 @@ static int neutron_firmw_request(struct neutron_device *ndev, struct neutron_buf
 	struct rproc *rproc = ndev->rproc;
 
 	if (!buf) {
-		dev_err(dev, "%s: invalid neutron bufffer\n", __func__);
+		dev_err(dev, "%s: invalid neutron buffer\n", __func__);
 		return PTR_ERR(buf);
 	}
 
@@ -205,7 +205,7 @@ static int neutron_firmw_request(struct neutron_device *ndev, struct neutron_buf
 	// remap ddr data address to kernel virt.
 	neu_dbg("data_ddr: 0x%lx,  sz: 0x%x\n", data_ddr, buf->firmware_p->size);
 
-	/* Only the ddr data needs to be loaded on prepartion, other data
+	/* Only the ddr data needs to be loaded on preparation, other data
 	 * will be loaded on demand at runtime.
 	 */
 	ret = neutron_rproc_elf_load(rproc, buf->firmware_p, data_ddr, 2);
