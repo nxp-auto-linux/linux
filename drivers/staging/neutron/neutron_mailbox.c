@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0+
 /*
- * Copyright 2023 NXP
+ * Copyright 2023, 2025 NXP
  *
  */
 
@@ -146,7 +146,7 @@ static int mbox_send_reset(struct neutron_mbox *mbox)
 }
 
 /**
- * mbox_recv_data - Recevie mailbox data and store into data.
+ * mbox_recv_data - Receive mailbox data and store into data.
  *
  * @mbox: neutron_mbox pointer
  * @data: pointer to store received data
