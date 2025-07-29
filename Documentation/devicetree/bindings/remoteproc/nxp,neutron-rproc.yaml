@@ -1,0 +1,51 @@
+# SPDX-License-Identifier: (GPL-2.0 OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/remoteproc/nxp,neutron-rproc.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: NXP Neutron Accelerator
+
+description:
+  This binding provides support for Neutron, initially found on NXP S32N7x and
+  i.MX95 SoCs.
+
+maintainers:
+  - Alexandru Iulian Taran <alexandru.taran@nxp.com>
+
+properties:
+  compatible:
+    enum:
+      - fsl,imx95-neutron-rproc
+      - nxp,s32n7-neutron-rproc
+
+  reg:
+    description:
+      Address ranges of the Neutron reset and control(RESETCTRL) register.
+    maxItems: 1
+
+required:
+  - compatible
+  - reg
+
+additionalProperties: false
+
+examples:
+  - |
+    bus {
+        #address-cells = <2>;
+        #size-cells = <2>;
+        remoteproc@25f80000 {
+            compatible = "nxp,s32n7-neutron-rproc";
+            reg = <0x0 0x25f80000 0x0 0x4>;
+        };
+    };
+  - |
+    bus {
+        #address-cells = <2>;
+        #size-cells = <2>;
+        remoteproc@4ab00000 {
+            compatible = "fsl,imx95-neutron-rproc";
+            reg = <0x0 0x4ab00000 0x0 0x4>;
+        };
+    };

@@ -1,0 +1,61 @@
+# SPDX-License-Identifier: (GPL-2.0 OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/misc/nxp,neutron.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: NXP Neutron Accelerator
+
+description:
+  This binding provides support for Neutron, initially found on NXP S32N7x and
+  i.MX95 SoCs.
+
+maintainers:
+  - Alexandru Iulian Taran <alexandru.taran@nxp.com>
+
+properties:
+  compatible:
+    enum:
+      - fsl,imx95-neutron
+      - nxp,s32n7-neutron
+
+  reg:
+    description:
+      Address ranges of the Neutron memory mapped registers.
+    maxItems: 1
+
+  fsl,neutron-rproc:
+    description:
+      A phandle to the remote processor node associated with the Neutron device.
+      This property links the Neutron device node to its corresponding remote
+      processor, enabling communication and control between the two.
+    minItems: 1
+    maxItems: 1
+
+  interrupts:
+    description:
+      Interrupt assigned to Neutron.
+    maxItems: 1
+
+required:
+  - compatible
+  - reg
+  - fsl,neutron-rproc
+  - interrupts
+
+additionalProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/interrupt-controller/arm-gic.h>
+
+    bus {
+        #address-cells = <2>;
+        #size-cells = <2>;
+        neutron@25f80004 {
+            compatible = "nxp,s32n7-neutron";
+            reg = <0x0 0x25f80004 0x0 0x400>;
+            fsl,neutron-rproc = <&neutron_core>;
+            interrupts = <GIC_SPI 297 IRQ_TYPE_LEVEL_HIGH>;
+        };
+    };
