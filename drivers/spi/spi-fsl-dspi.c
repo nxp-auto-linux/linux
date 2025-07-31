@@ -1780,21 +1780,23 @@ static int dspi_probe(struct platform_device *pdev)
 	if (ret)
 		goto out_ctlr_put;
 
-	dspi->irq = platform_get_irq(pdev, 0);
-	if (dspi->irq <= 0) {
-		dev_info(&pdev->dev,
-			 "can't get platform irq, using poll mode\n");
-		dspi->irq = 0;
-		goto poll_mode;
-	}
-
 	init_completion(&dspi->xfer_done);
 
-	ret = request_threaded_irq(dspi->irq, dspi_interrupt, NULL,
-				   IRQF_SHARED, pdev->name, dspi);
-	if (ret < 0) {
-		dev_err(&pdev->dev, "Unable to attach DSPI interrupt\n");
-		goto out_ctlr_put;
+	if (!ctlr->target) {
+		dspi->irq = platform_get_irq(pdev, 0);
+		if (dspi->irq <= 0) {
+			dev_info(&pdev->dev,
+				 "can't get platform irq, using poll mode\n");
+			dspi->irq = 0;
+			goto poll_mode;
+		}
+
+		ret = request_threaded_irq(dspi->irq, dspi_interrupt, NULL,
+					   IRQF_SHARED, pdev->name, dspi);
+		if (ret < 0) {
+			dev_err(&pdev->dev, "Unable to attach DSPI interrupt\n");
+			goto out_ctlr_put;
+		}
 	}
 
 poll_mode:
