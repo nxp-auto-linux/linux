@@ -89,10 +89,12 @@
 /* 0x01 - Graceful reset */
 #define RTIS_SRST			BIT(0)
 
+#define SPI_RSER_CMDFFFE		BIT(30)
 #define SPI_RSER_TFFFE			BIT(25)
 #define SPI_RSER_TFFFD			BIT(24)
 #define SPI_RSER_RFDFE			BIT(17)
 #define SPI_RSER_RFDFD			BIT(16)
+#define SPI_RSER_CMDFFFD		BIT(15)
 
 /* DMA and Interrupt Request Select and Enable */
 #define SPI_RSER			0x30
@@ -159,6 +161,12 @@
 /* The maximum that edma can transfer once.*/
 #define SPI_DMA_BUFFER_SIZE	(GENMASK(14, 0) * DMA_SLAVE_BUSWIDTH_4_BYTES)
 
+/* SPI frames with sizes up to 65536 bits can have a single command
+ * associated with them.
+ */
+#define SPI_V2_MAX_FRAME_PER_CMD	65536
+#define SPI_V2_MAX_WORDS_PER_CMD	(SPI_V2_MAX_FRAME_PER_CMD / 32)
+
 struct chip_data {
 	u32			ctar_val;
 };
@@ -194,6 +202,7 @@ enum {
 	S32CC,
 	S32CC_TARGET,
 	S32N79,
+	S32N79_TARGET,
 };
 
 static inline u32 dspi_get_sr(enum dspi_hw_ver ver)
@@ -304,21 +313,35 @@ static const struct fsl_dspi_devtype_data devtype_data[] = {
 		.fifo_size		= 16,
 		.hw_version		= DSPI_V2,
 	},
+	[S32N79_TARGET] = {
+		.trans_mode		= DSPI_DMA_MODE,
+		.max_clock_factor	= 1,
+		.fifo_size		= 16,
+		.hw_version		= DSPI_V2,
+	},
 };
 
 struct fsl_dspi_dma {
+	/* TX FIFO DMA resources. */
 	u32					*tx_dma_buf;
 	struct dma_chan				*chan_tx;
 	dma_addr_t				tx_dma_phys;
 	struct completion			cmd_tx_complete;
 	struct dma_async_tx_descriptor		*tx_desc;
 
+	/* RX FIFO DMA resources. */
 	u32					*rx_dma_buf;
 	struct dma_chan				*chan_rx;
 	dma_addr_t				rx_dma_phys;
 	struct completion			cmd_rx_complete;
 	struct dma_async_tx_descriptor		*rx_desc;
 	unsigned int				dma_bufsize;
+
+	/* CMD FIFO DMA resources. Used in DSPI_V2 case. */
+	u32					*cmd_dma_buf;
+	struct dma_chan				*chan_cmd;
+	dma_addr_t				cmd_dma_phys;
+	struct dma_async_tx_descriptor		*cmd_desc;
 };
 
 struct fsl_dspi {
@@ -370,6 +393,12 @@ static inline bool is_s32cc_dspi(struct fsl_dspi *data)
 {
 	return data->devtype_data == &devtype_data[S32CC] ||
 		data->devtype_data == &devtype_data[S32CC_TARGET];
+}
+
+static inline bool is_s32n_dspi(struct fsl_dspi *data)
+{
+	return data->devtype_data == &devtype_data[S32N79] ||
+		data->devtype_data == &devtype_data[S32N79_TARGET];
 }
 
 static void dspi_native_host_to_dev(struct fsl_dspi *dspi, u32 *txdata)
@@ -513,15 +542,62 @@ static void dspi_rx_dma_callback(void *arg)
 	complete(&dma->cmd_rx_complete);
 }
 
+static u32 dspi_get_cmd_fifo(struct fsl_dspi *dspi, int num_words);
+static void dspi_pushr_cmd_write(struct fsl_dspi *dspi, u32 cmd);
+
+static inline bool dspi_use_single_cmd(struct fsl_dspi *dspi)
+{
+	return dspi->oper_bits_per_word == 32;
+}
+
 static int dspi_next_xfer_dma_submit(struct fsl_dspi *dspi)
 {
+	enum dspi_hw_ver hw_ver = dspi->devtype_data->hw_version;
 	struct device *dev = &dspi->pdev->dev;
 	struct fsl_dspi_dma *dma = dspi->dma;
-	int time_left;
+	int time_left, num_words = dspi->words_in_flight;
+	bool use_dma_for_cmd = false;
 	int i;
 
-	for (i = 0; i < dspi->words_in_flight; i++)
+	/* DSPI_V1 adds the command during dspi_pop_tx_pushr call.
+	 * DSPI_V2 will use only one command if 32bits words are used,
+	 * otherwise, will add a command for each word. In the later case,
+	 * dma will be used to feed the CMD FIFO.
+	 */
+	if (hw_ver != DSPI_V1) {
+		use_dma_for_cmd = !dspi_use_single_cmd(dspi);
+
+		/* Write the command if no DMA is used for it. */
+		if (!use_dma_for_cmd)
+			dspi_pushr_cmd_write(dspi,
+					     dspi_get_cmd_fifo(dspi, num_words));
+	}
+
+	for (i = 0; i < num_words; i++) {
 		dspi->dma->tx_dma_buf[i] = dspi_pop_tx_pushr(dspi);
+		if (use_dma_for_cmd)
+			dspi->dma->cmd_dma_buf[i] =
+				dspi_get_cmd_fifo(dspi, num_words);
+	}
+
+	if (use_dma_for_cmd) {
+		dma->cmd_desc = dmaengine_prep_slave_single(dma->chan_cmd,
+						dma->cmd_dma_phys,
+						dspi->words_in_flight *
+						DMA_SLAVE_BUSWIDTH_4_BYTES,
+						DMA_MEM_TO_DEV,
+						DMA_PREP_INTERRUPT |
+						DMA_CTRL_ACK);
+		if (!dma->cmd_desc) {
+			dev_err(dev, "Not able to get desc for DMA xfer cmd\n");
+			return -EIO;
+		}
+
+		if (dma_submit_error(dmaengine_submit(dma->cmd_desc))) {
+			dev_err(dev, "DMA submit failed\n");
+			return -EINVAL;
+		}
+	}
 
 	dma->tx_desc = dmaengine_prep_slave_single(dma->chan_tx,
 					dma->tx_dma_phys,
@@ -563,6 +639,9 @@ static int dspi_next_xfer_dma_submit(struct fsl_dspi *dspi)
 	reinit_completion(&dspi->dma->cmd_tx_complete);
 
 	dma_async_issue_pending(dma->chan_rx);
+	/* CMD FIFO should be populated before the TX FIFO. */
+	if (use_dma_for_cmd)
+		dma_async_issue_pending(dma->chan_cmd);
 	dma_async_issue_pending(dma->chan_tx);
 
 	if (spi_controller_is_target(dspi->ctlr)) {
@@ -576,6 +655,8 @@ static int dspi_next_xfer_dma_submit(struct fsl_dspi *dspi)
 		dev_err(dev, "DMA tx timeout\n");
 		dmaengine_terminate_all(dma->chan_tx);
 		dmaengine_terminate_all(dma->chan_rx);
+		if (use_dma_for_cmd)
+			dmaengine_terminate_all(dma->chan_cmd);
 		return -ETIMEDOUT;
 	}
 
@@ -585,6 +666,8 @@ static int dspi_next_xfer_dma_submit(struct fsl_dspi *dspi)
 		dev_err(dev, "DMA rx timeout\n");
 		dmaengine_terminate_all(dma->chan_tx);
 		dmaengine_terminate_all(dma->chan_rx);
+		if (use_dma_for_cmd)
+			dmaengine_terminate_all(dma->chan_cmd);
 		return -ETIMEDOUT;
 	}
 
@@ -595,11 +678,12 @@ static void dspi_setup_accel(struct fsl_dspi *dspi);
 
 static int dspi_dma_xfer(struct fsl_dspi *dspi)
 {
+	enum dspi_hw_ver hw_ver = dspi->devtype_data->hw_version;
 	struct spi_message *message = dspi->cur_msg;
 	struct device *dev = &dspi->pdev->dev;
-	int ret = 0;
 	int max_words_per_buffer = dspi->dma->dma_bufsize /
 				   DMA_SLAVE_BUSWIDTH_4_BYTES;
+	int ret = 0;
 
 	if (spi_controller_is_target(dspi->ctlr) &&
 			dspi->len / dspi->oper_word_size > max_words_per_buffer)
@@ -612,8 +696,15 @@ static int dspi_dma_xfer(struct fsl_dspi *dspi)
 	while (dspi->len) {
 		/* Figure out operational bits-per-word for this chunk */
 		dspi_setup_accel(dspi);
-
 		dspi->words_in_flight = dspi->len / dspi->oper_word_size;
+
+		/* In V2 case, PUSHR_CMD[FMSZ] allows to send up to 65536
+		 * bits using a single command frame.
+		 */
+		if ((hw_ver != DSPI_V1) && dspi_use_single_cmd(dspi) &&
+			(dspi->words_in_flight > SPI_V2_MAX_WORDS_PER_CMD))
+			dspi->words_in_flight = SPI_V2_MAX_WORDS_PER_CMD;
+
 		if (dspi->words_in_flight > max_words_per_buffer)
 			dspi->words_in_flight = max_words_per_buffer;
 
@@ -632,6 +723,7 @@ static int dspi_dma_xfer(struct fsl_dspi *dspi)
 
 static int dspi_request_dma(struct fsl_dspi *dspi, phys_addr_t phy_addr)
 {
+	enum dspi_hw_ver hw_ver = dspi->devtype_data->hw_version;
 	unsigned int dma_bufsize = SPI_DMA_BUFFER_SIZE;
 	struct device *dev = &dspi->pdev->dev;
 	struct dma_slave_config cfg;
@@ -645,6 +737,15 @@ static int dspi_request_dma(struct fsl_dspi *dspi, phys_addr_t phy_addr)
 	dma->chan_rx = dma_request_chan(dev, "rx");
 	if (IS_ERR(dma->chan_rx))
 		return dev_err_probe(dev, PTR_ERR(dma->chan_rx), "rx dma channel not available\n");
+
+	if (hw_ver != DSPI_V1) {
+		dma->chan_cmd = dma_request_chan(dev, "cmd");
+		if (IS_ERR(dma->chan_cmd)) {
+			ret = dev_err_probe(dev, PTR_ERR(dma->chan_cmd),
+					    "cmd dma channel not available\n");
+			goto err_cmd_channel;
+		}
+	}
 
 	dma->chan_tx = dma_request_chan(dev, "tx");
 	if (IS_ERR(dma->chan_tx)) {
@@ -666,6 +767,17 @@ static int dspi_request_dma(struct fsl_dspi *dspi, phys_addr_t phy_addr)
 	if (!dma->rx_dma_buf) {
 		ret = -ENOMEM;
 		goto err_rx_dma_buf;
+	}
+
+	if (dma->chan_cmd) {
+		dma->cmd_dma_buf = dma_alloc_coherent(dma->chan_cmd->device->dev,
+						      dma_bufsize,
+						      &dma->cmd_dma_phys,
+						      GFP_KERNEL);
+		if (!dma->cmd_dma_buf) {
+			ret = -ENOMEM;
+			goto err_cmd_dma_buf;
+		}
 	}
 
 	memset(&cfg, 0, sizeof(cfg));
@@ -690,6 +802,16 @@ static int dspi_request_dma(struct fsl_dspi *dspi, phys_addr_t phy_addr)
 		goto err_slave_config;
 	}
 
+	if (dma->chan_cmd) {
+		cfg.dst_addr = phy_addr + SPI_V2_PUSHR_CMD;
+		ret = dmaengine_slave_config(dma->chan_cmd, &cfg);
+		if (ret) {
+			dev_err_probe(dev, ret,
+				      "can't configure cmd dma channel\n");
+			goto err_slave_config;
+		}
+	}
+
 	dma->dma_bufsize = dma_bufsize;
 	dspi->dma = dma;
 	init_completion(&dma->cmd_tx_complete);
@@ -698,6 +820,11 @@ static int dspi_request_dma(struct fsl_dspi *dspi, phys_addr_t phy_addr)
 	return 0;
 
 err_slave_config:
+	if (dma->chan_cmd)
+		dma_free_coherent(dma->chan_cmd->device->dev,
+				  dma_bufsize, dma->cmd_dma_buf,
+				  dma->cmd_dma_phys);
+err_cmd_dma_buf:
 	dma_free_coherent(dma->chan_rx->device->dev,
 			  dma_bufsize, dma->rx_dma_buf, dma->rx_dma_phys);
 err_rx_dma_buf:
@@ -706,6 +833,9 @@ err_rx_dma_buf:
 err_tx_dma_buf:
 	dma_release_channel(dma->chan_tx);
 err_tx_channel:
+	if (dma->chan_cmd)
+		dma_release_channel(dma->chan_cmd);
+err_cmd_channel:
 	dma_release_channel(dma->chan_rx);
 
 	devm_kfree(dev, dma);
@@ -841,12 +971,14 @@ static void dspi_pushr_txdata_write(struct fsl_dspi *dspi, u32 txdata)
 		regmap_write(dspi->regmap, SPI_PUSHR, txdata);
 }
 
-static void dspi_xspi_fifo_write(struct fsl_dspi *dspi, int num_words)
+static u32 dspi_get_cmd_fifo(struct fsl_dspi *dspi, int num_words)
 {
 	enum dspi_hw_ver hw_ver = dspi->devtype_data->hw_version;
 	int num_bytes = num_words * dspi->oper_word_size;
-	u32 tx_cmd = dspi->tx_cmd;
+	u32 fmsz, tx_cmd = dspi->tx_cmd;
 
+	if (hw_ver == DSPI_V1 && spi_controller_is_target(dspi->ctlr))
+		return tx_cmd;
 	/*
 	 * If the PCS needs to de-assert (i.e. we're at the end of the buffer
 	 * and cs_change does not want the PCS to stay on), then we need a new
@@ -855,23 +987,38 @@ static void dspi_xspi_fifo_write(struct fsl_dspi *dspi, int num_words)
 	 * So send one word less during this go, to force a split and a command
 	 * with a single word next time, when CONT will be unset.
 	 */
-	if (!(dspi->tx_cmd & dspi_pushr_cmd_cont_mask(hw_ver)) && num_bytes == dspi->len)
+	if (!spi_controller_is_target(dspi->ctlr) &&
+	    !(dspi->tx_cmd & dspi_pushr_cmd_cont_mask(hw_ver)) && num_bytes == dspi->len)
 		tx_cmd |= dspi_pushr_cmd_eoq_mask(hw_ver);
 
-	/* Update frame size */
+	/* Update frame size for V2. */
+	if (hw_ver != DSPI_V1) {
+		fmsz = SPI_V2_PUSHR_CMD_FMSZ(dspi->oper_bits_per_word *
+				num_words - 1);
+		if (spi_controller_is_target(dspi->ctlr))
+			tx_cmd = fmsz;
+		else
+			tx_cmd  = tx_cmd << 16 | fmsz;
+	}
+
+	return tx_cmd;
+}
+
+static void dspi_xspi_fifo_write(struct fsl_dspi *dspi, int num_words)
+{
+	enum dspi_hw_ver hw_ver = dspi->devtype_data->hw_version;
+
+	/* Update frame size for V1. */
 	if (hw_ver == DSPI_V1)
 		regmap_write(dspi->regmap, SPI_CTARE(0),
 			     SPI_FRAME_EBITS(dspi->oper_bits_per_word) |
 			     SPI_CTARE_DTCP(num_words));
-	else
-		tx_cmd  = tx_cmd << 16 | (SPI_V2_PUSHR_CMD_FMSZ(dspi->oper_bits_per_word)
-					  * num_words - 1);
 
 	/*
 	 * Write the CMD FIFO entry first, and then the two
 	 * corresponding TX FIFO entries (or one...).
 	 */
-	dspi_pushr_cmd_write(dspi, tx_cmd);
+	dspi_pushr_cmd_write(dspi, dspi_get_cmd_fifo(dspi, num_words));
 
 	/* Fill TX FIFO with as many transfers as possible */
 	while (num_words--) {
@@ -1018,7 +1165,7 @@ static void dspi_fifo_write(struct fsl_dspi *dspi)
 	 * In V2 case, only 32b words can be grouped to be sent with the same
 	 * command. 8b and 16b words should be sent using a single command.
 	 */
-	if (hw_ver != DSPI_V1 && xfer->bits_per_word != 32)
+	if (hw_ver != DSPI_V1 && !dspi_use_single_cmd(dspi))
 		num_words = 1;
 	else
 		num_words = dspi->len / dspi->oper_word_size;
@@ -1570,8 +1717,10 @@ static const struct regmap_config dspi_regmap_config[] = {
 
 static int dspi_init(struct fsl_dspi *dspi)
 {
-	const u32 rser = dspi_get_rser(dspi->devtype_data->hw_version);
-	const u32 sr = dspi_get_sr(dspi->devtype_data->hw_version);
+	enum dspi_hw_ver hw_ver = dspi->devtype_data->hw_version;
+	const u32 rser = dspi_get_rser(hw_ver);
+	const u32 sr = dspi_get_sr(hw_ver);
+	u32 rser_val;
 
 	unsigned int mcr;
 
@@ -1594,9 +1743,12 @@ static int dspi_init(struct fsl_dspi *dspi)
 		regmap_write(dspi->regmap, rser, SPI_RSER_CMDTCFE);
 		break;
 	case DSPI_DMA_MODE:
-		regmap_write(dspi->regmap, rser,
-			     SPI_RSER_TFFFE | SPI_RSER_TFFFD |
-			     SPI_RSER_RFDFE | SPI_RSER_RFDFD);
+		rser_val = SPI_RSER_TFFFE | SPI_RSER_TFFFD |
+				SPI_RSER_RFDFE | SPI_RSER_RFDFD;
+		if (hw_ver == DSPI_V2)
+			rser_val |= SPI_RSER_CMDFFFE | SPI_RSER_CMDFFFD;
+
+		regmap_write(dspi->regmap, rser, rser_val);
 		break;
 	default:
 		dev_err(&dspi->pdev->dev, "unsupported trans_mode %u\n",
@@ -1618,6 +1770,8 @@ static int dspi_target_abort(struct spi_controller *host)
 	if (dspi->devtype_data->trans_mode == DSPI_DMA_MODE) {
 		dmaengine_terminate_sync(dspi->dma->chan_rx);
 		dmaengine_terminate_sync(dspi->dma->chan_tx);
+		if (dspi->dma->chan_cmd)
+			dmaengine_terminate_sync(dspi->dma->chan_cmd);
 	}
 
 	/* Clear the internal DSPI RX and TX FIFO buffers */
@@ -1700,6 +1854,9 @@ static int dspi_probe(struct platform_device *pdev)
 		if (ctlr->target && is_s32cc_dspi(dspi))
 			dspi->devtype_data = &devtype_data[S32CC_TARGET];
 
+		if (ctlr->target && is_s32n_dspi(dspi))
+			dspi->devtype_data = &devtype_data[S32N79_TARGET];
+
 		big_endian = of_device_is_big_endian(np);
 	}
 
@@ -1730,7 +1887,7 @@ static int dspi_probe(struct platform_device *pdev)
 		goto out_ctlr_put;
 	}
 
-	if (dspi->devtype_data == &devtype_data[S32N79]) {
+	if (is_s32n_dspi(dspi)) {
 		regmap_config = &dspi_regmap_config[S32N_DSPI_REGMAP];
 	} else if (is_s32cc_dspi(dspi)) {
 		if (dspi->devtype_data->trans_mode == DSPI_XSPI_MODE)
@@ -1782,7 +1939,7 @@ static int dspi_probe(struct platform_device *pdev)
 
 	init_completion(&dspi->xfer_done);
 
-	if (!ctlr->target) {
+	if (spi_controller_is_target(ctlr)) {
 		dspi->irq = platform_get_irq(pdev, 0);
 		if (dspi->irq <= 0) {
 			dev_info(&pdev->dev,
