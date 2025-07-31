@@ -66,6 +66,23 @@
 #define RSST_CFGE_DATA_SIZE(n)		(n)
 #define SGCLT_MAX_GE_NUM		256
 
+void ntmp_enable_cbdr(struct netc_cbdr *cbdr)
+{
+	cbdr->next_to_clean = netc_read(cbdr->regs.cir);
+	cbdr->next_to_use = netc_read(cbdr->regs.pir);
+
+	/* Step 1: Configure the base address of the Control BD Ring */
+	netc_write(cbdr->regs.bar0, lower_32_bits(cbdr->dma_base_align));
+	netc_write(cbdr->regs.bar1, upper_32_bits(cbdr->dma_base_align));
+
+	/* Step 2: Configure the number of BDs of the Control BD Ring */
+	netc_write(cbdr->regs.lenr, cbdr->bd_num);
+
+	/* Step 3: Enable the Control BD Ring */
+	netc_write(cbdr->regs.mr, NETC_CBDR_MR_EN);
+}
+EXPORT_SYMBOL_GPL(ntmp_enable_cbdr);
+
 int ntmp_init_cbdr(struct netc_cbdr *cbdr, struct device *dev,
 		   const struct netc_cbdr_regs *regs)
 {
@@ -90,18 +107,7 @@ int ntmp_init_cbdr(struct netc_cbdr *cbdr, struct device *dev,
 
 	spin_lock_init(&cbdr->ring_lock);
 
-	cbdr->next_to_use = netc_read(cbdr->regs.pir);
-	cbdr->next_to_clean = netc_read(cbdr->regs.cir);
-
-	/* Step 1: Configure the base address of the Control BD Ring */
-	netc_write(cbdr->regs.bar0, lower_32_bits(cbdr->dma_base_align));
-	netc_write(cbdr->regs.bar1, upper_32_bits(cbdr->dma_base_align));
-
-	/* Step 2: Configure the number of BDs of the Control BD Ring */
-	netc_write(cbdr->regs.lenr, cbdr->bd_num);
-
-	/* Step 3: Enable the Control BD Ring */
-	netc_write(cbdr->regs.mr, NETC_CBDR_MR_EN);
+	ntmp_enable_cbdr(cbdr);
 
 	return 0;
 }
