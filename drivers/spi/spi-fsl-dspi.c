@@ -468,7 +468,8 @@ static u32 dspi_pop_tx(struct fsl_dspi *dspi)
 static u32 dspi_pop_tx_pushr(struct fsl_dspi *dspi)
 {
 	enum dspi_hw_ver hw_ver = dspi->devtype_data->hw_version;
-	u16 cmd = dspi->tx_cmd, data = dspi_pop_tx(dspi);
+	u32 data = dspi_pop_tx(dspi);
+	u16 cmd = dspi->tx_cmd;
 
 	if (spi_controller_is_target(dspi->ctlr))
 		return data;
@@ -903,17 +904,9 @@ static void dspi_fifo_read(struct fsl_dspi *dspi)
 		dspi_push_rx(dspi, dspi_popr_read(dspi));
 }
 
-static void dspi_setup_accel(struct fsl_dspi *dspi)
+static inline void dspi_setup_accel_v1(struct fsl_dspi *dspi)
 {
-	struct spi_transfer *xfer = dspi->cur_transfer;
 	bool odd = !!(dspi->len & 1);
-
-	/* No accel for DMA transfers or for frames not multiple of 8 bits
-	 * at the moment
-	 */
-	if (dspi->devtype_data->trans_mode == DSPI_DMA_MODE ||
-			xfer->bits_per_word % 8)
-		goto no_accel;
 
 	if (!odd && dspi->len <= dspi->devtype_data->fifo_size * 2) {
 		dspi->oper_bits_per_word = 16;
@@ -937,6 +930,43 @@ static void dspi_setup_accel(struct fsl_dspi *dspi)
 			dspi->oper_bits_per_word /= 2;
 		} while (dspi->oper_bits_per_word > 8);
 	}
+}
+
+static inline void dspi_setup_accel_v2(struct fsl_dspi *dspi)
+{
+	struct spi_transfer *xfer = dspi->cur_transfer;
+	size_t total_len = dspi->len * xfer->bits_per_word;
+
+	/* A single CMD FIFO entry can be used to TX multiple TX FIFO entries.
+	 * PUSHR_CMD[FMSZ] decides the number of SPI data frames to be
+	 * transmitted using the current command entry.
+	 * Since a TX entry occupies 32bits, send data as 32bits to reuse the
+	 * same command.
+	 */
+	if (total_len >= 32) {
+		dspi->oper_bits_per_word = 32;
+	} else if (total_len >= 16) {
+		dspi->oper_bits_per_word = 16;
+	} else {
+		dspi->oper_bits_per_word = 8;
+	}
+}
+
+static void dspi_setup_accel(struct fsl_dspi *dspi)
+{
+	struct spi_transfer *xfer = dspi->cur_transfer;
+
+	/* No accel for DMA transfers or for frames not multiple of 8 bits
+	 * at the moment
+	 */
+	if (dspi->devtype_data->trans_mode == DSPI_DMA_MODE ||
+			xfer->bits_per_word % 8)
+		goto no_accel;
+
+	if (dspi->devtype_data->hw_version == DSPI_V1)
+		dspi_setup_accel_v1(dspi);
+	else
+		dspi_setup_accel_v2(dspi);
 
 	if (xfer->bits_per_word == 8 && dspi->oper_bits_per_word == 32) {
 		dspi->dev_to_host = dspi_8on32_dev_to_host;
@@ -985,8 +1015,14 @@ static void dspi_fifo_write(struct fsl_dspi *dspi)
 	 * Integer division intentionally trims off odd (or non-multiple of 4)
 	 * numbers of bytes at the end of the buffer, which will be sent next
 	 * time using a smaller oper_word_size.
+	 * In V2 case, only 32b words can be grouped to be sent with the same
+	 * command. 8b and 16b words should be sent using a single command.
 	 */
-	num_words = dspi->len / dspi->oper_word_size;
+	if (hw_ver != DSPI_V1 && xfer->bits_per_word != 32)
+		num_words = 1;
+	else
+		num_words = dspi->len / dspi->oper_word_size;
+
 	if (num_words > num_fifo_entries)
 		num_words = num_fifo_entries;
 
@@ -1691,7 +1727,8 @@ static int dspi_probe(struct platform_device *pdev)
 		}
 	}
 
-	if (dspi->devtype_data->trans_mode == DSPI_XSPI_MODE)
+	if (dspi->devtype_data->trans_mode == DSPI_XSPI_MODE ||
+			hw_ver != DSPI_V1)
 		ctlr->bits_per_word_mask = SPI_BPW_RANGE_MASK(4, 32);
 	else
 		ctlr->bits_per_word_mask = SPI_BPW_RANGE_MASK(4, 16);
