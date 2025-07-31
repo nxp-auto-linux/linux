@@ -53,16 +53,6 @@ properties:
     items:
       - const: dspi
 
-  dmas:
-    items:
-      - description: DMA controller phandle and request line for TX
-      - description: DMA controller phandle and request line for RX
-
-  dma-names:
-    items:
-      - const: tx
-      - const: rx
-
   spi-num-chipselects:
     $ref: /schemas/types.yaml#/definitions/uint32
     description:
@@ -84,6 +74,36 @@ required:
 
 allOf:
   - $ref: spi-controller.yaml#
+  - if:
+      properties:
+        compatible:
+          contains:
+            const: nxp,s32n79-dspi
+    then:
+      properties:
+        dmas:
+          items:
+            - description: DMA controller phandle and request line for TX
+            - description: DMA controller phandle and request line for RX
+            - description: DMA controller phandle and request line for CMD
+
+        dma-names:
+          items:
+            - const: tx
+            - const: rx
+            - const: cmd
+
+    else:
+      properties:
+        dmas:
+          items:
+            - description: DMA controller phandle and request line for TX
+            - description: DMA controller phandle and request line for RX
+
+        dma-names:
+          items:
+            - const: tx
+            - const: rx
 
 unevaluatedProperties: false
 
