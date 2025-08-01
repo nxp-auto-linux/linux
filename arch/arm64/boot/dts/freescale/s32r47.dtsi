@@ -389,8 +389,15 @@
 			compatible = "nxp,s32r47-dwmac";
 			reg = <0x0 0x402ac000 0x0 0x4000>;
 			interrupt-parent = <&gic>;
-			interrupts = <GIC_SPI 215 IRQ_TYPE_LEVEL_HIGH>;
-			interrupt-names = "macirq";
+			interrupts = <GIC_SPI 215 IRQ_TYPE_LEVEL_HIGH>,
+				/* CHN0: tx, rx */
+				<GIC_SPI 216 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 217 IRQ_TYPE_LEVEL_HIGH>,
+				/* CHN1: tx, rx */
+				<GIC_SPI 218 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 219 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "macirq",
+					  "tx0", "rx0", "tx1", "rx1";
 			status = "disabled";
 			phy-names = "gmac_xpcs";
 			phys = <&serdes0 PHY_TYPE_XPCS 0 1>;
