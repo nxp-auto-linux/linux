@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /**
- * Copyright 2021-2022,2024 NXP
+ * Copyright 2021-2022,2024-2025 NXP
  */
 #ifndef NXP_S32CC_XPCS_H
 #define NXP_S32CC_XPCS_H
@@ -16,6 +16,29 @@ enum pcie_xpcs_mode {
 	NOT_SHARED,
 	PCIE_XPCS_1G,
 	PCIE_XPCS_2G5,
+};
+
+enum s32cc_xpc_pll {
+	XPCS_PLLA,	/* Slow PLL */
+	XPCS_PLLB,	/* Fast PLL */
+};
+
+struct s32cc_xpcs_params {
+	u32 addr1;
+	u32 addr2;
+};
+
+struct s32cc_xpcs {
+	struct phylink_pcs pcs;
+	struct s32cc_xpcs_params params;
+	struct regmap *regmap;
+	struct device *dev;
+	void __iomem *base;
+	enum pcie_xpcs_mode pcie_shared;
+	enum s32cc_xpc_pll ref;
+	unsigned char id;
+	bool ext_clk;
+	bool mhz125;
 };
 
 struct s32cc_xpcs_ops {
