@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /**
- * Copyright 2021-2022,2024 NXP
+ * Copyright 2021-2022,2024-2025 NXP
  */
 
 #include <linux/device.h>
@@ -164,29 +164,6 @@
 
 #define phylink_pcs_to_s32cc_xpcs(pl_pcs) \
 	container_of((pl_pcs), struct s32cc_xpcs, pcs)
-
-struct s32cc_xpcs_params {
-	u32 addr1;
-	u32 addr2;
-};
-
-enum s32cc_xpc_pll {
-	XPCS_PLLA,	/* Slow PLL */
-	XPCS_PLLB,	/* Fast PLL */
-};
-
-struct s32cc_xpcs {
-	struct s32cc_xpcs_params params;
-	enum s32cc_xpc_pll ref;
-	void __iomem *base;
-	struct device *dev;
-	unsigned char id;
-	struct regmap *regmap;
-	bool ext_clk;
-	bool mhz125;
-	enum pcie_xpcs_mode pcie_shared;
-	struct phylink_pcs pcs;
-};
 
 typedef bool (*xpcs_poll_func_t)(struct s32cc_xpcs *);
 
