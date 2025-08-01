@@ -165,6 +165,9 @@
 #define phylink_pcs_to_s32cc_xpcs(pl_pcs) \
 	container_of((pl_pcs), struct s32cc_xpcs, pcs)
 
+#define XPCS_AN_NAME_FMT	"xpcs%d_an"
+#define XPCS_AN_NAME_LEN	sizeof(XPCS_AN_NAME_FMT)
+
 typedef bool (*xpcs_poll_func_t)(struct s32cc_xpcs *);
 
 static const struct regmap_range xpcs_wr_ranges[] = {
@@ -803,15 +806,6 @@ static int serdes_bifurcation_pll_transit(struct s32cc_xpcs *xpcs,
 	return ret;
 }
 
-static int xpcs_configure(struct s32cc_xpcs *xpcs,
-			  const struct phylink_link_state *state)
-{
-	XPCS_WRITE_BITS(xpcs, SR_MII_CTRL, AN_ENABLE, 0);
-	XPCS_WRITE_BITS(xpcs, SR_MII_CTRL, DUPLEX_MODE, DUPLEX_MODE);
-
-	return 0;
-}
-
 /* Note: This function should be compatible with phylink.
  * That means it should only modify link, duplex, speed
  * an_complete, pause.
@@ -1053,6 +1047,15 @@ static int xpcs_config(struct s32cc_xpcs *xpcs,
 	return 0;
 }
 
+static int xpcs_configure(struct s32cc_xpcs *xpcs,
+			  const struct phylink_link_state *state)
+{
+	xpcs_config_an(xpcs, *state);
+	xpcs_config(xpcs, state);
+
+	return 0;
+}
+
 static int s32cc_phylink_pcs_config(struct phylink_pcs *pcs,
 				    unsigned int neg_mode,
 				    phy_interface_t interface,
@@ -1111,6 +1114,7 @@ static int xpcs_init(struct s32cc_xpcs **xpcs, struct device *dev,
 {
 	struct s32cc_xpcs *xpcsp;
 	struct regmap_config conf;
+	char xpcs_an[XPCS_AN_NAME_LEN];
 	int ret;
 
 	if (rate != MHZ(125) && rate != MHZ(100)) {
@@ -1126,11 +1130,19 @@ static int xpcs_init(struct s32cc_xpcs **xpcs, struct device *dev,
 
 	xpcsp = *xpcs;
 
+	scnprintf(xpcs_an, XPCS_AN_NAME_LEN, XPCS_AN_NAME_FMT, id);
 	xpcsp->base = base;
 	xpcsp->ext_clk = ext_clk;
 	xpcsp->id = id;
 	xpcsp->dev = dev;
 	xpcsp->pcie_shared = pcie_shared;
+	ret = of_property_read_u32(dev->of_node, xpcs_an, &xpcsp->an);
+	if (ret) {
+		dev_warn(dev, "Could not read xpcs%d_an property\n", id);
+		xpcsp->an = false;
+	}
+
+	dev_dbg(dev, "XPCS: %d with an: %d\n", id, xpcsp->an);
 
 	if (rate == MHZ(125))
 		xpcsp->mhz125 = true;
