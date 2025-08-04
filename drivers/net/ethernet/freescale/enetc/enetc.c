@@ -4563,6 +4563,20 @@ void enetc_set_features(struct net_device *ndev, netdev_features_t features)
 }
 EXPORT_SYMBOL_GPL(enetc_set_features);
 
+int enetc_restore_hw_config(struct enetc_si *si)
+{
+	struct net_device *ndev = si->ndev;
+
+	if (ndev->features & NETIF_F_HW_VLAN_CTAG_RX)
+		enetc_enable_rxvlan(ndev, true);
+
+	if (ndev->features & NETIF_F_HW_VLAN_CTAG_TX)
+		enetc_enable_txvlan(ndev, true);
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(enetc_restore_hw_config);
+
 int enetc_hwtstamp_set(struct net_device *ndev,
 		       struct kernel_hwtstamp_config *config,
 		       struct netlink_ext_ack *extack)
