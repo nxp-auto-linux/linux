@@ -364,6 +364,7 @@ struct enetc_si {
 	struct work_struct msg_task;
 	char msg_int_name[ENETC_INT_NAME_MAX];
 	struct enetc_mac_filter mac_filter[MADDR_TYPE];
+	struct device_link *devlink;
 
 	DECLARE_BITMAP(vlan_ht_filter, ENETC_VLAN_HT_SIZE);
 	DECLARE_BITMAP(active_vlans, VLAN_N_VID);
@@ -563,6 +564,7 @@ void enetc_add_mac_addr_ht_filter(struct enetc_mac_filter *filter,
 void enetc_reset_mac_addr_filter(struct enetc_mac_filter *filter);
 int enetc_vid_hash_idx(unsigned int vid);
 void enetc_refresh_vlan_ht_filter(struct enetc_si *si);
+int enetc_restore_hw_config(struct enetc_si *si);
 
 int enetc_open(struct net_device *ndev);
 int enetc_close(struct net_device *ndev);
