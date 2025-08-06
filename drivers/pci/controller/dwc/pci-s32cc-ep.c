@@ -2,7 +2,7 @@
 /*
  * PCIe EndPoint controller driver for NXP S32CC SoCs
  *
- * Copyright 2023-2024 NXP
+ * Copyright 2023-2025 NXP
  */
 
 #if IS_ENABLED(CONFIG_PCI_S32CC_DEBUG)
@@ -437,6 +437,13 @@ static int __init s32cc_add_pcie_ep(struct s32cc_pcie *s32cc_pp)
 	ret = dw_pcie_ep_init(ep);
 	if (ret) {
 		dev_err(dev, "failed to initialize endpoint\n");
+		return ret;
+	}
+
+	ret = dw_pcie_ep_init_registers(ep);
+	if (ret) {
+		dev_err(dev, "Failed to initialize DWC endpoint registers\n");
+		dw_pcie_ep_deinit(ep);
 		return ret;
 	}
 
