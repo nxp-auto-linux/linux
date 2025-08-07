@@ -36,6 +36,7 @@ struct s32cc_xpcs {
 	void __iomem *base;
 	enum pcie_xpcs_mode pcie_shared;
 	enum s32cc_xpc_pll ref;
+	unsigned int an;
 	unsigned char id;
 	bool ext_clk;
 	bool mhz125;
