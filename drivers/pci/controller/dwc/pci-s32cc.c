@@ -1221,8 +1221,7 @@ static int s32cc_pcie_init_controller(struct s32cc_pcie *s32cc_pp)
 	dev_info(pcie->dev, "Configuring as %s\n",
 		 s32cc_pcie_ep_rc_mode_str(s32cc_pp->mode));
 
-	if (s32cc_pp->has_msi_parent)
-		pp->ops = &s32cc_pcie_host_ops;
+	pp->ops = &s32cc_pcie_host_ops;
 
 	return 0;
 }
