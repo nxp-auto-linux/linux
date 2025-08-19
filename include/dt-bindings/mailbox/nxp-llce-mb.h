@@ -1,6 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0-only OR BSP-3-Clause */
+/* SPDX-License-Identifier: GPL-2.0-only OR BSD-3-Clause */
 /*
- * Copyright 2020-2023 NXP
+ * Copyright 2020-2023,2025 NXP
  */
 
 #ifndef _DT_BINDINGS_MAILBOX_NXP_LLCE_MB_H_
