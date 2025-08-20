@@ -498,6 +498,9 @@ static void netc_get_ntmp_capabilities(struct netc_switch *priv)
 
 	val = netc_base_rd(regs, NETC_SGCLITCAPR);
 	user->caps.sgclt_num_words = NETC_GET_NUM_WORDS(val);
+
+	val = netc_base_rd(regs, NETC_ISQGITCAPR);
+	user->caps.isgt_num_entries = NETC_GET_NUM_ENTRIES(val);
 }
 
 static int netc_init_ntmp_bitmaps(struct netc_switch *priv)
@@ -539,8 +542,16 @@ static int netc_init_ntmp_bitmaps(struct netc_switch *priv)
 	if (!user->sgclt_word_bitmap)
 		goto free_isct_eid_bitmap;
 
+	user->isgt_eid_bitmap = bitmap_zalloc(user->caps.isgt_num_entries,
+					      GFP_KERNEL);
+	if (!user->isgt_eid_bitmap)
+		goto free_sgclt_word_bitmap;
+
 	return 0;
 
+free_sgclt_word_bitmap:
+	bitmap_free(user->sgclt_word_bitmap);
+	user->sgclt_word_bitmap = NULL;
 free_isct_eid_bitmap:
 	bitmap_free(user->isct_eid_bitmap);
 	user->isct_eid_bitmap = NULL;
@@ -566,6 +577,9 @@ free_ett_gid_bitmap:
 static void netc_free_ntmp_bitmaps(struct netc_switch *priv)
 {
 	struct ntmp_user *user = &priv->user;
+
+	bitmap_free(user->isgt_eid_bitmap);
+	user->isgt_eid_bitmap = NULL;
 
 	bitmap_free(user->sgclt_word_bitmap);
 	user->sgclt_word_bitmap = NULL;
