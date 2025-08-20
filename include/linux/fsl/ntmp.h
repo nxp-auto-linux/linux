@@ -436,6 +436,16 @@ struct ett_cfge_data {
 	__le32 esqa_tgt_eid;
 };
 
+struct isgt_cfge_data {
+	u8 sq_tag;
+#define ISGT_SQ_TAG		GENMASK(2, 0)
+#define  ISGT_SQ_TAG_HSR	0x3
+};
+
+struct isgt_sgse_data {
+	__le16 sg_num;
+};
+
 struct esrt_cfge_data {
 	__le32 sqr_cfg;
 #define ESRT_SQ_TAG		GENMASK(2, 0)
@@ -555,6 +565,7 @@ struct netc_tbl_vers {
 	u8 isct_ver;
 	u8 rfst_ver;
 	u8 ett_ver;
+	u8 isgt_ver;
 	u8 esrt_ver;
 	u8 ect_ver;
 	u8 fmt_ver;
@@ -593,6 +604,7 @@ struct ntmp_caps {
 	int sgclt_num_words;
 	int ett_num_entries;
 	int ect_num_entries;
+	int isgt_num_entries;
 };
 
 struct ntmp_user;
@@ -621,6 +633,7 @@ struct ntmp_user {
 	unsigned long *sgclt_word_bitmap;
 	unsigned long *ett_gid_bitmap;
 	unsigned long *ect_gid_bitmap;
+	unsigned long *isgt_eid_bitmap;
 	u32 ett_bitmap_size;
 	u32 ect_bitmap_size;
 
@@ -695,6 +708,11 @@ struct fdbt_entry_data {
 	struct fdbt_keye_data keye;
 	struct fdbt_cfge_data cfge;
 	struct fdbt_acte_data acte;
+};
+
+struct isgt_entry_data {
+	struct isgt_cfge_data cfge;
+	struct isgt_sgse_data sgse;
 };
 
 struct esrt_entry_data {
@@ -774,6 +792,11 @@ int ntmp_ett_add_or_update_entry(struct ntmp_user *user, u32 entry_id,
 int ntmp_ett_delete_entry(struct ntmp_user *user, u32 entry_id);
 int ntmp_ett_query_entry(struct ntmp_user *user, u32 entry_id,
 			 struct ett_cfge_data *cfge);
+int ntmp_isgt_add_or_update_entry(struct ntmp_user *user, u32 entry_id,
+				  bool add, struct isgt_cfge_data *cfge);
+int ntmp_isgt_query_entry(struct ntmp_user *user, u32 entry_id,
+			  struct isgt_entry_data *isgt);
+int ntmp_isgt_delete_entry(struct ntmp_user *user, u32 entry_id);
 int ntmp_esrt_update_entry(struct ntmp_user *user, u32 entry_id,
 			   struct esrt_cfge_data *cfge);
 int ntmp_esrt_query_entry(struct ntmp_user *user, u32 entry_id,
@@ -1004,6 +1027,23 @@ static inline int ntmp_ett_delete_entry(struct ntmp_user *user, u32 entry_id)
 
 static inline int ntmp_ett_query_entry(struct ntmp_user *user, u32 entry_id,
 				       struct ett_cfge_data *cfge)
+{
+	return 0;
+}
+
+static inline int ntmp_isgt_add_or_update_entry(struct ntmp_user *user, u32 entry_id,
+						bool add, struct isgt_cfge_data *cfge)
+{
+	return 0;
+}
+
+static inline int ntmp_isgt_query_entry(struct ntmp_user *user, u32 entry_id,
+					struct isgt_entry_data *isgt)
+{
+	return 0;
+}
+
+static inline int ntmp_isgt_delete_entry(struct ntmp_user *user, u32 entry_id)
 {
 	return 0;
 }
