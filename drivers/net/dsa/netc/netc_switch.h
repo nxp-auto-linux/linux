@@ -57,10 +57,13 @@
 /* Software defined host reason */
 #define NETC_HR_TRAP			0x8
 
+#define NETC_SYSCLK_333M		333333333UL
+#define NETC_LPWAKE_US			50
+
+#define NETC_PGID_HSR			1
+
 struct netc_switch;
 struct netc_port;
-
-#define NETC_SYSCLK_333M		333333333ULL
 
 struct netc_switch_info {
 	u32 cpu_port_num;
@@ -111,6 +114,14 @@ struct netc_port_db {
 	u32 pbpmcr1;
 };
 
+enum netc_hsr_port_type {
+	NETC_HSR_DISABLED,
+	NETC_HSR_PORT_A,
+	NETC_HSR_PORT_B,
+	NETC_HSR_REDBOX_INTERLINK,
+	NETC_HSR_UPPER,
+};
+
 struct netc_port {
 	struct netc_switch *switch_priv;
 	struct netc_port_caps caps;
@@ -150,6 +161,7 @@ struct netc_port {
 	u32 tx_lpi_timer;
 	struct netc_port_db db;
 	struct tc_taprio_qopt_offload *taprio;
+	enum netc_hsr_port_type hsr_type;
 };
 
 enum netc_port_mac {

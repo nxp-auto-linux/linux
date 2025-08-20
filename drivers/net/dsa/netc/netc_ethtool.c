@@ -8,8 +8,6 @@
 
 #include "netc_switch.h"
 
-#define NETC_LPWAKE_US			50
-
 int netc_port_get_mm(struct dsa_switch *ds, int port_id,
 		     struct ethtool_mm_state *state)
 {
