@@ -230,6 +230,11 @@ struct ect_resp_query {
 	struct ect_stse_data stse;
 };
 
+struct isgt_req_ua {
+	struct ntmp_req_by_eid rbe;
+	struct isgt_cfge_data cfge;
+};
+
 #pragma pack()
 
 struct tgst_query_data {
@@ -456,6 +461,13 @@ struct ett_req_ua {
 struct ett_resp_query {
 	__le32 entry_id;
 	struct ett_cfge_data cfge;
+};
+
+struct isgt_resp_query {
+	__le32 entry_id;
+	struct isgt_cfge_data cfge;
+	u8 resv;
+	struct isgt_sgse_data sgse;
 };
 
 struct esrt_req_update {

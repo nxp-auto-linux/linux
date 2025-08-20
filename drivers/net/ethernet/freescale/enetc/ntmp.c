@@ -30,6 +30,7 @@
 #define NTMP_IST_ID			31
 #define NTMP_ISFT_ID			32
 #define NTMP_ETT_ID			33
+#define NTMP_ISGT_ID			34
 #define NTMP_ESRT_ID			35
 #define NTMP_SGIT_ID			36
 #define NTMP_SGCLT_ID			37
@@ -56,6 +57,7 @@
 #define ECT_UA_STSEU			BIT(0)
 #define BPT_UA_BPSEU			BIT(1)
 #define SBPT_UA_BPSEU			BIT(1)
+#define ISGT_UA_SGSEU			BIT(1)
 
 /* Quary Action: 0: Full query, 1: Only query entry ID */
 #define NTMP_QA_ENTRY_ID		1
@@ -2126,6 +2128,83 @@ end:
 	return err;
 }
 EXPORT_SYMBOL_GPL(ntmp_ett_query_entry);
+
+int ntmp_isgt_add_or_update_entry(struct ntmp_user *user, u32 entry_id,
+				  bool add, struct isgt_cfge_data *cfge)
+{
+	struct ntmp_dma_buf data = {
+		.dev = user->dev,
+		.size = sizeof(struct isgt_req_ua),
+	};
+	struct isgt_req_ua *req;
+	union netc_cbd cbd;
+	int err;
+
+	err = ntmp_alloc_data_mem(&data, (void **)&req);
+	if (err)
+		return err;
+
+	/* Request data */
+	ntmp_fill_crd_eid(&req->rbe, user->tbl.isgt_ver, 0,
+			  NTMP_GEN_UA_CFGEU | ISGT_UA_SGSEU, entry_id);
+	req->cfge = *cfge;
+
+	/* Request header */
+	ntmp_fill_request_hdr(&cbd, data.dma, NTMP_LEN(data.size, 0),
+			      NTMP_ISGT_ID, add ? NTMP_CMD_ADD : NTMP_CMD_UPDATE,
+			      NTMP_AM_ENTRY_ID);
+
+	err = netc_xmit_ntmp_cmd(user, &cbd);
+	if (err)
+		dev_err(user->dev,
+			"Failed to %s ISGT entry 0x%x, err :%pe\n",
+			add ? "Add" : "Update", entry_id, ERR_PTR(err));
+
+	ntmp_free_data_mem(&data);
+
+	return err;
+}
+EXPORT_SYMBOL_GPL(ntmp_isgt_add_or_update_entry);
+
+int ntmp_isgt_query_entry(struct ntmp_user *user, u32 entry_id,
+			  struct isgt_entry_data *isgt)
+{
+	struct ntmp_dma_buf data = {
+		.dev = user->dev,
+		.size = sizeof(struct isgt_resp_query),
+	};
+	struct isgt_resp_query *resp;
+	struct ntmp_req_by_eid *req;
+	int err;
+
+	err = ntmp_alloc_data_mem(&data, (void **)&req);
+	if (err)
+		return err;
+
+	ntmp_fill_crd_eid(req, user->tbl.isgt_ver, 0, 0, entry_id);
+	err = ntmp_query_entry_by_id(user, NTMP_ISGT_ID,
+				     NTMP_LEN(sizeof(*req), data.size),
+				     req, data.dma, true);
+	if (err)
+		goto end;
+
+	resp = (struct isgt_resp_query *)req;
+	isgt->sgse = resp->sgse;
+	isgt->cfge = resp->cfge;
+
+end:
+	ntmp_free_data_mem(&data);
+
+	return err;
+}
+EXPORT_SYMBOL_GPL(ntmp_isgt_query_entry);
+
+int ntmp_isgt_delete_entry(struct ntmp_user *user, u32 entry_id)
+{
+	return ntmp_delete_entry_by_id(user, NTMP_ISGT_ID, user->tbl.isgt_ver,
+				       entry_id, NTMP_EID_REQ_LEN, 0);
+}
+EXPORT_SYMBOL_GPL(ntmp_isgt_delete_entry);
 
 int ntmp_esrt_update_entry(struct ntmp_user *user, u32 entry_id,
 			   struct esrt_cfge_data *cfge)
