@@ -603,6 +603,7 @@ int enetc_setup_cbdr(struct enetc_si *si);
 void enetc_teardown_cbdr(struct enetc_si *si);
 int enetc4_setup_cbdr(struct enetc_si *si);
 void enetc4_teardown_cbdr(struct enetc_si *si);
+void enetc4_enable_cbdr(struct enetc_si *si);
 int enetc_set_mac_flt_entry(struct enetc_si *si, int index,
 			    char *mac_addr, int si_map);
 int enetc_clear_mac_flt_entry(struct enetc_si *si, int index);
