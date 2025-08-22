@@ -357,6 +357,7 @@ int enetc_phylink_match_pseudo_mac_speed(int speed)
 
 	return SPEED_UNKNOWN;
 }
+EXPORT_SYMBOL_GPL(enetc_phylink_match_pseudo_mac_speed);
 
 int enetc_phylink_create(struct enetc_ndev_priv *priv,
 			 const struct phylink_mac_ops *ops)

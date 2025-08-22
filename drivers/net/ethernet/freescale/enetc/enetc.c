@@ -2946,6 +2946,7 @@ struct fwnode_handle *enetc_fwnode(struct enetc_ndev_priv *priv)
 {
 	return priv->swnode ?: dev_fwnode(priv->dev);
 }
+EXPORT_SYMBOL_GPL(enetc_fwnode);
 
 static int enetc_phylink_connect(struct net_device *ndev)
 {
