@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
-# Copyright 2021 NXP
+# Copyright 2021,2025 NXP
 %YAML 1.2
 ---
 $id: "http://devicetree.org/schemas/phy/nxp,s32cc-serdes.yaml#"
@@ -100,6 +100,16 @@ properties:
       - const: pcie_phy
       - const: xpcs0
       - const: xpcs1
+
+  xpcs0_an:
+    type: boolean
+    description: |
+      Enables auto-negotiation for XPCS0. Optional.
+
+  xpcs1_an:
+    type: boolean
+    description: |
+      Enables auto-negotiation for XPCS1. Optional.
 
 required:
   - '#phy-cells'
