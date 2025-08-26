@@ -104,7 +104,6 @@ required:
   - interrupts
   - fsl,tmu-range
   - fsl,tmu-calibration
-  - '#thermal-sensor-cells'
 
 allOf:
   - if:
@@ -177,6 +176,7 @@ examples:
   - |
     #include <dt-bindings/interrupt-controller/arm-gic.h>
     #include <dt-bindings/clock/s32cc-scmi-clock.h>
+    #include <dt-bindings/thermal/qoriq_thermal.h>
     bus {
         #address-cells = <2>;
         #size-cells = <2>;

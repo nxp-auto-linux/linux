@@ -109,7 +109,7 @@ examples:
     #include <dt-bindings/interrupt-controller/irq.h>
     #include <dt-bindings/phy/phy.h>
     #define S32CC_SCMI_CLK_GMAC0_AXI
-    #define S32CC_SCMI_CLK_GMAC0_TX_RGMII
+    #define S32CC_SCMI_CLK_GMAC0_TX_SGMII
     #define S32CC_SCMI_CLK_GMAC0_RX_SGMII
     #define S32CC_SCMI_CLK_GMAC0_TS
     bus {
@@ -129,8 +129,8 @@ examples:
         snps,mtl-rx-config = <&mtl_rx_setup>;
         snps,mtl-tx-config = <&mtl_tx_setup>;
         clocks = <&clks S32CC_SCMI_CLK_GMAC0_AXI>,
-           <&clks S32CC_SCMI_CLK_GMAC0_TX_RGMII>,
-           <&clks S32CC_SCMI_CLK_GMAC0_RX_RGMII>,
+           <&clks S32CC_SCMI_CLK_GMAC0_TX_SGMII>,
+           <&clks S32CC_SCMI_CLK_GMAC0_RX_SGMII>,
            <&clks S32CC_SCMI_CLK_GMAC0_TS>;
         clock-names = "stmmaceth", "tx", "rx", "ptp_ref";
         nvmem-cell-names = "gmac_phy_intf_sel";
