@@ -10,6 +10,13 @@
 #include <linux/types.h>
 #include <linux/phylink.h>
 
+#define SERDES_MODE_0		0
+#define SERDES_MODE_1		1
+#define SERDES_MODE_2		2
+#define SERDES_MODE_3		3
+#define SERDES_MODE_4		4
+#define SERDES_MODE_5		5
+
 struct s32cc_xpcs;
 
 enum pcie_xpcs_mode {
