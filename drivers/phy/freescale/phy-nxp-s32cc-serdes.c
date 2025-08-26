@@ -176,7 +176,7 @@ static int skip_assert_reset_lines(struct serdes *serdes)
 static bool skip_vr_rst(struct serdes *serdes)
 {
 	return serdes->devtype_data->quirks & SERDES_QUIRK_SKIP_VR_RST &&
-	       serdes->id == 0 && serdes->ctrl.ss_mode == 2;
+	       serdes->id == 0 && serdes->ctrl.ss_mode == SERDES_MODE_2;
 }
 
 static void mark_configured_lane(struct serdes *serdes, u32 lane)
@@ -380,9 +380,9 @@ static int xpcs_phy_init(struct serdes *serdes, int id)
 		return ret;
 	}
 
-	if (ctrl->ss_mode == 1 || ctrl->ss_mode == 2)
+	if (ctrl->ss_mode == SERDES_MODE_1 || ctrl->ss_mode == SERDES_MODE_2)
 		shared = PCIE_XPCS_1G;
-	else if (ctrl->ss_mode == 5)
+	else if (ctrl->ss_mode == SERDES_MODE_5)
 		shared = PCIE_XPCS_2G5;
 
 	return xpcs->ops->init(&xpcs->phys[id], dev, id, base,
@@ -537,22 +537,22 @@ static int xpcs_init_clks(struct serdes *serdes)
 		return 0;
 
 	switch (ctrl->ss_mode) {
-	case 0:
+	case SERDES_MODE_0:
 		return 0;
-	case 1:
+	case SERDES_MODE_1:
 		order[0] = 0;
 		order[1] = XPCS_DISABLED;
 		break;
-	case 2:
-	case 5:
+	case SERDES_MODE_2:
+	case SERDES_MODE_5:
 		order[0] = 1;
 		order[1] = XPCS_DISABLED;
 		break;
-	case 3:
+	case SERDES_MODE_3:
 		order[0] = 1;
 		order[1] = 0;
 		break;
-	case 4:
+	case SERDES_MODE_4:
 		order[0] = 0;
 		order[1] = 1;
 		break;
@@ -579,7 +579,7 @@ static int xpcs_init_clks(struct serdes *serdes)
 			return ret;
 	}
 
-	if (ctrl->ss_mode == 5) {
+	if (ctrl->ss_mode == SERDES_MODE_5) {
 		prepare_pma_mode5(serdes);
 
 		ret = xpcs->ops->pre_pcie_2g5(xpcs->phys[1]);
@@ -696,7 +696,7 @@ static int serdes_phy_set_mode_ext(struct phy *p,
 		 * with any SGMII mode on the same SerDes subsystem
 		 */
 		if (submode == CRSS || submode == SRIS) {
-			if (serdes->ctrl.ss_mode != 0)
+			if (serdes->ctrl.ss_mode != SERDES_MODE_0)
 				return -EINVAL;
 		}
 
@@ -763,7 +763,7 @@ static int xpcs_phy_configure(struct phy *phy, struct phylink_link_state *state)
 	int xpcs_id;
 	int ret;
 
-	if (serdes->ctrl.ss_mode == 5)
+	if (serdes->ctrl.ss_mode == SERDES_MODE_5)
 		xpcs_state.speed = SPEED_2500;
 	else
 		xpcs_state.speed = SPEED_1000;
@@ -1008,7 +1008,7 @@ static int init_serdes(struct serdes *serdes)
 
 		reg0 = readl(ctrl->ss_base + SS_RW_REG_0);
 		reg0 &= ~SUBMODE_MASK;
-		if (ctrl->ss_mode == 5)
+		if (ctrl->ss_mode == SERDES_MODE_5)
 			reg0 |= 2;
 		else
 			reg0 |= ctrl->ss_mode;
