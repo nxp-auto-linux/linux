@@ -197,6 +197,10 @@
 				reg = <0x14>;
 				#clock-cells = <1>;
 			};
+
+			pinctrl: protocol@19 {
+				reg = <0x19>;
+			};
 		};
 
 		psci {
