@@ -578,6 +578,9 @@
 			interrupt-parent = <&irqsteer_rcu>;
 			clocks = <&sys_clk>, <&sys_clk>;
 			clock-names = "lin", "ipg";
+			dmas = <&edma0_rcu 1 25>,
+				<&edma0_rcu 0 25>;
+			dma-names = "rx", "tx";
 			status = "disabled";
 		};
 
@@ -589,6 +592,9 @@
 			interrupt-parent = <&irqsteer_rcu>;
 			clocks = <&sys_clk>, <&sys_clk>;
 			clock-names = "lin", "ipg";
+			dmas = <&edma0_rcu 1 26>,
+			       <&edma0_rcu 0 26>;
+			dma-names = "rx", "tx";
 			status = "disabled";
 		};
 	};
