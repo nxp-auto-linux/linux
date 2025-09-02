@@ -7,12 +7,6 @@
 #include "s32n79-simulator.dtsi"
 #include "dt-bindings/memory/s32n7-carv.h"
 
-/delete-node/ &cpu2;
-/delete-node/ &cpu3;
-/delete-node/ &cpu4;
-/delete-node/ &cpu5;
-/delete-node/ &cpu6;
-/delete-node/ &cpu7;
 / {
 	cpus {
 		cpu-map {
@@ -23,6 +17,36 @@
 
 				core1 {
 					cpu = <&cpu1>;
+				};
+			};
+
+			cluster1 {
+				core0 {
+					cpu = <&cpu2>;
+				};
+
+				core1 {
+					cpu = <&cpu3>;
+				};
+			};
+
+			cluster2 {
+				core0 {
+					cpu = <&cpu4>;
+				};
+
+				core1 {
+					cpu = <&cpu5>;
+				};
+			};
+
+			cluster3 {
+				core0 {
+					cpu = <&cpu6>;
+				};
+
+				core1 {
+					cpu = <&cpu7>;
 				};
 			};
 		};
