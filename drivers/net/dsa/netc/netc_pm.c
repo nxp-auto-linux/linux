@@ -301,6 +301,48 @@ static void netc_remove_ports_config(struct netc_switch *priv)
 		netc_port_remove_config(NETC_PORT(priv, i));
 }
 
+static int netc_restore_hsr_config(struct netc_switch *priv)
+{
+	struct netc_port *port;
+	int i, err;
+
+	for (i = 0; i < priv->num_ports; i++) {
+		port = NETC_PORT(priv, i);
+		if (!port->hsr_enabled)
+			continue;
+
+		err = netc_port_set_hsr(port, port->hsr_data.type);
+		if (err)
+			goto del_hsr_config;
+	}
+
+	return 0;
+
+del_hsr_config:
+	while (--i >= 0) {
+		if (!port->hsr_enabled)
+			continue;
+
+		netc_port_set_hsr(NETC_PORT(priv, i), NETC_HSR_DISABLED);
+	}
+
+	return err;
+}
+
+static void netc_remove_hsr_config(struct netc_switch *priv)
+{
+	int i;
+
+	for (i = 0; i < priv->num_ports; i++) {
+		struct netc_port *port = NETC_PORT(priv, i);
+
+		if (!port->hsr_enabled)
+			continue;
+
+		netc_port_set_hsr(NETC_PORT(priv, i), NETC_HSR_DISABLED);
+	}
+}
+
 static void netc_enable_all_cdbrs(struct netc_switch *priv)
 {
 	struct netc_switch_regs *regs = &priv->regs;
@@ -335,12 +377,18 @@ static int netc_restore_hw_config(struct netc_switch *priv)
 	if (err)
 		goto del_fdb_entries;
 
-	err = netc_restore_flower_list_config(&priv->user);
+	err = netc_restore_hsr_config(priv);
 	if (err)
 		goto del_ports_config;
 
+	err = netc_restore_flower_list_config(&priv->user);
+	if (err)
+		goto del_hsr_config;
+
 	return 0;
 
+del_hsr_config:
+	netc_remove_hsr_config(priv);
 del_ports_config:
 	netc_remove_ports_config(priv);
 del_fdb_entries:
