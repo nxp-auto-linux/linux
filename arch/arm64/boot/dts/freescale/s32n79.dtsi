@@ -825,9 +825,30 @@
 				status = "disabled";
 
 				carv0_partition0_user0: carv-user@47810000 {
-					compatible = "nxp,carvnet-rproc";
+					compatible = "nxp,carv-uio";
 					reg = <0x47810000 0x10000>;
 					interrupts = <GIC_SPI 279 IRQ_TYPE_LEVEL_HIGH>;
+					status = "disabled";
+				};
+
+				carv0_partition0_user1: carv-user@47820000 {
+					compatible = "nxp,carv-uio";
+					reg = <0x47820000 0x10000>;
+					interrupts = <GIC_SPI 281 IRQ_TYPE_LEVEL_HIGH>;
+					status = "disabled";
+				};
+
+				carv0_partition0_user2: carv-user@47830000 {
+					compatible = "nxp,carv-uio";
+					reg = <0x47830000 0x10000>;
+					interrupts = <GIC_SPI 283 IRQ_TYPE_LEVEL_HIGH>;
+					status = "disabled";
+				};
+
+				carv0_partition0_user3: carv-user@47840000 {
+					compatible = "nxp,carv-uio";
+					reg = <0x47840000 0x10000>;
+					interrupts = <GIC_SPI 285 IRQ_TYPE_LEVEL_HIGH>;
 					status = "disabled";
 				};
 			};
@@ -841,30 +862,9 @@
 				status = "disabled";
 
 				carv0_partition1_user0: carv-user@47860000 {
-					compatible = "nxp,carv-uio";
+					compatible = "nxp,carvnet-rproc";
 					reg = <0x47860000 0x10000>;
 					interrupts = <GIC_SPI 287 IRQ_TYPE_LEVEL_HIGH>;
-					status = "disabled";
-				};
-
-				carv0_partition1_user1: carv-user@47870000 {
-					compatible = "nxp,carv-uio";
-					reg = <0x47870000 0x10000>;
-					interrupts = <GIC_SPI 289 IRQ_TYPE_LEVEL_HIGH>;
-					status = "disabled";
-				};
-
-				carv0_partition1_user2: carv-user@47880000 {
-					compatible = "nxp,carv-uio";
-					reg = <0x47880000 0x10000>;
-					interrupts = <GIC_SPI 291 IRQ_TYPE_LEVEL_HIGH>;
-					status = "disabled";
-				};
-
-				carv0_partition1_user3: carv-user@47890000 {
-					compatible = "nxp,carv-uio";
-					reg = <0x47890000 0x10000>;
-					interrupts = <GIC_SPI 293 IRQ_TYPE_LEVEL_HIGH>;
 					status = "disabled";
 				};
 			};
