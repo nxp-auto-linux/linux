@@ -107,7 +107,11 @@
 	disable-wp;
 };
 
-&carv0_partition0_user0 {
+&carv0_partition0 {
+	nxp,stack-size = <8>;
+};
+
+&carv0_partition1_user0 {
 	firmware-name = "s32n7-carvnet.fw";
 	memory-region = <&carv0_reserved>, <&carv0_vdev0vring0>,
 			<&carv0_vdev0vring1>, <&carv0_vdev0buffer>, <&carv0_packet_sram>;
@@ -116,10 +120,6 @@
 	nxp,s32n7-carv-mem-region-types = <CARV_MEM_NONCOHERENT>,<CARV_MEM_NONCOHERENT>,
 			<CARV_MEM_NONCOHERENT>,<CARV_MEM_NONCOHERENT>,<CARV_MEM_SHARED>;
 
-};
-
-&carv0_partition1 {
-	nxp,stack-size = <8>;
 };
 
 &netc_switch_port0 {

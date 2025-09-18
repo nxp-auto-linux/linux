@@ -97,6 +97,26 @@
 	status = "okay";
 };
 
+&carv0_partition0 {
+	status = "okay";
+};
+
+&carv0_partition0_user0 {
+	status = "okay";
+};
+
+&carv0_partition0_user1 {
+	status = "okay";
+};
+
+&carv0_partition0_user2 {
+	status = "okay";
+};
+
+&carv0_partition0_user3 {
+	status = "okay";
+};
+
 &carv0_reserved {
 	status = "okay";
 };
@@ -117,31 +137,11 @@
 	status = "okay";
 };
 
-&carv0_partition0 {
-	status = "okay";
-};
-
-&carv0_partition0_user0 {
-	status = "okay";
-};
-
 &carv0_partition1 {
 	status = "okay";
 };
 
 &carv0_partition1_user0 {
-	status = "okay";
-};
-
-&carv0_partition1_user1 {
-	status = "okay";
-};
-
-&carv0_partition1_user2 {
-	status = "okay";
-};
-
-&carv0_partition1_user3 {
 	status = "okay";
 };
 
