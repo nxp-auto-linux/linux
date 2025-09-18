@@ -19,6 +19,7 @@
 #include <linux/platform_device.h>
 #include <linux/spinlock.h>
 #include <linux/uio_driver.h>
+#include <linux/vmalloc.h>
 
 #define DRIVER_NAME	"carv-uio"
 #define DRIVER_VERSION	"1.0"
@@ -439,7 +440,7 @@ static void carv_uio_expose_priv(struct device *dev)
 
 	/* Expose CAR-V driver internal shared memory */
 	info->mem[CARV_UIO_MAP_INTL].name = "carv-driver-intl";
-	info->mem[CARV_UIO_MAP_INTL].addr = (phys_addr_t)virt_to_phys(priv->intl);
+	info->mem[CARV_UIO_MAP_INTL].addr = page_to_phys(vmalloc_to_page(priv->intl));
 	info->mem[CARV_UIO_MAP_INTL].size = PAGE_SIZE;
 	info->mem[CARV_UIO_MAP_INTL].memtype = UIO_MEM_PHYS;
 }
@@ -477,6 +478,7 @@ static int carv_uio_alloc_dma_memory(struct device *dev)
 static int carv_uio_probe(struct platform_device *pdev)
 {
 	struct carv_uio_drvdata *priv;
+	struct page *intl_page;
 	struct uio_info *info;
 	struct device *dev;
 	int ret;
@@ -508,14 +510,21 @@ static int carv_uio_probe(struct platform_device *pdev)
 	/* Set atomic variable busy to 0 (not busy) */
 	atomic_set(&priv->busy, 0);
 
-	/* Alloc CAR-V driver internal shared memory */
-	priv->intl = (void *)devm_get_free_pages(dev, GFP_KERNEL | __GFP_ZERO, 0);
-	if (!priv->intl)
+	/* Alloc one page for internal shared memory */
+	intl_page = alloc_page(GFP_KERNEL | __GFP_ZERO);
+	if (!intl_page)
 		return -ENOMEM;
+
+	/* Vmap internal shared memory as non-cached */
+	priv->intl = vmap(&intl_page, 1, VM_MAP, pgprot_noncached(PAGE_KERNEL));
+	if (!priv->intl) {
+		ret = -ENOMEM;
+		goto out_free_intl_memory;
+	}
 
 	ret = carv_uio_alloc_dma_memory(dev);
 	if (ret)
-		return ret;
+		goto out_unmap_intl_memory;
 
 	/* Create gen_pool for user */
 	priv->pool = gen_pool_create(PAGE_SHIFT, -1);
@@ -577,6 +586,10 @@ out_destroy_gen_pool:
 out_free_dma_memory:
 	dma_free_attrs(priv->dev, priv->pool_size, priv->dma_cookie,
 		       priv->dma_handle, DMA_ATTR_NO_KERNEL_MAPPING);
+out_unmap_intl_memory:
+	vunmap(priv->intl);
+out_free_intl_memory:
+	__free_page(intl_page);
 	return ret;
 }
 
@@ -590,6 +603,12 @@ static void carv_uio_remove(struct platform_device *pdev)
 	/* Free DMA memory */
 	dma_free_attrs(priv->dev, priv->pool_size, priv->dma_cookie,
 		       priv->dma_handle, DMA_ATTR_NO_KERNEL_MAPPING);
+
+	/* Vunmap internal shared memory */
+	vunmap(priv->intl);
+
+	/* Free internal shared memory */
+	__free_page(vmalloc_to_page(priv->intl));
 
 	/* Unregister device */
 	uio_unregister_device(&priv->info);
