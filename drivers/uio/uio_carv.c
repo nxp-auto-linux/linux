@@ -9,6 +9,7 @@
  */
 
 #include <linux/atomic.h>
+#include <linux/dma-direct.h>
 #include <linux/dma-mapping.h>
 #include <linux/genalloc.h>
 #include <linux/kernel.h>
@@ -46,20 +47,20 @@ enum {
 };
 
 /*
- * struct carv_uio_intl_mapping - CAR-V UIO driver internal virt to phys mapping
- * @phys: Physical address of the internal mapping
+ * struct carv_uio_intl_mapping - CAR-V UIO driver internal virt to bus address mapping
+ * @bus_addr: Bus address of the internal mapping
  * @virt: Virtual userspace address of the internal mapping
  * @size: Size of the internal mapping
  */
 struct carv_uio_intl_mapping {
-	phys_addr_t phys;
+	dma_addr_t bus_addr;
 	unsigned long virt;
 	size_t size;
 };
 
 /*
  * struct carv_uio_intl - CAR-V UIO driver internal shared memory layout
- * @maps: Driver internal virt to phys mappings
+ * @maps: Driver internal virt to bus address mappings
  */
 struct carv_uio_intl {
 	struct carv_uio_intl_mapping maps[CARV_INTL_MAX_MAPPINGS];
@@ -99,15 +100,15 @@ struct carv_uio_drvdata {
 
 /*
  * struct carv_uio_vm_entry - CAR-V UIO vm_area_struct private data
- * @map: CAR-V UIO driver internal virt to phys mapping
+ * @map: CAR-V UIO driver internal virt to bus address mapping
  * @priv: CAR-V UIO driver private data
- * @addr: Physical address of the allocated memory from pool
+ * @bus_addr: Bus address of the allocated memory from pool
  * @size: Size of the allocated memory from pool
  */
 struct carv_uio_vm_entry {
 	struct carv_uio_intl_mapping *map;
 	struct carv_uio_drvdata *priv;
-	phys_addr_t addr;
+	dma_addr_t bus_addr;
 	size_t size;
 };
 
@@ -141,7 +142,7 @@ static void carv_uio_vm_close(struct vm_area_struct *vma)
 	struct carv_uio_vm_entry *entry = vma->vm_private_data;
 	struct carv_uio_drvdata *priv = entry->priv;
 
-	gen_pool_free(priv->pool, entry->addr, entry->size);
+	gen_pool_free(priv->pool, entry->bus_addr, entry->size);
 
 	scoped_guard(mutex, &priv->intl_lock) {
 		memset(entry->map, 0, sizeof(*entry->map));
@@ -160,6 +161,7 @@ static void carv_uio_vm_close(struct vm_area_struct *vma)
 static vm_fault_t carv_uio_vm_fault(struct vm_fault *vmf)
 {
 	struct carv_uio_vm_entry *entry = vmf->vma->vm_private_data;
+	struct carv_uio_drvdata *priv = entry->priv;
 	unsigned long offset;
 	unsigned long pfn;
 	struct page *page;
@@ -171,7 +173,7 @@ static vm_fault_t carv_uio_vm_fault(struct vm_fault *vmf)
 	if (offset >= entry->size)
 		return VM_FAULT_SIGBUS;
 
-	pfn = PFN_DOWN(entry->addr + offset);
+	pfn = PFN_DOWN(dma_to_phys(priv->dev, entry->bus_addr) + offset);
 	if (!pfn_valid(pfn))
 		return VM_FAULT_SIGBUS;
 
@@ -245,7 +247,7 @@ static int carv_uio_mmap(struct uio_info *info, struct vm_area_struct *vma)
 	vm_flags_t vm_flags_mask;
 	unsigned long vma_size;
 	unsigned long pfn;
-	unsigned long mem;
+	dma_addr_t addr;
 	int ret = 0;
 
 	if (vma->vm_end < vma->vm_start)
@@ -256,33 +258,33 @@ static int carv_uio_mmap(struct uio_info *info, struct vm_area_struct *vma)
 	switch (vma->vm_pgoff) {
 	case CARV_UIO_MAP_REGS_0:
 	case CARV_UIO_MAP_REGS_1:
-		pfn = __phys_to_pfn(priv->info.mem[vma->vm_pgoff].addr);
+		pfn = PHYS_PFN(priv->info.mem[vma->vm_pgoff].addr);
 		break;
 	case CARV_UIO_MAP_RMEM:
 		entry = kmalloc(sizeof(*entry), GFP_KERNEL);
 		if (!entry)
 			return -ENOMEM;
 
-		mem = (unsigned long)gen_pool_dma_alloc_align(priv->pool, vma_size, NULL, SZ_16K);
-		if (mem == 0) {
+		addr = (dma_addr_t)gen_pool_dma_alloc_align(priv->pool, vma_size, NULL, SZ_16K);
+		if (addr == 0) {
 			ret = -ENOMEM;
 			goto out_kfree_entry;
 		}
 
-		pfn = __phys_to_pfn(mem);
+		pfn = PHYS_PFN(dma_to_phys(priv->dev, addr));
 
 		scoped_guard(mutex, &priv->intl_lock) {
 			for (int i = 0; i < CARV_INTL_MAX_MAPPINGS; i++) {
-				if (priv->intl->maps[i].phys == 0) {
+				if (priv->intl->maps[i].bus_addr == 0) {
 					priv->intl->maps[i] = (struct carv_uio_intl_mapping) {
-						.phys = mem,
+						.bus_addr = addr,
 						.virt = vma->vm_start,
 						.size = vma_size
 					};
 					*entry = (struct carv_uio_vm_entry) {
 						.map = &priv->intl->maps[i],
 						.priv = priv,
-						.addr = mem,
+						.bus_addr = addr,
 						.size = vma_size
 					};
 					break;
@@ -299,7 +301,7 @@ static int carv_uio_mmap(struct uio_info *info, struct vm_area_struct *vma)
 		}
 		break;
 	case CARV_UIO_MAP_INTL:
-		pfn = __phys_to_pfn(priv->info.mem[CARV_UIO_MAP_INTL].addr);
+		pfn = PHYS_PFN(priv->info.mem[CARV_UIO_MAP_INTL].addr);
 		vm_flags_mask = VM_WRITE | VM_MAYWRITE;
 		vm_flags_set(vma, vma->vm_flags & (~vm_flags_mask));
 		break;
@@ -419,7 +421,7 @@ static void carv_uio_expose_rmem(struct device *dev)
 
 	/* Expose CAR-V reserved memory */
 	info->mem[CARV_UIO_MAP_RMEM].name = "carv-reserved-memory";
-	info->mem[CARV_UIO_MAP_RMEM].addr = priv->dma_handle;
+	info->mem[CARV_UIO_MAP_RMEM].addr = dma_to_phys(priv->dev, priv->dma_handle);
 	info->mem[CARV_UIO_MAP_RMEM].size = priv->pool_size;
 	info->mem[CARV_UIO_MAP_RMEM].memtype = UIO_MEM_PHYS;
 }
