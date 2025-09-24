@@ -767,6 +767,34 @@
 			};
 		};
 
+		netc_iep18: pcie@241200000 {
+			compatible = "pci-host-ecam-generic";
+			reg = <0x2 0x41200000 0x0 0x100000>;
+			#address-cells = <3>;
+			#size-cells = <2>;
+			msi-parent = <&its>;
+			device_type = "pci";
+			bus-range = <0x0 0x0>;
+			status = "disabled";
+
+			/* All NETC PCIe functions */
+			ranges = <0x82000000 0x0 0x48800000 0x0 0x48800000 0x0 0x4B0000>;
+		};
+
+		netc_iep19: pcie@241300000 {
+			compatible = "pci-host-ecam-generic";
+			reg = <0x2 0x41300000 0x0 0x100000>;
+			#address-cells = <3>;
+			#size-cells = <2>;
+			msi-parent = <&its>;
+			device_type = "pci";
+			bus-range = <0x0 0x0>;
+			status = "disabled";
+
+			/* All NETC PCIe functions */
+			ranges = <0x82000000 0x0 0x48800000 0x0 0x48800000 0x0 0x4B0000>;
+		};
+
 		cdma_iep: pcie@250000000 {
 			compatible = "pci-host-ecam-generic";
 			reg = <0x2 0x50000000 0x0 0x2000000>;
