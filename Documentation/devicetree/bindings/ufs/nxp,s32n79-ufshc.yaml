@@ -28,7 +28,46 @@ properties:
       - const: jedec,ufs-3.0
 
   reg:
+    minItems: 1
+    items:
+      - description: UFS Host Controller registers
+      - description: System Control Module registers
+
+  reg-names:
+    description: |
+      Names for the register regions. The first entry must be "ufshc".
+      The second entry "scm" is mandatory only when nxp,mphy-boot-mode
+      property is present.
+    minItems: 1
+    items:
+      - const: ufshc
+      - const: scm
+
+  clocks:
     maxItems: 1
+    description: UFS core clock
+
+  clock-names:
+    items:
+      - const: core_clk
+
+  nxp,mphy-boot-mode:
+    description: |
+      MPHY initialization mode. Defines how the MPHY firmware should be
+      initialized and executed during UFS controller startup.
+      If this property is not specified, MPHY initialization will be skipped.
+    $ref: /schemas/types.yaml#/definitions/string
+    oneOf:
+      - const: rom
+        description: |
+          Execute MPHY firmware directly from the internal ROM. The controller
+          will use the factory-programmed firmware stored in the internal ROM
+          without any modifications.
+      - const: copy-sram
+        description: |
+          Copy MPHY firmware from ROM to external SRAM and execute from there.
+          This mode allows for firmware modifications to be applied to the SRAM
+          copy before execution.
 
 required:
   - compatible
@@ -40,8 +79,11 @@ examples:
   - |
     ufshc@4ac80000 {
         compatible = "nxp,s32n79-ufshc", "jedec,ufs-3.0";
-        reg = <0x4ac80000 0x1000>;
+        reg = <0x4ac80000 0x1000>, <0x4ac40000 0x1000>;
+        reg-names = "ufshc", "scm";
         interrupt-parent = <&irqsteer0_coss>;
         interrupts = <211>;
+        clocks = <&sys_clk>;
+        clock-names = "core_clk";
         status = "disabled";
     };
