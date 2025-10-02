@@ -6,8 +6,6 @@
 #ifndef UFS_HISI_H_
 #define UFS_HISI_H_
 
-#define HBRN8_POLL_TOUT_MS	1000
-
 /*
  * ufs sysctrl specific define
  */
@@ -38,12 +36,6 @@
 #define MASK_UFS_SYSCRTL_BYPASS		(0x3F << 16)
 #define MASK_UFS_DEVICE_RESET		(0x1 << 16)
 #define BIT_UFS_DEVICE_RESET		(0x1)
-
-/*
- * M-TX Configuration Attributes for Hixxxx
- */
-#define MPHY_TX_FSM_STATE	0x41
-#define TX_FSM_HIBERN8	0x1
 
 /*
  * Hixxxx UFS HC specific Registers

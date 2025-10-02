@@ -9,6 +9,7 @@
  */
 
 #include <linux/clk.h>
+#include <linux/delay.h>
 #include <linux/module.h>
 #include <linux/platform_device.h>
 #include <linux/pm_opp.h>
@@ -20,6 +21,10 @@
 #include <ufs/unipro.h>
 
 #define UFSHCD_DEFAULT_LANES_PER_DIRECTION		2
+
+#define MPHY_TX_FSM_STATE	0x41
+#define TX_FSM_HIBERN8		0x1
+#define HBRN8_POLL_TOUT_MS	1000
 
 static int ufshcd_parse_clock_info(struct ufs_hba *hba)
 {
@@ -529,6 +534,71 @@ void ufshcd_pltfrm_remove(struct platform_device *pdev)
 	pm_runtime_put_noidle(&pdev->dev);
 }
 EXPORT_SYMBOL_GPL(ufshcd_pltfrm_remove);
+
+int ufshcd_check_hibern8(struct ufs_hba *hba, unsigned int num_lanes)
+{
+	unsigned long timeout = jiffies + msecs_to_jiffies(HBRN8_POLL_TOUT_MS);
+	bool success = false;
+	u32 tx_fsm_val = 0;
+	unsigned int i;
+	int err = 0;
+
+	if (!num_lanes)
+		return -EINVAL;
+
+	do {
+		success = true;
+		err = 0;
+
+		for (i = 0; i < num_lanes; i++) {
+			err = ufshcd_dme_get(hba,
+					UIC_ARG_MIB_SEL(MPHY_TX_FSM_STATE, i),
+					&tx_fsm_val);
+			if (err)
+				goto out;
+			if (tx_fsm_val != TX_FSM_HIBERN8) {
+				success = false;
+				break;
+			}
+		}
+
+		if (success)
+			goto out;
+
+		/* sleep for max. 200us */
+		usleep_range(100, 200);
+	} while (time_before(jiffies, timeout));
+
+	/*
+	 * we might have scheduled out for long during polling so
+	 * check the state again.
+	 */
+	if (time_after(jiffies, timeout) && !success && !err) {
+		success = true;
+		for (i = 0; i < num_lanes; i++) {
+			err = ufshcd_dme_get(hba,
+					UIC_ARG_MIB_SEL(MPHY_TX_FSM_STATE, i),
+					&tx_fsm_val);
+			if (err)
+				goto out;
+
+			if (tx_fsm_val != TX_FSM_HIBERN8)
+				success = 0;
+		}
+	}
+
+out:
+	if (err) {
+		dev_err(hba->dev, "%s: unable to get TX_FSM_STATE, err %d\n",
+				__func__, err);
+	} else if (!success) {
+		err = -1;
+		dev_err(hba->dev, "%s: invalid TX_FSM_STATE\n", __func__);
+	}
+
+	return err;
+}
+EXPORT_SYMBOL(ufshcd_check_hibern8);
 
 MODULE_AUTHOR("Santosh Yaragnavi <santosh.sy@samsung.com>");
 MODULE_AUTHOR("Vinayak Holikatti <h.vinayak@samsung.com>");
