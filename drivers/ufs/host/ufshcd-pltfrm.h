@@ -34,5 +34,6 @@ int ufshcd_pltfrm_init(struct platform_device *pdev,
 void ufshcd_pltfrm_remove(struct platform_device *pdev);
 int ufshcd_populate_vreg(struct device *dev, const char *name,
 			 struct ufs_vreg **out_vreg, bool skip_current);
+int ufshcd_check_hibern8(struct ufs_hba *hba, unsigned int num_lanes);
 
 #endif /* UFSHCD_PLTFRM_H_ */
