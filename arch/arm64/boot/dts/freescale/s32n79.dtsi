@@ -464,9 +464,12 @@
 
 		ufshc: ufs@4ac80000 {
 			compatible = "nxp,s32n79-ufshc","jedec,ufs-3.0";
-			reg = <0x4ac80000 0x1000>;
+			reg = <0x4ac80000 0x1000>, <0x4ac40000 0x1000>;
+			reg-names = "ufshc", "scm";
 			interrupt-parent = <&irqsteer_coss>;
 			interrupts = <211>;
+			clocks = <&clks 0x91>;
+			clock-names = "core_clk";
 			status = "disabled";
 		};
 
