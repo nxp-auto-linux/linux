@@ -77,11 +77,11 @@
 	status = "okay";
 };
 
-&linflex0 {
+&linflex28 {
 	status = "okay";
 };
 
-&linflex1 {
+&linflex29 {
 	status = "okay";
 };
 
