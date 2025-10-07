@@ -14,6 +14,9 @@
 
 	aliases {
 		serial0 = &uart0;
+		serial5 = &uart5;
+		serial6 = &uart6;
+		serial7 = &uart7;
 		serial10 = &linflex0;
 		serial11 = &linflex1;
 		i2c0 = &lpi2c0;
@@ -293,6 +296,16 @@
 			status = "disabled";
 		};
 
+		uart5: serial@4a060000 {
+			compatible = "arm,pl011", "arm,primecell";
+			reg = <0x4a060000 0x1000>;
+			clocks = <&sys_clk>, <&sys_clk>;
+			clock-names = "uartclk", "apb_pclk";
+			interrupt-parent = <&irqsteer_coss>;
+			interrupts = <269>;
+			status = "disabled";
+		};
+
 		lpi2c0: i2c@4a0d0000 {
 			compatible = "nxp,s32n79-lpi2c";
 			reg = <0x4a0d0000 0x1000>;
@@ -345,6 +358,26 @@
 				     <448>;
 			clocks = <&sys_clk>, <&sys_clk>, <&sys_clk>, <&sys_clk>;
 			clock-names = "dmamux0", "dmamux1", "dmamux2", "dmamux3";
+			status = "disabled";
+		};
+
+		uart6: serial@4aa30000 {
+			compatible = "arm,pl011", "arm,primecell";
+			reg = <0x4aa30000 0x1000>;
+			clocks = <&sys_clk>, <&sys_clk>;
+			clock-names = "uartclk", "apb_pclk";
+			interrupt-parent = <&irqsteer_coss>;
+			interrupts = <270>;
+			status = "disabled";
+		};
+
+		uart7: serial@4aa40000 {
+			compatible = "arm,pl011", "arm,primecell";
+			reg = <0x4aa40000 0x1000>;
+			clocks = <&sys_clk>, <&sys_clk>;
+			clock-names = "uartclk", "apb_pclk";
+			interrupt-parent = <&irqsteer_coss>;
+			interrupts = <271>;
 			status = "disabled";
 		};
 
