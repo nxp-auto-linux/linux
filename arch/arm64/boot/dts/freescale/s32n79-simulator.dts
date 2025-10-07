@@ -105,6 +105,22 @@
 	status = "okay";
 };
 
+&can22 {
+	status = "okay";
+};
+
+&can23 {
+	status = "okay";
+};
+
+&can46 {
+	status = "okay";
+};
+
+&can47 {
+	status = "okay";
+};
+
 &netc_iep14 {
 	status = "okay";
 };
