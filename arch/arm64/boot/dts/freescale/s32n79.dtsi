@@ -336,7 +336,7 @@
 			status = "disabled";
 		};
 
-		edma0_coss: dma-controller@4a420000 {
+		edma_coss: dma-controller@4a420000 {
 			compatible = "nxp,s32n79-coss-edma5";
 			reg = <0x4a420000 0x201000>,
 				<0x4a410000 0x1000>,
@@ -566,7 +566,7 @@
 			status = "disabled";
 		};
 
-		edma0_rcu: dma-controller@558c0000 {
+		edma_rcu: dma-controller@558c0000 {
 			compatible = "nxp,s32n79-rcu-edma5";
 			reg = <0x558c0000 0x101000>,
 				<0x558b1000 0x1000>,
@@ -614,8 +614,8 @@
 			interrupt-parent = <&irqsteer_rcu>;
 			clocks = <&sys_clk>, <&sys_clk>;
 			clock-names = "lin", "ipg";
-			dmas = <&edma0_rcu 1 25>,
-				<&edma0_rcu 0 25>;
+			dmas = <&edma_rcu 1 25>,
+				<&edma_rcu 0 25>;
 			dma-names = "rx", "tx";
 			status = "disabled";
 		};
@@ -628,8 +628,8 @@
 			interrupt-parent = <&irqsteer_rcu>;
 			clocks = <&sys_clk>, <&sys_clk>;
 			clock-names = "lin", "ipg";
-			dmas = <&edma0_rcu 1 26>,
-			       <&edma0_rcu 0 26>;
+			dmas = <&edma_rcu 1 26>,
+			       <&edma_rcu 0 26>;
 			dma-names = "rx", "tx";
 			status = "disabled";
 		};
@@ -664,8 +664,8 @@
 			interrupt-parent = <&irqsteer_rcu>;
 			clocks = <&sys_clk>, <&sys_clk>;
 			clock-names = "lin", "ipg";
-			dmas = <&edma0_rcu 1 53>,
-				<&edma0_rcu 0 53>;
+			dmas = <&edma_rcu 1 53>,
+				<&edma_rcu 0 53>;
 			dma-names = "rx", "tx";
 			status = "disabled";
 		};
@@ -678,8 +678,8 @@
 			interrupt-parent = <&irqsteer_rcu>;
 			clocks = <&sys_clk>, <&sys_clk>;
 			clock-names = "lin", "ipg";
-			dmas = <&edma0_rcu 1 54>,
-			       <&edma0_rcu 0 54>;
+			dmas = <&edma_rcu 1 54>,
+			       <&edma_rcu 0 54>;
 			dma-names = "rx", "tx";
 			status = "disabled";
 		};
