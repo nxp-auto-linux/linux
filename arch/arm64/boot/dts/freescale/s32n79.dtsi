@@ -634,6 +634,28 @@
 			status = "disabled";
 		};
 
+		can22: can@563c0000 {
+			compatible = "nxp,s32n79-flexcan";
+			reg = <0x563c0000 0x4000>;
+			interrupt-parent = <&irqsteer_rcu>;
+			interrupts = <22>, <86>;
+			interrupt-names = "mb_0-127", "berr";
+			clocks = <&sys_clk>, <&sys_clk>;
+			clock-names = "ipg", "per";
+			status = "disabled";
+		};
+
+		can23: can@563d0000 {
+			compatible = "nxp,s32n79-flexcan";
+			reg = <0x563d0000 0x4000>;
+			interrupt-parent = <&irqsteer_rcu>;
+			interrupts = <23>, <87>;
+			interrupt-names = "mb_0-127", "berr";
+			clocks = <&sys_clk>, <&sys_clk>;
+			clock-names = "ipg", "per";
+			status = "disabled";
+		};
+
 		linflex28: serial@56f10000 {
 			compatible = "nxp,s32n79-linflexuart",
 					"fsl,s32v234-linflexuart";
@@ -659,6 +681,28 @@
 			dmas = <&edma0_rcu 1 54>,
 			       <&edma0_rcu 0 54>;
 			dma-names = "rx", "tx";
+			status = "disabled";
+		};
+
+		can46: can@56fc0000 {
+			compatible = "nxp,s32n79-flexcan";
+			reg = <0x56fc0000 0x4000>;
+			interrupt-parent = <&irqsteer_rcu>;
+			interrupts = <46>, <110>;
+			interrupt-names = "mb_0-127", "berr";
+			clocks = <&sys_clk>, <&sys_clk>;
+			clock-names = "ipg", "per";
+			status = "disabled";
+		};
+
+		can47: can@56fd0000 {
+			compatible = "nxp,s32n79-flexcan";
+			reg = <0x56fd0000 0x4000>;
+			interrupt-parent = <&irqsteer_rcu>;
+			interrupts = <47>, <111>;
+			interrupt-names = "mb_0-127", "berr";
+			clocks = <&sys_clk>, <&sys_clk>;
+			clock-names = "ipg", "per";
 			status = "disabled";
 		};
 	};
