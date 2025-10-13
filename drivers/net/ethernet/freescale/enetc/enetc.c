@@ -3417,7 +3417,7 @@ int enetc_alloc_si_resources(struct enetc_ndev_priv *priv)
 	if (is_enetc_rev1(si))
 		cls_num = si->num_fs_entries;
 	else
-		cls_num = si->max_ipf_entries;
+		cls_num = si->max_ipf_entries + si->num_fs_entries;
 
 	priv->cls_rules = kcalloc(cls_num, sizeof(*priv->cls_rules),
 				  GFP_KERNEL);

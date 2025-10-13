@@ -53,6 +53,18 @@ union netc_cbd {
 #define NTMP_RESP_RR		BIT(15)
 		__le32 resv1[4];
 	} resp_hdr; /* NTMP Response Message Header Format */
+
+	struct {
+		__le64 addr;
+		__le32 opt[4];
+		__le16 index;
+		__le16 length;
+		u8 cmd;
+		u8 cls;
+		u8 _res;
+		u8 status_flags;
+#define NTMP_V1_RESP_STATUS	GENMASK(5, 0)
+	} req_v1; /* NTMP Request Format for version 1.0 */
 };
 
 struct ntmp_dma_buf {

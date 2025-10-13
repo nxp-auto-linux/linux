@@ -341,6 +341,25 @@ struct ipft_cfge_data {
 	__le32 flta_tgt;
 };
 
+struct rfse_set_buff {
+	__le32 resv0[6];
+	__be32 sip_h[4];
+	__be32 sip_m[4];
+	__be32 dip_h[4];
+	__be32 dip_m[4];
+	__le32 resv1[2];
+	__be16 sport_h;
+	__be16 sport_m;
+	__be16 dport_h;
+	__be16 dport_m;
+	__le32 resv2;
+	u8 proto_h;
+	u8 proto_m;
+	__le16 flags;
+	__le16 result;
+	__le16 mode;
+};
+
 struct rfst_keye_data {
 	__le32 resv0[6];
 	__be32 source_ip_addr[4];
@@ -609,6 +628,7 @@ struct ntmp_caps {
 	int ett_num_entries;
 	int ect_num_entries;
 	int isgt_num_entries;
+	int rfst_num_entries;
 };
 
 struct ntmp_user;
@@ -638,6 +658,7 @@ struct ntmp_user {
 	unsigned long *ett_gid_bitmap;
 	unsigned long *ect_gid_bitmap;
 	unsigned long *isgt_eid_bitmap;
+	unsigned long *rfst_eid_bitmap;
 	u32 ett_bitmap_size;
 	u32 ect_bitmap_size;
 
@@ -825,6 +846,10 @@ int ntmp_fmdt_update_entry(struct ntmp_user *user, u32 entry_id,
 			   u8 *data, u32 data_len);
 int ntmp_fmdt_query_entry(struct ntmp_user *user, u32 entry_id,
 			  u8 *data_buff, u32 data_len);
+/* NTMP V1.0 functions */
+int ntmp_v1_rfst_set_entry(struct ntmp_user *user, u32 entry_id,
+			   struct rfse_set_buff *rfse);
+int ntmp_v1_rfst_delete_entry(struct ntmp_user *user, u32 entry_id);
 #else
 static inline u32 ntmp_lookup_free_eid(unsigned long *bitmap, u32 size)
 {
@@ -1124,6 +1149,18 @@ static inline int ntmp_fmdt_update_entry(struct ntmp_user *user, u32 entry_id,
 
 static inline int ntmp_fmdt_query_entry(struct ntmp_user *user, u32 entry_id,
 					u8 *data_buff, u32 data_len)
+{
+	return 0;
+}
+
+/* NTMP V1.0 functions */
+static inline int ntmp_v1_rfst_set_entry(struct ntmp_user *user, u32 entry_id,
+					 struct rfse_set_buff *rfse)
+{
+	return 0;
+}
+
+static inline int ntmp_v1_rfst_delete_entry(struct ntmp_user *user, u32 entry_id)
 {
 	return 0;
 }
