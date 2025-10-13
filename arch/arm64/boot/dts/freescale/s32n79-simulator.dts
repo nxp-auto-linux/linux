@@ -8,6 +8,10 @@
 #include "dt-bindings/memory/s32n7-carv.h"
 
 / {
+	chosen {
+		stdout-path = "serial0:115200n8";
+	};
+
 	cpus {
 		cpu-map {
 			cluster0 {
