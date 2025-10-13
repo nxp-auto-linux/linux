@@ -970,6 +970,82 @@ static void enetc_get_ringparam(struct net_device *ndev,
 		if (val != priv->tx_bd_count)
 			netif_err(priv, hw, ndev, "TxBDR[TBLENR] = %d!\n", val);
 	}
+
+	kernel_ring->rx_buf_len = ENETC_RXB_TRUESIZE(priv->page_order);
+}
+
+static int enetc_check_ringparm(struct enetc_ndev_priv *priv,
+				struct ethtool_ringparam *param,
+				struct kernel_ethtool_ringparam *kernel_param,
+				struct netlink_ext_ack *extack)
+{
+	if (kernel_param->rx_buf_len) {
+		u32 page_size = kernel_param->rx_buf_len << 1;
+		int max_order = get_order(SZ_64K);
+		int order = get_order(page_size);
+
+		page_size = PAGE_SIZE << order;
+		if ((page_size >> 1) != kernel_param->rx_buf_len ||
+		    order > max_order) {
+			NL_SET_ERR_MSG_FMT_MOD(extack,
+					       "rx-buf-len should be 2^i * %lu, i <= %d",
+					       PAGE_SIZE >> 1, max_order);
+			return -EINVAL;
+		}
+	}
+
+	return 0;
+}
+
+static int enetc_reconfigure_rxbuf_len_cb(struct enetc_ndev_priv *priv,
+					  void *ctx)
+{
+	u32 rx_buf_len = *(u32 *)ctx;
+	u32 page_size;
+	int i;
+
+	/* Because each RX BD uses half a page as its buffer, so the
+	 * page size is rx_buf_len * 2.
+	 */
+	page_size = rx_buf_len << 1;
+	priv->page_order = get_order(page_size);
+
+	for (i = 0; i < priv->num_rx_rings; i++) {
+		struct enetc_bdr *rx_ring = priv->rx_ring[i];
+
+		rx_ring->page_order = priv->page_order;
+		rx_ring->xdp.rxq.frag_size = ENETC_RXB_DMA_SIZE_XDP(priv->page_order);
+	}
+
+	return 0;
+}
+
+static int enetc_set_ringparam(struct net_device *ndev,
+			       struct ethtool_ringparam *param,
+			       struct kernel_ethtool_ringparam *kernel_param,
+			       struct netlink_ext_ack *extack)
+{
+	struct enetc_ndev_priv *priv = netdev_priv(ndev);
+	int err;
+
+	err = enetc_check_ringparm(priv, param, kernel_param, extack);
+	if (err)
+		return err;
+
+	if (kernel_param->rx_buf_len &&
+	    kernel_param->rx_buf_len != ENETC_RXB_TRUESIZE(priv->page_order)) {
+		bool extended = !!(priv->active_offloads & ENETC_F_RX_TSTAMP);
+
+		err = enetc_reconfigure(priv, extended,
+					enetc_reconfigure_rxbuf_len_cb,
+					&kernel_param->rx_buf_len);
+		if (err) {
+			NL_SET_ERR_MSG_MOD(extack, "Failed to reconfigure enetc");
+			return err;
+		}
+	}
+
+	return 0;
 }
 
 static int enetc_get_coalesce(struct net_device *ndev,
@@ -1514,6 +1590,7 @@ const struct ethtool_ops enetc_pf_ethtool_ops = {
 	.supported_coalesce_params = ETHTOOL_COALESCE_USECS |
 				     ETHTOOL_COALESCE_MAX_FRAMES |
 				     ETHTOOL_COALESCE_USE_ADAPTIVE_RX,
+	.supported_ring_params = ETHTOOL_RING_USE_RX_BUF_LEN,
 	.get_regs_len = enetc_get_reglen,
 	.get_regs = enetc_get_regs,
 	.get_sset_count = enetc_get_sset_count,
@@ -1530,6 +1607,7 @@ const struct ethtool_ops enetc_pf_ethtool_ops = {
 	.get_rxfh = enetc_get_rxfh,
 	.set_rxfh = enetc_set_rxfh,
 	.get_ringparam = enetc_get_ringparam,
+	.set_ringparam = enetc_set_ringparam,
 	.get_coalesce = enetc_get_coalesce,
 	.set_coalesce = enetc_set_coalesce,
 	.get_link_ksettings = enetc_get_link_ksettings,
@@ -1549,6 +1627,7 @@ const struct ethtool_ops enetc4_ppm_ethtool_ops = {
 	.supported_coalesce_params = ETHTOOL_COALESCE_USECS |
 				     ETHTOOL_COALESCE_MAX_FRAMES |
 				     ETHTOOL_COALESCE_USE_ADAPTIVE_RX,
+	.supported_ring_params = ETHTOOL_RING_USE_RX_BUF_LEN,
 	.get_eth_mac_stats = enetc_ppm_get_eth_mac_stats,
 	.get_rxnfc = enetc4_get_rxnfc,
 	.get_rxfh_key_size = enetc_get_rxfh_key_size,
@@ -1556,6 +1635,7 @@ const struct ethtool_ops enetc4_ppm_ethtool_ops = {
 	.get_rxfh = enetc_get_rxfh,
 	.set_rxfh = enetc_set_rxfh,
 	.get_ringparam = enetc_get_ringparam,
+	.set_ringparam = enetc_set_ringparam,
 	.get_coalesce = enetc_get_coalesce,
 	.set_coalesce = enetc_set_coalesce,
 	.get_link_ksettings = enetc_get_link_ksettings,
@@ -1567,6 +1647,7 @@ const struct ethtool_ops enetc_vf_ethtool_ops = {
 	.supported_coalesce_params = ETHTOOL_COALESCE_USECS |
 				     ETHTOOL_COALESCE_MAX_FRAMES |
 				     ETHTOOL_COALESCE_USE_ADAPTIVE_RX,
+	.supported_ring_params = ETHTOOL_RING_USE_RX_BUF_LEN,
 	.get_regs_len = enetc_get_reglen,
 	.get_regs = enetc_get_regs,
 	.get_sset_count = enetc_get_sset_count,
@@ -1578,6 +1659,7 @@ const struct ethtool_ops enetc_vf_ethtool_ops = {
 	.get_rxfh = enetc_get_rxfh,
 	.set_rxfh = enetc_set_rxfh,
 	.get_ringparam = enetc_get_ringparam,
+	.set_ringparam = enetc_set_ringparam,
 	.get_coalesce = enetc_get_coalesce,
 	.set_coalesce = enetc_set_coalesce,
 	.get_link = ethtool_op_get_link,
@@ -1588,11 +1670,13 @@ const struct ethtool_ops enetc4_pf_ethtool_ops = {
 	.supported_coalesce_params = ETHTOOL_COALESCE_USECS |
 				     ETHTOOL_COALESCE_MAX_FRAMES |
 				     ETHTOOL_COALESCE_USE_ADAPTIVE_RX,
+	.supported_ring_params = ETHTOOL_RING_USE_RX_BUF_LEN,
 	.get_pause_stats = enetc_get_pause_stats,
 	.get_rmon_stats = enetc_get_rmon_stats,
 	.get_eth_ctrl_stats = enetc_get_eth_ctrl_stats,
 	.get_eth_mac_stats = enetc_get_eth_mac_stats,
 	.get_ringparam = enetc_get_ringparam,
+	.set_ringparam = enetc_set_ringparam,
 	.get_coalesce = enetc_get_coalesce,
 	.set_coalesce = enetc_set_coalesce,
 	.get_link_ksettings = enetc_get_link_ksettings,

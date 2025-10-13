@@ -145,8 +145,7 @@ enum enetc_bdr_type {TX, RX};
 #define ENETC_RBLENR	0x20
 #define ENETC_RBRSCR	0x30
 #define ENETC_RBRSCR_EN	BIT(31)
-#define ENETC_RBRSCR_SIZE_MASK	0xffff
-#define ENETC_RBRSCR_SIZE(n)	((n) & ENETC_RBRSCR_SIZE_MASK)
+#define ENETC_RBRSCR_SIZE	0xffff
 #define ENETC_RBIER	0xa0
 #define ENETC_RBIER_RXTIE	BIT(0)
 #define ENETC_RBIDR	0xa4
