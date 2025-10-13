@@ -729,6 +729,10 @@ static void enetc4_get_ntmp_caps(struct enetc_si *si)
 	/* Get the max number of words of SGCL table */
 	val = enetc_port_rd(hw, ENETC4_SGCLITCAPR);
 	caps->sgclt_num_words = val & SGCLITCAPR_NUM_WORDS;
+
+	/* Get the max number of entries of RFST */
+	val = enetc_rd(hw, ENETC_SIRFSCAPR);
+	caps->rfst_num_entries = ENETC_SIRFSCAPR_GET_NUM_RFS(val);
 }
 
 static int enetc4_ntmp_bitmap_init(struct ntmp_user *user)
@@ -755,7 +759,15 @@ static int enetc4_ntmp_bitmap_init(struct ntmp_user *user)
 	if (!user->rpt_eid_bitmap)
 		goto free_isct_bitmap;
 
+	user->rfst_eid_bitmap = bitmap_zalloc(caps->rfst_num_entries, GFP_KERNEL);
+	if (!user->rfst_eid_bitmap)
+		goto free_rpt_bitmap;
+
 	return 0;
+
+free_rpt_bitmap:
+	bitmap_free(user->rpt_eid_bitmap);
+	user->rpt_eid_bitmap = NULL;
 
 free_isct_bitmap:
 	bitmap_free(user->isct_eid_bitmap);
@@ -792,6 +804,9 @@ static void enetc4_ntmp_bitmap_free(struct ntmp_user *user)
 
 	bitmap_free(user->ist_eid_bitmap);
 	user->ist_eid_bitmap = NULL;
+
+	bitmap_free(user->rfst_eid_bitmap);
+	user->rfst_eid_bitmap = NULL;
 }
 
 static int enetc4_init_ntmp_user(struct enetc_si *si)
@@ -2006,6 +2021,17 @@ static int enetc4_pf_power_up(struct pci_dev *pdev, struct device_node *node)
 			dev_err(&pdev->dev, "imdio regulator enable failed\n");
 			return err;
 		}
+	}
+
+	/* TODO: save the tables before power down */
+	if (priv->cls_rules) {
+		size_t count = (size_t)priv->si->max_ipf_entries +
+			       (size_t)priv->si->num_fs_entries;
+		if (count)
+			memset(priv->cls_rules, 0,
+			       count * sizeof(*priv->cls_rules));
+		bitmap_zero(si->ntmp_user.rfst_eid_bitmap,
+			    si->ntmp_user.caps.rfst_num_entries);
 	}
 
 	return 0;

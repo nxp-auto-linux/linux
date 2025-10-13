@@ -744,7 +744,7 @@ static int enetc_get_rxnfc(struct net_device *ndev, struct ethtool_rxnfc *rxnfc,
 	if (is_enetc_rev1(si))
 		max_entry_num = si->num_fs_entries;
 	else
-		max_entry_num = si->max_ipf_entries;
+		max_entry_num = si->max_ipf_entries + si->num_fs_entries;
 
 	switch (rxnfc->cmd) {
 	case ETHTOOL_GRXRINGS:
@@ -1081,8 +1081,202 @@ l4ip6:
 	return 0;
 }
 
-static int enetc4_configure_rxnfc(struct net_device *ndev,
-				  struct ethtool_rxnfc *rxnfc)
+static int enetc4_set_v1_rfst_entry(struct enetc_si *si,
+				    struct ethtool_rx_flow_spec *fs,
+				    u32 entry_id)
+{
+	struct ethtool_tcpip4_spec *l4ip4_h, *l4ip4_m;
+	struct ethtool_tcpip6_spec *l4ip6_h, *l4ip6_m;
+	struct ethtool_usrip4_spec *l3ip4_h, *l3ip4_m;
+	struct ethtool_usrip6_spec *l3ip6_h, *l3ip6_m;
+	struct rfse_set_buff rfse = { };
+	u16 flag = 0;
+
+	switch (fs->flow_type & 0xff) {
+	case TCP_V4_FLOW:
+		l4ip4_h = &fs->h_u.tcp_ip4_spec;
+		l4ip4_m = &fs->m_u.tcp_ip4_spec;
+		flag |= RFST_UDP_TCP_MASK;
+		goto l4ip4;
+	case UDP_V4_FLOW:
+		l4ip4_h = &fs->h_u.udp_ip4_spec;
+		l4ip4_m = &fs->m_u.udp_ip4_spec;
+		flag |= RFST_UDP_TCP | RFST_UDP_TCP_MASK;
+		goto l4ip4;
+	case SCTP_V4_FLOW:
+		l4ip4_h = &fs->h_u.sctp_ip4_spec;
+		l4ip4_m = &fs->m_u.sctp_ip4_spec;
+l4ip4:
+		rfse.sip_h[3] = l4ip4_h->ip4src;
+		rfse.sip_m[3] = l4ip4_m->ip4src;
+		rfse.dip_h[3] = l4ip4_h->ip4dst;
+		rfse.dip_m[3] = l4ip4_m->ip4dst;
+		rfse.sport_h = l4ip4_h->psrc;
+		rfse.sport_m = l4ip4_m->psrc;
+		rfse.dport_h = l4ip4_h->pdst;
+		rfse.dport_m = l4ip4_m->pdst;
+		flag |= RFST_IPV4_IPV6_MASK;
+		if (l4ip4_m->tos)
+			netdev_warn(si->ndev,
+				    "ToS field is not supported and was ignored\n");
+		break;
+	case TCP_V6_FLOW:
+		l4ip6_h = &fs->h_u.tcp_ip6_spec;
+		l4ip6_m = &fs->m_u.tcp_ip6_spec;
+		flag |= RFST_UDP_TCP_MASK;
+		goto l4ip6;
+	case UDP_V6_FLOW:
+		l4ip6_h = &fs->h_u.udp_ip6_spec;
+		l4ip6_m = &fs->m_u.udp_ip6_spec;
+		flag |= RFST_UDP_TCP | RFST_UDP_TCP_MASK;
+		goto l4ip6;
+	case SCTP_V6_FLOW:
+		l4ip6_h = &fs->h_u.sctp_ip6_spec;
+		l4ip6_m = &fs->m_u.sctp_ip6_spec;
+l4ip6:
+		memcpy(rfse.sip_h, l4ip6_h->ip6src, sizeof(rfse.sip_h));
+		memcpy(rfse.sip_m, l4ip6_m->ip6src, sizeof(rfse.sip_m));
+		memcpy(rfse.dip_h, l4ip6_h->ip6dst, sizeof(rfse.dip_h));
+		memcpy(rfse.dip_m, l4ip6_m->ip6dst, sizeof(rfse.dip_m));
+		rfse.sport_h = l4ip6_h->psrc;
+		rfse.sport_m = l4ip6_m->psrc;
+		rfse.dport_h = l4ip6_h->pdst;
+		rfse.dport_m = l4ip6_m->pdst;
+		flag |= RFST_IPV4_IPV6 | RFST_IPV4_IPV6_MASK;
+		break;
+	case IP_USER_FLOW:
+		l3ip4_h = &fs->h_u.usr_ip4_spec;
+		l3ip4_m = &fs->m_u.usr_ip4_spec;
+		rfse.sip_h[3] = l3ip4_h->ip4src;
+		rfse.sip_m[3] = l3ip4_m->ip4src;
+		rfse.dip_h[3] = l3ip4_h->ip4dst;
+		rfse.dip_m[3] = l3ip4_m->ip4dst;
+		flag |= RFST_IPV4_IPV6_MASK;
+		if (l3ip4_m->tos)
+			netdev_warn(si->ndev,
+				    "ToS field is not supported and was ignored\n");
+		break;
+	case IPV6_USER_FLOW:
+		l3ip6_h = &fs->h_u.usr_ip6_spec;
+		l3ip6_m = &fs->m_u.usr_ip6_spec;
+		memcpy(rfse.sip_h, l3ip6_h->ip6src, sizeof(rfse.sip_h));
+		memcpy(rfse.sip_m, l3ip6_m->ip6src, sizeof(rfse.sip_m));
+		memcpy(rfse.dip_h, l3ip6_h->ip6dst, sizeof(rfse.dip_h));
+		memcpy(rfse.dip_m, l3ip6_m->ip6dst, sizeof(rfse.dip_m));
+		flag |= RFST_IPV4_IPV6 | RFST_IPV4_IPV6_MASK;
+		break;
+	default:
+		return -EOPNOTSUPP;
+	}
+
+	rfse.flags = cpu_to_le16(flag);
+	rfse.result = cpu_to_le16(fs->ring_cookie);
+	rfse.mode = cpu_to_le16(ENETC_RFSE_EN | ENETC_RFSE_MODE_BD);
+
+	return ntmp_v1_rfst_set_entry(&si->ntmp_user, entry_id, &rfse);
+}
+
+static int enetc4_delete_cls_rule(struct enetc_si *si,
+				  struct enetc_cls_rule *cls_rule)
+{
+	struct ntmp_user *user = &si->ntmp_user;
+	u32 del_id = cls_rule->entry_id;
+	int err;
+
+	if (cls_rule->is_rfs) {
+		err = ntmp_v1_rfst_delete_entry(user, del_id);
+		if (err)
+			return err;
+		ntmp_clear_eid_bitmap(user->rfst_eid_bitmap, del_id);
+
+		/* If no RFST entry left, disable RFST lookup */
+		if (bitmap_empty(user->rfst_eid_bitmap,
+				 user->caps.rfst_num_entries))
+			enetc_port_wr(&si->hw, ENETC4_PRFSMR, 0);
+	} else {
+		err = ntmp_ipft_delete_entry(user, del_id);
+		if (err)
+			return err;
+	}
+
+	memset(cls_rule, 0, sizeof(*cls_rule));
+
+	return 0;
+}
+
+static int enetc4_configure_rxnfc_by_rfs(struct net_device *ndev,
+					 struct ethtool_rxnfc *rxnfc)
+{
+	struct enetc_ndev_priv *priv = netdev_priv(ndev);
+	struct enetc_si *si = priv->si;
+	struct ntmp_user *user;
+	u32 entry_id, val, i;
+	int err;
+
+	/* TODO: add RFST support for VF */
+	if (!enetc_si_is_pf(si))
+		return -EOPNOTSUPP;
+
+	user = &si->ntmp_user;
+	i = rxnfc->fs.location;
+
+	switch (rxnfc->cmd) {
+	case ETHTOOL_SRXCLSRLINS:
+		if (rxnfc->fs.ring_cookie >= priv->num_rx_rings)
+			return -EINVAL;
+
+		err = enetc_validate_flow_rule(ndev, &rxnfc->fs);
+		if (err)
+			return err;
+
+		/* If the rule index was used before, we need to delete the
+		 * rule from the IPFT/RFST first, and then add the new rule
+		 * entry into the RFS table.
+		 */
+		if (priv->cls_rules[i].used) {
+			err = enetc4_delete_cls_rule(si, &priv->cls_rules[i]);
+			if (err)
+				return err;
+		}
+
+		entry_id = ntmp_lookup_free_eid(user->rfst_eid_bitmap,
+						user->caps.rfst_num_entries);
+		if (entry_id == NTMP_NULL_ENTRY_ID) {
+			netdev_err(ndev, "No available RFST entry is found");
+			return -ENOSPC;
+		}
+		err = enetc4_set_v1_rfst_entry(si, &rxnfc->fs, entry_id);
+		if (err)
+			return err;
+
+		/* Enable Receive flow steering table lookup. */
+		val = enetc_port_rd(&si->hw, ENETC4_PRFSMR);
+		if (!(val & PRFSMR_RFSE))
+			enetc_port_wr(&si->hw, ENETC4_PRFSMR, PRFSMR_RFSE);
+
+		priv->cls_rules[i].fs = rxnfc->fs;
+		priv->cls_rules[i].used = 1;
+		priv->cls_rules[i].entry_id = entry_id;
+		priv->cls_rules[i].is_rfs = 1;
+		break;
+	case ETHTOOL_SRXCLSRLDEL:
+		if (!priv->cls_rules[i].used)
+			return -EINVAL;
+
+		err = enetc4_delete_cls_rule(si, &priv->cls_rules[i]);
+		if (err)
+			return err;
+
+		break;
+	default:
+		return -EOPNOTSUPP;
+	}
+
+	return 0;
+}
+
+static int enetc4_configure_rxnfc_by_ipft(struct net_device *ndev,
+					  struct ethtool_rxnfc *rxnfc)
 {
 	struct enetc_ndev_priv *priv = netdev_priv(ndev);
 	struct enetc_si *si = priv->si;
@@ -1094,9 +1288,9 @@ static int enetc4_configure_rxnfc(struct net_device *ndev,
 	if (!enetc_si_is_pf(si))
 		return -EOPNOTSUPP;
 
-	if (i >= si->max_ipf_entries) {
+	if (i >= si->max_ipf_entries + si->num_fs_entries) {
 		netdev_err(ndev, "Index ranges from 0 ~ %d\n",
-			   si->max_ipf_entries - 1);
+			   si->max_ipf_entries + si->num_fs_entries - 1);
 		return -EINVAL;
 	}
 
@@ -1111,21 +1305,14 @@ static int enetc4_configure_rxnfc(struct net_device *ndev,
 		if (err)
 			return err;
 
-		/* If the rule index was used before, we need to delete the rule
-		 * from the ingress port filter first, and then add the new rule
+		/* If the rule index was used before, we need to delete the
+		 * rule from the IPFT/RFST first, and then add the new rule
 		 * entry into the ingress filter table.
 		 */
 		if (priv->cls_rules[i].used) {
-			struct enetc_cls_rule *cls_rule;
-
-			cls_rule = &priv->cls_rules[i];
-			entry_id = cls_rule->entry_id;
-
-			err = ntmp_ipft_delete_entry(&si->ntmp_user, entry_id);
+			err = enetc4_delete_cls_rule(si, &priv->cls_rules[i]);
 			if (err)
 				return err;
-
-			memset(cls_rule, 0, sizeof(*cls_rule));
 		}
 
 		err = enetc4_set_wol_filter_ipft_entry(priv, &rxnfc->fs, &entry_id);
@@ -1135,6 +1322,7 @@ static int enetc4_configure_rxnfc(struct net_device *ndev,
 		priv->cls_rules[i].fs = rxnfc->fs;
 		priv->cls_rules[i].used = 1;
 		priv->cls_rules[i].entry_id = entry_id;
+		priv->cls_rules[i].is_rfs = 0;
 		break;
 	case ETHTOOL_SRXCLSRLDEL:
 		if (!priv->cls_rules[i].used) {
@@ -1142,12 +1330,9 @@ static int enetc4_configure_rxnfc(struct net_device *ndev,
 			return -EINVAL;
 		}
 
-		entry_id = priv->cls_rules[i].entry_id;
-		err = ntmp_ipft_delete_entry(&si->ntmp_user, entry_id);
+		err = enetc4_delete_cls_rule(si, &priv->cls_rules[i]);
 		if (err)
 			return err;
-
-		memset(&priv->cls_rules[i], 0, sizeof(priv->cls_rules[i]));
 
 		break;
 	default:
@@ -1155,6 +1340,37 @@ static int enetc4_configure_rxnfc(struct net_device *ndev,
 	}
 
 	return 0;
+}
+
+static int enetc4_configure_rxnfc(struct net_device *ndev,
+				  struct ethtool_rxnfc *rxnfc)
+{
+	struct enetc_ndev_priv *priv = netdev_priv(ndev);
+	struct enetc_si *si = priv->si;
+	bool is_rfs = false;
+
+	if (rxnfc->fs.location >= si->max_ipf_entries + si->num_fs_entries)
+		return -EINVAL;
+
+	switch (rxnfc->cmd) {
+	case ETHTOOL_SRXCLSRLINS:
+		if (rxnfc->fs.ring_cookie != RX_CLS_FLOW_WAKE &&
+		    rxnfc->fs.ring_cookie != RX_CLS_FLOW_DISC &&
+		    si->num_fs_entries)
+			is_rfs = true;
+		break;
+	case ETHTOOL_SRXCLSRLDEL:
+		if (priv->cls_rules[rxnfc->fs.location].is_rfs)
+			is_rfs = true;
+		break;
+	default:
+		return -EOPNOTSUPP;
+	}
+
+	if (is_rfs)
+		return enetc4_configure_rxnfc_by_rfs(ndev, rxnfc);
+
+	return enetc4_configure_rxnfc_by_ipft(ndev, rxnfc);
 }
 
 static int enetc_set_rxnfc(struct net_device *ndev, struct ethtool_rxnfc *rxnfc)
@@ -1608,6 +1824,12 @@ static int enetc4_enable_wol_filter(struct enetc_ndev_priv *priv, bool en)
 
 	for (i = 0; i < si->max_ipf_entries + si->num_fs_entries; i++) {
 		u32 entry_id;
+
+		if (!priv->cls_rules[i].used)
+			continue;
+
+		if (priv->cls_rules[i].is_rfs)
+			continue;
 
 		entry_id = priv->cls_rules[i].entry_id;
 		if (ntmp_ipft_update_entry(&si->ntmp_user, entry_id, &cfge))
