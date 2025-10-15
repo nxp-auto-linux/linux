@@ -183,18 +183,6 @@
 			     <GIC_PPI 10 IRQ_TYPE_LEVEL_LOW>;
 	};
 
-	reserved-memory  {
-		#address-cells = <2>;
-		#size-cells = <2>;
-		ranges;
-
-		scmi_tx_buf: shm@d0000000 {
-			compatible = "arm,scmi-shmem";
-			reg = <0x0 0xd0000000 0x0 0x80>;
-			no-map;
-		};
-	};
-
 	firmware {
 		scmi: scmi {
 			compatible = "arm,scmi-smc";
