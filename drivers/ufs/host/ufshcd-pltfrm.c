@@ -22,7 +22,6 @@
 
 #define UFSHCD_DEFAULT_LANES_PER_DIRECTION		2
 
-#define MPHY_TX_FSM_STATE	0x41
 #define TX_FSM_HIBERN8		0x1
 #define HBRN8_POLL_TOUT_MS	1000
 
@@ -552,7 +551,7 @@ int ufshcd_check_hibern8(struct ufs_hba *hba, unsigned int num_lanes)
 
 		for (i = 0; i < num_lanes; i++) {
 			err = ufshcd_dme_get(hba,
-					UIC_ARG_MIB_SEL(MPHY_TX_FSM_STATE, i),
+					UIC_ARG_MIB_SEL(TX_FSM_STATE, i),
 					&tx_fsm_val);
 			if (err)
 				goto out;
@@ -577,7 +576,7 @@ int ufshcd_check_hibern8(struct ufs_hba *hba, unsigned int num_lanes)
 		success = true;
 		for (i = 0; i < num_lanes; i++) {
 			err = ufshcd_dme_get(hba,
-					UIC_ARG_MIB_SEL(MPHY_TX_FSM_STATE, i),
+					UIC_ARG_MIB_SEL(TX_FSM_STATE, i),
 					&tx_fsm_val);
 			if (err)
 				goto out;
