@@ -108,7 +108,7 @@ static int ufs_s32n_configure_clocks(struct ufs_hba *hba)
 	return 0;
 }
 
-static int ufs_s32n_phy_read_cr(struct ufs_hba *hba, uint16_t addr, uint16_t *value)
+static int ufs_s32n_phy_read_cr(struct ufs_hba *hba, u16 addr, u16 *value)
 {
 	unsigned int uic_arg3 = 0;
 	int ret = 0;
@@ -122,15 +122,15 @@ static int ufs_s32n_phy_read_cr(struct ufs_hba *hba, uint16_t addr, uint16_t *va
 	ret |= ufshcd_dme_set(hba, UIC_ARG_MIB_SEL(VS_MPHYCFGUPDT, 0), 0x1);
 	/* CR LSB parallel read value - 0x811a. */
 	ret |= ufshcd_dme_get(hba, UIC_ARG_MIB_SEL(CBCREGRDLSB, 0), &uic_arg3);
-	*value = (uint16_t)((uint16_t)uic_arg3 & MPHY_REG_LSB_MASK);
+	*value = (u16)((u16)uic_arg3 & MPHY_REG_LSB_MASK);
 	/* CR MSB parallel read value - 0x811b. */
 	ret |= ufshcd_dme_get(hba, UIC_ARG_MIB_SEL(CBCREGRDMSB, 0), &uic_arg3);
-	*value |= (uint16_t)((uint16_t)(uic_arg3 << 8) & MPHY_REG_MSB_MASK);
+	*value |= (u16)((u16)(uic_arg3 << 8) & MPHY_REG_MSB_MASK);
 
 	return ret;
 }
 
-static int ufs_s32n_phy_write_cr(struct ufs_hba *hba, uint16_t addr, uint16_t value)
+static int ufs_s32n_phy_write_cr(struct ufs_hba *hba, u16 addr, u16 value)
 {
 	int ret = 0;
 
@@ -212,7 +212,7 @@ static int ufs_s32n_link_startup_pre_change(struct ufs_hba *hba)
 {
 	struct s32n_ufs *ufs = ufshcd_get_variant(hba);
 	struct device *dev = hba->dev;
-	uint16_t data = 0;
+	u16 data = 0;
 	u32 reg;
 	int ret = 0;
 
@@ -304,7 +304,7 @@ static int ufs_s32n_link_startup_post_change(struct ufs_hba *hba)
 {
 	struct s32n_ufs *ufs = ufshcd_get_variant(hba);
 	unsigned int data = 0;
-	uint16_t reg_val = 0;
+	u16 reg_val = 0;
 	int ret = 0;
 
 	/* If MPHY initialization is not handled by TF-A,
@@ -440,7 +440,7 @@ static int ufs_s32n_init(struct ufs_hba *hba)
 		ufs->mphy_boot_mode = MPHY_BOOT_ROM;
 	} else if (!strcmp(mphy_boot_mode, "copy-sram")) {
 		ufs->mphy_boot_mode = MPHY_BOOT_COPY_SRAM;
-	} else if (strcmp(mphy_boot_mode, "none")) {
+	} else {
 		dev_warn(dev,
 			 "Unrecognized nxp,mphy-boot-mode property. UFS MPHY init will be skipped.\n");
 		goto init_out;
