@@ -243,10 +243,10 @@
 			compatible = "arm,smmu-v3";
 			reg = <0x4fc00000 0x200000>;
 			interrupt-parent = <&gic>;
-			interrupts = <GIC_SPI 29 IRQ_TYPE_EDGE_RISING>,
-				     <GIC_SPI 32 IRQ_TYPE_EDGE_RISING>,
-				     <GIC_SPI 36 IRQ_TYPE_EDGE_RISING>,
-				     <GIC_SPI 30 IRQ_TYPE_EDGE_RISING>;
+			interrupts = <GIC_SPI 1 IRQ_TYPE_EDGE_RISING>,
+				     <GIC_SPI 4 IRQ_TYPE_EDGE_RISING>,
+				     <GIC_SPI 8 IRQ_TYPE_EDGE_RISING>,
+				     <GIC_SPI 2 IRQ_TYPE_EDGE_RISING>;
 			interrupt-names = "eventq", "gerror", "priq", "cmdq-sync";
 			#iommu-cells = <1>;
 			dma-coherent;
@@ -265,14 +265,14 @@
 		irqsteer_coss: interrupt-controller@4ed00000 {
 			compatible = "nxp,s32n7-irqsteer";
 			reg = <0x4ed00000 0x10000>;
-			interrupts = <GIC_SPI 555 IRQ_TYPE_LEVEL_HIGH>,
-				     <GIC_SPI 556 IRQ_TYPE_LEVEL_HIGH>,
-				     <GIC_SPI 557 IRQ_TYPE_LEVEL_HIGH>,
-				     <GIC_SPI 558 IRQ_TYPE_LEVEL_HIGH>,
-				     <GIC_SPI 559 IRQ_TYPE_LEVEL_HIGH>,
-				     <GIC_SPI 560 IRQ_TYPE_LEVEL_HIGH>,
-				     <GIC_SPI 561 IRQ_TYPE_LEVEL_HIGH>,
-				     <GIC_SPI 562 IRQ_TYPE_LEVEL_HIGH>;
+			interrupts = <GIC_SPI 527 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 528 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 529 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 530 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 531 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 532 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 533 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 534 IRQ_TYPE_LEVEL_HIGH>;
 			interrupt-controller;
 			interrupt-parent = <&gic>;
 			#interrupt-cells = <1>;
@@ -515,14 +515,14 @@
 		irqsteer_rcu: interrupt-controller@55101000 {
 			compatible = "nxp,s32n7-irqsteer";
 			reg = <0x55101000 0x1000>;
-			interrupts = <GIC_SPI 101 IRQ_TYPE_LEVEL_HIGH>,
-				     <GIC_SPI 102 IRQ_TYPE_LEVEL_HIGH>,
-				     <GIC_SPI 103 IRQ_TYPE_LEVEL_HIGH>,
-				     <GIC_SPI 104 IRQ_TYPE_LEVEL_HIGH>,
-				     <GIC_SPI 105 IRQ_TYPE_LEVEL_HIGH>,
-				     <GIC_SPI 106 IRQ_TYPE_LEVEL_HIGH>,
-				     <GIC_SPI 107 IRQ_TYPE_LEVEL_HIGH>,
-				     <GIC_SPI 108 IRQ_TYPE_LEVEL_HIGH>;
+			interrupts = <GIC_SPI 73 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 74 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 75 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 76 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 77 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 78 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 79 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 80 IRQ_TYPE_LEVEL_HIGH>;
 			interrupt-controller;
 			interrupt-parent = <&gic>;
 			#interrupt-cells = <1>;
@@ -613,7 +613,7 @@
 		usdhc0: mmc@5b490000 {
 			compatible = "nxp,s32n-usdhc";
 			reg = <0x5b490000 0x1000>;
-			interrupts = <GIC_SPI 500 IRQ_TYPE_LEVEL_HIGH>;
+			interrupts = <GIC_SPI 472 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&sys_clk>, <&sys_clk>, <&sys_clk>;
 			clock-names = "ipg", "ahb", "per";
 			bus-width = <8>;
@@ -625,7 +625,7 @@
 			compatible = "nxp,s32n79-xspi";
 			reg = <0x5b700000 0x81000>, <0x10000000 0x10000000>;
 			reg-names = "base", "mmap";
-			interrupts = <GIC_SPI 395 IRQ_TYPE_LEVEL_HIGH>;// EENV0
+			interrupts = <GIC_SPI 367 IRQ_TYPE_LEVEL_HIGH>;// EENV0
 			#address-cells = <1>;
 			#size-cells = <0>;
 			clocks = <&sys_clk>;
@@ -827,28 +827,28 @@
 				carv0_partition0_user0: carv-user@47810000 {
 					compatible = "nxp,carv-uio";
 					reg = <0x47810000 0x10000>;
-					interrupts = <GIC_SPI 279 IRQ_TYPE_LEVEL_HIGH>;
+					interrupts = <GIC_SPI 251 IRQ_TYPE_LEVEL_HIGH>;
 					status = "disabled";
 				};
 
 				carv0_partition0_user1: carv-user@47820000 {
 					compatible = "nxp,carv-uio";
 					reg = <0x47820000 0x10000>;
-					interrupts = <GIC_SPI 281 IRQ_TYPE_LEVEL_HIGH>;
+					interrupts = <GIC_SPI 253 IRQ_TYPE_LEVEL_HIGH>;
 					status = "disabled";
 				};
 
 				carv0_partition0_user2: carv-user@47830000 {
 					compatible = "nxp,carv-uio";
 					reg = <0x47830000 0x10000>;
-					interrupts = <GIC_SPI 283 IRQ_TYPE_LEVEL_HIGH>;
+					interrupts = <GIC_SPI 255 IRQ_TYPE_LEVEL_HIGH>;
 					status = "disabled";
 				};
 
 				carv0_partition0_user3: carv-user@47840000 {
 					compatible = "nxp,carv-uio";
 					reg = <0x47840000 0x10000>;
-					interrupts = <GIC_SPI 285 IRQ_TYPE_LEVEL_HIGH>;
+					interrupts = <GIC_SPI 257 IRQ_TYPE_LEVEL_HIGH>;
 					status = "disabled";
 				};
 			};
@@ -864,7 +864,7 @@
 				carv0_partition1_user0: carv-user@47860000 {
 					compatible = "nxp,carvnet-rproc";
 					reg = <0x47860000 0x10000>;
-					interrupts = <GIC_SPI 287 IRQ_TYPE_LEVEL_HIGH>;
+					interrupts = <GIC_SPI 259 IRQ_TYPE_LEVEL_HIGH>;
 					status = "disabled";
 				};
 			};
@@ -879,7 +879,7 @@
 			compatible = "nxp,s32n7-neutron";
 			reg = <0x0 0x25f80004 0x0 0x400>;
 			fsl,neutron-rproc = <&neutron_core>;
-			interrupts = <GIC_SPI 297 IRQ_TYPE_LEVEL_HIGH>;
+			interrupts = <GIC_SPI 269 IRQ_TYPE_LEVEL_HIGH>;
 		};
 
 	};
