@@ -577,7 +577,7 @@ static int dspi_next_xfer_dma_submit(struct fsl_dspi *dspi)
 		dspi->dma->tx_dma_buf[i] = dspi_pop_tx_pushr(dspi);
 		if (use_dma_for_cmd)
 			dspi->dma->cmd_dma_buf[i] =
-				dspi_get_cmd_fifo(dspi, num_words);
+				dspi_get_cmd_fifo(dspi, 1);
 	}
 
 	if (use_dma_for_cmd) {
