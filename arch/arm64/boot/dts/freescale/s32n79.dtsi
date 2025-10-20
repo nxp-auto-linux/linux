@@ -410,6 +410,8 @@
 			bus-num = <0>;
 			spi-cpol;
 			spi-cpha;
+			dmas = <&edma_coss 0 18>, <&edma_coss 0 16>, <&edma_coss 0 17>;
+			dma-names = "tx", "rx", "cmd";
 			status = "disabled";
 		};
 
@@ -424,6 +426,8 @@
 			bus-num = <1>;
 			spi-cpol;
 			spi-cpha;
+			dmas = <&edma_coss 0 21>, <&edma_coss 0 19>, <&edma_coss 0 20>;
+			dma-names = "tx", "rx", "cmd";
 			status = "disabled";
 		};
 
@@ -438,6 +442,8 @@
 			bus-num = <2>;
 			spi-cpol;
 			spi-cpha;
+			dmas = <&edma_coss 0 24>, <&edma_coss 0 22>, <&edma_coss 0 23>;
+			dma-names = "tx", "rx", "cmd";
 			status = "disabled";
 		};
 
@@ -452,6 +458,8 @@
 			bus-num = <3>;
 			spi-cpol;
 			spi-cpha;
+			dmas = <&edma_coss 1 18>, <&edma_coss 1 16>, <&edma_coss 1 17>;
+			dma-names = "tx", "rx", "cmd";
 			status = "disabled";
 		};
 
@@ -466,6 +474,8 @@
 			bus-num = <4>;
 			spi-cpol;
 			spi-cpha;
+			dmas = <&edma_coss 1 21>, <&edma_coss 1 19>, <&edma_coss 1 20>;
+			dma-names = "tx", "rx", "cmd";
 			status = "disabled";
 		};
 
@@ -480,6 +490,8 @@
 			bus-num = <5>;
 			spi-cpol;
 			spi-cpha;
+			dmas = <&edma_coss 1 24>, <&edma_coss 1 22>, <&edma_coss 1 23>;
+			dma-names = "tx", "rx", "cmd";
 			status = "disabled";
 		};
 
