@@ -520,6 +520,97 @@ static void dspi_push_rx(struct fsl_dspi *dspi, u32 rxdata)
 	dspi->dev_to_host(dspi, rxdata);
 }
 
+static bool dspi_is_running(struct fsl_dspi *dspi)
+{
+	u32 val = 0;
+
+	regmap_read(dspi->regmap, SPI_MCR, &val);
+	return !(val & SPI_MCR_HALT);
+}
+
+static void dspi_set_running(struct fsl_dspi *dspi)
+{
+	enum dspi_hw_ver hw_ver = dspi->devtype_data->hw_version;
+	const u32 sr = dspi_get_sr(hw_ver);
+	u32 val = 0;
+
+	regmap_update_bits(dspi->regmap, SPI_MCR, SPI_MCR_HALT, 0);
+	while (regmap_read(dspi->regmap, sr, &val) >= 0 &&
+			!(val & SPI_SR_TXRXS))
+		;
+}
+
+static void dspi_set_stopped(struct fsl_dspi *dspi)
+{
+	enum dspi_hw_ver hw_ver = dspi->devtype_data->hw_version;
+	const u32 sr = dspi_get_sr(hw_ver);
+	u32 val = 0;
+
+	regmap_update_bits(dspi->regmap, SPI_MCR, SPI_MCR_HALT, SPI_MCR_HALT);
+	while (regmap_read(dspi->regmap, sr, &val) >= 0 &&
+	       val & SPI_SR_TXRXS)
+		;
+}
+
+static void dspi_update_rser(struct fsl_dspi *dspi, u32 val)
+{
+	enum dspi_hw_ver hw_ver = dspi->devtype_data->hw_version;
+	bool dspi_running = dspi_is_running(dspi);
+	const u32 rser = dspi_get_rser(hw_ver);
+
+	if (dspi_running)
+		dspi_set_stopped(dspi);
+
+	regmap_write(dspi->regmap, rser, val);
+
+	if (dspi_running)
+		dspi_set_running(dspi);
+}
+
+static bool dspi_is_dma_enabled(struct fsl_dspi *dspi)
+{
+	enum dspi_hw_ver hw_ver = dspi->devtype_data->hw_version;
+	const u32 rser = dspi_get_rser(hw_ver);
+	u32 rser_val, rser_current_val = 0;
+
+	if (dspi->devtype_data->trans_mode != DSPI_DMA_MODE)
+		return false;
+
+	rser_val = SPI_RSER_TFFFE | SPI_RSER_TFFFD |
+			SPI_RSER_RFDFE | SPI_RSER_RFDFD;
+
+	if (hw_ver == DSPI_V2)
+		rser_val |= SPI_RSER_CMDFFFE | SPI_RSER_CMDFFFD;
+
+	regmap_read(dspi->regmap, rser, &rser_current_val);
+	return (rser_current_val & rser_val) == rser_val;
+}
+
+static void dspi_enable_dma_req(struct fsl_dspi *dspi)
+{
+	enum dspi_hw_ver hw_ver = dspi->devtype_data->hw_version;
+	u32 rser_val;
+
+	if (dspi->devtype_data->trans_mode != DSPI_DMA_MODE)
+		return;
+
+	rser_val = SPI_RSER_TFFFE | SPI_RSER_TFFFD |
+			SPI_RSER_RFDFE | SPI_RSER_RFDFD;
+
+	if (hw_ver == DSPI_V2)
+		rser_val |= SPI_RSER_CMDFFFE | SPI_RSER_CMDFFFD;
+
+	dspi_update_rser(dspi, rser_val);
+}
+
+static void dspi_disable_dma_req(struct fsl_dspi *dspi)
+{
+	if (dspi->devtype_data->trans_mode != DSPI_DMA_MODE)
+		return;
+
+	dspi_update_rser(dspi, 0);
+}
+
 static void dspi_tx_dma_callback(void *arg)
 {
 	struct fsl_dspi *dspi = arg;
@@ -653,6 +744,7 @@ static int dspi_next_xfer_dma_submit(struct fsl_dspi *dspi)
 						DMA_COMPLETION_TIMEOUT);
 	if (time_left == 0) {
 		dev_err(dev, "DMA tx timeout\n");
+		dspi_disable_dma_req(dspi);
 		dmaengine_terminate_all(dma->chan_tx);
 		dmaengine_terminate_all(dma->chan_rx);
 		if (use_dma_for_cmd)
@@ -664,6 +756,7 @@ static int dspi_next_xfer_dma_submit(struct fsl_dspi *dspi)
 						DMA_COMPLETION_TIMEOUT);
 	if (time_left == 0) {
 		dev_err(dev, "DMA rx timeout\n");
+		dspi_disable_dma_req(dspi);
 		dmaengine_terminate_all(dma->chan_tx);
 		dmaengine_terminate_all(dma->chan_rx);
 		if (use_dma_for_cmd)
@@ -1275,19 +1368,17 @@ static int dspi_transfer_one_message(struct spi_controller *ctlr,
 	struct spi_transfer *transfer;
 	bool cs = false;
 	int status = 0;
-	u32 val = 0;
 	bool cs_change = false;
 
 	message->actual_length = 0;
 
+	if (dspi->devtype_data->trans_mode == DSPI_DMA_MODE &&
+			!dspi_is_dma_enabled(dspi))
+		dspi_enable_dma_req(dspi);
+
 	/* Put DSPI in running mode if halted. */
-	regmap_read(dspi->regmap, SPI_MCR, &val);
-	if (val & SPI_MCR_HALT) {
-		regmap_update_bits(dspi->regmap, SPI_MCR, SPI_MCR_HALT, 0);
-		while (regmap_read(dspi->regmap, sr, &val) >= 0 &&
-				!(val & SPI_SR_TXRXS))
-			;
-	}
+	if (!dspi_is_running(dspi))
+		dspi_set_running(dspi);
 
 	list_for_each_entry(transfer, &message->transfers, transfer_list) {
 		dspi->cur_transfer = transfer;
@@ -1356,12 +1447,9 @@ static int dspi_transfer_one_message(struct spi_controller *ctlr,
 	}
 
 	if (status || !cs_change) {
-		/* Put DSPI in stop mode */
-		regmap_update_bits(dspi->regmap, SPI_MCR,
-				   SPI_MCR_HALT, SPI_MCR_HALT);
-		while (regmap_read(dspi->regmap, sr, &val) >= 0 &&
-		       val & SPI_SR_TXRXS)
-			;
+		dspi_set_stopped(dspi);
+		if (dspi->devtype_data->trans_mode == DSPI_DMA_MODE)
+			dspi_disable_dma_req(dspi);
 	}
 
 	message->status = status;
@@ -1719,7 +1807,6 @@ static int dspi_init(struct fsl_dspi *dspi)
 	enum dspi_hw_ver hw_ver = dspi->devtype_data->hw_version;
 	const u32 rser = dspi_get_rser(hw_ver);
 	const u32 sr = dspi_get_sr(hw_ver);
-	u32 rser_val;
 
 	unsigned int mcr;
 
@@ -1742,12 +1829,6 @@ static int dspi_init(struct fsl_dspi *dspi)
 		regmap_write(dspi->regmap, rser, SPI_RSER_CMDTCFE);
 		break;
 	case DSPI_DMA_MODE:
-		rser_val = SPI_RSER_TFFFE | SPI_RSER_TFFFD |
-				SPI_RSER_RFDFE | SPI_RSER_RFDFD;
-		if (hw_ver == DSPI_V2)
-			rser_val |= SPI_RSER_CMDFFFE | SPI_RSER_CMDFFFD;
-
-		regmap_write(dspi->regmap, rser, rser_val);
 		break;
 	default:
 		dev_err(&dspi->pdev->dev, "unsupported trans_mode %u\n",
