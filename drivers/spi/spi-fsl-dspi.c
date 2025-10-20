@@ -1948,7 +1948,7 @@ static int dspi_probe(struct platform_device *pdev)
 
 	init_completion(&dspi->xfer_done);
 
-	if (spi_controller_is_target(ctlr)) {
+	if (dspi->devtype_data->trans_mode != DSPI_DMA_MODE) {
 		dspi->irq = platform_get_irq(pdev, 0);
 		if (dspi->irq <= 0) {
 			dev_info(&pdev->dev,
