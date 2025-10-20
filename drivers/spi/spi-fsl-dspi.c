@@ -1081,8 +1081,7 @@ static inline void dspi_setup_accel_v1(struct fsl_dspi *dspi)
 
 static inline void dspi_setup_accel_v2(struct fsl_dspi *dspi)
 {
-	struct spi_transfer *xfer = dspi->cur_transfer;
-	size_t total_len = dspi->len * xfer->bits_per_word;
+	size_t total_bits = dspi->len * 8;
 
 	/* A single CMD FIFO entry can be used to TX multiple TX FIFO entries.
 	 * PUSHR_CMD[FMSZ] decides the number of SPI data frames to be
@@ -1090,9 +1089,9 @@ static inline void dspi_setup_accel_v2(struct fsl_dspi *dspi)
 	 * Since a TX entry occupies 32bits, send data as 32bits to reuse the
 	 * same command.
 	 */
-	if (total_len >= 32) {
+	if (total_bits >= 32) {
 		dspi->oper_bits_per_word = 32;
-	} else if (total_len >= 16) {
+	} else if (total_bits >= 16) {
 		dspi->oper_bits_per_word = 16;
 	} else {
 		dspi->oper_bits_per_word = 8;
