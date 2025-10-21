@@ -125,6 +125,10 @@
 #define ENETC4_IPCAPR			0x1000
 #define  IPCAPR_ISID			BIT(2)
 
+/* Ingress port filter table capability register */
+#define ENETC4_IPFTCAPR		0x1644
+#define  IPFTCAPR_NUM_WORDS	GENMASK(15, 0)
+
 /* Rate policer index table capability register */
 #define ENETC4_RPITCAPR			0x1814
 #define  RPITCAPR_NUM_ENTRIES		GENMASK(13, 0)
