@@ -734,35 +734,17 @@ done:
 	return enetc_set_fs_entry(si, &rfse, fs->location);
 }
 
-/* i.MX95 ENETC does not support RFS table, but we can use ingress port
- * filter table to implement Wake-on-LAN filter or drop the matched flow,
- * so the implementation will be different from enetc_get_rxnfc() and
- * enetc_set_rxnfc(). Therefore, add enetc4_get_rxnfc() for ENETC v4 PF.
- */
-static int enetc4_get_rxnfc(struct net_device *ndev, struct ethtool_rxnfc *rxnfc,
-			    u32 *rule_locs)
-{
-	struct enetc_ndev_priv *priv = netdev_priv(ndev);
-
-	switch (rxnfc->cmd) {
-	case ETHTOOL_GRXRINGS:
-		rxnfc->data = priv->num_rx_rings;
-		break;
-	default:
-		return -EOPNOTSUPP;
-	}
-
-	return 0;
-}
-
 static int enetc_get_rxnfc(struct net_device *ndev, struct ethtool_rxnfc *rxnfc,
 			   u32 *rule_locs)
 {
 	struct enetc_ndev_priv *priv = netdev_priv(ndev);
-	int i, j;
+	struct enetc_si *si = priv->si;
+	int i, j, max_entry_num;
 
-	if (!is_enetc_rev1(priv->si))
-		return enetc4_get_rxnfc(ndev, rxnfc, rule_locs);
+	if (is_enetc_rev1(si))
+		max_entry_num = si->num_fs_entries;
+	else
+		max_entry_num = si->max_ipf_entries;
 
 	switch (rxnfc->cmd) {
 	case ETHTOOL_GRXRINGS:
@@ -773,15 +755,15 @@ static int enetc_get_rxnfc(struct net_device *ndev, struct ethtool_rxnfc *rxnfc,
 		return enetc_get_rsshash(rxnfc);
 	case ETHTOOL_GRXCLSRLCNT:
 		/* total number of entries */
-		rxnfc->data = priv->si->num_fs_entries;
+		rxnfc->data = max_entry_num;
 		/* number of entries in use */
 		rxnfc->rule_cnt = 0;
-		for (i = 0; i < priv->si->num_fs_entries; i++)
+		for (i = 0; i < max_entry_num; i++)
 			if (priv->cls_rules[i].used)
 				rxnfc->rule_cnt++;
 		break;
 	case ETHTOOL_GRXCLSRULE:
-		if (rxnfc->fs.location >= priv->si->num_fs_entries)
+		if (rxnfc->fs.location >= max_entry_num)
 			return -EINVAL;
 
 		/* get entry x */
@@ -789,10 +771,10 @@ static int enetc_get_rxnfc(struct net_device *ndev, struct ethtool_rxnfc *rxnfc,
 		break;
 	case ETHTOOL_GRXCLSRLALL:
 		/* total number of entries */
-		rxnfc->data = priv->si->num_fs_entries;
+		rxnfc->data = max_entry_num;
 		/* array of indexes of used entries */
 		j = 0;
-		for (i = 0; i < priv->si->num_fs_entries; i++) {
+		for (i = 0; i < max_entry_num; i++) {
 			if (!priv->cls_rules[i].used)
 				continue;
 			if (j == rxnfc->rule_cnt)
@@ -809,7 +791,8 @@ static int enetc_get_rxnfc(struct net_device *ndev, struct ethtool_rxnfc *rxnfc,
 	return 0;
 }
 
-static int enetc_set_rxnfc(struct net_device *ndev, struct ethtool_rxnfc *rxnfc)
+static int enetc_configure_rxnfc(struct net_device *ndev,
+				 struct ethtool_rxnfc *rxnfc)
 {
 	struct enetc_ndev_priv *priv = netdev_priv(ndev);
 	int err;
@@ -847,6 +830,341 @@ static int enetc_set_rxnfc(struct net_device *ndev, struct ethtool_rxnfc *rxnfc)
 	}
 
 	return 0;
+}
+
+static int enetc_validate_flow_rule(struct net_device *ndev,
+				    struct ethtool_rx_flow_spec *fs)
+{
+	struct ethtool_tcpip4_spec *l4ip4_m;
+	struct ethtool_tcpip6_spec *l4ip6_m;
+	struct ethtool_usrip4_spec *l3ip4_m;
+	struct ethtool_usrip6_spec *l3ip6_m;
+
+	switch (fs->flow_type & ~(FLOW_EXT | FLOW_MAC_EXT)) {
+	case TCP_V4_FLOW:
+		l4ip4_m = &fs->m_u.tcp_ip4_spec;
+		goto l4ip4;
+	case UDP_V4_FLOW:
+		l4ip4_m = &fs->m_u.udp_ip4_spec;
+		goto l4ip4;
+	case SCTP_V4_FLOW:
+		l4ip4_m = &fs->m_u.sctp_ip4_spec;
+
+l4ip4:
+		if (l4ip4_m->tos) {
+			netdev_err(ndev, "tos is not supported\n");
+			return -EINVAL;
+		}
+		break;
+	case TCP_V6_FLOW:
+		l4ip6_m = &fs->m_u.tcp_ip6_spec;
+		goto l4ip6;
+	case UDP_V6_FLOW:
+		l4ip6_m = &fs->m_u.udp_ip6_spec;
+		goto l4ip6;
+	case SCTP_V6_FLOW:
+		l4ip6_m = &fs->m_u.sctp_ip6_spec;
+
+l4ip6:
+		if (l4ip6_m->tclass) {
+			netdev_err(ndev, "tclass is not supported\n");
+			return -EINVAL;
+		}
+		break;
+	case IP_USER_FLOW:
+		l3ip4_m = &fs->m_u.usr_ip4_spec;
+		if (l3ip4_m->tos) {
+			netdev_err(ndev, "tos is not supported\n");
+			return -EINVAL;
+		}
+		break;
+	case IPV6_USER_FLOW:
+		l3ip6_m = &fs->m_u.usr_ip6_spec;
+		if (l3ip6_m->tclass) {
+			netdev_err(ndev, "tclass is not supported\n");
+			return -EINVAL;
+		}
+		break;
+	case ETHER_FLOW:
+		break;
+	default:
+		netdev_err(ndev, "flow-type: 0x%x is not supported\n",
+			   fs->flow_type);
+		return -EINVAL;
+	}
+
+	if (fs->flow_type & FLOW_EXT) {
+		if (fs->m_ext.vlan_etype) {
+			netdev_err(ndev, "vlan_etype is not supported\n");
+			return -EINVAL;
+		}
+	}
+
+	return 0;
+}
+
+static int enetc4_set_wol_filter_ipft_entry(struct enetc_ndev_priv *priv,
+					    struct ethtool_rx_flow_spec *fs,
+					    u32 *entry_id)
+{
+	struct ethtool_tcpip4_spec *l4ip4_h, *l4ip4_m;
+	struct ethtool_tcpip6_spec *l4ip6_h, *l4ip6_m;
+	struct ethtool_usrip4_spec *l3ip4_h, *l3ip4_m;
+	struct ethtool_usrip6_spec *l3ip6_h, *l3ip6_m;
+	struct ntmp_ipft_entry *entry __free(kfree);
+	struct ethtool_flow_ext *h_ext, *m_ext;
+	struct ethhdr *eth_h, *eth_m;
+	struct ipft_keye_data *keye;
+	struct ipft_cfge_data *cfge;
+	u16 precedence = 0xffff;
+	u16 frame_attr = 0;
+	u32 cfg;
+	int err;
+
+	entry = kzalloc(sizeof(*entry), GFP_KERNEL);
+	if (!entry)
+		return -ENOMEM;
+
+	keye = &entry->keye;
+	cfge = &entry->cfge;
+
+	if (fs->flow_type & FLOW_MAC_EXT) {
+		ether_addr_copy(keye->dmac, fs->h_ext.h_dest);
+		ether_addr_copy(keye->dmac_mask, fs->m_ext.h_dest);
+	}
+
+	if (fs->flow_type & FLOW_EXT) {
+		int i;
+		u8 *p;
+
+		if (sizeof(h_ext->data) > IPFT_MAX_PLD_LEN)
+			return -EOPNOTSUPP;
+
+		h_ext = &fs->h_ext;
+		m_ext = &fs->m_ext;
+		p = (u8 *)h_ext->data;
+		for (i = 0; i < sizeof(h_ext->data); i++, p++)
+			keye->byte[i].data = *p;
+
+		p = (u8 *)m_ext->data;
+		for (i = 0; i < sizeof(m_ext->data); i++, p++)
+			keye->byte[i].mask = *p;
+
+		if (m_ext->vlan_tci) {
+			frame_attr |= IPFT_FAF_OVLAN;
+			keye->outer_vlan_tci = h_ext->vlan_tci;
+			keye->outer_vlan_tci_mask = m_ext->vlan_tci;
+		}
+	}
+
+	switch (fs->flow_type & ~(FLOW_EXT | FLOW_MAC_EXT)) {
+	case TCP_V4_FLOW:
+		l4ip4_h = &fs->h_u.tcp_ip4_spec;
+		l4ip4_m = &fs->m_u.tcp_ip4_spec;
+		frame_attr |= FIELD_PREP(IPFT_FAF_L4_CODE, IPFT_FAF_TCP_HDR);
+		keye->ip_protocol = IPPROTO_TCP;
+		goto l4ip4;
+	case UDP_V4_FLOW:
+		l4ip4_h = &fs->h_u.udp_ip4_spec;
+		l4ip4_m = &fs->m_u.udp_ip4_spec;
+		frame_attr |= FIELD_PREP(IPFT_FAF_L4_CODE, IPFT_FAF_UDP_HDR);
+		keye->ip_protocol = IPPROTO_UDP;
+		goto l4ip4;
+	case SCTP_V4_FLOW:
+		l4ip4_h = &fs->h_u.sctp_ip4_spec;
+		l4ip4_m = &fs->m_u.sctp_ip4_spec;
+		frame_attr |= FIELD_PREP(IPFT_FAF_L4_CODE, IPFT_FAF_SCTP_HDR);
+		keye->ip_protocol = IPPROTO_SCTP;
+l4ip4:
+		frame_attr |= IPFT_FAF_IP_HDR;
+		keye->ip_protocol_mask = 0xff;
+		keye->ip_src[3] = l4ip4_h->ip4src;
+		keye->ip_src_mask[3] = l4ip4_m->ip4src;
+		keye->ip_dst[3] = l4ip4_h->ip4dst;
+		keye->ip_dst_mask[3] = l4ip4_m->ip4dst;
+		keye->l4_src_port = l4ip4_h->psrc;
+		keye->l4_src_port_mask = l4ip4_m->psrc;
+		keye->l4_dst_port = l4ip4_h->pdst;
+		keye->l4_dst_port_mask = l4ip4_m->pdst;
+		keye->ethertype = htons(ETH_P_IP);
+		keye->ethertype_mask = htons(0xffff);
+		break;
+	case TCP_V6_FLOW:
+		l4ip6_h = &fs->h_u.tcp_ip6_spec;
+		l4ip6_m = &fs->m_u.tcp_ip6_spec;
+		frame_attr |= FIELD_PREP(IPFT_FAF_L4_CODE, IPFT_FAF_TCP_HDR);
+		keye->ip_protocol = IPPROTO_TCP;
+		goto l4ip6;
+	case UDP_V6_FLOW:
+		l4ip6_h = &fs->h_u.udp_ip6_spec;
+		l4ip6_m = &fs->m_u.udp_ip6_spec;
+		frame_attr |= FIELD_PREP(IPFT_FAF_L4_CODE, IPFT_FAF_UDP_HDR);
+		keye->ip_protocol = IPPROTO_UDP;
+		goto l4ip6;
+	case SCTP_V6_FLOW:
+		l4ip6_h = &fs->h_u.sctp_ip6_spec;
+		l4ip6_m = &fs->m_u.sctp_ip6_spec;
+		frame_attr |= FIELD_PREP(IPFT_FAF_L4_CODE, IPFT_FAF_SCTP_HDR);
+		keye->ip_protocol = IPPROTO_SCTP;
+
+l4ip6:
+		frame_attr |= IPFT_FAF_IP_HDR | IPFT_FAF_IP_VER6;
+		keye->ip_protocol_mask = 0xff;
+		memcpy(keye->ip_src, l4ip6_h->ip6src, sizeof(keye->ip_src));
+		memcpy(keye->ip_src_mask, l4ip6_m->ip6src, sizeof(keye->ip_src_mask));
+		memcpy(keye->ip_dst, l4ip6_h->ip6dst, sizeof(keye->ip_dst));
+		memcpy(keye->ip_dst_mask, l4ip6_m->ip6dst, sizeof(keye->ip_dst_mask));
+		keye->l4_src_port = l4ip6_h->psrc;
+		keye->l4_src_port_mask = l4ip6_m->psrc;
+		keye->l4_dst_port = l4ip6_h->pdst;
+		keye->l4_dst_port_mask = l4ip6_m->pdst;
+		keye->ethertype = htons(ETH_P_IPV6);
+		keye->ethertype_mask = htons(0xffff);
+		break;
+	case IP_USER_FLOW:
+		l3ip4_h = &fs->h_u.usr_ip4_spec;
+		l3ip4_m = &fs->m_u.usr_ip4_spec;
+		frame_attr |= IPFT_FAF_IP_HDR;
+		keye->ip_src[3] = l3ip4_h->ip4src;
+		keye->ip_src_mask[3] = l3ip4_m->ip4src;
+		keye->ip_dst[3] = l3ip4_h->ip4dst;
+		keye->ip_dst_mask[3] = l3ip4_m->ip4dst;
+		keye->ip_protocol = l3ip4_h->proto;
+		keye->ip_protocol_mask = l3ip4_m->proto;
+		keye->ethertype = htons(ETH_P_IP);
+		keye->ethertype_mask = htons(0xffff);
+		break;
+	case IPV6_USER_FLOW:
+		l3ip6_h = &fs->h_u.usr_ip6_spec;
+		l3ip6_m = &fs->m_u.usr_ip6_spec;
+		frame_attr |= IPFT_FAF_IP_HDR | IPFT_FAF_IP_VER6;
+		memcpy(keye->ip_src, l3ip6_h->ip6src, sizeof(keye->ip_src));
+		memcpy(keye->ip_src_mask, l3ip6_m->ip6src, sizeof(keye->ip_src_mask));
+		memcpy(keye->ip_dst, l3ip6_h->ip6dst, sizeof(keye->ip_dst));
+		memcpy(keye->ip_dst_mask, l3ip6_m->ip6dst, sizeof(keye->ip_dst_mask));
+		keye->ip_protocol = l3ip6_h->l4_proto;
+		keye->ip_protocol_mask = l3ip6_m->l4_proto;
+		keye->ethertype = htons(ETH_P_IPV6);
+		keye->ethertype_mask = htons(0xffff);
+		break;
+	case ETHER_FLOW:
+		eth_h = &fs->h_u.ether_spec;
+		eth_m = &fs->m_u.ether_spec;
+
+		ether_addr_copy(keye->smac, eth_h->h_source);
+		ether_addr_copy(keye->smac_mask, eth_m->h_source);
+		ether_addr_copy(keye->dmac, eth_h->h_dest);
+		ether_addr_copy(keye->dmac_mask, eth_m->h_dest);
+		keye->ethertype = eth_h->h_proto;
+		keye->ethertype_mask = eth_m->h_proto;
+		break;
+	}
+
+	keye->frm_attr_flags = cpu_to_le16(frame_attr);
+	keye->frm_attr_flags_mask = keye->frm_attr_flags;
+	keye->precedence = cpu_to_le16(precedence);
+
+	cfg = FIELD_PREP(IPFT_FLTFA, IPFT_FLTFA_PERMIT);
+	cfg |= FIELD_PREP(IPFT_FLTA, IPFT_FLTA_SI_BITMAP);
+	if (priv->wolopts & WAKE_FILTER)
+		cfg |= IPFT_WOLTE;
+
+	cfge->cfg = cpu_to_le32(cfg);
+	cfge->flta_tgt = cpu_to_le32(1);
+
+	err = ntmp_ipft_add_entry(&priv->si->ntmp_user, entry);
+	if (err)
+		return err;
+
+	*entry_id = entry->entry_id;
+
+	return 0;
+}
+
+static int enetc4_configure_rxnfc(struct net_device *ndev,
+				  struct ethtool_rxnfc *rxnfc)
+{
+	struct enetc_ndev_priv *priv = netdev_priv(ndev);
+	struct enetc_si *si = priv->si;
+	int i = rxnfc->fs.location;
+	u32 entry_id;
+	int err;
+
+	/* ENETC VF does not support Ingress Port Filter Table */
+	if (!enetc_si_is_pf(si))
+		return -EOPNOTSUPP;
+
+	if (i >= si->max_ipf_entries) {
+		netdev_err(ndev, "Index ranges from 0 ~ %d\n",
+			   si->max_ipf_entries - 1);
+		return -EINVAL;
+	}
+
+	switch (rxnfc->cmd) {
+	case ETHTOOL_SRXCLSRLINS:
+		if (rxnfc->fs.ring_cookie != RX_CLS_FLOW_WAKE) {
+			netdev_err(ndev, "Only support WOL action\n");
+			return -EINVAL;
+		}
+
+		err = enetc_validate_flow_rule(ndev, &rxnfc->fs);
+		if (err)
+			return err;
+
+		/* If the rule index was used before, we need to delete the rule
+		 * from the ingress port filter first, and then add the new rule
+		 * entry into the ingress filter table.
+		 */
+		if (priv->cls_rules[i].used) {
+			struct enetc_cls_rule *cls_rule;
+
+			cls_rule = &priv->cls_rules[i];
+			entry_id = cls_rule->entry_id;
+
+			err = ntmp_ipft_delete_entry(&si->ntmp_user, entry_id);
+			if (err)
+				return err;
+
+			memset(cls_rule, 0, sizeof(*cls_rule));
+		}
+
+		err = enetc4_set_wol_filter_ipft_entry(priv, &rxnfc->fs, &entry_id);
+		if (err)
+			return err;
+
+		priv->cls_rules[i].fs = rxnfc->fs;
+		priv->cls_rules[i].used = 1;
+		priv->cls_rules[i].entry_id = entry_id;
+		break;
+	case ETHTOOL_SRXCLSRLDEL:
+		if (!priv->cls_rules[i].used) {
+			netdev_err(ndev, "The rule does not exist\n");
+			return -EINVAL;
+		}
+
+		entry_id = priv->cls_rules[i].entry_id;
+		err = ntmp_ipft_delete_entry(&si->ntmp_user, entry_id);
+		if (err)
+			return err;
+
+		memset(&priv->cls_rules[i], 0, sizeof(priv->cls_rules[i]));
+
+		break;
+	default:
+		return -EOPNOTSUPP;
+	}
+
+	return 0;
+}
+
+static int enetc_set_rxnfc(struct net_device *ndev, struct ethtool_rxnfc *rxnfc)
+{
+	struct enetc_ndev_priv *priv = netdev_priv(ndev);
+
+	if (is_enetc_rev1(priv->si))
+		return enetc_configure_rxnfc(ndev, rxnfc);
+	else
+		return enetc4_configure_rxnfc(ndev, rxnfc);
 }
 
 static u32 enetc_get_rxfh_key_size(struct net_device *ndev)
@@ -1229,7 +1547,7 @@ static void enetc_get_wol(struct net_device *dev,
 
 	if (pf->caps.wol) {
 		if (device_can_wakeup(priv->dev)) {
-			wol->supported = WAKE_MAGIC;
+			wol->supported = WAKE_MAGIC | WAKE_FILTER;
 			wol->wolopts = priv->wolopts;
 		}
 	} else if (dev->phydev) {
@@ -1245,7 +1563,7 @@ static int enetc4_set_wol_mg_ipft_entry(struct enetc_ndev_priv *priv)
 	struct ipft_cfge_data *cfge;
 	u32 flta_tgt = BIT(0);
 	u16 frame_attr;
-	u32 val, cfg;
+	u32 cfg;
 	int err;
 
 	entry = kzalloc(sizeof(*entry), GFP_KERNEL);
@@ -1270,10 +1588,33 @@ static int enetc4_set_wol_mg_ipft_entry(struct enetc_ndev_priv *priv)
 		return err;
 
 	priv->ipt_wol_eid = entry->entry_id;
-	val = enetc_port_rd(&si->hw, ENETC4_PIPFCR);
-	if (!(val & PIPFCR_EN))
-		/* Enable ingress port filter table lookup. */
-		enetc_port_wr(&si->hw, ENETC4_PIPFCR, PIPFCR_EN);
+
+	return 0;
+}
+
+static int enetc4_enable_wol_filter(struct enetc_ndev_priv *priv, bool en)
+{
+	struct enetc_si *si = priv->si;
+	struct ipft_cfge_data cfge;
+	u32 cfg;
+	int i;
+
+	cfg = FIELD_PREP(IPFT_FLTFA, IPFT_FLTFA_PERMIT);
+	cfg |= FIELD_PREP(IPFT_FLTA, IPFT_FLTA_SI_BITMAP);
+	if (en)
+		cfg |= IPFT_WOLTE;
+	cfge.cfg = cpu_to_le32(cfg);
+	cfge.flta_tgt = cpu_to_le32(1);
+
+	for (i = 0; i < si->max_ipf_entries + si->num_fs_entries; i++) {
+		u32 entry_id;
+
+		entry_id = priv->cls_rules[i].entry_id;
+		if (ntmp_ipft_update_entry(&si->ntmp_user, entry_id, &cfge))
+			netdev_warn(priv->ndev,
+				    "IPFT entry_id %u failed to update\n",
+				    entry_id);
+	}
 
 	return 0;
 }
@@ -1282,58 +1623,73 @@ static int enetc_set_wol(struct net_device *dev,
 			 struct ethtool_wolinfo *wol)
 {
 	struct enetc_ndev_priv *priv = netdev_priv(dev);
+	u32 changed = priv->wolopts ^ wol->wolopts;
+	u32 support = WAKE_MAGIC | WAKE_FILTER;
 	struct enetc_si *si = priv->si;
-	u32 support = WAKE_MAGIC;
 	struct enetc_pf *pf;
 	int err;
 
 	pf = enetc_si_priv(si);
 
-	if (pf->caps.wol) {
-		if (!device_can_wakeup(priv->dev) || wol->wolopts & ~support)
-			return -EOPNOTSUPP;
-
-		if (wol->wolopts == priv->wolopts)
-			return 0;
-
-		if (wol->wolopts) {
-			err = enetc4_set_wol_mg_ipft_entry(priv);
-			if (err)
-				return err;
-
-			if (priv->rcec && netc_ierb_may_wakeonlan() == 0) {
-				priv->rcec->dev_flags |= PCI_DEV_FLAGS_NO_D3;
-				device_set_wakeup_enable(&priv->rcec->dev, 1);
-			}
-
-			netc_ierb_enable_wakeonlan();
-			netdev_info(dev, "enetc: wakeup enable\n");
-		} else {
-			netc_ierb_disable_wakeonlan();
-			if (priv->rcec && netc_ierb_may_wakeonlan() == 0) {
-				device_set_wakeup_enable(&priv->rcec->dev, 0);
-				priv->rcec->dev_flags &= ~PCI_DEV_FLAGS_NO_D3;
-			}
-
-			err = ntmp_ipft_delete_entry(&si->ntmp_user,
-						     priv->ipt_wol_eid);
-			if (err)
-				return err;
-
-			netdev_info(dev, "enetc: wakeup disable\n");
-		}
-
-		priv->wolopts = wol->wolopts;
-	} else {
+	if (!pf->caps.wol) {
 		if (!dev->phydev)
 			return -EOPNOTSUPP;
 
 		err = phy_ethtool_set_wol(dev->phydev, wol);
-		if (!err) {
+		if (!err)
 			device_set_wakeup_enable(&dev->dev, wol->wolopts);
-			return err;
+
+		return err;
+	}
+
+	if (!device_can_wakeup(priv->dev) || wol->wolopts & ~support)
+		return -EOPNOTSUPP;
+
+	if (wol->wolopts == priv->wolopts)
+		return 0;
+
+	if (changed & WAKE_MAGIC) {
+		if (wol->wolopts & WAKE_MAGIC) {
+			err = enetc4_set_wol_mg_ipft_entry(priv);
+			if (err)
+				return err;
+		} else {
+			err = ntmp_ipft_delete_entry(&si->ntmp_user,
+						     priv->ipt_wol_eid);
+			if (err)
+				return err;
 		}
 	}
+
+	if (changed & WAKE_FILTER) {
+		bool en = !!(wol->wolopts & WAKE_FILTER);
+
+		enetc4_enable_wol_filter(priv, en);
+	}
+
+	if (!priv->wolopts && wol->wolopts) {
+		if (priv->rcec && !netc_ierb_may_wakeonlan()) {
+			priv->rcec->dev_flags |= PCI_DEV_FLAGS_NO_D3;
+			device_set_wakeup_enable(&priv->rcec->dev, 1);
+		}
+
+		netc_ierb_enable_wakeonlan();
+		netdev_info(dev, "enetc: wakeup enable\n");
+	}
+
+	if (!wol->wolopts) {
+		netc_ierb_disable_wakeonlan();
+
+		if (priv->rcec && !netc_ierb_may_wakeonlan()) {
+			device_set_wakeup_enable(&priv->rcec->dev, 0);
+			priv->rcec->dev_flags &= ~PCI_DEV_FLAGS_NO_D3;
+		}
+
+		netdev_info(dev, "enetc: wakeup disable\n");
+	}
+
+	/* Update wolopts */
+	priv->wolopts = wol->wolopts;
 
 	return 0;
 }
@@ -1629,7 +1985,7 @@ const struct ethtool_ops enetc4_ppm_ethtool_ops = {
 				     ETHTOOL_COALESCE_USE_ADAPTIVE_RX,
 	.supported_ring_params = ETHTOOL_RING_USE_RX_BUF_LEN,
 	.get_eth_mac_stats = enetc_ppm_get_eth_mac_stats,
-	.get_rxnfc = enetc4_get_rxnfc,
+	.get_rxnfc = enetc_get_rxnfc,
 	.get_rxfh_key_size = enetc_get_rxfh_key_size,
 	.get_rxfh_indir_size = enetc_get_rxfh_indir_size,
 	.get_rxfh = enetc_get_rxfh,
@@ -1687,6 +2043,7 @@ const struct ethtool_ops enetc4_pf_ethtool_ops = {
 	.get_pauseparam = enetc_get_pauseparam,
 	.set_pauseparam = enetc_set_pauseparam,
 	.get_rxnfc = enetc_get_rxnfc,
+	.set_rxnfc = enetc_set_rxnfc,
 	.get_rxfh_key_size = enetc_get_rxfh_key_size,
 	.get_rxfh_indir_size = enetc_get_rxfh_indir_size,
 	.get_rxfh = enetc_get_rxfh,

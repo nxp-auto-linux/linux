@@ -27,6 +27,7 @@ struct enetc_port_caps {
 	int num_rx_bdr;
 	int num_tx_bdr;
 	int mac_filter_num;
+	int ipf_words_num;
 };
 
 struct enetc_mm {
