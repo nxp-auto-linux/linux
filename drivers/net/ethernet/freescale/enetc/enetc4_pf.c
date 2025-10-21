@@ -47,6 +47,9 @@ static void enetc4_get_port_caps(struct enetc_pf *pf)
 
 	val = enetc_port_rd(hw, ENETC4_ECAPR0);
 	pf->caps.wol = !!(val & ECAPR0_WO);
+
+	val = enetc_port_rd(hw, ENETC4_IPFTCAPR);
+	pf->caps.ipf_words_num = val & IPFTCAPR_NUM_WORDS;
 }
 
 static void enetc4_pf_set_si_primary_mac(struct enetc_hw *hw, int si,
@@ -453,6 +456,8 @@ static int enetc4_pf_struct_init(struct enetc_si *si)
 
 	enetc4_get_port_caps(pf);
 	enetc4_get_psi_hw_features(si);
+	/* Each ingress port filter entry occupies 2 words at least. */
+	si->max_ipf_entries = pf->caps.ipf_words_num / 2;
 
 	return 0;
 }
@@ -630,12 +635,21 @@ static void enetc4_set_isit_key_profile(struct enetc_pf *pf)
 	enetc_port_wr(hw, ENETC4_PISIDCR, val);
 }
 
+static void enetc4_enable_ipft_lookup(struct enetc_pf *pf)
+{
+	struct enetc_hw *hw = &pf->si->hw;
+
+	/* Enable ingress port filter table lookup. */
+	enetc_port_wr(hw, ENETC4_PIPFCR, PIPFCR_EN);
+}
+
 static void enetc4_configure_port(struct enetc_pf *pf)
 {
 	enetc4_configure_port_si(pf);
 	enetc4_set_trx_frame_size(pf);
 	enetc_set_default_rss_key(pf);
 	enetc4_set_isit_key_profile(pf);
+	enetc4_enable_ipft_lookup(pf);
 }
 
 static u64 enetc4_get_current_time(struct enetc_si *si)
@@ -1520,8 +1534,13 @@ static int enetc4_pf_netdev_create(struct enetc_si *si)
 	}
 
 	enetc_pf_netdev_setup(si, ndev, &enetc4_ndev_ops);
-
 	enetc_init_si_rings_params(priv);
+
+	err = enetc_alloc_si_resources(priv);
+	if (err) {
+		dev_err(dev, "Failed to alloc SI resources\n");
+		goto err_alloc_si_res;
+	}
 
 	err = enetc_configure_si(priv);
 	if (err) {
@@ -1561,6 +1580,8 @@ err_link_init:
 	enetc_free_msix(priv);
 err_alloc_msix:
 err_config_si:
+	enetc_free_si_resources(priv);
+err_alloc_si_res:
 err_clk_get:
 	mutex_destroy(&priv->mm_lock);
 	free_netdev(ndev);
@@ -1578,6 +1599,7 @@ static void enetc4_pf_netdev_destroy(struct enetc_si *si)
 	destroy_workqueue(si->workqueue);
 	enetc4_link_deinit(priv);
 	enetc_free_msix(priv);
+	enetc_free_si_resources(priv);
 	mutex_destroy(&priv->mm_lock);
 	free_netdev(ndev);
 }
