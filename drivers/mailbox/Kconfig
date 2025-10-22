@@ -42,6 +42,18 @@ config IMX_MBOX
 	help
 	  Mailbox implementation for i.MX Messaging Unit (MU).
 
+config NXP_S32N79_MRU
+	tristate "NXP S32N79 Message Receive Unit (MRU)"
+	depends on ARCH_S32 || COMPILE_TEST
+	default y if ARCH_S32
+	help
+	  Mailbox implementation for NXP S32N79 SoC Message Receive Unit (MRU).
+	  The MRU enables inter-processor communication between different
+	  processing units on the SoC.
+
+	  Say Y here if you want to use the MRU mailbox controller on
+	  NXP S32N79 SoCs.
+
 config PLATFORM_MHU
 	tristate "Platform MHU Mailbox"
 	depends on OF
