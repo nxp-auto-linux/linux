@@ -256,6 +256,48 @@ static int enetc_rpt_entry_show(struct seq_file *s, void *data)
 
 DEFINE_ENETC_DEBUGFS(enetc_rpt_entry, rpt_eid);
 
+static int enetc_clsrule_eid_show(struct seq_file *s, void *data)
+{
+	struct enetc_si *si = s->private;
+	struct enetc_ndev_priv *priv;
+	int i;
+
+	priv = netdev_priv(si->ndev);
+	for (i = 0; i < si->max_ipf_entries; i++) {
+		if (!priv->cls_rules[i].used)
+			continue;
+
+		seq_printf(s, "IPFT entry ID: 0x%x\n",
+			   priv->cls_rules[i].entry_id);
+	}
+
+	seq_puts(s, "\n");
+
+	return 0;
+}
+DEFINE_SHOW_ATTRIBUTE(enetc_clsrule_eid);
+
+static ssize_t enetc_ipft_eid_write(struct file *filp,
+				    const char __user *buffer,
+				    size_t count, loff_t *ppos)
+{
+	struct seq_file *s = filp->private_data;
+	struct enetc_si *si = s->private;
+
+	return netc_kstrtouint(buffer, count, ppos,
+			       &si->dbg_params.ipft_eid);
+}
+
+static int enetc_ipft_entry_show(struct seq_file *s, void *data)
+{
+	struct enetc_si *si = s->private;
+
+	return netc_show_ipft_entry(&si->ntmp_user, s,
+				    si->dbg_params.ipft_eid);
+}
+
+DEFINE_ENETC_DEBUGFS(enetc_ipft_entry, ipft_eid);
+
 void enetc_create_debugfs(struct enetc_si *si)
 {
 	struct net_device *ndev = si->ndev;
@@ -277,6 +319,8 @@ void enetc_create_debugfs(struct enetc_si *si)
 	debugfs_create_file("isct_entry", 0600, root, si, &enetc_isct_entry_fops);
 	debugfs_create_file("rpt_entry", 0600, root, si, &enetc_rpt_entry_fops);
 	debugfs_create_file("flower_list", 0444, root, si, &enetc_flower_list_fops);
+	debugfs_create_file("clsrule_eid", 0444, root, si, &enetc_clsrule_eid_fops);
+	debugfs_create_file("ipft_entry", 0600, root, si, &enetc_ipft_entry_fops);
 }
 
 void enetc_remove_debugfs(struct enetc_si *si)
