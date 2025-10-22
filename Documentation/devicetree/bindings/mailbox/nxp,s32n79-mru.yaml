@@ -1,0 +1,79 @@
+# SPDX-License-Identifier: GPL-2.0-only OR BSD-2-Clause
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/mailbox/nxp,s32n79-mru.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: NXP S32N79 Message Receive Unit (MRU)
+
+maintainers:
+  - Georgiana Ortila <georgiana.ortila@nxp.com>
+
+description: |
+  Message Receive Unit (MRU) is a hardware mailbox controller used for
+  inter-processor notifications on NXP S32N79 SoCs. Each MRU instance
+  exposes multiple hardware channels, each with multiple mailboxes.
+
+  An instance can be instantiated as a sender or as a receiver:
+    - The receiver owns and configures the MRU HW and handles the IRQ.
+    - The sender only performs doorbell writes to its local MRU registers.
+
+  The role (sender vs receiver) is determined per-channel via the mbox
+  specifier.
+
+properties:
+  compatible:
+    const: nxp,s32n79-mru
+
+  reg:
+    maxItems: 1
+    minItems: 1
+    description:
+      Base address and size of the MRU register space.
+
+  interrupts:
+    maxItems: 1
+    description:
+      Interrupt line for the MRU instance.
+      Required only for receiver instances.
+
+  clocks:
+    maxItems: 1
+    description:
+      IPG clock for the MRU instance.
+      with simulator environments.
+
+  clock-names:
+    items:
+      const: ipg
+
+  "#mbox-cells":
+    const: 3
+    description: |
+      Number of cells in the mbox specifier:
+        - cell 0: hardware channel (0-2)
+        - cell 1: mailbox within the channel (0-5)
+        - cell 2: role (0 = sender, 1 = receiver)
+
+required:
+  - compatible
+  - reg
+  - clocks
+  - clock-names
+  - "#mbox-cells"
+
+additionalProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/interrupt-controller/arm-gic.h>
+
+    aps0_mru4: mailbox@40b00000 {
+        compatible = "nxp,s32n79-mru";
+        reg = <0x40b00000 0x40000>;
+        interrupts = <GIC_SPI 708 IRQ_TYPE_LEVEL_HIGH>;
+        #mbox-cells = <3>;
+        clocks = <&clks 0x10a>;
+        clock-names = "ipg";
+        status = "okay";
+    };
