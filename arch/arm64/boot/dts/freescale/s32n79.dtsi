@@ -267,7 +267,7 @@
 			interrupt-controller;
 			interrupt-parent = <&gic>;
 			#interrupt-cells = <1>;
-			clocks = <&sys_clk>;
+			clocks = <&clks 0x9a>;
 			clock-names = "ipg";
 			fsl,channel = <0>;
 			fsl,num-irqs = <512>;
@@ -297,7 +297,7 @@
 		lpi2c0: i2c@4a0d0000 {
 			compatible = "nxp,s32n79-lpi2c";
 			reg = <0x4a0d0000 0x1000>;
-			clocks = <&sys_clk>, <&sys_clk>;
+			clocks = <&clks 0x9a>, <&clks 0x9a>;
 			clock-names = "per", "ipg";
 			interrupt-parent = <&irqsteer_coss>;
 			interrupts = <256>;
@@ -307,7 +307,7 @@
 		lpi2c1: i2c@4a0e0000 {
 			compatible = "nxp,s32n79-lpi2c";
 			reg = <0x4a0e0000 0x1000>;
-			clocks = <&sys_clk>, <&sys_clk>;
+			clocks = <&clks 0x9a>, <&clks 0x9a>;
 			clock-names = "per", "ipg";
 			interrupt-parent = <&irqsteer_coss>;
 			interrupts = <257>;
@@ -317,7 +317,7 @@
 		lpi2c2: i2c@4a0f0000 {
 			compatible = "nxp,s32n79-lpi2c";
 			reg = <0x4a0f0000 0x1000>;
-			clocks = <&sys_clk>, <&sys_clk>;
+			clocks = <&clks 0x9a>, <&clks 0x9a>;
 			clock-names = "per", "ipg";
 			interrupt-parent = <&irqsteer_coss>;
 			interrupts = <258>;
@@ -344,7 +344,9 @@
 				     <12>, <12>, <13>, <13>,
 				     <14>, <14>, <15>, <15>,
 				     <448>;
-			clocks = <&sys_clk>, <&sys_clk>, <&sys_clk>, <&sys_clk>;
+			clocks = <&clks 0x90>, <&clks 0x9a>,
+				<&clks 0x90>, <&clks 0x9a>;
+			/* dmamux0 - axi ; dmamux1 - ipg */
 			clock-names = "dmamux0", "dmamux1", "dmamux2", "dmamux3";
 			status = "disabled";
 		};
@@ -372,7 +374,7 @@
 		lpi2c3: i2c@4aaa0000 {
 			compatible = "nxp,s32n79-lpi2c";
 			reg = <0x4aaa0000 0x1000>;
-			clocks = <&sys_clk>, <&sys_clk>;
+			clocks = <&clks 0x9a>, <&clks 0x9a>;
 			clock-names = "per", "ipg";
 			interrupt-parent = <&irqsteer_coss>;
 			interrupts = <259>;
@@ -382,7 +384,7 @@
 		lpi2c4: i2c@4aab0000 {
 			compatible = "nxp,s32n79-lpi2c";
 			reg = <0x4aab0000 0x1000>;
-			clocks = <&sys_clk>, <&sys_clk>;
+			clocks = <&clks 0x9a>, <&clks 0x9a>;
 			clock-names = "per", "ipg";
 			interrupt-parent = <&irqsteer_coss>;
 			interrupts = <260>;
@@ -392,7 +394,7 @@
 		lpi2c5: i2c@4aac0000 {
 			compatible = "nxp,s32n79-lpi2c";
 			reg = <0x4aac0000 0x1000>;
-			clocks = <&sys_clk>, <&sys_clk>;
+			clocks = <&clks 0x9a>, <&clks 0x9a>;
 			clock-names = "per", "ipg";
 			interrupt-parent = <&irqsteer_coss>;
 			interrupts = <261>;
@@ -404,7 +406,7 @@
 			reg = <0x4a070000 0x1000>;
 			interrupt-parent = <&irqsteer_coss>;
 			interrupts = <272>;
-			clocks = <&sys_clk>;
+			clocks = <&clks 0x9c>;
 			clock-names = "dspi";
 			spi-num-chipselects = <6>;
 			bus-num = <0>;
@@ -420,7 +422,7 @@
 			reg = <0x4a080000 0x1000>;
 			interrupt-parent = <&irqsteer_coss>;
 			interrupts = <273>;
-			clocks = <&sys_clk>;
+			clocks = <&clks 0x9c>;
 			clock-names = "dspi";
 			spi-num-chipselects = <6>;
 			bus-num = <1>;
@@ -436,7 +438,7 @@
 			reg = <0x4a090000 0x1000>;
 			interrupt-parent = <&irqsteer_coss>;
 			interrupts = <274>;
-			clocks = <&sys_clk>;
+			clocks = <&clks 0x9c>;
 			clock-names = "dspi";
 			spi-num-chipselects = <6>;
 			bus-num = <2>;
@@ -452,7 +454,7 @@
 			reg = <0x4aa70000 0x1000>;
 			interrupt-parent = <&irqsteer_coss>;
 			interrupts = <275>;
-			clocks = <&sys_clk>;
+			clocks = <&clks 0x9c>;
 			clock-names = "dspi";
 			spi-num-chipselects = <6>;
 			bus-num = <3>;
@@ -468,7 +470,7 @@
 			reg = <0x4aa80000 0x1000>;
 			interrupt-parent = <&irqsteer_coss>;
 			interrupts = <276>;
-			clocks = <&sys_clk>;
+			clocks = <&clks 0x9c>;
 			clock-names = "dspi";
 			spi-num-chipselects = <6>;
 			bus-num = <4>;
@@ -484,7 +486,7 @@
 			reg = <0x4aa90000 0x1000>;
 			interrupt-parent = <&irqsteer_coss>;
 			interrupts = <277>;
-			clocks = <&sys_clk>;
+			clocks = <&clks 0x9c>;
 			clock-names = "dspi";
 			spi-num-chipselects = <3>;
 			bus-num = <5>;
@@ -559,7 +561,7 @@
 			interrupt-controller;
 			interrupt-parent = <&gic>;
 			#interrupt-cells = <1>;
-			clocks = <&sys_clk>;
+			clocks = <&clks 0xf9>;
 			clock-names = "ipg";
 			fsl,channel = <0>;
 			fsl,num-irqs = <512>;
@@ -579,7 +581,8 @@
 				     <200>, <201>, <202>, <203>,
 				     <204>, <205>, <206>, <207>,
 				     <384>;
-			clocks = <&sys_clk>, <&sys_clk>;
+			clocks = <&clks 0xf8>, <&clks 0xf9>;
+			/* dmamux0 - axi ; dmamux1 - ipg */
 			clock-names = "dmamux0", "dmamux1";
 			status = "disabled";
 		};
@@ -590,7 +593,8 @@
 			interrupt-parent = <&irqsteer_rcu>;
 			interrupts = <0>, <64>;
 			interrupt-names = "mb_0-127", "berr";
-			clocks = <&sys_clk>, <&sys_clk>;
+			/* CANFD_PE_CLK */
+			clocks = <&clks 0xf9>, <&clks 0xfc>;
 			clock-names = "ipg", "per";
 			status = "disabled";
 		};
@@ -601,7 +605,8 @@
 			interrupt-parent = <&irqsteer_rcu>;
 			interrupts = <1>, <65>;
 			interrupt-names = "mb_0-127", "berr";
-			clocks = <&sys_clk>, <&sys_clk>;
+			/* CANFD_PE_CLK */
+			clocks = <&clks 0xf9>, <&clks 0xfc>;
 			clock-names = "ipg", "per";
 			status = "disabled";
 		};
@@ -612,7 +617,7 @@
 			reg = <0x55ae0000 0x1000>;
 			interrupts = <160>;
 			interrupt-parent = <&irqsteer_rcu>;
-			clocks = <&sys_clk>, <&sys_clk>;
+			clocks = <&clks 0x100>, <&clks 0xff>;
 			clock-names = "lin", "ipg";
 			dmas = <&edma_rcu 1 25>,
 				<&edma_rcu 0 25>;
@@ -626,7 +631,7 @@
 			reg = <0x55af0000 0x1000>;
 			interrupts = <161>;
 			interrupt-parent = <&irqsteer_rcu>;
-			clocks = <&sys_clk>, <&sys_clk>;
+			clocks = <&clks 0x100>, <&clks 0xff>;
 			clock-names = "lin", "ipg";
 			dmas = <&edma_rcu 1 26>,
 			       <&edma_rcu 0 26>;
@@ -640,7 +645,8 @@
 			interrupt-parent = <&irqsteer_rcu>;
 			interrupts = <22>, <86>;
 			interrupt-names = "mb_0-127", "berr";
-			clocks = <&sys_clk>, <&sys_clk>;
+			/* CANFD_PE_CLK */
+			clocks = <&clks 0xf9>, <&clks 0xfc>;
 			clock-names = "ipg", "per";
 			status = "disabled";
 		};
@@ -651,7 +657,8 @@
 			interrupt-parent = <&irqsteer_rcu>;
 			interrupts = <23>, <87>;
 			interrupt-names = "mb_0-127", "berr";
-			clocks = <&sys_clk>, <&sys_clk>;
+			/* CANFD_PE_CLK */
+			clocks = <&clks 0xf9>, <&clks 0xfc>;
 			clock-names = "ipg", "per";
 			status = "disabled";
 		};
@@ -662,7 +669,7 @@
 			reg = <0x56f10000 0x1000>;
 			interrupts = <188>;
 			interrupt-parent = <&irqsteer_rcu>;
-			clocks = <&sys_clk>, <&sys_clk>;
+			clocks = <&clks 0x100>, <&clks 0xff>;
 			clock-names = "lin", "ipg";
 			dmas = <&edma_rcu 1 53>,
 				<&edma_rcu 0 53>;
@@ -676,7 +683,7 @@
 			reg = <0x56f20000 0x1000>;
 			interrupts = <189>;
 			interrupt-parent = <&irqsteer_rcu>;
-			clocks = <&sys_clk>, <&sys_clk>;
+			clocks = <&clks 0x100>, <&clks 0xff>;
 			clock-names = "lin", "ipg";
 			dmas = <&edma_rcu 1 54>,
 			       <&edma_rcu 0 54>;
@@ -690,7 +697,8 @@
 			interrupt-parent = <&irqsteer_rcu>;
 			interrupts = <46>, <110>;
 			interrupt-names = "mb_0-127", "berr";
-			clocks = <&sys_clk>, <&sys_clk>;
+			/* CANFD_PE_CLK */
+			clocks = <&clks 0xf9>, <&clks 0xfc>;
 			clock-names = "ipg", "per";
 			status = "disabled";
 		};
@@ -701,7 +709,8 @@
 			interrupt-parent = <&irqsteer_rcu>;
 			interrupts = <47>, <111>;
 			interrupt-names = "mb_0-127", "berr";
-			clocks = <&sys_clk>, <&sys_clk>;
+			/* CANFD_PE_CLK */
+			clocks = <&clks 0xf9>, <&clks 0xfc>;
 			clock-names = "ipg", "per";
 			status = "disabled";
 		};
@@ -733,7 +742,7 @@
 			interrupts = <GIC_SPI 367 IRQ_TYPE_LEVEL_HIGH>;// EENV0
 			#address-cells = <1>;
 			#size-cells = <0>;
-			clocks = <&sys_clk>;
+			clocks = <&clks 0x5c>; // QSPI_2X_CLK
 			clock-names = "per";
 			status = "disabled";
 		};
