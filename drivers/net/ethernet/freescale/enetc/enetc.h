@@ -313,6 +313,7 @@ struct enetc_debugfs_params {
 	u32 sgclt_eid;
 	u32 isct_eid;
 	u32 rpt_eid;
+	u32 ipft_eid;
 };
 
 struct enetc_si;
