@@ -66,3 +66,5 @@ obj-$(CONFIG_QCOM_CPUCP_MBOX)	+= qcom-cpucp-mbox.o
 obj-$(CONFIG_QCOM_IPCC)		+= qcom-ipcc.o
 
 obj-$(CONFIG_NXP_LLCE_MBOX)	+= llce-mailbox.o
+
+obj-$(CONFIG_NXP_S32N79_MRU)		+= nxp_mru.o
