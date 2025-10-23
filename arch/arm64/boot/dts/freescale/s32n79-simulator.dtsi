@@ -4,68 +4,10 @@
  */
 
 /dts-v1/;
-#include "s32n79.dtsi"
+#include "s32n79-rdb.dtsi"
 #include "dt-bindings/memory/s32n7-carv.h"
 
 / {
-	model = "NXP S32N79-SIM";
-	compatible = "nxp,s32n79-sim", "nxp,s32n79";
-
-	clocks {
-		sys_clk: sys_clk {
-			compatible = "fixed-clock";
-			clock-frequency = <100000000>;
-			#clock-cells = <0>;
-		};
-	};
-
-	reserved-memory {
-		#address-cells = <2>;
-		#size-cells = <2>;
-		ranges;
-
-		/* CAR-V NET */
-		carv0_reserved: carv-reserved@d1000000 {
-			compatible = "shared-dma-pool";
-			/* 1 MB */
-			reg = <0 0xd1000000 0 0x100000>;
-			no-map;
-			status = "disabled";
-		};
-
-		carv0_vdev0vring0: vdev0vring0@d1100000 {
-			compatible = "shared-dma-pool";
-			/* 16 KB */
-			reg = <0 0xd1100000 0 0x4000>;
-			no-map;
-			status = "disabled";
-		};
-
-		carv0_vdev0vring1: vdev0vring1@d1104000 {
-			compatible = "shared-dma-pool";
-			/* 16 KB */
-			reg = <0 0xd1104000 0 0x4000>;
-			no-map;
-			status = "disabled";
-		};
-
-		carv0_vdev0buffer: vdev0buffer@d1108000 {
-			compatible = "shared-dma-pool";
-			/* 16 KB */
-			reg = <0 0xd1108000 0 0x4000>;
-			no-map;
-			status = "disabled";
-		};
-
-		carv0_packet_sram: packet-sram@d1110000 {
-			compatible = "shared-dma-pool";
-			/* 128 KB */
-			reg = <0 0xd1110000 0 0x20000>;
-			no-map;
-			status = "disabled";
-		};
-	};
-
 	virtio: virtio@44000000 {
 		compatible = "virtio,mmio";
 		reg = <0x0 0x44000000 0 0x10000>;
@@ -92,71 +34,4 @@
 
 &ufshci3 {
 	lanes-per-direction = <1>;
-};
-
-&usdhc0 {
-	disable-wp;
-};
-
-&carv0_partition0 {
-	nxp,stack-size = <8>;
-};
-
-&carv0_partition1_user0 {
-	firmware-name = "s32n7-carvnet.fw";
-	memory-region = <&carv0_reserved>, <&carv0_vdev0vring0>,
-			<&carv0_vdev0vring1>, <&carv0_vdev0buffer>, <&carv0_packet_sram>;
-	memory-region-names = "carv-reserved","vdev0vring0",
-			"vdev0vring1","vdev0buffer","packet-sram";
-	nxp,s32n7-carv-mem-region-types = <CARV_MEM_NONCOHERENT>,<CARV_MEM_NONCOHERENT>,
-			<CARV_MEM_NONCOHERENT>,<CARV_MEM_NONCOHERENT>,<CARV_MEM_SHARED>;
-
-};
-
-&netc_switch_port0 {
-	phy-mode = "internal";
-	fixed-link {
-		speed = <1000>;
-		full-duplex;
-	};
-};
-
-&netc_switch_port1 {
-	phy-mode = "internal";
-	fixed-link {
-		speed = <1000>;
-		full-duplex;
-	};
-};
-
-&xspi0 {
-	s28hs512t: flash@0 {
-		compatible = "jedec,spi-nor";
-		reg = <0>;
-		spi-max-frequency = <200000000>;
-		spi-tx-bus-width = <8>;
-		spi-rx-bus-width = <8>;
-
-		partitions {
-			compatible = "fixed-partitions";
-			#address-cells = <1>;
-			#size-cells = <1>;
-
-			/*
-			 * By default, s28hs512t/s28hs01gt have a bottom hybrid
-			 * configuration:
-			 * - address range [0x0 - 0x1ffff] - 32 sectors
-			 * of 4KB size
-			 * - address range [0x20000 - 0x3ffff] - 1 sector of
-			 * 128KB size
-			 * - address range [0x3ffff - ...] - 256KB sectors
-			 * The XSPI partitions should be defined taking into
-			 * account the flash address space configuration.
-			 */
-			flashimage@0 {
-				label = "Flash-Image";
-				reg = <0x0 0x4000000>;
-			};
-		};
-	};
 };
