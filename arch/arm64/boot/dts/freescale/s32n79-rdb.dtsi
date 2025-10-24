@@ -86,6 +86,7 @@
 
 &usdhc0 {
 	disable-wp;
+	no-sdio;
 };
 
 &carv0_partition0 {
