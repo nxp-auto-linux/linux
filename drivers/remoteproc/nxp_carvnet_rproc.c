@@ -281,19 +281,27 @@ struct __packed carvnet_bar_info {
 
 /**
  * struct carveout_info - additional information for each carveout memory in rproc->carveouts
+ * @va: virtual address of the carveout memory region
  * @carveout_name: human-readable name of the carveout resource
  * @match_addr: the CarV side address (match address) to be used for specified Carveout
+ * @base_addr: physical base address of the carveout memory region
+ * @size: size of the carveout memory region in bytes
  * @bar_index: index 0..3 of the BAR to use with this carveout, or BAR_INVALID
  *             if not assigned
+ * @bar_type: type of BAR memory (coherent, non-coherent, or shared)
  * @node: kernel list node, to keep infos in struct carvnet's carveout_infos list
  *
  * This resource entry provides the host information about required CARV address for
- * each Carveout region
+ * each Carveout region, along with memory mapping details and BAR configuration.
  */
 struct carveout_info {
+	void *va;
 	u8 carveout_name[CARVEOUT_NAME_SIZE];
 	u32 match_addr;
+	phys_addr_t base_addr;
+	size_t size;
 	u32 bar_index;
+	u8 bar_type;
 	struct list_head node;
 };
 
@@ -657,10 +665,49 @@ static void q_stop(struct carvnet *priv)
 	writel(0, priv->regs[0] + CARV_Q_MB_IER(0));
 }
 
+static int carvnet_rproc_add_mem_regions(struct rproc *rproc)
+{
+	struct carvnet *priv = rproc->priv;
+	struct rproc_mem_entry *mem;
+	struct carveout_info *info;
+	int ret;
+
+	if (list_empty(&priv->carveout_infos))
+		return 0;
+
+	list_for_each_entry(info, &priv->carveout_infos, node) {
+		mem = rproc_mem_entry_init(priv->dev, info->va,
+					   (dma_addr_t)info->base_addr,
+					   (size_t)info->size, 0U,
+					   NULL, NULL,
+					   (const char *)info->carveout_name);
+		if (!mem)
+			return -ENOMEM;
+
+		/* Assign BAR to this Carveout */
+		ret = g_get_bar(priv, info->bar_type, mem);
+		if (ret < 0) {
+			kfree(mem);
+			return ret;
+		}
+
+		info->bar_index = (u32)ret;
+		rproc_add_carveout(rproc, mem);
+	}
+
+	return 0;
+}
+
 static int carvnet_rproc_parse_fw(struct rproc *rproc,
 				  const struct firmware *fw)
 {
 	int ret;
+
+	ret = carvnet_rproc_add_mem_regions(rproc);
+	if (ret) {
+		dev_err(&rproc->dev, "Failed to parse memory regions\n");
+		return ret;
+	}
 
 	ret = rproc_elf_load_rsc_table(rproc, fw);
 	if (ret)
@@ -702,8 +749,10 @@ static int carvnet_rproc_stop(struct rproc *rproc)
 
 	/* clean up match_addr allocations */
 	list_for_each_entry_safe(entry, tmp, &priv->carveout_infos, node) {
-		list_del(&entry->node);
-		kfree(entry);
+		if (!entry->va) {
+			list_del(&entry->node);
+			kfree(entry);
+		}
 	}
 
 	return 0;
@@ -759,7 +808,6 @@ static int carvnet_release_carveout(struct rproc *rproc,
 	dma_free_coherent(dev->parent, mem->len, mem->va, mem->dma);
 	return 0;
 }
-
 
 static int carvnet_rproc_elf_load(struct rproc *rproc,
 				  const struct firmware *fw)
@@ -868,23 +916,33 @@ static const struct rproc_ops carvnet_rproc_ops = {
 	.find_loaded_rsc_table	= rproc_elf_find_loaded_rsc_table,
 };
 
-static int carvnet_rproc_parse_resmem(struct rproc *rproc)
+static int carvnet_rproc_parse_dt_mem(struct rproc *rproc)
 {
 	struct device *dev = rproc->dev.parent;
 	struct device_node *np = dev->of_node;
 	struct carvnet *priv = rproc->priv;
 	struct of_phandle_iterator it;
-	struct rproc_mem_entry *mem;
-	struct carveout_info *info;
 	struct reserved_mem *rmem;
+	struct carveout_info *info;
 	unsigned long remap_flag;
-	u32 resm_idx = 0, value;
+	u32 resm_idx = 1, value;
 	u8 bar_type;
 	void *va;
 	int ret;
 
 	/* Parse associated reserved memory regions */
 	of_phandle_iterator_init(&it, np, "memory-region", NULL, 0);
+
+	ret = of_reserved_mem_device_init_by_idx(dev, np, 0);
+	if (ret) {
+		dev_err(dev, "Failed to associate vdev resmem: %d\n",
+			ret);
+		return ret;
+	}
+
+	/* Skip reserved memory region - already assigned above */
+	of_phandle_iterator_next(&it);
+
 	while (of_phandle_iterator_next(&it) == 0) {
 
 		rmem = of_reserved_mem_lookup(it.node);
@@ -895,57 +953,37 @@ static int carvnet_rproc_parse_resmem(struct rproc *rproc)
 			return -ENOMEM;
 		}
 
-		if (resm_idx == 0) {
-			ret = of_reserved_mem_device_init_by_idx(dev, np, resm_idx);
-			if (ret) {
-				dev_err(dev, "Failed to associate vdev resmem: %d\n",
-					ret);
-				return ret;
-			}
+		value = 0U;
+		of_property_read_u32_index(np, "nxp,s32n7-carv-mem-region-types",
+								  resm_idx, &value);
+
+		if (value == 0U) {
+			bar_type = CARV_Q_AT_BARL_MEMTYPE_NCOH;
+			remap_flag = MEMREMAP_WC;
+		} else if (value == 1U) {
+			bar_type = CARV_Q_AT_BARL_MEMTYPE_SHAR;
+			remap_flag = MEMREMAP_WC;
 		} else {
-			value = 0U;
-			of_property_read_u32_index(np, "nxp,s32n7-carv-mem-region-types",
-							resm_idx, &value);
-
-			if (value == 0U) {
-				bar_type = CARV_Q_AT_BARL_MEMTYPE_NCOH;
-				remap_flag = MEMREMAP_WC;
-			} else if (value == 1U) {
-				bar_type = CARV_Q_AT_BARL_MEMTYPE_SHAR;
-				remap_flag = MEMREMAP_WC;
-			} else {
-				bar_type = CARV_Q_AT_BARL_MEMTYPE_DEFAULT;
-				remap_flag = MEMREMAP_WB;
-			}
-
-			va = devm_memremap(dev, rmem->base, rmem->size, remap_flag);
-			if (!va) {
-				dev_err(dev, "Failed to ioremap resmem: %d %s\n",
-					resm_idx, it.node->name);
-				return -ENOMEM;
-			}
-			mem = rproc_mem_entry_init(priv->dev, va,
-						   (dma_addr_t)rmem->base, rmem->size, 0U,
-						   NULL, NULL,
-						   it.node->name);
-			if (!mem)
-				return -ENOMEM;
-
-			mem->of_resm_idx = resm_idx;
-
-			info = q_get_carveout_info(priv, mem->name);
-			if (!info)
-				return -ENOMEM;
-
-			/* Assign BAR to this Carveout */
-			ret = g_get_bar(priv, bar_type, mem);
-			if (ret < 0)
-				return -ENOMEM;
-
-			info->bar_index = (u32)ret;
-
-			rproc_add_carveout(rproc, mem);
+			bar_type = CARV_Q_AT_BARL_MEMTYPE_DEFAULT;
+			remap_flag = MEMREMAP_WB;
 		}
+
+		va = devm_memremap(dev, rmem->base, rmem->size, remap_flag);
+		if (!va) {
+			dev_err(dev, "Failed to ioremap resmem: %d %s\n",
+				resm_idx, it.node->name);
+			return -ENOMEM;
+		}
+
+		info = q_get_carveout_info(priv, it.node->name);
+		if (!info)
+			return -ENOMEM;
+
+		info->va = va;
+		info->base_addr = rmem->base;
+		info->size = rmem->size;
+		info->bar_type = bar_type;
+
 		resm_idx++;
 	}
 
@@ -964,7 +1002,7 @@ static void carvnet_rproc_fault_irq_msg(struct device *dev, u32 irq_mask)
 		dev_err(dev, "Fault: Uncorrectable L1D and/or L1I error\n");
 
 	if (irq_mask & CARV_INT_F_CORE_BIT)
-		dev_err(dev, "Fault: CAR-V Core related exceptions of type\n");
+		dev_err(dev, "Fault: WD timeout/DTCM parity/no software vector/illegal instruction\n");
 
 	if (irq_mask & CARV_INT_F_AHB_BIT)
 		dev_err(dev, "Fault: AHB access response error\n");
@@ -1049,7 +1087,7 @@ static int carvnet_rproc_probe(struct platform_device *pdev)
 	priv->bar_info_cnt = 0U;
 	INIT_LIST_HEAD(&priv->carveout_infos);
 
-	ret = carvnet_rproc_parse_resmem(rproc);
+	ret = carvnet_rproc_parse_dt_mem(rproc);
 	if (ret)
 		return ret;
 
