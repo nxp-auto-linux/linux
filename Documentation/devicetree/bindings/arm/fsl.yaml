@@ -1605,6 +1605,7 @@ properties:
       - description: S32N79 based Boards
         items:
           - enum:
+              - nxp,s32n79-rdb
               - nxp,s32n79-sim
           - const: nxp,s32n79
 
