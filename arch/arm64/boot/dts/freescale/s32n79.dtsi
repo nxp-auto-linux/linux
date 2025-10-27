@@ -277,7 +277,7 @@
 		uart0: serial@4a030000 {
 			compatible = "arm,pl011", "arm,primecell";
 			reg = <0x4a030000 0x1000>;
-			clocks = <&sys_clk>, <&sys_clk>;
+			clocks = <&clks 0x9a>, <&clks 0x9a>;
 			clock-names = "uartclk", "apb_pclk";
 			interrupt-parent = <&irqsteer_coss>;
 			interrupts = <264>;
@@ -287,7 +287,7 @@
 		uart5: serial@4a060000 {
 			compatible = "arm,pl011", "arm,primecell";
 			reg = <0x4a060000 0x1000>;
-			clocks = <&sys_clk>, <&sys_clk>;
+			clocks = <&clks 0x9a>, <&clks 0x9a>;
 			clock-names = "uartclk", "apb_pclk";
 			interrupt-parent = <&irqsteer_coss>;
 			interrupts = <269>;
@@ -352,7 +352,7 @@
 		uart6: serial@4aa30000 {
 			compatible = "arm,pl011", "arm,primecell";
 			reg = <0x4aa30000 0x1000>;
-			clocks = <&sys_clk>, <&sys_clk>;
+			clocks = <&clks 0x9a>, <&clks 0x9a>;
 			clock-names = "uartclk", "apb_pclk";
 			interrupt-parent = <&irqsteer_coss>;
 			interrupts = <270>;
@@ -362,7 +362,7 @@
 		uart7: serial@4aa40000 {
 			compatible = "arm,pl011", "arm,primecell";
 			reg = <0x4aa40000 0x1000>;
-			clocks = <&sys_clk>, <&sys_clk>;
+			clocks = <&clks 0x9a>, <&clks 0x9a>;
 			clock-names = "uartclk", "apb_pclk";
 			interrupt-parent = <&irqsteer_coss>;
 			interrupts = <271>;
