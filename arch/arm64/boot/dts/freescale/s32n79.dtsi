@@ -1301,6 +1301,7 @@
 					compatible = "nxp,carv-uio";
 					reg = <0x47810000 0x10000>;
 					interrupts = <GIC_SPI 251 IRQ_TYPE_LEVEL_HIGH>;
+					dma-coherent;
 					status = "disabled";
 				};
 
@@ -1308,6 +1309,7 @@
 					compatible = "nxp,carv-uio";
 					reg = <0x47820000 0x10000>;
 					interrupts = <GIC_SPI 253 IRQ_TYPE_LEVEL_HIGH>;
+					dma-coherent;
 					status = "disabled";
 				};
 
@@ -1315,6 +1317,7 @@
 					compatible = "nxp,carv-uio";
 					reg = <0x47830000 0x10000>;
 					interrupts = <GIC_SPI 255 IRQ_TYPE_LEVEL_HIGH>;
+					dma-coherent;
 					status = "disabled";
 				};
 
@@ -1322,6 +1325,7 @@
 					compatible = "nxp,carv-uio";
 					reg = <0x47840000 0x10000>;
 					interrupts = <GIC_SPI 257 IRQ_TYPE_LEVEL_HIGH>;
+					dma-coherent;
 					status = "disabled";
 				};
 			};
