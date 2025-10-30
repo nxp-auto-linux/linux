@@ -28,6 +28,12 @@
 
 #define CARV_INTL_MAX_MAPPINGS	64
 
+/* CAR-V Registers */
+#define CARV_MB_CR	0x00000000	/* Mailbox Control */
+
+/* Application Fatal Fault Status */
+#define CARV_MB_CR_FAULT_MASK	BIT(3)
+
 /*
  * enum carv_uio_map_idx - CAR-V UIO mapping index
  * @CARV_UIO_MAP_RMEM: Reserved memory range
@@ -84,6 +90,7 @@ struct carv_uio_intl {
  * @dma_handle: DMA handle for memory used by CAR-V
  * @dma_cookie: Bogus virtual address needed to free allocated DMA memory
  * @busy: UIO taken by userspace process
+ * @fault: True if CAR-V UIO device is faulted
  */
 struct carv_uio_drvdata {
 	struct device *dev;
@@ -97,6 +104,7 @@ struct carv_uio_drvdata {
 	dma_addr_t dma_handle;
 	void *dma_cookie;
 	atomic_t busy;
+	bool fault;
 };
 
 /*
@@ -389,8 +397,9 @@ static int carv_uio_expose_regs(struct device *dev)
 {
 	struct platform_device *pdev = container_of(dev, struct platform_device, dev);
 	struct carv_uio_drvdata *priv = dev_get_drvdata(dev);
-	struct uio_info *info;
+	struct uio_info *info = &priv->info;
 	struct resource *res;
+	struct uio_mem *mem;
 	int regs_idx;
 
 	for (int i = 0; i < CARV_MAX_NUM_QUARTILES; i++) {
@@ -398,8 +407,6 @@ static int carv_uio_expose_regs(struct device *dev)
 		res = platform_get_resource(pdev, IORESOURCE_MEM, i);
 		if (!res)
 			break;
-
-		info = &priv->info;
 
 		regs_idx = CARV_UIO_MAP_REGS_0 + i;
 		if (regs_idx >= MAX_UIO_MAPS) {
@@ -414,6 +421,11 @@ static int carv_uio_expose_regs(struct device *dev)
 		info->mem[regs_idx].size = resource_size(res);
 		info->mem[regs_idx].memtype = UIO_MEM_PHYS;
 	}
+
+	mem = &info->mem[CARV_UIO_MAP_REGS_0];
+	mem->internal_addr = devm_ioremap(dev, mem->addr, mem->size);
+	if (!mem->internal_addr)
+		return -ENOMEM;
 
 	return 0;
 }
@@ -482,6 +494,34 @@ static int carv_uio_alloc_dma_memory(struct device *dev)
 
 	return 0;
 }
+
+/*
+ * fault_show - Show in sysfs if the CAR-V UIO device is faulted
+ * @dev: The device associated with the sysfs attribute
+ * @attr: The sysfs attribute permissions
+ * @buf: The buffer where the fault status will be written to
+ *
+ * Return: The number of bytes written to the buffer, or a negative error code on failure
+ */
+static ssize_t fault_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	struct uio_device *uio_dev = dev_get_drvdata(dev);
+	struct uio_info *info = uio_dev->info;
+	struct carv_uio_drvdata *priv;
+	void __iomem *mb_ir;
+
+	priv = info->priv;
+
+	if (!priv->fault) {
+		mb_ir = info->mem[CARV_UIO_MAP_REGS_0].internal_addr + CARV_MB_CR;
+		if (readl(mb_ir) & CARV_MB_CR_FAULT_MASK)
+			priv->fault = true;
+	}
+
+	return sysfs_emit(buf, "%u\n", priv->fault);
+}
+
+static DEVICE_ATTR_RO(fault);
 
 static int carv_uio_probe(struct platform_device *pdev)
 {
@@ -585,11 +625,19 @@ static int carv_uio_probe(struct platform_device *pdev)
 		goto out_destroy_gen_pool;
 	}
 
+	ret = device_create_file(&priv->info.uio_dev->dev, &dev_attr_fault);
+	if (ret) {
+		dev_err(dev, "failed to create sysfs fault attribute\n");
+		goto out_uio_unregister_device;
+	}
+
 	dev_dbg(dev, "Successfully registered CAR-V device: /dev/%s\n",
 		dev_name(&info->uio_dev->dev));
 
 	return 0;
 
+out_uio_unregister_device:
+	uio_unregister_device(&priv->info);
 out_destroy_gen_pool:
 	gen_pool_destroy(priv->pool);
 out_free_dma_memory:
@@ -618,6 +666,9 @@ static void carv_uio_remove(struct platform_device *pdev)
 
 	/* Free internal shared memory */
 	__free_page(vmalloc_to_page(priv->intl));
+
+	/* Remove sysfs fault attribute file */
+	device_remove_file(&priv->info.uio_dev->dev, &dev_attr_fault);
 
 	/* Unregister device */
 	uio_unregister_device(&priv->info);
