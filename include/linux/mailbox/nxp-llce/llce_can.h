@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0+ */
-/* Copyright 2020-2024 NXP */
+/* Copyright 2020-2025 NXP */
 #ifndef LLCE_CAN_H
 #define LLCE_CAN_H
 
@@ -369,7 +369,13 @@ enum llce_can_module {
 	/** AF RX  firmware component. */
 	LLCE_AF_RX,
 	/** AF FRPE firmware component. */
-	LLCE_AF_FRPE
+	LLCE_AF_FRPE,
+	/** Headless TX boot firmware component. */
+	LLCE_HEADLESS_TX,
+	/** Headless RX boot firmware component. */
+	LLCE_HEADLESS_RX,
+	/** Headless FRPE boot firmware component. */
+	LLCE_HEADLESS_FRPE
 } __packed;
 
 /**
@@ -446,13 +452,16 @@ enum llce_can_eth_encapsulation_format {
 	LLCE_AF_CAN2AVTP_TSCF_BRIEF,
 	/** IEEE1722-2016 AVPT time-synchronous CAN regular format */
 	LLCE_AF_CAN2AVTP_TSCF_FULL,
-	/** UDP format */
+	/** UDP format, over IPv4*/
 	LLCE_AF_CAN2UDP,
-	/** UDP format, type B */
+	/** UDP format, type B, over IPv4*/
 	LLCE_AF_CAN2UDP_B,
+	/** UDP format, over IPv6*/
+	LLCE_AF_CAN2UDP_IPV6,
+	/** UDP format, type B, over IPv6 */
+	LLCE_AF_CAN2UDP_B_IPV6,
 	/** Placeholder for maximum value */
 	LLCE_AF_CAN2ETH_FORMAT_MAX
-
 } __packed;
 /**
  * Initialization status of the controllers.
@@ -974,9 +983,9 @@ struct llce_can_can2eth_routing_table {
 	/** INPUT: Ethernet MAC source address */
 	u8 can2eth_src_mac[6];
 	/** INPUT: Destination IP address (UDP only) */
-	u8 can2eth_dst_ip[4];
+	u8 can2eth_dst_ip[16];
 	/** INPUT: Source IP address (UDP only) */
-	u8 can2eth_src_ip[4];
+	u8 can2eth_src_ip[16];
 	/** INPUT: Destination port (UDP only) */
 	u16 can2eth_dst_port;
 	/** INPUT: Source port (UDP only) */
