@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0+ */
-/* Copyright 2020-2024 NXP */
+/* Copyright 2020-2025 NXP */
 #ifndef LLCE_FW_INTERFACE_H
 #define LLCE_FW_INTERFACE_H
 
@@ -504,6 +504,30 @@ enum llce_fw_return {
 	 * event during shutdown and is halted but awake
 	 */
 	LLCE_SHUTDOWN_FAILED,
+	/**
+	 * Generic firmware code: FW successfully booted in headless mode
+	 */
+	LLCE_HEADLESS_SUCCESS,
+	/**
+	 * Generic firmware error: Invalid InitPlatform section in headless configuration
+	 */
+	LLCE_HEADLESS_INITPLATFORM_ERROR,
+	/**
+	 * Generic firmware error: Invalid controller Init section in headless configuration
+	 */
+	LLCE_HEADLESS_INITCTRL_ERROR,
+	/**
+	 * Generic firmware error: Invalid advanced destinations section in headless configuration
+	 */
+	LLCE_HEADLESS_CREATEDESTINATIONS_ERROR,
+	/**
+	 * Generic firmware error: Invalid regular filter section in headless configuration
+	 */
+	LLCE_HEADLESS_SETFILTER_ERROR,
+	/**
+	 * Generic firmware error: Invalid advanced filter section in headless configuration
+	 */
+	LLCE_HEADLESS_SETADVANCEDFILTER_ERROR,
 	/**
 	 * Number of enum elements. It must be kept as the last member
 	 * of the list.
