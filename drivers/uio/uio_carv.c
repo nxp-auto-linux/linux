@@ -170,6 +170,9 @@ static vm_fault_t carv_uio_vm_fault(struct vm_fault *vmf)
 	if (WARN_ON(!carv_fault_vm_ops_enable))
 		return VM_FAULT_SIGBUS;
 
+	if (WARN_ON(priv->dev->iommu))
+		return VM_FAULT_SIGBUS;
+
 	offset = vmf->address - vmf->vma->vm_start;
 	if (offset >= entry->size)
 		return VM_FAULT_SIGBUS;
@@ -247,6 +250,7 @@ static int carv_uio_mmap(struct uio_info *info, struct vm_area_struct *vma)
 	struct carv_uio_vm_entry *entry;
 	vm_flags_t vm_flags_mask;
 	unsigned long vma_size;
+	struct uio_mem *mem;
 	unsigned long pfn;
 	dma_addr_t addr;
 	int ret = 0;
@@ -271,8 +275,6 @@ static int carv_uio_mmap(struct uio_info *info, struct vm_area_struct *vma)
 			ret = -ENOMEM;
 			goto out_kfree_entry;
 		}
-
-		pfn = PHYS_PFN(dma_to_phys(priv->dev, addr));
 
 		scoped_guard(mutex, &priv->intl_lock) {
 			for (int i = 0; i < CARV_INTL_MAX_MAPPINGS; i++) {
@@ -310,10 +312,17 @@ static int carv_uio_mmap(struct uio_info *info, struct vm_area_struct *vma)
 		return -EINVAL;
 	}
 
-	if (vma->vm_pgoff != CARV_UIO_MAP_RMEM)
+	if (vma->vm_pgoff != CARV_UIO_MAP_RMEM) {
 		vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
+		ret = remap_pfn_range(vma, vma->vm_start, pfn, vma_size, vma->vm_page_prot);
+	} else {
+		mem = &priv->info.mem[CARV_UIO_MAP_RMEM];
+		vma->vm_pgoff = (addr - mem->dma_addr) >> PAGE_SHIFT;
+		ret = dma_mmap_attrs(mem->dma_device, vma, (void *)mem->addr, mem->dma_addr,
+				     vma_size + (vma->vm_pgoff << PAGE_SHIFT),
+				     DMA_ATTR_NO_KERNEL_MAPPING);
+	}
 
-	ret = remap_pfn_range(vma, vma->vm_start, pfn, vma_size, vma->vm_page_prot);
 	goto out;
 
 out_kfree_entry:
@@ -422,9 +431,11 @@ static void carv_uio_expose_rmem(struct device *dev)
 
 	/* Expose CAR-V reserved memory */
 	info->mem[CARV_UIO_MAP_RMEM].name = "carv-reserved-memory";
-	info->mem[CARV_UIO_MAP_RMEM].addr = dma_to_phys(priv->dev, priv->dma_handle);
+	info->mem[CARV_UIO_MAP_RMEM].addr = (uintptr_t)priv->dma_cookie;
+	info->mem[CARV_UIO_MAP_RMEM].dma_addr = priv->dma_handle;
+	info->mem[CARV_UIO_MAP_RMEM].dma_device = priv->dev;
 	info->mem[CARV_UIO_MAP_RMEM].size = priv->pool_size;
-	info->mem[CARV_UIO_MAP_RMEM].memtype = UIO_MEM_PHYS;
+	info->mem[CARV_UIO_MAP_RMEM].memtype = UIO_MEM_DMA_COHERENT;
 }
 
 /*
@@ -446,7 +457,7 @@ static void carv_uio_expose_priv(struct device *dev)
 }
 
 /*
- * carv_uio_alloc_dma_memory - Alloc DMA memory for mapping it in userspace
+ * carv_uio_alloc_dma_memory - Alloc DMA memory used by CAR-V
  * @dev: CAR-V UIO device
  *
  * Return: -ENOMEM if no memory available, otherwise 0
@@ -456,9 +467,6 @@ static int carv_uio_alloc_dma_memory(struct device *dev)
 	struct carv_uio_drvdata *priv = dev_get_drvdata(dev);
 	dma_addr_t dma_handle;
 	void *dma_cookie;
-
-	/* Set minimum alignment for DMA allocations to 16 KB */
-	dma_set_min_align_mask(dev, SZ_16K);
 
 	/* Alloc DMA memory */
 	dma_handle = 0;
@@ -522,6 +530,7 @@ static int carv_uio_probe(struct platform_device *pdev)
 		goto out_free_intl_memory;
 	}
 
+	/* Alloc DMA memory */
 	ret = carv_uio_alloc_dma_memory(dev);
 	if (ret)
 		goto out_unmap_intl_memory;
@@ -584,8 +593,8 @@ static int carv_uio_probe(struct platform_device *pdev)
 out_destroy_gen_pool:
 	gen_pool_destroy(priv->pool);
 out_free_dma_memory:
-	dma_free_attrs(priv->dev, priv->pool_size, priv->dma_cookie,
-		       priv->dma_handle, DMA_ATTR_NO_KERNEL_MAPPING);
+	dma_free_attrs(priv->dev, priv->pool_size, priv->dma_cookie, priv->dma_handle,
+		       DMA_ATTR_NO_KERNEL_MAPPING);
 out_unmap_intl_memory:
 	vunmap(priv->intl);
 out_free_intl_memory:
@@ -601,8 +610,8 @@ static void carv_uio_remove(struct platform_device *pdev)
 	gen_pool_destroy(priv->pool);
 
 	/* Free DMA memory */
-	dma_free_attrs(priv->dev, priv->pool_size, priv->dma_cookie,
-		       priv->dma_handle, DMA_ATTR_NO_KERNEL_MAPPING);
+	dma_free_attrs(priv->dev, priv->pool_size, priv->dma_cookie, priv->dma_handle,
+		       DMA_ATTR_NO_KERNEL_MAPPING);
 
 	/* Vunmap internal shared memory */
 	vunmap(priv->intl);
