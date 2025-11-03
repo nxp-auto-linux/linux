@@ -3,7 +3,7 @@
  * System Control and Management Interface (SCMI) Pinctrl Protocol
  *
  * Copyright (C) 2024 EPAM
- * Copyright 2024 NXP
+ * Copyright 2024-2025 NXP
  */
 
 #include <asm/byteorder.h>
@@ -714,17 +714,19 @@ static int scmi_pinctrl_get_function_info(const struct scmi_protocol_handle *ph,
 		return ret;
 
 	if (!func->nr_groups) {
-		dev_err(ph->dev, "Function %d has 0 elements", selector);
-		return -ENODATA;
+		/* pins-only SCMI platform: zero groups is valid */
+		func->groups = NULL;
+		func->present = true;
+		return 0;
 	}
 
 	func->groups = kmalloc_array(func->nr_groups, sizeof(*func->groups),
-				     GFP_KERNEL);
+					 GFP_KERNEL);
 	if (!func->groups)
 		return -ENOMEM;
 
 	ret = scmi_pinctrl_list_associations(ph, selector, FUNCTION_TYPE,
-					     func->nr_groups, func->groups);
+						 func->nr_groups, func->groups);
 	if (ret) {
 		kfree(func->groups);
 		return ret;
@@ -786,10 +788,21 @@ scmi_pinctrl_function_groups_get(const struct scmi_protocol_handle *ph,
 	return 0;
 }
 
+/*
+ * Set mux for a function. If the platform exposes groups, 'group' is a
+ * GROUP id. If there are no groups, interpret 'group' as a PIN id and
+ * select the function on that PIN instead (pins-only fallback).
+ */
 static int scmi_pinctrl_mux_set(const struct scmi_protocol_handle *ph,
 				u32 selector, u32 group)
 {
-	return scmi_pinctrl_function_select(ph, group, GROUP_TYPE, selector);
+	struct scmi_pinctrl_info *pi = ph->get_priv(ph);
+	enum scmi_pinctrl_selector_type mux_type = PIN_TYPE;
+
+	if (pi->nr_groups > 0)
+		mux_type = GROUP_TYPE;
+
+	return scmi_pinctrl_function_select(ph, group, mux_type, selector);
 }
 
 static int scmi_pinctrl_get_pin_info(const struct scmi_protocol_handle *ph,
