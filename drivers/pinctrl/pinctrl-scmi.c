@@ -3,7 +3,7 @@
  * System Control and Power Interface (SCMI) Protocol based pinctrl driver
  *
  * Copyright (C) 2024 EPAM
- * Copyright 2024 NXP
+ * Copyright 2024-2025 NXP
  */
 
 #include <linux/device.h>
@@ -42,13 +42,25 @@ struct scmi_pinctrl {
 	unsigned int nr_functions;
 	struct pinctrl_pin_desc *pins;
 	unsigned int nr_pins;
+	/* size == nr_pins, value == pin ID */
+	unsigned int *synth_pin_ids;
+	bool has_groups;
 };
+
+static bool pinctrl_scmi_has_groups(struct scmi_pinctrl *pmx)
+{
+	return pinctrl_ops->count_get(pmx->ph, GROUP_TYPE) > 0;
+}
 
 static int pinctrl_scmi_get_groups_count(struct pinctrl_dev *pctldev)
 {
 	struct scmi_pinctrl *pmx = pinctrl_dev_get_drvdata(pctldev);
 
-	return pinctrl_ops->count_get(pmx->ph, GROUP_TYPE);
+	if (pmx->has_groups)
+		return pinctrl_ops->count_get(pmx->ph, GROUP_TYPE);
+
+	/* One synthetic group per pin */
+	return pmx->nr_pins;
 }
 
 static const char *pinctrl_scmi_get_group_name(struct pinctrl_dev *pctldev,
@@ -57,6 +69,14 @@ static const char *pinctrl_scmi_get_group_name(struct pinctrl_dev *pctldev,
 	int ret;
 	const char *name;
 	struct scmi_pinctrl *pmx = pinctrl_dev_get_drvdata(pctldev);
+
+	if (!pmx->has_groups) {
+		if (selector >= pmx->nr_pins)
+			return NULL;
+
+		/* Synthetic group name equals pin name */
+		return pmx->pctl_desc.pins[selector].name;
+	}
 
 	ret = pinctrl_ops->name_get(pmx->ph, selector, GROUP_TYPE, &name);
 	if (ret) {
@@ -74,7 +94,17 @@ static int pinctrl_scmi_get_group_pins(struct pinctrl_dev *pctldev,
 {
 	struct scmi_pinctrl *pmx = pinctrl_dev_get_drvdata(pctldev);
 
-	return pinctrl_ops->group_pins_get(pmx->ph, selector, pins, num_pins);
+	if (pmx->has_groups)
+		return pinctrl_ops->group_pins_get(pmx->ph, selector, pins, num_pins);
+
+	/* Synthetic groups: one pin per group, group index == pin ID */
+	if (selector >= pmx->nr_pins)
+		return -EINVAL;
+
+	*pins = &pmx->synth_pin_ids[selector];
+	*num_pins = 1;
+
+	return 0;
 }
 
 static const struct pinctrl_ops pinctrl_scmi_pinctrl_ops = {
@@ -139,8 +169,27 @@ static int pinctrl_scmi_get_function_groups(struct pinctrl_dev *pctldev,
 	if (func->ngroups)
 		goto done;
 
-	ret = pinctrl_ops->function_groups_get(pmx->ph, selector, &num_groups,
-					       &group_ids);
+	/*
+	 * If SCMI Platform does not expose native groups, pretend that every
+	 * synthetic one-pin group is eligible; DT will pick the right ones.
+	 */
+	if (!pmx->has_groups) {
+		num_groups = pmx->nr_pins;
+
+		groups = kcalloc(num_groups, sizeof(*groups), GFP_KERNEL);
+		if (!groups)
+			return -ENOMEM;
+
+		for (i = 0; i < num_groups; i++)
+			groups[i] = pmx->pctl_desc.pins[i].name;
+
+		func->ngroups = num_groups;
+		func->groups = groups;
+		goto done;
+	}
+
+	ret = pinctrl_ops->function_groups_get(pmx->ph, selector,
+			&num_groups, &group_ids);
 	if (ret) {
 		dev_err(pmx->dev, "Unable to get function groups, err %d", ret);
 		return ret;
@@ -179,6 +228,12 @@ static int pinctrl_scmi_func_set_mux(struct pinctrl_dev *pctldev,
 {
 	struct scmi_pinctrl *pmx = pinctrl_dev_get_drvdata(pctldev);
 
+	/*
+	 * The protocol implementation is aware of whether GROUP_TYPE is
+	 * supported: when nr_groups == 0 it will select the function on a PIN
+	 * (PIN_TYPE) using the provided selector as a pin ID. We pass the
+	 * synthetic group index which equals the pin ID.
+	 */
 	return pinctrl_ops->mux_set(pmx->ph, selector, group);
 }
 
@@ -407,6 +462,13 @@ static int pinctrl_scmi_pinconf_group_set(struct pinctrl_dev *pctldev,
 	if (!configs || !num_configs)
 		return -EINVAL;
 
+	/* If no native groups, apply configs to the
+	 * single pin in the synthetic group.
+	 */
+	if (!pmx->has_groups)
+		/* synthetic group index == pin ID */
+		return pinctrl_scmi_pinconf_set(pctldev, group, configs, num_configs);
+
 	ret = pinctrl_scmi_alloc_configs(pctldev, num_configs, &p_config_type,
 					 &p_config_value);
 	if (ret)
@@ -447,6 +509,13 @@ static int pinctrl_scmi_pinconf_group_get(struct pinctrl_dev *pctldev,
 
 	if (!config)
 		return -EINVAL;
+
+	/* If no native groups, get configs from the
+	 * single pin in the synthetic group.
+	 */
+	if (!pmx->has_groups)
+		/* synthetic group index == pin ID */
+		return pinctrl_scmi_pinconf_get(pctldev, group, config);
 
 	config_type = pinconf_to_config_param(*config);
 	ret = pinctrl_scmi_map_pinconf_type(config_type, &type);
@@ -505,6 +574,7 @@ static int pinctrl_scmi_get_pins(struct scmi_pinctrl *pmx,
 					     "Can't get name for pin %d", i);
 	}
 
+	pmx->nr_pins = npins;
 	desc->npins = npins;
 	desc->pins = pins;
 	dev_dbg(pmx->dev, "got pins %u", npins);
@@ -519,11 +589,12 @@ static const char * const scmi_pinctrl_blocklist[] = {
 
 static int scmi_pinctrl_probe(struct scmi_device *sdev)
 {
-	int ret;
-	struct device *dev = &sdev->dev;
-	struct scmi_pinctrl *pmx;
 	const struct scmi_handle *handle;
+	struct device *dev = &sdev->dev;
 	struct scmi_protocol_handle *ph;
+	struct scmi_pinctrl *pmx;
+	unsigned int i;
+	int ret;
 
 	if (!sdev->handle)
 		return -EINVAL;
@@ -553,6 +624,22 @@ static int scmi_pinctrl_probe(struct scmi_device *sdev)
 	ret = pinctrl_scmi_get_pins(pmx, &pmx->pctl_desc);
 	if (ret)
 		return ret;
+
+	pmx->has_groups = pinctrl_scmi_has_groups(pmx);
+	dev_info(dev, "SCMI Pinctrl operating in %s mode\n",
+		 pmx->has_groups ? "group-based" : "pin-only");
+
+	/* Allocate synthetic pin-id table if we will emulate groups. */
+	if (!pmx->has_groups) {
+		pmx->synth_pin_ids = devm_kcalloc(dev, pmx->nr_pins,
+						  sizeof(*pmx->synth_pin_ids),
+						  GFP_KERNEL);
+		if (!pmx->synth_pin_ids)
+			return -ENOMEM;
+
+		for (i = 0; i < pmx->nr_pins; i++)
+			pmx->synth_pin_ids[i] = i;
+	}
 
 	ret = devm_pinctrl_register_and_init(dev, &pmx->pctl_desc, pmx,
 					     &pmx->pctldev);
