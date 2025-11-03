@@ -195,7 +195,8 @@ static int neutron_inference_run(struct neutron_inference *inf)
 
 	if (ret < 0) {
 		inf->status = NEUTRON_UAPI_STATUS_ERROR;
-		dev_err(ndev->dev, "failed to send mbox_message\n");
+		neutron_hw_reset(ndev);
+		mutex_unlock(&ndev->mutex);
 		goto inf_stop_early;
 	}
 
