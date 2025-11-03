@@ -121,6 +121,8 @@ struct scmi_pinctrl_info {
 	int nr_groups;
 	int nr_functions;
 	int nr_pins;
+	bool has_pin_request;
+	bool has_pin_free;
 	struct scmi_group_info *groups;
 	struct scmi_function_info *functions;
 	struct scmi_pin_info *pins;
@@ -151,6 +153,15 @@ static int scmi_pinctrl_attributes_get(const struct scmi_protocol_handle *ph,
 	}
 
 	ph->xops->xfer_put(ph, t);
+
+	if (!ret) {
+		if (!ph->hops->protocol_msg_check(ph, PINCTRL_REQUEST, NULL))
+			pi->has_pin_request = true;
+
+		if (!ph->hops->protocol_msg_check(ph, PINCTRL_RELEASE, NULL))
+			pi->has_pin_free = true;
+	}
+
 	return ret;
 }
 
@@ -556,15 +567,26 @@ static int scmi_pinctrl_request_free(const struct scmi_protocol_handle *ph,
 				     enum scmi_pinctrl_selector_type type,
 				     enum scmi_pinctrl_protocol_cmd cmd)
 {
-	int ret;
-	struct scmi_xfer *t;
+	struct scmi_pinctrl_info *pi = ph->get_priv(ph);
 	struct scmi_msg_request *tx;
+	struct scmi_xfer *t;
+	int ret;
 
 	if (type == FUNCTION_TYPE)
 		return -EINVAL;
 
 	if (cmd != PINCTRL_REQUEST && cmd != PINCTRL_RELEASE)
 		return -EINVAL;
+
+	/* There are SCMI platforms which do not implement
+	 * PIN_REQUEST/RELEASE messages as they are not mandatory
+	 * per SCMI spec. Return gracefully for this scenario.
+	 */
+	if (cmd == PINCTRL_REQUEST && !pi->has_pin_request)
+		return 0;
+
+	if (cmd == PINCTRL_RELEASE && !pi->has_pin_free)
+		return 0;
 
 	ret = scmi_pinctrl_validate_id(ph, identifier, type);
 	if (ret)
