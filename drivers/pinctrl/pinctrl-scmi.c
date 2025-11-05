@@ -52,6 +52,39 @@ static bool pinctrl_scmi_has_groups(struct scmi_pinctrl *pmx)
 	return pinctrl_ops->count_get(pmx->ph, GROUP_TYPE) > 0;
 }
 
+/* Return true for pinconf types which do not take any parameters.
+ * Their simple presence should mean enable as per Pinctrl core.
+ */
+static bool pinctrl_scmi_is_single_pinconf_param(enum pin_config_param
+		param)
+{
+	switch (param) {
+	case PIN_CONFIG_BIAS_BUS_HOLD:
+	case PIN_CONFIG_BIAS_DISABLE:
+	case PIN_CONFIG_BIAS_HIGH_IMPEDANCE:
+	case PIN_CONFIG_BIAS_PULL_PIN_DEFAULT:
+	case PIN_CONFIG_DRIVE_OPEN_DRAIN:
+	case PIN_CONFIG_DRIVE_OPEN_SOURCE:
+	case PIN_CONFIG_DRIVE_PUSH_PULL:
+	case PIN_CONFIG_INPUT_ENABLE:
+	case PIN_CONFIG_INPUT_SCHMITT:
+	case PIN_CONFIG_MODE_LOW_POWER:
+	case PIN_CONFIG_OUTPUT_ENABLE:
+		return true;
+	default:
+		return false;
+	}
+}
+
+static int pinctrl_scmi_parse_pinconf_value(enum pin_config_param param,
+					    u32 val)
+{
+	if (val)
+		return val;
+
+	return pinctrl_scmi_is_single_pinconf_param(param) ? 1 : 0;
+}
+
 static int pinctrl_scmi_get_groups_count(struct pinctrl_dev *pctldev)
 {
 	struct scmi_pinctrl *pmx = pinctrl_dev_get_drvdata(pctldev);
@@ -432,7 +465,9 @@ static int pinctrl_scmi_pinconf_set(struct pinctrl_dev *pctldev,
 			dev_err(pmx->dev, "Error map pinconf_type %d\n", ret);
 			goto free_config;
 		}
-		p_config_value[i] = pinconf_to_config_argument(configs[i]);
+		p_config_value[i] =
+			pinctrl_scmi_parse_pinconf_value(param,
+							 pinconf_to_config_argument(configs[i]));
 	}
 
 	ret = pinctrl_ops->settings_conf(pmx->ph, pin, PIN_TYPE, num_configs,
@@ -482,7 +517,9 @@ static int pinctrl_scmi_pinconf_group_set(struct pinctrl_dev *pctldev,
 			goto free_config;
 		}
 
-		p_config_value[i] = pinconf_to_config_argument(configs[i]);
+		p_config_value[i] =
+			pinctrl_scmi_parse_pinconf_value(param,
+							 pinconf_to_config_argument(configs[i]));
 	}
 
 	ret = pinctrl_ops->settings_conf(pmx->ph, group, GROUP_TYPE,
