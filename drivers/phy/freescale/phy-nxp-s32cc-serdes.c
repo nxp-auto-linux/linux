@@ -85,7 +85,8 @@
 #define  PHY_REG_EN		BIT(31)
 #define PHY_REG_DATA		(0x4)
 #define PHY_RST_CTRL		(0x8)
-#define  WARM_RST		BIT(1)
+#define WARM_RST		BIT(1)
+#define COLD_RST		BIT(0)
 
 #define PHY_SS_RO_REG_0		(0xE0)
 #define PHY_RX0_LOS			BIT(1)
@@ -223,7 +224,7 @@ static void pcie_phy_cold_reset(struct serdes *serdes)
 	u32 val;
 
 	val = readl(serdes->pcie.phy_base + PHY_RST_CTRL);
-	writel(val | WARM_RST, serdes->pcie.phy_base + PHY_RST_CTRL);
+	writel(val | COLD_RST, serdes->pcie.phy_base + PHY_RST_CTRL);
 	udelay(1000);
 	writel(val, serdes->pcie.phy_base + PHY_RST_CTRL);
 }
@@ -604,6 +605,9 @@ static int xpcs_init_clks(struct serdes *serdes)
 			}
 		}
 	}
+
+	if (ctrl->ss_mode == SERDES_MODE_1 || ctrl->ss_mode == SERDES_MODE_2)
+		pcie_phy_cold_reset(serdes);
 
 	for (i = 0; i < ARRAY_SIZE(order); i++) {
 		xpcs_id = order[i];
