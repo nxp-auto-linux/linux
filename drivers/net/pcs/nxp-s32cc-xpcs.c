@@ -1054,8 +1054,8 @@ static int xpcs_config(struct s32cc_xpcs *xpcs,
 static int xpcs_configure(struct s32cc_xpcs *xpcs,
 			  const struct phylink_link_state *state)
 {
-	xpcs_config_an(xpcs, *state);
-	xpcs_config(xpcs, state);
+	XPCS_WRITE_BITS(xpcs, SR_MII_CTRL, AN_ENABLE, 0);
+	XPCS_WRITE_BITS(xpcs, SR_MII_CTRL, DUPLEX_MODE, DUPLEX_MODE);
 
 	return 0;
 }

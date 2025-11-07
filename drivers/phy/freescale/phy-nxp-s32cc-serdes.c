@@ -762,7 +762,7 @@ static int xpcs_phy_configure(struct phy *phy, struct phylink_link_state *state)
 {
 	struct serdes *serdes = phy_get_drvdata(phy);
 	struct xpcs_ctrl *xpcs = &serdes->xpcs;
-	struct phylink_link_state xpcs_state;
+	struct phylink_link_state xpcs_state = { 0 };
 	struct device *dev = serdes->dev;
 	int xpcs_id;
 	int ret;
