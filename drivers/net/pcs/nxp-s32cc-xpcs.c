@@ -699,6 +699,10 @@ static int xpcs_init_plls(struct s32cc_xpcs *xpcs)
 		ret = wait_power_good_state(xpcs);
 		if (ret)
 			return ret;
+	} else if (xpcs->pcie_shared == PCIE_XPCS_1G) {
+		ret = wait_power_good_state(xpcs);
+		if (ret)
+			return ret;
 	} else if (xpcs->pcie_shared == PCIE_XPCS_2G5) {
 		ret = wait_power_good_state(xpcs);
 		if (ret)
