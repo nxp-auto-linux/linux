@@ -35,3 +35,23 @@
 &ufshci3 {
 	lanes-per-direction = <1>;
 };
+
+/* Override node with addresses/ranges supported by VDK */
+&pcie2 {
+	reg = <0x00 0x4c800000 0x0 0x00001000>,
+	      /* ECAM, low-mapped (the mid-range mapping is not supported by VDK) */
+	      <0x00 0x68000000 0x0 0x04000000>,
+	      <0x00 0x4c910000 0x0 0x00020000>;
+	reg-names = "dbi", "config", "atu";
+	ranges = /* Because VDK does not implement the HSCS parameter
+		  * CX_ATU_MAX_REGION_SIZE, the PCIe host controller driver
+		  * always reads IATU_UPPR_LIMIT_ADDR_OFF_OUTBOUND as
+		  * 0x0 (meaning 4GB iATU upper limit). So for now, just map
+		  * one 4GB rangelet. On VDK we won't be able to attach a
+		  * proper mass-storage device or similar, anyway.
+		  */
+		 /* 4GB(-1) outbound mem */
+		 <0x82000000 0x0 0x00000000 0x50 0x00000000 0x0 0xFFFFFFFF>,
+		 /* 2GB outbound mem */
+		 <0x82000000 0x8 0x00000000 0x5 0x00000000 0x0 0x80000000>;
+};
