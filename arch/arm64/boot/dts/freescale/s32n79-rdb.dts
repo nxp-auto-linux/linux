@@ -126,3 +126,7 @@
 &neutron {
 	status = "okay";
 };
+
+&pcie2 {
+	status = "okay";
+};
