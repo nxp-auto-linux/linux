@@ -98,3 +98,31 @@
 &usdhc0 {
 	status = "okay";
 };
+
+&carv0_partition0 {
+	status = "okay";
+};
+
+&carv0_partition0_user0 {
+	status = "okay";
+};
+
+&carv0_partition0_user1 {
+	status = "okay";
+};
+
+&carv0_partition0_user2 {
+	status = "okay";
+};
+
+&carv0_partition0_user3 {
+	status = "okay";
+};
+
+&neutron_core {
+	status = "okay";
+};
+
+&neutron {
+	status = "okay";
+};
