@@ -505,6 +505,7 @@
 			interrupts = <211>;
 			clocks = <&clks 0x91>;
 			clock-names = "core_clk";
+			iommus = <&smmu 0x2>; // StreamID = 0x2
 			status = "disabled";
 		};
 
@@ -731,7 +732,7 @@
 			clocks = <&clks 0x58>, <&clks 0x50>, <&clks 0x5f>;
 			clock-names = "ipg", "ahb", "per";
 			bus-width = <8>;
-			iommus = <&smmu 0x0>; // StreamID 0
+			iommus = <&smmu 0x1>; // StreamID = 0x1
 			status = "disabled";
 		};
 
