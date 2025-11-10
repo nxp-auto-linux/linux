@@ -106,9 +106,6 @@ static int neutron_rproc_start(struct rproc *rproc)
 
 	writel(dcfg->src_start, priv->regbase + dcfg->src_reg);
 
-	if (readl(priv->regbase + dcfg->src_reg) != dcfg->src_start)
-		return -EINVAL;
-
 	return 0;
 }
 
@@ -118,9 +115,6 @@ static int neutron_rproc_stop(struct rproc *rproc)
 	const struct imx_rproc_dcfg *dcfg = priv->dcfg;
 
 	writel(dcfg->src_stop, priv->regbase + dcfg->src_reg);
-
-	if (readl(priv->regbase + dcfg->src_reg) != dcfg->src_stop)
-		return -EINVAL;
 
 	return 0;
 }
