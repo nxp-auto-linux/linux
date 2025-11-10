@@ -987,6 +987,7 @@
 		neutron_core: remoteproc@25f80000 {
 			compatible = "nxp,s32n7-neutron-rproc";
 			reg = <0x0 0x25f80000 0x0 0x4>;
+			status = "disabled";
 		};
 
 		neutron: neutron@25f80004 {
@@ -994,6 +995,7 @@
 			reg = <0x0 0x25f80004 0x0 0x400>;
 			fsl,neutron-rproc = <&neutron_core>;
 			interrupts = <GIC_SPI 269 IRQ_TYPE_LEVEL_HIGH>;
+			status = "disabled";
 		};
 
 	};
