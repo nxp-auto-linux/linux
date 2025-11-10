@@ -270,3 +270,11 @@
 &xspi0 {
 	status = "okay";
 };
+
+&neutron_core {
+	status = "okay";
+};
+
+&neutron {
+	status = "okay";
+};
