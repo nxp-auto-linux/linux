@@ -758,21 +758,12 @@ static int xpcs_phy_configure(struct phy *phy, struct phylink_link_state *state)
 {
 	struct serdes *serdes = phy_get_drvdata(phy);
 	struct xpcs_ctrl *xpcs = &serdes->xpcs;
-	struct phylink_link_state xpcs_state;
 	struct device *dev = serdes->dev;
 	int xpcs_id;
 	int ret;
 
-	if (serdes->ctrl.ss_mode == SERDES_MODE_5)
-		xpcs_state.speed = SPEED_2500;
-	else
-		xpcs_state.speed = SPEED_1000;
-
-	if (xpcs->phys[phy->id]->an)
-		linkmode_set_bit(ETHTOOL_LINK_MODE_Autoneg_BIT, xpcs_state.advertising);
-
 	xpcs_id = lane_id_to_xpcs_id(serdes->ctrl.ss_mode, phy->id);
-	ret = xpcs->ops->config(xpcs->phys[xpcs_id], &xpcs_state);
+	ret = xpcs->ops->config(xpcs->phys[xpcs_id], NULL);
 	if (ret) {
 		dev_err(dev, "Failed to configure XPCS\n");
 		return ret;
