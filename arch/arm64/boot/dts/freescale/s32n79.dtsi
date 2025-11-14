@@ -226,6 +226,7 @@
 			its: msi-controller@4f240000 {
 				compatible = "arm,gic-v3-its";
 				reg = <0x4f240000 0x20000>;
+				dma-coherent;
 				msi-controller;
 			};
 		};
