@@ -64,16 +64,6 @@
 		reg = <0 0x80000000 0 0x80000000>;
 	};
 
-	memory@8800000000 {
-		device_type = "memory";
-		reg = <0x88 0x00000000 0x3 0x80000000>;
-	};
-
-	memory@c000000000 {
-		device_type = "memory";
-		reg = <0xc0 0x00000000 0x4 0x00000000>;
-	};
-
 	reserved-memory {
 		#address-cells = <2>;
 		#size-cells = <2>;
