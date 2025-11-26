@@ -20,6 +20,7 @@ enum netc_flower_type {
 	FLOWER_TYPE_TRAP,
 	FLOWER_TYPE_REDIRECT,
 	FLOWER_TYPE_POLICE,
+	FLOWER_TYPE_DROP,
 };
 
 enum netc_key_tbl_type {
@@ -132,6 +133,10 @@ int netc_ipft_flower_stat(struct ntmp_user *user,
 			  u64 *pkt_cnt);
 int netc_restore_flower_list_config(struct ntmp_user *user);
 void netc_clear_flower_table_restored_flag(struct ntmp_user *user);
+int netc_setup_drop(struct ntmp_user *user, int port_id,
+		    struct flow_cls_offload *f);
+void netc_delete_drop_flower_rule(struct ntmp_user *user,
+				  struct netc_flower_rule *rule);
 #else
 static inline int netc_setup_taprio(struct ntmp_user *user, u32 entry_id,
 				    struct tc_taprio_qopt_offload *f)

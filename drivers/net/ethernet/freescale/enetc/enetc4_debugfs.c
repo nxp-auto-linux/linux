@@ -123,6 +123,7 @@ static int enetc_flower_list_show(struct seq_file *s, void *data)
 			netc_show_psfp_flower(s, rule);
 			break;
 		case FLOWER_TYPE_POLICE:
+		case FLOWER_TYPE_DROP:
 			netc_show_ipft_flower(s, rule);
 			break;
 		default:
