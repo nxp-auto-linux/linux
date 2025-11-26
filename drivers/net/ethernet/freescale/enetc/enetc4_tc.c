@@ -33,6 +33,12 @@ static const struct netc_flower enetc4_flower[] = {
 		ENETC_GENERIC_KEYS,
 		FLOWER_TYPE_POLICE
 	},
+	{
+		BIT_ULL(FLOW_ACTION_DROP),
+		0,
+		ENETC_GENERIC_KEYS,
+		FLOWER_TYPE_DROP
+	},
 };
 
 static bool enetc4_tc_cbs_is_enable(struct enetc_hw *hw, int tc)
@@ -437,6 +443,8 @@ static int enetc4_config_cls_flower(struct enetc_ndev_priv *priv,
 		return netc_setup_psfp(&si->ntmp_user, 0, f);
 	case FLOWER_TYPE_POLICE:
 		return netc_setup_police(&si->ntmp_user, -1, f);
+	case FLOWER_TYPE_DROP:
+		return netc_setup_drop(&si->ntmp_user, -1, f);
 	default:
 		NL_SET_ERR_MSG_MOD(extack, "Unsupported flower type");
 		return -EOPNOTSUPP;
@@ -452,6 +460,9 @@ static void enetc4_destroy_flower_rule(struct ntmp_user *user,
 		break;
 	case FLOWER_TYPE_POLICE:
 		netc_delete_police_flower_rule(user, rule);
+		break;
+	case FLOWER_TYPE_DROP:
+		netc_delete_drop_flower_rule(user, rule);
 		break;
 	default:
 		break;
@@ -527,6 +538,7 @@ static int enetc4_get_cls_flower_stats(struct enetc_ndev_priv *priv,
 		}
 		break;
 	case FLOWER_TYPE_POLICE:
+	case FLOWER_TYPE_DROP:
 		err = netc_ipft_flower_stat(user, rule, &pkt_cnt);
 		if (err)
 			goto unlock_flower;
