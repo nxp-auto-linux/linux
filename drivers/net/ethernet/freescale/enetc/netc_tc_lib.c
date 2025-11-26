@@ -1465,12 +1465,12 @@ void netc_delete_police_flower_rule(struct ntmp_user *user,
 }
 EXPORT_SYMBOL_GPL(netc_delete_police_flower_rule);
 
-int netc_police_flower_stat(struct ntmp_user *user,
-			    struct netc_flower_rule *rule,
-			    u64 *pkt_cnt)
+int netc_ipft_flower_stat(struct ntmp_user *user,
+			  struct netc_flower_rule *rule,
+			  u64 *pkt_cnt)
 {
 	struct ntmp_ipft_entry *ipft_entry = rule->key_tbl->ipft_entry;
-	struct ntmp_ipft_entry *ipft_query __free(kfree) = NULL;
+	struct ntmp_ipft_entry *ipft_query;
 	int err;
 
 	ipft_query = kzalloc(sizeof(*ipft_query), GFP_KERNEL);
@@ -1479,14 +1479,14 @@ int netc_police_flower_stat(struct ntmp_user *user,
 
 	err = ntmp_ipft_query_entry(user, ipft_entry->entry_id,
 				    true, ipft_query);
-	if (err)
-		return err;
+	if (!err)
+		*pkt_cnt = le64_to_cpu(ipft_query->match_count);
 
-	*pkt_cnt = le64_to_cpu(ipft_query->match_count);
+	kfree(ipft_query);
 
-	return 0;
+	return err;
 }
-EXPORT_SYMBOL_GPL(netc_police_flower_stat);
+EXPORT_SYMBOL_GPL(netc_ipft_flower_stat);
 
 static int netc_restore_gate_table(struct ntmp_user *user,
 				   struct netc_gate_tbl *gate_tbl)
