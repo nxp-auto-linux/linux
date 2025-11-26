@@ -127,8 +127,9 @@ int netc_setup_police(struct ntmp_user *user, int port_id,
 		      struct flow_cls_offload *f);
 void netc_delete_police_flower_rule(struct ntmp_user *user,
 				    struct netc_flower_rule *rule);
-int netc_police_flower_stat(struct ntmp_user *user, struct netc_flower_rule *rule,
-			    u64 *pkt_cnt);
+int netc_ipft_flower_stat(struct ntmp_user *user,
+			  struct netc_flower_rule *rule,
+			  u64 *pkt_cnt);
 int netc_restore_flower_list_config(struct ntmp_user *user);
 void netc_clear_flower_table_restored_flag(struct ntmp_user *user);
 #else
@@ -216,13 +217,6 @@ static inline int netc_setup_police(struct ntmp_user *user, int port_id,
 static inline void netc_delete_police_flower_rule(struct ntmp_user *user,
 						  struct netc_flower_rule *rule)
 {
-}
-
-static inline int netc_police_flower_stat(struct ntmp_user *user,
-					  struct netc_flower_rule *rule,
-					  u64 *pkt_cnt)
-{
-	return 0;
 }
 
 static inline int netc_restore_flower_list_config(struct ntmp_user *user)

@@ -847,8 +847,6 @@ static int netc_trap_redirect_flower_stat(struct ntmp_user *user,
 					  u64 *byte_cnt, u64 *pkt_cnt,
 					  u64 *drop_cnt)
 {
-	struct ntmp_ipft_entry *ipft_entry = rule->key_tbl->ipft_entry;
-	struct ntmp_ipft_entry *ipft_query __free(kfree) = NULL;
 	struct isct_stse_data stse = { };
 	int err;
 
@@ -863,16 +861,9 @@ static int netc_trap_redirect_flower_stat(struct ntmp_user *user,
 			    le32_to_cpu(stse.sg_drop_count) +
 			    le32_to_cpu(stse.policer_drop_count);
 	} else {
-		ipft_query = kzalloc(sizeof(*ipft_query), GFP_KERNEL);
-		if (!ipft_query)
-			return -ENOMEM;
-
-		err = ntmp_ipft_query_entry(user, ipft_entry->entry_id,
-					    true, ipft_query);
+		err = netc_ipft_flower_stat(user, rule, pkt_cnt);
 		if (err)
 			return err;
-
-		*pkt_cnt = le64_to_cpu(ipft_query->match_count);
 	}
 
 	return 0;
@@ -911,7 +902,7 @@ int netc_port_flow_cls_stats(struct netc_port *port,
 			goto err_out;
 		break;
 	case FLOWER_TYPE_POLICE:
-		err = netc_police_flower_stat(user, rule, &pkt_cnt);
+		err = netc_ipft_flower_stat(user, rule, &pkt_cnt);
 		if (err)
 			goto err_out;
 		break;
