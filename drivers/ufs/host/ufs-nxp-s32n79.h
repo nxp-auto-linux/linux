@@ -49,7 +49,4 @@
 #define CPORT_0					0
 #define CPORT_1					1
 
-/* CPort flags */
-#define CPORT_FLAGS(csv_n, csd_n, e2e)		((csv_n) | (csd_n) | (e2e))
-
 #endif /* _UFS_NXP_S32N79_H_ */
