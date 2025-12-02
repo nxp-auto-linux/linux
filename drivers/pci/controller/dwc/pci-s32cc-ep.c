@@ -510,10 +510,11 @@ static int s32cc_pcie_config_ep(struct s32cc_pcie *s32cc_pp,
 		if (ret)
 			dev_err(dev, "Unable to setup MSI domain for EP\n");
 
-		if (pp->msi_irq)
+		if (pp->msi_irq[0] > 0) {
 			irq_set_chained_handler_and_data(pp->msi_irq[0],
-							 dw_ep_chained_msi_isr,
-							 pp);
+							dw_ep_chained_msi_isr,
+							pp);
+		}
 
 		if (pp->has_msi_ctrl) {
 			num_ctrls = pp->num_vectors / MAX_MSI_IRQS_PER_CTRL;
