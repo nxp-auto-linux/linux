@@ -124,3 +124,7 @@
 &ufshc {
 	status = "okay";
 };
+
+&mru_msi_controller {
+	status = "okay";
+};
