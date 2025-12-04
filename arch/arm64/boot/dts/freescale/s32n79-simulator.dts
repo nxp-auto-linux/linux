@@ -283,35 +283,7 @@
 	status = "okay";
 };
 
-&aps0_mru0 {
-	status = "okay";
-};
-
-&aps0_mru1 {
-	status = "okay";
-};
-
-&aps0_mru2 {
-	status = "okay";
-};
-
-&aps0_mru3 {
-	status = "okay";
-};
-
-&aps0_mru4 {
-	status = "okay";
-};
-
-&aps0_mru5 {
-	status = "okay";
-};
-
-&aps0_mru6 {
-	status = "okay";
-};
-
-&aps0_mru7 {
+&mru_msi_controller {
 	status = "okay";
 };
 

@@ -760,6 +760,28 @@
 		#size-cells = <1>;
 		ranges = <0x40a00000 0x0 0x40a00000 0x2000000>;
 
+		mru_msi_controller: msi-controller {
+			compatible = "nxp,s32n79-mru-msi";
+			msi-controller;
+			reg = <0x40a00000 0x1000>,
+			      <0x40a40000 0x1000>,
+			      <0x40a80000 0x1000>,
+			      <0x40ac0000 0x1000>,
+			      <0x40b00000 0x1000>,
+			      <0x40b40000 0x1000>,
+			      <0x40b80000 0x1000>,
+			      <0x40bc0000 0x1000>;
+			interrupts = <GIC_SPI 704 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 705 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 706 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 707 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 708 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 709 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 710 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 711 IRQ_TYPE_LEVEL_HIGH>;
+			status = "disabled";
+		};
+
 		aps0_mru0: mailbox@40a00000 {
 			compatible = "nxp,s32n79-mru";
 			reg = <0x40a00000 0x40000>;
@@ -1094,7 +1116,7 @@
 			reg = <0x2 0x40e00000 0x0 0x100000>;
 			#address-cells = <3>;
 			#size-cells = <2>;
-			msi-parent = <&its>;
+			msi-parent = <&mru_msi_controller>;
 			device_type = "pci";
 			bus-range = <0x0 0x0>;
 			status = "disabled";
@@ -1222,7 +1244,7 @@
 			reg = <0x2 0x41200000 0x0 0x100000>;
 			#address-cells = <3>;
 			#size-cells = <2>;
-			msi-parent = <&its>;
+			msi-parent = <&mru_msi_controller>;
 			device_type = "pci";
 			bus-range = <0x0 0x0>;
 			status = "disabled";
@@ -1236,7 +1258,7 @@
 			reg = <0x2 0x41300000 0x0 0x100000>;
 			#address-cells = <3>;
 			#size-cells = <2>;
-			msi-parent = <&its>;
+			msi-parent = <&mru_msi_controller>;
 			device_type = "pci";
 			bus-range = <0x0 0x0>;
 			status = "disabled";
