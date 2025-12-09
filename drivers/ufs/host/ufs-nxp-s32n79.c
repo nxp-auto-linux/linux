@@ -398,7 +398,6 @@ static int ufs_s32n_init(struct ufs_hba *hba)
 	ufs->mphy_boot_mode = MPHY_BOOT_NONE;
 
 	hba->quirks |= UFSHCD_QUIRK_BROKEN_AUTO_HIBERN8;
-	hba->quirks |= UFSHCD_QUIRK_HIBERN_FASTAUTO;
 
 	ret = of_property_read_string(np, "nxp,mphy-boot-mode", &mphy_boot_mode);
 	if (ret || !mphy_boot_mode) {
