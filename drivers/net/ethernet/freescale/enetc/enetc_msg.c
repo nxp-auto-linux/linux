@@ -717,8 +717,12 @@ static void enetc_msg_task(struct work_struct *work)
 				 PSIIDR_VSI_FLR(pf->num_vfs);
 
 		if (flr_status) {
-			u32 pmr = enetc_port_rd(hw, ENETC4_PMR);
+			u32 pmr;
 
+			/* ack FLR int (w1c) */
+			enetc_wr(hw, ENETC_PSIIDR, flr_status);
+
+			pmr = enetc_port_rd(hw, ENETC4_PMR);
 			/* Re-enable SInEN bits, required for v4.4+ */
 			enetc_port_wr(hw, ENETC4_PMR, pmr | flr_status);
 		}
