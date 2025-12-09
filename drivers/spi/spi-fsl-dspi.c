@@ -1194,6 +1194,7 @@ static inline void dspi_setup_accel_v2(struct fsl_dspi *dspi)
 static void dspi_setup_accel(struct fsl_dspi *dspi)
 {
 	struct spi_transfer *xfer = dspi->cur_transfer;
+	uint32_t ctar = dspi->cur_chip->ctar_val;
 
 	/* No accel for DMA transfers or for frames not multiple of 8 bits
 	 * at the moment
@@ -1226,14 +1227,14 @@ no_accel:
 	dspi->oper_word_size = DIV_ROUND_UP(dspi->oper_bits_per_word, 8);
 
 	/*
-	 * Update CTAR here (code is common for XSPI and DMA modes).
+	 * Update the current CTAR value here (code is common for XSPI and DMA modes).
 	 * We will update CTARE in the portion specific to XSPI, when we
 	 * also know the preload value (DTCP).
 	 */
 	if (dspi->devtype_data->hw_version == DSPI_V1)
-		dspi->cur_chip->ctar_val |= SPI_FRAME_BITS(dspi->oper_bits_per_word);
+		ctar |= SPI_FRAME_BITS(dspi->oper_bits_per_word);
 
-	regmap_write(dspi->regmap, SPI_CTAR(0), dspi->cur_chip->ctar_val);
+	regmap_write(dspi->regmap, SPI_CTAR(0), ctar);
 }
 
 static void dspi_fifo_write(struct fsl_dspi *dspi)
