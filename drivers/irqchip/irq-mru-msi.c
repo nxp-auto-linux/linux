@@ -27,6 +27,7 @@
  */
 #include <linux/bitmap.h>
 #include <linux/interrupt.h>
+#include <linux/iommu.h>
 #include <linux/irqchip/chained_irq.h>
 #include <linux/msi.h>
 #include <linux/of.h>
@@ -413,6 +414,8 @@ static void mru_msi_parent_compose_msg(struct irq_data *data,
 	msg->address_lo = lower_32_bits(mb_addr);
 
 	msg->data = mru_hwirq2cookie(priv, hw_irq);
+
+	iommu_dma_compose_msi_msg(irq_data_get_msi_desc(data), msg);
 }
 
 static struct irq_chip mru_msi_parent_chip = {
@@ -431,10 +434,16 @@ static int mru_msi_domain_irq_alloc(struct irq_domain *domain,
 				    void *args)
 {
 	struct mru_msi *priv = domain->host_data;
+	unsigned int hw_irq, i, mru_idx, chan_idx;
 	unsigned long bitmap_pos;
 	void __iomem *chan_base;
-	unsigned int hw_irq, i;
+	msi_alloc_info_t *info;
+	struct msi_desc *desc;
+	phys_addr_t mb_addr;
 	int pos, ret = 0;
+
+	info = args;
+	desc = info->desc;
 
 	/* Locate an available set of channels for use */
 	scoped_guard(spinlock, &priv->chans_lock) {
@@ -464,6 +473,17 @@ static int mru_msi_domain_irq_alloc(struct irq_domain *domain,
 		ret = -EINVAL;
 		goto exit;
 	}
+
+	mru_idx = mru_bitmappos2mruidx(priv, pos);
+	chan_idx = mru_bitmappos2chanidx(priv, pos);
+
+	ret = mru_get_mailbox_addr(priv, mru_idx, chan_idx, &mb_addr, NULL);
+	if (ret)
+		goto exit;
+
+	ret = iommu_dma_prepare_msi(desc, mb_addr);
+	if (ret)
+		goto exit;
 
 	mru_enable_ch_irq(chan_base);
 
