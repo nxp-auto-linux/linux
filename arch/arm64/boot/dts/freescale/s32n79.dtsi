@@ -768,14 +768,14 @@
 		mru_msi_controller: msi-controller {
 			compatible = "nxp,s32n79-mru-msi";
 			msi-controller;
-			reg = <0x41200000 0x1000>,
-			      <0x41240000 0x1000>,
-			      <0x41280000 0x1000>,
-			      <0x412c0000 0x1000>,
-			      <0x41300000 0x1000>,
-			      <0x41340000 0x1000>,
-			      <0x41380000 0x1000>,
-			      <0x413c0000 0x1000>;
+			reg = <0x41200000 0x4000>,
+			      <0x41240000 0x4000>,
+			      <0x41280000 0x4000>,
+			      <0x412c0000 0x4000>,
+			      <0x41300000 0x4000>,
+			      <0x41340000 0x4000>,
+			      <0x41380000 0x4000>,
+			      <0x413c0000 0x4000>;
 			interrupts = <GIC_SPI 719 IRQ_TYPE_LEVEL_HIGH>,
 				     <GIC_SPI 720 IRQ_TYPE_LEVEL_HIGH>,
 				     <GIC_SPI 721 IRQ_TYPE_LEVEL_HIGH>,
