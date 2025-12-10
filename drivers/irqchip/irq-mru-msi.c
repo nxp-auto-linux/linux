@@ -72,31 +72,113 @@ struct mru_msi {
 	u32 nchans;
 };
 
-static unsigned long get_mru_index(struct mru_msi *priv, unsigned long irq)
+static unsigned int mru_get_channels_nbits(struct mru_msi *priv)
 {
-	return irq % priv->nmrus;
+	return priv->nchans ? fls(priv->nchans) : 0;
 }
 
-static unsigned long mru_get_chan_num(struct mru_msi *priv, unsigned long irq)
+static unsigned long mru_bitmappos2mruidx(struct mru_msi *priv,
+					  unsigned long bitmap_pos)
 {
-	return irq / priv->nmrus;
+	return bitmap_pos % priv->nmrus;
 }
 
-static int mru_get_irq_num(struct mru_msi *priv, unsigned long mru_idx,
-			   unsigned long chan_idx, unsigned long *res)
+static unsigned long mru_bitmappos2chanidx(struct mru_msi *priv,
+					   unsigned long bitmap_pos)
 {
-	if (unlikely(check_mul_overflow(priv->nmrus, chan_idx, res)))
+	return bitmap_pos / priv->nmrus;
+}
+
+static unsigned int mru_hwirq2bitmappos(struct mru_msi *priv,
+					unsigned long hw_irq)
+{
+	unsigned int ch_bits = mru_get_channels_nbits(priv);
+
+	return hw_irq & GENMASK(ch_bits - 1, 0);
+}
+
+static unsigned int mru_hwirq2cookie(struct mru_msi *priv,
+				     unsigned long hw_irq)
+{
+	unsigned int ch_bits = mru_get_channels_nbits(priv);
+	unsigned int cookie;
+
+	cookie = (hw_irq >> ch_bits) & GENMASK(31u - ch_bits, 0);
+
+	return cookie;
+}
+
+static void mru_hwirq2chan(struct mru_msi *priv, irq_hw_number_t hw_irq,
+			   unsigned long *mru_idx, unsigned long *chan_idx)
+{
+	unsigned long bitmap_pos;
+
+	bitmap_pos = mru_hwirq2bitmappos(priv, hw_irq);
+
+	if (mru_idx != NULL)
+		*mru_idx = mru_bitmappos2mruidx(priv, bitmap_pos);
+
+	if (chan_idx != NULL)
+		*chan_idx = mru_bitmappos2chanidx(priv, bitmap_pos);
+}
+
+static void mru_irqd2chan(struct mru_msi *priv, struct irq_data *data,
+			     unsigned long *mru_idx, unsigned long *chan_idx)
+{
+	mru_hwirq2chan(priv, irqd_to_hwirq(data), mru_idx, chan_idx);
+}
+
+/**
+ * The hardware interrupt must be unique at the IRQ Controller level. Based on
+ * its value, it should allow easy extraction of the associated MRU channel or
+ * mailbox. For this reason, the hwirq value encodes both the bitmap position
+ * of the channel and a cookie.
+ *
+ * For MSI-X interrupts, the bitmap position alone is sufficient to handle the
+ * interrupt. However, for MSI interrupts, a cookie is required that represents
+ * the ID of the virtual interrupt mapped to the bitmap channel.
+ *
+ * Consequently, the hwirq encoding allocates:
+ *   - The most significant bits (MSBs) to the cookie
+ *   - The least significant bits (LSBs) to the bitmap position
+ *
+ * The number of bits reserved for bitmap channel encoding depends on the
+ * number of MRUs listed in the device tree.
+ */
+static unsigned int mru_build_hwirq(struct mru_msi *priv,
+				    unsigned int bitmap_pos,
+				    unsigned int cookie)
+{
+	unsigned int ch_bits = mru_get_channels_nbits(priv);
+	unsigned int hw_irq;
+
+	hw_irq = (cookie & GENMASK(31u - ch_bits, 0)) << ch_bits;
+	hw_irq |= bitmap_pos;
+
+	return hw_irq;
+}
+
+static int mru_chan2hwirq(struct mru_msi *priv, unsigned long mru_idx,
+			   unsigned long chan_idx, unsigned int cookie,
+			   unsigned long *hw_irq)
+{
+	unsigned long bitmap_pos;
+
+	if (unlikely(check_mul_overflow(priv->nmrus, chan_idx, &bitmap_pos)))
 		return -ERANGE;
 
-	if (unlikely(check_add_overflow(*res, mru_idx, res)))
+	if (unlikely(check_add_overflow(bitmap_pos, mru_idx, &bitmap_pos)))
 		return -ERANGE;
+
+	*hw_irq = mru_build_hwirq(priv, bitmap_pos, cookie);
 
 	return 0;
 }
 
-static void __iomem *mru_get_base(struct mru_msi *priv, unsigned long irq)
+static void __iomem *mru_get_base(struct mru_msi *priv,
+				  unsigned long bitmap_pos)
 {
-	unsigned long idx = get_mru_index(priv, irq);
+	unsigned long idx = mru_bitmappos2mruidx(priv, bitmap_pos);
 
 	if (idx >= priv->nmrus)
 		return NULL;
@@ -119,19 +201,31 @@ static void __iomem *mru_get_chan_base(void __iomem *mru_base,
 	return (void __iomem *)chan_base;
 }
 
+static void __iomem *mru_bitmappos2chan_base(struct mru_msi *priv,
+					     unsigned long bitmap_pos)
+{
+	unsigned long chn_idx;
+	void __iomem *mru_base;
+
+	chn_idx = mru_bitmappos2chanidx(priv, bitmap_pos);
+
+	mru_base = mru_get_base(priv, bitmap_pos);
+	if (!mru_base)
+		return NULL;
+
+	return mru_get_chan_base(mru_base, chn_idx);
+}
+
 static int mru_irq_get_chan_base(struct irq_data *data,
 				 void __iomem **chan_base)
 {
 	struct mru_msi *priv = irq_data_get_irq_chip_data(data);
-	unsigned long mru_chan;
-	void __iomem *mru_base;
+	irq_hw_number_t hw_irq = irqd_to_hwirq(data);
+	unsigned long bitmap_pos;
 
-	mru_base = mru_get_base(priv, irqd_to_hwirq(data));
-	if (!mru_base)
-		return -EINVAL;
+	bitmap_pos = mru_hwirq2bitmappos(priv, hw_irq);
 
-	mru_chan = mru_get_chan_num(priv, irqd_to_hwirq(data));
-	*chan_base = mru_get_chan_base(mru_base, mru_chan);
+	*chan_base = mru_bitmappos2chan_base(priv, bitmap_pos);
 	if (!*chan_base)
 		return -EINVAL;
 
@@ -199,7 +293,7 @@ static void mru_msi_parent_ack_irq(struct irq_data *data)
 
 	ret = mru_irq_get_chan_base(data, &chan_base);
 	if (ret) {
-		dev_err(priv->dev, "Invalid MRU instance for irq %lu\n",
+		dev_err(priv->dev, "Invalid MRU instance for HW irq %lu\n",
 			irqd_to_hwirq(data));
 		return;
 	}
@@ -211,13 +305,15 @@ static int mru_msi_parent_set_affinity(struct irq_data *data,
 				       const struct cpumask *dest, bool force)
 {
 	struct mru_msi *priv = irq_data_get_irq_chip_data(data);
-	irq_hw_number_t hwirq = irqd_to_hwirq(data);
-	unsigned long mru_idx = get_mru_index(priv, hwirq);
-	unsigned long chan_idx = mru_get_chan_num(priv, hwirq);
 	struct cpumask mru_aff = CPU_MASK_NONE;
-	struct mru *mru = &priv->mrus[mru_idx];
-	int mru_irq = mru->irq;
-	int i;
+	unsigned long mru_idx, chan_idx;
+	struct mru *mru;
+	int mru_irq, i;
+
+	mru_irqd2chan(priv, data, &mru_idx, &chan_idx);
+
+	mru = &priv->mrus[mru_idx];
+	mru_irq = mru->irq;
 
 	if (mru_irq < 0)
 		return -EINVAL;
@@ -253,42 +349,70 @@ static int mru_msi_parent_set_affinity(struct irq_data *data,
 	return IRQ_SET_MASK_OK_DONE;
 }
 
+static int mru_get_mailbox_addr(struct mru_msi *priv, unsigned long mru_idx,
+				unsigned long mru_chan,
+				phys_addr_t *mb_phys_addr,
+				void __iomem **mb_addr)
+{
+	uintptr_t mru_addr, mb_virt_addr;
+	phys_addr_t mru_phys_addr;
+	unsigned long tmp;
+
+	if (unlikely(check_add_overflow(mru_chan, 1, &tmp))) {
+		dev_err(priv->dev, "Overflow detected for mru%ld, chan%ld line:%d\n",
+			mru_idx, mru_chan, __LINE__);
+		return -E2BIG;
+	}
+
+	if (unlikely(check_mul_overflow(tmp, MRU_MAILBOX_BASE, &tmp))) {
+		dev_err(priv->dev, "Overflow detected for mru%ld, chan%ld line:%d\n",
+			mru_idx, mru_chan, __LINE__);
+		return -E2BIG;
+	}
+
+	if (mb_phys_addr) {
+		mru_phys_addr = priv->mrus[mru_idx].addr;
+		if (unlikely(check_add_overflow(mru_phys_addr, tmp,
+						mb_phys_addr))) {
+			dev_err(priv->dev, "Overflow detected for mru%ld, chan%ld line:%d\n",
+				mru_idx, mru_chan, __LINE__);
+			return -E2BIG;
+		}
+	}
+
+	if (mb_addr) {
+		mru_addr = (uintptr_t)priv->mrus[mru_idx].base;
+		if (unlikely(check_add_overflow(mru_addr, tmp,
+						&mb_virt_addr))) {
+			dev_err(priv->dev, "Overflow detected for mru%ld, chan%ld line:%d\n",
+				mru_idx, mru_chan, __LINE__);
+			return -E2BIG;
+		}
+		*mb_addr = (void __iomem *)mb_virt_addr;
+	}
+
+	return 0;
+}
+
 static void mru_msi_parent_compose_msg(struct irq_data *data,
 				       struct msi_msg *msg)
 {
 	struct mru_msi *priv = irq_data_get_irq_chip_data(data);
-	unsigned long mru_idx = get_mru_index(priv, irqd_to_hwirq(data));
-	phys_addr_t mru_addr = priv->mrus[mru_idx].addr;
-	unsigned long mru_chan, tmp;
+	irq_hw_number_t hw_irq = irqd_to_hwirq(data);
+	unsigned long mru_idx, mru_chan;
 	phys_addr_t mb_addr;
-	irq_hw_number_t hwirq;
+	int ret;
 
-	mru_chan = mru_get_chan_num(priv, irqd_to_hwirq(data));
+	mru_hwirq2chan(priv, hw_irq, &mru_idx, &mru_chan);
 
-	/* Mailbox 0 */
-	if (unlikely(check_add_overflow(mru_chan, 1, &tmp)))
-		dev_err(priv->dev, "Overflow detected for mru%ld, chan%ld line:%d\n",
-			mru_idx, mru_chan, __LINE__);
-
-	if (unlikely(check_mul_overflow(tmp, MRU_MAILBOX_BASE, &tmp)))
-		dev_err(priv->dev, "Overflow detected for mru%ld, chan%ld line:%d\n",
-			mru_idx, mru_chan, __LINE__);
-
-	if (unlikely(check_add_overflow(mru_addr, tmp, &mb_addr)))
-		dev_err(priv->dev, "Overflow detected for mru%ld, chan%ld line:%d\n",
-			mru_idx, mru_chan, __LINE__);
+	ret = mru_get_mailbox_addr(priv, mru_idx, mru_chan, &mb_addr, NULL);
+	if (ret)
+		return;
 
 	msg->address_hi = upper_32_bits(mb_addr);
 	msg->address_lo = lower_32_bits(mb_addr);
 
-	hwirq = irqd_to_hwirq(data);
-	if (hwirq > U32_MAX) {
-		dev_warn(priv->dev, "hwirq %#lx exceeds 32-bit MSI data field\n",
-			 hwirq);
-		msg->data = 0;
-	} else {
-		msg->data = hwirq;
-	}
+	msg->data = mru_hwirq2cookie(priv, hw_irq);
 }
 
 static struct irq_chip mru_msi_parent_chip = {
@@ -297,23 +421,6 @@ static struct irq_chip mru_msi_parent_chip = {
 	.irq_compose_msi_msg	= mru_msi_parent_compose_msg,
 	.irq_set_affinity	= mru_msi_parent_set_affinity,
 };
-
-static void __iomem *mru_irq2chan_base(struct mru_msi *priv, int virt_irq)
-{
-	unsigned long chn_idx;
-	void __iomem *mru_base;
-
-	if (virt_irq < 0)
-		return NULL;
-
-	chn_idx = mru_get_chan_num(priv, virt_irq);
-
-	mru_base = mru_get_base(priv, virt_irq);
-	if (!mru_base)
-		return NULL;
-
-	return mru_get_chan_base(mru_base, chn_idx);
-}
 
 static void mru_msi_domain_irq_free(struct irq_domain *domain,
 				    unsigned int virq, unsigned int nr_irqs);
@@ -324,8 +431,10 @@ static int mru_msi_domain_irq_alloc(struct irq_domain *domain,
 				    void *args)
 {
 	struct mru_msi *priv = domain->host_data;
-	int pos, i, hw_irq, ret = 0;
+	unsigned long bitmap_pos;
 	void __iomem *chan_base;
+	unsigned int hw_irq, i;
+	int pos, ret = 0;
 
 	/* Locate an available set of channels for use */
 	scoped_guard(spinlock, &priv->chans_lock) {
@@ -340,24 +449,25 @@ static int mru_msi_domain_irq_alloc(struct irq_domain *domain,
 		bitmap_set(priv->chans_bitmap, pos, nr_irqs);
 	}
 
-
-	/* Enable interrupts for the selected channels */
 	for (i = 0; i < nr_irqs; i++) {
-		hw_irq = pos + i;
+		hw_irq = mru_build_hwirq(priv, pos, i);
 
 		irq_domain_set_info(domain, virq + i, hw_irq,
 				    &mru_msi_parent_chip, priv,
 				    handle_edge_irq, NULL, NULL);
-
-		chan_base = mru_irq2chan_base(priv, hw_irq);
-		if (!chan_base) {
-			ret = -EINVAL;
-			break;
-		}
-
-		mru_enable_ch_irq(chan_base);
 	}
 
+	bitmap_pos = pos;
+
+	chan_base = mru_bitmappos2chan_base(priv, bitmap_pos);
+	if (!chan_base) {
+		ret = -EINVAL;
+		goto exit;
+	}
+
+	mru_enable_ch_irq(chan_base);
+
+exit:
 	if (ret)
 		mru_msi_domain_irq_free(domain, virq, nr_irqs);
 
@@ -369,23 +479,24 @@ static void mru_msi_domain_irq_free(struct irq_domain *domain,
 {
 	struct irq_data *d = irq_domain_get_irq_data(domain, virq);
 	struct mru_msi *priv = irq_data_get_irq_chip_data(d);
+	unsigned long bitmap_pos;
 	void __iomem *chan_base;
-	int i, hw_irq;
+	irq_hw_number_t hw_irq;
 
 	hw_irq = irqd_to_hwirq(d);
 
-	for (i = 0; i < nr_irqs; i++) {
-		chan_base = mru_irq2chan_base(priv, hw_irq + i);
-		if (!chan_base)
-			continue;
+	bitmap_pos = mru_hwirq2bitmappos(priv, hw_irq);
 
-		mru_disable_ch_irq(chan_base);
-	}
+	chan_base = mru_bitmappos2chan_base(priv, bitmap_pos);
+	if (!chan_base)
+		return;
+
+	mru_disable_ch_irq(chan_base);
 
 	irq_domain_free_irqs_common(domain, virq, nr_irqs);
 
 	scoped_guard(spinlock, &priv->chans_lock) {
-		bitmap_clear(priv->chans_bitmap, irqd_to_hwirq(d), nr_irqs);
+		bitmap_clear(priv->chans_bitmap, bitmap_pos, nr_irqs);
 	}
 }
 
@@ -434,6 +545,8 @@ static void mru_msi_parent_irq_handler(struct irq_desc *desc)
 	struct irq_chip *chip = irq_desc_get_chip(desc);
 	struct mru_msi *priv = mru->parent;
 	unsigned long hw_irq = 0U;
+	void __iomem *mb_addr;
+	unsigned int cookie;
 	u32 mbstat, i;
 	int ret;
 
@@ -449,7 +562,14 @@ static void mru_msi_parent_irq_handler(struct irq_desc *desc)
 		if (mbstat == 0)
 			continue;
 
-		ret = mru_get_irq_num(priv, mru->index, i, &hw_irq);
+		ret = mru_get_mailbox_addr(priv, mru->index, i,
+					   NULL, &mb_addr);
+		if (ret)
+			continue;
+
+		cookie = readl(mb_addr);
+
+		ret = mru_chan2hwirq(priv, mru->index, i, cookie, &hw_irq);
 		if (ret) {
 			dev_err_ratelimited(priv->dev,
 					    "failed to compute irq for MRU%d chan %d\n",
