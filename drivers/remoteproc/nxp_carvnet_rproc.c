@@ -204,6 +204,8 @@ MODULE_PARM_DESC(auto_boot,
 	CARV_INT_F_CORE_BIT | CARV_INT_F_AHB_BIT | CARV_INT_F_AXIRP_BIT | \
 	CARV_INT_F_AXIWE_BIT | CARV_INT_F_AXIRE_BIT | CARV_INT_F_MAP_BIT)
 
+#define IFMSK_ENABLE_MASK GENMASK(15, 0)
+
 static const struct q_regmap_tab_u {
 	const char *name;
 	const u32 addr;
@@ -730,6 +732,7 @@ static int carvnet_rproc_start(struct rproc *rproc)
 
 	/* Enable Functional Interrupts: User configurable mask */
 	writel(IRQ_ENABLE_MASK, priv->regs[0] + CARV_Q_MB_IER(0));
+	writel(IFMSK_ENABLE_MASK, priv->regs[0] + CARV_Q_MBOX_IFMSK(0));
 
 	/* Set Mapper */
 	ret = q_set_mapper(priv);
