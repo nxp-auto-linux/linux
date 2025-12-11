@@ -454,6 +454,13 @@ static int q_set_prio_region(struct carvnet *priv, struct carveout_info *info,
 		return -EINVAL;
 	}
 
+	if (!IS_ALIGNED(info->match_addr, m_size)) {
+		dev_err(priv->dev,
+			"Mapping %d (%s) match_addr is not aligned to m_size: 0x%x",
+			i, info->carveout_name, info->match_addr);
+		return -EINVAL;
+	}
+
 	r_off = r_off / SZ_16K;
 	r_mem = bar;
 
