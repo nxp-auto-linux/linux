@@ -166,13 +166,6 @@ static const char *pinctrl_scmi_get_function_name(struct pinctrl_dev *pctldev,
 
 	ret = pinctrl_ops->name_get(pmx->ph, selector, FUNCTION_TYPE, &name);
 	if (ret) {
-		if (!selector && ret == -ENOENT)
-			/* There are SCMI platforms which do not implement a function
-			 * name for selector 0. Return a placeholder name for this
-			 * scenario.
-			 */
-			return "reserved";
-
 		dev_err(pmx->dev, "get name failed with err %d", ret);
 		return NULL;
 	}
