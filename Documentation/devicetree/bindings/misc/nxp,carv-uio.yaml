@@ -35,6 +35,8 @@ properties:
     description:
       Interrupt assigned to this CAR-V user.
 
+  dma-coherent: true
+
 required:
   - compatible
   - reg
