@@ -519,6 +519,7 @@
 			reg = <0x4acb0000 0x1000>;
 			interrupt-parent = <&irqsteer_coss>;
 			interrupts = <212>;
+			iommus = <&smmu 0x10>;
 			status = "disabled";
 		};
 
@@ -527,6 +528,7 @@
 			reg = <0x4acd0000 0x1000>;
 			interrupt-parent = <&irqsteer_coss>;
 			interrupts = <213>;
+			iommus = <&smmu 0x11>;
 			status = "disabled";
 		};
 
@@ -535,6 +537,7 @@
 			reg = <0x4acf0000 0x1000>;
 			interrupt-parent = <&irqsteer_coss>;
 			interrupts = <214>;
+			iommus = <&smmu 0x12>;
 			status = "disabled";
 		};
 
@@ -543,6 +546,7 @@
 			reg = <0x4ad10000 0x1000>;
 			interrupt-parent = <&irqsteer_coss>;
 			interrupts = <215>;
+			iommus = <&smmu 0x13>;
 			status = "disabled";
 		};
 	};
