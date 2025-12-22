@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /**
- * Copyright 2021-2022,2024-2025 NXP
+ * Copyright 2021-2022,2024-2026 NXP
  */
 
 #include <linux/device.h>
@@ -150,6 +150,8 @@
 #define SPEED_SELECTION_100Mbps			1
 #define SPEED_SELECTION_1000Mbps		2
 
+#define XPCS_QUIRK_FULL_PHY_INIT	BIT(0)
+
 #define KHZ		(1000)
 #define MHZ(X)		(1000 * KHZ * (X))
 
@@ -212,6 +214,11 @@ static int get_xpcs_id(struct s32cc_xpcs *xpcs)
 static struct device *get_xpcs_device(struct s32cc_xpcs *xpcs)
 {
 	return xpcs->dev;
+}
+
+static bool xpcs_needs_full_phy_init(struct s32cc_xpcs *xpcs)
+{
+	return !!(xpcs->quirks & XPCS_QUIRK_FULL_PHY_INIT);
 }
 
 static void init_params(u32 reg, struct s32cc_xpcs *xpcs,
@@ -1054,6 +1061,13 @@ static int xpcs_config(struct s32cc_xpcs *xpcs,
 static int xpcs_configure(struct s32cc_xpcs *xpcs,
 			  const struct phylink_link_state *state)
 {
+	if (xpcs_needs_full_phy_init(xpcs)) {
+		xpcs_config_an(xpcs, *state);
+		xpcs_config(xpcs, state);
+
+		return 0;
+	}
+
 	XPCS_WRITE_BITS(xpcs, SR_MII_CTRL, AN_ENABLE, 0);
 	XPCS_WRITE_BITS(xpcs, SR_MII_CTRL, DUPLEX_MODE, DUPLEX_MODE);
 
@@ -1114,7 +1128,8 @@ static void xpcs_release(struct s32cc_xpcs *xpcs)
 
 static int xpcs_init(struct s32cc_xpcs **xpcs, struct device *dev,
 		     unsigned char id, void __iomem *base, bool ext_clk,
-		     unsigned long rate, enum pcie_xpcs_mode pcie_shared)
+		     unsigned long rate, enum pcie_xpcs_mode pcie_shared,
+			 unsigned int quirks)
 {
 	struct s32cc_xpcs *xpcsp;
 	struct regmap_config conf;
@@ -1140,6 +1155,7 @@ static int xpcs_init(struct s32cc_xpcs **xpcs, struct device *dev,
 	xpcsp->id = id;
 	xpcsp->dev = dev;
 	xpcsp->pcie_shared = pcie_shared;
+	xpcsp->quirks = quirks;
 	ret = of_property_read_u32(dev->of_node, xpcs_an, &xpcsp->an);
 	if (ret) {
 		dev_warn(dev, "Could not read xpcs%d_an property\n", id);

@@ -2,7 +2,7 @@
 /**
  * SerDes driver for S32CC SoCs
  *
- * Copyright 2021-2025 NXP
+ * Copyright 2021-2026 NXP
  */
 
 #include <dt-bindings/phy/phy.h>
@@ -109,6 +109,7 @@
  */
 #define SERDES_QUIRK_SKIP_ASSERT_RESET_LINES BIT(0)
 #define SERDES_QUIRK_SKIP_VR_RST BIT(1)
+#define SERDES_QUIRK_XPCS_FULL_PHY_INIT BIT(2)
 
 struct serdes_lane_conf {
 	enum phy_mode mode;
@@ -164,7 +165,8 @@ static const struct serdes_devtype_data s32cc_data = {
 };
 
 static const struct serdes_devtype_data s32r47_data = {
-	.quirks = SERDES_QUIRK_SKIP_ASSERT_RESET_LINES | SERDES_QUIRK_SKIP_VR_RST
+	.quirks = SERDES_QUIRK_SKIP_ASSERT_RESET_LINES |
+		  SERDES_QUIRK_SKIP_VR_RST | SERDES_QUIRK_XPCS_FULL_PHY_INIT
 };
 
 static int lane_id_to_xpcs_id(unsigned int mode, int lane_id);
@@ -362,6 +364,7 @@ static int xpcs_phy_init(struct serdes *serdes, int id)
 
 	void __iomem *base;
 	unsigned long rate;
+	unsigned int quirks;
 	int ret;
 
 	if (id < 0)
@@ -386,8 +389,10 @@ static int xpcs_phy_init(struct serdes *serdes, int id)
 	else if (ctrl->ss_mode == SERDES_MODE_5)
 		shared = PCIE_XPCS_2G5;
 
+	quirks = serdes->devtype_data->quirks;
+
 	return xpcs->ops->init(&xpcs->phys[id], dev, id, base,
-			       ctrl->ext_clk, rate, shared);
+			       ctrl->ext_clk, rate, shared, quirks);
 }
 
 static int xpcs_phy_power_on(struct serdes *serdes, int id)
