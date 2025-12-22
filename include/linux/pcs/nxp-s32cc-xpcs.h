@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /**
- * Copyright 2021-2022,2024-2025 NXP
+ * Copyright 2021-2022,2024-2026 NXP
  */
 #ifndef NXP_S32CC_XPCS_H
 #define NXP_S32CC_XPCS_H
@@ -45,6 +45,7 @@ struct s32cc_xpcs {
 	enum s32cc_xpc_pll ref;
 	unsigned int an;
 	unsigned char id;
+	unsigned int quirks;
 	bool ext_clk;
 	bool mhz125;
 };
@@ -52,7 +53,8 @@ struct s32cc_xpcs {
 struct s32cc_xpcs_ops {
 	int (*init)(struct s32cc_xpcs **xpcs, struct device *dev,
 		    unsigned char id, void __iomem *base, bool ext_clk,
-		    unsigned long rate, enum pcie_xpcs_mode pcie_shared);
+		    unsigned long rate, enum pcie_xpcs_mode pcie_shared,
+			unsigned int quirks);
 	int (*power_on)(struct s32cc_xpcs *xpcs);
 	int (*config)(struct s32cc_xpcs *xpcs,
 		      const struct phylink_link_state *state);
