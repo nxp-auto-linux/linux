@@ -1977,7 +1977,6 @@ static void enetc4_pf_power_down(struct enetc_si *si)
 
 	pci_free_irq_vectors(pdev);
 	pci_disable_device(pdev);
-	pcie_flr(pdev);
 }
 
 static int enetc4_pf_power_up(struct pci_dev *pdev, struct device_node *node)
@@ -1990,6 +1989,8 @@ static int enetc4_pf_power_up(struct pci_dev *pdev, struct device_node *node)
 	si = pci_get_drvdata(pdev);
 	pf = enetc_si_priv(si);
 	priv = netdev_priv(si->ndev);
+
+	pcie_flr(pdev);
 
 	err = pci_enable_device_mem(pdev);
 	if (err) {
