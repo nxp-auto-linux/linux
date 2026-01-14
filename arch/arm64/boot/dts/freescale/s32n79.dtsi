@@ -2,7 +2,7 @@
 /*
  * Device Tree Include file for NXP S32N79 SoC.
  *
- * Copyright 2024-2025 NXP
+ * Copyright 2024-2026 NXP
  */
 
 #include <dt-bindings/interrupt-controller/arm-gic.h>
@@ -188,7 +188,7 @@
 			compatible = "arm,scmi-smc";
 			mbox-names = "tx";
 			shmem = <&scmi_tx_buf>;
-			arm,smc-id = <0xc2000000>;
+			arm,smc-id = <0xc20000fe>;
 			#address-cells = <1>;
 			#size-cells = <0>;
 			status = "okay";
