@@ -14,6 +14,7 @@
 
 #include <linux/bits.h>
 #include <linux/clk.h>
+#include <linux/clk-provider.h>
 #include <linux/debugfs.h>
 #include <linux/delay.h>
 #include <linux/fsl/netc_global.h>
@@ -25,6 +26,7 @@
 #include <linux/phy.h>
 #include <linux/platform_device.h>
 #include <linux/seq_file.h>
+#include <linux/string.h>
 
 /* NETCMIX registers */
 #define IMX95_CFG_LINK_IO_VAR		0x0
@@ -54,6 +56,7 @@
 
 #define IMX94_EXT_PIN_CONTROL		0x10
 #define  MAC2_MAC3_SEL			BIT(1)
+#define  RMII_REF_CLK_EN(x)		BIT((x) + 2)
 
 #define IMX94_NETC_LINK_CFG(a)		(0x4c + (a) * 4)
 #define  NETC_LINK_CFG_MII_PROT		GENMASK(3, 0)
@@ -256,10 +259,29 @@ static int imx94_enetc_get_link_num(struct device_node *np)
 	}
 }
 
+static bool imx94_rmii_refclk_is_from_ccm(struct clk *ref_clk)
+{
+	struct clk *parent = clk_get_parent(ref_clk);
+	const char *name;
+
+	if (!parent)
+		return false;
+
+	name = __clk_get_name(parent);
+	if (!name)
+		return false;
+
+	if (str_has_prefix(name, "syspll1"))
+		return true;
+
+	return false;
+}
+
 static int imx94_link_config(struct netc_blk_ctrl *priv,
 			     struct device_node *np, int link_id)
 {
 	phy_interface_t interface;
+	struct clk *ref_clk;
 	int mii_proto, err;
 	u32 val;
 
@@ -278,12 +300,19 @@ static int imx94_link_config(struct netc_blk_ctrl *priv,
 
 	netc_reg_write(priv->netcmix, IMX94_NETC_LINK_CFG(link_id), val);
 
+	val = netc_reg_read(priv->netcmix, IMX94_EXT_PIN_CONTROL);
 	if (link_id == IMX94_ENETC0_LINK || link_id == IMX94_SWITCH_PORT2) {
-		val = netc_reg_read(priv->netcmix, IMX94_EXT_PIN_CONTROL);
 		val = u32_replace_bits(val, link_id == IMX94_ENETC0_LINK,
 				       MAC2_MAC3_SEL);
-		netc_reg_write(priv->netcmix, IMX94_EXT_PIN_CONTROL, val);
 	}
+
+	if (mii_proto == MII_PROT_RMII) {
+		ref_clk = of_clk_get_by_name(np, "ref");
+		if (!IS_ERR(ref_clk) && imx94_rmii_refclk_is_from_ccm(ref_clk))
+			val |= RMII_REF_CLK_EN(link_id);
+		clk_put(ref_clk);
+	}
+	netc_reg_write(priv->netcmix, IMX94_EXT_PIN_CONTROL, val);
 
 	return 0;
 }
