@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: (GPL-2.0+ OR BSD-3-Clause)
-/* Copyright 2024-2025 NXP */
+/* Copyright 2024-2026 NXP */
 
 #include <linux/clk.h>
 #include <linux/module.h>
@@ -88,10 +88,10 @@ static void enetc4_pf_set_si_primary_mac(struct enetc_hw *hw, int si,
 
 	if (si != 0) {
 		__raw_writel(upper, hw->port + ENETC4_PSIPMAR0(si));
-		__raw_writew(lower, hw->port + ENETC4_PSIPMAR1(si));
+		__raw_writel(lower, hw->port + ENETC4_PSIPMAR1(si));
 	} else {
 		__raw_writel(upper, hw->port + ENETC4_PMAR0);
-		__raw_writew(lower, hw->port + ENETC4_PMAR1);
+		__raw_writel(lower, hw->port + ENETC4_PMAR1);
 	}
 }
 
