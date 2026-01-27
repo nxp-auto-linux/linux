@@ -25,6 +25,7 @@ properties:
           - nxp,s32g-qspi
           - nxp,s32g3-qspi
           - nxp,s32r45-qspi
+          - nxp,s32r47-qspi
       - items:
           - enum:
               - fsl,ls1043a-qspi
