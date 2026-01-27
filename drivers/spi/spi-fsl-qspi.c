@@ -7,7 +7,7 @@
  * Copyright (C) 2018 Bootlin
  * Copyright (C) 2018 exceet electronics GmbH
  * Copyright (C) 2018 Kontron Electronics GmbH
- * Copyright 2021-2024 NXP
+ * Copyright 2021-2024, 2026 NXP
  *
  * Transition to SPI MEM interface:
  * Authors:
@@ -398,6 +398,18 @@ static const struct fsl_qspi_devtype_data s32r45_data = {
 	.flash2_size = 0x20000000,
 };
 
+static const struct fsl_qspi_devtype_data s32r47_data = {
+	.rxfifo = SZ_128,
+	.txfifo = SZ_128,
+	.invalid_mstrid = QUADSPI_BUFXCR_INVALID_MSTRID,
+	.ahb_buf_size = SZ_1K,
+	.quirks = QUADSPI_QUIRK_HAS_DLL | QUADSPI_QUIRK_READ_ENTIRE_AHB |
+		QUADSPI_QUIRK_LOW_FREQ_DELAY_CHAIN | QUADSPI_QUIRK_INT_LOOPBACK_SDR,
+	.little_endian = true,
+	.flash1_size = 0x20000000,
+	.flash2_size = 0x20000000,
+};
+
 struct qspi_config {
 	u32 mcr;
 	u32 flshcr;
@@ -543,7 +555,13 @@ static inline bool is_s32cc_qspi(struct fsl_qspi *q)
 {
 	return (q->devtype_data == &s32cc_data) ||
 		(q->devtype_data == &s32g3_data) ||
-		(q->devtype_data == &s32r45_data);
+		(q->devtype_data == &s32r45_data) ||
+		(q->devtype_data == &s32r47_data);
+}
+
+static inline bool is_s32r47_qspi(struct fsl_qspi *q)
+{
+	return q->devtype_data == &s32r47_data;
 }
 
 static inline bool is_s32g3_qspi(struct fsl_qspi *q)
@@ -1292,10 +1310,15 @@ static int fsl_qspi_default_setup(struct fsl_qspi *q)
 		qspi_writel(q, q->devtype_data->ahb_buf_size * 4 + addr_offset,
 			    base + QUADSPI_SFB2AD);
 	} else {
-		qspi_writel(q, q->devtype_data->flash1_size, base + QUADSPI_SFA1AD);
-		qspi_writel(q, q->devtype_data->flash2_size, base + QUADSPI_SFA2AD);
-		qspi_writel(q, q->devtype_data->flash1_size, base + QUADSPI_SFB1AD);
-		qspi_writel(q, q->devtype_data->flash2_size, base + QUADSPI_SFB2AD);
+		if (is_s32r47_qspi(q)) {
+			qspi_writel(q, q->devtype_data->flash1_size, base + QUADSPI_SFA1AD);
+			qspi_writel(q, q->devtype_data->flash2_size, base + QUADSPI_SFA2AD);
+		} else {
+			qspi_writel(q, q->devtype_data->flash1_size, base + QUADSPI_SFA1AD);
+			qspi_writel(q, q->devtype_data->flash2_size, base + QUADSPI_SFA2AD);
+			qspi_writel(q, q->devtype_data->flash1_size, base + QUADSPI_SFB1AD);
+			qspi_writel(q, q->devtype_data->flash2_size, base + QUADSPI_SFB2AD);
+		}
 	}
 
 	q->selected = -1;
@@ -1655,6 +1678,7 @@ static const struct of_device_id fsl_qspi_dt_ids[] = {
 	{ .compatible = "nxp,s32g-qspi", .data = &s32cc_data },
 	{ .compatible = "nxp,s32g3-qspi", .data = &s32g3_data },
 	{ .compatible = "nxp,s32r45-qspi", .data = &s32r45_data },
+	{ .compatible = "nxp,s32r47-qspi", .data = &s32r47_data },
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, fsl_qspi_dt_ids);
