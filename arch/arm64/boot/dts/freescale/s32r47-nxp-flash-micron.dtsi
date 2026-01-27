@@ -1,15 +1,16 @@
 // SPDX-License-Identifier: (GPL-2.0+ OR BSD-3-Clause)
 /*
- * Copyright 2025 NXP
+ * Copyright 2025-2026 NXP
  */
 
 &qspi {
 	micron_memory: mt25qu512abb@0 {
 		compatible = "mt25qu512a", "jedec,spi-nor";
 		spi-max-frequency = <133000000>;
-		spi-tx-bus-width = <1>;
+		spi-tx-bus-width = <4>;
 		spi-rx-bus-width = <4>;
 		reg = <0>;
+		m25p,fast-read;
 
 		partitions {
 			compatible = "fixed-partitions";
