@@ -94,3 +94,7 @@
 &pcie0 {
 	status = "okay";
 };
+
+&qspi {
+	status = "okay";
+};
