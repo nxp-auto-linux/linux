@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /* NXP C45 PHY driver header file
- * Copyright 2023 NXP
+ * Copyright 2023, 2026 NXP
  * Author: Radu Pirea <radu-nicolae.pirea@oss.nxp.com>
  */
 
@@ -28,6 +28,7 @@ struct nxp_c45_phy {
 	int extts_index;
 	bool extts;
 	struct nxp_c45_macsec *macsec;
+	u32 macsec_reg_read;
 };
 
 #if IS_ENABLED(CONFIG_MACSEC)
