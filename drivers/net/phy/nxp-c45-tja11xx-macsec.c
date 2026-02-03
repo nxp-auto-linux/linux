@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /* NXP C45 PTP PHY driver interface
- * Copyright 2023 NXP
+ * Copyright 2023, 2026 NXP
  * Author: Radu Pirea <radu-nicolae.pirea@oss.nxp.com>
  */
 
@@ -122,6 +122,9 @@
 #define ADPTR_CNTRL_ADPTR_EN		BIT(12)
 #define ADPTR_TX_TAG_CNTRL		0x0F0C
 #define ADPTR_TX_TAG_CNTRL_ENA		BIT(31)
+
+#define TAGS_PARAM			0x0F1C
+#define TAGS_PARAM_RST			0x88A88100
 
 #define TX_SC_FLT_BASE			0x800
 #define TX_SC_FLT_SIZE			0x10
@@ -319,25 +322,38 @@ static int nxp_c45_macsec_write(struct phy_device *phydev, u16 addr, u32 value)
 
 static int nxp_c45_macsec_read(struct phy_device *phydev, u16 addr, u32 *value)
 {
+	struct nxp_c45_phy *priv = phydev->priv;
 	u32 lvalue;
 	u16 laddr;
+	int count;
 	int ret;
 
 	WARN_ON_ONCE(addr % 4);
 
-	laddr = VEND1_MACSEC_BASE + addr / 2;
-	ret = phy_read_mmd(phydev, MDIO_MMD_VEND2, laddr);
-	if (ret < 0)
-		return ret;
+	count = 0;
+	do {
+		laddr = VEND1_MACSEC_BASE + addr / 2;
+		ret = phy_read_mmd(phydev, MDIO_MMD_VEND2, laddr);
+		if (ret < 0)
+			return ret;
 
-	laddr += 1;
-	lvalue = (u32)ret & 0xffff;
-	ret = phy_read_mmd(phydev, MDIO_MMD_VEND2, laddr);
-	if (ret < 0)
-		return ret;
+		laddr += 1;
+		lvalue = (u32)ret & 0xffff;
+		ret = phy_read_mmd(phydev, MDIO_MMD_VEND2, laddr);
+		if (ret < 0)
+			return ret;
 
-	lvalue |= (u32)ret << 16;
-	*value = lvalue;
+		lvalue |= (u32)ret << 16;
+		*value = lvalue;
+
+		count++;
+		if (count >= 5)
+			phydev_dbg(phydev,
+				   "TAGS_PARAM not at reset value after %d tries: 0x%08x\n",
+				   count, priv->macsec_reg_read);
+	} while (*value == priv->macsec_reg_read && (count < 5));
+
+	priv->macsec_reg_read = *value;
 
 	phydev_dbg(phydev, "read addr 0x%x value 0x%x\n", addr, *value);
 
@@ -1629,6 +1645,7 @@ static const struct macsec_ops nxp_c45_macsec_ops = {
 int nxp_c45_macsec_config_init(struct phy_device *phydev)
 {
 	struct nxp_c45_phy *priv = phydev->priv;
+	int count;
 	int ret;
 
 	if (!priv->macsec)
@@ -1638,6 +1655,19 @@ int nxp_c45_macsec_config_init(struct phy_device *phydev)
 			       MACSEC_EN | ADAPTER_EN);
 	if (ret)
 		return ret;
+
+	count = 0;
+	do {
+		ret = nxp_c45_macsec_read(phydev, TAGS_PARAM, &priv->macsec_reg_read);
+		if (ret < 0)
+			return ret;
+
+		if (priv->macsec_reg_read != TAGS_PARAM_RST)
+			phydev_dbg(phydev, "TAGS_PARAM not at reset value after %d tries: 0x%08x\n",
+				   count, priv->macsec_reg_read);
+
+		count++;
+	} while (priv->macsec_reg_read != TAGS_PARAM_RST && (count < 5));
 
 	ret = nxp_c45_macsec_write(phydev, ADPTR_CNTRL, ADPTR_CNTRL_CONFIG_EN |
 				   ADPTR_CNTRL_ADPTR_EN);
