@@ -16,6 +16,9 @@
 
 #include "nxp-c45-tja11xx.h"
 
+/* Same id: TJA1103, TJA1104 */
+#define PHY_ID_TJA_1103			0x001BB010
+
 #define MACSEC_REG_SIZE			32
 #define TX_SC_MAX			4
 
@@ -87,6 +90,8 @@
 #define MACSEC_TXSA_B_XNPN		0x02C8
 
 #define MACSEC_SA_CS_A			BIT(31)
+
+#define MACSEC_IP_REV_1			0x03F8
 
 #define MACSEC_EVR			0x0400
 #define MACSEC_EVER			0x0404
@@ -1645,12 +1650,14 @@ static const struct macsec_ops nxp_c45_macsec_ops = {
 int nxp_c45_macsec_config_init(struct phy_device *phydev)
 {
 	struct nxp_c45_phy *priv = phydev->priv;
+	int reg = 0;
 	int count;
 	int ret;
 
 	if (!priv->macsec)
 		return 0;
 
+	/* Step 1: Generic enable MACsec done for all */
 	ret = phy_set_bits_mmd(phydev, MDIO_MMD_VEND1, VEND1_PORT_FUNC_ENABLES,
 			       MACSEC_EN | ADAPTER_EN);
 	if (ret)
@@ -1668,6 +1675,27 @@ int nxp_c45_macsec_config_init(struct phy_device *phydev)
 
 		count++;
 	} while (priv->macsec_reg_read != TAGS_PARAM_RST && (count < 5));
+
+	if (phy_id_compare(phydev->phy_id, PHY_ID_TJA_1103, GENMASK(31, 4))) {
+		/* Step 2: Read any MACsec core register */
+		ret = nxp_c45_macsec_read(phydev, MACSEC_IP_REV_1, &reg);
+		if (ret)
+			return ret;
+
+		/* Step 3: Disable MACsec */
+		ret = phy_clear_bits_mmd(phydev, MDIO_MMD_VEND1,
+					 VEND1_PORT_FUNC_ENABLES,
+					 MACSEC_EN | ADAPTER_EN);
+		if (ret)
+			return ret;
+
+		/* Step 4: Enable MACsec */
+		ret = phy_set_bits_mmd(phydev, MDIO_MMD_VEND1,
+				       VEND1_PORT_FUNC_ENABLES,
+				       MACSEC_EN | ADAPTER_EN);
+		if (ret)
+			return ret;
+	}
 
 	ret = nxp_c45_macsec_write(phydev, ADPTR_CNTRL, ADPTR_CNTRL_CONFIG_EN |
 				   ADPTR_CNTRL_ADPTR_EN);
