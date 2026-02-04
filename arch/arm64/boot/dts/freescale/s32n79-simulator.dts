@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: (GPL-2.0+ OR BSD-3-Clause)
 /*
- * Copyright 2024-2025 NXP
+ * Copyright 2024-2026 NXP
  */
 
 /dts-v1/;
@@ -287,35 +287,35 @@
 	status = "okay";
 };
 
-&aps1_mru0 {
+&aps0_mru0 {
 	status = "okay";
 };
 
-&aps1_mru1 {
+&aps0_mru1 {
 	status = "okay";
 };
 
-&aps1_mru2 {
+&aps0_mru2 {
 	status = "okay";
 };
 
-&aps1_mru3 {
+&aps0_mru3 {
 	status = "okay";
 };
 
-&aps1_mru4 {
+&aps0_mru4 {
 	status = "okay";
 };
 
-&aps1_mru5 {
+&aps0_mru5 {
 	status = "okay";
 };
 
-&aps1_mru6 {
+&aps0_mru6 {
 	status = "okay";
 };
 
-&aps1_mru7 {
+&aps0_mru7 {
 	status = "okay";
 };
 
