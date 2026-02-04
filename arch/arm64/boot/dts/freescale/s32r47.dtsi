@@ -25,6 +25,8 @@
 	};
 
 	aliases {
+		can0 = &can0;
+		can1 = &can1;
 		ethernet0 = &gmac0;
 		ethernet1 = &gmac1;
 		ethernet2 = &gmac2;
@@ -68,6 +70,18 @@
 			compatible = "fixed-clock";
 			clock-frequency = <266666666>;
 			clock-output-names = "qspi_2x_clk";
+			#clock-cells = <0>;
+		};
+
+		flexcan_ipg_clk: flexcan-ipg-clk {
+			compatible = "fixed-clock";
+			clock-frequency = <1250000000>;
+			#clock-cells = <0>;
+		};
+
+		flexcan_per_clk: flexcan-per-clk {
+			compatible = "fixed-clock";
+			clock-frequency = <80000000>;
 			#clock-cells = <0>;
 		};
 
@@ -280,6 +294,34 @@
 			clocks = <&qspi_clk>, <&qspi_clk>;
 			spi-max-frequency = <133333333>;
 			spi-num-chipselects = <1>;
+			status = "disabled";
+		};
+
+		can0: can@40280000 {
+			compatible = "nxp,s32r47-flexcan";
+			reg = <0x0 0x40280000 0x0 0x4000>;
+			interrupts = <GIC_SPI 37 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 38 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 39 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 40 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "mb-0", "state", "berr", "mb-1";
+			clocks = <&flexcan_ipg_clk>,
+				 <&flexcan_per_clk>;
+			clock-names = "ipg", "per";
+			status = "disabled";
+		};
+
+		can1: can@40480000 {
+			compatible = "nxp,s32r47-flexcan";
+			reg = <0x0 0x40480000 0x0 0x4000>;
+			interrupts = <GIC_SPI 41 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 42 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 43 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 44 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "mb-0", "state", "berr", "mb-1";
+			clocks = <&flexcan_ipg_clk>,
+				 <&flexcan_per_clk>;
+			clock-names = "ipg", "per";
 			status = "disabled";
 		};
 
