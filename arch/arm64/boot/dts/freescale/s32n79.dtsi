@@ -1251,6 +1251,7 @@
 			msi-parent = <&mru_msi_controller>;
 			device_type = "pci";
 			bus-range = <0x0 0x0>;
+			iommu-map = <0x0 &smmu 0xC0000 0x100>;
 			status = "disabled";
 
 			/* All NETC PCIe functions */
@@ -1265,6 +1266,7 @@
 			msi-parent = <&mru_msi_controller>;
 			device_type = "pci";
 			bus-range = <0x0 0x0>;
+			iommu-map = <0x0 &smmu 0xC0000 0x100>;
 			status = "disabled";
 
 			/* All NETC PCIe functions */
