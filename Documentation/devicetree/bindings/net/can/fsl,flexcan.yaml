@@ -27,6 +27,7 @@ properties:
           - fsl,lx2160ar1-flexcan
           - nxp,s32g2-flexcan
           - nxp,s32n79-flexcan
+          - nxp,s32r47-flexcan
       - items:
           - enum:
               - fsl,imx53-flexcan
@@ -102,10 +103,13 @@ properties:
     $ref: /schemas/types.yaml#/definitions/phandle-array
     items:
       - items:
-          - description: The 'gpr' is the phandle to general purpose register node.
-          - description: The 'req_gpr' is the gpr register offset of CAN stop request.
+          - description: |
+              The 'gpr' is the phandle to general purpose register node.
+          - description: |
+              The 'req_gpr' is the gpr register offset of CAN stop request.
             maximum: 0xff
-          - description: The 'req_bit' is the bit offset of CAN stop request.
+          - description: |
+              The 'req_bit' is the bit offset of CAN stop request.
             maximum: 0x1f
 
   fsl,clk-source:
@@ -155,7 +159,8 @@ allOf:
       properties:
         interrupts:
           items:
-            - description: Message Buffer interrupt for mailboxes 0-7 and Enhanced RX FIFO
+            - description: |
+                Message Buffer interrupt for mailboxes 0-7 and Enhanced RX FIFO
             - description: Device state change
             - description: Bus Error detection
             - description: Message Buffer interrupt for mailboxes 8-127
@@ -167,6 +172,28 @@ allOf:
             - const: mb-1
       required:
         - interrupt-names
+  - if:
+      properties:
+        compatible:
+          enum:
+            - nxp,s32r47-flexcan
+    then:
+      properties:
+        interrupts:
+          description: |
+            - description: |
+                Message Buffer interrupt for mailboxes 0-7 and Enhanced RX FIFO
+            - description: Device state change
+            - description: Bus Error detection
+            - description: Message Buffer interrupt for mailboxes 8-95
+        interrupt-names:
+          items:
+            - const: mb_0
+            - const: state
+            - const: berr
+            - const: mb_1
+      required:
+        - interrupts
     else:
       if:
         properties:
@@ -232,4 +259,21 @@ examples:
         fsl,stop-mode = <&gpr 0x34 28>;
         termination-gpios = <&gpio1 0 GPIO_ACTIVE_LOW>;
         termination-ohms = <120>;
+    };
+  - |
+    #include <dt-bindings/interrupt-controller/arm-gic.h>
+    #include <dt-bindings/interrupt-controller/irq.h>
+
+    can0: can@40280000 {
+        compatible = "nxp,s32r47-flexcan";
+        reg = <0x0 0x40280000 0x0 0x4000>;
+        interrupts = <GIC_SPI 37 IRQ_TYPE_LEVEL_HIGH>,
+                   <GIC_SPI 38 IRQ_TYPE_LEVEL_HIGH>,
+                   <GIC_SPI 39 IRQ_TYPE_LEVEL_HIGH>,
+                   <GIC_SPI 40 IRQ_TYPE_LEVEL_HIGH>;
+        interrupt-names = "mb-0", "state", "berr", "mb-1";
+        clocks = <&flexcan_ipg_clk>,
+             <&flexcan_per_clk>;
+        clock-names = "ipg", "per";
+        status = "disabled";
     };
