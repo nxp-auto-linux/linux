@@ -48,6 +48,41 @@ allOf:
             - const: mb_8-127
       required:
         - interrupts
+  - if:
+      properties:
+        compatible:
+          enum:
+            - nxp,s32r47-flexcan
+    then:
+      properties:
+        interrupts:
+          description: |
+            Interrupt tuple(s) for this device. If interrupt-names are
+            missing, these should specify, in order
+            for S32R47
+            1. BOFFINT | BOFFDONEINT | TWRNINT | RWRNINT;
+            2. ERRINT;
+            3. MB0-7 interrupts;
+            4. MB8-95 interrupts;
+            minItems: 4
+            maxItems: 4
+        interrupt-names:
+          description: |
+            Allows the interrupt specifiers in "interrupts" to be stated
+            in any order, one for each name in here. Can contain
+            "state" - BOFFINT | BOFFDONEINT | TWRNINT | RWRNINT
+            "berr" - ERRINT
+            "mb_0-7" - MB0-7 interrupts
+            "mb_8-95" - MB8-95 interrupts
+            In case interrupt-names property is missing, then there is a
+            strict order of interrupts as specified in the DTS node.
+          items:
+            - const: state
+            - const: berr
+            - const: mb_0-7
+            - const: mb_8-95
+      required:
+        - interrupts
     else:
       properties:
         interrupts:
@@ -69,6 +104,7 @@ properties:
           - fsl,ls1021ar2-flexcan
           - fsl,lx2160ar1-flexcan
           - nxp,s32cc-flexcan
+          - nxp,s32r47-flexcan
       - items:
           - enum:
               - fsl,imx53-flexcan
@@ -226,6 +262,23 @@ examples:
         interrupt-names = "state", "berr", "mb_0-7", "mb_8-127";
         clocks = <&clks S32CC_SCMI_CLK_FLEXCAN_REG>,
              <&clks S32CC_SCMI_CLK_FLEXCAN_CAN>;
+        clock-names = "ipg", "per";
+        status = "disabled";
+    };
+  - |
+    #include <dt-bindings/interrupt-controller/arm-gic.h>
+    #include <dt-bindings/interrupt-controller/irq.h>
+
+    can0: can@40280000 {
+        compatible = "nxp,s32r47-flexcan";
+        reg = <0x0 0x40280000 0x0 0x4000>;
+        interrupts = <GIC_SPI 37 IRQ_TYPE_LEVEL_HIGH>,
+                   <GIC_SPI 38 IRQ_TYPE_LEVEL_HIGH>,
+                   <GIC_SPI 39 IRQ_TYPE_LEVEL_HIGH>,
+                   <GIC_SPI 40 IRQ_TYPE_LEVEL_HIGH>;
+        interrupt-names = "state", "berr", "mb_0-7", "mb_8-95";
+        clocks = <&flexcan_ipg_clk>,
+             <&flexcan_per_clk>;
         clock-names = "ipg", "per";
         status = "disabled";
     };
