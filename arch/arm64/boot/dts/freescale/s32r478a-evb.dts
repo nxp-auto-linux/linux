@@ -16,21 +16,45 @@
 };
 
 &gmac0 {
-	status = "okay";
+	clocks = <&sys_clk>,
+		 <&sys_clk>,
+		 <&gmac_tx_rx_clk>,
+		 <&gmac_tx_rx_clk>,
+		 <&gmac_ts_clk>;
+	clock-names = "stmmaceth", "pclk",
+		      "tx_sgmii", "rx_sgmii",
+		      "ptp_ref";
 	phy-handle = <&mdio_gmac0_phy1>;
 	phy-mode = "sgmii";
+	status = "okay";
 };
 
 &gmac1 {
-	status = "okay";
+	clocks = <&sys_clk>,
+		 <&sys_clk>,
+		 <&gmac_tx_rx_clk>,
+		 <&gmac_tx_rx_clk>,
+		 <&gmac_ts_clk>;
+	clock-names = "stmmaceth", "pclk",
+		      "tx_sgmii", "rx_sgmii",
+		      "ptp_ref";
 	phy-handle = <&mdio_gmac1_phy4>;
 	phy-mode = "sgmii";
+	status = "okay";
 };
 
 &gmac2 {
-	status = "okay";
+	clocks = <&sys_clk>,
+		 <&sys_clk>,
+		 <&gmac_tx_rx_clk>,
+		 <&gmac_tx_rx_clk>,
+		 <&gmac_ts_clk>;
+	clock-names = "stmmaceth", "pclk",
+		      "tx_sgmii", "rx_sgmii",
+		      "ptp_ref";
 	phy-handle = <&mdio_gmac2_phy1>;
 	phy-mode = "sgmii";
+	status = "okay";
 };
 
 &gmac0_mdio {
