@@ -404,14 +404,6 @@
 			snps,mtl-rx-config = <&mtl_rx_setup_gmac0>;
 			snps,mtl-tx-config = <&mtl_tx_setup_gmac0>;
 			snps,fixed-burst;
-			clocks = <&sys_clk>,
-				 <&sys_clk>,
-				 <&gmac_tx_rx_clk>,
-				 <&gmac_tx_rx_clk>,
-				 <&gmac_ts_clk>;
-			clock-names = "stmmaceth", "pclk",
-				      "tx_sgmii", "rx_sgmii",
-				      "ptp_ref";
 
 			mtl_tx_setup_gmac0: tx-queues-config {
 				#address-cells = <1>;
@@ -461,14 +453,6 @@
 			snps,mtl-rx-config = <&mtl_rx_setup_gmac1>;
 			snps,mtl-tx-config = <&mtl_tx_setup_gmac1>;
 			snps,fixed-burst;
-			clocks = <&sys_clk>,
-				 <&sys_clk>,
-				 <&gmac_tx_rx_clk>,
-				 <&gmac_tx_rx_clk>,
-				 <&gmac_ts_clk>;
-			clock-names = "stmmaceth", "pclk",
-				      "tx_sgmii", "rx_sgmii",
-				      "ptp_ref";
 			#address-cells = <1>;
 			#size-cells = <0>;
 
@@ -520,14 +504,6 @@
 			snps,mtl-rx-config = <&mtl_rx_setup_gmac2>;
 			snps,mtl-tx-config = <&mtl_tx_setup_gmac2>;
 			snps,fixed-burst;
-			clocks = <&sys_clk>,
-				 <&sys_clk>,
-				 <&gmac_tx_rx_clk>,
-				 <&gmac_tx_rx_clk>,
-				 <&gmac_ts_clk>;
-			clock-names = "stmmaceth", "pclk",
-				      "tx_sgmii", "rx_sgmii",
-				      "ptp_ref";
 			#address-cells = <1>;
 			#size-cells = <0>;
 
