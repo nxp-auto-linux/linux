@@ -305,6 +305,7 @@ struct nxp_c45_sa_regs *nxp_c45_sa_regs_get(enum nxp_c45_sa_type sa_type,
 
 static int nxp_c45_macsec_write(struct phy_device *phydev, u16 addr, u32 value)
 {
+	struct nxp_c45_phy *priv = phydev->priv;
 	u32 lvalue = value;
 	u16 laddr;
 	int ret;
@@ -321,6 +322,8 @@ static int nxp_c45_macsec_write(struct phy_device *phydev, u16 addr, u32 value)
 	laddr += 1;
 	lvalue >>= 16;
 	ret = phy_write_mmd(phydev, MDIO_MMD_VEND2, laddr, lvalue);
+
+	priv->macsec_reg_read = lvalue;
 
 	return ret;
 }
