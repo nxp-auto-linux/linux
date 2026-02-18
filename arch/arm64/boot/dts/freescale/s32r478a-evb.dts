@@ -22,7 +22,7 @@
 		 <&gmac_tx_rx_clk>,
 		 <&gmac_ts_clk>;
 	clock-names = "stmmaceth", "pclk",
-		      "tx_sgmii", "rx_sgmii",
+		      "tx", "rx",
 		      "ptp_ref";
 	phy-handle = <&mdio_gmac0_phy1>;
 	phy-mode = "sgmii";
@@ -36,7 +36,7 @@
 		 <&gmac_tx_rx_clk>,
 		 <&gmac_ts_clk>;
 	clock-names = "stmmaceth", "pclk",
-		      "tx_sgmii", "rx_sgmii",
+		      "tx", "rx",
 		      "ptp_ref";
 	phy-handle = <&mdio_gmac1_phy4>;
 	phy-mode = "sgmii";
@@ -50,7 +50,7 @@
 		 <&gmac_tx_rx_clk>,
 		 <&gmac_ts_clk>;
 	clock-names = "stmmaceth", "pclk",
-		      "tx_sgmii", "rx_sgmii",
+		      "tx", "rx",
 		      "ptp_ref";
 	phy-handle = <&mdio_gmac2_phy1>;
 	phy-mode = "sgmii";
