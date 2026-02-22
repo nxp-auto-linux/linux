@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: (GPL-2.0+ OR BSD-3-Clause) */
-/* Copyright 2017-2019, 2025 NXP */
+/* Copyright 2017-2019, 2025-2026 NXP */
 
 #include <linux/timer.h>
 #include <linux/pci.h>
@@ -352,6 +352,7 @@ struct enetc_si {
 
 	DECLARE_BITMAP(vlan_ht_filter, ENETC_VLAN_HT_SIZE);
 	DECLARE_BITMAP(active_vlans, VLAN_N_VID);
+	struct ptp_clock *si_ptp;
 	struct enetc_debugfs_params dbg_params;
 };
 
@@ -540,6 +541,20 @@ void enetc_add_mac_addr_ht_filter(struct enetc_mac_filter *filter,
 void enetc_reset_mac_addr_filter(struct enetc_mac_filter *filter);
 int enetc_vid_hash_idx(unsigned int vid);
 void enetc_refresh_vlan_ht_filter(struct enetc_si *si);
+
+#if IS_ENABLED(CONFIG_NXP_ENETC_SI_PTP_CLOCK)
+int enetc_si_ptp_create(struct enetc_si *si);
+void enetc_si_ptp_destroy(struct enetc_si *si);
+#else
+static inline int enetc_si_ptp_create(struct enetc_si *si)
+{
+	return 0;
+}
+
+static inline void enetc_si_ptp_destroy(struct enetc_si *si)
+{
+}
+#endif
 
 int enetc_open(struct net_device *ndev);
 int enetc_close(struct net_device *ndev);

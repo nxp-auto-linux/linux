@@ -2028,6 +2028,12 @@ static int enetc4_pf_netdev_create(struct enetc_si *si)
 	if (err)
 		goto err_link_init;
 
+	err = enetc_si_ptp_create(si);
+	if (err) {
+		dev_err(dev, "SI PTP create failed\n");
+		goto err_create_si_ptp;
+	}
+
 	err = register_netdev(ndev);
 	if (err) {
 		dev_err(dev, "Failed to register netdev\n");
@@ -2037,6 +2043,8 @@ static int enetc4_pf_netdev_create(struct enetc_si *si)
 	return 0;
 
 err_reg_netdev:
+	enetc_si_ptp_destroy(si);
+err_create_si_ptp:
 	enetc4_link_deinit(priv);
 err_link_init:
 	enetc_free_msix(priv);
@@ -2055,6 +2063,7 @@ static void enetc4_pf_netdev_destroy(struct enetc_si *si)
 	struct net_device *ndev = si->ndev;
 
 	unregister_netdev(ndev);
+	enetc_si_ptp_destroy(si);
 	enetc4_link_deinit(priv);
 	enetc_free_msix(priv);
 	mutex_destroy(&priv->mm_lock);
