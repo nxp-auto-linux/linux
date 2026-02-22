@@ -33,3 +33,6 @@ fsl-enetc-ptp-y := enetc_ptp.o
 
 obj-$(CONFIG_NXP_NETC_BLK_CTRL) += nxp-netc-blk-ctrl.o
 nxp-netc-blk-ctrl-y := netc_blk_ctrl.o
+
+obj-$(CONFIG_NXP_ENETC_SI_PTP_CLOCK) += nxp-enetc-si-ptp.o
+nxp-enetc-si-ptp-y := enetc_si_ptp.o
