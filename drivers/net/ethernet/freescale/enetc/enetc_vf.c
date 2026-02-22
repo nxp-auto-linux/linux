@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: (GPL-2.0+ OR BSD-3-Clause)
-/* Copyright 2017-2019 NXP */
+/* Copyright 2017-2019, 2026 NXP */
 
 #include <linux/module.h>
 #include "enetc.h"
@@ -779,6 +779,14 @@ static int enetc_vf_probe(struct pci_dev *pdev,
 		goto err_wq_init;
 	}
 
+	if (!is_enetc_rev1(si)) {
+		err = enetc_si_ptp_create(si);
+		if (err) {
+			dev_err(&pdev->dev, "SI PTP create failed\n");
+			goto err_create_si_ptp;
+		}
+	}
+
 	err = register_netdev(ndev);
 	if (err)
 		goto err_reg_netdev;
@@ -788,6 +796,9 @@ static int enetc_vf_probe(struct pci_dev *pdev,
 	return 0;
 
 err_reg_netdev:
+	if (!is_enetc_rev1(si))
+		enetc_si_ptp_destroy(si);
+err_create_si_ptp:
 	enetc_vsi_wq_task_destroy(si);
 err_wq_init:
 	enetc_free_msix(priv);
@@ -817,6 +828,9 @@ static void enetc_vf_remove(struct pci_dev *pdev)
 	priv = netdev_priv(si->ndev);
 	unregister_netdev(si->ndev);
 	enetc_vsi_wq_task_destroy(si);
+
+	if (!is_enetc_rev1(si))
+		enetc_si_ptp_destroy(si);
 
 	enetc_free_msix(priv);
 
