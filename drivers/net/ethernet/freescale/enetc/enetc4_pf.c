@@ -1678,6 +1678,12 @@ static int enetc4_pf_netdev_create(struct enetc_si *si)
 		goto err_wq_init;
 	}
 
+	err = enetc_si_ptp_create(si);
+	if (err) {
+		dev_err(dev, "SI PTP create failed\n");
+		goto err_create_si_ptp;
+	}
+
 	err = register_netdev(ndev);
 	if (err) {
 		dev_err(dev, "Failed to register netdev\n");
@@ -1687,6 +1693,8 @@ static int enetc4_pf_netdev_create(struct enetc_si *si)
 	return 0;
 
 err_reg_netdev:
+	enetc_si_ptp_destroy(si);
+err_create_si_ptp:
 	destroy_workqueue(si->workqueue);
 err_wq_init:
 	enetc4_link_deinit(priv);
@@ -1709,6 +1717,7 @@ static void enetc4_pf_netdev_destroy(struct enetc_si *si)
 	struct net_device *ndev = si->ndev;
 
 	unregister_netdev(ndev);
+	enetc_si_ptp_destroy(si);
 	cancel_work(&si->rx_mode_task);
 	destroy_workqueue(si->workqueue);
 	enetc4_link_deinit(priv);
