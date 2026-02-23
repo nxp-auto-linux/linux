@@ -285,14 +285,6 @@ static int s32_dwmac_probe(struct platform_device *pdev)
 		return dev_err_probe(dev, PTR_ERR(plat),
 				     "dt configuration failed\n");
 
-	if (plat->phy_interface != PHY_INTERFACE_MODE_SGMII &&
-	    !phy_interface_mode_is_rgmii(plat->phy_interface) &&
-	    plat->phy_interface != PHY_INTERFACE_MODE_RMII &&
-	    plat->phy_interface != PHY_INTERFACE_MODE_MII)
-		dev_err_probe(dev, -EINVAL,
-			      "Not supported phy interface mode: [%s]\n",
-			      phy_modes(plat->phy_interface));
-
 	/* tx clock */
 	gmac->tx_clk = devm_clk_get(&pdev->dev, "tx");
 	if (IS_ERR(gmac->tx_clk))
@@ -382,11 +374,27 @@ static int s32g2_dwmac_init(struct platform_device *pdev, struct s32_priv_data *
 
 static int s32g2_dwmac_set_intf_mode(struct s32_priv_data *gmac)
 {
-	int ret = s32_gmac_write_phy_intf_select(gmac);
+	if (*gmac->intf_mode != PHY_INTERFACE_MODE_SGMII &&
+	    !phy_interface_mode_is_rgmii(*gmac->intf_mode) &&
+	    *gmac->intf_mode != PHY_INTERFACE_MODE_RMII &&
+	    *gmac->intf_mode != PHY_INTERFACE_MODE_MII) {
+		dev_err(gmac->dev, "Unsupported PHY interface mode: %s\n",
+			phy_modes(*gmac->intf_mode));
+		return -EINVAL;
+	}
 
-	if (ret)
-		dev_err(gmac->dev, "Can't set PHY interface mode\n");
-	return ret;
+	return s32_gmac_write_phy_intf_select(gmac);
+}
+
+static int s32r47_dwmac_set_intf_mode(struct s32_priv_data *gmac)
+{
+	if (*gmac->intf_mode != PHY_INTERFACE_MODE_SGMII) {
+		dev_err(gmac->dev, "S32R47 supports only SGMII\n");
+		return -EINVAL;
+	}
+
+	/* R47 does NOT program SRC/NVMEM → return 0 directly */
+	return 0;
 }
 
 static const struct s32_dwmac_ops s32cc_ops = {
@@ -396,7 +404,7 @@ static const struct s32_dwmac_ops s32cc_ops = {
 
 static const struct s32_dwmac_ops s32r47_ops = {
 	.platform_init = NULL,
-	.set_intf_mode = NULL,
+	.set_intf_mode = s32r47_dwmac_set_intf_mode,
 };
 
 static const struct of_device_id s32_dwmac_match[] = {
