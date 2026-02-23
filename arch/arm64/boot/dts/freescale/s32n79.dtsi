@@ -246,6 +246,7 @@
 			interrupt-names = "eventq", "gerror", "priq", "cmdq-sync";
 			#iommu-cells = <1>;
 			dma-coherent;
+			nxp,force-outer-shareable;
 			status = "disabled";
 		};
 
