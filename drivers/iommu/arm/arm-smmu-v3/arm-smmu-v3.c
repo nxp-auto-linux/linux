@@ -80,6 +80,7 @@ DEFINE_MUTEX(arm_smmu_asid_lock);
 static struct arm_smmu_option_prop arm_smmu_options[] = {
 	{ ARM_SMMU_OPT_SKIP_PREFETCH, "hisilicon,broken-prefetch-cmd" },
 	{ ARM_SMMU_OPT_PAGE0_REGS_ONLY, "cavium,cn9900-broken-page1-regspace"},
+	{ ARM_SMMU_OPT_PTE_FORCE_OSH, "nxp,force-outer-shareable" },
 	{ 0, NULL},
 };
 
@@ -2449,6 +2450,8 @@ static int arm_smmu_domain_finalise(struct arm_smmu_domain *smmu_domain,
 		pgtbl_cfg.oas = smmu->ias;
 		if (enable_dirty)
 			pgtbl_cfg.quirks |= IO_PGTABLE_QUIRK_ARM_HD;
+		if (smmu->options & ARM_SMMU_OPT_PTE_FORCE_OSH)
+			pgtbl_cfg.quirks |= IO_PGTABLE_QUIRK_ARM_FORCE_OSH;
 		fmt = ARM_64_LPAE_S1;
 		finalise_stage_fn = arm_smmu_domain_finalise_s1;
 		break;
