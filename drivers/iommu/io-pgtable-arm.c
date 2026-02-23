@@ -490,8 +490,12 @@ static arm_lpae_iopte arm_lpae_prot_to_pte(struct arm_lpae_io_pgtable *data,
 	 * domain covers the cores within the GPU, and its Outer domain is
 	 * "outside the GPU" (i.e. either the Inner or System domain in CPU
 	 * terms, depending on coherency).
+	 *
+	 * Platforms may opt in to forcing OSH for cacheable mappings via
+	 * IO_PGTABLE_QUIRK_ARM_FORCE_OSH.
 	 */
-	if (prot & IOMMU_CACHE && data->iop.fmt != ARM_MALI_LPAE)
+	if (prot & IOMMU_CACHE && data->iop.fmt != ARM_MALI_LPAE &&
+	    !(data->iop.cfg.quirks & IO_PGTABLE_QUIRK_ARM_FORCE_OSH))
 		pte |= ARM_LPAE_PTE_SH_IS;
 	else
 		pte |= ARM_LPAE_PTE_SH_OS;
@@ -946,7 +950,8 @@ arm_64_lpae_alloc_pgtable_s1(struct io_pgtable_cfg *cfg, void *cookie)
 	if (cfg->quirks & ~(IO_PGTABLE_QUIRK_ARM_NS |
 			    IO_PGTABLE_QUIRK_ARM_TTBR1 |
 			    IO_PGTABLE_QUIRK_ARM_OUTER_WBWA |
-			    IO_PGTABLE_QUIRK_ARM_HD))
+			    IO_PGTABLE_QUIRK_ARM_HD |
+			    IO_PGTABLE_QUIRK_ARM_FORCE_OSH))
 		return NULL;
 
 	data = arm_lpae_alloc_pgtable(cfg);
