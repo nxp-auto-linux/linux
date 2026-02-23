@@ -69,6 +69,14 @@ properties:
       register access with page 0 offsets. Set for Cavium ThunderX2 silicon that
       doesn't support SMMU page1 register space.
 
+  nxp,force-outer-shareable:
+    type: boolean
+    description:
+      Force cacheable IOMMU mappings to be Outer Shareable (OSH) instead of
+      Inner Shareable (ISH). This affects the shareability attribute encoded in
+      the IOMMU page table entries for cacheable mappings, and may be required
+      on platforms with different system interconnect topology.
+
 required:
   - compatible
   - reg
