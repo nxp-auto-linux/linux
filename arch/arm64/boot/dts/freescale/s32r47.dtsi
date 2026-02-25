@@ -2,7 +2,7 @@
 /*
  * Device Tree Include file for NXP R47 SoC.
  *
- * Copyright 2025 NXP
+ * Copyright 2025-2026 NXP
  */
 
 #include <dt-bindings/interrupt-controller/arm-gic.h>
@@ -115,13 +115,6 @@
 			compatible = "fixed-clock";
 			clock-frequency = <250000000>;
 			clock-output-names = "gmac_ts_clk";
-			#clock-cells = <0>;
-		};
-
-		gmac_tx_rx_clk: gmac-tx-rx-clk {
-			compatible = "fixed-clock";
-			clock-frequency = <312500000>;
-			clock-output-names = "gmac_tx_rx_clk";
 			#clock-cells = <0>;
 		};
 
