@@ -35,6 +35,8 @@
 		serdes0 = &serdes0;
 		serdes1 = &serdes1;
 		spi6 = &qspi;
+		i2c0 = &i2c0;
+		i2c1 = &i2c1;
 	};
 
 	reserved-memory {
@@ -136,6 +138,13 @@
 			compatible = "fixed-clock";
 			clock-frequency = <100000000>;
 			clock-output-names = "pit_clk";
+			#clock-cells = <0>;
+		};
+
+		i2c_clk: i2c-clk {
+			compatible = "fixed-clock";
+			clock-frequency = <100000000>;
+			clock-output-names = "i2c_clk";
 			#clock-cells = <0>;
 		};
 	};
@@ -322,6 +331,24 @@
 			clocks = <&flexcan_ipg_clk>,
 				 <&flexcan_per_clk>;
 			clock-names = "ipg", "per";
+			status = "disabled";
+		};
+
+		i2c0: i2c@40298000 {
+			compatible = "nxp,s32g2-i2c";
+			reg = <0x0 0x40298000 0x0 0x1000>;
+			interrupts = <GIC_SPI 92 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&i2c_clk>;
+			clock-names = "i2c";
+			status = "disabled";
+		};
+
+		i2c1: i2c@40498000 {
+			compatible = "nxp,s32g2-i2c";
+			reg = <0x0 0x40498000 0x0 0x1000>;
+			interrupts = <GIC_SPI 93 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&i2c_clk>;
+			clock-names = "i2c";
 			status = "disabled";
 		};
 
