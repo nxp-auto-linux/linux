@@ -2,7 +2,7 @@
 /*
  * Device Tree file for NXP S32R47.
  *
- * Copyright 2025 NXP
+ * Copyright 2025-2026 NXP
  */
 
 #include "s32r47.dtsi"
@@ -18,12 +18,8 @@
 &gmac0 {
 	clocks = <&sys_clk>,
 		 <&sys_clk>,
-		 <&gmac_tx_rx_clk>,
-		 <&gmac_tx_rx_clk>,
 		 <&gmac_ts_clk>;
-	clock-names = "stmmaceth", "pclk",
-		      "tx", "rx",
-		      "ptp_ref";
+	clock-names = "stmmaceth", "pclk", "ptp_ref";
 	phy-handle = <&mdio_gmac0_phy1>;
 	phy-mode = "sgmii";
 	status = "okay";
@@ -32,12 +28,8 @@
 &gmac1 {
 	clocks = <&sys_clk>,
 		 <&sys_clk>,
-		 <&gmac_tx_rx_clk>,
-		 <&gmac_tx_rx_clk>,
 		 <&gmac_ts_clk>;
-	clock-names = "stmmaceth", "pclk",
-		      "tx", "rx",
-		      "ptp_ref";
+	clock-names = "stmmaceth", "pclk", "ptp_ref";
 	phy-handle = <&mdio_gmac1_phy4>;
 	phy-mode = "sgmii";
 	status = "okay";
@@ -46,12 +38,8 @@
 &gmac2 {
 	clocks = <&sys_clk>,
 		 <&sys_clk>,
-		 <&gmac_tx_rx_clk>,
-		 <&gmac_tx_rx_clk>,
 		 <&gmac_ts_clk>;
-	clock-names = "stmmaceth", "pclk",
-		      "tx", "rx",
-		      "ptp_ref";
+	clock-names = "stmmaceth", "pclk", "ptp_ref";
 	phy-handle = <&mdio_gmac2_phy1>;
 	phy-mode = "sgmii";
 	status = "okay";
