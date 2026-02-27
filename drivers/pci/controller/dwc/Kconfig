@@ -233,6 +233,14 @@ config PCIE_TEGRA194_EP
 	  in order to enable device-specific features PCIE_TEGRA194_EP must be
 	  selected. This uses the DesignWare core.
 
+config PCIE_NXP_S32N79
+	bool "NXP S32N79 PCIe host controller"
+	depends on ARCH_S32
+	select PCIE_DW_HOST
+	help
+	  Enable support for the PCIe host controller in NXP S32N79 SoC.
+	  The controller is based on DesignWare IP.
+
 config PCIE_DW_PLAT
 	bool
 
