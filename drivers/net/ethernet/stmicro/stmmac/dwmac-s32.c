@@ -2,7 +2,7 @@
 /*
  * NXP S32G/R GMAC glue layer
  *
- * Copyright 2019-2025 NXP
+ * Copyright 2019-2026 NXP
  *
  */
 
@@ -58,6 +58,7 @@ struct s32_priv_data {
 
 struct s32_dwmac_ops {
 	int (*platform_init)(struct platform_device *pdev, struct s32_priv_data *gmac);
+	int (*init_clocks)(struct s32_priv_data *gmac);
 	int (*set_intf_mode)(struct s32_priv_data *gmac);
 };
 
@@ -285,17 +286,11 @@ static int s32_dwmac_probe(struct platform_device *pdev)
 		return dev_err_probe(dev, PTR_ERR(plat),
 				     "dt configuration failed\n");
 
-	/* tx clock */
-	gmac->tx_clk = devm_clk_get(&pdev->dev, "tx");
-	if (IS_ERR(gmac->tx_clk))
-		return dev_err_probe(dev, PTR_ERR(gmac->tx_clk),
-				     "tx clock not found\n");
-
-	/* rx clock */
-	gmac->rx_clk = devm_clk_get(&pdev->dev, "rx");
-	if (IS_ERR(gmac->rx_clk))
-		return dev_err_probe(dev, PTR_ERR(gmac->rx_clk),
-				     "rx clock not found\n");
+	if (gmac->ops->init_clocks) {
+		ret = gmac->ops->init_clocks(gmac);
+		if (ret)
+			return ret;
+	}
 
 	if (plat->phy_interface == PHY_INTERFACE_MODE_SGMII) {
 		serdes_phy = devm_phy_get(&pdev->dev, "gmac_xpcs");
@@ -372,6 +367,23 @@ static int s32g2_dwmac_init(struct platform_device *pdev, struct s32_priv_data *
 	return 0;
 }
 
+static int s32g2_dwmac_init_clocks(struct s32_priv_data *gmac)
+{
+	struct device *dev = gmac->dev;
+
+	gmac->tx_clk = devm_clk_get(dev, "tx");
+	if (IS_ERR(gmac->tx_clk))
+		return dev_err_probe(dev, PTR_ERR(gmac->tx_clk),
+			"tx clock not found\n");
+
+	gmac->rx_clk = devm_clk_get(dev, "rx");
+	if (IS_ERR(gmac->rx_clk))
+		return dev_err_probe(dev, PTR_ERR(gmac->rx_clk),
+			"rx clock not found\n");
+
+	return 0;
+}
+
 static int s32g2_dwmac_set_intf_mode(struct s32_priv_data *gmac)
 {
 	if (*gmac->intf_mode != PHY_INTERFACE_MODE_SGMII &&
@@ -399,11 +411,13 @@ static int s32r47_dwmac_set_intf_mode(struct s32_priv_data *gmac)
 
 static const struct s32_dwmac_ops s32cc_ops = {
 	.platform_init = s32g2_dwmac_init,
+	.init_clocks   = s32g2_dwmac_init_clocks,
 	.set_intf_mode = s32g2_dwmac_set_intf_mode,
 };
 
 static const struct s32_dwmac_ops s32r47_ops = {
 	.platform_init = NULL,
+	.init_clocks   = NULL,
 	.set_intf_mode = s32r47_dwmac_set_intf_mode,
 };
 
