@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: (GPL-2.0+ OR BSD-3-Clause)
 /*
- * Copyright 2025 NXP
+ * Copyright 2025-2026 NXP
  */
 
 /dts-v1/;
@@ -72,6 +72,12 @@
 		scmi_tx_buf: shm@93000000 {
 			compatible = "arm,scmi-shmem";
 			reg = <0x0 0x93000000 0x0 0x80>;
+			no-map;
+		};
+
+		tlv_shbuf: shm@93002000 {
+			compatible = "nxp,s32n79-tlv";
+			reg = <0x0 0x93002000 0x0 0x2000>;
 			no-map;
 		};
 	};

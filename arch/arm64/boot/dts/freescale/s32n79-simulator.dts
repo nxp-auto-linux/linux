@@ -84,6 +84,12 @@
 			reg = <0x0 0x93000000 0x0 0x80>;
 			no-map;
 		};
+
+		tlv_shbuf: shm@93002000 {
+			compatible = "nxp,s32n79-tlv";
+			reg = <0x0 0x93002000 0x0 0x2000>;
+			no-map;
+		};
 	};
 };
 
