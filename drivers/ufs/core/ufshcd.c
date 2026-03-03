@@ -152,30 +152,107 @@ MODULE_PARM_DESC(uic_cmd_timeout,
 		       16, 4, buf, __len, false);                        \
 } while (0)
 
+static bool ufshcd_base_reg_implemented(struct ufs_hba *hba, u32 off)
+{
+	switch (off) {
+	case REG_CONTROLLER_CAPABILITIES:
+	case REG_UFS_VERSION:
+	case REG_CONTROLLER_PID:
+	case REG_CONTROLLER_MID:
+	case REG_AUTO_HIBERNATE_IDLE_TIMER:
+	case REG_INTERRUPT_STATUS:
+	case REG_INTERRUPT_ENABLE:
+	case REG_CONTROLLER_STATUS:
+	case REG_CONTROLLER_ENABLE:
+	case REG_UIC_ERROR_CODE_PHY_ADAPTER_LAYER:
+	case REG_UIC_ERROR_CODE_DATA_LINK_LAYER:
+	case REG_UIC_ERROR_CODE_NETWORK_LAYER:
+	case REG_UIC_ERROR_CODE_TRANSPORT_LAYER:
+	case REG_UIC_ERROR_CODE_DME:
+	case REG_UTP_TRANSFER_REQ_INT_AGG_CONTROL:
+	case REG_UTP_TRANSFER_REQ_LIST_BASE_L:
+	case REG_UTP_TRANSFER_REQ_LIST_BASE_H:
+	case REG_UTP_TRANSFER_REQ_DOOR_BELL:
+	case REG_UTP_TRANSFER_REQ_LIST_CLEAR:
+	case REG_UTP_TRANSFER_REQ_LIST_RUN_STOP:
+	case REG_UTP_TRANSFER_REQ_COMPLETION:
+	case REG_UTP_TASK_REQ_LIST_BASE_L:
+	case REG_UTP_TASK_REQ_LIST_BASE_H:
+	case REG_UTP_TASK_REQ_DOOR_BELL:
+	case REG_UTP_TASK_REQ_LIST_CLEAR:
+	case REG_UTP_TASK_REQ_LIST_RUN_STOP:
+	case REG_UIC_COMMAND:
+	case REG_UIC_COMMAND_ARG_1:
+	case REG_UIC_COMMAND_ARG_2:
+	case REG_UIC_COMMAND_ARG_3:
+		return true;
+	case REG_EXT_CONTROLLER_CAPABILITIES:
+		return hba->ufs_version >= ufshci_version(4, 0);
+	case REG_MCQCAP:
+		return is_mcq_supported(hba);
+	default:
+		return false;
+	}
+}
+
+static bool ufshcd_ext_reg_implemented(struct ufs_hba *hba, u32 off, u32 cap)
+{
+	bool has_crypto = !!(cap & MASK_CRYPTO_SUPPORT);
+
+	switch (off) {
+	case REG_UFS_CCAP:
+	case REG_UFS_CRYPTOCAP:
+		return has_crypto;
+	case REG_UFS_MEM_CFG:
+		return hba->ufs_version >= ufshci_version(4, 0);
+	case REG_UFS_MCQ_CFG:
+	case REG_UFS_ESILBA:
+	case REG_UFS_ESIUBA:
+		return is_mcq_supported(hba);
+	default:
+		return false;
+	}
+}
+
+static bool ufshcd_reg_implemented(struct ufs_hba *hba, u32 off, u32 cap)
+{
+	if (off < UFSHCI_REG_SPACE_SIZE)
+		return ufshcd_base_reg_implemented(hba, off);
+	return ufshcd_ext_reg_implemented(hba, off, cap);
+}
+
 int ufshcd_dump_regs(struct ufs_hba *hba, size_t offset, size_t len,
 		     const char *prefix)
 {
+	u32 cap, off;
 	u32 *regs;
 	size_t pos;
 
-	if (offset % 4 != 0 || len % 4 != 0) /* keep readl happy */
+	if (offset % 4 != 0 || len % 4 != 0)
 		return -EINVAL;
 
 	regs = kzalloc(len, GFP_ATOMIC);
 	if (!regs)
 		return -ENOMEM;
 
+	cap = ufshcd_readl(hba, REG_CONTROLLER_CAPABILITIES);
+
 	for (pos = 0; pos < len; pos += 4) {
+		off = offset + pos;
+
 		if (offset == 0 &&
 		    pos >= REG_UIC_ERROR_CODE_PHY_ADAPTER_LAYER &&
 		    pos <= REG_UIC_ERROR_CODE_DME)
 			continue;
-		regs[pos / 4] = ufshcd_readl(hba, offset + pos);
+
+		if (!ufshcd_reg_implemented(hba, off, cap))
+			continue;
+
+		regs[pos / 4] = ufshcd_readl(hba, off);
 	}
 
 	ufshcd_hex_dump(prefix, regs, len);
 	kfree(regs);
-
 	return 0;
 }
 EXPORT_SYMBOL_GPL(ufshcd_dump_regs);
