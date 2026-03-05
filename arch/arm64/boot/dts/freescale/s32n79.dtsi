@@ -516,7 +516,7 @@
 		};
 
 		ufshci0: ufs@4acb0000 {
-			compatible = "nxp,s32n79-ufshc", "jedec,ufs-3.0";
+			compatible = "nxp,s32n79-ufshc-virt", "jedec,ufs-3.0";
 			reg = <0x4acb0000 0x1000>;
 			interrupt-parent = <&irqsteer_coss>;
 			interrupts = <212>;
@@ -525,7 +525,7 @@
 		};
 
 		ufshci1: ufs@4acd0000 {
-			compatible = "nxp,s32n79-ufshc", "jedec,ufs-3.0";
+			compatible = "nxp,s32n79-ufshc-virt", "jedec,ufs-3.0";
 			reg = <0x4acd0000 0x1000>;
 			interrupt-parent = <&irqsteer_coss>;
 			interrupts = <213>;
@@ -534,7 +534,7 @@
 		};
 
 		ufshci2: ufs@4acf0000 {
-			compatible = "nxp,s32n79-ufshc", "jedec,ufs-3.0";
+			compatible = "nxp,s32n79-ufshc-virt", "jedec,ufs-3.0";
 			reg = <0x4acf0000 0x1000>;
 			interrupt-parent = <&irqsteer_coss>;
 			interrupts = <214>;
@@ -543,7 +543,7 @@
 		};
 
 		ufshci3: ufs@4ad10000 {
-			compatible = "nxp,s32n79-ufshc", "jedec,ufs-3.0";
+			compatible = "nxp,s32n79-ufshc-virt", "jedec,ufs-3.0";
 			reg = <0x4ad10000 0x1000>;
 			interrupt-parent = <&irqsteer_coss>;
 			interrupts = <215>;
