@@ -445,6 +445,10 @@ static const struct of_device_id ufs_s32n79_match[] = {
 		.compatible = "nxp,s32n79-ufshc",
 		.data = &ufs_hba_s32n79_vops,
 	},
+	{
+		.compatible = "nxp,s32n79-ufshc-virt",
+		.data = &ufs_hba_s32n79_vops,
+	},
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, ufs_s32n79_match);
