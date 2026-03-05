@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /*
- * Copyright 2024-2025 NXP
+ * Copyright 2024-2026 NXP
  *
  */
 
@@ -381,9 +381,16 @@ out:
 	return err;
 }
 
+struct s32n79_match_data {
+	const struct ufs_hba_variant_ops *vops;
+	unsigned short sg_tablesize;
+};
+
 static int ufs_s32n_init(struct ufs_hba *hba)
 {
 	struct device *dev = hba->dev;
+	const struct s32n79_match_data *data =
+				of_device_get_match_data(hba->dev);
 	struct platform_device *pdev = to_platform_device(dev);
 	struct device_node *np = dev->of_node;
 	const char *mphy_boot_mode;
@@ -398,6 +405,9 @@ static int ufs_s32n_init(struct ufs_hba *hba)
 	ufs->mphy_boot_mode = MPHY_BOOT_NONE;
 
 	hba->quirks |= UFSHCD_QUIRK_BROKEN_AUTO_HIBERN8;
+
+	if (data && hba->host && data->sg_tablesize)
+		hba->host->sg_tablesize = data->sg_tablesize;
 
 	ret = of_property_read_string(np, "nxp,mphy-boot-mode", &mphy_boot_mode);
 	if (ret || !mphy_boot_mode) {
@@ -440,14 +450,24 @@ static struct ufs_hba_variant_ops ufs_hba_s32n79_vops = {
 	.link_startup_notify = ufs_s32n_link_startup_notify,
 };
 
+static const struct s32n79_match_data ufs_s32n79_data = {
+	.vops = &ufs_hba_s32n79_vops,
+	.sg_tablesize = SG_ALL,
+};
+
+static const struct s32n79_match_data ufs_s32n79_virt_data = {
+	.vops = &ufs_hba_s32n79_vops,
+	.sg_tablesize = 120,
+};
+
 static const struct of_device_id ufs_s32n79_match[] = {
 	{
 		.compatible = "nxp,s32n79-ufshc",
-		.data = &ufs_hba_s32n79_vops,
+		.data = &ufs_s32n79_data,
 	},
 	{
 		.compatible = "nxp,s32n79-ufshc-virt",
-		.data = &ufs_hba_s32n79_vops,
+		.data = &ufs_s32n79_virt_data,
 	},
 	{ /* sentinel */ }
 };
@@ -455,11 +475,15 @@ MODULE_DEVICE_TABLE(of, ufs_s32n79_match);
 
 static int ufs_s32n79_probe(struct platform_device *pdev)
 {
+	const struct s32n79_match_data *data;
 	const struct of_device_id *of_id;
 
 	of_id = of_match_node(ufs_s32n79_match, pdev->dev.of_node);
+	if (!of_id || !of_id->data)
+		return -ENODEV;
 
-	return ufshcd_pltfrm_init(pdev, of_id->data);
+	data = of_id->data;
+	return ufshcd_pltfrm_init(pdev, data->vops);
 }
 
 static void ufs_s32n79_remove(struct platform_device *pdev)
