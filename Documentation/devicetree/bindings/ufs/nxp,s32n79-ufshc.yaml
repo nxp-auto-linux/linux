@@ -14,7 +14,9 @@ select:
   properties:
     compatible:
       contains:
-        const: nxp,s32n79-ufshc
+        enum:
+          - nxp,s32n79-ufshc
+          - nxp,s32n79-ufshc-virt
   required:
     - compatible
 
@@ -24,7 +26,9 @@ allOf:
 properties:
   compatible:
     items:
-      - const: nxp,s32n79-ufshc
+      - enum:
+        - nxp,s32n79-ufshc
+        - nxp,s32n79-ufshc-virt
       - const: jedec,ufs-3.0
 
   reg:
