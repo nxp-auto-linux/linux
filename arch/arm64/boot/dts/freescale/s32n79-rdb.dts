@@ -124,7 +124,7 @@
 };
 
 &pcie2 {
-	status = "disabled";
+	status = "okay";
 };
 
 &ufshc {
