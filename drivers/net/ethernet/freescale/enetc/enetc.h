@@ -536,6 +536,9 @@ struct enetc_ndev_priv {
 	struct clk *ref_clk; /* RGMII/RMII reference clock */
 	u64 sysclk_freq; /* NETC system clock frequency */
 
+	/* number of supported Rx rings for RSS */
+	u16 num_rss_rings;
+
 	/* Kernel stack and XDP share the tx rings */
 	bool shared_tx_rings;
 
