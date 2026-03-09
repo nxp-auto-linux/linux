@@ -749,7 +749,7 @@ static int enetc_get_rxnfc(struct net_device *ndev, struct ethtool_rxnfc *rxnfc,
 
 	switch (rxnfc->cmd) {
 	case ETHTOOL_GRXRINGS:
-		rxnfc->data = priv->num_rx_rings;
+		rxnfc->data = priv->num_rss_rings;
 		break;
 	case ETHTOOL_GRXFH:
 		/* get RSS hash config */
