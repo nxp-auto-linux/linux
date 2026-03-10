@@ -289,14 +289,6 @@
 	status = "okay";
 };
 
-&mru_msi_controller {
-	status = "okay";
-};
-
-&aps0_mru0 {
-	status = "okay";
-};
-
 &aps0_mru1 {
 	status = "okay";
 };
@@ -325,7 +317,31 @@
 	status = "okay";
 };
 
-&aps2_mru0 {
+&aps1_mru1 {
+	status = "okay";
+};
+
+&aps1_mru2 {
+	status = "okay";
+};
+
+&aps1_mru3 {
+	status = "okay";
+};
+
+&aps1_mru4 {
+	status = "okay";
+};
+
+&aps1_mru5 {
+	status = "okay";
+};
+
+&aps1_mru6 {
+	status = "okay";
+};
+
+&aps1_mru7 {
 	status = "okay";
 };
 
@@ -354,10 +370,6 @@
 };
 
 &aps2_mru7 {
-	status = "okay";
-};
-
-&aps3_mru0 {
 	status = "okay";
 };
 
