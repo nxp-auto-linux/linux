@@ -1,0 +1,20 @@
+# SPDX-License-Identifier: GPL-2.0 OR BSD-3-Clause
+
+config NXP_CDMA
+	tristate "NXP S32N Central DMA (CDMA) Engine"
+	depends on PCI && PCI_MSI
+	depends on ARM64 || COMPILE_TEST
+	depends on HAS_IOMEM
+	help
+	  Enable support for the NXP S32N79 Central DMA (CDMA) controller.
+	  The CDMA is a PCIe Root Complex Integrated Endpoint providing
+	  high-bandwidth memory-to-memory, scatter-gather, multicast, and
+	  pipe transfer capabilities with zero-copy I/O.
+
+	  The driver exposes char devices (/dev/cdma-pipeN-tx and
+	  /dev/cdma-pipeN-rx) for userspace pipe communication. A Linux
+	  DMA engine interface for in-kernel consumers may be added in
+	  the future.
+
+	  Firmware must pre-configure XRDC, clocks, and IERB registers
+	  before Linux boots.
