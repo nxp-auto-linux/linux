@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0 OR BSD-3-Clause
 /*
- * Copyright 2024-2025 NXP
+ * Copyright 2024-2026 NXP
  *
  * CAR-V NET remoteproc driver
  *
@@ -429,7 +429,6 @@ static int q_set_prio_region(struct carvnet *priv, struct carveout_info *info,
 	ulong m_size = roundup_pow_of_two(len);
 	int i = *prio_n;
 	u64 off64;
-	int bar;
 
 	if (*prio_n >= CARV_AT_PRIO_REGIONS) {
 		dev_err(priv->dev, "Too many priority region mappings\n");
@@ -464,7 +463,7 @@ static int q_set_prio_region(struct carvnet *priv, struct carveout_info *info,
 	}
 
 	r_off = r_off / SZ_16K;
-	r_mem = bar;
+	r_mem = info->bar_index;
 
 	r_value = CARV_Q_AT_RCR_OFF(r_off) |
 		CARV_Q_AT_RCR_SIZE(r_size) |
