@@ -94,3 +94,7 @@
 &i2c1 {
 	status = "okay";
 };
+
+&mscm0 {
+	status = "okay";
+};
