@@ -269,7 +269,6 @@ struct __packed fw_rsc_vendor_carv_match_addr {
 struct __packed carvnet_bar_info {
 	u8  bar_type;
 	u64 addr;
-	u64 addr_end;
 };
 
 #define MAX_QUARTILES 2U
@@ -491,7 +490,7 @@ static int q_set_prio_region(struct carvnet *priv, struct carveout_info *info,
 static int g_get_bar(struct carvnet *priv, u8 bar_type, struct rproc_mem_entry *mem)
 {
 	struct carvnet_bar_info *bar_info = NULL;
-	u64 diff, addr, addr_end;
+	u64 addr;
 	int i, ret;
 
 	/* Try to find existing bar_info - matching type and <4GB offset */
@@ -502,12 +501,9 @@ static int g_get_bar(struct carvnet *priv, u8 bar_type, struct rproc_mem_entry *
 
 		/* Check if superset of current BAR + the new region fits into 4GB */
 		addr     = min(bar_info->addr, mem->dma);
-		addr_end = max(bar_info->addr_end, mem->dma + mem->len);
 
-		diff = addr_end - addr;
-		if (diff < SZ_4G) {
+		if (mem->dma + mem->len - addr < SZ_4G) {
 			bar_info->addr = addr;
-			bar_info->addr_end = addr_end;
 			return i;
 		}
 	}
@@ -525,7 +521,6 @@ static int g_get_bar(struct carvnet *priv, u8 bar_type, struct rproc_mem_entry *
 	bar_info->addr = mem->dma;
 	if (mem->dma > ULONG_MAX - mem->len) /* Overflow check to comply with coverity */
 		return -EINVAL;
-	bar_info->addr_end = mem->dma + mem->len;
 	priv->bar_info_cnt++;
 
 	return ret;
