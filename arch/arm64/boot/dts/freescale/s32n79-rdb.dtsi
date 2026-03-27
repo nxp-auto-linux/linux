@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: (GPL-2.0+ OR BSD-3-Clause)
 /*
- * Copyright 2024-2025 NXP
+ * Copyright 2024-2026 NXP
  */
 
 /dts-v1/;
@@ -54,10 +54,10 @@
 			status = "disabled";
 		};
 
-		carv0_packet_sram: packet-sram@d1110000 {
+		carv0_packet_sram: packet-sram@25d40000 {
 			compatible = "shared-dma-pool";
-			/* 128 KB */
-			reg = <0 0xd1110000 0 0x20000>;
+			/* 512 KB */
+			reg = <0 0x25d40000 0 0x80000>;
 			no-map;
 			status = "disabled";
 		};
