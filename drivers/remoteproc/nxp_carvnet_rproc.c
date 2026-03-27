@@ -385,6 +385,11 @@ static int q_set_simple_region(struct carvnet *priv, struct rproc_mem_entry *m,
 		r_size = fls(m_size / SZ_16K) - 1;
 	}
 
+	if (m_size > SZ_512M) {
+		dev_err(priv->dev, "Simple region exceeded 512M\n");
+		return -EINVAL;
+	}
+
 	if (!IS_ALIGNED(r_off, SZ_16K)) {
 		dev_err(priv->dev,
 			"Mapping %d (%s) offset is not aligned to SZ_16K: 0x%x",
@@ -445,6 +450,11 @@ static int q_set_prio_region(struct carvnet *priv, struct carveout_info *info,
 		r_size = 0;
 	} else {
 		r_size = fls(m_size / SZ_4K) - 1;
+	}
+
+	if (m_size > SZ_128M) {
+		dev_err(priv->dev, "Priority region exceeded 128M\n");
+		return -EINVAL;
 	}
 
 	if (!IS_ALIGNED(r_off, SZ_16K)) {
