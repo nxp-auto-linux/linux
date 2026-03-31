@@ -154,3 +154,7 @@
 &mru_msi_controller {
 	status = "okay";
 };
+
+&hscs_cdma_iep {
+	status = "okay";
+};
