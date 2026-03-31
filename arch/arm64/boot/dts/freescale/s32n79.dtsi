@@ -1420,6 +1420,31 @@
 
 	};
 
+	hscs_subsys {
+		compatible = "simple-bus";
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges = <0x3 0x00000000 0x3 0x00000000 0x0 0x1800000>,
+			 <0x0 0x4d000000 0x0 0x4d000000 0x0 0x620000>;
+
+		hscs_cdma_iep: pcie@300000000 {
+			compatible = "pci-host-ecam-generic";
+			reg = <0x3 0x00000000 0x0 0x1800000>;
+			#address-cells = <3>;
+			#size-cells = <2>;
+			iommu-map = <0x0 &smmu 0x50000 0xff>;
+			msi-parent = <&its>;
+			msi-map = <0x0 &its 0x50000 0xff>;
+			device_type = "pci";
+			bus-range = <0x0 0x0>;
+			status = "disabled";
+
+			/* HSCS CDMA device registers via EA (Normal space) */
+			ranges = <0x82000000 0x0 0x4d000000
+				  0x0 0x4d000000 0x0 0x620000>;
+		};
+	};
+
 	pcie0: pcie@4c000000 {
 		compatible = "nxp,s32n79-pcie";
 		device_type = "pci";
