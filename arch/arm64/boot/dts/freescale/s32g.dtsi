@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later OR MIT
 /*
- * Copyright 2019-2024 NXP
+ * Copyright 2019-2024, 2026 NXP
  */
 
 #include "s32cc.dtsi"
@@ -17,6 +17,16 @@
 		serial4 = &llce_uart1;
 		serial5 = &llce_uart2;
 		serial6 = &llce_uart3;
+	};
+
+	memory@80000000 {
+		device_type = "memory";
+		reg = <0 0x80000000 0 0x80000000>;
+	};
+
+	memory@880000000 {
+		device_type = "memory";
+		reg = <0x8 0x80000000 0 0x80000000>;
 	};
 
 	reserved-memory {
