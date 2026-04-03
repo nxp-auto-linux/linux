@@ -3,7 +3,7 @@
  * NXP S32G2 SoC family
  *
  * Copyright (c) 2021 SUSE LLC
- * Copyright 2017-2025 NXP
+ * Copyright 2017-2026 NXP
  */
 
 #include <dt-bindings/interrupt-controller/arm-gic.h>
@@ -1017,6 +1017,10 @@
 
 			shared-mem = <&pci_shared_memory0>;
 
+			/* PCIe uses Serdes0 lanes 0 and 1 */
+			phys = <&serdes0 0x02 0x00 0 &serdes0 0x02 0x00 1>;
+			phy-names = "serdes_lane0", "serdes_lane1";
+
 			nvmem-cell-names = "serdes_presence", "pcie_dev_id";
 			nvmem-cells = <&serdes_presence>, <&pcie_dev_id>;
 
@@ -1034,7 +1038,7 @@
 			resets = <&reset S32CC_SCMI_RST_SERDES0>,
 				 <&reset S32CC_SCMI_RST_PCIE0>;
 			reset-names = "serdes", "pcie";
-			nxp,sys-mode = <XPCSX2_MODE>;
+			nxp,sys-mode = <0x0>;
 			reg = <0x0 0x40480000 0x0 0x108>,
 			      <0x0 0x40483008 0x0 0x10>,
 			      <0x0 0x40482000 0x0 0x800>,
@@ -1095,7 +1099,7 @@
 			resets = <&reset S32CC_SCMI_RST_SERDES1>,
 				 <&reset S32CC_SCMI_RST_PCIE1>;
 			reset-names = "serdes", "pcie";
-			nxp,sys-mode = <PCIE_XPCS0_MODE>;
+			nxp,sys-mode = <0x4>;
 			reg = <0x0 0x44180000 0x0 0x108>,
 			      <0x0 0x44183008 0x0 0x10>,
 			      <0x0 0x44182000 0x0 0x800>,
