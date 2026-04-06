@@ -28,4 +28,12 @@ config S32_ARM_SCMI_GPIO
 
 	  Say N if you are unsure.
 
+config S32_ARM_SCMI_NXP_MISC
+	bool "NXP Miscellaneous SCMI Vendor Protocol Extension"
+	depends on ARM_SCMI_PROTOCOL || COMPILE_TEST
+	help
+	  Adds NXP Miscellaneous vendor protocol extension over SCMI for
+	  S32N7-based platforms.
+
+	  Say N if unsure.
 endmenu
