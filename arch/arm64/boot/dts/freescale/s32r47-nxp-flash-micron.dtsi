@@ -49,17 +49,17 @@
 
 			kernel@1530000 {
 				label = "Kernel";
-				reg = <0x1530000 0xF80000>;
+				reg = <0x1530000 0x1280000>;
 			};
 
-			dtb@2430000 {
+			dtb@27B0000 {
 				label = "DTB";
-				reg = <0x24B0000 0x10000>;
+				reg = <0x27B0000 0x10000>;
 			};
 
-			rootfs@2440000 {
+			rootfs@27C0000 {
 				label = "Rootfs";
-				reg = <0x24C0000 0x1A40000>;
+				reg = <0x27C0000 0x1740000>;
 			};
 		};
 	};
