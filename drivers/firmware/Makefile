@@ -33,6 +33,7 @@ obj-y				+= efi/
 obj-y				+= imx/
 obj-y				+= psci/
 obj-y				+= qcom/
+obj-y				+= s32/
 obj-y				+= smccc/
 obj-y				+= tegra/
 obj-y				+= xilinx/
