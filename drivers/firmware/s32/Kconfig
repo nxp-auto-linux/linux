@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: GPL-2.0-only
+config S32N_SCMI_MEMORY_HOTPLUG
+    bool "S32N SCMI Memory Hotplug Driver"
+    depends on MEMORY_HOTPLUG
+    depends on S32_ARM_SCMI_NXP_MISC
+    select MEMORY_HOTPLUG_DEFAULT_ONLINE
+    help
+      Enable support for memory hotplug operations controlled via
+      the SCMI NXP Misc vendor protocol extension.
+
+      This driver allows dynamic memory hotplug operations and is
+      intended to be used on NXP S32N-based platforms.
