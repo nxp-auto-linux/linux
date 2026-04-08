@@ -257,6 +257,15 @@
 /* Port Rx discard count register */
 #define ENETC4_PRXDCR			0x41c0
 
+/* Port Rx discard count read-reset register */
+#define ENETC4_PRXDCRRR			0x41c4
+
+/* Port Rx discard count reason register 0 */
+#define ENETC4_PRXDCRR0			0x41c8
+
+/* Port Rx discard count reason register 1 */
+#define ENETC4_PRXDCRR1			0x41cc
+
 /* Port traffic class a transmit maximum SDU register */
 #define ENETC4_PTCTMSDUR(a)		((a) * 0x20 + 0x4208)
 #define  PTCTMSDUR_MAXSDU		GENMASK(15, 0)
@@ -479,6 +488,9 @@
 
 /* Port MAC 0/1 Transmit Excessive Collisions Counter */
 #define ENETC4_PM_TECOL(mac)		(0x52f0 + (mac) * 0x400)
+
+/* Port MAC 0/1 Transmit Invalid Octets Counter */
+#define ENETC4_PM_TIOCT(mac)		(0x52f8 + (mac) * 0x400)
 
 /* Port MAC 0 Interface Mode Control Register */
 #define ENETC4_PM_IF_MODE(mac)		(0x5300 + (mac) * 0x400)
