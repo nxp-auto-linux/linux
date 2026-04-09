@@ -95,6 +95,10 @@
 	};
 };
 
+&nxp_misc {
+	nxp,ddr-regions = <&ddr_high0>, <&ddr_high1>;
+};
+
 &irqsteer_coss {
 	status = "okay";
 };
