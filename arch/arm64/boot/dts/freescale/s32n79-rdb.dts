@@ -64,6 +64,18 @@
 		reg = <0 0x80000000 0 0x80000000>;
 	};
 
+	ddr_high0: memory@8800000000 {
+		device_type = "memory";
+		reg = <0x88 0x00000000 0x3 0x40000000>; /* 13GB */
+		status = "disabled";
+	};
+
+	ddr_high1: memory@c000000000 {
+		device_type = "memory";
+		reg = <0xc0 0x00000000 0x3 0x40000000>; /* 13GB */
+		status = "disabled";
+	};
+
 	reserved-memory {
 		#address-cells = <2>;
 		#size-cells = <2>;
