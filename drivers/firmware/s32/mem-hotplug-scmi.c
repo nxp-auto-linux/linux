@@ -85,6 +85,34 @@ static int get_instance_id(u64 addr, u64 size)
 }
 
 /**
+ * hotplug_memory_region - Add a memory region to the system
+ * @dev: Device pointer
+ * @addr: Physical start address of the memory region
+ * @size: Size of the memory region in bytes
+ *
+ * Registers a physical memory region within the kernel's memory subsystem,
+ * making it available for use. The driver currently enforces the auto-online
+ * policy for the hotplugged memory, so no further action is required and
+ * the memory is ready to use.
+ *
+ * Return: 0 on success, or a negative error code on failure.
+ */
+static int hotplug_memory_region(struct device *dev, u64 addr, u64 size)
+{
+	int nid = memory_add_physaddr_to_nid(addr);
+	int ret;
+
+	if (nid == NUMA_NO_NODE)
+		nid = first_online_node;
+
+	ret = add_memory(nid, addr, size, MHP_MERGE_RESOURCE | MHP_MEMMAP_ON_MEMORY);
+	if (ret)
+		dev_err(dev, "Failed to add memory (addr=0x%llx): %d\n", addr, ret);
+
+	return ret;
+}
+
+/**
  * init_ddr_region_in_chunks - Initialize a DDR region by splitting it in smaller
  * block sizes.
  * @dev: Device pointer
@@ -116,6 +144,13 @@ static int init_ddr_region_in_chunks(struct device *dev, struct ddr_region *reg)
 			if (ret) {
 				dev_err(dev, "Error %d initializing DDR region at 0x%llx\n",
 					ret, addr);
+				return ret;
+			}
+
+			/* register each memory block and make it available to the kernel */
+			ret = hotplug_memory_region(dev, addr, chunk_size);
+			if (ret) {
+				dev_err(dev, "Error %d hotplugging memory at 0x%llx\n", ret, addr);
 				return ret;
 			}
 		} else {
