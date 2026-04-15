@@ -2353,6 +2353,7 @@ const struct ethtool_ops enetc4_ppm_ethtool_ops = {
 	.get_ethtool_stats = enetc_get_ethtool_stats,
 	.get_eth_mac_stats = enetc_ppm_get_eth_mac_stats,
 	.get_rxnfc = enetc_get_rxnfc,
+	.set_rxnfc = enetc_set_rxnfc,
 	.get_rxfh_key_size = enetc_get_rxfh_key_size,
 	.get_rxfh_indir_size = enetc_get_rxfh_indir_size,
 	.get_rxfh = enetc_get_rxfh,
