@@ -208,7 +208,6 @@ static int netc_port_get_info_from_dt(struct netc_port *port,
 static bool netc_port_has_pcs(phy_interface_t phy_mode)
 {
 	return (phy_mode == PHY_INTERFACE_MODE_SGMII ||
-		phy_mode == PHY_INTERFACE_MODE_1000BASEX ||
 		phy_mode == PHY_INTERFACE_MODE_2500BASEX);
 }
 
