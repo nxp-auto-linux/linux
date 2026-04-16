@@ -1787,12 +1787,7 @@ static int netc_port_change_mtu(struct dsa_switch *ds, int port_id, int new_mtu)
 
 static int netc_port_max_mtu(struct dsa_switch *ds, int port_id)
 {
-	int mtu = NETC_MAX_FRAME_LEN - VLAN_ETH_HLEN - ETH_FCS_LEN;
-
-	if (dsa_is_cpu_port(ds, port_id))
-		mtu -= NETC_TAG_MAX_LEN;
-
-	return mtu;
+	return NETC_MAX_FRAME_LEN - VLAN_ETH_HLEN - ETH_FCS_LEN;
 }
 
 static struct net_device *netc_classify_db(struct dsa_db db)
