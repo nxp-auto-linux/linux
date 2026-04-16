@@ -1,0 +1,61 @@
+# SPDX-License-Identifier: (GPL-2.0 OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/firmware/nxp,misc-scmi.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: S32N System Control and Management Interface (SCMI) Vendor Protocols Extension
+
+maintainers:
+  - NXP S32 Linux Team <s32@nxp.com>
+
+properties:
+  protocol@86:
+    $ref: '/schemas/firmware/arm,scmi.yaml#/$defs/protocol-node'
+    unevaluatedProperties: false
+
+    description:
+      NXP MISC protocol node for S32 platforms. This protocol provides
+      DDR partial initialization functionality.
+
+    properties:
+      reg:
+        const: 0x86
+
+      nxp,ddr-regions:
+        $ref: /schemas/types.yaml#/definitions/phandle-array
+        minItems: 1
+        description:
+          List of phandles to reserved memory regions that represent
+          DDR areas to be initialized using the SCMI NXP MISC protocol.
+
+    required:
+      - reg
+
+additionalProperties: false
+
+examples:
+  - |
+    ddr_high0: memory@8800000000 {
+      device_type = "memory";
+      reg = <0x88 0x00000000 0x3 0x40000000>;
+      status = "disabled";
+    };
+
+    ddr_high1: memory@c000000000 {
+      device_type = "memory";
+      reg = <0xc0 0x00000000 0x3 0x40000000>;
+      status = "disabled";
+    };
+
+    firmware {
+      scmi {
+        #address-cells = <1>;
+        #size-cells = <0>;
+
+        nxp_misc: protocol@86 {
+          reg = <0x86>;
+          nxp,ddr-regions = <&ddr_high0>, <&ddr_high1>;
+        };
+      };
+    };
