@@ -2397,11 +2397,6 @@ static void netc_port_set_mac_mode(struct netc_port *port,
 	case PHY_INTERFACE_MODE_RGMII_RXID:
 	case PHY_INTERFACE_MODE_RGMII_TXID:
 		val |= IFMODE_RGMII;
-		/* We need to enable auto-negotiation for the MAC
-		 * if its RGMII interface support In-Band status.
-		 */
-		if (phylink_autoneg_inband(mode))
-			val |= PM_IF_MODE_ENA;
 		break;
 	case PHY_INTERFACE_MODE_RMII:
 		val |= IFMODE_RMII;
@@ -2514,22 +2509,6 @@ static void net_port_set_rmii_mii_mac(struct netc_port *port,
 	netc_mac_port_wr(port, NETC_PM_IF_MODE(0), val);
 }
 
-static void netc_port_set_hd_flow_control(struct netc_port *port,
-					  bool enable)
-{
-	u32 old_val, val;
-
-	if (!port->caps.half_duplex)
-		return;
-
-	old_val = netc_mac_port_rd(port, NETC_PM_CMD_CFG(0));
-	val = u32_replace_bits(old_val, enable ? 1 : 0, PM_CMD_CFG_HD_FCEN);
-	if (val == old_val)
-		return;
-
-	netc_mac_port_wr(port, NETC_PM_CMD_CFG(0), val);
-}
-
 void netc_port_set_tx_pause(struct netc_port *port, bool tx_pause)
 {
 	struct netc_switch *priv = port->switch_priv;
@@ -2600,15 +2579,12 @@ static void netc_mac_link_up(struct phylink_config *config,
 	struct dsa_port *dp = dsa_phylink_to_port(config);
 	struct netc_switch *priv = dp->ds->priv;
 	struct netc_port *port;
-	bool hd_fc = false;
 
 	port = NETC_PORT(priv, dp->index);
 	netc_port_set_speed(port, speed);
 
-	if (phy_interface_mode_is_rgmii(interface) &&
-	    !phylink_autoneg_inband(mode)) {
+	if (phy_interface_mode_is_rgmii(interface))
 		netc_port_force_set_rgmii_mac(port, speed, duplex);
-	}
 
 	if (interface == PHY_INTERFACE_MODE_RMII ||
 	    interface == PHY_INTERFACE_MODE_REVMII ||
@@ -2616,25 +2592,14 @@ static void netc_mac_link_up(struct phylink_config *config,
 		net_port_set_rmii_mii_mac(port, speed, duplex);
 	}
 
-	if (duplex == DUPLEX_HALF) {
-		if (tx_pause || rx_pause)
-			hd_fc = true;
-
-		/* As per 802.3 annex 31B, PAUSE frames are only supported
-		 * when the link is configured for full duplex operation.
-		 */
-		tx_pause = false;
-		rx_pause = false;
-	} else if (duplex == DUPLEX_FULL) {
+	if (port->offloads & NETC_FLAG_QBU && duplex == DUPLEX_FULL) {
 		/* When preemption is enabled, generation of PAUSE frames
 		 * must be disabled, as stated in the IEEE 802.3 standard.
 		 */
-		if (port->offloads & NETC_FLAG_QBU)
-			tx_pause = false;
+		tx_pause = false;
 	}
 
 	port->tx_pause = tx_pause ? 1 : 0;
-	netc_port_set_hd_flow_control(port, hd_fc);
 	netc_port_set_tx_pause(port, tx_pause);
 	netc_port_set_rx_pause(port, rx_pause);
 	netc_port_enable_mac_path(port, true);
