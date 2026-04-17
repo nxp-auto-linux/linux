@@ -990,57 +990,64 @@ static void netc_teardown(struct dsa_switch *ds)
 	netc_free_ports_taprio(priv);
 }
 
-static bool netc_switch_is_emdio_consumer(struct device_node *ports)
+static bool netc_port_is_emdio_consumer(struct device_node *node)
 {
-	struct device_node *phy_node, *mdio_node;
+	struct device_node *mdio_node;
 
-	for_each_available_child_of_node_scoped(ports, child) {
-		/* If the node does not have phy-handle property, then
-		 * the port does not connect to a PHY, so the port is
-		 * not the EMDIO consumer.
-		 */
-		phy_node = of_parse_phandle(child, "phy-handle", 0);
-		if (!phy_node)
-			continue;
+	/* If the port node has phy-handle property and it does
+	 * not contain a mdio child node, then the port is the
+	 * EMDIO consumer.
+	 */
+	mdio_node = of_get_child_by_name(node, "mdio");
+	if (!mdio_node)
+		return true;
 
-		of_node_put(phy_node);
-		/* If the port node has phy-handle property and it does
-		 * not contain a mdio child node, then the switch is the
-		 * EMDIO consumer.
-		 */
-		mdio_node = of_get_child_by_name(child, "mdio");
-		if (!mdio_node)
-			return true;
-
-		of_node_put(mdio_node);
-
-		return false;
-	}
+	of_node_put(mdio_node);
 
 	return false;
 }
 
-static int netc_switch_add_emdio_consumer(struct device *dev)
+/* Currently, phylink_of_phy_connect() is called by dsa_user_create(),
+ * so if the switch uses the external MDIO controller (like the EMDIO
+ * function) to manage the external PHYs. The MDIO bus may not be
+ * created when phylink_of_phy_connect() is called, so it will return
+ * an error and cause the switch driver to fail to probe.
+ * This workaround can be removed when DSA phylink_of_phy_connect()
+ * calls are moved from probe() to ndo_open().
+ */
+static int netc_switch_check_emdio_is_ready(struct device *dev)
 {
-	struct phy_device *phydev = NULL, *last_phydev = NULL;
-	struct device_node *node = dev->of_node;
 	struct device_node *ports, *phy_node;
-	struct device_link *link;
+	struct phy_device *phydev;
 	int err = 0;
 
-	ports = of_get_child_by_name(node, "ports");
+	ports = of_get_child_by_name(dev->of_node, "ports");
 	if (!ports)
-		ports = of_get_child_by_name(node, "ethernet-ports");
-	if (!ports)
-		return 0;
+		ports = of_get_child_by_name(dev->of_node, "ethernet-ports");
 
-	if (!netc_switch_is_emdio_consumer(ports))
-		goto out;
+	if (!ports) {
+		dev_err(dev, "Cannot find the ethernet-ports or ports node\n");
+		return -EINVAL;
+	}
 
 	for_each_available_child_of_node_scoped(ports, child) {
+		/* If the node does not have phy-handle property, then the
+		 * port does not connect to a PHY, so the port is not the
+		 * EMDIO consumer.
+		 */
 		phy_node = of_parse_phandle(child, "phy-handle", 0);
 		if (!phy_node)
 			continue;
+
+		/* Note that from the hardware perspective, the switch ports
+		 * do not support share the MDIO bus defined under one port.
+		 * Ecah port can only access its own external PHY through its
+		 * port MDIO bus.
+		 */
+		if (!netc_port_is_emdio_consumer(child)) {
+			of_node_put(phy_node);
+			continue;
+		}
 
 		phydev = of_phy_find_device(phy_node);
 		of_node_put(phy_node);
@@ -1049,21 +1056,7 @@ static int netc_switch_add_emdio_consumer(struct device *dev)
 			goto out;
 		}
 
-		if (last_phydev) {
-			put_device(&last_phydev->mdio.dev);
-			last_phydev = phydev;
-		}
-	}
-
-	if (phydev) {
-		link = device_link_add(dev, phydev->mdio.bus->parent,
-				       DL_FLAG_PM_RUNTIME |
-				       DL_FLAG_AUTOREMOVE_SUPPLIER);
 		put_device(&phydev->mdio.dev);
-		if (!link) {
-			err = -EINVAL;
-			goto out;
-		}
 	}
 
 out:
@@ -2697,7 +2690,7 @@ static int netc_switch_probe(struct pci_dev *pdev, const struct pci_device_id *i
 		return -ENODEV;
 	}
 
-	err = netc_switch_add_emdio_consumer(dev);
+	err = netc_switch_check_emdio_is_ready(dev);
 	if (err)
 		return err;
 
