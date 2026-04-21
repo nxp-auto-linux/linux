@@ -75,6 +75,8 @@
 #define IERB_EMDIOFAUXR			0x344
 #define IERB_T0FAUXR			0x444
 #define IERB_ETBCR(a)			(0x300c + 0x100 * (a))
+#define IERB_ETXHPTBCR(a)		(0x3070 + 0x100 * (a))
+#define IERB_ETXLPTBCR(a)		(0x3074 + 0x100 * (a))
 #define IERB_LBCR(a)			(0x1010 + 0x40 * (a))
 #define IERB_MDIO_PHYAD_PRTAD(addr)	(((addr) & 0x1f) << 8)
 #define IERB_EFAUXR(a)			(0x3044 + 0x100 * (a))
@@ -108,6 +110,7 @@
 
 #define IMX952_ENETC0_BUS_DEVFN		0x0
 #define IMX952_ENETC1_BUS_DEVFN		0x100
+#define IMX952_BYTE_CREDIT		0xc35
 
 /* Flags for different platforms */
 #define NETC_HAS_NETCMIX		BIT(0)
@@ -647,6 +650,16 @@ static int imx94_ierb_init(struct platform_device *pdev)
 	return ret;
 }
 
+static int imx952_ierb_init(struct platform_device *pdev)
+{
+	struct netc_blk_ctrl *priv = platform_get_drvdata(pdev);
+
+	netc_reg_write(priv->ierb, IERB_ETXHPTBCR(0), IMX952_BYTE_CREDIT);
+	netc_reg_write(priv->ierb, IERB_ETXLPTBCR(0), IMX952_BYTE_CREDIT);
+
+	return 0;
+}
+
 static int netc_ierb_init(struct platform_device *pdev)
 {
 	struct netc_blk_ctrl *priv = platform_get_drvdata(pdev);
@@ -815,6 +828,7 @@ static const struct netc_devinfo imx94_devinfo = {
 static const struct netc_devinfo imx952_devinfo = {
 	.flags = NETC_HAS_NETCMIX,
 	.netcmix_init = imx952_netcmix_init,
+	.ierb_init = imx952_ierb_init,
 };
 
 static const struct of_device_id netc_blk_ctrl_match[] = {
