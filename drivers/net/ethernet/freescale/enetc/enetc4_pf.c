@@ -57,6 +57,18 @@ void netc_set_enetc_port_dop_entity(struct net_device *ndev, u8 swid, u8 port)
 EXPORT_SYMBOL_GPL(netc_set_enetc_port_dop_entity);
 #endif
 
+static void enetc4_clear_dsa_port_entity(struct enetc_hw *hw)
+{
+	u32 val;
+
+	val = enetc_port_rd(hw, ENETC4_PCR);
+	val &= ~PCR_NS_TAG_PORT;
+	enetc_port_wr(hw, ENETC4_PCR, val);
+
+	enetc_port_wr(hw, ENETC4_MPCR, 0);
+	enetc_port_wr(hw, ENETC4_DOPCR, 0);
+}
+
 static void enetc4_get_port_caps(struct enetc_pf *pf)
 {
 	struct enetc_hw *hw = &pf->si->hw;
@@ -1092,6 +1104,8 @@ static void enetc4_enable_all_si(struct enetc_pf *pf)
 static void enetc4_configure_port_si(struct enetc_pf *pf)
 {
 	struct enetc_hw *hw = &pf->si->hw;
+
+	enetc4_clear_dsa_port_entity(hw);
 
 	enetc4_allocate_si_rings(pf);
 
