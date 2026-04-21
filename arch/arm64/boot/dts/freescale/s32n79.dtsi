@@ -108,6 +108,7 @@
 		cache-size = <524288>;
 		cache-line-size = <64>;
 		cache-sets = <512>;
+		cache-unified;
 		next-level-cache = <&l3_0>;
 	};
 
@@ -117,6 +118,7 @@
 		cache-size = <524288>;
 		cache-line-size = <64>;
 		cache-sets = <512>;
+		cache-unified;
 		next-level-cache = <&l3_1>;
 	};
 
@@ -126,6 +128,7 @@
 		cache-size = <524288>;
 		cache-line-size = <64>;
 		cache-sets = <512>;
+		cache-unified;
 		next-level-cache = <&l3_2>;
 	};
 
@@ -135,6 +138,7 @@
 		cache-size = <524288>;
 		cache-line-size = <64>;
 		cache-sets = <512>;
+		cache-unified;
 		next-level-cache = <&l3_3>;
 	};
 
@@ -144,6 +148,7 @@
 		cache-size = <1048576>;
 		cache-line-size = <64>;
 		cache-sets = <1024>;
+		cache-unified;
 	};
 
 	l3_1: l3-cache1 {
@@ -152,6 +157,7 @@
 		cache-size = <1048576>;
 		cache-line-size = <64>;
 		cache-sets = <1024>;
+		cache-unified;
 	};
 
 	l3_2: l3-cache2 {
@@ -160,6 +166,7 @@
 		cache-size = <1048576>;
 		cache-line-size = <64>;
 		cache-sets = <1024>;
+		cache-unified;
 	};
 
 	l3_3: l3-cache3 {
@@ -168,6 +175,7 @@
 		cache-size = <1048576>;
 		cache-line-size = <64>;
 		cache-sets = <1024>;
+		cache-unified;
 	};
 
 	pmu: pmu {
