@@ -10,10 +10,12 @@
 
 #include <linux/bits.h>
 #include <linux/completion.h>
+#include <linux/dmapool.h>
 #include <linux/io.h>
 #include <linux/miscdevice.h>
 #include <linux/mutex.h>
 #include <linux/pci.h>
+#include <linux/scatterlist.h>
 #include <linux/types.h>
 #include <linux/wait.h>
 
@@ -172,15 +174,29 @@ struct cdma_sge {
 /* Driver constants */
 #define CDMA_MAX_SIS		48
 #define CDMA_MAX_RINGS_PER_SI	16
-#define CDMA_BD_ENTRIES		16	/* BD entries per ring (min viable) */
+#define CDMA_BD_ENTRIES		256	/* BD entries per ring (must be multiple of 8) */
 #define CDMA_BD_ENTRY_SIZE	16	/* Each BD entry is 16 bytes */
 #define CDMA_BD_RING_SIZE	(CDMA_BD_ENTRIES * CDMA_BD_ENTRY_SIZE)
 #define CDMA_BD_ALIGN		64	/* HW requires 64-byte alignment */
-#define CDMA_PIPE_BUF_SIZE	SZ_64K	/* Default pipe bounce buffer */
+/*
+ * Max zero-copy transfer size. The bound (CDMA_SG_MAX_ENTRIES - 1) * PAGE_SIZE
+ * guarantees that any user buffer of this size — regardless of in-page offset —
+ * fits within CDMA_SG_MAX_ENTRIES SGEs (worst case: offset = PAGE_SIZE - 1
+ * splits the last byte into an extra page).
+ *
+ * On 4 KiB pages: 1023 * 4096 = 4190208 bytes (= 4 MiB - 4 KiB).
+ */
+#define CDMA_PIPE_BUF_SIZE	((CDMA_SG_MAX_ENTRIES - 1) * PAGE_SIZE)
 #define CDMA_MEMCPY_NUM_BDS	2	/* SD(src) + DD(dst) */
 #define CDMA_POLL_TIMEOUT_US	1000000	/* 1s for register polling (wait_idle) */
 #define CDMA_COMP_TIMEOUT_US	5000000	/* 5s for IRQ completion (threaded handler) */
 #define CDMA_DRV_NAME		"nxp-cdma"
+
+/* S/G table constants */
+#define CDMA_SG_MAX_ENTRIES	1024	/* Max SGE per table (HW spec ceiling, range 4..1024) */
+#define CDMA_SGE_SIZE		16	/* Each SGE is 16 bytes */
+#define CDMA_SGT_SIZE		(CDMA_SG_MAX_ENTRIES * CDMA_SGE_SIZE) /* 16 KiB */
+#define CDMA_SGT_ALIGN		16	/* HW requires 16-byte alignment */
 
 /* BD Ring */
 struct cdma_ring {
@@ -213,49 +229,59 @@ struct cdma_si {
 	u32 si_idx;
 	u32 num_rings;	/* From SICAPR1 */
 	u32 num_msix;	/* From SICAPR1 */
-	int irq;	/* MSI-X IRQ (shared) */
+	int irq;		/* MSI-X IRQ (shared) */
 	struct cdma_ring rings[]; /* Flex array */
 };
 
-/* Pipe (char device) transfer states */
-enum cdma_pipe_state {
-	CDMA_PIPE_IDLE,
-	CDMA_PIPE_TRANSFERRING,
-	CDMA_PIPE_COMPLETE,
-	CDMA_PIPE_ERROR,
+/* Zero-copy state for pinned user pages + S/G mapping */
+struct cdma_zc_state {
+	struct page **pages;	/* Pinned user pages */
+	unsigned int nr_pages;
+	struct sg_table sgt;	/* DMA-mapped scatter list */
+	dma_addr_t sgt_dma;		/* DMA addr of HW S/G table */
+	void *sgt_cpu;			/* CPU addr of HW S/G table */
+	size_t len;				/* Requested transfer length */
+	size_t transferred;		/* Actual bytes transferred */
+	int result;				/* Set by writer on transfer error,
+						 * checked by reader on wake-up
+						 */
+	bool waiting;			/* Reader has armed and is sleeping */
 };
 
 struct cdma_pipe {
 	struct cdma_device *cdev;
 	u8 pipe_id;
-	char name_tx[32];	/* "cdma-pipe0-tx" */
-	char name_rx[32];	/* "cdma-pipe0-rx" */
+	char name_tx[32];		/* "cdma-pipe0-tx" */
+	char name_rx[32];		/* "cdma-pipe0-rx" */
 
-	struct cdma_ring *ring; /* Ring used for memcpy transfers */
+	struct cdma_ring *ring;	/* Ring used for transfers */
+	size_t max_xfer;		/* Max transfer size (CDMA_PIPE_BUF_SIZE) */
 
-	/* DMA-coherent bounce buffers */
-	void *tx_buf;
-	dma_addr_t tx_dma;
-	void *rx_buf;
-	dma_addr_t rx_dma;
-	size_t buf_size;
-
-	/* State */
-	enum cdma_pipe_state state;
-	size_t rx_len;	/* Bytes received */
-	bool rx_consumed;	/* Data already read */
 	struct mutex lock;
 	wait_queue_head_t rx_wq;	/* Woken when rx data available */
+	wait_queue_head_t tx_wq;	/* Woken when reader is waiting */
+	wait_queue_head_t drain_wq;	/* Woken when last in-flight op leaves */
+
+	/* Lifecycle (protected by lock) */
+	bool dying;				/* Set by destroy; rejects new ops */
+	bool rx_open;			/* Exclusive RX open */
+	unsigned int inflight;	/* In-flight read/write count */
+
+	/* Zero-copy RX state (reader pins pages before blocking) */
+	struct cdma_zc_state rx_zc;
 
 	/* Char devices — one per pipe end */
-	struct miscdevice miscdev_tx; /* /dev/cdma-pipeN-tx */
-	struct miscdevice miscdev_rx; /* /dev/cdma-pipeN-rx */
+	struct miscdevice miscdev_tx;	/* /dev/cdma-pipeN-tx */
+	struct miscdevice miscdev_rx;	/* /dev/cdma-pipeN-rx */
 };
 
 /* Top-level device */
 struct cdma_device {
 	struct pci_dev *pdev;
 	struct cdma_si *si;	/* Single SI for now */
+
+	/* S/G table DMA pool */
+	struct dma_pool *sgt_pool;
 
 	/* Pipe devices */
 	struct cdma_pipe *pipes;
@@ -300,6 +326,13 @@ void cdma_build_pipe_receiver(struct cdma_ring *ring, dma_addr_t dst,
 			      u32 len, u8 pipe_id);
 void cdma_build_memcpy(struct cdma_ring *ring, dma_addr_t src,
 		       dma_addr_t dst, u32 len);
+int cdma_build_sg_table(struct cdma_device *cdev, struct sg_table *sgt,
+			dma_addr_t *sgt_dma_out, void **sgt_cpu_out);
+void cdma_free_sg_table(struct cdma_device *cdev, void *sgt_cpu,
+			dma_addr_t sgt_dma);
+void cdma_build_sg_memcpy(struct cdma_ring *ring,
+			  dma_addr_t src_sgt, u32 src_len,
+			  dma_addr_t dst_sgt, u32 dst_len);
 
 /* cdma-cdev.c */
 int cdma_cdev_init(struct cdma_device *cdev);

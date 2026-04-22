@@ -6,6 +6,7 @@
  */
 
 #include <linux/dma-mapping.h>
+#include <linux/dmapool.h>
 #include <linux/iopoll.h>
 #include "cdma.h"
 
@@ -145,8 +146,18 @@ int cdma_ring_init(struct cdma_ring *ring)
  */
 int cdma_ring_submit(struct cdma_ring *ring, u32 num_bds)
 {
+	struct pci_dev *pdev = ring->si->cdev->pdev;
+
 	if (!ring->bd_base || num_bds > CDMA_BD_ENTRIES)
 		return -EINVAL;
+
+	/*
+	 * If the peer has gone away (PCIe link down, surprise removal, or
+	 * the remote SoC rebooted), the BaPIR MMIO write below would raise
+	 * a synchronous external abort.
+	 */
+	if (pci_channel_offline(pdev) || pci_dev_is_disconnected(pdev))
+		return -ENODEV;
 
 	/* Record SD position for writeback detection in IRQ handler */
 	ring->wb_idx = ring->pir;
@@ -269,4 +280,87 @@ void cdma_build_memcpy(struct cdma_ring *ring, dma_addr_t src,
 		 (CDMA_DESC_TSIZE_DEFAULT << CDMA_DESC_TSIZE_SHIFT) |
 		 CDMA_DESC_FINAL;
 	cdma_write_dd(base + CDMA_BD_ENTRY_SIZE, dst, len, dd_cfg);
+}
+
+/*
+ * cdma_build_sg_table - Convert a DMA-mapped sg_table into a CDMA HW S/G table.
+ *
+ * Allocates a CDMA_SGT_SIZE block from the DMA pool, fills it with SGE entries
+ * matching the scatterlist, and returns the DMA address for use in BD descriptors.
+ *
+ * Returns 0 on success, negative errno on failure.
+ */
+int cdma_build_sg_table(struct cdma_device *cdev, struct sg_table *sgt,
+			dma_addr_t *sgt_dma_out, void **sgt_cpu_out)
+{
+	struct cdma_sge *sge_table;
+	struct scatterlist *sg;
+	dma_addr_t sgt_dma;
+	unsigned int i;
+	u32 cfg;
+
+	if (sgt->nents > CDMA_SG_MAX_ENTRIES)
+		return -EINVAL;
+
+	sge_table = dma_pool_zalloc(cdev->sgt_pool, GFP_KERNEL, &sgt_dma);
+	if (!sge_table)
+		return -ENOMEM;
+
+	for_each_sgtable_dma_sg(sgt, sg, i) {
+		cfg = (CDMA_TYPE_DATA << CDMA_DESC_TYPE_SHIFT) |
+		      (CDMA_DESC_TSIZE_DEFAULT << CDMA_DESC_TSIZE_SHIFT);
+
+		/* Set F=1 on the last entry */
+		if (i == sgt->nents - 1)
+			cfg |= CDMA_DESC_FINAL;
+
+		sge_table[i].addr   = cpu_to_le64(sg_dma_address(sg));
+		sge_table[i].length = cpu_to_le32(sg_dma_len(sg));
+		sge_table[i].config = cpu_to_le32(cfg);
+	}
+
+	/* Ensure SGE writes are visible to the DMA device before returning */
+	dma_wmb();
+
+	*sgt_dma_out = sgt_dma;
+	*sgt_cpu_out = sge_table;
+	return 0;
+}
+
+/*
+ * cdma_free_sg_table - Return a HW S/G table to the DMA pool.
+ */
+void cdma_free_sg_table(struct cdma_device *cdev, void *sgt_cpu,
+			dma_addr_t sgt_dma)
+{
+	if (sgt_cpu)
+		dma_pool_free(cdev->sgt_pool, sgt_cpu, sgt_dma);
+}
+
+/*
+ * cdma_build_sg_memcpy - Build SD[SG] + DD[SG] pair for S/G memory-to-memory.
+ *
+ * Both source and destination are CDMA S/G tables (TYPE=SG_FULL).
+ * Uses the same 2-BD slot layout as cdma_build_memcpy().
+ */
+void cdma_build_sg_memcpy(struct cdma_ring *ring,
+			  dma_addr_t src_sgt, u32 src_len,
+			  dma_addr_t dst_sgt, u32 dst_len)
+{
+	void *base = ring->bd_base + ring->pir * CDMA_BD_ENTRY_SIZE;
+	u32 sd_cfg, dd_cfg;
+
+	memset(base, 0, 2 * CDMA_BD_ENTRY_SIZE);
+
+	/* SD: TYPE=SG_FULL(0x2), TSIZE=1, F=1, CI=1, W=1 (writeback) */
+	sd_cfg = (CDMA_TYPE_SG_FULL << CDMA_DESC_TYPE_SHIFT) |
+		 (CDMA_DESC_TSIZE_DEFAULT << CDMA_DESC_TSIZE_SHIFT) |
+		 CDMA_DESC_FINAL | CDMA_DESC_CI | CDMA_DESC_WB;
+	cdma_write_sd(base, src_sgt, src_len, sd_cfg);
+
+	/* DD: TYPE=SG_FULL(0x2), TSIZE=1, F=1 */
+	dd_cfg = (CDMA_TYPE_SG_FULL << CDMA_DESC_TYPE_SHIFT) |
+		 (CDMA_DESC_TSIZE_DEFAULT << CDMA_DESC_TSIZE_SHIFT) |
+		 CDMA_DESC_FINAL;
+	cdma_write_dd(base + CDMA_BD_ENTRY_SIZE, dst_sgt, dst_len, dd_cfg);
 }
