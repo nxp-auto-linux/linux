@@ -366,7 +366,6 @@ static struct {
 	int speed;
 	unsigned long mac_caps;
 } enetc_pseudo_mac_phylink_caps[] = {
-	{ SPEED_25000, MAC_25000FD },
 	{ SPEED_20000, MAC_20000FD },
 	{ SPEED_10000, MAC_10000FD },
 	{ SPEED_5000,  MAC_5000FD  },
