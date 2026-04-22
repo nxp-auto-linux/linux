@@ -22,12 +22,13 @@
 #include <linux/module.h>
 #include <linux/pci.h>
 #include <linux/dma-mapping.h>
+#include <linux/dmapool.h>
 #include "cdma.h"
 
 /*
  * Threaded IRQ handler — shared by all BD rings within one SI.
  *
- * Runs in process context so we can safely call complete().  Uses writeback
+ * Runs in process context so we can safely call complete(). Uses writeback
  * descriptors in DMA-coherent memory to detect completion and errors,
  * avoiding all PCIe register reads on the hot path.
  *
@@ -276,11 +277,20 @@ static int cdma_pci_probe(struct pci_dev *pdev,
 	if (ret)
 		return ret;
 
+	/* Create DMA pool for S/G tables */
+	cdev->sgt_pool = dma_pool_create("cdma-sgt", &pdev->dev,
+					 CDMA_SGT_SIZE, CDMA_SGT_ALIGN, 0);
+	if (!cdev->sgt_pool) {
+		dev_err(&pdev->dev, "failed to create S/G table pool\n");
+		ret = -ENOMEM;
+		goto err_si;
+	}
+
 	/* Set up MSI-X interrupts */
 	ret = cdma_irq_init(cdev->si);
 	if (ret) {
 		dev_err(&pdev->dev, "IRQ init failed: %d\n", ret);
-		goto err_si;
+		goto err_pool;
 	}
 
 	/* Create pipe char devices (/dev/cdma-pipe0-tx, /dev/cdma-pipe0-rx) */
@@ -296,6 +306,8 @@ static int cdma_pci_probe(struct pci_dev *pdev,
 
 err_irq:
 	cdma_irq_fini(cdev->si);
+err_pool:
+	dma_pool_destroy(cdev->sgt_pool);
 err_si:
 	cdma_si_fini(cdev);
 	return ret;
@@ -307,6 +319,7 @@ static void cdma_pci_remove(struct pci_dev *pdev)
 
 	cdma_cdev_fini(cdev);
 	cdma_irq_fini(cdev->si);
+	dma_pool_destroy(cdev->sgt_pool);
 	cdma_si_fini(cdev);
 }
 
