@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: (GPL-2.0+ OR BSD-3-Clause)
 /* Copyright 2017-2019, 2025 NXP */
 
+#include <linux/ptp_clock_kernel.h>
 #include <linux/ethtool_netlink.h>
 #include <linux/fsl/netc_global.h>
 #include <linux/net_tstamp.h>
@@ -1645,7 +1646,7 @@ static void enetc_ts_generic_info(struct net_device *ndev,
 	info->tx_types = (1 << HWTSTAMP_TX_OFF) |
 			 (1 << HWTSTAMP_TX_ON);
 
-	if (enetc_si_is_pf(priv->si))
+	if (enetc_si_is_pf(priv->si) && !enetc_is_pseudo_mac(priv->si))
 		info->tx_types |= (1 << HWTSTAMP_TX_ONESTEP_SYNC);
 
 	info->rx_filters = (1 << HWTSTAMP_FILTER_NONE) |
@@ -1687,13 +1688,20 @@ static int enetc4_get_ts_info(struct net_device *ndev,
 	timer_pdev = pci_get_domain_bus_and_slot(domain, bus->number, devfn);
 	phc_index = netc_timer_get_phc_index(timer_pdev);
 	if (phc_index < 0) {
-		info->so_timestamping = SOF_TIMESTAMPING_TX_SOFTWARE;
+		if (priv->si->si_ptp)
+			phc_index = ptp_clock_index(priv->si->si_ptp);
 
-		return 0;
+		if (phc_index < 0)
+			goto no_phc;
 	}
 
 	info->phc_index = phc_index;
 	enetc_ts_generic_info(ndev, info);
+
+	return 0;
+
+no_phc:
+	info->so_timestamping = SOF_TIMESTAMPING_TX_SOFTWARE;
 
 	return 0;
 }
@@ -1954,6 +1962,7 @@ static const struct ethtool_ops enetc_ppm_ethtool_ops = {
 	.get_link = ethtool_op_get_link,
 	.get_wol = enetc_get_wol,
 	.set_wol = enetc_set_wol,
+	.get_ts_info = enetc4_get_ts_info,
 };
 
 const struct ethtool_ops enetc_vf_ethtool_ops = {
