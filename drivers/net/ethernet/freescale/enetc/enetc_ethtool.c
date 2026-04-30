@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: (GPL-2.0+ OR BSD-3-Clause)
 /* Copyright 2017-2019 NXP */
 
+#include <linux/ptp_clock_kernel.h>
 #include <linux/ethtool_netlink.h>
 #include <linux/fsl/netc_global.h>
 #include <linux/net_tstamp.h>
@@ -1721,7 +1722,7 @@ static void enetc_get_ts_generic_info(struct net_device *ndev,
 	info->tx_types = (1 << HWTSTAMP_TX_OFF) |
 			 (1 << HWTSTAMP_TX_ON);
 
-	if (enetc_si_is_pf(priv->si))
+	if (enetc_si_is_pf(priv->si) && !enetc_is_pseudo_mac(priv->si))
 		info->tx_types |= (1 << HWTSTAMP_TX_ONESTEP_SYNC);
 
 	info->rx_filters = (1 << HWTSTAMP_FILTER_NONE) |
@@ -1738,8 +1739,14 @@ static int enetc_get_ts_info(struct net_device *ndev,
 		goto timestamp_tx_sw;
 
 	info->phc_index = enetc_get_phc_index(si);
-	if (info->phc_index < 0)
-		goto timestamp_tx_sw;
+	if (info->phc_index < 0) {
+		if (!priv->si->si_ptp)
+			goto timestamp_tx_sw;
+
+		info->phc_index = ptp_clock_index(priv->si->si_ptp);
+		if (info->phc_index < 0)
+			goto timestamp_tx_sw;
+	}
 
 	enetc_get_ts_generic_info(ndev, info);
 
@@ -2222,6 +2229,7 @@ const struct ethtool_ops enetc4_ppm_ethtool_ops = {
 	.get_link_ksettings = enetc_get_link_ksettings,
 	.set_link_ksettings = enetc_set_link_ksettings,
 	.get_link = ethtool_op_get_link,
+	.get_ts_info = enetc_get_ts_info,
 };
 
 const struct ethtool_ops enetc_vf_ethtool_ops = {
