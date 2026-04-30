@@ -687,7 +687,7 @@ static inline bool enetc_ptp_clock_is_enabled(struct enetc_si *si)
 	if (is_enetc_rev1(si))
 		return IS_ENABLED(CONFIG_FSL_ENETC_PTP_CLOCK);
 
-	return IS_ENABLED(CONFIG_PTP_NETC_V4_TIMER);
+	return IS_ENABLED(CONFIG_PTP_NETC_V4_TIMER) || si->si_ptp;
 }
 
 #ifdef CONFIG_FSL_ENETC_QOS
