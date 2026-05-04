@@ -148,8 +148,8 @@ struct cdma_sge {
 #define CDMA_DESC_WB		BIT(3)	/* Writeback (inverted on WB) */
 
 /* DD-specific fields */
-#define CDMA_DD_NPR_SHIFT	22	/* Number of pipe receivers (NPR) */
-#define CDMA_DD_NPR_MASK	GENMASK(25, 22)
+#define CDMA_DD_NPR_SHIFT	24	/* Number of pipe receivers (NPR) */
+#define CDMA_DD_NPR_MASK	GENMASK(25, 24)
 #define CDMA_DD_LWC_SHIFT	9	/* Last write control */
 #define CDMA_DD_LWC_MASK	GENMASK(10, 9)
 
@@ -187,7 +187,7 @@ struct cdma_sge {
  * On 4 KiB pages: 1023 * 4096 = 4190208 bytes (= 4 MiB - 4 KiB).
  */
 #define CDMA_PIPE_BUF_SIZE	((CDMA_SG_MAX_ENTRIES - 1) * PAGE_SIZE)
-#define CDMA_MEMCPY_NUM_BDS	2	/* SD(src) + DD(dst) */
+#define CDMA_BD_PAIR		2	/* Every transfer is one SD + one DD */
 #define CDMA_POLL_TIMEOUT_US	1000000	/* 1s for register polling (wait_idle) */
 #define CDMA_COMP_TIMEOUT_US	5000000	/* 5s for IRQ completion (threaded handler) */
 #define CDMA_DRV_NAME		"nxp-cdma"
@@ -226,52 +226,35 @@ struct cdma_ring {
 struct cdma_si {
 	struct cdma_device	*cdev;
 	void __iomem *regs; /* SI register base */
-	u32 si_idx;
 	u32 num_rings;	/* From SICAPR1 */
 	u32 num_msix;	/* From SICAPR1 */
 	int irq;		/* MSI-X IRQ (shared) */
 	struct cdma_ring rings[]; /* Flex array */
 };
 
-/* Zero-copy state for pinned user pages + S/G mapping */
-struct cdma_zc_state {
-	struct page **pages;	/* Pinned user pages */
-	unsigned int nr_pages;
-	struct sg_table sgt;	/* DMA-mapped scatter list */
-	dma_addr_t sgt_dma;		/* DMA addr of HW S/G table */
-	void *sgt_cpu;			/* CPU addr of HW S/G table */
-	size_t len;				/* Requested transfer length */
-	size_t transferred;		/* Actual bytes transferred */
-	int result;				/* Set by writer on transfer error,
-						 * checked by reader on wake-up
-						 */
-	bool waiting;			/* Reader has armed and is sleeping */
-};
-
+/*
+ * Each SI provides both TX (ring 0, sender BDs) and RX (ring 1,
+ * receiver BDs). TX and RX operate fully independently — no shared
+ * state, no reader-first coordination. Cross-SI rendezvous is done
+ * by hardware via IERB-configured pipe IDs (TYPE=PIPE descriptors).
+ */
 struct cdma_pipe {
 	struct cdma_device *cdev;
-	u8 pipe_id;
+	u8 hw_pipe_id;			/* IERB pipe ID, from DT */
+	u8 pipe_idx;			/* For char-device naming only */
 	char name_tx[32];		/* "cdma-pipe0-tx" */
 	char name_rx[32];		/* "cdma-pipe0-rx" */
 
-	struct cdma_ring *ring;	/* Ring used for transfers */
-	size_t max_xfer;		/* Max transfer size (CDMA_PIPE_BUF_SIZE) */
+	struct cdma_ring *tx_ring;	/* Local SI ring 0 — sender BDs */
+	struct cdma_ring *rx_ring;	/* Local SI ring 1 — receiver BDs */
+	size_t max_xfer;
 
-	struct mutex lock;
-	wait_queue_head_t rx_wq;	/* Woken when rx data available */
-	wait_queue_head_t tx_wq;	/* Woken when reader is waiting */
-	wait_queue_head_t drain_wq;	/* Woken when last in-flight op leaves */
-
-	/* Lifecycle (protected by lock) */
-	bool dying;				/* Set by destroy; rejects new ops */
-	bool rx_open;			/* Exclusive RX open */
-	unsigned int inflight;	/* In-flight read/write count */
-
-	/* Zero-copy RX state (reader pins pages before blocking) */
-	struct cdma_zc_state rx_zc;
-
-	/* Char devices — one per pipe end */
+	/* TX state (independent of RX) */
+	struct mutex tx_lock;
 	struct miscdevice miscdev_tx;	/* /dev/cdma-pipeN-tx */
+
+	/* RX state (independent of TX) */
+	struct mutex rx_lock;
 	struct miscdevice miscdev_rx;	/* /dev/cdma-pipeN-rx */
 };
 
@@ -282,6 +265,10 @@ struct cdma_device {
 
 	/* S/G table DMA pool */
 	struct dma_pool *sgt_pool;
+
+	/* DT-configured pipe ID */
+	u32 hw_pipe_id;		/* IERB pipe ID for this SI */
+	bool has_pipe_id;	/* true if nxp,pipe-id was found in DT */
 
 	/* Pipe devices */
 	struct cdma_pipe *pipes;
@@ -319,20 +306,18 @@ int cdma_ring_alloc(struct cdma_ring *ring);
 void cdma_ring_free(struct cdma_ring *ring);
 int cdma_ring_init(struct cdma_ring *ring);
 void cdma_ring_reset(struct cdma_ring *ring);
+void cdma_ring_cancel(struct cdma_ring *ring);
 int cdma_ring_submit(struct cdma_ring *ring, u32 num_bds);
-void cdma_build_pipe_sender(struct cdma_ring *ring, dma_addr_t src,
-			    u32 len, u8 pipe_id, u32 tag);
-void cdma_build_pipe_receiver(struct cdma_ring *ring, dma_addr_t dst,
-			      u32 len, u8 pipe_id);
-void cdma_build_memcpy(struct cdma_ring *ring, dma_addr_t src,
-		       dma_addr_t dst, u32 len);
 int cdma_build_sg_table(struct cdma_device *cdev, struct sg_table *sgt,
 			dma_addr_t *sgt_dma_out, void **sgt_cpu_out);
 void cdma_free_sg_table(struct cdma_device *cdev, void *sgt_cpu,
 			dma_addr_t sgt_dma);
-void cdma_build_sg_memcpy(struct cdma_ring *ring,
-			  dma_addr_t src_sgt, u32 src_len,
-			  dma_addr_t dst_sgt, u32 dst_len);
+void cdma_build_sg_pipe_sender(struct cdma_ring *ring,
+			       dma_addr_t src_sgt, u32 src_len,
+			       u8 pipe_id, u32 tag);
+void cdma_build_sg_pipe_receiver(struct cdma_ring *ring,
+				 dma_addr_t dst_sgt, u32 dst_len,
+				 u8 pipe_id);
 
 /* cdma-cdev.c */
 int cdma_cdev_init(struct cdma_device *cdev);

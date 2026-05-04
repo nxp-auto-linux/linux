@@ -80,10 +80,64 @@ static int cdma_ring_wait_idle(struct cdma_ring *ring)
 				10, CDMA_POLL_TIMEOUT_US, false, ring, CDMA_BaSR);
 	if (ret)
 		dev_err(&ring->si->cdev->pdev->dev,
-			"SI%u ring%u: timeout waiting for BUSY to clear (BSR=0x%08x)\n",
-			ring->si->si_idx, ring->idx, sr);
+			"ring%u: timeout waiting for BUSY to clear (BSR=0x%08x)\n",
+			ring->idx, sr);
 
 	return ret;
+}
+
+/*
+ * cdma_ring_cancel - Safely abort a pending ring operation and recover.
+ *
+ * Disables the ring, waits for hardware to go idle, clears errors, resets
+ * indices, then re-enables the ring (with WBM). After this returns, the
+ * ring is in the same state as right after cdma_ring_init() — ready for
+ * fresh submissions.
+ *
+ * Used on signal-interrupted waits (-ERESTARTSYS) before unmapping DMA
+ * buffers, and on hardware errors (BaSR[PE/SBE/ME]) to clear the failure.
+ *
+ * If BUSY does not clear within the timeout, the ring is still re-enabled
+ * — the hardware is stalled and only an FLR / soft reset can recover, so
+ * we let the caller unmap DMA buffers and propagate the error.
+ */
+void cdma_ring_cancel(struct cdma_ring *ring)
+{
+	struct pci_dev *pdev = ring->si->cdev->pdev;
+	u32 mr;
+
+	/*
+	 * If the peer has gone away (PCIe link down, surprise removal, or the
+	 * remote SoC rebooted mid-transfer), MMIO reads into the SI's BAR
+	 * raise a synchronous external abort instead of returning all-ones.
+	 * Bail out early so the dying ring doesn't take the kernel down with
+	 * it - resources get cleaned up when the driver eventually unbinds.
+	 */
+	if (pci_channel_offline(pdev) || pci_dev_is_disconnected(pdev))
+		return;
+
+	/* Disable ring */
+	mr = cdma_ring_read(ring, CDMA_BaMR);
+	mr &= ~CDMA_BaMR_EN;
+	cdma_ring_write(ring, CDMA_BaMR, mr);
+
+	cdma_ring_wait_idle(ring);
+
+	/* Clear any pending errors (w1c) */
+	cdma_ring_write(ring, CDMA_BaSR, CDMA_BaSR_ERR_MASK);
+
+	/* Reset indices */
+	cdma_ring_write(ring, CDMA_BaPIR, 0);
+	cdma_ring_write(ring, CDMA_BaCIR, 0);
+	ring->pir = 0;
+	ring->wb_idx = 0;
+
+	/* Clear stale interrupt detect */
+	cdma_ring_read(ring, CDMA_BaIDR);
+
+	/* Re-enable with writeback mode (matches cdma_ring_init) */
+	mr |= CDMA_BaMR_EN | CDMA_BaMR_WBM;
+	cdma_ring_write(ring, CDMA_BaMR, mr);
 }
 
 /*
@@ -200,89 +254,6 @@ static inline void cdma_write_dd(void *bd, u64 addr, u32 length, u32 config)
 }
 
 /*
- * cdma_build_pipe_sender - Build sender BD pair (SD[data] + DD[pipe_send]).
- *
- * Writes 2 BD entries (32 bytes) at the current producer index.
- * Submit with num_bds = CDMA_MEMCPY_NUM_BDS after calling.
- */
-void cdma_build_pipe_sender(struct cdma_ring *ring, dma_addr_t src,
-			    u32 len, u8 pipe_id, u32 tag)
-{
-	void *base = ring->bd_base + ring->pir * CDMA_BD_ENTRY_SIZE;
-	u32 sd_cfg, dd_cfg;
-	u64 dd_addr;
-
-	memset(base, 0, 2 * CDMA_BD_ENTRY_SIZE);
-
-	/* SD: TYPE=DATA(0), TSIZE=1, F=1, CI=1, W=1 (writeback) */
-	sd_cfg = (CDMA_TYPE_DATA << CDMA_DESC_TYPE_SHIFT) |
-		 (CDMA_DESC_TSIZE_DEFAULT << CDMA_DESC_TSIZE_SHIFT) |
-		 CDMA_DESC_FINAL | CDMA_DESC_CI | CDMA_DESC_WB;
-	cdma_write_sd(base, src, len, sd_cfg);
-
-	/*
-	 * DD: TYPE=PIPE(3), F=1, NPR=0 (one receiver)
-	 * addr[7:0]   = SND_PIPE_ID_VALUE_0
-	 * addr[63:32] = SND_TAG
-	 */
-	dd_addr = ((u64)tag << 32) | pipe_id;
-	dd_cfg = (CDMA_TYPE_PIPE << CDMA_DESC_TYPE_SHIFT) |
-		 CDMA_DESC_FINAL |
-		 (0 << CDMA_DD_NPR_SHIFT);	/* NPR=0 -- 1 receiver */
-	cdma_write_dd(base + CDMA_BD_ENTRY_SIZE, dd_addr, 0, dd_cfg);
-}
-
-/*
- * cdma_build_pipe_receiver - Build receiver BD pair (SD[pipe_recv] + DD[data]).
- *
- * Writes 2 BD entries (32 bytes) at the current producer index.
- * Submit with num_bds = CDMA_MEMCPY_NUM_BDS after calling.
- */
-void cdma_build_pipe_receiver(struct cdma_ring *ring, dma_addr_t dst,
-			      u32 len, u8 pipe_id)
-{
-	void *base = ring->bd_base + ring->pir * CDMA_BD_ENTRY_SIZE;
-	u32 sd_cfg, dd_cfg;
-
-	memset(base, 0, 2 * CDMA_BD_ENTRY_SIZE);
-
-	/* SD: TYPE=PIPE(3), F=1, CI=1, W=1 (writeback) -- addr[7:0] = RCV_PIPE_ID_VALUE */
-	sd_cfg = (CDMA_TYPE_PIPE << CDMA_DESC_TYPE_SHIFT) |
-		 CDMA_DESC_FINAL | CDMA_DESC_CI | CDMA_DESC_WB;
-	cdma_write_sd(base, (u64)pipe_id, 0, sd_cfg);
-
-	/* DD: TYPE=DATA(0), TSIZE=1, F=1 */
-	dd_cfg = (CDMA_TYPE_DATA << CDMA_DESC_TYPE_SHIFT) |
-		 (CDMA_DESC_TSIZE_DEFAULT << CDMA_DESC_TSIZE_SHIFT) |
-		 CDMA_DESC_FINAL;
-	cdma_write_dd(base + CDMA_BD_ENTRY_SIZE, dst, len, dd_cfg);
-}
-
-/*
- * cdma_build_memcpy - Build a simple memory-to-memory BD pair.
- */
-void cdma_build_memcpy(struct cdma_ring *ring, dma_addr_t src,
-		       dma_addr_t dst, u32 len)
-{
-	void *base = ring->bd_base + ring->pir * CDMA_BD_ENTRY_SIZE;
-	u32 sd_cfg, dd_cfg;
-
-	memset(base, 0, 2 * CDMA_BD_ENTRY_SIZE);
-
-	/* SD: TYPE=DATA(0), TSIZE=1, F=1, CI=1, W=1 (writeback) */
-	sd_cfg = (CDMA_TYPE_DATA << CDMA_DESC_TYPE_SHIFT) |
-		 (CDMA_DESC_TSIZE_DEFAULT << CDMA_DESC_TSIZE_SHIFT) |
-		 CDMA_DESC_FINAL | CDMA_DESC_CI | CDMA_DESC_WB;
-	cdma_write_sd(base, src, len, sd_cfg);
-
-	/* DD: TYPE=DATA(0), TSIZE=1, F=1 */
-	dd_cfg = (CDMA_TYPE_DATA << CDMA_DESC_TYPE_SHIFT) |
-		 (CDMA_DESC_TSIZE_DEFAULT << CDMA_DESC_TSIZE_SHIFT) |
-		 CDMA_DESC_FINAL;
-	cdma_write_dd(base + CDMA_BD_ENTRY_SIZE, dst, len, dd_cfg);
-}
-
-/*
  * cdma_build_sg_table - Convert a DMA-mapped sg_table into a CDMA HW S/G table.
  *
  * Allocates a CDMA_SGT_SIZE block from the DMA pool, fills it with SGE entries
@@ -338,29 +309,83 @@ void cdma_free_sg_table(struct cdma_device *cdev, void *sgt_cpu,
 }
 
 /*
- * cdma_build_sg_memcpy - Build SD[SG] + DD[SG] pair for S/G memory-to-memory.
+ * cdma_build_sg_pipe_sender - Build sender BD pair (SD[SG_FULL] + DD[PIPE]).
  *
- * Both source and destination are CDMA S/G tables (TYPE=SG_FULL).
- * Uses the same 2-BD slot layout as cdma_build_memcpy().
+ * The source data is described by a CDMA HW S/G table; the DD carries
+ * the SND_PIPE_ID_VALUE slots and SND_TAG so the hardware pipe matcher
+ * can find a receiver authorized for the same pipe ID.
+ *
+ * Writes 2 BD entries (32 bytes) at the current producer index. The SD
+ * has WB=1 so the IRQ handler can detect completion by reading the
+ * inverted W bit at ring->wb_idx (set by cdma_ring_submit). Submit with
+ * num_bds = CDMA_BD_PAIR after calling.
+ *
+ * Per spec, all four SND_PIPE_ID_VALUE_n slots must hold legal PIDaAUR
+ * values, regardless of NPR ("fields not used should specify legal
+ * values as defined in PIDaAUR"). For NPR=0 (one receiver), use the
+ * same pipe id in all four slots.
  */
-void cdma_build_sg_memcpy(struct cdma_ring *ring,
-			  dma_addr_t src_sgt, u32 src_len,
-			  dma_addr_t dst_sgt, u32 dst_len)
+void cdma_build_sg_pipe_sender(struct cdma_ring *ring,
+			       dma_addr_t src_sgt, u32 src_len,
+			       u8 pipe_id, u32 tag)
+{
+	void *base = ring->bd_base + ring->pir * CDMA_BD_ENTRY_SIZE;
+	u32 sd_cfg, dd_cfg;
+	u64 dd_addr;
+
+	memset(base, 0, 2 * CDMA_BD_ENTRY_SIZE);
+
+	/*
+	 * SD: TYPE=SG_FULL(0x2), F=1, CI=1, W=1 (writeback)
+	 * TSIZE is reserved for TYPE=bxx10 — must be 0 per spec.
+	 */
+	sd_cfg = (CDMA_TYPE_SG_FULL << CDMA_DESC_TYPE_SHIFT) |
+		 CDMA_DESC_FINAL | CDMA_DESC_CI | CDMA_DESC_WB;
+	cdma_write_sd(base, src_sgt, src_len, sd_cfg);
+
+	/*
+	 * DD: TYPE=PIPE(3), F=1, NPR=0 (one receiver)
+	 *   addr[7:0]   = SND_PIPE_ID_VALUE_0
+	 *   addr[15:8]  = SND_PIPE_ID_VALUE_1
+	 *   addr[23:16] = SND_PIPE_ID_VALUE_2
+	 *   addr[31:24] = SND_PIPE_ID_VALUE_3
+	 *   addr[63:32] = SND_TAG
+	 */
+	dd_addr = ((u64)tag << 32) |
+		  ((u32)pipe_id << 24) | ((u32)pipe_id << 16) |
+		  ((u32)pipe_id << 8)  | pipe_id;
+	dd_cfg = (CDMA_TYPE_PIPE << CDMA_DESC_TYPE_SHIFT) |
+		 CDMA_DESC_FINAL |
+		 (0 << CDMA_DD_NPR_SHIFT);	/* NPR=0 — 1 receiver */
+	cdma_write_dd(base + CDMA_BD_ENTRY_SIZE, dd_addr, 0, dd_cfg);
+}
+
+/*
+ * cdma_build_sg_pipe_receiver - Build receiver BD pair (SD[PIPE] + DD[SG_FULL]).
+ *
+ * SD: TYPE=PIPE(0x3), F=1, CI=1, W=1 — addr[7:0] = RCV_PIPE_ID_VALUE
+ * DD: TYPE=SG_FULL(0x2), F=1 — points to destination S/G table
+ *
+ * Writes 2 BD entries at the current producer index. SD has WB=1 for
+ * IRQ-driven completion detection (length and rcv_tag are written back
+ * by hardware on match). Submit with num_bds = CDMA_BD_PAIR.
+ */
+void cdma_build_sg_pipe_receiver(struct cdma_ring *ring,
+				 dma_addr_t dst_sgt, u32 dst_len,
+				 u8 pipe_id)
 {
 	void *base = ring->bd_base + ring->pir * CDMA_BD_ENTRY_SIZE;
 	u32 sd_cfg, dd_cfg;
 
 	memset(base, 0, 2 * CDMA_BD_ENTRY_SIZE);
 
-	/* SD: TYPE=SG_FULL(0x2), TSIZE=1, F=1, CI=1, W=1 (writeback) */
-	sd_cfg = (CDMA_TYPE_SG_FULL << CDMA_DESC_TYPE_SHIFT) |
-		 (CDMA_DESC_TSIZE_DEFAULT << CDMA_DESC_TSIZE_SHIFT) |
+	/* SD: TYPE=PIPE(3), F=1, CI=1, W=1 — addr[7:0] = RCV_PIPE_ID_VALUE */
+	sd_cfg = (CDMA_TYPE_PIPE << CDMA_DESC_TYPE_SHIFT) |
 		 CDMA_DESC_FINAL | CDMA_DESC_CI | CDMA_DESC_WB;
-	cdma_write_sd(base, src_sgt, src_len, sd_cfg);
+	cdma_write_sd(base, (u64)pipe_id, 0, sd_cfg);
 
-	/* DD: TYPE=SG_FULL(0x2), TSIZE=1, F=1 */
+	/* DD: TYPE=SG_FULL(0x2), F=1 — TSIZE reserved for bxx10 */
 	dd_cfg = (CDMA_TYPE_SG_FULL << CDMA_DESC_TYPE_SHIFT) |
-		 (CDMA_DESC_TSIZE_DEFAULT << CDMA_DESC_TSIZE_SHIFT) |
 		 CDMA_DESC_FINAL;
 	cdma_write_dd(base + CDMA_BD_ENTRY_SIZE, dst_sgt, dst_len, dd_cfg);
 }
