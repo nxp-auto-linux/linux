@@ -6,6 +6,12 @@
  * using Enhanced Allocation for its 128 KB register aperture.
  * The PCI core auto-populates pdev->resource[0] from the EA capability.
  *
+ * Each SI independently provides TX (ring 0) and RX (ring 1) using
+ * TYPE=PIPE descriptors. Hardware pipe matching via IERB-configured
+ * pipe IDs handles cross-SI rendezvous — no peer discovery or global
+ * SI registry needed. Works for both single-Linux (two SIs) and
+ * multi-Linux (one SI each) deployments.
+ *
  * Probe flow:
  *   1. Enable PCI device and map BAR 0 (EA aperture)
  *   2. Read SICAPR1 to discover number of BD rings and MSI-X vectors
@@ -13,13 +19,16 @@
  *   4. Allocate DMA-coherent BD ring memory for each ring
  *   5. Enable the Station Interface (SIMR[EN])
  *   6. Set up MSI-X interrupts
- *   7. Create pipe char devices (/dev/cdma-pipeN-tx, /dev/cdma-pipeN-rx)
+ *   7. Read DT 'nxp,pipe-id' from this SI's per-function child node
+ *   8. Create pipe char devices if pipe-id is configured (and SI has
+ *      at least 2 BD rings)
  *
  * Copyright 2026 NXP
  */
 
 #include <linux/interrupt.h>
 #include <linux/module.h>
+#include <linux/of.h>
 #include <linux/pci.h>
 #include <linux/dma-mapping.h>
 #include <linux/dmapool.h>
@@ -61,8 +70,8 @@ static irqreturn_t cdma_irq_thread(int irq, void *data)
 			/* W=0 means writeback complete */
 			if (status & (CDMA_WB_DE | CDMA_WB_SPE | CDMA_WB_DPE)) {
 				dev_err(&si->cdev->pdev->dev,
-					"SI%u ring%u IRQ writeback error: status=0x%08x\n",
-					si->si_idx, i, status);
+					"ring%u IRQ writeback error: status=0x%08x\n",
+					i, status);
 				ring->result = -EIO;
 			} else {
 				ring->result = 0;
@@ -119,8 +128,7 @@ static int cdma_irq_init(struct cdma_si *si)
 		cdma_ring_write(ring, CDMA_BaIER, CDMA_BaIER_CIE);
 	}
 
-	dev_info(&pdev->dev, "SI%u: MSI-X enabled (IRQ %d)\n",
-		 si->si_idx, si->irq);
+	dev_info(&pdev->dev, "MSI-X enabled (IRQ %d)\n", si->irq);
 	return 0;
 }
 
@@ -168,7 +176,6 @@ static int cdma_si_init(struct cdma_device *cdev, void __iomem *base)
 
 	si->cdev = cdev;
 	si->regs = base;
-	si->si_idx = PCI_SLOT(pdev->devfn);
 	si->num_rings = num_rings;
 	si->num_msix = num_msix;
 	si->irq = 0;
@@ -225,6 +232,35 @@ static void cdma_si_fini(struct cdma_device *cdev)
 		cdma_ring_free(&si->rings[i]);
 
 	cdev->si = NULL;
+}
+
+/*
+ * cdma_read_dt_pipe_cfg - Read pipe configuration from device tree.
+ *
+ * Looks for 'nxp,pipe-id' (u32) on the PCI device's DT node. The PCI
+ * core associates pdev->dev.of_node by matching the reg property's
+ * devfn encoding under the ECAM host bridge (e.g. cdma@0,0 for SI0).
+ *
+ * If no DT node or no property is present, the SI is treated as a
+ * non-pipe SI: cdev probe is skipped and no /dev/cdma-pipeN-* devices
+ * are created.
+ */
+static void cdma_read_dt_pipe_cfg(struct cdma_device *cdev)
+{
+	struct device_node *np = dev_of_node(&cdev->pdev->dev);
+	u32 pipe_id;
+
+	if (!np)
+		return;
+
+	if (of_property_read_u32(np, "nxp,pipe-id", &pipe_id))
+		return;
+
+	cdev->hw_pipe_id = pipe_id;
+	cdev->has_pipe_id = true;
+
+	dev_info(&cdev->pdev->dev,
+		 "DT pipe config: pipe-id=%u\n", pipe_id);
 }
 
 static int cdma_pci_probe(struct pci_dev *pdev,
@@ -293,15 +329,34 @@ static int cdma_pci_probe(struct pci_dev *pdev,
 		goto err_pool;
 	}
 
-	/* Create pipe char devices (/dev/cdma-pipe0-tx, /dev/cdma-pipe0-rx) */
-	ret = cdma_cdev_init(cdev);
-	if (ret) {
-		dev_err(&pdev->dev, "cdev init failed: %d\n", ret);
-		goto err_irq;
+	/* Read DT pipe configuration */
+	cdma_read_dt_pipe_cfg(cdev);
+
+	/* Create pipe char devices if pipe-id is configured in DT */
+	if (cdev->has_pipe_id) {
+		if (cdev->si->num_rings < 2) {
+			dev_err(&pdev->dev,
+				"pipe mode requires >= 2 BD rings, have %u\n",
+				cdev->si->num_rings);
+			ret = -EINVAL;
+			goto err_irq;
+		}
+
+		ret = cdma_cdev_init(cdev);
+		if (ret) {
+			dev_err(&pdev->dev, "pipe cdev init failed: %d\n", ret);
+			goto err_irq;
+		}
+
+		dev_info(&pdev->dev,
+			 "NXP CDMA ready (%u rings, hw_pipe_id=%u)\n",
+			 cdev->si->num_rings, cdev->hw_pipe_id);
+	} else {
+		dev_info(&pdev->dev,
+			 "NXP CDMA idle (%u rings, no nxp,pipe-id in DT)\n",
+			 cdev->si->num_rings);
 	}
 
-	dev_info(&pdev->dev, "NXP CDMA SI%u ready (%u rings)\n",
-		 cdev->si->si_idx, cdev->si->num_rings);
 	return 0;
 
 err_irq:
