@@ -157,4 +157,28 @@
 
 &hscs_cdma_iep {
 	status = "okay";
+
+	/*
+	 * Per-SI pipe configuration for cross-SI TYPE=PIPE transfers.
+	 *
+	 * Both endpoints of a logical pipe must share the same
+	 * nxp,pipe-id; the IERB pre-authorizes which SI pair is allowed
+	 * to use it. Each child's 'reg' selects the PCI function (i.e.
+	 * which Station Interface) the configuration applies to.
+	 *
+	 * IERB config exercised here:
+	 *   PID0aAUR = 0x0202  -> authorizes IERB SI2 <-> SI8 with pipe ID 0
+	 *     SI_ID_0 = 0x02 (IERB SI2), SI_ID_1 = 0x08 (IERB SI8)
+	 *   IERB SI2: PBUS=2, RID=0  -> PCI 0001:00:00.0  (cdma@0,0)
+	 *   IERB SI8: PBUS=2, RID=1  -> PCI 0001:00:00.1  (cdma@0,1)
+	 */
+	cdma_si2: cdma@0,0 {
+		reg = <0x0000 0 0 0 0>;
+		nxp,pipe-id = <0>;
+	};
+
+	cdma_si8: cdma@0,1 {
+		reg = <0x0100 0 0 0 0>;
+		nxp,pipe-id = <0>;
+	};
 };
