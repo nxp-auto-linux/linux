@@ -1,27 +1,27 @@
 // SPDX-License-Identifier: GPL-2.0 OR BSD-3-Clause
 /*
- * NXP S32N79 CDMA — Char device layer for pipe I/O
+ * NXP S32N79 CDMA — Char device layer for cross-SI pipe I/O
  *
- * Reader calls read() first, which pins user pages and blocks.
- * Writer calls write(), pins its pages, builds S/G descriptors, submits
- * a DMA S/G memcpy from TX user pages to RX user pages, then wakes
- * the reader. If no reader is waiting, write() returns -EAGAIN.
+ * Each SI provides both TX (ring 0) and RX (ring 1) using TYPE=PIPE
+ * descriptors. TX and RX operate fully independently — no shared
+ * state, no reader-first coordination. Cross-SI rendezvous is handled
+ * by the hardware pipe matcher.
  *
- * /dev/cdma-pipeN-tx — write-only (sender)
- * /dev/cdma-pipeN-rx — read-only, exclusive open (receiver, blocks
- *                                                 until data arrives)
+ * /dev/cdma-pipeN-tx — write-only sender (ring 0)
+ * /dev/cdma-pipeN-rx — read-only  receiver (ring 1)
  *
- * Locking and lifecycle:
- *   - pipe->lock guards rx_zc, dying, rx_open, inflight.
- *   - Reader drops the lock while sleeping; writer takes the lock to do
- *     the DMA transfer and signal the reader.
- *   - cdma_pipe_enter()/cdma_pipe_leave() bracket every read/write so the
- *     destroy path can wait for in-flight ops to drain before tearing
- *     down DMA pool / ring memory.
- *   - Writer signals reader unconditionally (success or error) via
- *     rx_zc.result so a transfer failure can't strand the reader.
- *   - DMA_FROM_DEVICE pages are unpinned via unpin_user_pages_dirty_lock()
- *     so file-backed mappings see the device's writes on writeback.
+ * The same pipe ID must be authorized in IERB for both endpoints.
+ *
+ * Locking:
+ *   - pipe->tx_lock guards TX ring submission
+ *   - pipe->rx_lock guards RX ring submission
+ *   - The two locks are independent and never need to be held together
+ *
+ * Each ring is enabled once at probe (cdma_ring_init) and stays enabled
+ * across transfers; cdma_ring_submit just advances PIR. On signal
+ * interrupt or hardware error, cdma_ring_cancel disables the ring,
+ * waits for BUSY to clear, clears errors, and re-enables — leaving the
+ * ring in a clean state for the next submission.
  *
  * Copyright 2026 NXP
  */
@@ -31,11 +31,22 @@
 #include <linux/idr.h>
 #include <linux/miscdevice.h>
 #include <linux/mm.h>
-#include <linux/poll.h>
 #include <linux/slab.h>
 #include "cdma.h"
 
 static DEFINE_IDA(cdma_pipe_ida);
+
+/*
+ * Unwind state for a single pin/map/build cycle. Lives on the caller's
+ * stack; cdma_zc_map() fills it on success, cdma_zc_unmap() consumes it.
+ */
+struct cdma_zc {
+	struct page **pages;
+	unsigned int nr_pages;
+	struct sg_table sgt;
+	dma_addr_t sgt_dma;	/* DMA addr of HW S/G table */
+	void *sgt_cpu;		/* CPU addr of HW S/G table */
+};
 
 static struct cdma_pipe *miscdev_to_pipe(struct miscdevice *misc, bool is_tx)
 {
@@ -46,32 +57,12 @@ static struct cdma_pipe *miscdev_to_pipe(struct miscdevice *misc, bool is_tx)
 }
 
 /*
- * Track in-flight read()/write() callers so cdma_pipe_destroy() can wait
- * for them to leave before freeing DMA pool / ring memory. Returns
- * -ENODEV if the pipe is being torn down.
+ * Wait for ring completion via MSI-X IRQ. Bounded by a kernel-side
+ * timeout as a safety net — a stuck IRQ (e.g. a misconfigured MSI)
+ * shouldn't hang the syscall forever. The hardware CPTCR timer fires
+ * a programming error well before this if the remote peer never
+ * matches.
  */
-static int cdma_pipe_enter(struct cdma_pipe *pipe)
-{
-	mutex_lock(&pipe->lock);
-	if (pipe->dying) {
-		mutex_unlock(&pipe->lock);
-		return -ENODEV;
-	}
-	pipe->inflight++;
-	mutex_unlock(&pipe->lock);
-	return 0;
-}
-
-static void cdma_pipe_leave(struct cdma_pipe *pipe)
-{
-	mutex_lock(&pipe->lock);
-	pipe->inflight--;
-	if (!pipe->inflight && pipe->dying)
-		wake_up(&pipe->drain_wq);
-	mutex_unlock(&pipe->lock);
-}
-
-/* Wait for ring completion via MSI-X IRQ */
 static int cdma_wait_ring(struct cdma_ring *ring)
 {
 	unsigned long tmo = usecs_to_jiffies(CDMA_COMP_TIMEOUT_US);
@@ -86,48 +77,13 @@ static int cdma_wait_ring(struct cdma_ring *ring)
 }
 
 /*
- * cdma_sg_transfer - DMA S/G memcpy from TX S/G table to RX S/G table.
- *
- * Uses SD[SG_FULL] + DD[SG_FULL] pointing to hardware S/G tables built
- * from pinned user pages.
- */
-static int cdma_sg_transfer(struct cdma_pipe *pipe,
-			    dma_addr_t src_sgt, u32 src_len,
-			    dma_addr_t dst_sgt, u32 dst_len)
-{
-	struct device *dev = &pipe->cdev->pdev->dev;
-	struct cdma_ring *ring = pipe->ring;
-	int ret;
-
-	cdma_build_sg_memcpy(ring, src_sgt, src_len, dst_sgt, dst_len);
-
-	ret = cdma_ring_submit(ring, CDMA_MEMCPY_NUM_BDS);
-	if (ret) {
-		dev_err(dev, "pipe%u: S/G submit failed: %d\n",
-			pipe->pipe_id, ret);
-		return ret;
-	}
-
-	ret = cdma_wait_ring(ring);
-	if (ret) {
-		dev_err(dev, "pipe%u: S/G completion error: %d\n",
-			pipe->pipe_id, ret);
-		/* Reset and re-enable ring after error */
-		cdma_ring_reset(ring);
-		cdma_ring_init(ring);
-		return ret;
-	}
-
-	return 0;
-}
-
-/*
- * Pin user pages, DMA-map them, and build a CDMA HW S/G table. Returns 0
- * on success; caller must clean up via cdma_zc_unmap() on success.
+ * Pin user pages, DMA-map them, and build a CDMA HW S/G table. On
+ * success @zc carries the unwind state for cdma_zc_unmap(); on error
+ * nothing is left allocated and @zc is untouched.
  */
 static int cdma_zc_map(struct cdma_device *cdev, unsigned long uaddr,
 		       size_t len, enum dma_data_direction dir,
-		       struct cdma_zc_state *zc)
+		       struct cdma_zc *zc)
 {
 	struct device *dev = &cdev->pdev->dev;
 	unsigned int nr_pages, offset;
@@ -174,7 +130,6 @@ static int cdma_zc_map(struct cdma_device *cdev, unsigned long uaddr,
 
 	zc->pages = pages;
 	zc->nr_pages = nr_pages;
-	zc->result = 0;
 	return 0;
 
 err_unmap:
@@ -193,14 +148,10 @@ err_free_pages:
  * pages, so they must be marked dirty before unpinning to ensure
  * file-backed mappings see the data on writeback.
  */
-static void cdma_zc_unmap(struct cdma_device *cdev,
-			  struct cdma_zc_state *zc,
+static void cdma_zc_unmap(struct cdma_device *cdev, struct cdma_zc *zc,
 			  enum dma_data_direction dir)
 {
 	struct device *dev = &cdev->pdev->dev;
-
-	if (!zc->pages)
-		return;
 
 	cdma_free_sg_table(cdev, zc->sgt_cpu, zc->sgt_dma);
 	dma_unmap_sgtable(dev, &zc->sgt, dir, 0);
@@ -212,8 +163,6 @@ static void cdma_zc_unmap(struct cdma_device *cdev,
 		unpin_user_pages(zc->pages, zc->nr_pages);
 
 	kfree(zc->pages);
-	zc->pages = NULL;
-	zc->nr_pages = 0;
 }
 
 /* TX file operations (write-only, /dev/cdma-pipeN-tx) */
@@ -225,14 +174,19 @@ static int cdma_tx_open(struct inode *inode, struct file *filp)
 	return 0;
 }
 
+/*
+ * Synchronous TX write — pins pages, builds sender BD pair at the
+ * ring's current PIR, submits to tx_ring, blocks until hardware
+ * completes (a remote receiver matches via the IERB-configured pipe
+ * id). Fully independent from RX.
+ */
 static ssize_t cdma_tx_write(struct file *filp, const char __user *ubuf,
 			     size_t count, loff_t *ppos)
 {
 	struct cdma_pipe *pipe = filp->private_data;
 	struct cdma_device *cdev = pipe->cdev;
-	struct cdma_zc_state tx_zc = {};
-	size_t xfer_len;
-	ssize_t ret;
+	struct cdma_zc zc = {};
+	int ret;
 
 	if (!count)
 		return 0;
@@ -240,126 +194,73 @@ static ssize_t cdma_tx_write(struct file *filp, const char __user *ubuf,
 	if (count > pipe->max_xfer) {
 		dev_warn_ratelimited(&cdev->pdev->dev,
 				     "pipe%u: write %zu > max_xfer %zu — chunk the write\n",
-				     pipe->pipe_id, count, pipe->max_xfer);
+				     pipe->pipe_idx, count, pipe->max_xfer);
 		return -EMSGSIZE;
 	}
 
 	if (filp->f_flags & O_NONBLOCK)
 		return -EAGAIN;
 
-	ret = cdma_pipe_enter(pipe);
-	if (ret)
+	mutex_lock(&pipe->tx_lock);
+
+	ret = cdma_zc_map(cdev, (unsigned long)ubuf, count, DMA_TO_DEVICE,
+			  &zc);
+	if (ret) {
+		mutex_unlock(&pipe->tx_lock);
 		return ret;
-
-	mutex_lock(&pipe->lock);
-
-	if (pipe->dying) {
-		ret = -ENODEV;
-		goto out;
 	}
 
-	/* Require-reader-first: writer returns -EAGAIN if no reader waiting */
-	if (!pipe->rx_zc.waiting) {
-		ret = -EAGAIN;
-		goto out;
-	}
+	cdma_build_sg_pipe_sender(pipe->tx_ring, zc.sgt_dma, count,
+				  pipe->hw_pipe_id, 0);
+	ret = cdma_ring_submit(pipe->tx_ring, CDMA_BD_PAIR);
 
-	xfer_len = min(count, pipe->rx_zc.len);
+	mutex_unlock(&pipe->tx_lock);
+
+	if (!ret)
+		ret = cdma_wait_ring(pipe->tx_ring);
 
 	/*
-	 * From here we own the reader: any return must release it via
-	 * rx_zc.result + waiting=false + wake. Skipping the release would
-	 * strand the reader and leak its DMA mapping until a signal.
+	 * On signal interrupt or hardware error, cancel the ring before
+	 * unmapping — the hardware may still hold a reference to the BD
+	 * ring memory or the user pages. cdma_ring_cancel re-enables the
+	 * ring, so subsequent submissions work normally.
 	 */
-	ret = cdma_zc_map(cdev, (unsigned long)ubuf, xfer_len, DMA_TO_DEVICE,
-			  &tx_zc);
-	if (!ret) {
-		ret = cdma_sg_transfer(pipe, tx_zc.sgt_dma, xfer_len,
-				       pipe->rx_zc.sgt_dma, xfer_len);
-		cdma_zc_unmap(cdev, &tx_zc, DMA_TO_DEVICE);
-	}
+	if (ret < 0)
+		cdma_ring_cancel(pipe->tx_ring);
 
-	pipe->rx_zc.result = ret;
-	if (!ret)
-		pipe->rx_zc.transferred = xfer_len;
-	pipe->rx_zc.waiting = false;
-	wake_up_interruptible(&pipe->rx_wq);
+	cdma_zc_unmap(cdev, &zc, DMA_TO_DEVICE);
 
-	if (ret)
-		goto out;
-
-	ret = xfer_len;
-out:
-	mutex_unlock(&pipe->lock);
-	cdma_pipe_leave(pipe);
-	return ret;
-}
-
-static __poll_t cdma_tx_poll(struct file *filp,
-			     struct poll_table_struct *wait)
-{
-	struct cdma_pipe *pipe = filp->private_data;
-	__poll_t mask = 0;
-
-	poll_wait(filp, &pipe->tx_wq, wait);
-
-	mutex_lock(&pipe->lock);
-	if (pipe->dying)
-		mask |= EPOLLHUP;
-	else if (pipe->rx_zc.waiting)
-		mask |= EPOLLOUT | EPOLLWRNORM;
-	mutex_unlock(&pipe->lock);
-
-	return mask;
+	return ret ? ret : (ssize_t)count;
 }
 
 static const struct file_operations cdma_tx_fops = {
-	.owner		= THIS_MODULE,
-	.open		= cdma_tx_open,
-	.write		= cdma_tx_write,
-	.poll		= cdma_tx_poll,
+	.owner	= THIS_MODULE,
+	.open	= cdma_tx_open,
+	.write	= cdma_tx_write,
 };
 
-/*
- * RX file operations (read-only, /dev/cdma-pipeN-rx).
- * Exclusive open: only one fd may have the RX device open at a time.
- */
+/* RX file operations (read-only, /dev/cdma-pipeN-rx) */
 static int cdma_rx_open(struct inode *inode, struct file *filp)
 {
 	struct cdma_pipe *pipe = miscdev_to_pipe(filp->private_data, false);
-
-	mutex_lock(&pipe->lock);
-	if (pipe->dying) {
-		mutex_unlock(&pipe->lock);
-		return -ENODEV;
-	}
-	if (pipe->rx_open) {
-		mutex_unlock(&pipe->lock);
-		return -EBUSY;
-	}
-	pipe->rx_open = true;
-	mutex_unlock(&pipe->lock);
 
 	filp->private_data = pipe;
 	return 0;
 }
 
-static int cdma_rx_release(struct inode *inode, struct file *filp)
-{
-	struct cdma_pipe *pipe = filp->private_data;
-
-	mutex_lock(&pipe->lock);
-	pipe->rx_open = false;
-	mutex_unlock(&pipe->lock);
-	return 0;
-}
-
+/*
+ * Synchronous RX read — pins pages, builds receiver BD pair at the
+ * ring's current PIR, submits to rx_ring, blocks until hardware
+ * completes (a remote sender matches via the IERB-configured pipe id).
+ * Fully independent from TX.
+ */
 static ssize_t cdma_rx_read(struct file *filp, char __user *ubuf,
 			    size_t count, loff_t *ppos)
 {
 	struct cdma_pipe *pipe = filp->private_data;
 	struct cdma_device *cdev = pipe->cdev;
-	ssize_t ret;
+	struct cdma_zc zc = {};
+	int ret;
 
 	if (!count)
 		return 0;
@@ -367,89 +268,69 @@ static ssize_t cdma_rx_read(struct file *filp, char __user *ubuf,
 	if (count > pipe->max_xfer) {
 		dev_warn_ratelimited(&cdev->pdev->dev,
 				     "pipe%u: read %zu > max_xfer %zu — chunk the read\n",
-				     pipe->pipe_id, count, pipe->max_xfer);
+				     pipe->pipe_idx, count, pipe->max_xfer);
 		return -EMSGSIZE;
 	}
 
 	if (filp->f_flags & O_NONBLOCK)
 		return -EAGAIN;
 
-	ret = cdma_pipe_enter(pipe);
-	if (ret)
-		return ret;
+	mutex_lock(&pipe->rx_lock);
 
-	mutex_lock(&pipe->lock);
-
-	if (pipe->dying) {
-		ret = -ENODEV;
-		goto out;
-	}
-
-	/* Exclusive open guarantees only one in-flight reader */
-	if (pipe->rx_zc.waiting) {
-		ret = -EBUSY;
-		goto out;
-	}
-
-	/* Pin RX user pages and build S/G table */
 	ret = cdma_zc_map(cdev, (unsigned long)ubuf, count, DMA_FROM_DEVICE,
-			  &pipe->rx_zc);
-	if (ret)
-		goto out;
-
-	pipe->rx_zc.len = count;
-	pipe->rx_zc.transferred = 0;
-	pipe->rx_zc.result = 0;
-	pipe->rx_zc.waiting = true;
-
-	/* Wake any writer waiting for a reader */
-	wake_up_interruptible(&pipe->tx_wq);
-
-	/* Drop lock while waiting — writer needs it for the transfer */
-	mutex_unlock(&pipe->lock);
-
-	/* Block until writer completes the transfer or device dies */
-	ret = wait_event_interruptible(pipe->rx_wq, !pipe->rx_zc.waiting);
-
-	mutex_lock(&pipe->lock);
-
-	if (pipe->rx_zc.waiting) {
-		/*
-		 * Signal arrived before any writer claimed the slot.
-		 * Safe to clean up under the lock.
-		 */
-		pipe->rx_zc.waiting = false;
-		cdma_zc_unmap(cdev, &pipe->rx_zc, DMA_FROM_DEVICE);
-		goto out;
+			  &zc);
+	if (ret) {
+		mutex_unlock(&pipe->rx_lock);
+		return ret;
 	}
 
-	/*
-	 * Writer ran (success or error). Always unmap, then propagate the
-	 * result: writer-side errors travel back via rx_zc.result.
-	 */
-	cdma_zc_unmap(cdev, &pipe->rx_zc, DMA_FROM_DEVICE);
+	cdma_build_sg_pipe_receiver(pipe->rx_ring, zc.sgt_dma, count,
+				    pipe->hw_pipe_id);
+	ret = cdma_ring_submit(pipe->rx_ring, CDMA_BD_PAIR);
 
-	if (pipe->rx_zc.result)
-		ret = pipe->rx_zc.result;
-	else
-		ret = pipe->rx_zc.transferred;
+	mutex_unlock(&pipe->rx_lock);
 
-	pipe->rx_zc.transferred = 0;
-	pipe->rx_zc.result = 0;
-out:
-	mutex_unlock(&pipe->lock);
-	cdma_pipe_leave(pipe);
-	return ret;
+	if (!ret)
+		ret = cdma_wait_ring(pipe->rx_ring);
+
+	if (ret < 0)
+		cdma_ring_cancel(pipe->rx_ring);
+
+	cdma_zc_unmap(cdev, &zc, DMA_FROM_DEVICE);
+
+	return ret ? ret : (ssize_t)count;
 }
 
 static const struct file_operations cdma_rx_fops = {
-	.owner		= THIS_MODULE,
-	.open		= cdma_rx_open,
-	.release	= cdma_rx_release,
-	.read		= cdma_rx_read,
+	.owner	= THIS_MODULE,
+	.open	= cdma_rx_open,
+	.read	= cdma_rx_read,
 };
 
 /* Pipe allocation and registration */
+static void cdma_pipe_destroy(struct cdma_device *cdev)
+{
+	struct cdma_pipe *pipe = cdev->pipes;
+
+	if (!pipe)
+		return;
+
+	if (pipe->tx_ring)
+		pipe->tx_ring->pipe = NULL;
+	if (pipe->rx_ring)
+		pipe->rx_ring->pipe = NULL;
+
+	misc_deregister(&pipe->miscdev_rx);
+	misc_deregister(&pipe->miscdev_tx);
+
+	cdev->pipes = NULL;
+	cdev->num_pipes = 0;
+}
+
+/*
+ * Create a single-SI pipe with TX (ring 0) and RX (ring 1) char devices.
+ * Caller must ensure the SI has at least 2 BD rings.
+ */
 static int cdma_pipe_create(struct cdma_device *cdev, struct cdma_si *si,
 			    int pipe_idx)
 {
@@ -457,27 +338,22 @@ static int cdma_pipe_create(struct cdma_device *cdev, struct cdma_si *si,
 	struct cdma_pipe *pipe;
 	int ret;
 
-	if (si->num_rings < 1) {
-		dev_warn(dev, "SI%u: need at least 1 BD ring (have %u)\n",
-			 si->si_idx, si->num_rings);
-		return -EINVAL;
-	}
-
 	pipe = devm_kzalloc(dev, sizeof(*pipe), GFP_KERNEL);
 	if (!pipe)
 		return -ENOMEM;
 
 	pipe->cdev = cdev;
-	pipe->pipe_id = pipe_idx;
+	pipe->hw_pipe_id = cdev->hw_pipe_id;
+	pipe->pipe_idx = pipe_idx;
 	pipe->max_xfer = CDMA_PIPE_BUF_SIZE;
-	mutex_init(&pipe->lock);
-	init_waitqueue_head(&pipe->rx_wq);
-	init_waitqueue_head(&pipe->tx_wq);
-	init_waitqueue_head(&pipe->drain_wq);
+	mutex_init(&pipe->tx_lock);
+	mutex_init(&pipe->rx_lock);
 
-	/* Use ring 0 for transfers */
-	pipe->ring = &si->rings[0];
-	pipe->ring->pipe = pipe;
+	/* Ring 0 = TX (sender), Ring 1 = RX (receiver) */
+	pipe->tx_ring = &si->rings[0];
+	pipe->rx_ring = &si->rings[1];
+	pipe->tx_ring->pipe = pipe;
+	pipe->rx_ring->pipe = pipe;
 
 	/* Register TX char device: /dev/cdma-pipeN-tx */
 	snprintf(pipe->name_tx, sizeof(pipe->name_tx),
@@ -512,46 +388,9 @@ static int cdma_pipe_create(struct cdma_device *cdev, struct cdma_si *si,
 	cdev->num_pipes = 1;
 
 	dev_info(dev,
-		 "registered /dev/%s + /dev/%s (pipe_id=%u, SI%u ring 0, S/G zero-copy)\n",
-		 pipe->name_tx, pipe->name_rx, pipe->pipe_id, si->si_idx);
+		 "registered /dev/%s + /dev/%s (hw_pipe_id=%u, ring0=TX, ring1=RX)\n",
+		 pipe->name_tx, pipe->name_rx, pipe->hw_pipe_id);
 	return 0;
-}
-
-/*
- * Tear down a pipe. Must run before any DMA pool / ring / SI cleanup so
- * in-flight read()/write() callers don't access freed memory.
- *
- *   1. Set dying under lock so new ops bail with -ENODEV.
- *   2. Release any waiting reader with -ENODEV.
- *   3. Wake all waiters so they observe the new state.
- *   4. Wait for in-flight read/write callers to drain.
- *   5. Unregister the misc devices.
- */
-static void cdma_pipe_destroy(struct cdma_device *cdev)
-{
-	struct cdma_pipe *pipe = cdev->pipes;
-
-	if (!pipe)
-		return;
-
-	mutex_lock(&pipe->lock);
-	pipe->dying = true;
-	if (pipe->rx_zc.waiting) {
-		pipe->rx_zc.result = -ENODEV;
-		pipe->rx_zc.waiting = false;
-	}
-	mutex_unlock(&pipe->lock);
-
-	wake_up_interruptible_all(&pipe->rx_wq);
-	wake_up_interruptible_all(&pipe->tx_wq);
-
-	wait_event(pipe->drain_wq, !READ_ONCE(pipe->inflight));
-
-	misc_deregister(&pipe->miscdev_rx);
-	misc_deregister(&pipe->miscdev_tx);
-
-	cdev->pipes = NULL;
-	cdev->num_pipes = 0;
 }
 
 static void cdma_ida_free(void *data)
