@@ -85,6 +85,11 @@
 			reg = <0x0 0x93002000 0x0 0x2000>;
 			no-map;
 		};
+
+		ipc_shm_mem: shm@24800000 {
+			reg = <0x0 0x24800000 0x0 0x40000>;
+			no-map;
+		};
 	};
 };
 
@@ -157,5 +162,74 @@
 };
 
 &rcu_mru_h1 {
+	status = "okay";
+};
+
+&aps0_mru6 {
+	status = "okay";
+};
+
+&aps0_mru7 {
+	status = "okay";
+};
+
+&aps2_mru0 {
+	status = "okay";
+};
+
+&aps2_mru5 {
+	status = "okay";
+};
+
+&aps2_mru6 {
+	status = "okay";
+};
+
+&aps2_mru7 {
+	status = "okay";
+};
+
+&aps1_mru0 {
+	status = "okay";
+};
+
+&aps1_mru1 {
+	status = "okay";
+};
+
+&aps1_mru2 {
+	status = "okay";
+};
+
+&aps1_mru3 {
+	status = "okay";
+};
+
+&aps1_mru4 {
+	status = "okay";
+};
+
+&aps1_mru5 {
+	status = "okay";
+};
+
+&aps3_mru0 {
+	status = "okay";
+};
+
+&aps3_mru1 {
+	status = "okay";
+};
+
+&aps3_mru2 {
+	status = "okay";
+};
+
+&aps3_mru3 {
+	status = "okay";
+};
+
+&ipc_shm {
+	memory-region = <&ipc_shm_mem>;
 	status = "okay";
 };

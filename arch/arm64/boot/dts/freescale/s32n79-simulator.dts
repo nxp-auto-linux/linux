@@ -85,6 +85,11 @@
 			reg = <0x0 0x93002000 0x0 0x2000>;
 			no-map;
 		};
+
+		ipc_shm_mem: shm@24800000 {
+			reg = <0x0 0x24800000 0x0 0x40000>;
+			no-map;
+		};
 	};
 };
 
@@ -312,6 +317,10 @@
 	status = "okay";
 };
 
+&aps1_mru0 {
+	status = "okay";
+};
+
 &aps1_mru1 {
 	status = "okay";
 };
@@ -340,6 +349,10 @@
 	status = "okay";
 };
 
+&aps2_mru0 {
+	status = "okay";
+};
+
 &aps2_mru1 {
 	status = "okay";
 };
@@ -365,6 +378,10 @@
 };
 
 &aps2_mru7 {
+	status = "okay";
+};
+
+&aps3_mru0 {
 	status = "okay";
 };
 
@@ -397,5 +414,10 @@
 };
 
 &ufshc {
+	status = "okay";
+};
+
+&ipc_shm {
+	memory-region = <&ipc_shm_mem>;
 	status = "okay";
 };

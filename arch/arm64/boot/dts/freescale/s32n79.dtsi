@@ -1250,6 +1250,44 @@
 			clock-names = "ipg";
 			status = "disabled";
 		};
+
+		ipc_shm: ipc_shm {
+			compatible = "nxp,s32n79-ipc-shm";
+			/* mailbox_node channel mailbox_id direction */
+			mboxes = <&aps0_mru6 0 0 0>, <&aps0_mru7 0 0 1>,
+				 <&aps0_mru6 1 0 0>, <&aps0_mru7 1 0 1>,
+				 <&aps1_mru0 0 0 0>, <&aps1_mru1 0 0 1>,
+				 <&aps1_mru0 1 0 0>, <&aps1_mru1 1 0 1>,
+				 <&aps1_mru2 0 0 0>, <&aps1_mru3 0 0 1>,
+				 <&aps1_mru2 1 0 0>, <&aps1_mru3 1 0 1>,
+				 <&aps1_mru4 0 0 0>, <&aps1_mru5 0 0 1>,
+				 <&aps1_mru4 1 0 0>, <&aps1_mru5 1 0 1>,
+				 <&aps2_mru0 0 0 0>, <&aps2_mru5 0 0 1>,
+				 <&aps2_mru0 1 0 0>, <&aps2_mru5 1 0 1>,
+				 <&aps2_mru6 0 0 0>, <&aps2_mru7 0 0 1>,
+				 <&aps2_mru6 1 0 0>, <&aps2_mru7 1 0 1>,
+				 <&aps3_mru0 0 0 0>, <&aps3_mru1 0 0 1>,
+				 <&aps3_mru0 1 0 0>, <&aps3_mru1 1 0 1>,
+				 <&aps3_mru2 0 0 0>, <&aps3_mru3 0 0 1>,
+				 <&aps3_mru2 1 0 0>, <&aps3_mru3 1 0 1>;
+			mbox-names = "tx_0",  "rx_0",
+				     "tx_1",  "rx_1",
+				     "tx_2",  "rx_2",
+				     "tx_3",  "rx_3",
+				     "tx_4",  "rx_4",
+				     "tx_5",  "rx_5",
+				     "tx_6",  "rx_6",
+				     "tx_7",  "rx_7",
+				     "tx_8",  "rx_8",
+				     "tx_9",  "rx_9",
+				     "tx_10", "rx_10",
+				     "tx_11", "rx_11",
+				     "tx_12", "rx_12",
+				     "tx_13", "rx_13",
+				     "tx_14", "rx_14",
+				     "tx_15", "rx_15";
+			status = "disabled";
+		};
 	};
 
 	nwss_subsys {
