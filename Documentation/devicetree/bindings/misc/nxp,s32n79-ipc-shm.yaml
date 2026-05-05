@@ -1,0 +1,72 @@
+# SPDX-License-Identifier: GPL-2.0-only OR BSD-2-Clause
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/misc/nxp,s32n79-ipc-shm.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: NXP S32N79 IPCF Shared Memory Driver
+
+description:
+  IPCF Shared Memory Driver enables communication over shared memory with an
+  RTOS application running on a different core of the same processor. The driver
+  uses MRU (Messaging Receive Unit) mailboxes for notification between
+  processors. Each IPCF instance can optionally use TX and/or RX mailboxes for
+  communication.
+
+maintainers:
+  - Hoang Nguyen <hoang.nguyenle@nxp.com>
+
+properties:
+  compatible:
+    const: nxp,s32n79-ipc-shm
+
+  memory-region:
+    description: |
+      Phandle to the reserved-memory region used as IPCF shared memory.
+      This reference is informational for the driver - the shared memory
+      addresses are supplied by the IPCF configuration - but it documents the
+      carve-out and prevents other consumers from claiming the region. The
+      referenced region should be declared with the no-map property.
+    maxItems: 1
+
+  mboxes:
+    description: |
+      List of mailbox channels used for IPCF communication.
+      Mailboxes are organized by instance. Each instance can have:
+        - TX mailbox only (RX uses polling)
+        - RX mailbox only (TX uses polling)
+        - Both TX and RX mailboxes
+        - No mailboxes (both TX and RX use polling)
+      Format: <&mru_node channel mailbox direction>
+      where direction is 0 for TX and 1 for RX.
+    minItems: 1
+    maxItems: 32
+
+  mbox-names:
+    description: |
+      Names for the mailbox channels using format "tx_N" and/or "rx_M" where:
+        - N corresponds to the inter_core_tx_irq value of that instance
+        - M corresponds to the inter_core_rx_irq value of that instance
+      The number and order of mbox-names must match the mboxes property.
+      Instances with inter_core_tx_irq or inter_core_rx_irq set to IPC_IRQ_NONE
+      should not have corresponding mailbox entries.
+    minItems: 1
+    maxItems: 32
+
+required:
+  - compatible
+
+additionalProperties: false
+
+examples:
+  - |
+    /* Single instance with both TX and RX mailboxes
+     * inter_core_tx_irq = 0, inter_core_rx_irq = 0
+     */
+    ipc_shm: ipc_shm {
+        compatible = "nxp,s32n79-ipc-shm";
+        memory-region = <&ipc_shm_mem>;
+        mboxes = <&aps0_mru0 0 0 0>, <&aps0_mru5 0 0 1>;
+        mbox-names = "tx_0", "rx_0";
+        status = "okay";
+    };
