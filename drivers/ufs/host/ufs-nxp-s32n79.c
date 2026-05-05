@@ -404,7 +404,7 @@ static int ufs_s32n_init(struct ufs_hba *hba)
 	ufs->hba = hba;
 	ufs->mphy_boot_mode = MPHY_BOOT_NONE;
 
-	hba->quirks |= UFSHCD_QUIRK_BROKEN_AUTO_HIBERN8;
+	hba->quirks |= UFSHCD_QUIRK_BROKEN_AUTO_HIBERN8 | UFSHCD_QUIRK_PERFORM_LINK_STARTUP_ONCE;
 
 	if (data && hba->host && data->sg_tablesize)
 		hba->host->sg_tablesize = data->sg_tablesize;
