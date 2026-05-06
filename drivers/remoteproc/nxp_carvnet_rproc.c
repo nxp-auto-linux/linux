@@ -580,11 +580,12 @@ static void q_clear_mapper(struct carvnet *priv)
 
 static int q_set_mapper(struct carvnet *priv)
 {
-	struct carveout_info *info, *aggr_info = NULL;
+	struct carveout_info *info, *aggr_first_info = NULL, *aggr_last_info = NULL;
 	int simple_n = 0, prio_n = 0, ret = 0, i;
 	struct rproc_mem_entry *m;
 	struct rproc *rproc;
-	size_t aggr_len = 0;
+	size_t aggr_total_len = 0;
+	size_t aggr_last_len = 0;
 	dma_addr_t aggr_dma;
 	u32 q;
 
@@ -625,29 +626,63 @@ static int q_set_mapper(struct carvnet *priv)
 
 		if (strncmp(m->name, FIRMWARE_SEGMENT_NAME,
 			    strlen(FIRMWARE_SEGMENT_NAME)) == 0) {
+			/* Firmware segments use simple regions */
 			if (simple_n >= CARV_AT_SIMPLE_REGIONS)
 				return -EINVAL;
 			ret = q_set_simple_region(priv, m, simple_n++);
 		} else {
-			if (aggr_info && (aggr_dma + aggr_len == m->dma) &&
-				aggr_info->bar_index == info->bar_index) {
-				/* Append this region into single RCR mapping */
-				aggr_len += m->len;
+			/* Priority regions - may be aggregated if contiguous */
+			if (aggr_first_info &&
+			    (aggr_dma + aggr_total_len == m->dma) &&
+			    aggr_first_info->bar_index == info->bar_index) {
+				/* Append to existing aggregation */
+				aggr_total_len += m->len;
+				aggr_last_len = m->len;
+				aggr_last_info = info;
 			} else {
-				if (aggr_len)
-					ret = q_set_prio_region(priv, aggr_info, aggr_dma,
-								aggr_len, &prio_n);
-				aggr_dma  = m->dma;
-				aggr_len  = m->len;
-				aggr_info = info;
+				/* Flush previous aggregation if exists */
+				if (aggr_total_len) {
+					size_t effective_len = aggr_total_len;
+
+					/* Adjust last region if fw_size < allocated size */
+					if (aggr_last_info &&
+					    aggr_last_info->fw_size &&
+					    aggr_last_info->size > aggr_last_info->fw_size)
+						effective_len = aggr_total_len - aggr_last_len +
+								aggr_last_info->fw_size;
+
+					ret = q_set_prio_region(priv, aggr_first_info,
+								aggr_dma, effective_len, &prio_n);
+					if (ret)
+						return ret;
+				}
+
+				/* Start new aggregation */
+				aggr_dma = m->dma;
+				aggr_total_len = m->len;
+				aggr_last_len = m->len;
+				aggr_first_info = info;  /* Provides match_addr & bar_index */
+				aggr_last_info = info;   /* Initially also the last */
 			}
 		}
 
 		if (ret)
 			return ret;
 	}
-	if (aggr_info)
-		ret = q_set_prio_region(priv, aggr_info, aggr_dma, aggr_len, &prio_n);
+
+	/* Flush final aggregation */
+	if (aggr_total_len) {
+		size_t effective_len = aggr_total_len;
+
+		/* Adjust last region if fw_size < allocated size */
+		if (aggr_last_info &&
+		    aggr_last_info->fw_size &&
+		    aggr_last_info->size > aggr_last_info->fw_size)
+			effective_len = aggr_total_len - aggr_last_len + aggr_last_info->fw_size;
+
+		ret = q_set_prio_region(priv, aggr_first_info,
+					aggr_dma, effective_len, &prio_n);
+	}
 
 	return ret;
 }
