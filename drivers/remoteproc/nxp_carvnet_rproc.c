@@ -286,9 +286,10 @@ struct __packed carvnet_bar_info {
  * @carveout_name: human-readable name of the carveout resource
  * @match_addr: the CarV side address (match address) to be used for specified Carveout
  * @base_addr: physical base address of the carveout memory region
- * @size: size of the carveout memory region in bytes
+ * @size: size of the carveout memory region in bytes (allocated by device tree)
  * @bar_index: index 0..3 of the BAR to use with this carveout, or BAR_INVALID
  *             if not assigned
+ * @fw_size: actual size required by firmware resource table, may be smaller than @size
  * @bar_type: type of BAR memory (coherent, non-coherent, or shared)
  * @node: kernel list node, to keep infos in struct carvnet's carveout_infos list
  *
@@ -302,6 +303,7 @@ struct carveout_info {
 	phys_addr_t base_addr;
 	size_t size;
 	u32 bar_index;
+	u32 fw_size;
 	u8 bar_type;
 	struct list_head node;
 };
@@ -711,6 +713,56 @@ static int carvnet_rproc_add_mem_regions(struct rproc *rproc)
 	return 0;
 }
 
+static int carvnet_rproc_set_fw_sizes(struct rproc *rproc)
+{
+	int i;
+	struct resource_table *table;
+	struct fw_rsc_carveout *c;
+	struct carveout_info *info;
+	struct carvnet *priv = rproc->priv;
+
+	/* Resource table must be loaded before calling this function */
+	table = rproc->table_ptr;
+	if (!table)
+		return -EINVAL;
+
+	/* Iterate through all resources in the firmware resource table */
+	for (i = 0; i < table->num; i++) {
+		int offset = table->offset[i];
+		struct fw_rsc_hdr *hdr = (void *)table + offset;
+		void *rsc = (void *)hdr + sizeof(*hdr);
+
+		/* Only process carveout resources; skip vrings, trace, etc. */
+		if (hdr->type != RSC_CARVEOUT)
+			continue;
+
+		c = rsc;
+
+		/* Find the corresponding carveout_info by name */
+		info = q_get_carveout_info(priv, c->name);
+		if (!info) {
+			dev_err(&rproc->dev,
+				"Failed to find carveout info for '%s'\n",
+				c->name);
+			return -ENOMEM;
+		}
+
+		/*
+		 * Store the firmware's requested size. This may be smaller
+		 * than info->size (allocated by device tree). The difference
+		 * is used later in q_set_mapper() to adjust priority region
+		 * mappings and prevent alignment check failures.
+		 */
+		info->fw_size = c->len;
+
+		dev_dbg(&rproc->dev,
+			"Carveout '%s': DT size=0x%zx, FW size=0x%x\n",
+			c->name, info->size, info->fw_size);
+	}
+
+	return 0;
+}
+
 static int carvnet_rproc_parse_fw(struct rproc *rproc,
 				  const struct firmware *fw)
 {
@@ -725,6 +777,10 @@ static int carvnet_rproc_parse_fw(struct rproc *rproc,
 	ret = rproc_elf_load_rsc_table(rproc, fw);
 	if (ret)
 		dev_warn(&rproc->dev, "No resource table in fw\n");
+
+	ret = carvnet_rproc_set_fw_sizes(rproc);
+	if (ret)
+		dev_err(&rproc->dev, "Failed to parse fw resources\n");
 
 	return ret;
 }
