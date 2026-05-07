@@ -3,7 +3,6 @@
 config NXP_CDMA
 	tristate "NXP S32N Central DMA (CDMA) Engine"
 	depends on PCI && PCI_MSI
-	depends on ARM64 || COMPILE_TEST
 	depends on HAS_IOMEM
 	help
 	  Enable support for the NXP S32N79 Central DMA (CDMA) controller.
