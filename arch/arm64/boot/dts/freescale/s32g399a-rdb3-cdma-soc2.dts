@@ -1,0 +1,50 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+/*
+ * Device Tree file for S32G399ARDB3 Board Rev E - CDMA SoC #2 (SI 21).
+ *
+ * S32G #2 (this board, SI 21) exchanges data with S32G #1 (SI 4) via
+ * S32N79's CDMA pipe matcher. Data path:
+ *   S32G #2 RAM <-> PCIe <-> S32N79 SI 21 (BD ring) <-> internal pipe match
+ *   <-> S32N79 SI 4 (BD ring) <-> PCIe <-> S32G #1 RAM.
+ *
+ * Copyright 2026 NXP
+ */
+
+#include "s32g399a-rdb3.dtsi"
+
+&pcie0 {
+	/*
+	 * NXP CDMA Station Interface 21 imported from S32N79 via the SFC
+	 * firmware on S32N79. Authorised pipe pair (per S32N79's IERB
+	 * PID10aAUR=0x0544): SI 21 (this S32G) <-> SI 4 (the first
+	 * S32G). Both endpoints set nxp,pipe-id = <10>.
+	 *
+	 * EP is on bus 1, downstream of the host bridge at 00:00.0. The
+	 * intermediate pcie@0,0 node declares that synthetic bridge so
+	 * the PCI/OF matcher can attach an of_node to it and propagate
+	 * it down to bus 1; without the bridge node, the EP would never
+	 * get its of_node set and nxp,pipe-id would be unreachable.
+	 *
+	 * The reg cell encodes the BDF the PCI core enumerates the EP at
+	 * within this controller's bus tree:
+	 *   phys.hi = (bus<<16) | (dev<<11) | (fn<<8)
+	 * SFC firmware exports the authorised SI as the first PCIe
+	 * function on this controller, regardless of the SI's global
+	 * number; SI 21 lands at BDF 01:00.2 (dev=0, fn=2) just like
+	 * SI 4 does on S32N79 PCIe1. SI identity lives in S32N79's IERB / pipe
+	 * matcher, not in the local PCIe BDF.
+	 */
+	pcie@0,0 {
+		reg = <0x0000 0 0 0 0>;
+		#address-cells = <3>;
+		#size-cells = <2>;
+		bus-range = <0x01 0x01>;
+		ranges;
+		device_type = "pci";
+
+		cdma_si21: cdma@0,2 {
+			reg = <0x00010200 0 0 0 0>;
+			nxp,pipe-id = <10>;
+		};
+	};
+};
