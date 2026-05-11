@@ -1,0 +1,9 @@
+# SPDX-License-Identifier: GPL-2.0 OR BSD-3-Clause
+
+config NTB_NXP
+	tristate "NXP S32N79 PCIe Non-Transparent Bridge support"
+	depends on PCI_MSI
+	help
+	  Host-side PCIe NTB driver for the NXP S32N79 NTB endpoint function
+
+	  If unsure, say N.
