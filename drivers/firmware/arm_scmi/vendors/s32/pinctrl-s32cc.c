@@ -2,7 +2,7 @@
 /*
  * SCMI pinctrl Protocol - NXP vendor extension
  *
- * Copyright 2022-2025 NXP
+ * Copyright 2022-2026 NXP
  */
 
 #define pr_fmt(fmt) "SCMI pinctrl - " fmt
@@ -825,8 +825,8 @@ static const struct scmi_protocol scmi_s32_pinctrl = {
 	.instance_init = &scmi_pinctrl_protocol_init,
 	.ops = &pinctrl_proto_ops,
 	.supported_version = SCMI_PROTOCOL_SUPPORTED_VERSION,
-	.vendor_id = "arm",
-	.sub_vendor_id = "arm",
+	.vendor_id = "NXP",
+	.sub_vendor_id = "S32CC",
 };
 
 DEFINE_SCMI_PROTOCOL_REGISTER_UNREGISTER(pinctrl, scmi_s32_pinctrl)
