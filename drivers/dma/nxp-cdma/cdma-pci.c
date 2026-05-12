@@ -277,16 +277,26 @@ static int cdma_pci_probe(struct pci_dev *pdev,
 	cdev->pdev = pdev;
 	pci_set_drvdata(pdev, cdev);
 
-	/* Enable PCI device (managed) */
 	ret = pcim_enable_device(pdev);
 	if (ret) {
 		dev_err(&pdev->dev, "pcim_enable_device failed: %d\n", ret);
 		return ret;
 	}
 
-	pci_set_master(pdev);
+	/*
+	 * Request and map BAR 0 - populated by PCI core from EA capability.
+	 * The EA aperture is 128 KB covering SI registers + MSI-X table/PBA.
+	 * pcim_iomap_region() claims the region so it shows up in
+	 * /proc/iomem and refuses any conflicting mapper.
+	 */
+	base = pcim_iomap_region(pdev, 0, KBUILD_MODNAME);
+	if (IS_ERR(base)) {
+		ret = PTR_ERR(base);
+		dev_err(&pdev->dev, "BAR 0 iomap failed (EA aperture): %d\n", ret);
+		return ret;
+	}
 
-	/* Set DMA mask — CDMA descriptors have 64-bit address fields */
+	/* Set DMA mask - CDMA descriptors have 64-bit address fields */
 	ret = dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(64));
 	if (ret) {
 		/* Failsafe to 32-bit addresses */
@@ -298,20 +308,17 @@ static int cdma_pci_probe(struct pci_dev *pdev,
 		}
 	}
 
-	/*
-	 * Map BAR 0 — populated by PCI core from EA capability (BEI=0).
-	 * The EA aperture is 128 KB covering SI registers + MSI-X table/PBA.
+	/* Initialize Station Interface - clear SIMR, reset rings to a known
+	 * state before allowing the device to bus-master.
 	 */
-	base = pcim_iomap(pdev, 0, 0);
-	if (!base) {
-		dev_err(&pdev->dev, "BAR 0 iomap failed (EA aperture)\n");
-		return -ENOMEM;
-	}
-
-	/* Initialize Station Interface */
 	ret = cdma_si_init(cdev, base);
 	if (ret)
 		return ret;
+
+	/* Device is now in a defined state - enable bus mastering so it can
+	 * initiate DMA when rings are subsequently armed.
+	 */
+	pci_set_master(pdev);
 
 	/* Create DMA pool for S/G tables */
 	cdev->sgt_pool = dma_pool_create("cdma-sgt", &pdev->dev,
