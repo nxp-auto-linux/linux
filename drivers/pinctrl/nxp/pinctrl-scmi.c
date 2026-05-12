@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: (GPL-2.0+ OR BSD-3-Clause)
 /*
- *  Copyright 2022-2024 NXP
+ *  Copyright 2022-2024, 2026 NXP
  */
 #include "asm-generic/errno.h"
 #include "linux/overflow.h"
@@ -1117,7 +1117,7 @@ static int scmi_pinctrl_probe(struct scmi_device *sdev)
 	if (!priv)
 		return -ENOMEM;
 
-	desc = devm_kmalloc(dev, sizeof(*desc), GFP_KERNEL);
+	desc = devm_kzalloc(dev, sizeof(*desc), GFP_KERNEL);
 	if (!desc)
 		return -ENOMEM;
 
