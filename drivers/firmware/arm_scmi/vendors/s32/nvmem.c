@@ -2,7 +2,7 @@
 /*
  * SCMI NVMEM Protocol - NXP Vendor Extension
  *
- * Copyright 2023-2025 NXP
+ * Copyright 2023-2026 NXP
  */
 
 #define pr_fmt(fmt) "scmi:nvmem:proto: " fmt
@@ -205,8 +205,8 @@ static struct scmi_protocol scmi_nvmem = {
 	.instance_deinit = &scmi_nvmem_protocol_deinit,
 	.ops = &scmi_nvmem_ops,
 	.supported_version = SCMI_PROTOCOL_SUPPORTED_VERSION,
-	.vendor_id = "arm",
-	.sub_vendor_id = "arm",
+	.vendor_id = "NXP",
+	.sub_vendor_id = "S32CC",
 };
 
 module_scmi_protocol(scmi_nvmem);

@@ -2,7 +2,7 @@
 /*
  * SCMI GPIO Protocol - NXP vendor extension
  *
- * Copyright 2022-2023,2025 NXP
+ * Copyright 2022-2023,2025-2026 NXP
  */
 
 #define pr_fmt(fmt) "scmi:gpio:proto: " fmt
@@ -576,8 +576,8 @@ static struct scmi_protocol scmi_gpio = {
 	.ops = &gpio_ops,
 	.events = &gpio_protocol_events,
 	.supported_version = SCMI_PROTOCOL_SUPPORTED_VERSION,
-	.vendor_id = "arm",
-	.sub_vendor_id = "arm",
+	.vendor_id = "NXP",
+	.sub_vendor_id = "S32CC",
 };
 
 module_scmi_protocol(scmi_gpio);
