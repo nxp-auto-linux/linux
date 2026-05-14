@@ -221,6 +221,21 @@ static bool xpcs_needs_full_phy_init(struct s32cc_xpcs *xpcs)
 	return !!(xpcs->quirks & XPCS_QUIRK_FULL_PHY_INIT);
 }
 
+static bool is_s32r47_plat(void)
+{
+	struct device_node *root;
+	bool is_s32r47;
+
+	root = of_find_node_by_path("/");
+	if (!root)
+		return false;
+
+	is_s32r47 = of_device_is_compatible(root, "nxp,s32r47");
+	of_node_put(root);
+
+	return is_s32r47;
+}
+
 static void init_params(u32 reg, struct s32cc_xpcs *xpcs,
 			struct s32cc_xpcs_params *params, u16 *data)
 {
@@ -962,8 +977,7 @@ static int xpcs_config_an(struct s32cc_xpcs *xpcs,
 			CL37_TMR_OVRRIDE, CL37_TMR_OVRRIDE);
 
 	XPCS_WRITE_BITS(xpcs, VR_MII_AN_CTRL,
-			PCS_MODE_MASK | MII_AN_INTR_EN,
-			PCS_MODE_SET(PCS_MODE_SGMII) | MII_AN_INTR_EN);
+			MII_AN_INTR_EN, MII_AN_INTR_EN);
 	/* Enable SGMII AN */
 	XPCS_WRITE_BITS(xpcs, SR_MII_CTRL, AN_ENABLE, AN_ENABLE);
 	/* Enable SGMII AUTO SW */
@@ -984,6 +998,10 @@ static int xpcs_config(struct s32cc_xpcs *xpcs,
 
 	/* Configure adaptive MII width */
 	XPCS_WRITE_BITS(xpcs, VR_MII_AN_CTRL, MII_CTRL, 0);
+
+	/* Set PCS_MODE_SGMII for both AN or non-AN cases */
+	XPCS_WRITE_BITS(xpcs, VR_MII_AN_CTRL,
+			PCS_MODE_MASK, PCS_MODE_SET(PCS_MODE_SGMII));
 
 	an_enabled = !!(XPCS_READ(xpcs, SR_MII_CTRL) & AN_ENABLE);
 
@@ -1053,6 +1071,10 @@ static int xpcs_config(struct s32cc_xpcs *xpcs,
 		}
 
 		XPCS_WRITE_BITS(xpcs, SR_MII_CTRL, SS6 | SS13, val);
+
+		/* Enable SGMII AN for in-band signaling on S32R47 platform. */
+		if (is_s32r47_plat())
+			XPCS_WRITE_BITS(xpcs, SR_MII_CTRL, AN_ENABLE, AN_ENABLE);
 	}
 
 	return 0;
