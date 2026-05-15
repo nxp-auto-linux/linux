@@ -563,7 +563,7 @@
 			interrupts = <211>;
 			clocks = <&clks 0x91>;
 			clock-names = "core_clk";
-			iommus = <&smmu 0x2>; // StreamID = 0x2
+			iommus = <&smmu 0x10>; // StreamID = 0x10
 			status = "disabled";
 		};
 
@@ -572,7 +572,7 @@
 			reg = <0x4acb0000 0x1000>;
 			interrupt-parent = <&irqsteer_coss>;
 			interrupts = <212>;
-			iommus = <&smmu 0x10>;
+			iommus = <&smmu 0x11>;
 			status = "disabled";
 		};
 
@@ -581,7 +581,7 @@
 			reg = <0x4acd0000 0x1000>;
 			interrupt-parent = <&irqsteer_coss>;
 			interrupts = <213>;
-			iommus = <&smmu 0x11>;
+			iommus = <&smmu 0x12>;
 			status = "disabled";
 		};
 
@@ -590,7 +590,7 @@
 			reg = <0x4acf0000 0x1000>;
 			interrupt-parent = <&irqsteer_coss>;
 			interrupts = <214>;
-			iommus = <&smmu 0x12>;
+			iommus = <&smmu 0x13>;
 			status = "disabled";
 		};
 
@@ -599,7 +599,7 @@
 			reg = <0x4ad10000 0x1000>;
 			interrupt-parent = <&irqsteer_coss>;
 			interrupts = <215>;
-			iommus = <&smmu 0x13>;
+			iommus = <&smmu 0x14>;
 			status = "disabled";
 		};
 	};
