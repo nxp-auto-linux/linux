@@ -1,11 +1,15 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /*
- * Device Tree file for S32G399ARDB3 Board Rev E - CDMA SoC #1 (SI 4).
+ * Device Tree file for S32G399ARDB3 Board Rev E - CDMA cross-SoC pipe 10.
  *
- * S32G #1 (this board, SI 4) exchanges data with S32G #2 (SI 21) via
- * S32N79's CDMA pipe matcher. Data path:
- *   S32G #1 RAM <-> PCIe <-> S32N79 SI 4 (BD ring) <-> internal pipe match
- *   <-> S32N79 SI 21 (BD ring) <-> PCIe <-> S32G #2 RAM.
+ * Flashed on both S32G boards participating in the cross-SoC test.
+ * Each board exchanges data with the other via N79's CDMA pipe matcher.
+ * Data path:
+ *   S32G RAM <-> PCIe <-> N79 SI X (BD ring) <-> internal pipe match
+ *   <-> N79 SI Y (BD ring) <-> PCIe <-> S32G RAM.
+ *
+ * Authorised pipe pair (per N79's IERB PID10AUR=0x0544):
+ * SI 4 <-> SI 21. Both endpoints set nxp,pipe-id = <10>.
  *
  * Copyright 2026 NXP
  */
@@ -14,19 +18,13 @@
 
 &pcie0 {
 	/*
-	 * NXP CDMA Station Interface 4 imported from S32N79 via the SFC
-	 * firmware on S32N79. Authorised pipe pair (per S32N79's IERB
-	 * PID10aAUR=0x0544): SI 4 (this S32G) <-> SI 21 (the second
-	 * S32G). Both endpoints set nxp,pipe-id = <10>.
-	 *
 	 * EP is on bus 1, downstream of the host bridge at 00:00.0. The
 	 * intermediate pcie@0,0 node declares that synthetic bridge so
 	 * the PCI/OF matcher can attach an of_node to it and propagate
 	 * it down to bus 1; without the bridge node, the EP would never
 	 * get its of_node set and nxp,pipe-id would be unreachable.
 	 *
-	 * The reg cell encodes the BDF the PCI core enumerates the EP at
-	 * within this controller's bus tree:
+	 * reg cell encodes the BDF as:
 	 *   phys.hi = (bus<<16) | (dev<<11) | (fn<<8)
 	 */
 	pcie@0,0 {
@@ -37,7 +35,7 @@
 		ranges;
 		device_type = "pci";
 
-		cdma_si4: cdma@0,2 {
+		cdma_pipe10: cdma@0,2 {
 			reg = <0x00010200 0 0 0 0>;
 			nxp,pipe-id = <10>;
 		};
