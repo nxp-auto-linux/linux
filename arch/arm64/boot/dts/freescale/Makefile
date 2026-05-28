@@ -300,8 +300,7 @@ dtb-$(CONFIG_ARCH_S32) += s32g274a-rdb2.dtb
 dtb-$(CONFIG_ARCH_S32) += s32g274a-rdb2-pfems.dtb
 dtb-$(CONFIG_ARCH_S32) += s32g399a-rdb3.dtb
 ifneq ($(filter y m,$(CONFIG_NXP_CDMA)),)
-dtb-$(CONFIG_ARCH_S32) += s32g399a-rdb3-cdma-soc1.dtb
-dtb-$(CONFIG_ARCH_S32) += s32g399a-rdb3-cdma-soc2.dtb
+dtb-$(CONFIG_ARCH_S32) += s32g399a-rdb3-cdma-pipe10.dtb
 endif
 dtb-$(CONFIG_ARCH_S32) += s32g399a-rdb3-pfems.dtb
 dtb-$(CONFIG_ARCH_S32) += s32g399a-vc-som.dtb
