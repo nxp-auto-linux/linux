@@ -739,6 +739,16 @@ static const struct enetc_si_ops enetc_vsi_ops = {
 	.vf_register_link_status_notify = enetc_msg_vf_register_link_status_notify,
 };
 
+static const struct enetc_si_ops enetc4_vsi_ops = {
+	.setup_cbdr = enetc4_setup_cbdr,
+	.teardown_cbdr = enetc4_teardown_cbdr,
+	.get_rss_table = enetc4_get_rss_table,
+	.set_rss_table = enetc4_set_rss_table,
+	.vf_register_msg_msix = enetc_vf_register_msg_msix,
+	.vf_free_msg_msix = enetc_vf_free_msg_msix,
+	.vf_register_link_status_notify = enetc_msg_vf_register_link_status_notify,
+};
+
 static int enetc_vf_probe(struct pci_dev *pdev,
 			  const struct pci_device_id *ent)
 {
@@ -754,7 +764,12 @@ static int enetc_vf_probe(struct pci_dev *pdev,
 
 	si = pci_get_drvdata(pdev);
 	enetc_vf_get_revision(si);
-	si->ops = &enetc_vsi_ops;
+
+	if (is_enetc_rev1(si))
+		si->ops = &enetc_vsi_ops;
+	else
+		si->ops = &enetc4_vsi_ops;
+
 	err = enetc_get_driver_data(si);
 	if (err) {
 		dev_err_probe(&pdev->dev, err,
