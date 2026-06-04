@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: (GPL-2.0+ OR BSD-3-Clause)
 /*
  * NXP NETC switch driver
- * Copyright 2025 NXP
+ * Copyright 2024-2026 NXP
  */
 
 #include "netc_switch.h"
@@ -46,17 +46,64 @@ static void imx94_switch_phylink_get_caps(int port, struct phylink_config *confi
 
 static void s32n79_switch_phylink_get_caps(int port, struct phylink_config *config)
 {
-	config->mac_capabilities |= MAC_1000FD;
-
 	switch (port) {
-	case 0 ... 7:
-		/* TODO: configure as internal for now, for the simulator */
+	/* MAC ports */
+	case 0 ... 1:
+		__set_bit(PHY_INTERFACE_MODE_MII, config->supported_interfaces);
+		__set_bit(PHY_INTERFACE_MODE_REVMII,
+			  config->supported_interfaces);
+		__set_bit(PHY_INTERFACE_MODE_RMII,
+			  config->supported_interfaces);
+		phy_interface_set_rgmii(config->supported_interfaces);
+		__set_bit(PHY_INTERFACE_MODE_1000BASEX,
+			  config->supported_interfaces);
+		__set_bit(PHY_INTERFACE_MODE_2500BASEX,
+			  config->supported_interfaces);
+		__set_bit(PHY_INTERFACE_MODE_XGMII,
+			  config->supported_interfaces);
+
+		config->mac_capabilities |= MAC_10 | MAC_100;
+		config->mac_capabilities |= MAC_1000;
+		config->mac_capabilities |= MAC_2500FD;
+		config->mac_capabilities |= MAC_ASYM_PAUSE | MAC_SYM_PAUSE;
+		/* Port 0 supports up to 5G, port 1 up to 2.5G only */
+		if (port == 0)
+			config->mac_capabilities |= MAC_5000FD;
+		break;
+	case 2 ... 6:
+		__set_bit(PHY_INTERFACE_MODE_SGMII,
+			  config->supported_interfaces);
+		__set_bit(PHY_INTERFACE_MODE_XGMII,
+			  config->supported_interfaces);
+		if (port == 3) {
+			__set_bit(PHY_INTERFACE_MODE_MII,
+				  config->supported_interfaces);
+			__set_bit(PHY_INTERFACE_MODE_REVMII,
+				  config->supported_interfaces);
+			__set_bit(PHY_INTERFACE_MODE_RMII,
+				  config->supported_interfaces);
+			phy_interface_set_rgmii(config->supported_interfaces);
+		}
+
+		config->mac_capabilities |= MAC_10 | MAC_100;
+		config->mac_capabilities |= MAC_1000;
+		config->mac_capabilities |= MAC_2500FD;
+		config->mac_capabilities |= MAC_ASYM_PAUSE | MAC_SYM_PAUSE;
+		if (port == 3 || port == 4)
+			config->mac_capabilities |= MAC_5000FD;
+		if (port == 5 || port == 6)
+			config->mac_capabilities |= MAC_10000FD;
+		break;
+	/* DMA MAC port */
+	case 7:
+		fallthrough;
+	/* CPU ports */
+	case 8 ... 13:
 		__set_bit(PHY_INTERFACE_MODE_INTERNAL, config->supported_interfaces);
 		break;
-	/* CPU ports */
 	default:
-		__set_bit(PHY_INTERFACE_MODE_INTERNAL, config->supported_interfaces);
-		config->mac_capabilities |= MAC_2500FD;
+		WARN_ONCE(1, "Incorrect port number: %d!\n", port);
+		break;
 	}
 }
 
