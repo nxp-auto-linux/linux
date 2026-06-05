@@ -5,10 +5,12 @@
  */
 
 #include <linux/clk.h>
+#include <linux/dma-map-ops.h>
 #include <linux/iopoll.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/of.h>
+#include <linux/of_reserved_mem.h>
 #include <linux/platform_device.h>
 
 #include "ufs-nxp-s32n79.h"
@@ -40,6 +42,9 @@
 
 /* Clock validation limits. */
 #define MAX_VALID_ONE_US_TICK		SCM_ONE_US_TICK_MASK
+
+/* Use reserved DMA pool for coherent DMA allocations on non-coherent devices. */
+#define UFS_S32N79_QUIRK_ERR053438	BIT(0)
 
 /**
  * struct s32n_ufs - S32N79 UFS host controller data
@@ -384,6 +389,7 @@ out:
 struct s32n79_match_data {
 	const struct ufs_hba_variant_ops *vops;
 	unsigned short sg_tablesize;
+	u32 quirks;
 };
 
 static int ufs_s32n_init(struct ufs_hba *hba)
@@ -454,11 +460,13 @@ static struct ufs_hba_variant_ops ufs_hba_s32n79_vops = {
 static const struct s32n79_match_data ufs_s32n79_data = {
 	.vops = &ufs_hba_s32n79_vops,
 	.sg_tablesize = SG_ALL,
+	.quirks = UFS_S32N79_QUIRK_ERR053438,
 };
 
 static const struct s32n79_match_data ufs_s32n79_virt_data = {
 	.vops = &ufs_hba_s32n79_vops,
 	.sg_tablesize = 120,
+	.quirks = UFS_S32N79_QUIRK_ERR053438,
 };
 
 static const struct of_device_id ufs_s32n79_match[] = {
@@ -474,16 +482,51 @@ static const struct of_device_id ufs_s32n79_match[] = {
 };
 MODULE_DEVICE_TABLE(of, ufs_s32n79_match);
 
+static void ufs_s32n79_release_dma_reserved_mem(void *data)
+{
+	of_reserved_mem_device_release(data);
+}
+
+static int ufs_s32n79_init_dma_reserved_mem(struct device *dev,
+					    const struct s32n79_match_data *data)
+{
+	int err;
+
+	if (!(data->quirks & UFS_S32N79_QUIRK_ERR053438))
+		return 0;
+
+	/* DMA coherent devices are not affected by ERR053438. */
+	if (dev_is_dma_coherent(dev))
+		return 0;
+
+	/*
+	 * S32N79 ERR053438 workaround: attach the reserved DMA pool
+	 * before the UFS core allocates coherent descriptor memory.
+	 */
+	err = of_reserved_mem_device_init(dev);
+	if (err)
+		return dev_err_probe(dev, err,
+				     "failed to attach reserved memory\n");
+
+	return devm_add_action_or_reset(dev,
+					ufs_s32n79_release_dma_reserved_mem,
+					dev);
+}
+
 static int ufs_s32n79_probe(struct platform_device *pdev)
 {
 	const struct s32n79_match_data *data;
-	const struct of_device_id *of_id;
+	struct device *dev = &pdev->dev;
+	int err;
 
-	of_id = of_match_node(ufs_s32n79_match, pdev->dev.of_node);
-	if (!of_id || !of_id->data)
+	data = device_get_match_data(dev);
+	if (!data)
 		return -ENODEV;
 
-	data = of_id->data;
+	err = ufs_s32n79_init_dma_reserved_mem(dev, data);
+	if (err)
+		return err;
+
 	return ufshcd_pltfrm_init(pdev, data->vops);
 }
 
