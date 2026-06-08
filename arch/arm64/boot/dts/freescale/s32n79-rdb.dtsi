@@ -61,6 +61,12 @@
 			no-map;
 			status = "disabled";
 		};
+
+		dma_pool: dma-pool@80000000 {
+			compatible = "shared-dma-pool";
+			reg = <0x0 0x80000000 0x0 0x80000>;
+			no-map;
+		};
 	};
 };
 
