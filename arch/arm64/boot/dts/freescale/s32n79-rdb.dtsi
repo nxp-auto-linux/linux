@@ -97,6 +97,7 @@
 };
 
 &usdhc0 {
+	memory-region = <&dma_pool>;
 	disable-wp;
 	no-sdio;
 };
