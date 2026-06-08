@@ -11,6 +11,18 @@ maintainers:
 
 allOf:
   - $ref: sdhci-common.yaml#
+  - if:
+      allOf:
+        - properties:
+            compatible:
+              contains:
+                const: nxp,s32n-usdhc
+        - not:
+            required:
+              - dma-coherent
+    then:
+      required:
+        - memory-region
 
 description: |
   The Enhanced Secure Digital Host Controller on Freescale i.MX family
@@ -193,6 +205,13 @@ properties:
           - const: default
           - const: sleep
 
+  memory-region:
+    maxItems: 1
+    description:
+      Reserved DMA pool used for coherent DMA allocations, such as ADMA
+      descriptor memory, when the uSDHC controller is not DMA coherent.
+      Required on S32N79 platforms as a workaround for ERR053438.
+
 required:
   - compatible
   - reg
@@ -215,4 +234,37 @@ examples:
         interrupts = <2>;
         cd-gpios = <&gpio1 6 0>; /* GPIO1_6 */
         wp-gpios = <&gpio1 5 0>; /* GPIO1_5 */
+    };
+
+  - |
+    mmc@5b490000 {
+        compatible = "nxp,s32n-usdhc";
+        reg = <0x5b490000 0x1000>;
+        interrupts = <0 472 4>;
+        clocks = <&sys_clk>, <&sys_clk>, <&sys_clk>;
+        clock-names = "ipg", "ahb", "per";
+        bus-width = <8>;
+        dma-coherent;
+    };
+
+  - |
+    reserved-memory {
+        #address-cells = <1>;
+        #size-cells = <1>;
+
+        dma_pool: dma-pool@80000000 {
+            compatible = "shared-dma-pool";
+            reg = <0x80000000 0x80000>;
+            no-map;
+        };
+    };
+
+    mmc@5b490000 {
+        compatible = "nxp,s32n-usdhc";
+        reg = <0x5b490000 0x1000>;
+        interrupts = <0 472 4>;
+        clocks = <&sys_clk>, <&sys_clk>, <&sys_clk>;
+        clock-names = "ipg", "ahb", "per";
+        bus-width = <8>;
+        memory-region = <&dma_pool>;
     };
