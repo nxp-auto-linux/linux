@@ -71,23 +71,28 @@
 };
 
 &ufshc {
+	memory-region = <&dma_pool>;
 	nxp,mphy-boot-mode = "copy-sram";
 	lanes-per-direction = <2>;
 };
 
 &ufshci0 {
+	memory-region = <&dma_pool>;
 	lanes-per-direction = <2>;
 };
 
 &ufshci1 {
+	memory-region = <&dma_pool>;
 	lanes-per-direction = <2>;
 };
 
 &ufshci2 {
+	memory-region = <&dma_pool>;
 	lanes-per-direction = <2>;
 };
 
 &ufshci3 {
+	memory-region = <&dma_pool>;
 	lanes-per-direction = <2>;
 };
 
