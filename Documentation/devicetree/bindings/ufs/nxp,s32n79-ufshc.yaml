@@ -22,13 +22,20 @@ select:
 
 allOf:
   - $ref: ufs-common.yaml
+  - if:
+      not:
+        required:
+          - dma-coherent
+    then:
+      required:
+        - memory-region
 
 properties:
   compatible:
     items:
       - enum:
-        - nxp,s32n79-ufshc
-        - nxp,s32n79-ufshc-virt
+          - nxp,s32n79-ufshc
+          - nxp,s32n79-ufshc-virt
       - const: jedec,ufs-3.0
 
   reg:
@@ -54,6 +61,13 @@ properties:
   clock-names:
     items:
       - const: core_clk
+
+  memory-region:
+    maxItems: 1
+    description:
+      Reserved DMA pool used for UFS coherent descriptor allocations when the
+      UFS controller is not DMA coherent. Required on S32N79 platforms as a
+      workaround for ERR053438.
 
   nxp,mphy-boot-mode:
     description: |
@@ -94,5 +108,29 @@ examples:
         interrupts = <211>;
         clocks = <&sys_clk>;
         clock-names = "core_clk";
-        status = "disabled";
+        iommus = <&smmu 0x100>;
+        dma-coherent;
+    };
+
+  - |
+    reserved-memory {
+        #address-cells = <1>;
+        #size-cells = <1>;
+
+        dma_pool: dma-pool@80000000 {
+            compatible = "shared-dma-pool";
+            reg = <0x80000000 0x80000>;
+            no-map;
+        };
+    };
+
+    ufshc@4ac80000 {
+        compatible = "nxp,s32n79-ufshc", "jedec,ufs-3.0";
+        reg = <0x4ac80000 0x1000>, <0x4ac40000 0x1000>;
+        reg-names = "ufshc", "scm";
+        interrupt-parent = <&irqsteer0_coss>;
+        interrupts = <211>;
+        clocks = <&sys_clk>;
+        clock-names = "core_clk";
+        memory-region = <&dma_pool>;
     };
