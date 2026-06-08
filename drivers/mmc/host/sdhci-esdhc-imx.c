@@ -5,11 +5,12 @@
  * derived from the OF-version.
  *
  * Copyright (c) 2010 Pengutronix e.K.
- * Copyright 2020-2021, 2023-2025 NXP
+ * Copyright 2020-2021, 2023-2026 NXP
  *   Author: Wolfram Sang <kernel@pengutronix.de>
  */
 
 #include <linux/bitfield.h>
+#include <linux/dma-map-ops.h>
 #include <linux/io.h>
 #include <linux/iopoll.h>
 #include <linux/delay.h>
@@ -23,6 +24,7 @@
 #include <linux/mmc/sdio.h>
 #include <linux/mmc/slot-gpio.h>
 #include <linux/of.h>
+#include <linux/of_reserved_mem.h>
 #include <linux/platform_device.h>
 #include <linux/pinctrl/consumer.h>
 #include <linux/pm_runtime.h>
@@ -216,6 +218,9 @@
 /* Host controller does not support SDR104 mode */
 #define ESDHC_FLAG_BROKEN_SDR104	BIT(19)
 
+/* Use reserved DMA pool for DMA coherent allocations on non-coherent devices */
+#define ESDHC_FLAG_ERR053438		BIT(20)
+
 enum wp_types {
 	ESDHC_WP_NONE,		/* no WP, neither controller nor gpio */
 	ESDHC_WP_CONTROLLER,	/* mmc controller internal WP */
@@ -323,7 +328,8 @@ static struct esdhc_soc_data usdhc_s32n_data = {
 	.flags = ESDHC_FLAG_USDHC | ESDHC_FLAG_MAN_TUNING
 			| ESDHC_FLAG_HAVE_CAP1 | ESDHC_FLAG_HS200
 			| ESDHC_FLAG_HS400 | ESDHC_FLAG_HS400_ES
-			| ESDHC_FLAG_ERR004536,
+			| ESDHC_FLAG_ERR004536
+			| ESDHC_FLAG_ERR053438,
 };
 
 static struct esdhc_soc_data usdhc_imx7ulp_data = {
@@ -1490,6 +1496,37 @@ static const struct sdhci_pltfm_data sdhci_esdhc_imx_pdata = {
 	.ops = &sdhci_esdhc_ops,
 };
 
+static void sdhci_esdhc_imx_release_dma_reserved_mem(void *data)
+{
+	of_reserved_mem_device_release(data);
+}
+
+static int sdhci_esdhc_imx_init_dma_reserved_mem(struct device *dev,
+						 struct pltfm_imx_data *imx_data)
+{
+	int err;
+
+	if (!(imx_data->socdata->flags & ESDHC_FLAG_ERR053438))
+		return 0;
+
+	/* DMA coherent devices are not affected by ERR053438. */
+	if (dev_is_dma_coherent(dev))
+		return 0;
+
+	/*
+	 * S32N79 ERR053438 workaround: attach the reserved DMA pool before
+	 * the MMC/SDHCI core allocates coherent DMA memory.
+	 */
+	err = of_reserved_mem_device_init(dev);
+	if (err)
+		return dev_err_probe(dev, err,
+				     "failed to attach reserved memory\n");
+
+	return devm_add_action_or_reset(dev,
+					sdhci_esdhc_imx_release_dma_reserved_mem,
+					dev);
+}
+
 static void sdhci_esdhc_imx_hwinit(struct sdhci_host *host)
 {
 	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
@@ -1887,6 +1924,10 @@ static int sdhci_esdhc_imx_probe(struct platform_device *pdev)
 	}
 
 	err = sdhci_esdhc_imx_probe_dt(pdev, host, imx_data);
+	if (err)
+		goto disable_clks;
+
+	err = sdhci_esdhc_imx_init_dma_reserved_mem(&pdev->dev, imx_data);
 	if (err)
 		goto disable_clks;
 
