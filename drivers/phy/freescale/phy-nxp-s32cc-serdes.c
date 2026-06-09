@@ -777,6 +777,9 @@ static int xpcs_phy_configure(struct phy *phy, struct phylink_link_state *state)
 	else
 		xpcs_state.speed = SPEED_1000;
 
+	/* Duplex is DUPLEX_FULL for speeds >= 1GB */
+	xpcs_state.duplex = DUPLEX_FULL;
+
 	if (xpcs->phys[phy->id]->an)
 		linkmode_set_bit(ETHTOOL_LINK_MODE_Autoneg_BIT, xpcs_state.advertising);
 
