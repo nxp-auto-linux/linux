@@ -763,7 +763,7 @@ static int xpcs_phy_configure(struct phy *phy, struct phylink_link_state *state)
 {
 	struct serdes *serdes = phy_get_drvdata(phy);
 	struct xpcs_ctrl *xpcs = &serdes->xpcs;
-	struct phylink_link_state xpcs_state;
+	struct phylink_link_state xpcs_state = { 0 };
 	struct device *dev = serdes->dev;
 	int xpcs_id;
 	int ret;
@@ -772,6 +772,9 @@ static int xpcs_phy_configure(struct phy *phy, struct phylink_link_state *state)
 		xpcs_state.speed = SPEED_2500;
 	else
 		xpcs_state.speed = SPEED_1000;
+
+	/* Duplex is DUPLEX_FULL for speeds >= 1GB */
+	xpcs_state.duplex = DUPLEX_FULL;
 
 	if (xpcs->phys[phy->id]->an)
 		linkmode_set_bit(ETHTOOL_LINK_MODE_Autoneg_BIT, xpcs_state.advertising);
