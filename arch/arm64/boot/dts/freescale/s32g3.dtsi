@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright 2021-2024 NXP
+ * Copyright 2021-2024, 2026 NXP
  */
 
 /dts-v1/;
@@ -210,8 +210,13 @@
 			interrupts = <GIC_PPI 9 IRQ_TYPE_LEVEL_HIGH>;
 
 			msi-controller;
-			/* GIC interrupts between 167 and 182 can be used as MBIs. */
-			mbi-ranges = <167 16>;
+
+			/*
+			 * GIC interrupts used as MBIs:
+			 * Range 1: 167 to 182
+			 * Range 2: 263 to 326
+			 */
+			mbi-ranges = <167 16>, <263 64>;
 		};
 	};
 };
