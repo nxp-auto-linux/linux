@@ -26,12 +26,14 @@
  * Copyright 2026 NXP
  */
 
+#include <linux/aio.h>
 #include <linux/dma-mapping.h>
 #include <linux/fs.h>
 #include <linux/idr.h>
 #include <linux/miscdevice.h>
 #include <linux/mm.h>
 #include <linux/slab.h>
+#include <linux/uio.h>
 #include "cdma.h"
 
 static DEFINE_IDA(cdma_pipe_ida);
@@ -57,11 +59,26 @@ static struct cdma_pipe *miscdev_to_pipe(struct miscdevice *misc, bool is_tx)
 }
 
 /*
+ * Extract a user-space virtual address from an iov_iter. The cdev only
+ * supports user-backed iters covering a single contiguous range
+ * (ITER_UBUF or a single-segment ITER_IOVEC). Returns 0 if the iter
+ * shape isn't supported.
+ */
+static unsigned long cdma_iter_uaddr(struct iov_iter *iter)
+{
+	if (!user_backed_iter(iter))
+		return 0;
+
+	if (iter_is_iovec(iter) && iter->nr_segs != 1)
+		return 0;
+
+	return (unsigned long)iter_iov_addr(iter);
+}
+
+/*
  * Wait for ring completion via MSI-X IRQ. Bounded by a kernel-side
- * timeout as a safety net — a stuck IRQ (e.g. a misconfigured MSI)
- * shouldn't hang the syscall forever. The hardware CPTCR timer fires
- * a programming error well before this if the remote peer never
- * matches.
+ * timeout - a stuck IRQ (e.g. a misconfigured MSI) shouldn't hang the
+ * syscall forever.
  */
 static int cdma_wait_ring(struct cdma_ring *ring)
 {
@@ -171,7 +188,9 @@ static int cdma_tx_open(struct inode *inode, struct file *filp)
 	struct cdma_pipe *pipe = miscdev_to_pipe(filp->private_data, true);
 
 	filp->private_data = pipe;
-	return 0;
+	filp->f_mode |= FMODE_NOWAIT;
+
+	return stream_open(inode, filp);
 }
 
 /*
@@ -180,31 +199,19 @@ static int cdma_tx_open(struct inode *inode, struct file *filp)
  * completes (a remote receiver matches via the IERB-configured pipe
  * id). Fully independent from RX.
  */
-static ssize_t cdma_tx_write(struct file *filp, const char __user *ubuf,
-			     size_t count, loff_t *ppos)
+static ssize_t cdma_tx_write_sync(struct cdma_pipe *pipe, struct file *filp,
+				  unsigned long uaddr, size_t count)
 {
-	struct cdma_pipe *pipe = filp->private_data;
 	struct cdma_device *cdev = pipe->cdev;
 	struct cdma_zc zc = {};
 	int ret;
-
-	if (!count)
-		return 0;
-
-	if (count > pipe->max_xfer) {
-		dev_warn_ratelimited(&cdev->pdev->dev,
-				     "pipe%u: write %zu > max_xfer %zu — chunk the write\n",
-				     pipe->pipe_idx, count, pipe->max_xfer);
-		return -EMSGSIZE;
-	}
 
 	if (filp->f_flags & O_NONBLOCK)
 		return -EAGAIN;
 
 	mutex_lock(&pipe->tx_lock);
 
-	ret = cdma_zc_map(cdev, (unsigned long)ubuf, count, DMA_TO_DEVICE,
-			  &zc);
+	ret = cdma_zc_map(cdev, uaddr, count, DMA_TO_DEVICE, &zc);
 	if (ret) {
 		mutex_unlock(&pipe->tx_lock);
 		return ret;
@@ -233,10 +240,39 @@ static ssize_t cdma_tx_write(struct file *filp, const char __user *ubuf,
 	return ret ? ret : (ssize_t)count;
 }
 
+/*
+ * write_iter dispatcher - chooses sync or async path based on
+ * is_sync_kiocb(). For now both branches use the sync path;
+ * the async path lands in a follow-up commit.
+ */
+static ssize_t cdma_tx_write_iter(struct kiocb *iocb, struct iov_iter *from)
+{
+	struct cdma_pipe *pipe = iocb->ki_filp->private_data;
+	struct cdma_device *cdev = pipe->cdev;
+	size_t count = iov_iter_count(from);
+	unsigned long uaddr;
+
+	if (!count)
+		return 0;
+
+	if (count > pipe->max_xfer) {
+		dev_warn_ratelimited(&cdev->pdev->dev,
+				     "pipe%u: write %zu > max_xfer %zu — chunk the write\n",
+				     pipe->pipe_idx, count, pipe->max_xfer);
+		return -EMSGSIZE;
+	}
+
+	uaddr = cdma_iter_uaddr(from);
+	if (!uaddr)
+		return -EINVAL;
+
+	return cdma_tx_write_sync(pipe, iocb->ki_filp, uaddr, count);
+}
+
 static const struct file_operations cdma_tx_fops = {
-	.owner	= THIS_MODULE,
-	.open	= cdma_tx_open,
-	.write	= cdma_tx_write,
+	.owner		= THIS_MODULE,
+	.open		= cdma_tx_open,
+	.write_iter	= cdma_tx_write_iter,
 };
 
 /* RX file operations (read-only, /dev/cdma-pipeN-rx) */
@@ -245,7 +281,9 @@ static int cdma_rx_open(struct inode *inode, struct file *filp)
 	struct cdma_pipe *pipe = miscdev_to_pipe(filp->private_data, false);
 
 	filp->private_data = pipe;
-	return 0;
+	filp->f_mode |= FMODE_NOWAIT;
+
+	return stream_open(inode, filp);
 }
 
 /*
@@ -254,31 +292,19 @@ static int cdma_rx_open(struct inode *inode, struct file *filp)
  * completes (a remote sender matches via the IERB-configured pipe id).
  * Fully independent from TX.
  */
-static ssize_t cdma_rx_read(struct file *filp, char __user *ubuf,
-			    size_t count, loff_t *ppos)
+static ssize_t cdma_rx_read_sync(struct cdma_pipe *pipe, struct file *filp,
+				 unsigned long uaddr, size_t count)
 {
-	struct cdma_pipe *pipe = filp->private_data;
 	struct cdma_device *cdev = pipe->cdev;
 	struct cdma_zc zc = {};
 	int ret;
-
-	if (!count)
-		return 0;
-
-	if (count > pipe->max_xfer) {
-		dev_warn_ratelimited(&cdev->pdev->dev,
-				     "pipe%u: read %zu > max_xfer %zu — chunk the read\n",
-				     pipe->pipe_idx, count, pipe->max_xfer);
-		return -EMSGSIZE;
-	}
 
 	if (filp->f_flags & O_NONBLOCK)
 		return -EAGAIN;
 
 	mutex_lock(&pipe->rx_lock);
 
-	ret = cdma_zc_map(cdev, (unsigned long)ubuf, count, DMA_FROM_DEVICE,
-			  &zc);
+	ret = cdma_zc_map(cdev, uaddr, count, DMA_FROM_DEVICE, &zc);
 	if (ret) {
 		mutex_unlock(&pipe->rx_lock);
 		return ret;
@@ -301,10 +327,39 @@ static ssize_t cdma_rx_read(struct file *filp, char __user *ubuf,
 	return ret ? ret : (ssize_t)count;
 }
 
+/*
+ * read_iter dispatcher - chooses sync or async path based on
+ * is_sync_kiocb(). For now both branches use the sync path;
+ * the async path lands in a follow-up commit.
+ */
+static ssize_t cdma_rx_read_iter(struct kiocb *iocb, struct iov_iter *to)
+{
+	struct cdma_pipe *pipe = iocb->ki_filp->private_data;
+	struct cdma_device *cdev = pipe->cdev;
+	size_t count = iov_iter_count(to);
+	unsigned long uaddr;
+
+	if (!count)
+		return 0;
+
+	if (count > pipe->max_xfer) {
+		dev_warn_ratelimited(&cdev->pdev->dev,
+				     "pipe%u: read %zu > max_xfer %zu — chunk the read\n",
+				     pipe->pipe_idx, count, pipe->max_xfer);
+		return -EMSGSIZE;
+	}
+
+	uaddr = cdma_iter_uaddr(to);
+	if (!uaddr)
+		return -EINVAL;
+
+	return cdma_rx_read_sync(pipe, iocb->ki_filp, uaddr, count);
+}
+
 static const struct file_operations cdma_rx_fops = {
-	.owner	= THIS_MODULE,
-	.open	= cdma_rx_open,
-	.read	= cdma_rx_read,
+	.owner		= THIS_MODULE,
+	.open		= cdma_rx_open,
+	.read_iter	= cdma_rx_read_iter,
 };
 
 /* Pipe allocation and registration */
