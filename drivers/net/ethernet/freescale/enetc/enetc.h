@@ -373,6 +373,7 @@ struct enetc_si {
 	DECLARE_BITMAP(vlan_ht_filter, ENETC_VLAN_HT_SIZE);
 	DECLARE_BITMAP(active_vlans, VLAN_N_VID);
 	struct ptp_clock *si_ptp;
+	u32 cache_attr;
 };
 
 #define ENETC_SI_ALIGN	32
