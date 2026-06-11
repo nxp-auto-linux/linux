@@ -2582,6 +2582,11 @@ int enetc_configure_si(struct enetc_ndev_priv *priv)
 		enetc_wr(hw, ENETC_SICAR0,
 			 ENETC_SICAR_RD_COHERENT | ENETC_SICAR_WR_COHERENT);
 		enetc_wr(hw, ENETC_SICAR1, ENETC_SICAR_MSI);
+	} else {
+		if (si->cache_attr) {
+			enetc_wr(hw, ENETC_SICAR0, si->cache_attr);
+			enetc_wr(hw, ENETC_SICAR2, si->cache_attr);
+		}
 	}
 
 	/* enable SI */
@@ -3750,12 +3755,18 @@ static void enetc_detect_errata(struct enetc_si *si)
 
 int enetc_pci_probe(struct pci_dev *pdev, const char *name, int sizeof_priv)
 {
+	bool is_enetc4_vf = false;
 	struct enetc_si *si, *p;
 	struct enetc_hw *hw;
 	size_t alloc_size;
 	int err, len;
 
-	pcie_flr(pdev);
+	if (pdev->revision == ENETC_REV4 && pdev->is_virtfn)
+		is_enetc4_vf = true;
+
+	if (!is_enetc4_vf)
+		pcie_flr(pdev);
+
 	err = pci_enable_device_mem(pdev);
 	if (err)
 		return dev_err_probe(&pdev->dev, err, "device enable failed\n");
@@ -3811,8 +3822,22 @@ int enetc_pci_probe(struct pci_dev *pdev, const char *name, int sizeof_priv)
 
 	enetc_detect_errata(si);
 
+	if (is_enetc4_vf) {
+		si->cache_attr = enetc_rd(hw, ENETC_SICAR0);
+
+		pcie_flr(pdev);
+		err = pci_enable_device_mem(pdev);
+		if (err) {
+			dev_err(&pdev->dev, "cache attr errata w/a failed\n");
+			goto err_cache_attr;
+		}
+
+		pci_set_master(pdev);
+	}
+
 	return 0;
 
+err_cache_attr:
 err_ioremap:
 	enetc_kfree_si(si);
 err_alloc_si:
