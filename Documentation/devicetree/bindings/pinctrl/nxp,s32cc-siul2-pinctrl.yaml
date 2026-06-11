@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
-# Copyright 2023 NXP
+# Copyright 2023, 2026 NXP
 %YAML 1.2
 ---
 $id: http://devicetree.org/schemas/pinctrl/nxp,s32cc-siul2-pinctrl.yaml#
@@ -83,6 +83,15 @@ patternProperties:
             description: Supported slew rate based on Fmax values (MHz)
             enum: [83, 133, 150, 166, 208]
 
+          nxp,smc-no-disable:
+            type: boolean
+            description: |
+              When present, the Safe Mode Control (SMC) bit is set to 1 for
+              a pin configuration, which does not disable the pin output buffers
+              when the chip enters Safe mode. When absent, SMC defaults to 0,
+              causing output buffers to be disabled in Safe mode. Property is
+              optional and maintains backward compatibility when not specified.
+
         additionalProperties: false
 
 required:
@@ -120,6 +129,7 @@ examples:
                 pinmux = <0x2c2>;
                 output-enable;
                 slew-rate = <208>;
+                nxp,smc-no-disable;
             };
         };
     };
