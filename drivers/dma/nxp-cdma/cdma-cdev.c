@@ -38,18 +38,6 @@
 
 static DEFINE_IDA(cdma_pipe_ida);
 
-/*
- * Unwind state for a single pin/map/build cycle. Lives on the caller's
- * stack; cdma_zc_map() fills it on success, cdma_zc_unmap() consumes it.
- */
-struct cdma_zc {
-	struct page **pages;
-	unsigned int nr_pages;
-	struct sg_table sgt;
-	dma_addr_t sgt_dma;	/* DMA addr of HW S/G table */
-	void *sgt_cpu;		/* CPU addr of HW S/G table */
-};
-
 static struct cdma_pipe *miscdev_to_pipe(struct miscdevice *misc, bool is_tx)
 {
 	if (is_tx)
@@ -180,6 +168,51 @@ static void cdma_zc_unmap(struct cdma_device *cdev, struct cdma_zc *zc,
 		unpin_user_pages(zc->pages, zc->nr_pages);
 
 	kfree(zc->pages);
+}
+
+/*
+ * Async deferred completion. Called from a workqueue after the IRQ
+ * handler decides the ring's in-flight async req is done. Owns the
+ * lifecycle of @req: detaches it from the ring under the appropriate
+ * per-direction mutex, unmaps the pinned user buffer, signals the
+ * kiocb, and frees @req.
+ *
+ * ki_complete() must NOT be called under the pipe lock: completion
+ * handlers in io_uring may resubmit on the same fd, which would
+ * deadlock on the same lock if called inline.
+ */
+static void __maybe_unused cdma_async_complete_work(struct work_struct *work)
+{
+	struct cdma_async_req *req = container_of(work, struct cdma_async_req,
+						  complete_work);
+	struct cdma_ring *ring = req->ring;
+	struct cdma_device *cdev = ring->si->cdev;
+	struct cdma_pipe *pipe = ring->pipe;
+	struct mutex *lock = (req->dir == DMA_TO_DEVICE) ? &pipe->tx_lock
+							 : &pipe->rx_lock;
+	struct kiocb *iocb = req->iocb;
+	int result = req->result;
+	size_t len = req->len;
+
+	mutex_lock(lock);
+	ring->async_req = NULL;
+	mutex_unlock(lock);
+
+	cdma_zc_unmap(cdev, &req->zc, req->dir);
+
+	iocb->ki_complete(iocb, result ? result : (long)len);
+	kfree(req);
+}
+
+/*
+ * Helper exposed to cdma-pci.c IRQ thread so the handler can defer
+ * async completion without needing the full layout of
+ * struct cdma_async_req.
+ */
+void cdma_async_req_complete(struct cdma_async_req *req, int result)
+{
+	req->result = result;
+	schedule_work(&req->complete_work);
 }
 
 /* TX file operations (write-only, /dev/cdma-pipeN-tx) */
