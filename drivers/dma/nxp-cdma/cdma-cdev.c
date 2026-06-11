@@ -32,6 +32,7 @@
 #include <linux/idr.h>
 #include <linux/miscdevice.h>
 #include <linux/mm.h>
+#include <linux/poll.h>
 #include <linux/slab.h>
 #include <linux/uio.h>
 #include "cdma.h"
@@ -181,15 +182,16 @@ static void cdma_zc_unmap(struct cdma_device *cdev, struct cdma_zc *zc,
  * handlers in io_uring may resubmit on the same fd, which would
  * deadlock on the same lock if called inline.
  */
-static void __maybe_unused cdma_async_complete_work(struct work_struct *work)
+static void cdma_async_complete_work(struct work_struct *work)
 {
 	struct cdma_async_req *req = container_of(work, struct cdma_async_req,
 						  complete_work);
 	struct cdma_ring *ring = req->ring;
 	struct cdma_device *cdev = ring->si->cdev;
 	struct cdma_pipe *pipe = ring->pipe;
-	struct mutex *lock = (req->dir == DMA_TO_DEVICE) ? &pipe->tx_lock
-							 : &pipe->rx_lock;
+	enum dma_data_direction dir = req->dir;
+	struct mutex *lock = (dir == DMA_TO_DEVICE) ? &pipe->tx_lock
+						    : &pipe->rx_lock;
 	struct kiocb *iocb = req->iocb;
 	int result = req->result;
 	size_t len = req->len;
@@ -198,7 +200,19 @@ static void __maybe_unused cdma_async_complete_work(struct work_struct *work)
 	ring->async_req = NULL;
 	mutex_unlock(lock);
 
-	cdma_zc_unmap(cdev, &req->zc, req->dir);
+	cdma_zc_unmap(cdev, &req->zc, dir);
+
+	/*
+	 * Wake any epoll/poll waiters before signalling the kiocb so a
+	 * userspace event loop that submits on completion notification
+	 * sees the slot already free.
+	 */
+	if (pipe) {
+		if (dir == DMA_TO_DEVICE)
+			wake_up_interruptible(&pipe->tx_wq);
+		else
+			wake_up_interruptible(&pipe->rx_wq);
+	}
 
 	iocb->ki_complete(iocb, result ? result : (long)len);
 	kfree(req);
@@ -221,8 +235,18 @@ static int cdma_tx_open(struct inode *inode, struct file *filp)
 	struct cdma_pipe *pipe = miscdev_to_pipe(filp->private_data, true);
 
 	filp->private_data = pipe;
-	filp->f_mode |= FMODE_NOWAIT;
 
+	/* Deliberately do NOT advertise FMODE_NOWAIT. The async
+	 * submit path (cdma_tx_write_async) must run in a context
+	 * where it can block: it does kzalloc(GFP_KERNEL), builds
+	 * an S/G table and pin_user_pages_fast()s the user buffer,
+	 * none of which honour IOCB_NOWAIT. It therefore bounces a
+	 * nowait submission back with -EAGAIN.
+	 * Without FMODE_NOWAIT io_uring never sets IOCB_NOWAIT on
+	 * these fds, so the submit always runs from a blocking-capable
+	 * context and both io_uring/epoll async and plain read()/
+	 * write() sync I/O work.
+	 */
 	return stream_open(inode, filp);
 }
 
@@ -231,6 +255,10 @@ static int cdma_tx_open(struct inode *inode, struct file *filp)
  * ring's current PIR, submits to tx_ring, blocks until hardware
  * completes (a remote receiver matches via the IERB-configured pipe
  * id). Fully independent from RX.
+ *
+ * Holds pipe->tx_lock across submit + wait so an async submitter
+ * (which also takes the lock) cannot interleave and confuse the
+ * IRQ-handler dispatch (async_req vs ring->done).
  */
 static ssize_t cdma_tx_write_sync(struct cdma_pipe *pipe, struct file *filp,
 				  unsigned long uaddr, size_t count)
@@ -244,6 +272,11 @@ static ssize_t cdma_tx_write_sync(struct cdma_pipe *pipe, struct file *filp,
 
 	mutex_lock(&pipe->tx_lock);
 
+	if (pipe->tx_ring->async_req) {
+		mutex_unlock(&pipe->tx_lock);
+		return -EBUSY;
+	}
+
 	ret = cdma_zc_map(cdev, uaddr, count, DMA_TO_DEVICE, &zc);
 	if (ret) {
 		mutex_unlock(&pipe->tx_lock);
@@ -253,8 +286,6 @@ static ssize_t cdma_tx_write_sync(struct cdma_pipe *pipe, struct file *filp,
 	cdma_build_sg_pipe_sender(pipe->tx_ring, zc.sgt_dma, count,
 				  pipe->hw_pipe_id, 0);
 	ret = cdma_ring_submit(pipe->tx_ring, CDMA_BD_PAIR);
-
-	mutex_unlock(&pipe->tx_lock);
 
 	if (!ret)
 		ret = cdma_wait_ring(pipe->tx_ring);
@@ -268,16 +299,97 @@ static ssize_t cdma_tx_write_sync(struct cdma_pipe *pipe, struct file *filp,
 	if (ret < 0)
 		cdma_ring_cancel(pipe->tx_ring);
 
+	mutex_unlock(&pipe->tx_lock);
+
 	cdma_zc_unmap(cdev, &zc, DMA_TO_DEVICE);
+
+	wake_up_interruptible(&pipe->tx_wq);
 
 	return ret ? ret : (ssize_t)count;
 }
 
 /*
- * write_iter dispatcher - chooses sync or async path based on
- * is_sync_kiocb(). For now both branches use the sync path;
- * the async path lands in a follow-up commit.
+ * io_uring cancel callback for an async TX kiocb.
+ * Symmetric with cdma_rx_cancel().
  */
+static int cdma_tx_cancel(struct kiocb *iocb)
+{
+	return -EAGAIN;
+}
+
+/*
+ * Async (io_uring) TX write - pins pages, submits the sender BD pair,
+ * returns -EIOCBQUEUED. The IRQ handler routes completion to
+ * cdma_async_complete_work() which unpins the pages and calls
+ * ki_complete().
+ */
+static ssize_t cdma_tx_write_async(struct cdma_pipe *pipe, struct kiocb *iocb,
+				   unsigned long uaddr, size_t count)
+{
+	struct cdma_device *cdev = pipe->cdev;
+	struct cdma_async_req *req;
+	int ret;
+
+	/*
+	 * The async submit path must allocate the request, pin and DMA-map
+	 * the user buffer inline in the submitting task. kzalloc(),
+	 * kmalloc_array() and sg_alloc_table_from_pages_segment() all use
+	 * GFP_KERNEL, and pin_user_pages_fast() can drop to the sleeping
+	 * slow path (mmap_lock, faulting pages in). None of that can honour
+	 * IOCB_NOWAIT, so bounce a nowait submission straight back to
+	 * io_uring, which reissues it from an io-wq worker where blocking is
+	 * allowed and IOCB_NOWAIT is cleared.
+	 */
+	if (iocb->ki_flags & IOCB_NOWAIT)
+		return -EAGAIN;
+
+	req = kzalloc(sizeof(*req), GFP_KERNEL);
+	if (!req)
+		return -ENOMEM;
+
+	req->ring = pipe->tx_ring;
+	req->iocb = iocb;
+	req->dir = DMA_TO_DEVICE;
+	req->len = count;
+	INIT_WORK(&req->complete_work, cdma_async_complete_work);
+
+	mutex_lock(&pipe->tx_lock);
+
+	if (pipe->tx_ring->async_req) {
+		mutex_unlock(&pipe->tx_lock);
+		kfree(req);
+		return -EAGAIN;
+	}
+
+	ret = cdma_zc_map(cdev, uaddr, count, DMA_TO_DEVICE, &req->zc);
+	if (ret) {
+		mutex_unlock(&pipe->tx_lock);
+		kfree(req);
+		return ret;
+	}
+
+	cdma_build_sg_pipe_sender(pipe->tx_ring, req->zc.sgt_dma, count,
+				  pipe->hw_pipe_id, 0);
+
+	/* Publish async_req BEFORE submit so the IRQ handler sees it */
+	WRITE_ONCE(pipe->tx_ring->async_req, req);
+
+	ret = cdma_ring_submit(pipe->tx_ring, CDMA_BD_PAIR);
+	if (ret) {
+		WRITE_ONCE(pipe->tx_ring->async_req, NULL);
+		mutex_unlock(&pipe->tx_lock);
+		cdma_zc_unmap(cdev, &req->zc, DMA_TO_DEVICE);
+		kfree(req);
+		return ret;
+	}
+
+	kiocb_set_cancel_fn(iocb, cdma_tx_cancel);
+
+	mutex_unlock(&pipe->tx_lock);
+	return -EIOCBQUEUED;
+}
+
+/* write_iter dispatcher - sync (regular write()) vs async (io_uring) */
 static ssize_t cdma_tx_write_iter(struct kiocb *iocb, struct iov_iter *from)
 {
 	struct cdma_pipe *pipe = iocb->ki_filp->private_data;
@@ -299,13 +411,31 @@ static ssize_t cdma_tx_write_iter(struct kiocb *iocb, struct iov_iter *from)
 	if (!uaddr)
 		return -EINVAL;
 
-	return cdma_tx_write_sync(pipe, iocb->ki_filp, uaddr, count);
+	if (is_sync_kiocb(iocb))
+		return cdma_tx_write_sync(pipe, iocb->ki_filp, uaddr, count);
+
+	return cdma_tx_write_async(pipe, iocb, uaddr, count);
+}
+
+/* EPOLLOUT ready when the TX ring is free (no async req pending). */
+static __poll_t cdma_tx_poll(struct file *filp,
+			     struct poll_table_struct *wait)
+{
+	struct cdma_pipe *pipe = filp->private_data;
+
+	poll_wait(filp, &pipe->tx_wq, wait);
+
+	if (!READ_ONCE(pipe->tx_ring->async_req))
+		return EPOLLOUT | EPOLLWRNORM;
+
+	return 0;
 }
 
 static const struct file_operations cdma_tx_fops = {
 	.owner		= THIS_MODULE,
 	.open		= cdma_tx_open,
 	.write_iter	= cdma_tx_write_iter,
+	.poll		= cdma_tx_poll,
 };
 
 /* RX file operations (read-only, /dev/cdma-pipeN-rx) */
@@ -314,8 +444,8 @@ static int cdma_rx_open(struct inode *inode, struct file *filp)
 	struct cdma_pipe *pipe = miscdev_to_pipe(filp->private_data, false);
 
 	filp->private_data = pipe;
-	filp->f_mode |= FMODE_NOWAIT;
 
+	/* No FMODE_NOWAIT: see cdma_tx_open() for the rationale. */
 	return stream_open(inode, filp);
 }
 
@@ -337,6 +467,11 @@ static ssize_t cdma_rx_read_sync(struct cdma_pipe *pipe, struct file *filp,
 
 	mutex_lock(&pipe->rx_lock);
 
+	if (pipe->rx_ring->async_req) {
+		mutex_unlock(&pipe->rx_lock);
+		return -EBUSY;
+	}
+
 	ret = cdma_zc_map(cdev, uaddr, count, DMA_FROM_DEVICE, &zc);
 	if (ret) {
 		mutex_unlock(&pipe->rx_lock);
@@ -347,23 +482,99 @@ static ssize_t cdma_rx_read_sync(struct cdma_pipe *pipe, struct file *filp,
 				    pipe->hw_pipe_id);
 	ret = cdma_ring_submit(pipe->rx_ring, CDMA_BD_PAIR);
 
-	mutex_unlock(&pipe->rx_lock);
-
 	if (!ret)
 		ret = cdma_wait_ring(pipe->rx_ring);
 
 	if (ret < 0)
 		cdma_ring_cancel(pipe->rx_ring);
 
+	mutex_unlock(&pipe->rx_lock);
+
 	cdma_zc_unmap(cdev, &zc, DMA_FROM_DEVICE);
+
+	wake_up_interruptible(&pipe->rx_wq);
 
 	return ret ? ret : (ssize_t)count;
 }
 
 /*
- * read_iter dispatcher - chooses sync or async path based on
- * is_sync_kiocb(). For now both branches use the sync path;
- * the async path lands in a follow-up commit.
+ * io_uring cancel callback for an async RX kiocb.
+ *
+ * Once BaPIR has been written, the hardware owns the BD pair and the
+ * pipe matcher may complete the transfer at any time. We cannot
+ * reliably cancel a submitted-but-not-yet-completed receiver: forcing
+ * a ring reset would also tear down other in-flight reqs.
+ *
+ * Return -EAGAIN so io_uring knows the cancellation didn't take
+ * effect; the IO completes naturally via the work queue.
+ */
+static int cdma_rx_cancel(struct kiocb *iocb)
+{
+	return -EAGAIN;
+}
+
+/*
+ * Async (io_uring) RX read - pins destination pages, submits the
+ * receiver BD pair, returns -EIOCBQUEUED. Completion handled by
+ * cdma_async_complete_work().
+ */
+static ssize_t cdma_rx_read_async(struct cdma_pipe *pipe, struct kiocb *iocb,
+				  unsigned long uaddr, size_t count)
+{
+	struct cdma_device *cdev = pipe->cdev;
+	struct cdma_async_req *req;
+	int ret;
+
+	if (iocb->ki_flags & IOCB_NOWAIT)
+		return -EAGAIN;
+
+	req = kzalloc(sizeof(*req), GFP_KERNEL);
+	if (!req)
+		return -ENOMEM;
+
+	req->ring = pipe->rx_ring;
+	req->iocb = iocb;
+	req->dir = DMA_FROM_DEVICE;
+	req->len = count;
+	INIT_WORK(&req->complete_work, cdma_async_complete_work);
+
+	mutex_lock(&pipe->rx_lock);
+
+	if (pipe->rx_ring->async_req) {
+		mutex_unlock(&pipe->rx_lock);
+		kfree(req);
+		return -EAGAIN;
+	}
+
+	ret = cdma_zc_map(cdev, uaddr, count, DMA_FROM_DEVICE, &req->zc);
+	if (ret) {
+		mutex_unlock(&pipe->rx_lock);
+		kfree(req);
+		return ret;
+	}
+
+	cdma_build_sg_pipe_receiver(pipe->rx_ring, req->zc.sgt_dma, count,
+				    pipe->hw_pipe_id);
+
+	WRITE_ONCE(pipe->rx_ring->async_req, req);
+
+	ret = cdma_ring_submit(pipe->rx_ring, CDMA_BD_PAIR);
+	if (ret) {
+		WRITE_ONCE(pipe->rx_ring->async_req, NULL);
+		mutex_unlock(&pipe->rx_lock);
+		cdma_zc_unmap(cdev, &req->zc, DMA_FROM_DEVICE);
+		kfree(req);
+		return ret;
+	}
+
+	kiocb_set_cancel_fn(iocb, cdma_rx_cancel);
+
+	mutex_unlock(&pipe->rx_lock);
+	return -EIOCBQUEUED;
+}
+
+/*
+ * read_iter dispatcher — sync (regular read()) vs async (io_uring).
  */
 static ssize_t cdma_rx_read_iter(struct kiocb *iocb, struct iov_iter *to)
 {
@@ -386,13 +597,31 @@ static ssize_t cdma_rx_read_iter(struct kiocb *iocb, struct iov_iter *to)
 	if (!uaddr)
 		return -EINVAL;
 
-	return cdma_rx_read_sync(pipe, iocb->ki_filp, uaddr, count);
+	if (is_sync_kiocb(iocb))
+		return cdma_rx_read_sync(pipe, iocb->ki_filp, uaddr, count);
+
+	return cdma_rx_read_async(pipe, iocb, uaddr, count);
+}
+
+/* EPOLLIN ready when the RX ring is free (no async req pending). */
+static __poll_t cdma_rx_poll(struct file *filp,
+			     struct poll_table_struct *wait)
+{
+	struct cdma_pipe *pipe = filp->private_data;
+
+	poll_wait(filp, &pipe->rx_wq, wait);
+
+	if (!READ_ONCE(pipe->rx_ring->async_req))
+		return EPOLLIN | EPOLLRDNORM;
+
+	return 0;
 }
 
 static const struct file_operations cdma_rx_fops = {
 	.owner		= THIS_MODULE,
 	.open		= cdma_rx_open,
 	.read_iter	= cdma_rx_read_iter,
+	.poll		= cdma_rx_poll,
 };
 
 /* Pipe allocation and registration */
@@ -436,6 +665,8 @@ static int cdma_pipe_create(struct cdma_device *cdev, struct cdma_si *si,
 	pipe->max_xfer = CDMA_PIPE_BUF_SIZE;
 	mutex_init(&pipe->tx_lock);
 	mutex_init(&pipe->rx_lock);
+	init_waitqueue_head(&pipe->tx_wq);
+	init_waitqueue_head(&pipe->rx_wq);
 
 	/* Ring 0 = TX (sender), Ring 1 = RX (receiver) */
 	pipe->tx_ring = &si->rings[0];

@@ -287,6 +287,10 @@ struct cdma_pipe {
 	struct cdma_ring *rx_ring;	/* Local SI ring 1 — receiver BDs */
 	size_t max_xfer;
 
+	/* poll/epoll wait queues - woken when an async slot frees */
+	wait_queue_head_t tx_wq;
+	wait_queue_head_t rx_wq;
+
 	/* TX state (independent of RX) */
 	struct mutex tx_lock;
 	struct miscdevice miscdev_tx;	/* /dev/cdma-pipeN-tx */
