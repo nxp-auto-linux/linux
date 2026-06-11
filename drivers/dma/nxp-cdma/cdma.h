@@ -18,6 +18,7 @@
 #include <linux/scatterlist.h>
 #include <linux/types.h>
 #include <linux/wait.h>
+#include <linux/workqueue.h>
 
 /* PCI Identification */
 #define CDMA_PCI_VENDOR_ID	PCI_VENDOR_ID_PHILIPS	/* 0x1131, NXP */
@@ -198,6 +199,34 @@ struct cdma_sge {
 #define CDMA_SGT_SIZE		(CDMA_SG_MAX_ENTRIES * CDMA_SGE_SIZE) /* 16 KiB */
 #define CDMA_SGT_ALIGN		16	/* HW requires 16-byte alignment */
 
+/*
+ * Unwind state for a single pin/map/build cycle. Lives on the caller's
+ * stack (sync path) or inside a cdma_async_req (async path).
+ * cdma_zc_map() fills it on success, cdma_zc_unmap() consumes it.
+ */
+struct cdma_zc {
+	struct page **pages;
+	unsigned int nr_pages;
+	struct sg_table sgt;
+	dma_addr_t sgt_dma;	/* DMA addr of HW S/G table */
+	void *sgt_cpu;		/* CPU addr of HW S/G table */
+};
+
+/*
+ * Per-submission state for async (io_uring) transfers. Allocated by
+ * the async submit path, attached to ring->async_req, and freed by
+ * cdma_async_complete_work() after the kiocb is signalled.
+ */
+struct cdma_async_req {
+	struct cdma_ring	*ring;
+	struct kiocb		*iocb;
+	enum dma_data_direction	dir;
+	size_t			len;
+	int			result;
+	struct cdma_zc		zc;
+	struct work_struct	complete_work;
+};
+
 /* BD Ring */
 struct cdma_ring {
 	struct cdma_si *si;
@@ -214,9 +243,18 @@ struct cdma_ring {
 	/* SD index of last submitted transfer (writeback location) */
 	u16 wb_idx;
 
-	/* Completion tracking */
+	/* Sync completion tracking (used when async_req is NULL) */
 	struct completion done;
 	int result;
+
+	/*
+	 * Async (io_uring) in-flight request on this ring.
+	 *   NULL - completion goes to ring->done (sync path).
+	 *   !NULL - completion is deferred to async_req's work queue.
+	 * Set by the async submit path under the per-direction mutex
+	 * before kicking BaPIR, cleared by the work function.
+	 */
+	struct cdma_async_req *async_req;
 
 	/* Pipe association */
 	struct cdma_pipe *pipe;
@@ -322,5 +360,7 @@ void cdma_build_sg_pipe_receiver(struct cdma_ring *ring,
 /* cdma-cdev.c */
 int cdma_cdev_init(struct cdma_device *cdev);
 void cdma_cdev_fini(struct cdma_device *cdev);
+/* Async completion helper, used by the IRQ thread */
+void cdma_async_req_complete(struct cdma_async_req *req, int result);
 
 #endif /* NXP_CDMA_H */

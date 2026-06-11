@@ -67,16 +67,33 @@ static irqreturn_t cdma_irq_thread(int irq, void *data)
 		status = le32_to_cpu(READ_ONCE(wb->status));
 
 		if (!(status & CDMA_WB_W)) {
+			struct cdma_async_req *req;
+			int result;
+
 			/* W=0 means writeback complete */
 			if (status & (CDMA_WB_DE | CDMA_WB_SPE | CDMA_WB_DPE)) {
 				dev_err(&si->cdev->pdev->dev,
 					"ring%u IRQ writeback error: status=0x%08x\n",
 					i, status);
-				ring->result = -EIO;
+				result = -EIO;
 			} else {
-				ring->result = 0;
+				result = 0;
 			}
-			complete(&ring->done);
+
+			/*
+			 * Dispatch by ring->async_req: if an async req is
+			 * in flight, defer completion to its work queue so
+			 * page-unmap + ki_complete() run outside IRQ
+			 * context. Otherwise signal the sync waiter via
+			 * ring->done.
+			 */
+			req = READ_ONCE(ring->async_req);
+			if (req) {
+				cdma_async_req_complete(req, result);
+			} else {
+				ring->result = result;
+				complete(&ring->done);
+			}
 		}
 	}
 
