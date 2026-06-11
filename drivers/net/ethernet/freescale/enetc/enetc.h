@@ -354,6 +354,7 @@ struct enetc_si {
 	DECLARE_BITMAP(active_vlans, VLAN_N_VID);
 	struct ptp_clock *si_ptp;
 	struct enetc_debugfs_params dbg_params;
+	u32 cache_attr;
 };
 
 #define ENETC_SI_ALIGN	32
