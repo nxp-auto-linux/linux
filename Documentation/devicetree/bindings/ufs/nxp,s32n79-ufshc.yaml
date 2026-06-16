@@ -73,6 +73,11 @@ properties:
           This mode allows for firmware modifications to be applied to the SRAM
           copy before execution.
 
+  dma-coherent: true
+
+  iommus:
+    maxItems: 1
+
 required:
   - compatible
   - reg
