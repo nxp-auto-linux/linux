@@ -11,7 +11,6 @@
 
 #define ISIT_FRAME_KEY_LEN		16
 #define IPFT_MAX_PLD_LEN		24
-#define FDBT_MAX_ACT_CNT		0x7f
 
 /* NTMP errata */
 #define NTMP_ERR052134			BIT(0)
@@ -190,6 +189,8 @@ struct sgit_sgise_data {
 #define SGIT_STATE		GENMASK(4, 2)
 };
 
+#pragma pack()
+
 struct rpt_fee_data {
 	u8 fen;
 #define RPT_FEN		BIT(0)
@@ -360,35 +361,6 @@ struct ipft_cfge_data {
 	__le32 flta_tgt;
 };
 
-struct fdbt_keye_data {
-	u8 mac_addr[ETH_ALEN]; /* big-endian */
-	__le16 resv0;
-	__le16 fid;
-#define FDBT_FID		GENMASK(11, 0)
-	__le16 resv1;
-};
-
-struct fdbt_cfge_data {
-	__le32 port_bitmap;
-#define FDBT_PORT_BITMAP	GENMASK(23, 0)
-	__le32 cfg;
-#define FDBT_OETEID		GENMASK(1, 0)
-#define FDBT_EPORT		GENMASK(6, 2)
-#define FDBT_IMIRE		BIT(7)
-#define FDBT_CTD		GENMASK(10, 9)
-#define FDBT_DYNAMIC		BIT(11)
-#define FDBT_TIMECAPE		BIT(12)
-	__le32 et_eid;
-};
-
-struct fdbt_acte_data {
-	u8 act;
-#define FDBT_ACT_CNT		GENMASK(6, 0)
-#define FDBT_ACT_FLAG		BIT(7)
-};
-
-#pragma pack()
-
 struct netc_cbdr_regs {
 	void __iomem *pir;
 	void __iomem *cir;
@@ -411,7 +383,6 @@ struct netc_tbl_vers {
 	u8 tgst_ver;
 	u8 rpt_ver;
 	u8 ipft_ver;
-	u8 fdbt_ver;
 	u8 isit_ver;
 	u8 ist_ver;
 	u8 isft_ver;
@@ -545,12 +516,6 @@ struct ntmp_ipft_entry {
 	__le64 match_count; /* STSE_DATA */
 };
 
-struct fdbt_query_data {
-	struct fdbt_keye_data keye;
-	struct fdbt_cfge_data cfge;
-	struct fdbt_acte_data acte;
-};
-
 #if IS_ENABLED(CONFIG_NXP_NETC_LIB)
 int netc_setup_cbdr(struct device *dev, int cbd_num,
 		    struct netc_cbdr_regs *regs,
@@ -585,18 +550,6 @@ int ntmp_ipft_add_entry(struct netc_cbdrs *cbdrs, u32 *entry_id,
 int ntmp_ipft_query_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
 			  bool update, struct ntmp_ipft_entry *entry);
 int ntmp_ipft_delete_entry(struct netc_cbdrs *cbdrs, u32 entry_id);
-int ntmp_fdbt_update_activity_element(struct netc_cbdrs *cbdrs);
-int ntmp_fdbt_delete_aging_entries(struct netc_cbdrs *cbdrs, u8 act_cnt);
-int ntmp_fdbt_add_entry(struct netc_cbdrs *cbdrs, u32 *entry_id,
-			struct fdbt_keye_data *keye,
-			struct fdbt_cfge_data *cfge);
-int ntmp_fdbt_update_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
-			   struct fdbt_cfge_data *cfge);
-int ntmp_fdbt_delete_entry(struct netc_cbdrs *cbdrs, u32 entry_id);
-int ntmp_fdbt_delete_port_dynamic_entries(struct netc_cbdrs *cbdrs, int port);
-int ntmp_fdbt_search_port_entry(struct netc_cbdrs *cbdrs, int port,
-				u32 *resume_entry_id, u32 *entry_id,
-				struct fdbt_query_data *data);
 #else
 static inline u32 ntmp_lookup_free_eid(unsigned long *bitmap, u32 size)
 {
@@ -704,47 +657,6 @@ static inline int ntmp_ipft_delete_entry(struct netc_cbdrs *cbdrs, u32 entry_id)
 	return 0;
 }
 
-static inline int ntmp_fdbt_update_activity_element(struct netc_cbdrs *cbdrs)
-{
-	return 0;
-}
-
-static inline int ntmp_fdbt_delete_aging_entries(struct netc_cbdrs *cbdrs,
-						 u8 act_cnt)
-{
-	return 0;
-}
-
-static inline int ntmp_fdbt_add_entry(struct netc_cbdrs *cbdrs, u32 *entry_id,
-				      struct fdbt_keye_data *keye,
-				      struct fdbt_cfge_data *data)
-{
-	return 0;
-}
-
-static inline int ntmp_fdbt_update_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
-					 struct fdbt_cfge_data *cfge)
-{
-	return 0;
-}
-
-static inline int ntmp_fdbt_delete_entry(struct netc_cbdrs *cbdrs, u32 entry_id)
-{
-	return 0;
-}
-
-static inline int ntmp_fdbt_delete_port_dynamic_entries(struct netc_cbdrs *cbdrs,
-							int port)
-{
-	return 0;
-}
-
-static inline int ntmp_fdbt_search_port_entry(struct netc_cbdrs *cbdrs, int port,
-					      u32 *resume_entry_id, u32 *entry_id,
-					      struct fdbt_query_data *data)
-{
-	return 0;
-}
 #endif
 
 #endif
