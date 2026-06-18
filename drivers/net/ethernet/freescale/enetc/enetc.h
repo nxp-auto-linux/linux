@@ -277,7 +277,6 @@ enum enetc_errata {
 struct enetc_drvdata {
 	u32 pmac_offset; /* Only valid for PSI which supports 802.1Qbu */
 	u8 tx_csum:1;
-	u8 shared_tx_rings:1;
 	u8 max_frags;
 	u8 tmr_devfn;
 	u64 sysclk_freq;
@@ -503,9 +502,6 @@ struct enetc_ndev_priv {
 
 	struct clk *ref_clk; /* RGMII/RMII reference clock */
 	u64 sysclk_freq; /* NETC system clock frequency */
-
-	/* Kernel stack and XDP share the tx rings */
-	bool shared_tx_rings;
 };
 
 #define ENETC_CBD(R, i)	(&(((struct enetc_cbd *)((R).bd_base))[i]))
