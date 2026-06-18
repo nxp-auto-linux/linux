@@ -101,7 +101,7 @@ static int enetc_num_stack_tx_queues(struct enetc_ndev_priv *priv)
 {
 	int num_tx_rings = priv->num_tx_rings;
 
-	if (priv->xdp_prog && !priv->shared_tx_rings)
+	if (priv->xdp_prog)
 		return num_tx_rings - num_possible_cpus();
 
 	return num_tx_rings;
@@ -1683,11 +1683,6 @@ static void enetc_xdp_map_tx_buff(struct enetc_bdr *tx_ring, int i,
 
 	prefetchw(txbd);
 
-	dma_sync_single_range_for_device(tx_ring->dev, tx_swbd->dma,
-					 tx_swbd->page_offset,
-					 tx_swbd->len,
-					 tx_swbd->dir);
-
 	enetc_clear_tx_bd(txbd);
 	txbd->addr = cpu_to_le64(tx_swbd->dma + tx_swbd->page_offset);
 	txbd->buf_len = cpu_to_le16(tx_swbd->len);
@@ -1777,29 +1772,6 @@ dma_map_err:
 	return -ENOMEM;
 }
 
-static void enetc_tx_queue_lock(struct enetc_bdr *tx_ring, int cpu)
-{
-	struct enetc_ndev_priv *priv = netdev_priv(tx_ring->ndev);
-	struct netdev_queue *nq;
-
-	if (priv->shared_tx_rings) {
-		nq = netdev_get_tx_queue(tx_ring->ndev, tx_ring->index);
-		__netif_tx_lock(nq, cpu);
-		txq_trans_cond_update(nq);
-	}
-}
-
-static void enetc_tx_queue_unlock(struct enetc_bdr *tx_ring)
-{
-	struct enetc_ndev_priv *priv = netdev_priv(tx_ring->ndev);
-	struct netdev_queue *nq;
-
-	if (priv->shared_tx_rings) {
-		nq = netdev_get_tx_queue(tx_ring->ndev, tx_ring->index);
-		__netif_tx_unlock(nq);
-	}
-}
-
 static bool enetc_tx_ring_avaiable(struct enetc_bdr *tx_ring, int num_txbd)
 {
 	struct enetc_ndev_priv *priv = netdev_priv(tx_ring->ndev);
@@ -1817,11 +1789,9 @@ int enetc_xdp_xmit(struct net_device *ndev, int num_frames,
 {
 	struct enetc_ndev_priv *priv = netdev_priv(ndev);
 	struct skb_shared_info *shinfo;
-	int cpu = smp_processor_id();
 	struct enetc_bdr *tx_ring;
 	int xdp_tx_frm_cnt = 0;
 	int xdp_tx_bd_cnt, k;
-	int ring_index;
 	u32 frm_len;
 
 	if (unlikely(test_bit(ENETC_TX_DOWN, &priv->flags) ||
@@ -1830,9 +1800,7 @@ int enetc_xdp_xmit(struct net_device *ndev, int num_frames,
 
 	enetc_lock_mdio();
 
-	ring_index = priv->shared_tx_rings ? cpu % priv->num_tx_rings : cpu;
-	tx_ring = priv->xdp_tx_ring[ring_index];
-	enetc_tx_queue_lock(tx_ring, cpu);
+	tx_ring = priv->xdp_tx_ring[smp_processor_id()];
 
 	prefetchw(ENETC_TXBD(*tx_ring, tx_ring->next_to_use));
 
@@ -1864,7 +1832,6 @@ int enetc_xdp_xmit(struct net_device *ndev, int num_frames,
 
 	tx_ring->stats.xdp_tx += xdp_tx_frm_cnt;
 
-	enetc_tx_queue_unlock(tx_ring);
 	enetc_unlock_mdio();
 
 	return xdp_tx_frm_cnt;
@@ -2009,7 +1976,6 @@ static int enetc_clean_rx_ring_xdp(struct enetc_bdr *rx_ring,
 	int xdp_tx_bd_cnt, xdp_tx_frm_cnt = 0, xdp_redirect_frm_cnt = 0;
 	struct enetc_ndev_priv *priv = netdev_priv(rx_ring->ndev);
 	int rx_frm_cnt = 0, rx_byte_cnt = 0;
-	int cpu = smp_processor_id();
 	struct enetc_bdr *tx_ring;
 	int cleaned_cnt, i;
 	u32 xdp_act;
@@ -2087,12 +2053,10 @@ static int enetc_clean_rx_ring_xdp(struct enetc_bdr *rx_ring,
 		case XDP_TX:
 			xdp_tx_bd_cnt = enetc_xdp_num_bd(rx_ring, orig_i, i);
 			tx_ring = priv->xdp_tx_ring[rx_ring->index];
-			enetc_tx_queue_lock(tx_ring, cpu);
 			if (unlikely(test_bit(ENETC_TX_DOWN, &priv->flags) ||
 				     !enetc_tx_ring_avaiable(tx_ring, xdp_tx_bd_cnt))) {
 				enetc_xdp_drop(rx_ring, orig_i, i);
 				tx_ring->stats.xdp_tx_drops++;
-				enetc_tx_queue_unlock(tx_ring);
 				break;
 			}
 
@@ -2114,7 +2078,6 @@ static int enetc_clean_rx_ring_xdp(struct enetc_bdr *rx_ring,
 				enetc_bdr_idx_inc(rx_ring, &orig_i);
 			}
 
-			enetc_tx_queue_unlock(tx_ring);
 			break;
 		case XDP_REDIRECT:
 			enetc_unlock_mdio();
@@ -2145,11 +2108,8 @@ out:
 		enetc_lock_mdio();
 	}
 
-	if (xdp_tx_frm_cnt) {
-		enetc_tx_queue_lock(tx_ring, cpu);
+	if (xdp_tx_frm_cnt)
 		enetc_update_tx_ring_tail(tx_ring);
-		enetc_tx_queue_unlock(tx_ring);
-	}
 
 	if (cleaned_cnt > rx_ring->xdp.xdp_tx_in_flight)
 		enetc_refill_rx_ring(rx_ring, enetc_bd_unused(rx_ring) -
@@ -3225,8 +3185,7 @@ void enetc_reset_tc_mqprio(struct net_device *ndev)
 
 	netdev_reset_tc(ndev);
 	netif_set_real_num_tx_queues(ndev, num_stack_tx_queues);
-	if (!priv->shared_tx_rings)
-		priv->min_num_stack_tx_queues = num_possible_cpus();
+	priv->min_num_stack_tx_queues = num_possible_cpus();
 
 	/* Reset all ring priorities to 0 */
 	for (i = 0; i < priv->num_tx_rings; i++) {
@@ -3289,8 +3248,7 @@ int enetc_setup_tc_mqprio(struct net_device *ndev, void *type_data)
 	if (err)
 		goto err_reset_tc;
 
-	if (!priv->shared_tx_rings)
-		priv->min_num_stack_tx_queues = num_stack_tx_queues;
+	priv->min_num_stack_tx_queues = num_stack_tx_queues;
 
 	enetc_debug_tx_ring_prios(priv);
 
@@ -3358,8 +3316,7 @@ static int enetc_setup_xdp_prog(struct net_device *ndev, struct bpf_prog *prog,
 		return 0;
 	}
 
-	if (!priv->shared_tx_rings &&
-	    priv->min_num_stack_tx_queues + num_xdp_tx_queues >
+	if (priv->min_num_stack_tx_queues + num_xdp_tx_queues >
 	    priv->num_tx_rings) {
 		NL_SET_ERR_MSG_FMT_MOD(extack,
 				       "Reserving %d XDP TXQs leaves under %d for stack (total %d)",
@@ -3678,11 +3635,8 @@ int enetc_alloc_msix(struct enetc_ndev_priv *priv)
 	if (err)
 		goto fail;
 
-	if (!priv->shared_tx_rings)
-		priv->min_num_stack_tx_queues = num_possible_cpus();
-
-	first_xdp_tx_ring = priv->shared_tx_rings ? 0 :
-			    priv->num_tx_rings - num_possible_cpus();
+	priv->min_num_stack_tx_queues = num_possible_cpus();
+	first_xdp_tx_ring = priv->num_tx_rings - num_possible_cpus();
 	priv->xdp_tx_ring = &priv->tx_ring[first_xdp_tx_ring];
 
 	return 0;
@@ -3821,7 +3775,6 @@ static const struct enetc_drvdata enetc_pf_data = {
 static const struct enetc_drvdata enetc4_pf_data = {
 	.sysclk_freq = ENETC_CLK_333M,
 	.tx_csum = true,
-	.shared_tx_rings = true,
 	.max_frags = ENETC4_MAX_SKB_FRAGS,
 	.tmr_devfn = 0xc0,
 	.pmac_offset = ENETC4_PMAC_OFFSET,
