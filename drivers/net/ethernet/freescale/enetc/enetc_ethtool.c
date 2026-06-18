@@ -1320,26 +1320,6 @@ const struct ethtool_ops enetc4_pf_ethtool_ops = {
 	.get_mm_stats = enetc4_get_mm_stats,
 };
 
-const struct ethtool_ops enetc4_vf_ethtool_ops = {
-	.supported_coalesce_params = ETHTOOL_COALESCE_USECS |
-				     ETHTOOL_COALESCE_MAX_FRAMES |
-				     ETHTOOL_COALESCE_USE_ADAPTIVE_RX,
-	.get_regs_len = enetc_get_reglen,
-	.get_regs = enetc_get_regs,
-	.get_sset_count = enetc_get_sset_count,
-	.get_strings = enetc_get_strings,
-	.get_ethtool_stats = enetc_get_ethtool_stats,
-	.get_rxnfc = enetc4_get_rxnfc,
-	.get_rxfh_indir_size = enetc_get_rxfh_indir_size,
-	.get_rxfh = enetc_get_rxfh,
-	.set_rxfh = enetc_set_rxfh,
-	.get_ringparam = enetc_get_ringparam,
-	.get_coalesce = enetc_get_coalesce,
-	.set_coalesce = enetc_set_coalesce,
-	.get_link = ethtool_op_get_link,
-	.get_ts_info = enetc4_get_ts_info,
-};
-
 void enetc_set_ethtool_ops(struct net_device *ndev)
 {
 	struct enetc_ndev_priv *priv = netdev_priv(ndev);

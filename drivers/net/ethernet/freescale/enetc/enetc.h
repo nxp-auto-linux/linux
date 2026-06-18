@@ -542,7 +542,6 @@ int enetc_xdp_xmit(struct net_device *ndev, int num_frames,
 extern const struct ethtool_ops enetc_pf_ethtool_ops;
 extern const struct ethtool_ops enetc4_pf_ethtool_ops;
 extern const struct ethtool_ops enetc_vf_ethtool_ops;
-extern const struct ethtool_ops enetc4_vf_ethtool_ops;
 void enetc_set_ethtool_ops(struct net_device *ndev);
 void enetc_mm_commit_preemptible_tcs(struct enetc_ndev_priv *priv);
 
