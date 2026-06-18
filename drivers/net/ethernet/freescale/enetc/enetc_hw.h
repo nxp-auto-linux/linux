@@ -580,7 +580,6 @@ union enetc_tx_bd {
 	};
 	struct {
 		__le32 tstamp;
-#define ENETC_TXBD_TSTAMP	GENMASK(29, 0)
 		__le16 tpid;
 		__le16 vid;
 		__le16 lso_sg_size; /* For ENETC 4.1 and later */
