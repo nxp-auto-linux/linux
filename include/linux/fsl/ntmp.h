@@ -60,18 +60,6 @@ union netc_cbd {
 #define NTMP_RESP_RR		BIT(15)
 		__le32 resv1[4];
 	} resp_hdr; /* NTMP Response Message Header Format */
-
-	struct {
-		__le64 addr;
-		__le32 opt[4];
-		__le16 index;
-		__le16 length;
-		u8 cmd;
-		u8 cls;
-		u8 _res;
-		u8 status_flags;
-#define NTMP_V1_RESP_STATUS	GENMASK(5, 0)
-	} req_v1; /* NTMP Request Format for version 1.0 */
 };
 
 struct maft_keye_data {
@@ -637,7 +625,6 @@ struct ntmp_caps {
 	int sgclt_num_words;
 	int ett_num_entries;
 	int ect_num_entries;
-	int rfst_num_entries;
 };
 
 struct ntmp_priv;
@@ -662,7 +649,6 @@ struct ntmp_priv {
 	unsigned long *sgclt_word_bitmap;
 	unsigned long *ett_eid_bitmap;
 	unsigned long *ect_eid_bitmap;
-	unsigned long *rfst_eid_bitmap;
 	u32 ett_bitmap_size;
 	u32 ect_bitmap_size;
 
@@ -718,25 +704,6 @@ struct rfst_entry_data {
 	struct rfst_cfge_data cfge;
 	/* STSE_DATA, Only valid for query action */
 	__le64 matched_frames;
-};
-
-struct rfse_set_buff {
-	__le32 resv0[6];
-	__be32 sip_h[4];
-	__be32 sip_m[4];
-	__be32 dip_h[4];
-	__be32 dip_m[4];
-	__le32 resv1[2];
-	__be16 sport_h;
-	__be16 sport_m;
-	__be16 dport_h;
-	__be16 dport_m;
-	__le32 resv2;
-	u8 proto_h;
-	u8 proto_m;
-	__le16 flags;
-	__le16 result;
-	__le16 mode;
 };
 
 struct ntmp_rpt_entry {
@@ -897,10 +864,6 @@ int ntmp_fmdt_update_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
 			   u8 *data, u32 data_len);
 int ntmp_fmdt_query_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
 			  u8 *data_buff, u32 data_len);
-/* NTMP V1.0 functions */
-int ntmp_v1_rfst_set_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
-			   struct rfse_set_buff *rfse);
-int ntmp_v1_rfst_delete_entry(struct netc_cbdrs *cbdrs, u32 entry_id);
 #else
 static inline u32 ntmp_lookup_free_eid(unsigned long *bitmap, u32 size)
 {
@@ -1179,19 +1142,6 @@ static inline int ntmp_fmdt_query_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
 {
 	return 0;
 }
-
-/* NTMP V1.0 functions */
-static inline int ntmp_v1_rfst_set_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
-					 struct rfse_set_buff *rfse)
-{
-	return 0;
-}
-
-static inline int ntmp_v1_rfst_delete_entry(struct netc_cbdrs *cbdrs, u32 entry_id)
-{
-	return 0;
-}
-
 #endif
 
 #endif
