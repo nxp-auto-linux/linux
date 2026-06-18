@@ -558,12 +558,15 @@ int dpaa2_mac_get_sset_count(void)
 	return DPAA2_MAC_NUM_STATS;
 }
 
-void dpaa2_mac_get_strings(u8 **data)
+void dpaa2_mac_get_strings(u8 *data)
 {
+	u8 *p = data;
 	int i;
 
-	for (i = 0; i < DPAA2_MAC_NUM_STATS; i++)
-		ethtool_puts(data, dpaa2_mac_ethtool_stats[i]);
+	for (i = 0; i < DPAA2_MAC_NUM_STATS; i++) {
+		strscpy(p, dpaa2_mac_ethtool_stats[i], ETH_GSTRING_LEN);
+		p += ETH_GSTRING_LEN;
+	}
 }
 
 void dpaa2_mac_get_ethtool_stats(struct dpaa2_mac *mac, u64 *data)
