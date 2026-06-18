@@ -9,8 +9,6 @@
 
 #include <linux/fsl/ntmp.h>
 
-#define TGST_MAX_ENTRY_NUM		64
-
 struct ntmp_dma_buf {
 	struct device *dev;
 	size_t size;
@@ -61,77 +59,5 @@ struct rsst_req_update {
 	struct ntmp_req_by_eid rbe;
 	u8 groups[];
 };
-
-/* Time Gate Scheduling Table Resquet and Response Data Buffer Format */
-struct tgst_ge {
-	__le32 interval;
-	u8 tc_state;
-	u8 resv0;
-	u8 hr_cb;
-#define TGST_HR_CB		GENMASK(3, 0)
-	u8 resv1;
-};
-
-#pragma pack(1)
-
-struct tgst_cfge_data {
-	__le64 admin_bt;
-	__le32 admin_ct;
-	__le32 admin_ct_ext;
-	__le16 admin_cl_len;
-	__le16 resv;
-	struct tgst_ge ge[];
-};
-
-struct tgst_olse_data {
-	__le64 oper_cfg_ct;
-	__le64 oper_cfg_ce;
-	__le64 oper_bt;
-	__le32 oper_ct;
-	__le32 oper_ct_ext;
-	__le16 oper_cl_len;
-	__le16 resv;
-	struct tgst_ge ge[];
-};
-
-struct tgst_req_update {
-	struct ntmp_req_by_eid rbe;
-	struct tgst_cfge_data cfge;
-};
-
-struct tgst_resp_status {
-	__le64 cfg_ct;
-	__le32 status_resv;
-};
-
-struct tgst_resp_query {
-	struct tgst_resp_status status;
-	__le32 entry_id;
-	u8 data[];
-};
-
-#pragma pack()
-
-struct tgst_query_data {
-	__le64 config_change_time;
-	__le64 admin_bt;
-	__le32 admin_ct;
-	__le32 admin_ct_ext;
-	__le16 admin_cl_len;
-	__le64 oper_cfg_ct;
-	__le64 oper_cfg_ce;
-	__le64 oper_bt;
-	__le32 oper_ct;
-	__le32 oper_ct_ext;
-	__le16 oper_cl_len;
-	struct tgst_ge olse_ge[TGST_MAX_ENTRY_NUM];
-	struct tgst_ge cfge_ge[TGST_MAX_ENTRY_NUM];
-};
-
-int ntmp_tgst_query_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
-			  struct tgst_query_data *tgst);
-int ntmp_tgst_update_admin_gate_list(struct netc_cbdrs *cbdrs, u32 entry_id,
-				     struct tgst_cfge_data *cfge);
-int ntmp_tgst_delete_admin_gate_list(struct netc_cbdrs *cbdrs, u32 entry_id);
 
 #endif
