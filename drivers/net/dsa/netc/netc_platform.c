@@ -116,8 +116,5 @@ int netc_switch_platform_probe(struct netc_switch *priv)
 	priv->info = info;
 	priv->num_ports = info->usr_port_num + info->cpu_port_num;
 
-	if (priv->revision == NETC_SWITCH_REV_4_4)
-		priv->ntmp.errata |= NTMP_ERR_SIM01;
-
 	return 0;
 }
