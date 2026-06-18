@@ -13,7 +13,6 @@ int enetc_mdiobus_create(struct enetc_pf *pf, struct device_node *node);
 void enetc_mdiobus_destroy(struct enetc_pf *pf);
 int enetc_phylink_create(struct enetc_ndev_priv *priv,
 			 const struct phylink_mac_ops *ops);
-int enetc_phylink_match_pseudo_mac_speed(int speed);
 void enetc_phylink_destroy(struct enetc_ndev_priv *priv);
 int enetc_vlan_rx_add_vid(struct net_device *ndev, __be16 prot, u16 vid);
 int enetc_vlan_rx_del_vid(struct net_device *ndev, __be16 prot, u16 vid);
