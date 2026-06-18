@@ -9,7 +9,6 @@
 
 #include "enetc_pf_common.h"
 #include "enetc4_debugfs.h"
-#include "enetc4_tc.h"
 
 #define ENETC_SI_MAX_RING_NUM	8
 
@@ -749,7 +748,6 @@ static const struct net_device_ops enetc4_ndev_ops = {
 	.ndo_vlan_rx_add_vid	= enetc_vlan_rx_add_vid,
 	.ndo_vlan_rx_kill_vid	= enetc_vlan_rx_del_vid,
 	.ndo_eth_ioctl		= enetc_ioctl,
-	.ndo_setup_tc		= enetc4_pf_setup_tc,
 };
 
 static struct phylink_pcs *
