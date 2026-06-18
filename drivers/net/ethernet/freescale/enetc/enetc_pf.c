@@ -523,7 +523,7 @@ static void enetc_configure_port(struct enetc_pf *pf)
 
 	/* set up hash key */
 	get_random_bytes(hash_key, ENETC_RSSHASH_KEY_SIZE);
-	enetc_set_rss_key(pf->si, hash_key);
+	enetc_set_rss_key(hw, hash_key);
 
 	/* split up RFS entries */
 	enetc_port_assign_rfs_entries(pf->si);
