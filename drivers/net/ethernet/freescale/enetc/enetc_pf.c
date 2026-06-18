@@ -12,7 +12,7 @@
 
 #define ENETC_DRV_NAME_STR "ENETC PF driver"
 
-static void enetc_pf_get_primary_mac_addr(struct enetc_hw *hw, int si, u8 *addr)
+void enetc_pf_get_primary_mac_addr(struct enetc_hw *hw, int si, u8 *addr)
 {
 	u32 upper = __raw_readl(hw->port + ENETC_PSIPMAR0(si));
 	u16 lower = __raw_readw(hw->port + ENETC_PSIPMAR1(si));
@@ -21,25 +21,14 @@ static void enetc_pf_get_primary_mac_addr(struct enetc_hw *hw, int si, u8 *addr)
 	put_unaligned_le16(lower, addr + 4);
 }
 
-static void enetc_pf_set_primary_mac_addr(struct enetc_hw *hw, int si,
-					  const u8 *addr)
+void enetc_pf_set_primary_mac_addr(struct enetc_hw *hw, int si,
+				   const u8 *addr)
 {
 	u32 upper = get_unaligned_le32(addr);
 	u16 lower = get_unaligned_le16(addr + 4);
 
 	__raw_writel(upper, hw->port + ENETC_PSIPMAR0(si));
 	__raw_writew(lower, hw->port + ENETC_PSIPMAR1(si));
-}
-
-static struct phylink_pcs *enetc_pf_create_pcs(struct enetc_pf *pf,
-					       struct mii_bus *bus)
-{
-	return lynx_pcs_create_mdiodev(bus, 0);
-}
-
-static void enetc_pf_destroy_pcs(struct phylink_pcs *pcs)
-{
-	lynx_pcs_destroy(pcs);
 }
 
 static void enetc_set_vlan_promisc(struct enetc_hw *hw, char si_map)
@@ -983,14 +972,6 @@ static void enetc_psi_destroy(struct pci_dev *pdev)
 	enetc_pci_remove(pdev);
 }
 
-static const struct enetc_pf_ops enetc_pf_ops = {
-	.set_si_primary_mac = enetc_pf_set_primary_mac_addr,
-	.get_si_primary_mac = enetc_pf_get_primary_mac_addr,
-	.create_pcs = enetc_pf_create_pcs,
-	.destroy_pcs = enetc_pf_destroy_pcs,
-	.enable_psfp = enetc_psfp_enable,
-};
-
 static int enetc_pf_probe(struct pci_dev *pdev,
 			  const struct pci_device_id *ent)
 {
@@ -1017,8 +998,6 @@ static int enetc_pf_probe(struct pci_dev *pdev,
 
 	pf = enetc_si_priv(si);
 	pf->si = si;
-	pf->ops = &enetc_pf_ops;
-
 	pf->total_vfs = pci_sriov_get_totalvfs(pdev);
 	if (pf->total_vfs) {
 		pf->vf_state = kcalloc(pf->total_vfs, sizeof(struct enetc_vf_state),

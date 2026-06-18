@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: (GPL-2.0+ OR BSD-3-Clause) */
-/* Copyright 2017-2019, 2024 NXP */
+/* Copyright 2017-2019 NXP */
 
 #include "enetc.h"
 #include <linux/phylink.h>
@@ -28,16 +28,6 @@ struct enetc_vf_state {
 	enum enetc_vf_flags flags;
 };
 
-struct enetc_pf;
-
-struct enetc_pf_ops {
-	void (*set_si_primary_mac)(struct enetc_hw *hw, int si, const u8 *addr);
-	void (*get_si_primary_mac)(struct enetc_hw *hw, int si, u8 *addr);
-	struct phylink_pcs *(*create_pcs)(struct enetc_pf *pf, struct mii_bus *bus);
-	void (*destroy_pcs)(struct phylink_pcs *pcs);
-	int (*enable_psfp)(struct enetc_ndev_priv *priv);
-};
-
 struct enetc_pf {
 	struct enetc_si *si;
 	int num_vfs; /* number of active VFs, after sriov_init */
@@ -60,8 +50,6 @@ struct enetc_pf {
 
 	phy_interface_t if_mode;
 	struct phylink_config phylink_config;
-
-	const struct enetc_pf_ops *ops;
 };
 
 #define phylink_to_enetc_pf(config) \
