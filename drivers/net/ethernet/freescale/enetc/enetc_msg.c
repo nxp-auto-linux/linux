@@ -43,7 +43,7 @@ static u16 enetc_msg_pf_set_vf_primary_mac_addr(struct enetc_pf *pf,
 	struct enetc_msg_swbd *msg_swbd = &pf->rxmsg[vf_id];
 	struct device *dev = &pf->si->pdev->dev;
 	struct enetc_msg_mac_exact_filter *msg;
-	union enetc_pf_msg pf_msg = {0};
+	union enetc_pf_msg pf_msg = { 0 };
 	char *addr;
 
 	if (!enetc_pf_is_vf_trusted(pf, vf_id)) {
@@ -59,192 +59,6 @@ static u16 enetc_msg_pf_set_vf_primary_mac_addr(struct enetc_pf *pf,
 			 vf_id);
 
 	pf->ops->set_si_primary_mac(&pf->si->hw, vf_id + 1, addr);
-	pf_msg.class_id = ENETC_MSG_CLASS_ID_CMD_SUCCESS;
-
-	return pf_msg.code;
-}
-
-static u16 enetc_msg_pf_add_vf_mac_entries(struct enetc_pf *pf, int vf_id)
-{
-	struct enetc_msg_swbd *msg_swbd = &pf->rxmsg[vf_id];
-	struct enetc_msg_mac_exact_filter *msg;
-	union enetc_pf_msg pf_msg = {0};
-	bool no_resource = false;
-	int err;
-
-	if (!enetc_pf_is_vf_trusted(pf, vf_id)) {
-		pf_msg.class_id = ENETC_MSG_CLASS_ID_PERMISSION_DENY;
-
-		return pf_msg.code;
-	}
-
-	if (!pf->ops->add_si_mac_exact_filter) {
-		pf_msg.class_id = ENETC_MSG_CLASS_ID_CMD_NOT_SUPPORT;
-
-		return pf_msg.code;
-	}
-
-	msg = (struct enetc_msg_mac_exact_filter *)msg_swbd->vaddr;
-	if (msg->mac_cnt > pf->caps.mac_filter_num) {
-		no_resource = true;
-		goto no_resource_check;
-	}
-
-	err = pf->ops->add_si_mac_exact_filter(pf, vf_id + 1, msg->mac,
-					       msg->mac_cnt);
-	if (err)
-		no_resource = true;
-
-no_resource_check:
-	if (no_resource) {
-		pf_msg.class_id = ENETC_MSG_CLASS_ID_MAC_FILTER;
-		pf_msg.class_code = ENETC_PF_RC_MAC_FILTER_NO_RESOURCE;
-
-		return pf_msg.code;
-	}
-
-	pf_msg.class_id = ENETC_MSG_CLASS_ID_CMD_SUCCESS;
-
-	return pf_msg.code;
-}
-
-static u16 enetc_msg_pf_del_vf_mac_entries(struct enetc_pf *pf, int vf_id)
-{
-	struct enetc_msg_swbd *msg_swbd = &pf->rxmsg[vf_id];
-	struct enetc_msg_mac_exact_filter *msg;
-	union enetc_pf_msg pf_msg = {0};
-	int err;
-
-	if (!pf->ops->del_si_mac_exact_filter) {
-		pf_msg.class_id = ENETC_MSG_CLASS_ID_CMD_NOT_SUPPORT;
-
-		return pf_msg.code;
-	}
-
-	msg = (struct enetc_msg_mac_exact_filter *)msg_swbd->vaddr;
-	err = pf->ops->del_si_mac_exact_filter(pf, vf_id + 1, msg->mac,
-					       msg->mac_cnt);
-	if (err) {
-		pf_msg.class_id = ENETC_MSG_CLASS_ID_MAC_FILTER;
-		pf_msg.class_code = ENETC_PF_RC_MAC_FILTER_MAC_NOT_FOUND;
-
-		return pf_msg.code;
-	}
-
-	pf_msg.class_id = ENETC_MSG_CLASS_ID_CMD_SUCCESS;
-
-	return pf_msg.code;
-}
-
-static u16 enetc_msg_pf_set_vf_mac_hash_filter(struct enetc_pf *pf, int vf_id)
-{
-	struct enetc_msg_swbd *msg_swbd = &pf->rxmsg[vf_id];
-	struct enetc_msg_mac_hash_filter *msg;
-	struct enetc_hw *hw = &pf->si->hw;
-	union enetc_pf_msg pf_msg = {0};
-	int si_id = vf_id + 1;
-
-	if (!enetc_pf_is_vf_trusted(pf, vf_id)) {
-		pf_msg.class_id = ENETC_MSG_CLASS_ID_PERMISSION_DENY;
-
-		return pf_msg.code;
-	}
-
-	msg = (struct enetc_msg_mac_hash_filter *)msg_swbd->vaddr;
-	/* Currently, hardware only supports 64 bits table size */
-	if (msg->size != ENETC_MAC_HASH_TABLE_SIZE_64) {
-		pf_msg.class_id = ENETC_MSG_CLASS_ID_CMD_NOT_SUPPORT;
-		return pf_msg.code;
-	}
-
-	if (msg->type == ENETC_MAC_FILTER_TYPE_UC) {
-		pf->ops->set_si_mac_hash_filter(hw, si_id, UC,  msg->hash_tbl[0]);
-	} else if (msg->type == ENETC_MAC_FILTER_TYPE_MC) {
-		pf->ops->set_si_mac_hash_filter(hw, si_id, MC, msg->hash_tbl[0]);
-	} else {
-		pf->ops->set_si_mac_hash_filter(hw, si_id, UC, msg->hash_tbl[0]);
-		pf->ops->set_si_mac_hash_filter(hw, si_id, MC, msg->hash_tbl[1]);
-	}
-
-	pf_msg.class_id = ENETC_MSG_CLASS_ID_CMD_SUCCESS;
-
-	return pf_msg.code;
-}
-
-static u16 enetc_msg_pf_flush_vf_mac_entries(struct enetc_pf *pf, int vf_id)
-{
-	struct enetc_msg_swbd *msg_swbd = &pf->rxmsg[vf_id];
-	struct enetc_msg_mac_filter_flush *msg;
-	union enetc_pf_msg pf_msg = {0};
-
-	msg = (struct enetc_msg_mac_filter_flush *)msg_swbd->vaddr;
-	pf->ops->flush_si_mac_filter(pf, vf_id + 1, msg->type);
-	pf_msg.class_id = ENETC_MSG_CLASS_ID_CMD_SUCCESS;
-
-	return pf_msg.code;
-}
-
-static void enetc_set_si_mac_promisc(struct enetc_si *si, int si_id,
-				     int mac_type, bool en)
-{
-	struct enetc_hw *hw = &si->hw;
-	int psipmr_off;
-	u32 val;
-
-	if (is_enetc_rev1(si))
-		psipmr_off = ENETC_PSIPMR;
-	else
-		psipmr_off = ENETC4_PSIPMMR;
-
-	val = enetc_port_rd(hw, psipmr_off);
-	if (mac_type & ENETC_MAC_FILTER_TYPE_UC) {
-		if (en)
-			val |= ENETC_PSIPMR_SET_UP(si_id);
-		else
-			val &= ~ENETC_PSIPMR_SET_UP(si_id);
-	}
-
-	if (mac_type & ENETC_MAC_FILTER_TYPE_MC) {
-		if (en)
-			val |= ENETC_PSIPMR_SET_MP(si_id);
-		else
-			val &= ~ENETC_PSIPMR_SET_MP(si_id);
-	}
-
-	enetc_port_wr(hw, psipmr_off, val);
-}
-
-static u16 enetc_msg_pf_set_vf_mac_promisc_mode(struct enetc_pf *pf, int vf_id)
-{
-	struct enetc_msg_swbd *msg_swbd = &pf->rxmsg[vf_id];
-	struct enetc_msg_mac_promsic_mode *msg;
-	union enetc_pf_msg pf_msg = { 0 };
-	bool promisc_mode = false;
-	int si_id = vf_id + 1;
-	int mac_type;
-
-	msg = (struct enetc_msg_mac_promsic_mode *)msg_swbd->vaddr;
-	if (msg->type == ENETC_MAC_FILTER_TYPE_UC)
-		mac_type = ENETC_MAC_FILTER_TYPE_UC;
-	else if (msg->type == ENETC_MAC_FILTER_TYPE_MC)
-		mac_type = ENETC_MAC_FILTER_TYPE_MC;
-	else
-		mac_type = ENETC_MAC_FILTER_TYPE_ALL;
-
-	if (msg->promisc_mode == ENETC_MAC_PROMISC_MODE_ENABLE) {
-		if (!enetc_pf_is_vf_trusted(pf, vf_id)) {
-			pf_msg.class_id = ENETC_MSG_CLASS_ID_PERMISSION_DENY;
-
-			return pf_msg.code;
-		}
-
-		promisc_mode = true;
-	}
-
-	if (msg->flush_macs)
-		pf->ops->flush_si_mac_filter(pf, si_id, msg->type);
-
-	enetc_set_si_mac_promisc(pf->si, si_id, mac_type, promisc_mode);
 	pf_msg.class_id = ENETC_MSG_CLASS_ID_CMD_SUCCESS;
 
 	return pf_msg.code;
@@ -275,16 +89,6 @@ static u16 enetc_msg_handle_mac_filter(struct enetc_msg_header *msg_hdr,
 	switch (msg_hdr->cmd_id) {
 	case ENETC_MSG_SET_PRIMARY_MAC:
 		return enetc_msg_pf_set_vf_primary_mac_addr(pf, vf_id);
-	case ENETC_MSG_ADD_EXACT_MAC_ENTRIES:
-		return enetc_msg_pf_add_vf_mac_entries(pf, vf_id);
-	case ENETC_MSG_DEL_EXACT_MAC_ENTRIES:
-		return enetc_msg_pf_del_vf_mac_entries(pf, vf_id);
-	case ENETC_MSG_SET_MAC_HASH_TABLE:
-		return enetc_msg_pf_set_vf_mac_hash_filter(pf, vf_id);
-	case ENETC_MSG_FLUSH_MAC_ENTRIES:
-		return enetc_msg_pf_flush_vf_mac_entries(pf, vf_id);
-	case ENETC_MSG_SET_MAC_PROMISC_MODE:
-		return enetc_msg_pf_set_vf_mac_promisc_mode(pf, vf_id);
 	default:
 		pf_msg.class_id = ENETC_MSG_CLASS_ID_CMD_NOT_SUPPORT;
 

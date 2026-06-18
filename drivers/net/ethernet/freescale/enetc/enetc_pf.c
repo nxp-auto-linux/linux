@@ -93,21 +93,20 @@ static void enetc_clear_mac_ht_flt(struct enetc_si *si, int si_idx, int type)
 	}
 }
 
-static void enetc_set_mac_ht_flt(struct enetc_hw *hw, int si_idx, int type,
-				 u64 hash)
+static void enetc_set_mac_ht_flt(struct enetc_si *si, int si_idx, int type,
+				 unsigned long hash)
 {
-	struct enetc_si *si = container_of(hw, struct enetc_si, hw);
 	bool err = si->errata & ENETC_ERR_UCMCSWP;
 
 	if (type == UC) {
-		enetc_port_wr(hw, ENETC_PSIUMHFR0(si_idx, err),
+		enetc_port_wr(&si->hw, ENETC_PSIUMHFR0(si_idx, err),
 			      lower_32_bits(hash));
-		enetc_port_wr(hw, ENETC_PSIUMHFR1(si_idx),
+		enetc_port_wr(&si->hw, ENETC_PSIUMHFR1(si_idx),
 			      upper_32_bits(hash));
 	} else { /* MC */
-		enetc_port_wr(hw, ENETC_PSIMMHFR0(si_idx, err),
+		enetc_port_wr(&si->hw, ENETC_PSIMMHFR0(si_idx, err),
 			      lower_32_bits(hash));
-		enetc_port_wr(hw, ENETC_PSIMMHFR1(si_idx),
+		enetc_port_wr(&si->hw, ENETC_PSIMMHFR1(si_idx),
 			      upper_32_bits(hash));
 	}
 }
@@ -151,7 +150,7 @@ static void enetc_sync_mac_filters(struct enetc_si *si)
 		if (i == UC)
 			enetc_clear_mac_flt_entry(si, pos);
 
-		enetc_set_mac_ht_flt(&si->hw, 0, i, *f->mac_hash_table);
+		enetc_set_mac_ht_flt(si, 0, i, *f->mac_hash_table);
 	}
 }
 
@@ -986,18 +985,6 @@ out:
 	enetc_set_ptcfpr(hw, preemptible_tcs);
 }
 
-static void enetc_pf_flush_si_mac_filter(struct enetc_pf *pf, int si_id,
-					 int mac_type)
-{
-	struct enetc_hw *hw = &pf->si->hw;
-
-	if (mac_type & ENETC_MAC_FILTER_TYPE_UC)
-		enetc_set_mac_ht_flt(hw, si_id, UC, 0);
-
-	if (mac_type & ENETC_MAC_FILTER_TYPE_MC)
-		enetc_set_mac_ht_flt(hw, si_id, MC, 0);
-}
-
 static const struct enetc_pf_ops enetc_pf_ops = {
 	.set_si_primary_mac = enetc_pf_set_primary_mac_addr,
 	.get_si_primary_mac = enetc_pf_get_primary_mac_addr,
@@ -1008,8 +995,6 @@ static const struct enetc_pf_ops enetc_pf_ops = {
 	.get_mm = enetc_pf_get_mm,
 	.set_mm = enetc_pf_set_mm,
 	.set_preemptible_tcs = enetc_pf_set_preemptible_tcs,
-	.set_si_mac_hash_filter = enetc_set_mac_ht_flt,
-	.flush_si_mac_filter = enetc_pf_flush_si_mac_filter,
 };
 
 static int enetc_pf_probe(struct pci_dev *pdev,
