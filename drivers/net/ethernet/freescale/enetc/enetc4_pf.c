@@ -21,6 +21,10 @@
 #define ntmp_to_enetc_si(ntmp_priv)	\
 	container_of((ntmp_priv), struct enetc_si, ntmp)
 
+struct enetc_mac_addr {
+	u8 addr[ETH_ALEN];
+};
+
 static void enetc4_get_port_caps(struct enetc_pf *pf)
 {
 	struct enetc_hw *hw = &pf->si->hw;

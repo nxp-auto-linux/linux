@@ -33,7 +33,6 @@ config FSL_ENETC
 	select PHYLINK
 	select PCS_LYNX
 	select DIMLIB
-	select CRC_ITU_T
 	help
 	  This driver supports NXP ENETC gigabit ethernet controller PCIe
 	  physical function (PF) devices, managing ENETC Ports at a privileged
@@ -66,7 +65,6 @@ config FSL_ENETC_VF
 	select FSL_ENETC_MDIO
 	select PHYLINK
 	select DIMLIB
-	select CRC_ITU_T
 	help
 	  This driver supports NXP ENETC gigabit ethernet controller PCIe
 	  virtual function (VF) devices enabled by the ENETC PF driver.
