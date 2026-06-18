@@ -422,9 +422,7 @@ static int netc_add_trap_redirect_key_tbl(struct ntmp_priv *ntmp,
 			return -ENOSPC;
 		}
 
-		fa = (redirect_port == NETC_DPO_PORT_ID) ?
-		     IST_SWITCH_FA_DPO : IST_SWITCH_FA_SF;
-
+		fa = IST_SWITCH_FA_SF;
 		if (actions & BIT_ULL(FLOW_ACTION_TRAP)) {
 			fa = IST_SWITCH_FA_SF_COPY;
 			ist_cfg |= FIELD_PREP(IST_HR, NETC_HR_TRAP);
@@ -454,12 +452,8 @@ static int netc_add_trap_redirect_key_tbl(struct ntmp_priv *ntmp,
 		ipft_cfge->flta_tgt = cpu_to_le32(ist_entry->entry_id);
 
 		ist_cfge = &ist_entry->cfge;
-		if (redirect_port == NETC_DPO_PORT_ID)
-			ist_cfg |= FIELD_PREP(IST_HR, NETC_HR_DPO);
-		else
-			ist_cfge->bitmap_evmeid = cpu_to_le32(BIT(redirect_port) & 0xffffff);
-
 		ist_cfge->cfg = cpu_to_le32(ist_cfg);
+		ist_cfge->bitmap_evmeid = cpu_to_le32(BIT(redirect_port) & 0xffffff);
 
 		netc_init_ist_entry_eids(ntmp, ist_entry);
 	} else {
@@ -528,7 +522,6 @@ delete_rpt_entry:
 }
 
 static int netc_setup_trap_redirect(struct ntmp_priv *ntmp, int port_id,
-				    struct net_device *ndev_mngmt,
 				    struct flow_cls_offload *f)
 {
 	struct flow_rule *cls_rule = flow_cls_offload_flow_rule(f);
@@ -608,18 +601,14 @@ static int netc_setup_trap_redirect(struct ntmp_priv *ntmp, int port_id,
 	}
 
 	if (redirect_act) {
-		if (redirect_act->dev == ndev_mngmt) {
-			redirect_port = NETC_DPO_PORT_ID;
-		} else {
-			to_dp = dsa_port_from_netdev(redirect_act->dev);
-			if (IS_ERR(to_dp)) {
-				NL_SET_ERR_MSG_MOD(extack,
-						   "Dest. not a switch port");
-				return -EOPNOTSUPP;
-			}
-
-			redirect_port = to_dp->index;
+		to_dp = dsa_port_from_netdev(redirect_act->dev);
+		if (IS_ERR(to_dp)) {
+			NL_SET_ERR_MSG_MOD(extack,
+					   "Destination is not a switch port");
+			return -EOPNOTSUPP;
 		}
+
+		redirect_port = to_dp->index;
 	}
 
 	if (police_act) {
@@ -727,7 +716,6 @@ int netc_port_flow_cls_replace(struct netc_port *port,
 	struct flow_dissector *dissector;
 	const struct netc_flower *flower;
 	struct flow_action_entry *entry;
-	struct net_device *ndev_mngmt;
 	u64 actions = 0;
 	int i;
 
@@ -755,9 +743,7 @@ int netc_port_flow_cls_replace(struct netc_port *port,
 		return netc_setup_psfp(&priv->ntmp, port->index, f);
 	case FLOWER_TYPE_TRAP:
 	case FLOWER_TYPE_REDIRECT:
-		ndev_mngmt = dsa_port_to_conduit(port->dp);
-		return netc_setup_trap_redirect(&priv->ntmp, port->index,
-						ndev_mngmt, f);
+		return netc_setup_trap_redirect(&priv->ntmp, port->index, f);
 	case FLOWER_TYPE_POLICE:
 		return netc_setup_police(&priv->ntmp, port->index, f);
 	default:
