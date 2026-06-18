@@ -747,7 +747,6 @@ static const struct net_device_ops enetc4_ndev_ops = {
 	.ndo_set_features	= enetc4_pf_set_features,
 	.ndo_vlan_rx_add_vid	= enetc_vlan_rx_add_vid,
 	.ndo_vlan_rx_kill_vid	= enetc_vlan_rx_del_vid,
-	.ndo_eth_ioctl		= enetc_ioctl,
 };
 
 static struct phylink_pcs *
