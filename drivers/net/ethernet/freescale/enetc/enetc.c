@@ -2548,8 +2548,6 @@ int enetc_configure_si(struct enetc_ndev_priv *priv)
 			enetc_set_rss(priv->ndev, true);
 	}
 
-	mutex_init(&si->msg_lock);
-
 	return 0;
 }
 EXPORT_SYMBOL_GPL(enetc_configure_si);
