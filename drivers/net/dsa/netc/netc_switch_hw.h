@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: (GPL-2.0+ OR BSD-3-Clause) */
 /*
- * Copyright 2024-2025 NXP
+ * Copyright 2024 NXP
  */
 
 #ifndef _NETC_SWITCH_HW_H
@@ -22,9 +22,6 @@
 
 #define NETC_CCAR			0x0080
 
-#define NETC_SWIDPMR(n)			(0x380 + (n) * 0x4)
-#define  PMR_VALID			BIT(31)
-
 #define NETC_CBDRMR(a)			(0x0800 + (a) * 0x30)
 #define  CBDRMR_EN			BIT(31)
 
@@ -36,18 +33,6 @@
 #define NETC_CBDRPIR(a)			(0x0818 + (a) * 0x30)
 #define NETC_CBDRCIR(a)			(0x081c + (a) * 0x30)
 #define NETC_CBDRLENR(a)		(0x0820 + (a) * 0x30)
-
-/* SW0_COMMON - Switch/ENETC common registers */
-#define NETC_MPCR			0x1030
-#define NETC_DOPCR			0x1034
-#define  PCR_SWID			GENMASK(8, 5)
-#define  PCR_PORT			GENMASK(4, 0)
-#define  PCR_SET(swid, port)		(FIELD_PREP(PCR_SWID, (swid)) | \
-					 FIELD_PREP(PCR_PORT, (port)))
-/* default Switch ID and Mngmt/ D-path Offload Port IDs */
-#define  NETC_SWID_D			0
-#define  NETC_MPORT_D			0
-#define  NETC_DOPORT_D			1
 
 #define NETC_DOSL2CR			0x1220
 #define  DOSL2CR_SAMEADDR		BIT(0)
