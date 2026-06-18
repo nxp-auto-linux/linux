@@ -8,7 +8,6 @@
 #include <linux/dma-mapping.h>
 #include <linux/skbuff.h>
 #include <linux/ethtool.h>
-#include <linux/fsl/ntmp.h>
 #include <linux/if_vlan.h>
 #include <linux/phylink.h>
 #include <linux/dim.h>
@@ -267,19 +266,6 @@ struct enetc_platform_info {
 	const struct enetc_drvdata *data;
 };
 
-struct enetc_si;
-
-/*
- * This structure defines the some common hooks for ENETC PSI and VSI.
- * In addition, since VSI only uses the struct enetc_si as its private
- * driver data, so this structure also define some hooks specifically
- * for VSI. For VSI-specific hooks, the format is ‘vf_*()’.
- */
-struct enetc_si_ops {
-	int (*setup_cbdr)(struct enetc_si *si);
-	void (*teardown_cbdr)(struct enetc_si *si);
-};
-
 /* PCI IEP device data */
 struct enetc_si {
 	struct pci_dev *pdev;
@@ -288,10 +274,7 @@ struct enetc_si {
 
 	struct net_device *ndev; /* back ref. */
 
-	union {
-		struct enetc_cbdr cbd_ring; /* Only ENETC 1.0 */
-		struct ntmp_priv ntmp; /* ENETC 4.1 and later */
-	};
+	struct enetc_cbdr cbd_ring;
 
 	int num_rx_rings; /* how many rings are available in the SI */
 	int num_tx_rings;
@@ -301,7 +284,6 @@ struct enetc_si {
 	u16 revision;
 	int hw_features;
 	const struct enetc_drvdata *drvdata;
-	const struct enetc_si_ops *ops;
 };
 
 #define ENETC_SI_ALIGN	32
@@ -508,10 +490,9 @@ void enetc_mm_link_state_update(struct enetc_ndev_priv *priv, bool link);
 void enetc_mm_commit_preemptible_tcs(struct enetc_ndev_priv *priv);
 
 /* control buffer descriptor ring (CBDR) */
-int enetc_setup_cbdr(struct enetc_si *si);
-void enetc_teardown_cbdr(struct enetc_si *si);
-int enetc4_setup_cbdr(struct enetc_si *si);
-void enetc4_teardown_cbdr(struct enetc_si *si);
+int enetc_setup_cbdr(struct device *dev, struct enetc_hw *hw, int bd_count,
+		     struct enetc_cbdr *cbdr);
+void enetc_teardown_cbdr(struct enetc_cbdr *cbdr);
 int enetc_set_mac_flt_entry(struct enetc_si *si, int index,
 			    char *mac_addr, int si_map);
 int enetc_clear_mac_flt_entry(struct enetc_si *si, int index);
