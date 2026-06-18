@@ -260,23 +260,6 @@ static void enetc4_configure_port(struct enetc_pf *pf)
 	enetc4_enable_trx(pf);
 }
 
-static int enetc4_init_ntmp_priv(struct enetc_si *si)
-{
-	struct ntmp_priv *ntmp = &si->ntmp;
-
-	ntmp->dev_type = NETC_DEV_ENETC;
-
-	/* For ENETC 4.1, all table versions are 0 */
-	memset(&ntmp->cbdrs.tbl, 0, sizeof(ntmp->cbdrs.tbl));
-
-	return si->ops->setup_cbdr(si);
-}
-
-static void enetc4_free_ntmp_priv(struct enetc_si *si)
-{
-	si->ops->teardown_cbdr(si);
-}
-
 static int enetc4_pf_init(struct enetc_pf *pf)
 {
 	struct device *dev = &pf->si->pdev->dev;
@@ -289,20 +272,9 @@ static int enetc4_pf_init(struct enetc_pf *pf)
 		return err;
 	}
 
-	err = enetc4_init_ntmp_priv(pf->si);
-	if (err) {
-		dev_err(dev, "Failed to init CBDR\n");
-		return err;
-	}
-
 	enetc4_configure_port(pf);
 
 	return 0;
-}
-
-static void enetc4_pf_free(struct enetc_pf *pf)
-{
-	enetc4_free_ntmp_priv(pf->si);
 }
 
 static const struct net_device_ops enetc4_ndev_ops = {
@@ -716,11 +688,6 @@ static void enetc4_pf_netdev_destroy(struct enetc_si *si)
 	free_netdev(ndev);
 }
 
-static const struct enetc_si_ops enetc4_psi_ops = {
-	.setup_cbdr = enetc4_setup_cbdr,
-	.teardown_cbdr = enetc4_teardown_cbdr,
-};
-
 static int enetc4_pf_probe(struct pci_dev *pdev,
 			   const struct pci_device_id *ent)
 {
@@ -745,7 +712,6 @@ static int enetc4_pf_probe(struct pci_dev *pdev,
 				     "Couldn't map PF only space\n");
 
 	si->revision = enetc_get_ip_revision(&si->hw);
-	si->ops = &enetc4_psi_ops;
 	err = enetc_get_driver_data(si);
 	if (err)
 		return dev_err_probe(dev, err,
@@ -762,25 +728,14 @@ static int enetc4_pf_probe(struct pci_dev *pdev,
 
 	enetc_get_si_caps(si);
 
-	err = enetc4_pf_netdev_create(si);
-	if (err)
-		goto err_netdev_create;
-
-	return 0;
-
-err_netdev_create:
-	enetc4_pf_free(pf);
-
-	return err;
+	return enetc4_pf_netdev_create(si);
 }
 
 static void enetc4_pf_remove(struct pci_dev *pdev)
 {
 	struct enetc_si *si = pci_get_drvdata(pdev);
-	struct enetc_pf *pf = enetc_si_priv(si);
 
 	enetc4_pf_netdev_destroy(si);
-	enetc4_pf_free(pf);
 }
 
 static const struct pci_device_id enetc4_pf_id_table[] = {

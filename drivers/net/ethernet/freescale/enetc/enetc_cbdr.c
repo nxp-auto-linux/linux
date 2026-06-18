@@ -3,12 +3,10 @@
 
 #include "enetc.h"
 
-int enetc_setup_cbdr(struct enetc_si *si)
+int enetc_setup_cbdr(struct device *dev, struct enetc_hw *hw, int bd_count,
+		     struct enetc_cbdr *cbdr)
 {
-	int size = ENETC_CBDR_DEFAULT_SIZE * sizeof(struct enetc_cbd);
-	struct enetc_cbdr *cbdr = &si->cbd_ring;
-	struct device *dev = &si->pdev->dev;
-	struct enetc_hw *hw = &si->hw;
+	int size = bd_count * sizeof(struct enetc_cbd);
 
 	cbdr->bd_base = dma_alloc_coherent(dev, size, &cbdr->bd_dma_base,
 					   GFP_KERNEL);
@@ -25,7 +23,7 @@ int enetc_setup_cbdr(struct enetc_si *si)
 	cbdr->next_to_clean = 0;
 	cbdr->next_to_use = 0;
 	cbdr->dma_dev = dev;
-	cbdr->bd_count = ENETC_CBDR_DEFAULT_SIZE;
+	cbdr->bd_count = bd_count;
 
 	cbdr->pir = hw->reg + ENETC_SICBDRPIR;
 	cbdr->cir = hw->reg + ENETC_SICBDRCIR;
@@ -48,60 +46,19 @@ int enetc_setup_cbdr(struct enetc_si *si)
 }
 EXPORT_SYMBOL_GPL(enetc_setup_cbdr);
 
-int enetc4_setup_cbdr(struct enetc_si *si)
+void enetc_teardown_cbdr(struct enetc_cbdr *cbdr)
 {
-	struct netc_cbdrs *cbdrs = &si->ntmp.cbdrs;
-	struct device *dev = &si->pdev->dev;
-	struct enetc_hw *hw = &si->hw;
-	struct netc_cbdr_regs regs;
-
-	cbdrs->cbdr_num = 1;
-	cbdrs->cbdr_size = NETC_CBDR_BD_NUM;
-	cbdrs->dma_dev = dev;
-	cbdrs->ring = devm_kcalloc(dev, cbdrs->cbdr_num,
-				   sizeof(struct netc_cbdr), GFP_KERNEL);
-	if (!cbdrs->ring)
-		return -ENOMEM;
-
-	/* set CBDR cache attributes */
-	enetc_wr(hw, ENETC_SICAR2,
-		 ENETC_SICAR_RD_COHERENT | ENETC_SICAR_WR_COHERENT);
-
-	regs.pir = hw->reg + ENETC_SICBDRPIR;
-	regs.cir = hw->reg + ENETC_SICBDRCIR;
-	regs.mr = hw->reg + ENETC_SICBDRMR;
-	regs.bar0 = hw->reg + ENETC_SICBDRBAR0;
-	regs.bar1 = hw->reg + ENETC_SICBDRBAR1;
-	regs.lenr = hw->reg + ENETC_SICBDRLENR;
-
-	return netc_setup_cbdr(dev, cbdrs->cbdr_size, &regs, cbdrs->ring);
-}
-EXPORT_SYMBOL_GPL(enetc4_setup_cbdr);
-
-void enetc_teardown_cbdr(struct enetc_si *si)
-{
-	struct enetc_cbdr *cbdr = &si->cbd_ring;
-	int size;
+	int size = cbdr->bd_count * sizeof(struct enetc_cbd);
 
 	/* disable ring */
 	enetc_wr_reg(cbdr->mr, 0);
 
-	size = cbdr->bd_count * sizeof(struct enetc_cbd);
 	dma_free_coherent(cbdr->dma_dev, size, cbdr->bd_base,
 			  cbdr->bd_dma_base);
 	cbdr->bd_base = NULL;
 	cbdr->dma_dev = NULL;
 }
 EXPORT_SYMBOL_GPL(enetc_teardown_cbdr);
-
-void enetc4_teardown_cbdr(struct enetc_si *si)
-{
-	struct netc_cbdrs *cbdrs = &si->ntmp.cbdrs;
-
-	netc_teardown_cbdr(cbdrs->dma_dev, cbdrs->ring);
-	cbdrs->dma_dev = NULL;
-}
-EXPORT_SYMBOL_GPL(enetc4_teardown_cbdr);
 
 static void enetc_clean_cbdr(struct enetc_cbdr *ring)
 {
