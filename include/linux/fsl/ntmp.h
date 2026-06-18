@@ -70,19 +70,6 @@ struct maft_cfge_data {
 	__le16 resv;
 };
 
-struct vaft_keye_data {
-	__le16 vlan_id;
-#define VAFT_VLAN_ID		GENMASK(11, 0)
-	u8 tpid;
-#define VAFT_TPID		GENMASK(1, 0)
-	u8 resv;
-};
-
-struct vaft_cfge_data {
-	__le16 si_bitmap;
-	__le16 resv;
-};
-
 #pragma pack(1)
 
 struct rpt_cfge_data {
@@ -378,7 +365,6 @@ enum ntmp_table_version {
 
 struct netc_tbl_vers {
 	u8 maft_ver;
-	u8 vaft_ver;
 	u8 rsst_ver;
 	u8 tgst_ver;
 	u8 rpt_ver;
@@ -460,11 +446,6 @@ struct maft_entry_data {
 	struct maft_cfge_data cfge;
 };
 
-struct vaft_entry_data {
-	struct vaft_keye_data keye;
-	struct vaft_cfge_data cfge;
-};
-
 struct ntmp_rpt_entry {
 	u32 entry_id;
 	struct rpt_cfge_data cfge;
@@ -530,11 +511,6 @@ int ntmp_maft_add_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
 int ntmp_maft_query_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
 			  struct maft_entry_data *maft);
 int ntmp_maft_delete_entry(struct netc_cbdrs *cbdrs, u32 entry_id);
-int ntmp_vaft_add_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
-			struct vaft_entry_data *vaft);
-int ntmp_vaft_query_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
-			  struct vaft_entry_data *vaft);
-int ntmp_vaft_delete_entry(struct netc_cbdrs *cbdrs, u32 entry_id);
 int ntmp_rsst_query_or_update_entry(struct netc_cbdrs *cbdrs,
 				    u32 *table, int count, bool query);
 int ntmp_rpt_add_or_update_entry(struct netc_cbdrs *cbdrs,
@@ -585,23 +561,6 @@ static inline int ntmp_maft_query_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
 }
 
 static inline int ntmp_maft_delete_entry(struct netc_cbdrs *cbdrs, u32 entry_id)
-{
-	return 0;
-}
-
-static inline int ntmp_vaft_add_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
-				      struct vaft_entry_data *vaft)
-{
-	return 0;
-}
-
-static inline int ntmp_vaft_query_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
-					struct vaft_entry_data *vaft)
-{
-	return 0;
-}
-
-static inline int ntmp_vaft_delete_entry(struct netc_cbdrs *cbdrs, u32 entry_id)
 {
 	return 0;
 }
