@@ -175,41 +175,6 @@ struct isit_resp_query {
 	__le32 is_eid;
 };
 
-/* Ingress Stream filter Table Resquet and Response Data Buffer Format */
-struct isft_ak_eid {
-	__le32 entry_id;
-	__le32 resv;
-};
-
-struct isft_ak_search {
-	__le32 resume_eid;
-	__le32 resv;
-};
-
-union isft_access_key {
-	struct isft_ak_eid eid;
-	struct isft_keye_data keye;
-	struct isft_ak_search search;
-};
-
-struct isft_req_ua {
-	struct common_req_data crd;
-	union isft_access_key ak;
-	struct isft_cfge_data cfge;
-};
-
-struct isft_req_qd {
-	struct common_req_data crd;
-	union isft_access_key ak;
-};
-
-struct isft_resp_query {
-	__le32 status;
-	__le32 entry_id;
-	struct isft_keye_data keye;
-	struct isft_cfge_data cfge;
-};
-
 struct tgst_query_data {
 	__le64 config_change_time;
 	__le64 admin_bt;
@@ -240,10 +205,5 @@ int ntmp_isit_query_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
 int ntmp_isit_delete_entry(struct netc_cbdrs *cbdrs, u32 entry_id);
 int ntmp_ist_query_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
 			 struct ist_cfge_data *cfge);
-int ntmp_isft_add_or_update_entry(struct netc_cbdrs *cbdrs, bool add,
-				  struct ntmp_isft_entry *entry);
-int ntmp_isft_query_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
-			  struct ntmp_isft_entry *entry);
-int ntmp_isft_delete_entry(struct netc_cbdrs *cbdrs, u32 entry_id);
 
 #endif
