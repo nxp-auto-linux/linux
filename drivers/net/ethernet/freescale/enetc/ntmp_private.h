@@ -10,8 +10,6 @@
 #include <linux/fsl/ntmp.h>
 
 #define TGST_MAX_ENTRY_NUM		64
-#define SGCLT_MAX_GE_NUM		256
-#define SGIT_MAX_CT_PLUS_CT_EXT		0x3fffffffU
 
 struct ntmp_dma_buf {
 	struct device *dev;
@@ -285,10 +283,6 @@ struct tgst_query_data {
 	struct tgst_ge cfge_ge[TGST_MAX_ENTRY_NUM];
 };
 
-u32 ntmp_lookup_free_words(unsigned long *bitmap, u32 bitmap_size,
-			   u32 num_words);
-void ntmp_clear_words_bitmap(unsigned long *bitmap, u32 entry_id,
-			     u32 num_words);
 int ntmp_tgst_query_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
 			  struct tgst_query_data *tgst);
 int ntmp_tgst_update_admin_gate_list(struct netc_cbdrs *cbdrs, u32 entry_id,
