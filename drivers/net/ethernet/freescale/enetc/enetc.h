@@ -657,7 +657,7 @@ static inline bool enetc_ptp_clock_is_enabled(struct enetc_si *si)
 	if (is_enetc_rev1(si))
 		return IS_ENABLED(CONFIG_FSL_ENETC_PTP_CLOCK);
 
-	return IS_ENABLED(CONFIG_PTP_1588_CLOCK_NETC) || si->si_ptp;
+	return IS_ENABLED(CONFIG_PTP_1588_CLOCK_NETC);
 }
 
 static inline void enetc_get_max_cap(struct enetc_ndev_priv *priv)
