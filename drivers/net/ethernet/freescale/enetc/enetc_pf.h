@@ -29,16 +29,6 @@ struct enetc_mac_list_entry {
 	struct hlist_node node;
 };
 
-struct enetc_mm {
-	u8 pmac_enabled:1;
-	u8 tx_enabled:1;
-	u8 verify_enabled:1;
-	u8 lafs;
-	u8 rafs;
-	u8 vsts;
-	u8 vt;
-};
-
 struct enetc_pf;
 
 struct enetc_pf_ops {
@@ -48,7 +38,6 @@ struct enetc_pf_ops {
 	void (*destroy_pcs)(struct phylink_pcs *pcs);
 	int (*enable_psfp)(struct enetc_ndev_priv *priv);
 	void (*set_si_vlan_hash_filter)(struct enetc_hw *hw, int si, u64 hash);
-	void (*get_mm)(struct enetc_ndev_priv *priv, struct enetc_mm *mm);
 };
 
 struct enetc_pf {
