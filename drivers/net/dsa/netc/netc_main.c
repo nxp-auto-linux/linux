@@ -456,52 +456,6 @@ static void netc_free_ntmp_bitmaps(struct netc_switch *priv)
 	ntmp->ett_eid_bitmap = NULL;
 }
 
-static u64 netc_switch_adjust_base_time(struct ntmp_priv *ntmp, u64 base_time,
-					u32 cycle_time)
-{
-	struct netc_switch *priv = ntmp_to_netc_switch(ntmp);
-	u32 tmr_devfn = priv->info->tmr_devfn;
-	u64 current_time, delta, n;
-	struct pci_dev *tmr_dev;
-	int domain;
-
-	domain = pci_domain_nr(priv->pdev->bus);
-	tmr_dev = pci_get_domain_bus_and_slot(domain, 0, tmr_devfn);
-	if (!tmr_dev)
-		return base_time;
-
-	current_time = netc_timer_get_current_time(tmr_dev);
-	if (base_time >= current_time)
-		return base_time;
-
-	delta = current_time - base_time;
-	n = DIV_ROUND_UP_ULL(delta, cycle_time);
-	base_time += (n * (u64)cycle_time);
-
-	return base_time;
-}
-
-static u32 netc_switch_get_tgst_free_words(struct ntmp_priv *ntmp)
-{
-	struct netc_switch *priv = ntmp_to_netc_switch(ntmp);
-	struct netc_switch_regs *regs = &priv->regs;
-	u32 words_in_use;
-	u32 total_words;
-
-	total_words = netc_base_rd(regs, NETC_TGSTCAPR);
-	total_words = NETC_GET_NUM_WORDS(total_words);
-
-	words_in_use = netc_base_rd(regs, NETC_TGSTMOR);
-	words_in_use = NETC_GET_NUM_WORDS(words_in_use);
-
-	return total_words - words_in_use;
-}
-
-const struct ntmp_ops ntmp_ops_sw = {
-	.adjust_base_time = netc_switch_adjust_base_time,
-	.get_tgst_free_words = netc_switch_get_tgst_free_words,
-};
-
 static int netc_init_ntmp_priv(struct netc_switch *priv)
 {
 	struct ntmp_priv *ntmp = &priv->ntmp;
@@ -517,8 +471,6 @@ static int netc_init_ntmp_priv(struct netc_switch *priv)
 	err = netc_init_ntmp_bitmaps(priv);
 	if (err)
 		goto free_all_cbdrs;
-
-	ntmp->ops = &ntmp_ops_sw;
 
 	return 0;
 
@@ -623,7 +575,7 @@ static void netc_port_set_tc_max_sdu(struct netc_port *port,
 	netc_port_wr(port, NETC_PTCTMSDUR(tc), val);
 }
 
-void netc_port_set_all_tc_msdu(struct netc_port *port, u32 *max_sdu)
+static void netc_port_set_all_tc_msdu(struct netc_port *port, u32 *max_sdu)
 {
 	u32 msdu = NETC_MAX_FRAME_LEN;
 	int tc;
@@ -1899,8 +1851,6 @@ static int netc_port_setup_tc(struct dsa_switch *ds, int port_id,
 		return netc_tc_setup_mqprio(priv, port_id, type_data);
 	case TC_SETUP_QDISC_CBS:
 		return netc_tc_setup_cbs(priv, port_id, type_data);
-	case TC_SETUP_QDISC_TAPRIO:
-		return netc_tc_setup_taprio(priv, port_id, type_data);
 	default:
 		return -EOPNOTSUPP;
 	}
