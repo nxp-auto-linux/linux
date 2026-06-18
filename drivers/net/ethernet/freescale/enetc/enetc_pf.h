@@ -3,7 +3,6 @@
 
 #include "enetc.h"
 #include <linux/phylink.h>
-#include <net/devlink.h>
 
 #define ENETC_PF_NUM_RINGS	8
 
@@ -102,8 +101,6 @@ struct enetc_pf {
 	struct hlist_head vlan_list; /* VLAN address filter table */
 	struct mutex vlan_list_lock; /* mac_list lock */
 	int num_vfe; /* number of VLAN address filter table entries */
-
-	struct devlink *devlink;
 };
 
 #define phylink_to_enetc_pf(config) \
