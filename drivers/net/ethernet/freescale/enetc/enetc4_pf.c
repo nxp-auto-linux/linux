@@ -1254,10 +1254,6 @@ static void enetc4_get_ntmp_caps(struct enetc_si *si)
 	/* Get the max number of words of SGCL table */
 	val = enetc_port_rd(hw, ENETC4_SGCLITCAPR);
 	caps->sgclt_num_words = val & SGCLITCAPR_NUM_WORDS;
-
-	/* Get the max number of entries of RFST */
-	val = enetc_rd(hw, ENETC_SIRFSCAPR);
-	caps->rfst_num_entries = ENETC_SIRFSCAPR_GET_NUM_RFS(val);
 }
 
 static int enetc4_ntmp_bitmap_init(struct ntmp_priv *ntmp)
@@ -1287,16 +1283,7 @@ static int enetc4_ntmp_bitmap_init(struct ntmp_priv *ntmp)
 	if (!ntmp->rpt_eid_bitmap)
 		goto free_isct_bitmap;
 
-	ntmp->rfst_eid_bitmap = bitmap_zalloc(ntmp->caps.rfst_num_entries,
-					      GFP_KERNEL);
-	if (!ntmp->rfst_eid_bitmap)
-		goto free_rpt_bitmap;
-
 	return 0;
-
-free_rpt_bitmap:
-	bitmap_free(ntmp->rpt_eid_bitmap);
-	ntmp->rpt_eid_bitmap = NULL;
 
 free_isct_bitmap:
 	bitmap_free(ntmp->isct_eid_bitmap);
@@ -1333,9 +1320,6 @@ static void enetc4_ntmp_bitmap_free(struct ntmp_priv *ntmp)
 
 	bitmap_free(ntmp->ist_eid_bitmap);
 	ntmp->ist_eid_bitmap = NULL;
-
-	bitmap_free(ntmp->rfst_eid_bitmap);
-	ntmp->rfst_eid_bitmap = NULL;
 }
 
 static int enetc4_init_ntmp_priv(struct enetc_si *si)
@@ -2044,12 +2028,6 @@ static int enetc4_pf_netdev_create(struct enetc_si *si)
 
 	enetc_init_si_rings_params(priv);
 
-	err = enetc_alloc_si_resources(priv);
-	if (err) {
-		dev_err(dev, "Failed to alloc SI resources\n");
-		goto err_alloc_si_res;
-	}
-
 	err = enetc_configure_si(priv);
 	if (err) {
 		dev_err(dev, "Failed to configure SI\n");
@@ -2088,8 +2066,6 @@ err_link_init:
 	enetc_free_msix(priv);
 err_alloc_msix:
 err_config_si:
-	enetc_free_si_resources(priv);
-err_alloc_si_res:
 err_clk_get:
 	mutex_destroy(&priv->mm_lock);
 	free_netdev(ndev);
@@ -2106,7 +2082,6 @@ static void enetc4_pf_netdev_destroy(struct enetc_si *si)
 	enetc_si_ptp_destroy(si);
 	enetc4_link_deinit(priv);
 	enetc_free_msix(priv);
-	enetc_free_si_resources(priv);
 	mutex_destroy(&priv->mm_lock);
 	free_netdev(ndev);
 }

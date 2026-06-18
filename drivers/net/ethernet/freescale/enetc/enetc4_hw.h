@@ -116,10 +116,6 @@
 /* Port broadcast frames dropped VLAN filtering register */
 #define ENETC4_PBFDVFR			0x2d8
 
-/* Port RFS mode register */
-#define ENETC4_PRFSMR			0x310
-#define  PRFSMR_RFSE			BIT(31)
-
 /* Port traffic class a time specific departure register */
 #define ENETC4_PTCTSDR(a)		((a) * 0x4 + 0x390)
 #define  PTCTSDR_TSDE			BIT(31)
