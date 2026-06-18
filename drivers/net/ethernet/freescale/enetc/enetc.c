@@ -246,31 +246,6 @@ static void enetc_unwind_tx_frame(struct enetc_bdr *tx_ring, int count, int i)
 	}
 }
 
-static void enetc_set_one_step_ts(struct enetc_si *si, bool udp, int offset)
-{
-	u32 val = ENETC_PM0_SINGLE_STEP_EN;
-
-	val |= ENETC_SET_SINGLE_STEP_OFFSET(offset);
-	if (udp)
-		val |= ENETC_PM0_SINGLE_STEP_CH;
-
-	/* the "Correction" field of a packet is updated based on the
-	 * current time and the timestamp provided
-	 */
-	enetc_port_mac_wr(si, ENETC_PM0_SINGLE_STEP, val);
-}
-
-static void enetc4_set_one_step_ts(struct enetc_si *si, bool udp, int offset)
-{
-	u32 val = PM_SINGLE_STEP_EN;
-
-	val |= PM_SINGLE_STEP_OFFSET_SET(offset);
-	if (udp)
-		val |= PM_SINGLE_STEP_CH;
-
-	enetc_port_mac_wr(si, ENETC4_PM_SINGLE_STEP(0), val);
-}
-
 static u32 enetc_update_ptp_sync_msg(struct enetc_ndev_priv *priv,
 				     struct sk_buff *skb)
 {
@@ -284,6 +259,7 @@ static u32 enetc_update_ptp_sync_msg(struct enetc_ndev_priv *priv,
 	u32 lo, hi, nsec;
 	u8 *data;
 	u64 sec;
+	u32 val;
 
 	lo = enetc_rd_hot(hw, ENETC_SICTR0);
 	hi = enetc_rd_hot(hw, ENETC_SICTR1);
@@ -328,10 +304,12 @@ static u32 enetc_update_ptp_sync_msg(struct enetc_ndev_priv *priv,
 	*(__be32 *)(data + tstamp_off + 6) = new_nsec;
 
 	/* Configure single-step register */
-	if (is_enetc_rev1(si))
-		enetc_set_one_step_ts(si, enetc_cb->udp, corr_off);
-	else
-		enetc4_set_one_step_ts(si, enetc_cb->udp, corr_off);
+	val = ENETC_PM0_SINGLE_STEP_EN;
+	val |= ENETC_SET_SINGLE_STEP_OFFSET(corr_off);
+	if (enetc_cb->udp)
+		val |= ENETC_PM0_SINGLE_STEP_CH;
+
+	enetc_port_mac_wr(priv->si, ENETC_PM0_SINGLE_STEP, val);
 
 	return lo & ENETC_TXBD_TSTAMP;
 }
@@ -350,7 +328,6 @@ static int enetc_map_tx_buffs(struct enetc_bdr *tx_ring, struct sk_buff *skb)
 	unsigned int f;
 	dma_addr_t dma;
 	u8 flags = 0;
-	u32 tstamp;
 
 	enetc_clear_tx_bd(&temp_bd);
 	if (skb->ip_summed == CHECKSUM_PARTIAL) {
@@ -375,13 +352,6 @@ static int enetc_map_tx_buffs(struct enetc_bdr *tx_ring, struct sk_buff *skb)
 		}
 	}
 
-	if (enetc_cb->flag & ENETC_F_TX_ONESTEP_SYNC_TSTAMP) {
-		do_onestep_tstamp = true;
-		tstamp = enetc_update_ptp_sync_msg(priv, skb);
-	} else if (enetc_cb->flag & ENETC_F_TX_TSTAMP) {
-		do_twostep_tstamp = true;
-	}
-
 	i = tx_ring->next_to_use;
 	txbd = ENETC_TXBD(*tx_ring, i);
 	prefetchw(txbd);
@@ -401,6 +371,11 @@ static int enetc_map_tx_buffs(struct enetc_bdr *tx_ring, struct sk_buff *skb)
 	count++;
 
 	do_vlan = skb_vlan_tag_present(skb);
+	if (enetc_cb->flag & ENETC_F_TX_ONESTEP_SYNC_TSTAMP)
+		do_onestep_tstamp = true;
+	else if (enetc_cb->flag & ENETC_F_TX_TSTAMP)
+		do_twostep_tstamp = true;
+
 	tx_swbd->do_twostep_tstamp = do_twostep_tstamp;
 	tx_swbd->qbv_en = !!(priv->active_offloads & ENETC_F_QBV);
 	tx_swbd->check_wb = tx_swbd->do_twostep_tstamp || tx_swbd->qbv_en;
@@ -443,6 +418,8 @@ static int enetc_map_tx_buffs(struct enetc_bdr *tx_ring, struct sk_buff *skb)
 		}
 
 		if (do_onestep_tstamp) {
+			u32 tstamp = enetc_update_ptp_sync_msg(priv, skb);
+
 			/* Configure extension BD */
 			temp_bd.ext.tstamp = cpu_to_le32(tstamp);
 			e_flags |= ENETC_TXBD_E_FLAGS_ONE_STEP_PTP;
@@ -3450,7 +3427,7 @@ int enetc_ioctl(struct net_device *ndev, struct ifreq *rq, int cmd)
 {
 	struct enetc_ndev_priv *priv = netdev_priv(ndev);
 
-	if (enetc_ptp_clock_is_enabled(priv->si)) {
+	if (IS_ENABLED(CONFIG_FSL_ENETC_PTP_CLOCK)) {
 		if (cmd == SIOCSHWTSTAMP)
 			return enetc_hwtstamp_set(ndev, rq);
 		if (cmd == SIOCGHWTSTAMP)
@@ -3734,7 +3711,6 @@ static const struct enetc_drvdata enetc4_pf_data = {
 	.sysclk_freq = ENETC_CLK_333M,
 	.tx_csum = true,
 	.max_frags = ENETC4_MAX_SKB_FRAGS,
-	.tmr_devfn = 0xc0,
 	.pmac_offset = ENETC4_PMAC_OFFSET,
 	.eth_ops = &enetc4_pf_ethtool_ops,
 };
