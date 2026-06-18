@@ -4,11 +4,10 @@
 #include "enetc.h"
 #include <linux/bpf_trace.h>
 #include <linux/clk.h>
-#include <linux/property.h>
-#include <linux/ptp_classify.h>
 #include <linux/tcp.h>
 #include <linux/udp.h>
 #include <linux/vmalloc.h>
+#include <linux/ptp_classify.h>
 #include <net/ip6_checksum.h>
 #include <net/pkt_sched.h>
 #include <net/tso.h>
@@ -2942,11 +2941,6 @@ static void enetc_clear_interrupts(struct enetc_ndev_priv *priv)
 		enetc_rxbdr_wr(hw, i, ENETC_RBIER, 0);
 }
 
-struct fwnode_handle *enetc_fwnode(struct enetc_ndev_priv *priv)
-{
-	return dev_fwnode(priv->dev);
-}
-
 static int enetc_phylink_connect(struct net_device *ndev)
 {
 	struct enetc_ndev_priv *priv = netdev_priv(ndev);
@@ -2970,7 +2964,7 @@ static int enetc_phylink_connect(struct net_device *ndev)
 		return 0;
 	}
 
-	err = phylink_fwnode_phy_connect(priv->phylink, enetc_fwnode(priv), 0);
+	err = phylink_of_phy_connect(priv->phylink, priv->dev->of_node, 0);
 	if (err) {
 		dev_err(&ndev->dev, "could not attach to PHY\n");
 		return err;
