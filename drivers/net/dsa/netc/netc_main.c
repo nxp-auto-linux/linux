@@ -753,9 +753,6 @@ static void netc_port_default_config(struct netc_port *port)
 	netc_port_wr(port, NETC_PBPMCR1, NETC_DEFULT_BUFF_POOL_MAP1);
 
 	if (dsa_port_is_user(port->dp)) {
-		/* Enable ingress port filter table lookup */
-		netc_port_wr(port, NETC_PIPFCR, PIPFCR_EN);
-
 		/* Set the quanta value of tx PAUSE frame */
 		netc_port_wr(port, NETC_PM_PAUSE_QUANTA(0), pqnt);
 
