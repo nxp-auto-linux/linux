@@ -46,7 +46,6 @@ void netc_set_enetc_port_mp_entity(struct net_device *ndev, u8 swid, u8 port)
 
 	enetc4_set_dsa_port_entity(&priv->si->hw, false, swid, port);
 }
-EXPORT_SYMBOL_GPL(netc_set_enetc_port_mp_entity);
 
 void netc_set_enetc_port_dop_entity(struct net_device *ndev, u8 swid, u8 port)
 {
@@ -54,7 +53,6 @@ void netc_set_enetc_port_dop_entity(struct net_device *ndev, u8 swid, u8 port)
 
 	enetc4_set_dsa_port_entity(&priv->si->hw, true, swid, port);
 }
-EXPORT_SYMBOL_GPL(netc_set_enetc_port_dop_entity);
 #endif
 
 static void enetc4_get_port_caps(struct enetc_pf *pf)
