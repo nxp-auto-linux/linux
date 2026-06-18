@@ -337,36 +337,6 @@ struct fdbt_resp_query {
 	u8 resv[3];
 };
 
-struct vft_ak_exact {
-	__le16 vid; /* bit0~11: VLAN ID, other bits are reserved */
-	__le16 resv;
-};
-
-union vft_access_key {
-	__le32 entry_id; /* entry_id match */
-	struct vft_ak_exact exact;
-	__le32 resume_entry_id; /* search */
-};
-
-struct vft_req_ua {
-	struct common_req_data crd;
-	union vft_access_key ak;
-	struct vft_cfge_data cfge;
-};
-
-struct vft_req_qd {
-	struct common_req_data crd;
-	union vft_access_key ak;
-};
-
-struct vft_resp_query {
-	__le32 status;
-	__le32 entry_id;
-	__le16 vid; /* KEYE_DATA */
-	__le16 resv;
-	struct vft_cfge_data cfge;
-};
-
 #pragma pack()
 
 struct tgst_query_data {
