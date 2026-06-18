@@ -26,7 +26,6 @@
 #define NTMP_ISFT_ID			32
 #define NTMP_SGIT_ID			36
 #define NTMP_SGCLT_ID			37
-#define NTMP_ISCT_ID			38
 
 /* Generic Update Actions for most tables */
 #define NTMP_GEN_UA_CFGEU		BIT(0)
@@ -1134,78 +1133,6 @@ int ntmp_sgclt_delete_entry(struct netc_cbdrs *cbdrs, u32 entry_id)
 	return ntmp_delete_entry_by_id(cbdrs, NTMP_SGCLT_ID, cbdrs->tbl.sgclt_ver,
 				       entry_id, 0, 0);
 }
-
-int ntmp_isct_operate_entry(struct netc_cbdrs *cbdrs, u32 entry_id, int cmd,
-			    struct isct_stse_data *stse)
-{
-	struct ntmp_dma_buf data = {.dev = cbdrs->dma_dev};
-	struct isct_resp_query *resp;
-	struct ntmp_req_by_eid *req;
-	union netc_cbd cbd;
-	bool query;
-	u16 ua = 0;
-	u32 len;
-	int err;
-
-	/* Check the command. */
-	switch (cmd) {
-	case NTMP_CMD_QUERY:
-	case NTMP_CMD_QD:
-	case NTMP_CMD_QU:
-		if (!stse)
-			return -EINVAL;
-		fallthrough;
-	case NTMP_CMD_DELETE:
-	case NTMP_CMD_UPDATE:
-	case NTMP_CMD_ADD:
-	break;
-	default:
-		return -EINVAL;
-	}
-
-	query = !!(cmd & NTMP_CMD_QUERY);
-	data.size = query ? sizeof(*resp) : sizeof(*req);
-	err = ntmp_alloc_data_mem(&data, (void **)&req);
-	if (err)
-		return err;
-
-	if (cmd & NTMP_CMD_UPDATE)
-		ua = NTMP_GEN_UA_CFGEU;
-
-	ntmp_fill_crd_eid(req, cbdrs->tbl.isct_ver, 0, ua, entry_id);
-	/* Request header */
-	len = NTMP_LEN(sizeof(*req), query ? sizeof(*resp) : 0);
-	ntmp_fill_request_headr(&cbd, data.dma, len, NTMP_ISCT_ID,
-				cmd, NTMP_AM_ENTRY_ID);
-
-	err = netc_xmit_ntmp_cmd(cbdrs, &cbd);
-	if (err) {
-		dev_err(cbdrs->dma_dev,
-			"Operate SGIT entry (%d) failed (%d)",
-			cmd, err);
-		goto end;
-	}
-
-	if (!query)
-		goto end;
-
-	resp = (struct isct_resp_query *)req;
-	if (unlikely(le32_to_cpu(resp->entry_id) != entry_id)) {
-		dev_err(cbdrs->dma_dev,
-			"ISCT Query EID:0x%0x, Response EID:0x%x\n",
-			entry_id, le32_to_cpu(resp->entry_id));
-		err = -EIO;
-		goto end;
-	}
-
-	*stse = resp->stse;
-
-end:
-	ntmp_free_data_mem(&data);
-
-	return err;
-}
-EXPORT_SYMBOL_GPL(ntmp_isct_operate_entry);
 
 MODULE_DESCRIPTION("NXP NETC Library");
 MODULE_LICENSE("Dual BSD/GPL");
