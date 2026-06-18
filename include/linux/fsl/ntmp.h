@@ -109,17 +109,9 @@ enum netc_dev_type {
 	NETC_DEV_SWITCH
 };
 
-struct ntmp_priv;
-
-struct ntmp_ops {
-	u64 (*adjust_base_time)(struct ntmp_priv *priv, u64 bt, u32 ct);
-	u32 (*get_tgst_free_words)(struct ntmp_priv *priv);
-};
-
 struct ntmp_priv {
 	enum netc_dev_type dev_type;
 	struct netc_cbdrs cbdrs;
-	const struct ntmp_ops *ops;
 };
 
 struct maft_entry_data {
