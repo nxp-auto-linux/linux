@@ -188,254 +188,6 @@ static int enetc_vf_setup_tc(struct net_device *ndev, enum tc_setup_type type,
 	}
 }
 
-static void enetc_msg_vf_set_mac_promisc(struct enetc_ndev_priv *priv,
-					 int type, bool en)
-{
-	struct enetc_msg_mac_promsic_mode *msg;
-	struct enetc_msg_swbd msg_swbd;
-
-	if (!(type & ENETC_MAC_FILTER_TYPE_ALL))
-		return;
-
-	msg_swbd.size = ALIGN(sizeof(*msg), ENETC_MSG_ALIGN);
-	msg_swbd.vaddr = dma_alloc_coherent(priv->dev, msg_swbd.size,
-					    &msg_swbd.dma, GFP_KERNEL);
-	if (!msg_swbd.vaddr)
-		return;
-
-	msg = (struct enetc_msg_mac_promsic_mode *)msg_swbd.vaddr;
-	msg->type = type & ENETC_MAC_FILTER_TYPE_ALL;
-	msg->promisc_mode = en ? ENETC_MAC_PROMISC_MODE_ENABLE :
-				 ENETC_MAC_PROMISC_MODE_DISABLE;
-	/* Delete MAC exact filter and hash filter by default */
-	msg->flush_macs = en ? ENETC_MAC_FILTER_FLUSH : 0;
-	enetc_msg_vf_fill_common_header(&msg_swbd, ENETC_MSG_CLASS_ID_MAC_FILTER,
-					ENETC_MSG_SET_MAC_PROMISC_MODE, 0, 0);
-
-	/* send the command and wait */
-	enetc_msg_vsi_send(priv->si, &msg_swbd);
-
-	dma_free_coherent(priv->dev, msg_swbd.size, msg_swbd.vaddr, msg_swbd.dma);
-}
-
-static int enetc_msg_vf_flush_mac_filter(struct net_device *ndev, int type)
-{
-	struct enetc_ndev_priv *priv = netdev_priv(ndev);
-	struct enetc_msg_mac_filter_flush *msg;
-	struct enetc_msg_swbd msg_swbd;
-	int err;
-
-	msg_swbd.size = ALIGN(sizeof(*msg), ENETC_MSG_ALIGN);
-	msg_swbd.vaddr = dma_alloc_coherent(priv->dev, msg_swbd.size,
-					    &msg_swbd.dma, GFP_KERNEL);
-	if (!msg_swbd.vaddr)
-		return -ENOMEM;
-
-	msg = (struct enetc_msg_mac_filter_flush *)msg_swbd.vaddr;
-	msg->type = type & ENETC_MAC_FILTER_TYPE_ALL;
-	enetc_msg_vf_fill_common_header(&msg_swbd, ENETC_MSG_CLASS_ID_MAC_FILTER,
-					ENETC_MSG_FLUSH_MAC_ENTRIES, 0, 0);
-
-	/* send the command and wait */
-	err = enetc_msg_vsi_send(priv->si, &msg_swbd);
-
-	dma_free_coherent(priv->dev, msg_swbd.size, msg_swbd.vaddr, msg_swbd.dma);
-
-	return err;
-}
-
-static int enetc_msg_vf_set_mac_exact_filter(struct net_device *ndev, int type)
-{
-	struct enetc_ndev_priv *priv = netdev_priv(ndev);
-	struct enetc_msg_mac_exact_filter *msg;
-	struct enetc_msg_swbd msg_swbd;
-	struct netdev_hw_addr *ha;
-	u8 si_mac[ETH_ALEN];
-	int mac_cnt = 0;
-	u32 msg_size;
-	int err;
-
-	enetc_get_primary_mac_addr(&priv->si->hw, si_mac);
-
-	netif_addr_lock_bh(ndev);
-	if (type & ENETC_MAC_FILTER_TYPE_UC)
-		mac_cnt += netdev_uc_count(ndev);
-
-	if (type & ENETC_MAC_FILTER_TYPE_MC)
-		mac_cnt += netdev_mc_count(ndev);
-
-	msg_size = struct_size(msg, mac, mac_cnt);
-	if (msg_size > SZ_1K) {
-		netif_addr_unlock_bh(ndev);
-		return -EOPNOTSUPP;
-	}
-
-	msg_swbd.size = ALIGN(msg_size, ENETC_MSG_ALIGN);
-	msg_swbd.vaddr = dma_alloc_coherent(priv->dev, msg_swbd.size,
-					    &msg_swbd.dma, GFP_ATOMIC);
-	if (!msg_swbd.vaddr) {
-		netif_addr_unlock_bh(ndev);
-		return -ENOMEM;
-	}
-
-	mac_cnt = 0;
-	msg = (struct enetc_msg_mac_exact_filter *)msg_swbd.vaddr;
-
-	if (type & ENETC_MAC_FILTER_TYPE_UC) {
-		netdev_for_each_uc_addr(ha, ndev) {
-			if (!is_valid_ether_addr(ha->addr) ||
-			    ether_addr_equal(ha->addr, si_mac))
-				continue;
-
-			ether_addr_copy(msg->mac[mac_cnt++].addr, ha->addr);
-		}
-	}
-
-	if (type & ENETC_MAC_FILTER_TYPE_MC) {
-		netdev_for_each_mc_addr(ha, ndev) {
-			if (!is_multicast_ether_addr(ha->addr))
-				continue;
-
-			ether_addr_copy(msg->mac[mac_cnt++].addr, ha->addr);
-		}
-	}
-	netif_addr_unlock_bh(ndev);
-
-	msg->mac_cnt = mac_cnt;
-	enetc_msg_vf_fill_common_header(&msg_swbd, ENETC_MSG_CLASS_ID_MAC_FILTER,
-					ENETC_MSG_ADD_EXACT_MAC_ENTRIES, 0, 0);
-
-	/* send the command and wait */
-	err = enetc_msg_vsi_send(priv->si, &msg_swbd);
-
-	dma_free_coherent(priv->dev, msg_swbd.size, msg_swbd.vaddr, msg_swbd.dma);
-
-	return err;
-}
-
-static int enetc_msg_vf_set_mac_hash_filter(struct net_device *ndev,
-					    int type, bool clear)
-{
-	struct enetc_ndev_priv *priv = netdev_priv(ndev);
-	struct enetc_msg_mac_hash_filter *msg;
-	struct enetc_mac_filter *mac_filter;
-	struct enetc_msg_swbd msg_swbd;
-	struct enetc_si *si = priv->si;
-	struct netdev_hw_addr *ha;
-	u32 msg_size, tbl_cnt;
-	u64 *hash_tbl_base;
-	int err;
-
-	tbl_cnt = (type == ENETC_MAC_FILTER_TYPE_ALL) ? 2 : 1;
-
-	msg_size = struct_size(msg, hash_tbl, tbl_cnt);
-	msg_swbd.size = ALIGN(msg_size, ENETC_MSG_ALIGN);
-	msg_swbd.vaddr = dma_alloc_coherent(priv->dev, msg_swbd.size,
-					    &msg_swbd.dma, GFP_KERNEL);
-	if (!msg_swbd.vaddr)
-		return -ENOMEM;
-
-	msg = (struct enetc_msg_mac_hash_filter *)msg_swbd.vaddr;
-	msg->type = type & ENETC_MAC_FILTER_TYPE_ALL;
-	msg->size = ENETC_MAC_HASH_TABLE_SIZE_64;
-
-	hash_tbl_base = msg->hash_tbl;
-	netif_addr_lock_bh(ndev);
-	if (type & ENETC_MAC_FILTER_TYPE_UC) {
-		if (clear) {
-			*hash_tbl_base = 0;
-		} else {
-			mac_filter = &si->mac_filter[UC];
-			enetc_reset_mac_addr_filter(mac_filter);
-			netdev_for_each_uc_addr(ha, ndev)
-				enetc_add_mac_addr_ht_filter(mac_filter, ha->addr);
-
-			memcpy(hash_tbl_base, mac_filter->mac_hash_table,
-			       sizeof(*hash_tbl_base));
-		}
-
-		hash_tbl_base++;
-	}
-
-	if (type & ENETC_MAC_FILTER_TYPE_MC) {
-		if (clear) {
-			*hash_tbl_base = 0;
-		} else {
-			mac_filter = &si->mac_filter[MC];
-			enetc_reset_mac_addr_filter(mac_filter);
-			netdev_for_each_mc_addr(ha, ndev)
-				enetc_add_mac_addr_ht_filter(mac_filter, ha->addr);
-
-			memcpy(hash_tbl_base, mac_filter->mac_hash_table,
-			       sizeof(*hash_tbl_base));
-		}
-	}
-	netif_addr_unlock_bh(ndev);
-
-	enetc_msg_vf_fill_common_header(&msg_swbd, ENETC_MSG_CLASS_ID_MAC_FILTER,
-					ENETC_MSG_SET_MAC_HASH_TABLE, 0, 0);
-
-	/* send the command and wait */
-	err = enetc_msg_vsi_send(si, &msg_swbd);
-
-	dma_free_coherent(priv->dev, msg_swbd.size, msg_swbd.vaddr, msg_swbd.dma);
-
-	return err;
-}
-
-static void enetc_vf_set_mac_filter(struct net_device *ndev, int type)
-{
-	if (!(type & ENETC_MAC_FILTER_TYPE_ALL))
-		return;
-
-	enetc_msg_vf_flush_mac_filter(ndev, type);
-
-	/* Currently, the MAC address filter table only has a few
-	 * entries, so it is only used for unicast at present.
-	 */
-	if (type & ENETC_MAC_FILTER_TYPE_UC) {
-		if (enetc_msg_vf_set_mac_exact_filter(ndev,
-						      ENETC_MAC_FILTER_TYPE_UC))
-			/* Fallback to use MAC hash filter */
-			enetc_msg_vf_set_mac_hash_filter(ndev,
-							 ENETC_MAC_FILTER_TYPE_UC,
-							 false);
-	}
-
-	if (type & ENETC_MAC_FILTER_TYPE_MC)
-		enetc_msg_vf_set_mac_hash_filter(ndev, ENETC_MAC_FILTER_TYPE_MC,
-						 false);
-}
-
-static void enetc_vf_do_set_rx_mode(struct work_struct *work)
-{
-	struct enetc_si *si = container_of(work, struct enetc_si, rx_mode_task);
-	struct enetc_ndev_priv *priv = netdev_priv(si->ndev);
-	struct net_device *ndev = si->ndev;
-
-	if (ndev->flags & IFF_PROMISC) {
-		enetc_msg_vf_set_mac_promisc(priv, ENETC_MAC_FILTER_TYPE_ALL, true);
-	} else if (ndev->flags & IFF_ALLMULTI) {
-		enetc_msg_vf_set_mac_promisc(priv, ENETC_MAC_FILTER_TYPE_MC, true);
-		enetc_msg_vf_set_mac_promisc(priv, ENETC_MAC_FILTER_TYPE_UC, false);
-		enetc_vf_set_mac_filter(ndev, ENETC_MAC_FILTER_TYPE_UC);
-	} else {
-		enetc_msg_vf_set_mac_promisc(priv, ENETC_MAC_FILTER_TYPE_ALL, false);
-		enetc_vf_set_mac_filter(ndev, ENETC_MAC_FILTER_TYPE_ALL);
-	}
-}
-
-static void enetc_vf_set_rx_mode(struct net_device *ndev)
-{
-	struct enetc_ndev_priv *priv = netdev_priv(ndev);
-	struct enetc_si *si = priv->si;
-
-	if (is_enetc_rev1(si))
-		return;
-
-	queue_work(si->workqueue, &si->rx_mode_task);
-}
-
 /* Probing/ Init */
 static const struct net_device_ops enetc_ndev_ops = {
 	.ndo_open		= enetc_open,
@@ -446,7 +198,6 @@ static const struct net_device_ops enetc_ndev_ops = {
 	.ndo_set_features	= enetc_vf_set_features,
 	.ndo_eth_ioctl		= enetc_ioctl,
 	.ndo_setup_tc		= enetc_vf_setup_tc,
-	.ndo_set_rx_mode	= enetc_vf_set_rx_mode,
 };
 
 static void enetc_vf_get_revision(struct enetc_si *si)
@@ -488,8 +239,6 @@ static void enetc_vf_netdev_setup(struct enetc_si *si, struct net_device *ndev,
 			 NETIF_F_GSO_UDP_L4;
 	ndev->vlan_features = NETIF_F_SG | NETIF_F_HW_CSUM |
 			      NETIF_F_TSO | NETIF_F_TSO6;
-
-	ndev->priv_flags |= IFF_UNICAST_FLT;
 
 	if (si->num_rss) {
 		ndev->hw_features |= NETIF_F_RXHASH;
@@ -641,7 +390,6 @@ static int enetc_vf_probe(struct pci_dev *pdev,
 		goto err_create_wq;
 	}
 	INIT_WORK(&si->msg_task, enetc_vf_msg_task);
-	INIT_WORK(&si->rx_mode_task, enetc_vf_do_set_rx_mode);
 
 	enetc_get_si_caps(si);
 
