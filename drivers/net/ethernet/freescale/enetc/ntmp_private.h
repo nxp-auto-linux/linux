@@ -404,33 +404,6 @@ struct fmt_resp_query {
 	struct fmt_cfge_data cfge;
 };
 
-struct bpt_req_update {
-	struct ntmp_req_by_eid rbe;
-	struct bpt_cfge_data cfge;
-};
-
-/* Buffer Pool Table Response Data Buffer Format of Query action*/
-struct bpt_resp_query {
-	__le32 entry_id;
-	struct bpt_bpse_data bpse;
-	u8 resv[3];
-	struct bpt_cfge_data cfge;
-};
-
-/* Shared Buffer Pool Table Request Data Buffer Format of Update action */
-struct sbpt_req_update {
-	struct ntmp_req_by_eid rbe;
-	struct sbpt_cfge_data cfge;
-};
-
-/* Shared Buffer Pool Table Response Data Buffer Format of Query action */
-struct sbpt_resp_query {
-	__le32 entry_id;
-	struct sbpt_sbpse_data sbpse;
-	u8 resv[3];
-	struct sbpt_cfge_data cfge;
-};
-
 #pragma pack()
 
 struct tgst_query_data {
