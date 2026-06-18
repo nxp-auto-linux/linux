@@ -279,7 +279,6 @@ struct enetc_drvdata {
 	u32 pmac_offset; /* Only valid for PSI which supports 802.1Qbu */
 	u8 tx_csum:1;
 	u8 max_frags;
-	u8 tmr_devfn;
 	u64 sysclk_freq;
 	const struct ethtool_ops *eth_ops;
 };
@@ -614,14 +613,6 @@ int enetc_psfp_init(struct enetc_ndev_priv *priv);
 int enetc_psfp_clean(struct enetc_ndev_priv *priv);
 int enetc_set_psfp(struct net_device *ndev, bool en);
 
-static inline bool enetc_ptp_clock_is_enabled(struct enetc_si *si)
-{
-	if (is_enetc_rev1(si))
-		return IS_ENABLED(CONFIG_FSL_ENETC_PTP_CLOCK);
-
-	return IS_ENABLED(CONFIG_PTP_1588_CLOCK_NETC);
-}
-
 static inline void enetc_get_max_cap(struct enetc_ndev_priv *priv)
 {
 	struct enetc_hw *hw = &priv->si->hw;
@@ -703,10 +694,4 @@ static inline int enetc_set_psfp(struct net_device *ndev, bool en)
 {
 	return 0;
 }
-
-static inline bool enetc_ptp_clock_is_enabled(struct enetc_si *si)
-{
-	return false;
-}
-
 #endif
