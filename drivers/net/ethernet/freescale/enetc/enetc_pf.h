@@ -22,13 +22,6 @@ struct enetc_port_caps {
 	int num_msix;
 	int num_rx_bdr;
 	int num_tx_bdr;
-	int mac_filter_num;
-};
-
-struct enetc_mac_list_entry {
-	u8 mac[ETH_ALEN];
-	u16 si_bitmap;
-	struct hlist_node node;
 };
 
 struct enetc_pf;
@@ -64,10 +57,6 @@ struct enetc_pf {
 
 	struct enetc_port_caps caps;
 	const struct enetc_pf_ops *ops;
-
-	struct hlist_head mac_list; /* MAC address filter table */
-	struct mutex mac_list_lock; /* mac_list lock */
-	int num_mfe;	/* number of mac address filter table entries */
 };
 
 #define phylink_to_enetc_pf(config) \
