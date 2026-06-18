@@ -84,7 +84,6 @@ struct enetc_pf {
 
 	struct enetc_msg_swbd rxmsg[ENETC_MAX_NUM_VFS];
 	bool vf_link_status_notify[ENETC_MAX_NUM_VFS];
-	u8 mac_addr_base[ETH_ALEN];
 
 	struct mii_bus *mdio; /* saved for cleanup */
 	struct mii_bus *imdio;
