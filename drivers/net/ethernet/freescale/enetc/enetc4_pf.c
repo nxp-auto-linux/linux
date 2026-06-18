@@ -672,6 +672,7 @@ err_link_init:
 err_alloc_msix:
 err_config_si:
 err_clk_get:
+	mutex_destroy(&priv->mm_lock);
 	free_netdev(ndev);
 
 	return err;
