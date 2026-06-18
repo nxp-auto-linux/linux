@@ -1833,24 +1833,6 @@ static void netc_port_bridge_leave(struct dsa_switch *ds, int port_id,
 	netc_port_del_vlan_entry(port, NETC_VLAN_UNAWARE_PVID);
 }
 
-static int netc_port_setup_tc(struct dsa_switch *ds, int port_id,
-			      enum tc_setup_type type, void *type_data)
-{
-	struct netc_switch *priv = ds->priv;
-
-	if (!dsa_is_user_port(ds, port_id))
-		return -EOPNOTSUPP;
-
-	switch (type) {
-	case TC_QUERY_CAPS:
-		return netc_tc_query_caps(type_data);
-	case TC_SETUP_QDISC_MQPRIO:
-		return netc_tc_setup_mqprio(priv, port_id, type_data);
-	default:
-		return -EOPNOTSUPP;
-	}
-}
-
 static void netc_phylink_get_caps(struct dsa_switch *ds, int port_id,
 				  struct phylink_config *config)
 {
@@ -2147,7 +2129,6 @@ static const struct dsa_switch_ops netc_switch_ops = {
 	.port_fast_age			= netc_port_fast_age,
 	.port_bridge_join		= netc_port_bridge_join,
 	.port_bridge_leave		= netc_port_bridge_leave,
-	.port_setup_tc			= netc_port_setup_tc,
 };
 
 static int netc_switch_probe(struct pci_dev *pdev, const struct pci_device_id *id)
