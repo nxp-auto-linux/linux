@@ -4,29 +4,25 @@
 #include "enetc_pf.h"
 #include "enetc_msg.h"
 
-static void enetc_msg_enable_mr_int(struct enetc_pf *pf, bool en)
+static void enetc_msg_disable_mr_int(struct enetc_hw *hw)
 {
-	struct enetc_hw *hw = &pf->si->hw;
-	u32 val, i, mr_mask = 0;
+	u32 psiier = enetc_rd(hw, ENETC_PSIIER);
+	/* disable MR int source(s) */
+	enetc_wr(hw, ENETC_PSIIER, psiier & ~ENETC_PSIIER_MR_MASK);
+}
 
-	for (i = 0; i < pf->num_vfs; i++)
-		mr_mask |= PSIIER_MR(i);
+static void enetc_msg_enable_mr_int(struct enetc_hw *hw)
+{
+	u32 psiier = enetc_rd(hw, ENETC_PSIIER);
 
-	val = enetc_rd(hw, ENETC_PSIIER);
-	if (en)
-		val |= mr_mask;
-	else
-		val &= ~mr_mask;
-
-	enetc_wr(hw, ENETC_PSIIER, val);
+	enetc_wr(hw, ENETC_PSIIER, psiier | ENETC_PSIIER_MR_MASK);
 }
 
 static irqreturn_t enetc_msg_psi_msix(int irq, void *data)
 {
 	struct enetc_si *si = (struct enetc_si *)data;
-	struct enetc_pf *pf = enetc_si_priv(si);
 
-	enetc_msg_enable_mr_int(pf, false);
+	enetc_msg_disable_mr_int(&si->hw);
 	schedule_work(&si->msg_task);
 
 	return IRQ_HANDLED;
@@ -691,18 +687,15 @@ static void enetc_msg_task(struct work_struct *work)
 	struct enetc_si *si = container_of(work, struct enetc_si, msg_task);
 	struct enetc_pf *pf = enetc_si_priv(si);
 	struct enetc_hw *hw = &si->hw;
-	u32 mr_mask = 0, mr_status;
+	unsigned long mr_mask;
 	int i;
 
-	for (i = 0; i < pf->num_vfs; i++)
-		mr_mask |= ENETC_PSIMSGRR_MR(i);
-
 	for (;;) {
-		mr_status = enetc_rd(hw, ENETC_PSIMSGRR) & mr_mask;
-		if (!mr_status) {
+		mr_mask = enetc_rd(hw, ENETC_PSIMSGRR) & ENETC_PSIMSGRR_MR_MASK;
+		if (!mr_mask) {
 			/* re-arm MR interrupts, w1c the IDR reg */
-			enetc_wr(hw, ENETC_PSIIDR, mr_mask);
-			enetc_msg_enable_mr_int(pf, true);
+			enetc_wr(hw, ENETC_PSIIDR, ENETC_PSIIER_MR_MASK);
+			enetc_msg_enable_mr_int(hw);
 			return;
 		}
 
@@ -710,7 +703,7 @@ static void enetc_msg_task(struct work_struct *work)
 			u32 psimsgrr;
 			u16 msg_code;
 
-			if (!(ENETC_PSIMSGRR_MR(i) & mr_status))
+			if (!(ENETC_PSIMSGRR_MR(i) & mr_mask))
 				continue;
 
 			enetc_msg_handle_rxmsg(pf, i, &msg_code);
@@ -801,7 +794,7 @@ int enetc_msg_psi_init(struct enetc_pf *pf)
 	}
 
 	/* enable MR interrupts */
-	enetc_msg_enable_mr_int(pf, true);
+	enetc_msg_enable_mr_int(&si->hw);
 
 	return 0;
 
@@ -822,7 +815,7 @@ void enetc_msg_psi_free(struct enetc_pf *pf)
 	cancel_work_sync(&si->msg_task);
 
 	/* disable MR interrupts */
-	enetc_msg_enable_mr_int(pf, false);
+	enetc_msg_disable_mr_int(&si->hw);
 
 	for (i = 0; i < pf->num_vfs; i++)
 		enetc_msg_free_mbx(si, i);
