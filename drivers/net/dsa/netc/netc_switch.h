@@ -24,7 +24,6 @@
 #define NETC_REGS_GLOBAL_BASE		0x70000
 
 #define NETC_SWITCH_REV_4_3		0x0403
-#define NETC_SWITCH_REV_4_4		0x0404
 
 #define NETC_TC_NUM			8
 #define NETC_CBDR_NUM			2
