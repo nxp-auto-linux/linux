@@ -1846,8 +1846,6 @@ static int netc_port_setup_tc(struct dsa_switch *ds, int port_id,
 		return netc_tc_query_caps(type_data);
 	case TC_SETUP_QDISC_MQPRIO:
 		return netc_tc_setup_mqprio(priv, port_id, type_data);
-	case TC_SETUP_QDISC_CBS:
-		return netc_tc_setup_cbs(priv, port_id, type_data);
 	default:
 		return -EOPNOTSUPP;
 	}
