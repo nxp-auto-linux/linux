@@ -553,7 +553,6 @@ void enetc_reset_tc_mqprio(struct net_device *ndev);
 int enetc_setup_bpf(struct net_device *ndev, struct netdev_bpf *bpf);
 int enetc_xdp_xmit(struct net_device *ndev, int num_frames,
 		   struct xdp_frame **frames, u32 flags);
-struct fwnode_handle *enetc_fwnode(struct enetc_ndev_priv *priv);
 
 /* ethtool */
 extern const struct ethtool_ops enetc_pf_ethtool_ops;
