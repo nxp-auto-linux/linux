@@ -8,6 +8,8 @@
 #include "enetc4_debugfs.h"
 #include "enetc4_tc.h"
 
+#define is_en(x)	(x) ? "Enabled" : "Disabled"
+
 static void enetc_show_si_mac_hash_filter(struct seq_file *s, int i)
 {
 	struct enetc_si *si = s->private;
