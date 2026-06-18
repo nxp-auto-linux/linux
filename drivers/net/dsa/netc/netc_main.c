@@ -2480,11 +2480,7 @@ static int netc_switch_probe(struct pci_dev *pdev, const struct pci_device_id *i
 
 	err = dsa_register_switch(ds);
 	if (err) {
-		if (err == -EPROBE_DEFER)
-			dev_dbg(dev, "DSA switch registration deferred...\n");
-		else
-			dev_err(dev, "Failed to register DSA switch, err=%d\n",
-				err);
+		dev_err(dev, "Failed to register DSA switch, err=%d\n", err);
 		goto free_ds;
 	}
 
