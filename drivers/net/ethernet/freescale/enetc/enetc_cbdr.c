@@ -299,17 +299,3 @@ int enetc_set_rss_table(struct enetc_si *si, const u32 *table, int count)
 	return enetc_cmd_rss_table(si, (u32 *)table, count, false);
 }
 EXPORT_SYMBOL_GPL(enetc_set_rss_table);
-
-int enetc4_get_rss_table(struct enetc_si *si, u32 *table, int count)
-{
-	return ntmp_rsst_query_or_update_entry(&si->ntmp.cbdrs,
-					       table, count, true);
-}
-EXPORT_SYMBOL_GPL(enetc4_get_rss_table);
-
-int enetc4_set_rss_table(struct enetc_si *si, const u32 *table, int count)
-{
-	return ntmp_rsst_query_or_update_entry(&si->ntmp.cbdrs,
-					       (u32 *)table, count, false);
-}
-EXPORT_SYMBOL_GPL(enetc4_set_rss_table);
