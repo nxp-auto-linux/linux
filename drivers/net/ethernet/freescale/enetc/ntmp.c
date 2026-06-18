@@ -256,67 +256,6 @@ static void ntmp_fill_crd_eid(struct ntmp_req_by_eid *rbe, u8 tblv,
 	rbe->entry_id = cpu_to_le32(entry_id);
 }
 
-u32 ntmp_lookup_free_eid(unsigned long *bitmap, u32 bitmap_size)
-{
-	u32 entry_id;
-
-	if (!bitmap)
-		return NTMP_NULL_ENTRY_ID;
-
-	entry_id = find_first_zero_bit(bitmap, bitmap_size);
-	if (entry_id == bitmap_size)
-		return NTMP_NULL_ENTRY_ID;
-
-	/* Set the bit once we found it */
-	set_bit(entry_id, bitmap);
-
-	return entry_id;
-}
-EXPORT_SYMBOL_GPL(ntmp_lookup_free_eid);
-
-void ntmp_clear_eid_bitmap(unsigned long *bitmap, u32 entry_id)
-{
-	if (!bitmap || entry_id == NTMP_NULL_ENTRY_ID)
-		return;
-
-	clear_bit(entry_id, bitmap);
-}
-EXPORT_SYMBOL_GPL(ntmp_clear_eid_bitmap);
-
-u32 ntmp_lookup_free_words(unsigned long *bitmap, u32 bitmap_size,
-			   u32 num_words)
-{
-	u32 entry_id, next_eid, size;
-
-	if (!bitmap)
-		return NTMP_NULL_ENTRY_ID;
-
-	do {
-		entry_id = find_first_zero_bit(bitmap, bitmap_size);
-		if (entry_id == bitmap_size)
-			return NTMP_NULL_ENTRY_ID;
-
-		next_eid = find_next_bit(bitmap, bitmap_size, entry_id + 1);
-		size = next_eid - entry_id;
-	} while (size < num_words && next_eid != bitmap_size);
-
-	if (size < num_words)
-		return NTMP_NULL_ENTRY_ID;
-
-	bitmap_set(bitmap, entry_id, num_words);
-
-	return entry_id;
-}
-
-void ntmp_clear_words_bitmap(unsigned long *bitmap, u32 entry_id,
-			     u32 num_words)
-{
-	if (!bitmap || entry_id == NTMP_NULL_ENTRY_ID)
-		return;
-
-	bitmap_clear(bitmap, entry_id, num_words);
-}
-
 static int ntmp_delete_entry_by_id(struct netc_cbdrs *cbdrs, int tbl_id,
 				   u8 tbl_ver, u32 entry_id, u32 req_len,
 				   u32 resp_len)
