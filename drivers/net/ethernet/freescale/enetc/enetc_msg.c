@@ -21,29 +21,12 @@ static void enetc_msg_enable_mr_int(struct enetc_pf *pf, bool en)
 	enetc_wr(hw, ENETC_PSIIER, val);
 }
 
-static void enetc_msg_enable_flr_int(struct enetc_pf *pf, bool en)
-{
-	struct enetc_hw *hw = &pf->si->hw;
-	u32 val;
-
-	val = enetc_rd(hw, ENETC_PSIIER);
-	if (en)
-		val |= PSIIDR_VSI_FLR(pf->num_vfs);
-	else
-		val &= ~PSIIDR_VSI_FLR(pf->num_vfs);
-
-	enetc_wr(hw, ENETC_PSIIER, val);
-}
-
 static irqreturn_t enetc_msg_psi_msix(int irq, void *data)
 {
 	struct enetc_si *si = (struct enetc_si *)data;
 	struct enetc_pf *pf = enetc_si_priv(si);
 
 	enetc_msg_enable_mr_int(pf, false);
-	if (!is_enetc_rev1(si))
-		enetc_msg_enable_flr_int(pf, false);
-
 	schedule_work(&si->msg_task);
 
 	return IRQ_HANDLED;
@@ -711,23 +694,6 @@ static void enetc_msg_task(struct work_struct *work)
 	u32 mr_mask = 0, mr_status;
 	int i;
 
-	/* VF FLR */
-	if (!is_enetc_rev1(si)) {
-		u32 flr_status = enetc_rd(hw, ENETC_PSIIDR) &
-				 PSIIDR_VSI_FLR(pf->num_vfs);
-
-		if (flr_status) {
-			u32 pmr = enetc_port_rd(hw, ENETC4_PMR);
-
-			/* Re-enable SInEN bits, required for v4.4+ */
-			enetc_port_wr(hw, ENETC4_PMR, pmr | flr_status);
-		}
-
-		/* re-arm FLR interrupts */
-		enetc_msg_enable_flr_int(pf, true);
-	}
-
-	/* Messaging */
 	for (i = 0; i < pf->num_vfs; i++)
 		mr_mask |= ENETC_PSIMSGRR_MR(i);
 
@@ -837,10 +803,6 @@ int enetc_msg_psi_init(struct enetc_pf *pf)
 	/* enable MR interrupts */
 	enetc_msg_enable_mr_int(pf, true);
 
-	/* enable VF FLR interrupts */
-	if (!is_enetc_rev1(si))
-		enetc_msg_enable_flr_int(pf, true);
-
 	return 0;
 
 err_init_mbx:
@@ -861,10 +823,6 @@ void enetc_msg_psi_free(struct enetc_pf *pf)
 
 	/* disable MR interrupts */
 	enetc_msg_enable_mr_int(pf, false);
-
-	/* disable FLR interrupts */
-	if (!is_enetc_rev1(si))
-		enetc_msg_enable_flr_int(pf, false);
 
 	for (i = 0; i < pf->num_vfs; i++)
 		enetc_msg_free_mbx(si, i);
