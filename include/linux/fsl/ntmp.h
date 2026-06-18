@@ -567,7 +567,6 @@ struct netc_tbl_vers {
 	u8 maft_ver;
 	u8 vaft_ver;
 	u8 rsst_ver;
-	u8 rfst_ver;
 	u8 tgst_ver;
 	u8 rpt_ver;
 	u8 ipft_ver;
@@ -666,46 +665,6 @@ struct vaft_entry_data {
 	struct vaft_cfge_data cfge;
 };
 
-struct rfst_keye_data {
-	__le32 resv0[6];
-	__be32 source_ip_addr[4];
-	__be32 source_ip_addr_mask[4];
-	__be32 dest_ip_addr[4];
-	__be32 dest_ip_addr_mask[4];
-	__le32 resv1[2];
-	__be16 l4_source_port;
-	__be16 l4_source_port_mask;
-	__be16 l4_dest_port;
-	__be16 l4_dest_port_mask;
-	__le32 resv2;
-	u8 l4_protocol;
-	u8 l4_protocol_mask;
-	__le16 l3_l4_protocol;
-#define RFST_IP_PRESENT			BIT(2)
-#define RFST_IP_PRESENT_MASK		BIT(3)
-#define RFST_L4_PROTOCOL_PRESENT	BIT(4)
-#define RFST_L4_PROTOCOL_PRESENT_MASK	BIT(5)
-#define RFST_TCP_OR_UDP_PRESENT		BIT(6)
-#define RFST_TCP_OR_UDP_PRESENT_MASK	BIT(7)
-#define RFST_IPV4_IPV6			BIT(8)
-#define RFST_IPV4_IPV6_MASK		BIT(9)
-#define RFST_UDP_TCP			BIT(10)
-#define RFST_UDP_TCP_MASK		BIT(11)
-};
-
-struct rfst_cfge_data {
-	__le32 cfg;
-#define RFST_RESULT            GENMASK(7, 0)
-#define RFST_MODE              GENMASK(17, 16)
-};
-
-struct rfst_entry_data {
-	struct rfst_keye_data keye;
-	struct rfst_cfge_data cfge;
-	/* STSE_DATA, Only valid for query action */
-	__le64 matched_frames;
-};
-
 struct ntmp_rpt_entry {
 	u32 entry_id;
 	struct rpt_cfge_data cfge;
@@ -800,8 +759,6 @@ int ntmp_vaft_query_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
 int ntmp_vaft_delete_entry(struct netc_cbdrs *cbdrs, u32 entry_id);
 int ntmp_rsst_query_or_update_entry(struct netc_cbdrs *cbdrs,
 				    u32 *table, int count, bool query);
-int ntmp_rfst_query_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
-			  struct rfst_entry_data *rfst);
 int ntmp_rpt_add_or_update_entry(struct netc_cbdrs *cbdrs,
 				 struct ntmp_rpt_entry *entry);
 int ntmp_rpt_delete_entry(struct netc_cbdrs *cbdrs, u32 entry_id);
@@ -923,12 +880,6 @@ static inline int ntmp_vaft_delete_entry(struct netc_cbdrs *cbdrs, u32 entry_id)
 static inline int ntmp_rsst_query_or_update_entry(struct netc_cbdrs *cbdrs,
 						  u32 *table, int count,
 						  bool query)
-{
-	return 0;
-}
-
-static inline int ntmp_rfst_query_entry(struct ntmp_user *user, u32 entry_id,
-					struct rfst_entry_data *rfst)
 {
 	return 0;
 }
