@@ -906,7 +906,7 @@ int netc_setup_psfp(struct ntmp_priv *priv, int port_id,
 		goto free_psfp_key_tbl;
 	}
 
-	sgit_entry->entry_id = sgit_eid;
+	sgit_entry->entry_id = sgclt_eid;
 	num_gates = gate_entry->gate.num_entries;
 	sgclt_entry_size = 1 + DIV_ROUND_UP(num_gates, 2);
 	sgclt_eid = ntmp_lookup_free_words(priv->sgclt_word_bitmap,
