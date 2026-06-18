@@ -59,16 +59,9 @@ struct enetc_rx_swbd {
 
 /* ENETC overhead: optional extension BD + 1 BD gap */
 #define ENETC_TXBDS_NEEDED(val)	((val) + 2)
-/* For LS1028A, max # of chained Tx BDs is 15, including head and
- * extension BD.
- */
+/* max # of chained Tx BDs is 15, including head and extension BD */
 #define ENETC_MAX_SKB_FRAGS	13
-/* For ENETC v4 and later versions, max # of chained Tx BDs is 63,
- * including head and extension BD, but the range of MAX_SKB_FRAGS
- * is 17 ~ 45, so set ENETC4_MAX_SKB_FRAGS to MAX_SKB_FRAGS.
- */
-#define ENETC4_MAX_SKB_FRAGS		MAX_SKB_FRAGS
-#define ENETC_TXBDS_MAX_NEEDED(x)	ENETC_TXBDS_NEEDED((x) + 1)
+#define ENETC_TXBDS_MAX_NEEDED	ENETC_TXBDS_NEEDED(ENETC_MAX_SKB_FRAGS + 1)
 
 struct enetc_ring_stats {
 	unsigned int packets;
@@ -242,7 +235,6 @@ enum enetc_errata {
 struct enetc_drvdata {
 	u32 pmac_offset; /* Only valid for PSI which supports 802.1Qbu */
 	u8 tx_csum:1;
-	u8 max_frags;
 	u64 sysclk_freq;
 	const struct ethtool_ops *eth_ops;
 };
@@ -385,7 +377,6 @@ struct enetc_ndev_priv {
 	u16 msg_enable;
 
 	u8 preemptible_tcs;
-	u8 max_frags; /* The maximum number of BDs for fragments */
 
 	enum enetc_active_offloads active_offloads;
 
