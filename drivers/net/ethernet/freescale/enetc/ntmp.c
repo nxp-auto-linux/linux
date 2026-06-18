@@ -21,7 +21,6 @@
 #define NTMP_RSST_ID			3
 #define NTMP_TGST_ID			5
 #define NTMP_RPT_ID			10
-#define NTMP_ISIT_ID			30
 
 /* Generic Update Actions for most tables */
 #define NTMP_GEN_UA_CFGEU		BIT(0)
@@ -670,118 +669,6 @@ int ntmp_rpt_delete_entry(struct netc_cbdrs *cbdrs, u32 entry_id)
 				       entry_id, 0, 0);
 }
 EXPORT_SYMBOL_GPL(ntmp_rpt_delete_entry);
-
-int ntmp_isit_add_or_update_entry(struct netc_cbdrs *cbdrs, bool add,
-				  struct ntmp_isit_entry *entry)
-{
-	struct ntmp_dma_buf data = {.dev = cbdrs->dma_dev};
-	struct isit_resp_query *resp;
-	struct isit_req_ua *req;
-	union netc_cbd cbd;
-	u32 len;
-	int err;
-
-	data.size = add ? sizeof(*resp) : sizeof(*req);
-	err = ntmp_alloc_data_mem(&data, (void **)&req);
-	if (err)
-		return err;
-
-	if (!add)
-		ntmp_fill_crd(&req->crd, cbdrs->tbl.isit_ver, 0,
-			      NTMP_GEN_UA_CFGEU);
-	else
-		/* Query ENTRY_ID only */
-		ntmp_fill_crd(&req->crd, cbdrs->tbl.isit_ver,
-			      NTMP_GEN_UA_CFGEU, 0);
-
-	req->ak.keye = entry->keye;
-	req->is_eid = entry->is_eid;
-
-	/* Request header */
-	if (add) {
-		len = NTMP_LEN(sizeof(*req), sizeof(*resp));
-		/* Must be EXACT MATCH and the command must be
-		 * add, followed by a query. So that we can get
-		 * the entry id from HW.
-		 */
-		ntmp_fill_request_headr(&cbd, data.dma, len, NTMP_ISIT_ID,
-					NTMP_CMD_AQ, NTMP_AM_EXACT_KEY);
-	} else {
-		len = NTMP_LEN(sizeof(*req), sizeof(struct common_resp_nq));
-		ntmp_fill_request_headr(&cbd, data.dma, len, NTMP_ISIT_ID,
-					NTMP_CMD_UPDATE, NTMP_AM_EXACT_KEY);
-	}
-
-	err = netc_xmit_ntmp_cmd(cbdrs, &cbd);
-	if (err) {
-		dev_err(cbdrs->dma_dev, "%s ISIT entry failed (%d)",
-			add ? "Add" : "Update", err);
-		goto end;
-	}
-
-	if (add) {
-		resp = (struct isit_resp_query *)req;
-		entry->entry_id = le32_to_cpu(resp->entry_id);
-	}
-
-end:
-	ntmp_free_data_mem(&data);
-
-	return err;
-}
-
-int ntmp_isit_query_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
-			  struct ntmp_isit_entry *entry)
-{
-	struct ntmp_dma_buf data = {.dev = cbdrs->dma_dev};
-	u32 req_len = sizeof(struct isit_req_qd);
-	struct isit_resp_query *resp;
-	struct isit_req_qd *req;
-	int err;
-
-	if (entry_id == NTMP_NULL_ENTRY_ID)
-		return -EINVAL;
-
-	data.size = sizeof(*resp);
-	err = ntmp_alloc_data_mem(&data, (void **)&req);
-	if (err)
-		return err;
-
-	ntmp_fill_crd(&req->crd, cbdrs->tbl.isit_ver, 0, 0);
-	req->ak.eid.entry_id = cpu_to_le32(entry_id);
-	err = ntmp_query_entry_by_id(cbdrs, NTMP_ISIT_ID,
-				     NTMP_LEN(req_len, data.size),
-				     (struct ntmp_req_by_eid *)req,
-				     data.dma, false);
-	if (err)
-		goto end;
-
-	resp = (struct isit_resp_query *)req;
-	if (unlikely(le32_to_cpu(resp->entry_id) != entry_id)) {
-		dev_err(cbdrs->dma_dev,
-			"ISIT Query EID:0x%0x, Response EID:0x%x\n",
-			entry_id, le32_to_cpu(resp->entry_id));
-		err = -EIO;
-		goto end;
-	}
-
-	entry->keye = resp->keye;
-	entry->is_eid = resp->is_eid;
-
-end:
-	ntmp_free_data_mem(&data);
-
-	return err;
-}
-
-int ntmp_isit_delete_entry(struct netc_cbdrs *cbdrs, u32 entry_id)
-{
-	u32 resp_len = sizeof(struct common_resp_nq);
-	u32 req_len = sizeof(struct isit_req_qd);
-
-	return ntmp_delete_entry_by_id(cbdrs, NTMP_ISIT_ID, cbdrs->tbl.isit_ver,
-				       entry_id, req_len, resp_len);
-}
 
 MODULE_DESCRIPTION("NXP NETC Library");
 MODULE_LICENSE("Dual BSD/GPL");
