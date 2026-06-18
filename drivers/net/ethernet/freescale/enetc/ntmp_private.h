@@ -367,16 +367,6 @@ struct vft_resp_query {
 	struct vft_cfge_data cfge;
 };
 
-struct ett_req_ua {
-	struct ntmp_req_by_eid rbe;
-	struct ett_cfge_data cfge;
-};
-
-struct ett_resp_query {
-	__le32 entry_id;
-	struct ett_cfge_data cfge;
-};
-
 #pragma pack()
 
 struct tgst_query_data {
