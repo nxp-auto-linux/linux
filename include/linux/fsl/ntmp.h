@@ -15,7 +15,6 @@
 
 /* NTMP errata */
 #define NTMP_ERR052134			BIT(0)
-#define NTMP_ERR_SIM01			BIT(1) /* sim: BPT not supported */
 
 union netc_cbd {
 	struct {
