@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: (GPL-2.0+ OR BSD-3-Clause)
-/* Copyright 2017-2019, 2024-2025 NXP */
+/* Copyright 2017-2019, 2025 NXP */
 
 #include "enetc_pf.h"
 #include "enetc_msg.h"
@@ -29,14 +29,6 @@ static irqreturn_t enetc_msg_psi_msix(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
-static bool enetc_pf_is_vf_trusted(struct enetc_pf *pf, int vf_id)
-{
-	if (vf_id >= pf->total_vfs)
-		return false;
-
-	return !!(pf->vf_state[vf_id].flags & ENETC_VF_FLAG_TRUSTED);
-}
-
 static u16 enetc_msg_pf_set_vf_primary_mac_addr(struct enetc_pf *pf,
 						int vf_id)
 {
@@ -46,12 +38,6 @@ static u16 enetc_msg_pf_set_vf_primary_mac_addr(struct enetc_pf *pf,
 	struct enetc_msg_mac_exact_filter *msg;
 	union enetc_pf_msg pf_msg = { 0 };
 	char *addr;
-
-	if (!enetc_pf_is_vf_trusted(pf, vf_id)) {
-		pf_msg.class_id = ENETC_MSG_CLASS_ID_PERMISSION_DENY;
-
-		return pf_msg.code;
-	}
 
 	msg = (struct enetc_msg_mac_exact_filter *)msg_swbd->vaddr;
 	addr = msg->mac[0].addr;
