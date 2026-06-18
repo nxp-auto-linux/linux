@@ -492,7 +492,6 @@ struct enetc_ndev_priv {
 	unsigned int min_num_stack_tx_queues;
 
 	struct phylink *phylink;
-	struct fwnode_handle *swnode;
 	int ic_mode;
 	u32 tx_ictt;
 
