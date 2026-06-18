@@ -44,7 +44,6 @@ config FSL_ENETC
 config NXP_ENETC4
 	tristate "ENETC4 PF driver"
 	depends on PCI_MSI
-	depends on NXP_ENETC_SI_PTP_CLOCK || NXP_ENETC_SI_PTP_CLOCK=n
 	select MDIO_DEVRES
 	select FSL_ENETC_CORE
 	select FSL_ENETC_MDIO
@@ -65,7 +64,6 @@ config NXP_ENETC4
 config FSL_ENETC_VF
 	tristate "ENETC VF driver"
 	depends on PCI_MSI
-	depends on NXP_ENETC_SI_PTP_CLOCK || NXP_ENETC_SI_PTP_CLOCK=n
 	select FSL_ENETC_CORE
 	select FSL_ENETC_MDIO
 	select PHYLINK
@@ -129,15 +127,3 @@ config NXP_NETC_BLK_CTRL
 	  settings for some other functions.
 
 	  If compiled as module (M), the module name is nxp-netc-blk-ctrl.
-
-config NXP_ENETC_SI_PTP_CLOCK
-	tristate "NXP ENETC SI read-only PTP hardware clock driver"
-	depends on PTP_1588_CLOCK
-	help
-	  This driver exposes the read‑only SI (Station Interface) 64‑bit hardware
-	  timestamp associated with every ENETCv4 PF/VF network device, as a read-only
-	  PTP hardware clock.
-	  Use the SI PTP timer when you don't have access to the NETC STimer
-	  hardware PTP clock, in which case the platform firmware must ensure
-	  the correct functioning of the SI counters, as a valid nanosecond
-	  timer.
