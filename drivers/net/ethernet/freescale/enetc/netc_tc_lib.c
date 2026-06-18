@@ -628,7 +628,7 @@ static int netc_psfp_set_related_tables(struct ntmp_priv *priv,
 	}
 
 	if (ist_entry) {
-		err = ntmp_ist_add_entry(cbdrs, ist_entry);
+		err = ntmp_ist_add_or_update_entry(cbdrs, ist_entry);
 		if (err)
 			goto delete_rpt_entry;
 	}
