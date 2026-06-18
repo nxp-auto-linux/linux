@@ -162,8 +162,7 @@ static struct netc_cbdr *netc_select_cbdr(struct netc_cbdrs *cbdrs)
 	return &cbdrs->ring[smp_processor_id() % cbdrs->cbdr_num];
 }
 
-static int netc_xmit_ntmp_cmd_common(struct netc_cbdrs *cbdrs, union netc_cbd *cbd,
-				     bool is_v1)
+static int netc_xmit_ntmp_cmd(struct netc_cbdrs *cbdrs, union netc_cbd *cbd)
 {
 	union netc_cbd *cur_cbd;
 	struct netc_cbdr *cbdr;
@@ -204,10 +203,7 @@ static int netc_xmit_ntmp_cmd_common(struct netc_cbdrs *cbdrs, union netc_cbd *c
 	*cbd = *cur_cbd;
 
 	/* Check the writeback error status */
-	if (is_v1)
-		status = cbd->req_v1.status_flags & NTMP_V1_RESP_STATUS;
-	else
-		status = le16_to_cpu(cbd->resp_hdr.error_rr) & NTMP_RESP_ERROR;
+	status = le16_to_cpu(cbd->resp_hdr.error_rr) & NTMP_RESP_ERROR;
 	if (unlikely(status)) {
 		err = -EIO;
 		dev_err(cbdrs->dma_dev, "Command BD error: 0x%04x\n", status);
@@ -220,11 +216,6 @@ cbdr_unlock:
 	spin_unlock_bh(&cbdr->ring_lock);
 
 	return err;
-}
-
-static int netc_xmit_ntmp_cmd(struct netc_cbdrs *cbdrs, union netc_cbd *cbd)
-{
-	return netc_xmit_ntmp_cmd_common(cbdrs, cbd, false);
 }
 
 static int ntmp_alloc_data_mem(struct ntmp_dma_buf *data, void **buf_align)
@@ -247,74 +238,6 @@ static void ntmp_free_data_mem(struct ntmp_dma_buf *data)
 	dma_free_coherent(data->dev, data->size + NTMP_DATA_ADDR_ALIGN,
 			  data->buf, data->dma);
 }
-
-/* NTMP V1.0 functions */
-
-static int netc_xmit_ntmp_v1_cmd(struct netc_cbdrs *cbdrs, union netc_cbd *cbdv1)
-{
-	return netc_xmit_ntmp_cmd_common(cbdrs, cbdv1, true);
-}
-
-static inline int ntmp_v1_cbd_alloc_data_mem(struct ntmp_dma_buf *data,
-					     union netc_cbd *cbd,
-					     void **data_align)
-{
-	dma_addr_t dma_align;
-	int err;
-
-	err = ntmp_alloc_data_mem(data, data_align);
-	if (err)
-		return err;
-
-	dma_align = ALIGN(data->dma, NTMP_DATA_ADDR_ALIGN);
-
-	cbd->req_v1.addr = cpu_to_le64(dma_align);
-	cbd->req_v1.length = cpu_to_le16(data->size);
-
-	return 0;
-}
-
-int ntmp_v1_rfst_set_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
-			   struct rfse_set_buff *rfse)
-{
-	struct ntmp_dma_buf data = {.dev = cbdrs->dma_dev};
-	union netc_cbd cbd = { .req_v1.cmd = 0 };
-	struct device *dev = cbdrs->dma_dev;
-	void *tmp_align;
-	int err;
-
-	/* fill up the "set" descriptor */
-	cbd.req_v1.cmd = 0;
-	cbd.req_v1.cls = 4;
-	cbd.req_v1.index = cpu_to_le16(entry_id);
-	cbd.req_v1.opt[3] = cpu_to_le32(0); /* SI */
-
-	data.size = sizeof(*rfse);
-	err = ntmp_v1_cbd_alloc_data_mem(&data, &cbd, &tmp_align);
-	if (err)
-		return err;
-
-	memcpy(tmp_align, rfse, sizeof(*rfse));
-
-	err = netc_xmit_ntmp_v1_cmd(cbdrs, &cbd);
-	if (err)
-		dev_err(dev, "Set table (id: %d) entry failed: %d!",
-			NTMP_RFST_ID, err);
-
-	ntmp_free_data_mem(&data);
-
-	return err;
-}
-EXPORT_SYMBOL_GPL(ntmp_v1_rfst_set_entry);
-
-int ntmp_v1_rfst_delete_entry(struct netc_cbdrs *cbdrs, u32 entry_id)
-{
-	struct rfse_set_buff rfse = { };
-
-	return ntmp_v1_rfst_set_entry(cbdrs, entry_id, &rfse);
-}
-EXPORT_SYMBOL_GPL(ntmp_v1_rfst_delete_entry);
-/* NTMP V1.0 functions end */
 
 static void ntmp_fill_request_headr(union netc_cbd *cbd, dma_addr_t dma,
 				    int len, int table_id, int cmd,

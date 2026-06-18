@@ -415,9 +415,7 @@ struct enetc_int_vector {
 
 struct enetc_cls_rule {
 	struct ethtool_rx_flow_spec fs;
-	u32 entry_id;
-	u32 used:1;
-	u32 is_rfs:1;
+	int used;
 };
 
 #define ENETC_MAX_BDR_INT	6 /* fixed to max # of available cpus */
