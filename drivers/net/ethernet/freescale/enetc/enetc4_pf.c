@@ -1889,7 +1889,7 @@ static int enetc4_link_init(struct enetc_ndev_priv *priv,
 		return err;
 	}
 
-	err = enetc_phylink_create(priv, &enetc_pl_mac_ops);
+	err = enetc_phylink_create(priv, node, &enetc_pl_mac_ops);
 	if (err) {
 		dev_err(dev, "Failed to create phylink\n");
 		goto err_phylink_create;
