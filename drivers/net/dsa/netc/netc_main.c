@@ -2407,8 +2407,6 @@ static int netc_switch_probe(struct pci_dev *pdev, const struct pci_device_id *i
 		goto free_ds;
 	}
 
-	netc_create_debugfs(priv);
-
 	return 0;
 
 free_ds:
@@ -2426,7 +2424,6 @@ static void netc_switch_remove(struct pci_dev *pdev)
 	if (!priv)
 		return;
 
-	netc_remove_debugfs(priv);
 	dsa_unregister_switch(priv->ds);
 	kfree(priv->ds);
 	netc_switch_pci_destroy(pdev);
