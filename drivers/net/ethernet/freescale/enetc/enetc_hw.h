@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: (GPL-2.0+ OR BSD-3-Clause) */
-/* Copyright 2017-2019, 2024 NXP */
+/* Copyright 2017-2019 NXP */
 
 #include <linux/bitops.h>
 
@@ -396,22 +396,18 @@ struct enetc_hw {
  */
 extern rwlock_t enetc_mdio_lock;
 
-DECLARE_STATIC_KEY_FALSE(enetc_has_err050089);
-
 /* use this locking primitive only on the fast datapath to
  * group together multiple non-MDIO register accesses to
  * minimize the overhead of the lock
  */
 static inline void enetc_lock_mdio(void)
 {
-	if (static_branch_unlikely(&enetc_has_err050089))
-		read_lock(&enetc_mdio_lock);
+	read_lock(&enetc_mdio_lock);
 }
 
 static inline void enetc_unlock_mdio(void)
 {
-	if (static_branch_unlikely(&enetc_has_err050089))
-		read_unlock(&enetc_mdio_lock);
+	read_unlock(&enetc_mdio_lock);
 }
 
 /* use these accessors only on the fast datapath under
@@ -420,16 +416,14 @@ static inline void enetc_unlock_mdio(void)
  */
 static inline u32 enetc_rd_reg_hot(void __iomem *reg)
 {
-	if (static_branch_unlikely(&enetc_has_err050089))
-		lockdep_assert_held(&enetc_mdio_lock);
+	lockdep_assert_held(&enetc_mdio_lock);
 
 	return ioread32(reg);
 }
 
 static inline void enetc_wr_reg_hot(void __iomem *reg, u32 val)
 {
-	if (static_branch_unlikely(&enetc_has_err050089))
-		lockdep_assert_held(&enetc_mdio_lock);
+	lockdep_assert_held(&enetc_mdio_lock);
 
 	iowrite32(val, reg);
 }
@@ -458,13 +452,9 @@ static inline u32 _enetc_rd_mdio_reg_wa(void __iomem *reg)
 	unsigned long flags;
 	u32 val;
 
-	if (static_branch_unlikely(&enetc_has_err050089)) {
-		write_lock_irqsave(&enetc_mdio_lock, flags);
-		val = ioread32(reg);
-		write_unlock_irqrestore(&enetc_mdio_lock, flags);
-	} else {
-		val = ioread32(reg);
-	}
+	write_lock_irqsave(&enetc_mdio_lock, flags);
+	val = ioread32(reg);
+	write_unlock_irqrestore(&enetc_mdio_lock, flags);
 
 	return val;
 }
@@ -473,13 +463,9 @@ static inline void _enetc_wr_mdio_reg_wa(void __iomem *reg, u32 val)
 {
 	unsigned long flags;
 
-	if (static_branch_unlikely(&enetc_has_err050089)) {
-		write_lock_irqsave(&enetc_mdio_lock, flags);
-		iowrite32(val, reg);
-		write_unlock_irqrestore(&enetc_mdio_lock, flags);
-	} else {
-		iowrite32(val, reg);
-	}
+	write_lock_irqsave(&enetc_mdio_lock, flags);
+	iowrite32(val, reg);
+	write_unlock_irqrestore(&enetc_mdio_lock, flags);
 }
 
 #ifdef ioread64
