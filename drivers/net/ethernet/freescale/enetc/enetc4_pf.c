@@ -8,7 +8,6 @@
 #include <linux/unaligned.h>
 
 #include "enetc_pf_common.h"
-#include "enetc4_debugfs.h"
 
 #define ENETC_SI_MAX_RING_NUM	8
 
@@ -1181,8 +1180,6 @@ static int enetc4_pf_probe(struct pci_dev *pdev,
 	if (err)
 		goto err_netdev_create;
 
-	enetc_create_debugfs(si);
-
 	return 0;
 
 err_netdev_create:
@@ -1200,7 +1197,6 @@ static void enetc4_pf_remove(struct pci_dev *pdev)
 	struct enetc_si *si = pci_get_drvdata(pdev);
 	struct enetc_pf *pf = enetc_si_priv(si);
 
-	enetc_remove_debugfs(si);
 	enetc4_pf_netdev_destroy(si);
 	enetc4_pf_free(pf);
 	destroy_workqueue(si->workqueue);
