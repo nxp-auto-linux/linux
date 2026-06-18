@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: (GPL-2.0+ OR BSD-3-Clause) */
-/* Copyright 2017-2019, 2024-2025 NXP */
+/* Copyright 2017-2019, 2024 NXP */
 
 #include <linux/bitops.h>
 
@@ -710,12 +710,6 @@ static inline void enetc_load_primary_mac_addr(struct enetc_hw *hw,
 	*(u32 *)addr = __raw_readl(hw->reg + ENETC_SIPMAR0);
 	*(u16 *)(addr + 4) = __raw_readw(hw->reg + ENETC_SIPMAR1);
 	eth_hw_addr_set(ndev, addr);
-}
-
-static inline void enetc_get_primary_mac_addr(struct enetc_hw *hw, u8 *addr)
-{
-	*(u32 *)addr = __raw_readl(hw->reg + ENETC_SIPMAR0);
-	*(u16 *)(addr + 4) = __raw_readw(hw->reg + ENETC_SIPMAR1);
 }
 
 #define ENETC_SI_INT_IDX	0
