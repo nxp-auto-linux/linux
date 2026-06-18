@@ -19,16 +19,10 @@ static inline void netc_write(void __iomem *reg, u32 val)
 
 #if IS_ENABLED(CONFIG_PTP_1588_CLOCK_NETC)
 int netc_timer_get_phc_index(struct pci_dev *timer_pdev);
-u64 netc_timer_get_current_time(struct pci_dev *timer_dev);
 #else
 static inline int netc_timer_get_phc_index(struct pci_dev *timer_pdev)
 {
 	return -ENODEV;
-}
-
-static inline u64 netc_timer_get_current_time(struct pci_dev *timer_dev)
-{
-	return 0;
 }
 #endif
 
