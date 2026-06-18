@@ -5,7 +5,6 @@
 #define __NETC_GLOBAL_H
 
 #include <linux/io.h>
-#include <linux/pci.h>
 
 static inline u32 netc_read(void __iomem *reg)
 {
@@ -16,14 +15,5 @@ static inline void netc_write(void __iomem *reg, u32 val)
 {
 	iowrite32(val, reg);
 }
-
-#if IS_ENABLED(CONFIG_PTP_1588_CLOCK_NETC)
-int netc_timer_get_phc_index(struct pci_dev *timer_pdev);
-#else
-static inline int netc_timer_get_phc_index(struct pci_dev *timer_pdev)
-{
-	return -ENODEV;
-}
-#endif
 
 #endif
