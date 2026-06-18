@@ -285,9 +285,6 @@ static int netc_init_all_ports(struct dsa_switch *ds)
 		priv->ports[i] = port;
 
 		netc_port_get_capability(port);
-
-		if (port->caps.pmac)
-			mutex_init(&port->mm_lock);
 	}
 
 	switch_node = dev->of_node;
@@ -2025,7 +2022,7 @@ static void netc_port_set_hd_flow_control(struct netc_port *port,
 	netc_mac_port_wr(port, NETC_PM_CMD_CFG(0), val);
 }
 
-void netc_port_set_tx_pause(struct netc_port *port, bool tx_pause)
+static void netc_port_set_tx_pause(struct netc_port *port, bool tx_pause)
 {
 	struct netc_switch *priv = port->switch_priv;
 	struct bpt_cfge_data *cfge;
@@ -2070,31 +2067,6 @@ static void netc_port_enable_mac_path(struct netc_port *port,
 	netc_mac_port_wr(port, NETC_PM_CMD_CFG(0), val);
 }
 
-static void netc_port_update_mm_link_state(struct netc_port *port, bool link_up)
-{
-	u32 val;
-
-	if (!port->caps.pmac)
-		return;
-
-	guard(mutex)(&port->mm_lock);
-
-	val = netc_port_rd(port, NETC_MAC_MERGE_MMCSR);
-	if (link_up) {
-		val &= ~MAC_MERGE_MMCSR_LINK_FAIL;
-		if (port->offloads & NETC_FLAG_QBU)
-			val = u32_replace_bits(val, MMCSR_ME_FP_4B_BOUNDARY,
-					       MAC_MERGE_MMCSR_ME);
-	} else {
-		val |= MAC_MERGE_MMCSR_LINK_FAIL;
-		if (port->offloads & NETC_FLAG_QBU)
-			val = u32_replace_bits(val, 0, MAC_MERGE_MMCSR_ME);
-	}
-
-	netc_port_wr(port, NETC_MAC_MERGE_MMCSR, val);
-	netc_port_mm_commit_preemptible_tcs(port);
-}
-
 static void netc_mac_link_up(struct phylink_config *config,
 			     struct phy_device *phy, unsigned int mode,
 			     phy_interface_t interface, int speed, int duplex,
@@ -2128,20 +2100,12 @@ static void netc_mac_link_up(struct phylink_config *config,
 		 */
 		tx_pause = false;
 		rx_pause = false;
-	} else if (duplex == DUPLEX_FULL) {
-		/* When preemption is enabled, generation of PAUSE frames
-		 * must be disabled, as stated in the IEEE 802.3 standard.
-		 */
-		if (port->offloads & NETC_FLAG_QBU)
-			tx_pause = false;
 	}
 
-	port->tx_pause = tx_pause ? 1 : 0;
 	netc_port_set_hd_flow_control(port, hd_fc);
 	netc_port_set_tx_pause(port, tx_pause);
 	netc_port_set_rx_pause(port, rx_pause);
 	netc_port_enable_mac_path(port, true);
-	netc_port_update_mm_link_state(port, true);
 }
 
 static void netc_mac_link_down(struct phylink_config *config, unsigned int mode,
@@ -2152,7 +2116,6 @@ static void netc_mac_link_down(struct phylink_config *config, unsigned int mode,
 	struct netc_port *port;
 
 	port = NETC_PORT(priv, dp->index);
-	netc_port_update_mm_link_state(port, false);
 	netc_port_enable_mac_path(port, false);
 	netc_port_remove_dynamic_entries(port);
 }
@@ -2187,9 +2150,6 @@ static const struct dsa_switch_ops netc_switch_ops = {
 	.port_bridge_join		= netc_port_bridge_join,
 	.port_bridge_leave		= netc_port_bridge_leave,
 	.port_setup_tc			= netc_port_setup_tc,
-	.get_mm				= netc_port_get_mm,
-	.set_mm				= netc_port_set_mm,
-	.get_mm_stats			= netc_port_get_mm_stats,
 };
 
 static int netc_switch_probe(struct pci_dev *pdev, const struct pci_device_id *id)
