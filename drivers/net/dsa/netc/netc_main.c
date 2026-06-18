@@ -420,21 +420,6 @@ static void netc_get_ntmp_capabilities(struct netc_switch *priv)
 
 	val = netc_base_rd(regs, NETC_ECTCAPR);
 	ntmp->caps.ect_num_entries = NETC_GET_NUM_ENTRIES(val);
-
-	val = netc_base_rd(regs, NETC_RPITCAPR);
-	ntmp->caps.rpt_num_entries = NETC_GET_NUM_ENTRIES(val);
-
-	val = netc_base_rd(regs, NETC_ISCITCAPR);
-	ntmp->caps.isct_num_entries = NETC_GET_NUM_ENTRIES(val);
-
-	val = netc_base_rd(regs, NETC_ISITCAPR);
-	ntmp->caps.ist_num_entries = NETC_GET_NUM_ENTRIES(val);
-
-	val = netc_base_rd(regs, NETC_SGIITCAPR);
-	ntmp->caps.sgit_num_entries = NETC_GET_NUM_ENTRIES(val);
-
-	val = netc_base_rd(regs, NETC_SGCLITCAPR);
-	ntmp->caps.sgclt_num_words = NETC_GET_NUM_WORDS(val);
 }
 
 static int netc_init_ntmp_bitmaps(struct netc_switch *priv)
@@ -451,48 +436,8 @@ static int netc_init_ntmp_bitmaps(struct netc_switch *priv)
 	if (!ntmp->ect_eid_bitmap)
 		goto free_ett_eid_bitmap;
 
-	ntmp->ist_eid_bitmap = bitmap_zalloc(ntmp->caps.ist_num_entries,
-					     GFP_KERNEL);
-	if (!ntmp->ist_eid_bitmap)
-		goto free_ect_eid_bitmap;
-
-	ntmp->rpt_eid_bitmap = bitmap_zalloc(ntmp->caps.rpt_num_entries,
-					     GFP_KERNEL);
-	if (!ntmp->rpt_eid_bitmap)
-		goto free_ist_eid_bitmap;
-
-	ntmp->sgit_eid_bitmap = bitmap_zalloc(ntmp->caps.sgit_num_entries,
-					      GFP_KERNEL);
-	if (!ntmp->sgit_eid_bitmap)
-		goto free_rpt_eid_bitmap;
-
-	ntmp->isct_eid_bitmap = bitmap_zalloc(ntmp->caps.isct_num_entries,
-					      GFP_KERNEL);
-	if (!ntmp->isct_eid_bitmap)
-		goto free_sgit_eid_bitmap;
-
-	ntmp->sgclt_word_bitmap = bitmap_zalloc(ntmp->caps.sgclt_num_words,
-						GFP_KERNEL);
-	if (!ntmp->sgclt_word_bitmap)
-		goto free_isct_eid_bitmap;
-
 	return 0;
 
-free_isct_eid_bitmap:
-	bitmap_free(ntmp->isct_eid_bitmap);
-	ntmp->isct_eid_bitmap = NULL;
-free_sgit_eid_bitmap:
-	bitmap_free(ntmp->sgit_eid_bitmap);
-	ntmp->sgit_eid_bitmap = NULL;
-free_rpt_eid_bitmap:
-	bitmap_free(ntmp->rpt_eid_bitmap);
-	ntmp->rpt_eid_bitmap = NULL;
-free_ist_eid_bitmap:
-	bitmap_free(ntmp->ist_eid_bitmap);
-	ntmp->ist_eid_bitmap = NULL;
-free_ect_eid_bitmap:
-	bitmap_free(ntmp->ect_eid_bitmap);
-	ntmp->ect_eid_bitmap = NULL;
 free_ett_eid_bitmap:
 	bitmap_free(ntmp->ett_eid_bitmap);
 	ntmp->ett_eid_bitmap = NULL;
@@ -503,21 +448,6 @@ free_ett_eid_bitmap:
 static void netc_free_ntmp_bitmaps(struct netc_switch *priv)
 {
 	struct ntmp_priv *ntmp = &priv->ntmp;
-
-	bitmap_free(ntmp->sgclt_word_bitmap);
-	ntmp->sgclt_word_bitmap = NULL;
-
-	bitmap_free(ntmp->isct_eid_bitmap);
-	ntmp->isct_eid_bitmap = NULL;
-
-	bitmap_free(ntmp->sgit_eid_bitmap);
-	ntmp->sgit_eid_bitmap = NULL;
-
-	bitmap_free(ntmp->rpt_eid_bitmap);
-	ntmp->rpt_eid_bitmap = NULL;
-
-	bitmap_free(ntmp->ist_eid_bitmap);
-	ntmp->ist_eid_bitmap = NULL;
 
 	bitmap_free(ntmp->ect_eid_bitmap);
 	ntmp->ect_eid_bitmap = NULL;
@@ -590,9 +520,6 @@ static int netc_init_ntmp_priv(struct netc_switch *priv)
 
 	ntmp->ops = &ntmp_ops_sw;
 
-	INIT_HLIST_HEAD(&ntmp->flower_list);
-	mutex_init(&ntmp->flower_lock);
-
 	return 0;
 
 free_all_cbdrs:
@@ -603,8 +530,6 @@ free_all_cbdrs:
 
 static void netc_deinit_ntmp_priv(struct netc_switch *priv)
 {
-	netc_destroy_flower_list(priv);
-	mutex_destroy(&priv->ntmp.flower_lock);
 	netc_free_ntmp_bitmaps(priv);
 	netc_remove_all_cbdrs(priv);
 }
@@ -1981,39 +1906,6 @@ static int netc_port_setup_tc(struct dsa_switch *ds, int port_id,
 	}
 }
 
-static int netc_port_cls_flower_add(struct dsa_switch *ds, int port_id,
-				    struct flow_cls_offload *cls, bool ingress)
-{
-	struct netc_port *port = NETC_PORT(NETC_PRIV(ds), port_id);
-
-	if (!ingress)
-		return -EOPNOTSUPP;
-
-	return netc_port_flow_cls_replace(port, cls);
-}
-
-static int netc_port_cls_flower_del(struct dsa_switch *ds, int port_id,
-				    struct flow_cls_offload *cls, bool ingress)
-{
-	struct netc_port *port = NETC_PORT(NETC_PRIV(ds), port_id);
-
-	if (!ingress)
-		return -EOPNOTSUPP;
-
-	return netc_port_flow_cls_destroy(port, cls);
-}
-
-static int netc_port_cls_flower_stats(struct dsa_switch *ds, int port_id,
-				      struct flow_cls_offload *cls, bool ingress)
-{
-	struct netc_port *port = NETC_PORT(NETC_PRIV(ds), port_id);
-
-	if (!ingress)
-		return -EOPNOTSUPP;
-
-	return netc_port_flow_cls_stats(port, cls);
-}
-
 static void netc_phylink_get_caps(struct dsa_switch *ds, int port_id,
 				  struct phylink_config *config)
 {
@@ -2345,9 +2237,6 @@ static const struct dsa_switch_ops netc_switch_ops = {
 	.port_bridge_join		= netc_port_bridge_join,
 	.port_bridge_leave		= netc_port_bridge_leave,
 	.port_setup_tc			= netc_port_setup_tc,
-	.cls_flower_add			= netc_port_cls_flower_add,
-	.cls_flower_del			= netc_port_cls_flower_del,
-	.cls_flower_stats		= netc_port_cls_flower_stats,
 	.get_mm				= netc_port_get_mm,
 	.set_mm				= netc_port_set_mm,
 	.get_mm_stats			= netc_port_get_mm_stats,
