@@ -20,16 +20,10 @@
 #define NTMP_MAFT_ID			1
 #define NTMP_RSST_ID			3
 #define NTMP_TGST_ID			5
-#define NTMP_RPT_ID			10
 
 /* Generic Update Actions for most tables */
 #define NTMP_GEN_UA_CFGEU		BIT(0)
 #define NTMP_GEN_UA_STSEU		BIT(1)
-
-/* Update Actions for specific tables */
-#define RPT_UA_FEEU			BIT(1)
-#define RPT_UA_PSEU			BIT(2)
-#define RPT_UA_STSEU			BIT(3)
 
 #define NTMP_ENTRY_ID_SIZE		4
 #define RSST_ENTRY_NUM			64
@@ -592,83 +586,6 @@ int ntmp_tgst_update_admin_gate_list(struct netc_cbdrs *cbdrs, u32 entry_id,
 
 	return err;
 }
-
-int ntmp_rpt_add_or_update_entry(struct netc_cbdrs *cbdrs,
-				 struct ntmp_rpt_entry *entry)
-{
-	struct ntmp_dma_buf data = {.dev = cbdrs->dma_dev};
-	struct rpt_req_ua *req;
-	union netc_cbd cbd;
-	int err;
-
-	data.size = sizeof(*req);
-	err = ntmp_alloc_data_mem(&data, (void **)&req);
-	if (err)
-		return err;
-
-	ntmp_fill_crd_eid(&req->rbe, cbdrs->tbl.rpt_ver, 0, NTMP_GEN_UA_CFGEU |
-			  RPT_UA_FEEU | RPT_UA_PSEU | RPT_UA_STSEU,
-			  entry->entry_id);
-	req->cfge = entry->cfge;
-	req->fee = entry->fee;
-
-	/* Request header */
-	ntmp_fill_request_headr(&cbd, data.dma, NTMP_LEN(data.size, 0),
-				NTMP_RPT_ID, NTMP_CMD_AU, NTMP_AM_ENTRY_ID);
-
-	err = netc_xmit_ntmp_cmd(cbdrs, &cbd);
-	if (err)
-		dev_err(cbdrs->dma_dev,
-			"Add/Update RPT entry failed (%d)", err);
-
-	ntmp_free_data_mem(&data);
-
-	return err;
-}
-EXPORT_SYMBOL_GPL(ntmp_rpt_add_or_update_entry);
-
-int ntmp_rpt_query_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
-			 struct ntmp_rpt_entry *entry)
-{
-	struct ntmp_dma_buf data = {.dev = cbdrs->dma_dev};
-	struct ntmp_req_by_eid *req;
-	struct rpt_resp_query *resp;
-	u32 req_len = sizeof(*req);
-	int err;
-
-	if (entry_id == NTMP_NULL_ENTRY_ID)
-		return -EINVAL;
-
-	data.size = sizeof(*resp);
-	err = ntmp_alloc_data_mem(&data, (void **)&req);
-	if (err)
-		return err;
-
-	ntmp_fill_crd_eid(req, cbdrs->tbl.rpt_ver, 0, 0, entry_id);
-	err = ntmp_query_entry_by_id(cbdrs, NTMP_RPT_ID,
-				     NTMP_LEN(req_len, data.size),
-				     req, data.dma, true);
-	if (err)
-		goto end;
-
-	resp = (struct rpt_resp_query *)req;
-	entry->stse = resp->stse;
-	entry->cfge = resp->cfge;
-	entry->fee = resp->fee;
-	entry->pse = resp->pse;
-
-end:
-	ntmp_free_data_mem(&data);
-
-	return err;
-}
-
-int ntmp_rpt_delete_entry(struct netc_cbdrs *cbdrs, u32 entry_id)
-{
-	return ntmp_delete_entry_by_id(cbdrs, NTMP_RPT_ID, cbdrs->tbl.rpt_ver,
-				       entry_id, 0, 0);
-}
-EXPORT_SYMBOL_GPL(ntmp_rpt_delete_entry);
 
 MODULE_DESCRIPTION("NXP NETC Library");
 MODULE_LICENSE("Dual BSD/GPL");
