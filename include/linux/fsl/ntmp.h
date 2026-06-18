@@ -637,10 +637,6 @@ struct ntmp_priv {
 	unsigned long *sgit_eid_bitmap;
 	unsigned long *isct_eid_bitmap;
 	unsigned long *sgclt_word_bitmap;
-	unsigned long *ett_eid_bitmap;
-	unsigned long *ect_eid_bitmap;
-	u32 ett_bitmap_size;
-	u32 ect_bitmap_size;
 
 	struct hlist_head flower_list;
 	struct mutex flower_lock; /* flower_list lock */
