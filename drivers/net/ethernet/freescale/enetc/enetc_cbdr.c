@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: (GPL-2.0+ OR BSD-3-Clause)
-/* Copyright 2017-2019, 2025 NXP */
+/* Copyright 2017-2019 NXP */
 
 #include "enetc.h"
 
@@ -62,6 +62,10 @@ int enetc4_setup_cbdr(struct enetc_si *si)
 				   sizeof(struct netc_cbdr), GFP_KERNEL);
 	if (!cbdrs->ring)
 		return -ENOMEM;
+
+	/* set CBDR cache attributes */
+	enetc_wr(hw, ENETC_SICAR2,
+		 ENETC_SICAR_RD_COHERENT | ENETC_SICAR_WR_COHERENT);
 
 	regs.pir = hw->reg + ENETC_SICBDRPIR;
 	regs.cir = hw->reg + ENETC_SICBDRCIR;
