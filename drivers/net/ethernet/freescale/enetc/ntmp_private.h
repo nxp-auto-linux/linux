@@ -377,18 +377,6 @@ struct ett_resp_query {
 	struct ett_cfge_data cfge;
 };
 
-struct esrt_req_update {
-	struct ntmp_req_by_eid rbe;
-	struct esrt_cfge_data cfge;
-};
-
-struct esrt_resp_query {
-	__le32 entry_id;
-	struct esrt_stse_data stse;
-	struct esrt_cfge_data cfge;
-	struct esrt_srse_data srse;
-};
-
 #pragma pack()
 
 struct tgst_query_data {
