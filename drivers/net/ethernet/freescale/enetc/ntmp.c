@@ -20,7 +20,6 @@
 #define NTMP_MAFT_ID			1
 #define NTMP_VAFT_ID			2
 #define NTMP_RSST_ID			3
-#define NTMP_RFST_ID			4
 #define NTMP_TGST_ID			5
 #define NTMP_RPT_ID			10
 #define NTMP_IPFT_ID			13
@@ -624,41 +623,6 @@ end:
 	return err;
 }
 EXPORT_SYMBOL_GPL(ntmp_rsst_query_or_update_entry);
-
-int ntmp_rfst_query_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
-			  struct rfst_entry_data *rfst)
-{
-	struct ntmp_dma_buf data = {.dev = cbdrs->dma_dev};
-	struct rfst_resp_query *resp;
-	struct ntmp_req_by_eid *req;
-	int err;
-
-	if (entry_id == NTMP_NULL_ENTRY_ID)
-		return -EINVAL;
-
-	data.size = sizeof(*resp);
-	err = ntmp_alloc_data_mem(&data, (void **)&req);
-	if (err)
-		return err;
-
-	ntmp_fill_crd_eid(req, cbdrs->tbl.rfst_ver, 0, 0, entry_id);
-	err = ntmp_query_entry_by_id(cbdrs, NTMP_RFST_ID,
-				     NTMP_LEN(sizeof(*req), data.size),
-				     req, data.dma, true);
-	if (err)
-		goto end;
-
-	resp = (struct rfst_resp_query *)req;
-	rfst->keye = resp->keye;
-	rfst->cfge = resp->cfge;
-	rfst->matched_frames = resp->matched_frames;
-
-end:
-	ntmp_free_data_mem(&data);
-
-	return err;
-}
-EXPORT_SYMBOL_GPL(ntmp_rfst_query_entry);
 
 int ntmp_tgst_query_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
 			  struct tgst_query_data *tgst)

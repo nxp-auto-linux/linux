@@ -177,14 +177,6 @@ struct ipft_resp_query {
 	struct ipft_cfge_data cfge;
 };
 
-/* RFS Table Response Data Buffer Format */
-struct rfst_resp_query {
-	__le32 entry_id;
-	struct rfst_keye_data keye;
-	__le64 matched_frames; /* STSE_DATA */
-	struct rfst_cfge_data cfge;
-};
-
 /* Ingress Stream Identification Table Resquet and Response Data Buffer Format */
 struct isit_ak_eid {
 	__le32 entry_id;
