@@ -5,8 +5,7 @@
 #include <linux/fsl/netc_global.h>
 #include <linux/net_tstamp.h>
 #include <linux/module.h>
-
-#include "enetc_pf.h"
+#include "enetc.h"
 
 static const u32 enetc_si_regs[] = {
 	ENETC_SIMR, ENETC_SIPMAR0, ENETC_SIPMAR1, ENETC_SICBDRMR,
@@ -1021,19 +1020,21 @@ static void enetc_get_mm_stats(struct net_device *ndev,
 static int enetc_get_mm(struct net_device *ndev, struct ethtool_mm_state *state)
 {
 	struct enetc_ndev_priv *priv = netdev_priv(ndev);
-	struct enetc_pf *pf = enetc_si_priv(priv->si);
 	struct enetc_si *si = priv->si;
-	struct enetc_mm mm = { 0 };
+	struct enetc_hw *hw = &si->hw;
+	u32 lafs, rafs, val;
 
 	if (!(si->hw_features & ENETC_SI_F_QBU))
 		return -EOPNOTSUPP;
 
 	mutex_lock(&priv->mm_lock);
 
-	pf->ops->get_mm(priv, &mm);
-	state->pmac_enabled = mm.pmac_enabled;
+	val = enetc_port_rd(hw, ENETC_PFPMR);
+	state->pmac_enabled = !!(val & ENETC_PFPMR_PMACE);
 
-	switch (mm.vsts) {
+	val = enetc_port_rd(hw, ENETC_MMCSR);
+
+	switch (ENETC_MMCSR_GET_VSTS(val)) {
 	case 0:
 		state->verify_status = ETHTOOL_MM_VERIFY_STATUS_DISABLED;
 		break;
@@ -1052,14 +1053,16 @@ static int enetc_get_mm(struct net_device *ndev, struct ethtool_mm_state *state)
 		break;
 	}
 
-	state->tx_min_frag_size = ethtool_mm_frag_size_add_to_min(mm.rafs);
-	state->rx_min_frag_size = ethtool_mm_frag_size_add_to_min(mm.lafs);
-	state->tx_enabled = mm.tx_enabled;
+	rafs = ENETC_MMCSR_GET_RAFS(val);
+	state->tx_min_frag_size = ethtool_mm_frag_size_add_to_min(rafs);
+	lafs = ENETC_MMCSR_GET_LAFS(val);
+	state->rx_min_frag_size = ethtool_mm_frag_size_add_to_min(lafs);
+	state->tx_enabled = !!(val & ENETC_MMCSR_LPE); /* mirror of MMCSR_ME */
 	state->tx_active = state->tx_enabled &&
 			   (state->verify_status == ETHTOOL_MM_VERIFY_STATUS_SUCCEEDED ||
 			    state->verify_status == ETHTOOL_MM_VERIFY_STATUS_DISABLED);
-	state->verify_enabled = mm.verify_enabled;
-	state->verify_time = mm.vt;
+	state->verify_enabled = !(val & ENETC_MMCSR_VDIS);
+	state->verify_time = ENETC_MMCSR_GET_VT(val);
 	/* A verifyTime of 128 ms would exceed the 7 bit width
 	 * of the ENETC_MMCSR_VT field
 	 */
