@@ -62,7 +62,8 @@ struct enetc_pf {
 	struct enetc_vf_state *vf_state;
 
 	struct enetc_msg_swbd rxmsg[ENETC_MAX_NUM_VFS];
-	bool vf_link_status_notify[ENETC_MAX_NUM_VFS];
+	struct work_struct msg_task;
+	char msg_int_name[ENETC_INT_NAME_MAX];
 
 	char vlan_promisc_simap; /* bitmap of SIs in VLAN promisc mode */
 
