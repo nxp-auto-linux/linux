@@ -37,7 +37,6 @@
 #define NTMP_FMT_ID			40
 #define NTMP_BPT_ID			41
 #define NTMP_SBPT_ID			42
-#define NTMP_FMDT_ID			44
 
 /* Generic Update Actions for most tables */
 #define NTMP_GEN_UA_CFGEU		BIT(0)
@@ -63,7 +62,6 @@
 #define RSST_ENTRY_NUM			64
 #define RSST_STSE_DATA_SIZE(n)		((n) * 8)
 #define RSST_CFGE_DATA_SIZE(n)		(n)
-#define FMDT_DATA_LEN_ALIGN		4
 #define SGCLT_MAX_GE_NUM		256
 
 int netc_setup_cbdr(struct device *dev, int cbd_num,
@@ -2444,83 +2442,6 @@ end:
 	return err;
 }
 EXPORT_SYMBOL_GPL(ntmp_sbpt_query_entry);
-
-int ntmp_fmdt_update_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
-			   u8 *data_buff, u32 data_len)
-{
-	struct ntmp_dma_buf data = {.dev = cbdrs->dma_dev};
-	struct fmdt_req_update *req;
-	u32 align = data_len;
-	union netc_cbd cbd;
-	u32 len;
-	int err;
-
-	if (align % FMDT_DATA_LEN_ALIGN) {
-		align = DIV_ROUND_UP(align, FMDT_DATA_LEN_ALIGN);
-		align *= FMDT_DATA_LEN_ALIGN;
-	}
-
-	data.size = struct_size(req, data, align);
-	err = ntmp_alloc_data_mem(&data, (void **)&req);
-	if (err)
-		return err;
-
-	ntmp_fill_crd_eid(&req->rbe, cbdrs->tbl.fmdt_ver, 0,
-			  NTMP_GEN_UA_CFGEU, entry_id);
-
-	/* Fill configuration element data */
-	memcpy(req->data, data_buff, data_len);
-
-	len = NTMP_LEN(data.size, 0);
-	ntmp_fill_request_headr(&cbd, data.dma, len, NTMP_FMDT_ID,
-				NTMP_CMD_UPDATE, NTMP_AM_ENTRY_ID);
-
-	err = netc_xmit_ntmp_cmd(cbdrs, &cbd);
-	if (err)
-		dev_err(cbdrs->dma_dev, "Update FMDT entry failed (%d)\n",
-			err);
-
-	ntmp_free_data_mem(&data);
-
-	return err;
-}
-EXPORT_SYMBOL_GPL(ntmp_fmdt_update_entry);
-
-int ntmp_fmdt_query_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
-			  u8 *data_buff, u32 data_len)
-{
-	struct ntmp_dma_buf data = {.dev = cbdrs->dma_dev};
-	struct fmdt_resp_query *resp;
-	struct ntmp_req_by_eid *req;
-	u32 req_len = sizeof(*req);
-	u32 resp_len;
-	int err;
-
-	if (entry_id == NTMP_NULL_ENTRY_ID)
-		return -EINVAL;
-
-	resp_len = struct_size(resp, data, data_len);
-	data.size = max_t(u32, req_len, resp_len);
-	err = ntmp_alloc_data_mem(&data, (void **)&req);
-	if (err)
-		return err;
-
-	ntmp_fill_crd_eid(req, cbdrs->tbl.fmdt_ver, 0, 0, entry_id);
-	err = ntmp_query_entry_by_id(cbdrs, NTMP_FMDT_ID,
-				     NTMP_LEN(req_len, resp_len),
-				     req, data.dma, true);
-	if (err)
-		goto end;
-
-	resp = (struct fmdt_resp_query *)req;
-	memcpy(data_buff, resp->data, data_len);
-
-end:
-	ntmp_free_data_mem(&data);
-
-	return err;
-}
-EXPORT_SYMBOL_GPL(ntmp_fmdt_query_entry);
 
 MODULE_DESCRIPTION("NXP NETC Library");
 MODULE_LICENSE("Dual BSD/GPL");
