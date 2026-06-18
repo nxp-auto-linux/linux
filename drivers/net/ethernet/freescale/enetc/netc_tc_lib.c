@@ -240,9 +240,14 @@ static int netc_psfp_gate_entry_validate(struct ntmp_priv *priv,
 		return -EINVAL;
 	}
 
-	if (test_and_set_bit(gate_entry->hw_index, priv->sgit_eid_bitmap))
-		*gate_tbl = netc_find_flower_gate_table(priv,
-							gate_entry->hw_index);
+	if (test_and_set_bit(gate_entry->hw_index, priv->sgit_eid_bitmap)) {
+		struct netc_gate_tbl *reused_tbl;
+
+		reused_tbl = netc_find_flower_gate_table(priv,
+							 gate_entry->hw_index);
+		if (reused_tbl)
+			*gate_tbl = reused_tbl;
+	}
 
 	return 0;
 }
@@ -315,9 +320,14 @@ int netc_police_entry_validate(struct ntmp_priv *priv,
 		return -EINVAL;
 	}
 
-	if (test_and_set_bit(police_entry->hw_index, priv->rpt_eid_bitmap))
-		*police_tbl = netc_find_flower_police_table(priv,
-							    police_entry->hw_index);
+	if (test_and_set_bit(police_entry->hw_index, priv->rpt_eid_bitmap)) {
+		struct netc_police_tbl *reused_tbl;
+
+		reused_tbl = netc_find_flower_police_table(priv,
+							   police_entry->hw_index);
+		if (reused_tbl)
+			*police_tbl = reused_tbl;
+	}
 
 	return 0;
 }
