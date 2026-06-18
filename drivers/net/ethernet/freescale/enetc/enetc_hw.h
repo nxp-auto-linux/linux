@@ -29,8 +29,6 @@
 #define ENETC_SIPCAPR1	0x24
 #define ENETC_SITGTGR	0x30
 #define ENETC_SIRBGCR	0x38
-#define ENETC_SIRBGCR_SET_GRP(ngrps) ((ngrps) & 0xff)
-
 /* cache attribute registers for transactions initiated by ENETC */
 #define ENETC_SICAR0	0x40
 #define ENETC_SICAR1	0x44

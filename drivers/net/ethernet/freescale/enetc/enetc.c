@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: (GPL-2.0+ OR BSD-3-Clause)
-/* Copyright 2017-2019, 2024-2026 NXP */
+/* Copyright 2017-2019, 2024-2025 NXP */
 
 #include "enetc.h"
 #include <linux/bpf_trace.h>
@@ -2560,8 +2560,7 @@ static int enetc_set_rss(struct net_device *ndev, int en)
 	struct enetc_hw *hw = &priv->si->hw;
 	u32 reg;
 
-	reg = ENETC_SIRBGCR_SET_GRP(priv->num_rss_rings);
-	enetc_wr(hw, ENETC_SIRBGCR, reg);
+	enetc_wr(hw, ENETC_SIRBGCR, priv->num_rx_rings);
 
 	reg = enetc_rd(hw, ENETC_SIMR);
 	reg &= ~ENETC_SIMR_RSSE;
@@ -2591,12 +2590,7 @@ int enetc_configure_si(struct enetc_ndev_priv *priv)
 		enetc_set_lso_flags_mask(hw);
 
 	if (si->num_rss) {
-		u32 val = enetc_rd(hw, ENETC_SICAPR1);
-
-		priv->num_rss_rings = min_t(u16, (val >> 16) & 0xff,
-					    priv->num_rx_rings);
-
-		err = enetc_setup_default_rss_table(si, priv->num_rss_rings);
+		err = enetc_setup_default_rss_table(si, priv->num_rx_rings);
 		if (err)
 			return err;
 
