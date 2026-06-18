@@ -1631,9 +1631,7 @@ static void enetc4_set_port_speed(struct enetc_ndev_priv *priv, int speed)
 	case SPEED_100:
 	case SPEED_1000:
 	case SPEED_2500:
-	case SPEED_5000:
 	case SPEED_10000:
-	case SPEED_20000:
 		val |= (PCR_PSPEED & PCR_PSPEED_VAL(speed));
 		break;
 	case SPEED_10:
