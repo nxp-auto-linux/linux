@@ -1075,6 +1075,26 @@ static int enetc_get_rxnfc(struct net_device *ndev, struct ethtool_rxnfc *rxnfc,
 	return 0;
 }
 
+static int enetc_ppm_get_rxnfc(struct net_device *ndev,
+			       struct ethtool_rxnfc *rxnfc,
+			       u32 *rule_locs)
+{
+	struct enetc_ndev_priv *priv = netdev_priv(ndev);
+
+	switch (rxnfc->cmd) {
+	case ETHTOOL_GRXRINGS:
+		rxnfc->data = priv->num_rss_rings;
+		break;
+	case ETHTOOL_GRXFH:
+		/* get RSS hash config */
+		return enetc_get_rsshash(rxnfc);
+	default:
+		return -EOPNOTSUPP;
+	}
+
+	return 0;
+}
+
 static int enetc4_get_rxnfc(struct net_device *ndev, struct ethtool_rxnfc *rxnfc,
 			    u32 *rule_locs)
 {
@@ -1940,8 +1960,7 @@ static const struct ethtool_ops enetc_ppm_ethtool_ops = {
 	.get_strings = enetc_ppm_get_strings,
 	.get_ethtool_stats = enetc_ppm_get_ethtool_stats,
 	.get_eth_mac_stats = enetc_ppm_get_eth_mac_stats,
-	.get_rxnfc = enetc_get_rxnfc,
-	.set_rxnfc = enetc_set_rxnfc,
+	.get_rxnfc = enetc_ppm_get_rxnfc,
 	.get_rxfh_key_size = enetc_get_rxfh_key_size,
 	.get_rxfh_indir_size = enetc_get_rxfh_indir_size,
 	.get_rxfh = enetc_get_rxfh,
