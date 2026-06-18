@@ -284,60 +284,6 @@ mac_list_unlock:
 	return err;
 }
 
-static int enetc_validate_delete_macs(struct enetc_pf *pf, u16 si_bit,
-				      struct enetc_mac_addr *mac,
-				      int mac_cnt)
-{
-	struct enetc_mac_list_entry *entry;
-	int i;
-
-	for (i = 0; i < mac_cnt; i++) {
-		entry = enetc_mac_list_lookup_entry(pf, mac[i].addr);
-		if (entry && (entry->si_bitmap & si_bit))
-			continue;
-
-		return -EINVAL;
-	}
-
-	return 0;
-}
-
-static int enetc4_pf_del_si_mac_exact_filter(struct enetc_pf *pf, int si_id,
-					     struct enetc_mac_addr *mac,
-					     int mac_cnt)
-{
-	struct enetc_mac_list_entry *entry;
-	struct maft_entry_data data = {0};
-	struct enetc_si *si = pf->si;
-	u16 si_bit = BIT(si_id);
-	int i, num_mfe, err;
-
-	mutex_lock(&pf->mac_list_lock);
-
-	err = enetc_validate_delete_macs(pf, si_bit, mac, mac_cnt);
-	if (err)
-		goto mac_list_unlock;
-
-	num_mfe = pf->num_mfe;
-	enetc_mac_list_del_matched_entries(pf, si_bit, mac, mac_cnt);
-
-	/* Clear MAC filter table */
-	for (i = 0; i < num_mfe; i++)
-		ntmp_maft_delete_entry(&si->ntmp.cbdrs, i);
-
-	i = 0;
-	hlist_for_each_entry(entry, &pf->mac_list, node) {
-		data.cfge.si_bitmap = cpu_to_le16(entry->si_bitmap);
-		ether_addr_copy(data.keye.mac_addr, entry->mac);
-		ntmp_maft_add_entry(&si->ntmp.cbdrs, i++, &data);
-	}
-
-mac_list_unlock:
-	mutex_unlock(&pf->mac_list_lock);
-
-	return err;
-}
-
 static void enetc4_pf_flush_si_mac_exact_filter(struct enetc_pf *pf, int si_id,
 						int mac_type)
 {
@@ -460,20 +406,6 @@ static void enetc4_pf_set_mac_hash_filter(struct enetc_pf *pf, int type)
 						 *mac_filter->mac_hash_table);
 	}
 	netif_addr_unlock_bh(ndev);
-}
-
-static void enetc4_pf_flush_si_mac_filter(struct enetc_pf *pf, int si_id,
-					  int mac_type)
-{
-	struct enetc_hw *hw = &pf->si->hw;
-
-	enetc4_pf_flush_si_mac_exact_filter(pf, si_id, mac_type);
-
-	if (mac_type & ENETC_MAC_FILTER_TYPE_UC)
-		enetc4_pf_set_si_mac_hash_filter(hw, si_id, UC, 0);
-
-	if (mac_type & ENETC_MAC_FILTER_TYPE_MC)
-		enetc4_pf_set_si_mac_hash_filter(hw, si_id, MC, 0);
 }
 
 static void enetc4_pf_set_mac_filter(struct enetc_pf *pf, int type)
@@ -623,10 +555,6 @@ static const struct enetc_pf_ops enetc4_pf_ops = {
 	.get_mm = enetc4_pf_get_mm,
 	.set_mm = enetc4_pf_set_mm,
 	.set_preemptible_tcs = enetc4_pf_set_preemptible_tcs,
-	.add_si_mac_exact_filter = enetc4_pf_add_si_mac_exact_filter,
-	.del_si_mac_exact_filter = enetc4_pf_del_si_mac_exact_filter,
-	.set_si_mac_hash_filter = enetc4_pf_set_si_mac_hash_filter,
-	.flush_si_mac_filter = enetc4_pf_flush_si_mac_filter,
 };
 
 static int enetc4_pf_struct_init(struct enetc_si *si)
