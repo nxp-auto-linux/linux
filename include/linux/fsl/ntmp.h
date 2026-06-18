@@ -761,7 +761,8 @@ int ntmp_rsst_query_or_update_entry(struct netc_cbdrs *cbdrs,
 int ntmp_rpt_add_or_update_entry(struct netc_cbdrs *cbdrs,
 				 struct ntmp_rpt_entry *entry);
 int ntmp_rpt_delete_entry(struct netc_cbdrs *cbdrs, u32 entry_id);
-int ntmp_ist_add_entry(struct netc_cbdrs *cbdrs, struct ntmp_ist_entry *entry);
+int ntmp_ist_add_or_update_entry(struct netc_cbdrs *cbdrs,
+				 struct ntmp_ist_entry *entry);
 int ntmp_ist_delete_entry(struct netc_cbdrs *cbdrs, u32 entry_id);
 int ntmp_isct_operate_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
 			    int cmd, struct isct_stse_data *data);
@@ -894,8 +895,8 @@ static inline int ntmp_rpt_delete_entry(struct netc_cbdrs *cbdrs, u32 entry_id)
 	return 0;
 }
 
-static inline int ntmp_ist_add_entry(struct netc_cbdrs *cbdrs,
-				     struct ntmp_ist_entry *entry)
+static inline int ntmp_ist_add_or_update_entry(struct netc_cbdrs *cbdrs,
+					       struct ntmp_ist_entry *entry)
 {
 	return 0;
 }
