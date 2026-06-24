@@ -21,12 +21,8 @@
 
 	memory@80000000 {
 		device_type = "memory";
-		reg = <0 0x80000000 0 0x80000000>;
-	};
-
-	memory@880000000 {
-		device_type = "memory";
-		reg = <0x8 0x80000000 0 0x80000000>;
+		reg = <0 0x80000000 0 0x80000000>,
+		      <0x8 0x80000000 0 0x80000000>;
 	};
 
 	reserved-memory {
