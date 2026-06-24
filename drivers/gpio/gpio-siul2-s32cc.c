@@ -94,6 +94,10 @@ struct siul2_device_data {
  * @opadmap: the regmap of the GPIO Pad Data Output registers
  * @ipadmap: the regmap of the GPIO Pad Data Input registers
  * @pad_access: array of valid I/O pads
+ * @opad_wr_table: writeable-register table for @opadmap; its yes_ranges mirror
+ *                 @pad_access while its no_ranges exclude the GPDO registers of
+ *                 reserved GPIOs, so those are neither written nor restored on
+ *                 resume
  */
 struct siul2_desc {
 	u32 gpio_base;
@@ -101,6 +105,7 @@ struct siul2_desc {
 	struct regmap *opadmap;
 	struct regmap *ipadmap;
 	const struct regmap_access_table *pad_access;
+	struct regmap_access_table opad_wr_table;
 };
 
 /**
@@ -740,13 +745,27 @@ static struct regmap *init_padregmap(struct platform_device *pdev,
 		regmap_conf.writeable_reg = not_writable;
 		regmap_conf.cache_type = REGCACHE_NONE;
 	} else {
+		struct regmap_access_table *wr =
+			&gpio_dev->siul2[selector].opad_wr_table;
+
 		/*
 		 * A sparse cache only ever touches the pads actually
 		 * written, and on resume restores just those.
 		 */
 		regmap_conf.cache_type = REGCACHE_MAPLE;
-		regmap_conf.wr_table = platdata->pad_access[selector];
+
+		/*
+		 * Restrict writes to the valid pads. Only yes_ranges is set up
+		 * here; no_ranges is left empty and gets populated later with
+		 * the GPDO registers of the reserved GPIOs, once gpiolib has
+		 * parsed "gpio-reserved-ranges" (see siul2_gpio_init_valid_mask()
+		 * and siul2_build_opad_no_ranges()).
+		 */
+		wr->yes_ranges = platdata->pad_access[selector]->yes_ranges;
+		wr->n_yes_ranges = platdata->pad_access[selector]->n_yes_ranges;
+		regmap_conf.wr_table = wr;
 	}
+
 
 	return common_regmap_init(pdev, &regmap_conf, dts_tag);
 }
@@ -851,6 +870,77 @@ static int siul2_gpio_get(struct gpio_chip *chip, unsigned int offset)
 	return !!(data & 1);
 }
 
+static bool siul2_pad_access_has(const struct regmap_access_table *table,
+				 u32 offset)
+{
+	unsigned int i;
+
+	for (i = 0; i < table->n_yes_ranges; i++)
+		if (offset >= table->yes_ranges[i].range_min &&
+		    offset <= table->yes_ranges[i].range_max)
+			return true;
+
+	return false;
+}
+
+static int siul2_build_opad_no_ranges(struct device *dev,
+				      struct siul2_gpio_dev *gpio_dev,
+				      unsigned int selector,
+				      unsigned long *valid_mask,
+				      unsigned int ngpio)
+{
+	struct siul2_desc *siul2 = &gpio_dev->siul2[selector];
+	const struct regmap_access_table *pad_access = siul2->pad_access;
+	struct regmap_range *no_ranges;
+	unsigned int gpio, n = 0;
+
+	for_each_clear_bit(gpio, valid_mask, ngpio)
+		if (siul2_pad_access_has(pad_access, siul2_get_pad_offset(gpio)))
+			n++;
+
+	if (!n)
+		return 0;
+
+	no_ranges = devm_kcalloc(dev, n, sizeof(*no_ranges), GFP_KERNEL);
+	if (!no_ranges)
+		return -ENOMEM;
+
+	n = 0;
+	for_each_clear_bit(gpio, valid_mask, ngpio) {
+		u32 offset = siul2_get_pad_offset(gpio);
+
+		if (!siul2_pad_access_has(pad_access, offset))
+			continue;
+
+		no_ranges[n].range_min = offset;
+		no_ranges[n].range_max = offset;
+		n++;
+	}
+
+	siul2->opad_wr_table.no_ranges = no_ranges;
+	siul2->opad_wr_table.n_no_ranges = n;
+
+	return 0;
+}
+
+static int siul2_gpio_init_valid_mask(struct gpio_chip *gc,
+				      unsigned long *valid_mask,
+				      unsigned int ngpio)
+{
+	struct siul2_gpio_dev *gpio_dev = to_siul2_gpio_dev(gc);
+	unsigned int i;
+	int ret;
+
+	for (i = 0; i < ARRAY_SIZE(gpio_dev->siul2); ++i) {
+		ret = siul2_build_opad_no_ranges(gc->parent, gpio_dev, i,
+						 valid_mask, ngpio);
+		if (ret)
+			return ret;
+	}
+
+	return 0;
+}
+
 static int siul2_gpio_pads_init(struct platform_device *pdev,
 				struct siul2_gpio_dev *gpio_dev)
 {
@@ -949,15 +1039,10 @@ static int siul2_gen_names(struct device *dev, unsigned int cnt, char **names,
 static int siul2_gpio_populate_names(struct device *dev,
 				     struct siul2_gpio_dev *gpio_dev)
 {
-	struct device_node *np = dev->of_node;
 	char ch_index = 'A';
 	int num_index = 0;
-	int num_ranges;
-	u32 base_gpio;
-	u32 num_gpio;
 	char **names;
 	int ret;
-	int i, j;
 
 	names = devm_kcalloc(dev, gpio_dev->gc.ngpio, sizeof(*names),
 			     GFP_KERNEL);
@@ -984,44 +1069,6 @@ static int siul2_gpio_populate_names(struct device *dev,
 	}
 
 	gpio_dev->gc.names = (const char *const *)names;
-
-	/* Parse the gpio-reserved-ranges to know what GPIOs to exclude. */
-
-	num_ranges = of_property_count_u32_elems(dev->of_node,
-						 "gpio-reserved-ranges");
-
-	/* The "gpio-reserved-ranges" is optional. */
-	if (num_ranges < 0)
-		return 0;
-	num_ranges /= 2;
-
-	for (i = 0; i < num_ranges; ++i) {
-		ret = of_property_read_u32_index(np, "gpio-reserved-ranges",
-						 i * 2, &base_gpio);
-		if (ret) {
-			dev_err(dev, "Could not parse the start GPIO: %d\n",
-				ret);
-			return ret;
-		}
-
-		ret = of_property_read_u32_index(np, "gpio-reserved-ranges",
-						 i * 2 + 1, &num_gpio);
-		if (ret) {
-			dev_err(dev, "Could not parse num. GPIOs: %d\n", ret);
-			return ret;
-		}
-
-		if (base_gpio + num_gpio > gpio_dev->gc.ngpio) {
-			dev_err(dev, "Reserved GPIOs outside of GPIO range\n");
-			return -EINVAL;
-		}
-
-		/* Remove names set for reserved GPIOs. */
-		for (j = base_gpio; j < base_gpio + num_gpio; ++j) {
-			devm_kfree(dev, names[j]);
-			names[j] = NULL;
-		}
-	}
 
 	return 0;
 }
@@ -1113,6 +1160,7 @@ static int siul2_gpio_probe(struct platform_device *pdev)
 	gc->direction_output = siul2_gpio_dir_out;
 	gc->direction_input = siul2_gpio_dir_in;
 	gc->get_direction = siul2_gpio_get_dir;
+	gc->init_valid_mask = siul2_gpio_init_valid_mask;
 	gc->owner = THIS_MODULE;
 
 	girq = &gc->irq;
