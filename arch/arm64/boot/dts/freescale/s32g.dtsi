@@ -19,12 +19,6 @@
 		serial6 = &llce_uart3;
 	};
 
-	memory@80000000 {
-		device_type = "memory";
-		reg = <0 0x80000000 0 0x80000000>,
-		      <0x8 0x80000000 0 0x80000000>;
-	};
-
 	reserved-memory {
 		pfe_reserved_bmu2: pfebufs@34000000 {
 			compatible = "nxp,s32g-pfe-bmu2-pool";

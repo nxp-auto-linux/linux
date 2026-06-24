@@ -12,6 +12,12 @@
 
 / {
 	model = "NXP S32R458-EVB";
+
+	memory@80000000 {
+		device_type = "memory";
+		reg = <0 0x80000000 0 0x80000000>,
+		      <0x8 0x80000000 0 0x80000000>;
+	};
 };
 
 &can0 {

@@ -7,6 +7,14 @@
 #include "s32g3.dtsi"
 #include "s32g-nxp-flash-macronix.dtsi"
 
+/ {
+	memory@80000000 {
+		device_type = "memory";
+		reg = <0 0x80000000 0 0x80000000>,
+		      <0x8 0x80000000 0 0x80000000>;
+	};
+};
+
 &timer {
 	clock-frequency = <5000000>;
 };

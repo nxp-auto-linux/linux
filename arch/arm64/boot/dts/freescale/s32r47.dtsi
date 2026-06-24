@@ -214,11 +214,6 @@
 		};
 	};
 
-	memory@60000000 {
-		device_type = "memory";
-		reg = <0 0x60000000 0 0x70000000>;
-	};
-
 	soc: soc {
 		compatible = "simple-bus";
 		#address-cells = <2>;

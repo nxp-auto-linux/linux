@@ -13,6 +13,11 @@
 	compatible = "nxp,s32r47";
 
 	tick-timer = &pit2;
+
+	memory@60000000 {
+		device_type = "memory";
+		reg = <0 0x60000000 0 0x70000000>;
+	};
 };
 
 &gmac0 {
