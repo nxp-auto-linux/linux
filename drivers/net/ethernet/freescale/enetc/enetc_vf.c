@@ -254,7 +254,7 @@ static int enetc_vf_setup_tc(struct net_device *ndev, enum tc_setup_type type,
 static void enetc_msg_vf_set_mac_promisc(struct enetc_ndev_priv *priv,
 					 int type, bool en)
 {
-	struct enetc_msg_mac_promsic_mode *msg;
+	struct enetc_msg_mac_promisc_mode *msg;
 	struct enetc_msg_swbd msg_swbd;
 
 	if (!(type & ENETC_MAC_FILTER_TYPE_ALL))
@@ -266,7 +266,7 @@ static void enetc_msg_vf_set_mac_promisc(struct enetc_ndev_priv *priv,
 	if (!msg_swbd.vaddr)
 		return;
 
-	msg = (struct enetc_msg_mac_promsic_mode *)msg_swbd.vaddr;
+	msg = (struct enetc_msg_mac_promisc_mode *)msg_swbd.vaddr;
 	msg->type = type & ENETC_MAC_FILTER_TYPE_ALL;
 	msg->promisc_mode = en ? ENETC_MAC_PROMISC_MODE_ENABLE :
 				 ENETC_MAC_PROMISC_MODE_DISABLE;
