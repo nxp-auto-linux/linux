@@ -184,7 +184,7 @@ struct enetc_msg_mac_hash_filter {
 /* message format of class_id 0x20, cmd_id: 0x5,
  * set MAC promiscuous mode
  */
-struct enetc_msg_mac_promsic_mode {
+struct enetc_msg_mac_promisc_mode {
 	struct enetc_msg_header hdr;
 	u8 flush_macs:1;
 	u8 promisc_mode:1;
