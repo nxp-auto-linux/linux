@@ -2,7 +2,7 @@
 /*
  * Core driver for the S32 CC (Common Chassis) pin controller
  *
- * Copyright 2017-2022,2024 NXP
+ * Copyright 2017-2022,2024,2026 NXP
  * Copyright (C) 2022 SUSE LLC
  * Copyright 2015-2016 Freescale Semiconductor, Inc.
  * Copyright 2017-2024 NXP
@@ -23,6 +23,7 @@
 #include <linux/of.h>
 #include <linux/platform_device.h>
 #include <linux/pinctrl/machine.h>
+#include <linux/pinctrl/pinconf-generic.h>
 #include <linux/pinctrl/pinconf.h>
 #include <linux/pinctrl/pinctrl.h>
 #include <linux/pinctrl/pinmux.h>
@@ -39,7 +40,10 @@
 #define S32_PIN_ID_SHIFT	4
 #define S32_PIN_ID_MASK		GENMASK(31, S32_PIN_ID_SHIFT)
 
+#define PIN_CONFIG_NXP_SMC_NO_DISABLE	(PIN_CONFIG_END + 1)
+
 #define S32_MSCR_SSS_MASK	GENMASK(2, 0)
+#define S32_MSCR_SMC		BIT(5)
 #define S32_MSCR_PUS		BIT(12)
 #define S32_MSCR_PUE		BIT(13)
 #define S32_MSCR_SRE(X)		(((X) & GENMASK(3, 0)) << 14)
@@ -50,6 +54,10 @@
 enum s32_write_type {
 	S32_PINCONF_UPDATE_ONLY,
 	S32_PINCONF_OVERWRITE,
+};
+
+static const struct pinconf_generic_params s32_pinconf_custom_params[] = {
+	{ "nxp,smc-no-disable", PIN_CONFIG_NXP_SMC_NO_DISABLE, 0},
 };
 
 static struct regmap_config s32_regmap_config = {
@@ -493,7 +501,7 @@ static inline void s32_pin_set_pull(enum pin_config_param param,
 static int s32_parse_pincfg(unsigned long pincfg, unsigned int *mask,
 			    unsigned int *config)
 {
-	enum pin_config_param param;
+	unsigned int param;
 	u32 arg;
 
 	param = pinconf_to_config_param(pincfg);
@@ -538,6 +546,15 @@ static int s32_parse_pincfg(unsigned long pincfg, unsigned int *mask,
 		*config &= ~(S32_MSCR_ODE | S32_MSCR_OBE | S32_MSCR_IBE);
 		*mask |= S32_MSCR_ODE | S32_MSCR_OBE | S32_MSCR_IBE;
 		s32_pin_set_pull(param, mask, config);
+		break;
+	case PIN_CONFIG_NXP_SMC_NO_DISABLE:
+		/*
+		 * If nxp,smc-no-disable property is set, ensure SMC bit is always
+		 * set to 1. It does not disable the pin's output buffer when the
+		 * chip enters Safe mode.
+		 */
+		*config |= S32_MSCR_SMC;
+		*mask |= S32_MSCR_SMC;
 		break;
 	default:
 		return -EOPNOTSUPP;
@@ -963,6 +980,8 @@ static int s32_pinctrl_probe(struct platform_device *pdev)
 	s32_pinctrl_desc->pmxops = &s32_pmx_ops;
 	s32_pinctrl_desc->confops = &s32_pinconf_ops;
 	s32_pinctrl_desc->owner = THIS_MODULE;
+	s32_pinctrl_desc->custom_params = s32_pinconf_custom_params;
+	s32_pinctrl_desc->num_custom_params = ARRAY_SIZE(s32_pinconf_custom_params);
 
 	ret = s32_pinctrl_probe_dt(pdev, ipctl);
 	if (ret) {
