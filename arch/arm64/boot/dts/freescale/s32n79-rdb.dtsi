@@ -72,7 +72,7 @@
 
 &ufshc {
 	memory-region = <&dma_pool>;
-	nxp,mphy-boot-mode = "copy-sram";
+	nxp,mphy-boot-mode = "rom";
 	lanes-per-direction = <2>;
 };
 
