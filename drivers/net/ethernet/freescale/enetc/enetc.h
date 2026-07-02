@@ -441,7 +441,6 @@ struct enetc_cls_rule {
 	u32 is_rfs:1;
 };
 
-#define ENETC_MAX_BDR_INT	6 /* fixed to max # of available cpus */
 struct psfp_cap {
 	u32 max_streamid;
 	u32 max_psfp_filter;
@@ -491,7 +490,7 @@ struct enetc_ndev_priv {
 	struct enetc_si *si;
 
 	int bdr_int_num; /* number of Rx/Tx ring interrupts */
-	struct enetc_int_vector *int_vector[ENETC_MAX_BDR_INT];
+	struct enetc_int_vector **int_vector;
 	u16 num_rx_rings, num_tx_rings;
 	u16 rx_bd_count, tx_bd_count;
 
