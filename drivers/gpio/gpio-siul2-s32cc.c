@@ -3,7 +3,7 @@
  * SIUL2 GPIO support.
  *
  * Copyright (c) 2016 Freescale Semiconductor, Inc.
- * Copyright 2018-2025 NXP
+ * Copyright 2018-2026 NXP
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 or
@@ -31,7 +31,11 @@
 #include <linux/regmap.h>
 #include <linux/types.h>
 
-#define SIUL2_PGPDO(N)		(((N) ^ 1) * 2)
+/*
+ * GPDO and GPDI are arrays of 8-bit registers, one register per pad,
+ * holding the output (PDO) and input (PDI) value in bit 0.
+ */
+#define SIUL2_GPDO(N)		((N) ^ 3)
 #define SIUL2_EIRQ_REG(r)	((r) * 4)
 #define S32CC_EIRQS_NUM		32
 #define S32CC_SIUL2_NUM		2
@@ -49,6 +53,15 @@
 #define SIUL2_IFEER0			0x20
 
 #define SIUL2_GPIO_16_PAD_SIZE		16
+
+/*
+ * A 16-pad block maps to a contiguous 16-byte range in the per-pad GPDO/GPDI
+ * register map (the (N ^ 3) byte swap permutes offsets only within each block).
+ */
+#define SIUL2_GPDO_BLOCK_RANGE(N)					\
+	regmap_reg_range((N) * SIUL2_GPIO_16_PAD_SIZE,			\
+			 (N) * SIUL2_GPIO_16_PAD_SIZE +			\
+			 SIUL2_GPIO_16_PAD_SIZE - 1)
 
 #define EIRQS_DTS_TAG		"eirqs"
 #define EIRQIMCRS_DTS_TAG	"eirq-imcrs"
@@ -78,8 +91,8 @@ struct siul2_device_data {
  * struct siul2_desc - describes a SIUL2 hw module
  * @gpio_base: the first GPIO pin
  * @gpio_num: the number of GPIO pins
- * @opadmap: the regmap of the Parallel GPIO Pad Data Out Register
- * @ipadmap: the regmap of the Parallel GPIO Pad Data In Register
+ * @opadmap: the regmap of the GPIO Pad Data Output registers
+ * @ipadmap: the regmap of the GPIO Pad Data Input registers
  * @pad_access: array of valid I/O pads
  */
 struct siul2_desc {
@@ -220,44 +233,25 @@ static int siul2_to_irq(struct gpio_chip *chip, unsigned int gpio)
 	return irq_create_mapping(domain, gpio);
 }
 
-static unsigned int siul2_pin2pad(unsigned int pin)
+static inline u32 siul2_get_pad_offset(unsigned int pin)
 {
-	return pin / SIUL2_GPIO_16_PAD_SIZE;
-}
-
-static u16 siul2_pin2mask(unsigned int pin)
-{
-	/**
-	 * From Reference manual :
-	 * PGPDOx[PPDOy] = GPDO(x × 16) + (15 - y)[PDO_(x × 16) + (15 - y)]
-	 */
-	return BIT(15 - pin % SIUL2_GPIO_16_PAD_SIZE);
-}
-
-static inline u32 siul2_get_pad_offset(unsigned int pad)
-{
-	return SIUL2_PGPDO(pad);
+	return SIUL2_GPDO(pin);
 }
 
 static void siul2_gpio_set_val(struct gpio_chip *chip, unsigned int offset,
 			       int value)
 {
 	struct siul2_gpio_dev *gpio_dev = to_siul2_gpio_dev(chip);
-	unsigned int pad, reg_offset;
+	unsigned int reg_offset;
 	struct regmap *regmap;
-	u16 mask;
 
-	mask = siul2_pin2mask(offset);
-	pad = siul2_pin2pad(offset);
-
-	reg_offset = siul2_get_pad_offset(pad);
+	reg_offset = siul2_get_pad_offset(offset);
 	regmap = siul2_offset_to_regmap(gpio_dev, offset, false);
 	if (!regmap)
 		return;
 
-	value = value ? mask : 0;
-
-	regmap_update_bits(regmap, reg_offset, mask, value);
+	/* Each pad has its own byte-wide GPDO register; PDO is bit 0. */
+	regmap_write(regmap, reg_offset, !!value);
 }
 
 static int siul2_gpio_dir_out(struct gpio_chip *chip, unsigned int gpio,
@@ -516,7 +510,11 @@ static struct regmap *common_regmap_init(struct platform_device *pdev,
 	conf->name = name;
 	conf->use_raw_spinlock = true;
 
-	if (conf->cache_type != REGCACHE_NONE)
+	/*
+	 * Only a flat cache seeds itself from hardware. Sparse caches
+	 * must not, since the pad windows contain holes.
+	 */
+	if (conf->cache_type == REGCACHE_FLAT)
 		conf->num_reg_defaults_raw = size / conf->reg_stride;
 
 	return devm_regmap_init_mmio(dev, base, conf);
@@ -536,26 +534,16 @@ static bool irqregmap_accessible(struct device *dev, unsigned int reg)
 	};
 }
 
-static inline u32 siul2_get_opad_offset(unsigned int pad)
-{
-	return siul2_get_pad_offset(pad);
-}
-
-static inline u32 siul2_get_ipad_offset(unsigned int pad)
-{
-	return siul2_get_pad_offset(pad);
-}
-
 /* Common for both S32R45 an S32G* */
 
 static const struct regmap_range s32cc_siul20_pad_yes_ranges[] = {
-	regmap_reg_range(SIUL2_PGPDO(0), SIUL2_PGPDO(0)),
-	regmap_reg_range(SIUL2_PGPDO(1), SIUL2_PGPDO(1)),
-	regmap_reg_range(SIUL2_PGPDO(2), SIUL2_PGPDO(2)),
-	regmap_reg_range(SIUL2_PGPDO(3), SIUL2_PGPDO(3)),
-	regmap_reg_range(SIUL2_PGPDO(4), SIUL2_PGPDO(4)),
-	regmap_reg_range(SIUL2_PGPDO(5), SIUL2_PGPDO(5)),
-	regmap_reg_range(SIUL2_PGPDO(6), SIUL2_PGPDO(6)),
+	SIUL2_GPDO_BLOCK_RANGE(0),
+	SIUL2_GPDO_BLOCK_RANGE(1),
+	SIUL2_GPDO_BLOCK_RANGE(2),
+	SIUL2_GPDO_BLOCK_RANGE(3),
+	SIUL2_GPDO_BLOCK_RANGE(4),
+	SIUL2_GPDO_BLOCK_RANGE(5),
+	SIUL2_GPDO_BLOCK_RANGE(6),
 };
 
 static const struct regmap_access_table s32cc_siul20_pad_access_table = {
@@ -564,10 +552,10 @@ static const struct regmap_access_table s32cc_siul20_pad_access_table = {
 };
 
 static const struct regmap_range s32g_siul21_pad_yes_ranges[] = {
-	regmap_reg_range(SIUL2_PGPDO(7), SIUL2_PGPDO(7)),
-	regmap_reg_range(SIUL2_PGPDO(9), SIUL2_PGPDO(9)),
-	regmap_reg_range(SIUL2_PGPDO(10), SIUL2_PGPDO(10)),
-	regmap_reg_range(SIUL2_PGPDO(11), SIUL2_PGPDO(11)),
+	SIUL2_GPDO_BLOCK_RANGE(7),
+	SIUL2_GPDO_BLOCK_RANGE(9),
+	SIUL2_GPDO_BLOCK_RANGE(10),
+	SIUL2_GPDO_BLOCK_RANGE(11),
 };
 
 static const struct eirq_mapping s32g_irqs[] = {
@@ -636,9 +624,9 @@ static const struct siul2_device_data s32g_device_data = {
 };
 
 static const struct regmap_range s32r_siul21_pad_yes_ranges[] = {
-	regmap_reg_range(SIUL2_PGPDO(6), SIUL2_PGPDO(6)),
-	regmap_reg_range(SIUL2_PGPDO(7), SIUL2_PGPDO(7)),
-	regmap_reg_range(SIUL2_PGPDO(8), SIUL2_PGPDO(8)),
+	SIUL2_GPDO_BLOCK_RANGE(6),
+	SIUL2_GPDO_BLOCK_RANGE(7),
+	SIUL2_GPDO_BLOCK_RANGE(8),
 };
 
 static const struct eirq_mapping s32r45_irqs[] = {
@@ -735,7 +723,8 @@ static struct regmap *init_padregmap(struct platform_device *pdev,
 	char dts_tag[S32CC_PADS_DTS_TAG_LEN];
 	int err;
 
-	regmap_conf.reg_stride = 2;
+	/* GPDO/GPDI are byte-wide, one register per pad. */
+	regmap_conf.reg_stride = 1;
 
 	if (selector != 0 && selector != 1)
 		return ERR_PTR(-EINVAL);
@@ -751,6 +740,11 @@ static struct regmap *init_padregmap(struct platform_device *pdev,
 		regmap_conf.writeable_reg = not_writable;
 		regmap_conf.cache_type = REGCACHE_NONE;
 	} else {
+		/*
+		 * A sparse cache only ever touches the pads actually
+		 * written, and on resume restores just those.
+		 */
+		regmap_conf.cache_type = REGCACHE_MAPLE;
 		regmap_conf.wr_table = platdata->pad_access[selector];
 	}
 
@@ -843,20 +837,18 @@ static void siul2_gpio_set(struct gpio_chip *chip, unsigned int offset,
 static int siul2_gpio_get(struct gpio_chip *chip, unsigned int offset)
 {
 	struct siul2_gpio_dev *gpio_dev = to_siul2_gpio_dev(chip);
-	unsigned int mask, pad, reg_offset, data = 0;
+	unsigned int reg_offset, data = 0;
 	struct regmap *regmap;
 
-	mask = siul2_pin2mask(offset);
-	pad = siul2_pin2pad(offset);
-
-	reg_offset = siul2_get_pad_offset(pad);
+	reg_offset = siul2_get_pad_offset(offset);
 	regmap = siul2_offset_to_regmap(gpio_dev, offset, true);
 	if (!regmap)
 		return -EINVAL;
 
 	regmap_read(regmap, reg_offset, &data);
 
-	return !!(data & mask);
+	/* Each pad has its own byte-wide GPDI register; PDI is bit 0. */
+	return !!(data & 1);
 }
 
 static int siul2_gpio_pads_init(struct platform_device *pdev,
