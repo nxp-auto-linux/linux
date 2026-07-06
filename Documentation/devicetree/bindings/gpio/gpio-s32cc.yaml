@@ -100,12 +100,12 @@ examples:
     #include <dt-bindings/interrupt-controller/irq.h>
     #include <dt-bindings/memory/s32cc-siul2.h>
 
-    gpio: siul2-gpio@4009d700 {
+    gpio: siul2-gpio@4009d300 {
       compatible = "nxp,s32g-siul2-gpio";
-      reg = <OPADS_SIUL2_0        0x10>,
-            <OPADS_SIUL2_1        0x18>,
-            <IPADS_SIUL2_0        0x10>,
-            <IPADS_SIUL2_1        0x18>,
+      reg = <OPADS_SIUL2_0        0x70>,
+            <OPADS_SIUL2_1        0xc0>,
+            <IPADS_SIUL2_0        0x70>,
+            <IPADS_SIUL2_1        0xc0>,
             <EIRQS_SIUL2_1        0xb4>,
             <IMCRS_SIUL2_1_EIRQS  0x80>;
       reg-names = "opads0", "opads1", "ipads0",
