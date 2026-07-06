@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later OR MIT
 /*
- * Copyright 2017-2022, 2024-2025 NXP
+ * Copyright 2017-2022, 2024-2026 NXP
  */
 
 /dts-v1/;
@@ -162,13 +162,13 @@
 				 /* IMCR range 777-785 */
 				 <IMCRS_SIUL2_1_24 0 0x0 0x4403ce64 0x0 0x24>,
 
-				 /* Output pads */
-				 <OPADS_SIUL2_0 0 0x0 0x4009d700 0x0 0x10>,
-				 <OPADS_SIUL2_1 0 0x0 0x4403d700 0x0 0x14>,
+				 /* Output pads (GPDO, one byte-wide register per pad) */
+				 <OPADS_SIUL2_0 0 0x0 0x4009d300 0x0 0x70>,
+				 <OPADS_SIUL2_1 0 0x0 0x4403d300 0x0 0x90>,
 
-				 /* Input pads */
-				 <IPADS_SIUL2_0 0 0x0 0x4009d740 0x0 0x10>,
-				 <IPADS_SIUL2_1 0 0x0 0x4403d740 0x0 0x14>,
+				 /* Input pads (GPDI, one byte-wide register per pad) */
+				 <IPADS_SIUL2_0 0 0x0 0x4009d500 0x0 0x70>,
+				 <IPADS_SIUL2_1 0 0x0 0x4403d500 0x0 0x90>,
 
 				/* EIRQs */
 				 <EIRQS_SIUL2_1 0 0x0 0x4403c010 0x0 0xb4>;
@@ -279,13 +279,13 @@
 				};
 			};
 
-			gpio: siul2-gpio@4009d700 {
+			gpio: siul2-gpio@4009d300 {
 				compatible = "nxp,s32r-siul2-gpio", "nxp,s32cc-siul2-gpio";
 
-				reg = <OPADS_SIUL2_0       0 0x0 0x10>,
-				      <OPADS_SIUL2_1       0 0x0 0x14>,
-				      <IPADS_SIUL2_0       0 0x0 0x10>,
-				      <IPADS_SIUL2_1       0 0x0 0x14>,
+				reg = <OPADS_SIUL2_0       0 0x0 0x70>,
+				      <OPADS_SIUL2_1       0 0x0 0x90>,
+				      <IPADS_SIUL2_0       0 0x0 0x70>,
+				      <IPADS_SIUL2_1       0 0x0 0x90>,
 				      <EIRQS_SIUL2_1       0 0x0 0xb4>,
 				      <IMCRS_SIUL2_1_EIRQS 0 0x0 0x80>;
 				reg-names = "opads0", "opads1", "ipads0",

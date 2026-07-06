@@ -269,13 +269,13 @@
 				 /* IMCR range 1005 - 1007 */
 				 <IMCRS_SIUL2_1_27 0x0 0x0 0x440111f4 0x0 0xc>,
 
-				 /* Output pads */
-				 <OPADS_SIUL2_0 0x0 0x0 0x4009d700 0x0 0x10>,
-				 <OPADS_SIUL2_1 0x0 0x0 0x44011700 0x0 0x18>,
+				 /* Output pads (GPDO, one byte-wide register per pad) */
+				 <OPADS_SIUL2_0 0x0 0x0 0x4009d300 0x0 0x70>,
+				 <OPADS_SIUL2_1 0x0 0x0 0x44011300 0x0 0xc0>,
 
-				 /* Input pads */
-				 <IPADS_SIUL2_0 0x0 0x0 0x4009d740 0x0 0x10>,
-				 <IPADS_SIUL2_1 0x0 0x0 0x44011740 0x0 0x18>,
+				 /* Input pads (GPDI, one byte-wide register per pad) */
+				 <IPADS_SIUL2_0 0x0 0x0 0x4009d500 0x0 0x70>,
+				 <IPADS_SIUL2_1 0x0 0x0 0x44011500 0x0 0xc0>,
 
 				 /* EIRQs */
 				 <EIRQS_SIUL2_1 0x0 0x0 0x44010010 0x0 0xb4>;
@@ -357,13 +357,13 @@
 				};
 			};
 
-			gpio: siul2-gpio@4009d700 {
+			gpio: siul2-gpio@4009d300 {
 				compatible = "nxp,s32g-siul2-gpio", "nxp,s32cc-siul2-gpio";
 
-				reg = <OPADS_SIUL2_0        0    0x0 0x10>,
-				      <OPADS_SIUL2_1        0    0x0 0x18>,
-				      <IPADS_SIUL2_0        0    0x0 0x10>,
-				      <IPADS_SIUL2_1        0    0x0 0x18>,
+				reg = <OPADS_SIUL2_0        0    0x0 0x70>,
+				      <OPADS_SIUL2_1        0    0x0 0xc0>,
+				      <IPADS_SIUL2_0        0    0x0 0x70>,
+				      <IPADS_SIUL2_1        0    0x0 0xc0>,
 				      <EIRQS_SIUL2_1        0    0x0 0xb4>,
 				      <IMCRS_SIUL2_1_EIRQS  0    0x0 0x80>;
 				reg-names = "opads0", "opads1", "ipads0",
