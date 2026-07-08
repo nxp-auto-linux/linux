@@ -14,6 +14,7 @@
 #include <linux/module.h>
 #include <linux/of_reserved_mem.h>
 #include <linux/platform_device.h>
+#include <linux/pm.h>
 #include <linux/remoteproc.h>
 
 #include "remoteproc_internal.h"
@@ -26,9 +27,12 @@ MODULE_PARM_DESC(auto_boot,
 #define CARVNET_FW_ALIGN	0x4000U
 
 #define CMD_FW_STOP			0xFFFFFFFDU
+#define CMD_FW_SUSPEND			0xFFFFFFFCU
 
 /* Timeout for the firmware stop acknowledgment, in microseconds */
 #define CARVNET_STOP_TIMEOUT_US		10000U
+/* Timeout for the firmware suspend acknowledgment, in microseconds */
+#define CARVNET_PM_TIMEOUT_US		10000U
 
 #define RSC_VENDOR_CARV_MATCH_ADDR	256U
 
@@ -1262,6 +1266,77 @@ static void carvnet_rproc_remove(struct platform_device *pdev)
 	priv->subdentry = NULL;
 }
 
+static int carvnet_rproc_suspend(struct device *dev)
+{
+	struct rproc *rproc = dev_get_drvdata(dev);
+	struct carvnet *priv = rproc->priv;
+	int ret = 0;
+
+	mutex_lock(&rproc->lock);
+
+	if (rproc->state != RPROC_RUNNING)
+		goto out;
+
+	/*
+	 * The firmware saves its context to DDR, which is retained in
+	 * self-refresh, and acknowledges via the MB_CR Done bit. On
+	 * timeout return an error to abort the system suspend rather
+	 * than power down with the firmware in an unknown state.
+	 */
+	ret = q_send_cmd_sync(priv, (u32)CMD_FW_SUSPEND, CARVNET_PM_TIMEOUT_US);
+	if (ret) {
+		dev_err(dev, "Failed to suspend firmware: %d\n", ret);
+		goto out;
+	}
+
+	/* Disable Functional Interrupts: User configurable mask */
+	writel(0, priv->regs[0] + CARV_Q_MB_IER(0));
+
+	rproc->state = RPROC_SUSPENDED;
+out:
+	mutex_unlock(&rproc->lock);
+
+	/*
+	 * The work item takes rproc->lock, so it must be canceled only
+	 * after the lock has been released.
+	 */
+	if (!ret)
+		cancel_work_sync(&priv->rproc_work);
+
+	return ret;
+}
+
+static int carvnet_rproc_resume(struct device *dev)
+{
+	struct rproc *rproc = dev_get_drvdata(dev);
+	int ret = 0;
+
+	mutex_lock(&rproc->lock);
+
+	if (rproc->state != RPROC_SUSPENDED)
+		goto out;
+
+	/*
+	 * The NoCore register block may have lost state across
+	 * suspend-to-RAM. The start path reprograms the interrupt masks
+	 * and the address translation setup and releases the core; the
+	 * firmware detects the warm resume from its context saved in
+	 * retained DDR, so no resume command is needed.
+	 */
+	ret = carvnet_rproc_start(rproc);
+	if (ret)
+		goto out;
+
+	rproc->state = RPROC_RUNNING;
+out:
+	mutex_unlock(&rproc->lock);
+
+	return ret;
+}
+
+static DEFINE_SIMPLE_DEV_PM_OPS(carvnet_rproc_pm_ops,
+				carvnet_rproc_suspend, carvnet_rproc_resume);
+
 static const struct of_device_id carvnet_rproc_of_match[] = {
 	{ .compatible = "nxp,carvnet-rproc" },
 	{ /* sentinel */ },
@@ -1275,6 +1350,7 @@ static struct platform_driver carvnet_rproc_driver = {
 	.driver = {
 		.name = "nxp-carvnet",
 		.of_match_table = carvnet_rproc_of_match,
+		.pm = pm_sleep_ptr(&carvnet_rproc_pm_ops),
 	},
 };
 
