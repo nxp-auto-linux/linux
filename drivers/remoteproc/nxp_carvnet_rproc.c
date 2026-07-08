@@ -27,6 +27,9 @@ MODULE_PARM_DESC(auto_boot,
 
 #define CMD_FW_STOP			0xFFFFFFFDU
 
+/* Timeout for the firmware stop acknowledgment, in microseconds */
+#define CARVNET_STOP_TIMEOUT_US		10000U
+
 #define RSC_VENDOR_CARV_MATCH_ADDR	256U
 
 /* CAR-V Internal Memory Type and Access */
@@ -695,16 +698,26 @@ static int q_msg_send_info(struct carvnet *priv, u32 info)
 	return 0;
 }
 
-static void q_stop(struct carvnet *priv)
+/*
+ * Send a command to the firmware and wait for the acknowledgment
+ * signaled by the MB_CR Done bit.
+ */
+static int q_send_cmd_sync(struct carvnet *priv, u32 cmd, u32 timeout_us)
 {
 	u32 done;
+
+	q_msg_send_info(priv, cmd);
+
+	return read_poll_timeout(GET_CARV_Q_MB_CR_DONE, done, done == 1,
+				 100, timeout_us, false,
+				 readl(priv->regs[0] + CARV_Q_MB_CR(priv->q_user)));
+}
+
+static void q_stop(struct carvnet *priv)
+{
 	int ret;
 
-	q_msg_send_info(priv, (u32)CMD_FW_STOP);
-
-	/* Wait for the MB_CR Done bit with timeout 10ms */
-	ret = read_poll_timeout(GET_CARV_Q_MB_CR_DONE, done, done == 1, 100, 10000, false,
-			readl(priv->regs[0] + CARV_Q_MB_CR(priv->q_user)));
+	ret = q_send_cmd_sync(priv, (u32)CMD_FW_STOP, CARVNET_STOP_TIMEOUT_US);
 	if (ret)
 		dev_info(priv->dev, "Waiting Done bit timeout\n");
 
