@@ -259,7 +259,13 @@ enum llce_can_command_id {
 	 * Host removes a destination which is used by the advanced
 	 * routing filters. Stored data of this destination will be lost.
 	 */
-	LLCE_CAN_CMD_REMOVE_AF_DESTINATION
+	LLCE_CAN_CMD_REMOVE_AF_DESTINATION,
+	/**
+	 * The host enables or disables SW FIFO extension.
+	 * Extend the transmission of MBs for internally routed frames via software buffers.
+	 * At least 2 hardware MBs are required for this feature.
+	 */
+	LLCE_CAN_CMD_ENABLE_ROUTING_SW_BUFFERS
 } __packed;
 
 /**
