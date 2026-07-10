@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0+ OR BSD-3-Clause
 /*
- * Copyright 2020-2024 NXP
+ * Copyright 2020-2026 NXP
  */
 
 #include <dt-bindings/mailbox/nxp-llce-mb.h>
@@ -2184,74 +2184,74 @@ static irqreturn_t llce_logger_rx_irq(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
-/* Enable interrupts from tx core to host core for a specific channel.*/
-static void host2tx_enable_interrupt(struct llce_mb *mb, u32 hw_ctrl)
+/* Enable interrupts from FRPE core to host core for a specific channel.*/
+static void host2frpe_enable_interrupt(struct llce_mb *mb, u32 hw_ctrl)
 {
-	void __iomem *hintc2er = LLCE_CORE2CORE_HINTC2ER(mb->core2core);
-	u32 hintc2er_val;
+	void __iomem *hintc3er = LLCE_CORE2CORE_HINTC3ER(mb->core2core);
+	u32 hintc3er_val;
 	unsigned long flags;
 
 	spin_lock_irqsave(&mb->lin_lock, flags);
 
-	hintc2er_val = readl(hintc2er);
-	writel(hintc2er_val | BIT(hw_ctrl), hintc2er);
+	hintc3er_val = readl(hintc3er);
+	writel(hintc3er_val | BIT(hw_ctrl), hintc3er);
 
 	spin_unlock_irqrestore(&mb->lin_lock, flags);
 }
 
-/* Disable interrupts from tx core to host core for a specific channel.*/
-static void host2tx_disable_interrupt(struct llce_mb *mb, u32 hw_ctrl)
+/* Disable interrupts from FRPE core to host core for a specific channel.*/
+static void host2frpe_disable_interrupt(struct llce_mb *mb, u32 hw_ctrl)
 {
-	void __iomem *hintc2er = LLCE_CORE2CORE_HINTC2ER(mb->core2core);
-	u32 hintc2er_val;
+	void __iomem *hintc3er = LLCE_CORE2CORE_HINTC3ER(mb->core2core);
+	u32 hintc3er_val;
 	unsigned long flags;
 
 	spin_lock_irqsave(&mb->lin_lock, flags);
 
-	hintc2er_val = readl(hintc2er);
-	writel(hintc2er_val & (~(BIT(hw_ctrl))), hintc2er);
+	hintc3er_val = readl(hintc3er);
+	writel(hintc3er_val & (~(BIT(hw_ctrl))), hintc3er);
 
 	spin_unlock_irqrestore(&mb->lin_lock, flags);
 }
 
-/* Clear existing interrupts from tx core for a specific channel.*/
-static void host2tx_clear_interrupt(struct llce_mb *mb, u32 hw_ctrl)
+/* Clear existing interrupts from FRPE core for a specific channel.*/
+static void host2frpe_clear_interrupt(struct llce_mb *mb, u32 hw_ctrl)
 {
-	void __iomem *hintc2r = LLCE_CORE2CORE_HINTC2R(mb->core2core);
+	void __iomem *hintc3r = LLCE_CORE2CORE_HINTC3R(mb->core2core);
 	unsigned long flags;
 
 	spin_lock_irqsave(&mb->lin_lock, flags);
 
-	writel(BIT(hw_ctrl), hintc2r);
+	writel(BIT(hw_ctrl), hintc3r);
 
 	spin_unlock_irqrestore(&mb->lin_lock, flags);
 }
 
-static void host2tx_assert_interrupt(struct llce_mb *mb, u32 hw_ctrl)
+static void host2frpe_assert_interrupt(struct llce_mb *mb, u32 hw_ctrl)
 {
-	void __iomem *c2inthr = LLCE_CORE2CORE_C2INTHR(mb->core2core);
-	u32 c2inthr_val;
+	void __iomem *c3inthr = LLCE_CORE2CORE_C3INTHR(mb->core2core);
+	u32 c3inthr_val;
 	unsigned long flags;
 
 	spin_lock_irqsave(&mb->lin_lock, flags);
 
-	c2inthr_val = readl(c2inthr);
-	writel(c2inthr_val | BIT(hw_ctrl), c2inthr);
+	c3inthr_val = readl(c3inthr);
+	writel(c3inthr_val | BIT(hw_ctrl), c3inthr);
 
 	spin_unlock_irqrestore(&mb->lin_lock, flags);
 }
 
-static u32 host2tx_get_interrupts_status(struct llce_mb *mb)
+static u32 host2frpe_get_interrupts_status(struct llce_mb *mb)
 {
-	void __iomem *c2inthr = LLCE_CORE2CORE_C2INTHR(mb->core2core);
-	u32 c2inthr_val;
+	void __iomem *c3inthr = LLCE_CORE2CORE_C3INTHR(mb->core2core);
+	u32 c3inthr_val;
 	unsigned long flags;
 
 	spin_lock_irqsave(&mb->lin_lock, flags);
-	c2inthr_val = readl(c2inthr);
+	c3inthr_val = readl(c3inthr);
 	spin_unlock_irqrestore(&mb->lin_lock, flags);
 
-	return c2inthr_val;
+	return c3inthr_val;
 }
 
 static enum llce_lin_return get_config_lin_cmd_status(struct llce_mb *mb, u8 hw_ctrl)
@@ -2284,8 +2284,8 @@ static int lin_init(struct llce_mb *mb)
 
 	/* Disable and clear interrupts for LIN channels. */
 	for (i = 0; i < LLCE_LINFLEX_NR; i++) {
-		host2tx_disable_interrupt(mb, i);
-		host2tx_clear_interrupt(mb, i);
+		host2frpe_disable_interrupt(mb, i);
+		host2frpe_clear_interrupt(mb, i);
 	}
 
 	/* Enable interrupt forwarding.
@@ -2297,13 +2297,13 @@ static int lin_init(struct llce_mb *mb)
 	/* Trigger an interrupt using CORE2CORE module
 	 * on the corresponding bit of the command.
 	 */
-	host2tx_assert_interrupt(mb, hw_ctrl);
+	host2frpe_assert_interrupt(mb, hw_ctrl);
 
 	/* Wait for command completion.
-	 * The command is completed when core 2 clears interrupt bit
-	 * for LIN channel 0.
+	 * The command is completed when the FRPE core (core 3) clears the
+	 * interrupt bit for LIN channel 0.
 	 */
-	ret = readx_poll_timeout(host2tx_get_interrupts_status, mb, val,
+	ret = readx_poll_timeout(host2frpe_get_interrupts_status, mb, val,
 				 !(val & BIT(hw_ctrl)),
 				 LLCE_DELAY_US, LLCE_DELAY_US * retries);
 
@@ -2327,15 +2327,15 @@ static int lin_init(struct llce_mb *mb)
 static irqreturn_t llce_mb_lin_handler(int irq, void *data)
 {
 	struct llce_mb *mb = data;
-	void __iomem *hintc2r = LLCE_CORE2CORE_HINTC2R(mb->core2core);
-	u32 i, hintc2r_val;
+	void __iomem *hintc3r = LLCE_CORE2CORE_HINTC3R(mb->core2core);
+	u32 i, hintc3r_val;
 	unsigned int virq;
 	unsigned long wa_lock_flags;
 	irqreturn_t ret = IRQ_NONE;
 
-	hintc2r_val = readl(hintc2r);
+	hintc3r_val = readl(hintc3r);
 	for (i = 0; i < LLCE_LINFLEX_NR; i++) {
-		if (!(hintc2r_val & BIT(i)))
+		if (!(hintc3r_val & BIT(i)))
 			continue;
 		virq = irq_find_mapping(mb->domain, LLCE_LIN_HWTCRL_TO_IRQ(i));
 		if (!virq)
@@ -2355,8 +2355,8 @@ static void llce_mb_lin_irq_mask(struct irq_data *data)
 	struct llce_mb *mb = data->chip_data;
 	u8 hw_ctrl = (u8)LLCE_IRQ_TO_LIN_HWCTRL(data->hwirq);
 
-	host2tx_disable_interrupt(mb, hw_ctrl);
-	host2tx_clear_interrupt(mb, hw_ctrl);
+	host2frpe_disable_interrupt(mb, hw_ctrl);
+	host2frpe_clear_interrupt(mb, hw_ctrl);
 }
 
 static void llce_mb_lin_irq_unmask(struct irq_data *data)
@@ -2364,7 +2364,7 @@ static void llce_mb_lin_irq_unmask(struct irq_data *data)
 	struct llce_mb *mb = data->chip_data;
 	u8 hw_ctrl = (u8)LLCE_IRQ_TO_LIN_HWCTRL(data->hwirq);
 
-	host2tx_enable_interrupt(mb, hw_ctrl);
+	host2frpe_enable_interrupt(mb, hw_ctrl);
 }
 
 static struct irq_chip llce_mb_lin_irq_chip = {
