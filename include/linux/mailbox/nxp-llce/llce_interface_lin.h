@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0+ */
-/* Copyright 2020-2024 NXP */
+/* Copyright 2020-2026 NXP */
 #ifndef LLCE_INTERFACE_LIN_H
 #define LLCE_INTERFACE_LIN_H
 
@@ -109,7 +109,33 @@ enum llce_lin_command_id {
 	 */
 	LLCE_LIN_CMD_TX_CONFIRMATION,
 	/** Enables interrupt forwarding for all LIN Channels. */
-	LLCE_LIN_CMD_ENABLEINTRFORWARD
+	LLCE_LIN_CMD_ENABLEINTRFORWARD,
+	/** For future additions to LIN. */
+	LLCE_LIN_CMD_RESERVED0,
+	/** For future additions to LIN. */
+	LLCE_LIN_CMD_RESERVED1,
+	/** For future additions to LIN. */
+	LLCE_LIN_CMD_RESERVED2,
+	/** For future additions to LIN. */
+	LLCE_LIN_CMD_RESERVED3,
+	/** For future additions to LIN. */
+	LLCE_LIN_CMD_RESERVED4,
+	/**
+	 * Sets controller to UART mode and starts buffering.
+	 * LIN functionality is disabled. UART RX is buffered in the
+	 * specified location.
+	 */
+	LLCE_LIN_CMD_UART_ENABLEBUFFER,
+	/** UART Buffer has been filled to capacity */
+	LLCE_LIN_CMD_UART_NOTIFICATION_BUFFER_FULL,
+	/** UART Timeout expired on buffer */
+	LLCE_LIN_CMD_UART_NOTIFICATION_BUFFER_TIMEOUT,
+	/** UART interrupt forwarding */
+	LLCE_LIN_CMD_UART_NOTIFICATION_INTERRUPT,
+	/** UART data has been overwritten */
+	LLCE_LIN_CMD_UART_NOTIFICATION_DATAOVERWRITE,
+	/** UART has been dropped */
+	LLCE_LIN_CMD_UART_NOTIFICATION_DATALOST
 } __packed;
 
 /**
