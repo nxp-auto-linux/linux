@@ -10,6 +10,8 @@
  */
 
 #include <linux/bitfield.h>
+#include <linux/cache.h>
+#include <linux/compiler.h>
 #include <linux/dma-map-ops.h>
 #include <linux/io.h>
 #include <linux/iopoll.h>
@@ -221,6 +223,9 @@
 /* Use reserved DMA pool for DMA coherent allocations on non-coherent devices */
 #define ESDHC_FLAG_ERR053438		BIT(20)
 
+/* SoC interconnect can hold Normal-NC writes past the command write */
+#define ESDHC_FLAG_ERR053440		BIT(21)
+
 enum wp_types {
 	ESDHC_WP_NONE,		/* no WP, neither controller nor gpio */
 	ESDHC_WP_CONTROLLER,	/* mmc controller internal WP */
@@ -329,7 +334,8 @@ static struct esdhc_soc_data usdhc_s32n_data = {
 			| ESDHC_FLAG_HAVE_CAP1 | ESDHC_FLAG_HS200
 			| ESDHC_FLAG_HS400 | ESDHC_FLAG_HS400_ES
 			| ESDHC_FLAG_SKIP_ERR004536
-			| ESDHC_FLAG_ERR053438,
+			| ESDHC_FLAG_ERR053438
+			| ESDHC_FLAG_ERR053440,
 };
 
 static struct esdhc_soc_data usdhc_imx7ulp_data = {
@@ -391,6 +397,9 @@ struct pltfm_imx_data {
 	} multiblock_status;
 	u32 is_ddr;
 	struct pm_qos_request pm_qos_req;
+
+	/* ERR053440: used size (bytes) of the ADMA descriptor table. */
+	size_t adma_table_used_sz;
 };
 
 static const struct of_device_id imx_esdhc_dt_ids[] = {
@@ -637,6 +646,107 @@ static u32 esdhc_readl_le(struct sdhci_host *host, int reg)
 	return val;
 }
 
+/*
+ * S32N79 interconnect can keep Normal-NC writes (ADMA descriptor table
+ * and align/bounce buffer, both from dma_alloc_coherent) in a per-
+ * destination, per-cache-line write buffer past the moment the command-
+ * register Device write has drained, so the controller can fetch a stale
+ * descriptor word. Flush by chasing a read on every cache line of each
+ * coherent region the controller is about to consume.
+ */
+static __always_inline void esdhc_chase_read(const void *addr)
+{
+	u32 v = *(const volatile u32 *)addr;
+
+	OPTIMIZER_HIDE_VAR(v);
+}
+
+static void esdhc_chase_region(const void *base, size_t size)
+{
+	const u8 *p = base;
+	const u8 *end = p + size;
+
+	for (; p < end; p += L1_CACHE_BYTES)
+		esdhc_chase_read(p);
+}
+
+/*
+ * sdhci_adma_table_pre() only writes through the align/bounce buffer when
+ * an SG entry's address or length is not SDHCI_ADMA2_ALIGN-aligned. For
+ * page-aligned eMMC traffic that never happens and the buffer stays clean
+ * across commands - no need to chase it.
+ */
+static bool esdhc_align_buffer_used(struct mmc_data *data)
+{
+	struct scatterlist *sg;
+	int i;
+
+	for_each_sg(data->sg, sg, data->sg_len, i)
+		if ((sg->offset | sg->length) & (SDHCI_ADMA2_ALIGN - 1))
+			return true;
+	return false;
+}
+
+/*
+ * Track the exact byte length of the ADMA descriptor list as it is built.
+ * Descriptors are written sequentially from the start of the table, so after
+ * each write *desc points just past the last byte written; the final write of
+ * a command therefore leaves the exact list length in
+ * imx_data->adma_table_used_sz, which esdhc_chase_dma_descriptors() uses to
+ * chase precisely what was written.
+ */
+static void esdhc_adma_write_desc(struct sdhci_host *host, void **desc,
+				  dma_addr_t addr, int len, unsigned int cmd)
+{
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct pltfm_imx_data *imx_data = sdhci_pltfm_priv(pltfm_host);
+
+	/* sdhci_adma_write_desc() advances *desc past the descriptor it wrote. */
+	sdhci_adma_write_desc(host, desc, addr, len, cmd);
+	imx_data->adma_table_used_sz = (u8 *)*desc - (u8 *)host->adma_table;
+}
+
+static void esdhc_chase_dma_descriptors(struct sdhci_host *host)
+{
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct pltfm_imx_data *imx_data = sdhci_pltfm_priv(pltfm_host);
+	struct mmc_data *data;
+	size_t used;
+
+	if (!host->cmd || !host->cmd->data)
+		return;
+	/*
+	 * Only a command that actually programmed the ADMA table has anything
+	 * to drain.
+	 */
+	if (!(host->flags & SDHCI_REQ_USE_DMA) ||
+	    !(host->flags & SDHCI_USE_ADMA))
+		return;
+
+	if (dev_is_dma_coherent(mmc_dev(host->mmc)))
+		return;
+
+	/*
+	 * esdhc_adma_write_desc() recorded the exact byte length of the
+	 * descriptor list. It is reset to 0 after each chase, so a stale value
+	 * cannot leak to a later command; a DMA/ADMA command that reaches here
+	 * must have programmed descriptors, hence used > 0.
+	 */
+	used = imx_data->adma_table_used_sz;
+	if (WARN_ON_ONCE(!used))
+		return;
+	imx_data->adma_table_used_sz = 0;
+
+	data = host->cmd->data;
+
+	dma_wmb();
+
+	esdhc_chase_region(host->adma_table, used);
+
+	if (host->align_buffer && esdhc_align_buffer_used(data))
+		esdhc_chase_region(host->align_buffer, host->align_buffer_sz);
+}
+
 static void esdhc_writel_le(struct sdhci_host *host, u32 val, int reg)
 {
 	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
@@ -858,6 +968,9 @@ static void esdhc_writew_le(struct sdhci_host *host, u16 val, int reg)
 		if ((host->cmd->opcode == MMC_SET_BLOCK_COUNT) &&
 		    (imx_data->socdata->flags & ESDHC_FLAG_MULTIBLK_NO_INT))
 			imx_data->multiblock_status = MULTIBLK_IN_PROCESS;
+
+		if (imx_data->socdata->flags & ESDHC_FLAG_ERR053440)
+			esdhc_chase_dma_descriptors(host);
 
 		if (esdhc_is_usdhc(imx_data))
 			writel(val << 16,
@@ -1486,6 +1599,7 @@ static struct sdhci_ops sdhci_esdhc_ops = {
 	.reset = esdhc_reset,
 	.irq = esdhc_cqhci_irq,
 	.dump_vendor_regs = esdhc_dump_debug_regs,
+	.adma_write_desc = esdhc_adma_write_desc,
 };
 
 static const struct sdhci_pltfm_data sdhci_esdhc_imx_pdata = {
