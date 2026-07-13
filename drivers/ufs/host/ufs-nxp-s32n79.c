@@ -4,14 +4,18 @@
  *
  */
 
+#include <linux/cache.h>
 #include <linux/clk.h>
+#include <linux/compiler.h>
 #include <linux/dma-map-ops.h>
+#include <linux/dma-mapping.h>
 #include <linux/iopoll.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/of_reserved_mem.h>
 #include <linux/platform_device.h>
+#include <ufs/ufshci.h>
 
 #include "ufshcd-pltfrm.h"
 #include "ufshcd-dwc.h"
@@ -71,16 +75,21 @@
 /* Use reserved DMA pool for coherent DMA allocations on non-coherent devices. */
 #define UFS_S32N79_QUIRK_ERR053438	BIT(0)
 
+/* Chase-read DMA descriptors so queued Normal-NC writes drain before doorbell. */
+#define UFS_S32N79_QUIRK_ERR053440	BIT(1)
+
 /**
  * struct s32n_ufs - S32N79 UFS host controller data
  * @hba: UFS host controller instance
  * @reg_scm: SCM register base address
+ * @quirks: driver-private quirks from match data
  * @mphy_boot_mode: MPHY boot mode configuration
  */
 struct s32n_ufs {
 	struct ufs_hba *hba;
 	void __iomem *reg_scm;
 	struct clk *core_clk;
+	u32 quirks;
 	u8 mphy_boot_mode;
 };
 
@@ -384,6 +393,91 @@ out:
 	return err;
 }
 
+/*
+ * S32N79 interconnect can keep Normal-NC writes (UTRD/UCD/UTMRD updates)
+ * in a per-destination, per-cache-line write buffer past the point at
+ * which the doorbell Device write drains, so the controller may fetch
+ * stale descriptor words. Flush by chasing a read on every cache line
+ * of each region just written.
+ */
+static __always_inline void ufs_s32n_chase_read(const void *addr)
+{
+	u32 v = *(const volatile u32 *)addr;
+
+	OPTIMIZER_HIDE_VAR(v);
+}
+
+static void ufs_s32n_chase_region(const void *base, size_t size)
+{
+	const u8 *p = base;
+	const u8 *end = p + size;
+
+	for (; p < end; p += L1_CACHE_BYTES)
+		ufs_s32n_chase_read(p);
+}
+
+/*
+ * ERR053440 is worked around only on hosts flagged in match data, and only
+ * when non-coherent.
+ */
+static bool ufs_s32n_err053440(struct ufs_hba *hba)
+{
+	struct s32n_ufs *ufs = ufshcd_get_variant(hba);
+
+	return (ufs->quirks & UFS_S32N79_QUIRK_ERR053440) &&
+	       !dev_is_dma_coherent(hba->dev);
+}
+
+static void ufs_s32n_setup_xfer_req(struct ufs_hba *hba, int tag,
+				    bool is_scsi_cmd)
+{
+	struct ufshcd_lrb *lrbp = &hba->lrb[tag];
+	struct utp_transfer_req_desc *utrd = lrbp->utr_descriptor_ptr;
+	size_t prdt_bytes = 0;
+	size_t cmd_upiu_len;
+	u16 prdt_len;
+	u16 dsl;
+
+	if (!ufs_s32n_err053440(hba))
+		return;
+
+	dma_wmb();
+
+	/*
+	 * The controller fetches the 32-byte transaction header plus the Data
+	 * Segment that follows it in the Command UPIU.
+	 */
+	dsl = be16_to_cpu(lrbp->ucd_req_ptr->header.data_segment_length);
+	cmd_upiu_len = sizeof(struct utp_upiu_req) + dsl;
+	ufs_s32n_chase_region(lrbp->ucd_req_ptr, cmd_upiu_len);
+
+	ufs_s32n_chase_region(lrbp->ucd_rsp_ptr, sizeof(struct utp_upiu_rsp));
+
+	/*
+	 * Read prd_table_length from UTRD with a single volatile load: it
+	 * doubles as the chase of UTRD's one cache line (UFSHCI 3.0 UTRD is
+	 * 32 B) and yields the count used to scope the PRDT chase below.
+	 */
+	prdt_len = le16_to_cpu(*(const volatile __le16 *)&utrd->prd_table_length);
+
+	if (prdt_len) {
+		prdt_bytes = (hba->quirks & UFSHCD_QUIRK_PRDT_BYTE_GRAN) ?
+			     prdt_len : prdt_len * ufshcd_sg_entry_size(hba);
+		ufs_s32n_chase_region(lrbp->ucd_prdt_ptr, prdt_bytes);
+	}
+}
+
+static void ufs_s32n_setup_task_mgmt(struct ufs_hba *hba, int tag, u8 tm_func)
+{
+	struct utp_task_req_desc *utmrd = hba->utmrdl_base_addr + tag;
+
+	if (!ufs_s32n_err053440(hba))
+		return;
+
+	dma_wmb();
+	ufs_s32n_chase_region(utmrd, sizeof(*utmrd));
+}
+
 struct s32n79_match_data {
 	const struct ufs_hba_variant_ops *vops;
 	unsigned short sg_tablesize;
@@ -407,6 +501,7 @@ static int ufs_s32n_init(struct ufs_hba *hba)
 
 	ufs->hba = hba;
 	ufs->mphy_boot_mode = MPHY_BOOT_NONE;
+	ufs->quirks = data ? data->quirks : 0;
 
 	hba->quirks |= UFSHCD_QUIRK_BROKEN_AUTO_HIBERN8 | UFSHCD_QUIRK_PERFORM_LINK_STARTUP_ONCE;
 	hba->spm_lvl = UFS_PM_LVL_5;
@@ -453,18 +548,21 @@ static struct ufs_hba_variant_ops ufs_hba_s32n79_vops = {
 	.name = "s32n79",
 	.init = ufs_s32n_init,
 	.link_startup_notify = ufs_s32n_link_startup_notify,
+	/* ERR053440 */
+	.setup_xfer_req = ufs_s32n_setup_xfer_req,
+	.setup_task_mgmt = ufs_s32n_setup_task_mgmt,
 };
 
 static const struct s32n79_match_data ufs_s32n79_data = {
 	.vops = &ufs_hba_s32n79_vops,
 	.sg_tablesize = SG_ALL,
-	.quirks = UFS_S32N79_QUIRK_ERR053438,
+	.quirks = UFS_S32N79_QUIRK_ERR053438 | UFS_S32N79_QUIRK_ERR053440,
 };
 
 static const struct s32n79_match_data ufs_s32n79_virt_data = {
 	.vops = &ufs_hba_s32n79_vops,
 	.sg_tablesize = 120,
-	.quirks = UFS_S32N79_QUIRK_ERR053438,
+	.quirks = UFS_S32N79_QUIRK_ERR053438 | UFS_S32N79_QUIRK_ERR053440,
 };
 
 static const struct of_device_id ufs_s32n79_match[] = {
