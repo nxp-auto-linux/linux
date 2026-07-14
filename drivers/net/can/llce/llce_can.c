@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: GPL-2.0+ OR BSD-3-Clause
-/* Copyright 2020-2024 NXP */
+/* Copyright 2020-2024, 2026 NXP */
 #include <linux/can/dev.h>
 #include <linux/can/dev/llce_can_common.h>
 #include <linux/clk.h>
 #include <linux/ctype.h>
 #include <linux/ethtool.h>
+#include <linux/iopoll.h>
 #include <linux/kernel.h>
 #include <linux/mailbox/nxp-llce/llce_can.h>
 #include <linux/mailbox/nxp-llce/llce_mailbox.h>
@@ -13,15 +14,15 @@
 #include <linux/module.h>
 #include <linux/moduleparam.h>
 #include <linux/platform_device.h>
-#include <linux/processor.h>
 #include <linux/stringify.h>
 #include <net/devlink.h>
 #include <linux/phy/phy.h>
 
 /* 10 ms timeout on all channels */
-#define CHAN_TIMEOUT			10
-#define LLCE_STATE_TRANSITION_NS	(500 * NSEC_PER_MSEC)
-#define LLCE_CAN_DRV_NAME		"llce_can"
+#define CHAN_TIMEOUT				10
+#define LLCE_STATE_TRANSITION_US		(500 * USEC_PER_MSEC)
+#define LLCE_STATE_TRANSITION_POLL_INTERVAL_US	USEC_PER_MSEC
+#define LLCE_CAN_DRV_NAME			"llce_can"
 
 #define LLCE_CBT_PRESDIV_OFFSET		23U
 #define LLCE_CBT_RJW_OFFSET		16U
@@ -218,19 +219,9 @@ static bool state_transition(struct mbox_chan *conf_chan,
 	return (msg.fw_cmd.cmd.cmd_list.get_controller_mode.controller_state == state);
 }
 
-static bool state_transition_timeout(struct mbox_chan *conf_chan,
-				     enum llce_can_ctrl_state state,
-				     ktime_t timeout)
-{
-	ktime_t cur = ktime_get();
-
-	return state_transition(conf_chan, state) || ktime_after(cur, timeout);
-}
-
 static int set_controller_mode(struct mbox_chan *conf_chan,
 			       enum llce_can_state_transition mode)
 {
-	ktime_t timeout = ktime_add_ns(ktime_get(), LLCE_STATE_TRANSITION_NS);
 	struct device *dev = llce_can_chan_dev(conf_chan);
 	struct mbox_client *cl = conf_chan->cl;
 	struct llce_can *llce = container_of(cl, struct llce_can, config_client);
@@ -248,6 +239,7 @@ static int set_controller_mode(struct mbox_chan *conf_chan,
 			},
 		}
 	};
+	bool reached;
 	int ret;
 
 	if (mode == LLCE_CAN_T_STOP) {
@@ -264,8 +256,11 @@ static int set_controller_mode(struct mbox_chan *conf_chan,
 		return ret;
 	}
 
-	spin_until_cond(state_transition_timeout(conf_chan, exp_state, timeout));
-	if (!state_transition(conf_chan, exp_state)) {
+	ret = read_poll_timeout(state_transition, reached, reached,
+				LLCE_STATE_TRANSITION_POLL_INTERVAL_US,
+				LLCE_STATE_TRANSITION_US, false, conf_chan,
+				exp_state);
+	if (ret) {
 		dev_err(dev, "Failed the transition to %s state\n", mode_str);
 		return -EIO;
 	}
