@@ -851,7 +851,8 @@
 			};
 
 			llce_uart0: serial@43c08000 {
-				compatible = "nxp,s32cc-linflexuart";
+				compatible = "nxp,s32g2-linflexuart",
+					     "fsl,s32v234-linflexuart";
 				reg = <0x7 0x0 0x0 0x400>;
 				reg-names = "llce_uart_base";
 				clocks = <&clks S32CC_SCMI_CLK_LINFLEX_LIN>,
@@ -860,11 +861,11 @@
 				pinctrl-0 = <&llce_uart0_pins>;
 				pinctrl-names = "default";
 				interrupts-extended = <&llce_mb LLCE_MB_LINFLEXD_IRQ_0>;
-				status = "disabled";
 			};
 
 			llce_uart1: serial@43c080400 {
-				compatible = "nxp,s32cc-linflexuart";
+				compatible = "nxp,s32g2-linflexuart",
+					     "fsl,s32v234-linflexuart";
 				reg = <0x8 0x0 0x0 0x400>;
 				reg-names = "llce_uart_base";
 				clocks = <&clks S32CC_SCMI_CLK_LINFLEX_LIN>,
@@ -877,7 +878,8 @@
 			};
 
 			llce_uart2: serial@43c08800 {
-				compatible = "nxp,s32cc-linflexuart";
+				compatible = "nxp,s32g2-linflexuart",
+					     "fsl,s32v234-linflexuart";
 				reg = <0x9 0x0 0x0 0x400>;
 				reg-names = "llce_uart_base";
 				clocks = <&clks S32CC_SCMI_CLK_LINFLEX_LIN>,
@@ -890,7 +892,8 @@
 			};
 
 			llce_uart3: serial@43c08c00 {
-				compatible = "nxp,s32cc-linflexuart";
+				compatible = "nxp,s32g2-linflexuart",
+					     "fsl,s32v234-linflexuart";
 				reg = <0x10 0x0 0x0 0x400>;
 				reg-names = "llce_uart_base";
 				clocks = <&clks S32CC_SCMI_CLK_LINFLEX_LIN>,
