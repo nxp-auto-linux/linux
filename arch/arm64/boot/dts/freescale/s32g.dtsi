@@ -504,7 +504,7 @@
 				#interrupt-cells = <1>;
 				interrupt-parent = <&gic>;
 				interrupts = <GIC_SPI 171 IRQ_TYPE_LEVEL_HIGH>,
-					<GIC_SPI 172 IRQ_TYPE_LEVEL_HIGH>,
+					<GIC_SPI 173 IRQ_TYPE_LEVEL_HIGH>,
 					<GIC_SPI 174 IRQ_TYPE_LEVEL_HIGH>,
 					<GIC_SPI 175 IRQ_TYPE_LEVEL_HIGH>,
 					<GIC_SPI 176 IRQ_TYPE_LEVEL_HIGH>,
@@ -861,6 +861,7 @@
 				pinctrl-0 = <&llce_uart0_pins>;
 				pinctrl-names = "default";
 				interrupts-extended = <&llce_mb LLCE_MB_LINFLEXD_IRQ_0>;
+				status = "disabled";
 			};
 
 			llce_uart1: serial@43c080400 {
