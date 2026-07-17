@@ -12,6 +12,9 @@
 	#address-cells = <2>;
 	#size-cells = <2>;
 
+	/* SoC interconnect requires non-posted device MMIO machine-wide. */
+	nonposted-mmio;
+
 	aliases {
 		serial0 = &uart0;
 		serial5 = &uart5;
