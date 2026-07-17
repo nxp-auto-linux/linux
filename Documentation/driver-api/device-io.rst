@@ -324,6 +324,9 @@ On many platforms and buses (e.g. PCI), writes issued through ioremap()
 mappings are posted, which means that the CPU does not wait for the write to
 actually reach the target device before retiring the write instruction.
 
+On arm64, a platform can instead have the default ioremap() mapping mode
+promoted to non-posted; see `ioremap_np()` below.
+
 On many platforms, I/O accesses must be aligned with respect to the access
 size; failure to do so will result in an exception or unpredictable results.
 
@@ -386,6 +389,13 @@ require this particular mapping mode to work correctly. These platforms set the
 semantics and portable drivers should use an abstraction that automatically
 selects it where appropriate (see the `Higher-level ioremap abstractions`_
 section below).
+
+On arm64, a platform can have every Device-nGnRE ioremap() mapping promoted to
+Device-nGnRnE (non-posted), rather than tagging individual buses or resources,
+by setting the ``nonposted-mmio`` property on the device tree root node. This
+also covers ioremap() callers that do not go through a struct resource. The
+per-resource ``IORESOURCE_MEM_NONPOSTED`` path still applies but is redundant
+in that case.
 
 The bare ioremap_np() is only available on some architectures; on others, it
 always returns NULL. Drivers should not normally use it, unless they are
