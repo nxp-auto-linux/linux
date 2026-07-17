@@ -35,6 +35,7 @@
 
 #include <asm/acpi.h>
 #include <asm/fixmap.h>
+#include <asm/io.h>
 #include <asm/cpu.h>
 #include <asm/cputype.h>
 #include <asm/daifflags.h>
@@ -193,6 +194,19 @@ static void __init setup_machine_fdt(phys_addr_t dt_phys)
 		 */
 		while (true)
 			cpu_relax();
+	}
+
+	/*
+	 * A "nonposted-mmio" property on the root node is the machine-wide form
+	 * of the standard per-bus "nonposted-mmio" binding handled per resource
+	 * in drivers/of/address.c: it promotes every Device-nGnRE ioremap()
+	 * mapping to Device-nGnRnE. Unlike the per-resource path, it also covers
+	 * ioremap() callers that do not map through a struct resource.
+	 */
+	if (of_get_flat_dt_prop(of_get_flat_dt_root(),
+				"nonposted-mmio", NULL)) {
+		arm64_ioremap_force_nonposted = true;
+		pr_info("Forcing non-posted Device-nGnRnE for ioremap() device MMIO\n");
 	}
 
 	/* Early fixups are done, map the FDT as read-only now */

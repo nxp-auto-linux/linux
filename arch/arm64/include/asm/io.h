@@ -290,6 +290,9 @@ static inline void __iomem *ioremap_prot(phys_addr_t phys, size_t size,
 			       user_prot_val & PTE_ATTRINDX_MASK);
 	return __ioremap_prot(phys, size, prot);
 }
+
+extern bool arm64_ioremap_force_nonposted;
+
 #define ioremap_prot ioremap_prot
 
 #define ioremap(addr, size)	\
