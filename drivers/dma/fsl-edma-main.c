@@ -3,7 +3,7 @@
  * drivers/dma/fsl-edma.c
  *
  * Copyright 2013-2014 Freescale Semiconductor, Inc.
- * Copyright 2024-2025 NXP
+ * Copyright 2024-2026 NXP
  *
  * Driver for the Freescale eDMA engine with flexible channel multiplexing
  * capability for DMA request sources. The eDMA block can be found on some
@@ -18,6 +18,7 @@
 #include <linux/of.h>
 #include <linux/of_dma.h>
 #include <linux/dma-mapping.h>
+#include <linux/dma-map-ops.h>
 #include <linux/pm_runtime.h>
 #include <linux/pm_domain.h>
 #include <linux/property.h>
@@ -635,7 +636,9 @@ static struct fsl_edma_drvdata s32n79_rcu_data5 = {
 static struct fsl_edma_drvdata s32n79_coss_data5 = {
 	.dmamuxs = 4,
 	.flags = FSL_EDMA_DRV_EDMA4 | FSL_EDMA_DRV_TCD64 | FSL_EDMA_DRV_MUX_SWAP |
-		FSL_EDMA_DRV_MUX_F | FSL_EDMA_DRV_ERRIRQ_SHARE,
+		FSL_EDMA_DRV_MUX_F | FSL_EDMA_DRV_ERRIRQ_SHARE |
+		/* Workaround for ERR053438 and ERR053440. */
+		FSL_EDMA_DRV_MATTR_COHERENT,
 	.chreg_space_sz = 0x10000,
 	.chreg_off = 0x0,
 	.mpreg_off = 0x200000,
@@ -760,6 +763,16 @@ static int fsl_edma_probe(struct platform_device *pdev)
 	fsl_edma->drvdata = drvdata;
 	fsl_edma->n_chans = chans;
 	mutex_init(&fsl_edma->fsl_edma_mutex);
+
+	/*
+	 * The CHn_MATTR coherency workaround only helps when the engine is
+	 * itself in the coherency domain. An instance that declares it must
+	 * therefore be dma-coherent, or the workaround would be silently wrong.
+	 */
+	if ((drvdata->flags & FSL_EDMA_DRV_MATTR_COHERENT) &&
+	    !dev_is_dma_coherent(&pdev->dev))
+		return dev_err_probe(&pdev->dev, -EINVAL,
+				     "FSL_EDMA_DRV_MATTR_COHERENT set but node is not marked dma-coherent in DT\n");
 
 	fsl_edma->membase = devm_platform_ioremap_resource(pdev, 0);
 	if (IS_ERR(fsl_edma->membase))
