@@ -2,7 +2,7 @@
 //
 // Copyright (c) 2013-2014 Freescale Semiconductor, Inc
 // Copyright (c) 2017 Sysam, Angelo Dureghello  <angelo@sysam.it>
-// Copyright 2023, 2025 NXP
+// Copyright 2023, 2025-2026 NXP
 
 #include <linux/cleanup.h>
 #include <linux/clk.h>
@@ -944,6 +944,13 @@ int fsl_edma_alloc_chan_resources(struct dma_chan *chan)
 	if (ret)
 		goto err_errirq;
 
+	/*
+	 * A coherent instance runs its AXI transactions in the coherency domain
+	 * via CHn_MATTR.
+	 */
+	if (fsl_edma_drvflags(fsl_chan) & FSL_EDMA_DRV_MATTR_COHERENT)
+		edma_writel_chreg(fsl_chan, EDMA_V3_CH_MATTR_COHERENT, ch_mattr);
+
 	return 0;
 
 err_errirq:
@@ -981,6 +988,10 @@ void fsl_edma_free_chan_resources(struct dma_chan *chan)
 	fsl_chan->is_sw = false;
 	fsl_chan->srcid = 0;
 	fsl_chan->is_remote = false;
+
+	if (fsl_edma_drvflags(fsl_chan) & FSL_EDMA_DRV_MATTR_COHERENT)
+		edma_writel_chreg(fsl_chan, 0, ch_mattr);
+
 	if (fsl_edma_drvflags(fsl_chan) & FSL_EDMA_DRV_HAS_CHCLK)
 		clk_disable_unprepare(fsl_chan->clk);
 

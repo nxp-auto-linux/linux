@@ -2,7 +2,7 @@
 /*
  * Copyright 2013-2014 Freescale Semiconductor, Inc.
  * Copyright 2018 Angelo Dureghello <angelo@sysam.it>
- * Copyright 2023, 2025 NXP
+ * Copyright 2023, 2025-2026 NXP
  */
 #ifndef _FSL_EDMA_COMMON_H_
 #define _FSL_EDMA_COMMON_H_
@@ -94,6 +94,25 @@
 #define EDMA_V3_MP_HRS		(0x0C)
 #define EDMA_V4_MP_HRS		(0x10)
 #define EDMA_V3_MP_HRS_CH(ch)	BIT(ch)
+
+#define EDMA_V3_CH_MATTR_RCACHE_BUFFERABLE	BIT(0)
+#define EDMA_V3_CH_MATTR_RCACHE_CACHEABLE	BIT(1)
+#define EDMA_V3_CH_MATTR_RCACHE_RALLOCATE	BIT(2)
+#define EDMA_V3_CH_MATTR_RCACHE_WALLOCATE	BIT(3)
+#define EDMA_V3_CH_MATTR_WCACHE_BUFFERABLE	BIT(4)
+#define EDMA_V3_CH_MATTR_WCACHE_CACHEABLE	BIT(5)
+#define EDMA_V3_CH_MATTR_WCACHE_RALLOCATE	BIT(6)
+#define EDMA_V3_CH_MATTR_WCACHE_WALLOCATE	BIT(7)
+
+#define EDMA_V3_CH_MATTR_COHERENT					\
+	(EDMA_V3_CH_MATTR_RCACHE_BUFFERABLE |				\
+	 EDMA_V3_CH_MATTR_RCACHE_CACHEABLE |				\
+	 EDMA_V3_CH_MATTR_RCACHE_RALLOCATE |				\
+	 EDMA_V3_CH_MATTR_RCACHE_WALLOCATE |				\
+	 EDMA_V3_CH_MATTR_WCACHE_BUFFERABLE |				\
+	 EDMA_V3_CH_MATTR_WCACHE_CACHEABLE |				\
+	 EDMA_V3_CH_MATTR_WCACHE_RALLOCATE |				\
+	 EDMA_V3_CH_MATTR_WCACHE_WALLOCATE)
 
 enum fsl_edma_pm_state {
 	RUNNING = 0,
@@ -243,6 +262,12 @@ struct fsl_edma_desc {
  */
 #define FSL_EDMA_DRV_MUX_ODD_EVEN	BIT(17)
 #define FSL_EDMA_DRV_MUX_F		BIT(18)
+/*
+ * Make eDMA accesses appear cacheable/coherent on the bus by programming the
+ * transaction attributes through CHn_MATTR. This refers to that register
+ * mechanism only, not to placing a TBU in front of the eDMA.
+ */
+#define FSL_EDMA_DRV_MATTR_COHERENT	BIT(19)
 
 #define FSL_EDMA_DRV_EDMA3	(FSL_EDMA_DRV_SPLIT_REG |	\
 				 FSL_EDMA_DRV_BUS_8BYTE |	\
