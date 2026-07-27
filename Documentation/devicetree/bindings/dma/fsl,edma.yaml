@@ -89,6 +89,8 @@ properties:
       eDMA are implemented in big endian mode, otherwise in little mode.
     type: boolean
 
+  dma-coherent: true
+
 required:
   - "#dma-cells"
   - compatible
@@ -308,6 +310,9 @@ allOf:
           const: 2
         dma-channels:
           const: 32
+      required:
+        # The COSS eDMA drives its transactions through the coherency domain.
+        - dma-coherent
 
 unevaluatedProperties: false
 
