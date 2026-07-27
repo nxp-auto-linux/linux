@@ -299,6 +299,14 @@ struct fsl_edma_drvdata {
 	u32			chans_per_mux;
 	int			(*setup_irq)(struct platform_device *pdev,
 					     struct fsl_edma_engine *fsl_edma);
+	/*
+	 * setup_xfer: SoC-specific fix-up run after the channel's TCDs have
+	 * been written to memory, and before the engine can fetch them.
+	 * Optional; left NULL on platforms that need nothing, so the common path
+	 * pays no cost.
+	 */
+	void			(*setup_xfer)(struct fsl_edma_chan *fsl_chan,
+						 struct fsl_edma_desc *fsl_desc);
 };
 
 struct fsl_edma_engine {
@@ -564,5 +572,7 @@ int fsl_edma_alloc_chan_resources(struct dma_chan *chan);
 void fsl_edma_free_chan_resources(struct dma_chan *chan);
 void fsl_edma_cleanup_vchan(struct dma_device *dmadev);
 void fsl_edma_setup_regs(struct fsl_edma_engine *edma);
+void fsl_edma_chase_desc(struct fsl_edma_chan *fsl_chan,
+			 struct fsl_edma_desc *fsl_desc);
 
 #endif /* _FSL_EDMA_COMMON_H_ */
