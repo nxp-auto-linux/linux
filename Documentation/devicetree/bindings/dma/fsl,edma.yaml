@@ -91,6 +91,13 @@ properties:
 
   dma-coherent: true
 
+  memory-region:
+    maxItems: 1
+    description:
+      Reserved DMA pool used for eDMA coherent descriptor (TCD) allocations
+      when the eDMA controller is not DMA coherent. Required on S32N79 RCU
+      eDMA as a workaround for ERR053438.
+
 required:
   - "#dma-cells"
   - compatible
@@ -283,6 +290,25 @@ allOf:
           const: 2
         dma-channels:
           const: 16
+    else:
+      properties:
+        memory-region: false
+
+  # On the RCU eDMA the ERR053438 workaround pool is only needed when the
+  # controller is not in the coherency domain. If it is not dma-coherent the
+  # memory-region is mandatory; a coherent instance (e.g. behind an SMMU) may
+  # omit it.
+  - if:
+      properties:
+        compatible:
+          contains:
+            const: nxp,s32n79-rcu-edma5
+      not:
+        required:
+          - dma-coherent
+    then:
+      required:
+        - memory-region
 
   - if:
       properties:
