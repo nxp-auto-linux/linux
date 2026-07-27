@@ -10,6 +10,7 @@
 #include <linux/module.h>
 #include <linux/slab.h>
 #include <linux/dma-mapping.h>
+#include <linux/dma-map-ops.h>
 #include <linux/pm_runtime.h>
 #include <linux/pm_domain.h>
 
@@ -571,6 +572,51 @@ static void fsl_edma_set_tcd_regs(struct fsl_edma_chan *fsl_chan, void *tcd)
 	edma_cp_tcd_to_reg(fsl_chan, tcd, csr);
 }
 
+/*
+ * ERR053440: the interconnect can buffer the driver's Normal-NC TCD stores
+ * past write completion, so an eDMA that autonomously fetches a chained (E_SG)
+ * TCD from DDR may read stale words. A read to a line with a pending buffered
+ * write drains it to the PoC, so read back every cache line of each descriptor
+ * before the engine can fetch it.
+ * The workaround is not necessary if FSL_EDMA_DRV_MATTR_COHERENT is set. The
+ * erratum applies when non-cacheable memory is used.
+ */
+void fsl_edma_chase_desc(struct fsl_edma_chan *fsl_chan,
+			 struct fsl_edma_desc *fsl_desc)
+{
+	size_t tcd_size = (fsl_edma_drvflags(fsl_chan) & FSL_EDMA_DRV_TCD64) ?
+				sizeof(struct fsl_edma_hw_tcd64) :
+				sizeof(struct fsl_edma_hw_tcd);
+	unsigned int i, first;
+
+	if (dev_is_dma_coherent(fsl_chan->vchan.chan.device->dev))
+		return;
+
+	/*
+	 * Skip the first TCD for a plain sg chain (it is register-loaded, never
+	 * fetched from DDR); cyclic refetches it on wrap, so chase it there.
+	 */
+	first = fsl_desc->iscyclic ? 0 : 1;
+	if (first >= fsl_desc->n_tcds)
+		return;
+
+	/* Order the TCD stores ahead of the draining read-backs. */
+	dma_wmb();
+
+	for (i = first; i < fsl_desc->n_tcds; i++) {
+		const u8 *p = fsl_desc->tcd[i].vtcd;
+		const u8 *end = p + tcd_size;
+
+		/*
+		 * READ_ONCE() is a volatile access, so the compiler must emit
+		 * the load; that load is the side effect that drains the NC
+		 * write buffer.
+		 */
+		for (; p < end; p += L1_CACHE_BYTES)
+			(void)READ_ONCE(*(const u32 *)p);
+	}
+}
+
 static inline
 void fsl_edma_fill_tcd(struct fsl_edma_chan *fsl_chan,
 		       struct fsl_edma_hw_tcd *tcd, dma_addr_t src, dma_addr_t dst,
@@ -759,6 +805,9 @@ struct dma_async_tx_descriptor *fsl_edma_prep_dma_cyclic(
 		dma_buf_next += period_len;
 	}
 
+	if (fsl_chan->edma->drvdata->setup_xfer)
+		fsl_chan->edma->drvdata->setup_xfer(fsl_chan, fsl_desc);
+
 	return vchan_tx_prep(&fsl_chan->vchan, &fsl_desc->vdesc, flags);
 }
 
@@ -856,6 +905,9 @@ struct dma_async_tx_descriptor *fsl_edma_prep_slave_sg(
 		}
 	}
 
+	if (fsl_chan->edma->drvdata->setup_xfer)
+		fsl_chan->edma->drvdata->setup_xfer(fsl_chan, fsl_desc);
+
 	return vchan_tx_prep(&fsl_chan->vchan, &fsl_desc->vdesc, flags);
 }
 
@@ -879,6 +931,9 @@ struct dma_async_tx_descriptor *fsl_edma_prep_memcpy(struct dma_chan *chan,
 	fsl_edma_fill_tcd(fsl_chan, fsl_desc->tcd[0].vtcd, dma_src, dma_dst,
 			fsl_edma_get_tcd_attr(DMA_SLAVE_BUSWIDTH_32_BYTES),
 			32, len, 0, 1, 1, 32, 0, true, true, false);
+
+	if (fsl_chan->edma->drvdata->setup_xfer)
+		fsl_chan->edma->drvdata->setup_xfer(fsl_chan, fsl_desc);
 
 	return vchan_tx_prep(&fsl_chan->vchan, &fsl_desc->vdesc, flags);
 }
