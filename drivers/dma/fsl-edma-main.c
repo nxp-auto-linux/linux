@@ -632,6 +632,8 @@ static struct fsl_edma_drvdata s32n79_rcu_data5 = {
 	.chreg_space_sz = 0x10000,
 	.chreg_off = 0x10000,
 	.setup_irq = fsl_edma3_irq_init,
+	/* ERR053440: drain the NC write buffer before the eDMA fetches a TCD. */
+	.setup_xfer = fsl_edma_chase_desc,
 };
 
 static struct fsl_edma_drvdata s32n79_coss_data5 = {
