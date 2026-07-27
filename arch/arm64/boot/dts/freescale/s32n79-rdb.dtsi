@@ -62,9 +62,15 @@
 			status = "disabled";
 		};
 
+		/*
+		 * Shared no-map coherent pool for the consumers that are not in
+		 * the coherency domain: UFS (ufshc/ufshci0-3), uSDHC0 and the RCU
+		 * eDMA. The RCU eDMA allocates its transfer-control descriptors
+		 * (TCDs) from here; grow the pool if a use case needs more.
+		 */
 		dma_pool: dma-pool@80000000 {
 			compatible = "shared-dma-pool";
-			reg = <0x0 0x80000000 0x0 0x80000>;
+			reg = <0x0 0x80000000 0x0 0x100000>; /* 1 MB */
 			no-map;
 		};
 	};
@@ -105,6 +111,10 @@
 &edma_coss {
 	/* COSS eDMA is an NCORE3-coherent master (ERR053438/ERR053440). */
 	dma-coherent;
+};
+
+&edma_rcu {
+	memory-region = <&dma_pool>;
 };
 
 &carv0_partition0 {
