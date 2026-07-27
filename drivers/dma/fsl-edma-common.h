@@ -268,6 +268,12 @@ struct fsl_edma_desc {
  * mechanism only, not to placing a TBU in front of the eDMA.
  */
 #define FSL_EDMA_DRV_MATTR_COHERENT	BIT(19)
+/*
+ * ERR053438: place coherent TCDs in a no-map reserved pool.
+ * Not necessary if FSL_EDMA_DRV_MATTR_COHERENT is set. The erratum applies when
+ * non-cacheable memory is used.
+ */
+#define FSL_EDMA_DRV_ERR053438		BIT(20)
 
 #define FSL_EDMA_DRV_EDMA3	(FSL_EDMA_DRV_SPLIT_REG |	\
 				 FSL_EDMA_DRV_BUS_8BYTE |	\

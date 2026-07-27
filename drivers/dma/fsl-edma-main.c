@@ -17,6 +17,7 @@
 #include <linux/clk.h>
 #include <linux/of.h>
 #include <linux/of_dma.h>
+#include <linux/of_reserved_mem.h>
 #include <linux/dma-mapping.h>
 #include <linux/dma-map-ops.h>
 #include <linux/pm_runtime.h>
@@ -627,7 +628,7 @@ static struct fsl_edma_drvdata s32n79_rcu_data5 = {
 	.dmamuxs = 2,
 	.flags = FSL_EDMA_DRV_EDMA4 | FSL_EDMA_DRV_TCD64 |
 		 FSL_EDMA_DRV_MUX_SWAP | FSL_EDMA_DRV_MUX_ODD_EVEN |
-		 FSL_EDMA_DRV_ERRIRQ_SHARE,
+		 FSL_EDMA_DRV_ERRIRQ_SHARE | FSL_EDMA_DRV_ERR053438,
 	.chreg_space_sz = 0x10000,
 	.chreg_off = 0x10000,
 	.setup_irq = fsl_edma3_irq_init,
@@ -730,6 +731,34 @@ detach:
 	return -EINVAL;
 }
 
+static void fsl_edma_release_reserved_mem(void *dev)
+{
+	of_reserved_mem_device_release(dev);
+}
+
+/*
+ * ERR053438: bind the TCD dma_pool to the no-map reserved region named by the
+ * "memory-region" phandle. Coherent instances are skipped.
+ */
+static int fsl_edma_init_reserved_mem(struct device *dev,
+				      const struct fsl_edma_drvdata *drvdata)
+{
+	int ret;
+
+	if (!(drvdata->flags & FSL_EDMA_DRV_ERR053438))
+		return 0;
+
+	if (dev_is_dma_coherent(dev))
+		return 0;
+
+	ret = of_reserved_mem_device_init(dev);
+	if (ret)
+		return dev_err_probe(dev, ret,
+				     "ERR053438: failed to attach reserved DMA pool\n");
+
+	return devm_add_action_or_reset(dev, fsl_edma_release_reserved_mem, dev);
+}
+
 static int fsl_edma_probe(struct platform_device *pdev)
 {
 	struct device_node *np = pdev->dev.of_node;
@@ -763,6 +792,10 @@ static int fsl_edma_probe(struct platform_device *pdev)
 	fsl_edma->drvdata = drvdata;
 	fsl_edma->n_chans = chans;
 	mutex_init(&fsl_edma->fsl_edma_mutex);
+
+	ret = fsl_edma_init_reserved_mem(&pdev->dev, drvdata);
+	if (ret)
+		return ret;
 
 	/*
 	 * The CHn_MATTR coherency workaround only helps when the engine is
