@@ -102,6 +102,11 @@
 	no-sdio;
 };
 
+&edma_coss {
+	/* COSS eDMA is an NCORE3-coherent master (ERR053438/ERR053440). */
+	dma-coherent;
+};
+
 &carv0_partition0 {
 	nxp,stack-size = <8>;
 };
