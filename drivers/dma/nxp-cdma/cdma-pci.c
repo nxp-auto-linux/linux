@@ -37,9 +37,9 @@
 /*
  * Threaded IRQ handler — shared by all BD rings within one SI.
  *
- * Runs in process context so we can safely call complete(). Uses writeback
- * descriptors in DMA-coherent memory to detect completion and errors,
- * avoiding all PCIe register reads on the hot path.
+ * Runs in process context so we can safely call complete(). Completion and
+ * error status comes from DMA-coherent writebacks, avoiding a PCIe register
+ * read for each completed request.
  *
  * SIIDR is cleared unconditionally.
  * Per-ring completion is detected via the writeback W bit in DMA-coherent
@@ -59,7 +59,43 @@ static irqreturn_t cdma_irq_thread(int irq, void *data)
 	cdma_si_write(si, CDMA_SIIDR, ~0U);
 
 	for (i = 0; i < si->num_rings; i++) {
+		bool async_completed = false;
+
 		ring = &si->rings[i];
+
+		while (cdma_ring_async_pending(ring)) {
+			bool pass_completed = false;
+
+			cdma_ring_read(ring, CDMA_BaIDR);
+
+			while (1) {
+				struct cdma_async_req *req;
+				int result;
+
+				req = cdma_ring_complete_async(ring, &status);
+				if (!req)
+					break;
+				async_completed = true;
+				pass_completed = true;
+
+				if (status & (CDMA_WB_DE | CDMA_WB_SPE | CDMA_WB_DPE)) {
+					dev_err(&si->cdev->pdev->dev,
+						"ring%u IRQ writeback error: status=0x%08x\n",
+						i, status);
+					result = -EIO;
+				} else {
+					result = 0;
+				}
+
+				cdma_async_req_complete(req, result);
+			}
+
+			if (!pass_completed)
+				break;
+		}
+
+		if (cdma_ring_async_pending(ring) || async_completed)
+			continue;
 
 		/* Writeback overwrites SD at the position recorded during submit */
 		wb = ring->bd_base + ring->wb_idx * CDMA_BD_ENTRY_SIZE;
@@ -67,7 +103,6 @@ static irqreturn_t cdma_irq_thread(int irq, void *data)
 		status = le32_to_cpu(READ_ONCE(wb->status));
 
 		if (!(status & CDMA_WB_W)) {
-			struct cdma_async_req *req;
 			int result;
 
 			/* W=0 means writeback complete */
@@ -80,20 +115,8 @@ static irqreturn_t cdma_irq_thread(int irq, void *data)
 				result = 0;
 			}
 
-			/*
-			 * Dispatch by ring->async_req: if an async req is
-			 * in flight, defer completion to its work queue so
-			 * page-unmap + ki_complete() run outside IRQ
-			 * context. Otherwise signal the sync waiter via
-			 * ring->done.
-			 */
-			req = READ_ONCE(ring->async_req);
-			if (req) {
-				cdma_async_req_complete(req, result);
-			} else {
-				ring->result = result;
-				complete(&ring->done);
-			}
+			ring->result = result;
+			complete(&ring->done);
 		}
 	}
 

@@ -173,10 +173,9 @@ static void cdma_zc_unmap(struct cdma_device *cdev, struct cdma_zc *zc,
 
 /*
  * Async deferred completion. Called from a workqueue after the IRQ
- * handler decides the ring's in-flight async req is done. Owns the
- * lifecycle of @req: detaches it from the ring under the appropriate
- * per-direction mutex, unmaps the pinned user buffer, signals the
- * kiocb, and frees @req.
+ * handler decides an async request is done. Owns the lifecycle of
+ * @req: unmaps the pinned user buffer, signals the kiocb, and frees
+ * @req.
  *
  * ki_complete() must NOT be called under the pipe lock: completion
  * handlers in io_uring may resubmit on the same fd, which would
@@ -190,15 +189,9 @@ static void cdma_async_complete_work(struct work_struct *work)
 	struct cdma_device *cdev = ring->si->cdev;
 	struct cdma_pipe *pipe = ring->pipe;
 	enum dma_data_direction dir = req->dir;
-	struct mutex *lock = (dir == DMA_TO_DEVICE) ? &pipe->tx_lock
-						    : &pipe->rx_lock;
 	struct kiocb *iocb = req->iocb;
 	int result = req->result;
 	size_t len = req->len;
-
-	mutex_lock(lock);
-	ring->async_req = NULL;
-	mutex_unlock(lock);
 
 	cdma_zc_unmap(cdev, &req->zc, dir);
 
@@ -272,7 +265,7 @@ static ssize_t cdma_tx_write_sync(struct cdma_pipe *pipe, struct file *filp,
 
 	mutex_lock(&pipe->tx_lock);
 
-	if (pipe->tx_ring->async_req) {
+	if (cdma_ring_async_pending(pipe->tx_ring)) {
 		mutex_unlock(&pipe->tx_lock);
 		return -EBUSY;
 	}
@@ -351,11 +344,12 @@ static ssize_t cdma_tx_write_async(struct cdma_pipe *pipe, struct kiocb *iocb,
 	req->iocb = iocb;
 	req->dir = DMA_TO_DEVICE;
 	req->len = count;
+	INIT_LIST_HEAD(&req->node);
 	INIT_WORK(&req->complete_work, cdma_async_complete_work);
 
 	mutex_lock(&pipe->tx_lock);
 
-	if (pipe->tx_ring->async_req) {
+	if (!cdma_ring_async_has_space(pipe->tx_ring, CDMA_BD_PAIR)) {
 		mutex_unlock(&pipe->tx_lock);
 		kfree(req);
 		return -EAGAIN;
@@ -371,12 +365,8 @@ static ssize_t cdma_tx_write_async(struct cdma_pipe *pipe, struct kiocb *iocb,
 	cdma_build_sg_pipe_sender(pipe->tx_ring, req->zc.sgt_dma, count,
 				  pipe->hw_pipe_id, 0);
 
-	/* Publish async_req BEFORE submit so the IRQ handler sees it */
-	WRITE_ONCE(pipe->tx_ring->async_req, req);
-
-	ret = cdma_ring_submit(pipe->tx_ring, CDMA_BD_PAIR);
+	ret = cdma_ring_submit_async(pipe->tx_ring, req, CDMA_BD_PAIR);
 	if (ret) {
-		WRITE_ONCE(pipe->tx_ring->async_req, NULL);
 		mutex_unlock(&pipe->tx_lock);
 		cdma_zc_unmap(cdev, &req->zc, DMA_TO_DEVICE);
 		kfree(req);
@@ -417,7 +407,7 @@ static ssize_t cdma_tx_write_iter(struct kiocb *iocb, struct iov_iter *from)
 	return cdma_tx_write_async(pipe, iocb, uaddr, count);
 }
 
-/* EPOLLOUT ready when the TX ring is free (no async req pending). */
+/* EPOLLOUT ready when the TX ring has room for another async request. */
 static __poll_t cdma_tx_poll(struct file *filp,
 			     struct poll_table_struct *wait)
 {
@@ -425,7 +415,7 @@ static __poll_t cdma_tx_poll(struct file *filp,
 
 	poll_wait(filp, &pipe->tx_wq, wait);
 
-	if (!READ_ONCE(pipe->tx_ring->async_req))
+	if (cdma_ring_async_has_space(pipe->tx_ring, CDMA_BD_PAIR))
 		return EPOLLOUT | EPOLLWRNORM;
 
 	return 0;
@@ -467,7 +457,7 @@ static ssize_t cdma_rx_read_sync(struct cdma_pipe *pipe, struct file *filp,
 
 	mutex_lock(&pipe->rx_lock);
 
-	if (pipe->rx_ring->async_req) {
+	if (cdma_ring_async_pending(pipe->rx_ring)) {
 		mutex_unlock(&pipe->rx_lock);
 		return -EBUSY;
 	}
@@ -536,11 +526,12 @@ static ssize_t cdma_rx_read_async(struct cdma_pipe *pipe, struct kiocb *iocb,
 	req->iocb = iocb;
 	req->dir = DMA_FROM_DEVICE;
 	req->len = count;
+	INIT_LIST_HEAD(&req->node);
 	INIT_WORK(&req->complete_work, cdma_async_complete_work);
 
 	mutex_lock(&pipe->rx_lock);
 
-	if (pipe->rx_ring->async_req) {
+	if (!cdma_ring_async_has_space(pipe->rx_ring, CDMA_BD_PAIR)) {
 		mutex_unlock(&pipe->rx_lock);
 		kfree(req);
 		return -EAGAIN;
@@ -556,18 +547,15 @@ static ssize_t cdma_rx_read_async(struct cdma_pipe *pipe, struct kiocb *iocb,
 	cdma_build_sg_pipe_receiver(pipe->rx_ring, req->zc.sgt_dma, count,
 				    pipe->hw_pipe_id);
 
-	WRITE_ONCE(pipe->rx_ring->async_req, req);
+	kiocb_set_cancel_fn(iocb, cdma_rx_cancel);
 
-	ret = cdma_ring_submit(pipe->rx_ring, CDMA_BD_PAIR);
+	ret = cdma_ring_submit_async(pipe->rx_ring, req, CDMA_BD_PAIR);
 	if (ret) {
-		WRITE_ONCE(pipe->rx_ring->async_req, NULL);
 		mutex_unlock(&pipe->rx_lock);
 		cdma_zc_unmap(cdev, &req->zc, DMA_FROM_DEVICE);
 		kfree(req);
 		return ret;
 	}
-
-	kiocb_set_cancel_fn(iocb, cdma_rx_cancel);
 
 	mutex_unlock(&pipe->rx_lock);
 	return -EIOCBQUEUED;
@@ -603,7 +591,7 @@ static ssize_t cdma_rx_read_iter(struct kiocb *iocb, struct iov_iter *to)
 	return cdma_rx_read_async(pipe, iocb, uaddr, count);
 }
 
-/* EPOLLIN ready when the RX ring is free (no async req pending). */
+/* EPOLLIN ready when the RX ring has room for another async request. */
 static __poll_t cdma_rx_poll(struct file *filp,
 			     struct poll_table_struct *wait)
 {
@@ -611,7 +599,7 @@ static __poll_t cdma_rx_poll(struct file *filp,
 
 	poll_wait(filp, &pipe->rx_wq, wait);
 
-	if (!READ_ONCE(pipe->rx_ring->async_req))
+	if (cdma_ring_async_has_space(pipe->rx_ring, CDMA_BD_PAIR))
 		return EPOLLIN | EPOLLRDNORM;
 
 	return 0;
