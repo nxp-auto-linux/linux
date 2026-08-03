@@ -12,10 +12,12 @@
 #include <linux/completion.h>
 #include <linux/dmapool.h>
 #include <linux/io.h>
+#include <linux/list.h>
 #include <linux/miscdevice.h>
 #include <linux/mutex.h>
 #include <linux/pci.h>
 #include <linux/scatterlist.h>
+#include <linux/spinlock.h>
 #include <linux/types.h>
 #include <linux/wait.h>
 #include <linux/workqueue.h>
@@ -189,6 +191,13 @@ struct cdma_sge {
  */
 #define CDMA_PIPE_BUF_SIZE	((CDMA_SG_MAX_ENTRIES - 1) * PAGE_SIZE)
 #define CDMA_BD_PAIR		2	/* Every transfer is one SD + one DD */
+/*
+ * One BD is permanently reserved so the ring never fills completely:
+ * PIR == CIR must unambiguously mean "empty". A full ring would also
+ * make PIR meet CIR, so the two states would be indistinguishable.
+ */
+#define CDMA_BD_USABLE_ENTRIES	(CDMA_BD_ENTRIES - 1)
+#define CDMA_ASYNC_MAX_REQS	32
 #define CDMA_POLL_TIMEOUT_US	1000000	/* 1s for register polling (wait_idle) */
 #define CDMA_COMP_TIMEOUT_US	5000000	/* 5s for IRQ completion (threaded handler) */
 #define CDMA_DRV_NAME		"nxp-cdma"
@@ -199,32 +208,27 @@ struct cdma_sge {
 #define CDMA_SGT_SIZE		(CDMA_SG_MAX_ENTRIES * CDMA_SGE_SIZE) /* 16 KiB */
 #define CDMA_SGT_ALIGN		16	/* HW requires 16-byte alignment */
 
-/*
- * Unwind state for a single pin/map/build cycle. Lives on the caller's
- * stack (sync path) or inside a cdma_async_req (async path).
- * cdma_zc_map() fills it on success, cdma_zc_unmap() consumes it.
- */
+/* Zero-copy mapping state owned by a sync or async transfer. */
 struct cdma_zc {
 	struct page **pages;
 	unsigned int nr_pages;
 	struct sg_table sgt;
-	dma_addr_t sgt_dma;	/* DMA addr of HW S/G table */
-	void *sgt_cpu;		/* CPU addr of HW S/G table */
+	dma_addr_t sgt_dma;
+	void *sgt_cpu;
 };
 
-/*
- * Per-submission state for async (io_uring) transfers. Allocated by
- * the async submit path, attached to ring->async_req, and freed by
- * cdma_async_complete_work() after the kiocb is signalled.
- */
+/* Per-submission async state. */
 struct cdma_async_req {
-	struct cdma_ring	*ring;
-	struct kiocb		*iocb;
-	enum dma_data_direction	dir;
-	size_t			len;
-	int			result;
-	struct cdma_zc		zc;
-	struct work_struct	complete_work;
+	struct list_head node;
+	struct cdma_ring *ring;
+	struct kiocb *iocb;
+	enum dma_data_direction dir;
+	size_t len;
+	int result;
+	u16 wb_idx;
+	u16 num_bds;
+	struct cdma_zc zc;
+	struct work_struct complete_work;
 };
 
 /* BD Ring */
@@ -243,18 +247,16 @@ struct cdma_ring {
 	/* SD index of last submitted transfer (writeback location) */
 	u16 wb_idx;
 
-	/* Sync completion tracking (used when async_req is NULL) */
+	/* Sync completion tracking for blocking read/write callers. */
 	struct completion done;
 	int result;
 
-	/*
-	 * Async (io_uring) in-flight request on this ring.
-	 *   NULL - completion goes to ring->done (sync path).
-	 *   !NULL - completion is deferred to async_req's work queue.
-	 * Set by the async submit path under the per-direction mutex
-	 * before kicking BaPIR, cleared by the work function.
-	 */
-	struct cdma_async_req *async_req;
+	/* Multiple in-flight async requests. */
+	struct list_head async_reqs;
+	/* Protects async_reqs and async_pending_* counters. */
+	spinlock_t async_lock;
+	u16 async_pending_bds;
+	u16 async_pending_reqs;
 
 	/* Pipe association */
 	struct cdma_pipe *pipe;
@@ -350,6 +352,12 @@ int cdma_ring_init(struct cdma_ring *ring);
 void cdma_ring_reset(struct cdma_ring *ring);
 void cdma_ring_cancel(struct cdma_ring *ring);
 int cdma_ring_submit(struct cdma_ring *ring, u32 num_bds);
+bool cdma_ring_async_has_space(struct cdma_ring *ring, u32 num_bds);
+bool cdma_ring_async_pending(struct cdma_ring *ring);
+int cdma_ring_submit_async(struct cdma_ring *ring, struct cdma_async_req *req,
+			   u32 num_bds);
+struct cdma_async_req *cdma_ring_complete_async(struct cdma_ring *ring,
+						u32 *status_out);
 int cdma_build_sg_table(struct cdma_device *cdev, struct sg_table *sgt,
 			dma_addr_t *sgt_dma_out, void **sgt_cpu_out);
 void cdma_free_sg_table(struct cdma_device *cdev, void *sgt_cpu,

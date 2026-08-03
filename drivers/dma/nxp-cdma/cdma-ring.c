@@ -26,6 +26,8 @@ int cdma_ring_alloc(struct cdma_ring *ring)
 		return -ENOMEM;
 
 	init_completion(&ring->done);
+	INIT_LIST_HEAD(&ring->async_reqs);
+	spin_lock_init(&ring->async_lock);
 	return 0;
 }
 
@@ -46,6 +48,7 @@ void cdma_ring_free(struct cdma_ring *ring)
  */
 void cdma_ring_reset(struct cdma_ring *ring)
 {
+	unsigned long flags;
 	u32 mr;
 
 	/* Disable ring */
@@ -63,6 +66,12 @@ void cdma_ring_reset(struct cdma_ring *ring)
 	/* Reset software state */
 	ring->pir = 0;
 	ring->wb_idx = 0;
+
+	spin_lock_irqsave(&ring->async_lock, flags);
+	INIT_LIST_HEAD(&ring->async_reqs);
+	ring->async_pending_bds = 0;
+	ring->async_pending_reqs = 0;
+	spin_unlock_irqrestore(&ring->async_lock, flags);
 }
 
 /*
@@ -104,6 +113,7 @@ static int cdma_ring_wait_idle(struct cdma_ring *ring)
 void cdma_ring_cancel(struct cdma_ring *ring)
 {
 	struct pci_dev *pdev = ring->si->cdev->pdev;
+	unsigned long flags;
 	u32 mr;
 
 	/*
@@ -131,6 +141,12 @@ void cdma_ring_cancel(struct cdma_ring *ring)
 	cdma_ring_write(ring, CDMA_BaCIR, 0);
 	ring->pir = 0;
 	ring->wb_idx = 0;
+
+	spin_lock_irqsave(&ring->async_lock, flags);
+	INIT_LIST_HEAD(&ring->async_reqs);
+	ring->async_pending_bds = 0;
+	ring->async_pending_reqs = 0;
+	spin_unlock_irqrestore(&ring->async_lock, flags);
 
 	/* Clear stale interrupt detect */
 	cdma_ring_read(ring, CDMA_BaIDR);
@@ -233,6 +249,111 @@ int cdma_ring_submit(struct cdma_ring *ring, u32 num_bds)
 	cdma_ring_write(ring, CDMA_BaPIR, ring->pir);
 
 	return 0;
+}
+
+static bool cdma_ring_async_has_space_locked(struct cdma_ring *ring,
+					     u32 num_bds)
+{
+	if (!num_bds || num_bds > CDMA_BD_USABLE_ENTRIES)
+		return false;
+
+	if (ring->async_pending_reqs >= CDMA_ASYNC_MAX_REQS)
+		return false;
+
+	return ring->async_pending_bds + num_bds <= CDMA_BD_USABLE_ENTRIES;
+}
+
+bool cdma_ring_async_has_space(struct cdma_ring *ring, u32 num_bds)
+{
+	unsigned long flags;
+	bool has_space;
+
+	spin_lock_irqsave(&ring->async_lock, flags);
+	has_space = cdma_ring_async_has_space_locked(ring, num_bds);
+	spin_unlock_irqrestore(&ring->async_lock, flags);
+
+	return has_space;
+}
+
+bool cdma_ring_async_pending(struct cdma_ring *ring)
+{
+	unsigned long flags;
+	bool pending;
+
+	spin_lock_irqsave(&ring->async_lock, flags);
+	pending = ring->async_pending_reqs > 0;
+	spin_unlock_irqrestore(&ring->async_lock, flags);
+
+	return pending;
+}
+
+int cdma_ring_submit_async(struct cdma_ring *ring, struct cdma_async_req *req,
+			   u32 num_bds)
+{
+	struct pci_dev *pdev = ring->si->cdev->pdev;
+	unsigned long flags;
+	bool was_empty;
+
+	if (!ring->bd_base || num_bds > CDMA_BD_ENTRIES)
+		return -EINVAL;
+
+	if (pci_channel_offline(pdev) || pci_dev_is_disconnected(pdev))
+		return -ENODEV;
+
+	spin_lock_irqsave(&ring->async_lock, flags);
+	if (!cdma_ring_async_has_space_locked(ring, num_bds)) {
+		spin_unlock_irqrestore(&ring->async_lock, flags);
+		return -EAGAIN;
+	}
+
+	was_empty = ring->async_pending_reqs == 0;
+	req->wb_idx = ring->pir;
+	req->num_bds = num_bds;
+	list_add_tail(&req->node, &ring->async_reqs);
+	ring->async_pending_bds += num_bds;
+	ring->async_pending_reqs++;
+	ring->pir = (ring->pir + num_bds) % CDMA_BD_ENTRIES;
+	spin_unlock_irqrestore(&ring->async_lock, flags);
+
+	if (was_empty)
+		cdma_ring_read(ring, CDMA_BaIDR);
+
+	dma_wmb();
+	cdma_ring_write(ring, CDMA_BaPIR, ring->pir);
+
+	return 0;
+}
+
+struct cdma_async_req *cdma_ring_complete_async(struct cdma_ring *ring,
+						u32 *status_out)
+{
+	struct cdma_async_req *req;
+	struct cdma_wb *wb;
+	unsigned long flags;
+	u32 status;
+
+	spin_lock_irqsave(&ring->async_lock, flags);
+	if (list_empty(&ring->async_reqs))
+		goto out;
+
+	req = list_first_entry(&ring->async_reqs, struct cdma_async_req, node);
+	wb = ring->bd_base + req->wb_idx * CDMA_BD_ENTRY_SIZE;
+	dma_rmb();
+	status = le32_to_cpu(READ_ONCE(wb->status));
+	if (status & CDMA_WB_W)
+		goto out;
+
+	list_del_init(&req->node);
+	ring->async_pending_bds -= req->num_bds;
+	ring->async_pending_reqs--;
+	*status_out = status;
+	spin_unlock_irqrestore(&ring->async_lock, flags);
+	return req;
+
+out:
+	spin_unlock_irqrestore(&ring->async_lock, flags);
+
+	return NULL;
 }
 
 static inline void cdma_write_sd(void *bd, u64 addr, u32 length, u32 config)
