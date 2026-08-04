@@ -683,6 +683,89 @@
 			status = "disabled";
 		};
 
+		rcu_mru_l1: mailbox@55820000 {
+			compatible = "nxp,s32n79-rcu-mru";
+			reg = <0x55820000 0x20000>;
+			#mbox-cells = <3>;
+			status = "disabled";
+		};
+
+		rcu_mru_h1: mailbox@55860000 {
+			compatible = "nxp,s32n79-rcu-mru";
+			reg = <0x55860000 0x20000>;
+			#mbox-cells = <3>;
+			interrupt-parent = <&irqsteer_rcu>;
+			interrupts = <451>;
+			status = "disabled";
+		};
+
+		flexllce_can1: flexllce-can1 {
+			compatible = "nxp,s32n79-flexllce-can";
+			memory-region = <&flexllce_hif1_shm>,
+					<&flexllce_hif1_host>,
+					<&flexllce_bootstatus>;
+			memory-region-names = "shm", "host", "boot-status";
+			mboxes = <&rcu_mru_l1 0 0 0>,
+				 <&rcu_mru_l1 0 1 0>,
+				 <&rcu_mru_l1 0 2 0>,
+				 <&rcu_mru_h1 1 0 1>,
+				 <&rcu_mru_h1 0 1 1>,
+				 <&rcu_mru_h1 1 2 1>,
+				 <&rcu_mru_h1 1 1 1>,
+				 <&rcu_mru_h1 0 7 1>,
+				 <&rcu_mru_l1 0 8 0>,
+				 <&rcu_mru_l1 0 10 0>;
+			mbox-names = "cmd", "tx", "rx-ack", "rx", "tx-done",
+				     "txack", "notif0", "notif1", "notif-ack",
+				     "txack-release";
+			nxp,hif-id = <1>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+
+			can@0 {
+				reg = <0>;
+				clocks = <&clks 0xfc>;
+				clock-names = "per";
+				status = "disabled";
+			};
+
+			can@1 {
+				reg = <1>;
+				clocks = <&clks 0xfc>;
+				clock-names = "per";
+				status = "disabled";
+			};
+
+			can@22 {
+				reg = <22>;
+				clocks = <&clks 0xfc>;
+				clock-names = "per";
+				status = "disabled";
+			};
+
+			can@23 {
+				reg = <23>;
+				clocks = <&clks 0xfc>;
+				clock-names = "per";
+				status = "disabled";
+			};
+
+			can@46 {
+				reg = <46>;
+				clocks = <&clks 0xfc>;
+				clock-names = "per";
+				status = "disabled";
+			};
+
+			can@47 {
+				reg = <47>;
+				clocks = <&clks 0xfc>;
+				clock-names = "per";
+				status = "disabled";
+			};
+		};
+
 		linflex0: serial@55ae0000 {
 			compatible = "nxp,s32n79-linflexuart",
 					"fsl,s32v234-linflexuart";
