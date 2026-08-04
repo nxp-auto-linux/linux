@@ -1,0 +1,223 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/net/can/nxp,s32n79-flexllce-can.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: NXP S32N79 FlexLLCE firmware-offloaded CAN host interface
+
+maintainers:
+  - NXP S32 team <linux-s32@nxp.com>
+
+description:
+  On the NXP S32N79 the Cortex-R52 "RCU" real-time cluster runs the FlexLLCE
+  (Flexible Low-Latency Communication Engine) firmware. The firmware owns the
+  FlexCAN peripherals and exposes them to the Cortex-A (Linux) host through one
+  or more Host Interfaces (HIF).
+
+  A HIF is a shared-memory-plus-doorbell transport. CAN frame buffers, the
+  per-HIF command block and the communication-channel descriptor rings live in
+  a reserved-memory region that is mapped by both the Linux host and the RCU
+  core; asynchronous notifications ("doorbells") are exchanged through the
+  Message Receive Unit (MRU) mailbox controller (see
+  Documentation/devicetree/bindings/mailbox/nxp,s32n79-mru.yaml). A single HIF
+  multiplexes several FlexCAN controllers.
+
+  This node describes one HIF. It is a client of the MRU mailbox controller and
+  references the shared-memory region; each CAN controller carried by the HIF
+  is described by a child node. The FlexLLCE firmware is started outside Linux
+  (attach-only) - Linux neither loads nor resets it, and must not touch the
+  MRU control registers, which are owned by the RCU.
+
+properties:
+  compatible:
+    const: nxp,s32n79-flexllce-can
+
+  memory-region:
+    minItems: 3
+    maxItems: 3
+    description:
+      Phandles to the reserved-memory regions used by this HIF. "shm" names
+      the firmware shared-memory structure and descriptor rings, "host" names
+      the host-private scratch region, and "boot-status" names the global
+      FlexLLCE firmware boot-status word.
+
+  memory-region-names:
+    items:
+      - const: shm
+      - const: host
+      - const: boot-status
+
+  mboxes:
+    description:
+      MRU doorbell channels used by this HIF, one entry per name in
+      'mbox-names'. Host-to-RCU doorbells use the sender role, RCU-to-host
+      doorbells use the receiver role (see the MRU '#mbox-cells' specifier).
+      The referenced MRU instances (RCU MRU_L for host->RCU, RCU MRU_H for
+      RCU->host) must be the ones the FlexLLCE firmware is configured to pair
+      with this HIF.
+    minItems: 2
+    maxItems: 11
+
+  mbox-names:
+    description: |
+      Role of each entry in 'mboxes':
+        - "cmd"       host->RCU: submit a command via the command block
+        - "cmdack"    RCU->host: command completed, eReturnValue is valid
+        - "tx"        host->RCU: transmit descriptor(s) enqueued
+        - "tx-done"   RCU->host: transmit descriptor(s) consumed by the firmware
+        - "rx"        RCU->host: received frame descriptor(s) available
+        - "rx-ack"    host->RCU: receive buffer(s) released back to the pool
+        - "txack"     RCU->host: transmit-acknowledge stream (on-wire confirms)
+        - "txack-release" host->RCU: transmit-acknowledge buffer(s) released
+        - "notif0"    RCU->host: notification stream (channel 0)
+        - "notif1"    RCU->host: notification stream (channel 1)
+        - "notif-ack" host->RCU: interrupt-notification buffer(s) released
+      "cmd" is mandatory. "cmdack" is optional: the host may instead poll the
+      command block's return value. "tx"/"tx-done"/"rx"/"rx-ack" are required
+      for data transfer. "txack"/"notif0"/"notif1" are RCU->host streams that
+      must be enabled so the firmware can complete SET_NOTIFICATIONS, which
+      flushes every host interface before returning. Each of those RCU->host
+      streams whose buffers the host consumes has a matching host->RCU release
+      doorbell ("txack-release" for "txack", "notif-ack" for "notif0") so the
+      firmware can recycle the buffer pool; "txack"/"txack-release" together are
+      what let the host bound in-flight transmits to the message-buffer pool.
+    minItems: 2
+    maxItems: 11
+    items:
+      enum: [cmd, cmdack, tx, tx-done, rx, rx-ack, txack, txack-release,
+             notif0, notif1, notif-ack]
+
+  nxp,hif-id:
+    $ref: /schemas/types.yaml#/definitions/uint32
+    enum: [0, 1]
+    description:
+      Index of the FlexLLCE Host Interface that this node represents. Selects
+      which command block and descriptor-ring set within the shared-memory
+      region the driver uses.
+
+  "#address-cells":
+    const: 1
+
+  "#size-cells":
+    const: 0
+
+patternProperties:
+  "^can@([0-9]|[1-3][0-9]|4[0-7])$":
+    type: object
+    $ref: can-controller.yaml#
+    unevaluatedProperties: false
+    description:
+      A FlexCAN controller carried by this HIF. Classic CAN and CAN FD (with
+      bit-rate switching) are supported by the firmware; bit timing is
+      configured at run time through the SocketCAN interface, not in the
+      device tree.
+
+    properties:
+      reg:
+        maxItems: 1
+        description:
+          FlexLLCE hardware controller id served by this HIF (0-47).
+
+      clocks:
+        maxItems: 1
+        description:
+          The controller's protocol-engine clock (CANFD_PE_CLK) - the same
+          "per" clock the corresponding FlexCAN instance uses. Only its rate is
+          read, to compute bit timing; the RCU firmware owns the controller and
+          its clock gating, so Linux does not enable it.
+
+      clock-names:
+        const: per
+
+    required:
+      - reg
+      - clocks
+      - clock-names
+
+required:
+  - compatible
+  - memory-region
+  - memory-region-names
+  - mboxes
+  - mbox-names
+  - nxp,hif-id
+
+additionalProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/interrupt-controller/arm-gic.h>
+
+    // Host-to-RCU doorbells (sender role): the driver only writes mailbox
+    // data registers on this instance.
+    tx_mru: mailbox@40a00000 {
+        compatible = "nxp,s32n79-mru";
+        reg = <0x40a00000 0x40000>;
+        interrupts = <GIC_SPI 704 IRQ_TYPE_LEVEL_HIGH>;
+        #mbox-cells = <3>;
+        clocks = <&clks 0x10a>;
+        clock-names = "ipg";
+    };
+
+    // RCU-to-host doorbells (receiver role): this instance owns the IRQ.
+    // aps0_mru1..4 are reserved by the MRU-MSI controller, so mru5 is used.
+    rx_mru: mailbox@40b40000 {
+        compatible = "nxp,s32n79-mru";
+        reg = <0x40b40000 0x40000>;
+        interrupts = <GIC_SPI 709 IRQ_TYPE_LEVEL_HIGH>;
+        #mbox-cells = <3>;
+        clocks = <&clks 0x10a>;
+        clock-names = "ipg";
+    };
+
+    reserved-memory {
+        #address-cells = <2>;
+        #size-cells = <2>;
+
+        flexllce_hif0_shm: shm@31510000 {
+          reg = <0x0 0x31510000 0x0 0x7000>;
+          no-map;
+        };
+
+        flexllce_hif0_host: shms@315f0000 {
+          reg = <0x0 0x315f0000 0x0 0x3000>;
+          no-map;
+        };
+
+        flexllce_bootstatus: shms@315ff000 {
+          reg = <0x0 0x315ff000 0x0 0x1000>;
+          no-map;
+        };
+    };
+
+    can-hif0 {
+        compatible = "nxp,s32n79-flexllce-can";
+        memory-region = <&flexllce_hif0_shm>, <&flexllce_hif0_host>,
+                <&flexllce_bootstatus>;
+        memory-region-names = "shm", "host", "boot-status";
+        mboxes = <&tx_mru 0 0 0>,  /* cmd     host->RCU */
+                 <&rx_mru 0 0 1>,  /* cmdack  RCU->host */
+                 <&tx_mru 0 1 0>,  /* tx      host->RCU */
+                 <&rx_mru 0 1 1>,  /* tx-done RCU->host */
+                 <&rx_mru 0 2 1>,  /* rx      RCU->host */
+                 <&tx_mru 0 2 0>;  /* rx-ack  host->RCU */
+        mbox-names = "cmd", "cmdack", "tx", "tx-done", "rx", "rx-ack";
+        nxp,hif-id = <0>;
+
+        #address-cells = <1>;
+        #size-cells = <0>;
+
+        can@0 {
+            reg = <0>;
+            clocks = <&clks 0xfc>;
+            clock-names = "per";
+        };
+
+        can@1 {
+            reg = <1>;
+            clocks = <&clks 0xfc>;
+            clock-names = "per";
+        };
+    };
+...
