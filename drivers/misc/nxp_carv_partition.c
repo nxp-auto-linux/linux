@@ -5,7 +5,7 @@
  * This file contains the partition initialization support for the CAR-V
  * accelerator.
  *
- * Copyright 2025 NXP
+ * Copyright 2025-2026 NXP
  */
 
 #include <linux/device.h>
@@ -16,6 +16,7 @@
 #include <linux/of_address.h>
 #include <linux/of_platform.h>
 #include <linux/platform_device.h>
+#include <linux/pm.h>
 
 #define DRIVER_NAME	"carv-partition"
 #define DRIVER_VERSION	"1.0"
@@ -96,6 +97,11 @@
 /* MCT Reset */
 #define CARV_GL_PCR_MRST_MASK			GENMASK(5, 4)
 #define CARV_GL_PCR_MRST_SET(val)		FIELD_PREP(CARV_GL_PCR_MRST_MASK, val)
+
+/* MCT Reset field values */
+#define CARV_GL_PCR_MRST_NONE			0x0	/* No reset */
+#define CARV_GL_PCR_MRST_HOLD			0x1	/* Hold in reset */
+#define CARV_GL_PCR_MRST_PULSE			0x2	/* Pulse reset (self-clear) */
 
 /* Stack Size */
 #define CARV_GL_PCR_STKSZ_MASK			GENMASK(15, 13)
@@ -396,6 +402,64 @@ static ssize_t users_show(struct device *dev, struct device_attribute *attr, cha
 
 static DEVICE_ATTR_RO(users);
 
+/*
+ * carv_partition_set_mrst - Program the MCT Reset (MRST) field of every quartile
+ * @dev: CAR-V partition device
+ * @mrst: MRST field value (CARV_GL_PCR_MRST_*)
+ *
+ * Read-modify-write CARV_GL_PCR so the ISOPART/ISOPOS/STKSZ fields
+ * programmed by carv_config_partition() are preserved.
+ */
+static void carv_partition_set_mrst(struct device *dev, u32 mrst)
+{
+	struct carv_partition_drvdata *priv = dev_get_drvdata(dev);
+
+	for (int i = priv->num_quartiles - 1; i >= 0; i--) {
+		u32 val = readl(priv->regs[i] + CARV_GL_PCR);
+
+		val &= ~CARV_GL_PCR_MRST_MASK;
+		val |= CARV_GL_PCR_MRST_SET(mrst);
+		writel(val, priv->regs[i] + CARV_GL_PCR);
+	}
+}
+
+/*
+ * carv_partition_suspend - CAR-V partition suspend (Suspend To RAM)
+ * @dev: CAR-V partition device
+ *
+ * Hold the MCT of each quartile in reset (MRST = 01b) so the partition
+ * is quiesced before entering low-power mode.
+ */
+static int carv_partition_suspend(struct device *dev)
+{
+	carv_partition_set_mrst(dev, CARV_GL_PCR_MRST_HOLD);
+
+	return 0;
+}
+
+/*
+ * carv_partition_resume - CAR-V partition resume (Suspend To RAM)
+ * @dev: CAR-V partition device
+ *
+ * On resume from Suspend To RAM the CAR-V register state is lost, so:
+ *   1. Pulse the MCT reset (MRST = 10b, self-clearing) to release the
+ *      partition from the hold-in-reset state entered at suspend.
+ *   2. Re-run the full CAR-V register initialization performed at probe
+ *      time (partition config, AHB-Lite port, global interrupts, enable).
+ */
+static int carv_partition_resume(struct device *dev)
+{
+	carv_partition_set_mrst(dev, CARV_GL_PCR_MRST_PULSE);
+
+	carv_init_partition(dev);
+
+	return 0;
+}
+
+static DEFINE_SIMPLE_DEV_PM_OPS(carv_partition_pm_ops,
+				carv_partition_suspend,
+				carv_partition_resume);
+
 static int carv_partition_probe(struct platform_device *pdev)
 {
 	struct carv_partition_drvdata *priv;
@@ -484,6 +548,7 @@ static struct platform_driver carv_partition_driver = {
 	.driver = {
 		.name = DRIVER_NAME,
 		.of_match_table	= carv_partition_of_match,
+		.pm		= pm_sleep_ptr(&carv_partition_pm_ops),
 	},
 	.probe = carv_partition_probe,
 	.remove_new = carv_partition_remove,
