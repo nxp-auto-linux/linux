@@ -73,6 +73,21 @@
 			reg = <0x0 0x80000000 0x0 0x100000>; /* 1 MB */
 			no-map;
 		};
+
+		flexllce_hif1_shm: flexllce-hif-shm@31667000 {
+			reg = <0x0 0x31667000 0x0 0x7000>;
+			no-map;
+		};
+
+		flexllce_hif1_host: flexllce-host@316f0000 {
+			reg = <0x0 0x316f0000 0x0 0x3000>;
+			no-map;
+		};
+
+		flexllce_bootstatus: flexllce-boot-status@316ff000 {
+			reg = <0x0 0x316ff000 0x0 0x1000>;
+			no-map;
+		};
 	};
 };
 

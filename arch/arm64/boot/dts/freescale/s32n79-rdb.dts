@@ -164,3 +164,15 @@
 &hscs_cdma_iep {
 	status = "okay";
 };
+
+&irqsteer_rcu {
+	status = "okay";
+};
+
+&rcu_mru_l1 {
+	status = "okay";
+};
+
+&rcu_mru_h1 {
+	status = "okay";
+};
