@@ -23,7 +23,9 @@ description: |
 
 properties:
   compatible:
-    const: nxp,s32n79-mru
+    enum:
+      - nxp,s32n79-mru
+      - nxp,s32n79-rcu-mru
 
   reg:
     maxItems: 1
@@ -40,8 +42,8 @@ properties:
   clocks:
     maxItems: 1
     description:
-      IPG clock for the MRU instance.
-      with simulator environments.
+      IPG clock for the APS-visible MRU instance. RCU-owned MRU instances do
+      not expose a clock to Linux.
 
   clock-names:
     items:
@@ -52,15 +54,24 @@ properties:
     description: |
       Number of cells in the mbox specifier:
         - cell 0: hardware channel (0-2)
-        - cell 1: mailbox within the channel (0-5)
+        - cell 1: mailbox within the channel (0-5 for nxp,s32n79-mru,
+                  0-15 for nxp,s32n79-rcu-mru)
         - cell 2: role (0 = sender, 1 = receiver)
 
 required:
   - compatible
   - reg
-  - clocks
-  - clock-names
   - "#mbox-cells"
+
+allOf:
+  - if:
+      properties:
+        compatible:
+          const: nxp,s32n79-mru
+    then:
+      required:
+        - clocks
+        - clock-names
 
 additionalProperties: false
 
@@ -76,4 +87,11 @@ examples:
         clocks = <&clks 0x10a>;
         clock-names = "ipg";
         status = "okay";
+    };
+
+    rcu_mru_l1: mailbox@55820000 {
+      compatible = "nxp,s32n79-rcu-mru";
+      reg = <0x55820000 0x20000>;
+      #mbox-cells = <3>;
+      status = "okay";
     };
