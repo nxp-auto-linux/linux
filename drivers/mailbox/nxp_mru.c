@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0 OR BSD-3-Clause
 /*
- * Copyright 2025 NXP
+ * Copyright 2025-2026 NXP
  * NXP MRU (Message Receive Unit) Driver
  *
  * This driver provides mailbox communication where each message
@@ -22,10 +22,13 @@
 
 /* Hardware channels per MRU instance */
 #define MRU_NUM_HW_CHANNELS      3
-/* Mailboxes per hardware channel */
-#define MRU_NUM_MAILBOXES        6
+/* Mailboxes per hardware channel for each variant */
+#define MRU_APS_NUM_MAILBOXES    6
+#define MRU_RCU_NUM_MAILBOXES    16
+/* Maximum mailboxes per hardware channel across variants */
+#define MRU_MAX_MAILBOXES        MRU_RCU_NUM_MAILBOXES
 /* 2 virtual channels per mailbox: sender and receiver roles */
-#define MRU_NUM_VIRT_CHANNELS    (MRU_NUM_HW_CHANNELS * MRU_NUM_MAILBOXES * 2)
+#define MRU_NUM_VIRT_CHANNELS    (MRU_NUM_HW_CHANNELS * MRU_MAX_MAILBOXES * 2)
 
 /* MRU Register Offsets */
 
@@ -42,8 +45,6 @@
 #define MRU_CFG0_IE              BIT(2)
 /* Mailbox Enable bit shift */
 #define MRU_CFG0_MBE_SHIFT       16
-/* Mailbox Enable mask (6 bits) */
-#define MRU_CFG0_MBE_MASK        0x3F
 
 /* MRU MBSTAT Register Bit Fields */
 
@@ -56,8 +57,14 @@
 
 /* Offset between channel register sets */
 #define MRU_CHANNEL_OFFSET       0x10
-/* Base offset for mailbox data registers */
+/* Base offset for mailbox data registers (APS variant) */
 #define MRU_MAILBOX_BASE         0x10000
+/* APS stride == its mailbox base: one 64 KiB slot per channel */
+#define MRU_APS_CH_STRIDE        MRU_MAILBOX_BASE
+
+/* RCU MRU: CH_MB_BASE_ADDR_OVERRIDE base + CH_MB_BASE_ADDR (4 KiB) slot */
+#define MRU_RCU_MAILBOX_BASE     0x11000
+#define MRU_RCU_CH_STRIDE        0x1000
 
 /* MRU Virtual Channel Mapping */
 #define MRU_VIRT_SENDER_OFFSET    0
@@ -68,6 +75,30 @@
 enum mru_role {
 	MRU_ROLE_SENDER = 0,
 	MRU_ROLE_RECEIVER = 1,
+};
+
+/*
+ * Register-layout variant. The mailbox data registers of channel @ch are at
+ * @mb_base + @ch * @mb_ch_stride from the instance base. The APS MRUs place
+ * each channel in its own 64 KiB window; the S32N79 RCU MRUs pack the channel
+ * mailbox regions on a 4 KiB stride after the control block.
+ */
+struct mru_variant {
+	u32 mb_base;
+	u32 mb_ch_stride;
+	unsigned int num_mailboxes;
+};
+
+static const struct mru_variant mru_variant_aps = {
+	.mb_base = MRU_MAILBOX_BASE,
+	.mb_ch_stride = MRU_APS_CH_STRIDE,
+	.num_mailboxes = MRU_APS_NUM_MAILBOXES,
+};
+
+static const struct mru_variant mru_variant_rcu = {
+	.mb_base = MRU_RCU_MAILBOX_BASE,
+	.mb_ch_stride = MRU_RCU_CH_STRIDE,
+	.num_mailboxes = MRU_RCU_NUM_MAILBOXES,
 };
 
 struct mru_chan_data {
@@ -83,20 +114,27 @@ struct mru_dev {
 	struct device *dev;
 	struct clk *ipg_clk;
 	void __iomem *base;
+	const struct mru_variant *variant;
 	int irq;
 	bool irq_requested;
 };
 
 /**
  * mru_mailbox_offset - Calculate mailbox register address
+ * @priv: MRU device instance
  * @ch: Hardware channel number (0-2)
- * @mb: Mailbox number within channel (0-5)
+ * @mb: Mailbox number within channel (0 to num_mailboxes-1)
  *
  * Returns: Register offset for the specified mailbox
  */
-static inline u32 mru_mailbox_offset(unsigned int ch, unsigned int mb)
+static inline u32 mru_mailbox_offset(struct mru_dev *priv, unsigned int ch,
+				     unsigned int mb)
 {
-	return ((ch + 1) * MRU_MAILBOX_BASE + mb * 4);
+	if (WARN_ON_ONCE(ch >= MRU_NUM_HW_CHANNELS ||
+			 mb >= priv->variant->num_mailboxes))
+		return 0;
+
+	return priv->variant->mb_base + ch * priv->variant->mb_ch_stride + mb * 4;
 }
 
 /**
@@ -114,13 +152,16 @@ static inline void __iomem *mru_get_channel_base(struct mru_dev *priv, unsigned 
 /**
  * mru_get_mb_idx - Calculate mailbox index
  * @hw_channel: Hardware channel number (0-2)
- * @mailbox: Mailbox number within channel (0-5)
+ * @mailbox: Mailbox number within channel (0 to num_mailboxes-1)
+ *
+ * Uses a fixed per-channel stride (MRU_MAX_MAILBOXES) so the virtual-channel
+ * numbering is stable regardless of the variant's actual mailbox count.
  *
  * Returns: Physical index for the mailbox
  */
 static inline unsigned int mru_get_mb_idx(unsigned int hw_channel, unsigned int mailbox)
 {
-	return hw_channel * MRU_NUM_MAILBOXES + mailbox;
+	return hw_channel * MRU_MAX_MAILBOXES + mailbox;
 }
 
 /**
@@ -150,7 +191,8 @@ static int mru_send_data(struct mbox_chan *chan, void *data)
 		return -EOPNOTSUPP;
 	}
 
-	mb_addr = mru_mailbox_offset(chan_data->hw_channel, chan_data->mailbox);
+	mb_addr = mru_mailbox_offset(priv, chan_data->hw_channel,
+				     chan_data->mailbox);
 	guard(spinlock_irqsave)(&chan_data->chan_lock);
 	writel(*notification, priv->base + mb_addr);
 
@@ -174,13 +216,13 @@ static irqreturn_t mru_isr(int irq, void *data)
 
 		handled = true;
 
-		for (mb = 0; mb < MRU_NUM_MAILBOXES; mb++) {
+		for (mb = 0; mb < (int)priv->variant->num_mailboxes; mb++) {
 			mb_flag = MRU_MBSTAT_MBF(mb);
 
 			if (!(mbstat & mb_flag))
 				continue;
 
-			mb_addr = mru_mailbox_offset(hw_ch, mb);
+			mb_addr = mru_mailbox_offset(priv, hw_ch, mb);
 			notification = readl(priv->base + mb_addr);
 			/* Find receiver virtual channel */
 			physical_idx = mru_get_mb_idx(hw_ch, mb);
@@ -274,7 +316,7 @@ static void mru_shutdown(struct mbox_chan *chan)
 	cfg0 = readl(chan_base);
 	cfg0 &= ~mbe;
 
-	if ((cfg0 & (MRU_CFG0_MBE_MASK << MRU_CFG0_MBE_SHIFT)) == 0)
+	if ((cfg0 & (GENMASK(priv->variant->num_mailboxes - 1, 0) << MRU_CFG0_MBE_SHIFT)) == 0)
 		cfg0 &= ~(MRU_CFG0_IE | MRU_CFG0_CHE);
 	writel(cfg0, chan_base);
 }
@@ -297,7 +339,8 @@ static struct mbox_chan *mru_xlate(struct mbox_controller *mbox, const struct of
 	 *
 	 * Arguments:
 	 * args[0] = hw_channel (0-2): Hardware channel number
-	 * args[1] = mailbox (0-5):    Mailbox number within the channel
+	 * args[1] = mailbox:          Mailbox number within the channel
+	 *                             (0 to variant num_mailboxes-1)
 	 * args[2] = role (0=sender, 1=receiver): Role for this specific channel
 	 */
 	if (sp->args_count != 3) {
@@ -315,8 +358,9 @@ static struct mbox_chan *mru_xlate(struct mbox_controller *mbox, const struct of
 		return ERR_PTR(-EINVAL);
 	}
 
-	if (mailbox >= MRU_NUM_MAILBOXES) {
-		dev_err(mbox->dev, "Invalid mailbox %d (max %d)\n", mailbox, MRU_NUM_MAILBOXES);
+	if (mailbox >= priv->variant->num_mailboxes) {
+		dev_err(mbox->dev, "Invalid mailbox %d (max %d)\n",
+			mailbox, priv->variant->num_mailboxes - 1);
 		return ERR_PTR(-EINVAL);
 	}
 
@@ -346,6 +390,11 @@ static struct mbox_chan *mru_xlate(struct mbox_controller *mbox, const struct of
 static const struct of_device_id mru_of_match[] = {
 	{
 		.compatible = "nxp,s32n79-mru",
+		.data = &mru_variant_aps,
+	},
+	{
+		.compatible = "nxp,s32n79-rcu-mru",
+		.data = &mru_variant_rcu,
 	},
 	{ } /* sentinel */
 };
@@ -362,12 +411,18 @@ static int mru_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	priv->dev = &pdev->dev;
-	priv->ipg_clk = devm_clk_get_enabled(&pdev->dev, "ipg");
-	if (IS_ERR(priv->ipg_clk)) {
-		dev_err(&pdev->dev, "Failed to get and enable ipg clock: %ld\n",
-				PTR_ERR(priv->ipg_clk));
-		return PTR_ERR(priv->ipg_clk);
-	}
+	priv->variant = of_device_get_match_data(&pdev->dev);
+	if (!priv->variant)
+		return -ENODEV;
+	/*
+	 * The "ipg" clock is optional: instances owned by another subsystem
+	 * (for example the S32N79 RCU MRUs) are clocked externally and expose
+	 * no clock to this core.
+	 */
+	priv->ipg_clk = devm_clk_get_optional_enabled(&pdev->dev, "ipg");
+	if (IS_ERR(priv->ipg_clk))
+		return dev_err_probe(&pdev->dev, PTR_ERR(priv->ipg_clk),
+				     "failed to get and enable ipg clock\n");
 
 	priv->base = devm_platform_ioremap_resource(pdev, 0);
 	if (IS_ERR(priv->base))
