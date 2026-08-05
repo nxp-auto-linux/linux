@@ -85,6 +85,29 @@ static const char * const flexllce_mbox_names[FLEXLLCE_NUM_MBOX] = {
 	[FLEXLLCE_MBOX_CMD]	= "cmd",
 };
 
+/* Communication-table ring status. */
+enum flexllce_ring_status {
+	FLEXLLCE_RING_EMPTY,
+	FLEXLLCE_RING_OPERATIONAL,
+	FLEXLLCE_RING_FULL,
+};
+
+/*
+ * Host-side mirror of a firmware communication channel. The descriptor table
+ * (@table, holding one u32 per descriptor) lives in shared memory and is
+ * written only by the producer; the head/tail indices are private to each
+ * peer. The MRU doorbell carries the descriptor index between peers. This is a
+ * mirror of the firmware's ring so the two stay coherent.
+ */
+struct flexllce_ring {
+	void __iomem		*table;
+	u32			start;
+	u32			stop;
+	u32			wr_idx;		/* head - advanced by the producer */
+	u32			rd_idx;		/* tail - advanced by the consumer */
+	enum flexllce_ring_status status;
+};
+
 /*
  * A shared-memory sub-region reachable from both sides: @base is the host's
  * ioremapped pointer, @phys the RCU-visible physical address the firmware uses.
@@ -121,6 +144,9 @@ struct flexllce_hif {
 	struct flexllce_mem		host;
 	struct flexllce_mem		cmd_arg;	/* command-argument scratch */
 	struct flexllce_mem		txpool;	/* host TX-buffer pool */
+	struct flexllce_ring		tx_ring;
+	struct flexllce_ring		rx_ring;
+	struct flexllce_ring		notif_ring;	/* async notifications */
 	spinlock_t			tx_lock;	/* TX + ack rings, tx_owner[] */
 	spinlock_t			rx_lock;	/* RX and notification rings */
 
@@ -128,6 +154,69 @@ struct flexllce_hif {
 	struct mutex			data_lock;
 	u32				hif_id;
 };
+
+/* Ring helpers - producer/consumer semantics for the shared descriptor rings. */
+
+static void flexllce_ring_init(struct flexllce_ring *r, void __iomem *table,
+			       u32 size)
+{
+	r->table = table;
+	r->start = 0;
+	r->stop = size;
+	r->wr_idx = 0;
+	r->rd_idx = 0;
+	r->status = FLEXLLCE_RING_EMPTY;
+}
+
+static u32 flexllce_ring_next(const struct flexllce_ring *r, u32 idx)
+{
+	if (++idx >= r->stop)
+		idx = r->start;
+	return idx;
+}
+
+/*
+ * Recompute the ring status after an index moves. When the head and tail meet
+ * the ring is at a boundary that only the caller can name: @meet is the state
+ * that a producer's advance (FULL) or a consumer's advance (EMPTY) leaves it in;
+ * otherwise the ring is operational.
+ */
+static void flexllce_ring_set_status(struct flexllce_ring *r,
+				     enum flexllce_ring_status meet)
+{
+	r->status = (r->wr_idx == r->rd_idx) ? meet : FLEXLLCE_RING_OPERATIONAL;
+}
+
+/* Producer: claim the next free descriptor. */
+static int flexllce_ring_get_free(struct flexllce_ring *r, u32 *desc)
+{
+	if (r->status == FLEXLLCE_RING_FULL)
+		return -ENOSPC;
+
+	*desc = r->wr_idx;
+	r->wr_idx = flexllce_ring_next(r, r->wr_idx);
+	flexllce_ring_set_status(r, FLEXLLCE_RING_FULL);
+	return 0;
+}
+
+/* Consumer: take the next full descriptor. */
+static int flexllce_ring_get_full(struct flexllce_ring *r, u32 *desc)
+{
+	if (r->status == FLEXLLCE_RING_EMPTY)
+		return -ENODATA;
+
+	*desc = r->rd_idx;
+	r->rd_idx = flexllce_ring_next(r, r->rd_idx);
+	flexllce_ring_set_status(r, FLEXLLCE_RING_EMPTY);
+	return 0;
+}
+
+/* Consumer: record the producer's head from a received doorbell. */
+static void flexllce_ring_register_full(struct flexllce_ring *r, u32 desc)
+{
+	r->wr_idx = flexllce_ring_next(r, desc);
+	flexllce_ring_set_status(r, FLEXLLCE_RING_FULL);
+}
 
 /*
  * Issue a command through the HIF command block: optionally stage @arg into the
