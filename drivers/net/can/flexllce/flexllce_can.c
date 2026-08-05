@@ -95,11 +95,13 @@ static_assert(FLEXLLCE_TX_DESC_COUNT * sizeof(struct flexllce_tx_data) <=
 /* MRU doorbell channels used by a HIF, indexed by mbox-names order. */
 enum flexllce_mbox {
 	FLEXLLCE_MBOX_CMD,	/* host -> RCU: submit a command */
+	FLEXLLCE_MBOX_RX,	/* RCU -> host: frames received */
 	FLEXLLCE_NUM_MBOX
 };
 
 static const char * const flexllce_mbox_names[FLEXLLCE_NUM_MBOX] = {
 	[FLEXLLCE_MBOX_CMD]	= "cmd",
+	[FLEXLLCE_MBOX_RX]	= "rx",
 };
 
 struct flexllce_chan;
@@ -168,9 +170,16 @@ struct flexllce_hif {
 	struct flexllce_ring		notif_ring;	/* async notifications */
 	spinlock_t			tx_lock;	/* TX + ack rings, tx_owner[] */
 	spinlock_t			rx_lock;	/* RX and notification rings */
+	struct net_device		*napi_dev;	/* dummy netdev for RX NAPI */
+	struct napi_struct		napi;
 
 	/* Data-path mailboxes are held only while at least one netdev is up. */
 	struct mutex			data_lock;
+	/*
+	 * Direct firmware-instance -> netdev map for the RX/notification hot
+	 * path.
+	 */
+	struct net_device		*inst_ndev[FLEXLLCE_MAX_INSTANCE];
 	u32				hif_id;
 };
 
@@ -562,6 +571,134 @@ static void flexllce_chan_teardown(struct flexllce_chan *chan)
 	flexllce_send_cmd(hif, FLEXLLCE_CMD_STOP, chan->instance, NULL, 0);
 	flexllce_wait_stopped(chan);
 	flexllce_send_cmd(hif, FLEXLLCE_CMD_DEINIT, chan->instance, NULL, 0);
+}
+
+/*
+ * Demux a firmware instance to its netdev. Called per received frame and per
+ * notification on the NAPI poll's hot path.
+ */
+static struct net_device *flexllce_find_ndev(struct flexllce_hif *hif,
+					     u8 instance)
+{
+	if (instance >= FLEXLLCE_MAX_INSTANCE)
+		return NULL;
+	return hif->inst_ndev[instance];
+}
+
+static bool flexllce_read_shm(struct flexllce_hif *hif, u32 buf_phys,
+			      void *dst, size_t len)
+{
+	u32 off = buf_phys - hif->shm_phys;
+
+	if (off > hif->shm_size - len)
+		return false;
+
+	memcpy_fromio(dst, (u8 __iomem *)hif->shm + off, len);
+	return true;
+}
+
+/* Build and deliver one received frame from an RX mailbox buffer. */
+static void flexllce_rx_one(struct flexllce_hif *hif, u32 buf_phys)
+{
+	u32 cs, msg_id, can_id;
+	struct flexllce_rx_data rx;
+	struct canfd_frame *cfd;
+	struct net_device *ndev;
+	struct sk_buff *skb;
+	u8 max_len, rx_bytes = 0;
+	bool fd;
+
+	if (!flexllce_read_shm(hif, buf_phys, &rx, sizeof(rx)))
+		return;
+
+	cs = le32_to_cpu(rx.cs);
+	msg_id = le32_to_cpu(rx.msg_id);
+
+	ndev = flexllce_find_ndev(hif, rx.instance);
+	if (!ndev || !netif_running(ndev))
+		return;
+
+	if (cs & FLEXLLCE_CS_IDE)
+		can_id = (msg_id & CAN_EFF_MASK) | CAN_EFF_FLAG;
+	else
+		can_id = msg_id & CAN_SFF_MASK;
+
+	/*
+	 * A classic CAN frame and a CAN FD frame share the leading can_id, len
+	 * and data[] layout, so allocate the matching skb but populate those
+	 * common fields through one canfd_frame pointer. Only the FD-only flags
+	 * and the classic-only RTR (remote, no payload) case need to diverge.
+	 */
+	fd = cs & FLEXLLCE_CS_EDL;
+	if (fd) {
+		skb = alloc_canfd_skb(ndev, &cfd);
+		max_len = CANFD_MAX_DLEN;
+	} else {
+		skb = alloc_can_skb(ndev, (struct can_frame **)&cfd);
+		max_len = CAN_MAX_DLEN;
+	}
+	if (!skb) {
+		ndev->stats.rx_dropped++;
+		return;
+	}
+
+	cfd->can_id = can_id;
+	cfd->len = min_t(u8, rx.data_len, max_len);
+
+	if (fd) {
+		if (cs & FLEXLLCE_CS_BRS)
+			cfd->flags |= CANFD_BRS;
+		if (cs & FLEXLLCE_CS_ESI)
+			cfd->flags |= CANFD_ESI;
+	} else if (cs & FLEXLLCE_CS_RTR) {
+		/* Remote frame: the RTR flag rides in can_id and carries no data. */
+		cfd->can_id |= CAN_RTR_FLAG;
+		goto deliver;
+	}
+
+	memcpy(cfd->data, rx.payload, cfd->len);
+	rx_bytes = cfd->len;
+
+deliver:
+	/* Hardware receive timestamp captured by the firmware. */
+	skb_hwtstamps(skb)->hwtstamp =
+		ktime_set(le32_to_cpu(rx.timestamp.seconds),
+			  le32_to_cpu(rx.timestamp.nanoseconds));
+
+	ndev->stats.rx_packets++;
+	ndev->stats.rx_bytes += rx_bytes;
+	netif_receive_skb(skb);
+}
+
+/*
+ * Pop the next full descriptor from a consumer ring under @rx_lock and read the
+ * physical address of the mailbox buffer it points at. Returns false when the
+ * ring is empty; the buffer itself is processed by the caller outside the lock.
+ * @desc holds the popped descriptor index (the caller uses the last one to ring
+ * the consumer's ack doorbell).
+ */
+static bool flexllce_ring_pop(struct flexllce_hif *hif, struct flexllce_ring *r,
+			      u32 *desc, u32 *buf_phys)
+{
+	guard(spinlock_irqsave)(&hif->rx_lock);
+
+	if (flexllce_ring_get_full(r, desc))
+		return false;
+	*buf_phys = ioread32(r->table + *desc * sizeof(u32));
+	return true;
+}
+
+/* MRU receive callback: the firmware produced RX descriptors up to @desc. */
+static void flexllce_rx_cb(struct mbox_client *cl, void *msg)
+{
+	struct flexllce_hif *hif =
+		container_of(cl, struct flexllce_hif, cl[FLEXLLCE_MBOX_RX]);
+	u32 desc = *(u32 *)msg;
+
+	scoped_guard(spinlock_irqsave, &hif->rx_lock)
+		flexllce_ring_register_full(&hif->rx_ring, desc);
+
+	napi_schedule(&hif->napi);
 }
 
 /* Read the boot-status word and confirm the firmware is up and compatible. */
