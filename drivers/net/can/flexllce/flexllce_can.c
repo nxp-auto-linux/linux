@@ -186,6 +186,7 @@ struct flexllce_hif {
 
 	/* Data-path mailboxes are held only while at least one netdev is up. */
 	struct mutex			data_lock;
+	unsigned int			open_count;
 
 	struct flexllce_chan		**chans;
 	unsigned int			nr_chans;
@@ -609,6 +610,61 @@ static void flexllce_chan_teardown(struct flexllce_chan *chan)
 	flexllce_send_cmd(hif, FLEXLLCE_CMD_DEINIT, chan->instance, NULL, 0);
 }
 
+static int flexllce_datapath_start(struct flexllce_hif *hif);
+static void flexllce_datapath_stop(struct flexllce_hif *hif);
+
+static int flexllce_open(struct net_device *ndev)
+{
+	struct flexllce_chan *chan = netdev_priv(ndev);
+	struct flexllce_hif *hif = chan->hif;
+	int err;
+
+	err = open_candev(ndev);
+	if (err)
+		return err;
+
+	err = flexllce_chan_start_managed(chan);
+	if (err)
+		goto err_close;
+
+	/* Bring the shared data path up on the first controller of the HIF. */
+	scoped_guard(mutex, &hif->data_lock) {
+		if (hif->open_count == 0) {
+			err = flexllce_datapath_start(hif);
+			if (err)
+				goto err_detach;
+		}
+		hif->open_count++;
+	}
+
+	chan->can.state = CAN_STATE_ERROR_ACTIVE;
+	netif_start_queue(ndev);
+	return 0;
+
+err_detach:
+	flexllce_chan_teardown(chan);
+err_close:
+	close_candev(ndev);
+	return err;
+}
+
+static int flexllce_stop(struct net_device *ndev)
+{
+	struct flexllce_chan *chan = netdev_priv(ndev);
+	struct flexllce_hif *hif = chan->hif;
+
+	netif_stop_queue(ndev);
+
+	scoped_guard(mutex, &hif->data_lock)
+		if (--hif->open_count == 0)
+			flexllce_datapath_stop(hif);
+
+	flexllce_chan_teardown(chan);
+	chan->can.state = CAN_STATE_STOPPED;
+	close_candev(ndev);
+	return 0;
+}
+
 /* Ring a doorbell carrying a communication-descriptor index to the firmware. */
 static void flexllce_doorbell(struct mbox_chan *chan, u32 desc)
 {
@@ -996,6 +1052,38 @@ static netdev_tx_t flexllce_start_xmit(struct sk_buff *skb,
 
 	return NETDEV_TX_OK;
 }
+
+static int flexllce_set_mode(struct net_device *ndev, enum can_mode mode)
+{
+	struct flexllce_chan *chan = netdev_priv(ndev);
+	int err;
+
+	switch (mode) {
+	case CAN_MODE_START:
+		/*
+		 * Restart after bus-off. The controller was initialised for
+		 * host-driven recovery, so ask the firmware to recover it; the
+		 * CAN core turns the carrier back on and emits the restart
+		 * error frame.
+		 */
+		err = flexllce_send_cmd(chan->hif,
+					FLEXLLCE_CMD_MANUAL_BUSOFF_RECOVERY,
+					chan->instance, NULL, 0);
+		if (err)
+			return err;
+		chan->can.state = CAN_STATE_ERROR_ACTIVE;
+		return 0;
+	default:
+		return -EOPNOTSUPP;
+	}
+}
+
+static const struct net_device_ops flexllce_netdev_ops = {
+	.ndo_open	= flexllce_open,
+	.ndo_stop	= flexllce_stop,
+	.ndo_start_xmit	= flexllce_start_xmit,
+	.ndo_change_mtu	= can_change_mtu,
+};
 
 /* Firmware-maintained per-controller frame counters, exposed via ethtool -S. */
 static const char flexllce_stat_strings[][ETH_GSTRING_LEN] = {
