@@ -75,6 +75,18 @@ static_assert(sizeof(struct flexllce_init_cmd) <=
 static_assert(FLEXLLCE_TX_DESC_COUNT * sizeof(struct flexllce_tx_data) <=
 	      FLEXLLCE_HOST_FILTER_OFFSET - FLEXLLCE_HOST_TXPOOL_OFFSET);
 
+/* Two accept-all host-receive filters: one for standard, one for extended ids. */
+#define FLEXLLCE_NR_RX_FILTERS		2
+/*
+ * Per-filter in-flight host-RX credit: frames a filter may have delivered but
+ * not yet had acknowledged before the firmware drops with a no-buffer event.
+ * SETFILTERTABLE (per controller) caps the sum of its filters' counts at 128,
+ * so with FLEXLLCE_NR_RX_FILTERS (2) the most each may claim is 64; use that
+ * full budget so the RX ring depth (FLEXLLCE_RX_DESC_COUNT) is what actually
+ * bounds the outstanding frames, not this credit.
+ */
+#define FLEXLLCE_RX_FILTER_MB		64
+
 /* MRU doorbell channels used by a HIF, indexed by mbox-names order. */
 enum flexllce_mbox {
 	FLEXLLCE_MBOX_CMD,	/* host -> RCU: submit a command */
@@ -375,6 +387,62 @@ static int flexllce_get_berr_counter(const struct net_device *ndev,
 	bec->txerr = ecr & 0xff;
 	bec->rxerr = (ecr >> 8) & 0xff;
 	return 0;
+}
+
+/*
+ * Host-side layout of the five per-filter arrays SETFILTERTABLE consumes. The
+ * firmware dereferences each array through its own pointer in
+ * flexllce_set_filter_cmd.
+ */
+struct flexllce_filter_scratch {
+	struct flexllce_id_filter	ids[FLEXLLCE_NR_RX_FILTERS];
+	u8				rx_if[FLEXLLCE_NR_RX_FILTERS];
+	__le16				route[FLEXLLCE_NR_RX_FILTERS];
+	__le16				mbc[FLEXLLCE_NR_RX_FILTERS];
+	__le16				f2hrh[FLEXLLCE_NR_RX_FILTERS];
+};
+
+/*
+ * Install an accept-all host-receive filter table for a controller: INIT
+ * installs none, so without it no frame reaches the host. Two ONE_ID filters
+ * with an all-zero mask (route none, non-zero mailbox count) accept every
+ * standard and extended id into the interrupt RX channel the NAPI poll drains.
+ * The arrays are read by physical address, so they live in the RCU-reachable
+ * host scratch region at FLEXLLCE_HOST_FILTER_OFFSET.
+ */
+static int flexllce_set_filter(struct flexllce_chan *chan)
+{
+	struct flexllce_set_filter_cmd cmd = {};
+	struct flexllce_filter_scratch scratch = {};
+	struct flexllce_hif *hif = chan->hif;
+	struct flexllce_mem filt;
+	int i;
+
+	filt = flexllce_mem_at(hif->host, FLEXLLCE_HOST_FILTER_OFFSET);
+
+	for (i = 0; i < FLEXLLCE_NR_RX_FILTERS; i++) {
+		scratch.ids[i].filter_type = FLEXLLCE_FILTER_ONE_ID;
+		scratch.ids[i].is_extended = (i == 1) ? FLEXLLCE_TRUE : FLEXLLCE_FALSE;
+		scratch.ids[i].id1 = cpu_to_le32(0);	/* mask: accept every id */
+		scratch.ids[i].id2 = cpu_to_le32(0);	/* match code (unused when mask is 0) */
+		scratch.rx_if[i] = FLEXLLCE_RX_COMCH_INTERRUPT;
+		scratch.route[i] = cpu_to_le16(FLEXLLCE_FILTER_ROUTE_NONE);
+		scratch.mbc[i] = cpu_to_le16(FLEXLLCE_RX_FILTER_MB);
+	}
+
+	/* Stage all five arrays in one shot; f2hrh is left zeroed. */
+	memcpy_toio(filt.base, &scratch, sizeof(scratch));
+
+	/* Each command pointer is that array's physical address in the scratch. */
+	cmd.id_table	   = cpu_to_le32(filt.phys + offsetof(typeof(scratch), ids));
+	cmd.rx_interface   = cpu_to_le32(filt.phys + offsetof(typeof(scratch), rx_if));
+	cmd.route_table_id = cpu_to_le32(filt.phys + offsetof(typeof(scratch), route));
+	cmd.mb_count	   = cpu_to_le32(filt.phys + offsetof(typeof(scratch), mbc));
+	cmd.filter2hrh	   = cpu_to_le32(filt.phys + offsetof(typeof(scratch), f2hrh));
+	cmd.filters_no	   = FLEXLLCE_NR_RX_FILTERS;
+
+	return flexllce_send_cmd(hif, FLEXLLCE_CMD_SETFILTERTABLE, chan->instance,
+				 &cmd, sizeof(cmd));
 }
 
 /* Read the boot-status word and confirm the firmware is up and compatible. */
