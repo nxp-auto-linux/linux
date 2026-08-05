@@ -36,6 +36,18 @@
 /* Controller instance ids span the SoC's FlexCAN instances. */
 #define FLEXLLCE_MAX_INSTANCE		48
 
+/*
+ * Per-controller transmit in-flight window: the number of frames the host may
+ * have queued but not yet had confirmed transmitted on the txack stream. A
+ * queued frame holds a FlexCAN message buffer until that confirmation, and the
+ * firmware reports FLEXLLCE_EVENT_NO_MB_AVAILABLE and drops a frame once a
+ * controller's message-buffer pool is exhausted. That pool is exactly
+ * FLEXLLCE_MAX_HOST_TX_MB (the count requested at INIT via init.max_mb_no),
+ * so bounding the window to it means the host never hands the firmware a
+ * frame it has no buffer for.
+ */
+#define FLEXLLCE_TX_INFLIGHT_MAX	FLEXLLCE_MAX_HOST_TX_MB
+
 #define FLEXLLCE_CMD_TIMEOUT_MS		100
 
 /* GETSTATUS poll bounding the asynchronous STOP -> STOPPED transition. */
@@ -99,8 +111,11 @@ enum flexllce_mbox {
 	FLEXLLCE_MBOX_TX_DONE,	/* RCU -> host: tx descriptors consumed */
 	FLEXLLCE_MBOX_RX,	/* RCU -> host: frames received */
 	FLEXLLCE_MBOX_RX_ACK,	/* host -> RCU: rx buffers released */
+	FLEXLLCE_MBOX_TXACK,	/* RCU -> host: transmit-acknowledge stream */
 	FLEXLLCE_MBOX_NOTIF0,	/* RCU -> host: notifications (interrupt channel) */
+	FLEXLLCE_MBOX_NOTIF1,	/* RCU -> host: notifications (polling channel) */
 	FLEXLLCE_MBOX_NOTIF_ACK,/* host -> RCU: interrupt-notification buffers freed */
+	FLEXLLCE_MBOX_TXACK_RELEASE,/* host -> RCU: transmit-acknowledge buffers released */
 	FLEXLLCE_NUM_MBOX
 };
 
@@ -110,8 +125,11 @@ static const char * const flexllce_mbox_names[FLEXLLCE_NUM_MBOX] = {
 	[FLEXLLCE_MBOX_TX_DONE]	= "tx-done",
 	[FLEXLLCE_MBOX_RX]	= "rx",
 	[FLEXLLCE_MBOX_RX_ACK]	= "rx-ack",
+	[FLEXLLCE_MBOX_TXACK]	= "txack",
 	[FLEXLLCE_MBOX_NOTIF0]	= "notif0",
+	[FLEXLLCE_MBOX_NOTIF1]	= "notif1",
 	[FLEXLLCE_MBOX_NOTIF_ACK] = "notif-ack",
+	[FLEXLLCE_MBOX_TXACK_RELEASE] = "txack-release",
 };
 
 struct flexllce_chan;
@@ -178,6 +196,7 @@ struct flexllce_hif {
 	struct flexllce_ring		tx_ring;
 	struct flexllce_ring		rx_ring;
 	struct flexllce_ring		notif_ring;	/* async notifications */
+	struct flexllce_ring		ack_ring;	/* transmit confirmations */
 	spinlock_t			tx_lock;	/* TX + ack rings, tx_owner[] */
 	spinlock_t			rx_lock;	/* RX and notification rings */
 	struct net_device		*tx_owner[FLEXLLCE_TX_DESC_COUNT];
@@ -267,6 +286,7 @@ struct flexllce_chan {
 	struct net_device		*ndev;
 	struct flexllce_hif		*hif;
 	u8				instance;
+	unsigned int			tx_inflight;	/* frames queued, not yet tx-acked */
 };
 
 /*
@@ -638,6 +658,7 @@ static int flexllce_open(struct net_device *ndev)
 	}
 
 	chan->can.state = CAN_STATE_ERROR_ACTIVE;
+	chan->tx_inflight = 0;
 	netif_start_queue(ndev);
 	return 0;
 
@@ -897,35 +918,87 @@ static bool flexllce_ring_pop(struct flexllce_hif *hif, struct flexllce_ring *r,
 }
 
 /*
- * NAPI poll: drain the shared notification ring (bus-state changes / errors)
- * and the RX ring (frames for every controller of the HIF, demultiplexed by
- * firmware instance), then acknowledge the processed descriptors so the
- * firmware can reuse the buffers.
+ * Drain the transmit-acknowledge ring under @tx_lock. Each entry confirms that
+ * a queued frame was actually transmitted on the wire (unlike the tx-done
+ * doorbell, which only reports a descriptor being fetched into a hardware
+ * message buffer). The confirmation carries back the host's tracking tag, whose
+ * high byte is the controller instance; releasing one in-flight slot on that
+ * controller lets a queue that stopped on the in-flight cap resume. Returns
+ * true (with @desc set to the last consumed entry) if any ack was drained, so
+ * the caller can release the ack buffers back to the firmware.
+ */
+static bool flexllce_ack_poll(struct flexllce_hif *hif, u32 *desc)
+{
+	bool acked = false;
+	u32 d;
+
+	guard(spinlock_irqsave)(&hif->tx_lock);
+
+	while (!flexllce_ring_get_full(&hif->ack_ring, &d)) {
+		struct flexllce_tx_ack ack;
+		struct net_device *ndev;
+		struct flexllce_chan *chan;
+		u32 buf_phys;
+		u8 instance;
+
+		buf_phys = ioread32(hif->ack_ring.table + d * sizeof(u32));
+		*desc = d;
+		acked = true;
+		if (!flexllce_read_shm(hif, buf_phys, &ack, sizeof(ack)))
+			continue;
+
+		instance = le16_to_cpu(ack.tracking_idx) >> 8;
+		if (instance >= FLEXLLCE_MAX_INSTANCE)
+			continue;
+		ndev = hif->inst_ndev[instance];
+		if (!ndev)
+			continue;
+
+		chan = netdev_priv(ndev);
+		if (chan->tx_inflight)
+			chan->tx_inflight--;
+		if (netif_running(ndev))
+			netif_wake_queue(ndev);
+	}
+	return acked;
+}
+
+/*
+ * NAPI poll: drain the shared notification ring (bus-state changes / errors),
+ * the transmit-acknowledge ring (frees in-flight TX slots) and the RX ring
+ * (frames for every controller of the HIF, demultiplexed by firmware instance),
+ * then acknowledge the processed descriptors so the firmware can reuse the
+ * buffers.
  */
 static int flexllce_rx_poll(struct napi_struct *napi, int budget)
 {
 	struct flexllce_hif *hif = container_of(napi, struct flexllce_hif, napi);
-	bool acked = false, nacked = false;
-	u32 desc = 0, ndesc = 0, buf_phys;
+	bool rx_done = false, notif_done = false, txack_done = false;
+	u32 rx_desc = 0, notif_desc = 0, txack_desc = 0, buf_phys;
 	int work = 0;
 
 	/* Notifications are rare and not counted against the RX budget. */
-	while (flexllce_ring_pop(hif, &hif->notif_ring, &ndesc, &buf_phys)) {
+	while (flexllce_ring_pop(hif, &hif->notif_ring, &notif_desc, &buf_phys)) {
 		flexllce_handle_notif(hif, buf_phys);
-		nacked = true;
+		notif_done = true;
 	}
-	if (nacked)
-		flexllce_doorbell(hif->chan[FLEXLLCE_MBOX_NOTIF_ACK], ndesc);
+	if (notif_done)
+		flexllce_doorbell(hif->chan[FLEXLLCE_MBOX_NOTIF_ACK], notif_desc);
+
+	/* Transmit confirmations free TX flow-control slots; not RX budget. */
+	txack_done = flexllce_ack_poll(hif, &txack_desc);
+	if (txack_done)
+		flexllce_doorbell(hif->chan[FLEXLLCE_MBOX_TXACK_RELEASE], txack_desc);
 
 	while (work < budget &&
-	       flexllce_ring_pop(hif, &hif->rx_ring, &desc, &buf_phys)) {
+	       flexllce_ring_pop(hif, &hif->rx_ring, &rx_desc, &buf_phys)) {
 		flexllce_rx_one(hif, buf_phys);
-		acked = true;
+		rx_done = true;
 		work++;
 	}
 
-	if (acked)
-		flexllce_doorbell(hif->chan[FLEXLLCE_MBOX_RX_ACK], desc);
+	if (rx_done)
+		flexllce_doorbell(hif->chan[FLEXLLCE_MBOX_RX_ACK], rx_desc);
 
 	if (work < budget)
 		napi_complete_done(napi, work);
@@ -989,6 +1062,25 @@ static void flexllce_txdone_cb(struct mbox_client *cl, void *msg)
 			netif_wake_queue(hif->chans[i]->ndev);
 }
 
+/*
+ * MRU receive callback: the firmware produced transmit-acknowledge records up
+ * to @desc, one per frame it has actually clocked onto the wire. Hand the ring
+ * head to the NAPI poll, which releases the matching in-flight TX slots (and
+ * the ack buffers) - this is what bounds outstanding frames to the controller's
+ * message-buffer pool so the firmware never has to drop a queued frame.
+ */
+static void flexllce_txack_cb(struct mbox_client *cl, void *msg)
+{
+	struct flexllce_hif *hif =
+		container_of(cl, struct flexllce_hif, cl[FLEXLLCE_MBOX_TXACK]);
+	u32 desc = *(u32 *)msg;
+
+	scoped_guard(spinlock_irqsave, &hif->tx_lock)
+		flexllce_ring_register_full(&hif->ack_ring, desc);
+
+	napi_schedule(&hif->napi);
+}
+
 /* MRU receive callback: the firmware produced notifications up to @desc. */
 static void flexllce_notif0_cb(struct mbox_client *cl, void *msg)
 {
@@ -1000,6 +1092,10 @@ static void flexllce_notif0_cb(struct mbox_client *cl, void *msg)
 		flexllce_ring_register_full(&hif->notif_ring, desc);
 
 	napi_schedule(&hif->napi);
+}
+
+static void flexllce_notif1_cb(struct mbox_client *cl, void *msg)
+{
 }
 
 static netdev_tx_t flexllce_start_xmit(struct sk_buff *skb,
@@ -1036,16 +1132,46 @@ static netdev_tx_t flexllce_start_xmit(struct sk_buff *skb,
 
 	guard(spinlock_irqsave)(&hif->tx_lock);
 
+	/*
+	 * Cap the frames this controller has in flight at its firmware
+	 * message-buffer budget. A frame passes through two stages with
+	 * different lifetimes:
+	 *   1. comtable (tx_ring) slot: held only from enqueue until the
+	 *      firmware fetches the descriptor into a message buffer. The
+	 *      tx-done doorbell reports this fetch, not transmission, so the
+	 *      slot is recycled quickly and the ring (FLEXLLCE_TX_DESC_COUNT
+	 *      deep) does not bound how many frames are awaiting transmission.
+	 *   2. message buffer: held from that fetch until the frame actually
+	 *      leaves the wire, confirmed by the txack stream. tx_inflight is
+	 *      only decremented here.
+	 * Because the ring can drain and refill repeatedly while frames pile up
+	 * in the message-buffer pool, the comtable depth alone would let the
+	 * host overrun the pool. On overrun the firmware raises
+	 * FLEXLLCE_EVENT_NO_MB_AVAILABLE and drops the frame (a loss the
+	 * notification handler does not currently surface), so bound it here
+	 * against the per-instance budget instead.
+	 */
+	if (chan->tx_inflight >= FLEXLLCE_TX_INFLIGHT_MAX) {
+		netif_stop_queue(ndev);
+		return NETDEV_TX_BUSY;
+	}
+
 	if (flexllce_ring_get_free(&hif->tx_ring, &desc)) {
 		netif_stop_queue(ndev);
 		return NETDEV_TX_BUSY;
 	}
 
-	tx.tracking_idx = cpu_to_le16(desc);
+	/*
+	 * Tracking tag = <instance:8><comtable slot:8>. The firmware echoes it
+	 * back in the txack record; its high byte demultiplexes the confirming
+	 * controller (the ack record itself carries no instance).
+	 */
+	tx.tracking_idx = cpu_to_le16((u16)chan->instance << 8 | desc);
 	memcpy_toio(hif->txpool.base + desc * sizeof(tx), &tx, sizeof(tx));
 	iowrite32(hif->txpool.phys + desc * sizeof(tx),
 		  hif->tx_ring.table + desc * sizeof(u32));
 	hif->tx_owner[desc] = ndev;
+	chan->tx_inflight++;
 
 	can_put_echo_skb(skb, ndev, desc, 0);
 	flexllce_doorbell(hif->chan[FLEXLLCE_MBOX_TX], desc);
@@ -1071,6 +1197,16 @@ static int flexllce_set_mode(struct net_device *ndev, enum can_mode mode)
 					chan->instance, NULL, 0);
 		if (err)
 			return err;
+		/*
+		 * Manual bus-off recovery (selected at INIT) stops the controller
+		 * and drops every frame still in a message buffer without a txack,
+		 * so clear the in-flight count to keep the flow-control window from
+		 * leaking across the recovery. This reset is valid only for manual
+		 * mode; firmware auto recovery still txacks every frame and must not
+		 * use it.
+		 */
+		scoped_guard(spinlock_irqsave, &chan->hif->tx_lock)
+			chan->tx_inflight = 0;
 		chan->can.state = CAN_STATE_ERROR_ACTIVE;
 		return 0;
 	default:
@@ -1209,13 +1345,17 @@ static int flexllce_request_cmd_mbox(struct flexllce_hif *hif)
 
 /*
  * Data-path doorbells: the host->RCU senders ("tx", "rx-ack", "notif-ack") and
- * the RCU->host receivers ("rx", "tx-done", "notif0"). Requesting a receiver
- * channel enables its MRU mailbox and the shared interrupt, so it is done only
- * while a controller is up, with the rings and NAPI already initialised.
+ * the RCU->host receivers ("rx", "tx-done", "txack", "notif0", "notif1").
+ * Requesting a receiver channel enables its MRU mailbox and the shared
+ * interrupt, so it is done only while a controller is up, with the rings and
+ * NAPI already initialised. The txack/notif1 receivers carry no host action but
+ * must still be enabled so the firmware can complete transmits on them.
  */
 static const enum flexllce_mbox flexllce_data_mbox[] = {
 	FLEXLLCE_MBOX_TX, FLEXLLCE_MBOX_RX_ACK, FLEXLLCE_MBOX_NOTIF_ACK,
-	FLEXLLCE_MBOX_RX, FLEXLLCE_MBOX_TX_DONE, FLEXLLCE_MBOX_NOTIF0,
+	FLEXLLCE_MBOX_RX, FLEXLLCE_MBOX_TX_DONE,
+	FLEXLLCE_MBOX_TXACK, FLEXLLCE_MBOX_TXACK_RELEASE,
+	FLEXLLCE_MBOX_NOTIF0, FLEXLLCE_MBOX_NOTIF1,
 };
 
 static void flexllce_free_data_mboxes(struct flexllce_hif *hif)
@@ -1238,7 +1378,9 @@ static int flexllce_request_data_mboxes(struct flexllce_hif *hif)
 
 	hif->cl[FLEXLLCE_MBOX_RX].rx_callback = flexllce_rx_cb;
 	hif->cl[FLEXLLCE_MBOX_TX_DONE].rx_callback = flexllce_txdone_cb;
+	hif->cl[FLEXLLCE_MBOX_TXACK].rx_callback = flexllce_txack_cb;
 	hif->cl[FLEXLLCE_MBOX_NOTIF0].rx_callback = flexllce_notif0_cb;
+	hif->cl[FLEXLLCE_MBOX_NOTIF1].rx_callback = flexllce_notif1_cb;
 
 	for (i = 0; i < ARRAY_SIZE(flexllce_data_mbox); i++) {
 		enum flexllce_mbox id = flexllce_data_mbox[i];
@@ -1267,6 +1409,8 @@ static int flexllce_datapath_start(struct flexllce_hif *hif)
 			   FLEXLLCE_TX_DESC_COUNT);
 	flexllce_ring_init(&hif->rx_ring, hif->shm->rx_comtable[0],
 			   FLEXLLCE_RX_DESC_COUNT);
+	flexllce_ring_init(&hif->ack_ring, hif->shm->ack_comtable[0],
+			   FLEXLLCE_ACK_DESC_COUNT);
 	flexllce_ring_init(&hif->notif_ring, hif->shm->notif_comtable[0],
 			   FLEXLLCE_NOTIF_DESC_COUNT);
 	memset(hif->tx_owner, 0, sizeof(hif->tx_owner));
