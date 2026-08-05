@@ -96,14 +96,18 @@ static_assert(FLEXLLCE_TX_DESC_COUNT * sizeof(struct flexllce_tx_data) <=
 enum flexllce_mbox {
 	FLEXLLCE_MBOX_CMD,	/* host -> RCU: submit a command */
 	FLEXLLCE_MBOX_RX,	/* RCU -> host: frames received */
+	FLEXLLCE_MBOX_RX_ACK,	/* host -> RCU: rx buffers released */
 	FLEXLLCE_MBOX_NOTIF0,	/* RCU -> host: notifications (interrupt channel) */
+	FLEXLLCE_MBOX_NOTIF_ACK,/* host -> RCU: interrupt-notification buffers freed */
 	FLEXLLCE_NUM_MBOX
 };
 
 static const char * const flexllce_mbox_names[FLEXLLCE_NUM_MBOX] = {
 	[FLEXLLCE_MBOX_CMD]	= "cmd",
 	[FLEXLLCE_MBOX_RX]	= "rx",
+	[FLEXLLCE_MBOX_RX_ACK]	= "rx-ack",
 	[FLEXLLCE_MBOX_NOTIF0]	= "notif0",
+	[FLEXLLCE_MBOX_NOTIF_ACK] = "notif-ack",
 };
 
 struct flexllce_chan;
@@ -597,6 +601,13 @@ static void flexllce_chan_teardown(struct flexllce_chan *chan)
 	flexllce_send_cmd(hif, FLEXLLCE_CMD_DEINIT, chan->instance, NULL, 0);
 }
 
+/* Ring a doorbell carrying a communication-descriptor index to the firmware. */
+static void flexllce_doorbell(struct mbox_chan *chan, u32 desc)
+{
+	if (mbox_send_message(chan, &desc) >= 0)
+		mbox_client_txdone(chan, 0);
+}
+
 /*
  * Demux a firmware instance to its netdev. Called per received frame and per
  * notification on the NAPI poll's hot path.
@@ -821,6 +832,43 @@ static bool flexllce_ring_pop(struct flexllce_hif *hif, struct flexllce_ring *r,
 	return true;
 }
 
+/*
+ * NAPI poll: drain the shared notification ring (bus-state changes / errors)
+ * and the RX ring (frames for every controller of the HIF, demultiplexed by
+ * firmware instance), then acknowledge the processed descriptors so the
+ * firmware can reuse the buffers.
+ */
+static int flexllce_rx_poll(struct napi_struct *napi, int budget)
+{
+	struct flexllce_hif *hif = container_of(napi, struct flexllce_hif, napi);
+	bool acked = false, nacked = false;
+	u32 desc = 0, ndesc = 0, buf_phys;
+	int work = 0;
+
+	/* Notifications are rare and not counted against the RX budget. */
+	while (flexllce_ring_pop(hif, &hif->notif_ring, &ndesc, &buf_phys)) {
+		flexllce_handle_notif(hif, buf_phys);
+		nacked = true;
+	}
+	if (nacked)
+		flexllce_doorbell(hif->chan[FLEXLLCE_MBOX_NOTIF_ACK], ndesc);
+
+	while (work < budget &&
+	       flexllce_ring_pop(hif, &hif->rx_ring, &desc, &buf_phys)) {
+		flexllce_rx_one(hif, buf_phys);
+		acked = true;
+		work++;
+	}
+
+	if (acked)
+		flexllce_doorbell(hif->chan[FLEXLLCE_MBOX_RX_ACK], desc);
+
+	if (work < budget)
+		napi_complete_done(napi, work);
+
+	return work;
+}
+
 /* MRU receive callback: the firmware produced RX descriptors up to @desc. */
 static void flexllce_rx_cb(struct mbox_client *cl, void *msg)
 {
@@ -906,6 +954,97 @@ static int flexllce_request_cmd_mbox(struct flexllce_hif *hif)
 				     PTR_ERR(hif->chan[FLEXLLCE_MBOX_CMD]),
 				     "failed to get 'cmd' mailbox\n");
 	return 0;
+}
+
+/*
+ * Data-path doorbells requested while a controller is up: the host->RCU
+ * senders ("rx-ack", "notif-ack") and the RCU->host receivers ("rx", "notif0").
+ * Requesting a receiver channel enables its MRU mailbox and the shared
+ * interrupt, so it is done only with the rings and NAPI already initialised.
+ */
+static const enum flexllce_mbox flexllce_data_mbox[] = {
+	FLEXLLCE_MBOX_RX_ACK, FLEXLLCE_MBOX_NOTIF_ACK,
+	FLEXLLCE_MBOX_RX, FLEXLLCE_MBOX_NOTIF0,
+};
+
+static void flexllce_free_data_mboxes(struct flexllce_hif *hif)
+{
+	unsigned int i;
+
+	for (i = 0; i < ARRAY_SIZE(flexllce_data_mbox); i++) {
+		enum flexllce_mbox id = flexllce_data_mbox[i];
+
+		if (hif->chan[id]) {
+			mbox_free_channel(hif->chan[id]);
+			hif->chan[id] = NULL;
+		}
+	}
+}
+
+static int flexllce_request_data_mboxes(struct flexllce_hif *hif)
+{
+	unsigned int i;
+
+	hif->cl[FLEXLLCE_MBOX_RX].rx_callback = flexllce_rx_cb;
+	hif->cl[FLEXLLCE_MBOX_NOTIF0].rx_callback = flexllce_notif0_cb;
+
+	for (i = 0; i < ARRAY_SIZE(flexllce_data_mbox); i++) {
+		enum flexllce_mbox id = flexllce_data_mbox[i];
+
+		hif->chan[id] = flexllce_request_mbox(hif, id);
+		if (IS_ERR(hif->chan[id])) {
+			int err = PTR_ERR(hif->chan[id]);
+
+			hif->chan[id] = NULL;
+			flexllce_free_data_mboxes(hif);
+			return dev_err_probe(hif->dev, err,
+					     "failed to get '%s' mailbox\n",
+					     flexllce_mbox_names[id]);
+		}
+	}
+	return 0;
+}
+
+/* Bring up the per-HIF frame data path (first controller open). */
+static int flexllce_datapath_start(struct flexllce_hif *hif)
+{
+	int err;
+
+	/* Comtables are members of this HIF's own shared-memory struct. */
+	flexllce_ring_init(&hif->tx_ring, hif->shm->tx_comtable,
+			   FLEXLLCE_TX_DESC_COUNT);
+	flexllce_ring_init(&hif->rx_ring, hif->shm->rx_comtable[0],
+			   FLEXLLCE_RX_DESC_COUNT);
+	flexllce_ring_init(&hif->notif_ring, hif->shm->notif_comtable[0],
+			   FLEXLLCE_NOTIF_DESC_COUNT);
+
+	napi_enable(&hif->napi);
+
+	err = flexllce_request_data_mboxes(hif);
+	if (err)
+		goto err_napi;
+
+	/*
+	 * With the rings and RCU->host receivers ready, tell the firmware to
+	 * start delivering RX and TX-acknowledge notifications for this HIF.
+	 */
+	err = flexllce_set_notifications(hif, true);
+	if (err)
+		dev_warn(hif->dev, "enabling notifications failed (%d); RX/tx-done may be inactive\n",
+			 err);
+	return 0;
+
+err_napi:
+	napi_disable(&hif->napi);
+	return err;
+}
+
+/* Tear down the frame data path (last controller close). */
+static void flexllce_datapath_stop(struct flexllce_hif *hif)
+{
+	flexllce_set_notifications(hif, false);
+	napi_disable(&hif->napi);
+	flexllce_free_data_mboxes(hif);
 }
 
 /*
