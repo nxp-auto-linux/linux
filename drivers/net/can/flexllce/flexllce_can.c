@@ -38,6 +38,11 @@
 
 #define FLEXLLCE_CMD_TIMEOUT_MS		100
 
+/* GETSTATUS poll bounding the asynchronous STOP -> STOPPED transition. */
+#define FLEXLLCE_STOP_POLL_RETRIES	10
+#define FLEXLLCE_STOP_POLL_MIN_US	100
+#define FLEXLLCE_STOP_POLL_MAX_US	200
+
 #define FLEXLLCE_FW_MIN_MAJOR		0
 #define FLEXLLCE_FW_MIN_MINOR		8
 
@@ -353,15 +358,17 @@ static int flexllce_get_status(struct flexllce_chan *chan,
 static int flexllce_wait_stopped(struct flexllce_chan *chan)
 {
 	struct flexllce_get_status_cmd st = {};
-	int i, err;
+	unsigned int i;
+	int err;
 
-	for (i = 0; i < 10; i++) {
+	for (i = 0; i < FLEXLLCE_STOP_POLL_RETRIES; i++) {
 		err = flexllce_get_status(chan, &st);
 		if (err)
 			return err;
 		if (!st.can_started)
 			return 0;
-		usleep_range(100, 200);
+		usleep_range(FLEXLLCE_STOP_POLL_MIN_US,
+			     FLEXLLCE_STOP_POLL_MAX_US);
 	}
 	return -ETIMEDOUT;
 }
@@ -387,6 +394,23 @@ static int flexllce_get_berr_counter(const struct net_device *ndev,
 	bec->txerr = ecr & 0xff;
 	bec->rxerr = (ecr >> 8) & 0xff;
 	return 0;
+}
+
+static void flexllce_fill_segment(struct flexllce_time_segment *seg,
+				  const struct can_bittiming *bt)
+{
+	/*
+	 * The firmware passes these fields verbatim to the FlexCAN bit-timing
+	 * setup, which takes register (0-based) values - i.e. time-quanta counts
+	 * minus one - for every segment, not just the prescaler and SJW. The firmware's
+	 * bit-timing validation also assumes this (it checks prop_seg+phase_seg1+2
+	 * and phase_seg2+1 against the FlexCAN CTRL1 limits).
+	 */
+	seg->prop_seg = cpu_to_le32(bt->prop_seg - 1);
+	seg->phase_seg1 = cpu_to_le32(bt->phase_seg1 - 1);
+	seg->phase_seg2 = cpu_to_le32(bt->phase_seg2 - 1);
+	seg->pre_divider = cpu_to_le32(bt->brp - 1);
+	seg->rjw = cpu_to_le32(bt->sjw - 1);
 }
 
 /*
@@ -443,6 +467,101 @@ static int flexllce_set_filter(struct flexllce_chan *chan)
 
 	return flexllce_send_cmd(hif, FLEXLLCE_CMD_SETFILTERTABLE, chan->instance,
 				 &cmd, sizeof(cmd));
+}
+
+static int flexllce_chan_start_managed(struct flexllce_chan *chan)
+{
+	bool fd = chan->can.ctrlmode & CAN_CTRLMODE_FD;
+	struct flexllce_hif *hif = chan->hif;
+	struct flexllce_init_cmd init = {};
+	u32 opts;
+	int err;
+
+	init.max_mb_no = cpu_to_le32(FLEXLLCE_MAX_HOST_TX_MB);
+
+	/*
+	 * The firmware sizes its enhanced Rx FIFO filter table from these counts
+	 * at INIT and rejects the command with a zero or odd standard-ID count, so
+	 * request a small even count for both. The accept-all host receive filter
+	 * is installed separately via SETFILTERTABLE below.
+	 */
+	init.std_id_filters_no = cpu_to_le32(FLEXLLCE_INIT_STD_ID_FILTERS);
+	init.ext_id_filters_no = cpu_to_le32(FLEXLLCE_INIT_EXT_ID_FILTERS);
+	/* The firmware only accepts FLEXLLCE_HR_TIMESTAMP_SRC as the HR source. */
+	init.time_stamp.hr_src = FLEXLLCE_HR_TIMESTAMP_SRC;
+	init.loopback_enable = !!(chan->can.ctrlmode & CAN_CTRLMODE_LOOPBACK);
+	init.listen_only_enable = !!(chan->can.ctrlmode & CAN_CTRLMODE_LISTENONLY);
+	/*
+	 * Select firmware manual bus-off recovery so it follows the SocketCAN
+	 * restart model. This choice is load-bearing: in manual mode the
+	 * firmware stops the controller on bus-off and drops the frames sitting
+	 * in its message buffers without a txack, which is exactly what lets the
+	 * restart path reset the tx-inflight window (see flexllce_set_mode()).
+	 * The firmware's auto-recovery option (a separate ctrl_options bit) keeps
+	 * retrying and still delivers a txack for every frame, so it must not be
+	 * used together with that reset.
+	 */
+	opts = FLEXLLCE_CTRL_OPT_BUSOFF_MANUAL;
+	if (chan->can.ctrlmode & CAN_CTRLMODE_3_SAMPLES)
+		opts |= FLEXLLCE_CTRL_OPT_THREE_SAMPLES;
+	if (fd && !(chan->can.ctrlmode & CAN_CTRLMODE_FD_NON_ISO))
+		opts |= FLEXLLCE_CTRL_OPT_ISO_FD;
+	init.ctrl_options = cpu_to_le32(opts);
+	/*
+	 * Report controller state changes and bus errors asynchronously on the
+	 * interrupt notification channel (drained by the NAPI poll).
+	 */
+	init.notif_reporting[FLEXLLCE_NOTIF_CAT_BUSOFF] = FLEXLLCE_NOTIF_USING_INTERRUPTS;
+	init.notif_reporting[FLEXLLCE_NOTIF_CAT_CONTROLLER] = FLEXLLCE_NOTIF_USING_INTERRUPTS;
+	init.notif_reporting[FLEXLLCE_NOTIF_CAT_GENERIC] = FLEXLLCE_NOTIF_USING_INTERRUPTS;
+	init.baudrate.fd_enable = fd;
+	init.baudrate.brs_enable = fd;
+	flexllce_fill_segment(&init.baudrate.nominal, &chan->can.bittiming);
+	/*
+	 * The firmware always programs the data-phase (CBT) timing. In classical
+	 * CAN mode there is no data bittiming, so mirror the nominal timing to
+	 * pass valid register values rather than an all-zero segment.
+	 */
+	flexllce_fill_segment(&init.baudrate.data,
+			      fd ? &chan->can.data_bittiming : &chan->can.bittiming);
+	err = flexllce_send_cmd(hif, FLEXLLCE_CMD_INIT, chan->instance,
+				&init, sizeof(init));
+	if (err)
+		return err;
+
+	/*
+	 * Install the accept-all host-receive filter before START. The firmware
+	 * installs no receive filters at INIT, so without this it would route
+	 * every received frame internally and never deliver it to the host.
+	 */
+	err = flexllce_set_filter(chan);
+	if (err)
+		goto err_deinit;
+
+	err = flexllce_send_cmd(hif, FLEXLLCE_CMD_START, chan->instance, NULL, 0);
+	if (err)
+		goto err_deinit;
+
+	return 0;
+
+err_deinit:
+	flexllce_send_cmd(hif, FLEXLLCE_CMD_DEINIT, chan->instance, NULL, 0);
+	return err;
+}
+
+/*
+ * Tear down a host-started controller: STOP it, wait for the hardware to
+ * actually stop (the firmware only accepts DEINIT from the stopped state),
+ * then DEINIT it. Skipping the wait causes DEINIT to be rejected and the
+ * controller is left initialised, which makes the next INIT fail.
+ */
+static void flexllce_chan_teardown(struct flexllce_chan *chan)
+{
+	struct flexllce_hif *hif = chan->hif;
+
+	flexllce_send_cmd(hif, FLEXLLCE_CMD_STOP, chan->instance, NULL, 0);
+	flexllce_wait_stopped(chan);
+	flexllce_send_cmd(hif, FLEXLLCE_CMD_DEINIT, chan->instance, NULL, 0);
 }
 
 /* Read the boot-status word and confirm the firmware is up and compatible. */
