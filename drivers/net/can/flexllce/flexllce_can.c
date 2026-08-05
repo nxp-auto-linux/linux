@@ -85,6 +85,8 @@ static const char * const flexllce_mbox_names[FLEXLLCE_NUM_MBOX] = {
 	[FLEXLLCE_MBOX_CMD]	= "cmd",
 };
 
+struct flexllce_chan;
+
 /* Communication-table ring status. */
 enum flexllce_ring_status {
 	FLEXLLCE_RING_EMPTY,
@@ -218,6 +220,46 @@ static void flexllce_ring_register_full(struct flexllce_ring *r, u32 desc)
 	flexllce_ring_set_status(r, FLEXLLCE_RING_FULL);
 }
 
+/* Per-controller (SocketCAN device) state. */
+struct flexllce_chan {
+	struct can_priv			can;	/* must be first */
+	struct net_device		*ndev;
+	struct flexllce_hif		*hif;
+	u8				instance;
+};
+
+/*
+ * FlexCAN nominal-phase bit-timing constraints. The firmware validates the
+ * classical CAN timing against the FlexCAN CTRL1 register limits
+ * (TSEG1 = prop_seg + phase_seg1 <= 16, TSEG2 = phase_seg2 <= 8), so the core
+ * must compute timings within that range - a wider range makes the firmware
+ * reject INIT with an invalid-parameters error.
+ */
+static const struct can_bittiming_const flexllce_bittiming_const = {
+	.name = KBUILD_MODNAME,
+	.tseg1_min = 2,
+	.tseg1_max = 16,
+	.tseg2_min = 2,
+	.tseg2_max = 8,
+	.sjw_max = 4,
+	.brp_min = 1,
+	.brp_max = 256,
+	.brp_inc = 1,
+};
+
+/* CAN FD data-phase bit-timing constraints. */
+static const struct can_bittiming_const flexllce_data_bittiming_const = {
+	.name = KBUILD_MODNAME,
+	.tseg1_min = 2,
+	.tseg1_max = 39,
+	.tseg2_min = 2,
+	.tseg2_max = 8,
+	.sjw_max = 8,
+	.brp_min = 1,
+	.brp_max = 1024,
+	.brp_inc = 1,
+};
+
 /*
  * Issue a command through the HIF command block: optionally stage @arg into the
  * shared command-argument scratch, write the command block, ring the "cmd"
@@ -278,6 +320,60 @@ static int flexllce_send_cmd(struct flexllce_hif *hif, u8 cmd_id, u8 instance,
 	if (arg)
 		memcpy_fromio(arg, hif->cmd_arg.base, arglen);
 
+	return 0;
+}
+
+static int flexllce_get_status(struct flexllce_chan *chan,
+			       struct flexllce_get_status_cmd *st)
+{
+	struct flexllce_hif *hif = chan->hif;
+
+	return flexllce_send_cmd(hif, FLEXLLCE_CMD_GETSTATUS, chan->instance,
+				 st, sizeof(*st));
+}
+
+/*
+ * Wait for a controller to reach the stopped state after a STOP command. STOP
+ * is asynchronous: the firmware returns before the hardware has finished
+ * stopping, and only advances the controller to STOPPED (and accepts DEINIT)
+ * once a GETSTATUS poll observes the hardware idle.
+ */
+static int flexllce_wait_stopped(struct flexllce_chan *chan)
+{
+	struct flexllce_get_status_cmd st = {};
+	int i, err;
+
+	for (i = 0; i < 10; i++) {
+		err = flexllce_get_status(chan, &st);
+		if (err)
+			return err;
+		if (!st.can_started)
+			return 0;
+		usleep_range(100, 200);
+	}
+	return -ETIMEDOUT;
+}
+
+/*
+ * Report the controller's transmit/receive error counters. GETSTATUS returns
+ * the raw FlexCAN Error Counter Register; its low two bytes hold the standard
+ * transmit (TXERRCNT) and receive (RXERRCNT) error counts.
+ */
+static int flexllce_get_berr_counter(const struct net_device *ndev,
+				     struct can_berr_counter *bec)
+{
+	struct flexllce_chan *chan = netdev_priv(ndev);
+	struct flexllce_get_status_cmd st = {};
+	u32 ecr;
+	int err;
+
+	err = flexllce_get_status(chan, &st);
+	if (err)
+		return err;
+
+	ecr = le32_to_cpu(st.ecr);
+	bec->txerr = ecr & 0xff;
+	bec->rxerr = (ecr >> 8) & 0xff;
 	return 0;
 }
 
