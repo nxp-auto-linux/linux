@@ -1,0 +1,21 @@
+# SPDX-License-Identifier: GPL-2.0 OR BSD-3-Clause
+#
+# Copyright 2026 NXP
+#
+config CAN_FLEXLLCE
+	tristate "NXP S32N79 FlexLLCE (RCU) CAN support"
+	depends on CAN_DEV
+	depends on MAILBOX
+	depends on ARCH_S32 || COMPILE_TEST
+	help
+	  Say Y here if you want to use the CAN controllers offloaded to the
+	  FlexLLCE firmware running on the Cortex-R52 "RCU" cluster of the NXP
+	  S32N79 SoC. The host communicates with the firmware over a
+	  shared-memory host interface and the Message Receive Unit (MRU)
+	  mailbox controller; the firmware is booted outside Linux (attach-only).
+
+	  This driver exposes each offloaded FlexCAN controller as a standard
+	  SocketCAN network device.
+
+	  To compile this driver as a module, choose M here: the module will be
+	  called flexllce_can.
