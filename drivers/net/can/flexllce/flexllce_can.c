@@ -36,6 +36,8 @@
 /* Controller instance ids span the SoC's FlexCAN instances. */
 #define FLEXLLCE_MAX_INSTANCE		48
 
+#define FLEXLLCE_CMD_TIMEOUT_MS		100
+
 #define FLEXLLCE_FW_MIN_MAJOR		0
 #define FLEXLLCE_FW_MIN_MINOR		8
 
@@ -73,6 +75,16 @@ static_assert(sizeof(struct flexllce_init_cmd) <=
 static_assert(FLEXLLCE_TX_DESC_COUNT * sizeof(struct flexllce_tx_data) <=
 	      FLEXLLCE_HOST_FILTER_OFFSET - FLEXLLCE_HOST_TXPOOL_OFFSET);
 
+/* MRU doorbell channels used by a HIF, indexed by mbox-names order. */
+enum flexllce_mbox {
+	FLEXLLCE_MBOX_CMD,	/* host -> RCU: submit a command */
+	FLEXLLCE_NUM_MBOX
+};
+
+static const char * const flexllce_mbox_names[FLEXLLCE_NUM_MBOX] = {
+	[FLEXLLCE_MBOX_CMD]	= "cmd",
+};
+
 /*
  * A shared-memory sub-region reachable from both sides: @base is the host's
  * ioremapped pointer, @phys the RCU-visible physical address the firmware uses.
@@ -96,6 +108,9 @@ struct flexllce_hif {
 	resource_size_t			shm_size;
 	const void __iomem		*bootstatus;	/* global boot-status (read-only) */
 
+	struct mbox_client		cl[FLEXLLCE_NUM_MBOX];
+	struct mbox_chan		*chan[FLEXLLCE_NUM_MBOX];
+
 	/* Serialise the single per-HIF command block. */
 	struct mutex			cmd_lock;
 
@@ -113,6 +128,69 @@ struct flexllce_hif {
 	struct mutex			data_lock;
 	u32				hif_id;
 };
+
+/*
+ * Issue a command through the HIF command block: optionally stage @arg into the
+ * shared command-argument scratch, write the command block, ring the "cmd"
+ * doorbell, poll the block for the firmware's return value, then optionally copy
+ * the firmware's result back out of the scratch into @arg. @arg may be NULL for
+ * commands that take no argument and return no data.
+ */
+static int flexllce_send_cmd(struct flexllce_hif *hif, u8 cmd_id, u8 instance,
+			     void *arg, size_t arglen)
+{
+	struct flexllce_command cmd = {
+		.cmd_ptr = cpu_to_le32(hif->cmd_arg.phys),
+		.cmd_id = cmd_id,
+		.return_value = FLEXLLCE_NO_RETURN_VALUE,
+		.instance = instance,
+	};
+	u32 doorbell = hif->hif_id;
+	int err;
+	u8 ret;
+
+	guard(mutex)(&hif->cmd_lock);
+
+	/* Stage the command argument into the shared scratch under the lock. */
+	if (arg)
+		memcpy_toio(hif->cmd_arg.base, arg, arglen);
+
+	/*
+	 * Publish the whole command block in one shot. The firmware reads it
+	 * only after the doorbell below, so the order within the block does not
+	 * matter; return_value is pre-cleared to FLEXLLCE_NO_RETURN_VALUE (0) so
+	 * the poll below can detect the firmware writing its result.
+	 */
+	memcpy_toio(&hif->shm->cmd, &cmd, sizeof(cmd));
+
+	/* Ring the command doorbell. */
+	err = mbox_send_message(hif->chan[FLEXLLCE_MBOX_CMD], &doorbell);
+	if (err < 0)
+		return err;
+
+	mbox_client_txdone(hif->chan[FLEXLLCE_MBOX_CMD], 0);
+
+	err = readb_poll_timeout(&hif->shm->cmd.return_value, ret,
+				 ret != FLEXLLCE_NO_RETURN_VALUE, 10,
+				 FLEXLLCE_CMD_TIMEOUT_MS * USEC_PER_MSEC);
+	if (err) {
+		dev_err(hif->dev, "cmd %u (inst %u) timed out (no firmware return)\n",
+			cmd_id, instance);
+		return err;
+	}
+
+	if (ret != FLEXLLCE_SUCCESS) {
+		dev_err(hif->dev, "cmd %u (inst %u) returned %u\n",
+			cmd_id, instance, ret);
+		return -EIO;
+	}
+
+	/* Copy the firmware's result back out of the scratch under the lock. */
+	if (arg)
+		memcpy_fromio(arg, hif->cmd_arg.base, arglen);
+
+	return 0;
+}
 
 /* Read the boot-status word and confirm the firmware is up and compatible. */
 static int flexllce_attach(struct flexllce_hif *hif)
@@ -138,6 +216,40 @@ static int flexllce_attach(struct flexllce_hif *hif)
 
 	dev_info(hif->dev, "attached to FlexLLCE firmware v%u.%u\n",
 		 major, minor);
+	return 0;
+}
+
+/*
+ * Set up one mailbox client and request its channel by device-tree name. The
+ * caller assigns cl->rx_callback beforehand for receiver channels; senders
+ * leave it NULL. This is the generic per-mailbox primitive used by both the
+ * command and data-path requesters.
+ */
+static struct mbox_chan *flexllce_request_mbox(struct flexllce_hif *hif,
+					       enum flexllce_mbox id)
+{
+	struct mbox_client *cl = &hif->cl[id];
+
+	cl->dev = hif->dev;
+	cl->tx_block = false;
+	cl->knows_txdone = true;
+
+	return mbox_request_channel_byname(cl, flexllce_mbox_names[id]);
+}
+
+static int flexllce_request_cmd_mbox(struct flexllce_hif *hif)
+{
+	/*
+	 * The "cmd" doorbell (host->RCU) is held for the lifetime of the device
+	 * and command completion is polled from the shared command block, so no
+	 * "cmdack" receiver is needed. The data-path doorbells are requested on
+	 * demand while a controller is up (flexllce_request_data_mboxes()).
+	 */
+	hif->chan[FLEXLLCE_MBOX_CMD] = flexllce_request_mbox(hif, FLEXLLCE_MBOX_CMD);
+	if (IS_ERR(hif->chan[FLEXLLCE_MBOX_CMD]))
+		return dev_err_probe(hif->dev,
+				     PTR_ERR(hif->chan[FLEXLLCE_MBOX_CMD]),
+				     "failed to get 'cmd' mailbox\n");
 	return 0;
 }
 
@@ -248,6 +360,10 @@ static int flexllce_probe(struct platform_device *pdev)
 	if (err)
 		return err;
 
+	err = flexllce_request_cmd_mbox(hif);
+	if (err)
+		return err;
+
 	platform_set_drvdata(pdev, hif);
 
 	return 0;
@@ -255,6 +371,9 @@ static int flexllce_probe(struct platform_device *pdev)
 
 static void flexllce_remove(struct platform_device *pdev)
 {
+	struct flexllce_hif *hif = platform_get_drvdata(pdev);
+
+	mbox_free_channel(hif->chan[FLEXLLCE_MBOX_CMD]);
 }
 
 static const struct of_device_id flexllce_of_match[] = {
