@@ -997,6 +997,67 @@ static netdev_tx_t flexllce_start_xmit(struct sk_buff *skb,
 	return NETDEV_TX_OK;
 }
 
+/* Firmware-maintained per-controller frame counters, exposed via ethtool -S. */
+static const char flexllce_stat_strings[][ETH_GSTRING_LEN] = {
+	"fw_tx_frames",
+	"fw_rx_frames",
+	"fw_routed_frames",
+};
+
+static int flexllce_get_sset_count(struct net_device *ndev, int sset)
+{
+	return sset == ETH_SS_STATS ? ARRAY_SIZE(flexllce_stat_strings) :
+				      -EOPNOTSUPP;
+}
+
+static void flexllce_get_strings(struct net_device *ndev, u32 sset, u8 *data)
+{
+	if (sset == ETH_SS_STATS)
+		memcpy(data, flexllce_stat_strings, sizeof(flexllce_stat_strings));
+}
+
+static void flexllce_get_ethtool_stats(struct net_device *ndev,
+				       struct ethtool_stats *stats, u64 *data)
+{
+	struct flexllce_chan *chan = netdev_priv(ndev);
+	struct flexllce_statistics_cmd cmd = {};
+	struct flexllce_hif *hif = chan->hif;
+
+	memset(data, 0, ARRAY_SIZE(flexllce_stat_strings) * sizeof(*data));
+
+	cmd.module = FLEXLLCE_STATS_CAN;
+	if (flexllce_send_cmd(hif, FLEXLLCE_CMD_GET_STATISTICS, chan->instance,
+			      &cmd, sizeof(cmd)))
+		return;
+
+	data[0] = le32_to_cpu(cmd.statistics.can.tx_count);
+	data[1] = le32_to_cpu(cmd.statistics.can.rx_count);
+	data[2] = le32_to_cpu(cmd.statistics.can.routed_count);
+}
+
+static int flexllce_get_ts_info(struct net_device *ndev,
+				struct kernel_ethtool_ts_info *info)
+{
+	/*
+	 * The firmware captures a hardware receive timestamp for every frame
+	 * (delivered in the RX skb). It does not timestamp transmits to the
+	 * host, so only receive hardware timestamping is advertised.
+	 */
+	info->so_timestamping = SOF_TIMESTAMPING_RX_HARDWARE |
+				SOF_TIMESTAMPING_RAW_HARDWARE;
+	info->phc_index = -1;
+	info->tx_types = BIT(HWTSTAMP_TX_OFF);
+	info->rx_filters = BIT(HWTSTAMP_FILTER_ALL);
+	return 0;
+}
+
+static const struct ethtool_ops flexllce_ethtool_ops = {
+	.get_ts_info		= flexllce_get_ts_info,
+	.get_sset_count		= flexllce_get_sset_count,
+	.get_strings		= flexllce_get_strings,
+	.get_ethtool_stats	= flexllce_get_ethtool_stats,
+};
+
 /* Read the boot-status word and confirm the firmware is up and compatible. */
 static int flexllce_attach(struct flexllce_hif *hif)
 {
