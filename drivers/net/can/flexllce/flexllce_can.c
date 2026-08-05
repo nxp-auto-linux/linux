@@ -96,12 +96,14 @@ static_assert(FLEXLLCE_TX_DESC_COUNT * sizeof(struct flexllce_tx_data) <=
 enum flexllce_mbox {
 	FLEXLLCE_MBOX_CMD,	/* host -> RCU: submit a command */
 	FLEXLLCE_MBOX_RX,	/* RCU -> host: frames received */
+	FLEXLLCE_MBOX_NOTIF0,	/* RCU -> host: notifications (interrupt channel) */
 	FLEXLLCE_NUM_MBOX
 };
 
 static const char * const flexllce_mbox_names[FLEXLLCE_NUM_MBOX] = {
 	[FLEXLLCE_MBOX_CMD]	= "cmd",
 	[FLEXLLCE_MBOX_RX]	= "rx",
+	[FLEXLLCE_MBOX_NOTIF0]	= "notif0",
 };
 
 struct flexllce_chan;
@@ -559,6 +561,28 @@ err_deinit:
 }
 
 /*
+ * Enable or disable the firmware host-interface notifications for this HIF.
+ * While notifications are disabled the firmware suspends the RX and
+ * TX-acknowledge updates to the host descriptor rings (the host installs the
+ * per-controller receive filters itself with SETFILTERTABLE at open). A host
+ * must enable notifications once its data path is ready so the firmware starts
+ * delivering frames. The command is addressed to the HIF, not a controller.
+ */
+static int flexllce_set_notifications(struct flexllce_hif *hif, bool enable)
+{
+	__le32 val = cpu_to_le32(enable ? FLEXLLCE_NOTIF_ENABLE :
+					  FLEXLLCE_NOTIF_DISABLE);
+
+	/*
+	 * SET_NOTIFICATIONS is a HIF-level command: the firmware acts on the
+	 * whole host interface, so the command's instance field carries the HIF
+	 * id rather than a controller index.
+	 */
+	return flexllce_send_cmd(hif, FLEXLLCE_CMD_SET_NOTIFICATIONS, hif->hif_id,
+				 &val, sizeof(val));
+}
+
+/*
  * Tear down a host-started controller: STOP it, wait for the hardware to
  * actually stop (the firmware only accepts DEINIT from the stopped state),
  * then DEINIT it. Skipping the wait causes DEINIT to be rejected and the
@@ -671,6 +695,115 @@ deliver:
 }
 
 /*
+ * Decode one firmware notification (a controller bus-state change or bus error)
+ * into a SocketCAN state transition and/or error frame. Like a received frame,
+ * the notification record is referenced by its physical address in the
+ * notification communication table.
+ */
+static void flexllce_handle_notif(struct flexllce_hif *hif, u32 buf_phys)
+{
+	enum can_state tx_state, rx_state;
+	struct flexllce_notification n;
+	struct can_frame *cf = NULL;
+	struct flexllce_chan *chan;
+	struct net_device *ndev;
+	struct sk_buff *skb;
+	u32 reg;
+
+	if (!flexllce_read_shm(hif, buf_phys, &n, sizeof(n)))
+		return;
+
+	ndev = flexllce_find_ndev(hif, n.instance);
+	if (!ndev || !netif_running(ndev))
+		return;
+	chan = netdev_priv(ndev);
+	reg = le32_to_cpu(n.error_reg);
+
+	skb = alloc_can_err_skb(ndev, &cf);
+
+	switch (n.event_code) {
+	case FLEXLLCE_EVENT_BUSOFF:
+		tx_state = CAN_STATE_BUS_OFF;
+		rx_state = CAN_STATE_BUS_OFF;
+		break;
+	case FLEXLLCE_EVENT_TX_WARNING:
+		tx_state = CAN_STATE_ERROR_WARNING;
+		rx_state = CAN_STATE_ERROR_ACTIVE;
+		break;
+	case FLEXLLCE_EVENT_RX_WARNING:
+		tx_state = CAN_STATE_ERROR_ACTIVE;
+		rx_state = CAN_STATE_ERROR_WARNING;
+		break;
+	case FLEXLLCE_EVENT_PASSIVE_STATE:
+		/* error_reg carries the error-counter register for this event. */
+		tx_state = FLEXLLCE_ECR_TX_ERR(reg) >= 128 ?
+			   CAN_STATE_ERROR_PASSIVE : CAN_STATE_ERROR_WARNING;
+		rx_state = FLEXLLCE_ECR_RX_ERR(reg) >= 128 ?
+			   CAN_STATE_ERROR_PASSIVE : CAN_STATE_ERROR_WARNING;
+		break;
+	case FLEXLLCE_EVENT_EXIT_PASSIVE_STATE:
+		tx_state = CAN_STATE_ERROR_ACTIVE;
+		rx_state = CAN_STATE_ERROR_ACTIVE;
+		break;
+	case FLEXLLCE_EVENT_RXFIFO_OVERFLOW:
+		ndev->stats.rx_over_errors++;
+		ndev->stats.rx_errors++;
+		if (cf) {
+			cf->can_id |= CAN_ERR_CRTL;
+			cf->data[1] |= CAN_ERR_CRTL_RX_OVERFLOW;
+		}
+		goto deliver;
+	case FLEXLLCE_EVENT_ERROR:
+	case FLEXLLCE_EVENT_ERROR_FAST:
+		/* Per-error bus fault: only surfaced when the user asked for it. */
+		if (!(chan->can.ctrlmode & CAN_CTRLMODE_BERR_REPORTING))
+			goto drop;
+		chan->can.can_stats.bus_error++;
+		ndev->stats.rx_errors++;
+		if (cf) {
+			cf->can_id |= CAN_ERR_PROT | CAN_ERR_BUSERROR;
+			if (reg & FLEXLLCE_ESR1_BIT1_ERR)
+				cf->data[2] |= CAN_ERR_PROT_BIT1;
+			if (reg & FLEXLLCE_ESR1_BIT0_ERR)
+				cf->data[2] |= CAN_ERR_PROT_BIT0;
+			if (reg & FLEXLLCE_ESR1_ACK_ERR) {
+				cf->can_id |= CAN_ERR_ACK;
+				cf->data[3] = CAN_ERR_PROT_LOC_ACK;
+			}
+			if (reg & FLEXLLCE_ESR1_CRC_ERR)
+				cf->data[3] = CAN_ERR_PROT_LOC_CRC_SEQ;
+			if (reg & FLEXLLCE_ESR1_FRM_ERR)
+				cf->data[2] |= CAN_ERR_PROT_FORM;
+			if (reg & FLEXLLCE_ESR1_STF_ERR)
+				cf->data[2] |= CAN_ERR_PROT_STUFF;
+		}
+		goto deliver;
+	default:
+		goto drop;
+	}
+
+	/*
+	 * Fault-confinement transition. Skip it if the controller is already in
+	 * the target state - the firmware can repeat an event (e.g. a bus-off
+	 * storm) and the core warns on a no-op state change.
+	 */
+	if (max(tx_state, rx_state) == chan->can.state)
+		goto drop;
+	can_change_state(ndev, cf, tx_state, rx_state);
+	if (chan->can.state == CAN_STATE_BUS_OFF)
+		can_bus_off(ndev);
+
+deliver:
+	if (skb)
+		netif_receive_skb(skb);
+	return;
+
+drop:
+	if (skb)
+		dev_kfree_skb_any(skb);
+}
+
+/*
  * Pop the next full descriptor from a consumer ring under @rx_lock and read the
  * physical address of the mailbox buffer it points at. Returns false when the
  * ring is empty; the buffer itself is processed by the caller outside the lock.
@@ -697,6 +830,19 @@ static void flexllce_rx_cb(struct mbox_client *cl, void *msg)
 
 	scoped_guard(spinlock_irqsave, &hif->rx_lock)
 		flexllce_ring_register_full(&hif->rx_ring, desc);
+
+	napi_schedule(&hif->napi);
+}
+
+/* MRU receive callback: the firmware produced notifications up to @desc. */
+static void flexllce_notif0_cb(struct mbox_client *cl, void *msg)
+{
+	struct flexllce_hif *hif =
+		container_of(cl, struct flexllce_hif, cl[FLEXLLCE_MBOX_NOTIF0]);
+	u32 desc = *(u32 *)msg;
+
+	scoped_guard(spinlock_irqsave, &hif->rx_lock)
+		flexllce_ring_register_full(&hif->notif_ring, desc);
 
 	napi_schedule(&hif->napi);
 }
