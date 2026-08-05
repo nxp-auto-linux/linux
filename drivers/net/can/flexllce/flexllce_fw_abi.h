@@ -420,4 +420,120 @@ struct flexllce_boot_status {
 } __packed;
 static_assert(sizeof(struct flexllce_boot_status) == 36);
 
+/* FlexLLCE_TimeStampType Used to express time stamps based on relative time. */
+struct flexllce_time_stamp {
+	/* Nanoseconds part of the time. */
+	__le32 nanoseconds;
+	/* Seconds part of the time. */
+	__le32 seconds;
+} __packed;
+static_assert(sizeof(struct flexllce_time_stamp) == 8);
+
+struct flexllce_rx_data {
+	/* Code and Status */
+	__le32 cs;
+	/* Message Buffer ID */
+	__le32 msg_id;
+	/* Data bytes of the FlexCAN message */
+	u8 payload[64];
+	/* Length of data in bytes */
+	u8 data_len;
+	/* Identifier Acceptance Filter Hit Indicator */
+	u8 filter_id;
+	/* Controller ID */
+	u8 instance;
+	/* 1 byte padding left */
+	u8 padding;
+	/* Time Stamp in s+ns */
+	struct flexllce_time_stamp timestamp;
+} __packed;
+static_assert(sizeof(struct flexllce_rx_data) == 84);
+
+/*
+ * Command used by host. It is used in order to send commands from host to
+ * FLEXLLCE using shared memory.
+ */
+struct flexllce_tx_descriptor {
+	/* Frame ID. */
+	__le32 msg_id;
+	/* Type of message ID (standard or extended). */
+	u8 ext_id;
+	/* Length of Data in Bytes. */
+	u8 data_len;
+	/*
+	 * Set a value for padding. It will be used when the data length code (DLC)
+	 * specifies a bigger payload size than data_length to fill the MB.
+	 */
+	u8 fd_padding;
+	/*
+	 * First bit(LSB) represents enable(1) or disable FD(0). The second bit(second
+	 * LSB) represents enable(1) or disable(0) bit rate switch inside a CAN FD
+	 * format frame.
+	 */
+	u8 ctrl_options;
+} __packed;
+static_assert(sizeof(struct flexllce_tx_descriptor) == 8);
+
+struct flexllce_tx_data {
+	/* Data bytes of the FlexCAN message. */
+	u8 payload[64];
+	/* Frame ID. */
+	struct flexllce_tx_descriptor descriptor;
+	/* Unique tag to identify the sent frame on the confirmation flow. */
+	__le16 tracking_idx;
+	/* Controller ID. */
+	u8 instance;
+	/*
+	 * ack channel: 0 = interrupt (drained by the host), 1-5 = poll classes; a
+	 * value >= the channel count suppresses the ack (0xFF = no ack)
+	 */
+	u8 ack_interface;
+} __packed;
+static_assert(sizeof(struct flexllce_tx_data) == 76);
+
+struct flexllce_tx_ack {
+	/* Transmission time stamp. */
+	struct flexllce_time_stamp tx_timestamp;
+	/* Tag returned by the fw on the confirmation flow. */
+	__le16 tracking_idx;
+	u8 reserved[2];
+} __packed;
+static_assert(sizeof(struct flexllce_tx_ack) == 12);
+
+struct flexllce_shared_memory {
+	struct flexllce_rx_data rx_mb[256];
+	/*
+	 * descriptors (continuous range) to random buffer indexes (to allow
+	 * partitioning of buffers per polling class)
+	 */
+	__le32 rx_comtable[6][32];
+	/* cmd is filled in host memory, only the pointer to cmd is sent to fw */
+	struct flexllce_command cmd;
+	/* indexed with a CommDescType and returns MbIdxType */
+	__le32 tx_comtable[32];
+	struct flexllce_tx_ack ack_mb[256];
+	/* indexed with a CommDescType and returns MbIdxType */
+	__le32 ack_comtable[6][32];
+	struct flexllce_notification notif_mb[32];
+	/* ComDesc for Notif table */
+	__le32 notif_comtable[2][16];
+	/* FlexLLCE_DevErrorReportType aDevErrorReport (unused) */
+	u8 reserved_dev_error[1080];
+} __packed;
+static_assert(sizeof(struct flexllce_shared_memory) == 27712);
+
+/* Firmware constants (values taken from the firmware header). */
+#define FLEXLLCE_CTRL_OPT_THREE_SAMPLES	0x02
+#define FLEXLLCE_CTRL_OPT_ISO_FD	0x20
+#define FLEXLLCE_CTRL_OPT_BUSOFF_MANUAL	0x80
+#define FLEXLLCE_TX_OPT_FD	0x01
+#define FLEXLLCE_TX_OPT_BRS	0x02
+#define FLEXLLCE_FILTER_ROUTE_NONE	0xffff
+#define FLEXLLCE_TX_ACK_INTERRUPT	0
+#define FLEXLLCE_TX_ACK_SUPPRESS	0xff
+#define FLEXLLCE_TX_DESC_COUNT	32
+#define FLEXLLCE_RX_DESC_COUNT	32
+#define FLEXLLCE_ACK_DESC_COUNT	32
+#define FLEXLLCE_NOTIF_DESC_COUNT	16
+
 #endif /* _FLEXLLCE_FW_ABI_H_ */
