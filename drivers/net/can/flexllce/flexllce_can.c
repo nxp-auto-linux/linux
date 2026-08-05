@@ -1300,6 +1300,84 @@ static void flexllce_datapath_stop(struct flexllce_hif *hif)
 	flexllce_free_data_mboxes(hif);
 }
 
+static struct flexllce_chan *flexllce_add_chan(struct flexllce_hif *hif,
+					       struct device_node *np)
+{
+	struct flexllce_chan *chan;
+	struct net_device *ndev;
+	unsigned long clk_freq;
+	struct clk *clk;
+	u32 instance;
+	int err;
+
+	err = of_property_read_u32(np, "reg", &instance);
+	if (err || instance >= FLEXLLCE_MAX_INSTANCE)
+		return ERR_PTR(-EINVAL);
+
+	clk = of_clk_get_by_name(np, "per");
+	if (IS_ERR(clk))
+		return ERR_PTR(dev_err_probe(hif->dev, PTR_ERR(clk),
+					     "getting 'per' clock for %pOF\n", np));
+
+	clk_freq = clk_get_rate(clk);
+	clk_put(clk);
+	if (!clk_freq)
+		return ERR_PTR(dev_err_probe(hif->dev, -EINVAL,
+					     "'per' clock rate is 0 for %pOF\n", np));
+
+	ndev = alloc_candev(sizeof(*chan), FLEXLLCE_TX_DESC_COUNT);
+	if (!ndev)
+		return ERR_PTR(-ENOMEM);
+
+	chan = netdev_priv(ndev);
+	chan->ndev = ndev;
+	chan->hif = hif;
+	chan->instance = instance;
+
+	/*
+	 * Name the interface after the FlexLLCE hardware controller id it maps
+	 * to (llcecan<id>), so user space can identify the physical controller
+	 * directly instead of relying on the kernel's canX enumeration order.
+	 */
+	snprintf(ndev->name, sizeof(ndev->name), "llcecan%u", instance);
+
+	chan->can.bittiming_const = &flexllce_bittiming_const;
+	chan->can.data_bittiming_const = &flexllce_data_bittiming_const;
+	chan->can.clock.freq = clk_freq;
+	chan->can.ctrlmode_supported = CAN_CTRLMODE_LOOPBACK |
+				       CAN_CTRLMODE_LISTENONLY |
+				       CAN_CTRLMODE_3_SAMPLES |
+				       CAN_CTRLMODE_FD |
+				       CAN_CTRLMODE_FD_NON_ISO |
+				       CAN_CTRLMODE_BERR_REPORTING;
+	chan->can.do_set_mode = flexllce_set_mode;
+	chan->can.do_get_berr_counter = flexllce_get_berr_counter;
+
+	ndev->netdev_ops = &flexllce_netdev_ops;
+	ndev->ethtool_ops = &flexllce_ethtool_ops;
+	ndev->flags |= IFF_ECHO;
+	SET_NETDEV_DEV(ndev, hif->dev);
+
+	err = register_candev(ndev);
+	if (err) {
+		free_candev(ndev);
+		return ERR_PTR(err);
+	}
+
+	return chan;
+}
+
+static void flexllce_remove_chans(struct flexllce_hif *hif)
+{
+	unsigned int i;
+
+	for (i = 0; i < hif->nr_chans; i++) {
+		unregister_candev(hif->chans[i]->ndev);
+		free_candev(hif->chans[i]->ndev);
+	}
+	hif->nr_chans = 0;
+}
+
 /*
  * Map one named entry of the device's "memory-region" list and return its
  * ioremapped base (plus optional physical base and size). Selecting by name
@@ -1370,6 +1448,45 @@ static int flexllce_map_data_regions(struct flexllce_hif *hif)
 	return 0;
 }
 
+/*
+ * Register a netdev for each available child (controller) node. A HIF may front
+ * any number of controllers, so the per-HIF chans array is sized at probe from
+ * the device-tree child count rather than a fixed maximum.
+ */
+static int flexllce_add_chans(struct flexllce_hif *hif)
+{
+	struct flexllce_chan *chan;
+	struct device_node *child;
+	unsigned int count;
+
+	count = of_get_available_child_count(hif->dev->of_node);
+	if (!count)
+		return dev_err_probe(hif->dev, -ENODEV,
+				     "no controller child nodes\n");
+
+	hif->chans = devm_kcalloc(hif->dev, count, sizeof(*hif->chans),
+				  GFP_KERNEL);
+	if (!hif->chans)
+		return -ENOMEM;
+
+	for_each_available_child_of_node(hif->dev->of_node, child) {
+		chan = flexllce_add_chan(hif, child);
+		if (IS_ERR(chan)) {
+			of_node_put(child);
+			return PTR_ERR(chan);
+		}
+		hif->chans[hif->nr_chans++] = chan;
+		/*
+		 * Populate the instance -> netdev demux table used by the RX/
+		 * notification hot path. chan->instance was range-checked against
+		 * FLEXLLCE_MAX_INSTANCE in flexllce_add_chan(), so this index is
+		 * in bounds.
+		 */
+		hif->inst_ndev[chan->instance] = chan->ndev;
+	}
+	return 0;
+}
+
 static int flexllce_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -1411,16 +1528,39 @@ static int flexllce_probe(struct platform_device *pdev)
 	if (err)
 		return err;
 
+	/* Dummy netdev carrying the NAPI context for the shared RX ring. */
+	hif->napi_dev = alloc_netdev_dummy(0);
+	if (!hif->napi_dev) {
+		err = -ENOMEM;
+		goto err_cmd;
+	}
+	netif_napi_add(hif->napi_dev, &hif->napi, flexllce_rx_poll);
+
 	platform_set_drvdata(pdev, hif);
 
+	err = flexllce_add_chans(hif);
+	if (err)
+		goto err_chans;
+
 	return 0;
+
+err_chans:
+	flexllce_remove_chans(hif);
+	netif_napi_del(&hif->napi);
+	free_netdev(hif->napi_dev);
+err_cmd:
+	mbox_free_channel(hif->chan[FLEXLLCE_MBOX_CMD]);
+	return err;
 }
 
 static void flexllce_remove(struct platform_device *pdev)
 {
 	struct flexllce_hif *hif = platform_get_drvdata(pdev);
 
+	flexllce_remove_chans(hif);
 	mbox_free_channel(hif->chan[FLEXLLCE_MBOX_CMD]);
+	netif_napi_del(&hif->napi);
+	free_netdev(hif->napi_dev);
 }
 
 static const struct of_device_id flexllce_of_match[] = {
