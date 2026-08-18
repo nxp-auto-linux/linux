@@ -1540,29 +1540,18 @@ static void enetc4_put_fwnode(struct enetc_ndev_priv *priv)
 	priv->swnode = NULL;
 }
 
-static int enetc4_get_fwnode(struct enetc_ndev_priv *priv,
-			     struct device_node *node)
+/* Build the phy-mode + fixed-link software node for a Pseudo-MAC port at
+ * the given (already validated/matched) speed in Mbps. On success the parent
+ * swnode reference is stored in priv->swnode.
+ */
+static int enetc4_build_fixed_link_swnode(struct enetc_ndev_priv *priv,
+					  int speed)
 {
 	struct enetc_pf *pf = enetc_si_priv(priv->si);
 	struct property_entry eth_props[2] = {};
 	struct property_entry fl_props[3] = {};
 	struct fwnode_handle *tmp_fwnode;
-	int speed, err;
 
-	/* NULL DT node is accepted only for Pseudo-MAC ENETCs */
-	if (node || !enetc_is_pseudo_mac(priv->si)) {
-		err = of_get_phy_mode(node, &pf->if_mode);
-		if (err) {
-			dev_err(priv->dev, "Failed to get PHY mode\n");
-			return err;
-		}
-
-		return 0;
-	}
-
-	/* dev->of_node missing */
-	enetc4_get_pcr_speed(&priv->si->hw, &speed);
-	speed = enetc_phylink_match_pseudo_mac_speed(speed);
 	pf->if_mode = PHY_INTERFACE_MODE_INTERNAL;
 
 	fl_props[0] = PROPERTY_ENTRY_U32("speed", speed);
@@ -1587,6 +1576,30 @@ static int enetc4_get_fwnode(struct enetc_ndev_priv *priv,
 	}
 
 	return 0;
+}
+
+static int enetc4_get_fwnode(struct enetc_ndev_priv *priv,
+			     struct device_node *node)
+{
+	struct enetc_pf *pf = enetc_si_priv(priv->si);
+	int speed, err;
+
+	/* NULL DT node is accepted only for Pseudo-MAC ENETCs */
+	if (node || !enetc_is_pseudo_mac(priv->si)) {
+		err = of_get_phy_mode(node, &pf->if_mode);
+		if (err) {
+			dev_err(priv->dev, "Failed to get PHY mode\n");
+			return err;
+		}
+
+		return 0;
+	}
+
+	/* dev->of_node missing */
+	enetc4_get_pcr_speed(&priv->si->hw, &speed);
+	speed = enetc_phylink_match_pseudo_mac_speed(speed);
+
+	return enetc4_build_fixed_link_swnode(priv, speed);
 }
 
 static int enetc4_link_init(struct enetc_ndev_priv *priv,
