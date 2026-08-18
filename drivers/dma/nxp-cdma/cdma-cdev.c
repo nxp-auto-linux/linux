@@ -215,32 +215,44 @@ static void cdma_async_complete_work(struct work_struct *work)
  * Helper exposed to cdma-pci.c IRQ thread so the handler can defer
  * async completion without needing the full layout of
  * struct cdma_async_req.
+ *
+ * Uses the device-private workqueue so cdma_pci_remove() can flush every
+ * outstanding completion before the BD rings and DMA pool are freed.
  */
 void cdma_async_req_complete(struct cdma_async_req *req, int result)
 {
 	req->result = result;
-	schedule_work(&req->complete_work);
+	queue_work(req->ring->si->cdev->wq, &req->complete_work);
 }
 
 /* TX file operations (write-only, /dev/cdma-pipeN-tx) */
 static int cdma_tx_open(struct inode *inode, struct file *filp)
 {
 	struct cdma_pipe *pipe = miscdev_to_pipe(filp->private_data, true);
+	struct cdma_device *cdev = pipe->cdev;
+	int ret;
 
-	filp->private_data = pipe;
+	mutex_lock(&cdev->config_lock);
+	if (!cdev->pipe_active || cdev->pipes != pipe) {
+		ret = -ENODEV;
+	} else {
+		filp->private_data = pipe;
+		/* Deliberately do NOT advertise FMODE_NOWAIT. The async
+		 * submit path (cdma_tx_write_async) must run in a context
+		 * where it can block: it does kzalloc(GFP_KERNEL), builds
+		 * an S/G table and pin_user_pages_fast()s the user buffer,
+		 * none of which honour IOCB_NOWAIT. It therefore bounces a
+		 * nowait submission back with -EAGAIN.
+		 * Without FMODE_NOWAIT io_uring never sets IOCB_NOWAIT on
+		 * these fds, so the submit always runs from a blocking-capable
+		 * context and both io_uring/epoll async and plain read()/
+		 * write() sync I/O work.
+		 */
+		ret = stream_open(inode, filp);
+	}
+	mutex_unlock(&cdev->config_lock);
 
-	/* Deliberately do NOT advertise FMODE_NOWAIT. The async
-	 * submit path (cdma_tx_write_async) must run in a context
-	 * where it can block: it does kzalloc(GFP_KERNEL), builds
-	 * an S/G table and pin_user_pages_fast()s the user buffer,
-	 * none of which honour IOCB_NOWAIT. It therefore bounces a
-	 * nowait submission back with -EAGAIN.
-	 * Without FMODE_NOWAIT io_uring never sets IOCB_NOWAIT on
-	 * these fds, so the submit always runs from a blocking-capable
-	 * context and both io_uring/epoll async and plain read()/
-	 * write() sync I/O work.
-	 */
-	return stream_open(inode, filp);
+	return ret;
 }
 
 /*
@@ -392,7 +404,7 @@ static ssize_t cdma_tx_write_iter(struct kiocb *iocb, struct iov_iter *from)
 
 	if (count > pipe->max_xfer) {
 		dev_warn_ratelimited(&cdev->pdev->dev,
-				     "pipe%u: write %zu > max_xfer %zu — chunk the write\n",
+				     "pipe%d: write %zu > max_xfer %zu — chunk the write\n",
 				     pipe->pipe_idx, count, pipe->max_xfer);
 		return -EMSGSIZE;
 	}
@@ -432,11 +444,20 @@ static const struct file_operations cdma_tx_fops = {
 static int cdma_rx_open(struct inode *inode, struct file *filp)
 {
 	struct cdma_pipe *pipe = miscdev_to_pipe(filp->private_data, false);
+	struct cdma_device *cdev = pipe->cdev;
+	int ret;
 
-	filp->private_data = pipe;
+	mutex_lock(&cdev->config_lock);
+	if (!cdev->pipe_active || cdev->pipes != pipe) {
+		ret = -ENODEV;
+	} else {
+		filp->private_data = pipe;
+		/* No FMODE_NOWAIT: see cdma_tx_open() for the rationale. */
+		ret = stream_open(inode, filp);
+	}
+	mutex_unlock(&cdev->config_lock);
 
-	/* No FMODE_NOWAIT: see cdma_tx_open() for the rationale. */
-	return stream_open(inode, filp);
+	return ret;
 }
 
 /*
@@ -576,7 +597,7 @@ static ssize_t cdma_rx_read_iter(struct kiocb *iocb, struct iov_iter *to)
 
 	if (count > pipe->max_xfer) {
 		dev_warn_ratelimited(&cdev->pdev->dev,
-				     "pipe%u: read %zu > max_xfer %zu — chunk the read\n",
+				     "pipe%d: read %zu > max_xfer %zu — chunk the read\n",
 				     pipe->pipe_idx, count, pipe->max_xfer);
 		return -EMSGSIZE;
 	}
@@ -612,6 +633,32 @@ static const struct file_operations cdma_rx_fops = {
 	.poll		= cdma_rx_poll,
 };
 
+/*
+ * Reap any async requests still queued on a ring during teardown.
+ *
+ * The caller (cdma_pci_remove) has already disabled the SI (SIMR=0) and
+ * torn down the IRQ, so hardware cannot land another writeback and the
+ * IRQ thread cannot dequeue concurrently. Every request the IRQ thread
+ * had not yet completed is popped, unmapped and completed with -ENODEV.
+ * Requests the IRQ thread already dequeued are in flight on the workqueue
+ * and are handled by the flush_workqueue() that follows in
+ * cdma_pipe_destroy().
+ */
+static void cdma_ring_drain_async(struct cdma_device *cdev,
+				  struct cdma_ring *ring)
+{
+	struct cdma_async_req *req;
+
+	if (!ring)
+		return;
+
+	while ((req = cdma_ring_pop_async(ring))) {
+		cdma_zc_unmap(cdev, &req->zc, req->dir);
+		req->iocb->ki_complete(req->iocb, -ENODEV);
+		kfree(req);
+	}
+}
+
 /* Pipe allocation and registration */
 static void cdma_pipe_destroy(struct cdma_device *cdev)
 {
@@ -620,16 +667,31 @@ static void cdma_pipe_destroy(struct cdma_device *cdev)
 	if (!pipe)
 		return;
 
+	/*
+	 * Deregister the char devices first so no new open()/read()/write()
+	 * can start, then drain the rings and flush the completion workqueue
+	 * while the pipe, rings and DMA pool are all still valid. Only after
+	 * every in-flight async completion has run do we clear ring->pipe.
+	 *
+	 * The caller (cdma_pci_remove) must have already run cdma_irq_fini()
+	 * so the IRQ thread cannot schedule new completions concurrently with
+	 * the drain below.
+	 */
+	misc_deregister(&pipe->miscdev_rx);
+	misc_deregister(&pipe->miscdev_tx);
+
+	cdma_ring_drain_async(cdev, pipe->tx_ring);
+	cdma_ring_drain_async(cdev, pipe->rx_ring);
+	flush_workqueue(cdev->wq);
+
 	if (pipe->tx_ring)
 		pipe->tx_ring->pipe = NULL;
 	if (pipe->rx_ring)
 		pipe->rx_ring->pipe = NULL;
 
-	misc_deregister(&pipe->miscdev_rx);
-	misc_deregister(&pipe->miscdev_tx);
-
 	cdev->pipes = NULL;
 	cdev->num_pipes = 0;
+	ida_free(&cdma_pipe_ida, pipe->pipe_idx);
 }
 
 /*
@@ -648,7 +710,7 @@ static int cdma_pipe_create(struct cdma_device *cdev, struct cdma_si *si,
 		return -ENOMEM;
 
 	pipe->cdev = cdev;
-	pipe->hw_pipe_id = cdev->hw_pipe_id;
+	pipe->hw_pipe_id = cdev->pipe_id;
 	pipe->pipe_idx = pipe_idx;
 	pipe->max_xfer = CDMA_PIPE_BUF_SIZE;
 	mutex_init(&pipe->tx_lock);
@@ -673,6 +735,8 @@ static int cdma_pipe_create(struct cdma_device *cdev, struct cdma_si *si,
 	if (ret) {
 		dev_err(dev, "failed to register %s: %d\n",
 			pipe->name_tx, ret);
+		pipe->tx_ring->pipe = NULL;
+		pipe->rx_ring->pipe = NULL;
 		return ret;
 	}
 
@@ -688,6 +752,8 @@ static int cdma_pipe_create(struct cdma_device *cdev, struct cdma_si *si,
 		dev_err(dev, "failed to register %s: %d\n",
 			pipe->name_rx, ret);
 		misc_deregister(&pipe->miscdev_tx);
+		pipe->tx_ring->pipe = NULL;
+		pipe->rx_ring->pipe = NULL;
 		return ret;
 	}
 
@@ -700,14 +766,8 @@ static int cdma_pipe_create(struct cdma_device *cdev, struct cdma_si *si,
 	return 0;
 }
 
-static void cdma_ida_free(void *data)
-{
-	ida_free(&cdma_pipe_ida, (unsigned long)data);
-}
-
 int cdma_cdev_init(struct cdma_device *cdev)
 {
-	struct device *dev = &cdev->pdev->dev;
 	int idx, ret;
 
 	if (!cdev->si)
@@ -717,12 +777,11 @@ int cdma_cdev_init(struct cdma_device *cdev)
 	if (idx < 0)
 		return idx;
 
-	ret = devm_add_action_or_reset(dev, cdma_ida_free,
-				       (void *)(unsigned long)idx);
+	ret = cdma_pipe_create(cdev, cdev->si, idx);
 	if (ret)
-		return ret;
+		ida_free(&cdma_pipe_ida, idx);
 
-	return cdma_pipe_create(cdev, cdev->si, idx);
+	return ret;
 }
 
 void cdma_cdev_fini(struct cdma_device *cdev)

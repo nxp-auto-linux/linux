@@ -1,0 +1,75 @@
+What:		/sys/bus/pci/devices/<BDF>/cdma/pipe_id
+Date:		August 2026
+KernelVersion:	6.12
+Contact:	Ciprian Marian Costea <ciprianmarian.costea@nxp.com>
+Description:	(RW) IERB-authorized CDMA pipe identifier configured for this
+		PCI function. Valid values are 0 through 255. The default is set
+		by the default_pipe_id driver parameter and is 10 unless
+		overridden.
+
+		The value can be changed only while the device is inactive. Once
+		the pipe is activated, writes fail with -EBUSY.
+
+		The PCI BDF selects the hardware Station Interface exposed by
+		firmware. Writing a pipe identifier does not change the SI assigned
+		to the PCI function.
+
+What:		/sys/bus/pci/devices/<BDF>/cdma/activate
+Date:		August 2026
+KernelVersion:	6.12
+Contact:	Ciprian Marian Costea <ciprianmarian.costea@nxp.com>
+Description:	(WO) Activate the configured pipe and register its TX and RX
+		character devices. Write 1, y, yes, true, or on to activate.
+
+		Activation is one-way for the lifetime of the bound PCI device.
+		Writing a false value returns -EINVAL. Repeating activation is a
+		successful no-op. Runtime deactivation is intentionally unsupported
+		because open file descriptors and asynchronous completions may still
+		reference the pipe.
+
+		On unbind the driver drains and flushes queued asynchronous
+		completions before freeing the pipe. It does not, however,
+		serialize against the synchronous read()/write() path: an
+		in-flight blocking transfer is not force-drained, and closing a
+		file descriptor does not wait for a syscall that is already
+		mid-flight on it. Before unbinding the PCI function the
+		user must therefore quiesce the pipe in userspace -
+		close all pipe file descriptors and ensure no synchronous
+		read()/write() is still in flight. Unbinding while a synchronous
+		transfer is in progress is not supported.
+
+		Firmware must authorize the selected pipe for the SI in PIDaAUR
+		before the PCI function becomes visible to Linux.
+
+What:		/sys/bus/pci/devices/<BDF>/cdma/state
+Date:		August 2026
+KernelVersion:	6.12
+Contact:	Ciprian Marian Costea <ciprianmarian.costea@nxp.com>
+Description:	(RO) Current CDMA pipe state, configured pipe identifier, and PCI
+		function. Example values are::
+
+		  inactive pipe_id=10 pci=0000:01:00.2
+		  active pipe_id=10 pci=0000:01:00.2
+
+		Manual activation example::
+
+		  DEV=/sys/bus/pci/devices/0000:01:00.2/cdma
+		  echo 10 > $DEV/pipe_id
+		  echo 1 > $DEV/activate
+		  cat $DEV/state
+
+		For a loadable driver, default_pipe_id, auto_activate, and
+		auto_activate_bdf can be supplied to modprobe. For a built-in driver,
+		the same parameters can be supplied on the kernel command line using
+		the nxp-cdma driver-name prefix. Automatic activation requires an
+		exact BDF so that other exposed CDMA functions remain inactive.
+
+		Loadable driver example::
+
+		  modprobe nxp-cdma default_pipe_id=10 auto_activate=1 \
+		          auto_activate_bdf=0000:01:00.2
+
+		Built-in driver kernel command-line example::
+
+		  nxp-cdma.default_pipe_id=10 nxp-cdma.auto_activate=1 \
+		  nxp-cdma.auto_activate_bdf=0000:01:00.2
