@@ -280,8 +280,8 @@ struct cdma_si {
  */
 struct cdma_pipe {
 	struct cdma_device *cdev;
-	u8 hw_pipe_id;			/* IERB pipe ID, from DT */
-	u8 pipe_idx;			/* For char-device naming only */
+	u8 hw_pipe_id;			/* IERB-authorized pipe ID */
+	int pipe_idx;			/* IDA index for char-device naming */
 	char name_tx[32];		/* "cdma-pipe0-tx" */
 	char name_rx[32];		/* "cdma-pipe0-rx" */
 
@@ -310,9 +310,17 @@ struct cdma_device {
 	/* S/G table DMA pool */
 	struct dma_pool *sgt_pool;
 
-	/* DT-configured pipe ID */
-	u32 hw_pipe_id;		/* IERB pipe ID for this SI */
-	bool has_pipe_id;	/* true if nxp,pipe-id was found in DT */
+	/*
+	 * Workqueue for deferred async completions. A dedicated queue lets
+	 * cdma_pci_remove() flush every outstanding cdma_async_complete_work()
+	 * before the DMA pool and BD rings they touch are torn down.
+	 */
+	struct workqueue_struct *wq;
+
+	/* Runtime pipe configuration, protected by config_lock. */
+	struct mutex config_lock;
+	u8 pipe_id;
+	bool pipe_active;
 
 	/* Pipe devices */
 	struct cdma_pipe *pipes;
@@ -351,6 +359,7 @@ void cdma_ring_free(struct cdma_ring *ring);
 int cdma_ring_init(struct cdma_ring *ring);
 void cdma_ring_reset(struct cdma_ring *ring);
 void cdma_ring_cancel(struct cdma_ring *ring);
+struct cdma_async_req *cdma_ring_pop_async(struct cdma_ring *ring);
 int cdma_ring_submit(struct cdma_ring *ring, u32 num_bds);
 bool cdma_ring_async_has_space(struct cdma_ring *ring, u32 num_bds);
 bool cdma_ring_async_pending(struct cdma_ring *ring);

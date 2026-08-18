@@ -157,6 +157,32 @@ void cdma_ring_cancel(struct cdma_ring *ring)
 }
 
 /*
+ * cdma_ring_pop_async - Detach the head async request from a ring.
+ *
+ * Used by cdma_pipe_destroy() to reap requests that were submitted but
+ * have not yet been completed by the IRQ thread. Returns the dequeued
+ * request (with its accounting removed) or NULL when the list is empty.
+ * The caller owns the returned request and must unmap and free it.
+ */
+struct cdma_async_req *cdma_ring_pop_async(struct cdma_ring *ring)
+{
+	struct cdma_async_req *req = NULL;
+	unsigned long flags;
+
+	spin_lock_irqsave(&ring->async_lock, flags);
+	if (!list_empty(&ring->async_reqs)) {
+		req = list_first_entry(&ring->async_reqs,
+				       struct cdma_async_req, node);
+		list_del_init(&req->node);
+		ring->async_pending_bds -= req->num_bds;
+		ring->async_pending_reqs--;
+	}
+	spin_unlock_irqrestore(&ring->async_lock, flags);
+
+	return req;
+}
+
+/*
  * cdma_ring_init - Configure and enable a BD ring.
  *
  * Called once during SI init. Programs base address, length, and enables
