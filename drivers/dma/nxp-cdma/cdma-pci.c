@@ -19,20 +19,36 @@
  *   4. Allocate DMA-coherent BD ring memory for each ring
  *   5. Enable the Station Interface (SIMR[EN])
  *   6. Set up MSI-X interrupts
- *   7. Read DT 'nxp,pipe-id' from this SI's per-function child node
- *   8. Create pipe char devices if pipe-id is configured (and SI has
- *      at least 2 BD rings)
+ *   7. Expose per-function sysfs pipe configuration
+ *   8. Optionally activate the configured pipe for one selected BDF
  *
  * Copyright 2026 NXP
  */
 
 #include <linux/interrupt.h>
 #include <linux/module.h>
-#include <linux/of.h>
 #include <linux/pci.h>
 #include <linux/dma-mapping.h>
 #include <linux/dmapool.h>
+#include <linux/string.h>
 #include "cdma.h"
+
+#define CDMA_AUTO_BDF_LEN	16
+
+static int default_pipe_id = 10;
+module_param(default_pipe_id, int, 0444);
+MODULE_PARM_DESC(default_pipe_id, "Initial IERB-authorized pipe ID");
+
+static bool auto_activate;
+module_param(auto_activate, bool, 0444);
+MODULE_PARM_DESC(auto_activate,
+		 "Activate the default pipe on the PCI function selected by auto_activate_bdf");
+
+static char auto_activate_bdf[CDMA_AUTO_BDF_LEN];
+module_param_string(auto_activate_bdf, auto_activate_bdf,
+		    sizeof(auto_activate_bdf), 0444);
+MODULE_PARM_DESC(auto_activate_bdf,
+		 "Exact PCI BDF to auto-activate, for example 0000:01:00.2");
 
 /*
  * Threaded IRQ handler — shared by all BD rings within one SI.
@@ -274,34 +290,116 @@ static void cdma_si_fini(struct cdma_device *cdev)
 	cdev->si = NULL;
 }
 
-/*
- * cdma_read_dt_pipe_cfg - Read pipe configuration from device tree.
- *
- * Looks for 'nxp,pipe-id' (u32) on the PCI device's DT node. The PCI
- * core associates pdev->dev.of_node by matching the reg property's
- * devfn encoding under the ECAM host bridge (e.g. cdma@0,0 for SI0).
- *
- * If no DT node or no property is present, the SI is treated as a
- * non-pipe SI: cdev probe is skipped and no /dev/cdma-pipeN-* devices
- * are created.
- */
-static void cdma_read_dt_pipe_cfg(struct cdma_device *cdev)
+static int cdma_activate_pipe(struct cdma_device *cdev)
 {
-	struct device_node *np = dev_of_node(&cdev->pdev->dev);
-	u32 pipe_id;
+	int ret;
 
-	if (!np)
-		return;
+	lockdep_assert_held(&cdev->config_lock);
 
-	if (of_property_read_u32(np, "nxp,pipe-id", &pipe_id))
-		return;
+	if (cdev->pipe_active)
+		return 0;
+	if (cdev->si->num_rings < 2)
+		return -ENOSPC;
 
-	cdev->hw_pipe_id = pipe_id;
-	cdev->has_pipe_id = true;
+	ret = cdma_cdev_init(cdev);
+	if (!ret)
+		cdev->pipe_active = true;
 
-	dev_info(&cdev->pdev->dev,
-		 "DT pipe config: pipe-id=%u\n", pipe_id);
+	return ret;
 }
+
+static ssize_t pipe_id_show(struct device *dev,
+			    struct device_attribute *attr, char *buf)
+{
+	struct cdma_device *cdev = dev_get_drvdata(dev);
+	u8 pipe_id;
+
+	mutex_lock(&cdev->config_lock);
+	pipe_id = cdev->pipe_id;
+	mutex_unlock(&cdev->config_lock);
+
+	return sysfs_emit(buf, "%u\n", pipe_id);
+}
+
+static ssize_t pipe_id_store(struct device *dev,
+			     struct device_attribute *attr,
+			     const char *buf, size_t count)
+{
+	struct cdma_device *cdev = dev_get_drvdata(dev);
+	u8 pipe_id;
+	int ret;
+
+	ret = kstrtou8(buf, 0, &pipe_id);
+	if (ret)
+		return ret;
+
+	mutex_lock(&cdev->config_lock);
+	if (cdev->pipe_active)
+		ret = -EBUSY;
+	else
+		cdev->pipe_id = pipe_id;
+	mutex_unlock(&cdev->config_lock);
+
+	return ret ? ret : count;
+}
+static DEVICE_ATTR_RW(pipe_id);
+
+static ssize_t activate_store(struct device *dev,
+			      struct device_attribute *attr,
+			      const char *buf, size_t count)
+{
+	struct cdma_device *cdev = dev_get_drvdata(dev);
+	bool activate;
+	int ret;
+
+	ret = kstrtobool(buf, &activate);
+	if (ret)
+		return ret;
+	if (!activate)
+		return -EINVAL;
+
+	mutex_lock(&cdev->config_lock);
+	ret = cdma_activate_pipe(cdev);
+	mutex_unlock(&cdev->config_lock);
+
+	return ret ? ret : count;
+}
+static DEVICE_ATTR_WO(activate);
+
+static ssize_t state_show(struct device *dev,
+			  struct device_attribute *attr, char *buf)
+{
+	struct cdma_device *cdev = dev_get_drvdata(dev);
+	bool active;
+	u8 pipe_id;
+
+	mutex_lock(&cdev->config_lock);
+	active = cdev->pipe_active;
+	pipe_id = cdev->pipe_id;
+	mutex_unlock(&cdev->config_lock);
+
+	return sysfs_emit(buf, "%s pipe_id=%u pci=%s\n",
+			  active ? "active" : "inactive", pipe_id,
+			  pci_name(cdev->pdev));
+}
+static DEVICE_ATTR_RO(state);
+
+static struct attribute *cdma_config_attrs[] = {
+	&dev_attr_pipe_id.attr,
+	&dev_attr_activate.attr,
+	&dev_attr_state.attr,
+	NULL,
+};
+
+static const struct attribute_group cdma_config_group = {
+	.name = "cdma",
+	.attrs = cdma_config_attrs,
+};
+
+static const struct attribute_group *cdma_config_groups[] = {
+	&cdma_config_group,
+	NULL,
+};
 
 static int cdma_pci_probe(struct pci_dev *pdev,
 			  const struct pci_device_id *id)
@@ -313,8 +411,15 @@ static int cdma_pci_probe(struct pci_dev *pdev,
 	cdev = devm_kzalloc(&pdev->dev, sizeof(*cdev), GFP_KERNEL);
 	if (!cdev)
 		return -ENOMEM;
+	if (default_pipe_id < 0 || default_pipe_id > U8_MAX) {
+		dev_err(&pdev->dev, "default_pipe_id %d is outside [0, %u]\n",
+			default_pipe_id, U8_MAX);
+		return -EINVAL;
+	}
 
 	cdev->pdev = pdev;
+	mutex_init(&cdev->config_lock);
+	cdev->pipe_id = default_pipe_id;
 	pci_set_drvdata(pdev, cdev);
 
 	ret = pcim_enable_device(pdev);
@@ -369,45 +474,54 @@ static int cdma_pci_probe(struct pci_dev *pdev,
 		goto err_si;
 	}
 
+	/*
+	 * Dedicated workqueue for deferred async completions. Having our own
+	 * queue lets cdma_pci_remove() flush every outstanding completion
+	 * before the BD rings and DMA pool they touch are torn down.
+	 */
+	cdev->wq = alloc_workqueue("nxp-cdma", WQ_UNBOUND, 0);
+	if (!cdev->wq) {
+		dev_err(&pdev->dev, "failed to create completion workqueue\n");
+		ret = -ENOMEM;
+		goto err_pool;
+	}
+
 	/* Set up MSI-X interrupts */
 	ret = cdma_irq_init(cdev->si);
 	if (ret) {
 		dev_err(&pdev->dev, "IRQ init failed: %d\n", ret);
-		goto err_pool;
+		goto err_wq;
 	}
 
-	/* Read DT pipe configuration */
-	cdma_read_dt_pipe_cfg(cdev);
+	if (auto_activate && !auto_activate_bdf[0]) {
+		dev_err(&pdev->dev,
+			"auto_activate requires an exact auto_activate_bdf\n");
+		ret = -EINVAL;
+		goto err_irq;
+	}
 
-	/* Create pipe char devices if pipe-id is configured in DT */
-	if (cdev->has_pipe_id) {
-		if (cdev->si->num_rings < 2) {
-			dev_err(&pdev->dev,
-				"pipe mode requires >= 2 BD rings, have %u\n",
-				cdev->si->num_rings);
-			ret = -EINVAL;
-			goto err_irq;
-		}
-
-		ret = cdma_cdev_init(cdev);
+	if (auto_activate && !strcmp(auto_activate_bdf, pci_name(pdev))) {
+		mutex_lock(&cdev->config_lock);
+		ret = cdma_activate_pipe(cdev);
+		mutex_unlock(&cdev->config_lock);
 		if (ret) {
-			dev_err(&pdev->dev, "pipe cdev init failed: %d\n", ret);
+			dev_err(&pdev->dev,
+				"default pipe activation failed: %d\n", ret);
 			goto err_irq;
 		}
-
-		dev_info(&pdev->dev,
-			 "NXP CDMA ready (%u rings, hw_pipe_id=%u)\n",
-			 cdev->si->num_rings, cdev->hw_pipe_id);
-	} else {
-		dev_info(&pdev->dev,
-			 "NXP CDMA idle (%u rings, no nxp,pipe-id in DT)\n",
-			 cdev->si->num_rings);
 	}
+
+	dev_info(&pdev->dev,
+		 "NXP CDMA ready (%u rings, pipe_id=%u, state=%s)\n",
+		 cdev->si->num_rings, cdev->pipe_id,
+		 cdev->pipe_active ? "active" : "inactive");
 
 	return 0;
 
 err_irq:
 	cdma_irq_fini(cdev->si);
+err_wq:
+	destroy_workqueue(cdev->wq);
 err_pool:
 	dma_pool_destroy(cdev->sgt_pool);
 err_si:
@@ -415,12 +529,41 @@ err_si:
 	return ret;
 }
 
+/*
+ * Teardown ordering matters here.
+ *
+ * Open file descriptors are expected to be closed before the driver is
+ * unbound. The pipe memory is devm-allocated against the PCI device, so a
+ * per-function unbind (or surprise removal) reclaims it; the driver does
+ * NOT guarantee that an fd may outlive its pipe. See cdma_{tx,rx}_open().
+ *
+ * The SI is disabled (SIMR=0) up front so hardware can no longer land a
+ * writeback into a BD ring while cdma_pipe_destroy() reaps in-flight async
+ * requests. cdma_irq_fini() then runs before cdma_cdev_fini() so the
+ * threaded IRQ handler can no longer schedule async completions while
+ * cdma_pipe_destroy() drains the rings and flushes the completion
+ * workqueue. The workqueue is destroyed only after the drain/flush, and
+ * before the DMA pool so no completion can reference freed pool memory.
+ */
 static void cdma_pci_remove(struct pci_dev *pdev)
 {
 	struct cdma_device *cdev = pci_get_drvdata(pdev);
 
-	cdma_cdev_fini(cdev);
+	mutex_lock(&cdev->config_lock);
+	cdev->pipe_active = false;
+	mutex_unlock(&cdev->config_lock);
+
+	/*
+	 * Quiesce the SI before reaping in-flight transfers. Skip the MMIO
+	 * write if the function is already gone (surprise removal / link
+	 * down), where it would raise a synchronous external abort.
+	 */
+	if (!pci_channel_offline(pdev) && !pci_dev_is_disconnected(pdev))
+		cdma_si_write(cdev->si, CDMA_SIMR, 0);
+
 	cdma_irq_fini(cdev->si);
+	cdma_cdev_fini(cdev);
+	destroy_workqueue(cdev->wq);
 	dma_pool_destroy(cdev->sgt_pool);
 	cdma_si_fini(cdev);
 }
@@ -440,6 +583,7 @@ static struct pci_driver cdma_pci_driver = {
 	.id_table = cdma_pci_ids,
 	.probe    = cdma_pci_probe,
 	.remove   = cdma_pci_remove,
+	.dev_groups = cdma_config_groups,
 };
 module_pci_driver(cdma_pci_driver);
 
