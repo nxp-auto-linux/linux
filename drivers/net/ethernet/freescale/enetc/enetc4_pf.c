@@ -1516,7 +1516,7 @@ static void enetc4_pci_remove(void *data)
 	enetc_pci_remove(pdev);
 }
 
-static void enetc4_get_pcr_speed(struct enetc_hw *hw, int *speed)
+void enetc4_get_pcr_speed(struct enetc_hw *hw, int *speed)
 {
 	int pspeed;
 	u32 val;
@@ -1582,6 +1582,7 @@ static int enetc4_get_fwnode(struct enetc_ndev_priv *priv,
 			     struct device_node *node)
 {
 	struct enetc_pf *pf = enetc_si_priv(priv->si);
+	struct enetc_devlink_priv *devl_priv;
 	int speed, err;
 
 	/* NULL DT node is accepted only for Pseudo-MAC ENETCs */
@@ -1595,8 +1596,17 @@ static int enetc4_get_fwnode(struct enetc_ndev_priv *priv,
 		return 0;
 	}
 
-	/* dev->of_node missing */
-	enetc4_get_pcr_speed(&priv->si->hw, &speed);
+	/* dev->of_node missing. Prefer a speed configured via devlink (which
+	 * persists across a driverinit reload); otherwise fall back to the
+	 * value currently programmed in the PCR (recovered from HW on a cold
+	 * probe).
+	 */
+	devl_priv = devlink_priv(pf->devlink);
+	if (devl_priv->ppm_speed)
+		speed = devl_priv->ppm_speed;
+	else
+		enetc4_get_pcr_speed(&priv->si->hw, &speed);
+
 	speed = enetc_phylink_match_pseudo_mac_speed(speed);
 
 	return enetc4_build_fixed_link_swnode(priv, speed);
