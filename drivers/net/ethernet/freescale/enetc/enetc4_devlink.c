@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: (GPL-2.0+ OR BSD-3-Clause)
 /*
- * Copyright 2025 NXP
+ * Copyright 2025-2026 NXP
  */
 
 #include "enetc_pf.h"
@@ -9,6 +9,10 @@
 #define ENETC_RINGS_STR_LEN		16
 #define ENETC_RINGS_STR_BUFF_LEN	(ENETC_RINGS_STR_LEN + 1)
 #define ENETC_SI_MAX_RINGS_NUM		32
+
+static const u32 enetc4_ppm_pcr_speeds[] = {
+	SPEED_1000, SPEED_2500, SPEED_5000, SPEED_10000, SPEED_20000,
+};
 
 static int enetc4_devlink_reload_down(struct devlink *devlink, bool netns_change,
 				      enum devlink_reload_action action,
@@ -112,11 +116,26 @@ clear_si_num_rings:
 	memset(devl_priv->si_num_rings, 0, sizeof(devl_priv->si_num_rings));
 }
 
+static void enetc4_devlink_get_pcr_speed_param(struct devlink *devlink)
+{
+	struct enetc_devlink_priv *devl_priv = devlink_priv(devlink);
+	union devlink_param_value val;
+
+	if (!enetc_is_pseudo_mac(devl_priv->pf->si))
+		return;
+
+	if (!devl_param_driverinit_value_get(devlink,
+					     ENETC_DEVLINK_PARAM_ID_PCR_PORT_SPEED,
+					     &val))
+		devl_priv->ppm_speed = val.vu32;
+}
+
 static void enetc4_devlink_get_params(struct devlink *devlink)
 {
 	devl_assert_locked(devlink);
 
 	enetc4_devlink_get_rings_param(devlink);
+	enetc4_devlink_get_pcr_speed_param(devlink);
 }
 
 static int enetc4_devlink_reload_up(struct devlink *devlink,
@@ -180,7 +199,9 @@ int enetc4_devlink_alloc(struct enetc_pf *pf)
 void enetc4_devlink_init_params(struct devlink *devlink)
 {
 	struct enetc_devlink_priv *devl_priv = devlink_priv(devlink);
+	struct enetc_pf *pf = devl_priv->pf;
 	union devlink_param_value val;
+	int speed;
 
 	devl_lock(devlink);
 	memset(&val, 0, sizeof(val));
@@ -188,7 +209,60 @@ void enetc4_devlink_init_params(struct devlink *devlink)
 	devl_param_driverinit_value_set(devlink,
 					ENETC_DEVLINK_PARAM_ID_RING_NUM_ASSIGN,
 					val);
+
+	/* Seed the PCR port speed driverinit value from the current HW state
+	 * so that "devlink dev param show" is consistent after probe.
+	 */
+	if (enetc_is_pseudo_mac(pf->si)) {
+		enetc4_get_pcr_speed(&pf->si->hw, &speed);
+		devl_priv->ppm_speed = speed;
+		memset(&val, 0, sizeof(val));
+		val.vu32 = speed;
+		devl_param_driverinit_value_set(devlink,
+						ENETC_DEVLINK_PARAM_ID_PCR_PORT_SPEED,
+						val);
+	}
 	devl_unlock(devlink);
+}
+
+static bool enetc4_pcr_speed_allowed(struct enetc_pf *pf, u32 speed)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(enetc4_ppm_pcr_speeds); i++) {
+		if (enetc4_ppm_pcr_speeds[i] != speed)
+			continue;
+
+		/* 20G is only supported on IP revision 4.4 and above. */
+		if (speed == SPEED_20000 && pf->si->revision < ENETC_REV_4_4)
+			return false;
+
+		return true;
+	}
+
+	return false;
+}
+
+static int enetc4_devlink_pcr_speed_validate(struct devlink *devlink, u32 id,
+					     union devlink_param_value val,
+					     struct netlink_ext_ack *extack)
+{
+	struct enetc_devlink_priv *devl_priv = devlink_priv(devlink);
+	struct enetc_pf *pf = devl_priv->pf;
+
+	if (!enetc_is_pseudo_mac(pf->si)) {
+		NL_SET_ERR_MSG_MOD(extack,
+				   "PCR port speed only configurable on Pseudo-MAC ports");
+		return -EOPNOTSUPP;
+	}
+
+	if (!enetc4_pcr_speed_allowed(pf, val.vu32)) {
+		NL_SET_ERR_MSG_MOD(extack,
+				   "Unsupported speed in Mbps (allowed: 1000/2500/5000/10000, 20000 on rev 4.4+)");
+		return -EINVAL;
+	}
+
+	return 0;
 }
 
 static int enetc4_devlink_ring_num_validate(struct devlink *devlink, u32 id,
@@ -247,6 +321,10 @@ static const struct devlink_param enetc_devlink_params[] = {
 			     "si_num_rings", DEVLINK_PARAM_TYPE_STRING,
 			     BIT(DEVLINK_PARAM_CMODE_DRIVERINIT),
 			     NULL, NULL, enetc4_devlink_ring_num_validate),
+	DEVLINK_PARAM_DRIVER(ENETC_DEVLINK_PARAM_ID_PCR_PORT_SPEED,
+			     "ppm_speed", DEVLINK_PARAM_TYPE_U32,
+			     BIT(DEVLINK_PARAM_CMODE_DRIVERINIT),
+			     NULL, NULL, enetc4_devlink_pcr_speed_validate),
 };
 
 int enetc4_devlink_params_register(struct devlink *devlink)
