@@ -16,6 +16,7 @@
 #include <linux/platform_device.h>
 #include <linux/pm.h>
 #include <linux/remoteproc.h>
+#include <dt-bindings/memory/s32n7-carv.h>
 
 #include "remoteproc_internal.h"
 
@@ -105,10 +106,6 @@ MODULE_PARM_DESC(auto_boot,
 #define CARV_Q_AT_RCR(u, n)	(CARV_Q_BASE(u) + 0x150 + ((n & 3) * 0x10))	/* n: 0..3 */
 #define CARV_Q_AT_RMR(u, n)	(CARV_Q_BASE(u) + 0x154 + ((n & 3) * 0x10))	/* n: 0..3 */
 
-#define CARV_Q_AT_BARL_MEMTYPE_NCOH	(0x0)
-#define CARV_Q_AT_BARL_MEMTYPE_COH	(0x1)
-#define CARV_Q_AT_BARL_MEMTYPE_SHAR	(0x2)
-#define CARV_Q_AT_BARL_MEMTYPE_DEFAULT	CARV_Q_AT_BARL_MEMTYPE_NCOH
 #define CARV_Q_AT_BARL_ADDR_MASK	GENMASK_ULL(31, 14)
 #define CARV_Q_AT_BARL_ADDR(v)		((v) & CARV_Q_AT_BARL_ADDR_MASK)
 #define GET_CARV_Q_AT_BARL_ADDR(v)	((v) & CARV_Q_AT_BARL_ADDR_MASK)
@@ -266,6 +263,12 @@ static const struct q_regmap_tab_u {
 	{ 0 },
 };
 
+enum carv_bar_type {
+	CARV_BAR_NONCOHERENT = 0,
+	CARV_BAR_COHERENT = 1,
+	CARV_BAR_SHARED = 2,
+};
+
 #define CARVEOUT_NAME_SIZE 32U
 
 struct __packed fw_rsc_vendor_carv_match_addr {
@@ -274,7 +277,7 @@ struct __packed fw_rsc_vendor_carv_match_addr {
 };
 
 struct __packed carvnet_bar_info {
-	u8  bar_type;
+	enum carv_bar_type bar_type;
 	u64 addr;
 };
 
@@ -311,7 +314,7 @@ struct carveout_info {
 	size_t size;
 	u32 bar_index;
 	u32 fw_size;
-	u8 bar_type;
+	enum carv_bar_type bar_type;
 	struct list_head node;
 };
 
@@ -324,6 +327,9 @@ struct carvnet {
 	void __iomem *regs[MAX_QUARTILES];
 	struct work_struct rproc_work;
 	u8 q_user;		/* active Q user */
+	enum carv_bar_type default_bar_type; /* BAR type for auto-assigned carveouts
+					      * (FW segments)
+					      */
 
 	struct list_head carveout_infos; /* Extra information for each carveout: bar, match_addr */
 };
@@ -506,7 +512,7 @@ static int q_set_prio_region(struct carvnet *priv, struct carveout_info *info,
 	return 0;
 }
 
-static int g_get_bar(struct carvnet *priv, u8 bar_type, struct rproc_mem_entry *mem)
+static int g_get_bar(struct carvnet *priv, enum carv_bar_type bar_type, struct rproc_mem_entry *mem)
 {
 	struct carvnet_bar_info *bar_info = NULL;
 	u64 addr;
@@ -607,7 +613,7 @@ static int q_set_mapper(struct carvnet *priv)
 			return -ENOMEM;
 
 		if (info->bar_index == BAR_INVALID) {
-			ret = g_get_bar(priv, CARV_Q_AT_BARL_MEMTYPE_DEFAULT, m);
+			ret = g_get_bar(priv, priv->default_bar_type, m);
 			if (ret < 0)
 				return ret;
 			info->bar_index = (u32)ret;
@@ -1048,9 +1054,23 @@ static int carvnet_rproc_parse_dt_mem(struct rproc *rproc)
 	struct carveout_info *info;
 	unsigned long remap_flag;
 	u32 resm_idx = 1, value;
-	u8 bar_type;
+	enum carv_bar_type bar_type;
 	void *va;
 	int ret;
+
+	/* Read the BAR type for auto-assigned carveouts (e.g. FW segments) from index 0 */
+	value = 0U;
+	of_property_read_u32_index(np, "nxp,s32n7-carv-mem-region-types", 0, &value);
+	if (value == CARV_MEM_NONCOHERENT)
+		priv->default_bar_type = CARV_BAR_NONCOHERENT;
+	else if (value == CARV_MEM_COHERENT)
+		priv->default_bar_type = CARV_BAR_COHERENT;
+	else if (value == CARV_MEM_SHARED)
+		priv->default_bar_type = CARV_BAR_SHARED;
+	else {
+		dev_err(dev, "Invalid mem-region-type %u at index %u\n", value, 0);
+		return -EINVAL;
+	}
 
 	/* Parse associated reserved memory regions */
 	of_phandle_iterator_init(&it, np, "memory-region", NULL, 0);
@@ -1079,20 +1099,23 @@ static int carvnet_rproc_parse_dt_mem(struct rproc *rproc)
 		of_property_read_u32_index(np, "nxp,s32n7-carv-mem-region-types",
 								  resm_idx, &value);
 
-		if (value == 0U) {
-			bar_type = CARV_Q_AT_BARL_MEMTYPE_NCOH;
+		if (value == CARV_MEM_NONCOHERENT) {
+			bar_type = CARV_BAR_NONCOHERENT;
 			remap_flag = MEMREMAP_WC;
-		} else if (value == 1U) {
-			bar_type = CARV_Q_AT_BARL_MEMTYPE_SHAR;
+		} else if (value == CARV_MEM_COHERENT) {
+			bar_type = CARV_BAR_COHERENT;
+			remap_flag = MEMREMAP_WB;
+		} else if (value == CARV_MEM_SHARED) {
+			bar_type = CARV_BAR_SHARED;
 			remap_flag = MEMREMAP_WC;
 		} else {
-			bar_type = CARV_Q_AT_BARL_MEMTYPE_DEFAULT;
-			remap_flag = MEMREMAP_WB;
+			dev_err(dev, "Invalid mem-region-type %u at index %u\n", value, resm_idx);
+			return -EINVAL;
 		}
 
 		va = devm_memremap(dev, rmem->base, rmem->size, remap_flag);
 		if (!va) {
-			dev_err(dev, "Failed to ioremap resmem: %d %s\n",
+			dev_err(dev, "Failed to ioremap resmem: %u %s\n",
 				resm_idx, it.node->name);
 			return -ENOMEM;
 		}
