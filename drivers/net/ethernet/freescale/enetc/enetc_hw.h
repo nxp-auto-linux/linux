@@ -402,6 +402,7 @@ enum enetc_bdr_type {TX, RX};
 #define ENETC_REV_4_3		0x0403
 #define ENETC_REV_4_4		0x0404
 #define ENETC_REV_4_6		0x0406
+#define ENETC_REV_4_7		0x0407
 
 #define ENETC_G_EIPBRR1		0x0bfc
 #define ENETC_G_EPFBLPR(n)	(0xd00 + 4 * (n))
