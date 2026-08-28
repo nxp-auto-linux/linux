@@ -183,6 +183,24 @@ static int ufs_s32n_configure_clocks(struct ufs_hba *hba)
 	return 0;
 }
 
+static int ufs_s32n_hce_enable_notify(struct ufs_hba *hba,
+				      enum ufs_notify_change_status status)
+{
+	if (status != POST_CHANGE)
+		return 0;
+
+	/*
+	 * Power gating is not supported.
+	 * Clear the DWC low-power gating (BUSTHRTL) so a doorbell write can
+	 * wake the link out of hibernate. LP_PGE (generic low-power) and
+	 * LP_AH8_PGE (Auto-Hibern8) both reset to 1.
+	 */
+	ufshcd_rmwl(hba, DWC_UFS_BUSTHRTL_LP_PGE | DWC_UFS_BUSTHRTL_LP_AH8_PGE,
+		    0, DWC_UFS_REG_BUSTHRTL);
+
+	return 0;
+}
+
 static int ufs_s32n_phy_read_cr(struct ufs_hba *hba, u16 addr, u16 *value)
 {
 	unsigned int uic_arg3 = 0;
@@ -298,8 +316,11 @@ static int ufs_s32n_phy_reset_config(struct ufs_hba *hba)
 	 * the PHY is held in reset.
 	 */
 	static const struct ufshcd_dme_attr_val mphy_rst_cfg[] = {
-		/* Clock control. */
-		{ UIC_ARG_MIB_SEL(CBREFCLKCTRL2, 0), 0x80, DME_LOCAL },
+		/*
+		 * Disable reference clock gating support and override the
+		 * UniPro and application reference clock enable inputs to 0.
+		 */
+		{ UIC_ARG_MIB_SEL(CBREFCLKCTRL2, 0), 0x8A, DME_LOCAL },
 		/* RX squelch control. */
 		{ UIC_ARG_MIB_SEL(RXSQCONTROL, SELIND_LN0_RX), 0x1, DME_LOCAL },
 		{ UIC_ARG_MIB_SEL(RXSQCONTROL, SELIND_LN1_RX), 0x1, DME_LOCAL },
@@ -608,7 +629,7 @@ static struct s32n_ufs *ufs_s32n_alloc_variant(struct ufs_hba *hba)
 	ufs->mphy_boot_mode = MPHY_BOOT_NONE;
 	ufs->quirks = data ? data->quirks : 0;
 
-	hba->quirks |= UFSHCD_QUIRK_BROKEN_AUTO_HIBERN8 | UFSHCD_QUIRK_PERFORM_LINK_STARTUP_ONCE;
+	hba->quirks |= UFSHCD_QUIRK_PERFORM_LINK_STARTUP_ONCE;
 	hba->spm_lvl = UFS_PM_LVL_5;
 
 	if (data && hba->host && data->sg_tablesize)
@@ -678,6 +699,9 @@ static int ufs_s32n_virt_init(struct ufs_hba *hba)
 	if (!ufs)
 		return -ENOMEM;
 
+	/* The controller cannot honour Auto-Hibern8. */
+	hba->quirks |= UFSHCD_QUIRK_BROKEN_AUTO_HIBERN8;
+
 	ufshcd_set_variant(hba, ufs);
 
 	return 0;
@@ -687,6 +711,7 @@ static struct ufs_hba_variant_ops ufs_hba_s32n79_vops = {
 	.name = "s32n79",
 	.init = ufs_s32n_init,
 	.link_startup_notify = ufs_s32n_link_startup_notify,
+	.hce_enable_notify = ufs_s32n_hce_enable_notify,
 	/* ERR053440 */
 	.setup_xfer_req = ufs_s32n_setup_xfer_req,
 	.setup_task_mgmt = ufs_s32n_setup_task_mgmt,
