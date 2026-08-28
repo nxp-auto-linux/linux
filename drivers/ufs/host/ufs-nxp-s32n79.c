@@ -103,6 +103,7 @@
  * struct s32n_ufs - S32N79 UFS host controller data
  * @hba: UFS host controller instance
  * @reg_scm: SCM register base address
+ * @core_clk: controller core clock
  * @quirks: driver-private quirks from match data
  * @mphy_boot_mode: MPHY boot mode configuration
  */
@@ -166,8 +167,12 @@ static int ufs_s32n_configure_clocks(struct ufs_hba *hba)
 		return -EINVAL;
 	}
 
-	dev_info(dev, "Core clock rate: %lu Hz, one_us_tick = %lu.\n",
-		 clk_rate, one_us_tick);
+	/*
+	 * Runs after every HCE (controller reset, resume, error recovery), not
+	 * just once during link startup.
+	 */
+	dev_dbg(dev, "Core clock rate: %lu Hz, one_us_tick = %lu.\n",
+		clk_rate, one_us_tick);
 
 	/* Configure the micro-second tick rate generator based on core
 	 * clock rate.
