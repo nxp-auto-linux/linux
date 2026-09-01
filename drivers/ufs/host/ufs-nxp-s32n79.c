@@ -30,6 +30,8 @@
 #define RAWLANEN_DIG_PCS_XF_RX_OVRD_IN_1	0x3106
 
 /* Vendor specific attributes */
+#define RXSQCONTROL				0x8009
+#define RXRHOLDCTRLOPT				0x8013
 #define CBRATESEL				0x8114
 #define CBCREGADDRLSB				0x8116
 #define CBCREGADDRMSB				0x8117
@@ -268,6 +270,17 @@ static int ufs_s32n_link_startup_pre_change(struct ufs_hba *hba)
 		writel(SCM_STATUS_PHY_RESET(1) | SCM_STATUS_SRAM_BYPASS(1),
 		       ufs->reg_scm + SCM_STATUS);
 	}
+
+	/* RX squelch control. */
+	ret |= ufshcd_dme_set(hba, UIC_ARG_MIB_SEL(RXSQCONTROL,
+			      UIC_ARG_MPHY_RX_GEN_SEL_INDEX(0)), 0x1);
+	ret |= ufshcd_dme_set(hba, UIC_ARG_MIB_SEL(RXSQCONTROL,
+			      UIC_ARG_MPHY_RX_GEN_SEL_INDEX(1)), 0x1);
+	/* RX Rhold control option. */
+	ret |= ufshcd_dme_set(hba, UIC_ARG_MIB_SEL(RXRHOLDCTRLOPT,
+			      UIC_ARG_MPHY_RX_GEN_SEL_INDEX(0)), 0x2);
+	ret |= ufshcd_dme_set(hba, UIC_ARG_MIB_SEL(RXRHOLDCTRLOPT,
+			      UIC_ARG_MPHY_RX_GEN_SEL_INDEX(1)), 0x2);
 
 	ret |= ufshcd_dme_set(hba, UIC_ARG_MIB_SEL(CBCRCTRL, 0), 0x1);
 	ret |= ufshcd_dme_set(hba, UIC_ARG_MIB_SEL(VS_MPHYCFGUPDT, 0), 0x1);
