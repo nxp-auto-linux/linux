@@ -680,6 +680,11 @@ static void cdma_pipe_destroy(struct cdma_device *cdev)
 	misc_deregister(&pipe->miscdev_rx);
 	misc_deregister(&pipe->miscdev_tx);
 
+	if (pipe->tx_ring)
+		cancel_delayed_work_sync(&pipe->tx_ring->timeout_work);
+	if (pipe->rx_ring)
+		cancel_delayed_work_sync(&pipe->rx_ring->timeout_work);
+
 	cdma_ring_drain_async(cdev, pipe->tx_ring);
 	cdma_ring_drain_async(cdev, pipe->rx_ring);
 	flush_workqueue(cdev->wq);
