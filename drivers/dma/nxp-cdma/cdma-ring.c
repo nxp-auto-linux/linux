@@ -8,7 +8,66 @@
 #include <linux/dma-mapping.h>
 #include <linux/dmapool.h>
 #include <linux/iopoll.h>
+#include <linux/jiffies.h>
+#include <linux/list.h>
+#include <linux/workqueue.h>
 #include "cdma.h"
+
+/*
+ * cdma_ring_timeout_work - No-peer async watchdog handler.
+ *
+ * Armed on every async submission and re-armed on each completion while
+ * requests remain outstanding. It fires only when a submitted async
+ * request never receives a writeback/MSI-X completion.
+ */
+static void cdma_ring_timeout_work(struct work_struct *work)
+{
+	struct cdma_ring *ring = container_of(to_delayed_work(work),
+					      struct cdma_ring, timeout_work);
+	struct cdma_pipe *pipe = ring->pipe;
+	struct cdma_async_req *req;
+	unsigned long flags;
+	/* pipe tx_lock or rx_lock for this ring */
+	struct mutex *lock;
+	LIST_HEAD(expired);
+
+	if (!pipe)
+		return;
+
+	/*
+	 * Serialize against the submit and sync paths on this ring, which
+	 * take the same per-direction pipe lock.
+	 */
+	lock = (ring == pipe->tx_ring) ? &pipe->tx_lock : &pipe->rx_lock;
+	mutex_lock(lock);
+
+	spin_lock_irqsave(&ring->async_lock, flags);
+	if (ring->async_pending_reqs == 0) {
+		/* A late completion already drained the ring; nothing to do. */
+		spin_unlock_irqrestore(&ring->async_lock, flags);
+		mutex_unlock(lock);
+		return;
+	}
+
+	list_splice_init(&ring->async_reqs, &expired);
+	ring->async_pending_bds = 0;
+	ring->async_pending_reqs = 0;
+	spin_unlock_irqrestore(&ring->async_lock, flags);
+
+	/*
+	 * Recover the ring HW now the pending list is spliced out, so the
+	 * cancel path's INIT_LIST_HEAD/counter reset cannot drop any request.
+	 */
+	cdma_ring_cancel(ring);
+
+	mutex_unlock(lock);
+
+	while (!list_empty(&expired)) {
+		req = list_first_entry(&expired, struct cdma_async_req, node);
+		list_del_init(&req->node);
+		cdma_async_req_complete(req, -ETIMEDOUT);
+	}
+}
 
 /*
  * cdma_ring_alloc - Allocate DMA-coherent memory for a BD ring.
@@ -28,6 +87,8 @@ int cdma_ring_alloc(struct cdma_ring *ring)
 	init_completion(&ring->done);
 	INIT_LIST_HEAD(&ring->async_reqs);
 	spin_lock_init(&ring->async_lock);
+	INIT_DELAYED_WORK(&ring->timeout_work, cdma_ring_timeout_work);
+
 	return 0;
 }
 
@@ -339,6 +400,8 @@ int cdma_ring_submit_async(struct cdma_ring *ring, struct cdma_async_req *req,
 	ring->async_pending_bds += num_bds;
 	ring->async_pending_reqs++;
 	ring->pir = (ring->pir + num_bds) % CDMA_BD_ENTRIES;
+	mod_delayed_work(ring->si->cdev->wq, &ring->timeout_work,
+			 usecs_to_jiffies(CDMA_COMP_TIMEOUT_US));
 	spin_unlock_irqrestore(&ring->async_lock, flags);
 
 	if (was_empty)
@@ -356,6 +419,7 @@ struct cdma_async_req *cdma_ring_complete_async(struct cdma_ring *ring,
 	struct cdma_async_req *req;
 	struct cdma_wb *wb;
 	unsigned long flags;
+	bool still_pending;
 	u32 status;
 
 	spin_lock_irqsave(&ring->async_lock, flags);
@@ -372,8 +436,22 @@ struct cdma_async_req *cdma_ring_complete_async(struct cdma_ring *ring,
 	list_del_init(&req->node);
 	ring->async_pending_bds -= req->num_bds;
 	ring->async_pending_reqs--;
+	still_pending = ring->async_pending_reqs > 0;
 	*status_out = status;
+
+	/*
+	 * A request just retired via writeback, so refresh the no-peer
+	 * watchdog: push the deadline out while other requests are still
+	 * outstanding, or cancel it once the ring has drained.
+	 */
+	if (still_pending)
+		mod_delayed_work(ring->si->cdev->wq, &ring->timeout_work,
+				 usecs_to_jiffies(CDMA_COMP_TIMEOUT_US));
+	else
+		cancel_delayed_work(&ring->timeout_work);
+
 	spin_unlock_irqrestore(&ring->async_lock, flags);
+
 	return req;
 
 out:

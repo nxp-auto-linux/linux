@@ -258,6 +258,14 @@ struct cdma_ring {
 	u16 async_pending_bds;
 	u16 async_pending_reqs;
 
+	/*
+	 * No-peer watchdog for async requests.
+	 * It fires if no completion arrives within CDMA_COMP_TIMEOUT_US and
+	 * reclaims every outstanding request with -ETIMEDOUT, mirroring the
+	 * sync path.
+	 */
+	struct delayed_work timeout_work;
+
 	/* Pipe association */
 	struct cdma_pipe *pipe;
 };
