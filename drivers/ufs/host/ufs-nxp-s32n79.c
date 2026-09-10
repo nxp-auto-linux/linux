@@ -594,20 +594,15 @@ struct s32n79_match_data {
 	u32 quirks;
 };
 
-static int ufs_s32n_init(struct ufs_hba *hba)
+static struct s32n_ufs *ufs_s32n_alloc_variant(struct ufs_hba *hba)
 {
 	struct device *dev = hba->dev;
-	const struct s32n79_match_data *data =
-				of_device_get_match_data(hba->dev);
-	struct platform_device *pdev = to_platform_device(dev);
-	struct device_node *np = dev->of_node;
-	const char *mphy_boot_mode;
+	const struct s32n79_match_data *data = of_device_get_match_data(dev);
 	struct s32n_ufs *ufs;
-	int ret;
 
 	ufs = devm_kzalloc(dev, sizeof(*ufs), GFP_KERNEL);
 	if (!ufs)
-		return -ENOMEM;
+		return NULL;
 
 	ufs->hba = hba;
 	ufs->mphy_boot_mode = MPHY_BOOT_NONE;
@@ -618,6 +613,22 @@ static int ufs_s32n_init(struct ufs_hba *hba)
 
 	if (data && hba->host && data->sg_tablesize)
 		hba->host->sg_tablesize = data->sg_tablesize;
+
+	return ufs;
+}
+
+static int ufs_s32n_init(struct ufs_hba *hba)
+{
+	struct device *dev = hba->dev;
+	struct platform_device *pdev = to_platform_device(dev);
+	struct device_node *np = dev->of_node;
+	const char *mphy_boot_mode;
+	struct s32n_ufs *ufs;
+	int ret;
+
+	ufs = ufs_s32n_alloc_variant(hba);
+	if (!ufs)
+		return -ENOMEM;
 
 	ret = of_property_read_string(np, "nxp,mphy-boot-mode", &mphy_boot_mode);
 	if (ret || !mphy_boot_mode) {
@@ -654,9 +665,36 @@ init_out:
 	return 0;
 }
 
+/*
+ * Virtualized instances do not drive the MPHY: the SCM register region, the
+ * core clock and the MPHY boot-mode handshake are all owned by the FW, so
+ * only the common setup is needed here.
+ */
+static int ufs_s32n_virt_init(struct ufs_hba *hba)
+{
+	struct s32n_ufs *ufs;
+
+	ufs = ufs_s32n_alloc_variant(hba);
+	if (!ufs)
+		return -ENOMEM;
+
+	ufshcd_set_variant(hba, ufs);
+
+	return 0;
+}
+
 static struct ufs_hba_variant_ops ufs_hba_s32n79_vops = {
 	.name = "s32n79",
 	.init = ufs_s32n_init,
+	.link_startup_notify = ufs_s32n_link_startup_notify,
+	/* ERR053440 */
+	.setup_xfer_req = ufs_s32n_setup_xfer_req,
+	.setup_task_mgmt = ufs_s32n_setup_task_mgmt,
+};
+
+static struct ufs_hba_variant_ops ufs_hba_s32n79_virt_vops = {
+	.name = "s32n79-virt",
+	.init = ufs_s32n_virt_init,
 	.link_startup_notify = ufs_s32n_link_startup_notify,
 	/* ERR053440 */
 	.setup_xfer_req = ufs_s32n_setup_xfer_req,
@@ -670,7 +708,7 @@ static const struct s32n79_match_data ufs_s32n79_data = {
 };
 
 static const struct s32n79_match_data ufs_s32n79_virt_data = {
-	.vops = &ufs_hba_s32n79_vops,
+	.vops = &ufs_hba_s32n79_virt_vops,
 	.sg_tablesize = 120,
 	.quirks = UFS_S32N79_QUIRK_ERR053438 | UFS_S32N79_QUIRK_ERR053440,
 };
