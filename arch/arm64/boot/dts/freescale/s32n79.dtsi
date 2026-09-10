@@ -253,8 +253,8 @@
 				reg = <0x19>;
 			};
 
-			nxp_misc: protocol@86 {
-				reg = <0x86>;
+			nxp_ddr: protocol@8b {
+				reg = <0x8b>;
 			};
 		};
 
