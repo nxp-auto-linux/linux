@@ -29,6 +29,37 @@ allOf:
     then:
       required:
         - memory-region
+  # Virtualized instances do not drive the MPHY, the clock and don't have
+  # access to the System Control Module (SCM) register region.
+  - if:
+      properties:
+        compatible:
+          contains:
+            const: nxp,s32n79-ufshc-virt
+    then:
+      properties:
+        reg:
+          maxItems: 1
+        reg-names:
+          maxItems: 1
+        clocks: false
+        clock-names: false
+        nxp,mphy-boot-mode: false
+  # Driving the MPHY (nxp,mphy-boot-mode present) requires the SCM register
+  # region and the core clock.
+  - if:
+      required:
+        - nxp,mphy-boot-mode
+    then:
+      properties:
+        reg:
+          minItems: 2
+        reg-names:
+          minItems: 2
+      required:
+        - clocks
+        - clock-names
+        - reg-names
 
 properties:
   compatible:
@@ -133,4 +164,15 @@ examples:
         clocks = <&sys_clk>;
         clock-names = "core_clk";
         memory-region = <&dma_pool>;
+    };
+
+  - |
+    ufshc@4ac80000 {
+        compatible = "nxp,s32n79-ufshc-virt", "jedec,ufs-3.0";
+        reg = <0x4ac80000 0x1000>;
+        reg-names = "ufshc";
+        interrupt-parent = <&irqsteer0_coss>;
+        interrupts = <211>;
+        iommus = <&smmu 0x100>;
+        dma-coherent;
     };
