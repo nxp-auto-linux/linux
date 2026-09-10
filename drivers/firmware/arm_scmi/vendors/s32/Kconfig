@@ -36,4 +36,14 @@ config S32_ARM_SCMI_NXP_MISC
 	  S32N7-based platforms.
 
 	  Say N if unsure.
+
+config S32_ARM_SCMI_NXP_DDR
+	bool "NXP DDR SCMI Vendor Protocol Extension"
+	depends on ARM_SCMI_PROTOCOL || COMPILE_TEST
+	help
+	  Adds the NXP DDR vendor protocol (0x8B) over SCMI for S32N7-based
+	  platforms, providing DDR region discovery and partial DRAM
+	  initialization.
+
+	  Say N if unsure.
 endmenu
