@@ -108,7 +108,7 @@ static int init_ddr_region_in_chunks(struct scmi_mem_hotplug_data *priv,
 
 		if (reg->needs_init) {
 			ret = priv->ops->partial_init(priv->ph, addr,
-						      chunk_size);
+						      chunk_size, false);
 			if (ret) {
 				dev_err(dev, "Error %d initializing DDR region at 0x%llx\n",
 					ret, addr);

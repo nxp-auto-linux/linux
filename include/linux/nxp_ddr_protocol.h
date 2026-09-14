@@ -49,10 +49,18 @@ struct scmi_ddr_region {
  * @version: Protocol version reported by the platform.
  * @ecc_mask: DdrCfgInfo bitmap; bit @n set means ECC is enabled on DDR
  *	      instance @n and the region therefore requires initialization.
+ * @max_queue_depth: Maximum queued init requests per DDR instance, taken from
+ *		     PROTOCOL_ATTRIBUTES bits[7:0].
+ * @async_supported: Set when the platform is expected to implement the
+ *		     asynchronous form of DDR_PARTIAL_DRAM_INIT and deliver a
+ *		     delayed response. Latched off at runtime if a request that
+ *		     asked for async never gets a delayed response.
  */
 struct scmi_nxp_ddr_info {
-	u32 version;
-	u32 ecc_mask;
+	u32  version;
+	u32  ecc_mask;
+	u32  max_queue_depth;
+	bool async_supported;
 };
 
 /**
@@ -62,8 +70,14 @@ struct scmi_nxp_ddr_info {
  * @discover_regions: Retrieve the list of uninitialized, write-permitted DDR
  *		      regions. Returns the number of regions written into @out
  *		      (bounded by @max_out), or a negative error code.
- * @partial_init: Initialize a DDR region of @size bytes at @start. The call
- *		  blocks until the platform completes the initialization.
+ * @partial_init: Initialize a DDR region of @size bytes at @start. When @async
+ *		  is false the call blocks until the platform completes the
+ *		  initialization. When @async is true the platform runs the
+ *		  work off the request path and reports completion through a
+ *		  delayed response; the call still returns only after that
+ *		  response arrives, so the DDR region is initialized on a
+ *		  success return either way. If the platform does not support
+ *		  async, the request degrades to the synchronous form.
  */
 struct scmi_nxp_ddr_proto_ops {
 	int (*get_info)(const struct scmi_protocol_handle *ph,
@@ -71,7 +85,7 @@ struct scmi_nxp_ddr_proto_ops {
 	int (*discover_regions)(const struct scmi_protocol_handle *ph,
 				struct scmi_ddr_region *out, size_t max_out);
 	int (*partial_init)(const struct scmi_protocol_handle *ph,
-			    u64 start, u64 size);
+			    u64 start, u64 size, bool async);
 };
 
 #endif /* SCMI_NXP_DDR_PROTOCOL_H */
