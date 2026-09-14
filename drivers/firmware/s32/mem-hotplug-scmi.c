@@ -5,6 +5,7 @@
 #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
 
 #include <linux/bits.h>
+#include <linux/delay.h>
 #include <linux/memory.h>
 #include <linux/module.h>
 #include <linux/nxp_ddr_protocol.h>
@@ -13,13 +14,32 @@
 #include <linux/workqueue.h>
 
 /*
- * Split the DDR memory regions into chunks to avoid long waiting times
- * until the memory is initialized, as the operations are synchronous.
+ * Split the DDR memory regions into chunks to bound the time spent per init
+ * request. In synchronous mode this keeps each blocking SCMI call short; in
+ * asynchronous mode it keeps each request well inside the delayed-response
+ * timeout. One chunk is about 112 ms of init work, against the core SCMI
+ * layer's 2000 ms 'SCMI_MAX_RESPONSE_TIMEOUT' for a delayed response, so 1 GB
+ * leaves ample margin. Do not raise this beyond about 4 GB.
  */
 #define CHUNK_SIZE	0x40000000ULL /* 1GB */
 
+/*
+ * A busy platform rejects an init request with -EBUSY while it serves another
+ * request on the same controller, which can be a multi-gigabyte region
+ * requested by another OS instance sharing that controller. The work is
+ * deferrable, so back off and retry. At about 112 ms per gigabyte the budget
+ * below covers several gigabytes of contention.
+ */
+#define S32_DDR_INIT_RETRIES		50
+#define S32_DDR_INIT_BACKOFF_MS		100
+
+static bool force_sync;
+module_param(force_sync, bool, 0444);
+MODULE_PARM_DESC(force_sync,
+		 "Force synchronous DDR initialization even when the platform supports the asynchronous form");
+
 /**
- * struct s32_ddr_region - A DDR region this cohort wants online
+ * struct s32_ddr_region - A DDR region this OS instance wants online
  * @start: Physical start address of the region.
  * @size: Size of the region in bytes.
  * @instance: DDR controller (SMMS) instance owning the region.
@@ -34,6 +54,36 @@ struct s32_ddr_region {
 	bool needs_init;
 };
 
+struct scmi_mem_hotplug_data;
+
+/**
+ * struct s32_ddr_worker - Per-instance DDR initialization worker
+ * @work: Work item queued on the system long workqueue.
+ * @priv: Back pointer to the driver private data.
+ * @instance: DDR controller (SMMS) instance this worker handles.
+ *
+ * One worker is queued per active DDR instance so the instances initialize in
+ * parallel, which is the benefit of the asynchronous form: while one instance
+ * waits for its delayed response the other can make progress.
+ */
+struct s32_ddr_worker {
+	struct work_struct		work;
+	struct scmi_mem_hotplug_data	*priv;
+	u8				instance;
+};
+
+/**
+ * struct scmi_mem_hotplug_data - Driver private data
+ * @dev: Device pointer.
+ * @ph: NXP DDR protocol handle.
+ * @ops: NXP DDR protocol operations.
+ * @info: Negotiated protocol capabilities.
+ * @regions: Region list built from DT policy intersected with discovery.
+ * @num_regions: Number of entries in @regions.
+ * @use_async: Whether to request the asynchronous form of partial init.
+ * @workers: One worker per DDR instance.
+ * @active_instances: Bitmap of instances that have at least one region queued.
+ */
 struct scmi_mem_hotplug_data {
 	struct device *dev;
 	const struct scmi_protocol_handle *ph;
@@ -41,7 +91,9 @@ struct scmi_mem_hotplug_data {
 	struct scmi_nxp_ddr_info info;
 	struct s32_ddr_region *regions;
 	size_t num_regions;
-	struct work_struct hotplug_work;
+	bool use_async;
+	struct s32_ddr_worker workers[SCMI_NXP_DDR_MAX_INSTANCES];
+	unsigned long active_instances;
 };
 
 /**
@@ -78,12 +130,16 @@ static int hotplug_memory_region(struct device *dev, u64 addr, u64 size)
  * @priv: Driver private data
  * @reg: Pointer to the DDR region descriptor
  *
- * Initializes a DDR memory region by splitting it into smaller blocks of
- * CHUNK_SIZE (1GB) to avoid long blocking times, as the initialization
- * operations over SCMI are synchronous. Each chunk size is aligned down to
- * the system's memory block size (128MB) to ensure compatibility with the
- * memory subsystem. When the region does not require initialization (ECC
- * disabled on its instance), it is hot-added directly.
+ * Initialize a DDR memory region by splitting it into blocks of CHUNK_SIZE
+ * (1GB) to bound the time spent per init request. Each chunk is aligned down
+ * to the system's memory block size (128MB) for compatibility with the memory
+ * subsystem. When the region does not require initialization (ECC disabled on
+ * its instance), it is hot-added directly.
+ *
+ * A busy platform can reject a request with -EBUSY; back off and retry before
+ * giving up, because the work is deferrable. Each initialized chunk is
+ * hot-added before the next chunk is initialized, so a failure never leaves an
+ * uninitialized chunk visible to the kernel.
  *
  * Return: 0 on success, or a negative error code on failure.
  */
@@ -95,7 +151,7 @@ static int init_ddr_region_in_chunks(struct scmi_mem_hotplug_data *priv,
 	u64 start = reg->start;
 	u64 end = start + reg->size;
 	u64 addr, chunk_size;
-	int ret;
+	int attempt, ret;
 
 	for (addr = start; addr < end; addr += CHUNK_SIZE) {
 		chunk_size = min(CHUNK_SIZE, end - addr);
@@ -107,11 +163,20 @@ static int init_ddr_region_in_chunks(struct scmi_mem_hotplug_data *priv,
 		}
 
 		if (reg->needs_init) {
-			ret = priv->ops->partial_init(priv->ph, addr,
-						      chunk_size, false);
+			ret = -EBUSY;
+			for (attempt = 0; attempt <= S32_DDR_INIT_RETRIES; attempt++) {
+				ret = priv->ops->partial_init(priv->ph, addr,
+							      chunk_size,
+							      priv->use_async);
+				if (ret != -EBUSY)
+					break;
+				msleep(S32_DDR_INIT_BACKOFF_MS);
+			}
 			if (ret) {
-				dev_err(dev, "Error %d initializing DDR region at 0x%llx\n",
-					ret, addr);
+				if (ret == -EBUSY)
+					dev_dbg(dev, "DDR region at 0x%llx still busy after %d attempts (%d ms back-off)\n",
+						addr, attempt,
+						attempt * S32_DDR_INIT_BACKOFF_MS);
 				return ret;
 			}
 		}
@@ -128,52 +193,43 @@ static int init_ddr_region_in_chunks(struct scmi_mem_hotplug_data *priv,
 }
 
 /**
- * ddr_mem_init - Initialize all DDR regions in chunks
- * @priv: Driver private data
+ * ddr_mem_init_work - Per-instance DDR memory initialization work handler
+ * @work: Pointer to the work_struct embedded in a struct s32_ddr_worker
+ *
+ * Initialize every region belonging to this worker's DDR instance. One worker
+ * runs per instance so the instances progress in parallel. A region that fails
+ * is logged and skipped rather than aborting the worker, so the board boots
+ * with less memory rather than none.
  */
-static int ddr_mem_init(struct scmi_mem_hotplug_data *priv)
+static void ddr_mem_init_work(struct work_struct *work)
 {
+	struct s32_ddr_worker *w = container_of(work, struct s32_ddr_worker, work);
+	struct scmi_mem_hotplug_data *priv = w->priv;
 	struct device *dev = priv->dev;
 	unsigned int i;
-	int ret = 0;
+	int ret;
 
-	if (!priv->regions || !priv->num_regions) {
-		dev_info(dev, "No DDR memory to be hotplugged\n");
-		return 0;
-	}
+	dev_info(dev, "Starting DDR memory initialization for instance %u\n",
+		 w->instance);
 
 	for (i = 0; i < priv->num_regions; i++) {
+		if (priv->regions[i].instance != w->instance)
+			continue;
+
 		dev_dbg(dev, "Initializing DDR region addr=0x%llx size=0x%llx instance=%u init=%d\n",
 			priv->regions[i].start, priv->regions[i].size,
 			priv->regions[i].instance, priv->regions[i].needs_init);
 
+		/* Log with the instance number, then keep going (see above). */
 		ret = init_ddr_region_in_chunks(priv, &priv->regions[i]);
-		if (ret) {
-			dev_err(dev, "Error %d initializing DDR region\n", ret);
-			return ret;
-		}
+		if (ret)
+			dev_err(dev,
+				"instance %u: failed to initialize region 0x%llx: %d\n",
+				w->instance, priv->regions[i].start, ret);
 	}
 
-	return 0;
-}
-
-/**
- * ddr_mem_init_work - Work handler for DDR memory initialization
- * @work: Pointer to the work_struct
- */
-static void ddr_mem_init_work(struct work_struct *work)
-{
-	struct scmi_mem_hotplug_data *priv =
-		container_of(work, struct scmi_mem_hotplug_data, hotplug_work);
-	int ret;
-
-	dev_info(priv->dev, "Starting DDR memory initialization\n");
-
-	ret = ddr_mem_init(priv);
-	if (ret)
-		dev_err(priv->dev, "Failed to initialize DDR memory: %d\n", ret);
-	else
-		dev_info(priv->dev, "DDR memory initialization completed successfully\n");
+	dev_info(dev, "DDR memory initialization for instance %u completed\n",
+		 w->instance);
 }
 
 /**
@@ -211,10 +267,10 @@ find_discovered_region(const struct scmi_ddr_region *discovered, size_t count,
  * @discovered: Array of regions reported by DDR_DRAM_DISCOVERY
  * @num_discovered: Number of entries in @discovered
  *
- * The DT 'nxp,ddr-regions' property is the policy list of regions this cohort
- * wants online. Each is intersected with the discovered set: a region not
+ * The DT 'nxp,ddr-regions' property is the policy list of regions this OS
+ * instance wants online. Each is intersected with the discovered set: a region not
  * present in discovery is skipped (it may already be initialized or is not
- * permitted for this cohort); a region whose instance has ECC disabled is
+ * permitted for this agent); a region whose instance has ECC disabled is
  * marked as not needing initialization so it is hot-added directly.
  *
  * Return: 0 on success (including when there is nothing to do), or a negative
@@ -296,6 +352,7 @@ static int mem_hotplug_scmi_probe(struct scmi_device *sdev)
 	struct scmi_protocol_handle *ph;
 	struct scmi_mem_hotplug_data *priv;
 	int ret, num_discovered;
+	unsigned int i, inst;
 
 	if (!handle)
 		return -ENODEV;
@@ -349,9 +406,32 @@ static int mem_hotplug_scmi_probe(struct scmi_device *sdev)
 
 	dev_set_drvdata(dev, priv);
 
-	INIT_WORK(&priv->hotplug_work, ddr_mem_init_work);
-	if (!queue_work(system_long_wq, &priv->hotplug_work))
-		dev_warn(dev, "DDR memory initialization already queued\n");
+	if (!priv->num_regions) {
+		dev_info(dev, "No DDR memory to be hotplugged\n");
+		return 0;
+	}
+
+	/*
+	 * Prefer async unless the platform lacks it or the user forced sync.
+	 * The protocol driver latches async off at runtime if a request that
+	 * asked for async never gets a delayed response, so this is a safe
+	 * initial choice.
+	 */
+	priv->use_async = priv->info.async_supported && !force_sync;
+
+	/* Queue one worker per instance that has at least one region. */
+	for (i = 0; i < priv->num_regions; i++)
+		__set_bit(priv->regions[i].instance, &priv->active_instances);
+
+	for_each_set_bit(inst, &priv->active_instances,
+			 SCMI_NXP_DDR_MAX_INSTANCES) {
+		priv->workers[inst].priv = priv;
+		priv->workers[inst].instance = inst;
+		INIT_WORK(&priv->workers[inst].work, ddr_mem_init_work);
+		if (!queue_work(system_long_wq, &priv->workers[inst].work))
+			dev_warn(dev, "DDR init for instance %u already queued\n",
+				 inst);
+	}
 
 	return 0;
 }
@@ -359,8 +439,11 @@ static int mem_hotplug_scmi_probe(struct scmi_device *sdev)
 static void mem_hotplug_scmi_remove(struct scmi_device *sdev)
 {
 	struct scmi_mem_hotplug_data *priv = dev_get_drvdata(&sdev->dev);
+	unsigned int inst;
 
-	cancel_work_sync(&priv->hotplug_work);
+	for_each_set_bit(inst, &priv->active_instances,
+			 SCMI_NXP_DDR_MAX_INSTANCES)
+		cancel_work_sync(&priv->workers[inst].work);
 }
 
 static const struct scmi_device_id scmi_id_table[] = {
