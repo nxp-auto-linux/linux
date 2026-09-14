@@ -237,9 +237,11 @@
 	firmware {
 		scmi: scmi {
 			compatible = "arm,scmi-smc";
-			mbox-names = "tx";
-			shmem = <&scmi_tx_buf>;
+			mbox-names = "tx", "rx";
+			shmem = <&scmi_tx_buf>, <&scmi_rx_buf>;
 			arm,smc-id = <0xc20000fe>;
+			interrupts = <GIC_SPI 950 IRQ_TYPE_EDGE_RISING>;
+			interrupt-names = "p2a_notif";
 			#address-cells = <1>;
 			#size-cells = <0>;
 			status = "okay";
@@ -247,6 +249,10 @@
 			clks: protocol@14 {
 				reg = <0x14>;
 				#clock-cells = <1>;
+			};
+
+			scmi_syspower: protocol@12 {
+				reg = <0x12>;
 			};
 
 			pinctrl: protocol@19 {
