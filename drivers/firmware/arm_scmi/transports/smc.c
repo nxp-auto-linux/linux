@@ -3,7 +3,7 @@
  * System Control and Management Interface (SCMI) Message SMC/HVC
  * Transport driver
  *
- * Copyright 2020,2022-2024,2025 NXP
+ * Copyright 2020,2022-2026 NXP
  */
 
 #include <linux/arm-smccc.h>
@@ -341,8 +341,16 @@ static void smc_fetch_response(struct scmi_chan_info *cinfo,
 			       struct scmi_xfer *xfer)
 {
 	struct scmi_smc *scmi_info = cinfo->transport_info;
+	struct scmi_shared_mem __iomem *shmem = scmi_info->shmem;
 
-	core->shmem->fetch_response(scmi_info->shmem, xfer);
+	/*
+	 * A delayed response arrives on the notification channel, so fetch it
+	 * from notif_shmem; only an immediate response uses the A2P buffer.
+	 */
+	if (cinfo->is_p2a)
+		shmem = scmi_info->notif_shmem;
+
+	core->shmem->fetch_response(shmem, xfer);
 }
 
 static void smc_mark_txdone(struct scmi_chan_info *cinfo, int ret,
@@ -361,6 +369,17 @@ static void smc_fetch_notification(struct scmi_chan_info *cinfo,
 	core->shmem->fetch_notification(scmi_info->notif_shmem, max_len, xfer);
 }
 
+/*
+ * Free the P2A buffer so the platform can send the next delayed response.
+ * Without this the second and later async requests stall.
+ */
+static void smc_clear_channel(struct scmi_chan_info *cinfo)
+{
+	struct scmi_smc *scmi_info = cinfo->transport_info;
+
+	core->shmem->clear_channel(scmi_info->notif_shmem);
+}
+
 static const struct scmi_transport_ops scmi_smc_ops = {
 	.chan_available = smc_chan_available,
 	.chan_setup = smc_chan_setup,
@@ -369,6 +388,7 @@ static const struct scmi_transport_ops scmi_smc_ops = {
 	.mark_txdone = smc_mark_txdone,
 	.fetch_response = smc_fetch_response,
 	.fetch_notification = smc_fetch_notification,
+	.clear_channel = smc_clear_channel,
 };
 
 static struct scmi_desc scmi_smc_desc = {
