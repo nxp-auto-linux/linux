@@ -53,8 +53,7 @@ struct scmi_ddr_region {
  *		     PROTOCOL_ATTRIBUTES bits[7:0].
  * @async_supported: Set when the platform is expected to implement the
  *		     asynchronous form of DDR_PARTIAL_DRAM_INIT and deliver a
- *		     delayed response. Latched off at runtime if a request that
- *		     asked for async never gets a delayed response.
+ *		     delayed response.
  */
 struct scmi_nxp_ddr_info {
 	u32  version;
@@ -74,10 +73,11 @@ struct scmi_nxp_ddr_info {
  *		  is false the call blocks until the platform completes the
  *		  initialization. When @async is true the platform runs the
  *		  work off the request path and reports completion through a
- *		  delayed response; the call still returns only after that
- *		  response arrives, so the DDR region is initialized on a
- *		  success return either way. If the platform does not support
- *		  async, the request degrades to the synchronous form.
+ *		  delayed response, or through DDR_GET_LAST_INIT_REQUEST_STATUS
+ *		  if that response is late; the call returns only after one of
+ *		  them, so the DDR region is initialized on a success return
+ *		  either way. If the platform does not support async, the
+ *		  request degrades to the synchronous form.
  */
 struct scmi_nxp_ddr_proto_ops {
 	int (*get_info)(const struct scmi_protocol_handle *ph,

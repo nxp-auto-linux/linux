@@ -9,8 +9,10 @@
 
 #include <linux/bitfield.h>
 #include <linux/bits.h>
+#include <linux/iopoll.h>
 #include <linux/module.h>
 #include <linux/nxp_ddr_protocol.h>
+#include <linux/time.h>
 
 #include "../../common.h"
 
@@ -20,6 +22,12 @@ enum scmi_nxp_ddr_protocol_cmd {
 	SCMI_NXP_DDR_DRAM_DISCOVERY		= 0x3,
 	SCMI_NXP_DDR_PARTIAL_DRAM_INIT		= 0x4,
 	SCMI_NXP_DDR_GET_LAST_INIT_REQ_STATUS	= 0x5,
+};
+
+enum nxp_ddr_req_state {
+	NXP_DDR_REQ_QUEUED,
+	NXP_DDR_REQ_DONE,
+	NXP_DDR_REQ_FAILED,
 };
 
 /* Flags field of DDR_PARTIAL_DRAM_INIT: bit 0 requests asynchronous init. */
@@ -102,6 +110,14 @@ struct scmi_ddr_partial_init_a2p {
 	__le32 size_high;
 } __packed;
 
+/* Range of a DDR_PARTIAL_DRAM_INIT request, as echoed back by the platform. */
+struct scmi_ddr_req_params {
+	__le32 start_lo;
+	__le32 start_hi;
+	__le32 size_lo;
+	__le32 size_hi;
+} __packed;
+
 /*
  * Payload of the DDR_PARTIAL_DRAM_INIT delayed response. The SCMI core strips
  * the leading status word before it reaches t->rx.buf, so status is not part
@@ -110,11 +126,37 @@ struct scmi_ddr_partial_init_a2p {
  * already matches.
  */
 struct scmi_ddr_partial_init_cmpl_p2a {
-	__le32 start_addr_low;
-	__le32 start_addr_high;
-	__le32 size_low;
-	__le32 size_high;
+	struct scmi_ddr_req_params req;
 } __packed;
+
+/*
+ * DDR_GET_LAST_INIT_REQUEST_STATUS reply. Per SMMS, the platform reports
+ * the oldest of this OS's queued requests, or the last one completed.
+ */
+struct scmi_ddr_inst_status {
+	__le32 hdr;	/* [7:0] requests still queued, [15:8] status */
+	struct scmi_ddr_req_params req;
+} __packed;
+
+struct scmi_ddr_last_status_p2a {
+	__le32 num_instances;
+	struct scmi_ddr_inst_status inst[];
+} __packed;
+
+#define SCMI_NXP_DDR_LAST_PENDING		GENMASK(7, 0)
+#define SCMI_NXP_DDR_LAST_STATUS		GENMASK(15, 8)
+#define SCMI_NXP_DDR_LAST_STATUS_SUCCESS	0
+#define SCMI_NXP_DDR_LAST_STATUS_IN_PROGRESS	2
+
+/*
+ * Wait for a request whose delayed response is late. The poll interval matches
+ * the consumer's back-off on a busy platform. The timeout is a generous bound
+ * on the time a request can spend queued, including behind requests from
+ * other agents on the same SMMS. Past it the chunk is given up: it stays
+ * unused and is never hot-added.
+ */
+#define SCMI_NXP_DDR_WAIT_POLL_US		(100 * USEC_PER_MSEC)
+#define SCMI_NXP_DDR_WAIT_TIMEOUT_US		(30 * USEC_PER_SEC)
 
 struct scmi_nxp_ddr_priv {
 	struct scmi_nxp_ddr_info info;
@@ -275,6 +317,15 @@ static bool nxp_ddr_init_is_retryable(const struct scmi_xfer *t, int ret)
 	return false;
 }
 
+static void nxp_ddr_get_req_params(const struct scmi_ddr_req_params *p,
+				   u64 *start, u64 *size)
+{
+	*start = le32_to_cpu(p->start_lo) |
+		 ((u64)le32_to_cpu(p->start_hi) << 32);
+	*size = le32_to_cpu(p->size_lo) |
+		((u64)le32_to_cpu(p->size_hi) << 32);
+}
+
 /*
  * Confirm a delayed response belongs to the request being waited on. The core
  * already matches the header token; the echoed range is a second check against
@@ -294,10 +345,7 @@ static int nxp_ddr_check_completion(const struct scmi_protocol_handle *ph,
 		return -EPROTO;
 	}
 
-	got_start = le32_to_cpu(cmpl->start_addr_low) |
-		    ((u64)le32_to_cpu(cmpl->start_addr_high) << 32);
-	got_size = le32_to_cpu(cmpl->size_low) |
-		   ((u64)le32_to_cpu(cmpl->size_high) << 32);
+	nxp_ddr_get_req_params(&cmpl->req, &got_start, &got_size);
 
 	if (got_start != start || got_size != size) {
 		dev_err(ph->dev,
@@ -307,6 +355,87 @@ static int nxp_ddr_check_completion(const struct scmi_protocol_handle *ph,
 	}
 
 	return 0;
+}
+
+/*
+ * Look up the state of the request for [start, start + size) in
+ * DDR_GET_LAST_INIT_REQUEST_STATUS and store it in @state. Returns 0 on
+ * success, -EPROTO if the reply is malformed, or the error of the query itself.
+ * The platform has no transient status for this query, so a failed query is
+ * not worth repeating.
+ *
+ * A request stays queued until it is done. Between leaving the queue and being
+ * recorded as the last one completed, the platform still reports the previous
+ * request, so a range that does not match is treated as still queued.
+ */
+static int nxp_ddr_get_req_state(const struct scmi_protocol_handle *ph,
+				 u64 start, u64 size,
+				 enum nxp_ddr_req_state *state)
+{
+	const struct scmi_ddr_last_status_p2a *resp;
+	const struct scmi_ddr_inst_status *e;
+	u32 i, count, hdr, status;
+	u64 got_start, got_size;
+	struct scmi_xfer *t;
+	int ret;
+
+	ret = ph->xops->xfer_get_init(ph, SCMI_NXP_DDR_GET_LAST_INIT_REQ_STATUS,
+				      0, 0, &t);
+	if (ret)
+		return ret;
+
+	ret = ph->xops->do_xfer(ph, t);
+	if (ret)
+		goto out;
+
+	resp = t->rx.buf;
+	count = t->rx.len < sizeof(*resp) ? 0 : le32_to_cpu(resp->num_instances);
+	if (count > SCMI_NXP_DDR_MAX_INSTANCES ||
+	    t->rx.len < struct_size(resp, inst, count)) {
+		ret = -EPROTO;
+		goto out;
+	}
+
+	/* Still queued, unless the request is reported as done below. */
+	*state = NXP_DDR_REQ_QUEUED;
+	for (i = 0; i < count; i++) {
+		e = &resp->inst[i];
+		nxp_ddr_get_req_params(&e->req, &got_start, &got_size);
+		if (got_start != start || got_size != size)
+			continue;
+
+		hdr = le32_to_cpu(e->hdr);
+		status = FIELD_GET(SCMI_NXP_DDR_LAST_STATUS, hdr);
+		if (!FIELD_GET(SCMI_NXP_DDR_LAST_PENDING, hdr) &&
+		    status != SCMI_NXP_DDR_LAST_STATUS_IN_PROGRESS)
+			*state = status == SCMI_NXP_DDR_LAST_STATUS_SUCCESS ?
+				 NXP_DDR_REQ_DONE : NXP_DDR_REQ_FAILED;
+		break;
+	}
+
+out:
+	ph->xops->xfer_put(ph, t);
+	return ret;
+}
+
+/* Poll the request's state until it is done or the wait times out. */
+static int nxp_ddr_poll_req_done(const struct scmi_protocol_handle *ph,
+				 u64 start, u64 size)
+{
+	enum nxp_ddr_req_state state = NXP_DDR_REQ_QUEUED;
+	int ret, err;
+
+	err = read_poll_timeout(nxp_ddr_get_req_state, ret,
+				ret || state != NXP_DDR_REQ_QUEUED,
+				SCMI_NXP_DDR_WAIT_POLL_US,
+				SCMI_NXP_DDR_WAIT_TIMEOUT_US, false,
+				ph, start, size, &state);
+	if (err)
+		return err;
+	if (ret)
+		return ret;
+
+	return state == NXP_DDR_REQ_DONE ? 0 : -EIO;
 }
 
 static int nxp_ddr_partial_init(const struct scmi_protocol_handle *ph,
@@ -340,17 +469,7 @@ static int nxp_ddr_partial_init(const struct scmi_protocol_handle *ph,
 
 	ret = ph->xops->do_xfer_with_response(ph, t);
 	if (ret == -ETIMEDOUT) {
-		/*
-		 * No delayed response arrived, so async is not usable: latch it
-		 * off. Do not reuse this xfer or re-send the range now, since
-		 * the init may still be queued; return -EBUSY so the caller
-		 * retries on a fresh, synchronous xfer.
-		 */
-		dev_warn_once(ph->dev,
-			      "No delayed response for DDR init; disabling async\n");
-		priv->info.async_supported = false;
 		timed_out = true;
-		ret = -EBUSY;
 		goto out;
 	}
 
@@ -361,9 +480,8 @@ static int nxp_ddr_partial_init(const struct scmi_protocol_handle *ph,
 
 out:
 	if (timed_out) {
-		/* Not busy: scmi_status here is the stale immediate SUCCESS. */
 		dev_dbg(ph->dev,
-			"DDR region (0x%llx, 0x%llx) init timed out, retrying synchronously\n",
+			"DDR region (0x%llx, 0x%llx) has no delayed response yet, polling its status\n",
 			start, size);
 	} else if (ret && nxp_ddr_init_is_retryable(t, ret)) {
 		/* Normalise to the code the consumer backs off and retries on. */
@@ -382,6 +500,26 @@ out:
 	}
 
 	ph->xops->xfer_put(ph, t);
+
+	/*
+	 * A missing delayed response is only late: requests from other agents
+	 * may be served first on the same SMMS. The request is still queued,
+	 * so ask the platform for its state instead of sending it again. The
+	 * SCMI core still logs the timeout, and logs the delayed response as
+	 * unexpected if it arrives later; both are expected here.
+	 */
+	if (timed_out) {
+		ret = nxp_ddr_poll_req_done(ph, start, size);
+		if (ret)
+			dev_err(ph->dev,
+				"Failed to init DDR region (0x%llx, 0x%llx) after polling its status: err=%d\n",
+				start, size, ret);
+		else
+			dev_dbg(ph->dev,
+				"DDR region init successful: start=0x%llx size=0x%llx\n",
+				start, size);
+	}
+
 	return ret;
 }
 
@@ -462,6 +600,14 @@ static int scmi_nxp_ddr_protocol_init(const struct scmi_protocol_handle *ph)
 		return ret;
 	}
 
+	ret = ph->hops->protocol_msg_check(ph,
+					   SCMI_NXP_DDR_GET_LAST_INIT_REQ_STATUS,
+					   NULL);
+	if (ret) {
+		dev_err(ph->dev, "DDR_GET_LAST_INIT_REQUEST_STATUS command is not supported\n");
+		return ret;
+	}
+
 	ret = nxp_ddr_attributes_get(ph, priv);
 	if (ret) {
 		dev_err(ph->dev, "Failed to get NXP DDR protocol attributes\n");
@@ -471,10 +617,9 @@ static int scmi_nxp_ddr_protocol_init(const struct scmi_protocol_handle *ph)
 	/*
 	 * PROTOCOL_MESSAGE_ATTRIBUTES cannot express whether the asynchronous
 	 * form of DDR_PARTIAL_DRAM_INIT is available, so treat a non-zero queue
-	 * depth as the indication and confirm at runtime: the first request
-	 * that yields no delayed response latches async off. The protocol
-	 * version is not a reliable signal, since the platform reports the same
-	 * version whether or not async is enabled in its configuration.
+	 * depth as the indication. The protocol version is not a reliable
+	 * signal, since the platform reports the same version whether or not
+	 * async is enabled in its configuration.
 	 */
 	priv->info.async_supported = priv->info.max_queue_depth > 0;
 
