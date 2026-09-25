@@ -17,9 +17,7 @@
  * Split the DDR memory regions into chunks to bound the time spent per init
  * request. In synchronous mode this keeps each blocking SCMI call short; in
  * asynchronous mode it keeps each request well inside the delayed-response
- * timeout. One chunk is about 112 ms of init work, against the core SCMI
- * layer's 2000 ms 'SCMI_MAX_RESPONSE_TIMEOUT' for a delayed response, so 1 GB
- * leaves ample margin. Do not raise this beyond about 4 GB.
+ * timeout.
  */
 #define CHUNK_SIZE	0x40000000ULL /* 1GB */
 
@@ -27,8 +25,7 @@
  * A busy platform rejects an init request with -EBUSY while it serves another
  * request on the same controller, which can be a multi-gigabyte region
  * requested by another OS instance sharing that controller. The work is
- * deferrable, so back off and retry. At about 112 ms per gigabyte the budget
- * below covers several gigabytes of contention.
+ * deferrable, so back off and retry.
  */
 #define S32_DDR_INIT_RETRIES		50
 #define S32_DDR_INIT_BACKOFF_MS		100
