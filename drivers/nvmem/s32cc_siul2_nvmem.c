@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0+
 /*
- * Copyright 2021-2025 NXP
+ * Copyright 2021-2026 NXP
  */
 
 #include <linux/module.h>
@@ -10,6 +10,7 @@
 #include <linux/of_device.h>
 #include <linux/platform_device.h>
 #include <dt-bindings/nvmem/s32cc-siul2-nvmem.h>
+#include <dt-bindings/nvmem/s32g2-g3-common-siul2-nvmem.h>
 
 /* SoC revision */
 #define SIUL2_MIDR1_OFF			(0x00000004)
