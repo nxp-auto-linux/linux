@@ -408,12 +408,7 @@ static int mem_hotplug_scmi_probe(struct scmi_device *sdev)
 		return 0;
 	}
 
-	/*
-	 * Prefer async unless the platform lacks it or the user forced sync.
-	 * The protocol driver latches async off at runtime if a request that
-	 * asked for async never gets a delayed response, so this is a safe
-	 * initial choice.
-	 */
+	/* Prefer async unless the platform lacks it or the user forced sync. */
 	priv->use_async = priv->info.async_supported && !force_sync;
 
 	/* Queue one worker per instance that has at least one region. */
