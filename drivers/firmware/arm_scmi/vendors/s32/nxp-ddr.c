@@ -34,10 +34,14 @@ enum nxp_ddr_req_state {
 #define SCMI_NXP_DDR_INIT_FLAG_ASYNC		BIT(0)
 
 /*
- * IN_USE means the per-instance init queue is full and the request should be
+ * IN_USE means the per-SMMS init queue is full and the request should be
  * retried. It is SCMI status -11, past the end of the core errno table, so the
  * core collapses it to -EIO, the same as GENERIC_ERROR (-8); the raw status in
  * the header separates the two.
+ *
+ * FSS keeps one init queue per SMMS, shared by all agents, which can fill
+ * up. It also reports IN_USE when its pool for asynchronous requests is
+ * exhausted.
  */
 #define SCMI_NXP_DDR_STATUS_IN_USE		(-11)
 
@@ -302,15 +306,11 @@ static int nxp_ddr_scmi_status(const struct scmi_xfer *t)
 }
 
 /*
- * A queue-full failure is transient and worth retrying: SCMI_BUSY (async pool
- * exhausted, already -EBUSY) or IN_USE (per-instance queue full, delivered as
- * -EIO). Any other status is a failure that a retry cannot clear.
+ * A queue-full failure is transient and worth retrying: IN_USE, delivered as
+ * -EIO. Any other status is a failure that a retry cannot clear.
  */
 static bool nxp_ddr_init_is_retryable(const struct scmi_xfer *t, int ret)
 {
-	if (ret == -EBUSY)
-		return true;
-
 	if (ret == -EIO && nxp_ddr_scmi_status(t) == SCMI_NXP_DDR_STATUS_IN_USE)
 		return true;
 
