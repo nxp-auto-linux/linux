@@ -3,10 +3,10 @@
  * NXP S32G2 SoC family
  *
  * Copyright (c) 2021 SUSE LLC
- * Copyright 2017-2025 NXP
+ * Copyright 2017-2026 NXP
  */
 
-#include "s32g.dtsi"
+#include "s32g2-g3-common.dtsi"
 
 / {
 	compatible = "nxp,s32g2";

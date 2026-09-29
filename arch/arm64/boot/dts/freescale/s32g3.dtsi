@@ -4,7 +4,7 @@
  */
 
 /dts-v1/;
-#include "s32g.dtsi"
+#include "s32g2-g3-common.dtsi"
 
 /delete-node/ &gic;
 
