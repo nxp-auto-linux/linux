@@ -9,6 +9,7 @@
 #include <dt-bindings/interrupt-controller/irq.h>
 #include <dt-bindings/memory/s32cc-siul2.h>
 #include <dt-bindings/nvmem/s32cc-siul2-nvmem.h>
+#include <dt-bindings/nvmem/s32r47-siul2-nvmem.h>
 #include <dt-bindings/nvmem/s32cc-gpr-nvmem.h>
 #include <dt-bindings/phy/phy.h>
 #include <dt-bindings/phy/phy-s32cc-serdes.h>

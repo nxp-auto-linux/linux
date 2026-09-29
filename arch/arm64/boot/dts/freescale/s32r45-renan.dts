@@ -2,7 +2,7 @@
 /*
  * Device Tree file for S32R45 Renan Board.
  *
- * Copyright 2023-2025 NXP
+ * Copyright 2023-2026 NXP
  *
  */
 
@@ -122,6 +122,10 @@
 };
 
 &pit1 {
+	status = "okay";
+};
+
+&pcie0 {
 	status = "okay";
 };
 

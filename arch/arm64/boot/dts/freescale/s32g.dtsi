@@ -4,10 +4,11 @@
  */
 
 #include "s32cc.dtsi"
-#include "s32g-pfe.dtsi"
+#include <dt-bindings/clock/s32g-scmi-clock.h>
 #include <dt-bindings/mailbox/nxp-llce-mb.h>
 #include <dt-bindings/mux/nxp-s32g-can-ts.h>
 #include <dt-bindings/nvmem/s32cc-scmi-nvmem.h>
+#include <dt-bindings/memory/s32cc-siul2.h>
 #include <dt-bindings/nvmem/s32g-gpr-nvmem.h>
 #include <dt-bindings/thermal/thermal.h>
 
@@ -190,7 +191,7 @@
 	};
 
 	soc {
-		siul2@4009c000 {
+		siul2: siul2@4009c000 {
 			compatible = "simple-mfd";
 			#address-cells = <2>;
 			#size-cells = <2>;
@@ -381,17 +382,6 @@
 				interrupt-controller;
 				#interrupt-cells = <2>;
 				interrupts = <GIC_SPI 210 IRQ_TYPE_LEVEL_HIGH>;
-			};
-
-			nvram1: nvram@44010000 {
-				compatible = "nxp,s32cc-siul2_1-nvmem";
-				reg = <MIDR_SIUL2_1 0x0 0x0 0x10>;
-				#address-cells = <1>;
-				#size-cells = <1>;
-
-				serdes_presence: serdes_presence@0 {
-					reg = <SERDES_PRESENCE_OFFSET NVRAM_CELL_SIZE>;
-				};
 			};
 		};
 
@@ -1012,27 +1002,6 @@
 			};
 		};
 	};
-};
-
-&pcie1 {
-	interrupts =  <GIC_SPI 215 IRQ_TYPE_LEVEL_HIGH>,
-			<GIC_SPI 214 IRQ_TYPE_LEVEL_HIGH>,
-			<GIC_SPI 216 IRQ_TYPE_LEVEL_HIGH>,
-			<GIC_SPI 217 IRQ_TYPE_LEVEL_HIGH>,
-			<GIC_SPI 218 IRQ_TYPE_LEVEL_HIGH>,
-			<GIC_SPI 223 IRQ_TYPE_LEVEL_HIGH>,
-			<GIC_SPI 224 IRQ_TYPE_LEVEL_HIGH>,
-			<GIC_SPI 225 IRQ_TYPE_LEVEL_HIGH>;
-	interrupt-names = "link_req_stat", "dma", "msi",
-			"phy_link_down", "phy_link_up", "misc",
-			"pcs", "tlp_req_no_comp";
-	#interrupt-cells = <1>;
-	interrupt-map-mask = <0 0 0 0x7>;
-	interrupt-map = <0 0 0 1 &gic 0 0 0 219 4>,
-			<0 0 0 2 &gic 0 0 0 220 4>,
-			<0 0 0 3 &gic 0 0 0 221 4>,
-			<0 0 0 4 &gic 0 0 0 222 4>;
-	msi-parent = <&gic>;
 };
 
 &pinctrl {
