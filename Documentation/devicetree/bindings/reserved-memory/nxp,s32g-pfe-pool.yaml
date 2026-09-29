@@ -1,0 +1,71 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/reserved-memory/nxp,s32g-pfe-pool.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: NXP S32G PFE Reserved Memory Pools
+
+maintainers:
+  - Khristine Andreea Barbulescu <khristineandreea.barbulescu@nxp.com>
+
+description: |
+  Reserved memory regions used by the Packet Forwarding Engine (PFE) found on
+  NXP S32G SoCs. The PFE requires dedicated, physically contiguous memory pools
+  for its internal buffers:
+    - the BMU2 buffer pool,
+    - the routing table (RT) pool,
+    - the buffer descriptor ring (BDR) pool.
+  Each pool is described as a child node of the /reserved-memory node.
+
+properties:
+  compatible:
+    enum:
+      - nxp,s32g-pfe-bmu2-pool
+      - nxp,s32g-pfe-rt-pool
+      - nxp,s32g-pfe-bdr-pool
+    description: |
+      Identifies the PFE memory pool:
+        "nxp,s32g-pfe-bmu2-pool" - Buffer Management Unit 2 pool.
+        "nxp,s32g-pfe-rt-pool"   - Routing table pool.
+        "nxp,s32g-pfe-bdr-pool"  - Buffer descriptor ring pool.
+
+  reg:
+    description: Standard property. Physical address and size of the reserved
+                 memory region.
+
+  no-map:
+    $ref: /schemas/types.yaml#/definitions/flag
+    description:
+      Avoid creating a virtual mapping of the region as part of the OS'
+      standard mapping of system memory.
+
+additionalProperties: false
+
+required:
+  - compatible
+  - reg
+
+examples:
+  - |
+    reserved-memory {
+        #address-cells = <2>;
+        #size-cells = <2>;
+
+        pfebufs@34000000 {
+            compatible = "nxp,s32g-pfe-bmu2-pool";
+            reg = <0x0 0x34000000 0x0 0x80000>;
+            no-map;
+        };
+
+        pfebufs@34080000 {
+            compatible = "nxp,s32g-pfe-rt-pool";
+            reg = <0x0 0x34080000 0x0 0x20000>;
+            no-map;
+        };
+
+        pfebufs@835e0000 {
+            compatible = "nxp,s32g-pfe-bdr-pool";
+            reg = <0x0 0x835e0000 0x0 0x20000>;
+        };
+    };
