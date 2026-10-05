@@ -9,7 +9,6 @@
 #include <dt-bindings/mux/nxp-s32g-can-ts.h>
 #include <dt-bindings/nvmem/s32cc-scmi-nvmem.h>
 #include <dt-bindings/memory/s32cc-siul2.h>
-#include <dt-bindings/nvmem/s32g-gpr-nvmem.h>
 #include <dt-bindings/thermal/thermal.h>
 
 / {
@@ -18,36 +17,6 @@
 		serial4 = &llce_uart1;
 		serial5 = &llce_uart2;
 		serial6 = &llce_uart3;
-	};
-
-	reserved-memory {
-		pfe_reserved_bmu2: pfebufs@34000000 {
-			compatible = "nxp,s32g-pfe-bmu2-pool";
-			/* BMU2: 512 KB */
-			reg = <0 0x34000000 0 0x80000>;
-			no-map;
-		};
-
-		pfe_reserved_rt: pfebufs@34080000 {
-			compatible = "nxp,s32g-pfe-rt-pool";
-			/* RT: 128 KB */
-			reg = <0 0x34080000 0 0x20000>;
-			no-map;
-		};
-
-		pfe_reserved: pfebufs@83200000 {
-			compatible = "shared-dma-pool";
-			/* 4 MB - 128 KB */
-			reg = <0 0x83200000 0 0x3e0000>;
-			no-map;
-		};
-
-		pfe_reserved_bdr: pfebufs@835e0000 {
-			compatible = "nxp,s32g-pfe-bdr-pool";
-			/* 128 KB */
-			reg = <0 0x835e0000 0 0x20000>;
-		};
-		/* ends 0x83600000 */
 	};
 
 	firmware {
@@ -61,33 +30,17 @@
 				nvmem-cells = <&scmi_soc_letter>, <&scmi_part_no>,
 					      <&scmi_soc_major>, <&scmi_soc_minor>,
 					      <&scmi_core_max_freq>,
-					      <&scmi_pcie_dev_id>,
-					      <&scmi_serdes_presence>,
 					      <&scmi_soc_subminor>,
 					      <&scmi_reset_cause>,
 					      <&scmi_lockstep_enabled>,
-					      <&scmi_ddr_pmu_irq>,
-					      <&scmi_gmac0_phy_intf_sel>,
-					      <&scmi_pfe_emacs_intf_sel>,
-					      <&scmi_pfe_coh_en>,
-					      <&scmi_pfe_pwr_ctrl>,
-					      <&scmi_pfe_emacs_genctrl1>,
-					      <&scmi_pfe_genctrl3>;
+					      <&scmi_ddr_pmu_irq>;
 				nvmem-cell-names = "soc_letter", "part_no",
 						   "soc_major", "soc_minor",
 						   "core_max_freq",
-						   "pcie_dev_id",
-						   "serdes_presence",
 						   "soc_subminor",
 						   "reset_cause",
 						   "lockstep_enabled",
-						   "ddr_pmu_irq",
-						   "gmac_phy_intf_sel",
-						   "pfe_emacs_intf_sel",
-						   "pfe_coh_en",
-						   "pfe_pwr_ctrl",
-						   "pfe_emacs_genctrl1",
-						   "pfe_genctrl3";
+						   "ddr_pmu_irq";
 
 				scmi_soc_letter: soc_letter@0 {
 					reg = <S32CC_SCMI_NVMEM_SOC_LETTER
@@ -114,16 +67,6 @@
 						S32CC_SCMI_NVMEM_CELL_SIZE>;
 				};
 
-				scmi_pcie_dev_id: pcie_dev_id@5 {
-					reg = <S32CC_SCMI_NVMEM_PCIE_DEV_ID
-						S32CC_SCMI_NVMEM_CELL_SIZE>;
-				};
-
-				scmi_serdes_presence: serdes_presence@6 {
-					reg = <S32CC_SCMI_NVMEM_SERDES_PRESENCE
-						S32CC_SCMI_NVMEM_CELL_SIZE>;
-				};
-
 				scmi_soc_subminor: soc_subminor@7 {
 					reg = <S32CC_SCMI_NVMEM_SOC_SUBMINOR
 						S32CC_SCMI_NVMEM_CELL_SIZE>;
@@ -141,36 +84,6 @@
 
 				scmi_ddr_pmu_irq: ddr_pmu_irq@a {
 					reg = <S32CC_SCMI_NVMEM_DDR_PMU_IRQ
-						S32CC_SCMI_NVMEM_CELL_SIZE>;
-				};
-
-				scmi_gmac0_phy_intf_sel: gmac0_phy_intf_sel@b {
-					reg = <S32CC_SCMI_NVMEM_GMAC0_PHY_INTF_SEL
-						S32CC_SCMI_NVMEM_CELL_SIZE>;
-				};
-
-				scmi_pfe_emacs_intf_sel: pfe_emacs_intf_sel@c {
-					reg = <S32CC_SCMI_NVMEM_PFE_EMACS_INTF_SEL
-						S32CC_SCMI_NVMEM_CELL_SIZE>;
-				};
-
-				scmi_pfe_coh_en: pfe_coh_en@d {
-					reg = <S32CC_SCMI_NVMEM_PFE_COH_EN
-						S32CC_SCMI_NVMEM_CELL_SIZE>;
-				};
-
-				scmi_pfe_pwr_ctrl: pfe_pwr_ctrl@e {
-					reg = <S32CC_SCMI_NVMEM_PFE_PWR_CTRL
-						S32CC_SCMI_NVMEM_CELL_SIZE>;
-				};
-
-				scmi_pfe_emacs_genctrl1: pfe_emacs_genctrl1@f {
-					reg = <S32CC_SCMI_NVMEM_PFE_EMACS_GENCTRL1
-						S32CC_SCMI_NVMEM_CELL_SIZE>;
-				};
-
-				scmi_pfe_genctrl3: pfe_genctrl3@10 {
-					reg = <S32CC_SCMI_NVMEM_PFE_GENCTRL3
 						S32CC_SCMI_NVMEM_CELL_SIZE>;
 				};
 			};
@@ -1690,29 +1603,4 @@
 
 &gpr {
 	compatible = "nxp,s32g-gpr-nvmem";
-
-	pfe_emacs_intf_sel: pfe_emacs_intf_sel@80 {
-		reg = <S32G_GPR_PFE_EMACS_INTF_SEL_OFFSET
-			S32G_GPR_CELL_SIZE>;
-	};
-
-	pfe_coh_en: pfe_coh_en@81 {
-		reg = <S32G_GPR_PFE_COH_EN_OFFSET
-			S32G_GPR_CELL_SIZE>;
-	};
-
-	pfe_pwr_ctrl: pfe_pwr_ctrl@82 {
-		reg = <S32G_GPR_PFE_PWR_CTRL_OFFSET
-			S32G_GPR_CELL_SIZE>;
-	};
-
-	pfe_emacs_genctrl1: pfe_emacs_genctrl1@83 {
-		reg = <S32G_GPR_PFE_EMACS_GENCTRL1_OFFSET
-			S32G_GPR_CELL_SIZE>;
-	};
-
-	pfe_genctrl3: pfe_genctrl3@84 {
-		reg = <S32G_GPR_PFE_GENCTRL3_OFFSET
-			S32G_GPR_CELL_SIZE>;
-	};
 };
