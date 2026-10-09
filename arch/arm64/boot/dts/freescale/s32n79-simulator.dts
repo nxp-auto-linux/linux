@@ -5,7 +5,6 @@
 
 /dts-v1/;
 #include "s32n79-simulator.dtsi"
-#include "dt-bindings/memory/s32n7-carv.h"
 
 / {
 	model = "NXP S32N79-SIM";

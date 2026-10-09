@@ -1,11 +1,10 @@
 // SPDX-License-Identifier: (GPL-2.0+ OR BSD-3-Clause)
 /*
- * Copyright 2024-2025 NXP
+ * Copyright 2024-2026 NXP
  */
 
 /dts-v1/;
 #include "s32n79-rdb.dtsi"
-#include "dt-bindings/memory/s32n7-carv.h"
 
 / {
 	virtio: virtio@44000000 {

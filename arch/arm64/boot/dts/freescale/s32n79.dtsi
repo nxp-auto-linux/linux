@@ -1491,6 +1491,7 @@
 					compatible = "nxp,carvnet-rproc";
 					reg = <0x47860000 0x10000>;
 					interrupts = <GIC_SPI 259 IRQ_TYPE_LEVEL_HIGH>;
+					dma-coherent;
 					status = "disabled";
 				};
 			};
