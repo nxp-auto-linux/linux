@@ -16,7 +16,6 @@
 #include <linux/platform_device.h>
 #include <linux/pm.h>
 #include <linux/remoteproc.h>
-#include <dt-bindings/memory/s32n7-carv.h>
 
 #include "remoteproc_internal.h"
 
@@ -109,6 +108,9 @@ MODULE_PARM_DESC(auto_boot,
 #define CARV_Q_AT_BARL_ADDR_MASK	GENMASK_ULL(31, 14)
 #define CARV_Q_AT_BARL_ADDR(v)		((v) & CARV_Q_AT_BARL_ADDR_MASK)
 #define GET_CARV_Q_AT_BARL_ADDR(v)	((v) & CARV_Q_AT_BARL_ADDR_MASK)
+/* BARL cache attribute field: coherent accesses (driver always uses coherent BARs) */
+#define CARV_Q_AT_BARL_COHERENT		BIT(0)
+
 #define CARV_Q_AT_BARH_ADDR_MASK	GENMASK_ULL(18, 0)
 #define CARV_Q_AT_BARH_ADDR(v)		(((v) >> 32) & CARV_Q_AT_BARH_ADDR_MASK)
 #define GET_CARV_Q_AT_BARH_ADDR(v)	(((v) & CARV_Q_AT_BARH_ADDR_MASK) << 32)
@@ -263,12 +265,6 @@ static const struct q_regmap_tab_u {
 	{ 0 },
 };
 
-enum carv_bar_type {
-	CARV_BAR_NONCOHERENT = 0,
-	CARV_BAR_COHERENT = 1,
-	CARV_BAR_SHARED = 2,
-};
-
 #define CARVEOUT_NAME_SIZE 32U
 
 struct __packed fw_rsc_vendor_carv_match_addr {
@@ -277,7 +273,6 @@ struct __packed fw_rsc_vendor_carv_match_addr {
 };
 
 struct __packed carvnet_bar_info {
-	enum carv_bar_type bar_type;
 	u64 addr;
 };
 
@@ -300,7 +295,6 @@ struct __packed carvnet_bar_info {
  * @bar_index: index 0..3 of the BAR to use with this carveout, or BAR_INVALID
  *             if not assigned
  * @fw_size: actual size required by firmware resource table, may be smaller than @size
- * @bar_type: type of BAR memory (coherent, non-coherent, or shared)
  * @node: kernel list node, to keep infos in struct carvnet's carveout_infos list
  *
  * This resource entry provides the host information about required CARV address for
@@ -314,7 +308,6 @@ struct carveout_info {
 	size_t size;
 	u32 bar_index;
 	u32 fw_size;
-	enum carv_bar_type bar_type;
 	struct list_head node;
 };
 
@@ -327,9 +320,6 @@ struct carvnet {
 	void __iomem *regs[MAX_QUARTILES];
 	struct work_struct rproc_work;
 	u8 q_user;		/* active Q user */
-	enum carv_bar_type default_bar_type; /* BAR type for auto-assigned carveouts
-					      * (FW segments)
-					      */
 
 	struct list_head carveout_infos; /* Extra information for each carveout: bar, match_addr */
 };
@@ -512,17 +502,15 @@ static int q_set_prio_region(struct carvnet *priv, struct carveout_info *info,
 	return 0;
 }
 
-static int g_get_bar(struct carvnet *priv, enum carv_bar_type bar_type, struct rproc_mem_entry *mem)
+static int g_get_bar(struct carvnet *priv, struct rproc_mem_entry *mem)
 {
 	struct carvnet_bar_info *bar_info = NULL;
 	u64 addr;
 	int i, ret;
 
-	/* Try to find existing bar_info - matching type and <4GB offset */
+	/* Try to find existing bar_info with <4GB offset */
 	for (i = 0; i < priv->bar_info_cnt; i++) {
 		bar_info = &priv->bar_info[i];
-		if (bar_info->bar_type != bar_type)
-			continue;
 
 		/* Check if superset of current BAR + the new region fits into 4GB */
 		addr     = min(bar_info->addr, mem->dma);
@@ -542,7 +530,6 @@ static int g_get_bar(struct carvnet *priv, enum carv_bar_type bar_type, struct r
 	/* If not found, create a new bar_info to be used */
 	ret = priv->bar_info_cnt;
 	bar_info = &priv->bar_info[priv->bar_info_cnt];
-	bar_info->bar_type = bar_type;
 	bar_info->addr = mem->dma;
 	if (mem->dma > ULONG_MAX - mem->len) /* Overflow check to comply with coverity */
 		return -EINVAL;
@@ -613,7 +600,7 @@ static int q_set_mapper(struct carvnet *priv)
 			return -ENOMEM;
 
 		if (info->bar_index == BAR_INVALID) {
-			ret = g_get_bar(priv, priv->default_bar_type, m);
+			ret = g_get_bar(priv, m);
 			if (ret < 0)
 				return ret;
 			info->bar_index = (u32)ret;
@@ -624,8 +611,9 @@ static int q_set_mapper(struct carvnet *priv)
 	for (i = 0; i < priv->bar_info_cnt; i++) {
 		for (q = 0; q < priv->num_quartiles; q++) {
 			writel(CARV_Q_AT_BARL_ADDR(priv->bar_info[i].addr) |
-				priv->bar_info[i].bar_type,
+				CARV_Q_AT_BARL_COHERENT,
 				priv->regs[q] + CARV_Q_AT_BARL(priv->q_user, i));
+
 			writel(CARV_Q_AT_BARH_ADDR(priv->bar_info[i].addr),
 				priv->regs[q] + CARV_Q_AT_BARH(priv->q_user, i));
 		}
@@ -758,7 +746,7 @@ static int carvnet_rproc_add_mem_regions(struct rproc *rproc)
 			return -ENOMEM;
 
 		/* Assign BAR to this Carveout */
-		ret = g_get_bar(priv, info->bar_type, mem);
+		ret = g_get_bar(priv, mem);
 		if (ret < 0) {
 			kfree(mem);
 			return ret;
@@ -1052,25 +1040,9 @@ static int carvnet_rproc_parse_dt_mem(struct rproc *rproc)
 	struct of_phandle_iterator it;
 	struct reserved_mem *rmem;
 	struct carveout_info *info;
-	unsigned long remap_flag;
-	u32 resm_idx = 1, value;
-	enum carv_bar_type bar_type;
+	u32 resm_idx = 1;
 	void *va;
 	int ret;
-
-	/* Read the BAR type for auto-assigned carveouts (e.g. FW segments) from index 0 */
-	value = 0U;
-	of_property_read_u32_index(np, "nxp,s32n7-carv-mem-region-types", 0, &value);
-	if (value == CARV_MEM_NONCOHERENT)
-		priv->default_bar_type = CARV_BAR_NONCOHERENT;
-	else if (value == CARV_MEM_COHERENT)
-		priv->default_bar_type = CARV_BAR_COHERENT;
-	else if (value == CARV_MEM_SHARED)
-		priv->default_bar_type = CARV_BAR_SHARED;
-	else {
-		dev_err(dev, "Invalid mem-region-type %u at index %u\n", value, 0);
-		return -EINVAL;
-	}
 
 	/* Parse associated reserved memory regions */
 	of_phandle_iterator_init(&it, np, "memory-region", NULL, 0);
@@ -1095,25 +1067,8 @@ static int carvnet_rproc_parse_dt_mem(struct rproc *rproc)
 			return -ENOMEM;
 		}
 
-		value = 0U;
-		of_property_read_u32_index(np, "nxp,s32n7-carv-mem-region-types",
-								  resm_idx, &value);
-
-		if (value == CARV_MEM_NONCOHERENT) {
-			bar_type = CARV_BAR_NONCOHERENT;
-			remap_flag = MEMREMAP_WC;
-		} else if (value == CARV_MEM_COHERENT) {
-			bar_type = CARV_BAR_COHERENT;
-			remap_flag = MEMREMAP_WB;
-		} else if (value == CARV_MEM_SHARED) {
-			bar_type = CARV_BAR_SHARED;
-			remap_flag = MEMREMAP_WC;
-		} else {
-			dev_err(dev, "Invalid mem-region-type %u at index %u\n", value, resm_idx);
-			return -EINVAL;
-		}
-
-		va = devm_memremap(dev, rmem->base, rmem->size, remap_flag);
+		/* Driver always treats carveout memory as coherent */
+		va = devm_memremap(dev, rmem->base, rmem->size, MEMREMAP_WB);
 		if (!va) {
 			dev_err(dev, "Failed to ioremap resmem: %u %s\n",
 				resm_idx, it.node->name);
@@ -1127,7 +1082,6 @@ static int carvnet_rproc_parse_dt_mem(struct rproc *rproc)
 		info->va = va;
 		info->base_addr = rmem->base;
 		info->size = rmem->size;
-		info->bar_type = bar_type;
 
 		resm_idx++;
 	}
