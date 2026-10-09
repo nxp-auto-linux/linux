@@ -52,12 +52,10 @@ properties:
     minItems: 1
     maxItems: 1
 
-  nxp,s32n7-carv-mem-region-types:
-    $ref: /schemas/types.yaml#/definitions/uint32-array
+  dma-coherent:
     description:
-      Type of the CarV memory used as attribute of the BAR register
-    minItems: 1
-    maxItems: 6
+      The CAR-V accesses all the carveout memories coherently, so the
+      device has to be marked as DMA coherent.
 
 required:
   - compatible
@@ -66,14 +64,13 @@ required:
   - memory-region-names
   - firmware-name
   - interrupts
-  - nxp,s32n7-carv-mem-region-types
+  - dma-coherent
 
 additionalProperties: false
 
 examples:
   - |
     #include <dt-bindings/interrupt-controller/arm-gic.h>
-    #include <dt-bindings/memory/s32n7-carv.h>
 
     /* A setup using one Quartile */
     carv-user@47810000 {
@@ -81,17 +78,15 @@ examples:
       reg = <0x47810000 0x10000>;
       interrupts = <GIC_SPI 279 IRQ_TYPE_LEVEL_HIGH>;
       status = "okay";
+      dma-coherent;
       firmware-name = "s32n7-carvnet.fw";
       memory-region = <&carv0_reserved>, <&carv0_vdev0vring0>,
           <&carv0_vdev0vring1>, <&carv0_vdev0buffer>, <&carv0_packet_sram>;
       memory-region-names = "carv-reserved","vdev0vring0",
           "vdev0vring1","vdev0buffer","packet-sram";
-      nxp,s32n7-carv-mem-region-types = <CARV_MEM_NONCOHERENT>,<CARV_MEM_NONCOHERENT>,
-          <CARV_MEM_NONCOHERENT>,<CARV_MEM_NONCOHERENT>,<CARV_MEM_SHARED>;
     };
   - |
     #include <dt-bindings/interrupt-controller/arm-gic.h>
-    #include <dt-bindings/memory/s32n7-carv.h>
 
     /* A setup using two Quartiles */
     carv-user@47810000 {
@@ -99,11 +94,10 @@ examples:
       reg = <0x47810000 0x10000>,<0x47860000 0x10000>;
       interrupts = <GIC_SPI 279 IRQ_TYPE_LEVEL_HIGH>;
       status = "okay";
+      dma-coherent;
       firmware-name = "s32n7-carvnet.fw";
       memory-region = <&carv0_reserved>, <&carv0_vdev0vring0>,
           <&carv0_vdev0vring1>, <&carv0_vdev0buffer>, <&carv0_packet_sram>;
       memory-region-names = "carv-reserved","vdev0vring0",
           "vdev0vring1","vdev0buffer","packet-sram";
-      nxp,s32n7-carv-mem-region-types = <CARV_MEM_NONCOHERENT>,<CARV_MEM_NONCOHERENT>,
-          <CARV_MEM_NONCOHERENT>,<CARV_MEM_NONCOHERENT>,<CARV_MEM_SHARED>;
     };
