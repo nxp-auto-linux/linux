@@ -16,6 +16,7 @@
 #include <linux/platform_device.h>
 #include <linux/pm.h>
 #include <linux/remoteproc.h>
+#include <linux/slab.h>
 
 #include "remoteproc_internal.h"
 
@@ -316,6 +317,7 @@ struct carvnet {
 	struct carvnet_bar_info bar_info[BAR_CNT];
 	u8 bar_info_cnt;
 	struct dentry *subdentry;
+	struct debugfs_blob_wrapper *blobs;
 	u32 num_quartiles;
 	void __iomem *regs[MAX_QUARTILES];
 	struct work_struct rproc_work;
@@ -856,12 +858,26 @@ err:
 	return ret;
 }
 
+/*
+ * Remove the debugfs carveouts subdir. debugfs_remove() waits for the
+ * accesses in flight, so the carveout memory may be released afterwards.
+ */
+static void carvnet_carveouts_debugfs_remove(struct carvnet *priv)
+{
+	debugfs_remove(priv->subdentry);
+	priv->subdentry = NULL;
+	kfree(priv->blobs);
+	priv->blobs = NULL;
+}
+
 static int carvnet_rproc_stop(struct rproc *rproc)
 {
 	struct carvnet *priv = rproc->priv;
 	struct carveout_info *entry, *tmp;
 
 	q_stop(priv);
+
+	carvnet_carveouts_debugfs_remove(priv);
 
 	/* clean up match_addr allocations */
 	list_for_each_entry_safe(entry, tmp, &priv->carveout_infos, node) {
@@ -901,25 +917,43 @@ static int carvnet_dump_regs_show(struct seq_file *seq, void *unused)
 }
 DEFINE_SHOW_ATTRIBUTE(carvnet_dump_regs);
 
-/* Expose carveout mem content via debugfs */
-static int rproc_carveout_hexdump_show(struct seq_file *seq, void *unused)
+/* Expose raw carveout mem content via debugfs, one blob file per carveout */
+static int carvnet_carveouts_debugfs_create(struct rproc *rproc)
 {
-	struct rproc_mem_entry *mem = seq->private;
-	u32 offs;
+	struct carvnet *priv = rproc->priv;
+	struct rproc_mem_entry *mem;
+	size_t i = 0;
 
-	for (offs = 0; offs < mem->len; offs += CARVNET_FW_ALIGN)
-		seq_hex_dump(seq, "", DUMP_PREFIX_OFFSET, 8, 1,
-			     mem->va + offs, CARVNET_FW_ALIGN, true);
+	carvnet_carveouts_debugfs_remove(priv);
 
+	list_for_each_entry(mem, &rproc->carveouts, node)
+		i++;
+
+	priv->blobs = kcalloc(i, sizeof(*priv->blobs), GFP_KERNEL);
+	if (!priv->blobs)
+		return -ENOMEM;
+
+	priv->subdentry = debugfs_create_dir("carveouts", rproc->dbg_dir);
+
+	i = 0;
+	list_for_each_entry(mem, &rproc->carveouts, node) {
+		priv->blobs[i].data = mem->va;
+		priv->blobs[i].size = mem->len;
+		debugfs_create_blob(mem->name, 0600, priv->subdentry,
+				    &priv->blobs[i]);
+		i++;
+	}
 	return 0;
 }
-DEFINE_SHOW_ATTRIBUTE(rproc_carveout_hexdump);
 
 /* carvnet_release_carveout() - release acquired carveout */
 static int carvnet_release_carveout(struct rproc *rproc,
 				    struct rproc_mem_entry *mem)
 {
 	struct device *dev = &rproc->dev;
+
+	/* The debugfs files may still point to the memory, e.g. on boot failure */
+	carvnet_carveouts_debugfs_remove(rproc->priv);
 
 	dma_free_coherent(dev->parent, mem->len, mem->va, mem->dma);
 	return 0;
@@ -942,8 +976,7 @@ static int carvnet_rproc_elf_load(struct rproc *rproc,
 	phdr = (struct elf32_phdr *)(elf_data + ehdr->e_phoff);
 
 	/* Remove possible existing debugfs carveouts subdir */
-	debugfs_remove(priv->subdentry);
-	priv->subdentry = NULL;
+	carvnet_carveouts_debugfs_remove(priv);
 
 	/* go through the available ELF segments */
 	for (i = 0; i < ehdr->e_phnum; i++, phdr++) {
@@ -992,11 +1025,9 @@ static int carvnet_rproc_elf_load(struct rproc *rproc,
 		memcpy(mem->va, elf_data + offset, filesz);
 	}
 
-	/* Add debugfs dump regions */
-	priv->subdentry = debugfs_create_dir("carveouts", rproc->dbg_dir);
-	list_for_each_entry(mem, &rproc->carveouts, node)
-		debugfs_create_file(mem->name, 0400, priv->subdentry, mem,
-				    &rproc_carveout_hexdump_fops);
+	/* Add debugfs raw access to the carveouts */
+	if (!ret)
+		ret = carvnet_carveouts_debugfs_create(rproc);
 
 	return ret;
 }
@@ -1239,8 +1270,7 @@ static void carvnet_rproc_remove(struct platform_device *pdev)
 	struct carvnet *priv = rproc->priv;
 
 	/* Remove possible existing debugfs carveouts subdir */
-	debugfs_remove(priv->subdentry);
-	priv->subdentry = NULL;
+	carvnet_carveouts_debugfs_remove(priv);
 }
 
 static int carvnet_rproc_suspend(struct device *dev)
