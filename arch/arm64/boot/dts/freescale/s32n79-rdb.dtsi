@@ -5,7 +5,6 @@
 
 /dts-v1/;
 #include "s32n79.dtsi"
-#include "dt-bindings/memory/s32n7-carv.h"
 
 / {
 	clocks {
@@ -142,8 +141,6 @@
 		<&carv0_vdev0vring1>, <&carv0_vdev0buffer>, <&carv0_packet_sram>;
 	memory-region-names = "carv-reserved","vdev0vring0",
 		"vdev0vring1","vdev0buffer","packet-sram";
-	nxp,s32n7-carv-mem-region-types = <CARV_MEM_NONCOHERENT>,<CARV_MEM_NONCOHERENT>,
-		<CARV_MEM_NONCOHERENT>,<CARV_MEM_NONCOHERENT>,<CARV_MEM_SHARED>;
 };
 
 &netc_switch_port0 {
