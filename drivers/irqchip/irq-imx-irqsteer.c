@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: GPL-2.0+
 /*
- * Copyright 2017, 2024 NXP
+ * Copyright 2017, 2024, 2026 NXP
  * Copyright (C) 2018 Pengutronix, Lucas Stach <kernel@pengutronix.de>
  */
 
 #include <linux/clk.h>
+#include <linux/cleanup.h>
 #include <linux/interrupt.h>
 #include <linux/irq.h>
 #include <linux/irqchip/chained_irq.h>
@@ -62,28 +63,26 @@ static void imx_irqsteer_irq_unmask(struct irq_data *d)
 {
 	struct irqsteer_data *data = d->chip_data;
 	int idx = imx_irqsteer_get_reg_index(data, d->hwirq);
-	unsigned long flags;
 	u32 val;
 
-	raw_spin_lock_irqsave(&data->lock, flags);
+	guard(raw_spinlock_irqsave)(&data->lock);
+
 	val = readl_relaxed(data->regs + CHANMASK(idx, data->reg_num));
 	val |= BIT(d->hwirq % 32);
 	writel_relaxed(val, data->regs + CHANMASK(idx, data->reg_num));
-	raw_spin_unlock_irqrestore(&data->lock, flags);
 }
 
 static void imx_irqsteer_irq_mask(struct irq_data *d)
 {
 	struct irqsteer_data *data = d->chip_data;
 	int idx = imx_irqsteer_get_reg_index(data, d->hwirq);
-	unsigned long flags;
 	u32 val;
 
-	raw_spin_lock_irqsave(&data->lock, flags);
+	guard(raw_spinlock_irqsave)(&data->lock);
+
 	val = readl_relaxed(data->regs + CHANMASK(idx, data->reg_num));
 	val &= ~BIT(d->hwirq % 32);
 	writel_relaxed(val, data->regs + CHANMASK(idx, data->reg_num));
-	raw_spin_unlock_irqrestore(&data->lock, flags);
 }
 
 static void imx_irqsteer_irq_bus_lock(struct irq_data *d)
