@@ -37,6 +37,7 @@ struct irqsteer_data {
 	int					channel;
 	struct irq_domain			*domain;
 	u32					*saved_reg;
+	unsigned int				wakeup_count;
 	struct device				*dev;
 	const struct irqsteer_devtype_data	*devtype_data;
 };
@@ -99,10 +100,30 @@ static void imx_irqsteer_irq_bus_sync_unlock(struct irq_data *d)
 	pm_runtime_put_autosuspend(data->dev);
 }
 
+static int imx_irqsteer_irq_set_wake(struct irq_data *d, unsigned int on)
+{
+	struct irqsteer_data *data = d->chip_data;
+
+	/*
+	 * Arming a wake-up source needs no register write: the channel mask
+	 * already lets the input through. Only the count is kept, for the
+	 * system sleep callbacks to tell whether to leave the block clocked.
+	 */
+	guard(raw_spinlock_irqsave)(&data->lock);
+
+	if (on)
+		data->wakeup_count++;
+	else if (!WARN_ON(data->wakeup_count == 0))
+		data->wakeup_count--;
+
+	return 0;
+}
+
 static const struct irq_chip imx_irqsteer_irq_chip = {
 	.name			= "irqsteer",
 	.irq_mask		= imx_irqsteer_irq_mask,
 	.irq_unmask		= imx_irqsteer_irq_unmask,
+	.irq_set_wake		= imx_irqsteer_irq_set_wake,
 	.irq_bus_lock		= imx_irqsteer_irq_bus_lock,
 	.irq_bus_sync_unlock	= imx_irqsteer_irq_bus_sync_unlock,
 };
@@ -329,9 +350,34 @@ static int imx_irqsteer_resume(struct device *dev)
 }
 #endif
 
+static int imx_irqsteer_sys_suspend(struct device *dev)
+{
+	struct irqsteer_data *irqsteer_data = dev_get_drvdata(dev);
+
+	/*
+	 * Gating the ipg clock stops an input from reaching the GIC. Leave the
+	 * block clocked, and its channel mask untouched, while any input is
+	 * armed as a wake-up source.
+	 */
+	if (irqsteer_data->wakeup_count)
+		return 0;
+
+	return pm_runtime_force_suspend(dev);
+}
+
+static int imx_irqsteer_sys_resume(struct device *dev)
+{
+	struct irqsteer_data *irqsteer_data = dev_get_drvdata(dev);
+
+	if (irqsteer_data->wakeup_count)
+		return 0;
+
+	return pm_runtime_force_resume(dev);
+}
+
 static const struct dev_pm_ops imx_irqsteer_pm_ops = {
-	SET_NOIRQ_SYSTEM_SLEEP_PM_OPS(pm_runtime_force_suspend,
-				      pm_runtime_force_resume)
+	SET_NOIRQ_SYSTEM_SLEEP_PM_OPS(imx_irqsteer_sys_suspend,
+				      imx_irqsteer_sys_resume)
 	SET_RUNTIME_PM_OPS(imx_irqsteer_suspend,
 			   imx_irqsteer_resume, NULL)
 };
