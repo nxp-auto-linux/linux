@@ -303,7 +303,8 @@ int cdma_ring_init(struct cdma_ring *ring)
  */
 int cdma_ring_submit(struct cdma_ring *ring, u32 num_bds)
 {
-	struct pci_dev *pdev = ring->si->cdev->pdev;
+	struct cdma_device *cdev = ring->si->cdev;
+	struct pci_dev *pdev = cdev->pdev;
 
 	if (!ring->bd_base || num_bds > CDMA_BD_ENTRIES)
 		return -EINVAL;
@@ -316,15 +317,24 @@ int cdma_ring_submit(struct cdma_ring *ring, u32 num_bds)
 	if (pci_channel_offline(pdev) || pci_dev_is_disconnected(pdev))
 		return -ENODEV;
 
-	/* Record SD position for writeback detection in IRQ handler */
+	/* Prepare for completion */
+	reinit_completion(&ring->done);
+
+	/*
+	 * Don't start a transfer on an SI that cdma_pci_remove() has
+	 * stopped. Pairs with the barrier in cdma_cdev_quiesce(): either
+	 * dead is seen here, or its complete_all() lands after the reinit
+	 * above and the wait returns at once.
+	 */
+	smp_mb();
+	if (READ_ONCE(cdev->dead))
+		return -ENODEV;
+
+	/* Record SD position for writeback detection */
 	ring->wb_idx = ring->pir;
 
 	/* Advance producer index (wraps at ring length) */
 	ring->pir = (ring->pir + num_bds) % CDMA_BD_ENTRIES;
-
-	/* Prepare for completion */
-	reinit_completion(&ring->done);
-	ring->result = 0;
 
 	/* Clear BaIDR so next completion generates a fresh interrupt */
 	cdma_ring_read(ring, CDMA_BaIDR);
@@ -385,6 +395,10 @@ int cdma_ring_submit_async(struct cdma_ring *ring, struct cdma_async_req *req,
 		return -EINVAL;
 
 	if (pci_channel_offline(pdev) || pci_dev_is_disconnected(pdev))
+		return -ENODEV;
+
+	/* Don't queue on an SI that cdma_pci_remove() has stopped */
+	if (READ_ONCE(ring->si->cdev->dead))
 		return -ENODEV;
 
 	spin_lock_irqsave(&ring->async_lock, flags);

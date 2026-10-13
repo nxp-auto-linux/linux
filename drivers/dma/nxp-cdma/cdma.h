@@ -12,10 +12,12 @@
 #include <linux/completion.h>
 #include <linux/dmapool.h>
 #include <linux/io.h>
+#include <linux/kref.h>
 #include <linux/list.h>
 #include <linux/miscdevice.h>
 #include <linux/mutex.h>
 #include <linux/pci.h>
+#include <linux/rwsem.h>
 #include <linux/scatterlist.h>
 #include <linux/spinlock.h>
 #include <linux/types.h>
@@ -164,6 +166,7 @@ struct cdma_sge {
 #define CDMA_WB_DE		BIT(2)	/* Data error */
 #define CDMA_WB_SPE		BIT(1)	/* Source programming error */
 #define CDMA_WB_DPE		BIT(0)	/* Destination programming error */
+#define CDMA_WB_ERR_MASK	(CDMA_WB_DE | CDMA_WB_SPE | CDMA_WB_DPE)
 
 /* Descriptor TYPE encodings */
 #define CDMA_TYPE_DATA		0x0	/* Data buffer, singlecast */
@@ -252,9 +255,11 @@ struct cdma_ring {
 	/* SD index of last submitted transfer (writeback location) */
 	u16 wb_idx;
 
-	/* Sync completion tracking for blocking read/write callers. */
+	/*
+	 * Sync completion tracking for blocking read/write callers. Only a
+	 * wakeup: the result is read back from the writeback at wb_idx.
+	 */
 	struct completion done;
-	int result;
 
 	/* Multiple in-flight async requests. */
 	struct list_head async_reqs;
@@ -315,9 +320,27 @@ struct cdma_pipe {
 	struct miscdevice miscdev_rx;	/* /dev/cdma-pipeN-rx */
 };
 
-/* Top-level device */
+/*
+ * Top-level device.
+ *
+ * Refcounted: probe holds one reference and every open pipe fd holds
+ * another, so the structure (and the pipe it owns) outlives a PCI remove
+ * that races with open file descriptors, e.g. a PCIe hot reset or link
+ * down tearing the function away mid-transfer.
+ */
 struct cdma_device {
-	struct pci_dev *pdev;
+	struct kref ref;
+	struct pci_dev *pdev;	/* Holds a pci_dev reference */
+
+	/*
+	 * Set by cdma_pci_remove() once the function is going away. Every
+	 * read/write/poll holds io_rwsem for reading and bails out with
+	 * -ENODEV when dead is set; remove takes it for writing to wait for
+	 * in-flight syscalls before tearing down rings, pool and workqueue.
+	 */
+	struct rw_semaphore io_rwsem;
+	bool dead;
+
 	struct cdma_si *si;	/* Single SI for now */
 
 	/* S/G table DMA pool */
@@ -335,7 +358,7 @@ struct cdma_device {
 	u8 pipe_id;
 	bool pipe_active;
 
-	/* Pipe devices */
+	/* Pipe devices, freed on the last cdma_device_put() */
 	struct cdma_pipe *pipes;
 	u32 num_pipes;
 };
@@ -391,9 +414,15 @@ void cdma_build_sg_pipe_receiver(struct cdma_ring *ring,
 				 dma_addr_t dst_sgt, u32 dst_len,
 				 u8 pipe_id);
 
+/* cdma-pci.c */
+void cdma_device_get(struct cdma_device *cdev);
+void cdma_device_put(struct cdma_device *cdev);
+
 /* cdma-cdev.c */
 int cdma_cdev_init(struct cdma_device *cdev);
+void cdma_cdev_quiesce(struct cdma_device *cdev);
 void cdma_cdev_fini(struct cdma_device *cdev);
+void cdma_cdev_free(struct cdma_device *cdev);
 /* Async completion helper, used by the IRQ thread */
 void cdma_async_req_complete(struct cdma_async_req *req, int result);
 

@@ -30,6 +30,7 @@
 #include <linux/pci.h>
 #include <linux/dma-mapping.h>
 #include <linux/dmapool.h>
+#include <linux/slab.h>
 #include <linux/string.h>
 #include "cdma.h"
 
@@ -94,7 +95,7 @@ static irqreturn_t cdma_irq_thread(int irq, void *data)
 				async_completed = true;
 				pass_completed = true;
 
-				if (status & (CDMA_WB_DE | CDMA_WB_SPE | CDMA_WB_DPE)) {
+				if (status & CDMA_WB_ERR_MASK) {
 					dev_err(&si->cdev->pdev->dev,
 						"ring%u IRQ writeback error: status=0x%08x\n",
 						i, status);
@@ -118,20 +119,16 @@ static irqreturn_t cdma_irq_thread(int irq, void *data)
 		dma_rmb();
 		status = le32_to_cpu(READ_ONCE(wb->status));
 
+		/*
+		 * W=0 means writeback complete. Only wake the sync waiter: it
+		 * reads the result back from the same writeback itself.
+		 */
 		if (!(status & CDMA_WB_W)) {
-			int result;
-
-			/* W=0 means writeback complete */
-			if (status & (CDMA_WB_DE | CDMA_WB_SPE | CDMA_WB_DPE)) {
+			if (status & CDMA_WB_ERR_MASK)
 				dev_err(&si->cdev->pdev->dev,
 					"ring%u IRQ writeback error: status=0x%08x\n",
 					i, status);
-				result = -EIO;
-			} else {
-				result = 0;
-			}
 
-			ring->result = result;
 			complete(&ring->done);
 		}
 	}
@@ -290,6 +287,25 @@ static void cdma_si_fini(struct cdma_device *cdev)
 	cdev->si = NULL;
 }
 
+static void cdma_device_release(struct kref *ref)
+{
+	struct cdma_device *cdev = container_of(ref, struct cdma_device, ref);
+
+	cdma_cdev_free(cdev);
+	pci_dev_put(cdev->pdev);
+	kfree(cdev);
+}
+
+void cdma_device_get(struct cdma_device *cdev)
+{
+	kref_get(&cdev->ref);
+}
+
+void cdma_device_put(struct cdma_device *cdev)
+{
+	kref_put(&cdev->ref, cdma_device_release);
+}
+
 static int cdma_activate_pipe(struct cdma_device *cdev)
 {
 	int ret;
@@ -408,16 +424,23 @@ static int cdma_pci_probe(struct pci_dev *pdev,
 	void __iomem *base;
 	int ret;
 
-	cdev = devm_kzalloc(&pdev->dev, sizeof(*cdev), GFP_KERNEL);
-	if (!cdev)
-		return -ENOMEM;
 	if (default_pipe_id < 0 || default_pipe_id > U8_MAX) {
 		dev_err(&pdev->dev, "default_pipe_id %d is outside [0, %u]\n",
 			default_pipe_id, U8_MAX);
 		return -EINVAL;
 	}
 
-	cdev->pdev = pdev;
+	/*
+	 * Not devm: open pipe fds may outlive the PCI function (see
+	 * cdma_pci_remove()), so the device is freed on its last reference.
+	 */
+	cdev = kzalloc(sizeof(*cdev), GFP_KERNEL);
+	if (!cdev)
+		return -ENOMEM;
+
+	kref_init(&cdev->ref);
+	init_rwsem(&cdev->io_rwsem);
+	cdev->pdev = pci_dev_get(pdev);
 	mutex_init(&cdev->config_lock);
 	cdev->pipe_id = default_pipe_id;
 	pci_set_drvdata(pdev, cdev);
@@ -425,7 +448,7 @@ static int cdma_pci_probe(struct pci_dev *pdev,
 	ret = pcim_enable_device(pdev);
 	if (ret) {
 		dev_err(&pdev->dev, "pcim_enable_device failed: %d\n", ret);
-		return ret;
+		goto err_put;
 	}
 
 	/*
@@ -438,7 +461,7 @@ static int cdma_pci_probe(struct pci_dev *pdev,
 	if (IS_ERR(base)) {
 		ret = PTR_ERR(base);
 		dev_err(&pdev->dev, "BAR 0 iomap failed (EA aperture): %d\n", ret);
-		return ret;
+		goto err_put;
 	}
 
 	/* Set DMA mask - CDMA descriptors have 64-bit address fields */
@@ -449,7 +472,7 @@ static int cdma_pci_probe(struct pci_dev *pdev,
 		if (ret) {
 			dev_err(&pdev->dev, "DMA mask setup failed: %d\n",
 				ret);
-			return ret;
+			goto err_put;
 		}
 	}
 
@@ -458,7 +481,7 @@ static int cdma_pci_probe(struct pci_dev *pdev,
 	 */
 	ret = cdma_si_init(cdev, base);
 	if (ret)
-		return ret;
+		goto err_put;
 
 	/* Device is now in a defined state - enable bus mastering so it can
 	 * initiate DMA when rings are subsequently armed.
@@ -526,24 +549,18 @@ err_pool:
 	dma_pool_destroy(cdev->sgt_pool);
 err_si:
 	cdma_si_fini(cdev);
+err_put:
+	pci_set_drvdata(pdev, NULL);
+	cdma_device_put(cdev);
 	return ret;
 }
 
 /*
- * Teardown ordering matters here.
- *
- * Open file descriptors are expected to be closed before the driver is
- * unbound. The pipe memory is devm-allocated against the PCI device, so a
- * per-function unbind (or surprise removal) reclaims it; the driver does
- * NOT guarantee that an fd may outlive its pipe. See cdma_{tx,rx}_open().
- *
- * The SI is disabled (SIMR=0) up front so hardware can no longer land a
- * writeback into a BD ring while cdma_pipe_destroy() reaps in-flight async
- * requests. cdma_irq_fini() then runs before cdma_cdev_fini() so the
- * threaded IRQ handler can no longer schedule async completions while
- * cdma_pipe_destroy() drains the rings and flushes the completion
- * workqueue. The workqueue is destroyed only after the drain/flush, and
- * before the DMA pool so no completion can reference freed pool memory.
+ * Pipe fds may still be open (e.g. hot reset or link down mid-transfer).
+ * The cdma_device and its pipe are refcounted and outlive remove; the rest
+ * is torn down in order: fail new I/O, stop the SI, wait for in-flight
+ * syscalls, free the IRQ, then complete pending async requests with
+ * -ENODEV before the workqueue and DMA pool go away.
  */
 static void cdma_pci_remove(struct pci_dev *pdev)
 {
@@ -551,21 +568,27 @@ static void cdma_pci_remove(struct pci_dev *pdev)
 
 	mutex_lock(&cdev->config_lock);
 	cdev->pipe_active = false;
+	WRITE_ONCE(cdev->dead, true);
 	mutex_unlock(&cdev->config_lock);
 
 	/*
-	 * Quiesce the SI before reaping in-flight transfers. Skip the MMIO
+	 * Stop the SI before completing in-flight transfers. Skip the MMIO
 	 * write if the function is already gone (surprise removal / link
 	 * down), where it would raise a synchronous external abort.
 	 */
 	if (!pci_channel_offline(pdev) && !pci_dev_is_disconnected(pdev))
 		cdma_si_write(cdev->si, CDMA_SIMR, 0);
 
+	cdma_cdev_quiesce(cdev);
+
 	cdma_irq_fini(cdev->si);
 	cdma_cdev_fini(cdev);
 	destroy_workqueue(cdev->wq);
 	dma_pool_destroy(cdev->sgt_pool);
 	cdma_si_fini(cdev);
+
+	pci_set_drvdata(pdev, NULL);
+	cdma_device_put(cdev);
 }
 
 /*

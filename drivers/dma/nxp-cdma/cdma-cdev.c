@@ -13,6 +13,9 @@
  * The same pipe ID must be authorized in IERB for both endpoints.
  *
  * Locking:
+ *   - cdev->io_rwsem is held for reading across every read/write/poll so
+ *     cdma_pci_remove() can wait for in-flight syscalls; it nests outside
+ *     the per-direction pipe locks
  *   - pipe->tx_lock guards TX ring submission
  *   - pipe->rx_lock guards RX ring submission
  *   - The two locks are independent and never need to be held together
@@ -68,18 +71,37 @@ static unsigned long cdma_iter_uaddr(struct iov_iter *iter)
  * Wait for ring completion via MSI-X IRQ. Bounded by a kernel-side
  * timeout - a stuck IRQ (e.g. a misconfigured MSI) shouldn't hang the
  * syscall forever.
+ *
+ * The result comes from the writeback of the transfer at ring->wb_idx,
+ * not from whoever woke the waiter: W=0 means the hardware finished it,
+ * even if the wait timed out, was interrupted or was woken by
+ * cdma_cdev_quiesce(). With W=1 still set, the wake was for an older
+ * writeback, so keep waiting unless the function is going away.
  */
 static int cdma_wait_ring(struct cdma_ring *ring)
 {
-	unsigned long tmo = usecs_to_jiffies(CDMA_COMP_TIMEOUT_US);
-	int ret;
+	struct cdma_device *cdev = ring->si->cdev;
+	long tmo = usecs_to_jiffies(CDMA_COMP_TIMEOUT_US);
+	struct cdma_wb *wb;
+	u32 status;
 
-	ret = wait_for_completion_interruptible_timeout(&ring->done, tmo);
-	if (!ret)
-		return -ETIMEDOUT;
-	if (ret < 0)
-		return ret;
-	return ring->result;
+	wb = ring->bd_base + ring->wb_idx * CDMA_BD_ENTRY_SIZE;
+
+	for (;;) {
+		tmo = wait_for_completion_interruptible_timeout(&ring->done,
+								tmo);
+
+		status = le32_to_cpu(READ_ONCE(wb->status));
+		if (!(status & CDMA_WB_W))
+			return (status & CDMA_WB_ERR_MASK) ? -EIO : 0;
+
+		if (READ_ONCE(cdev->dead))
+			return -ENODEV;
+		if (!tmo)
+			return -ETIMEDOUT;
+		if (tmo < 0)
+			return tmo;
+	}
 }
 
 /*
@@ -225,6 +247,18 @@ void cdma_async_req_complete(struct cdma_async_req *req, int result)
 	queue_work(req->ring->si->cdev->wq, &req->complete_work);
 }
 
+/*
+ * Drop the device reference taken at open. The fd may outlive the PCI
+ * function, in which case this is the last put and frees the device.
+ */
+static int cdma_pipe_release(struct inode *inode, struct file *filp)
+{
+	struct cdma_pipe *pipe = filp->private_data;
+
+	cdma_device_put(pipe->cdev);
+	return 0;
+}
+
 /* TX file operations (write-only, /dev/cdma-pipeN-tx) */
 static int cdma_tx_open(struct inode *inode, struct file *filp)
 {
@@ -249,6 +283,8 @@ static int cdma_tx_open(struct inode *inode, struct file *filp)
 		 * write() sync I/O work.
 		 */
 		ret = stream_open(inode, filp);
+		if (!ret)
+			cdma_device_get(cdev);
 	}
 	mutex_unlock(&cdev->config_lock);
 
@@ -398,44 +434,69 @@ static ssize_t cdma_tx_write_iter(struct kiocb *iocb, struct iov_iter *from)
 	struct cdma_device *cdev = pipe->cdev;
 	size_t count = iov_iter_count(from);
 	unsigned long uaddr;
+	ssize_t ret;
 
 	if (!count)
 		return 0;
+
+	down_read(&cdev->io_rwsem);
+
+	if (READ_ONCE(cdev->dead)) {
+		ret = -ENODEV;
+		goto out;
+	}
 
 	if (count > pipe->max_xfer) {
 		dev_warn_ratelimited(&cdev->pdev->dev,
 				     "pipe%d: write %zu > max_xfer %zu — chunk the write\n",
 				     pipe->pipe_idx, count, pipe->max_xfer);
-		return -EMSGSIZE;
+		ret = -EMSGSIZE;
+		goto out;
 	}
 
 	uaddr = cdma_iter_uaddr(from);
-	if (!uaddr)
-		return -EINVAL;
+	if (!uaddr) {
+		ret = -EINVAL;
+		goto out;
+	}
 
 	if (is_sync_kiocb(iocb))
-		return cdma_tx_write_sync(pipe, iocb->ki_filp, uaddr, count);
+		ret = cdma_tx_write_sync(pipe, iocb->ki_filp, uaddr, count);
+	else
+		ret = cdma_tx_write_async(pipe, iocb, uaddr, count);
 
-	return cdma_tx_write_async(pipe, iocb, uaddr, count);
+out:
+	up_read(&cdev->io_rwsem);
+	return ret;
 }
 
-/* EPOLLOUT ready when the TX ring has room for another async request. */
+/*
+ * EPOLLOUT ready when the TX ring has room for another async request,
+ * EPOLLHUP | EPOLLERR once the PCI function has been removed.
+ */
 static __poll_t cdma_tx_poll(struct file *filp,
 			     struct poll_table_struct *wait)
 {
 	struct cdma_pipe *pipe = filp->private_data;
+	struct cdma_device *cdev = pipe->cdev;
+	__poll_t mask = 0;
 
 	poll_wait(filp, &pipe->tx_wq, wait);
 
-	if (cdma_ring_async_has_space(pipe->tx_ring, CDMA_BD_PAIR))
-		return EPOLLOUT | EPOLLWRNORM;
+	down_read(&cdev->io_rwsem);
+	if (READ_ONCE(cdev->dead))
+		mask = EPOLLHUP | EPOLLERR;
+	else if (cdma_ring_async_has_space(pipe->tx_ring, CDMA_BD_PAIR))
+		mask = EPOLLOUT | EPOLLWRNORM;
+	up_read(&cdev->io_rwsem);
 
-	return 0;
+	return mask;
 }
 
 static const struct file_operations cdma_tx_fops = {
 	.owner		= THIS_MODULE,
 	.open		= cdma_tx_open,
+	.release	= cdma_pipe_release,
 	.write_iter	= cdma_tx_write_iter,
 	.poll		= cdma_tx_poll,
 };
@@ -454,6 +515,8 @@ static int cdma_rx_open(struct inode *inode, struct file *filp)
 		filp->private_data = pipe;
 		/* No FMODE_NOWAIT: see cdma_tx_open() for the rationale. */
 		ret = stream_open(inode, filp);
+		if (!ret)
+			cdma_device_get(cdev);
 	}
 	mutex_unlock(&cdev->config_lock);
 
@@ -591,44 +654,69 @@ static ssize_t cdma_rx_read_iter(struct kiocb *iocb, struct iov_iter *to)
 	struct cdma_device *cdev = pipe->cdev;
 	size_t count = iov_iter_count(to);
 	unsigned long uaddr;
+	ssize_t ret;
 
 	if (!count)
 		return 0;
+
+	down_read(&cdev->io_rwsem);
+
+	if (READ_ONCE(cdev->dead)) {
+		ret = -ENODEV;
+		goto out;
+	}
 
 	if (count > pipe->max_xfer) {
 		dev_warn_ratelimited(&cdev->pdev->dev,
 				     "pipe%d: read %zu > max_xfer %zu — chunk the read\n",
 				     pipe->pipe_idx, count, pipe->max_xfer);
-		return -EMSGSIZE;
+		ret = -EMSGSIZE;
+		goto out;
 	}
 
 	uaddr = cdma_iter_uaddr(to);
-	if (!uaddr)
-		return -EINVAL;
+	if (!uaddr) {
+		ret = -EINVAL;
+		goto out;
+	}
 
 	if (is_sync_kiocb(iocb))
-		return cdma_rx_read_sync(pipe, iocb->ki_filp, uaddr, count);
+		ret = cdma_rx_read_sync(pipe, iocb->ki_filp, uaddr, count);
+	else
+		ret = cdma_rx_read_async(pipe, iocb, uaddr, count);
 
-	return cdma_rx_read_async(pipe, iocb, uaddr, count);
+out:
+	up_read(&cdev->io_rwsem);
+	return ret;
 }
 
-/* EPOLLIN ready when the RX ring has room for another async request. */
+/*
+ * EPOLLIN ready when the RX ring has room for another async request,
+ * EPOLLHUP | EPOLLERR once the PCI function has been removed.
+ */
 static __poll_t cdma_rx_poll(struct file *filp,
 			     struct poll_table_struct *wait)
 {
 	struct cdma_pipe *pipe = filp->private_data;
+	struct cdma_device *cdev = pipe->cdev;
+	__poll_t mask = 0;
 
 	poll_wait(filp, &pipe->rx_wq, wait);
 
-	if (cdma_ring_async_has_space(pipe->rx_ring, CDMA_BD_PAIR))
-		return EPOLLIN | EPOLLRDNORM;
+	down_read(&cdev->io_rwsem);
+	if (READ_ONCE(cdev->dead))
+		mask = EPOLLHUP | EPOLLERR;
+	else if (cdma_ring_async_has_space(pipe->rx_ring, CDMA_BD_PAIR))
+		mask = EPOLLIN | EPOLLRDNORM;
+	up_read(&cdev->io_rwsem);
 
-	return 0;
+	return mask;
 }
 
 static const struct file_operations cdma_rx_fops = {
 	.owner		= THIS_MODULE,
 	.open		= cdma_rx_open,
+	.release	= cdma_pipe_release,
 	.read_iter	= cdma_rx_read_iter,
 	.poll		= cdma_rx_poll,
 };
@@ -668,14 +756,18 @@ static void cdma_pipe_destroy(struct cdma_device *cdev)
 		return;
 
 	/*
-	 * Deregister the char devices first so no new open()/read()/write()
-	 * can start, then drain the rings and flush the completion workqueue
-	 * while the pipe, rings and DMA pool are all still valid. Only after
-	 * every in-flight async completion has run do we clear ring->pipe.
+	 * Deregister the char devices first so no new open() can start, then
+	 * drain the rings and flush the completion workqueue while the pipe,
+	 * rings and DMA pool are all still valid. Only after every in-flight
+	 * async completion has run do we clear ring->pipe.
 	 *
-	 * The caller (cdma_pci_remove) must have already run cdma_irq_fini()
-	 * so the IRQ thread cannot schedule new completions concurrently with
-	 * the drain below.
+	 * The caller (cdma_pci_remove) must have already run
+	 * cdma_cdev_quiesce(), so no read()/write()/poll() is left inside the
+	 * driver, and cdma_irq_fini(), so the IRQ thread cannot schedule new
+	 * completions concurrently with the drain below.
+	 *
+	 * The pipe itself is not freed here: already-open fds still point at
+	 * it. It is released with the device on the last cdma_device_put().
 	 */
 	misc_deregister(&pipe->miscdev_rx);
 	misc_deregister(&pipe->miscdev_tx);
@@ -694,7 +786,6 @@ static void cdma_pipe_destroy(struct cdma_device *cdev)
 	if (pipe->rx_ring)
 		pipe->rx_ring->pipe = NULL;
 
-	cdev->pipes = NULL;
 	cdev->num_pipes = 0;
 	ida_free(&cdma_pipe_ida, pipe->pipe_idx);
 }
@@ -710,7 +801,8 @@ static int cdma_pipe_create(struct cdma_device *cdev, struct cdma_si *si,
 	struct cdma_pipe *pipe;
 	int ret;
 
-	pipe = devm_kzalloc(dev, sizeof(*pipe), GFP_KERNEL);
+	/* Not devm: open fds may outlive the PCI function, see cdma_pipe_destroy() */
+	pipe = kzalloc(sizeof(*pipe), GFP_KERNEL);
 	if (!pipe)
 		return -ENOMEM;
 
@@ -742,6 +834,7 @@ static int cdma_pipe_create(struct cdma_device *cdev, struct cdma_si *si,
 			pipe->name_tx, ret);
 		pipe->tx_ring->pipe = NULL;
 		pipe->rx_ring->pipe = NULL;
+		kfree(pipe);
 		return ret;
 	}
 
@@ -759,6 +852,7 @@ static int cdma_pipe_create(struct cdma_device *cdev, struct cdma_si *si,
 		misc_deregister(&pipe->miscdev_tx);
 		pipe->tx_ring->pipe = NULL;
 		pipe->rx_ring->pipe = NULL;
+		kfree(pipe);
 		return ret;
 	}
 
@@ -789,7 +883,52 @@ int cdma_cdev_init(struct cdma_device *cdev)
 	return ret;
 }
 
+/*
+ * Called by cdma_pci_remove() after setting cdev->dead and disabling the
+ * SI. Wakes every sync waiter blocked on a ring completion and every
+ * poller, then waits until all read()/write()/poll() calls have left the
+ * driver. Afterwards no syscall touches the rings, the DMA pool or the
+ * workqueue, so they can be torn down even with fds still open.
+ */
+void cdma_cdev_quiesce(struct cdma_device *cdev)
+{
+	struct cdma_pipe *pipe = cdev->pipes;
+	struct cdma_si *si = cdev->si;
+	unsigned int i;
+
+	/*
+	 * Order the dead store in cdma_pci_remove() before the wakeups.
+	 * Pairs with the barrier in cdma_ring_submit(), so a submitter either
+	 * sees dead or is woken here.
+	 */
+	smp_mb();
+
+	for (i = 0; i < si->num_rings; i++)
+		complete_all(&si->rings[i].done);
+
+	if (pipe && cdev->num_pipes) {
+		wake_up_interruptible_all(&pipe->tx_wq);
+		wake_up_interruptible_all(&pipe->rx_wq);
+	}
+
+	/*
+	 * Wait for in-flight read/write/poll (all hold io_rwsem for read) to
+	 * leave the driver before remove frees the rings, pool and workqueue.
+	 * Later callers bail out on the dead flag, so it's released
+	 * immediately.
+	 */
+	down_write(&cdev->io_rwsem);
+	up_write(&cdev->io_rwsem);
+}
+
 void cdma_cdev_fini(struct cdma_device *cdev)
 {
 	cdma_pipe_destroy(cdev);
+}
+
+/* Final free of the pipe, from the last cdma_device_put() */
+void cdma_cdev_free(struct cdma_device *cdev)
+{
+	kfree(cdev->pipes);
+	cdev->pipes = NULL;
 }
