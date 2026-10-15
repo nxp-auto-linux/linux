@@ -16,7 +16,7 @@ properties:
 
     description:
       NXP DDR protocol node for S32 platforms. This protocol provides
-      runtime discovery of the uninitialized DDR regions and partial DRAM
+      runtime discovery of the available DDR regions and partial DRAM
       initialization.
 
     properties:
@@ -26,9 +26,14 @@ properties:
       nxp,ddr-regions:
         $ref: /schemas/types.yaml#/definitions/phandle-array
         minItems: 1
-        description:
-          List of phandles to reserved memory regions that represent
-          DDR areas to be initialized using the SCMI NXP DDR protocol.
+        description: |
+          Optional policy list restricting which DDR regions this OS instance
+          brings online. Each phandle refers to a memory node:
+
+            - a disabled node is initialized and hot-added;
+            - an enabled node is already boot memory and is left alone.
+
+          Omit the property to bring online every region the platform reports.
 
     required:
       - reg
@@ -37,18 +42,6 @@ additionalProperties: false
 
 examples:
   - |
-    ddr_high0: memory@8800000000 {
-      device_type = "memory";
-      reg = <0x88 0x00000000 0x3 0x40000000>;
-      status = "disabled";
-    };
-
-    ddr_high1: memory@c000000000 {
-      device_type = "memory";
-      reg = <0xc0 0x00000000 0x3 0x40000000>;
-      status = "disabled";
-    };
-
     firmware {
       scmi {
         #address-cells = <1>;
@@ -56,7 +49,6 @@ examples:
 
         nxp_ddr: protocol@8b {
           reg = <0x8b>;
-          nxp,ddr-regions = <&ddr_high0>, <&ddr_high1>;
         };
       };
     };
