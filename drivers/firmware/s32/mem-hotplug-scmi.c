@@ -6,7 +6,9 @@
 
 #include <linux/bits.h>
 #include <linux/delay.h>
+#include <linux/ioport.h>
 #include <linux/memory.h>
+#include <linux/mm.h>
 #include <linux/module.h>
 #include <linux/nxp_ddr_protocol.h>
 #include <linux/of.h>
@@ -231,6 +233,34 @@ static void ddr_mem_init_work(struct work_struct *work)
 }
 
 /**
+ * ddr_region_is_online - Whether a region is already live system RAM
+ * @dev: Device pointer
+ * @addr: Physical start address of the region
+ * @size: Size of the region in bytes
+ *
+ * Discovery also lists regions another agent, such as U-Boot's ddr_init,
+ * already brought up. Initializing them again would zero live memory.
+ *
+ * Return: true unless the region is entirely disjoint from system RAM.
+ */
+static bool ddr_region_is_online(struct device *dev, u64 addr, u64 size)
+{
+	switch (region_intersects(addr, size, IORESOURCE_SYSTEM_RAM,
+				  IORES_DESC_NONE)) {
+	case REGION_DISJOINT:
+		return false;
+	case REGION_INTERSECTS:
+		dev_info(dev, "DDR region [0x%llx, 0x%llx] is already system RAM, skipping\n",
+			 addr, size);
+		return true;
+	default:
+		dev_warn(dev, "DDR region [0x%llx, 0x%llx] is partly system RAM already, skipping all of it\n",
+			 addr, size);
+		return true;
+	}
+}
+
+/**
  * find_discovered_region - Locate the discovered region containing @addr
  * @discovered: Array of regions reported by DDR_DRAM_DISCOVERY
  * @count: Number of entries in @discovered
@@ -286,6 +316,10 @@ static int use_discovered_ddr_regions(struct scmi_mem_hotplug_data *priv,
 		return -ENOMEM;
 
 	for (i = 0; i < num_discovered; i++) {
+		if (ddr_region_is_online(dev, discovered[i].start,
+					 discovered[i].size))
+			continue;
+
 		priv->regions[n].start = discovered[i].start;
 		priv->regions[n].size = discovered[i].size;
 		priv->regions[n].instance = discovered[i].instance;
@@ -311,11 +345,11 @@ static int use_discovered_ddr_regions(struct scmi_mem_hotplug_data *priv,
  *
  * The DT 'nxp,ddr-regions' property is the optional policy list of regions this
  * OS instance wants online; without it every discovered region is used. An
- * enabled node is left alone. The rest are intersected with the discovered
- * set: a region not present in discovery is skipped (it may already be
- * initialized or is not permitted for this agent); a region whose instance has
- * ECC disabled is marked as not needing initialization so it is hot-added
- * directly.
+ * enabled node or a region already online as system RAM is left alone. The
+ * rest are intersected with the discovered set: a region not present in
+ * discovery is skipped (it may already be initialized or is not permitted for
+ * this agent); a region whose instance has ECC disabled is marked as not
+ * needing initialization so it is hot-added directly.
  *
  * Return: 0 on success (including when there is nothing to do), or a negative
  * error code on failure.
@@ -369,6 +403,9 @@ static int dt_parse_ddr_regions(struct scmi_mem_hotplug_data *priv,
 		}
 
 		of_node_put(mem_reg_node);
+
+		if (ddr_region_is_online(dev, addr, size))
+			continue;
 
 		match = find_discovered_region(discovered, num_discovered,
 					       addr, size);
