@@ -9,6 +9,7 @@
 #include <linux/memory.h>
 #include <linux/module.h>
 #include <linux/nxp_ddr_protocol.h>
+#include <linux/of.h>
 #include <linux/of_address.h>
 #include <linux/scmi_protocol.h>
 #include <linux/workqueue.h>
@@ -236,9 +237,9 @@ static void ddr_mem_init_work(struct work_struct *work)
  * @addr: Physical start address of the DT-requested region
  * @size: Size of the DT-requested region in bytes
  *
- * The discovery reply is the authoritative set of uninitialized,
- * write-permitted regions. A DT-requested region is only actionable if it
- * falls entirely within one of the discovered regions.
+ * The discovery reply is the authoritative set of available regions. A
+ * DT-requested region is only actionable if it falls entirely within one of
+ * the discovered regions.
  *
  * Return: pointer to the containing discovered region, or NULL if none.
  */
@@ -259,16 +260,62 @@ find_discovered_region(const struct scmi_ddr_region *discovered, size_t count,
 }
 
 /**
+ * use_discovered_ddr_regions - Take every discovered region as the policy
+ * @priv: Driver private data
+ * @discovered: Array of regions reported by DDR_DRAM_DISCOVERY
+ * @num_discovered: Number of entries in @discovered
+ *
+ * Used when the device tree carries no 'nxp,ddr-regions' property.
+ *
+ * Return: 0 on success, or a negative error code on failure.
+ */
+static int use_discovered_ddr_regions(struct scmi_mem_hotplug_data *priv,
+				      const struct scmi_ddr_region *discovered,
+				      size_t num_discovered)
+{
+	struct device *dev = priv->dev;
+	size_t i, n = 0;
+
+	priv->num_regions = 0;
+	if (!num_discovered)
+		return 0;
+
+	priv->regions = devm_kcalloc(dev, num_discovered,
+				     sizeof(*priv->regions), GFP_KERNEL);
+	if (!priv->regions)
+		return -ENOMEM;
+
+	for (i = 0; i < num_discovered; i++) {
+		priv->regions[n].start = discovered[i].start;
+		priv->regions[n].size = discovered[i].size;
+		priv->regions[n].instance = discovered[i].instance;
+		priv->regions[n].needs_init =
+			!!(priv->info.ecc_mask & BIT(discovered[i].instance));
+
+		dev_dbg(dev, "DDR region %zu: addr=0x%llx size=0x%llx instance=%u init=%d\n",
+			n, priv->regions[n].start, priv->regions[n].size,
+			priv->regions[n].instance, priv->regions[n].needs_init);
+		n++;
+	}
+
+	priv->num_regions = n;
+
+	return 0;
+}
+
+/**
  * dt_parse_ddr_regions - Build the region list from DT policy and discovery
  * @priv: Driver private data
  * @discovered: Array of regions reported by DDR_DRAM_DISCOVERY
  * @num_discovered: Number of entries in @discovered
  *
- * The DT 'nxp,ddr-regions' property is the policy list of regions this OS
- * instance wants online. Each is intersected with the discovered set: a region not
- * present in discovery is skipped (it may already be initialized or is not
- * permitted for this agent); a region whose instance has ECC disabled is
- * marked as not needing initialization so it is hot-added directly.
+ * The DT 'nxp,ddr-regions' property is the optional policy list of regions this
+ * OS instance wants online; without it every discovered region is used. An
+ * enabled node is left alone. The rest are intersected with the discovered
+ * set: a region not present in discovery is skipped (it may already be
+ * initialized or is not permitted for this agent); a region whose instance has
+ * ECC disabled is marked as not needing initialization so it is hot-added
+ * directly.
  *
  * Return: 0 on success (including when there is nothing to do), or a negative
  * error code on failure.
@@ -290,9 +337,9 @@ static int dt_parse_ddr_regions(struct scmi_mem_hotplug_data *priv,
 
 	num_regions = of_count_phandle_with_args(np, "nxp,ddr-regions", NULL);
 	if (num_regions <= 0) {
-		dev_info(dev, "'nxp,ddr-regions' property not defined or empty\n");
-		priv->num_regions = 0;
-		return 0;
+		dev_dbg(dev, "no 'nxp,ddr-regions' policy, using every discovered region\n");
+		return use_discovered_ddr_regions(priv, discovered,
+						  num_discovered);
 	}
 
 	priv->regions = devm_kcalloc(dev, num_regions, sizeof(*priv->regions),
@@ -305,6 +352,14 @@ static int dt_parse_ddr_regions(struct scmi_mem_hotplug_data *priv,
 		if (!mem_reg_node) {
 			dev_err(dev, "Failed to parse phandle at index %zu\n", i);
 			return -EINVAL;
+		}
+
+		/* An enabled memory node is boot memory already. */
+		if (of_device_is_available(mem_reg_node)) {
+			dev_dbg(dev, "%pOF is enabled, leaving it alone\n",
+				mem_reg_node);
+			of_node_put(mem_reg_node);
+			continue;
 		}
 
 		if (of_property_read_reg(mem_reg_node, 0, &addr, &size)) {
