@@ -60,9 +60,7 @@
 
 	memory: memory@80000000 {
 		device_type = "memory";
-		reg = <0 0x80000000 0 0x80000000>,
-		      <0x88 0x00000000 0x3 0x80000000>,
-		      <0xc0 0x00000000 0x4 0x00000000>;
+		reg = <0 0x80000000 0 0x80000000>;
 	};
 
 	reserved-memory {
