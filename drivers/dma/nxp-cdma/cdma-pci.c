@@ -13,7 +13,7 @@
  * multi-Linux (one SI each) deployments.
  *
  * Probe flow:
- *   1. Enable PCI device and map BAR 0 (EA aperture)
+ *   1. FLR the function, enable it and map BAR 0 (EA aperture)
  *   2. Read SICAPR1 to discover number of BD rings and MSI-X vectors
  *   3. Allocate SI + flex-array rings, set register base pointers
  *   4. Allocate DMA-coherent BD ring memory for each ring
@@ -215,6 +215,12 @@ static int cdma_si_init(struct cdma_device *cdev, void __iomem *base)
 	if (!num_rings || !num_msix) {
 		dev_err(&pdev->dev, "SICAPR1=0x%08x: no %s\n", capr1,
 			!num_rings ? "BD rings" : "MSI-X vectors");
+		return -ENODEV;
+	}
+
+	if (num_rings > CDMA_MAX_RINGS_PER_SI) {
+		dev_err(&pdev->dev, "SICAPR1=0x%08x: %u BD rings, max %u\n",
+			capr1, num_rings, CDMA_MAX_RINGS_PER_SI);
 		return -ENODEV;
 	}
 
@@ -445,6 +451,22 @@ static int cdma_pci_probe(struct pci_dev *pdev,
 	cdev->pipe_id = default_pipe_id;
 	pci_set_drvdata(pdev, cdev);
 
+	/*
+	 * The SI is not reset when only the host goes through a reboot.
+	 * Start from a clean PCIe function with a function reset, before
+	 * enabling memory decoding and bus mastering.
+	 *
+	 * Use the _locked variant (the driver core holds the device lock in
+	 * probe), which also saves and restores config space.
+	 */
+	if (pdev->reset_methods[0]) {
+		ret = pci_reset_function_locked(pdev);
+		if (ret) {
+			dev_err(&pdev->dev, "function reset failed: %d\n", ret);
+			goto err_put;
+		}
+	}
+
 	ret = pcim_enable_device(pdev);
 	if (ret) {
 		dev_err(&pdev->dev, "pcim_enable_device failed: %d\n", ret);
@@ -476,8 +498,8 @@ static int cdma_pci_probe(struct pci_dev *pdev,
 		}
 	}
 
-	/* Initialize Station Interface - clear SIMR, reset rings to a known
-	 * state before allowing the device to bus-master.
+	/* Initialize Station Interface - program the rings, then enable SIMR,
+	 * before allowing the device to bus-master.
 	 */
 	ret = cdma_si_init(cdev, base);
 	if (ret)
