@@ -203,7 +203,12 @@ struct cdma_sge {
 #define CDMA_DRV_NAME		"nxp-cdma"
 
 /* S/G table constants */
-#define CDMA_SG_MAX_ENTRIES	1024	/* Max SGE per table (HW spec ceiling, range 4..1024) */
+/*
+ * Driver limit: one HW S/G table per transfer, sized to one 16 KiB
+ * dma_pool block. TYPE=SG_FULL has no entry-count limit; the 4..1024
+ * range applies only to SGT_SIZE in SG_SHORT mode.
+ */
+#define CDMA_SG_MAX_ENTRIES	1024
 #define CDMA_SGE_SIZE		16	/* Each SGE is 16 bytes */
 #define CDMA_SGT_SIZE		(CDMA_SG_MAX_ENTRIES * CDMA_SGE_SIZE) /* 16 KiB */
 #define CDMA_SGT_ALIGN		16	/* HW requires 16-byte alignment */
