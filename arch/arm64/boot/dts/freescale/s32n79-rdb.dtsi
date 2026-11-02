@@ -21,34 +21,34 @@
 		ranges;
 
 		/* CAR-V NET */
-		carv0_reserved: carv-reserved@94000000 {
+		carv0_reserved: carv-reserved@94100000 {
 			compatible = "shared-dma-pool";
 			/* 1 MB */
-			reg = <0 0x94000000 0 0x100000>;
+			reg = <0 0x94100000 0 0x100000>;
 			no-map;
 			status = "disabled";
 		};
 
-		carv0_vdev0vring0: vdev0vring0@94100000 {
+		carv0_vdev0vring0: vdev0vring0@94200000 {
 			compatible = "shared-dma-pool";
 			/* 16 KB */
-			reg = <0 0x94100000 0 0x4000>;
+			reg = <0 0x94200000 0 0x4000>;
 			no-map;
 			status = "disabled";
 		};
 
-		carv0_vdev0vring1: vdev0vring1@94104000 {
+		carv0_vdev0vring1: vdev0vring1@94204000 {
 			compatible = "shared-dma-pool";
 			/* 16 KB */
-			reg = <0 0x94104000 0 0x4000>;
+			reg = <0 0x94204000 0 0x4000>;
 			no-map;
 			status = "disabled";
 		};
 
-		carv0_vdev0buffer: vdev0buffer@94108000 {
+		carv0_vdev0buffer: vdev0buffer@94208000 {
 			compatible = "shared-dma-pool";
 			/* 16 KB */
-			reg = <0 0x94108000 0 0x4000>;
+			reg = <0 0x94208000 0 0x4000>;
 			no-map;
 			status = "disabled";
 		};
