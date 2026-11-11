@@ -10,8 +10,7 @@
 #include <linux/ptp_clock_kernel.h>
 #include "enetc.h"
 
-#define ENETC_PTP_TIME_LO   0x000	/* offset for low 32 bits */
-#define ENETC_PTP_TIME_HI   0x004	/* offset for high 32 bits */
+#define ENETC_PTP_TIME_LO   0x0	/* offset for low 32 bits (SICTR0) */
 
 struct enetc_si_ptp {
 	struct ptp_clock_info caps;
@@ -23,8 +22,6 @@ static int enetc_si_ptp_gettime(struct ptp_clock_info *ptp,
 {
 	struct enetc_si_ptp *priv = container_of(ptp, struct enetc_si_ptp,
 						 caps);
-
-	u32 hi, lo;
 	u64 ns;
 
 	/*
@@ -32,10 +29,7 @@ static int enetc_si_ptp_gettime(struct ptp_clock_info *ptp,
 	 * such that a subsequent read from SICTR1 will provide the correct
 	 * 64-bit time value
 	 */
-	lo = enetc_rd_reg(priv->regs + ENETC_PTP_TIME_LO);
-	hi = enetc_rd_reg(priv->regs + ENETC_PTP_TIME_HI);
-
-	ns = ((u64)hi << 32) | lo;
+	ns = enetc_rd64_reg(priv->regs + ENETC_PTP_TIME_LO);
 
 	/* assume counter in nanoseconds */
 	*ts = ns_to_timespec64(ns);

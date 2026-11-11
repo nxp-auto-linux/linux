@@ -539,6 +539,25 @@ static inline u64 _enetc_rd_reg64(void __iomem *reg)
 }
 #endif
 
+static inline u64 _enetc_rd_reg64_strict(void __iomem *reg)
+{
+	u32 low, high;
+
+	low = ioread32(reg);
+	high = ioread32(reg + 4);
+
+	return (u64)high << 32 | low;
+}
+
+static inline u64 enetc_rd64_reg(void __iomem *reg)
+{
+#ifdef ioread64
+	return ioread64(reg);
+#else
+	return _enetc_rd_reg64_strict(reg);
+#endif
+}
+
 static inline u64 _enetc_rd_reg64_wa(void __iomem *reg)
 {
 	u64 val;
