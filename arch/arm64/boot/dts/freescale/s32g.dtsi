@@ -767,7 +767,7 @@
 				status = "disabled";
 			};
 
-			llce_uart1: serial@43c080400 {
+			llce_uart1: serial@43c08400 {
 				compatible = "nxp,s32g2-linflexuart",
 					     "fsl,s32v234-linflexuart";
 				reg = <0x8 0x0 0x0 0x400>;
